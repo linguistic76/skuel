@@ -204,24 +204,27 @@ When a service is optional (e.g., `entity_inference_service` may or may not be c
 
 ```python
 @with_error_handling("knowledge_inference", error_type="system")
-async def _enhance_with_knowledge_inference(self, dto: TaskDTO) -> Result[TaskDTO | None]:
+def _enhance_with_knowledge_inference(self, dto: TaskDTO) -> Result[TaskDTO | None]:
     """
     Returns Result.ok(None) if inference service not configured (feature disabled).
     Fails fast if inference service IS configured but fails.
+
+    Pure in-memory inference, so sync — @with_error_handling dispatches the sync
+    wrapper automatically (inspect.iscoroutinefunction).
     """
     if not self.entity_inference_service:
         # Feature not configured - this is OK, return None
         return Result.ok(None)
 
     # If service IS configured, it must work - fail fast on errors
-    enhanced_dto = await self.entity_inference_service.enhance_task_dto_with_inference(dto)
+    enhanced_dto = self.entity_inference_service.enhance_task_dto_with_inference(dto)
     return Result.ok(enhanced_dto)
 
 # Caller handles the Result
 async def create_task(self, task_request: TaskCreateRequest) -> Result[Task]:
     dto = TaskDTO.create(...)
 
-    inference_result = await self._enhance_with_knowledge_inference(dto)
+    inference_result = self._enhance_with_knowledge_inference(dto)
     if inference_result.is_error:
         return Result.fail(inference_result)  # Fail fast!
     if inference_result.value:

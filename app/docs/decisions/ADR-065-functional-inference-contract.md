@@ -102,7 +102,7 @@ their inference services are built):
    task_draft = Task.from_request(task_request, user_uid=user_uid)
 
    if self.ku_inference_service:
-       inference_result = await self._enhance_with_knowledge_inference(task_draft)
+       inference_result = self._enhance_with_knowledge_inference(task_draft)
        if inference_result.is_error:
            return Result.fail(inference_result)
        enrichment = inference_result.value

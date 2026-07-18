@@ -860,13 +860,13 @@ class TaskInferenceResult:
     def as_kwargs(self) -> dict[str, Any]:
         return {...}
 
-# Inference signature (no input mutation)
-async def enhance_task_dto_with_inference(
+# Inference signature (no input mutation; pure in-memory inference, so sync)
+def enhance_task_dto_with_inference(
     self, task: Task | TaskDTO
 ) -> Result[TaskInferenceResult]: ...
 
 # Caller pattern (functional application)
-inference_result = await self.ku_inference_service.enhance_task_dto_with_inference(task_draft)
+inference_result = self.ku_inference_service.enhance_task_dto_with_inference(task_draft)
 if inference_result.is_error:
     return Result.fail(inference_result)
 enrichment = inference_result.value
