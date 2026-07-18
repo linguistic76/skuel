@@ -108,7 +108,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
 
         return Result.ok(learning_habits)
 
-    async def create_habit_from_learning_goal(
+    async def create_habit_from_learning_goal(  # skuel-lint: disable=SKUEL029 -- facade-delegated: habits_service awaits this via delegation (facade uniformity)
         self,
         knowledge_uid: str,
         user_context: UserContext,

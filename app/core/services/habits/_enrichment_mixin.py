@@ -208,7 +208,7 @@ class _EnrichmentMixin:
 
         return Result.ok(enriched)
 
-    async def get_enriched_curriculum_metadata(self, habit: Habit) -> Result[dict[str, Any]]:
+    def get_enriched_curriculum_metadata(self, habit: Habit) -> Result[dict[str, Any]]:
         """
         Get curriculum metadata with relationship data from graph.
 

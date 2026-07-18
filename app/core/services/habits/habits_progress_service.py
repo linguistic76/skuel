@@ -315,19 +315,17 @@ class HabitsProgressService:
 
         # 1. Update linked goals (from graph relationships)
         if rels.linked_goal_uids:
-            await self._update_goals_from_habit(
+            self._update_goals_from_habit(
                 rels.linked_goal_uids, habit_uid, new_streak, user_context
             )
 
         # 2. Reinforce knowledge if quality is good (from graph relationships)
         if quality_score >= 4 and rels.knowledge_reinforcement_uids:
-            await self._reinforce_knowledge(
-                rels.knowledge_reinforcement_uids, 0.05
-            )  # 5% mastery boost
+            self._reinforce_knowledge(rels.knowledge_reinforcement_uids, 0.05)  # 5% mastery boost
 
         # 3. Check keystone habit effects
         if habit.is_keystone and new_streak >= 7:
-            await self._trigger_keystone_effects(habit_uid, user_context)
+            self._trigger_keystone_effects(habit_uid, user_context)
 
         # Context invalidation happens via HabitCompleted/HabitStreakBroken/HabitStreakMilestone events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
@@ -605,7 +603,7 @@ class HabitsProgressService:
             limit=limit,
         )
 
-    async def _update_goals_from_habit(
+    def _update_goals_from_habit(
         self,
         goal_uids: list[str],
         habit_uid: str,
@@ -621,16 +619,14 @@ class HabitsProgressService:
             new_streak,
         )
 
-    async def _reinforce_knowledge(
-        self, knowledge_uids: list[str], mastery_increment: float
-    ) -> None:
+    def _reinforce_knowledge(self, knowledge_uids: list[str], mastery_increment: float) -> None:
         """Reinforce knowledge through habit completion."""
         # This would call the knowledge service
         self.logger.debug(
             "Would reinforce %d knowledge items by %.2f", len(knowledge_uids), mastery_increment
         )
 
-    async def _trigger_keystone_effects(
+    def _trigger_keystone_effects(
         self, keystone_habit_uid: str, _user_context: UserContext
     ) -> None:
         """Trigger positive cascading effects from keystone habit."""

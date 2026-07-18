@@ -218,7 +218,7 @@ class HabitsIntelligenceService(
     # not in a standalone integration service.
     # ========================================================================
 
-    async def get_event_uids_for_habit(
+    async def get_event_uids_for_habit(  # skuel-lint: disable=SKUEL029 -- facade-delegated: habits_service awaits this via delegation (facade uniformity)
         self, habit_uid: str, user_context: "UserContext", _days_ahead: int = 7
     ) -> "Result[list[str]]":
         """

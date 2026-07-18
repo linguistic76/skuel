@@ -438,7 +438,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             Result with list of habits due today for this user
         """
         result = await self.backend.find_by(user_uid=user_uid, limit=500)
-        return await self._filter_due_today(result, f"user {user_uid}")
+        return self._filter_due_today(result, f"user {user_uid}")
 
     @with_error_handling("get_all_due_today", error_type="database")
     async def get_all_due_today(self) -> Result[list[Habit]]:
@@ -454,11 +454,9 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             Result with list of all habits due today
         """
         result = await self.backend.find_by(limit=500)
-        return await self._filter_due_today(result, "all users")
+        return self._filter_due_today(result, "all users")
 
-    async def _filter_due_today(
-        self, result: Result[list[Habit]], context: str
-    ) -> Result[list[Habit]]:
+    def _filter_due_today(self, result: Result[list[Habit]], context: str) -> Result[list[Habit]]:
         """
         Filter habits to those due today.
 
