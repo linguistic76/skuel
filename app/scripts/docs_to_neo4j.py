@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from core.models.type_hints import Neo4jProperties
 from core.utils.frontmatter import parse_frontmatter
 
 
@@ -108,7 +109,7 @@ def analyze_doc(filepath: Path, docs_dir: Path) -> tuple[DocNode, list[str]]:
     return node, related
 
 
-CypherJob = tuple[str, dict]
+CypherJob = tuple[str, Neo4jProperties]
 
 NODE_QUERY = """
 MERGE (d:Document {uid: $uid})
@@ -165,6 +166,8 @@ def generate_cypher(docs_dir: Path) -> tuple[list[CypherJob], list[CypherJob]]:
     # Generate node creation jobs (values ride as driver parameters — the
     # interpolated form needed hand-escaping of quotes in titles, CYP003)
     for node in all_docs.values():
+        # Fresh list so list[str] widens to Neo4jValue's list[str | int | float]
+        tags: list[str | int | float] = list(node.tags)
         node_queries.append(
             (
                 NODE_QUERY,
@@ -175,7 +178,7 @@ def generate_cypher(docs_dir: Path) -> tuple[list[CypherJob], list[CypherJob]]:
                     "category": node.category,
                     "updated": node.updated,
                     "status": node.status,
-                    "tags": node.tags,
+                    "tags": tags,
                     "size_lines": node.size_lines,
                 },
             )
