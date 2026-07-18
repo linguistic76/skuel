@@ -276,9 +276,7 @@ class EntityInferenceService:
     # ========================================================================
 
     @with_error_handling("enhance_task_dto_with_inference", error_type="system")
-    async def enhance_task_dto_with_inference(
-        self, task: Task | TaskDTO
-    ) -> Result[TaskInferenceResult]:
+    def enhance_task_dto_with_inference(self, task: Task | TaskDTO) -> Result[TaskInferenceResult]:
         """Compute knowledge enrichment using advanced algorithms when enabled.
 
         Returns a typed ``TaskInferenceResult`` (ADR-065). Falls back to basic
@@ -286,25 +284,23 @@ class EntityInferenceService:
         """
         if self.config.enable_advanced_engine:
             self.logger.debug("Using advanced inference for task: %s", task.title)
-            return await self._enhance_with_advanced_inference(task)
+            return self._enhance_with_advanced_inference(task)
 
         self.logger.debug("Using basic inference for task: %s", task.title)
-        result = await self._basic_inference_fallback(task)
+        result = self._basic_inference_fallback(task)
         return Result.ok(result)
 
     # ========================================================================
     # ADVANCED INFERENCE PATH
     # ========================================================================
 
-    async def _enhance_with_advanced_inference(
-        self, task: Task | TaskDTO
-    ) -> Result[TaskInferenceResult]:
+    def _enhance_with_advanced_inference(self, task: Task | TaskDTO) -> Result[TaskInferenceResult]:
         """Infer knowledge enrichment using the advanced multi-algorithm pipeline.
 
         Per ADR-065 the inference layer does NOT mutate its input.
         """
         try:
-            analysis_result = await self._analyze_content_advanced(
+            analysis_result = self._analyze_content_advanced(
                 task.title, task.description or "", entity_type="task"
             )
 
@@ -328,9 +324,7 @@ class EntityInferenceService:
                 confidence_scores[pattern.knowledge_uid] = enhanced_confidence
                 knowledge_patterns.append(pattern.pattern_type)
 
-            relationships_result = await self._discover_cross_domain_relationships(
-                detected_patterns
-            )
+            relationships_result = self._discover_cross_domain_relationships(detected_patterns)
             cross_domain_relationships = (
                 relationships_result.value if relationships_result.is_ok else []
             )
@@ -390,7 +384,7 @@ class EntityInferenceService:
                 )
             )
 
-    async def _analyze_content_advanced(
+    def _analyze_content_advanced(
         self, title: str, description: str = "", entity_type: str = "task"
     ) -> Result[list[KuPattern]]:
         """Advanced content analysis using multiple algorithms."""
@@ -398,16 +392,16 @@ class EntityInferenceService:
             patterns = []
             content = f"{title} {description}".lower()
 
-            keyword_patterns = await self._detect_keyword_patterns(content)
+            keyword_patterns = self._detect_keyword_patterns(content)
             patterns.extend(keyword_patterns)
 
-            phrase_patterns = await self._detect_phrase_patterns(content)
+            phrase_patterns = self._detect_phrase_patterns(content)
             patterns.extend(phrase_patterns)
 
-            contextual_patterns = await self._detect_contextual_patterns(title, description)
+            contextual_patterns = self._detect_contextual_patterns(title, description)
             patterns.extend(contextual_patterns)
 
-            complexity_patterns = await self._detect_complexity_patterns(content)
+            complexity_patterns = self._detect_complexity_patterns(content)
             patterns.extend(complexity_patterns)
 
             merged_patterns = self._merge_similar_patterns(patterns)
@@ -443,7 +437,7 @@ class EntityInferenceService:
                 )
             )
 
-    async def _detect_keyword_patterns(self, content: str) -> list[KuPattern]:
+    def _detect_keyword_patterns(self, content: str) -> list[KuPattern]:
         """Detect knowledge patterns using enhanced keyword matching."""
         patterns = []
 
@@ -488,7 +482,7 @@ class EntityInferenceService:
 
         return patterns
 
-    async def _detect_phrase_patterns(self, content: str) -> list[KuPattern]:
+    def _detect_phrase_patterns(self, content: str) -> list[KuPattern]:
         """Detect knowledge patterns using regex phrase matching."""
         patterns = []
 
@@ -520,7 +514,7 @@ class EntityInferenceService:
 
         return patterns
 
-    async def _detect_contextual_patterns(self, title: str, description: str) -> list[KuPattern]:
+    def _detect_contextual_patterns(self, title: str, description: str) -> list[KuPattern]:
         """Detect knowledge patterns using contextual analysis."""
         patterns = []
         combined_text = f"{title} {description}".lower()
@@ -549,7 +543,7 @@ class EntityInferenceService:
 
         return patterns
 
-    async def _detect_complexity_patterns(self, content: str) -> list[KuPattern]:
+    def _detect_complexity_patterns(self, content: str) -> list[KuPattern]:
         """Detect knowledge patterns based on content complexity."""
         patterns = []
 
@@ -611,7 +605,7 @@ class EntityInferenceService:
 
         return merged
 
-    async def _discover_cross_domain_relationships(
+    def _discover_cross_domain_relationships(
         self, detected_patterns: list[KuPattern]
     ) -> Result[list[CrossDomainRelationship]]:
         """Discover relationships between knowledge across different domains."""
@@ -699,7 +693,7 @@ class EntityInferenceService:
     # BASIC INFERENCE PATH (fallback when advanced engine disabled)
     # ========================================================================
 
-    async def _basic_inference_fallback(
+    def _basic_inference_fallback(
         self, task: Task | TaskDTO, rels: TaskRelationships | None = None
     ) -> TaskInferenceResult:
         """Basic inference fallback when advanced engine is disabled.
@@ -710,17 +704,13 @@ class EntityInferenceService:
         # GRAPH-NATIVE: Use empty relationships if not provided (for new tasks)
         task_rels = rels or TaskRelationships.empty()
 
-        inferred_uids = await self._infer_knowledge_uids_from_content(
-            task.title, task.description or ""
-        )
+        inferred_uids = self._infer_knowledge_uids_from_content(task.title, task.description or "")
 
-        confidence_scores = await self._calculate_connection_confidence_scores(
-            task_rels, inferred_uids
-        )
+        confidence_scores = self._calculate_connection_confidence_scores(task_rels, inferred_uids)
 
-        patterns = await self._detect_knowledge_patterns(task_rels)
+        patterns = self._detect_knowledge_patterns(task_rels)
 
-        opportunity_count = await self._count_learning_opportunities(task_rels)
+        opportunity_count = self._count_learning_opportunities(task_rels)
 
         metadata: dict[str, Any] = {
             "inference_version": "1.0_basic",
@@ -735,7 +725,7 @@ class EntityInferenceService:
             learning_opportunities_count=opportunity_count,
         )
 
-    async def _infer_from_content(self, title: str, description: str) -> list[KnowledgeConnection]:
+    def _infer_from_content(self, title: str, description: str) -> list[KnowledgeConnection]:
         """Infer knowledge connections from text content."""
         connections = []
         content = f"{title} {description}".lower()
@@ -766,7 +756,7 @@ class EntityInferenceService:
 
         return connections
 
-    async def _infer_knowledge_uids_from_content(self, title: str, description: str) -> list[str]:
+    def _infer_knowledge_uids_from_content(self, title: str, description: str) -> list[str]:
         """Extract potential knowledge UIDs from task content."""
         content = f"{title} {description}".lower()
         inferred_uids = []
@@ -782,7 +772,7 @@ class EntityInferenceService:
 
         return inferred_uids
 
-    async def _calculate_connection_confidence_scores(
+    def _calculate_connection_confidence_scores(
         self, rels: TaskRelationships, inferred_uids: list[str]
     ) -> dict[str, float]:
         """
@@ -806,7 +796,7 @@ class EntityInferenceService:
 
         return scores
 
-    async def _detect_knowledge_patterns(self, rels: TaskRelationships) -> list[str]:
+    def _detect_knowledge_patterns(self, rels: TaskRelationships) -> list[str]:
         """
         Detect knowledge patterns in the task.
 
@@ -823,7 +813,7 @@ class EntityInferenceService:
 
         return patterns
 
-    async def _count_learning_opportunities(self, rels: TaskRelationships) -> int:
+    def _count_learning_opportunities(self, rels: TaskRelationships) -> int:
         """
         Count potential learning opportunities in the task.
 
@@ -839,7 +829,7 @@ class EntityInferenceService:
     # ========================================================================
 
     @with_error_handling("get_inference_statistics", error_type="system")
-    async def get_inference_statistics(self) -> Result[dict[str, Any]]:
+    def get_inference_statistics(self) -> Result[dict[str, Any]]:
         """Return inference engine configuration / capability snapshot.
 
         Validation-feedback statistics were removed per ADR-065 along with the
@@ -858,7 +848,7 @@ class EntityInferenceService:
         return Result.ok(stats)
 
     @with_error_handling("analyze_inference_confidence", error_type="system")
-    async def analyze_inference_confidence(
+    def analyze_inference_confidence(
         self, content: str, entity_type: str = "task"
     ) -> Result[dict[str, Any]]:
         """
@@ -880,7 +870,7 @@ class EntityInferenceService:
         }
 
         if self.config.enable_advanced_engine:
-            result = await self._analyze_content_advanced(content, "", entity_type)
+            result = self._analyze_content_advanced(content, "", entity_type)
             if result.is_ok:
                 patterns = result.value
                 analysis["estimated_inferences"] = len(patterns)

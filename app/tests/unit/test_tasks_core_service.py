@@ -82,9 +82,9 @@ def mock_ku_inference_service() -> Any:
     Tests can override this to assert specific enrichment is applied.
     """
     service = Mock()
-    service.enhance_task_dto_with_inference = AsyncMock(
-        return_value=Result.ok(TaskInferenceResult())
-    )
+    # enhance_task_dto_with_inference is sync (pure in-memory inference, SKUEL029) —
+    # a plain Mock returns the Result directly; callers no longer await it.
+    service.enhance_task_dto_with_inference = Mock(return_value=Result.ok(TaskInferenceResult()))
     return service
 
 

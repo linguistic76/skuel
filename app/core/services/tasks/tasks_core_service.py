@@ -186,9 +186,7 @@ class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
     # ========================================================================
 
     @with_error_handling("knowledge_inference", error_type="system")
-    async def _enhance_with_knowledge_inference(
-        self, task: Task
-    ) -> Result[TaskInferenceResult | None]:
+    def _enhance_with_knowledge_inference(self, task: Task) -> Result[TaskInferenceResult | None]:
         """Compute knowledge enrichment for a task draft.
 
         ADR-065: inference returns a typed ``TaskInferenceResult`` and does not
@@ -199,7 +197,7 @@ class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
             # Feature not configured - this is OK, return None
             return Result.ok(None)
 
-        inference_result = await self.ku_inference_service.enhance_task_dto_with_inference(task)
+        inference_result = self.ku_inference_service.enhance_task_dto_with_inference(task)
         if inference_result.is_error:
             return Result.fail(inference_result)
 
@@ -236,7 +234,7 @@ class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
         task_draft = Task.from_request(task_request, user_uid=user_uid)
 
         if self.ku_inference_service:
-            inference_result = await self._enhance_with_knowledge_inference(task_draft)
+            inference_result = self._enhance_with_knowledge_inference(task_draft)
             if inference_result.is_error:
                 return Result.fail(inference_result)
             enrichment = inference_result.value

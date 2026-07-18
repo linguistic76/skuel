@@ -141,6 +141,6 @@ async def test_pattern_id_drives_learning_insight(benefit_ratio_pattern: str) ->
     assert len(ka_patterns) == 1
     assert benefit_ratio_pattern in ka_patterns[0].pattern_id
 
-    insights_result = await svc.generate_insights_from_patterns(ka_patterns)
+    insights_result = svc.generate_insights_from_patterns(ka_patterns)
     assert insights_result.is_ok
     assert any(i.title == "Knowledge Application Drives Efficiency" for i in insights_result.value)
