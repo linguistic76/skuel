@@ -187,8 +187,8 @@ jobs:
     name: Lint
     needs: changes
     # cypher too (Codex, PR #701): keeps a Cypher-only PR inside the lint job.
-    # cypher_linter.py currently scans only .py globs, so this is future-proofing
-    # for when it learns .cypher files — the wiring trap dies here, not later.
+    # cypher_linter.py lints standalone .cypher files (indexes, migrations,
+    # bulk-upsert templates) since 2026-07, so this filter is load-bearing.
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
     runs-on: ubuntu-latest
     steps:

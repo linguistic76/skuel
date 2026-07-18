@@ -4,7 +4,12 @@ Cypher Query Linter - Static Analysis for Neo4j Queries
 ========================================================
 
 Validates Cypher queries against SKUEL best practices, catching common errors
-before they reach runtime.
+before they reach runtime. Lints two source shapes:
+
+- Python files (.py): Cypher extracted from triple-quoted string literals
+- Standalone Cypher files (.cypher): whole-file Cypher (indexes, migrations,
+  bulk-upsert templates), split into semicolon-terminated statements so each
+  statement is linted as its own query
 
 **Validation Rules:**
 - CYP001: Nested aggregate functions (ERROR)
@@ -99,10 +104,12 @@ class CypherLinter:
 
     def lint_file(self, file_path: Path) -> list[Violation]:
         """
-        Lint a Python file for Cypher query issues.
+        Lint a file for Cypher query issues.
 
         Args:
-            file_path: Path to Python file
+            file_path: Path to a Python file (Cypher extracted from string
+                literals) or a standalone .cypher file (linted whole, one
+                query per semicolon-terminated statement)
 
         Returns:
             List of violations found
@@ -112,12 +119,14 @@ class CypherLinter:
             return []
 
         content = file_path.read_text()
-        content.split("\n")
 
         violations: list[Violation] = []
 
         # Find all Cypher queries in the file
-        queries = self._extract_cypher_queries(content, file_path)
+        if file_path.suffix == ".cypher":
+            queries = self._extract_cypher_statements(content)
+        else:
+            queries = self._extract_cypher_queries(content, file_path)
 
         for query, start_line in queries:
             # Run all validation rules
@@ -176,6 +185,130 @@ class CypherLinter:
                     queries.append((query, line_num))
 
         return queries
+
+    def _extract_cypher_statements(self, content: str) -> list[tuple[str, int]]:
+        """
+        Extract statements from a standalone .cypher file.
+
+        The whole file is Cypher by declaration, so no _is_actual_cypher
+        heuristics — just split on statement-terminating semicolons and keep
+        anything with a Cypher keyword. Two comment treatments:
+
+        - Comments — ``//`` line and ``/* */`` block (non-nesting, per the
+          Cypher spec) — are masked with spaces (positions, newlines, and
+          line numbers preserved): comment prose would false-positive
+          prose-shaped rules — "DELETE the edges" in a migration header trips
+          CYP002, and a trailing comment after a ``;`` would otherwise leak
+          into the NEXT statement (or become a phantom tail statement) and do
+          the same (Codex, PR #710 — both comment forms). Commented-out
+          queries are not live code either.
+        - ``noqa:``-carrying ``//`` comments are kept — the rule checks read
+          suppressions from the violation's line. (noqa must be ``//`` style;
+          block comments are always masked.) The natural placement
+          ``DELETE n; // noqa: CYP002 - reason`` sits AFTER the terminator,
+          so the splitter folds a noqa-only tail back into the statement its
+          semicolon just closed (Codex, PR #710 round 3) — otherwise the
+          suppression would land in the next fragment and never be seen.
+
+        Both passes track quoted strings (a ``//`` inside a string literal is
+        not a comment), and the splitter additionally skips kept comments so
+        a ``;`` or quote inside one never splits or opens a string.
+
+        Returns:
+            List of (statement, start_line) tuples, start_line 1-indexed at
+            the statement's first token
+        """
+        # Pass 1: mask comments in place (same length, so every offset and
+        # line number survives)
+        chars = list(content)
+        in_string: str | None = None
+        i = 0
+        while i < len(content):
+            char = content[i]
+            if in_string is not None:
+                if char == "\\":
+                    i += 2  # skip escaped character inside string
+                    continue
+                if char == in_string:
+                    in_string = None
+            elif char in ("'", '"'):
+                in_string = char
+            elif content[i : i + 2] == "//":
+                end = content.find("\n", i)
+                if end == -1:
+                    end = len(content)
+                if "noqa:" not in content[i:end]:
+                    chars[i:end] = " " * (end - i)
+                i = end
+                continue
+            elif content[i : i + 2] == "/*":
+                end = content.find("*/", i + 2)
+                end = len(content) if end == -1 else end + 2
+                for j in range(i, end):
+                    if chars[j] != "\n":
+                        chars[j] = " "
+                i = end
+                continue
+            i += 1
+        text = "".join(chars)
+
+        # Pass 2: split on statement-terminating semicolons
+        raw_statements: list[tuple[str, int]] = []
+        start = 0
+        in_string = None
+        i = 0
+        while i < len(text):
+            char = text[i]
+            if in_string is not None:
+                if char == "\\":
+                    i += 2  # skip escaped character inside string
+                    continue
+                if char == in_string:
+                    in_string = None
+            elif char in ("'", '"'):
+                in_string = char
+            elif text[i : i + 2] == "//":
+                i = text.find("\n", i)
+                if i == -1:
+                    break
+                continue
+            elif char == ";":
+                statement = text[start:i]
+                # Fold a same-line noqa tail into this statement (appended
+                # without a newline, so it stays on the violation's line for
+                # the suppression check), and consume it so it doesn't leak
+                # into the next fragment. The guard requires the tail to be
+                # comment-only — real code after the ';' (multi-statement
+                # line) is left for the next split.
+                tail_end = text.find("\n", i)
+                if tail_end == -1:
+                    tail_end = len(text)
+                tail = text[i + 1 : tail_end]
+                if "noqa:" in tail and tail.lstrip().startswith("//"):
+                    raw_statements.append((statement + " " + tail.strip(), start))
+                    start = tail_end
+                    i = tail_end
+                    continue
+                raw_statements.append((statement, start))
+                start = i + 1
+            i += 1
+        if text[start:].strip():
+            raw_statements.append((text[start:], start))
+
+        statements: list[tuple[str, int]] = []
+        for statement, position in raw_statements:
+            # Keyword filter drops DROP INDEX / SHOW / empty fragments — no
+            # rule applies to them
+            if not self._looks_like_cypher(statement):
+                continue
+            # Anchor start_line at the first real token, not the newline after
+            # the previous ';' — rules that report at start_line itself
+            # (CYP009) would otherwise point one line early
+            lead = len(statement) - len(statement.lstrip())
+            line_num = text[: position + lead].count("\n") + 1
+            statements.append((statement[lead:], line_num))
+
+        return statements
 
     def _is_actual_cypher(self, text: str) -> bool:
         """
@@ -755,11 +888,11 @@ class CypherLinter:
         return ""
 
 
-def find_python_files_with_cypher(root_dir: Path) -> list[Path]:
+def find_lintable_files(root_dir: Path) -> list[Path]:
     """
-    Find Python files that likely contain Cypher queries.
+    Find files that likely contain Cypher queries.
 
-    Looks in:
+    Python trees (Cypher embedded in string literals):
     - core/services/ (docstring Cypher examples — SKUEL021 bans executable Cypher)
     - adapters/persistence/neo4j/ (the below-boundary home of all executable Cypher)
     - scripts/ (migrations and maintenance scripts run raw Cypher directly —
@@ -767,15 +900,22 @@ def find_python_files_with_cypher(root_dir: Path) -> list[Path]:
       that no longer exists)
     - tests/integration/
 
+    Standalone .cypher files (whole-file Cypher — added 2026-07; before this,
+    scripts/indexes.cypher and scripts/migrations/*.cypher ran in integration
+    tests and migration tooling with zero lint coverage, and ci.yml already
+    routed Cypher-only PRs through the Lint job in anticipation):
+    - the same four trees, .cypher suffix
+
     tests/unit/ is deliberately excluded: the linter's own test fixtures are
     intentionally-bad queries.
     """
-    patterns = [
-        "core/services/**/*.py",
-        "adapters/persistence/neo4j/**/*.py",
-        "scripts/**/*.py",
-        "tests/integration/**/*.py",
+    trees = [
+        "core/services",
+        "adapters/persistence/neo4j",
+        "scripts",
+        "tests/integration",
     ]
+    patterns = [f"{tree}/**/*.{suffix}" for tree in trees for suffix in ("py", "cypher")]
 
     files: list[Path] = []
     for pattern in patterns:
@@ -813,7 +953,7 @@ def main() -> int:
         # made the CI Lint step discover 0 files on GitHub runners and pass
         # vacuously (Codex finding, PR #671).
         root_dir = Path(__file__).resolve().parents[1]
-        files_to_lint = find_python_files_with_cypher(root_dir)
+        files_to_lint = find_lintable_files(root_dir)
         print(f"🔍 Auto-discovered {len(files_to_lint)} files with potential Cypher queries\n")
 
     # Run linter

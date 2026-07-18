@@ -2,8 +2,9 @@
 Tests for Cypher Query Linter
 ==============================
 
-Tests _is_actual_cypher, _extract_cypher_queries, CYP001-CYP006, CYP009,
-_get_line_at_position, and complexity scoring.
+Tests _is_actual_cypher, _extract_cypher_queries, _extract_cypher_statements
+(.cypher files), CYP001-CYP006, CYP009, _get_line_at_position, complexity
+scoring, and file discovery.
 """
 
 import sys
@@ -12,7 +13,11 @@ from pathlib import Path
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
-from cypher_linter import CypherLinter, Severity  # type: ignore[import-not-found]
+from cypher_linter import (  # type: ignore[import-not-found]
+    CypherLinter,
+    Severity,
+    find_lintable_files,
+)
 
 # ============================================================================
 # HELPERS
@@ -153,6 +158,266 @@ This is just documentation, not a query.
 '''
         queries = linter._extract_cypher_queries(content, Path("test.py"))
         assert len(queries) == 0
+
+
+# ============================================================================
+# _extract_cypher_statements (.cypher files)
+# ============================================================================
+
+
+class TestExtractCypherStatements:
+    def test_splits_on_semicolons(self) -> None:
+        linter = make_linter()
+        content = (
+            "MATCH (n:Entity) WHERE n.uid = 'a' RETURN n;\n"
+            "MATCH (m:Entity) WHERE m.uid = 'b' RETURN m;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 2
+        assert statements[0][1] == 1
+        assert statements[1][1] == 2
+
+    def test_last_statement_without_semicolon_kept(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) RETURN n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+
+    def test_multiline_statement_line_number(self) -> None:
+        linter = make_linter()
+        content = (
+            "// Migration header\n"
+            "MATCH (n:Entity {uid: 'a'})\n"
+            "DETACH DELETE n;\n"
+            "\n"
+            "MATCH (m:Entity)\n"
+            "RETURN m.uid;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 2
+        # start_line anchors at the first real token; internal newline offsets
+        # resolve to true file lines
+        _first_text, first_line = statements[0]
+        assert first_line == 2
+        second_text, second_line = statements[1]
+        assert second_line == 5
+        assert second_line + second_text[: second_text.index("RETURN")].count("\n") == 6
+
+    def test_full_line_comments_blanked(self) -> None:
+        # Commented-out queries are not live code; prose headers must not
+        # leak into statements and trip prose-shaped rules
+        linter = make_linter()
+        content = (
+            "// MATCH (n:Entity) RETURN n;\n"
+            "// This migration DELETE the stale edges safely\n"
+            "MATCH (n:Entity) WHERE n.uid = 'a' RETURN n;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "stale edges" not in statements[0][0]
+
+    def test_semicolon_inside_string_literal_not_split(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) WHERE n.title = 'a; b' RETURN n;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+
+    def test_semicolon_inside_trailing_comment_not_split(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) // don't split; really\nRETURN n;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+
+    def test_trailing_comment_kept_for_noqa(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity {uid: 'a'})\nDELETE n // noqa: CYP002 - leaf node\n;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "noqa: CYP002" in statements[0][0]
+
+    def test_noqa_after_semicolon_folded_into_statement(self) -> None:
+        # Codex, PR #710 round 3: the natural placement puts noqa AFTER the
+        # terminator — it must belong to the statement the ';' just closed
+        linter = make_linter()
+        content = (
+            "MATCH (n:Entity {uid: 'a'})\nDELETE n; // noqa: CYP002 - leaf node\n"
+            "MATCH (m:Entity) RETURN m LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 2
+        assert "noqa: CYP002" in statements[0][0]
+        assert "noqa" not in statements[1][0]
+
+    def test_trailing_comment_after_final_semicolon_no_phantom_statement(self) -> None:
+        # Codex, PR #710: the tail append turned a keyword-bearing trailing
+        # comment into a phantom raw statement
+        linter = make_linter()
+        content = "MATCH (n:Entity) RETURN n LIMIT 1; // then DELETE n manually\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_trailing_comment_after_semicolon_not_leaked_into_next_statement(self) -> None:
+        # Codex, PR #710 (sibling shape): a trailing comment between two
+        # statements belonged to neither, but its prose landed in statement 2
+        linter = make_linter()
+        content = (
+            "MATCH (n:Entity) RETURN n LIMIT 1; // cleanup: DELETE n afterwards\n"
+            "MATCH (m:Entity) RETURN m LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 2
+        assert "DELETE" not in statements[1][0]
+        assert statements[1][1] == 2
+
+    def test_block_comment_masked(self) -> None:
+        # Codex, PR #710 round 2: /* */ is a legal Cypher comment; its prose
+        # must not trip prose-shaped rules and its ';' must not split
+        linter = make_linter()
+        content = (
+            "/* Migration: DELETE stale nodes; then verify */\nMATCH (n:Entity) RETURN n LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_multiline_block_comment_preserves_line_numbers(self) -> None:
+        linter = make_linter()
+        content = (
+            "/*\n * Header prose\n * spanning lines\n */\nMATCH (n:Entity) RETURN n LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert statements[0][1] == 5
+
+    def test_inline_block_comment_masked_mid_statement(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) /* DELETE n later */ RETURN n LIMIT 1;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_unterminated_block_comment_masked_to_eof(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) RETURN n LIMIT 1;\n/* dangling DELETE n prose\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_block_comment_marker_inside_string_not_a_comment(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) WHERE n.note = 'a /* b */ c' RETURN n LIMIT 1;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "/* b */" in statements[0][0]
+
+    def test_keywordless_statements_skipped(self) -> None:
+        # DROP INDEX / SHOW carry no linted keyword — no rule applies
+        linter = make_linter()
+        content = "DROP INDEX entity_uid_idx IF EXISTS;\nSHOW INDEXES;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 0
+
+    def test_create_index_statement_kept(self) -> None:
+        linter = make_linter()
+        content = "CREATE INDEX task_uid_idx IF NOT EXISTS FOR (n:Task) ON (n.uid);\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+
+
+# ============================================================================
+# lint_file on .cypher files (end-to-end)
+# ============================================================================
+
+
+class TestLintCypherFile:
+    def test_detects_cyp002_at_correct_line(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        cypher_file = tmp_path / "bad_migration.cypher"
+        cypher_file.write_text(
+            "// Migration: remove stale nodes\nMATCH (n:Entity {uid: 'stale'})\nDELETE n;\n"
+        )
+        violations = linter.lint_file(cypher_file)
+        cyp002 = [v for v in violations if v.rule_code == "CYP002"]
+        assert len(cyp002) == 1
+        assert cyp002[0].severity == Severity.ERROR
+        assert cyp002[0].line_number == 3
+
+    def test_noqa_suppression_in_cypher_file(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        cypher_file = tmp_path / "suppressed.cypher"
+        cypher_file.write_text(
+            "MATCH (n:Entity {uid: 'stale'})\nDELETE n // noqa: CYP002 - node is a leaf\n;\n"
+        )
+        violations = linter.lint_file(cypher_file)
+        assert [v for v in violations if v.rule_code == "CYP002"] == []
+
+    def test_noqa_after_semicolon_suppresses(self, tmp_path: Path) -> None:
+        # Codex, PR #710 round 3: `DELETE n; // noqa: CYP002` — the natural
+        # single-line form — must suppress, and only for its own statement
+        linter = make_linter()
+        cypher_file = tmp_path / "suppressed_natural.cypher"
+        cypher_file.write_text(
+            "MATCH (n:Entity {uid: 'a'})\nDELETE n; // noqa: CYP002 - node is a leaf\n"
+            "MATCH (m:Entity {uid: 'b'})\nDELETE m;\n"
+        )
+        violations = linter.lint_file(cypher_file)
+        cyp002 = [v for v in violations if v.rule_code == "CYP002"]
+        assert len(cyp002) == 1
+        assert cyp002[0].line_number == 4
+
+    def test_violation_only_in_own_statement(self, tmp_path: Path) -> None:
+        # Per-statement splitting: a LIMIT in statement 1 must not exempt an
+        # unbounded RETURN in statement 2 (whole-file linting would)
+        linter = make_linter()
+        cypher_file = tmp_path / "two_statements.cypher"
+        cypher_file.write_text(
+            "MATCH (n:Entity) RETURN n LIMIT 10;\nMATCH (m:Entity) RETURN m.uid;\n"
+        )
+        violations = linter.lint_file(cypher_file)
+        cyp006 = [v for v in violations if v.rule_code == "CYP006"]
+        assert len(cyp006) == 1
+        assert cyp006[0].line_number == 2
+
+    def test_indexes_style_file_clean(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        cypher_file = tmp_path / "indexes.cypher"
+        cypher_file.write_text(
+            "DROP INDEX entity_uid_idx IF EXISTS;\n"
+            "CREATE CONSTRAINT Entity_uid_unique IF NOT EXISTS "
+            "FOR (n:Entity) REQUIRE n.uid IS UNIQUE;\n"
+            "CREATE INDEX task_uid_idx IF NOT EXISTS FOR (n:Task) ON (n.uid);\n"
+        )
+        assert linter.lint_file(cypher_file) == []
+
+    def test_commented_out_query_not_linted(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        cypher_file = tmp_path / "commented.cypher"
+        cypher_file.write_text("// MATCH (n:Entity {uid: 'x'})\n// DELETE n;\n")
+        assert linter.lint_file(cypher_file) == []
+
+
+# ============================================================================
+# find_lintable_files
+# ============================================================================
+
+
+class TestFindLintableFiles:
+    def test_collects_cypher_and_python(self, tmp_path: Path) -> None:
+        (tmp_path / "scripts" / "migrations").mkdir(parents=True)
+        (tmp_path / "tests" / "unit").mkdir(parents=True)
+        (tmp_path / "scripts" / "indexes.cypher").write_text("// indexes\n")
+        (tmp_path / "scripts" / "migrations" / "fix.cypher").write_text("// migration\n")
+        (tmp_path / "scripts" / "tool.py").write_text("")
+        (tmp_path / "tests" / "unit" / "fixture.cypher").write_text("// bad fixture\n")
+
+        found = {p.relative_to(tmp_path).as_posix() for p in find_lintable_files(tmp_path)}
+
+        assert "scripts/indexes.cypher" in found
+        assert "scripts/migrations/fix.cypher" in found
+        assert "scripts/tool.py" in found
+        # tests/unit is deliberately excluded — fixtures are intentionally bad
+        assert "tests/unit/fixture.cypher" not in found
 
 
 # ============================================================================
