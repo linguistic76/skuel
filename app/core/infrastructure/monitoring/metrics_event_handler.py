@@ -96,72 +96,72 @@ class MetricsEventHandler:
 
     # === Creation Event Handlers ===
 
-    async def _on_task_created(self, event: TaskCreated) -> None:
+    def _on_task_created(self, event: TaskCreated) -> None:
         """Track task creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="task").inc()
 
-    async def _on_goal_created(self, event: GoalCreated) -> None:
+    def _on_goal_created(self, event: GoalCreated) -> None:
         """Track goal creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="goal").inc()
 
-    async def _on_habit_created(self, event: HabitCreated) -> None:
+    def _on_habit_created(self, event: HabitCreated) -> None:
         """Track habit creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="habit").inc()
 
-    async def _on_event_created(self, event: CalendarEventCreated) -> None:
+    def _on_event_created(self, event: CalendarEventCreated) -> None:
         """Track calendar event creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="event").inc()
 
-    async def _on_choice_created(self, event: ChoiceCreated) -> None:
+    def _on_choice_created(self, event: ChoiceCreated) -> None:
         """Track choice creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="choice").inc()
 
-    async def _on_principle_created(self, event: PrincipleCreated) -> None:
+    def _on_principle_created(self, event: PrincipleCreated) -> None:
         """Track principle creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="principle").inc()
 
     # NOTE: _on_journal_created REMOVED (February 2026) - Journal merged into Reports
     # Journal creation tracked via _on_report_submitted with entity_type="journal"
 
-    async def _on_transcription_created(self, event) -> None:
+    def _on_transcription_created(self, event) -> None:
         """Track transcription creation."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="transcription").inc()
 
-    async def _on_knowledge_created(self, event) -> None:
+    def _on_knowledge_created(self, event) -> None:
         """Track KU creation."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="ku").inc()
 
-    async def _on_ls_created(self, event) -> None:
+    def _on_ls_created(self, event) -> None:
         """Track PS creation."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="ps").inc()
 
-    async def _on_lp_started(self, event) -> None:
+    def _on_lp_started(self, event) -> None:
         """Track LP start (proxy for creation tracking)."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="lp").inc()
 
-    async def _on_user_entry_created(self, event) -> None:
+    def _on_user_entry_created(self, event) -> None:
         """Track UserEntry creation (any pipeline)."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="user_entry").inc()
 
     # === Completion Event Handlers ===
 
-    async def _on_task_completed(self, event: TaskCompleted) -> None:
+    def _on_task_completed(self, event: TaskCompleted) -> None:
         """Track task completion."""
         self.prometheus_metrics.domains.entities_completed.labels(entity_type="task").inc()
 
-    async def _on_tasks_bulk_completed(self, event: TasksBulkCompleted) -> None:
+    def _on_tasks_bulk_completed(self, event: TasksBulkCompleted) -> None:
         """Track bulk task completion."""
         # Increment by number of tasks completed
         task_uids = getattr(event, "task_uids", None)
         count = len(task_uids) if task_uids else 1
         self.prometheus_metrics.domains.entities_completed.labels(entity_type="task").inc(count)
 
-    async def _on_habit_completed(self, event: HabitCompleted) -> None:
+    def _on_habit_completed(self, event: HabitCompleted) -> None:
         """Track habit completion."""
         self.prometheus_metrics.domains.entities_completed.labels(entity_type="habit").inc()
 

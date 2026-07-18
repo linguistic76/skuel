@@ -222,8 +222,9 @@ class MetricsEventHandler:
         # Add subscription
         self.event_bus.subscribe(NewEntityCreated, self._on_new_entity_created)
 
-    # Add handler
-    async def _on_new_entity_created(self, event: NewEntityCreated) -> None:
+    # Add handler — sync def: pure Prometheus updates never await, and event_bus
+    # dispatches via inspect.iscoroutinefunction so sync handlers route correctly.
+    def _on_new_entity_created(self, event: NewEntityCreated) -> None:
         """Track new entity creation."""
         self.prometheus_metrics.domains.entities_created.labels(
             entity_type="new_entity"
