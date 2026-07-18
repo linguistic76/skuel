@@ -87,7 +87,6 @@ def lint_content(
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
-    # Opt-in audit rules (OPT_IN_RULES — skipped by default sweeps) — mirror _lint_file
     if linter._should_run_rule("SKUEL029") and not is_test:
         linter._check_async_without_await(fp, rel, content, lines, tree)
 
@@ -3432,12 +3431,10 @@ class TestSKUEL026:
         assert linter.result.suppressions[0].used is True
 
     def test_opt_in_suppressible_rule_credited(self, tmp_path: Path) -> None:
-        """An opt-in BUT suppressible rule (SKUEL029) is credited as used even in
-        a default sweep that never ran it in the main pass: the shadow run
-        (explicit filter) fires and the comment genuinely suppresses the finding
-        under `--rule SKUEL029`, so it is not SKUEL026 rot. Before SKUEL029 joined
-        SUPPRESSIBLE_RULES this same comment was correctly flagged (#678 P2); the
-        arc that drove SKUEL029→0 made protocol-required async suppressible."""
+        """A suppressed SKUEL029 finding is credited as used in the default sweep.
+        Historically this exercised the opt-in shadow-lint path (#679); since the
+        2026-07-18 promotion the rule runs in the main pass, so the normal
+        suppression-honored accounting covers it — the assertion is unchanged."""
         linter = self._lint_tree(
             tmp_path,
             {
@@ -3453,11 +3450,11 @@ class TestSKUEL026:
         assert skuel026 == []
 
     def test_malformed_opt_in_suppression_still_flagged(self, tmp_path: Path) -> None:
-        """A MALFORMED opt-in suppression (loosely discovered, not strictly
-        matched by `_is_line_suppressed`) is flagged even though the main sweep
-        never ran SKUEL029: the suppression-honored shadow reconstructs the real
-        baseline, so `#skuel-lint:disable=SKUEL029` — which does NOT actually
-        suppress under `--rule SKUEL029` — is not credited (Codex P2, #679)."""
+        """A MALFORMED suppression (loosely discovered, not strictly matched by
+        `_is_line_suppressed`) is flagged as SKUEL026 rot — it does not actually
+        suppress, so since promotion the main sweep also emits the SKUEL029
+        violation itself. (Pre-promotion this needed the opt-in shadow lint —
+        Codex P2, #679; the shadow path remains for future opt-in rules.)"""
         linter = self._lint_tree(
             tmp_path,
             {
@@ -3948,18 +3945,18 @@ class TestSKUEL029:
         assert len(violations) == 1
         assert "outer" in violations[0].message
 
-    def test_opt_in_skipped_by_default_sweep(self) -> None:
-        # No rules_filter = the default sweep — OPT_IN_RULES must not run.
+    def test_promoted_rule_runs_in_default_sweep(self) -> None:
+        # Promoted 2026-07-18 (OPT_IN_RULES no longer gates it): the default
+        # sweep runs SKUEL029, and explicit --rule selection still works.
         linter = make_linter(None)
-        assert linter._should_run_rule("SKUEL029") is False
-        # ...but an explicit --rule selection runs it.
+        assert linter._should_run_rule("SKUEL029") is True
         assert make_linter(["SKUEL029"])._should_run_rule("SKUEL029") is True
 
-    def test_severity_is_info(self) -> None:
+    def test_severity_is_error(self) -> None:
         linter = make_linter(["SKUEL029"])
         content = "async def score(items):\n    return sorted(items)"
         violations = lint_content(linter, content)
-        assert violations[0].severity == Severity.INFO
+        assert violations[0].severity == Severity.ERROR
 
     def test_line_suppression_honored(self) -> None:
         # SKUEL029 is suppressible: protocol-required async that never awaits is

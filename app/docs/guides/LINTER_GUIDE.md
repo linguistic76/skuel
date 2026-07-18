@@ -89,6 +89,7 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 | **SKUEL025** | Deleted Activity `*UpdatePayload` names | Use `*UpdateIntent` / `*UpdateRequest.to_intent()` (ADR-066) |
 | **SKUEL027** | Runtime `adapters/` imports in `ui/` | Move shared code inward or pass values in from the route (SKUEL022's ui/ sibling) |
 | **SKUEL028** | `Result.fail(...expect_error())` | Propagate with `Result.fail(result)`; `.expect_error()` is for reading only |
+| **SKUEL029** | `async def` without `await` | Sync body in async signature — convert to `def`, or suppress where a protocol/lifecycle contract requires async (promoted from opt-in 2026-07-18 after the 215→0 reduction arc) |
 
 ### WARNING
 
@@ -118,7 +119,6 @@ them without failing.
 | Rule | Pattern | Description |
 |------|---------|-------------|
 | **SKUEL006** | TODO/FIXME tracking | Categorizes and tracks TODO/FIXME comments |
-| **SKUEL029** | `async def` without `await` | **Opt-in audit** — excluded from default sweeps (~205 legacy sites); run `uv run python scripts/lint_skuel.py --rule SKUEL029` |
 
 **Detailed examples and rationale:** See [Linter Rules](../patterns/linter_rules.md).
 
