@@ -622,8 +622,13 @@ class CalendarOptimizationService:
 
         schedule = {}
 
-        # Assign high-energy tasks to peak/high energy slots
-        peak_slots = [s for s in slots if s.energy_level in [EnergyLevel.PEAK, EnergyLevel.HIGH]]
+        # Assign high-energy tasks to peak/high energy slots, best capacity
+        # first so CRITICAL is seated into PEAK before HIGH slots.
+        peak_slots = sorted(
+            (s for s in slots if s.energy_level in [EnergyLevel.PEAK, EnergyLevel.HIGH]),
+            key=attrgetter("cognitive_capacity"),
+            reverse=True,
+        )
         for i, task in enumerate(high_energy_tasks):
             if i < len(peak_slots):
                 schedule[task.uid] = {"slot": peak_slots[i], "energy_match": "optimal"}
