@@ -184,7 +184,7 @@ class CalendarOptimization:
     optimization_date: date
     strategy: SchedulingStrategy
     total_cognitive_load: float
-    load_distribution: dict[str, float]  # Hour -> cognitive load
+    load_distribution: dict[int, float]  # Hour -> cognitive load
     optimized_slots: list[OptimizedTimeSlot]
     learning_sessions: list[LearningSession]
     scheduling_recommendations: list[KnowledgeSchedulingRecommendation]
@@ -878,7 +878,7 @@ class CalendarOptimizationService:
 
     def _calculate_load_distribution(
         self, optimization: SchedulingStrategyResult, task_loads: dict[str, CognitiveLoadAnalysis]
-    ) -> dict[str, float]:
+    ) -> dict[int, float]:
         """Calculate cognitive load distribution by hour."""
         distribution = {}
 
