@@ -52,7 +52,7 @@ prometheus_metrics = PrometheusMetrics()
 metrics_cache = MetricsCache(prometheus_metrics, enabled=True)
 
 # Metrics written to both Prometheus (always) and cache (if enabled)
-await metrics_cache.record_handler_execution(...)
+metrics_cache.record_handler_execution(...)
 ```
 
 ### Why the Change?
@@ -90,7 +90,7 @@ MetricsCache.record_*()
 **Recording Metrics:**
 ```python
 # Handler execution
-await metrics_cache.record_handler_execution(
+metrics_cache.record_handler_execution(
     event_type="task.completed",
     handler_name="on_task_completed",
     duration_ms=45.0,
@@ -98,14 +98,14 @@ await metrics_cache.record_handler_execution(
 )
 
 # Event publication
-await metrics_cache.record_event_publication(
+metrics_cache.record_event_publication(
     event_type="task.completed",
     duration_ms=75.0,
     handlers_called=3
 )
 
 # Context invalidation
-await metrics_cache.record_context_invalidation(
+metrics_cache.record_context_invalidation(
     user_uid="user_123",
     duration_ms=50.0,
     reason="task_completed",
@@ -116,19 +116,19 @@ await metrics_cache.record_context_invalidation(
 **Querying Cache (Debugging):**
 ```python
 # Get handler metrics (last 100 calls per handler)
-handler_metrics = await metrics_cache.get_handler_metrics()
+handler_metrics = metrics_cache.get_handler_metrics()
 
 # Get slow handlers
-slow_handlers = await metrics_cache.get_slow_handlers(threshold_ms=100.0)
+slow_handlers = metrics_cache.get_slow_handlers(threshold_ms=100.0)
 
 # Get event metrics
-event_metrics = await metrics_cache.get_event_metrics()
+event_metrics = metrics_cache.get_event_metrics()
 
 # Get context invalidation metrics
-context_metrics = await metrics_cache.get_context_invalidation_metrics(user_uid="user_123")
+context_metrics = metrics_cache.get_context_invalidation_metrics(user_uid="user_123")
 
 # Get summary
-summary = await metrics_cache.get_summary()
+summary = metrics_cache.get_summary()
 ```
 
 **Querying Prometheus (Production):**

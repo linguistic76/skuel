@@ -152,7 +152,7 @@ class InMemoryEventBus:
                 # Record handler metrics
                 if self._metrics_cache and handler_start is not None:
                     duration_ms = (time.perf_counter() - handler_start) * 1000
-                    await self._metrics_cache.record_handler_execution(
+                    self._metrics_cache.record_handler_execution(
                         event_type=event_type_str,
                         handler_name=handler_name,
                         duration_ms=duration_ms,
@@ -165,7 +165,7 @@ class InMemoryEventBus:
                 # Record error metrics
                 if self._metrics_cache and handler_start is not None:
                     duration_ms = (time.perf_counter() - handler_start) * 1000
-                    await self._metrics_cache.record_handler_execution(
+                    self._metrics_cache.record_handler_execution(
                         event_type=event_type_str,
                         handler_name=handler_name,
                         duration_ms=duration_ms,
@@ -188,7 +188,7 @@ class InMemoryEventBus:
         # Record event publication metrics
         if self._metrics_cache and start_time is not None:
             total_duration_ms = (time.perf_counter() - start_time) * 1000
-            await self._metrics_cache.record_event_publication(
+            self._metrics_cache.record_event_publication(
                 event_type=event_type_str,
                 duration_ms=total_duration_ms,
                 handlers_called=handlers_called,
@@ -217,7 +217,7 @@ class InMemoryEventBus:
             # Record success metrics
             if self._metrics_cache and handler_start is not None:
                 duration_ms = (time.perf_counter() - handler_start) * 1000
-                await self._metrics_cache.record_handler_execution(
+                self._metrics_cache.record_handler_execution(
                     event_type=event_type_str,
                     handler_name=handler_name,
                     duration_ms=duration_ms,
@@ -230,7 +230,7 @@ class InMemoryEventBus:
             # Record error metrics
             if self._metrics_cache and handler_start is not None:
                 duration_ms = (time.perf_counter() - handler_start) * 1000
-                await self._metrics_cache.record_handler_execution(
+                self._metrics_cache.record_handler_execution(
                     event_type=event_type_str,
                     handler_name=handler_name,
                     duration_ms=duration_ms,
@@ -320,7 +320,7 @@ class InMemoryEventBus:
         """Get all event types that have subscribers."""
         return set(self._handlers.keys()) | set(self._async_handlers.keys())
 
-    async def get_performance_metrics(self) -> dict[str, Any] | None:
+    def get_performance_metrics(self) -> dict[str, Any] | None:
         """
         Get cached performance metrics for debugging.
 
@@ -333,13 +333,13 @@ class InMemoryEventBus:
             return None
 
         return {
-            "summary": await self._metrics_cache.get_summary(),
-            "slow_handlers": await self._metrics_cache.get_slow_handlers(),
-            "event_metrics": await self._metrics_cache.get_event_metrics(),
-            "handler_metrics": await self._metrics_cache.get_handler_metrics(),
+            "summary": self._metrics_cache.get_summary(),
+            "slow_handlers": self._metrics_cache.get_slow_handlers(),
+            "event_metrics": self._metrics_cache.get_event_metrics(),
+            "handler_metrics": self._metrics_cache.get_handler_metrics(),
         }
 
-    async def get_slow_handlers(self, threshold_ms: float | None = None) -> list[dict[str, Any]]:
+    def get_slow_handlers(self, threshold_ms: float | None = None) -> list[dict[str, Any]]:
         """
         Get list of slow event handlers from cache.
 
@@ -353,7 +353,7 @@ class InMemoryEventBus:
             return []
 
         threshold = threshold_ms if threshold_ms is not None else 100.0
-        result: list[dict[str, Any]] = await self._metrics_cache.get_slow_handlers(threshold)
+        result: list[dict[str, Any]] = self._metrics_cache.get_slow_handlers(threshold)
         return result
 
     def get_pending_task_count(self) -> int:
