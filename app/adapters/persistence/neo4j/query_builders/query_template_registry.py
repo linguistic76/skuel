@@ -16,6 +16,7 @@ from adapters.persistence.neo4j.query import QueryOptimizationResult, QueryPlan,
 from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier, validate_label
 from core.models.enums.neo_labels import NeoLabel
 from core.models.query_types import IndexStrategy
+from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -353,11 +354,11 @@ class QueryTemplateRegistry:
         """
         Substitute validated structural values into ``{name}`` placeholders.
 
-        Label slots must be a known NeoLabel; other slots (relationship types)
-        must be safe Cypher identifiers. Raises ValueError on invalid values.
-        An optimization variant may not contain a given slot (e.g. the fulltext
-        variant uses the label as a driver parameter) — absent placeholders are
-        skipped.
+        Label slots must be a known NeoLabel, relationship-type slots a known
+        RelationshipName, and any other slot a safe Cypher identifier. Raises
+        ValueError on invalid values. An optimization variant may not contain
+        a given slot (e.g. the fulltext variant uses the label as a driver
+        parameter) — absent placeholders are skipped.
         """
         for key in sorted(spec.structural_parameters):
             placeholder = f"{{{key}}}"
@@ -368,6 +369,8 @@ class QueryTemplateRegistry:
             value = str(params[key])
             if key == "label":
                 validate_label(NeoLabel(value))
+            elif key == "rel_type":
+                RelationshipName(value)
             else:
                 validate_identifier(value, context=key)
             cypher = cypher.replace(placeholder, value)

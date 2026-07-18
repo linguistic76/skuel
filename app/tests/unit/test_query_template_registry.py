@@ -153,7 +153,19 @@ async def test_unsafe_relationship_type_is_rejected():
     )
 
     assert result.is_error
-    assert "Invalid rel_type" in result.expect_error().message
+    assert "not a valid RelationshipName" in result.expect_error().message
+
+
+@pytest.mark.asyncio
+async def test_unregistered_relationship_type_is_rejected():
+    """A syntactically safe but unknown edge type must not render into
+    executable Cypher — rel_type slots validate against RelationshipName."""
+    result = await _registry().from_template(
+        "find_related", {"uid": "task_123", "rel_type": "MADE_UP_EDGE"}
+    )
+
+    assert result.is_error
+    assert "not a valid RelationshipName" in result.expect_error().message
 
 
 # ============================================================================
