@@ -3452,6 +3452,27 @@ class TestSKUEL026:
         skuel026 = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
         assert skuel026 == []
 
+    def test_malformed_opt_in_suppression_still_flagged(self, tmp_path: Path) -> None:
+        """A MALFORMED opt-in suppression (loosely discovered, not strictly
+        matched by `_is_line_suppressed`) is flagged even though the main sweep
+        never ran SKUEL029: the suppression-honored shadow reconstructs the real
+        baseline, so `#skuel-lint:disable=SKUEL029` — which does NOT actually
+        suppress under `--rule SKUEL029` — is not credited (Codex P2, #679)."""
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/services/x.py": (
+                    "async def score(items):  #skuel-lint:disable=SKUEL029 -- malformed\n"
+                    "    return sorted(items)\n"
+                )
+            },
+        )
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is False
+        skuel026 = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(skuel026) == 1
+        assert "malformed comment" in skuel026[0].message
+
     def test_unused_line_suppression_flagged(self, tmp_path: Path) -> None:
         """A suppression on a line where the rule would not fire is rot."""
         linter = self._lint_tree(
