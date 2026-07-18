@@ -14,7 +14,19 @@ import uuid
 from collections.abc import Callable
 from dataclasses import fields, is_dataclass
 from datetime import datetime
-from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
+from functools import cache
+from types import UnionType
+from typing import (
+    Any,
+    ClassVar,
+    Protocol,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+    runtime_checkable,
+)
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
@@ -55,6 +67,24 @@ from core.ports import PydanticModel
 # Type variables for generic methods
 T = TypeVar("T")
 U = TypeVar("U")
+
+
+@cache
+def _tuple_typed_field_names(pure_class: type) -> frozenset[str]:
+    """Dataclass fields declared ``tuple[...]``, possibly inside an optional/union.
+
+    Drives the generic list → tuple coercion in ``create_to_pure``: frozen-dataclass
+    immutability is shallow, and Pydantic ``model_dump()`` emits lists, so every
+    tuple-typed field must be coerced or the "frozen" model carries mutable state.
+    """
+    hints = get_type_hints(pure_class)
+    names: set[str] = set()
+    for f in fields(pure_class):
+        hint = hints.get(f.name)
+        members = get_args(hint) if get_origin(hint) in (Union, UnionType) else (hint,)
+        if any(member is tuple or get_origin(member) is tuple for member in members):
+            names.add(f.name)
+    return frozenset(names)
 
 
 @runtime_checkable
@@ -132,10 +162,15 @@ class ConversionServiceV2:
         # Add any extra fields
         schema_data.update(extra_fields)
 
-        # Filter to only fields that exist in the target class
+        # Filter to only fields that exist in the target class, then coerce
+        # list values to tuples wherever the target field is tuple-typed
         if is_dataclass(pure_class):
             field_names = {f.name for f in fields(pure_class)}
             schema_data = {k: v for k, v in schema_data.items() if k in field_names}
+            for fname in _tuple_typed_field_names(pure_class):
+                value = schema_data.get(fname)
+                if isinstance(value, list):
+                    schema_data[fname] = tuple(value)
 
         # Create the pure model instance
         return pure_class(**schema_data)
@@ -194,34 +229,24 @@ class ConversionServiceV2:
     def principle_create_to_pure(
         cls, schema: PrincipleCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> Principle:
-        """Convert PrincipleCreateRequest to Principle entity using generic method."""
-        # Principle uses tuples for immutability, need to convert lists
-        extra_fields = {}
-        if schema.key_behaviors:
-            extra_fields["key_behaviors"] = tuple(schema.key_behaviors)
-        if schema.decision_criteria:
-            extra_fields["decision_criteria"] = tuple(schema.decision_criteria)
-        if schema.tags:
-            extra_fields["tags"] = tuple(schema.tags)
+        """Convert PrincipleCreateRequest to Principle entity using generic method.
 
-        # Merge kwargs (includes user_uid) with extra_fields
-        extra_fields.update(kwargs)
-        return cls.create_to_pure(schema, Principle, uid, **extra_fields)
+        List → tuple coercion (key_behaviors, tags) is generic in create_to_pure;
+        request-only fields (decision_criteria) are filtered there too.
+        """
+        return cls.create_to_pure(schema, Principle, uid, **kwargs)
 
     # --- Choice Conversions --
     @classmethod
     def choice_create_to_pure(
         cls, schema: ChoiceCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> Choice:
-        """Convert ChoiceCreateRequest to Choice entity using generic method."""
-        # Choice uses tuples for immutability, need to convert lists
+        """Convert ChoiceCreateRequest to Choice entity using generic method.
+
+        Straight list[str] fields tuple-ize generically in create_to_pure; only
+        the nested option requests need hand-conversion to ChoiceOption values.
+        """
         extra_fields: dict[str, Any] = {}
-        if schema.decision_criteria:
-            extra_fields["decision_criteria"] = tuple(schema.decision_criteria)
-        if schema.constraints:
-            extra_fields["constraints"] = tuple(schema.constraints)
-        if schema.stakeholders:
-            extra_fields["stakeholders"] = tuple(schema.stakeholders)
         if schema.options:
             # Convert ChoiceOptionCreateRequest list to ChoiceOption tuple
             options = []
@@ -261,8 +286,7 @@ class ConversionServiceV2:
     ) -> Exercise:
         """Convert ExerciseCreateRequest to Exercise.
 
-        Handles: name→title, user_uid→owner_uid, domain str→enum,
-        and list→tuple for context_notes/form_schema/scoring_rubric.
+        Handles: name→title, user_uid kwarg→owner_uid, domain str→enum.
         """
         from core.models.enums import Domain
         from core.models.enums.entity_enums import EntityType
@@ -271,13 +295,11 @@ class ConversionServiceV2:
             "entity_type": EntityType.EXERCISE,
             "title": schema.name,
             "domain": Domain(schema.domain) if schema.domain else Domain.KNOWLEDGE,
-            "context_notes": tuple(schema.context_notes) if schema.context_notes else (),
+            # Exercise.context_notes is a non-optional tuple — schema None maps to ()
+            "context_notes": schema.context_notes or (),
         }
-        if schema.form_schema:
-            extra_fields["form_schema"] = tuple(schema.form_schema)
-        if schema.scoring_rubric:
-            extra_fields["scoring_rubric"] = tuple(schema.scoring_rubric)
-        # Map user_uid (from CRUDRouteFactory auth context) to owner_uid
+        # Ownership's single source: the authenticated user_uid kwarg (injected
+        # by CRUDRouteFactory). The schema deliberately carries no user_uid.
         if "user_uid" in kwargs:
             extra_fields["owner_uid"] = kwargs.pop("user_uid")
         extra_fields.update(kwargs)
@@ -308,10 +330,9 @@ class ConversionServiceV2:
     # ACTIVITY TEMPLATE CONVERSIONS (Phase 5)
     # ========================================================================
     # Activity Templates carry RelativeOffsetDTO fields at the API edge that
-    # convert to RelativeOffset (frozen value) on the core model. They also
-    # carry tuple-typed fields whose schemas accept lists. The helper below
-    # centralizes both transformations; per-template classmethods declare which
-    # fields receive which treatment.
+    # convert to RelativeOffset (frozen value) on the core model. The helper
+    # below centralizes that transformation (plus the Phase-7 complex-field
+    # deferral); list → tuple coercion is generic in create_to_pure.
     #
     # Templates are PS-owned curriculum (no user_uid). The CRUDRouteFactory
     # passes user_uid via kwargs as a side effect of authentication; the
@@ -326,7 +347,6 @@ class ConversionServiceV2:
         uid: str | None,
         *,
         offset_fields: tuple[str, ...] = (),
-        str_tuple_fields: tuple[str, ...] = (),
         complex_tuple_fields: tuple[str, ...] = (),
         **kwargs: Any,
     ) -> U:
@@ -334,8 +354,6 @@ class ConversionServiceV2:
 
         - ``offset_fields``: schema field names typed RelativeOffsetDTO | None;
           convert to RelativeOffset via .to_value() before constructing.
-        - ``str_tuple_fields``: schema list[str] fields that map to tuple[str, ...]
-          on the model; coerce list → tuple.
         - ``complex_tuple_fields``: schema list[dict] fields whose model
           counterpart is a tuple of frozen dataclasses (Milestone, ChoiceOption,
           PrincipleExpression). For Phase 5 V1 these default to an empty tuple
@@ -349,10 +367,6 @@ class ConversionServiceV2:
                 extra_fields[fname] = value.to_value()
             else:
                 extra_fields[fname] = None
-        for fname in str_tuple_fields:
-            value = getattr(schema, fname, None)
-            if value is not None:
-                extra_fields[fname] = tuple(value)
         for fname in complex_tuple_fields:
             extra_fields[fname] = ()
         extra_fields.update(kwargs)
@@ -368,7 +382,6 @@ class ConversionServiceV2:
             TaskTemplate,
             uid,
             offset_fields=("due_offset", "scheduled_offset", "recurrence_end_offset"),
-            str_tuple_fields=("tags",),
             **kwargs,
         )
 
@@ -382,7 +395,6 @@ class ConversionServiceV2:
             GoalTemplate,
             uid,
             offset_fields=("start_offset", "target_offset"),
-            str_tuple_fields=("tags", "potential_obstacles", "strategies"),
             complex_tuple_fields=("milestones",),
             **kwargs,
         )
@@ -397,7 +409,6 @@ class ConversionServiceV2:
             HabitTemplate,
             uid,
             offset_fields=("recurrence_end_offset",),
-            str_tuple_fields=("tags", "reminder_days"),
             **kwargs,
         )
 
@@ -411,7 +422,6 @@ class ConversionServiceV2:
             EventTemplate,
             uid,
             offset_fields=("event_offset", "recurrence_end_offset"),
-            str_tuple_fields=("tags",),
             **kwargs,
         )
 
@@ -425,7 +435,6 @@ class ConversionServiceV2:
             ChoiceTemplate,
             uid,
             offset_fields=("decision_deadline_offset",),
-            str_tuple_fields=("tags", "decision_criteria", "constraints", "stakeholders"),
             complex_tuple_fields=("options",),
             **kwargs,
         )
@@ -442,13 +451,6 @@ class ConversionServiceV2:
             schema,
             PrincipleTemplate,
             uid,
-            str_tuple_fields=(
-                "tags",
-                "key_behaviors",
-                "potential_conflicts",
-                "conflicting_principles",
-                "resolution_strategies",
-            ),
             complex_tuple_fields=("expressions",),
             **kwargs,
         )
