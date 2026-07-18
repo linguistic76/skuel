@@ -35,9 +35,14 @@ WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report o
   SKUEL018: Direct access to RichUserContext RICH_ONLY_FIELDS - use accessors
   SKUEL019: Credential-shaped env reads bypassing get_credential()
   SKUEL026: Suppression comment that suppresses nothing (rot / typo / unsupported rule)
+  SKUEL028: Result.fail(result.expect_error()) - use Result.fail(result) to propagate
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
+
+OPT-IN AUDIT (excluded from default sweeps; run via --rule):
+  SKUEL029: async def without await - sync body declared async
+            (~205 sites as of 2026-07; opt-in until that debt shrinks, then promote)
 
 AUTO-FIXABLE:
   SKUEL003: .is_err → .is_error
@@ -752,6 +757,59 @@ def Navbar(request):
     from adapters.inbound.auth import get_session_user
     user = get_session_user(request)""",
     },
+    "SKUEL028": {
+        "title": "Propagate Errors with Result.fail(result), Not .expect_error()",
+        "severity": "ERROR",
+        "description": """`Result.fail(result)` is THE propagation path across type boundaries —
+it re-wraps the failed result's error without unwrapping it. `.expect_error()` exists to
+READ the error (logging, branching on category), not to feed it back into `Result.fail()`:
+the round-trip is noise at best, and the sibling shape
+`Errors.database(op, str(result.error))` flattens a typed error into a stringly Database
+error, losing the original category (the shape #674 cleaned out of ingestion_tracker).
+
+AST-based: flags any `Result.fail(...)` whose argument expression contains an
+`.expect_error()` call — including conditional-expression and `str(...)`-wrapped forms.
+
+Suppress: # skuel-lint: disable=SKUEL028 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL028 -- <reason>""",
+        "good": """if result.is_error:
+    return Result.fail(result)  # propagates the typed error as-is
+
+# Reading the error is what .expect_error() is FOR:
+logger.warning(f"lookup failed: {result.expect_error().message}")""",
+        "bad": """return Result.fail(result.expect_error())  # pointless unwrap/re-wrap
+return Result.fail(
+    other.expect_error() if other.is_error else Errors.not_found("Task", uid)
+)""",
+    },
+    "SKUEL029": {
+        "title": "async def Without await (Opt-In Audit)",
+        "severity": "INFO",
+        "description": """CLAUDE.md's async/sync rule: async for I/O, sync for computation —
+"if you need await inside the function, make it async def; otherwise use def." An
+`async def` whose body never awaits (no `await`, `async for`, `async with`) wraps a
+synchronous computation in a coroutine: every caller pays the event-loop round-trip and
+the signature lies about the function doing I/O.
+
+OPT-IN AUDIT RULE: excluded from default sweeps (`OPT_IN_RULES`) because ~205 sites
+predate the rule (2026-07) — many are interface-uniformity choices (facade delegation,
+protocol conformance) where sync-ifying breaks every await call site. Run the audit with:
+
+    uv run python scripts/lint_skuel.py --rule SKUEL029
+
+Trivial bodies are exempt (docstring-only, `pass`, `...`, bare `raise`) — protocol
+methods and abstract stubs are declarations, not offenders. Awaits inside NESTED
+functions don't count for the enclosing def (they belong to the nested one). The staged
+promotion path is CYP003's: shrink the debt, then drop the rule from OPT_IN_RULES.""",
+        "good": """async def fetch_task(self, uid: str) -> Result[Task]:
+    return await self.backend.get_by_uid(uid)  # awaits — genuinely async
+
+def score_insights(self, insights: list[Insight]) -> list[Insight]:
+    return sorted(insights, key=self._priority)  # pure computation — sync def""",
+        "bad": """async def score_insights(self, insights: list[Insight]) -> list[Insight]:
+    # no await anywhere — a sync computation wearing an async signature
+    return sorted(insights, key=self._priority)""",
+    },
 }
 
 
@@ -903,6 +961,7 @@ class SkuelLinter:
             "SKUEL024",
             "SKUEL025",
             "SKUEL027",
+            "SKUEL028",
         }
     )
 
@@ -965,8 +1024,17 @@ class SkuelLinter:
             "SKUEL024",
             "SKUEL025",
             "SKUEL027",
+            "SKUEL028",
+            "SKUEL029",
         }
     )
+
+    # Rules excluded from default sweeps — run only when named explicitly via
+    # --rule. For audits whose current hit count is far too large to block on
+    # (SKUEL029: ~205 async-without-await sites as of 2026-07); the staged path
+    # is the same as CYP003's: codify now, shrink the debt, then promote by
+    # removing the rule from this set.
+    OPT_IN_RULES: ClassVar[frozenset[str]] = frozenset({"SKUEL029"})
 
     # SKUEL019: Credential keys that must route through get_credential().
     #
@@ -1146,7 +1214,8 @@ class SkuelLinter:
     def _should_run_rule(self, rule_id: str) -> bool:
         """Check if a rule should run based on filter."""
         if self.rules_filter is None:
-            return True
+            # Default sweep: opt-in audit rules only run when named explicitly.
+            return rule_id not in self.OPT_IN_RULES
         return rule_id in self.rules_filter
 
     def _is_line_suppressed(self, line: str, rule_id: str) -> bool:
@@ -1382,10 +1451,16 @@ class SkuelLinter:
                 self._check_deleted_activity_update_payloads(
                     file_path, rel_path, content, lines, tree
                 )
+            if self._should_run_rule("SKUEL028") and not is_test:
+                self._check_result_fail_expect_error(file_path, rel_path, content, lines, tree)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
                 self._check_todo_comments(file_path, rel_path, content, lines)
+
+            # Opt-in audit rules (OPT_IN_RULES — skipped by default sweeps)
+            if self._should_run_rule("SKUEL029") and not is_test:
+                self._check_async_without_await(file_path, rel_path, content, lines, tree)
 
             # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere in core/.
             if is_below_boundary and not is_test:
@@ -3966,6 +4041,76 @@ class SkuelLinter:
             )
 
     # =========================================================================
+    def _check_result_fail_expect_error(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL028 [ERROR]: Use Result.fail(result) to propagate, not .expect_error().
+
+        AST-based: flags a ``Result.fail(...)`` call whose argument expression
+        contains an ``.expect_error()`` call anywhere in its subtree — the direct
+        unwrap/re-wrap, conditional-expression forms, and category-flattening
+        wraps like ``Errors.database(op, str(result.expect_error()))`` alike.
+        ``.expect_error()`` outside a ``Result.fail(...)`` argument (logging,
+        branching on category) is the sanctioned READ use and is not flagged.
+
+        Suppressible: `# skuel-lint: disable=SKUEL028 -- <reason>`.
+        """
+        if tree is None:
+            return
+        if self._is_file_suppressed(content, "SKUEL028"):
+            return
+
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "fail"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "Result"
+            ):
+                continue
+
+            unwrap = next(
+                (
+                    sub
+                    for arg in node.args
+                    for sub in ast.walk(arg)
+                    if isinstance(sub, ast.Call)
+                    and isinstance(sub.func, ast.Attribute)
+                    and sub.func.attr == "expect_error"
+                ),
+                None,
+            )
+            if unwrap is None:
+                continue
+
+            line_num = unwrap.lineno
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL028"):
+                continue
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=unwrap.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL028",
+                    message="Result.fail(...expect_error()) - use Result.fail(result)",
+                    suggestion=(
+                        "Propagate with Result.fail(result); "
+                        ".expect_error() is for reading the error only"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+    # =========================================================================
     # INFO RULES (visibility only)
     # =========================================================================
 
@@ -4013,6 +4158,89 @@ class SkuelLinter:
                         line_content=line.strip(),
                     )
                 )
+
+    def _check_async_without_await(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL029 [INFO, opt-in]: async def whose body never awaits.
+
+        CLAUDE.md async/sync rule: async for I/O, sync for computation. Flags an
+        ``async def`` with a real body but no ``await`` / ``async for`` /
+        ``async with`` of its own (nested defs' awaits belong to the nested
+        function). Trivial bodies — docstring-only, ``pass``, ``...``, a bare
+        ``raise`` — are exempt: protocol methods and stubs are declarations.
+
+        Opt-in audit (see OPT_IN_RULES): run via --rule SKUEL029.
+        """
+        if tree is None:
+            return
+
+        def own_statements(fn: ast.AsyncFunctionDef) -> list[ast.AST]:
+            """Every node in fn's body, without descending into nested defs."""
+            found: list[ast.AST] = []
+            stack: list[ast.AST] = list(fn.body)
+            while stack:
+                n = stack.pop()
+                found.append(n)
+                if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                    stack.extend(ast.iter_child_nodes(n))
+            return found
+
+        def is_trivial(fn: ast.AsyncFunctionDef) -> bool:
+            body = fn.body
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)
+            ):
+                body = body[1:]  # skip docstring
+            if not body:
+                return True
+            if len(body) == 1:
+                stmt = body[0]
+                if isinstance(stmt, (ast.Pass, ast.Raise)):
+                    return True
+                if (
+                    isinstance(stmt, ast.Expr)
+                    and isinstance(stmt.value, ast.Constant)
+                    and stmt.value.value is ...
+                ):
+                    return True
+            return False
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.AsyncFunctionDef) or is_trivial(node):
+                continue
+            if any(
+                isinstance(sub, (ast.Await, ast.AsyncFor, ast.AsyncWith))
+                for sub in own_statements(node)
+            ):
+                continue
+
+            line_num = node.lineno
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.INFO,
+                    rule_id="SKUEL029",
+                    message=f"async def '{node.name}' never awaits - sync body in async signature",
+                    suggestion=(
+                        "Make it a plain def (and un-await call sites), or keep async "
+                        "only if an interface/protocol requires it"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
 
     # =========================================================================
     # AUTO-FIXABLE RULES

@@ -502,12 +502,10 @@ class LpService:
     ) -> Result[dict[str, Any]]:
         """Get a learning path with progress and mastery info for a user."""
         path_result = await self.get_learning_path(path_uid)
-        if path_result.is_error or not path_result.value:
-            return Result.fail(
-                path_result.expect_error()
-                if path_result.is_error
-                else Errors.not_found(resource="LearningPath", identifier=path_uid)
-            )
+        if path_result.is_error:
+            return Result.fail(path_result)
+        if not path_result.value:
+            return Result.fail(Errors.not_found(resource="LearningPath", identifier=path_uid))
 
         path = path_result.value
         steps = path.metadata.get("steps", []) if path.metadata else []

@@ -173,13 +173,7 @@ def create_system_api_routes(
         summary_result = await system_service.get_health_summary()
         if summary_result.is_error:
             # Service errors should return 503
-            return Result.fail(
-                Errors.integration(
-                    service="SystemService",
-                    message="Failed to retrieve health summary",
-                    details={"error": str(summary_result.expect_error())},
-                )
-            )
+            return Result.fail(summary_result)
 
         summary = summary_result.value
         response = {
