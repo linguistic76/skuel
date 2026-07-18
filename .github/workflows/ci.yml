@@ -32,6 +32,7 @@ jobs:
       py: ${{ steps.filter.outputs.py }}
       docs: ${{ steps.filter.outputs.docs }}
       ui: ${{ steps.filter.outputs.ui }}
+      cypher: ${{ steps.filter.outputs.cypher }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,6 +70,12 @@ jobs:
               - 'app/scripts/smoke_test.py'
               - 'app/pyproject.toml'
               - 'app/uv.lock'
+              - '.github/workflows/ci.yml'
+            cypher:
+              # Executable Cypher outside .py files: migrations and index DDL are
+              # loaded and exercised by integration tests, so a Cypher-only PR
+              # must still trigger the integration suite (Codex review, PR #701).
+              - 'app/**/*.cypher'
               - '.github/workflows/ci.yml'
 
   mypy:
@@ -499,7 +506,7 @@ jobs:
   integration_tests:
     name: Integration Tests
     needs: changes
-    if: needs.changes.outputs.py == 'true'
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25  # testcontainer startup can hang on daemon issues; suite itself is ~2-4 min
     steps:
