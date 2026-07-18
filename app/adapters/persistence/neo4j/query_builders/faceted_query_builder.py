@@ -21,6 +21,7 @@ from adapters.persistence.neo4j.query import (
     QueryOptimizationResult,
     TemplateSpec,
 )
+from core.constants import QueryLimit
 from core.models.enums import Domain
 from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.services.search.core_types import FacetSet
@@ -314,6 +315,7 @@ class FacetedQueryBuilder:
                 """,
                 required_parameters=set(),
                 optional_parameters={"domain", "level", "search_text", "limit"},
+                parameter_defaults={"limit": QueryLimit.MEDIUM},
                 optimization_rules={
                     "has_fulltext_index": """
                         CALL db.index.fulltext.queryNodes('knowledge_fulltext', $search_text)
@@ -350,6 +352,7 @@ class FacetedQueryBuilder:
                 """,
                 required_parameters={"user_uid", "user_level"},
                 optional_parameters={"search_text", "limit"},
+                parameter_defaults={"limit": QueryLimit.MEDIUM},
                 estimated_base_cost=7,
             ),
             category="faceted_search",

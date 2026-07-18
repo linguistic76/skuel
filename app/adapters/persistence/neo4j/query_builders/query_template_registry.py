@@ -14,6 +14,7 @@ from typing import Any
 
 from adapters.persistence.neo4j.query import QueryOptimizationResult, QueryPlan, TemplateSpec
 from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier, validate_label
+from core.constants import QueryLimit
 from core.models.enums.neo_labels import NeoLabel
 from core.models.query_types import IndexStrategy
 from core.models.relationship_names import RelationshipName
@@ -135,6 +136,7 @@ class QueryTemplateRegistry:
                 required_parameters={"label", "property", "search_term"},
                 optional_parameters={"limit"},
                 structural_parameters={"label"},
+                parameter_defaults={"limit": QueryLimit.MEDIUM},
                 optimization_rules={
                     "has_fulltext_index": """
                         CALL db.index.fulltext.queryNodes('{index_name}', $search_term)
@@ -182,6 +184,7 @@ class QueryTemplateRegistry:
                 required_parameters={"from_uid", "to_uid", "rel_type"},
                 optional_parameters={"properties"},
                 structural_parameters={"rel_type"},
+                parameter_defaults={"properties": {}},
                 estimated_base_cost=2,
             ),
             category="relationships",
@@ -313,10 +316,19 @@ class QueryTemplateRegistry:
         except ValueError as e:
             return Result.fail(Errors.validation(field="parameters", message=str(e)))
 
+        used_parameter_names = set(_CYPHER_PARAMETER_RE.findall(cypher))
+
+        # Bind declared-but-omitted optional parameters: spec defaults where
+        # NULL is invalid in the slot's position (LIMIT, property maps),
+        # otherwise NULL so `$x IS NULL OR ...` filter branches apply.
+        bound_params = dict(params)
+        for name in used_parameter_names & spec.optional_parameters:
+            if name not in bound_params:
+                bound_params[name] = spec.parameter_defaults.get(name)
+
         # Fail fast on driver parameters the selected variant needs but the
         # caller did not supply — the query would error at execution time.
-        used_parameter_names = set(_CYPHER_PARAMETER_RE.findall(cypher))
-        unbound = used_parameter_names - params.keys()
+        unbound = used_parameter_names - bound_params.keys()
         if unbound:
             return Result.fail(
                 Errors.validation(
@@ -331,7 +343,7 @@ class QueryTemplateRegistry:
         plan = QueryPlan(
             cypher=cypher,
             parameters={
-                k: v for k, v in params.items() if k in used_parameter_names
+                k: v for k, v in bound_params.items() if k in used_parameter_names
             },  # Only include parameters the selected variant uses
             strategy=strategy,
             used_indexes=used_indexes,

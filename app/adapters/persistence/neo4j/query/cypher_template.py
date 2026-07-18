@@ -57,6 +57,11 @@ class TemplateSpec:
     # Must be a subset of required_parameters; values are validated before
     # substitution. All other parameters stay $name driver parameters.
     structural_parameters: set[str] = field(default_factory=set)
+    # Bind values for omitted optional parameters. Optional parameters without
+    # a default bind as NULL (for `$x IS NULL OR ...` filter branches); declare
+    # a default here when NULL is invalid in the slot's Cypher position
+    # (LIMIT, property maps).
+    parameter_defaults: dict[str, Any] = field(default_factory=dict)
     optimization_rules: dict[str, str] = field(
         default_factory=dict
     )  # condition -> optimized template,

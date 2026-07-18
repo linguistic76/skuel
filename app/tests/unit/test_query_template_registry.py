@@ -11,9 +11,11 @@ from datetime import datetime
 
 import pytest
 
+from adapters.persistence.neo4j.query import TemplateSpec
 from adapters.persistence.neo4j.query_builders.query_template_registry import (
     QueryTemplateRegistry,
 )
+from core.constants import QueryLimit
 from core.infrastructure.database.schema import Neo4jIndex, SchemaContext
 from core.models.query_types import IndexStrategy
 from core.utils.result_simplified import Result
@@ -207,17 +209,67 @@ async def test_missing_required_parameter_fails():
 
 
 @pytest.mark.asyncio
-async def test_unbound_driver_parameter_fails_fast():
-    """Optional $properties left unbound must fail at build time, not at the
-    driver."""
+async def test_undeclared_parameter_fails_fast():
+    """A $name the template uses but never declares must fail at build time,
+    not at the driver."""
+    registry = _registry()
+    registry.register_template(
+        "broken_custom",
+        TemplateSpec(
+            name="broken_custom",
+            description="Uses an undeclared parameter",
+            base_template="MATCH (n) WHERE n.x = $undeclared RETURN n",
+            required_parameters=set(),
+        ),
+    )
+
+    result = await registry.from_template("broken_custom", {})
+
+    assert result.is_error
+    assert "unbound" in result.expect_error().message
+    assert "undeclared" in result.expect_error().message
+
+
+@pytest.mark.asyncio
+async def test_omitted_optional_properties_default_to_empty_map():
+    """NULL is invalid as a CREATE property map, so the spec declares {} as
+    the default for omitted properties."""
     result = await _registry().from_template(
         "create_relationship",
         {"from_uid": "task_1", "to_uid": "task_2", "rel_type": "RELATED_TO"},
     )
 
-    assert result.is_error
-    assert "unbound" in result.expect_error().message
-    assert "properties" in result.expect_error().message
+    assert not result.is_error
+    assert result.value.primary_plan.parameters["properties"] == {}
+
+
+@pytest.mark.asyncio
+async def test_omitted_optional_limit_defaults_from_spec():
+    result = await _registry().from_template(
+        "text_search", {"label": "Task", "property": "title", "search_term": "x"}
+    )
+
+    assert not result.is_error
+    assert result.value.primary_plan.parameters["limit"] == QueryLimit.MEDIUM
+
+
+@pytest.mark.asyncio
+async def test_omitted_optional_filters_bind_as_null():
+    """Templates with `$x IS NULL OR ...` branches must receive NULL for
+    omitted optional filters instead of failing as unbound."""
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
+
+    qb = QueryBuilder(schema_service=_FakeSchemaService(_make_schema([])))
+    result = await qb.from_template("faceted_knowledge_search", search_text="foo")
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert plan.parameters == {
+        "search_text": "foo",
+        "domain": None,
+        "level": None,
+        "limit": QueryLimit.MEDIUM,
+    }
 
 
 @pytest.mark.asyncio
