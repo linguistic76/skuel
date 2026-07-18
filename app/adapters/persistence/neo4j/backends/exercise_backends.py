@@ -513,7 +513,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         query = f"""
         MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
         OPTIONAL MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
-          WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          WHERE s.pipeline = $pipeline
             AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(user) }}
         WITH exercise, count(DISTINCT s) AS total_count,
              count(DISTINCT CASE WHEN s.status = 'completed' THEN s.uid END) AS reviewed_count
@@ -523,7 +523,9 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                total_count - reviewed_count AS pending_count
         ORDER BY exercise.created_at DESC
         """
-        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+        )
 
 
 class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):

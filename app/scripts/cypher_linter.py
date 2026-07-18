@@ -9,7 +9,12 @@ before they reach runtime.
 **Validation Rules:**
 - CYP001: Nested aggregate functions (ERROR)
 - CYP002: DELETE without DETACH (ERROR)
-- CYP003: String interpolation instead of parameters (WARNING)
+- CYP003: Interpolated VALUE instead of parameter (ERROR) — flags value-position
+  shapes only ('{var}' quoted literals, operator-adjacent = {var} / IN {var}).
+  Structural composition (clause fragments, validated identifiers, *1..{depth}
+  bounds — which Cypher cannot parameterize) is the sanctioned below-boundary
+  pattern and is not flagged. Suppress a boundary-shaped hit with a Cypher
+  comment: // noqa: CYP003 - <reason>
 - CYP004: Unbounded relationship traversal (WARNING)
 - CYP005: Missing depth limit on multi-hop traversal (WARNING)
 - CYP006: Large result set without LIMIT (INFO)
@@ -194,16 +199,35 @@ class CypherLinter:
             return False
 
         # 2. Check for Cypher syntax patterns (not just keywords)
-        # Actual Cypher has patterns like (n:Label), [r:TYPE], {prop: value}
+        # Actual Cypher has patterns like (n:Label), [r:TYPE], {prop: value},
+        # or $param driver parameters (procedure-call queries like
+        # `CALL db.index.fulltext.queryNodes(..., $term)` have no node pattern
+        # at all — $params were their only structural signal).
         has_node_pattern = bool(re.search(r"\([a-z_][a-z0-9_]*:[A-Z]", text))  # (n:Label)
         has_rel_pattern = bool(re.search(r"-\[[a-z_][a-z0-9_]*:[A-Z]", text))  # [r:TYPE]
         has_property_map = bool(re.search(r"\{[a-z_][a-z0-9_]*:", text))  # {prop:
-        has_cypher_syntax = has_node_pattern or has_rel_pattern or has_property_map
+        has_parameter = bool(re.search(r"\$[a-z_][a-z0-9_]*", text))  # $param
+        has_cypher_syntax = has_node_pattern or has_rel_pattern or has_property_map or has_parameter
 
-        # 3. Count Cypher keywords
+        # 3. Count Cypher keywords (SET/UNWIND/CALL/YIELD/LIMIT counted since
+        # 2026-07 — MERGE+SET upserts and CALL procedures scored 1 before and
+        # were silently skipped)
         cypher_count = sum(
             1
-            for kw in ["MATCH", "CREATE", "MERGE", "DELETE", "RETURN", "WHERE", "WITH"]
+            for kw in [
+                "MATCH",
+                "CREATE",
+                "MERGE",
+                "DELETE",
+                "RETURN",
+                "WHERE",
+                "WITH",
+                "SET",
+                "UNWIND",
+                "CALL",
+                "YIELD",
+                "LIMIT",
+            ]
             if kw in text_upper
         )
 
@@ -227,12 +251,16 @@ class CypherLinter:
             indicator in text.lower() for indicator in natural_language_indicators
         )
 
-        # Actual Cypher: structured syntax + multiple keywords + minimal natural language
+        # Actual Cypher: structured syntax + minimal natural language
         # Documentation: natural language + maybe one keyword + no structured syntax
         if has_natural_language and not has_cypher_syntax:
             return False  # This is documentation, not Cypher
 
-        return cypher_count >= 2 and has_cypher_syntax
+        # >= 1 since 2026-07 (was >= 2): the command-prefix gate above plus a
+        # structural signal is already strong evidence; >= 2 silently skipped
+        # single-command queries — exactly the shape of interpolated one-line
+        # MERGE upserts CYP003 exists to catch.
+        return cypher_count >= 1 and has_cypher_syntax
 
     def _looks_like_cypher(self, text: str) -> bool:
         """Check if text looks like a Cypher query."""
@@ -370,45 +398,72 @@ class CypherLinter:
         self, query: str, file_path: Path, start_line: int
     ) -> list[Violation]:
         """
-        CYP003: Check for string interpolation instead of parameters.
+        CYP003: Check for interpolated VALUES instead of parameters.
 
-        String interpolation can lead to Cypher injection vulnerabilities.
-        Always use $param syntax.
+        Value-position interpolation builds query text out of runtime data —
+        the Cypher-injection shape. Two forms are flagged:
+
+        - Quoted interpolation: ``'{var}'`` / ``"{var}"`` — a string literal
+          assembled from a Python variable (f-string or ``.format()`` template).
+        - Operator-adjacent interpolation: ``= {var}``, ``> {var}``,
+          ``IN {var}``, ``CONTAINS {var}`` — a comparison operand assembled
+          from a variable (also matches Neo4j's removed pre-4.0 ``{param}``
+          parameter syntax, dead on the current server either way).
+
+        NOT flagged — the sanctioned below-boundary composition patterns:
+        clause fragments (``{where_clause}``), validated identifiers
+        (``(n:{label})``, ``[r:{rel_type}]`` — guarded by validate_label() /
+        validate_identifier()), and variable-length bounds (``*1..{depth}``,
+        which Cypher cannot parameterize). The pre-2026-07 version flagged all
+        of those (157 false positives) while its ':'-within-5-chars exemption
+        missed real quoted map values like ``{{uid: '{source_uid}'}}``.
+
+        Suppress a boundary-shaped hit with ``// noqa: CYP003 - <reason>``.
         """
         violations: list[Violation] = []
 
-        # Check for f-strings or .format() in the query context
-        # This is tricky because we're analyzing extracted queries
-        # Look for {variable_name} patterns that aren't Cypher syntax
+        # Doubled braces ({{ }}) are f-string escapes for literal braces —
+        # the inner text is not interpolation. Quoted values inside them still
+        # are: '{var}' carries its own single-braced group.
+        # {expr} allows dotted/indexed f-string expressions ({node.uid},
+        # {row[0]}) — but no ':' (Cypher map syntax) and no whitespace.
+        expr = r"\{[A-Za-z_][^{}:\s]*\}"
+        value_shapes = re.compile(
+            rf"""
+            ['\"]{expr}['\"]                                 # '{{var}}' / "{{var}}"
+          | (?: (?<![<>=!:])=[~]?(?![=])                     # = or =~ (not ==, <=, >=, <>, !=)
+              | <> | <= | >=
+              | (?<![-=<>])>(?![=>])                         # > but not ->, >=, >>
+              | (?<![-<>])<(?![=<>-])                        # < but not <-, <=, <>
+              | \b(?:IN|CONTAINS|STARTS\s+WITH|ENDS\s+WITH)\b
+            )
+            \s* (?<!\{{){expr}(?!\}})                        # {{var}} not {{{{var}}}}
+            """,
+            re.VERBOSE | re.IGNORECASE,
+        )
 
-        # Pattern: {some_var} that's not part of Cypher map syntax
-        interpolation_pattern = r"\{[a-zA-Z_][a-zA-Z0-9_]*\}"
+        for match in re.finditer(value_shapes, query):
+            line_num = start_line + query[: match.start()].count("\n")
+            line_content = self._get_line_at_position(query, match.start())
 
-        for match in re.finditer(interpolation_pattern, query):
-            # Check if this is actual Cypher map syntax
-            # Cypher maps look like: {key: value, key2: value2}
-            # Interpolation looks like: {variable_name}
+            # Skip if line has noqa suppression for this rule
+            if re.search(r"noqa:\s*CYP003", line_content):
+                continue
 
-            context_start = max(0, match.start() - 5)
-            context_end = min(len(query), match.end() + 5)
-            context = query[context_start:context_end]
-
-            # If there's a colon nearby, it's probably Cypher map syntax
-            if ":" not in context:
-                line_num = start_line + query[: match.start()].count("\n")
-                line_content = self._get_line_at_position(query, match.start())
-
-                violations.append(
-                    Violation(
-                        rule_code="CYP003",
-                        severity=Severity.WARNING,
-                        message="Possible string interpolation detected",
-                        file_path=file_path,
-                        line_number=line_num,
-                        line_content=line_content,
-                        suggestion="Use parameterized queries: $param instead of {variable}",
-                    )
+            violations.append(
+                Violation(
+                    rule_code="CYP003",
+                    severity=Severity.ERROR,
+                    message="Interpolated value in Cypher query (injection risk)",
+                    file_path=file_path,
+                    line_number=line_num,
+                    line_content=line_content,
+                    suggestion=(
+                        "Pass the value as a driver parameter: $param instead of "
+                        "'{variable}' / = {variable}"
+                    ),
                 )
+            )
 
         return violations
 
@@ -705,14 +760,20 @@ def find_python_files_with_cypher(root_dir: Path) -> list[Path]:
     Find Python files that likely contain Cypher queries.
 
     Looks in:
-    - core/services/
-    - adapters/persistence/neo4j/
-    - core/models/query/
+    - core/services/ (docstring Cypher examples — SKUEL021 bans executable Cypher)
+    - adapters/persistence/neo4j/ (the below-boundary home of all executable Cypher)
+    - scripts/ (migrations and maintenance scripts run raw Cypher directly —
+      added 2026-07; the previous list also globbed core/models/query/, a tree
+      that no longer exists)
+    - tests/integration/
+
+    tests/unit/ is deliberately excluded: the linter's own test fixtures are
+    intentionally-bad queries.
     """
     patterns = [
         "core/services/**/*.py",
         "adapters/persistence/neo4j/**/*.py",
-        "core/models/query/**/*.py",
+        "scripts/**/*.py",
         "tests/integration/**/*.py",
     ]
 

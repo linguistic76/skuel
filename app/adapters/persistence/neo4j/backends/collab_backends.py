@@ -172,7 +172,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
         OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-          WHERE sub.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          WHERE sub.pipeline = $pipeline
             AND NOT sub.status IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
@@ -184,7 +184,9 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
                count(DISTINCT sub) AS pending_count
         ORDER BY created_at DESC
         """
-        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+        )
 
     async def get_group_detail(
         self, group_uid: str, teacher_uid: str
@@ -195,7 +197,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (member)-[:{RelationshipName.OWNS.value}]->(sub:Entity:UserEntry)
                       -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-          WHERE sub.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          WHERE sub.pipeline = $pipeline
         RETURN member.uid AS user_uid,
                member.name AS user_name,
                r.role AS role,
@@ -205,7 +207,14 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
                count(DISTINCT CASE WHEN sub.status IN ['submitted', 'active', 'revision_requested'] THEN sub.uid END) AS pending_count
         ORDER BY r.joined_at
         """
-        return await self.execute_query(query, {"group_uid": group_uid, "teacher_uid": teacher_uid})
+        return await self.execute_query(
+            query,
+            {
+                "group_uid": group_uid,
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+            },
+        )
 
     async def get_or_create_default_group(
         self, teacher_uid: str, now: str

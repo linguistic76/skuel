@@ -213,7 +213,7 @@ class _UserEntryAssessmentMixin:
         """
         query = f"""
         MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
-        WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+        WHERE s.pipeline = $pipeline
           AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (fb:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
@@ -225,7 +225,12 @@ class _UserEntryAssessmentMixin:
         ORDER BY s.created_at DESC
         """
         return await self.execute_query(
-            query, {"exercise_uid": exercise_uid, "teacher_uid": teacher_uid}
+            query,
+            {
+                "exercise_uid": exercise_uid,
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+            },
         )
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
@@ -233,7 +238,7 @@ class _UserEntryAssessmentMixin:
         query = f"""
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE student.uid <> $teacher_uid
-          AND ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          AND ku.pipeline = $pipeline
           AND EXISTS {{ (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         WITH student,
              count(DISTINCT ku) AS submission_count,
@@ -245,7 +250,9 @@ class _UserEntryAssessmentMixin:
                submission_count - reviewed_count AS pending_count
         ORDER BY pending_count DESC, submission_count DESC
         """
-        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+        )
 
     async def get_student_entries_for_teacher(
         self, teacher_uid: str, student_uid: str
@@ -265,7 +272,7 @@ class _UserEntryAssessmentMixin:
         """
         query = f"""
         MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
-        WHERE ku.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+        WHERE ku.pipeline = $pipeline
           AND EXISTS {{
             (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group {{is_active: true}})
                 <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
@@ -280,7 +287,12 @@ class _UserEntryAssessmentMixin:
         ORDER BY ku.created_at DESC
         """
         return await self.execute_query(
-            query, {"teacher_uid": teacher_uid, "student_uid": student_uid}
+            query,
+            {
+                "teacher_uid": teacher_uid,
+                "student_uid": student_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+            },
         )
 
     async def update_entry_score(
@@ -311,7 +323,7 @@ class _UserEntryAssessmentMixin:
         WHERE g.is_active = true
         MATCH (s:Entity:UserEntry {{uid: $entry_uid}})
               -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-        WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+        WHERE s.pipeline = $pipeline
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
@@ -329,7 +341,14 @@ class _UserEntryAssessmentMixin:
                ex.title AS exercise_title,
                ex.instructions AS exercise_instructions
         """
-        return await self.execute_query(query, {"entry_uid": entry_uid, "teacher_uid": teacher_uid})
+        return await self.execute_query(
+            query,
+            {
+                "entry_uid": entry_uid,
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+            },
+        )
 
     async def get_dashboard_stats(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
         """At-a-glance stats for the teacher dashboard, scoped to the teacher's classroom.
@@ -344,7 +363,7 @@ class _UserEntryAssessmentMixin:
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (sub:Entity:UserEntry)
                       -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-          WHERE sub.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
+          WHERE sub.pipeline = $pipeline
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
@@ -354,7 +373,9 @@ class _UserEntryAssessmentMixin:
           count(DISTINCT ex) AS total_exercises,
           count(DISTINCT g) AS total_groups
         """
-        return await self.execute_query(query, {"teacher_uid": teacher_uid})
+        return await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+        )
 
     async def verify_teacher_has_group_access(
         self, submission_uid: str, teacher_uid: str

@@ -97,7 +97,6 @@ def build_graph_context_query(
         return f"""
             MATCH (u:Entity {{uid: $uid}})
             OPTIONAL MATCH path = (u)-[r*0..{depth}]-(related)
-            WHERE length(path) <= {depth}
             WITH u, collect(DISTINCT related) as nodes, collect(DISTINCT r) as relationships
             RETURN nodes, relationships,
                    [rel in relationships | type(rel)] as relationship_types
