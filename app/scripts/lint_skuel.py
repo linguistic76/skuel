@@ -153,11 +153,18 @@ Uncategorized TODOs should be tagged with one of the above categories.""",
         "title": "Use Errors Factory for Result.fail()",
         "severity": "WARNING",
         "description": """Use the Errors factory (Errors.validation(), Errors.not_found(), etc.)
-instead of string-based Result.fail() for structured error handling.""",
+instead of string-based Result.fail() for structured error handling. Catches both
+string literals and str(...) wraps; propagate existing failures with
+Result.fail(result), not Result.fail(str(result.error)).
+
+Scope: core/services/ plus the inbound/presentation layers (adapters/inbound/,
+ui/, api/).""",
         "good": """return Result.fail(Errors.not_found("Task", uid))
-return Result.fail(Errors.validation("Invalid input", field="email"))""",
+return Result.fail(Errors.validation("Invalid input", field="email"))
+return Result.fail(result)  # Error propagation""",
         "bad": """return Result.fail("Task not found")  # String-based
-return Result.fail(f"Error: {e}")  # String-based""",
+return Result.fail(f"Error: {e}")  # String-based
+return Result.fail(str(result.error))  # str() wrap - use Result.fail(result)""",
     },
     "SKUEL008": {
         "title": "No Wrapper Classes Around UniversalNeo4jBackend",
@@ -1406,16 +1413,15 @@ class SkuelLinter:
                     self._check_semantic_type_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL005"):
                     self._check_result_return_types(file_path, rel_path, content, lines, tree)
-                if self._should_run_rule("SKUEL007"):
-                    self._check_string_result_fail(file_path, rel_path, content, lines)
 
             # Inbound/presentation layers (routes, UI renderers, api/ models) —
-            # raw relationship-type and entity-type strings creep in here too, so
-            # SKUEL013 and SKUEL014 run on these layers in addition to services.
-            # SKUEL007 stays service-only for now; widening it is the staged
-            # follow-up PR.
+            # raw relationship-type / entity-type / error strings creep in here
+            # too, so SKUEL007, SKUEL013, and SKUEL014 run on these layers in
+            # addition to services.
             is_inbound_layer = rel_path.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
             if (is_service or is_inbound_layer) and not is_test:
+                if self._should_run_rule("SKUEL007"):
+                    self._check_string_result_fail(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL013"):
                     self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL014"):
@@ -1866,15 +1872,21 @@ class SkuelLinter:
     ) -> None:
         """
         SKUEL007 [WARNING]: Use Errors factory instead of string Result.fail().
+
+        Scope: services + inbound/presentation layers (adapters/inbound/, ui/,
+        api/) — see the shared widened gate in _lint_file.
+
+        Two string shapes: a literal first argument (``Result.fail("...")`` /
+        f-string) and a ``str(...)`` wrap (``Result.fail(str(e))`` /
+        ``Result.fail(str(result.error))``). The latter is how real violations
+        dodged the literal-only pattern — error propagation should be
+        ``Result.fail(result)``, exception paths an Errors factory call.
         """
-        pattern = r'Result\.fail\s*\(\s*[f]?["\']'
+        pattern = r'Result\.fail\s*\(\s*(?:f?["\']|str\s*\()'
 
         for match in re.finditer(pattern, content):
             line_num = content[: match.start()].count("\n") + 1
             line = lines[line_num - 1]
-
-            if "Errors." in line or "result.error" in line or ".error)" in line:
-                continue
 
             self.result.violations.append(
                 Violation(
@@ -1884,7 +1896,10 @@ class SkuelLinter:
                     severity=Severity.WARNING,
                     rule_id="SKUEL007",
                     message="String-based Result.fail() - use Errors factory",
-                    suggestion="Use Errors.validation(), Errors.not_found(), etc.",
+                    suggestion=(
+                        "Use Errors.validation(), Errors.not_found(), etc.; "
+                        "propagate failures with Result.fail(result)"
+                    ),
                     line_content=line.strip(),
                 )
             )
