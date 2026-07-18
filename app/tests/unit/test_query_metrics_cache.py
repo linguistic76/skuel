@@ -73,7 +73,7 @@ def query_metrics_cache(prometheus_metrics) -> QueryMetricsCache:
     cache = QueryMetricsCache(prometheus_metrics, enabled=True)
     yield cache
     # Reset cache after each test
-    cache.reset_sync()
+    cache.reset()
 
 
 @pytest.fixture(autouse=True)
@@ -90,16 +90,15 @@ def setup_global_cache(query_metrics_cache):
 # ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_operation_timing_recording(query_metrics_cache):
+def test_operation_timing_recording(query_metrics_cache):
     """Test that operation timing is recorded in cache."""
     # Record operation timing
-    await query_metrics_cache.record_timing(
+    query_metrics_cache.record_timing(
         operation_name="ku_search_by_title", duration_ms=45.0, had_error=False
     )
 
     # Get metrics from cache
-    metrics = await query_metrics_cache.get_metrics()
+    metrics = query_metrics_cache.get_metrics()
 
     assert "ku_search_by_title" in metrics
     op_metrics = metrics["ku_search_by_title"]
@@ -107,21 +106,20 @@ async def test_operation_timing_recording(query_metrics_cache):
     assert op_metrics["avg_time_ms"] == 45.0
 
 
-@pytest.mark.asyncio
-async def test_operation_error_tracking(query_metrics_cache):
+def test_operation_error_tracking(query_metrics_cache):
     """Test that operation errors are tracked in cache."""
     # Record successful execution
-    await query_metrics_cache.record_timing(
+    query_metrics_cache.record_timing(
         operation_name="task_create", duration_ms=30.0, had_error=False
     )
 
     # Record failed execution
-    await query_metrics_cache.record_timing(
+    query_metrics_cache.record_timing(
         operation_name="task_create", duration_ms=25.0, had_error=True
     )
 
     # Get metrics
-    metrics = await query_metrics_cache.get_metrics()
+    metrics = query_metrics_cache.get_metrics()
 
     assert "task_create" in metrics
     op_metrics = metrics["task_create"]
@@ -130,18 +128,17 @@ async def test_operation_error_tracking(query_metrics_cache):
     assert op_metrics["error_rate"] == 50.0  # 1 error out of 2 calls
 
 
-@pytest.mark.asyncio
-async def test_percentile_calculation(query_metrics_cache):
+def test_percentile_calculation(query_metrics_cache):
     """Test that p95 and p99 percentiles are calculated correctly."""
     # Record 10 executions with varying durations
     durations = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
     for duration in durations:
-        await query_metrics_cache.record_timing(
+        query_metrics_cache.record_timing(
             operation_name="test_op", duration_ms=duration, had_error=False
         )
 
     # Get metrics
-    metrics = await query_metrics_cache.get_metrics()
+    metrics = query_metrics_cache.get_metrics()
 
     assert "test_op" in metrics
     op_metrics = metrics["test_op"]
@@ -152,22 +149,19 @@ async def test_percentile_calculation(query_metrics_cache):
     assert op_metrics["max_time_ms"] == 100.0
 
 
-@pytest.mark.asyncio
-async def test_cache_summary(query_metrics_cache):
+def test_cache_summary(query_metrics_cache):
     """Test cache summary aggregation."""
     # Record metrics for multiple operations
-    await query_metrics_cache.record_timing(
-        operation_name="ku_search", duration_ms=30.0, had_error=False
-    )
-    await query_metrics_cache.record_timing(
+    query_metrics_cache.record_timing(operation_name="ku_search", duration_ms=30.0, had_error=False)
+    query_metrics_cache.record_timing(
         operation_name="task_create", duration_ms=40.0, had_error=False
     )
-    await query_metrics_cache.record_timing(
+    query_metrics_cache.record_timing(
         operation_name="goal_update", duration_ms=50.0, had_error=True
     )
 
     # Get summary
-    summary = await query_metrics_cache.get_summary()
+    summary = query_metrics_cache.get_summary()
 
     assert summary["enabled"] is True
     assert summary["total_operations"] == 3
@@ -178,50 +172,43 @@ async def test_cache_summary(query_metrics_cache):
     assert "slowest_operations" in summary
 
 
-@pytest.mark.asyncio
-async def test_cache_reset(query_metrics_cache):
+def test_cache_reset(query_metrics_cache):
     """Test cache reset functionality."""
     # Record some metrics
-    await query_metrics_cache.record_timing(
-        operation_name="test_op", duration_ms=30.0, had_error=False
-    )
+    query_metrics_cache.record_timing(operation_name="test_op", duration_ms=30.0, had_error=False)
 
     # Verify metrics exist
-    metrics_before = await query_metrics_cache.get_metrics()
+    metrics_before = query_metrics_cache.get_metrics()
     assert len(metrics_before) == 1
 
     # Reset cache
-    await query_metrics_cache.reset()
+    query_metrics_cache.reset()
 
     # Verify cache is empty
-    metrics_after = await query_metrics_cache.get_metrics()
+    metrics_after = query_metrics_cache.get_metrics()
     assert len(metrics_after) == 0
 
 
-@pytest.mark.asyncio
-async def test_cache_lossy_behavior(query_metrics_cache):
+def test_cache_lossy_behavior(query_metrics_cache):
     """Test that cache is lossy (only keeps last 100 timings per operation)."""
     # Record 150 timings for same operation
     for i in range(150):
-        await query_metrics_cache.record_timing(
+        query_metrics_cache.record_timing(
             operation_name="test_op", duration_ms=30.0 + i, had_error=False
         )
 
     # Get metrics
-    metrics = await query_metrics_cache.get_metrics()
+    metrics = query_metrics_cache.get_metrics()
 
     # Cache should only have 100 timings (maxlen of deque)
     assert "test_op" in metrics
     assert metrics["test_op"]["call_count"] == 100  # Only last 100 calls
 
 
-@pytest.mark.asyncio
-async def test_prometheus_writes(query_metrics_cache, prometheus_metrics):
+def test_prometheus_writes(query_metrics_cache, prometheus_metrics):
     """Test that metrics are written to Prometheus."""
     # Record operation timing
-    await query_metrics_cache.record_timing(
-        operation_name="test_op", duration_ms=45.0, had_error=False
-    )
+    query_metrics_cache.record_timing(operation_name="test_op", duration_ms=45.0, had_error=False)
 
     # Verify Prometheus metrics exist
     assert prometheus_metrics.queries.operation_calls_total is not None
@@ -229,36 +216,21 @@ async def test_prometheus_writes(query_metrics_cache, prometheus_metrics):
     assert prometheus_metrics.queries.operation_errors_total is not None
 
 
-@pytest.mark.asyncio
-async def test_disabled_cache(prometheus_metrics):
+def test_disabled_cache(prometheus_metrics):
     """Test that cache can be disabled while Prometheus still works."""
     # Create cache with caching disabled
     cache = QueryMetricsCache(prometheus_metrics, enabled=False)
 
     # Record metrics
-    await cache.record_timing(operation_name="test_op", duration_ms=30.0, had_error=False)
+    cache.record_timing(operation_name="test_op", duration_ms=30.0, had_error=False)
 
     # Cache should be empty
-    metrics = await cache.get_metrics()
+    metrics = cache.get_metrics()
     assert len(metrics) == 0
 
     # But summary should indicate disabled state
-    summary = await cache.get_summary()
+    summary = cache.get_summary()
     assert summary["enabled"] is False
-
-
-def test_sync_recording(query_metrics_cache):
-    """Test synchronous recording method."""
-    # Record timing synchronously
-    query_metrics_cache.record_timing_sync(
-        operation_name="sync_op", duration_ms=25.0, had_error=False
-    )
-
-    # Get metrics synchronously
-    metrics = query_metrics_cache.get_metrics_sync()
-
-    assert "sync_op" in metrics
-    assert metrics["sync_op"]["call_count"] == 1
 
 
 # ============================================================================

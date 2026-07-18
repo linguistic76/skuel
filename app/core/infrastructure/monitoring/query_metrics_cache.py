@@ -207,48 +207,20 @@ class QueryMetricsCache:
 
         logger.info(f"QueryMetricsCache initialized (cache_enabled={enabled})")
 
-    async def record_timing(
+    def record_timing(
         self, operation_name: str, duration_ms: float, had_error: bool = False
     ) -> None:
         """
         Record timing for an operation.
 
         Writes to Prometheus (source of truth) and updates cache (debugging).
+        Synchronous — the Prometheus client is thread-safe and the cache is
+        in-memory, so async and sync contexts share this one method.
 
         Args:
             operation_name: Name of the operation (e.g., "ku_search_by_title")
             duration_ms: Execution duration in milliseconds
             had_error: Whether the operation had an error
-        """
-        # Write to Prometheus (ALWAYS - source of truth)
-        self.prometheus_metrics.queries.operation_calls_total.labels(
-            operation_name=operation_name
-        ).inc()
-
-        self.prometheus_metrics.queries.operation_duration_seconds.labels(
-            operation_name=operation_name
-        ).observe(duration_ms / 1000.0)
-
-        if had_error:
-            self.prometheus_metrics.queries.operation_errors_total.labels(
-                operation_name=operation_name
-            ).inc()
-
-        # Update cache (debugging only)
-        if self.enabled:
-            if operation_name not in self._operations:
-                self._operations[operation_name] = CachedOperationMetrics(
-                    operation_name=operation_name
-                )
-            self._operations[operation_name].record_timing(duration_ms, had_error)
-
-    def record_timing_sync(
-        self, operation_name: str, duration_ms: float, had_error: bool = False
-    ) -> None:
-        """
-        Synchronous version of record_timing for non-async contexts.
-
-        Note: Prometheus client is thread-safe and can be called synchronously.
         """
         # Write to Prometheus (ALWAYS - source of truth)
         self.prometheus_metrics.queries.operation_calls_total.labels(
@@ -285,7 +257,7 @@ class QueryMetricsCache:
             return {}
         return {name: m.to_dict() for name, m in self._operations.items()}
 
-    async def get_metrics(self, operation_name: str | None = None) -> dict[str, Any]:
+    def get_metrics(self, operation_name: str | None = None) -> dict[str, Any]:
         """Get cached metrics for specific operation or all operations."""
         if operation_name is not None:
             result = self._get_one_metric(operation_name)
@@ -294,17 +266,8 @@ class QueryMetricsCache:
             )  # boundary: public-api — callers in metrics.py expect dict[str, Any]
         return self._get_all_metrics()
 
-    def get_metrics_sync(self, operation_name: str | None = None) -> dict[str, Any]:
-        """Synchronous version of get_metrics."""
-        if operation_name is not None:
-            result = self._get_one_metric(operation_name)
-            return (
-                cast("dict[str, Any]", result) if result is not None else {}
-            )  # boundary: public-api — callers in metrics.py expect dict[str, Any]
-        return self._get_all_metrics()
-
-    def _get_summary(self) -> QueryMetricsSummaryDict:
-        """Build the cache-only metrics summary used by async and sync APIs."""
+    def get_summary(self) -> QueryMetricsSummaryDict:
+        """Get summary of cached query metrics."""
         if not self.enabled:
             return QueryMetricsSummaryDict(
                 enabled=False,
@@ -345,27 +308,11 @@ class QueryMetricsCache:
             operations=self._get_all_metrics(),
         )
 
-    async def get_summary(self) -> QueryMetricsSummaryDict:
-        """Get summary of cached query metrics."""
-        return self._get_summary()
-
-    def get_summary_sync(self) -> QueryMetricsSummaryDict:
-        """Synchronous version of get_summary."""
-        return self._get_summary()
-
-    def _reset(self) -> None:
-        """Reset cache state without touching Prometheus metrics."""
+    def reset(self) -> None:
+        """Reset cache (for testing). Does NOT reset Prometheus metrics."""
         self._operations.clear()
         self.start_time = datetime.now(UTC)
         logger.info("QueryMetricsCache reset (Prometheus metrics unchanged)")
-
-    async def reset(self) -> None:
-        """Reset cache (for testing)."""
-        self._reset()
-
-    def reset_sync(self) -> None:
-        """Synchronous version of reset."""
-        self._reset()
 
 
 __all__ = [
