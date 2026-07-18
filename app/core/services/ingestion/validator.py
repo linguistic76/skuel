@@ -232,7 +232,7 @@ def validate_entity_data(
     return Result.ok(None)
 
 
-async def validate_file(
+async def validate_file(  # skuel-lint: disable=SKUEL029 -- public validation API: awaited via UnifiedIngestionService.validate_file delegation + tests; sibling validate_directory is async
     file_path: Path,
     default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int | None = None,

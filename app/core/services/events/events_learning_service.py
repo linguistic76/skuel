@@ -219,7 +219,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
         return Result.ok(event)
 
-    async def suggest_spaced_repetition_events(
+    async def suggest_spaced_repetition_events(  # skuel-lint: disable=SKUEL029 -- facade-delegated: EventsService awaits this via delegation
         self,
         _user_uid: UserUID,
         knowledge_uid: str,

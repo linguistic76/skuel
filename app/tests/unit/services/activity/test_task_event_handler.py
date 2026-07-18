@@ -400,7 +400,7 @@ class TestHandleTasksBulkCompleted:
         )
 
         with patch.object(service.logger, "info") as mock_log:
-            await service.handle_tasks_bulk_completed(event)
+            service.handle_tasks_bulk_completed(event)
             log_calls = [c for c in mock_log.call_args_list if "inbox_zero_sprint" in str(c)]
             assert len(log_calls) == 1
 
@@ -414,7 +414,7 @@ class TestHandleTasksBulkCompleted:
         )
 
         with patch.object(service.logger, "info") as mock_log:
-            await service.handle_tasks_bulk_completed(event)
+            service.handle_tasks_bulk_completed(event)
             log_calls = [c for c in mock_log.call_args_list if "end_of_day_cleanup" in str(c)]
             assert len(log_calls) == 1
 

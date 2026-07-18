@@ -112,7 +112,11 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
         return Result.ok(relevant_tasks)
 
     @with_error_handling("get_next_learning_task", error_type="database")
-    async def get_next_learning_task(self, user_context: UserContext) -> Result[Task | None]:
+    async def get_next_learning_task(
+        self, user_context: UserContext
+    ) -> Result[
+        Task | None
+    ]:  # skuel-lint: disable=SKUEL029 -- facade-delegated: TasksService.get_next_learning_task awaits this via delegation
         """Get the next recommended learning task based on context."""
         ready_knowledge = user_context.get_ready_to_learn()
         if not ready_knowledge:
@@ -131,7 +135,7 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
             learning_position=learning_position, max_suggestions=limit
         )
 
-    async def create_tasks_from_learning_path(
+    async def create_tasks_from_learning_path(  # skuel-lint: disable=SKUEL029 -- facade-delegated: TasksService awaits this via delegation
         self, learning_path_uid: str, _user_context: UserContext
     ) -> Result[list[Task]]:
         """Create tasks from a learning path (stub — pending implementation)."""

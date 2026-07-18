@@ -172,16 +172,16 @@ class TaskKnowledgeAnalyzer:
                 rels = TaskRelationships.empty()
 
             base_priority = self._calculate_base_priority_score(task)
-            knowledge_enhancement = await self._calculate_knowledge_enhancement_score(
+            knowledge_enhancement = self._calculate_knowledge_enhancement_score(
                 task, rels, user_mastery_progressions
             )
-            learning_opportunity = await self._calculate_learning_opportunity_score(
+            learning_opportunity = self._calculate_learning_opportunity_score(
                 task, rels, learning_patterns
             )
-            mastery_progression = await self._calculate_mastery_progression_score(
+            mastery_progression = self._calculate_mastery_progression_score(
                 task, rels, user_mastery_progressions
             )
-            cross_domain_impact = await self._calculate_cross_domain_impact_score(
+            cross_domain_impact = self._calculate_cross_domain_impact_score(
                 task, rels, learning_patterns
             )
 
@@ -253,14 +253,12 @@ class TaskKnowledgeAnalyzer:
             insights: list[ActivityInsight] = []
             insights.extend(await self._generate_knowledge_area_insights(completed_tasks))
             insights.extend(
-                await self._generate_learning_velocity_insights(completed_tasks, learning_patterns)
+                self._generate_learning_velocity_insights(completed_tasks, learning_patterns)
             )
+            insights.extend(self._generate_application_effectiveness_insights(completed_tasks))
+            insights.extend(self._generate_mastery_validation_insights(completed_tasks))
             insights.extend(
-                await self._generate_application_effectiveness_insights(completed_tasks)
-            )
-            insights.extend(await self._generate_mastery_validation_insights(completed_tasks))
-            insights.extend(
-                await self._generate_cross_domain_insights(completed_tasks, learning_patterns)
+                self._generate_cross_domain_insights(completed_tasks, learning_patterns)
             )
 
             def _by_impact_and_confidence(insight: ActivityInsight) -> tuple[float, float]:
@@ -332,7 +330,7 @@ class TaskKnowledgeAnalyzer:
                 ]
                 if not relevant_tasks:
                     continue
-                progressions[knowledge_uid] = await self._calculate_mastery_progression(
+                progressions[knowledge_uid] = self._calculate_mastery_progression(
                     knowledge_uid, relevant_tasks
                 )
 
@@ -413,7 +411,7 @@ class TaskKnowledgeAnalyzer:
             )
         return patterns
 
-    async def _calculate_mastery_progression(
+    def _calculate_mastery_progression(
         self, knowledge_uid: str, tasks: list[Task]
     ) -> MasteryProgression:
         """Calculate mastery progression for a knowledge area."""
@@ -472,7 +470,7 @@ class TaskKnowledgeAnalyzer:
             PriorityScoringWeight.DEFAULT_PRIORITY,
         )
 
-    async def _calculate_knowledge_enhancement_score(
+    def _calculate_knowledge_enhancement_score(
         self, task: Task, rels: TaskRelationships, progressions: dict[str, MasteryProgression]
     ) -> float:
         if not rels.applies_knowledge_uids:
@@ -499,7 +497,7 @@ class TaskKnowledgeAnalyzer:
 
         return min(1.0, base_score + priority_boost)
 
-    async def _calculate_learning_opportunity_score(
+    def _calculate_learning_opportunity_score(
         self, task: Task, rels: TaskRelationships, patterns: list[LearningPattern]
     ) -> float:
         base_score = task.learning_opportunities_count / 10.0
@@ -513,7 +511,7 @@ class TaskKnowledgeAnalyzer:
 
         return min(1.0, base_score + pattern_boost)
 
-    async def _calculate_mastery_progression_score(
+    def _calculate_mastery_progression_score(
         self, task: Task, rels: TaskRelationships, progressions: dict[str, MasteryProgression]
     ) -> float:
         if not (rels.applies_knowledge_uids or rels.prerequisite_knowledge_uids):
@@ -548,7 +546,7 @@ class TaskKnowledgeAnalyzer:
 
         return min(1.0, base_score + urgency_boost)
 
-    async def _calculate_cross_domain_impact_score(
+    def _calculate_cross_domain_impact_score(
         self, task: Task, rels: TaskRelationships, patterns: list[LearningPattern]
     ) -> float:
         all_knowledge_uids = rels.applies_knowledge_uids + rels.inferred_knowledge_uids
@@ -691,7 +689,7 @@ class TaskKnowledgeAnalyzer:
 
         return insights
 
-    async def _generate_learning_velocity_insights(
+    def _generate_learning_velocity_insights(
         self, _tasks: list[Task], patterns: list[LearningPattern]
     ) -> list[ActivityInsight]:
         insights: list[ActivityInsight] = []
@@ -747,7 +745,7 @@ class TaskKnowledgeAnalyzer:
             )
         return insights
 
-    async def _generate_application_effectiveness_insights(
+    def _generate_application_effectiveness_insights(
         self, tasks: list[Task]
     ) -> list[ActivityInsight]:
         insights: list[ActivityInsight] = []
@@ -786,9 +784,7 @@ class TaskKnowledgeAnalyzer:
             )
         return insights
 
-    async def _generate_mastery_validation_insights(
-        self, tasks: list[Task]
-    ) -> list[ActivityInsight]:
+    def _generate_mastery_validation_insights(self, tasks: list[Task]) -> list[ActivityInsight]:
         insights: list[ActivityInsight] = []
         validation_tasks = [t for t in tasks if t.knowledge_mastery_check]
         if not validation_tasks:
@@ -838,7 +834,7 @@ class TaskKnowledgeAnalyzer:
             )
         return insights
 
-    async def _generate_cross_domain_insights(
+    def _generate_cross_domain_insights(
         self, _tasks: list[Task], patterns: list[LearningPattern]
     ) -> list[ActivityInsight]:
         insights: list[ActivityInsight] = []
