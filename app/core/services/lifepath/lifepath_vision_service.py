@@ -370,7 +370,7 @@ Focus on actionable aspirations, not generic words."""
 
         return Result.ok(recommendations[:limit])
 
-    async def calculate_word_action_alignment(
+    async def calculate_word_action_alignment(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self, vision_themes: list[str], user_context: UserContext
     ) -> Result[WordActionAlignment]:
         """

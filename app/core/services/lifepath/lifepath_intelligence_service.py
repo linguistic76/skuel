@@ -55,7 +55,7 @@ class LifePathIntelligenceService:
         self.user_service = user_service
         logger.info("LifePathIntelligenceService initialized")
 
-    async def get_recommendations(
+    async def get_recommendations(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self,
         user_uid: UserUID,
         alignment_data: LifePathAlignmentResult | None = None,
@@ -217,7 +217,7 @@ class LifePathIntelligenceService:
             },
         ]
 
-    async def get_daily_focus(
+    async def get_daily_focus(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self,
         user_uid: UserUID,
         alignment_data: LifePathAlignmentResult | None = None,

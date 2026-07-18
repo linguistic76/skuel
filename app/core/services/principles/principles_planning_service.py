@@ -164,7 +164,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
     # ========================================================================
 
     @with_error_handling("get_principles_needing_attention_for_user", error_type="database")
-    async def get_principles_needing_attention_for_user(
+    async def get_principles_needing_attention_for_user(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self,
         context: UserContext,
         limit: int = 5,
@@ -277,7 +277,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         return Result.ok(needing_attention[:limit])
 
     @with_error_handling("get_contextual_principles_for_user", error_type="database")
-    async def get_contextual_principles_for_user(
+    async def get_contextual_principles_for_user(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self,
         context: UserContext,
         limit: int = 3,
@@ -391,7 +391,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
         return Result.ok(result)
 
     @with_error_handling("get_principle_practice_opportunities_for_user", error_type="database")
-    async def get_principle_practice_opportunities_for_user(
+    async def get_principle_practice_opportunities_for_user(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self,
         context: UserContext,
         principle_uid: str | None = None,
