@@ -754,7 +754,9 @@ breaks every awaiting call site. The staged promotion path is CYP003's: codify t
 now, shrink the debt incrementally, then promote by removing it from `OPT_IN_RULES`.
 
 **Exemptions:** trivial bodies (docstring-only, `pass`, `...`, bare `raise`) — protocol
-methods and abstract stubs are declarations, not offenders.
+methods and abstract stubs are declarations, not offenders — and async generators (an
+own `yield`): their `async def` is load-bearing even without awaits, since sync-ifying
+turns the async iterator into a sync generator and breaks every `async for` caller.
 
 **Scope:** all non-test files, when explicitly selected.
 

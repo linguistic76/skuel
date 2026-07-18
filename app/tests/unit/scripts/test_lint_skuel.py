@@ -3773,6 +3773,12 @@ class TestSKUEL028:
         violations = lint_content(linter, content)
         assert len(violations) == 1
 
+    def test_detects_keyword_argument_form(self) -> None:
+        # Result.fail(error=r.expect_error()) is the same bypass (Codex P2, #678).
+        linter = make_linter(["SKUEL028"])
+        violations = lint_content(linter, "x = Result.fail(error=r.expect_error())")
+        assert len(violations) == 1
+
     def test_propagation_clean(self) -> None:
         linter = make_linter(["SKUEL028"])
         violations = lint_content(linter, "x = Result.fail(result)")
@@ -3868,6 +3874,14 @@ class TestSKUEL029:
             "async def passer():\n"
             "    pass\n"
         )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_async_generator_exempt(self) -> None:
+        # A yield-only async def is an ASYNC GENERATOR — async is load-bearing
+        # without awaits; sync-ifying breaks `async for` callers (Codex P3, #678).
+        linter = make_linter(["SKUEL029"])
+        content = "async def stream(items):\n    for item in items:\n        yield item"
         violations = lint_content(linter, content)
         assert len(violations) == 0
 

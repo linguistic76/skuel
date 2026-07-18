@@ -798,9 +798,10 @@ protocol conformance) where sync-ifying breaks every await call site. Run the au
     uv run python scripts/lint_skuel.py --rule SKUEL029
 
 Trivial bodies are exempt (docstring-only, `pass`, `...`, bare `raise`) — protocol
-methods and abstract stubs are declarations, not offenders. Awaits inside NESTED
-functions don't count for the enclosing def (they belong to the nested one). The staged
-promotion path is CYP003's: shrink the debt, then drop the rule from OPT_IN_RULES.""",
+methods and abstract stubs are declarations, not offenders. Async generators (an own
+`yield`) are exempt: `async def` is load-bearing there even without awaits. Awaits inside
+NESTED functions don't count for the enclosing def (they belong to the nested one). The
+staged promotion path is CYP003's: shrink the debt, then drop the rule from OPT_IN_RULES.""",
         "good": """async def fetch_task(self, uid: str) -> Result[Task]:
     return await self.backend.get_by_uid(uid)  # awaits — genuinely async
 
@@ -4076,10 +4077,13 @@ class SkuelLinter:
             ):
                 continue
 
+            # Positional AND keyword arguments — Result.fail(error=r.expect_error())
+            # is the same bypass shape (Codex P2 on #678).
+            arg_exprs = [*node.args, *(kw.value for kw in node.keywords)]
             unwrap = next(
                 (
                     sub
-                    for arg in node.args
+                    for arg in arg_exprs
                     for sub in ast.walk(arg)
                     if isinstance(sub, ast.Call)
                     and isinstance(sub.func, ast.Attribute)
@@ -4175,6 +4179,8 @@ class SkuelLinter:
         ``async with`` of its own (nested defs' awaits belong to the nested
         function). Trivial bodies — docstring-only, ``pass``, ``...``, a bare
         ``raise`` — are exempt: protocol methods and stubs are declarations.
+        Async GENERATORS (an own ``yield``) are exempt too: their ``async def``
+        is load-bearing without awaits — sync-ifying breaks ``async for`` callers.
 
         Opt-in audit (see OPT_IN_RULES): run via --rule SKUEL029.
         """
@@ -4218,8 +4224,12 @@ class SkuelLinter:
         for node in ast.walk(tree):
             if not isinstance(node, ast.AsyncFunctionDef) or is_trivial(node):
                 continue
+            # An own yield makes this an ASYNC GENERATOR — `async def` is
+            # load-bearing there even without awaits: converting to `def`
+            # turns the async iterator into a sync generator and breaks every
+            # `async for` caller (Codex P3 on #678).
             if any(
-                isinstance(sub, (ast.Await, ast.AsyncFor, ast.AsyncWith))
+                isinstance(sub, (ast.Await, ast.AsyncFor, ast.AsyncWith, ast.Yield))
                 for sub in own_statements(node)
             ):
                 continue
