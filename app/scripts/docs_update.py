@@ -109,10 +109,11 @@ def gather_context(doc_path: Path, project_root: Path) -> UpdateContext | None:
                     code_files[ref] = f"[Error reading file: {ref}]"
             elif full_path.is_dir():
                 # For directories, list the files and read key ones
-                file_list = []
-                for f in full_path.rglob("*.py"):
-                    if not f.name.startswith("_") or f.name == "__init__.py":
-                        file_list.append(str(f.relative_to(project_root)))
+                file_list = [
+                    str(f.relative_to(project_root))
+                    for f in full_path.rglob("*.py")
+                    if not f.name.startswith("_") or f.name == "__init__.py"
+                ]
                 code_files[ref] = f"[Directory containing: {', '.join(sorted(file_list)[:20])}]"
         else:
             code_files[ref] = f"[File not found: {ref}]"
@@ -139,8 +140,7 @@ def build_prompt(context: UpdateContext) -> str:
     prompt_parts.append("```\n")
 
     prompt_parts.append("## Stale References (code files newer than doc)\n")
-    for ref in context.stale_refs:
-        prompt_parts.append(f"- `{ref}`")
+    prompt_parts.extend(f"- `{ref}`" for ref in context.stale_refs)
     prompt_parts.append("")
 
     prompt_parts.append("## Referenced Code Files\n")

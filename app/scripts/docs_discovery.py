@@ -103,13 +103,8 @@ def extract_internal_links(content: str) -> list[str]:
 
 def check_link_exists(link: str, doc_path: Path, docs_dir: Path) -> bool:
     """Check if an internal link target exists."""
-    # Handle relative paths
-    if link.startswith("/"):
-        # Absolute from project root
-        target = docs_dir.parent / link.lstrip("/")
-    else:
-        # Relative to current doc
-        target = doc_path.parent / link
+    # Absolute from project root, or relative to the current doc
+    target = docs_dir.parent / link.lstrip("/") if link.startswith("/") else doc_path.parent / link
 
     # Remove anchor if present
     target_str = str(target).split("#")[0]
@@ -166,10 +161,9 @@ def analyze_doc(filepath: Path, docs_dir: Path, all_docs: set[str]) -> DocMetada
 
     # Check internal links
     internal_links = extract_internal_links(content)
-    broken_links = []
-    for link in internal_links:
-        if not check_link_exists(link, filepath, docs_dir):
-            broken_links.append(link)
+    broken_links = [
+        link for link in internal_links if not check_link_exists(link, filepath, docs_dir)
+    ]
 
     # Check missing frontmatter fields
     required_fields = ["title", "updated", "status", "category", "tags"]

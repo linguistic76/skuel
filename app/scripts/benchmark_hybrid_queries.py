@@ -263,10 +263,7 @@ class QueryBenchmark:
             description = result["description"]
 
             # Calculate speedup vs baseline
-            if time_ms > 0:
-                speedup = f"{baseline_time / time_ms:.2f}x"
-            else:
-                speedup = "N/A"
+            speedup = f"{baseline_time / time_ms:.2f}x" if time_ms > 0 else "N/A"
 
             print(f"{pattern:<45} {time_ms:>10.2f}ms {result_count:>8} {speedup:>9} {description}")
 

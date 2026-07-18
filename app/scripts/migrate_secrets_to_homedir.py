@@ -28,7 +28,6 @@ The script asks for confirmation before any destructive write. Pass
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import shutil
 import sys
@@ -217,7 +216,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    env_path, secrets_dir, secrets_path = detect_paths()
+    env_path, _secrets_dir, secrets_path = detect_paths()
 
     print(f"Source:  {env_path}")
     print(f"Target:  {secrets_path}")
@@ -265,7 +264,7 @@ def main() -> int:
     print(f"✓ Backed up to {backup}")
 
     write_secrets_file(secrets_path, merged)
-    os.chmod(secrets_path, 0o600)
+    secrets_path.chmod(0o600)
     print(f"✓ Wrote {len(merged)} secrets to {secrets_path} (mode 0600)")
 
     new_env = rewrite_env_without_secrets(raw_lines)

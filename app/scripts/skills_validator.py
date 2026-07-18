@@ -69,8 +69,7 @@ def load_skills_metadata(metadata_path: Path) -> dict:
 
     try:
         content = metadata_path.read_text(encoding="utf-8")
-        data = yaml.safe_load(content)
-        return data
+        return yaml.safe_load(content)
     except yaml.YAMLError as e:
         print(f"Error: Failed to parse skills metadata: {e}", file=sys.stderr)
         sys.exit(1)
@@ -289,7 +288,7 @@ def detect_cycles(graph: dict[str, list[str]]) -> list[list[str]]:
             elif neighbor in rec_stack:
                 # Cycle detected
                 cycle_start = path.index(neighbor)
-                cycle = path[cycle_start:] + [neighbor]
+                cycle = [*path[cycle_start:], neighbor]
                 cycles.append(cycle)
 
         rec_stack.remove(node)

@@ -36,7 +36,7 @@ class VersionChange:
 def load_skills_metadata(base_path: Path) -> dict[str, Any]:
     """Load skills metadata from YAML."""
     metadata_file = base_path / ".claude" / "skills" / "skills_metadata.yaml"
-    with open(metadata_file) as f:
+    with metadata_file.open() as f:
         return yaml.safe_load(f)
 
 
@@ -82,8 +82,7 @@ def parse_uv_lock_packages(lock_file_path: Path) -> dict[str, str]:
         r'\[\[package\]\]\s+name = "([^"]+)"\s+version = "([^"]+)"', content, re.MULTILINE
     )
 
-    for name, version in package_blocks:
-        packages[name] = version
+    packages.update(package_blocks)
 
     return packages
 

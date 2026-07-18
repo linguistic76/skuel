@@ -42,7 +42,7 @@ def extract_delegations_from_file(filepath: Path) -> dict[str, tuple[str, str]]:
     Returns:
         Dictionary of {facade_method: (sub_service, target_method)}
     """
-    with open(filepath) as f:
+    with filepath.open() as f:
         source = f.read()
 
     tree = ast.parse(source)
@@ -59,8 +59,7 @@ def extract_delegations_from_file(filepath: Path) -> dict[str, tuple[str, str]]:
                     # Found _delegations assignment
                     # Try to evaluate it (works for simple dicts)
                     try:
-                        delegations = ast.literal_eval(item.value)
-                        return delegations
+                        return ast.literal_eval(item.value)
                     except ValueError, SyntaxError:
                         # Complex expression (merge_delegations, etc.)
                         # Fall back to parsing the structure

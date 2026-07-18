@@ -321,7 +321,7 @@ Examples:
     print(f"Parsing log file: {args.log_file}")
     metrics_list = []
 
-    with open(log_path) as f:
+    with log_path.open() as f:
         for line in f:
             metrics = parse_log_line(line)
             if metrics:

@@ -57,27 +57,25 @@ def path_to_uid(path: str) -> str:
 
 def extract_related_docs(content: str, fm: dict) -> list[str]:
     """Extract related document references."""
-    related = []
+    related: list[str] = []
 
     # From frontmatter
     fm_related = fm.get("related", [])
     if isinstance(fm_related, str):
         fm_related = [fm_related]
-    for rel in fm_related:
-        if rel and rel != "[]":
-            related.append(rel)
+    related.extend(rel for rel in fm_related if rel and rel != "[]")
 
     # From **See:** pointers
     see_pattern = r"\*\*See:\*\*\s*`?([^`\n]+)`?"
-    for match in re.finditer(see_pattern, content):
-        path = match.group(1).strip()
-        if path.endswith(".md"):
-            related.append(path)
+    related.extend(
+        path
+        for match in re.finditer(see_pattern, content)
+        if (path := match.group(1).strip()).endswith(".md")
+    )
 
     # From markdown links to .md files
     link_pattern = r"\[([^\]]+)\]\(([^)]+\.md)\)"
-    for match in re.finditer(link_pattern, content):
-        related.append(match.group(2))
+    related.extend(match.group(2) for match in re.finditer(link_pattern, content))
 
     return list(set(related))
 
@@ -186,12 +184,12 @@ def generate_cypher(docs_dir: Path) -> tuple[list[CypherJob], list[CypherJob]]:
 
     # Generate category nodes and relationships
     categories = set(node.category for node in all_docs.values())
-    for category in categories:
-        node_queries.append((CATEGORY_QUERY, {"name": category}))
+    node_queries.extend((CATEGORY_QUERY, {"name": category}) for category in categories)
 
     # Category relationships
-    for node in all_docs.values():
-        rel_queries.append((CATEGORY_REL_QUERY, {"uid": node.uid, "name": node.category}))
+    rel_queries.extend(
+        (CATEGORY_REL_QUERY, {"uid": node.uid, "name": node.category}) for node in all_docs.values()
+    )
 
     # Document relationships
     for source_path, target_path in all_relationships:
@@ -283,7 +281,7 @@ def main():
 
             # Execute relationship queries
             print("Creating relationships...")
-            for i, (query, params) in enumerate(rel_queries):
+            for query, params in rel_queries:
                 try:
                     session.run(query, params)
                 except Exception as e:

@@ -699,14 +699,16 @@ fixable = ["ALL"]
 # Core utilities with special import patterns
 "core/utils/result_simplified.py" = ["E402"]  # Has from __future__ import before docstring (correct per PEP 8)
 
-# Standalone scripts - E402 required for proper initialization
-# Scripts run directly (not as modules) and require setup before imports:
-#   1. sys.path.insert() - Add project root so scripts can import from core.*
-#   2. load_dotenv() - Load environment variables before core.config imports
-# These patterns are standard practice for standalone scripts and cannot be "fixed"
-# without breaking functionality. See PEP 8 Section "Module-level Dunder Names".
-# Scripts also don't require strict type annotations (ANN) - they're utilities, not API contracts.
-"scripts/*.py" = ["E402", "ANN", "ARG", "PTH", "SIM", "RET504", "RUF", "PERF", "B007", "E741", "E999"]  # Scripts: setup imports, utility patterns
+# Standalone scripts — the narrow, justified set (pruned 2026-07 from a broad
+# 11-code list that also masked E999 syntax errors):
+#   E402 — scripts run directly and require setup before imports
+#           (sys.path.insert() for core.* imports, load_dotenv() before
+#           core.config). Standard standalone-script practice.
+#   ARG  — unused interface/callback parameters (argparse handlers, protocol
+#           conformance); scripts are utilities, not API contracts.
+#   RUF001/002/003 — intentional Unicode/emoji in CLI output (✅⚠️→×), same
+#           precedent as the targeted infra-file ignores above.
+"scripts/*.py" = ["E402", "ARG", "RUF001", "RUF002", "RUF003"]  # Scripts: setup imports, CLI emoji
 
 # Infrastructure files - intentional Unicode in documentation
 "test_graphql_complexity.py" = ["RUF001", "RUF003"]  # GraphQL tests use × multiplication symbol

@@ -204,10 +204,7 @@ def main() -> None:
 
     patterns_dir = Path(__file__).parent.parent / "docs" / "patterns"
 
-    if args.file:
-        files = [Path(args.file)]
-    else:
-        files = sorted(patterns_dir.glob("*.md"))
+    files = [Path(args.file)] if args.file else sorted(patterns_dir.glob("*.md"))
 
     print(f"{'DRY RUN - ' if args.dry_run else ''}Processing {len(files)} files...\n")
 

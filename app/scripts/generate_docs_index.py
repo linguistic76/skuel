@@ -74,10 +74,7 @@ def get_doc_metadata(filepath: Path, docs_dir: Path) -> DocMeta:
 
     # Infer category from path
     parts = rel_path.parts
-    if len(parts) > 1:
-        category = parts[0]
-    else:
-        category = "top-level"
+    category = parts[0] if len(parts) > 1 else "top-level"
 
     # Count lines
     size_lines = len(content.split("\n"))

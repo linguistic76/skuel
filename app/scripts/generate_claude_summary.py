@@ -251,14 +251,18 @@ def main():
     # Priority categories first
     priority_order = ["architecture", "patterns", "dsl", "guides", "reference", "decisions"]
 
-    for category in priority_order:
-        if category in by_category:
-            output_lines.append(generate_category_section(category, by_category[category]))
+    output_lines.extend(
+        generate_category_section(category, by_category[category])
+        for category in priority_order
+        if category in by_category
+    )
 
     # Remaining categories
-    for category in sorted(by_category.keys()):
-        if category not in priority_order:
-            output_lines.append(generate_category_section(category, by_category[category]))
+    output_lines.extend(
+        generate_category_section(category, by_category[category])
+        for category in sorted(by_category.keys())
+        if category not in priority_order
+    )
 
     output = "\n".join(output_lines)
 

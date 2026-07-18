@@ -229,8 +229,7 @@ def extract_code_segments(content: str) -> list[tuple[int, str]]:
             continue
 
         # Inline backtick spans (not inside a fenced block)
-        for match in re.finditer(r"`([^`\n]+)`", line):
-            results.append((i, match.group(1)))
+        results.extend((i, match.group(1)) for match in re.finditer(r"`([^`\n]+)`", line))
 
     return results
 

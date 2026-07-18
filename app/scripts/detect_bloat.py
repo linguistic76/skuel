@@ -46,6 +46,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import ClassVar
 
 from core.utils.terminal_colors import Colors
 
@@ -553,7 +554,7 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/habit_event_scheduler.py::create_habit_routine": _HABIT_EVENT_AUTOMATION,
     "core/services/habit_event_scheduler.py::get_event_templates": _HABIT_EVENT_AUTOMATION,
     # --- User: cross-domain perception aggregator (ADR-030) ---
-    "core/services/user/intelligence/perception_intelligence.py::get_cross_domain_perception_analysis": (  # noqa: E501
+    "core/services/user/intelligence/perception_intelligence.py::get_cross_domain_perception_analysis": (
         _USER_PERCEPTION
     ),
     # --- User: rich-context principle-integration read surface ---
@@ -879,9 +880,11 @@ class ParsedCodebase:
             if target.is_file() and target.suffix == ".py":
                 files.append(target)
             elif target.is_dir():
-                for path in sorted(target.rglob("*.py")):
-                    if not EXCLUDED_PARTS.intersection(path.parts):
-                        files.append(path)
+                files.extend(
+                    path
+                    for path in sorted(target.rglob("*.py"))
+                    if not EXCLUDED_PARTS.intersection(path.parts)
+                )
         return files
 
     def _parse_into(self, path: Path, cache: dict[Path, ast.Module]) -> None:
@@ -1036,8 +1039,8 @@ class PublishWrapperInference:
     # would be ambiguous) and the canonical helper (Name or Attribute; its
     # signature publish_event(event_bus, event, logger) is the documented
     # contract at core/events/__init__.py).
-    PRIMITIVES = {"publish_async": 0, "publish": 0}
-    CANONICAL_HELPERS = {"publish_event": 1}
+    PRIMITIVES: ClassVar[dict[str, int]] = {"publish_async": 0, "publish": 0}
+    CANONICAL_HELPERS: ClassVar[dict[str, int]] = {"publish_event": 1}
 
     def __init__(self, codebase: ParsedCodebase) -> None:
         self.codebase = codebase
@@ -1048,9 +1051,11 @@ class PublishWrapperInference:
         defs: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]] = []
         for path, tree in self.codebase.production.items():
             rel = self.codebase.rel(path)
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    defs.append((rel, node))
+            defs.extend(
+                (rel, node)
+                for node in ast.walk(tree)
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            )
 
         changed = True
         while changed:
@@ -1502,21 +1507,21 @@ def analyze_events(
     # Stale planned markings for vanished subjects: a PLANNED_EVENTS key
     # absent from the event universe was deleted, renamed, or mistyped —
     # without this pass the registry would silently keep dead keys.
-    for cls in sorted(PLANNED_EVENTS):
-        if cls not in universe:
-            findings.append(
-                Finding(
-                    kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
-                    subject=cls,
-                    file="core/events/",
-                    line=0,
-                    detail=(
-                        "marked planned but no such event class exists — deleted, "
-                        "renamed, or mistyped; remove from PLANNED_EVENTS"
-                    ),
-                )
-            )
+    findings.extend(
+        Finding(
+            kind="planned-marking-stale",
+            severity=BloatSeverity.INFO,
+            subject=cls,
+            file="core/events/",
+            line=0,
+            detail=(
+                "marked planned but no such event class exists — deleted, "
+                "renamed, or mistyped; remove from PLANNED_EVENTS"
+            ),
+        )
+        for cls in sorted(PLANNED_EVENTS)
+        if cls not in universe
+    )
 
     return findings, exempted
 
@@ -1555,7 +1560,7 @@ class DispatchKnowledge:
     # method name. AIRouteSpec.method_name is field index 4 and the route
     # table in ai_routes.py passes it positionally, so the kwarg collector
     # alone misses every AI route's dispatch target.
-    POSITIONAL_METHOD_ARGS = {"AIRouteSpec": 4}
+    POSITIONAL_METHOD_ARGS: ClassVar[dict[str, int]] = {"AIRouteSpec": 4}
 
     # Operation-label constructs: their string argument names an operation for
     # error messages / Prometheus metrics and can never make a method
@@ -1563,8 +1568,8 @@ class DispatchKnowledge:
     # finding. Known SKUEL constructs only (core/utils/decorators.py,
     # core/utils/metrics.py, the Errors factory's ``operation=`` kwarg) — any
     # other identifier-shaped string still demotes.
-    LABEL_CALL_FIRST_ARG = {"with_error_handling", "track_query_metrics"}
-    LABEL_KWARGS = {"operation"}
+    LABEL_CALL_FIRST_ARG: ClassVar[set[str]] = {"with_error_handling", "track_query_metrics"}
+    LABEL_KWARGS: ClassVar[set[str]] = {"operation"}
 
     def __init__(self, codebase: ParsedCodebase) -> None:
         self.codebase = codebase

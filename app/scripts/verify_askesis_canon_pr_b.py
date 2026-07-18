@@ -85,14 +85,16 @@ async def main() -> int:
     if ctx is not None and ctx.has_passages:
         # ── 3. Teaching block: citation + faithfulness contract ────────────
         block = ctx.to_teaching_block()
-        for needle in (
-            "## Readings for This Step",
-            "Do not surrender the method",
-            "never invent a passage, chapter, or section",
-            "Hypermedia Systems",
-        ):
-            if needle not in block:
-                failures.append(f"teaching block missing: {needle!r}")
+        failures.extend(
+            f"teaching block missing: {needle!r}"
+            for needle in (
+                "## Readings for This Step",
+                "Do not surrender the method",
+                "never invent a passage, chapter, or section",
+                "Hypermedia Systems",
+            )
+            if needle not in block
+        )
         print("[3] teaching block carries citations + faithfulness contract ✓")
 
         # ── 4. Prompt append through the REAL ResponseGenerator seam ───────

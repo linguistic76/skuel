@@ -1184,16 +1184,16 @@ class SkuelLinter:
             for tok in tokens:
                 if tok.type != tokenize.COMMENT:
                     continue
-                for match in self._SUPPRESSION_COMMENT_RE.finditer(tok.string):
-                    comments.append(
-                        SuppressionComment(
-                            file_path=rel_path,
-                            line_number=tok.start[0],
-                            rule_id=match.group("rule"),
-                            file_level=bool(match.group("filelevel")),
-                            line_content=tok.line.strip(),
-                        )
+                comments.extend(
+                    SuppressionComment(
+                        file_path=rel_path,
+                        line_number=tok.start[0],
+                        rule_id=match.group("rule"),
+                        file_level=bool(match.group("filelevel")),
+                        line_content=tok.line.strip(),
                     )
+                    for match in self._SUPPRESSION_COMMENT_RE.finditer(tok.string)
+                )
         except tokenize.TokenError, IndentationError, SyntaxError:
             return []
         return comments
@@ -1427,9 +1427,8 @@ class SkuelLinter:
                 if self._should_run_rule("SKUEL014"):
                     self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
 
-            if "/adapters/persistence/" in str(file_path):
-                if self._should_run_rule("SKUEL008"):
-                    self._check_backend_wrappers(file_path, rel_path, content)
+            if "/adapters/persistence/" in str(file_path) and self._should_run_rule("SKUEL008"):
+                self._check_backend_wrappers(file_path, rel_path, content)
 
         except Exception as e:
             print(f"Error linting {file_path}: {e}", file=sys.stderr)
@@ -2508,11 +2507,10 @@ class SkuelLinter:
                             in_docstring = True
                             docstring_delimiter = delim
                             break
-                        if count >= 2:
-                            # Single-line docstring or line with string literal
-                            # Skip this line entirely if it looks like a docstring
-                            if stripped.startswith(delim):
-                                break
+                        # Single-line docstring or line with string literal —
+                        # skip this line entirely if it looks like a docstring
+                        if count >= 2 and stripped.startswith(delim):
+                            break
             else:
                 # Check for docstring end
                 if docstring_delimiter and docstring_delimiter in stripped:
@@ -2978,10 +2976,9 @@ class SkuelLinter:
         target = dec.func if isinstance(dec, ast.Call) else dec
         if isinstance(target, ast.Name):
             return target.id == "rt"
-        if isinstance(target, ast.Attribute):
-            if target.attr in SkuelLinter.ROUTE_DECORATOR_ATTRS:
-                base = target.value
-                return isinstance(base, ast.Name) and base.id in SkuelLinter.ROUTE_DECORATOR_BASES
+        if isinstance(target, ast.Attribute) and target.attr in SkuelLinter.ROUTE_DECORATOR_ATTRS:
+            base = target.value
+            return isinstance(base, ast.Name) and base.id in SkuelLinter.ROUTE_DECORATOR_BASES
         return False
 
     @staticmethod
@@ -3112,9 +3109,9 @@ class SkuelLinter:
             if isinstance(n, ast.Assign):
                 for t in n.targets:
                     add_target(t)
-            elif isinstance(n, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
-                add_target(n.target)
-            elif isinstance(n, (ast.For, ast.AsyncFor)):
+            elif isinstance(
+                n, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr, ast.For, ast.AsyncFor)
+            ):
                 add_target(n.target)
             elif isinstance(n, (ast.With, ast.AsyncWith)):
                 for item in n.items:
@@ -3294,7 +3291,7 @@ class SkuelLinter:
                             break
             child_stack = stack
             if isinstance(node, scope_types):
-                child_stack = stack + [self._cls_scope_descriptor(node)]
+                child_stack = [*stack, self._cls_scope_descriptor(node)]
             for child in ast.iter_child_nodes(node):
                 walk(child, child_stack)
 

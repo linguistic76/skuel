@@ -566,9 +566,9 @@ async def main():
         logger.info("Embedding Text Hash Stamping (no API calls)")
         logger.info(f"{'=' * 60}\n")
 
-        stamp_stats = []
-        for label in entity_labels:
-            stamp_stats.append(await stamp_entity_hashes(driver, embeddings_service, label))
+        stamp_stats = [
+            await stamp_entity_hashes(driver, embeddings_service, label) for label in entity_labels
+        ]
 
         logger.info(f"\n{'=' * 60}")
         logger.info("Summary")
