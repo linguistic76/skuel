@@ -495,7 +495,7 @@ class TaskEventHandlerService:
             if not (knowledge_result.is_ok and knowledge_result.value):
                 return
 
-            curation_result = await self.ku_generation_service.curate_generated_knowledge(
+            curation_result = self.ku_generation_service.curate_generated_knowledge(
                 knowledge_result.value
             )
 

@@ -115,9 +115,7 @@ class _OrchestrationMixin:
                     }
                 )
 
-            curation_result = await ku_generation_service.curate_generated_knowledge(
-                generated_knowledge
-            )
+            curation_result = ku_generation_service.curate_generated_knowledge(generated_knowledge)
 
             if curation_result.is_error:
                 return curation_result

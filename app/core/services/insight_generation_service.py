@@ -213,7 +213,7 @@ class InsightGenerationService:
         patterns = patterns_result.value
 
         # Generate insights from patterns
-        insights_result = await self.generate_insights_from_patterns(patterns)
+        insights_result = self.generate_insights_from_patterns(patterns)
         if insights_result.is_error:
             return Result.fail(insights_result)
 
@@ -223,7 +223,7 @@ class InsightGenerationService:
         knowledge_units = []
         for insight in insights:
             if insight.confidence_score >= self.min_confidence_score:
-                knowledge_dto = await self._convert_insight_to_knowledge(insight, user_uid)
+                knowledge_dto = self._convert_insight_to_knowledge(insight, user_uid)
                 if knowledge_dto:
                     knowledge_units.append(knowledge_dto)
 
@@ -289,11 +289,11 @@ class InsightGenerationService:
         patterns = []
 
         # Group tasks by various dimensions for pattern analysis
-        patterns.extend(await self._analyze_time_patterns(completed_tasks))
-        patterns.extend(await self._analyze_priority_patterns(completed_tasks))
-        patterns.extend(await self._analyze_project_patterns(completed_tasks))
+        patterns.extend(self._analyze_time_patterns(completed_tasks))
+        patterns.extend(self._analyze_priority_patterns(completed_tasks))
+        patterns.extend(self._analyze_project_patterns(completed_tasks))
         patterns.extend(await self._analyze_knowledge_application_patterns(completed_tasks))
-        patterns.extend(await self._analyze_workflow_patterns(completed_tasks))
+        patterns.extend(self._analyze_workflow_patterns(completed_tasks))
 
         # Filter patterns by confidence and frequency
         high_quality_patterns = [
@@ -312,7 +312,7 @@ class InsightGenerationService:
 
         return Result.ok(high_quality_patterns)
 
-    async def _analyze_time_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
+    def _analyze_time_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
         """Analyze time-related patterns in task completion."""
         patterns = []
 
@@ -377,7 +377,7 @@ class InsightGenerationService:
 
         return patterns
 
-    async def _analyze_priority_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
+    def _analyze_priority_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
         """Analyze priority-related patterns."""
         patterns = []
 
@@ -408,7 +408,7 @@ class InsightGenerationService:
 
         return patterns
 
-    async def _analyze_project_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
+    def _analyze_project_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
         """Analyze project-related patterns."""
         patterns = []
 
@@ -524,7 +524,7 @@ class InsightGenerationService:
             )
         ]
 
-    async def _analyze_workflow_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
+    def _analyze_workflow_patterns(self, tasks: list[Task]) -> list[TaskPattern]:
         """Analyze workflow and process patterns."""
         patterns = []
 
@@ -591,7 +591,7 @@ class InsightGenerationService:
     # ========================================================================
 
     @with_error_handling("generate_insights_from_patterns", error_type="system")
-    async def generate_insights_from_patterns(
+    def generate_insights_from_patterns(
         self, patterns: list[TaskPattern]
     ) -> Result[list[GeneratedInsight]]:
         """
@@ -615,23 +615,21 @@ class InsightGenerationService:
 
         # Generate insights for each pattern type
         for pattern_type, type_patterns in pattern_groups.items():
-            type_insights = await self._generate_insights_for_pattern_type(
-                pattern_type, type_patterns
-            )
+            type_insights = self._generate_insights_for_pattern_type(pattern_type, type_patterns)
             insights.extend(type_insights)
 
         # Generate cross-pattern insights
-        cross_insights = await self._generate_cross_pattern_insights(patterns)
+        cross_insights = self._generate_cross_pattern_insights(patterns)
         insights.extend(cross_insights)
 
         # Score and rank insights
-        scored_insights = await self._score_insights(insights)
+        scored_insights = self._score_insights(insights)
 
         self.logger.info(f"Generated {len(scored_insights)} insights from {len(patterns)} patterns")
 
         return Result.ok(scored_insights)
 
-    async def _generate_insights_for_pattern_type(
+    def _generate_insights_for_pattern_type(
         self, pattern_type: PatternType, patterns: list[TaskPattern]
     ) -> list[GeneratedInsight]:
         """Generate insights for a specific pattern type."""
@@ -765,7 +763,7 @@ class InsightGenerationService:
 
         return insights
 
-    async def _generate_cross_pattern_insights(
+    def _generate_cross_pattern_insights(
         self, patterns: list[TaskPattern]
     ) -> list[GeneratedInsight]:
         """Generate insights from relationships between multiple patterns."""
@@ -794,7 +792,7 @@ class InsightGenerationService:
 
         return insights
 
-    async def _score_insights(self, insights: list[GeneratedInsight]) -> list[GeneratedInsight]:
+    def _score_insights(self, insights: list[GeneratedInsight]) -> list[GeneratedInsight]:
         """Score and rank insights by impact and confidence."""
         # Calculate impact scores based on multiple factors
         for insight in insights:
@@ -828,7 +826,7 @@ class InsightGenerationService:
     # ========================================================================
 
     @with_error_handling("score_knowledge_quality", error_type="system")
-    async def score_knowledge_quality(
+    def score_knowledge_quality(
         self, knowledge_dto: CurriculumDTO, supporting_evidence: list[str] | None = None
     ) -> Result[KuQualityMetrics]:
         """
@@ -1003,7 +1001,7 @@ class InsightGenerationService:
         return min(score, 1.0)
 
     @with_error_handling("curate_generated_knowledge", error_type="system")
-    async def curate_generated_knowledge(
+    def curate_generated_knowledge(
         self, knowledge_units: list[CurriculumDTO], auto_publish_threshold: float | None = None
     ) -> Result[dict[str, list[CurriculumDTO]]]:
         """
@@ -1027,7 +1025,7 @@ class InsightGenerationService:
         }
 
         for knowledge_dto in knowledge_units:
-            quality_result = await self.score_knowledge_quality(knowledge_dto)
+            quality_result = self.score_knowledge_quality(knowledge_dto)
             if quality_result.is_error:
                 continue
 
@@ -1059,7 +1057,7 @@ class InsightGenerationService:
 
         return Result.ok(categorized)
 
-    async def _convert_insight_to_knowledge(
+    def _convert_insight_to_knowledge(
         self, insight: GeneratedInsight, user_uid: UserUID
     ) -> CurriculumDTO | None:
         """Convert a generated insight into a knowledge unit."""
