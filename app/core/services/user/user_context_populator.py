@@ -16,16 +16,14 @@ Architecture:
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import (
-    EnergyLevel,
-    GuidanceMode,
     LearningLevel,
-    Personality,
-    ResponseTone,
     TimeOfDay,
 )
+from core.models.user import UserPreferences
 from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
 
@@ -411,62 +409,71 @@ class UserContextPopulator:
         # Activity report (latest)
         self.populate_activity_report(context, data.get("activity_report"))
 
-    def populate_user_properties(self, context: UserContext, user_props: dict[str, Any]) -> None:
+    def populate_user_preferences(self, context: UserContext, preferences: UserPreferences) -> None:
         """
-        Populate user preference fields from MEGA-QUERY user_properties.
+        Populate user preference fields from the parsed ``User.preferences`` model.
+
+        The :User node stores preferences as a JSON-string blob (the
+        ``preferences`` property, written by ``to_neo4j_node``), and
+        ``from_neo4j_node`` is the ONE parser of that blob — so the builder
+        hands the already-parsed ``UserPreferences`` here. This replaced flat
+        node-property reads (``available_minutes``, ``energy_level``, ...)
+        that matched no writer and left every context at defaults (July 2026).
+
+        Fail-soft: on mapper fallback (malformed blob arrives as the raw
+        string) or unknown enum values, the context keeps its defaults.
+
+        NOT populated from preferences (context defaults stand):
+        - ``current_energy_level`` — the blob carries ``energy_pattern`` (a
+          time-of-day → expected-energy map), not a current-state scalar, and
+          no writer for a scalar exists anywhere. Deriving "current" energy
+          from the pattern is a product decision, not a wiring fix.
+        - ``preferred_personality`` / ``preferred_tone`` /
+          ``preferred_guidance`` — not ``UserPreferences`` fields and written
+          nowhere (Askesis reads them off preferences via ``getattr``
+          fallbacks for the same reason).
 
         Args:
             context: UserContext to populate
-            user_props: The "user_properties" section from MEGA-QUERY results
+            preferences: Parsed ``User.preferences`` (authoritative source)
         """
-        if not user_props:
+        if not isinstance(preferences, UserPreferences):
+            # Mapper fail-soft: a malformed blob comes through as the raw string.
+            logger.warning(
+                "User preferences blob unparsed (%s) — context keeps preference defaults",
+                type(preferences).__name__,
+            )
             return
 
-        # Learning level
-        if learning_level := user_props.get("learning_level"):
-            try:
-                context.learning_level = LearningLevel(learning_level)
-            except ValueError:
-                logger.debug(f"Unknown learning_level value: {learning_level}")
+        context.learning_level = self._coerce_enum(
+            preferences.learning_level, LearningLevel, context.learning_level
+        )
+        context.preferred_time = self._coerce_enum(
+            preferences.preferred_time_of_day, TimeOfDay, context.preferred_time
+        )
 
-        # Preferred time of day
-        if preferred_time := user_props.get("preferred_time"):
-            try:
-                context.preferred_time = TimeOfDay(preferred_time)
-            except ValueError:
-                logger.debug(f"Unknown preferred_time value: {preferred_time}")
+        try:
+            context.available_minutes_daily = int(preferences.available_minutes_daily)
+        except TypeError, ValueError:
+            logger.debug(
+                f"Invalid available_minutes_daily value: {preferences.available_minutes_daily!r}"
+            )
 
-        # Energy level
-        if energy_level := user_props.get("energy_level"):
-            try:
-                context.current_energy_level = EnergyLevel(energy_level)
-            except ValueError:
-                logger.debug(f"Unknown energy_level value: {energy_level}")
+    @staticmethod
+    def _coerce_enum[E: Enum](value: object, enum_type: type[E], default: E) -> E:
+        """Coerce a preference value to its enum, keeping ``default`` on failure.
 
-        # Available minutes
-        if available_minutes := user_props.get("available_minutes"):
-            context.available_minutes_daily = int(available_minutes)
-
-        # Preferred personality
-        if preferred_personality := user_props.get("preferred_personality"):
-            try:
-                context.preferred_personality = Personality(preferred_personality)
-            except ValueError:
-                logger.debug(f"Unknown preferred_personality value: {preferred_personality}")
-
-        # Preferred tone
-        if preferred_tone := user_props.get("preferred_tone"):
-            try:
-                context.preferred_tone = ResponseTone(preferred_tone)
-            except ValueError:
-                logger.debug(f"Unknown preferred_tone value: {preferred_tone}")
-
-        # Preferred guidance
-        if preferred_guidance := user_props.get("preferred_guidance"):
-            try:
-                context.preferred_guidance = GuidanceMode(preferred_guidance)
-            except ValueError:
-                logger.debug(f"Unknown preferred_guidance value: {preferred_guidance}")
+        ``from_neo4j_node`` falls back to the RAW value when a field fails
+        conversion, so an individual bad value inside an otherwise-valid blob
+        can arrive as a plain string.
+        """
+        if isinstance(value, enum_type):
+            return value
+        try:
+            return enum_type(value)
+        except ValueError:
+            logger.debug(f"Unknown {enum_type.__name__} value: {value!r}")
+            return default
 
     def populate_life_path(self, context: UserContext, life_path_data: dict[str, Any]) -> None:
         """
