@@ -456,7 +456,7 @@ def create_bottom_nav(
     )
 
 
-async def create_navbar_for_request(
+def create_navbar_for_request(
     request: Request,
     active_page: str = "",
 ) -> Nav:
@@ -485,7 +485,7 @@ async def create_navbar_for_request(
     )
 
 
-async def create_bottom_nav_for_request(
+def create_bottom_nav_for_request(
     request: Request,
     active_page: str = "",
 ) -> Any:

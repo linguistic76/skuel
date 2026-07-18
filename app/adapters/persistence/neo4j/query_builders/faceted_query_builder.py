@@ -186,7 +186,7 @@ class FacetedQueryBuilder:
                 )
             )
 
-    async def generate_facet_counts_query(
+    def generate_facet_counts_query(
         self, base_query: str, facet_fields: list[str]
     ) -> Result[dict[str, str]]:
         """

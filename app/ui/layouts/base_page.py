@@ -115,7 +115,7 @@ def build_head(
     )
 
 
-async def _build_navbar(
+def _build_navbar(
     request: "Request | None",
     active_page: str,
     user_display_name: str,
@@ -124,7 +124,7 @@ async def _build_navbar(
 ) -> "FT":
     """Build slim top navbar, preferring request-based for auto-detection."""
     if request is not None:
-        return await create_navbar_for_request(request, active_page=active_page)
+        return create_navbar_for_request(request, active_page=active_page)
     return create_navbar(
         current_user=user_display_name,
         is_authenticated=is_authenticated,
@@ -133,7 +133,7 @@ async def _build_navbar(
     )
 
 
-async def _build_bottom_nav(
+def _build_bottom_nav(
     request: "Request | None",
     active_page: str,
     is_authenticated: bool,
@@ -141,7 +141,7 @@ async def _build_bottom_nav(
 ) -> "FT":
     """Build mobile bottom nav, preferring request-based for auto-detection."""
     if request is not None:
-        return await create_bottom_nav_for_request(request, active_page=active_page)
+        return create_bottom_nav_for_request(request, active_page=active_page)
     return create_bottom_nav(
         is_authenticated=is_authenticated,
         active_page=active_page,
@@ -149,7 +149,7 @@ async def _build_bottom_nav(
     )
 
 
-async def BasePage(
+async def BasePage(  # skuel-lint: disable=SKUEL029 -- page-factory interface: awaited at ~51 route call sites; sync-ification cascade is its own slice
     content: Any,
     title: str = "SKUEL",
     page_type: PageType = PageType.STANDARD,
@@ -198,7 +198,7 @@ async def BasePage(
         effective_is_admin = auth.is_admin
         effective_is_authenticated = auth.is_authenticated
 
-    navbar = await _build_navbar(
+    navbar = _build_navbar(
         request=request,
         active_page=active_page,
         user_display_name=user_display_name,
@@ -206,7 +206,7 @@ async def BasePage(
         is_admin=effective_is_admin,
     )
 
-    bottom_nav = await _build_bottom_nav(
+    bottom_nav = _build_bottom_nav(
         request=request,
         active_page=active_page,
         is_authenticated=effective_is_authenticated,

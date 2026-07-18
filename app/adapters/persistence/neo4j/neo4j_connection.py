@@ -97,7 +97,7 @@ class Neo4jConnection:
 
         self.driver: AsyncDriver | None = None
 
-    async def connect(self) -> AsyncDriver:
+    def connect(self) -> AsyncDriver:
         """Establish connection to Neo4j and return the live driver."""
         if not self.driver:
             self.driver = AsyncGraphDatabase.driver(
@@ -121,9 +121,11 @@ class Neo4jConnection:
             self.driver = None
             logger.info("Closed Neo4j connection")
 
-    async def __aenter__(self) -> "Neo4jConnection":
+    async def __aenter__(
+        self,
+    ) -> "Neo4jConnection":  # skuel-lint: disable=SKUEL029 -- async context-manager protocol: `async with` awaits __aenter__
         """Async context manager entry."""
-        await self.connect()
+        self.connect()
         return self
 
     async def __aexit__(self, *args: Any) -> None:
@@ -138,7 +140,7 @@ class Neo4jConnection:
             True if connection is successful, False otherwise
         """
         try:
-            await self.connect()
+            self.connect()
             if self.driver is None:
                 return False
             async with self.driver.session() as session:
@@ -163,7 +165,7 @@ class Neo4jConnection:
             List of Neo4j Record objects, or None if error
         """
         try:
-            await self.connect()
+            self.connect()
             if self.driver is None:
                 return None
 
@@ -178,7 +180,7 @@ class Neo4jConnection:
             return None
 
 
-async def get_connection() -> Neo4jConnection:
+def get_connection() -> Neo4jConnection:
     """
     Get or create a singleton Neo4j connection.
 
@@ -189,6 +191,6 @@ async def get_connection() -> Neo4jConnection:
 
     if _connection_instance is None:
         _connection_instance = Neo4jConnection()
-        await _connection_instance.connect()
+        _connection_instance.connect()
 
     return _connection_instance

@@ -598,7 +598,7 @@ async def compose_services(
 
         # Content adapter — used by ingestion (store_content_with_chunks), batch
         # re-chunking, and the embedding worker (store_chunk_embeddings).
-        connection = await get_connection()
+        connection = get_connection()
         content_adapter = Neo4jContentAdapter(connection)
 
         # Reference-chunk adapter — the canon ingest door's parallel to
@@ -1888,7 +1888,7 @@ async def compose_services(
         )
 
         # Create UserContextIntelligence factory, ZPD service, and Askesis
-        await _create_intelligence_hub(
+        _create_intelligence_hub(
             services=services,
             activity_services=activity_services,
             learning_services=learning_services,

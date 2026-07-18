@@ -47,7 +47,11 @@ class ContentVaultEdgeWriter:
         self._root = content_vault_root
         self._edges_dir = content_vault_root / "edges"
 
-    async def write_edge_file(self, filename: str, content: str) -> Result[str]:
+    async def write_edge_file(
+        self, filename: str, content: str
+    ) -> Result[
+        str
+    ]:  # skuel-lint: disable=SKUEL029 -- EdgeFileWriterPort protocol declares async; awaited by PrereqSuggestionService
         """Create ``edges/{filename}`` with ``content``; refuse to overwrite.
 
         See ``EdgeFileWriterPort`` for the contract; the module docstring
