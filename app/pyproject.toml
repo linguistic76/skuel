@@ -304,7 +304,7 @@ disable_error_code = ["misc"]
 
 [[tool.mypy.overrides]]
 # FastHTML modules - allow some flexibility for framework usage
-module = ["adapters.*", "components.*"]
+module = ["adapters.*"]
 disallow_any_generics = false
 disallow_untyped_decorators = false
 # Still catch Result issues
@@ -461,11 +461,13 @@ pythonpath = ["."]
 # Note: --cov-fail-under removed because different test types have different coverage expectations
 # - Integration tests: Focus on core/services (high coverage expected)
 # - Service tests: Include core + adapters (medium coverage expected)
-# - Full suite: Includes UI (lower coverage is normal - UI not tested)
+# - Full suite: Includes ui/ + services_bootstrap/ (measured since 2026-07; lower
+#   coverage there is expected — render code is exercised via the smoke test)
 addopts = [
     "--cov=core",
     "--cov=adapters",
-    "--cov=components",
+    "--cov=ui",
+    "--cov=services_bootstrap",
     "--cov-report=html:htmlcov",
     "--cov-report=term-missing",
     "--cov-report=xml",
@@ -690,7 +692,6 @@ fixable = ["ALL"]
 "adapters/inbound/*_components.py" = ["N802"]       # UI component functions use PascalCase
 "ui/*.py" = ["N802", "RUF001", "RUF002"]              # Shared UI components use PascalCase + Unicode icons
 "ui/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "RUF012", "ARG001", "ARG002", "ANN", "PERF401"]  # UI: PascalCase + Unicode + class defaults
-"components/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "ARG001"]  # Components: PascalCase + Unicode
 
 # Templates and examples are documentation (Phase 8.1)
 "templates/**/*.py" = ["ANN", "ARG"]
@@ -737,8 +738,6 @@ fixable = ["ALL"]
 "core/services/user/*.py" = ["ARG002", "PERF", "F822"]  # User services implement protocols + complex context ops
 "core/models/search/*.py" = ["ARG001", "ARG002", "RUF012", "E741"]  # Search scoring methods + class config + var names
 
-# UI components - static methods with consistent interfaces
-"components/*.py" = ["F405", "RUF001", "RUF002", "ARG004"]  # Static methods need consistent signatures + Unicode in docstrings
 
 # Core utilities - various patterns
 "core/utils/api_responses.py" = ["B021", "F822"]  # f-string docstrings + legacy re-exports
@@ -797,7 +796,7 @@ fixable = ["ALL"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
-    "adapters", "api", "components", "config", "database",
+    "adapters", "api", "config", "database",
     "events", "models", "monitoring", "ports", "services",
     "tests", "utils"
 ]
