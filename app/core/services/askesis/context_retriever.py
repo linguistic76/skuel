@@ -296,7 +296,7 @@ class ContextRetriever:
         return context
 
     @with_error_handling("get_learning_context", error_type="system", uid_param="user_context")
-    async def get_learning_context(
+    async def get_learning_context(  # skuel-lint: disable=SKUEL029 -- facade-delegated: askesis_service awaits via delegation
         self, user_context: UserContext, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """

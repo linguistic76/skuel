@@ -82,7 +82,7 @@ class UserStateAnalyzer:
     # ========================================================================
 
     @with_error_handling("analyze_user_state", error_type="system")
-    async def analyze_user_state(
+    async def analyze_user_state(  # skuel-lint: disable=SKUEL029 -- AskesisOperations protocol method + facade-delegated
         self,
         user_context: UserContext,
         focus_areas: list[str] | None = None,
@@ -113,7 +113,7 @@ class UserStateAnalyzer:
         context_summary = self._summarize_context(user_context)
 
         # Generate insights across all domains
-        insights = await self._generate_insights(user_context, focus_areas)
+        insights = self._generate_insights(user_context, focus_areas)
 
         # Calculate health metrics
         health_metrics = self._calculate_health_metrics(user_context)
@@ -141,7 +141,11 @@ class UserStateAnalyzer:
 
         return Result.ok(analysis)
 
-    async def identify_patterns(self, user_context: UserContext) -> Result[list[AskesisInsight]]:
+    async def identify_patterns(
+        self, user_context: UserContext
+    ) -> Result[
+        list[AskesisInsight]
+    ]:  # skuel-lint: disable=SKUEL029 -- AskesisOperations protocol method + facade-delegated
         """
         Identify patterns in user's behavior and progress.
 
@@ -336,7 +340,7 @@ class UserStateAnalyzer:
     # PRIVATE - INSIGHT GENERATION
     # ========================================================================
 
-    async def _generate_insights(
+    def _generate_insights(
         self, user_context: UserContext, _focus_areas: list[str] | None
     ) -> list[AskesisInsight]:
         """

@@ -89,7 +89,7 @@ class ActionRecommendationEngine:
     # ========================================================================
 
     @with_error_handling("get_next_best_action", error_type="system")
-    async def get_next_best_action(
+    async def get_next_best_action(  # skuel-lint: disable=SKUEL029 -- AskesisOperations protocol method + facade-delegated
         self, user_context: UserContext
     ) -> Result[AskesisRecommendation]:
         """
@@ -167,7 +167,7 @@ class ActionRecommendationEngine:
         return Result.ok(self._recommend_foundation_building(user_context))
 
     @with_error_handling("generate_recommendations", error_type="system")
-    async def generate_recommendations(
+    async def generate_recommendations(  # skuel-lint: disable=SKUEL029 -- facade-delegated: askesis_service awaits via delegation
         self, user_context: UserContext, insights: list[AskesisInsight]
     ) -> Result[list[AskesisRecommendation]]:
         """
@@ -228,7 +228,11 @@ class ActionRecommendationEngine:
         return Result.ok(recommendations)
 
     @with_error_handling("optimize_workflow", error_type="system")
-    async def optimize_workflow(self, user_context: UserContext) -> Result[list[dict[str, Any]]]:
+    async def optimize_workflow(
+        self, user_context: UserContext
+    ) -> Result[
+        list[dict[str, Any]]
+    ]:  # skuel-lint: disable=SKUEL029 -- AskesisOperations protocol method + facade-delegated
         """
         Suggest workflow optimizations based on context.
 
@@ -320,7 +324,7 @@ class ActionRecommendationEngine:
         return Result.ok(optimizations)
 
     @with_error_handling("predict_future_state", error_type="system")
-    async def predict_future_state(
+    async def predict_future_state(  # skuel-lint: disable=SKUEL029 -- AskesisOperations protocol method + facade-delegated
         self, user_context: UserContext, days_ahead: int = 7
     ) -> Result[dict[str, Any]]:
         """
