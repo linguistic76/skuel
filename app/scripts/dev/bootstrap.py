@@ -841,7 +841,9 @@ async def _wire_all_routes(
 # ============================================================================
 
 
-async def startup_skuel(container: AppContainer) -> None:
+async def startup_skuel(
+    container: AppContainer,
+) -> None:  # skuel-lint: disable=SKUEL029 -- lifespan lifecycle: awaited by skuel_lifespan; spawns asyncio.create_task workers
     """Handle application startup events"""
     logger.info("🌟 SKUEL Application started on http://localhost:8000")
 
