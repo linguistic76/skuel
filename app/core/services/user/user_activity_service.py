@@ -327,7 +327,7 @@ class UserActivityService:
         else:
             self._invalidator.invalidate(user_uid, reason, affected_contexts)
 
-    async def _do_invalidate(
+    async def _do_invalidate(  # skuel-lint: disable=SKUEL029 -- DebouncedContextInvalidator callback: typed Coroutine and awaited at debounced_invalidator.py:139
         self, user_uid: UserUID, reason: str, affected_contexts: list[str] | None = None
     ) -> None:
         """
@@ -348,7 +348,7 @@ class UserActivityService:
         # Track invalidation performance (if metrics cache is available)
         if self._metrics_cache:
             duration_ms = (time.perf_counter() - start_time) * 1000
-            await self._metrics_cache.record_context_invalidation(
+            self._metrics_cache.record_context_invalidation(
                 user_uid=user_uid,
                 duration_ms=duration_ms,
                 reason=reason,

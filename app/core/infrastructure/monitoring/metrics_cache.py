@@ -286,7 +286,7 @@ class MetricsCache:
     - No bridge code needed (direct writes)
     - Cache is lossy (last 100 items only)
 
-    Thread-safe for async operations.
+    All operations are synchronous in-memory writes (single event loop).
     """
 
     def __init__(self, prometheus_metrics: Any, enabled: bool = True) -> None:
@@ -311,7 +311,7 @@ class MetricsCache:
         """Generate unique key for handler cache."""
         return f"{event_type}:{handler_name}"
 
-    async def record_handler_execution(
+    def record_handler_execution(
         self, event_type: str, handler_name: str, duration_ms: float, error: Exception | None = None
     ) -> None:
         """
@@ -347,7 +347,7 @@ class MetricsCache:
             )
             handler_metrics.record_execution(duration_ms, error)
 
-    async def record_event_publication(
+    def record_event_publication(
         self, event_type: str, duration_ms: float, handlers_called: int
     ) -> None:
         """
@@ -374,7 +374,7 @@ class MetricsCache:
             )
             event_metrics.record_publication(duration_ms, handlers_called)
 
-    async def record_context_invalidation(
+    def record_context_invalidation(
         self, user_uid: UserUID, duration_ms: float, reason: str, affected_contexts: list[str]
     ) -> None:
         """
@@ -398,7 +398,7 @@ class MetricsCache:
             )
             context_metrics.record_invalidation(duration_ms, reason, affected_contexts)
 
-    async def get_handler_metrics(self, event_type: str | None = None) -> list[dict[str, Any]]:
+    def get_handler_metrics(self, event_type: str | None = None) -> list[dict[str, Any]]:
         """
         Get cached handler metrics for debugging.
 
@@ -422,7 +422,7 @@ class MetricsCache:
         metrics.sort(key=_get_total_calls, reverse=True)
         return metrics
 
-    async def get_event_metrics(self) -> list[dict[str, Any]]:
+    def get_event_metrics(self) -> list[dict[str, Any]]:
         """Get cached event publication metrics for debugging."""
         if not self.enabled:
             return []
@@ -433,7 +433,7 @@ class MetricsCache:
         metrics.sort(key=_get_total_published, reverse=True)
         return metrics
 
-    async def get_context_invalidation_metrics(
+    def get_context_invalidation_metrics(
         self, user_uid: UserUID | None = None
     ) -> list[dict[str, Any]] | dict[str, Any] | None:
         """
@@ -458,7 +458,7 @@ class MetricsCache:
             metrics_list.sort(key=_get_total_invalidations, reverse=True)
             return metrics_list
 
-    async def get_slow_handlers(self, threshold_ms: float = 100.0) -> list[dict[str, Any]]:
+    def get_slow_handlers(self, threshold_ms: float = 100.0) -> list[dict[str, Any]]:
         """
         Get list of slow handlers from cache.
 
@@ -481,7 +481,7 @@ class MetricsCache:
         slow_handlers.sort(key=_get_recent_avg_duration, reverse=True)
         return slow_handlers
 
-    async def get_summary(self) -> dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """
         Get overall cache summary for debugging.
 
@@ -516,7 +516,7 @@ class MetricsCache:
             ),
         }
 
-    async def reset(self) -> None:
+    def reset(self) -> None:
         """
         Reset cache (for testing).
 
