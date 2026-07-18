@@ -49,11 +49,13 @@ def _make_chunking_service(success: bool = True) -> MagicMock:
             MagicMock(chunk_id="parent_1:chunk:0", context_window="ctx-a"),
             MagicMock(chunk_id="parent_1:chunk:1", context_window="ctx-b"),
         ]
-        svc.process_content_for_ingestion = AsyncMock(
+        # process_content_for_ingestion is sync (pure chunking, SKUEL029) —
+        # a plain MagicMock returns the Result directly; the caller no longer awaits it.
+        svc.process_content_for_ingestion = MagicMock(
             return_value=Result.ok((content, MagicMock()))
         )
     else:
-        svc.process_content_for_ingestion = AsyncMock(
+        svc.process_content_for_ingestion = MagicMock(
             return_value=Result.fail(Errors.system("boom", operation="test"))
         )
     return svc
@@ -163,7 +165,7 @@ class TestRegenerateChunks:
         # First call succeeds, second fails
         chunking_service = MagicMock()
         good_content = MagicMock(chunks=[])
-        chunking_service.process_content_for_ingestion = AsyncMock(
+        chunking_service.process_content_for_ingestion = MagicMock(
             side_effect=[
                 Result.ok((good_content, MagicMock())),
                 Result.fail(Errors.system("nope", operation="test")),

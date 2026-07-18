@@ -88,7 +88,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         # Store graph for convenience
         self.graph = graph_intel
 
-    async def get_performance_analytics(
+    async def get_performance_analytics(  # skuel-lint: disable=SKUEL029 -- IntelligenceOperations protocol method (async contract)
         self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """

@@ -373,7 +373,7 @@ class AnalyticsService:
         report = dto_to_summary(dto)
 
         # Save to file
-        await self._save_report(report)
+        self._save_report(report)
 
         self.logger.info(f"✅ Report generated: {report.uid}")
         return Result.ok(report)
@@ -623,7 +623,7 @@ class AnalyticsService:
     # FILE STORAGE
     # ========================================================================
 
-    async def _save_report(self, report: AnalyticsSummary) -> None:
+    def _save_report(self, report: AnalyticsSummary) -> None:
         """Save report markdown to file"""
         try:
             # Create domain-specific subdirectory

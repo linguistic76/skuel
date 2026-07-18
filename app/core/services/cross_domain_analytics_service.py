@@ -122,7 +122,7 @@ class CrossDomainAnalyticsService:
     # so there are no ExpenseCreated/ExpensePaid events to track.
     # ========================================================================
 
-    async def handle_goal_created(self, event: GoalCreated) -> Result[None]:
+    def handle_goal_created(self, event: GoalCreated) -> Result[None]:
         """Track financial goals for expense linking."""
         # Store goal for expense correlation
         self.logger.debug(f"Tracked goal for financial analytics: {event.goal_uid}")

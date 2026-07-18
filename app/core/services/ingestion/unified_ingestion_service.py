@@ -481,7 +481,7 @@ class UnifiedIngestionService:
         if not self.chunking:
             return False
 
-        chunk_result = await self.chunking.process_content_for_ingestion(
+        chunk_result = self.chunking.process_content_for_ingestion(
             parent_uid=uid,
             content_body=content_body,
             format=file_format,

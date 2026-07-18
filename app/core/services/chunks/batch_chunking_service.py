@@ -192,7 +192,7 @@ class BatchChunkingService:
         # diverged domain re-chunks under its own params (not the defaults).
         params = resolve_chunking_params_for_label(candidate.get("entity_label"))
 
-        chunk_result = await self.chunking_service.process_content_for_ingestion(
+        chunk_result = self.chunking_service.process_content_for_ingestion(
             parent_uid=parent_uid,
             content_body=body,
             format=fmt,

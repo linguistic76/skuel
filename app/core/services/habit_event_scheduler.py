@@ -171,7 +171,7 @@ class HabitEventScheduler:
         scheduled_events = self._apply_scheduling_strategy(scheduled_events, habit, user_context)
 
         # Avoid conflicts with existing events
-        scheduled_events = await self._avoid_conflicts(scheduled_events, user_context)
+        scheduled_events = self._avoid_conflicts(scheduled_events, user_context)
 
         # Create events if requested
         created_events = []
@@ -576,7 +576,7 @@ class HabitEventScheduler:
         # For now, return mid-morning as default optimal time
         return time(10, 0)
 
-    async def _avoid_conflicts(
+    def _avoid_conflicts(
         self, events: list[EventDTO], _user_context: UserContext
     ) -> list[EventDTO]:
         """Adjust event times to avoid conflicts with existing events."""
