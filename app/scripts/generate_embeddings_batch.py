@@ -529,7 +529,7 @@ async def main():
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
 
     # Create embeddings service (inference client behind a port — W1).
     # The factory is the provider chokepoint (ADR-068); a missing API key

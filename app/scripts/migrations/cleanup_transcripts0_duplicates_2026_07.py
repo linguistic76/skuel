@@ -48,7 +48,7 @@ async def main(apply: bool) -> None:
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
     try:
         records, _, _ = await driver.execute_query(AUDIT_QUERY)
         audit = records[0]

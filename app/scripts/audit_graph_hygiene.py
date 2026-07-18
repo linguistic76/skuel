@@ -1209,7 +1209,7 @@ async def main() -> int:
     content_owner = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
     try:
         entity_rows = await fetch_entity_type_rows(driver)
         extracted_rows = await fetch_extracted_rows(driver)

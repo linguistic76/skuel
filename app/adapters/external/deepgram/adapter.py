@@ -156,7 +156,7 @@ class DeepgramAdapter:
         return PrerecordedOptions(**opts)
 
     @async_retry(exceptions=DEEPGRAM_EXCEPTIONS, max_attempts=3, base_delay=2.0)
-    async def _transcribe_raw(
+    async def _transcribe_raw(  # skuel-lint: disable=SKUEL029 -- @async_retry wrapper awaits this unconditionally (core/utils/retry.py)
         self,
         audio_data: bytes,
         path: Path,

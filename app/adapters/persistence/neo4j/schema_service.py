@@ -504,7 +504,7 @@ class Neo4jSchemaService:
 
         return Result.ok(queries)
 
-    async def invalidate_cache(self) -> Result[None]:
+    def invalidate_cache(self) -> Result[None]:
         """Force cache invalidation on next schema access"""
         self._cached_schema = None
         self._last_introspection = None

@@ -38,7 +38,7 @@ class ResendEmailService:
         self.from_email = from_email
         logger.info("ResendEmailService initialized")
 
-    async def send_password_reset(
+    async def send_password_reset(  # skuel-lint: disable=SKUEL029 -- EmailOperations protocol declares async; awaited at graph_auth.py
         self, to_email: str, reset_link: str, display_name: str | None = None
     ) -> Result[bool]:
         """

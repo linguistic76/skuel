@@ -26,7 +26,6 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.migrations.backfill_versions")
@@ -101,7 +100,7 @@ async def main() -> None:
 
     # Get Neo4j credentials using credential store (same as config)
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
 
     try:
         await driver.verify_connectivity()

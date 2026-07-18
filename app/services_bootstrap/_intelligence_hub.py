@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.bootstrap")
 
 
-async def _create_intelligence_hub(
+def _create_intelligence_hub(
     services: "Services",
     activity_services: dict[str, Any],
     learning_services: dict[str, Any],

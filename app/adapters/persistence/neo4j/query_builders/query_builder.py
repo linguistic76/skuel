@@ -246,13 +246,13 @@ class QueryBuilder:
         """Build a faceted search query with filters."""
         return await self.faceted.build_faceted_query(request, facets)
 
-    async def generate_facet_counts_query(
+    def generate_facet_counts_query(
         self,
         base_query: str,
         facet_fields: list[str],
     ) -> Result[dict[str, str]]:
         """Generate a query to compute facet counts."""
-        return await self.faceted.generate_facet_counts_query(base_query, facet_fields)
+        return self.faceted.generate_facet_counts_query(base_query, facet_fields)
 
     def register_faceted_templates(self) -> None:
         """Register templates for faceted search."""

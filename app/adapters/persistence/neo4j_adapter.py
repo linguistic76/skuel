@@ -40,7 +40,9 @@ class Neo4jSessionContext:
         self.driver = driver
         self.session = None
 
-    async def __aenter__(self) -> Any:
+    async def __aenter__(
+        self,
+    ) -> Any:  # skuel-lint: disable=SKUEL029 -- async context-manager protocol: `async with` awaits __aenter__
         """Create and return a Neo4j session"""
         if not self.driver:
             raise RuntimeError("Neo4j driver not available")
@@ -89,10 +91,10 @@ class Neo4jAdapter:
             self.connection = Neo4jConnection(
                 uri=self._uri, username=self._user, password=self._password
             )
-            await self.connection.connect()
+            self.connection.connect()
         else:
             # No explicit credentials — use the app-level singleton
-            self.connection = await get_connection()
+            self.connection = get_connection()
 
         self.driver = self.connection.driver
 

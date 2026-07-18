@@ -93,7 +93,7 @@ async def run_ingest(book_md: Path, resource_uid: str | None, no_embed: bool) ->
         # requested. Gate the bus on the SAME condition as subscribe()/drain() below.
         embed = worker is not None and not no_embed
 
-        reference_chunk_adapter = Neo4jReferenceChunkAdapter(await get_connection())
+        reference_chunk_adapter = Neo4jReferenceChunkAdapter(get_connection())
         ingest = ReferenceIngestionService(
             reference_chunk_adapter,
             event_bus=(event_bus if embed else None),

@@ -68,12 +68,14 @@ class FilesystemVaultAdapter:
             raise ValueError(f"Path {path!r} escapes vault root {self._root}")
         return resolved
 
-    async def read_note(self, user_uid: str, path: str) -> NoteSnapshot:
+    async def read_note(
+        self, user_uid: str, path: str
+    ) -> NoteSnapshot:  # skuel-lint: disable=SKUEL029 -- VaultBridgePort protocol: local_agent transport sibling does real I/O
         p = self._resolve(path)
         content = p.read_text(encoding="utf-8")
         return NoteSnapshot.from_content(str(p), content)
 
-    async def write_task_updates(
+    async def write_task_updates(  # skuel-lint: disable=SKUEL029 -- VaultBridgePort protocol: local_agent transport sibling does real I/O
         self,
         user_uid: str,
         path: str,
@@ -126,7 +128,7 @@ class FilesystemVaultAdapter:
         logger.info(f"VaultWriter: wrote {len(updates)} update(s) to {p}")
         return WriteResult(success=True, new_sha256=new_sha256)
 
-    async def list_vault_notes(
+    async def list_vault_notes(  # skuel-lint: disable=SKUEL029 -- VaultBridgePort protocol: local_agent transport sibling does real I/O
         self, user_uid: str, vault_path: str, pattern: str = "**/*.md"
     ) -> list[str]:
         """Vault-relative POSIX paths of matching notes (harmonized, ADR-075 B4)."""

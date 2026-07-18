@@ -55,7 +55,7 @@ async def get_semantic_relationship_metrics() -> dict:
         dict: Metrics including activation counts, usage stats, etc.
     """
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
 
     try:
         async with driver.session() as session:

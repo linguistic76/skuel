@@ -58,7 +58,7 @@ async def seed() -> None:
     now = datetime.now(UTC).isoformat().replace("+00:00", "")
 
     async with Neo4jConnection() as conn:
-        driver = await conn.connect()
+        driver = conn.connect()
 
         # MERGE so re-running is idempotent. Stamp properties via SET.
         for props in (teacher_a_props, teacher_b_props, student_1_props, student_2_props):
@@ -144,7 +144,7 @@ async def seed() -> None:
 async def cleanup() -> None:
     user_uids = [f"user_{u}" for u in (TEACHER_A, TEACHER_B, STUDENT_1, STUDENT_2)]
     async with Neo4jConnection() as conn:
-        driver = await conn.connect()
+        driver = conn.connect()
         await driver.execute_query(
             "UNWIND $uids AS uid MATCH (u:User {uid: uid}) DETACH DELETE u",
             uids=user_uids,

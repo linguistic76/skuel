@@ -104,7 +104,9 @@ async def fetch_relationships_parallel[T](
                 coroutines.append(get_related_uids(method_name_or_key, uid))
             else:
                 # Fallback: return empty result
-                async def empty_result() -> Result:
+                async def empty_result() -> (
+                    Result
+                ):  # skuel-lint: disable=SKUEL029 -- appended to coroutines list passed to asyncio.gather
                     return Result.ok([])
 
                 coroutines.append(empty_result())

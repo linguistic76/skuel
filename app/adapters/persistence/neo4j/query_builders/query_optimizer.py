@@ -67,7 +67,7 @@ class QueryOptimizer:
                 return Result.fail(validation_result)
 
             # Generate multiple query plans
-            plans = await self._generate_query_plans(request, schema)
+            plans = self._generate_query_plans(request, schema)
 
             if not plans:
                 return Result.fail(
@@ -177,7 +177,7 @@ class QueryOptimizer:
 
         return Result.ok(True)
 
-    async def _generate_query_plans(
+    def _generate_query_plans(
         self, request: QueryBuildRequest, schema: SchemaContext
     ) -> list[QueryPlan]:
         """Generate multiple optimized query plans for the request"""

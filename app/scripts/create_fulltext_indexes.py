@@ -305,7 +305,7 @@ Examples:
     args = parser.parse_args()
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
 
     try:
         await driver.verify_connectivity()
