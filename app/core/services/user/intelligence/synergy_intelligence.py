@@ -32,7 +32,7 @@ class SynergyIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 6: Cross-Domain Synergies
     # =========================================================================
 
-    async def get_cross_domain_synergies(
+    async def get_cross_domain_synergies(  # skuel-lint: disable=SKUEL029 -- askesis_protocols protocol method + facade-delegated
         self,
         min_synergy_score: float = 0.3,
         include_types: list[str] | None = None,

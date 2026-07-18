@@ -325,7 +325,7 @@ class UserActivityService:
         if immediate:
             await self._do_invalidate(user_uid, reason, affected_contexts)
         else:
-            await self._invalidator.invalidate(user_uid, reason, affected_contexts)
+            self._invalidator.invalidate(user_uid, reason, affected_contexts)
 
     async def _do_invalidate(
         self, user_uid: UserUID, reason: str, affected_contexts: list[str] | None = None
