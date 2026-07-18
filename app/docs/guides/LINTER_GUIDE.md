@@ -124,7 +124,8 @@ them without failing.
 
 ## Cypher Query Rules (CYP001-CYP010)
 
-Static analysis for Neo4j Cypher queries embedded in Python code.
+Static analysis for Neo4j Cypher queries — both embedded in Python string
+literals and in standalone `.cypher` files.
 
 | Rule | Severity | Description |
 |------|----------|-------------|
@@ -152,10 +153,23 @@ Suppress a boundary-shaped hit with a Cypher comment on the flagged line:
 
 **Discovery scope:** `core/services/`, `adapters/persistence/neo4j/`,
 `scripts/` (added 2026-07 — migrations and maintenance scripts run raw Cypher
-directly), and `tests/integration/`. Queries are extracted from triple-quoted
-strings that pass the `_is_actual_cypher` heuristic; single-line f-string
-concatenation (`cypher += f"..."`) is below its resolution — parameterize those
-by convention.
+directly), and `tests/integration/` — both `**/*.py` and `**/*.cypher` in each
+tree (`find_lintable_files`). In Python files, queries are extracted from
+triple-quoted strings that pass the `_is_actual_cypher` heuristic; single-line
+f-string concatenation (`cypher += f"..."`) is below its resolution —
+parameterize those by convention.
+
+**Standalone `.cypher` files (PR #710, 2026-07):** indexes, migrations, and
+bulk-upsert templates are Cypher by declaration — no heuristics. The file is
+split into semicolon-terminated statements and each statement is linted as its
+own query (so a `LIMIT` in one audit query can't exempt another, and CYP009
+complexity isn't summed across a whole migration). Comments — `//` line and
+`/* */` block — are masked before rules run, so comment prose ("DELETE the
+stale edges") can't trip prose-shaped rules and a `;` or quote inside a
+comment never splits a statement. The one exception: `noqa:`-carrying `//`
+comments are kept, and the natural placement works —
+`DELETE n; // noqa: CYP002 - reason` suppresses the statement its semicolon
+closes. Block comments are always masked, so noqa must be `//`-style.
 
 ## Inline Suppression
 
@@ -216,8 +230,8 @@ uv run python scripts/lint_skuel.py --strict    # Treat warnings as errors
 
 Both custom linters have comprehensive test coverage:
 
-- `tests/unit/scripts/test_lint_skuel.py` — 141 tests covering all 19 SKUEL rules
-- `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering Cypher rules
+- `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all active SKUEL rules
+- `tests/unit/scripts/test_cypher_linter.py` — 76 tests covering Cypher rules, Python query extraction, and `.cypher` statement extraction
 
 ## Key Files
 
