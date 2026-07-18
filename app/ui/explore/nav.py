@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Li, P, Span, Ul
 
+from core.models.enums.entity_enums import EntityType
 from ui.components import ButtonT
 from ui.explore.graph import ExploreGraphView
 from ui.patterns.sidebar import SidebarPage
@@ -49,8 +50,9 @@ def _sidebar_link_with_pill(
     title: str, href: str, entity_type: str, is_current: bool = False
 ) -> "FT":
     """Sidebar link with Ku/PS type pill badge."""
-    pill_cls = _KU_PILL_CLS if entity_type == "ku" else _PS_PILL_CLS
-    pill_label = "Ku" if entity_type == "ku" else "PS"
+    is_ku = entity_type == EntityType.KU.value
+    pill_cls = _KU_PILL_CLS if is_ku else _PS_PILL_CLS
+    pill_label = "Ku" if is_ku else "PS"
     active_cls = "font-semibold text-foreground" if is_current else "text-muted-foreground"
 
     return Li(
@@ -212,7 +214,7 @@ async def render_explore_sidebar_page(
             saved_links.append(
                 _sidebar_link_with_pill(
                     pin_title,
-                    f"/explore/{'ku' if et == 'ku' else 'ps'}/{pin_uid}",
+                    f"/explore/{'ku' if et == EntityType.KU.value else 'ps'}/{pin_uid}",
                     et,
                     is_current=pin_uid == current_uid,
                 )

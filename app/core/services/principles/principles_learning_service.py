@@ -304,14 +304,14 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
                 path_support = 0.0
 
                 # Domain-based support
-                path_domain = str(path.domain.value)
-
-                if principle_category in ["discipline", "persistence"] and path_domain in [
-                    "learning",
-                    "tech",
-                ]:
+                if principle_category in ["discipline", "persistence"] and path.domain in (
+                    Domain.LEARNING,
+                    Domain.TECH,
+                ):
                     path_support += 0.6
-                elif principle_category in ["wisdom", "curiosity"] and path_domain == "learning":
+                elif (
+                    principle_category in ["wisdom", "curiosity"] and path.domain == Domain.LEARNING
+                ):
                     path_support += 0.7
                 elif principle_category in ["growth_mindset", "humility"]:
                     path_support += 0.5  # Always supported by learning

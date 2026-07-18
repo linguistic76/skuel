@@ -1147,7 +1147,7 @@ class AdminLearningComponents:
         def _cell_render(k: str, v: object) -> Any:
             if k == "Title":
                 return Td(v, cls="font-medium text-sm")
-            if k in ("Submitted", "Exercise"):
+            if k in ("Submitted", "Exercise"):  # skuel-lint: disable=SKUEL014 -- column labels
                 return Td(v, cls="text-sm text-muted-foreground")
             return Td(v)
 

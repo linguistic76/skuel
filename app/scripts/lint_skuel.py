@@ -267,7 +267,14 @@ await backend.add_relationship(uid1, "SUPPORTS_GOAL", uid2)""",
         "title": "Use EntityType/NonKuDomain Enum",
         "severity": "WARNING",
         "description": """Use EntityType or NonKuDomain enum instead of magic strings for entity type
-identification. Provides type safety and compile-time verification.""",
+identification. Provides type safety and compile-time verification.
+Scope: any /services/ path plus adapters/inbound/, ui/, and api/.
+
+Suppress (boundary-shaped comparisons against a local taxonomy whose values
+merely collide with entity-type names — form-state protocols, tab ids,
+source-kind unions, display labels):
+  # skuel-lint: disable=SKUEL014 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL014 -- <reason>""",
         "good": """from core.models.enums.entity_enums import EntityType
 if entity.entity_type == EntityType.TASK:
     ...
@@ -877,6 +884,7 @@ class SkuelLinter:
             "SKUEL011",
             "SKUEL012",
             "SKUEL013",
+            "SKUEL014",
             "SKUEL015",
             "SKUEL017",
             "SKUEL018",
@@ -1400,17 +1408,18 @@ class SkuelLinter:
                     self._check_result_return_types(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
-                if self._should_run_rule("SKUEL014"):
-                    self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
 
             # Inbound/presentation layers (routes, UI renderers, api/ models) —
-            # raw relationship-type strings creep in here too, so SKUEL013 runs
-            # on these layers in addition to services. SKUEL014/SKUEL007 stay
-            # service-only for now; widening them is staged as follow-up PRs.
+            # raw relationship-type and entity-type strings creep in here too, so
+            # SKUEL013 and SKUEL014 run on these layers in addition to services.
+            # SKUEL007 stays service-only for now; widening it is the staged
+            # follow-up PR.
             is_inbound_layer = rel_path.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
             if (is_service or is_inbound_layer) and not is_test:
                 if self._should_run_rule("SKUEL013"):
                     self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
+                if self._should_run_rule("SKUEL014"):
+                    self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
 
             if "/adapters/persistence/" in str(file_path):
                 if self._should_run_rule("SKUEL008"):
@@ -2269,54 +2278,86 @@ class SkuelLinter:
 
     # SKUEL014: entity-type identifiers that must be compared via the
     # EntityType / NonKuDomain enums, never as raw strings.
-    ENTITY_TYPE_STRINGS: ClassVar[frozenset[str]] = frozenset(
+    #
+    # Canonical source of truth: `EntityType` + `NonKuDomain` in
+    # `core/models/enums/` — ENTITY_TYPE_ENUM_VALUES is the FULL set of both
+    # enums' values. Mirrored here because the linter deliberately has no
+    # runtime dependency on `core/`. Keep in sync — `TestEntityTypeCatalogDrift`
+    # in `test_lint_skuel.py` pins the contract (the catalog previously drifted
+    # to 22 of 29 values: all six *_template types, user_entry, and the
+    # group/calendar/learning NonKuDomain values were missing).
+    ENTITY_TYPE_ENUM_VALUES: ClassVar[frozenset[str]] = frozenset(
         {
-            # Activity domains
+            # EntityType — Activity domains
             "task",
             "habit",
             "goal",
             "event",
             "choice",
             "principle",
-            # Curriculum
+            # EntityType — Activity templates
+            "task_template",
+            "habit_template",
+            "goal_template",
+            "event_template",
+            "choice_template",
+            "principle_template",
+            # EntityType — Curriculum
             "ku",
             "path_step",
             "learning_path",
             "exercise",
-            "revised_exercise",
-            # Forms
+            # EntityType — Forms
             "form_template",
             "form_submission",
-            # Curated
-            "resource",
-            # Content processing
-            "exercise_submission",
-            "activity_report",
+            # EntityType — Learning loop
+            "user_entry",
             "entry_report",
+            "activity_report",
             "interaction",
-            # Journal
-            "je_input",
-            "je_output",
-            # Destination
+            # EntityType — Other
+            "revised_exercise",
             "life_path",
+            "resource",
             # NonKuDomain
             "finance",
-            # Old aliases (catch stale magic strings)
+            "group",
+            "calendar",
+            "learning",
+        }
+    )
+
+    # Stale identifiers from removed/renamed entity types. Comparing against one
+    # of these is doubly wrong (magic string AND a type that no longer exists) —
+    # kept in the catalog so the stale comparison is surfaced, not silently dead.
+    # Hand-curated: not pinned to any enum, prune when a name stops appearing.
+    LEGACY_ENTITY_TYPE_ALIASES: ClassVar[frozenset[str]] = frozenset(
+        {
             "article",
             "lesson",
             "submission",
-            "journal",
+            "exercise_submission",
             "submission_report",
+            "journal",
+            "je_input",
+            "je_output",
         }
+    )
+
+    ENTITY_TYPE_STRINGS: ClassVar[frozenset[str]] = (
+        ENTITY_TYPE_ENUM_VALUES | LEGACY_ENTITY_TYPE_ALIASES
     )
 
     @staticmethod
     def _mentions_enum_name(node: ast.AST) -> bool:
-        """True if any Name inside ``node`` is EntityType / NonKuDomain — the
-        comparison already routes through the enum (e.g. ``EntityType.TASK.value
-        == raw``), so a string operand is not a magic-string violation."""
+        """True if any Name inside ``node`` is EntityType / NonKuDomain / Domain —
+        the comparison already routes through an enum (e.g. ``EntityType.TASK.value
+        == raw``), so a string operand is not a magic-string violation. Domain is
+        included because its values overlap the catalog ("learning", "finance",
+        ...) — a comparison routed through Domain is enum-safe, just a different
+        taxonomy than this rule's suggestion."""
         return any(
-            isinstance(n, ast.Name) and n.id in ("EntityType", "NonKuDomain")
+            isinstance(n, ast.Name) and n.id in ("EntityType", "NonKuDomain", "Domain")
             for n in ast.walk(node)
         )
 
@@ -2343,8 +2384,15 @@ class SkuelLinter:
         Plain string literals outside comparisons (dict keys, log messages,
         docstrings) are deliberately NOT flagged: "task" the word is ubiquitous;
         only comparison context makes it an entity-type discriminator.
+
+        Suppressible: boundary-shaped comparisons against a LOCAL taxonomy whose
+        values merely collide with entity-type names (form-state protocols, tab
+        ids, source-kind unions, display labels) are legitimate — annotate with
+        `# skuel-lint: disable=SKUEL014 -- <reason>`.
         """
         if tree is None:
+            return
+        if self._is_file_suppressed(content, "SKUEL014"):
             return
 
         reported_lines: set[int] = set()
@@ -2354,6 +2402,8 @@ class SkuelLinter:
                 return
             reported_lines.add(line_num)
             line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL014"):
+                return
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,

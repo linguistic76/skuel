@@ -38,6 +38,7 @@ from core.models.entity_requests import (
     LinkPrincipleToKnowledgeRequest,
     RemoveHierarchyChildRequest,
 )
+from core.models.enums.entity_enums import EntityType
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import (
     PrincipleBatchImpactRequest,
@@ -335,15 +336,15 @@ def create_principles_api_routes(
         req = parsed.value
         # Knowledge (Ku) is SHARED — no ownership check required.
         # User-owned targets (goal, habit, principle) must 404 for wrong owner.
-        if req.link_type == "goal" and goals_service is not None:
+        if req.link_type == EntityType.GOAL.value and goals_service is not None:
             target_err = await verify_entity_ownership(goals_service, req.uid, user_uid, "goal")
             if target_err:
                 return target_err
-        elif req.link_type == "habit" and habits_service is not None:
+        elif req.link_type == EntityType.HABIT.value and habits_service is not None:
             target_err = await verify_entity_ownership(habits_service, req.uid, user_uid, "habit")
             if target_err:
                 return target_err
-        elif req.link_type == "principle":
+        elif req.link_type == EntityType.PRINCIPLE.value:
             target_err = await verify_entity_ownership(
                 principles_service, req.uid, user_uid, "principle"
             )

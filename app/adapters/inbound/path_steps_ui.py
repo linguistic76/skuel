@@ -305,7 +305,7 @@ def create_path_steps_ui_routes(
         form = await request.form()
         state = str(form.get("state", ""))
         review = str(form.get("review", "")) == "true"
-        if state not in ("read", "learning"):
+        if state not in ("read", "learning"):  # skuel-lint: disable=SKUEL014 -- form state
             # A malformed POST must not look like success — the old
             # fall-through returned 200 and the caller's optimistic UI stuck.
             return result_to_response(
@@ -319,7 +319,7 @@ def create_path_steps_ui_routes(
         result: Result[bool] | None = None
         if state == "read":
             result = await ps_service.mastery.mark_as_read(user_uid, uid)
-        elif state == "learning":
+        elif state == "learning":  # skuel-lint: disable=SKUEL014 -- form state, not domain
             if review:
                 result = await ps_service.mastery.mark_as_learning(user_uid, uid)
             else:

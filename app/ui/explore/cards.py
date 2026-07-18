@@ -12,6 +12,7 @@ from typing import Any
 from fasthtml.common import FT, Button, Div, Form, Input, NotStr, Option, P, Select, Span
 from fasthtml.common import A as Anchor
 
+from core.models.enums.entity_enums import EntityType
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
@@ -51,7 +52,7 @@ def render_explore_card(
     """
     uid = str(item.get("uid", ""))
     title = item.get("title") or uid
-    is_ku = item.get("_domain") == "ku"
+    is_ku = item.get("_domain") == EntityType.KU.value
 
     # Type pill
     if is_ku:
