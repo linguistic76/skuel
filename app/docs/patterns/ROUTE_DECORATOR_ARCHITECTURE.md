@@ -135,7 +135,7 @@ UI routes return FastHTML components, not JSON. They use `@rt()` alone — no `@
 @rt("/tasks/{uid}")
 async def task_detail(request: Request, uid: str):
     ...
-    return await BasePage(content=content, title=task.title, request=request)
+    return BasePage(content=content, title=task.title, request=request)
 ```
 
 `BasePage` returns a FastHTML `FT` object that the framework renders to HTML.

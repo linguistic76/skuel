@@ -29,19 +29,19 @@ Before this pattern, route handlers blocked on Neo4j queries before returning an
 async def domain_page(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     result = await some_service.get_data(user_uid)   # BLOCKS — browser sees nothing
-    return await SomeSidebarPage(Div(PageHeader(...), DataComponent(result.value)), ...)
+    return SomeSidebarPage(Div(PageHeader(...), DataComponent(result.value)), ...)
 ```
 
 **After (shell-first):**
 ```python
 @rt("/domain")
-async def domain_page(request: Request) -> Any:
+def domain_page(request: Request) -> Any:
     require_authenticated_user(request)               # auth only, no DB
     content = Div(
         PageHeader("Domain"),
         content_loading_placeholder("/domain/content", "domain-content"),
     )
-    return await SomeSidebarPage(content, ...)        # returns in ~50ms
+    return SomeSidebarPage(content, ...)              # returns in ~50ms
 
 @rt("/domain/content")
 async def domain_content_fragment(request: Request) -> Any:
@@ -120,17 +120,17 @@ The fragment does all the work the shell deferred:
 
 ```python
 @rt("/tasks/detail")
-async def task_detail_page(request: Request) -> Any:
+def task_detail_page(request: Request) -> Any:
     require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     if not uid:
-        return await render_activity_sidebar_page(
+        return render_activity_sidebar_page(
             Div(render_error_banner("Missing task UID")), active="tasks", request=request
         )
     content = Div(
         content_loading_placeholder(f"/tasks/detail/content?uid={uid}", "task-detail-content"),
     )
-    return await render_activity_sidebar_page(content, active="tasks", request=request)
+    return render_activity_sidebar_page(content, active="tasks", request=request)
 
 @rt("/tasks/detail/content")
 async def task_detail_content_fragment(request: Request) -> Any:
@@ -149,9 +149,9 @@ async def task_detail_content_fragment(request: Request) -> Any:
 
 ```python
 @rt("/explore/ku/{uid}")
-async def explore_ku_detail(request: Request, uid: str) -> Any:
+def explore_ku_detail(request: Request, uid: str) -> Any:
     content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
-    return await render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
+    return render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
 
 @rt("/explore/ku/{uid}/content")
 async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
@@ -168,9 +168,9 @@ Apply `@require_role` to **both** shell and fragment:
 ```python
 @rt("/teaching/students")
 @require_role(UserRole.TEACHER, get_user_service)
-async def teaching_students_page(request, current_user=None):
+def teaching_students_page(request, current_user=None):
     content = Div(PageHeader("Students"), content_loading_placeholder("/teaching/students/content", "students-content"))
-    return await render_teaching_sidebar_page(content, active="students", request=request)
+    return render_teaching_sidebar_page(content, active="students", request=request)
 
 @rt("/teaching/students/content")
 @require_role(UserRole.TEACHER, get_user_service)

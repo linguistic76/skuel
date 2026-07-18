@@ -83,7 +83,7 @@ def create_notifications_ui_routes(
         else:
             content = Div(render_notification_empty_state(), id="notification-list")
 
-        return await BasePage(
+        return BasePage(
             Div(header, content),
             title="Notifications",
             request=request,

@@ -322,7 +322,6 @@ def _render_authed_chrome_fixture() -> "FT":
     theme script) and runs one real hx-trigger="load" GET against the fixture's
     own static server, so skuel.js's htmx event handlers actually execute.
     """
-    import asyncio
 
     from fasthtml.common import Div, Script
 
@@ -343,7 +342,7 @@ def _render_authed_chrome_fixture() -> "FT":
         Div(id="smoke-announce-probe"),
         Script(_AUTHED_CHROME_DRIVER_JS),
     )
-    return asyncio.run(BasePage(content, title="Authed Chrome Smoke", is_authenticated=True))
+    return BasePage(content, title="Authed Chrome Smoke", is_authenticated=True)
 
 
 def _render_enroll_failure_fixture() -> "FT":

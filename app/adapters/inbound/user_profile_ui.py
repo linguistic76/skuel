@@ -55,7 +55,7 @@ logger = get_logger("skuel.routes.user_profile")
 # ============================================================================
 
 
-async def error_page(
+def error_page(
     message: str,
     status_code: int,
     user_display_name: str = "User",
@@ -86,7 +86,7 @@ async def error_page(
         cls="flex flex-col items-center justify-center min-h-[400px] p-8",
     )
 
-    return await BasePage(
+    return BasePage(
         content=content,
         title=f"Error {status_code}",
         request=request,
@@ -141,7 +141,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         return context_result.value
 
     @rt("/profile")
-    async def profile_hub(request: Request) -> Any:
+    def profile_hub(request: Request) -> Any:
         """Profile hub — 4 tabs (Curriculum / Activities / Submissions / Reports).
 
         The active tab is selected by `?tab=` (curriculum | activities |
@@ -154,7 +154,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         active_tab = normalize_tab(request.query_params.get("tab"))
 
-        return await BasePage(
+        return BasePage(
             content=ProfileHubView(active_tab=active_tab),
             title="Profile",
             request=request,
@@ -285,7 +285,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         if not items_result.is_error:
             shared_items = items_result.value
 
-        return await BasePage(
+        return BasePage(
             content=SharedWithMeView(shared_items),
             title="Shared With Me",
             request=request,

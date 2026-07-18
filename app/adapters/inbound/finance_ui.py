@@ -69,7 +69,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
 
         content = InvoiceViews.render_invoices_list(invoices=invoices, stats=stats)
 
-        return await create_finance_page(
+        return create_finance_page(
             content=content,
             active_section="invoices",
             title="Invoices",

@@ -13,7 +13,7 @@ Usage:
         SidebarItem("Browse", "/profile?tab=reports", "browse", icon="..."),
     ]
 
-    return await SidebarPage(
+    return SidebarPage(
         content=my_content,
         items=items,
         active="submit",
@@ -418,7 +418,7 @@ def SidebarNav(
     return Div(sidebar, mobile_tabs)
 
 
-async def SidebarPage(
+def SidebarPage(
     content: Any,
     items: list[SidebarItem],
     active: str,
@@ -503,7 +503,7 @@ async def SidebarPage(
         **wrapper_attrs,
     )
 
-    return await BasePage(
+    return BasePage(
         content=page_content,
         title=page_title or title,
         page_type=PageType.CUSTOM,

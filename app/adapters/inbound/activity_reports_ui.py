@@ -69,7 +69,7 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/activity-reports")
-    async def activity_reports_page(request: Request) -> Any:
+    def activity_reports_page(request: Request) -> Any:
         """Activity feedback — AI and scheduled activity reports."""
         require_authenticated_user(request)
 
@@ -91,7 +91,7 @@ def create_activity_reports_ui_routes(
                 loading_text="Loading activity reports...",
             ),
         )
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="activity-reports",
             request=request,
@@ -102,7 +102,7 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/submit-activity-report")
-    async def submit_activity_report_page(request: Request) -> Any:
+    def submit_activity_report_page(request: Request) -> Any:
         """Submit a request to generate an activity report."""
         require_authenticated_user(request)
 
@@ -114,7 +114,7 @@ def create_activity_reports_ui_routes(
             render_activity_report_request_card(),
             render_recent_reports_section(),
         )
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="activity-reports",
             request=request,
@@ -125,12 +125,12 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/activity-reports/detail")
-    async def activity_report_detail(request: Request) -> Any:
+    def activity_report_detail(request: Request) -> Any:
         """Activity report detail — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()
         if not uid:
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report UID is required")),
                 active="activity-reports",
                 request=request,
@@ -141,7 +141,7 @@ def create_activity_reports_ui_routes(
                 "activity-report-detail-content",
             )
         )
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="activity-reports",
             request=request,

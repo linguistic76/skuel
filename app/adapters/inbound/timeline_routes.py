@@ -285,7 +285,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
 
     @rt("/timelines")
     @boundary_handler()
-    async def timeline_viewer(
+    async def timeline_viewer(  # skuel-lint: disable=SKUEL029 -- @boundary_handler awaits the handler unconditionally
         request: Request,
         src: str | None = None,
         project: str | None = None,
@@ -305,7 +305,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
 
         try:
             return Result.ok(
-                await render_timeline_viewer_page(
+                render_timeline_viewer_page(
                     request=request,
                     src=src,
                     project=project,
@@ -315,7 +315,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error("Timeline viewer error", error=str(e))
-            return Result.ok(await render_timeline_error(str(e), request=request))
+            return Result.ok(render_timeline_error(str(e), request=request))
 
     return [get_tasks_timeline, get_timeline_preview, timeline_viewer]
 

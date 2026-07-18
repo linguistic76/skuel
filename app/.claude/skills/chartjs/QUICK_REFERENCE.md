@@ -25,7 +25,7 @@ def _chart_card(data_url: str, chart_type: str) -> Any:
 ### Loading Chart.js on a page
 
 ```python
-return await BasePage(
+return BasePage(
     content, title="Insights | SKUEL", request=request,
     extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
 )

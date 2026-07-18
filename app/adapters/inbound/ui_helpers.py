@@ -71,7 +71,7 @@ def render_safe_error_response(
     return Response(user_message, status_code=status_code)
 
 
-async def render_entity_not_found_page(
+def render_entity_not_found_page(
     entity_label: str,
     uid: str,
     domain_slug: str,
@@ -91,7 +91,7 @@ async def render_entity_not_found_page(
     from ui.layouts.base_page import BasePage
     from ui.layouts.page_types import PageType
 
-    return await BasePage(
+    return BasePage(
         content=Card(
             CardHeader(CardTitle(f"{entity_label} Not Found", cls="text-error")),
             CardBody(

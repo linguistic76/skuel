@@ -523,7 +523,7 @@ async def choice_detail_view(request, uid: str):
     # ✅ Check both conditions and return early
     if result.is_error or result.value is None:
         logger.error(f"Failed to get choice {uid}: {result.error if result.is_error else 'Not found'}")
-        return await BasePage(
+        return BasePage(
             content=Card(
                 H2("Choice Not Found", cls="text-xl font-bold text-error mb-4"),
                 P(f"Could not find choice: {uid}", cls="text-base-content/70"),
@@ -535,7 +535,7 @@ async def choice_detail_view(request, uid: str):
     choice = result.value
 
     # ✅ Safe to access choice.title, choice.description, etc.
-    return await BasePage(
+    return BasePage(
         content=Div(
             H1(f"🤔 {choice.title}"),
             P(choice.description),

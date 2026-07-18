@@ -36,7 +36,7 @@ def create_domain_routes(app: Any, rt: Any, service: SomeService) -> None:
 ### UI page route with layout wrapper
 
 ```python
-page = await BasePage(
+page = BasePage(
     content,
     title="Tasks",
     page_type=PageType.STANDARD,   # CUSTOM = full-width, page manages layout

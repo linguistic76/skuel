@@ -660,7 +660,7 @@ if parsed.is_error:
         ChoiceCreateForm(),
         cls="space-y-6",
     )
-    return await render_activity_sidebar_page(content, active="choices", request=request)
+    return render_activity_sidebar_page(content, active="choices", request=request)
 req = parsed.value  # validated ChoiceCreateRequest
 ```
 

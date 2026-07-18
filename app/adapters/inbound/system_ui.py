@@ -44,11 +44,11 @@ def create_system_ui_routes(
     routes: list[Any] = []
 
     @rt("/")
-    async def home(request: Request) -> Any:
+    def home(request: Request) -> Any:
         """Home page - admin hub, profile redirect, or login landing."""
         if is_authenticated(request):
             if get_is_admin(request):
-                return await BasePage(
+                return BasePage(
                     content=render_admin_hub_content(),
                     title="Admin Hub",
                     request=request,

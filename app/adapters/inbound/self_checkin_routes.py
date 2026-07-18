@@ -113,7 +113,7 @@ def create_self_checkin_routes(
             render_checkin_history(checkins),
             cls="space-y-6",
         )
-        return await BasePage(
+        return BasePage(
             content,
             title="Self Check-In",
             page_type=PageType.STANDARD,

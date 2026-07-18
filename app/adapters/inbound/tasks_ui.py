@@ -84,7 +84,7 @@ def create_tasks_ui_routes(
     # ------------------------------------------------------------------
 
     @rt("/tasks/create", methods=["GET"])
-    async def task_create_page(request: Request) -> Any:
+    def task_create_page(request: Request) -> Any:
         """Render the new-task form."""
         require_authenticated_user(request)
         content = Div(
@@ -92,7 +92,7 @@ def create_tasks_ui_routes(
             TaskCreateForm(),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="tasks", request=request)
+        return render_activity_sidebar_page(content, active="tasks", request=request)
 
     @rt("/tasks/create", methods=["POST"])
     @csrf_protected
@@ -109,7 +109,7 @@ def create_tasks_ui_routes(
                 TaskCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="tasks", request=request)
+            return render_activity_sidebar_page(content, active="tasks", request=request)
 
         result = await tasks_service.core.create_task(parsed.value, user_uid)
         if result.is_error:
@@ -120,7 +120,7 @@ def create_tasks_ui_routes(
                 TaskCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="tasks", request=request)
+            return render_activity_sidebar_page(content, active="tasks", request=request)
 
         return RedirectResponse(f"/tasks/detail?uid={result.value.uid}", status_code=303)
 
@@ -153,7 +153,7 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing task UID")),
                 active="tasks",
                 request=request,
@@ -161,7 +161,7 @@ def create_tasks_ui_routes(
 
         result = await tasks_service.get_task(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Task not found")),
                 active="tasks",
                 request=request,
@@ -181,7 +181,7 @@ def create_tasks_ui_routes(
             ),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="tasks", request=request)
+        return render_activity_sidebar_page(content, active="tasks", request=request)
 
     @rt("/tasks/edit", methods=["POST"])
     @csrf_protected
@@ -190,7 +190,7 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing task UID")),
                 active="tasks",
                 request=request,
@@ -198,7 +198,7 @@ def create_tasks_ui_routes(
 
         existing = await tasks_service.get_task(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Task not found")),
                 active="tasks",
                 request=request,
@@ -224,7 +224,7 @@ def create_tasks_ui_routes(
                 ),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="tasks", request=request)
+            return render_activity_sidebar_page(content, active="tasks", request=request)
 
         # ADR-066: build the typed update intent from explicitly-set fields. Only fields
         # the form actually submitted become non-UNSET, so untouched fields are left alone
@@ -246,7 +246,7 @@ def create_tasks_ui_routes(
                 ),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="tasks", request=request)
+            return render_activity_sidebar_page(content, active="tasks", request=request)
 
         return RedirectResponse(f"/tasks/detail?uid={uid}", status_code=303)
 

@@ -57,7 +57,7 @@ def create_exercises_ui_routes(
     get_user_service = make_service_getter(user_service)
 
     @app.get("/exercises")
-    async def exercises_dashboard(request) -> Any:
+    def exercises_dashboard(request) -> Any:
         """Exercises dashboard — shell renders immediately, content loads via HTMX."""
         try:
             require_authenticated_user(request)
@@ -70,7 +70,7 @@ def create_exercises_ui_routes(
                 content_loading_placeholder("/exercises/content", "exercises-content"),
                 id="main-content",
             )
-            return await BasePage(
+            return BasePage(
                 content=content,
                 title="Exercises",
                 request=request,
@@ -152,13 +152,13 @@ def create_exercises_ui_routes(
             return render_inline_error(f"Error: {e}")
 
     @app.get("/exercises/get")
-    async def exercise_detail(request, uid: str, from_ps: str = "") -> Any:
+    def exercise_detail(request, uid: str, from_ps: str = "") -> Any:
         """Student-facing exercise detail page — shell renders immediately, content loads via HTMX."""
         try:
             require_authenticated_user(request)
 
             if not uid:
-                return await BasePage(
+                return BasePage(
                     Div(
                         PageHeader("Exercise Not Found"),
                         P("Missing exercise UID.", cls="text-base-content/70"),
@@ -179,7 +179,7 @@ def create_exercises_ui_routes(
                 fragment_url += f"&from_ps={from_ps}"
 
             content = content_loading_placeholder(fragment_url, "exercise-detail-content")
-            return await BasePage(
+            return BasePage(
                 content,
                 title="Exercise",
                 request=request,

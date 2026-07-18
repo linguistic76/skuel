@@ -166,11 +166,11 @@ def create_habits_ui_routes(
         )
 
     @rt("/habits/create", methods=["GET"])
-    async def habit_create_page(request: Request) -> Any:
+    def habit_create_page(request: Request) -> Any:
         """Render the new-habit form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Habit"), HabitCreateForm(), cls="space-y-6")
-        return await render_activity_sidebar_page(content, active="habits", request=request)
+        return render_activity_sidebar_page(content, active="habits", request=request)
 
     @rt("/habits/create", methods=["POST"])
     @csrf_protected
@@ -187,7 +187,7 @@ def create_habits_ui_routes(
                 HabitCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="habits", request=request)
+            return render_activity_sidebar_page(content, active="habits", request=request)
 
         result = await habits_service.create_habit(parsed.value, user_uid)
         if result.is_error:
@@ -198,7 +198,7 @@ def create_habits_ui_routes(
                 HabitCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="habits", request=request)
+            return render_activity_sidebar_page(content, active="habits", request=request)
 
         return RedirectResponse(f"/habits/detail?uid={result.value.uid}", status_code=303)
 
@@ -208,7 +208,7 @@ def create_habits_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing habit UID")),
                 active="habits",
                 request=request,
@@ -216,7 +216,7 @@ def create_habits_ui_routes(
 
         result = await habits_service.get_habit(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Habit not found")),
                 active="habits",
                 request=request,
@@ -228,7 +228,7 @@ def create_habits_ui_routes(
             HabitEditForm(habit),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="habits", request=request)
+        return render_activity_sidebar_page(content, active="habits", request=request)
 
     @rt("/habits/edit", methods=["POST"])
     @csrf_protected
@@ -237,7 +237,7 @@ def create_habits_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing habit UID")),
                 active="habits",
                 request=request,
@@ -245,7 +245,7 @@ def create_habits_ui_routes(
 
         existing = await habits_service.get_habit(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Habit not found")),
                 active="habits",
                 request=request,
@@ -261,7 +261,7 @@ def create_habits_ui_routes(
                 HabitEditForm(habit),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="habits", request=request)
+            return render_activity_sidebar_page(content, active="habits", request=request)
 
         # ADR-066: build the typed HabitUpdateIntent from explicitly-set fields only
         # (model_fields_set). Fields the user left blank stay UNSET and are not written,
@@ -275,7 +275,7 @@ def create_habits_ui_routes(
                 HabitEditForm(habit),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="habits", request=request)
+            return render_activity_sidebar_page(content, active="habits", request=request)
 
         return RedirectResponse(f"/habits/detail?uid={uid}", status_code=303)
 

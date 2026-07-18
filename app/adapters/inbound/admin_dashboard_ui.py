@@ -207,7 +207,7 @@ def create_admin_dashboard_routes(
             ),
         )
 
-        return await create_admin_page(
+        return create_admin_page(
             content=content,
             active_section="overview",
             admin_username=current_user.display_name or current_user.title,
@@ -222,7 +222,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/batch-transcribe")
     @require_admin(get_user_service)
-    async def admin_batch_transcribe(request, current_user):
+    def admin_batch_transcribe(request, current_user):
         """Batch audio→text transcription console.
 
         Renders the Alpine-driven panel that drives
@@ -236,7 +236,7 @@ def create_admin_dashboard_routes(
             render_batch_transcription_panel(),
         )
 
-        return await create_admin_page(
+        return create_admin_page(
             content=content,
             active_section="transcription",
             admin_username=current_user.display_name or current_user.title,
@@ -347,7 +347,7 @@ def create_admin_dashboard_routes(
             ),
         )
 
-        return await create_admin_page(
+        return create_admin_page(
             content=content,
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
@@ -409,7 +409,7 @@ def create_admin_dashboard_routes(
                 render_error_banner(f"No user found with UID: {uid}"),
                 ButtonLink("← Back to Users", href="/admin/users", cls=(ButtonT.ghost, "mt-4")),
             )
-            return await create_admin_page(
+            return create_admin_page(
                 content=content,
                 active_section="users",
                 admin_username=current_user.display_name or current_user.title,
@@ -529,7 +529,7 @@ def create_admin_dashboard_routes(
             ),
         )
 
-        return await create_admin_page(
+        return create_admin_page(
             content=content,
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
@@ -585,7 +585,7 @@ def create_admin_dashboard_routes(
             AdminAnalyticsComponents.render_analytics_dashboard(analytics_data),
         )
 
-        return await create_admin_page(
+        return create_admin_page(
             content=content,
             active_section="analytics",
             admin_username=current_user.display_name or current_user.title,
@@ -612,7 +612,7 @@ def create_admin_dashboard_routes(
             AdminPrereqComponents.render_page(prereq_suggestions.judge_available),
         )
 
-        return await create_admin_page(
+        return create_admin_page(
             content=content,
             active_section="prereq",
             admin_username=current_user.display_name or current_user.title,
@@ -707,7 +707,7 @@ def create_admin_dashboard_routes(
             ),
         )
 
-        return await create_admin_page(
+        return create_admin_page(
             content=content,
             active_section="system",
             admin_username=current_user.display_name or current_user.title,

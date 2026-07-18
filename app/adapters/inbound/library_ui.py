@@ -204,7 +204,7 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library")
-    async def library_moc(request: Request) -> Any:
+    def library_moc(request: Request) -> Any:
         """Library MOC — links to all 4 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
@@ -243,7 +243,7 @@ def create_library_ui_routes(
             ),
         )
 
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Library",
             request=request,
@@ -268,7 +268,7 @@ def create_library_ui_routes(
 
         if request.headers.get("HX-Request"):
             return fragment
-        return await render_library_sidebar_page(
+        return render_library_sidebar_page(
             content=Div(fragment), active="exercises", request=request
         )
 
@@ -290,7 +290,7 @@ def create_library_ui_routes(
 
         if request.headers.get("HX-Request"):
             return fragment
-        return await render_library_sidebar_page(
+        return render_library_sidebar_page(
             content=Div(fragment), active="exercises", request=request
         )
 
@@ -310,7 +310,7 @@ def create_library_ui_routes(
 
         if request.headers.get("HX-Request"):
             return fragment
-        return await render_library_sidebar_page(
+        return render_library_sidebar_page(
             content=Div(fragment), active="resources", request=request
         )
 
@@ -342,7 +342,7 @@ def create_library_ui_routes(
             cited_by = cited.value if not cited.is_error else []
             content = render_resource_detail(found.value, cited_by=cited_by)
 
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Resource",
             page_type=PageType.CUSTOM,
@@ -368,9 +368,7 @@ def create_library_ui_routes(
 
         if request.headers.get("HX-Request"):
             return fragment
-        return await render_library_sidebar_page(
-            content=Div(fragment), active="ku", request=request
-        )
+        return render_library_sidebar_page(content=Div(fragment), active="ku", request=request)
 
     async def _build_ku_fragment(user: UserUID) -> Any:
         """Build the Ku bookmarks fragment content."""
@@ -419,9 +417,9 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library/path-steps")
-    async def library_path_steps(request: Request) -> Any:
+    def library_path_steps(request: Request) -> Any:
         """Path Steps the user is enrolled in — shell renders immediately, content loads via HTMX."""
-        return await render_library_sidebar_page(
+        return render_library_sidebar_page(
             content=Div(
                 content_loading_placeholder(
                     "/library/path-steps/content",

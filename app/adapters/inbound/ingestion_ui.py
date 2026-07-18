@@ -42,9 +42,9 @@ def create_ingestion_ui_routes(
 
     @rt("/ingest")
     @require_admin(get_user_service)
-    async def ingest_dashboard(request: Request, current_user):
+    def ingest_dashboard(request: Request, current_user):
         """Unified ingestion dashboard UI. Requires ADMIN role."""
-        return await BasePage(
+        return BasePage(
             build_ingestion_dashboard(vault_path=str(get_settings().vault.ingestion_path)),
             title="Content Ingestion",
             request=request,

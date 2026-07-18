@@ -209,7 +209,7 @@ def create_insights_ui_routes(
             **{"x-data": "bulkInsightManager()"},
         )
 
-        return await BasePage(
+        return BasePage(
             content,
             title="Insights | SKUEL",
             page_type=PageType.STANDARD,
@@ -269,7 +269,7 @@ def create_insights_ui_routes(
             cls="space-y-6",
         )
 
-        return await BasePage(
+        return BasePage(
             content,
             title="Insight Statistics | SKUEL",
             page_type=PageType.STANDARD,

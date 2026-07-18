@@ -53,12 +53,12 @@ def mock_services() -> Any:
 def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Register /groups hub routes on a collector rt and return them.
 
-    Patches ui.layouts.base_page.BasePage to a lightweight async stub so we
+    Patches ui.layouts.base_page.BasePage to a lightweight sync stub so we
     don't pull in the full navbar/auth machinery — we only care that the
     route hands the right content and title to BasePage.
     """
 
-    async def fake_base_page(**kwargs: Any) -> dict[str, Any]:
+    def fake_base_page(**kwargs: Any) -> dict[str, Any]:
         return {"__base_page__": True, **kwargs}
 
     import ui.layouts.base_page as base_page_module
@@ -233,7 +233,7 @@ class TestGroupsSharedPreview:
         """If sharing service failed to bootstrap, the preview degrades cleanly."""
         import ui.layouts.base_page as base_page_module
 
-        async def fake_base_page(**kwargs: Any) -> dict[str, Any]:
+        def fake_base_page(**kwargs: Any) -> dict[str, Any]:
             return {"__base_page__": True, **kwargs}
 
         monkeypatch.setattr(base_page_module, "BasePage", fake_base_page)

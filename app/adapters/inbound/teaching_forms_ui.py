@@ -67,7 +67,7 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Forms"),
                 render_error_banner("Failed to load form templates", str(result.error)),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         templates, _total = result.value
         if not templates:
@@ -75,7 +75,7 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Forms"),
                 EmptyState("No form templates", "Create form templates to see them here."),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         # Gather submission counts
         rows = []
@@ -118,7 +118,7 @@ def create_teaching_forms_ui_routes(
             )
 
         content = Div(PageHeader("Forms"), *template_cards)
-        return await render_teaching_sidebar_page(content, active="forms", request=request)
+        return render_teaching_sidebar_page(content, active="forms", request=request)
 
     # ==================================================================
     # GET /teaching/forms/detail?uid= — Submissions for a template
@@ -136,7 +136,7 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Form Submissions"),
                 render_error_banner("Missing template UID", "No uid query parameter provided."),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         # Fetch template
         template_result = require_found(await form_template_service.get(uid), "FormTemplate", uid)
@@ -145,7 +145,7 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Form Submissions"),
                 render_error_banner("Template not found", f"No template with UID: {uid}"),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         template = template_result.value
 
@@ -156,7 +156,7 @@ def create_teaching_forms_ui_routes(
                 PageHeader(template.title, subtitle="Submissions"),
                 render_error_banner("Failed to load submissions", str(subs_result.error)),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         submissions = subs_result.value or []
 
@@ -175,7 +175,7 @@ def create_teaching_forms_ui_routes(
                     "Submissions will appear here when users respond to this form.",
                 ),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         submission_rows = []
         for sub in submissions:
@@ -223,7 +223,7 @@ def create_teaching_forms_ui_routes(
             ),
             *submission_rows,
         )
-        return await render_teaching_sidebar_page(content, active="forms", request=request)
+        return render_teaching_sidebar_page(content, active="forms", request=request)
 
     # ==================================================================
     # GET /teaching/forms/submission?uid= — Single submission detail
@@ -241,7 +241,7 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Submission Detail"),
                 render_error_banner("Missing submission UID", "No uid query parameter provided."),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         result = await form_submission_service.get_submission_admin(uid)
         if result.is_error:
@@ -249,7 +249,7 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Submission Detail"),
                 render_error_banner("Submission not found", f"No submission with UID: {uid}"),
             )
-            return await render_teaching_sidebar_page(content, active="forms", request=request)
+            return render_teaching_sidebar_page(content, active="forms", request=request)
 
         submission = result.value
 
@@ -279,6 +279,6 @@ def create_teaching_forms_ui_routes(
             render_submission_metadata(submission, template),
             render_form_responses_section(submission.form_data, form_schema),
         )
-        return await render_teaching_sidebar_page(content, active="forms", request=request)
+        return render_teaching_sidebar_page(content, active="forms", request=request)
 
     return [teaching_forms_list, teaching_forms_detail, teaching_forms_submission_detail]

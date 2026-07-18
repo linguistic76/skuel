@@ -16,7 +16,7 @@ LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def lifepath_sidebar_page(
+def lifepath_sidebar_page(
     active_page: str,
     content: Any,
     request: Request,
@@ -27,7 +27,7 @@ async def lifepath_sidebar_page(
     Args:
         extra_scripts: Page-specific JS (e.g. Chart.js for the alignment radar).
     """
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=LIFEPATH_SIDEBAR_ITEMS,
         active=active_page,

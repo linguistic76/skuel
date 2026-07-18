@@ -225,13 +225,13 @@ from ui.patterns.loading import content_loading_placeholder
 
 # Shell — returns immediately (zero DB calls)
 @rt("/settings")
-async def settings_page(request: Request) -> Any:
+def settings_page(request: Request) -> Any:
     require_authenticated_user(request)
     content = Div(
         PageHeader("Settings", subtitle="Manage your preferences"),
         content_loading_placeholder("/settings/content", "settings-content"),
     )
-    return await BasePage(content, title="Settings", request=request)
+    return BasePage(content, title="Settings", request=request)
 
 # Fragment — DB work here, replaces the placeholder
 @rt("/settings/content")

@@ -375,14 +375,14 @@ SidebarItem(
 # Preferred: use the domain-specific helper (handles items, title, storage_key)
 from ui.gradebook.nav import render_gradebook_sidebar_page
 
-return await render_gradebook_sidebar_page(
+return render_gradebook_sidebar_page(
     content=my_content, active="submissions", request=request
 )
 
 # Submissions sidebar (Sync, Exercise, Journal, History, Knowledge):
 from ui.workbench.nav import render_submissions_sidebar_page
 
-return await render_submissions_sidebar_page(
+return render_submissions_sidebar_page(
     content=my_content, active="upload", request=request
 )
 
@@ -395,7 +395,7 @@ items = [
     SidebarItem("Revisions", "/revised-exercises", "revised-exercises", icon="refresh-cw"),
 ]
 
-return await SidebarPage(
+return SidebarPage(
     content=my_content,
     items=items,
     active="submissions",               # Active item slug
@@ -433,7 +433,7 @@ Desktop:              Mobile:
 
 **Pattern 1 — Basic (flat list):**
 ```python
-return await SidebarPage(content=content, items=ITEMS, active="overview", title="Reports",
+return SidebarPage(content=content, items=ITEMS, active="overview", title="Reports",
                          storage_key="reports-sidebar", request=request)
 ```
 
@@ -443,7 +443,7 @@ extra_section = Div(
     H4("Section Title", cls="text-sm font-semibold opacity-60 px-3 mt-2"),
     Div(id="extra-list", **{"hx-get": "/your/fragment/route", "hx-trigger": "load"}),
 )
-return await SidebarPage(..., extra_sidebar_sections=[extra_section])
+return SidebarPage(..., extra_sidebar_sections=[extra_section])
 ```
 
 **Pattern 3 — Custom item renderer (badges, custom layout):**
@@ -458,7 +458,7 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> Any:
         cls=f"flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-base-200 {active_cls}",
     ))
 
-return await SidebarPage(..., item_renderer=_profile_item_renderer)
+return SidebarPage(..., item_renderer=_profile_item_renderer)
 ```
 
 **Pattern 4 — Description items (two-line layout, no custom renderer needed):**
@@ -484,7 +484,7 @@ content = Div(
     Div(completed_list, **{"x-show": "section === 'completed'"}),
 )
 
-return await SidebarPage(
+return SidebarPage(
     content=content, items=items, active="pending",
     title="Student Name", storage_key="student-detail-sidebar",
     request=request,

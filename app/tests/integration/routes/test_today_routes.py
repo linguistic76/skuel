@@ -120,7 +120,7 @@ def mock_services() -> Any:
 def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Register /today routes and return path → handler."""
 
-    async def fake_base_page(**kwargs: Any) -> dict[str, Any]:
+    def fake_base_page(**kwargs: Any) -> dict[str, Any]:
         return {"__base_page__": True, **kwargs}
 
     import ui.patterns.sidebar as sidebar_module

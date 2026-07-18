@@ -411,7 +411,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 
 # Standard page (centered content, no sidebar)
-await BasePage(
+BasePage(
     content=my_content,
     title="Tasks",
     page_type=PageType.STANDARD,
@@ -420,7 +420,7 @@ await BasePage(
 )
 
 # Custom page (full-width, page manages its own layout — used by SidebarPage)
-await BasePage(
+BasePage(
     content=my_content,
     title="Activities",
     page_type=PageType.CUSTOM,
@@ -451,7 +451,7 @@ items = [
     SidebarItem(label="Habits", href="/habits", slug="habits", icon="🔄"),
 ]
 
-await SidebarPage(
+SidebarPage(
     content=overview_content,
     items=items,
     active="overview",
@@ -868,14 +868,14 @@ def create_example_routes(app, rt, services):
         result = await services.example.get_all(user_uid)
 
         if result.is_error:
-            return await BasePage(
+            return BasePage(
                 render_error_banner("Unable to load data", result.error.message),
                 title="Example", request=request, active_page="example",
             )
 
         entities = result.value or []
         if not entities:
-            return await BasePage(
+            return BasePage(
                 EmptyState("No items yet", description="Create your first item.",
                            action_text="Create Item", action_href="/example?view=create"),
                 title="Example", request=request, active_page="example",
@@ -899,7 +899,7 @@ def create_example_routes(app, rt, services):
             gap=6,
         )
 
-        return await BasePage(
+        return BasePage(
             content, title="Example", page_type=PageType.STANDARD,
             request=request, active_page="example",
         )
@@ -917,7 +917,7 @@ def create_example_routes(app, rt, services):
 
 ## Common Gotchas
 
-**1. `await BasePage()`** — BasePage is async. If you forget `await`, the page renders as `<coroutine object BasePage at 0x...>`. Every `BasePage(...)` call must be `await BasePage(...)`.
+**1. `BasePage()`** — BasePage is async. If you forget `await`, the page renders as `<coroutine object BasePage at 0x...>`. Every `BasePage(...)` call must be `BasePage(...)`.
 
 **2. Don't collect `@rt()` routes into lists.** The `@rt()` decorator registers the route immediately with FastHTML. If you also append the function to a `routes = []` list and register that list, the route gets double-registered. Just use `@rt()` and let it handle registration.
 

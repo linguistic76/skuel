@@ -193,13 +193,13 @@ from ui.patterns.loading import content_loading_placeholder
 ```python
 # ✅ CORRECT: shell returns immediately, content fills in via HTMX
 @rt("/tasks")
-async def tasks_page(request: Request) -> Any:
+def tasks_page(request: Request) -> Any:
     require_authenticated_user(request)
     content = Div(
         PageHeader("Tasks", subtitle="Manage your daily work"),
         content_loading_placeholder("/tasks/content", "tasks-content"),
     )
-    return await BasePage(content, title="Tasks", request=request, active_page="tasks")
+    return BasePage(content, title="Tasks", request=request, active_page="tasks")
 
 @rt("/tasks/content")
 async def tasks_content_fragment(request: Request) -> Any:
@@ -217,17 +217,17 @@ async def tasks_content_fragment(request: Request) -> Any:
 
 ```python
 @rt("/tasks/detail")
-async def task_detail_page(request: Request) -> Any:
+def task_detail_page(request: Request) -> Any:
     require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     if not uid:
-        return await render_activity_sidebar_page(
+        return render_activity_sidebar_page(
             Div(render_error_banner("Missing task UID")), active="tasks", request=request
         )
     content = Div(
         content_loading_placeholder(f"/tasks/detail/content?uid={uid}", "task-detail-content"),
     )
-    return await render_activity_sidebar_page(content, active="tasks", request=request)
+    return render_activity_sidebar_page(content, active="tasks", request=request)
 
 @rt("/tasks/detail/content")
 async def task_detail_content_fragment(request: Request) -> Any:
@@ -246,12 +246,12 @@ async def task_detail_content_fragment(request: Request) -> Any:
 
 ```python
 @rt("/explore/ku/{uid}")
-async def explore_ku_detail(request: Request, uid: str) -> Any:
+def explore_ku_detail(request: Request, uid: str) -> Any:
     content = Div(
         Script(src="/static/js/ku-reading.js"),  # Alpine factory before HTMX fragment
         content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content"),
     )
-    return await BasePage(content, title="Read", page_type=PageType.CUSTOM, request=request, active_page="explore")
+    return BasePage(content, title="Read", page_type=PageType.CUSTOM, request=request, active_page="explore")
 
 @rt("/explore/ku/{uid}/content")
 async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
@@ -320,7 +320,7 @@ BasePage(content, request=request)
 # ❌ Manual sidebar layout with CUSTOM
 BasePage(content, page_type=PageType.CUSTOM, sidebar=Div(...))
 # ✅ SidebarPage() for sidebar with collapsible + state persistence
-await SidebarPage(content=content, items=items, ...)
+SidebarPage(content=content, items=items, ...)
 
 # ❌ Magic container widths
 Div(cls="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8")

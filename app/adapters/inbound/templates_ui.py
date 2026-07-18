@@ -155,7 +155,7 @@ def create_templates_ui_routes(
     def _spec_or_404(domain: str) -> DomainSpec | None:
         return DOMAIN_SPECS.get(domain)
 
-    async def _render_form_page(
+    def _render_form_page(
         request: Request,
         ps_uid: str,
         title: str,
@@ -176,7 +176,7 @@ def create_templates_ui_routes(
             body,
             cls=f"{Container.NARROW} p-6 space-y-4",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title=title,
             request=request,
@@ -208,7 +208,7 @@ def create_templates_ui_routes(
         require_authenticated_user(request)
         spec = _spec_or_404(domain)
         if spec is None:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 "Unknown template domain",
@@ -216,7 +216,7 @@ def create_templates_ui_routes(
             )
 
         picker_options = await _gather_picker_options(ps_uid, set(spec.ref_fields.values()))
-        return await _render_form_page(
+        return _render_form_page(
             request,
             ps_uid,
             f"New {domain.title()} Template",
@@ -236,7 +236,7 @@ def create_templates_ui_routes(
         user_uid = require_authenticated_user(request)
         spec = _spec_or_404(domain)
         if spec is None:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 "Unknown template domain",
@@ -251,7 +251,7 @@ def create_templates_ui_routes(
         if ps_service is not None:
             ps_check = await ps_service.core.get(ps_uid)
             if ps_check.is_error:
-                return await _render_form_page(
+                return _render_form_page(
                     request,
                     ps_uid,
                     f"New {domain.title()} Template",
@@ -264,7 +264,7 @@ def create_templates_ui_routes(
         parsed = await parse_template_form_body(request, spec.create_schema)
         if parsed.is_error:
             err = parsed.expect_error()
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"New {domain.title()} Template",
@@ -279,7 +279,7 @@ def create_templates_ui_routes(
 
         converter = ConversionServiceV2.get_converter(type(parsed.value))
         if converter is None:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"New {domain.title()} Template",
@@ -292,7 +292,7 @@ def create_templates_ui_routes(
         create_res = await service.create(entity)
         if create_res.is_error:
             err = create_res.expect_error()
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"New {domain.title()} Template",
@@ -310,7 +310,7 @@ def create_templates_ui_routes(
                 f"Created {domain} template {uid} but failed to attach to PS {ps_uid}: "
                 f"{err.message}"
             )
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"New {domain.title()} Template",
@@ -335,7 +335,7 @@ def create_templates_ui_routes(
         require_authenticated_user(request)
         spec = _spec_or_404(domain)
         if spec is None:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 "Unknown template domain",
@@ -344,7 +344,7 @@ def create_templates_ui_routes(
 
         template_uid = request.query_params.get("uid", "")
         if not template_uid:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"Edit {domain.title()} Template",
@@ -354,7 +354,7 @@ def create_templates_ui_routes(
         service = template_services[domain]
         result = await service.get(template_uid)
         if result.is_error or result.value is None:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"Edit {domain.title()} Template",
@@ -363,7 +363,7 @@ def create_templates_ui_routes(
 
         template = result.value
         picker_options = await _gather_picker_options(ps_uid, set(spec.ref_fields.values()))
-        return await _render_form_page(
+        return _render_form_page(
             request,
             ps_uid,
             f"Edit: {getattr(template, 'title', template_uid)}",
@@ -383,7 +383,7 @@ def create_templates_ui_routes(
         require_authenticated_user(request)
         spec = _spec_or_404(domain)
         if spec is None:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 "Unknown template domain",
@@ -392,7 +392,7 @@ def create_templates_ui_routes(
 
         template_uid = request.query_params.get("uid", "")
         if not template_uid:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"Edit {domain.title()} Template",
@@ -402,7 +402,7 @@ def create_templates_ui_routes(
         service = template_services[domain]
         existing = await service.get(template_uid)
         if existing.is_error or existing.value is None:
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"Edit {domain.title()} Template",
@@ -414,7 +414,7 @@ def create_templates_ui_routes(
         parsed = await parse_template_form_body(request, spec.update_schema)
         if parsed.is_error:
             err = parsed.expect_error()
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"Edit: {getattr(template, 'title', template_uid)}",
@@ -436,7 +436,7 @@ def create_templates_ui_routes(
         update_res = await service.update(template_uid, updates)
         if update_res.is_error:
             err = update_res.expect_error()
-            return await _render_form_page(
+            return _render_form_page(
                 request,
                 ps_uid,
                 f"Edit: {getattr(template, 'title', template_uid)}",

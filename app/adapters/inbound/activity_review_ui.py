@@ -94,13 +94,11 @@ def create_activity_review_ui_routes(
             ),
         )
 
-        return await activity_review_sidebar_page(
-            "queue", content, request, page_title="Review Queue"
-        )
+        return activity_review_sidebar_page("queue", content, request, page_title="Review Queue")
 
     @rt("/activity-review/new")
     @require_admin(get_user_service)
-    async def activity_review_new_page(
+    def activity_review_new_page(
         request: Request,
         current_user: Any,
         subject_uid: str = "",
@@ -125,7 +123,7 @@ def create_activity_review_ui_routes(
             render_feedback_form(subject_uid, time_period),
         )
 
-        return await activity_review_sidebar_page("new", content, request, page_title="New Review")
+        return activity_review_sidebar_page("new", content, request, page_title="New Review")
 
     @rt("/activity-review/snapshot-fragment")
     @require_admin(get_user_service)

@@ -81,11 +81,11 @@ def create_principles_ui_routes(
     base_routes = create_activity_ui_routes(app, rt, config)
 
     @rt("/principles/create", methods=["GET"])
-    async def principle_create_page(request: Request) -> Any:
+    def principle_create_page(request: Request) -> Any:
         """Render the new-principle form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Principle"), PrincipleCreateForm(), cls="space-y-6")
-        return await render_activity_sidebar_page(content, active="principles", request=request)
+        return render_activity_sidebar_page(content, active="principles", request=request)
 
     @rt("/principles/create", methods=["POST"])
     @csrf_protected
@@ -102,7 +102,7 @@ def create_principles_ui_routes(
                 PrincipleCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="principles", request=request)
+            return render_activity_sidebar_page(content, active="principles", request=request)
 
         result = await principles_service.create_principle(parsed.value, user_uid)
         if result.is_error:
@@ -113,7 +113,7 @@ def create_principles_ui_routes(
                 PrincipleCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="principles", request=request)
+            return render_activity_sidebar_page(content, active="principles", request=request)
 
         return RedirectResponse(f"/principles/detail?uid={result.value.uid}", status_code=303)
 
@@ -123,7 +123,7 @@ def create_principles_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing principle UID")),
                 active="principles",
                 request=request,
@@ -131,7 +131,7 @@ def create_principles_ui_routes(
 
         result = await principles_service.get_principle(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Principle not found")),
                 active="principles",
                 request=request,
@@ -143,7 +143,7 @@ def create_principles_ui_routes(
             PrincipleEditForm(principle),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="principles", request=request)
+        return render_activity_sidebar_page(content, active="principles", request=request)
 
     @rt("/principles/edit", methods=["POST"])
     @csrf_protected
@@ -152,7 +152,7 @@ def create_principles_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing principle UID")),
                 active="principles",
                 request=request,
@@ -160,7 +160,7 @@ def create_principles_ui_routes(
 
         existing = await principles_service.get_principle(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Principle not found")),
                 active="principles",
                 request=request,
@@ -176,7 +176,7 @@ def create_principles_ui_routes(
                 PrincipleEditForm(principle),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="principles", request=request)
+            return render_activity_sidebar_page(content, active="principles", request=request)
 
         # ADR-066: build the typed PrincipleUpdateIntent from explicitly-set fields only
         # (model_fields_set). Fields the user left blank stay UNSET and are not written, so
@@ -201,7 +201,7 @@ def create_principles_ui_routes(
                 PrincipleEditForm(principle),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="principles", request=request)
+            return render_activity_sidebar_page(content, active="principles", request=request)
 
         return RedirectResponse(f"/principles/detail?uid={uid}", status_code=303)
 

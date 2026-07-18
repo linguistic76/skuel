@@ -222,7 +222,7 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/submissions")
-    async def submissions_moc(request: Request) -> Any:
+    def submissions_moc(request: Request) -> Any:
         """Submissions MOC — links to all 5 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
@@ -268,7 +268,7 @@ def create_user_entry_ui_routes(
             ),
         )
 
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Submissions",
             request=request,
@@ -307,7 +307,7 @@ def create_user_entry_ui_routes(
             ),
             upload_form_script(),
         )
-        return await render_submissions_sidebar_page(
+        return render_submissions_sidebar_page(
             content=content,
             active="exercise",
             request=request,
@@ -365,7 +365,7 @@ def create_user_entry_ui_routes(
             render_journal_form(is_founder=is_founder),
             journal_script(),
         )
-        return await render_submissions_sidebar_page(
+        return render_submissions_sidebar_page(
             content=content,
             active="journal",
             request=request,
@@ -404,7 +404,7 @@ def create_user_entry_ui_routes(
             ),
             submissions_content,
         )
-        return await render_submissions_sidebar_page(
+        return render_submissions_sidebar_page(
             content=content,
             active="history",
             request=request,
@@ -489,7 +489,7 @@ def create_user_entry_ui_routes(
             ),
             notes_content,
         )
-        return await render_submissions_sidebar_page(
+        return render_submissions_sidebar_page(
             content=content,
             active="knowledge",
             request=request,
@@ -575,7 +575,7 @@ def create_user_entry_ui_routes(
     # =========================================================================
 
     @rt("/gradebook")
-    async def gradebook_moc(request: Request) -> Any:
+    def gradebook_moc(request: Request) -> Any:
         """GradeBook MOC — links to all 3 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
@@ -607,7 +607,7 @@ def create_user_entry_ui_routes(
             ),
         )
 
-        return await BasePage(
+        return BasePage(
             content=content,
             title="GradeBook",
             request=request,
@@ -629,7 +629,7 @@ def create_user_entry_ui_routes(
                 PageHeader("Submission Not Found", subtitle=f"UID: {uid}"),
                 render_inline_error("Submission not found"),
             )
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=content,
                 active="submissions",
                 request=request,
@@ -765,7 +765,7 @@ def create_user_entry_ui_routes(
             responses_section,
         )
 
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="submissions",
             request=request,

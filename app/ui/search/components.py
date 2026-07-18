@@ -63,7 +63,7 @@ from ui.tokens import Container
 # ============================================================================
 
 
-async def render_search_page_with_navbar(
+def render_search_page_with_navbar(
     request: Any = None,
     nous_topics: list[str] | None = None,
     nous_subtopics: list[str] | None = None,
@@ -100,7 +100,7 @@ async def render_search_page_with_navbar(
         nous_topics or [], nous_subtopics or [], all_tags or [], ask_enabled
     )
 
-    return await BasePage(
+    return BasePage(
         content=content,
         title="Search",
         page_type=PageType.STANDARD,

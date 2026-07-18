@@ -52,7 +52,7 @@ def create_groups_hub_routes(
             else (groups_list[0].uid if groups_list else None)
         )
 
-        return await BasePage(
+        return BasePage(
             content=GroupsHub(groups=groups_list, active_group_uid=active),
             title="Groups",
             request=request,
@@ -94,7 +94,7 @@ def create_groups_hub_routes(
                         break
 
         if group_name is None or services.sharing is None:
-            return await BasePage(
+            return BasePage(
                 content=GroupSharesNotAvailable(),
                 title="Group not available",
                 request=request,
@@ -106,7 +106,7 @@ def create_groups_hub_routes(
         )
         records = [] if result.is_error else (result.value or [])
 
-        return await BasePage(
+        return BasePage(
             content=GroupSharesPage(group_name=group_name, records=records, group_uid=group_uid),
             title=group_name,
             request=request,
@@ -135,7 +135,7 @@ def create_groups_hub_routes(
             title = (payload.get("entity") or {}).get("title") or "Shared entry"
             content = PeerEntryView(payload, group_uid=group_uid)
 
-        return await BasePage(
+        return BasePage(
             content=content,
             title=title,
             request=request,

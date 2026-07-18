@@ -449,7 +449,7 @@ def create_journals_routes(
         from ui.layouts.base_page import BasePage
         from ui.layouts.page_types import PageType
 
-        return await BasePage(
+        return BasePage(
             content=page_content,
             title="Journal",
             page_type=PageType.CUSTOM,
@@ -1052,7 +1052,7 @@ def create_journals_routes(
         from ui.layouts.base_page import BasePage
         from ui.layouts.page_types import PageType
 
-        return await BasePage(
+        return BasePage(
             content=page_content,
             title=session.title or "Discussion",
             page_type=PageType.CUSTOM,
@@ -1159,7 +1159,7 @@ def create_journals_routes(
         if request.headers.get("HX-Request"):
             return page_content
 
-        return await BasePage(
+        return BasePage(
             content=page_content,
             title=entry.title or "Periodic Note",
             page_type=PageType.CUSTOM,

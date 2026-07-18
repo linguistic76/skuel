@@ -75,7 +75,7 @@ def create_entry_reports_ui_routes(
     # ========================================================================
 
     @rt("/entry-reports")
-    async def entry_reports_page(request: Request) -> Any:
+    def entry_reports_page(request: Request) -> Any:
         """Teacher and AI exercise reports on submissions."""
         require_authenticated_user(request)
 
@@ -95,7 +95,7 @@ def create_entry_reports_ui_routes(
             ),
             reports_section,
         )
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="entry-reports",
             request=request,
@@ -112,14 +112,14 @@ def create_entry_reports_ui_routes(
         uid = request.query_params.get("uid", "").strip()
 
         if not uid:
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report UID is required")),
                 active="entry-reports",
                 request=request,
             )
 
         if not orchestrator:
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report service unavailable")),
                 active="entry-reports",
                 request=request,
@@ -128,7 +128,7 @@ def create_entry_reports_ui_routes(
         view_result = await orchestrator.get_entry_report_view(uid, user_uid)
         if view_result.is_error:
             logger.warning(f"Exercise report not found or inaccessible: {uid}")
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report not found")),
                 active="entry-reports",
                 request=request,
@@ -138,7 +138,7 @@ def create_entry_reports_ui_routes(
         content = Div(
             render_entry_report_detail(view["report"], revised_exercise=view["revised_exercise"])
         )
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="entry-reports",
             request=request,

@@ -24,7 +24,7 @@ SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def render_submissions_sidebar_page(
+def render_submissions_sidebar_page(
     content: Any,
     active: str,
     request: "Request | None" = None,
@@ -37,7 +37,7 @@ async def render_submissions_sidebar_page(
             "sync", "history", "knowledge").
         request: The request object for auth detection.
     """
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=SUBMISSIONS_SIDEBAR_ITEMS,
         active=active,

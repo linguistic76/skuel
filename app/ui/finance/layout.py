@@ -18,7 +18,7 @@ FINANCE_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def create_finance_page(
+def create_finance_page(
     content: Any,
     active_section: str = "",
     title: str = "Finance Hub",
@@ -34,7 +34,7 @@ async def create_finance_page(
     """
     active = active_section if active_section else "dashboard"
 
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=FINANCE_SIDEBAR_ITEMS,
         active=active,

@@ -159,7 +159,7 @@ def create_learning_loop_detail_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/ku/{uid}")
-    async def explore_ku_detail(request: Request, uid: str) -> Any:
+    def explore_ku_detail(request: Request, uid: str) -> Any:
         """Ku reading page — shell loads immediately, content arrives via HTMX.
 
         ku-reading.js must be loaded in the shell before the fragment arrives
@@ -169,7 +169,7 @@ def create_learning_loop_detail_routes(
             Script(src="/static/js/ku-reading.js"),
             content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content"),
         )
-        return await BasePage(
+        return BasePage(
             content,
             title="Read",
             page_type=PageType.CUSTOM,
@@ -322,7 +322,7 @@ def create_learning_loop_detail_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/ps/{uid}")
-    async def explore_ps_detail(request: Request, uid: str) -> Any:
+    def explore_ps_detail(request: Request, uid: str) -> Any:
         """PathStep detail page — reading-first, no sidebar.
 
         Shell loads ps-detail.js (Alpine factory) immediately so the
@@ -332,7 +332,7 @@ def create_learning_loop_detail_routes(
             Script(src="/static/js/ps-detail.js"),
             content_loading_placeholder(f"/explore/ps/{uid}/content", "ps-detail-content"),
         )
-        return await BasePage(
+        return BasePage(
             content,
             title="Path Step",
             page_type=PageType.CUSTOM,

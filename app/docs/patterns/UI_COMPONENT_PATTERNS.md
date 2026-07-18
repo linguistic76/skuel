@@ -136,7 +136,7 @@ items = [
     SidebarItem("Tasks", "/tasks", "tasks", icon="✅"),
     SidebarItem("Goals", "/goals", "goals", icon="🎯"),
 ]
-return await SidebarPage(
+return SidebarPage(
     content=my_content,
     items=items,
     active="tasks",
@@ -173,7 +173,7 @@ items = [
     SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
 ]
 
-return await SidebarPage(
+return SidebarPage(
     content=main_content,
     items=items,
     active="submit",
@@ -429,7 +429,7 @@ Pages that return complete `Html()` documents (rather than partial HTMX fragment
 
 ```python
 # Pass extra_css / extra_scripts to BasePage — they are forwarded to build_head()
-return await BasePage(
+return BasePage(
     content,
     title="Timeline",
     page_type=PageType.CUSTOM,
@@ -1386,14 +1386,14 @@ async def task_detail_view(request, uid: str) -> Any:
     user_uid = require_authenticated_user(request)
     result = await tasks_service.get_for_user(uid, user_uid)
     if result.is_error or result.value is None:
-        return await render_entity_not_found_page("Task", uid, "tasks", request)
+        return render_entity_not_found_page("Task", uid, "tasks", request)
     task = result.value
     content = Div(
         # Domain-specific content cards...
         EntityRelationshipsSection(entity_uid=task.uid, entity_type="tasks"),
         cls=f"{Container.STANDARD} {Spacing.PAGE}",
     )
-    return await BasePage(
+    return BasePage(
         content=content, title=task.title,
         page_type=PageType.STANDARD, request=request, active_page="tasks",
     )
@@ -1675,7 +1675,7 @@ Three sidebar implementations (~590 lines custom CSS/JS) unified into one Tailwi
 # THE way (all 5 sidebar pages)
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
-return await SidebarPage(content=..., items=..., active=..., title=..., ...)
+return SidebarPage(content=..., items=..., active=..., title=..., ...)
 ```
 
 **Result:** ~590 lines deleted, ~337 lines added (300 Python + 37 Alpine). One reusable component.
