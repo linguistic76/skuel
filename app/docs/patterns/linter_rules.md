@@ -737,10 +737,9 @@ logger.warning(f"failed: {result.expect_error()}")   # reading is what it's for
 - `# skuel-lint: disable=SKUEL028 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL028 -- <reason>` (file)
 
-## Rule: SKUEL029 - async def Without await (Opt-In Audit)
+## Rule: SKUEL029 - async def Without await
 
-**Severity:** INFO — and **opt-in**: excluded from default sweeps via `OPT_IN_RULES`;
-run explicitly with `uv run python scripts/lint_skuel.py --rule SKUEL029`.
+**Severity:** ERROR — runs in every default sweep.
 
 CLAUDE.md's async/sync rule: async for I/O, sync for computation — "if you need `await`
 inside the function, make it `async def`; otherwise use `def`." An `async def` whose body
@@ -748,17 +747,20 @@ never awaits (no `await` / `async for` / `async with` of its own — awaits insi
 defs belong to the nested function) wraps a synchronous computation in a coroutine: every
 caller pays the event-loop round-trip and the signature misreports I/O.
 
-**Why opt-in:** ~205 sites predate the rule (2026-07 audit), many of them deliberate
-interface-uniformity choices (facade delegation, protocol conformance) where sync-ifying
-breaks every awaiting call site. The staged promotion path is CYP003's: codify the rule
-now, shrink the debt incrementally, then promote by removing it from `OPT_IN_RULES`.
+**History:** codified as an opt-in audit at a ~215-site baseline (2026-07-17), then
+promoted to an enforced ERROR on 2026-07-18 after the reduction arc drove the count to 0
+(PRs #679–#696) — the CYP003 staged path: codify, shrink the debt, promote. Genuinely
+interface-required async (Protocol/ABC overrides, awaited callbacks such as
+health-checkers and `system_calculator`, facade delegation, async context-manager
+`__aenter__`, asyncio task machinery/lifecycle) keeps `async def` with an inline
+suppression naming the contract.
 
 **Exemptions:** trivial bodies (docstring-only, `pass`, `...`, bare `raise`) — protocol
 methods and abstract stubs are declarations, not offenders — and async generators (an
 own `yield`): their `async def` is load-bearing even without awaits, since sync-ifying
 turns the async iterator into a sync generator and breaks every `async for` caller.
 
-**Scope:** all non-test files, when explicitly selected.
+**Scope:** all non-test files.
 
 ## Authoring AST Rules
 

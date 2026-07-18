@@ -783,25 +783,23 @@ return Result.fail(
 )""",
     },
     "SKUEL029": {
-        "title": "async def Without await (Opt-In Audit)",
-        "severity": "INFO",
+        "title": "async def Without await",
+        "severity": "ERROR",
         "description": """CLAUDE.md's async/sync rule: async for I/O, sync for computation —
 "if you need await inside the function, make it async def; otherwise use def." An
 `async def` whose body never awaits (no `await`, `async for`, `async with`) wraps a
 synchronous computation in a coroutine: every caller pays the event-loop round-trip and
 the signature lies about the function doing I/O.
 
-OPT-IN AUDIT RULE: excluded from default sweeps (`OPT_IN_RULES`) because ~205 sites
-predate the rule (2026-07) — many are interface-uniformity choices (facade delegation,
-protocol conformance) where sync-ifying breaks every await call site. Run the audit with:
-
-    uv run python scripts/lint_skuel.py --rule SKUEL029
+PROMOTED 2026-07-18: the reduction arc drove the 215-site baseline (2026-07-17) to 0
+(PRs #679-#696), so the rule now runs in every default sweep as an ERROR. Genuine
+interface-required async (Protocol/ABC overrides, awaited callbacks, facade delegation,
+async context managers) keeps `async def` + an inline suppression.
 
 Trivial bodies are exempt (docstring-only, `pass`, `...`, bare `raise`) — protocol
 methods and abstract stubs are declarations, not offenders. Async generators (an own
 `yield`) are exempt: `async def` is load-bearing there even without awaits. Awaits inside
-NESTED functions don't count for the enclosing def (they belong to the nested one). The
-staged promotion path is CYP003's: shrink the debt, then drop the rule from OPT_IN_RULES.""",
+NESTED functions don't count for the enclosing def (they belong to the nested one).""",
         "good": """async def fetch_task(self, uid: str) -> Result[Task]:
     return await self.backend.get_by_uid(uid)  # awaits — genuinely async
 
@@ -1032,11 +1030,11 @@ class SkuelLinter:
     )
 
     # Rules excluded from default sweeps — run only when named explicitly via
-    # --rule. For audits whose current hit count is far too large to block on
-    # (SKUEL029: ~205 async-without-await sites as of 2026-07); the staged path
-    # is the same as CYP003's: codify now, shrink the debt, then promote by
-    # removing the rule from this set.
-    OPT_IN_RULES: ClassVar[frozenset[str]] = frozenset({"SKUEL029"})
+    # --rule. For audits whose hit count is far too large to block on; the staged
+    # path is CYP003's: codify now, shrink the debt, then promote by removing the
+    # rule from this set. Currently empty — SKUEL029 (the ~215-site 2026-07 audit)
+    # was promoted to ERROR on 2026-07-18 after the reduction arc hit 0 (#679-#696).
+    OPT_IN_RULES: ClassVar[frozenset[str]] = frozenset()
 
     # SKUEL019: Credential keys that must route through get_credential().
     #
@@ -4212,7 +4210,7 @@ class SkuelLinter:
         tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL029 [INFO, opt-in]: async def whose body never awaits.
+        SKUEL029 [ERROR]: async def whose body never awaits.
 
         CLAUDE.md async/sync rule: async for I/O, sync for computation. Flags an
         ``async def`` with a real body but no ``await`` / ``async for`` /
@@ -4221,8 +4219,6 @@ class SkuelLinter:
         ``raise`` — are exempt: protocol methods and stubs are declarations.
         Async GENERATORS (an own ``yield``) are exempt too: their ``async def``
         is load-bearing without awaits — sync-ifying breaks ``async for`` callers.
-
-        Opt-in audit (see OPT_IN_RULES): run via --rule SKUEL029.
         """
         if self._is_file_suppressed(content, "SKUEL029"):
             return
@@ -4296,7 +4292,7 @@ class SkuelLinter:
                     file_path=rel_path,
                     line_number=start,
                     column=node.col_offset,
-                    severity=Severity.INFO,
+                    severity=Severity.ERROR,
                     rule_id="SKUEL029",
                     message=f"async def '{node.name}' never awaits - sync body in async signature",
                     suggestion=(

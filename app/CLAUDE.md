@@ -547,7 +547,7 @@ CI Gate is the sole automatic check. Codex review is on-demand via `scripts/requ
 | SKUEL026 | No suppression comments that suppress nothing (per-run audit) | WARNING |
 | SKUEL027 | No runtime `adapters` imports in `ui/` — `TYPE_CHECKING`-only exempt (SKUEL022's ui/ sibling) | ERROR |
 | SKUEL028 | `Result.fail(result)` to propagate — never `Result.fail(...expect_error())` | ERROR |
-| SKUEL029 | No `async def` without `await` — opt-in audit (`--rule SKUEL029`), ~205 legacy sites | INFO |
+| SKUEL029 | No `async def` without `await` — async for I/O, sync for computation (suppress protocol/lifecycle-required async) | ERROR |
 
 **MyPy:** `./dev quality` enforces **0 errors**. Key strictness:
 - `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt
