@@ -287,12 +287,12 @@ class TestMergeSimilarPatterns:
         assert len(merged) == 1
         result = merged[0]
         assert result.pattern_type == "merged"
+        assert result.contributing_types == ["keyword_enhanced", "phrase_pattern"]
+        assert result.source_types == ["keyword_enhanced", "phrase_pattern"]
         assert result.knowledge_uid == "ku.programming.python"
         assert result.confidence == pytest.approx(0.8 + InferenceConfidence.MERGE_BOOST)
-        # Evidence goes through set() — assert membership and length, not order.
-        assert len(result.evidence) == 2
-        assert shared_evidence in result.evidence
-        assert "Phrase pattern: 'python api'" in result.evidence
+        # Order-preserving dedup: first pattern's evidence, then new items.
+        assert result.evidence == [shared_evidence, "Phrase pattern: 'python api'"]
 
     def test_merge_boost_is_capped(self, service: EntityInferenceService) -> None:
         first = make_pattern(confidence=0.94, evidence=["e1"])
@@ -302,19 +302,20 @@ class TestMergeSimilarPatterns:
 
         assert len(merged) == 1
         assert merged[0].confidence == pytest.approx(InferenceConfidence.MERGE_CAP)
+        # Same detector type on both sides — recorded once.
+        assert merged[0].contributing_types == ["keyword_enhanced"]
 
-    def test_single_pattern_gets_no_boost_but_type_becomes_merged(
-        self, service: EntityInferenceService
-    ) -> None:
-        # Quirk: even a lone pattern is rewritten to pattern_type "merged",
-        # so the original type never survives the advanced pipeline.
+    def test_single_pattern_passes_through_unchanged(self, service: EntityInferenceService) -> None:
+        # A lone pattern keeps its detector type (and confidence/evidence),
+        # so PATTERN_RELIABILITY and the advanced_features counters see it.
         lone = make_pattern(confidence=0.8, evidence=["only evidence"])
 
         merged = service._merge_similar_patterns([lone])
 
-        assert len(merged) == 1
-        assert merged[0].pattern_type == "merged"
-        assert merged[0].confidence == pytest.approx(0.8)
+        assert merged == [lone]
+        assert merged[0].pattern_type == "keyword_enhanced"
+        assert merged[0].contributing_types == []
+        assert merged[0].source_types == ["keyword_enhanced"]
 
     def test_distinct_uids_do_not_merge(self, service: EntityInferenceService) -> None:
         first = make_pattern(knowledge_uid="ku.programming.python")
@@ -662,18 +663,20 @@ class TestEnhanceTaskDtoWithInference:
             assert 0.0 <= score <= 1.0
         assert metadata["algorithm_confidence"] == pytest.approx(max(scores.values()))
 
-        # 4 merged patterns + 1 cross-domain relationship (python -> docker).
+        # 4 patterns + 1 cross-domain relationship (python -> docker).
         assert metadata["cross_domain_relationships"] == 1
         assert inference.learning_opportunities_count == 5
 
-        # Quirk: _merge_similar_patterns rewrites every pattern_type to
-        # "merged", so patterns_detected only ever contains "merged" and the
-        # advanced_features counters (which look for the original types on
-        # merged patterns) are always zero.
-        assert metadata["patterns_detected"] == ["merged"]
+        # Each UID here is detected by exactly one algorithm, so every
+        # pattern keeps its detector type (no "merged" rewrite).
+        assert metadata["patterns_detected"] == [
+            "contextual_learning",
+            "keyword_enhanced",
+            "phrase_pattern",
+        ]
         assert metadata["advanced_features"] == {
-            "phrase_patterns": 0,
-            "contextual_analysis": 0,
+            "phrase_patterns": 1,  # rest-api phrase
+            "contextual_analysis": 1,  # "learn" contextual
             "complexity_detection": 0,
         }
 
@@ -737,8 +740,10 @@ class TestAnalyzeInferenceConfidence:
         assert analysis["estimated_inferences"] == 2  # python keywords + api phrase
         factors = analysis["confidence_factors"]
         assert set(factors) == {"ku.programming.python", "ku.programming.api"}
+        # Singletons keep their detector type through _merge_similar_patterns.
+        assert factors["ku.programming.python"]["pattern_type"] == "keyword_enhanced"
+        assert factors["ku.programming.api"]["pattern_type"] == "phrase_pattern"
         for factor in factors.values():
-            assert factor["pattern_type"] == "merged"
             assert 0.0 < factor["confidence"] <= 1.0
             assert factor["evidence_count"] >= 1
 
