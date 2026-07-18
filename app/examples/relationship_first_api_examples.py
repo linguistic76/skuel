@@ -227,7 +227,7 @@ async def example_count_reachable_nodes(backend: UniversalNeo4jBackend):
 # ============================================================================
 
 
-async def comparison_create_relationship():
+def comparison_create_relationship():
     """Comparison of old imperative vs new fluent API."""
 
     # OLD WAY - Imperative, verbose
@@ -256,7 +256,7 @@ async def comparison_create_relationship():
     pass
 
 
-async def comparison_traverse_graph():
+def comparison_traverse_graph():
     """Comparison of manual Cypher vs fluent traversal with graph-native defaults."""
 
     # OLD WAY - Manual Cypher query

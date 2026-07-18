@@ -46,19 +46,19 @@ class BiDirectionalDemo:
         print("=" * 55)
 
         # 1. Show three-tier bidirectional conversion
-        await self._demo_three_tier_flow()
+        self._demo_three_tier_flow()
 
         # 2. Show protocol-based service interaction
         await self._demo_protocol_flow()
 
         # 3. Show cross-domain relationships
-        await self._demo_cross_domain_flow()
+        self._demo_cross_domain_flow()
 
         # 4. Show context-aware operations
-        await self._demo_context_flow()
+        self._demo_context_flow()
 
         # 5. Show business logic integration
-        await self._demo_business_logic_flow()
+        self._demo_business_logic_flow()
 
         print("\n" + "=" * 55)
         print("✅ DEMONSTRATION COMPLETE")
@@ -69,7 +69,7 @@ class BiDirectionalDemo:
         print("• Business logic is accessible and testable")
         print("• Error handling provides rich debugging context")
 
-    async def _demo_three_tier_flow(self) -> Any:
+    def _demo_three_tier_flow(self) -> Any:
         """Demonstrate three-tier model flow"""
         print("\n🏗️  THREE-TIER MODEL FLOW")
         print("-" * 30)
@@ -152,19 +152,31 @@ class BiDirectionalDemo:
                 self.tasks = {}
                 self.counter = 0
 
-            async def create_task(self, data: dict[str, Any]) -> Result[dict[str, Any]]:
+            async def create_task(
+                self, data: dict[str, Any]
+            ) -> Result[
+                dict[str, Any]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksService awaits it
                 self.counter += 1
                 task_id = f"task_protocol_{self.counter:03d}"
                 task_data = {"uid": task_id, "created_at": datetime.now(), **data}
                 self.tasks[task_id] = task_data
                 return Result.ok(task_data)
 
-            async def get_task(self, task_id: str) -> Result[dict[str, Any]]:
+            async def get_task(
+                self, task_id: str
+            ) -> Result[
+                dict[str, Any]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksService awaits it
                 if task_id in self.tasks:
                     return Result.ok(self.tasks[task_id])
                 return Result.fail(Errors.not_found("Task", task_id))
 
-            async def get_user_tasks(self, user_uid: str) -> Result[list]:
+            async def get_user_tasks(
+                self, user_uid: str
+            ) -> Result[
+                list
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksService awaits it
                 user_tasks = [t for t in self.tasks.values() if t.get("created_by") == user_uid]
                 return Result.ok(user_tasks)
 
@@ -207,7 +219,7 @@ class BiDirectionalDemo:
 
         return service, backend
 
-    async def _demo_cross_domain_flow(self) -> Any:
+    def _demo_cross_domain_flow(self) -> Any:
         """Demonstrate cross-domain relationships"""
         print("\n🌐 CROSS-DOMAIN RELATIONSHIP FLOW")
         print("-" * 40)
@@ -286,7 +298,7 @@ class BiDirectionalDemo:
 
         return task, context
 
-    async def _demo_context_flow(self) -> Any:
+    def _demo_context_flow(self) -> Any:
         """Demonstrate context-aware operations"""
         print("\n🧠 CONTEXT-AWARE OPERATION FLOW")
         print("-" * 40)
@@ -345,7 +357,7 @@ class BiDirectionalDemo:
 
         return context
 
-    async def _demo_business_logic_flow(self) -> Any:
+    def _demo_business_logic_flow(self) -> Any:
         """Demonstrate business logic integration"""
         print("\n⚡ BUSINESS LOGIC INTEGRATION FLOW")
         print("-" * 42)
