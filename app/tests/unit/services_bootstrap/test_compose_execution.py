@@ -38,15 +38,18 @@ from services_bootstrap.compose import compose_services
 # ---------------------------------------------------------------------------
 # Golden subscription contract
 # ---------------------------------------------------------------------------
-# Every event type _wire_event_subscribers() must subscribe at least one
-# handler to, in BOTH tiers. This list is the contract: removing a
-# subscription from _event_wiring.py without updating it fails the test.
-# (FULL tier additionally re-subscribes 5 of these for ZPD snapshots —
-# already covered because they appear below.)
+# EXACT per-event handler counts after compose_services(), per tier. Counts
+# are hand-derived from _event_wiring.py (+ the FULL-tier ZPD snapshot
+# subscriptions in _intelligence_hub.py) and empirically cross-checked against
+# a real compose run. Exact equality is deliberate: several events carry
+# multiple handlers (TaskCompleted has 5 — context invalidation, goal
+# progress, PS auto-complete, cross-domain analytics, task intelligence), and
+# a zero-handler check would miss dropping one of them. Adding a subscription
+# is a wiring-contract change — update the table here alongside it.
 
 
-def _expected_event_subscriptions() -> tuple[type, ...]:
-    """Import-fresh golden set (function keeps import errors inside the test run)."""
+def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
+    """Import-fresh golden counts (function keeps import errors inside the test run)."""
     from core.events import (
         CalendarEventCompleted,
         CalendarEventCreated,
@@ -121,81 +124,94 @@ def _expected_event_subscriptions() -> tuple[type, ...]:
         UserEntryProcessingStarted,
     )
 
-    return (
+    counts: dict[type, int] = {
         # Tasks
-        TaskCreated,
-        TaskCompleted,
-        TaskUpdated,
-        TaskDeleted,
-        TaskPriorityChanged,
-        TasksBulkCompleted,
+        TaskCreated: 1,
+        TaskCompleted: 5,  # invalidate + goal progress + PS auto-complete + x-domain + intelligence
+        TaskUpdated: 1,
+        TaskDeleted: 1,
+        TaskPriorityChanged: 2,
+        TasksBulkCompleted: 1,
         # Goals
-        GoalCreated,
-        GoalUpdated,
-        GoalAchieved,
-        GoalAbandoned,
-        GoalMilestoneReached,
-        GoalProgressUpdated,
+        GoalCreated: 2,
+        GoalUpdated: 1,
+        GoalAchieved: 4,  # invalidate + event handler + PS auto-complete + analytics report
+        GoalAbandoned: 2,
+        GoalMilestoneReached: 1,
+        GoalProgressUpdated: 2,
         # Habits
-        HabitCreated,
-        HabitUpdated,
-        HabitCompleted,
-        HabitCompletionBulk,
-        HabitMissed,
-        HabitStreakBroken,
-        HabitStreakMilestone,
+        HabitCreated: 1,
+        HabitUpdated: 1,
+        HabitCompleted: 4,  # invalidate + goal progress + x-domain + intelligence
+        HabitCompletionBulk: 1,
+        HabitMissed: 2,
+        HabitStreakBroken: 2,
+        HabitStreakMilestone: 3,  # invalidate + badge awarding + analytics report
         # Principles
-        PrincipleCreated,
-        PrincipleUpdated,
-        PrincipleDeleted,
-        PrincipleStrengthChanged,
-        PrincipleAlignmentAssessed,
-        PrincipleReflectionRecorded,
-        PrincipleConflictRevealed,
+        PrincipleCreated: 1,
+        PrincipleUpdated: 1,
+        PrincipleDeleted: 1,
+        PrincipleStrengthChanged: 2,
+        PrincipleAlignmentAssessed: 1,
+        PrincipleReflectionRecorded: 1,
+        PrincipleConflictRevealed: 1,
         # Choices
-        ChoiceCreated,
-        ChoiceUpdated,
-        ChoiceDeleted,
-        ChoiceMade,
-        ChoiceOutcomeRecorded,
+        ChoiceCreated: 1,
+        ChoiceUpdated: 1,
+        ChoiceDeleted: 1,
+        ChoiceMade: 3,  # invalidate + PS auto-complete + decision-pattern intelligence
+        ChoiceOutcomeRecorded: 2,
         # Calendar events
-        CalendarEventCreated,
-        CalendarEventUpdated,
-        CalendarEventCompleted,
-        CalendarEventDeleted,
-        CalendarEventRescheduled,
+        CalendarEventCreated: 2,
+        CalendarEventUpdated: 1,
+        CalendarEventCompleted: 5,  # invalidate + auto-complete + practice + x-domain + intelligence
+        CalendarEventDeleted: 1,
+        CalendarEventRescheduled: 2,
         # UserEntry lifecycle + learning loop
-        UserEntryCreated,
-        UserEntryProcessingStarted,
-        UserEntryProcessingCompleted,
-        UserEntryProcessingFailed,
-        UserEntryApproved,
-        UserEntryRevisionRequested,
-        ReportSubmitted,
-        RevisedExerciseCreated,
+        UserEntryCreated: 2,  # exercise linker + learning-loop iteration tracking
+        UserEntryProcessingStarted: 1,
+        UserEntryProcessingCompleted: 1,
+        UserEntryProcessingFailed: 1,
+        UserEntryApproved: 2,  # student notification + learning-loop tracking
+        UserEntryRevisionRequested: 1,
+        ReportSubmitted: 2,  # student notification + learning-loop tracking
+        RevisedExerciseCreated: 1,
         # Curriculum / learning
-        KnowledgeCreated,
-        KnowledgeMastered,
-        LearningPathStarted,
-        LearningPathCompleted,
-        LearningPathProgressUpdated,
-        PathStepCreated,
-        PathStepUpdated,
-        PathStepDeleted,
-        PathStepCompleted,
-        PathStepEnrolled,
+        KnowledgeCreated: 1,
+        KnowledgeMastered: 6,  # invalidate + LP/PS-mastery/PS-progress chains + recs + x-domain
+        LearningPathStarted: 1,
+        LearningPathCompleted: 4,  # invalidate + recommendations + x-domain + analytics report
+        LearningPathProgressUpdated: 1,
+        PathStepCreated: 1,
+        PathStepUpdated: 1,
+        PathStepDeleted: 1,
+        PathStepCompleted: 2,  # invalidate + PS→LP progress chain
+        PathStepEnrolled: 1,
         # Knowledge substance tracking
-        KnowledgeAppliedInTask,
-        KnowledgePracticedInEvent,
-        KnowledgeBuiltIntoHabit,
-        KnowledgeInformedChoice,
-        KnowledgeReflectedInEntry,
-        KnowledgeBulkAppliedInTask,
-        KnowledgeBulkBuiltIntoHabit,
-        KnowledgeBulkInformedChoice,
+        KnowledgeAppliedInTask: 1,
+        KnowledgePracticedInEvent: 1,
+        KnowledgeBuiltIntoHabit: 1,
+        KnowledgeInformedChoice: 1,
+        KnowledgeReflectedInEntry: 1,
+        KnowledgeBulkAppliedInTask: 1,
+        KnowledgeBulkBuiltIntoHabit: 1,
+        KnowledgeBulkInformedChoice: 1,
         # Discovery analytics
-        SearchExecuted,
-    )
+        SearchExecuted: 1,
+    }
+
+    if full_tier:
+        # ZPDSnapshotHandler subscriptions (_intelligence_hub.py, FULL tier only)
+        for zpd_event in (
+            UserEntryApproved,
+            ReportSubmitted,
+            KnowledgeMastered,
+            PathStepCompleted,
+            LearningPathProgressUpdated,
+        ):
+            counts[zpd_event] += 1
+
+    return counts
 
 
 # ---------------------------------------------------------------------------
@@ -285,12 +301,17 @@ class _FakeConnection:
 
 
 @pytest.fixture
-def compose_config(tmp_path) -> UnifiedConfig:
+def compose_config(tmp_path, hermetic_credentials) -> UnifiedConfig:
     """Real UnifiedConfig with vault roots redirected into tmp_path.
 
     VaultConfig defaults are captured from the environment at import time, so
     the instance attributes are overridden directly — the test must never read
     or scan the developer's real vaults.
+
+    Depends on hermetic_credentials because UnifiedConfig() itself reads a
+    credential (DatabaseConfig's NEO4J_PASSWORD default factory) — the
+    credential store must already be neutralized when that happens, or its
+    singleton would be created against the developer's real backend.
     """
     config = UnifiedConfig()
 
@@ -397,9 +418,18 @@ def hermetic_credentials(monkeypatch) -> None:
     straight to os.getenv — critically, WITHOUT the env→backend auto-migration
     that would otherwise write this test's fake API keys into the developer's
     real credential store.
+
+    The cached store singleton is also reset: any earlier get_credential()
+    call in this process (another test, or UnifiedConfig's NEO4J_PASSWORD
+    default) may have already constructed a real Fernet store while
+    SKUEL_MASTER_KEY was still set, and deleting the env var alone would not
+    invalidate that cache.
     """
+    import core.config.credential_store as credential_store
+
     monkeypatch.delenv("SKUEL_MASTER_KEY", raising=False)
     monkeypatch.setenv("SKUEL_CREDENTIAL_BACKEND", "fernet")
+    monkeypatch.setattr(credential_store, "_store_instance", None)
     monkeypatch.delenv("EMAIL_ENABLED", raising=False)
 
 
@@ -452,16 +482,21 @@ def _assert_container_complete(services: Services, none_ok: frozenset[str]) -> N
     )
 
 
-def _assert_subscriptions_wired(event_bus: InMemoryEventBus) -> None:
-    unsubscribed = [
-        event_type.__name__
-        for event_type in _expected_event_subscriptions()
-        if event_bus.get_handler_count(event_type) == 0
-    ]
-    assert not unsubscribed, (
-        f"Event types with NO subscriber after compose_services: {unsubscribed}. "
-        f"A handler subscription was dropped from services_bootstrap/_event_wiring.py "
-        f"(or the intelligence hub) — that domain's event-driven behavior is dead."
+def _assert_subscriptions_wired(event_bus: InMemoryEventBus, *, full_tier: bool) -> None:
+    mismatched = {
+        event_type.__name__: {
+            "expected": expected,
+            "actual": event_bus.get_handler_count(event_type),
+        }
+        for event_type, expected in _expected_handler_counts(full_tier).items()
+        if event_bus.get_handler_count(event_type) != expected
+    }
+    assert not mismatched, (
+        f"Per-event handler counts diverged from the wiring contract: {mismatched}. "
+        f"actual < expected — a subscription was dropped from "
+        f"services_bootstrap/_event_wiring.py (or the intelligence hub) and that "
+        f"composed behavior is dead. actual > expected — a subscription was added; "
+        f"update _expected_handler_counts alongside the wiring change."
     )
 
 
@@ -482,7 +517,7 @@ class TestComposeServicesExecution:
         assert services.intelligence_tier is not None
         assert not services.intelligence_tier.ai_enabled
         _assert_container_complete(services, NONE_OK_CORE_TIER)
-        _assert_subscriptions_wired(event_bus)
+        _assert_subscriptions_wired(event_bus, full_tier=False)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_CORE
 
     async def test_full_tier_composes_and_wires_events(
@@ -502,5 +537,5 @@ class TestComposeServicesExecution:
         assert services.intelligence_tier is not None
         assert services.intelligence_tier.ai_enabled
         _assert_container_complete(services, NONE_OK_BOTH_TIERS)
-        _assert_subscriptions_wired(event_bus)
+        _assert_subscriptions_wired(event_bus, full_tier=True)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_FULL
