@@ -238,7 +238,10 @@ def create_performance_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def scale_test(  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
-        request: Request, current_user: Any, concurrent_users: int = 100, duration_seconds: int = 60
+        request: Request,
+        current_user: Any = None,
+        concurrent_users: int = 100,
+        duration_seconds: int = 60,
     ) -> Result[dict[str, Any]]:
         """
         Run scale testing simulation.

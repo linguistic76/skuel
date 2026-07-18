@@ -495,24 +495,17 @@ def test_tasks_service_creation():
 
 ## Continuous Integration
 
-### Recommended CI Pipeline
+CI (`.github/workflows/ci.yml`, both jobs path-gated on Python changes) runs:
 
-```yaml
-# Example GitHub Actions workflow
-test:
-  runs-on: ubuntu-latest
-  services:
-    neo4j:
-      image: neo4j:2026.05.0
-      ports:
-        - 7687:7687
-  steps:
-    - uses: actions/checkout@v3
-    - name: Run Integration Tests
-      run: ./dev test-integration
-    - name: Run Comprehensive Suite
-      run: ./dev test
-```
+- **`unit_tests`** — `pytest tests/unit/` (mock-based, no Docker)
+- **`integration_tests`** — `pytest tests/integration/ --override-ini=addopts=`;
+  testcontainers boots the pinned Neo4j image on the runner's Docker daemon,
+  identical to `./dev test-integration` locally. No `services:` block needed —
+  the testcontainer fixture in `tests/integration/conftest.py` owns the
+  container lifecycle.
+
+e2e, benchmarks, and infrastructure tiers remain local-only (`./dev test` /
+`scripts/run_tests.py all`).
 
 ### Pre-Commit Hooks
 

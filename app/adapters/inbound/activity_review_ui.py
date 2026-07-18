@@ -100,7 +100,7 @@ def create_activity_review_ui_routes(
     @require_admin(get_user_service)
     def activity_review_new_page(
         request: Request,
-        current_user: Any,
+        current_user: Any = None,
         subject_uid: str = "",
         time_period: str = "7d",
     ) -> Any:
@@ -129,7 +129,7 @@ def create_activity_review_ui_routes(
     @require_admin(get_user_service)
     async def activity_review_snapshot_fragment(
         request: Request,
-        current_user: Any,
+        current_user: Any = None,
         subject_uid: str = "",
         time_period: str = "7d",
         domains: list[str] | None = None,
@@ -186,7 +186,7 @@ def create_activity_review_ui_routes(
     @require_admin(get_user_service)
     async def activity_review_submit_feedback(
         request: Request,
-        current_user: Any,
+        current_user: Any = None,
         subject_uid: str = "",
         feedback_text: str = "",
         time_period: str = "7d",

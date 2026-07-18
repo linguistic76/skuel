@@ -557,11 +557,12 @@ relationship: RELATED_TO
 
 
 @pytest.mark.asyncio
-async def test_renamed_file_keeps_entity_drops_stale_tracking(
+async def test_renamed_file_keeps_entity_and_repoints_tracking(
     ingestion_service, valid_ku_directory, neo4j_driver
 ):
-    """A rename re-ingests the same uid under a new path — the entity survives,
-    only the old path's IngestionMetadata row is removed."""
+    """A rename is detected as a move (#617): the entity survives, the tracking
+    row is re-pointed to the new path, and the old path's row is deleted by the
+    move handler itself — so it never shows up as stale metadata."""
     result1 = await ingestion_service.ingest_directory(
         directory=valid_ku_directory,
         pattern="*.md",
@@ -580,11 +581,25 @@ async def test_renamed_file_keeps_entity_drops_stale_tracking(
     stats = result2.value
     assert isinstance(stats, IncrementalStats)
     assert stats.entities_deleted == 0
-    assert stats.stale_metadata_removed == 1
+    assert stats.moves_detected == 1
+    assert stats.moves == ["ku-03.md → ku-03-renamed.md"]
+    assert stats.stale_metadata_removed == 0
 
     async with neo4j_driver.session() as session:
         kept = await session.run("MATCH (e:Entity {uid: 'ku.e2e-test-03'}) RETURN count(e) AS n")
         assert (await kept.single())["n"] == 1
+        # The old path's tracking row is gone; exactly one row tracks the uid
+        # under THIS test's vault (the container is session-scoped, so other
+        # tests' metadata rows for the same uid live under other tmp dirs).
+        rows = await session.run(
+            "MATCH (s:IngestionMetadata {entity_uid: 'ku.e2e-test-03'}) "
+            "WHERE s.file_path STARTS WITH $prefix "
+            "RETURN collect(s.file_path) AS paths",
+            prefix=str(valid_ku_directory),
+        )
+        paths = (await rows.single())["paths"]
+        assert len(paths) == 1
+        assert paths[0].endswith("ku-03-renamed.md")
 
 
 @pytest.mark.asyncio
