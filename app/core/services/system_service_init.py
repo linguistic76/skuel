@@ -35,7 +35,9 @@ def _make_service_checker(
     return check
 
 
-def initialize_system_service(system_service: SystemService, services: Any) -> Result[None]:
+async def initialize_system_service(  # skuel-lint: disable=SKUEL029 -- awaited in the async bootstrap lifecycle (_wire_all_routes -> startup_skuel)
+    system_service: SystemService, services: Any
+) -> Result[None]:
     """
     Initialize SystemService with health checkers for all components.
 
