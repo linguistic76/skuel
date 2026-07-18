@@ -257,6 +257,47 @@ class TestExtractCypherStatements:
         assert "DELETE" not in statements[1][0]
         assert statements[1][1] == 2
 
+    def test_block_comment_masked(self) -> None:
+        # Codex, PR #710 round 2: /* */ is a legal Cypher comment; its prose
+        # must not trip prose-shaped rules and its ';' must not split
+        linter = make_linter()
+        content = (
+            "/* Migration: DELETE stale nodes; then verify */\nMATCH (n:Entity) RETURN n LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_multiline_block_comment_preserves_line_numbers(self) -> None:
+        linter = make_linter()
+        content = (
+            "/*\n * Header prose\n * spanning lines\n */\nMATCH (n:Entity) RETURN n LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert statements[0][1] == 5
+
+    def test_inline_block_comment_masked_mid_statement(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) /* DELETE n later */ RETURN n LIMIT 1;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_unterminated_block_comment_masked_to_eof(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) RETURN n LIMIT 1;\n/* dangling DELETE n prose\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_block_comment_marker_inside_string_not_a_comment(self) -> None:
+        linter = make_linter()
+        content = "MATCH (n:Entity) WHERE n.note = 'a /* b */ c' RETURN n LIMIT 1;\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "/* b */" in statements[0][0]
+
     def test_keywordless_statements_skipped(self) -> None:
         # DROP INDEX / SHOW carry no linted keyword — no rule applies
         linter = make_linter()

@@ -194,14 +194,17 @@ class CypherLinter:
         heuristics — just split on statement-terminating semicolons and keep
         anything with a Cypher keyword. Two comment treatments:
 
-        - ``//`` comments are masked with spaces (positions and line numbers
-          preserved): comment prose would false-positive prose-shaped rules —
-          "DELETE the edges" in a migration header trips CYP002, and a
-          trailing comment after a ``;`` would otherwise leak into the NEXT
-          statement (or become a phantom tail statement) and do the same
-          (Codex, PR #710). Commented-out queries are not live code either.
-        - ``noqa:``-carrying comments are kept — the rule checks read
-          suppressions from the violation's line.
+        - Comments — ``//`` line and ``/* */`` block (non-nesting, per the
+          Cypher spec) — are masked with spaces (positions, newlines, and
+          line numbers preserved): comment prose would false-positive
+          prose-shaped rules — "DELETE the edges" in a migration header trips
+          CYP002, and a trailing comment after a ``;`` would otherwise leak
+          into the NEXT statement (or become a phantom tail statement) and do
+          the same (Codex, PR #710 — both comment forms). Commented-out
+          queries are not live code either.
+        - ``noqa:``-carrying ``//`` comments are kept — the rule checks read
+          suppressions from the violation's line. (noqa must be ``//`` style;
+          block comments are always masked.)
 
         Both passes track quoted strings (a ``//`` inside a string literal is
         not a comment), and the splitter additionally skips kept comments so
@@ -232,6 +235,14 @@ class CypherLinter:
                     end = len(content)
                 if "noqa:" not in content[i:end]:
                     chars[i:end] = " " * (end - i)
+                i = end
+                continue
+            elif content[i : i + 2] == "/*":
+                end = content.find("*/", i + 2)
+                end = len(content) if end == -1 else end + 2
+                for j in range(i, end):
+                    if chars[j] != "\n":
+                        chars[j] = " "
                 i = end
                 continue
             i += 1
