@@ -60,7 +60,7 @@ class AdaptiveLpCrossDomainService:
         self.logger = get_logger("skuel.adaptive_lp_cross_domain")
 
     @with_error_handling(error_type="system", uid_param="user_uid")
-    async def discover_cross_domain_opportunities(  # skuel-lint: disable=SKUEL029 -- public API awaited by GraphQL cross-domain resolver (schema.py); internal calls sync-collapsed
+    def discover_cross_domain_opportunities(
         self,
         user_uid: UserUID,
         knowledge_state: KnowledgeState,

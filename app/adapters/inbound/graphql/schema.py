@@ -384,7 +384,7 @@ class Query:
         )
 
         # Get cross-domain opportunities
-        result = await cross_domain_service.discover_cross_domain_opportunities(
+        result = cross_domain_service.discover_cross_domain_opportunities(
             user_uid=user_uid,
             knowledge_state=knowledge_state,
             min_confidence=ConfidenceLevel.LOW,

@@ -123,7 +123,7 @@ class TestCrossDomainOpportunityDiscovery:
         self, cross_domain_service, two_domain_state
     ):
         """Opportunities discovered when user has knowledge in 2+ domains."""
-        result = await cross_domain_service.discover_cross_domain_opportunities(
+        result = cross_domain_service.discover_cross_domain_opportunities(
             user_uid="user_001",
             knowledge_state=two_domain_state,
         )
@@ -138,7 +138,7 @@ class TestCrossDomainOpportunityDiscovery:
         self, cross_domain_service, single_domain_state
     ):
         """No opportunities when knowledge is in only one domain."""
-        result = await cross_domain_service.discover_cross_domain_opportunities(
+        result = cross_domain_service.discover_cross_domain_opportunities(
             user_uid="user_001",
             knowledge_state=single_domain_state,
         )
@@ -153,7 +153,7 @@ class TestCrossDomainOpportunityDiscovery:
         self, cross_domain_service, empty_state
     ):
         """Empty knowledge state returns empty opportunities list."""
-        result = await cross_domain_service.discover_cross_domain_opportunities(
+        result = cross_domain_service.discover_cross_domain_opportunities(
             user_uid="user_001",
             knowledge_state=empty_state,
         )
@@ -176,7 +176,7 @@ class TestInnovationOpportunities:
         self, cross_domain_service, multi_domain_state
     ):
         """Innovation opportunities generated for 3+ domain knowledge."""
-        result = await cross_domain_service.discover_cross_domain_opportunities(
+        result = cross_domain_service.discover_cross_domain_opportunities(
             user_uid="user_001",
             knowledge_state=multi_domain_state,
         )
@@ -198,7 +198,7 @@ class TestScoringAndFiltering:
     @pytest.mark.asyncio
     async def test_score_cross_domain_opportunities(self, cross_domain_service, two_domain_state):
         """Opportunities are scored by relevance and impact."""
-        result = await cross_domain_service.discover_cross_domain_opportunities(
+        result = cross_domain_service.discover_cross_domain_opportunities(
             user_uid="user_001",
             knowledge_state=two_domain_state,
         )
@@ -215,7 +215,7 @@ class TestScoringAndFiltering:
     @pytest.mark.asyncio
     async def test_confidence_threshold_filtering(self, cross_domain_service, two_domain_state):
         """Low confidence opportunities filtered out."""
-        result = await cross_domain_service.discover_cross_domain_opportunities(
+        result = cross_domain_service.discover_cross_domain_opportunities(
             user_uid="user_001",
             knowledge_state=two_domain_state,
             min_confidence=0.8,  # High threshold

@@ -1218,7 +1218,7 @@ class TestDiscoverCrossDomainResolver:
     @pytest.mark.asyncio
     async def test_empty_opportunities(self) -> None:
         services = MagicMock()
-        services.cross_domain.discover_cross_domain_opportunities = AsyncMock(
+        services.cross_domain.discover_cross_domain_opportunities = MagicMock(
             return_value=FakeResult(value=[])
         )
 
@@ -1244,7 +1244,7 @@ class TestDiscoverCrossDomainResolver:
         opp.supporting_examples = None
 
         services = MagicMock()
-        services.cross_domain.discover_cross_domain_opportunities = AsyncMock(
+        services.cross_domain.discover_cross_domain_opportunities = MagicMock(
             return_value=FakeResult(value=[opp])
         )
 
@@ -1280,7 +1280,7 @@ class TestDiscoverCrossDomainResolver:
         opp.supporting_examples = None
 
         services = MagicMock()
-        services.cross_domain.discover_cross_domain_opportunities = AsyncMock(
+        services.cross_domain.discover_cross_domain_opportunities = MagicMock(
             return_value=FakeResult(value=[opp])
         )
 
@@ -1569,7 +1569,7 @@ class TestDiscoverCrossDomainTargetDomains:
         opp.supporting_examples = None
 
         services = MagicMock()
-        services.cross_domain.discover_cross_domain_opportunities = AsyncMock(
+        services.cross_domain.discover_cross_domain_opportunities = MagicMock(
             return_value=FakeResult(value=[opp])
         )
 
@@ -1604,7 +1604,7 @@ class TestDiscoverCrossDomainTargetDomains:
         opp.supporting_examples = None
 
         services = MagicMock()
-        services.cross_domain.discover_cross_domain_opportunities = AsyncMock(
+        services.cross_domain.discover_cross_domain_opportunities = MagicMock(
             return_value=FakeResult(value=[opp])
         )
 
