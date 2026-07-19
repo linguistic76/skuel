@@ -5,10 +5,10 @@ Calendar UI Components
 UI components for the redesigned calendar views (month, week).
 
 Both views share one visual language:
-- eyebrow + large title + a per-type legend (``create_calendar_header``)
-- a segmented Today/Week/Month lens switcher (``view_switcher``, shared with the
-  Today surface via ``ui.primitives``) + Prev/Now/Next + Monthly-note toolbar
-  (``create_calendar_toolbar``)
+- large period title + a per-type legend (``create_calendar_header``)
+- a Prev/Now/Next + periodic-note toolbar (``create_calendar_toolbar``) — lens
+  switching lives in the activity sidebar (Today / Weekly / Monthly links), not
+  in the page chrome
 - per-type colored event chips (``_event_chip``) — a leading dot + accent bar in
   the item's type color, fill at ~10% alpha
 
@@ -39,7 +39,7 @@ from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
-from ui.primitives import ButtonLink, view_switcher
+from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -103,15 +103,13 @@ def create_calendar_legend() -> Div:
 
 
 def create_calendar_header(title: str) -> Div:
-    """Eyebrow + period title (left) and the type legend (right)."""
+    """Period title (left) and the type legend (right).
+
+    The title steps down on phones — "Week of Jun 30 – Jul 6" at 40px is wider
+    than a 375px viewport's content column.
+    """
     return Div(
-        Div(
-            Div(
-                "Calendar",
-                cls="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground",
-            ),
-            H1(title, cls="text-[40px] font-bold tracking-[-0.02em] leading-none mt-1.5"),
-        ),
+        H1(title, cls="text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] leading-none"),
         create_calendar_legend(),
         cls="flex items-end justify-between gap-6 flex-wrap mb-5",
     )
@@ -133,17 +131,17 @@ def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False
 
 
 def create_calendar_toolbar(
-    current_view: str,
-    target_date: date,
     prev_href: str,
     next_href: str,
     today_href: str,
-    monthly_note_href: str,
+    note_href: str,
+    note_label: str,
 ) -> Div:
-    """Segmented switcher (left) + Prev/Now/Next and Monthly-note cluster (right).
+    """Prev/Now/Next and periodic-note cluster, right-aligned.
 
     The recenter pill is labelled "Now" — the word "Today" belongs solely to the
-    lens segment (the Today surface), keeping the two meanings distinct.
+    Today surface (sidebar link), keeping the two meanings distinct. ``note_label``
+    names the view's periodic note ("Weekly note" / "Monthly note").
     """
     nav = Div(
         _nav_button("Prev", prev_href, "chevron-left"),
@@ -159,9 +157,9 @@ def create_calendar_toolbar(
         Div(cls="w-px h-[22px] bg-border mx-1"),
         A(
             Icon("square-pen", cls="w-[15px] h-[15px]"),
-            Span("Monthly note"),
-            href=monthly_note_href,
-            title="Open monthly note",
+            Span(note_label),
+            href=note_href,
+            title=f"Open {note_label.lower()}",
             **_NO_BOOST,
             cls=(
                 "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
@@ -169,12 +167,14 @@ def create_calendar_toolbar(
                 " whitespace-nowrap"
             ),
         ),
-        cls="flex items-center gap-2",
+        # flex-wrap: on phones the full cluster is wider than the viewport —
+        # without it the leading "Prev" pill clips off the left edge; wrapped,
+        # the note button drops to a second row instead.
+        cls="flex items-center justify-end gap-2 flex-wrap",
     )
     return Div(
-        view_switcher(current_view, target_date),
         nav,
-        cls="flex items-center justify-between gap-4 flex-wrap mb-5",
+        cls="flex items-center justify-end gap-4 flex-wrap mb-5",
     )
 
 
@@ -380,11 +380,20 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
 
     # Flat grid (no rounded card/shadow) that fills the viewport below the
     # chrome: min-height (not height) so sparse months stretch rows evenly
-    # while busy months simply scroll the page.
+    # while busy months simply scroll the page. min-w + overflow wrapper: a
+    # 7-day grid can't compress below ~93px/column and stay readable, so on
+    # phones the grid keeps that width and pans horizontally inside its own
+    # scroll container instead of crushing chips to slivers.
     return Div(
-        header,
-        *weeks,
-        cls="border border-border bg-card flex flex-col min-h-[calc(100dvh-250px)]",
+        Div(
+            header,
+            *weeks,
+            cls=(
+                "border border-border bg-card flex flex-col"
+                " min-h-[calc(100dvh-250px)] min-w-[700px]"
+            ),
+        ),
+        cls="overflow-x-auto",
     )
 
 
@@ -499,9 +508,12 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
             Div(
                 head,
                 body,
+                # Tall min-height only in column layout (md+): stacked phone
+                # cards hug their content — 7 x 360px of mostly-empty cards
+                # made the mobile week nearly 2600px of scrolling.
                 cls=(
                     "border border-border rounded-[11px] overflow-hidden bg-card"
-                    " min-h-[360px] flex flex-col cursor-pointer"
+                    " min-h-[120px] md:min-h-[360px] flex flex-col cursor-pointer"
                 ),
                 onclick=(
                     "if(!event.target.closest('.calendar-item,a'))"
@@ -510,7 +522,9 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
             )
         )
 
-    return Div(*cards, cls="grid grid-cols-1 sm:grid-cols-7 gap-2.5")
+    # Columns from md up — at sm (640px) seven columns are ~91px each, too
+    # narrow for titled chips, so small screens keep the stacked-card layout.
+    return Div(*cards, cls="grid grid-cols-1 md:grid-cols-7 gap-2.5")
 
 
 # ============================================================================

@@ -10,8 +10,10 @@ Events activity domain's ``/events/`` routes.
 
 Routes:
     GET  /cal                                — Redirect to current month
+    GET  /cal/month                          — Redirect to current month (sidebar link)
     GET  /cal/month/{year}/{month}           — Month view shell
     GET  /cal/month/{year}/{month}/content   — Month grid fragment
+    GET  /cal/week                           — Redirect to current week (sidebar link)
     GET  /cal/week/{date_str}                — Week view shell
     GET  /cal/week/{date_str}/content        — Week agenda fragment
     GET  /cal/item-details/{item_id}         — HTMX item-details modal
@@ -46,6 +48,7 @@ from core.utils.timestamp_helpers import (
     prev_week,
     week_bounds,
 )
+from ui.activities.nav import render_activity_sidebar_page
 from ui.calendar.components import (
     create_calendar_header,
     create_calendar_toolbar,
@@ -55,8 +58,6 @@ from ui.calendar.components import (
     error_response,
 )
 from ui.components import Button, ButtonT
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 
@@ -68,22 +69,21 @@ logger = get_logger("skuel.routes.calendar")
 # ============================================================================
 
 
-def _wrap_calendar_page(request: Request, content: Any, title: str = "Calendar") -> Any:
-    """Wrap calendar content in a navbar-only, full-width page.
+def _wrap_calendar_page(request: Request, content: Any, title: str, active: str) -> Any:
+    """Wrap calendar content in the shared activity sidebar page (same as Today).
 
-    Calendar views skip the activity sidebar — the legend/chips already surface
-    the activity domains, and the freed width goes to the grid. BasePage(CUSTOM)
-    provides no container padding, so the wrapper supplies the same padding the
-    sidebar layout used to.
+    ``active`` highlights the view's sidebar link ("weekly" / "monthly");
+    ``max-w-none`` lets the grid use the full width freed by a collapsed sidebar.
     """
-    return BasePage(
-        content=Div(content, cls="w-full px-4 sm:px-6 lg:px-8 py-4 lg:py-6"),
-        title=title,
-        page_type=PageType.CUSTOM,
+    return render_activity_sidebar_page(
+        content=content,
+        active=active,
         request=request,
+        extra_css=["/static/css/calendar.css"],
+        title=title,
         # "calendar" lights the navbar calendar icon.
         active_page="calendar",
-        extra_css=["/static/css/calendar.css"],
+        content_max_width="max-w-none",
     )
 
 
@@ -108,13 +108,13 @@ def _week_title(week_start: date, week_end: date) -> str:
 def _calendar_shell(
     request: Request,
     *,
-    current_view: str,
+    active: str,
     title: str,
-    target_date: date,
     prev_href: str,
     next_href: str,
     today_href: str,
-    monthly_note_href: str,
+    note_href: str,
+    note_label: str,
     content_route: str,
     content_id: str,
 ) -> "FT":
@@ -129,12 +129,11 @@ def _calendar_shell(
     content = Div(
         create_calendar_header(title),
         create_calendar_toolbar(
-            current_view,
-            target_date,
             prev_href,
             next_href,
             today_href,
-            monthly_note_href,
+            note_href,
+            note_label,
         ),
         content_loading_placeholder(
             content_route,
@@ -145,7 +144,7 @@ def _calendar_shell(
         x_data="calendarLegend",
         **{":class": "filterClasses()"},
     )
-    return _wrap_calendar_page(request, content, title)
+    return _wrap_calendar_page(request, content, title, active)
 
 
 # ============================================================================
@@ -165,23 +164,35 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         today = date.today()
         return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
 
+    @rt("/cal/month")
+    def calendar_month_current(request: Request) -> Any:
+        """Sidebar "Monthly" link — redirect to the current month."""
+        require_authenticated_user(request)
+        today = date.today()
+        return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
+
+    @rt("/cal/week")
+    def calendar_week_current(request: Request) -> Any:
+        """Sidebar "Weekly" link — redirect to the current week."""
+        require_authenticated_user(request)
+        return RedirectResponse(f"/cal/week/{date.today().isoformat()}", status_code=302)
+
     @rt("/cal/month/{year}/{month}")
     def calendar_month(request: Request, year: int, month: int) -> Any:
         """Month view shell — renders chrome immediately, grid loads via HTMX."""
         require_authenticated_user(request)
-        first_day = date(year, month, 1)
         month_name = cal.month_name[month]
         prev_y, prev_m = _get_prev_month(year, month)
         next_y, next_m = _get_next_month(year, month)
         return _calendar_shell(
             request,
-            current_view="month",
+            active="monthly",
             title=f"{month_name} {year}",
-            target_date=first_day,
             prev_href=f"/cal/month/{prev_y}/{prev_m}",
             next_href=f"/cal/month/{next_y}/{next_m}",
             today_href="/cal",
-            monthly_note_href=f"/journals/monthly/{year}/{month}",
+            note_href=f"/journals/monthly/{year}/{month}",
+            note_label="Monthly note",
             content_route=f"/cal/month/{year}/{month}/content",
             content_id="calendar-month-content",
         )
@@ -211,15 +222,16 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         except ValueError:
             target_date = date.today()
         week_start, week_end = week_bounds(target_date)
+        iso_year, iso_week, _ = week_start.isocalendar()
         return _calendar_shell(
             request,
-            current_view="week",
+            active="weekly",
             title=_week_title(week_start, week_end),
-            target_date=week_start,
             prev_href=f"/cal/week/{_get_prev_week(week_start)}",
             next_href=f"/cal/week/{_get_next_week(week_start)}",
             today_href=f"/cal/week/{date.today().isoformat()}",
-            monthly_note_href=f"/journals/monthly/{week_start.year}/{week_start.month}",
+            note_href=f"/journals/weekly/{iso_year}/{iso_week}",
+            note_label="Weekly note",
             content_route=f"/cal/week/{date_str}/content",
             content_id="calendar-week-content",
         )
