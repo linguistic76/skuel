@@ -230,11 +230,14 @@ class HabitsProgressService:
             "total_completions": habit.total_completions + 1,
         }
 
-        # Calculate consistency score (pass completions for calculation)
+        # Calculate consistency score (pass completions for calculation).
+        # Persisted as success_rate — the canonical Habit/HabitDTO field every
+        # reader consumes (a legacy consistency_30d property was write-only:
+        # scripts/migrate_activity_completion_aliases.py renames old nodes).
         consistency = self._calculate_consistency_from_completions(
             habit, existing_completions, completion_date
         )
-        updates["consistency_30d"] = consistency
+        updates["success_rate"] = consistency
 
         update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:

@@ -308,7 +308,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Check if goal is complete
         if completed_count == len(updated_milestones):
             updates["status"] = EntityStatus.COMPLETED
-            updates["completion_date"] = date.today()
+            updates["achieved_date"] = date.today()
 
         update_result = await self.backend.update_goal(goal_uid, dict(updates))
         if update_result.is_error:
@@ -408,7 +408,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # Check if goal is achieved
             if new_progress >= 100:
                 updates["status"] = EntityStatus.COMPLETED
-                updates["completion_date"] = date.today()
+                updates["achieved_date"] = date.today()
 
             update_result = await self.backend.update_goal(goal_uid, dict(updates))
             if update_result.is_error:
@@ -1002,7 +1002,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Check if goal is achieved
         if new_progress >= 100:
             updates["status"] = EntityStatus.COMPLETED.value
-            updates["completion_date"] = date.today()
+            updates["achieved_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)
         if update_result.is_error:
@@ -1171,7 +1171,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Check if goal is achieved
         if new_progress >= 100:
             updates["status"] = EntityStatus.COMPLETED.value
-            updates["completion_date"] = date.today()
+            updates["achieved_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)
         if update_result.is_error:
