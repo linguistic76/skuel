@@ -47,6 +47,8 @@ def create_hierarchy_api_routes(
 
     # Activity domains (5) — each carries its *UpdateRequest so inline title edits build
     # the typed *UpdateIntent (ADR-066), not a plain dict the facade can no longer accept.
+    # Their GET /{uid}/children fragment comes from create_activity_hierarchy_api_routes
+    # (registered per domain in *_api.py), NOT from this factory — One Path Forward.
     domain_configs: list[tuple[str, Any, str, type[BaseModel]]] = [
         ("goals", kwargs.get("goals"), "Goal", GoalUpdateRequest),
         ("habits", kwargs.get("habits"), "Habit", HabitUpdateRequest),
@@ -68,7 +70,8 @@ def create_hierarchy_api_routes(
         )
         routes.extend(factory.create_routes())
 
-    # LP (special case - uses "steps" instead of "subpaths")
+    # LP (special case - uses "steps" instead of "subpaths"; SHARED content, so its
+    # children fragment stays on this factory rather than the activity hierarchy factory)
     lp_service = kwargs.get("lp")
     if lp_service:
         lp_factory = HierarchyRouteFactory(
@@ -81,6 +84,7 @@ def create_hierarchy_api_routes(
             create_relationship_method="create_step_relationship",
             remove_relationship_method="remove_step_relationship",
             get_parent_method="get_parent_path",
+            register_children_route=True,
         )
         routes.extend(lp_factory.create_routes())
 

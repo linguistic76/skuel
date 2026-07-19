@@ -295,49 +295,18 @@ To use hierarchy components, your domain must provide these API endpoints:
 </div>
 ```
 
-**Implementation:**
+**Implementation:** No per-domain code needed.
 
-```python
-from ui.patterns.tree_view import TreeNodeList
-
-@rt("/api/goals/{uid}/children")
-async def get_children(request: Request, uid: str):
-    user_uid = require_authenticated_user(request)
-
-    # Verify ownership
-    ownership_result = await goals_service.verify_ownership(uid, user_uid)
-    if ownership_result.is_error:
-        return Div(Span("Not found", cls="text-error"))
-
-    # Get children
-    result = await goals_service.get_subgoals(uid, depth=1)
-
-    if result.is_error:
-        return Div(Span(f"Error: {result.error}", cls="text-error"))
-
-    children = result.value
-
-    # Convert to dicts
-    children_data = []
-    for child in children:
-        # Check if child has children
-        child_children = await goals_service.get_subgoals(child.uid, depth=1)
-        has_children = not child_children.is_error and len(child_children.value) > 0
-
-        children_data.append({
-            "uid": child.uid,
-            "title": child.title,
-            "has_children": has_children,
-        })
-
-    # Render
-    return TreeNodeList(
-        nodes=children_data,
-        entity_type="goal",
-        children_endpoint="/api/goals/{uid}/children",
-        parent_depth=1,  # Depth of current node
-    )
-```
+- **Activity domains (Tasks, Goals, Habits, Events, Choices, Principles):**
+  `create_activity_hierarchy_api_routes` (in
+  `adapters/inbound/route_factories/hierarchy_api_factory.py`) registers this
+  fragment route alongside the JSON hierarchy block (`/children`, `/parent`,
+  `/hierarchy`, `/add-child`, `/remove-child`). Both children variants render
+  from ONE ownership-checked, owner-filtered fetch — configure it per domain
+  in the domain's `*_api.py` via `ActivityHierarchyApiConfig`.
+- **LP:** registered by `HierarchyRouteFactory` with
+  `register_children_route=True` (LearningPaths are SHARED content with a
+  step-based child model, so they stay on the tree-manipulation factory).
 
 ### POST /api/{domain}/{uid}/move
 

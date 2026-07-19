@@ -85,13 +85,10 @@ def _make_harness(
     principles_service = _make_ownership_service()
 
     if authenticated:
-        # Patch at the names the target modules actually use (module-level import).
-        monkeypatch.setattr("adapters.inbound.choices_api.require_authenticated_user", _fake_auth)
-        monkeypatch.setattr(
-            "adapters.inbound.route_factories.activity_field_api_factory."
-            "require_authenticated_user",
-            _fake_auth,
-        )
+        # All handlers (choices_api + the hierarchy/link/field factories) resolve
+        # get_current_user through adapters.inbound.auth.session at call time —
+        # one patch covers every seam (same as test_tasks_api_routes.py).
+        monkeypatch.setattr("adapters.inbound.auth.session.get_current_user", _fake_auth)
 
     create_choices_api_routes(app, rt, choices_service, goals_service, principles_service)
     return _Harness(

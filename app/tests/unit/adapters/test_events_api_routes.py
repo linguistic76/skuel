@@ -17,8 +17,12 @@ These are PIN tests, not exhaustive coverage:
 
 Harness mirrors ``test_admin_api_security.py`` — real
 ``fast_app(pico=False, default_hdrs=False)`` + TestClient + CSRF minting +
-mocked services. Auth is faked by patching ``require_authenticated_user`` at
-the name each consuming module actually resolves at call time.
+mocked services. Auth seam: all consuming modules (events_api and the route
+factories) resolve ``get_current_user`` through
+``adapters.inbound.auth.session`` module globals at call time — patching
+that one name authenticates every seam at once while keeping the real
+401-raising ``require_authenticated_user`` in the loop (same seam as
+``test_tasks_api_routes.py``).
 """
 
 from __future__ import annotations
@@ -37,13 +41,10 @@ _USER_UID = "user_owner"
 _EVENT_UID = "event_1"
 _GOAL_UID = "goal_1"
 
-# The handlers resolve require_authenticated_user as a module global at call
-# time — patch the name in the module that actually uses it (events_api for
-# the hand-written routes, the field factory for the factory-made routes).
-_EVENTS_AUTH_SEAM = "adapters.inbound.events_api.require_authenticated_user"
-_FIELD_FACTORY_AUTH_SEAM = (
-    "adapters.inbound.route_factories.activity_field_api_factory.require_authenticated_user"
-)
+# All handlers (hierarchy/link/knowledge-pattern/field factories) resolve
+# get_current_user through adapters.inbound.auth.session at call time —
+# one patch covers every seam.
+_SESSION_AUTH_SEAM = "adapters.inbound.auth.session.get_current_user"
 
 
 def _fake_auth(request: object) -> str:
@@ -79,8 +80,7 @@ def _make_client(
     events_service, goals_service = _make_services()
 
     if authenticated:
-        monkeypatch.setattr(_EVENTS_AUTH_SEAM, _fake_auth)
-        monkeypatch.setattr(_FIELD_FACTORY_AUTH_SEAM, _fake_auth)
+        monkeypatch.setattr(_SESSION_AUTH_SEAM, _fake_auth)
 
     create_events_api_routes(app, rt, events_service, goals_service)
     return TestClient(app), events_service, goals_service

@@ -32,14 +32,15 @@ Reminders:
 Export:
     GET  /api/habits/export            — Download completion history (CSV/JSON)
 
-Hierarchy (ownership-verified):
-    GET  /api/habits/children     — Direct subhabits of a parent habit
-    GET  /api/habits/parent       — Immediate parent of a subhabit
-    GET  /api/habits/hierarchy    — Full hierarchy context (ancestors, siblings, children)
-    POST /api/habits/remove-child — Remove a subhabit relationship
-    POST /api/habits/add-child    — Add a subhabit relationship
+Hierarchy (ownership-verified, via create_activity_hierarchy_api_routes):
+    GET  /api/habits/children       — Direct subhabits of a parent habit (JSON)
+    GET  /api/habits/{uid}/children — Subhabits as a TreeNodeList fragment (HTMX)
+    GET  /api/habits/parent         — Immediate parent of a subhabit
+    GET  /api/habits/hierarchy      — Full hierarchy context (ancestors, siblings, children)
+    POST /api/habits/remove-child   — Remove a subhabit relationship
+    POST /api/habits/add-child      — Add a subhabit relationship
 
-Cross-domain links:
+Cross-domain links (via create_activity_link_api_routes):
     POST /api/habits/link-knowledge    — Link habit to the knowledge/skill it develops
     POST /api/habits/link-principle    — Link habit to the principle/value it embodies
 
@@ -49,7 +50,7 @@ Knowledge intelligence:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from starlette.responses import Response
 
@@ -61,8 +62,14 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
     ActivityFieldApiConfig,
+    ActivityHierarchyApiConfig,
+    CrossDomainLinkSpec,
     FieldUpdateSpec,
+    LinkTargetSpec,
     create_activity_field_api_routes,
+    create_activity_hierarchy_api_routes,
+    create_activity_link_api_routes,
+    create_knowledge_patterns_api_route,
     parse_int_query_param,
     verify_entity_ownership,
 )
@@ -70,7 +77,6 @@ from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkHabitToKnowledgeRequest,
     LinkHabitToPrincipleRequest,
-    RemoveHierarchyChildRequest,
 )
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import (
@@ -425,216 +431,72 @@ def create_habits_api_routes(
         )
 
     # ================================================================
-    # HIERARCHY — read-paths and relationship removal
+    # HIERARCHY — shared Activity Domain hierarchy route block
     # ================================================================
 
-    @rt("/api/habits/children", methods=["GET"])
-    @boundary_handler()
-    async def habit_children(request: Request) -> Result[list[Habit]]:
-        """Direct subhabits of a parent habit."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
-        if ownership_error:
-            return ownership_error
-        result = await habits_service.get_subhabits(uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([h for h in result.value if h.user_uid == user_uid])
-
-    @rt("/api/habits/parent", methods=["GET"])
-    @boundary_handler()
-    async def habit_parent(request: Request) -> Result[Optional[Habit]]:  # noqa: UP045
-        """Immediate parent of a subhabit (None if root-level)."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
-        if ownership_error:
-            return ownership_error
-        result = await habits_service.get_parent_habit(uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is not None and result.value.user_uid != user_uid:
-            return Result.ok(None)
-        return result
-
-    @rt("/api/habits/hierarchy", methods=["GET"])
-    @boundary_handler()
-    async def habit_hierarchy(request: Request) -> Result[dict[str, Any]]:
-        """Full hierarchy context: ancestors, current, siblings, children, depth."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
-        if ownership_error:
-            return ownership_error
-        result = await habits_service.get_habit_hierarchy(uid)
-        if result.is_error:
-            return Result.fail(result)
-        h = result.value
-        ancestors = [hab for hab in h["ancestors"] if hab.user_uid == user_uid]
-        return Result.ok(
-            {
-                "ancestors": ancestors,
-                "current": h["current"],
-                "siblings": [hab for hab in h["siblings"] if hab.user_uid == user_uid],
-                "children": [hab for hab in h["children"] if hab.user_uid == user_uid],
-                "depth": len(ancestors),
-            }
-        )
-
-    @rt("/api/habits/remove-child", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def habit_remove_child(request: Request) -> Result[dict[str, Any]]:
-        """Remove a subhabit relationship (does not delete the habit nodes)."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            habits_service, req.parent_uid, user_uid, "habit"
-        )
-        if ownership_error:
-            return ownership_error
-        child_ownership_error = await verify_entity_ownership(
-            habits_service, req.child_uid, user_uid, "habit"
-        )
-        if child_ownership_error:
-            return child_ownership_error
-        result = await habits_service.remove_subhabit_relationship(req.parent_uid, req.child_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"removed": result.value})
-
-    @rt("/api/habits/add-child", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def habit_add_child(request: Request) -> Result[dict[str, Any]]:
-        """Add a subhabit relationship between two habits."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, AddHierarchyChildRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        if req.parent_uid == req.child_uid:
-            return Result.fail(
-                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
-            )
-        ownership_error = await verify_entity_ownership(
-            habits_service, req.parent_uid, user_uid, "habit"
-        )
-        if ownership_error:
-            return ownership_error
-        child_ownership_error = await verify_entity_ownership(
-            habits_service, req.child_uid, user_uid, "habit"
-        )
-        if child_ownership_error:
-            return child_ownership_error
-        existing_parent = await habits_service.get_parent_habit(req.child_uid)
-        if existing_parent.is_error:
-            return Result.fail(existing_parent)
-        if existing_parent.value is not None:
-            return Result.fail(
-                Errors.validation("habit already has a parent — remove it first", field="child_uid")
-            )
-        result = await habits_service.create_subhabit_relationship(
+    async def add_subhabit_relationship(req: AddHierarchyChildRequest) -> Result[bool]:
+        return await habits_service.create_subhabit_relationship(
             req.parent_uid, req.child_uid, req.progress_weight
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"added": result.value})
+
+    hierarchy_routes = create_activity_hierarchy_api_routes(
+        rt,
+        ActivityHierarchyApiConfig(
+            domain_name="habits",
+            singular="habit",
+            service=habits_service,
+            get_children=habits_service.get_subhabits,
+            get_parent=habits_service.get_parent_habit,
+            get_hierarchy=habits_service.get_habit_hierarchy,
+            add_child_relationship=add_subhabit_relationship,
+            remove_child_relationship=habits_service.remove_subhabit_relationship,
+        ),
+    )
 
     # ================================================================
-    # CROSS-DOMAIN LINKS
+    # CROSS-DOMAIN LINKS + KNOWLEDGE INTELLIGENCE
     # ================================================================
 
-    @rt("/api/habits/link-knowledge", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def habit_link_knowledge(request: Request) -> Result[dict[str, Any]]:
-        """Link habit to knowledge/skill it develops (REINFORCES_KNOWLEDGE). Ku is shared content."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, LinkHabitToKnowledgeRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            habits_service, req.habit_uid, user_uid, "habit"
-        )
-        if ownership_error:
-            return ownership_error
-        result = await habits_service.link_habit_to_knowledge(
+    async def apply_link_knowledge(req: LinkHabitToKnowledgeRequest) -> Result[bool]:
+        return await habits_service.link_habit_to_knowledge(
             req.habit_uid, req.knowledge_uid, req.skill_level, req.proficiency_gain_rate
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"linked": result.value})
 
-    @rt("/api/habits/link-principle", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def habit_link_principle(request: Request) -> Result[dict[str, Any]]:
-        """Link habit to principle/value it embodies (EMBODIES_PRINCIPLE)."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, LinkHabitToPrincipleRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            habits_service, req.habit_uid, user_uid, "habit"
-        )
-        if ownership_error:
-            return ownership_error
-        principle_ownership_error = await verify_entity_ownership(
-            principles_service, req.principle_uid, user_uid, "principle"
-        )
-        if principle_ownership_error:
-            return principle_ownership_error
-        result = await habits_service.link_habit_to_principle(
+    async def apply_link_principle(req: LinkHabitToPrincipleRequest) -> Result[bool]:
+        return await habits_service.link_habit_to_principle(
             req.habit_uid, req.principle_uid, req.embodiment_strength
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"linked": result.value})
 
-    # ================================================================
-    # KNOWLEDGE INTELLIGENCE — learning patterns
-    # ================================================================
+    link_routes = create_activity_link_api_routes(
+        rt,
+        domain_name="habits",
+        singular="habit",
+        service=habits_service,
+        specs=(
+            CrossDomainLinkSpec(
+                action="link-knowledge",
+                request_model=LinkHabitToKnowledgeRequest,
+                owner_uid_field="habit_uid",
+                apply=apply_link_knowledge,
+                doc="Link habit to knowledge/skill it develops (REINFORCES_KNOWLEDGE). "
+                "Ku is shared content.",
+            ),
+            CrossDomainLinkSpec(
+                action="link-principle",
+                request_model=LinkHabitToPrincipleRequest,
+                owner_uid_field="habit_uid",
+                apply=apply_link_principle,
+                doc="Link habit to principle/value it embodies (EMBODIES_PRINCIPLE).",
+                target=LinkTargetSpec(
+                    service=principles_service, uid_field="principle_uid", singular="principle"
+                ),
+            ),
+        ),
+    )
 
-    @rt("/api/habits/knowledge-patterns", methods=["GET"])
-    @boundary_handler()
-    async def habit_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
-        """Detect knowledge-learning patterns across the authenticated user's habits."""
-        user_uid = require_authenticated_user(request)
-        timeframe_days = parse_int_query_param(
-            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
-        )
-        result = await habits_service.analyze_learning_patterns(user_uid, timeframe_days)
-        if result.is_error:
-            return Result.fail(result)
-        patterns = [
-            {
-                "pattern_type": p.pattern_type.value,
-                "knowledge_uids": p.knowledge_uids,
-                "entity_uids": p.entity_uids,
-                "confidence": p.confidence,
-                "timeframe_days": p.timeframe_days,
-                "frequency": p.frequency,
-                "growth_indicator": p.growth_indicator,
-                "metadata": p.metadata,
-            }
-            for p in result.value
-        ]
-        return Result.ok(
-            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
-        )
+    knowledge_patterns_route = create_knowledge_patterns_api_route(
+        rt, "habits", habits_service.analyze_learning_patterns
+    )
 
     return [
         *field_routes,
@@ -652,12 +514,7 @@ def create_habits_api_routes(
         habit_get_reminders,
         habit_delete_reminder,
         habit_export,
-        habit_children,
-        habit_parent,
-        habit_hierarchy,
-        habit_remove_child,
-        habit_add_child,
-        habit_link_knowledge,
-        habit_link_principle,
-        habit_knowledge_patterns,
+        *hierarchy_routes,
+        *link_routes,
+        knowledge_patterns_route,
     ]
