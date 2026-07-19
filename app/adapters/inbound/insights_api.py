@@ -42,6 +42,55 @@ def create_insights_api_routes(
         List of route handler functions
     """
 
+    # NOTE: the bulk routes MUST be registered before the /{uid}/ routes —
+    # Starlette matches in registration order, so a later-registered
+    # /api/insights/bulk/dismiss is shadowed by /api/insights/{uid}/dismiss
+    # (uid="bulk") and becomes unreachable.
+
+    # ========================================
+    # Bulk Action Endpoints
+    # ========================================
+
+    @rt("/api/insights/bulk/dismiss", methods=["POST"])
+    @csrf_protected
+    @boundary_handler(success_status=200)
+    async def bulk_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
+        """Bulk dismiss multiple insights."""
+        user_uid = require_authenticated_user(request)
+
+        parsed = await parse_json_body(request, BulkInsightUidsRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+
+        return await insight_store.bulk_dismiss(parsed.value.uids, user_uid)
+
+    @rt("/api/insights/bulk/action", methods=["POST"])
+    @csrf_protected
+    @boundary_handler(success_status=200)
+    async def bulk_action_insights(request: Request) -> Result[dict[str, Any]]:
+        """Bulk mark insights as actioned."""
+        user_uid = require_authenticated_user(request)
+
+        parsed = await parse_json_body(request, BulkInsightUidsRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+
+        return await insight_store.bulk_mark_actioned(parsed.value.uids, user_uid)
+
+    @rt("/api/insights/bulk/smart-dismiss", methods=["POST"])
+    @csrf_protected
+    @boundary_handler(success_status=200)
+    async def smart_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
+        """Smart bulk dismiss — dismiss all insights matching a filter."""
+        user_uid = require_authenticated_user(request)
+
+        parsed = await parse_json_body(request, SmartDismissRequest)
+        if parsed.is_error:
+            return parsed  # type: ignore[return-value]
+        req = parsed.value
+
+        return await insight_store.smart_dismiss(user_uid, req.filter_type, req.filter_value)
+
     @rt("/api/insights/{uid}/dismiss", methods=["POST"])
     @csrf_protected
     @boundary_handler(success_status=200)
@@ -127,50 +176,6 @@ def create_insights_api_routes(
                 variant=AlertT.success,
             )
         )
-
-    # ========================================
-    # Bulk Action Endpoints
-    # ========================================
-
-    @rt("/api/insights/bulk/dismiss", methods=["POST"])
-    @csrf_protected
-    @boundary_handler(success_status=200)
-    async def bulk_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
-        """Bulk dismiss multiple insights."""
-        user_uid = require_authenticated_user(request)
-
-        parsed = await parse_json_body(request, BulkInsightUidsRequest)
-        if parsed.is_error:
-            return parsed  # type: ignore[return-value]
-
-        return await insight_store.bulk_dismiss(parsed.value.uids, user_uid)
-
-    @rt("/api/insights/bulk/action", methods=["POST"])
-    @csrf_protected
-    @boundary_handler(success_status=200)
-    async def bulk_action_insights(request: Request) -> Result[dict[str, Any]]:
-        """Bulk mark insights as actioned."""
-        user_uid = require_authenticated_user(request)
-
-        parsed = await parse_json_body(request, BulkInsightUidsRequest)
-        if parsed.is_error:
-            return parsed  # type: ignore[return-value]
-
-        return await insight_store.bulk_mark_actioned(parsed.value.uids, user_uid)
-
-    @rt("/api/insights/bulk/smart-dismiss", methods=["POST"])
-    @csrf_protected
-    @boundary_handler(success_status=200)
-    async def smart_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
-        """Smart bulk dismiss — dismiss all insights matching a filter."""
-        user_uid = require_authenticated_user(request)
-
-        parsed = await parse_json_body(request, SmartDismissRequest)
-        if parsed.is_error:
-            return parsed  # type: ignore[return-value]
-        req = parsed.value
-
-        return await insight_store.smart_dismiss(user_uid, req.filter_type, req.filter_value)
 
     @rt("/api/insights/active")
     @boundary_handler(success_status=200)
