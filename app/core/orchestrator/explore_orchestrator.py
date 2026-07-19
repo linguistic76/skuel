@@ -535,6 +535,12 @@ class ExploreOrchestrator:
                         ],
                     }
 
+        pinned_uids: list[str] = []
+        if user_uid:
+            pins_result = await self._user_relationships.get_pinned_entities(user_uid)
+            if not pins_result.is_error and pins_result.value:
+                pinned_uids = list(pins_result.value)
+
         if not featured and first_library_ku is not None:
             excerpt = getattr(first_library_ku, "description", None) or ""
             featured = {
@@ -560,6 +566,7 @@ class ExploreOrchestrator:
             "in_progress": [],
             "also_ready": [],
             "active_path_step": active_path_step,
+            "pinned_uids": pinned_uids,
             "related": [],
             "library": {
                 "total": library_total,

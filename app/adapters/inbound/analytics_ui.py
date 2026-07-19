@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from core.config.settings import get_settings
 from core.models.enums import AnalyticsDomain
 from core.utils.logging import get_logger
 from ui.analytics import (
@@ -26,7 +27,7 @@ from ui.analytics import (
     render_period_fields,
     render_weekly_life_summary,
 )
-from ui.patterns.error_banner import render_inline_error
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 
 logger = get_logger("skuel.routes.analytics.ui")
 
@@ -142,7 +143,11 @@ def create_analytics_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing analytics: {e}")
-            return render_inline_error(f"Error: {e}")
+            return render_error_banner(
+                "Error generating analytics",
+                technical_details=str(e),
+                show_details=get_settings().application.debug,
+            )
 
     @app.get("/ui/analytics/life-path-alignment")
     async def life_path_alignment_ui(request: Request) -> Any:
@@ -158,7 +163,11 @@ def create_analytics_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering Life Path alignment: {e}")
-            return render_inline_error(f"Error: {e}")
+            return render_error_banner(
+                "Error loading Life Path alignment",
+                technical_details=str(e),
+                show_details=get_settings().application.debug,
+            )
 
     @app.get("/ui/analytics/weekly-life-summary")
     async def weekly_life_summary_ui(request: Request) -> Any:
@@ -186,7 +195,11 @@ def create_analytics_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering weekly life summary: {e}")
-            return render_inline_error(f"Error: {e}")
+            return render_error_banner(
+                "Error loading weekly life summary",
+                technical_details=str(e),
+                show_details=get_settings().application.debug,
+            )
 
     logger.info("Analytics UI routes registered (including Life Path + cross-layer)")
 

@@ -29,7 +29,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationContext
 from core.services.askesis.action_recommendation_engine import ActionRecommendationEngine
@@ -885,10 +884,7 @@ class AskesisService:
             domain = domain_sources[activity_uid]
 
             # Get knowledge connected to this activity
-            ku_result = await self._find_knowledge_for_activity(
-                activity_uid=activity_uid,
-                activity_domain=domain,
-            )
+            ku_result = await self._find_knowledge_for_activity(activity_uid=activity_uid)
 
             if ku_result.is_ok and ku_result.value:
                 for ku_data in ku_result.value:
@@ -1003,41 +999,16 @@ class AskesisService:
     async def _find_knowledge_for_activity(
         self,
         activity_uid: str,
-        activity_domain: str,
     ) -> Result[list[dict[str, Any]]]:
         """
         Find knowledge units connected to a specific activity.
 
-        Uses graph traversal to find:
-        - Knowledge REQUIRED by the activity
-        - Knowledge that APPLIES to the activity
-        - Knowledge that ENABLES the activity
+        Extracts Entity/KnowledgeUnit nodes from the activity's semantic
+        graph context (depth 2), regardless of relationship type.
         """
         if not self.graph_intel:
             return Result.ok([])
 
-        # Map domain to relationship types
-        relationship_map = {
-            "goal": [
-                RelationshipName.REQUIRES_KNOWLEDGE.value,
-                RelationshipName.GUIDED_BY_KNOWLEDGE.value,
-            ],
-            "habit": [
-                RelationshipName.APPLIES_KNOWLEDGE.value,
-                RelationshipName.REINFORCED_BY_KNOWLEDGE.value,
-            ],
-            "task": [
-                RelationshipName.APPLIES_KNOWLEDGE.value,
-                RelationshipName.BLOCKED_BY_KNOWLEDGE.value,
-            ],
-            "choice": [RelationshipName.INFORMED_BY_KNOWLEDGE.value],
-            "principle": [RelationshipName.GROUNDED_IN_KNOWLEDGE.value],
-            "event": [RelationshipName.APPLIES_KNOWLEDGE.value],
-        }
-
-        relationship_map.get(activity_domain, [RelationshipName.APPLIES_KNOWLEDGE.value])
-
-        # Query graph for connected knowledge
         try:
             # Use graph intelligence for semantic context
             context_result = await self.graph_intel.get_semantic_context(

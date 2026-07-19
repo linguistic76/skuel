@@ -125,6 +125,7 @@ def _build_alpine_seed(plan: dict[str, Any]) -> dict[str, Any]:
         "featured_uid": featured.get("uid", ""),
         "why": featured.get("why", []),
         "last_completed_title": last_completed.get("title", ""),
+        "saved_uids": plan.get("pinned_uids", []),
     }
 
 

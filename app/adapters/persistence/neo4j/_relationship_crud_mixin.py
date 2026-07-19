@@ -258,6 +258,29 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
             return Result.ok((source_labels, target_labels))
 
+    @safe_backend_operation("get_node_labels_batch")
+    async def _get_node_labels_batch(
+        self, uids: builtins.list[str]
+    ) -> Result[dict[str, builtins.list[str]]]:
+        """
+        Query labels for many nodes in ONE query (batch sibling of _get_node_labels).
+
+        Returns a uid -> labels map; UIDs with no matching node are simply
+        absent from the map — callers decide whether that is an error.
+        """
+        # NOT :Content — same G13 shadow-uid guard as _get_node_labels.
+        query = """
+        UNWIND $uids AS uid
+        MATCH (n {uid: uid}) WHERE NOT n:Content
+        RETURN uid, labels(n) AS labels
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(query, {"uids": uids})
+            records = await result.data()
+
+        return Result.ok({record["uid"]: record["labels"] for record in records})
+
     @safe_backend_operation("create_relationship")
     async def create_relationship(
         self,
@@ -840,14 +863,25 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         validation_errors = []
 
+        # Step 2 (batched): labels for every endpoint in ONE query
+        all_uids = sorted(
+            {uid for from_uid, to_uid, _rel, _props in relationships for uid in (from_uid, to_uid)}
+        )
+        labels_map_result = await self._get_node_labels_batch(all_uids)
+        if labels_map_result.is_error:
+            return Result.fail(labels_map_result)
+        labels_map = labels_map_result.value
+
         for idx, (from_uid, to_uid, rel_type, _props) in enumerate(relationships):
             # Step 1: Extract source label (fast UID parsing)
             # Note: _props intentionally unused - property validation not yet implemented
             source_label = self._extract_label_from_uid(from_uid)
 
-            # Step 2: Get node labels from database
-            labels_result = await self._get_node_labels(from_uid, to_uid)
-            if labels_result.is_error:
+            # Step 2: Look up node labels from the batched map
+            source_labels = labels_map.get(from_uid)
+            target_labels = labels_map.get(to_uid)
+            if source_labels is None or target_labels is None:
+                missing = [uid for uid in (from_uid, to_uid) if uid not in labels_map]
                 validation_errors.append(
                     {
                         "index": idx,
@@ -855,14 +889,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                         "to_uid": to_uid,
                         "relationship_type": rel_type,
                         "error": "Nodes not found",
-                        "details": labels_result.expect_error().message,
+                        "details": f"Node(s) not found: {', '.join(missing)}",
                     }
                 )
                 continue
-
-            source_labels: builtins.list[str]
-            target_labels: builtins.list[str]
-            source_labels, target_labels = labels_result.value
 
             # Use DB label if UID parsing failed (skip universal :Entity base label)
             if not source_label:

@@ -22,9 +22,10 @@
         featured_uid: '',
         why: [],
         last_completed_title: '',
+        saved_uids: [],
       },
       whyOpen: false,
-      saved: new Set(),
+      saved: new Set((seed && seed.saved_uids) || []),
 
       greeting: function () {
         var h = new Date().getHours();
@@ -33,9 +34,33 @@
 
       isSaved: function (uid) { return this.saved.has(uid); },
       toggleSave: function (uid) {
-        if (this.saved.has(uid)) { this.saved.delete(uid); }
-        else { this.saved.add(uid); }
+        var saving = !this.saved.has(uid);
+        if (saving) { this.saved.add(uid); } else { this.saved.delete(uid); }
         this.saved = new Set(this.saved);
+        this._persistSave(uid, saving);
+      },
+
+      // Persist through the pins API (same store as the library PinButton);
+      // revert the optimistic toggle if the server rejects it.
+      _persistSave: function (uid, saving) {
+        var self = this;
+        var csrf = (window.SKUEL && window.SKUEL.csrf) ? window.SKUEL.csrf() : '';
+        var req = saving
+          ? fetch('/api/user/pins', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+              body: JSON.stringify({ entity_uid: uid }),
+            })
+          : fetch('/api/user/pins/' + encodeURIComponent(uid), {
+              method: 'DELETE',
+              headers: { 'X-CSRF-Token': csrf },
+            });
+        req.then(function (resp) {
+          if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+        }).catch(function () {
+          if (saving) { self.saved.delete(uid); } else { self.saved.add(uid); }
+          self.saved = new Set(self.saved);
+        });
       },
 
       onKey: function (e) {

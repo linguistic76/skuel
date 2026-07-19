@@ -2805,12 +2805,14 @@
             );
         });
 
-        // User journals submit page: defaults to vault transcription directories.
+        // User journals submit page: paths are fixed server-side to the vault
+        // je_in/je_out staging folders (/api/journals/folder-transcribe ignores
+        // client-supplied paths), so these are display-only labels.
         Alpine.data('userFolderTranscribe', function() {
             return _batchTranscribeFactory(
                 '/api/journals/folder-transcribe',
-                '/home/mike/0bsidian/skuel/transcribe_in',
-                '/home/mike/0bsidian/skuel/transcribe_out'
+                'je_in (in your vault)',
+                'je_out (in your vault)'
             );
         });
 

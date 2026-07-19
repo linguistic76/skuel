@@ -126,7 +126,11 @@ def create_exercises_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading exercise for edit: {e}")
-            return render_inline_error(f"Error: {e}")
+            return render_error_banner(
+                "Error loading exercise",
+                technical_details=str(e),
+                show_details=get_settings().application.debug,
+            )
 
     @app.get("/exercises/{uid}/view")
     @require_teacher(get_user_service)
@@ -147,7 +151,11 @@ def create_exercises_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing exercise: {e}")
-            return render_inline_error(f"Error: {e}")
+            return render_error_banner(
+                "Error viewing exercise",
+                technical_details=str(e),
+                show_details=get_settings().application.debug,
+            )
 
     @app.get("/exercises/get")
     def exercise_detail(request, uid: str, from_ps: str = "") -> Any:

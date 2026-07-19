@@ -278,9 +278,12 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         else:
             merge_clause = f"MERGE (from)-[r:{relationship_type}]-(to)"
 
+        # NOT :Content — same G13 shadow-uid guard as create_relationship: an
+        # unguarded MERGE would create the edge to BOTH the entity and its
+        # chunk-store shadow (the doubled-edge bug class).
         query = f"""
-        MATCH (from {{uid: $from_uid}})
-        MATCH (to {{uid: $to_uid}})
+        MATCH (from {{uid: $from_uid}}) WHERE NOT from:Content
+        MATCH (to {{uid: $to_uid}}) WHERE NOT to:Content
         {merge_clause}
         SET r += $properties
         RETURN r IS NOT NULL AS success

@@ -134,20 +134,23 @@ class RelationshipBuilder:
         from_pattern = self._build_node_pattern(self._from_labels, "from")
         to_pattern = self._build_node_pattern(self._to_labels, "to")
 
+        # NOT :Content — G13 shadow-uid guard (see create_relationship): an
+        # unguarded MERGE would create the edge to BOTH the entity and its
+        # chunk-store shadow (the doubled-edge bug class).
         if self._metadata:
             # Build property map
             props_str = ", ".join(f"{k}: ${k}" for k in self._metadata)
             query = f"""
-                MATCH (from {from_pattern})
-                MATCH (to {to_pattern})
+                MATCH (from {from_pattern}) WHERE NOT from:Content
+                MATCH (to {to_pattern}) WHERE NOT to:Content
                 MERGE (from)-[r:{self._relationship_type} {{{props_str}}}]->(to)
                 RETURN count(r) as created
             """
             params = {"from_uid": self._from_uid, "to_uid": self._to_uid, **self._metadata}
         else:
             query = f"""
-                MATCH (from {from_pattern})
-                MATCH (to {to_pattern})
+                MATCH (from {from_pattern}) WHERE NOT from:Content
+                MATCH (to {to_pattern}) WHERE NOT to:Content
                 MERGE (from)-[r:{self._relationship_type}]->(to)
                 RETURN count(r) as created
             """
