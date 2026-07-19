@@ -39,33 +39,6 @@ class ExerciseScope(StrEnum):
     CURRICULUM = "curriculum"
 
 
-class FormattingStyle(StrEnum):
-    """Style for formatting transcripts during LLM processing."""
-
-    STRUCTURED = "structured"
-    NARRATIVE = "narrative"
-    BULLET_POINTS = "bullet_points"
-    CONVERSATIONAL = "conversational"
-    EXECUTIVE_SUMMARY = "executive_summary"
-
-
-class AnalysisDepth(StrEnum):
-    """Depth of analysis for transcript processing."""
-
-    BASIC = "basic"
-    DETAILED = "detailed"
-    COMPREHENSIVE = "comprehensive"
-
-
-class ContextEnrichmentLevel(StrEnum):
-    """Level of SKUEL enterprise context integration."""
-
-    NONE = "none"
-    BASIC = "basic"
-    STANDARD = "standard"
-    DEEP = "deep"
-
-
 class EnrichmentMode(StrEnum):
     """Processing strategy for journal LLM enrichment.
 

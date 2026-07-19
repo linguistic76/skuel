@@ -214,9 +214,7 @@ silent default is injected.
 | `RESPONSIBLE_DECISION_MAKING` | Making ethical, constructive choices |
 
 The `SELCategory` enum lives in `core/models/enums/learning_enums.py`. It carries
-presentation logic: `get_icon()`, `get_color()`, `get_description()`. The `DOMAIN_SEL_MAPPING`
-bridges activity domains into the SEL framework: principles map to self-awareness, habits to
-self-management, choices to responsible decision-making.
+presentation logic: `get_icon()`, `get_color()`, `get_description()`.
 
 The `PsAdaptiveService` uses `sel_category` as a filter — `find_by(sel_category=category.value)` —
 to surface PathSteps grouped by SEL competency. PathSteps without a meaningful classification

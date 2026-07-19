@@ -12,8 +12,7 @@ Module Organization:
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, FormattingStyle, AnalysisDepth,
-                    ContextEnrichmentLevel, ScheduleType, ProgressDepth
+- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
@@ -21,6 +20,8 @@ Module Organization:
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - askesis_enums: QueryComplexity, IntegrationSuccess
 - transcription_enums: TranscriptionStatus
+- interaction_enums: InteractionType, InteractionResult
+- relationship_enums: ProficiencyLevel, KnowledgeRelevance
 
 Usage:
     from core.models.enums import Priority, EntityStatus, EntityType
@@ -69,20 +70,20 @@ from .goal_enums import GoalTimeframe, GoalType, HabitEssentiality, MeasurementT
 # Habit enums
 from .habit_enums import CompletionStatus, HabitCategory, HabitDifficulty, HabitPolarity
 
+# Interaction enums - learning-loop event records
+from .interaction_enums import InteractionResult, InteractionType
+
 # Learning enums - education, knowledge, and mastery tracking
 from .learning_enums import (
-    DOMAIN_SEL_MAPPING,
     AssessmentOutcome,
     ContentType,
     EducationalLevel,
     FeedbackCategory,
     KnowledgeStatus,
-    KnowledgeType,
     KuComplexity,
     LearningLevel,
     MasteryImpact,
     MasteryStatus,
-    PracticeLevel,
     SELCategory,
 )
 
@@ -91,21 +92,16 @@ from .lifepath_enums import ThemeCategory
 
 # Metadata enums - relationships, UI, search, and system configuration
 from .metadata_enums import (
-    BridgeType,
     CacheStrategy,
     ConversationState,
     ErrorSeverity,
-    ExtractionMethod,
-    FacetType,
     GuidanceMode,
     HealthStatus,
     Intent,
-    LearningModality,
     MessageRole,
     Personality,
     RelationshipType,
     ResponseTone,
-    SearchScope,
     SearchVisibility,
     SeverityLevel,
     SystemConstants,
@@ -128,6 +124,9 @@ from .principle_enums import (
     TriggerType,
 )
 
+# Relationship-property enums
+from .relationship_enums import KnowledgeRelevance, ProficiencyLevel
+
 # Scheduling enums - time, recurrence, and energy management
 from .scheduling_enums import (
     EnergyLevel,
@@ -140,11 +139,8 @@ from .transcription_enums import TranscriptionStatus
 
 # User entry enums - processing and scheduling (renamed from submissions_enums)
 from .user_entry_enums import (
-    AnalysisDepth,
-    ContextEnrichmentLevel,
     EnrichmentMode,
     ExerciseScope,
-    FormattingStyle,
     ProgressDepth,
     ScheduleType,
     SubmissionModality,
@@ -154,13 +150,10 @@ from .user_entry_enums import (
 from .user_enums import ContextHealthScore, JournalMode, JournalTier, UserRole, UserStatus
 
 __all__ = [
-    "DOMAIN_SEL_MAPPING",
     "ActivityType",
     "AlignmentLevel",
     "AssessmentOutcome",
     "AnalyticsDomain",
-    "AnalysisDepth",
-    "BridgeType",
     "CacheStrategy",
     "ChoiceType",
     "CompletionStatus",
@@ -170,7 +163,6 @@ __all__ = [
     "ContentScope",
     "ContentType",
     "Context",
-    "ContextEnrichmentLevel",
     "ContextHealthScore",
     "ConversationState",
     "DecisionQualityLevel",
@@ -186,9 +178,6 @@ __all__ = [
     "EntityStatus",
     "EntityType",
     "ErrorSeverity",
-    "ExtractionMethod",
-    "FacetType",
-    "FormattingStyle",
     "GoalTimeframe",
     "GoalType",
     "GuidanceMode",
@@ -199,14 +188,15 @@ __all__ = [
     "HealthStatus",
     "IntegrationSuccess",
     "Intent",
+    "InteractionResult",
+    "InteractionType",
     "JournalMode",
     "JournalTier",
     "KnowledgeStatus",
     "JeUse",
-    "KnowledgeType",
+    "KnowledgeRelevance",
     "KuComplexity",
     "LearningLevel",
-    "LearningModality",
     "LpType",
     "MasteryImpact",
     "MasteryLevel",
@@ -218,13 +208,12 @@ __all__ = [
     "Personality",
     "Pipeline",
     "ReportSource",
-    "PracticeLevel",
     "PrincipleCategory",
     "PrincipleSource",
     "PrincipleStrength",
     "Priority",
+    "ProficiencyLevel",
     "TriggerType",
-    "ReportSource",
     "QueryComplexity",
     "ProductivityLevel",
     "ProgressDepth",
@@ -235,7 +224,6 @@ __all__ = [
     "ResponseTone",
     "SELCategory",
     "ScheduleType",
-    "SearchScope",
     "SearchVisibility",
     "SubmissionModality",
     "SeverityLevel",
