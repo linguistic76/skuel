@@ -33,6 +33,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       ui: ${{ steps.filter.outputs.ui }}
       cypher: ${{ steps.filter.outputs.cypher }}
+      js: ${{ steps.filter.outputs.js }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -76,6 +77,17 @@ jobs:
               # loaded and exercised by integration tests, so a Cypher-only PR
               # must still trigger the integration suite (Codex review, PR #701).
               - 'app/**/*.cypher'
+              - '.github/workflows/ci.yml'
+            js:
+              # Vitest surface (PR #717): the JS under test, the suite itself,
+              # and the Node toolchain pins. Mirrors the cypher filter — a
+              # JS-only PR must still run the vitest suite even though every
+              # py-gated job skips.
+              - 'app/static/js/**'
+              - 'app/tests/js/**'
+              - 'app/package.json'
+              - 'app/package-lock.json'
+              - 'app/vitest.config.js'
               - '.github/workflows/ci.yml'
 
   mypy:
@@ -580,6 +592,32 @@ jobs:
         working-directory: app
         run: uv run python scripts/smoke_test.py
 
+  js_tests:
+    name: JS Tests
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      # Vitest over static/js (PR #717): skuel.js evaluated in jsdom via the
+      # tests/js/helpers/load-skuel.js harness. Runs in ~1s, no Docker.
+      - name: Run vitest suite
+        working-directory: app
+        run: npm run test:js
+
   # Deliberately NOT gated by the `changes` path filter: a content-only PR (e.g.
   # a force-added app/docs/content/*.md or app/data/user_vaults/*.md, with no
   # Python change) would skip the py-gated jobs, so the boundary must be checked
@@ -605,7 +643,7 @@ jobs:
   # (path not touched); fails only on a real failure/cancellation.
   gate:
     name: CI Gate
-    needs: [changes, mypy, lint, validate_documentation, unit_tests, integration_tests, smoke, content_boundary]
+    needs: [changes, mypy, lint, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -619,9 +657,10 @@ jobs:
           integration_tests_result="${{ needs.integration_tests.result }}"
           smoke_result="${{ needs.smoke.result }}"
           content_boundary_result="${{ needs.content_boundary.result }}"
-          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  docs=$docs_result  unit_tests=$unit_tests_result  integration_tests=$integration_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result"
+          js_tests_result="${{ needs.js_tests.result }}"
+          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  docs=$docs_result  unit_tests=$unit_tests_result  integration_tests=$integration_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result  js_tests=$js_tests_result"
           # 'success' and 'skipped' pass; 'failure' and 'cancelled' fail the gate.
-          for r in "$changes_result" "$mypy_result" "$lint_result" "$docs_result" "$unit_tests_result" "$integration_tests_result" "$smoke_result" "$content_boundary_result"; do
+          for r in "$changes_result" "$mypy_result" "$lint_result" "$docs_result" "$unit_tests_result" "$integration_tests_result" "$smoke_result" "$content_boundary_result" "$js_tests_result"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::A required CI job did not pass (result=$r)"
               exit 1

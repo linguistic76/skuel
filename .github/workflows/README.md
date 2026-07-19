@@ -13,6 +13,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **Integration Tests** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — `tests/integration/` against a Neo4j testcontainer (the runner's Docker daemon); the only tier that executes real Cypher |
 | **Render Smoke Test** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/**`, `app/ui/**`, `app/**/*.py`, or deps change — renders unauthenticated pages in headless Chrome and fails if any never reaches idle (infinite JS loop / render hang) |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
+| **JS Tests** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/js/**`, `app/tests/js/**`, `package*.json`, or `vitest.config.js` change — vitest (jsdom) over `static/js/`, same as `./dev test-js` locally |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
 | **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Skipped" check when not summoned; "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) when summoned | **On-demand only** — `@kody start-review` (auto-review toggle OFF, 2026-05-25). The dashboard toggle is the real switch; repo `automatedReviewActive: false` alone neither enables nor stops it. |
 | **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED** — comment-bot trigger off (cosmetic-only: a bot-posted `@codex review` draws only the "create a Codex account" prompt; see below) |
@@ -55,7 +56,7 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 
 - **`changes`** uses `dorny/paths-filter` to decide what ran.
 - **`mypy` / `lint` / `unit_tests` / `integration_tests` / `smoke` /
-  `validate_documentation`** run only
+  `validate_documentation` / `js_tests`** run only
   when their paths changed, so they're skipped (not failed) on unrelated PRs.
 - **`lint`** runs the mechanical rule set `./dev quality` runs locally, minus
   MyPy (its own job): `ruff format --check`, `ruff check`,
@@ -69,6 +70,9 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 - **`smoke`** renders the unauthenticated pages and loads them in headless Chrome,
   failing if any never reaches idle (catches client-side render hangs / infinite
   JS loops that unit tests can't see). No server or Neo4j needed.
+- **`js_tests`** runs the vitest suite over `static/js/` (`npm run test:js`,
+  same as `./dev test-js`). Path-filtered like `cypher`: a JS-only PR skips
+  every py-gated job but must still exercise the JS under test.
 - **`gate` ("CI Gate")** always runs and passes when required jobs succeeded or
   were skipped; fails only on a real failure/cancellation. **It is the single
   required status check** — required checks must report on every PR, and a
