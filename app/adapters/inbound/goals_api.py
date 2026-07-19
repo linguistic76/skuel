@@ -6,12 +6,13 @@ The transition dispatch (activate / complete / archive / cancel with their
 per-state side effects) lives in ``GoalsService.set_status``; this route is
 a transport shim.
 
-Hierarchy (ownership-verified):
-    GET  /api/goals/children     — Direct subgoals of a parent goal
-    GET  /api/goals/parent       — Immediate parent of a subgoal
-    GET  /api/goals/hierarchy    — Full hierarchy context (ancestors, siblings, children)
-    POST /api/goals/remove-child — Remove a subgoal relationship
-    POST /api/goals/add-child   — Add a subgoal relationship
+Hierarchy (ownership-verified, via create_activity_hierarchy_api_routes):
+    GET  /api/goals/children       — Direct subgoals of a parent goal (JSON)
+    GET  /api/goals/{uid}/children — Subgoals as a TreeNodeList fragment (HTMX)
+    GET  /api/goals/parent         — Immediate parent of a subgoal
+    GET  /api/goals/hierarchy      — Full hierarchy context (ancestors, siblings, children)
+    POST /api/goals/remove-child   — Remove a subgoal relationship
+    POST /api/goals/add-child      — Add a subgoal relationship
 
 Planning (user-scoped reads, full UserContext required):
     GET  /api/goals/stalled      — Goals with minimal progress needing attention
@@ -21,7 +22,7 @@ Scheduling-aware creation:
     POST /api/goals/create-with-scheduling          — Create goal with capacity check
     POST /api/goals/create-with-learning-scheduling — Create goal aligned to learning path
 
-Cross-domain links:
+Cross-domain links (via create_activity_link_api_routes):
     POST /api/goals/link-knowledge — Link goal to required knowledge/skill
     POST /api/goals/link-principle — Link goal to a guiding principle
 
@@ -31,7 +32,7 @@ Knowledge intelligence:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -41,19 +42,23 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
     ActivityFieldApiConfig,
+    ActivityHierarchyApiConfig,
+    CrossDomainLinkSpec,
     FieldUpdateSpec,
+    LinkTargetSpec,
     create_activity_field_api_routes,
+    create_activity_hierarchy_api_routes,
+    create_activity_link_api_routes,
+    create_knowledge_patterns_api_route,
     parse_bool_query_param,
     parse_float_query_param,
     parse_int_query_param,
-    verify_entity_ownership,
 )
 from core.models.context_types import ContextualGoal
 from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkGoalToKnowledgeRequest,
     LinkGoalToPrincipleRequest,
-    RemoveHierarchyChildRequest,
 )
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest
@@ -98,131 +103,27 @@ def create_goals_api_routes(
     )
 
     # ================================================================
-    # HIERARCHY — read-paths and relationship removal
+    # HIERARCHY — shared Activity Domain hierarchy route block
     # ================================================================
 
-    @rt("/api/goals/children", methods=["GET"])
-    @boundary_handler()
-    async def goal_children(request: Request) -> Result[list[Goal]]:
-        """Direct subgoals of a parent goal."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
-        if ownership_error:
-            return ownership_error
-        result = await goals_service.get_subgoals(uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([g for g in result.value if g.user_uid == user_uid])
-
-    @rt("/api/goals/parent", methods=["GET"])
-    @boundary_handler()
-    async def goal_parent(request: Request) -> Result[Optional[Goal]]:  # noqa: UP045
-        """Immediate parent of a subgoal (None if root-level)."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
-        if ownership_error:
-            return ownership_error
-        result = await goals_service.get_parent_goal(uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is not None and result.value.user_uid != user_uid:
-            return Result.ok(None)
-        return result
-
-    @rt("/api/goals/hierarchy", methods=["GET"])
-    @boundary_handler()
-    async def goal_hierarchy(request: Request) -> Result[dict[str, Any]]:
-        """Full hierarchy context: ancestors, current, siblings, children, depth."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
-        if ownership_error:
-            return ownership_error
-        result = await goals_service.get_goal_hierarchy(uid)
-        if result.is_error:
-            return Result.fail(result)
-        h = result.value
-        ancestors = [g for g in h["ancestors"] if g.user_uid == user_uid]
-        return Result.ok(
-            {
-                "ancestors": ancestors,
-                "current": h["current"],
-                "siblings": [g for g in h["siblings"] if g.user_uid == user_uid],
-                "children": [g for g in h["children"] if g.user_uid == user_uid],
-                "depth": len(ancestors),
-            }
-        )
-
-    @rt("/api/goals/remove-child", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def goal_remove_child(request: Request) -> Result[dict[str, Any]]:
-        """Remove a subgoal relationship (does not delete the goal nodes)."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            goals_service, req.parent_uid, user_uid, "goal"
-        )
-        if ownership_error:
-            return ownership_error
-        child_ownership_error = await verify_entity_ownership(
-            goals_service, req.child_uid, user_uid, "goal"
-        )
-        if child_ownership_error:
-            return child_ownership_error
-        result = await goals_service.remove_subgoal_relationship(req.parent_uid, req.child_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"removed": result.value})
-
-    @rt("/api/goals/add-child", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def goal_add_child(request: Request) -> Result[dict[str, Any]]:
-        """Add a subgoal relationship between two goals."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, AddHierarchyChildRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        if req.parent_uid == req.child_uid:
-            return Result.fail(
-                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
-            )
-        ownership_error = await verify_entity_ownership(
-            goals_service, req.parent_uid, user_uid, "goal"
-        )
-        if ownership_error:
-            return ownership_error
-        child_ownership_error = await verify_entity_ownership(
-            goals_service, req.child_uid, user_uid, "goal"
-        )
-        if child_ownership_error:
-            return child_ownership_error
-        existing_parent = await goals_service.get_parent_goal(req.child_uid)
-        if existing_parent.is_error:
-            return Result.fail(existing_parent)
-        if existing_parent.value is not None:
-            return Result.fail(
-                Errors.validation("goal already has a parent — remove it first", field="child_uid")
-            )
-        result = await goals_service.create_subgoal_relationship(
+    async def add_subgoal_relationship(req: AddHierarchyChildRequest) -> Result[bool]:
+        return await goals_service.create_subgoal_relationship(
             req.parent_uid, req.child_uid, req.progress_weight
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"added": result.value})
+
+    hierarchy_routes = create_activity_hierarchy_api_routes(
+        rt,
+        ActivityHierarchyApiConfig(
+            domain_name="goals",
+            singular="goal",
+            service=goals_service,
+            get_children=goals_service.get_subgoals,
+            get_parent=goals_service.get_parent_goal,
+            get_hierarchy=goals_service.get_goal_hierarchy,
+            add_child_relationship=add_subgoal_relationship,
+            remove_child_relationship=goals_service.remove_subgoal_relationship,
+        ),
+    )
 
     # ================================================================
     # PLANNING — stalled and achievable goal reads
@@ -352,102 +253,58 @@ def create_goals_api_routes(
         )
 
     # ================================================================
-    # CROSS-DOMAIN LINKS
+    # CROSS-DOMAIN LINKS + KNOWLEDGE INTELLIGENCE
     # ================================================================
 
-    @rt("/api/goals/link-knowledge", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def goal_link_knowledge(request: Request) -> Result[dict[str, Any]]:
-        """Link goal to required knowledge/skill (REQUIRES_KNOWLEDGE). Ku is shared content."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, LinkGoalToKnowledgeRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            goals_service, req.goal_uid, user_uid, "goal"
-        )
-        if ownership_error:
-            return ownership_error
-        result = await goals_service.link_goal_to_knowledge(
+    async def apply_link_knowledge(req: LinkGoalToKnowledgeRequest) -> Result[bool]:
+        return await goals_service.link_goal_to_knowledge(
             req.goal_uid, req.knowledge_uid, req.proficiency_required, req.priority
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"linked": result.value})
 
-    @rt("/api/goals/link-principle", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def goal_link_principle(request: Request) -> Result[dict[str, Any]]:
-        """Link goal to a guiding principle/value (GUIDED_BY_PRINCIPLE)."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, LinkGoalToPrincipleRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            goals_service, req.goal_uid, user_uid, "goal"
-        )
-        if ownership_error:
-            return ownership_error
-        principle_ownership_error = await verify_entity_ownership(
-            principles_service, req.principle_uid, user_uid, "principle"
-        )
-        if principle_ownership_error:
-            return principle_ownership_error
-        result = await goals_service.link_goal_to_principle(
+    async def apply_link_principle(req: LinkGoalToPrincipleRequest) -> Result[bool]:
+        return await goals_service.link_goal_to_principle(
             req.goal_uid, req.principle_uid, req.alignment_strength
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"linked": result.value})
 
-    # ================================================================
-    # KNOWLEDGE INTELLIGENCE — learning patterns
-    # ================================================================
+    link_routes = create_activity_link_api_routes(
+        rt,
+        domain_name="goals",
+        singular="goal",
+        service=goals_service,
+        specs=(
+            CrossDomainLinkSpec(
+                action="link-knowledge",
+                request_model=LinkGoalToKnowledgeRequest,
+                owner_uid_field="goal_uid",
+                apply=apply_link_knowledge,
+                doc="Link goal to required knowledge/skill (REQUIRES_KNOWLEDGE). "
+                "Ku is shared content.",
+            ),
+            CrossDomainLinkSpec(
+                action="link-principle",
+                request_model=LinkGoalToPrincipleRequest,
+                owner_uid_field="goal_uid",
+                apply=apply_link_principle,
+                doc="Link goal to a guiding principle/value (GUIDED_BY_PRINCIPLE).",
+                target=LinkTargetSpec(
+                    service=principles_service, uid_field="principle_uid", singular="principle"
+                ),
+            ),
+        ),
+    )
 
-    @rt("/api/goals/knowledge-patterns", methods=["GET"])
-    @boundary_handler()
-    async def goal_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
-        """Detect knowledge-learning patterns across the authenticated user's goals."""
-        user_uid = require_authenticated_user(request)
-        timeframe_days = parse_int_query_param(
-            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
-        )
-        result = await goals_service.analyze_learning_patterns(user_uid, timeframe_days)
-        if result.is_error:
-            return Result.fail(result)
-        patterns = [
-            {
-                "pattern_type": p.pattern_type.value,
-                "knowledge_uids": p.knowledge_uids,
-                "entity_uids": p.entity_uids,
-                "confidence": p.confidence,
-                "timeframe_days": p.timeframe_days,
-                "frequency": p.frequency,
-                "growth_indicator": p.growth_indicator,
-                "metadata": p.metadata,
-            }
-            for p in result.value
-        ]
-        return Result.ok(
-            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
-        )
+    knowledge_patterns_route = create_knowledge_patterns_api_route(
+        rt, "goals", goals_service.analyze_learning_patterns
+    )
 
     return [
         *field_routes,
-        goal_children,
-        goal_parent,
-        goal_hierarchy,
-        goal_remove_child,
-        goal_add_child,
+        *hierarchy_routes,
         goals_stalled,
         goals_achievable,
+        goals_advancing,
         goal_create_with_scheduling,
         goal_create_with_learning_scheduling,
-        goal_link_knowledge,
-        goal_link_principle,
-        goal_knowledge_patterns,
+        *link_routes,
+        knowledge_patterns_route,
     ]

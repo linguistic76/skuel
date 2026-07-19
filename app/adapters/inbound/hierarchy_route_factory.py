@@ -1,12 +1,15 @@
 """
-HierarchyRouteFactory - Unified API Routes for Hierarchical Methods
-====================================================================
+HierarchyRouteFactory - Tree-Manipulation API Routes for Hierarchical Domains
+==============================================================================
 
-Provides HTMX-friendly endpoints for all 6 domains:
-- GET /api/{domain}/{uid}/children - Fetch children nodes
+Provides HTMX-friendly endpoints for all hierarchical domains:
 - POST /api/{domain}/{uid}/move - Move node to new parent
 - PATCH /api/{domain}/{uid} - Update node (inline edit)
 - POST /api/{domain}/bulk-delete - Delete multiple nodes
+- GET /api/{domain}/{uid}/children - Fetch children nodes (LP ONLY —
+  ``register_children_route=True``; the 5 activity domains get both children
+  variants from ``create_activity_hierarchy_api_routes`` in
+  ``route_factories/hierarchy_api_factory.py``, One Path Forward)
 
 Usage:
     HierarchyRouteFactory(
@@ -67,6 +70,7 @@ class HierarchyRouteFactory:
         create_relationship_method: str | None = None,  # e.g., "create_subgoal_relationship"
         remove_relationship_method: str | None = None,  # e.g., "remove_subgoal_relationship"
         get_parent_method: str | None = None,  # e.g., "get_parent_goal"
+        register_children_route: bool = False,  # True only for LP — see module docstring
     ) -> None:
         """
         Initialize hierarchy route factory.
@@ -84,6 +88,9 @@ class HierarchyRouteFactory:
             create_relationship_method: Method name for creating parent-child relationship
             remove_relationship_method: Method name for removing parent-child relationship
             get_parent_method: Method name for getting parent entity
+            register_children_route: Register GET /api/{domain}/{uid}/children here.
+                True only for LP; activity domains get both children variants from
+                ``create_activity_hierarchy_api_routes`` (One Path Forward).
         """
         self.app = app
         self.rt = rt
@@ -104,15 +111,18 @@ class HierarchyRouteFactory:
             remove_relationship_method or f"remove_sub{singular}_relationship"
         )
         self.get_parent_method = get_parent_method or f"get_parent_{singular}"
+        self.register_children_route = register_children_route
 
     def create_routes(self) -> list[Any]:
         """Create all hierarchy routes."""
-        return [
-            self._create_get_children_route(),
+        routes = [
             self._create_move_node_route(),
             self._create_update_node_route(),
             self._create_bulk_delete_route(),
         ]
+        if self.register_children_route:
+            routes.insert(0, self._create_get_children_route())
+        return routes
 
     def _create_get_children_route(self) -> Any:
         """GET /api/{domain}/{uid}/children - Fetch children for HTMX lazy loading."""

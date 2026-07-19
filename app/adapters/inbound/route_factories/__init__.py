@@ -26,6 +26,12 @@ from adapters.inbound.route_factories.activity_field_api_factory import (
     FieldUpdateSpec,
     create_activity_field_api_routes,
 )
+from adapters.inbound.route_factories.activity_link_api_factory import (
+    CrossDomainLinkSpec,
+    LinkTargetSpec,
+    create_activity_link_api_routes,
+    create_knowledge_patterns_api_route,
+)
 from adapters.inbound.route_factories.crud_route_factory import (
     CRUDOperations,
     CRUDRouteFactory,
@@ -37,6 +43,10 @@ from adapters.inbound.route_factories.domain_route_factory import (
     QueryRouteConfig,
     create_activity_domain_route_config,
     register_domain_routes,
+)
+from adapters.inbound.route_factories.hierarchy_api_factory import (
+    ActivityHierarchyApiConfig,
+    create_activity_hierarchy_api_routes,
 )
 from adapters.inbound.route_factories.intelligence_route_factory import (
     IntelligenceOperations,
@@ -77,6 +87,14 @@ __all__ = [
     "ActivityFieldApiConfig",
     "FieldUpdateSpec",
     "create_activity_field_api_routes",
+    # Activity Domain hierarchy endpoint factory (July 2026)
+    "ActivityHierarchyApiConfig",
+    "create_activity_hierarchy_api_routes",
+    # Activity Domain cross-domain link + knowledge-pattern factory (July 2026)
+    "CrossDomainLinkSpec",
+    "LinkTargetSpec",
+    "create_activity_link_api_routes",
+    "create_knowledge_patterns_api_route",
     "CRUDOperations",
     "CRUDRouteFactory",
     "CommonQueryRouteFactory",

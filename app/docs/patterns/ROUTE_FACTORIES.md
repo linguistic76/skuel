@@ -32,6 +32,17 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 | **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
 | **IntelligenceRouteFactory** | Intelligence endpoints | context, analytics, insights |
 | **OwnershipRouteFactory** | Ownership-verified domain routes | domain-specific GET/POST with ownership checks |
+| **create_activity_field_api_routes** | HTMX inline card field updates | POST /api/{domain}/{uid}/{field} (status, priority) |
+| **create_activity_hierarchy_api_routes** | Shared Activity Domain hierarchy block | GET children (JSON + HTMX fragment), parent, hierarchy; POST add-child, remove-child |
+| **create_activity_link_api_routes** | Cross-domain link endpoints | POST /api/{domain}/link-* → `{"linked": bool}` |
+| **create_knowledge_patterns_api_route** | Knowledge-pattern intelligence read | GET /api/{domain}/knowledge-patterns |
+
+The three `create_activity_*` function factories (July 2026) deduplicate the
+per-domain `*_api.py` modules: each domain passes an
+`ActivityHierarchyApiConfig` / `CrossDomainLinkSpec` tuple with its service
+methods, and the factory owns auth, ownership verification, body parsing, and
+response shape. The JSON and HTMX children variants render from one
+ownership-checked fetch (One Path Forward).
 
 ## CRUDRouteFactory
 

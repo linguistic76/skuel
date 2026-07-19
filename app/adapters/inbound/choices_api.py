@@ -2,14 +2,15 @@
 
 Provides HTMX-compatible endpoints for choice status/priority updates and hierarchy queries.
 
-Hierarchy (ownership-verified):
-    GET  /api/choices/children     — Direct subchoices of a parent choice
-    GET  /api/choices/parent       — Immediate parent of a subchoice
-    GET  /api/choices/hierarchy    — Full hierarchy context (ancestors, siblings, children)
-    POST /api/choices/remove-child — Remove a subchoice relationship
-    POST /api/choices/add-child   — Add a subchoice relationship
+Hierarchy (ownership-verified, via create_activity_hierarchy_api_routes):
+    GET  /api/choices/children       — Direct subchoices of a parent choice (JSON)
+    GET  /api/choices/{uid}/children — Subchoices as a TreeNodeList fragment (HTMX)
+    GET  /api/choices/parent         — Immediate parent of a subchoice
+    GET  /api/choices/hierarchy      — Full hierarchy context (ancestors, siblings, children)
+    POST /api/choices/remove-child   — Remove a subchoice relationship
+    POST /api/choices/add-child      — Add a subchoice relationship
 
-Cross-domain links:
+Cross-domain links (link-* via create_activity_link_api_routes):
     POST /api/choices/link-goal              — Link choice to a goal it affects/advances
     POST /api/choices/link-principle         — Link choice to the principle that informs it
     GET  /api/choices/aligned-with-principle — Choices semantically aligned with a principle
@@ -20,19 +21,22 @@ Knowledge intelligence:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
     ActivityFieldApiConfig,
+    ActivityHierarchyApiConfig,
+    CrossDomainLinkSpec,
     FieldUpdateSpec,
+    LinkTargetSpec,
     create_activity_field_api_routes,
-    parse_int_query_param,
+    create_activity_hierarchy_api_routes,
+    create_activity_link_api_routes,
+    create_knowledge_patterns_api_route,
     verify_entity_ownership,
 )
 from core.models.choice.choice import Choice
@@ -41,7 +45,6 @@ from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkChoiceToGoalRequest,
     LinkChoiceToPrincipleRequest,
-    RemoveHierarchyChildRequest,
 )
 from core.utils.result_simplified import Errors, Result
 from ui.activities.choices_views import ChoiceCard
@@ -89,189 +92,67 @@ def create_choices_api_routes(
     )
 
     # ================================================================
-    # HIERARCHY — read-paths and relationship removal
+    # HIERARCHY — shared Activity Domain hierarchy route block
     # ================================================================
 
-    @rt("/api/choices/children", methods=["GET"])
-    @boundary_handler()
-    async def choice_children(request: Request) -> Result[list[Choice]]:
-        """Direct subchoices of a parent choice."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
-        if ownership_error:
-            return ownership_error
-        result = await choices_service.get_subchoices(uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([c for c in result.value if c.user_uid == user_uid])
+    async def add_subchoice_relationship(req: AddHierarchyChildRequest) -> Result[bool]:
+        # Choices carry no progress_weight — the request field is ignored.
+        return await choices_service.create_subchoice_relationship(req.parent_uid, req.child_uid)
 
-    @rt("/api/choices/parent", methods=["GET"])
-    @boundary_handler()
-    async def choice_parent(request: Request) -> Result[Optional[Choice]]:  # noqa: UP045
-        """Immediate parent of a subchoice (None if root-level)."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
-        if ownership_error:
-            return ownership_error
-        result = await choices_service.get_parent_choice(uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is not None and result.value.user_uid != user_uid:
-            return Result.ok(None)
-        return result
-
-    @rt("/api/choices/hierarchy", methods=["GET"])
-    @boundary_handler()
-    async def choice_hierarchy(request: Request) -> Result[dict[str, Any]]:
-        """Full hierarchy context: ancestors, current, siblings, children, depth."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-        ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
-        if ownership_error:
-            return ownership_error
-        result = await choices_service.get_choice_hierarchy(uid)
-        if result.is_error:
-            return Result.fail(result)
-        h = result.value
-        ancestors = [ch for ch in h["ancestors"] if ch.user_uid == user_uid]
-        return Result.ok(
-            {
-                "ancestors": ancestors,
-                "current": h["current"],
-                "siblings": [ch for ch in h["siblings"] if ch.user_uid == user_uid],
-                "children": [ch for ch in h["children"] if ch.user_uid == user_uid],
-                "depth": len(ancestors),
-            }
-        )
-
-    @rt("/api/choices/remove-child", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def choice_remove_child(request: Request) -> Result[dict[str, Any]]:
-        """Remove a subchoice relationship (does not delete the choice nodes)."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            choices_service, req.parent_uid, user_uid, "choice"
-        )
-        if ownership_error:
-            return ownership_error
-        child_ownership_error = await verify_entity_ownership(
-            choices_service, req.child_uid, user_uid, "choice"
-        )
-        if child_ownership_error:
-            return child_ownership_error
-        result = await choices_service.remove_subchoice_relationship(req.parent_uid, req.child_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"removed": result.value})
-
-    @rt("/api/choices/add-child", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def choice_add_child(request: Request) -> Result[dict[str, Any]]:
-        """Add a subchoice relationship between two choices."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, AddHierarchyChildRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        if req.parent_uid == req.child_uid:
-            return Result.fail(
-                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
-            )
-        ownership_error = await verify_entity_ownership(
-            choices_service, req.parent_uid, user_uid, "choice"
-        )
-        if ownership_error:
-            return ownership_error
-        child_ownership_error = await verify_entity_ownership(
-            choices_service, req.child_uid, user_uid, "choice"
-        )
-        if child_ownership_error:
-            return child_ownership_error
-        existing_parent = await choices_service.get_parent_choice(req.child_uid)
-        if existing_parent.is_error:
-            return Result.fail(existing_parent)
-        if existing_parent.value is not None:
-            return Result.fail(
-                Errors.validation(
-                    "choice already has a parent — remove it first", field="child_uid"
-                )
-            )
-        result = await choices_service.create_subchoice_relationship(req.parent_uid, req.child_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"added": result.value})
+    hierarchy_routes = create_activity_hierarchy_api_routes(
+        rt,
+        ActivityHierarchyApiConfig(
+            domain_name="choices",
+            singular="choice",
+            service=choices_service,
+            get_children=choices_service.get_subchoices,
+            get_parent=choices_service.get_parent_choice,
+            get_hierarchy=choices_service.get_choice_hierarchy,
+            add_child_relationship=add_subchoice_relationship,
+            remove_child_relationship=choices_service.remove_subchoice_relationship,
+        ),
+    )
 
     # ================================================================
     # CROSS-DOMAIN LINKS
     # ================================================================
 
-    @rt("/api/choices/link-goal", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def choice_link_goal(request: Request) -> Result[dict[str, Any]]:
-        """Link choice to a goal it affects/advances (AFFECTS_GOAL)."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, LinkChoiceToGoalRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            choices_service, req.choice_uid, user_uid, "choice"
-        )
-        if ownership_error:
-            return ownership_error
-        goal_ownership_error = await verify_entity_ownership(
-            goals_service, req.goal_uid, user_uid, "goal"
-        )
-        if goal_ownership_error:
-            return goal_ownership_error
-        result = await choices_service.link_choice_to_goal(
+    async def apply_link_goal(req: LinkChoiceToGoalRequest) -> Result[bool]:
+        return await choices_service.link_choice_to_goal(
             req.choice_uid, req.goal_uid, req.contribution_score
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"linked": result.value})
 
-    @rt("/api/choices/link-principle", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def choice_link_principle(request: Request) -> Result[dict[str, Any]]:
-        """Link choice to the principle that informs it (INFORMED_BY_PRINCIPLE)."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, LinkChoiceToPrincipleRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-        ownership_error = await verify_entity_ownership(
-            choices_service, req.choice_uid, user_uid, "choice"
-        )
-        if ownership_error:
-            return ownership_error
-        principle_ownership_error = await verify_entity_ownership(
-            principles_service, req.principle_uid, user_uid, "principle"
-        )
-        if principle_ownership_error:
-            return principle_ownership_error
-        result = await choices_service.link_choice_to_principle(
+    async def apply_link_principle(req: LinkChoiceToPrincipleRequest) -> Result[bool]:
+        return await choices_service.link_choice_to_principle(
             req.choice_uid, req.principle_uid, req.alignment_score
         )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"linked": result.value})
+
+    link_routes = create_activity_link_api_routes(
+        rt,
+        domain_name="choices",
+        singular="choice",
+        service=choices_service,
+        specs=(
+            CrossDomainLinkSpec(
+                action="link-goal",
+                request_model=LinkChoiceToGoalRequest,
+                owner_uid_field="choice_uid",
+                apply=apply_link_goal,
+                doc="Link choice to a goal it affects/advances (AFFECTS_GOAL).",
+                target=LinkTargetSpec(service=goals_service, uid_field="goal_uid", singular="goal"),
+            ),
+            CrossDomainLinkSpec(
+                action="link-principle",
+                request_model=LinkChoiceToPrincipleRequest,
+                owner_uid_field="choice_uid",
+                apply=apply_link_principle,
+                doc="Link choice to the principle that informs it (INFORMED_BY_PRINCIPLE).",
+                target=LinkTargetSpec(
+                    service=principles_service, uid_field="principle_uid", singular="principle"
+                ),
+            ),
+        ),
+    )
 
     @rt("/api/choices/aligned-with-principle", methods=["GET"])
     @boundary_handler()
@@ -306,43 +187,14 @@ def create_choices_api_routes(
     # KNOWLEDGE INTELLIGENCE — learning patterns
     # ================================================================
 
-    @rt("/api/choices/knowledge-patterns", methods=["GET"])
-    @boundary_handler()
-    async def choice_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
-        """Detect knowledge-learning patterns across the authenticated user's choices."""
-        user_uid = require_authenticated_user(request)
-        timeframe_days = parse_int_query_param(
-            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
-        )
-        result = await choices_service.analyze_learning_patterns(user_uid, timeframe_days)
-        if result.is_error:
-            return Result.fail(result)
-        patterns = [
-            {
-                "pattern_type": p.pattern_type.value,
-                "knowledge_uids": p.knowledge_uids,
-                "entity_uids": p.entity_uids,
-                "confidence": p.confidence,
-                "timeframe_days": p.timeframe_days,
-                "frequency": p.frequency,
-                "growth_indicator": p.growth_indicator,
-                "metadata": p.metadata,
-            }
-            for p in result.value
-        ]
-        return Result.ok(
-            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
-        )
+    knowledge_patterns_route = create_knowledge_patterns_api_route(
+        rt, "choices", choices_service.analyze_learning_patterns
+    )
 
     return [
         *field_routes,
-        choice_children,
-        choice_parent,
-        choice_hierarchy,
-        choice_remove_child,
-        choice_add_child,
-        choice_link_goal,
-        choice_link_principle,
+        *hierarchy_routes,
+        *link_routes,
         choices_aligned_with_principle,
-        choice_knowledge_patterns,
+        knowledge_patterns_route,
     ]
