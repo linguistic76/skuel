@@ -296,7 +296,6 @@ class TestProtocolComplianceExamples:
         protocol_methods = [
             "_to_domain_model",
             "_to_domain_models",
-            "_records_to_domain_models",
             "_validate_required_user_uid",
             "_create_and_convert",
         ]

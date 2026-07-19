@@ -22,7 +22,7 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import UserUID
 
 # Import protocol interfaces
-from core.utils.dto_helpers import to_domain_model
+from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 

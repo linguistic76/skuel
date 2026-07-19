@@ -596,7 +596,7 @@ class BaseAnalyticsService(Generic[B, T]):
         (Backend: ``UniversalNeo4jBackend.atomic_append_dual_track_checkin``), so
         two near-simultaneous check-ins on the same entity can't lose a snapshot.
         The field is a ``tuple[dict]`` on the domain model and round-trips as a JSON
-        property (see core/utils/neo4j_mapper.py), so no typed-record rehydration is
+        property (see adapters/persistence/neo4j/neo4j_mapper.py), so no typed-record rehydration is
         required.
 
         Replaces the per-domain ``_store_alignment_assessment`` (Principles) —

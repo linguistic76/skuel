@@ -91,9 +91,10 @@ def test_dead_facade_and_backend_readers_gone():
     assert getattr(PsBackend, "get_step_with_context", None) is None
     assert getattr(LpBackend, "get_path_with_graph_context", None) is None
     assert getattr(LpBackend, "get_path_with_context", None) is None
-    # Orphan return-shape TypedDict (PsStepWithKnowledgeRow survives — different method).
+    # Orphan return-shape TypedDicts (PsStepWithKnowledgeRow deleted in Tier 6 —
+    # get_step_with_knowledge now returns typed PathStep models).
     assert getattr(query_types, "PsStepWithContextRow", None) is None
-    assert getattr(query_types, "PsStepWithKnowledgeRow", None) is not None
+    assert getattr(query_types, "PsStepWithKnowledgeRow", None) is None
 
 
 # ============================================================================

@@ -483,25 +483,12 @@ class PsAdaptiveService:
             return {}
 
     async def _query_active_learning_paths(self, user_uid: UserUID) -> list[LearningPath]:
-        """Query user's active learning paths."""
+        """Query user's active learning paths (backend returns typed models)."""
         try:
             query_result = await self.backend.query_active_learning_paths(user_uid)
             if query_result.is_error:
                 return []
-
-            from core.utils.neo4j_mapper import from_neo4j_node
-
-            learning_paths = []
-            for record in query_result.value or []:
-                lp_node = record.get("lp")
-                if lp_node:
-                    try:
-                        learning_path = from_neo4j_node(lp_node, LearningPath)
-                        learning_paths.append(learning_path)
-                    except DATA_CONVERSION_EXCEPTIONS:
-                        continue
-
-            return learning_paths
+            return query_result.value or []
 
         except NEO4J_EXCEPTIONS:
             return []
@@ -566,25 +553,12 @@ class PsAdaptiveService:
         return Domain.KNOWLEDGE
 
     async def _load_learning_preferences(self, user_uid: UserUID) -> LearningPreference | None:
-        """Load user's learning preferences if available."""
+        """Load user's learning preferences if available (backend returns the model)."""
         try:
             result = await self.backend.query_learning_preferences(user_uid)
-
-            if result.is_error or not result.value:
+            if result.is_error:
                 return None
-
-            record = result.value[0]
-
-            from core.utils.neo4j_mapper import from_neo4j_node
-
-            pref_node = record.get("pref")
-            if pref_node:
-                try:
-                    return from_neo4j_node(pref_node, LearningPreference)
-                except DATA_CONVERSION_EXCEPTIONS:
-                    return None
-
-            return None
+            return result.value
 
         except NEO4J_EXCEPTIONS:
             return None

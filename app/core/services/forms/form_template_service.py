@@ -165,13 +165,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
     async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]:
         """Return all FormTemplates embedded in a PathStep via EMBEDS_FORM."""
-        from core.utils.neo4j_mapper import from_neo4j_node
-
-        result = await self.backend.get_forms_for_path_step(ps_uid)
-        if result.is_error:
-            return Result.fail(result)
-        forms = [from_neo4j_node(props, FormTemplate) for props in result.value]
-        return Result.ok(forms)
+        return await self.backend.get_forms_for_path_step(ps_uid)
 
     async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
         """Link a FormTemplate to a PathStep via EMBEDS_FORM."""

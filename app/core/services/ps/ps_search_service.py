@@ -114,13 +114,11 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         Returns:
             Result containing standalone PathSteps
         """
-        from core.utils.neo4j_mapper import from_neo4j_node
-
         result = await self.backend.get_standalone_steps(limit)
         if result.is_error:
             return Result.fail(result)
 
-        steps = [from_neo4j_node(record["ps"], PathStep) for record in result.value]
+        steps = result.value
 
         self.logger.debug(f"Found {len(steps)} standalone steps")
         return Result.ok(steps)
@@ -145,13 +143,11 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         Returns:
             Result containing prioritized PathSteps
         """
-        from core.utils.neo4j_mapper import from_neo4j_node
-
         result = await self.backend.get_prioritized_steps(user_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
-        steps = [from_neo4j_node(record["ps"], PathStep) for record in result.value]
+        steps = result.value
 
         self.logger.debug(f"Prioritized PS search returned {len(steps)} results")
         return Result.ok(steps)

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.utils.neo4j_mapper import to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
 
 
 def flatten_entity_connections(entity: Any, item: dict[str, Any]) -> dict[str, Any]:

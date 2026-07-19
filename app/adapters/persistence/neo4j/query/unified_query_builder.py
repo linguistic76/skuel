@@ -67,6 +67,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.query.cypher import (
     build_count_query,
     build_list_query,
@@ -79,7 +80,6 @@ from adapters.persistence.neo4j.query.graph_traversal import build_graph_context
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Result
 from core.utils.validation_helpers import validate_field_name
 

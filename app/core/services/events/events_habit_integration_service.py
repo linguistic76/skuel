@@ -29,10 +29,11 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.user import UserContext
-from core.utils.dto_helpers import to_domain_model
+from core.services.user.rich_context import rich_entity_to_model
+from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import parse_date_field
+from core.utils.timestamp_helpers import parse_date_value
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -125,19 +126,8 @@ class EventsHabitIntegrationService:
         return None
 
     def _dict_to_event(self, event_dict: dict[str, Any]) -> Event | None:
-        """
-        Convert raw Neo4j event dict to Event domain model.
-
-        Args:
-            event_dict: Dict with event properties from MEGA-QUERY
-
-        Returns:
-            Event domain model or None if conversion fails
-        """
-        if not event_dict or not event_dict.get("uid"):
-            return None
-
-        return Event.from_dto(EventDTO.from_dict(event_dict))
+        """Convert a raw rich-context event dict to an Event domain model."""
+        return rich_entity_to_model(event_dict, EventDTO, Event)
 
     async def _enrich_with_habit_links(self, events: list[Event]) -> list[Event]:
         """Populate the derived ``reinforces_habit_uid`` from REINFORCES_HABIT edges.
@@ -191,7 +181,7 @@ class EventsHabitIntegrationService:
                 continue
 
             # Filter by date range
-            event_date = parse_date_field(event_dict.get("event_date"))
+            event_date = parse_date_value(event_dict.get("event_date"))
             if criteria.start_date and (not event_date or event_date < criteria.start_date):
                 continue
             if criteria.end_date and (not event_date or event_date > criteria.end_date):

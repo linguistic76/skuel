@@ -23,7 +23,7 @@ from core.ports.query_types import (
     LifePathRecommendationItem,
 )
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import coerce_float
+from core.utils.neo4j_props import coerce_float
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:

@@ -23,7 +23,7 @@ from core.constants import QueryLimit
 from core.events import publish_event
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
-from core.models.principle.principle import Principle
+from core.models.principle.principle import Principle, get_principle_priority
 from core.models.principle.principle_types import (
     AlignmentAssessment as UserAlignmentAssessment,
 )
@@ -39,7 +39,6 @@ from core.services.intelligence import principle_gap_insights, principle_gap_rec
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.sort_functions import get_principle_priority
 
 logger = get_logger(__name__)
 

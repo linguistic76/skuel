@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol
 
 from core.models.enums import UserRole
-from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
+from core.models.type_hints import FilterParams, UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
@@ -45,7 +45,7 @@ class FormTemplateBackendOperations(BackendOperations["FormTemplate"], Protocol)
 
     async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]: ...
 
-    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[Neo4jProperties]]: ...
+    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]: ...
 
     async def count_submissions(self, template_uid: str) -> Result[int]: ...
 

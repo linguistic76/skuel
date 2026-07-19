@@ -160,23 +160,6 @@ class ConversionOperations(Protocol[T]):
         """
         ...
 
-    def _records_to_domain_models(
-        self,
-        records: list[dict[str, Any]],
-        node_key: str = "n",
-    ) -> list[T]:
-        """
-        Extract nodes from query records and convert to domain models.
-
-        Args:
-            records: List of record dicts from execute_query
-            node_key: Key containing the node data (default: "n")
-
-        Returns:
-            List of domain model instances
-        """
-        ...
-
     def _validate_required_user_uid(
         self,
         user_uid: UserUID | None,

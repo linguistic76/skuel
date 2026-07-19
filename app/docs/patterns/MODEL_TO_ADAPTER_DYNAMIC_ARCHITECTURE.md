@@ -104,7 +104,7 @@ adapters/persistence/neo4j/
     _search_mixin.py              # EntitySearchOperations[T] — find_by_date_range, search, find_by, count, health_check, get_domain_context_raw, execute_query
     _search_raw_mixin.py          # _SearchRawMixin — text_search_raw, relationship_traversal_raw, graph_aware_search_raw, array ops, distinct_values_raw, faceted_search_raw
     _temporal_mixin.py            # _TemporalMixin — user_activity_range_raw, due_soon_raw, overdue_raw
-    _prereq_progress_mixin.py     # _PrereqProgressMixin — prerequisite_traversal_raw, hierarchy_query_raw
+    _prereq_progress_mixin.py     # _PrereqProgressMixin — prerequisite_traversal, hierarchy_query_raw
     _context_query_mixin.py       # _ContextQueryMixin — context_query_raw, basic_context_query_raw
     _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent relate() API
     _relationship_ordered_mixin.py# Ordered/hierarchical traversals + lateral-getter convenience wrappers
@@ -560,7 +560,7 @@ Both `create()` and `update()` in `_CrudMixin` route through `to_neo4j_node()`, 
 
 **How it works:**
 ```python
-# In core/utils/neo4j_mapper.py
+# In adapters/persistence/neo4j/neo4j_mapper.py
 
 def to_neo4j_node(entity: Any) -> dict:
     """Uses Python introspection to serialize ANY dataclass or dict."""
@@ -578,7 +578,7 @@ def to_neo4j_node(entity: Any) -> dict:
 
 **For custom Cypher** (services that bypass `UniversalNeo4jBackend`), two utilities handle the read side:
 ```python
-from core.utils.neo4j_mapper import parse_neo4j_json, deserialize_json_fields
+from core.utils.neo4j_props import parse_neo4j_json, deserialize_json_fields
 
 # Single value — parse a JSON-encoded Neo4j property
 topics = parse_neo4j_json(record["key_topics"], default=[])
@@ -867,7 +867,7 @@ Time: 30 seconds
 - `_search_mixin.py` — `find_by_date_range`, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query`
 - `_search_raw_mixin.py` — `text_search_raw`, `relationship_traversal_raw`, `graph_aware_search_raw`, array ops, `distinct_values_raw`, `faceted_search_raw`
 - `_temporal_mixin.py` — `user_activity_range_raw`, `due_soon_raw`, `overdue_raw`
-- `_prereq_progress_mixin.py` — `prerequisite_traversal_raw`, `hierarchy_query_raw`
+- `_prereq_progress_mixin.py` — `prerequisite_traversal` (returns typed models), `hierarchy_query_raw`
 - `_context_query_mixin.py` — `context_query_raw`, `basic_context_query_raw`
 - `_relationship_query_mixin.py` — core reads, batch counts, edge metadata, fluent `relate()` entry point
 - `_relationship_ordered_mixin.py` — ordered/hierarchical traversals + lateral-getter convenience wrappers: `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, `get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`

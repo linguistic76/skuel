@@ -20,7 +20,7 @@ from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID, UserUID
-from core.utils.neo4j_mapper import coerce_float
+from core.utils.neo4j_props import coerce_float
 
 
 def _get_path_steps(path: LearningPath) -> list[PathStep]:

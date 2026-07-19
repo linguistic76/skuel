@@ -18,7 +18,7 @@ stays in the service.
 
 GRAPH-NATIVE ARCHITECTURE (Pure Cypher — No APOC):
 - Connection data becomes graph EDGES, never node properties. Property filtering
-  happens in Python (``core.ingestion.batch_preparer.prepare_batch_items``) before
+  happens in Python (``adapters.persistence.neo4j.batch_preparer.prepare_batch_items``) before
   the Cypher runs.
 - Relationship targets are matched (``MATCH``), not merged, so missing targets are
   silently skipped instead of creating stub nodes; the edge is created on a later
@@ -35,9 +35,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
 from adapters.persistence.neo4j.cypher_executor import CypherExecutor, CypherTemplate
 from adapters.persistence.neo4j.timed_driver import neo4j_query_timeout
-from core.ingestion.batch_preparer import prepare_batch_items
 from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result

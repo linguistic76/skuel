@@ -2870,23 +2870,10 @@ class RevisionChainResult(TypedDict):
 # --- Row-level result types ---
 
 
-class PsStepWithKnowledgeRow(TypedDict):
-    """Return shape for PsBackend.get_step_with_knowledge()."""
-
-    s: Neo4jProperties
-    knowledge_uids: list[str]
-
-
 class PsDeleteStepRow(TypedDict):
     """Return shape for PsBackend.delete_step_node()."""
 
     deleted_count: int
-
-
-class PsStandaloneStepRow(TypedDict):
-    """Return shape for PsBackend.get_standalone_steps()."""
-
-    ps: Neo4jProperties
 
 
 # ============================================================================
@@ -3221,9 +3208,7 @@ __all__ = [
     "CurriculumExerciseResult",
     "RevisionChainResult",
     # PS Backend Result Types
-    "PsStepWithKnowledgeRow",
     "PsDeleteStepRow",
-    "PsStandaloneStepRow",
     # PS Intelligence Result Types
     "PsAnalyticsSummary",
     "PsPerformanceAnalytics",

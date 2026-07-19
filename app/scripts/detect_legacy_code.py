@@ -27,7 +27,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL_METHODS = {
     "get_domain_context_raw",
     "aflat_map",
-    "from_domain_model",
     "discovery_ops",
     "graph_intel",
 }

@@ -32,17 +32,17 @@ to provide personalized, filtered, and ranked habit queries.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from core.models.enums import RecurrencePattern
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import EntityUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_planning_service import BasePlanningService
+from core.services.user.rich_context import get_model_from_rich_context
 from core.utils.decorators import with_error_handling
-from core.utils.dto_helpers import to_domain_model
+from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_priority_score
 
@@ -95,47 +95,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         Returns:
             Habit if found in rich context, None otherwise
         """
-        for habit_data in context.entities_rich.get("habits", []):
-            habit_dict = habit_data.get("entity", {})
-            if habit_dict.get("uid") == habit_uid:
-                return self._dict_to_habit(habit_dict)
-
-        return None
-
-    def _dict_to_habit(self, habit_dict: dict[str, Any]) -> Habit:
-        """
-        Convert a habit dict (from rich context) to Habit domain model.
-
-        Args:
-            habit_dict: Habit properties as dict
-
-        Returns:
-            Habit domain model instance
-        """
-        dto = HabitDTO(
-            uid=habit_dict.get("uid", ""),
-            user_uid=habit_dict.get("user_uid", ""),
-            title=habit_dict.get("title", habit_dict.get("name", "")),
-            description=habit_dict.get("description"),
-            recurrence_pattern=habit_dict.get(
-                "recurrence_pattern", habit_dict.get("frequency", RecurrencePattern.DAILY)
-            ),
-            target_days_per_week=habit_dict.get(
-                "target_days_per_week", habit_dict.get("target_count", 7)
-            ),
-            current_streak=habit_dict.get("current_streak", 0),
-            best_streak=habit_dict.get("best_streak", 0),
-            total_completions=habit_dict.get("total_completions", 0),
-            success_rate=habit_dict.get("success_rate", habit_dict.get("consistency_30d", 0.0)),
-            last_completed=habit_dict.get("last_completed"),
-            status=habit_dict.get("status", "active"),
-            cue=habit_dict.get("cue"),
-            routine=habit_dict.get("routine"),
-            reward=habit_dict.get("reward"),
-            created_at=habit_dict.get("created_at") or datetime.now(),
-            updated_at=habit_dict.get("updated_at") or datetime.now(),
-        )
-        return to_domain_model(dto, HabitDTO, Habit)
+        return get_model_from_rich_context(context, "habits", habit_uid, HabitDTO, Habit)
 
     # ========================================================================
     # CONTEXT-FIRST METHODS

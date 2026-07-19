@@ -52,7 +52,7 @@ from core.ports.report_protocols import (
 )
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import coerce_int
+from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -357,7 +357,6 @@ class TeacherReviewService:
 
         from core.models.enums.learning_enums import FeedbackCategory
         from core.models.exercises.revised_exercise import FeedbackPoint, RevisedExercise
-        from core.utils.neo4j_mapper import to_neo4j_node
 
         report_entity_uid = UIDGenerator.generate_uid("er")
         re_uid = UIDGenerator.generate_uid("re")
@@ -372,7 +371,8 @@ class TeacherReviewService:
             except ValueError:
                 pass  # Skip invalid categories
 
-        # Build RevisedExercise entity for to_neo4j_node (computed fields overridden in Cypher)
+        # Build RevisedExercise entity — the backend serializes it to node
+        # properties (computed fields overridden in Cypher)
         re_entity = RevisedExercise(
             uid=re_uid,
             entity_type=EntityType.REVISED_EXERCISE,
@@ -385,8 +385,6 @@ class TeacherReviewService:
             revision_rationale=revision_rationale,
             parent_entity_uid=report_entity_uid,
         )
-        re_props = to_neo4j_node(re_entity)
-
         allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
         result = await self.report_backend.create_report_and_revised_exercise(
             {
@@ -404,11 +402,11 @@ class TeacherReviewService:
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
                 "now": now,
-                # Phase 2 params (RevisedExercise)
-                "re_props": re_props,
+                # Phase 2 params (RevisedExercise) — re_props injected adapter-side
                 "re_uid": re_uid,
                 "original_exercise_uid": original_exercise_uid,
-            }
+            },
+            re_entity,
         )
         if result.is_error:
             return Result.fail(result)

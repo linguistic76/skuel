@@ -34,7 +34,7 @@ from core.services.calendar_optimization_types import (
 # Use TaskRelationships.fetch() for relationship data
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import coerce_float
+from core.utils.neo4j_props import coerce_float
 from core.utils.result_simplified import Errors, Result
 
 # Type alias for clarity

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
 
@@ -107,9 +108,22 @@ class _LpProgressMixin:
     # SEARCH QUERIES (migrated from LpSearchService / LpProgressService)
     # ========================================================================
 
+    def _records_to_paths(
+        self, result: Result[builtins.list[dict[str, Any]]], node_key: str = "lp"
+    ) -> Result[builtins.list[LearningPath]]:
+        """Convert raw LP node records to LearningPath models (Tier 6: conversion
+        lives below the hexagonal boundary — services receive typed models)."""
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [from_neo4j_node(record[node_key], LearningPath) for record in (result.value or [])]
+        )
+
     async def get_paths_aligned_with_goal(
         self, goal_uid: str, limit: int = 50
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """Get learning paths aligned with a specific goal via ALIGNED_WITH_GOAL.
 
         Args:
@@ -117,7 +131,7 @@ class _LpProgressMixin:
             limit: Maximum results
 
         Returns:
-            Result containing raw LP node records
+            Result containing LearningPath models
         """
         query = """
         MATCH (lp:Entity {entity_type: 'learning_path'})-[:ALIGNED_WITH_GOAL]->(g:Goal {uid: $goal_uid})
@@ -125,11 +139,13 @@ class _LpProgressMixin:
         ORDER BY lp.updated_at DESC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"goal_uid": goal_uid, "limit": limit})
+        return self._records_to_paths(
+            await self.execute_query(query, {"goal_uid": goal_uid, "limit": limit})
+        )
 
     async def get_paths_by_knowledge(
         self, ku_uid: str, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """Get learning paths that teach a knowledge unit (2-hop via HAS_STEP + CONTAINS_KNOWLEDGE).
 
         Uses DISTINCT since multiple steps within a path may contain the same knowledge.
@@ -139,7 +155,7 @@ class _LpProgressMixin:
             limit: Maximum results
 
         Returns:
-            Result containing raw LP node records
+            Result containing LearningPath models
         """
         query = """
         MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
@@ -147,11 +163,13 @@ class _LpProgressMixin:
         ORDER BY lp.created_at DESC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
+        return self._records_to_paths(
+            await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
+        )
 
     async def get_user_paths_prioritized(
         self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """Get learning paths prioritized by enrollment, goal alignment, and type.
 
         Args:
@@ -159,7 +177,7 @@ class _LpProgressMixin:
             limit: Maximum results
 
         Returns:
-            Result containing raw LP node records
+            Result containing LearningPath models
         """
         query = """
         MATCH (lp:Entity {entity_type: 'learning_path'})
@@ -183,7 +201,9 @@ class _LpProgressMixin:
             lp.updated_at DESC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        return self._records_to_paths(
+            await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        )
 
     async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:
         """Get UIDs of all learning paths containing a given path step via HAS_STEP.

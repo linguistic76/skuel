@@ -87,8 +87,6 @@ from core.ports.query_types import (
     PsDeleteStepRow,
     PsKnowledgeSummaryResult,
     PsPracticeSummaryResult,
-    PsStandaloneStepRow,
-    PsStepWithKnowledgeRow,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
@@ -113,6 +111,7 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.ku.ku import Ku  # noqa: F401 — used in BackendOperations["Ku"]
     from core.models.pathways.learning_path import LearningPath
+    from core.models.pathways.mastery import LearningPreference
     from core.models.pathways.path_step import PathStep
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
@@ -598,13 +597,13 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # SEARCH QUERIES
     # =========================================================================
 
-    async def get_standalone_steps(self, limit: int = 50) -> Result[list[PsStandaloneStepRow]]:
+    async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """Get PathStep nodes not belonging to any learning path."""
         ...
 
     async def get_prioritized_steps(
         self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[PathStep]]:
         """Get PathStep nodes prioritized by user context."""
         ...
 
@@ -909,10 +908,8 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Query all MASTERED relationships with full metadata for a user."""
         ...
 
-    async def query_active_learning_paths(
-        self, user_uid: UserUID
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full LP node properties
-        """Query user's active/in-progress learning paths."""
+    async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[LearningPath]]:
+        """Query user's active/in-progress learning paths as typed models."""
         ...
 
     async def query_completed_learning_paths(
@@ -923,8 +920,8 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
 
     async def query_learning_preferences(
         self, user_uid: UserUID
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full LearningPreference node
-        """Query user's learning preferences node."""
+    ) -> Result[LearningPreference | None]:
+        """Query user's learning preferences as a typed model (None when absent)."""
         ...
 
     # =========================================================================
@@ -952,14 +949,14 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Create step node with conditional knowledge and path relationships."""
         ...
 
-    async def get_step_with_knowledge(self, uid: str) -> Result[list[PsStepWithKnowledgeRow]]:
-        """Get step node with CONTAINS_KNOWLEDGE relationships."""
+    async def get_step_with_knowledge(self, uid: str) -> Result[PathStep | None]:
+        """Get a step (with its CONTAINS_KNOWLEDGE UIDs) as a typed model, or None."""
         ...
 
     async def update_step_fields(
         self, uid: str, set_clauses: list[str], params: dict[str, Any]
-    ) -> Result[list[dict[str, Any]]]:
-        """Update step fields and return step with knowledge relationships."""
+    ) -> Result[PathStep | None]:
+        """Update step fields; return the updated step as a typed model (None if absent)."""
         ...
 
     async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
@@ -974,8 +971,8 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         order_field: str,
         order_direction: str,
         user_uid: UserUID | None = None,
-    ) -> Result[list[dict[str, Any]]]:
-        """List step nodes with knowledge relationships, pagination, and optional filters."""
+    ) -> Result[list[PathStep]]:
+        """List steps (with knowledge UIDs) as typed models, with pagination and filters."""
         ...
 
 
@@ -1077,12 +1074,12 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     # STEP MANAGEMENT (HAS_STEP edges)
     # =========================================================================
 
-    async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[dict[str, Any]]]:
-        """Get ordered steps as raw dicts."""
+    async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
+        """Get ordered steps as typed models."""
         ...
 
-    async def get_parent_path_raw(self, step_uid: str) -> Result[dict[str, Any] | None]:
-        """Get parent learning path as raw dict, or None."""
+    async def get_parent_path_raw(self, step_uid: str) -> Result[LearningPath | None]:
+        """Get parent learning path as a typed model, or None."""
         ...
 
     async def add_step_to_path(
@@ -1322,19 +1319,19 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
 
     async def get_paths_aligned_with_goal(
         self, goal_uid: str, limit: int = 50
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """Get learning paths aligned with a goal via ALIGNED_WITH_GOAL."""
         ...
 
     async def get_paths_by_knowledge(
         self, ku_uid: str, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """Get learning paths that teach a knowledge unit (2-hop via PS)."""
         ...
 
     async def get_user_paths_prioritized(
         self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """Get learning paths prioritized by enrollment, goal alignment, and type."""
         ...
 

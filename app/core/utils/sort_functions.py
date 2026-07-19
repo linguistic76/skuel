@@ -12,32 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparison
 
-from core.ports.base_protocols import (
-    HasPriority,
-    HasRelevanceScore,
-    HasScore,
-    HasToNumeric,
-)
-
-
-def sort_by_start_time(event: Any) -> Any:
-    """Sort events by their start_time attribute."""
-    return event.start_time
-
-
-def sort_by_confidence_and_strength(relationship: Any) -> float:
-    """Sort relationships by combined confidence and strength scores."""
-    return relationship.metadata.confidence * relationship.metadata.strength
-
-
-def sort_by_relevance_score(item: tuple[Any, float]) -> float:
-    """Sort search results by relevance score (second element of tuple)."""
-    return item[1]
-
-
-def sort_by_index_count(item: tuple[str, list[Any]]) -> int:
-    """Sort labeled indexes by count of items."""
-    return len(item[1])
+from core.ports.base_protocols import HasPriority, HasToNumeric
 
 
 def get_intent_score(item: tuple[str, float]) -> float:
@@ -58,27 +33,6 @@ def get_result_score(scored_result: tuple[Any, float]) -> float:
     Example: scored_results.sort(key=get_result_score, reverse=True)
     """
     return scored_result[1]
-
-
-def get_avg_time_ms(metrics: Any) -> float:
-    """
-    Get average time in milliseconds from OperationMetrics object.
-
-    Used for sorting operations by performance.
-    Example: sorted(operations, key=get_avg_time_ms, reverse=True)
-    """
-    return metrics.avg_time_ms
-
-
-def get_linked_knowledge_count(goal: Any) -> int:
-    """
-    Get count of linked knowledge units from a goal.
-
-    Used for sorting goals by their knowledge linkage density.
-    Example: learning_supporting_goals.sort(key=get_linked_knowledge_count, reverse=True)
-    """
-    linked_uids = getattr(goal, "linked_knowledge_uids", []) or []
-    return len(linked_uids)
 
 
 def get_domain_choice_count(item: tuple[str, dict[str, Any]]) -> int:
@@ -105,35 +59,6 @@ def get_completed_at(completion: Any) -> Any:
     Example: completions.sort(key=get_completed_at, reverse=True)
     """
     return completion.completed_at
-
-
-def get_timestamp(activity: dict[str, Any]) -> Any:
-    """
-    Get timestamp from activity dictionary.
-
-    Used for sorting activity records by timestamp.
-    Example: activities.sort(key=get_timestamp, reverse=True)
-    """
-    return activity["timestamp"]
-
-
-def get_recommendation_score(recommendation: Any) -> float:
-    """
-    Get combined recommendation score.
-
-    Calculates weighted score from relevance, readiness, and difficulty match.
-    Used for sorting recommendations by overall quality.
-    Example: recommendations.sort(key=get_recommendation_score, reverse=True)
-    """
-    # If recommendation has a simple 'score' attribute (but not relevance_score), use that
-    if isinstance(recommendation, HasScore) and not isinstance(recommendation, HasRelevanceScore):
-        return recommendation.score
-
-    # Otherwise calculate from components (ContentRecommendation pattern)
-    relevance = getattr(recommendation, "relevance_score", 0.5)
-    readiness = getattr(recommendation, "readiness_score", 0.5)
-    difficulty = getattr(recommendation, "difficulty_match", 0.5)
-    return relevance * 0.4 + readiness * 0.4 + difficulty * 0.2
 
 
 def get_relevance_score(recommendation: Any) -> float:
@@ -177,16 +102,6 @@ def get_readiness_score(content_tuple: tuple[Any, float]) -> float:
     Example: content_with_readiness.sort(key=get_readiness_score, reverse=True)
     """
     return content_tuple[1]
-
-
-def get_confidence_score(item: Any) -> float:
-    """
-    Get confidence score from object with confidence attribute.
-
-    Used for sorting items by confidence level.
-    Example: results.sort(key=get_confidence_score, reverse=True)
-    """
-    return item.confidence
 
 
 def get_combined_score(item: Any) -> float:
@@ -254,45 +169,6 @@ def get_due_date(task: Any) -> Any:
     return due
 
 
-def get_task_urgency(task: Any) -> tuple[Any, Any]:
-    """
-    Get task urgency key (priority, due_date) for sorting critical tasks.
-
-    Returns tuple of (priority.value, due_date) where None due_dates are placed last.
-    Used for sorting tasks by urgency (priority first, then due date).
-    Example: critical_tasks.sort(key=get_task_urgency)
-    """
-    from datetime import date as date_type
-
-    priority_value = getattr(task.priority, "value", 0) if isinstance(task, HasPriority) else 0
-    due_date = getattr(task, "due_date", None) or date_type.max
-    return (priority_value, due_date)
-
-
-def get_gap_severity_order(gap: Any) -> int:
-    """
-    Get severity order value for KnowledgeGap sorting.
-
-    Maps severity levels to numeric ordering: high=0, medium=1, low=2, unknown=3.
-    Lower numbers = higher priority (sorts high-severity gaps first).
-    Used for sorting knowledge gaps by severity.
-    Example: gaps.sort(key=get_gap_severity_order)
-    """
-    severity_order = {"high": 0, "medium": 1, "low": 2}
-    severity = getattr(gap, "severity", "unknown")
-    return severity_order.get(severity, 3)
-
-
-def get_final_score(result: Any) -> float:
-    """
-    Get final_score from EnhancedResult object.
-
-    Used for sorting knowledge retrieval results by final combined score.
-    Example: results.sort(key=get_final_score, reverse=True)
-    """
-    return result.final_score
-
-
 def get_query_plan_priority(plan: Any, strategy_priority: dict[Any, int]) -> tuple[int, float]:
     """
     Get query plan priority for selecting the best execution plan.
@@ -316,105 +192,6 @@ def get_query_plan_priority(plan: Any, strategy_priority: dict[Any, int]) -> tup
     strategy_value = strategy_priority.get(plan.strategy, 10)
     cost = plan.estimated_cost
     return (strategy_value, cost)
-
-
-def get_journal_date(journal: Any) -> Any:
-    """
-    Get occurred_at date from journal object, with fallback to datetime.min.
-
-    Used for sorting journal entries by date.
-    Example: journals.sort(key=get_journal_date, reverse=True)
-
-    Args:
-        journal: Journal object with occurred_at attribute,
-
-    Returns:
-        The occurred_at date, or datetime.min if None
-    """
-    from datetime import datetime
-
-    return journal.occurred_at or datetime.min
-
-
-def get_window_start_time(window_tuple: tuple[str, Any]) -> Any:
-    """
-    Get start time from (uid, TimeWindow) tuple.
-
-    Used for sorting calendar window tuples by their start time.
-    Example: all_windows.sort(key=get_window_start_time)
-
-    Args:
-        window_tuple: Tuple of (uid, TimeWindow) where TimeWindow has .start attribute,
-
-    Returns:
-        The start datetime from the TimeWindow
-    """
-    return window_tuple[1].start
-
-
-def get_principle_priority(principle: Any) -> int:
-    """
-    Get numeric priority value from principle for sorting.
-
-    Converts Priority enum to numeric value (1-4) using the to_numeric() method.
-    Higher numbers indicate higher priority (LOW=1, MEDIUM=2, HIGH=3, CRITICAL=4).
-    Used for sorting principles by priority (descending order shows highest priority first).
-    Example: principles.sort(key=get_principle_priority, reverse=True)
-
-    Args:
-        principle: Principle object with priority attribute,
-
-    Returns:
-        Numeric priority value (1-4), defaults to 2 (MEDIUM) if unavailable
-    """
-    if isinstance(principle, HasPriority):
-        if isinstance(principle.priority, HasToNumeric):
-            return principle.priority.to_numeric()
-        # Handle string priorities (stored as str via Neo4j deserialization)
-        if isinstance(principle.priority, str):
-            from core.models.enums import Priority
-
-            try:
-                return Priority(principle.priority).to_numeric()
-            except ValueError:
-                return 2
-    return 2  # Default to MEDIUM priority
-
-
-def get_discovery_score(discovery: Any) -> float:
-    """
-    Get combined discovery score for personalized knowledge ranking.
-
-    Calculates weighted score from personal relevance, cognitive readiness, and final score.
-    Used for sorting personalized knowledge discoveries by overall quality.
-    Example: discoveries.sort(key=get_discovery_score, reverse=True)
-
-    Args:
-        discovery: PersonalizedDiscoveryResult object with score attributes,
-
-    Returns:
-        Combined score (0.0-1.0) weighted by relevance (40%), readiness (30%), and quality (30%)
-    """
-    personal_relevance = getattr(discovery, "personal_relevance_score", 0.5)
-    cognitive_readiness = getattr(discovery, "cognitive_readiness_match", 0.5)
-    final_score = getattr(discovery, "final_score", 0.5)
-    return personal_relevance * 0.4 + cognitive_readiness * 0.3 + final_score * 0.3
-
-
-def get_created_at(item: dict[str, Any]) -> Any:
-    """
-    Get created_at timestamp from dictionary.
-
-    Used for sorting search results or entities by creation date.
-    Example: results.sort(key=get_created_at, reverse=True)
-
-    Args:
-        item: Dictionary with 'created_at' key,
-
-    Returns:
-        The created_at timestamp, or empty string if not present
-    """
-    return item.get("created_at", "")
 
 
 def get_sequence(item: dict[str, Any]) -> int:
@@ -498,22 +275,6 @@ def get_theme_count(item: tuple[str, int]) -> int:
     return item[1]
 
 
-def get_frequency(item: dict[str, Any]) -> int:
-    """
-    Get frequency value from dictionary.
-
-    Used for sorting patterns or items by frequency count.
-    Example: sorted(patterns.values(), key=get_frequency, reverse=True)
-
-    Args:
-        item: Dictionary with 'frequency' key
-
-    Returns:
-        The frequency count
-    """
-    return item["frequency"]
-
-
 def make_attribute_sort_key(attribute_name: str):
     """
     Create a sort key function for dynamic attribute access.
@@ -568,24 +329,6 @@ def get_schedule_recommendation_score(recommendation: Any) -> float:
     return recommendation.overall_score
 
 
-def get_report_date(report: Any) -> Any:
-    """
-    Get created_at date from Report object, with fallback to datetime.min.
-
-    Used for sorting reports by creation date.
-    Example: reports.sort(key=get_report_date, reverse=True)
-
-    Args:
-        report: Report object with created_at attribute
-
-    Returns:
-        The created_at datetime, or datetime.min if None
-    """
-    from datetime import datetime
-
-    return report.created_at or datetime.min
-
-
 def get_principle_strength_order(principle: Any) -> int:
     """Sort key for principles by strength (CORE first = 0, EXPLORING last = 4)."""
     from core.models.enums.principle_enums import PrincipleStrength
@@ -609,83 +352,6 @@ def get_priority_score(item: Any) -> float:
         The priority_score value
     """
     return item.priority_score
-
-
-def get_ready_score_with_unlocks(item: dict[str, Any]) -> tuple[float, int]:
-    """
-    Get ready_score and unlocks_count for sorting ready-to-learn knowledge.
-
-    Returns tuple of (ready_score, unlocks_count) for sorting knowledge units
-    by readiness and impact (higher = better).
-
-    Used for sorting knowledge units by learning readiness and unblocking potential.
-    Example: ready_units.sort(key=get_ready_score_with_unlocks, reverse=True)
-
-    Args:
-        item: Dictionary with 'ready_score' and 'unlocks_count' keys
-
-    Returns:
-        Tuple of (ready_score, unlocks_count) for multi-key sorting
-    """
-    return (item.get("ready_score", 0.0), item.get("unlocks_count", 0))
-
-
-def get_progression_score_with_enablers(item: dict[str, Any]) -> tuple[float, int]:
-    """
-    Get progression_score and enabled_by count for sorting learning progression.
-
-    Returns tuple of (progression_score, len(enabled_by)) for sorting path steps
-    by progression value and enabling relationships.
-
-    Used for sorting next logical path steps by progression and connectivity.
-    Example: next_steps.sort(key=get_progression_score_with_enablers, reverse=True)
-
-    Args:
-        item: Dictionary with 'progression_score' and 'enabled_by' keys
-
-    Returns:
-        Tuple of (progression_score, enabler_count) for multi-key sorting
-    """
-    enabled_by = item.get("enabled_by", [])
-    return (item.get("progression_score", 0.0), len(enabled_by))
-
-
-def get_alignment_score_with_goal_count(item: dict[str, Any]) -> tuple[float, int]:
-    """
-    Get alignment_score and goal_count for sorting goal-aligned knowledge.
-
-    Returns tuple of (alignment_score, goal_count) for sorting knowledge units
-    by goal alignment and the number of goals they support.
-
-    Used for sorting knowledge by alignment to active goals and breadth of impact.
-    Example: results.sort(key=get_alignment_score_with_goal_count, reverse=True)
-
-    Args:
-        item: Dictionary with 'alignment_score' and 'goal_count' keys
-
-    Returns:
-        Tuple of (alignment_score, goal_count) for multi-key sorting
-    """
-    return (item.get("alignment_score", 0.0), item.get("goal_count", 0))
-
-
-def get_priority_score_with_blocking_count(item: dict[str, Any]) -> tuple[float, int]:
-    """
-    Get priority_score and blocking_goals_count for sorting knowledge gaps.
-
-    Returns tuple of (priority_score, blocking_goals_count) for sorting gaps
-    by priority and the number of goals they block.
-
-    Used for sorting knowledge gaps by urgency and impact.
-    Example: gaps.sort(key=get_priority_score_with_blocking_count, reverse=True)
-
-    Args:
-        item: Dictionary with 'priority_score' and 'blocking_goals_count' keys
-
-    Returns:
-        Tuple of (priority_score, blocking_count) for multi-key sorting
-    """
-    return (item.get("priority_score", 0.0), item.get("blocking_goals_count", 0))
 
 
 def get_updated_timestamp(item: dict[str, Any]) -> str:
@@ -731,23 +397,6 @@ def make_dict_score_getter(scores_dict: dict[str, float], default: float = 0.0):
         return scores_dict.get(key, default)
 
     return get_score
-
-
-def get_negative_second_item(item: tuple[Any, Any]) -> Any:
-    """
-    Get negative of second element from a tuple (for descending sort).
-
-    Used for sorting tuples by their second element in descending order
-    without using reverse=True.
-    Example: sorted(category_totals.items(), key=get_negative_second_item)
-
-    Args:
-        item: Tuple where second element is numeric
-
-    Returns:
-        Negative of the second element
-    """
-    return -item[1]
 
 
 def get_task_due_date_sort_key(task: Any) -> tuple[bool, Any]:
@@ -942,121 +591,6 @@ def get_recurrence_pattern(item: Any) -> str:
 # =============================================================================
 
 
-def get_streak_and_priority(item: Any) -> tuple[int, float]:
-    """
-    Get (current_streak, priority_score) tuple for habit sorting.
-
-    Used for sorting contextual habits by streak (longer = higher priority to maintain)
-    and then by priority score.
-    Example: contextual_habits.sort(key=get_streak_and_priority, reverse=True)
-
-    Args:
-        item: ContextualHabit object with current_streak and priority_score
-
-    Returns:
-        Tuple of (current_streak, priority_score)
-    """
-    return (item.current_streak, item.priority_score)
-
-
-def get_days_until_and_priority(item: Any) -> tuple[int, float]:
-    """
-    Get (days_until, -priority_score) tuple for event sorting.
-
-    Used for sorting contextual events by days until (today's first)
-    and then by priority score (higher priority first via negation).
-    Example: contextual_events.sort(key=get_days_until_and_priority)
-
-    Args:
-        item: ContextualEvent object with days_until and priority_score
-
-    Returns:
-        Tuple of (days_until, -priority_score)
-    """
-    return (item.days_until, -item.priority_score)
-
-
-def get_overdue_and_priority(item: Any) -> tuple[bool, float]:
-    """
-    Get (is_overdue, priority_score) tuple for task sorting.
-
-    Used for sorting contextual tasks by overdue status and priority.
-    Example: contextual_tasks.sort(key=get_overdue_and_priority, reverse=True)
-
-    Args:
-        item: ContextualTask object with is_overdue and priority_score
-
-    Returns:
-        Tuple of (is_overdue, priority_score)
-    """
-    return (item.is_overdue, item.priority_score)
-
-
-def get_risk_progress_priority(item: Any) -> tuple[bool, float, float]:
-    """
-    Get (not is_at_risk, current_progress, priority_score) tuple for goal sorting.
-
-    Used for sorting contextual goals by risk status (non-at-risk first),
-    progress, and priority.
-    Example: contextual_goals.sort(key=get_risk_progress_priority, reverse=True)
-
-    Args:
-        item: ContextualGoal object with is_at_risk, current_progress, priority_score
-
-    Returns:
-        Tuple of (not is_at_risk, current_progress, priority_score)
-    """
-    return (not item.is_at_risk, item.current_progress, item.priority_score)
-
-
-def get_core_and_alignment(item: Any) -> tuple[bool, float]:
-    """
-    Get (is_core, alignment_score) tuple for principle sorting.
-
-    Used for sorting contextual principles by core status and alignment.
-    Example: contextual_principles.sort(key=get_core_and_alignment, reverse=True)
-
-    Args:
-        item: ContextualPrinciple object with is_core and alignment_score
-
-    Returns:
-        Tuple of (is_core, alignment_score)
-    """
-    return (item.is_core, item.alignment_score)
-
-
-def get_alignment_average(item: Any) -> float:
-    """
-    Get alignment_average from cross-domain insight for sorting.
-
-    Used for sorting CrossDomainInsight by alignment average.
-    Example: insights.sort(key=get_alignment_average, reverse=True)
-
-    Args:
-        item: CrossDomainInsight object with alignment_average
-
-    Returns:
-        The alignment_average value
-    """
-    return item.alignment_average
-
-
-def get_conflict_count(item: dict[str, Any]) -> int:
-    """
-    Get conflict_count from dictionary for conflict sorting.
-
-    Used for sorting conflicting principles by conflict count.
-    Example: sorted(conflicts.values(), key=get_conflict_count, reverse=True)
-
-    Args:
-        item: Dictionary with 'conflict_count' key
-
-    Returns:
-        The conflict_count value
-    """
-    return item["conflict_count"]
-
-
 def make_dict_value_getter[K, V: "SupportsRichComparison"](
     mapping: Mapping[K, V],
 ) -> Callable[[K], V]:
@@ -1094,22 +628,6 @@ def make_dict_value_getter[K, V: "SupportsRichComparison"](
         return mapping[key]
 
     return get_value
-
-
-def get_tuple_first(item: tuple[Any, ...]) -> Any:
-    """
-    Get first element from a tuple.
-
-    Used for sorting tuples by their first element.
-    Example: blocked_times.sort(key=get_tuple_first)
-
-    Args:
-        item: Tuple of any length
-
-    Returns:
-        The first element of the tuple
-    """
-    return item[0]
 
 
 def get_aligned_count(item: tuple[str, dict[str, Any]]) -> int:

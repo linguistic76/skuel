@@ -32,7 +32,7 @@ from core.services.habits._dual_track_mixin import _DualTrackMixin
 from core.services.habits.habit_relationships import HabitRelationships
 from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
-from core.utils.dto_helpers import to_domain_model
+from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:

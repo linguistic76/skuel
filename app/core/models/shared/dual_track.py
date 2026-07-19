@@ -166,7 +166,7 @@ class DualTrackResult(Generic[L]):
         Unlike ``to_dict`` (full API payload incl. insights/recommendations),
         this captures just what gap-trending needs: the date, both levels/scores,
         and the gap. Enums are flattened to their ``.value`` so the dict
-        round-trips as a Neo4j JSON property (see core/utils/neo4j_mapper.py).
+        round-trips as a Neo4j JSON property (see adapters/persistence/neo4j/neo4j_mapper.py).
 
         Used by ``BaseAnalyticsService._store_dual_track_checkin`` (ADR-030).
         """

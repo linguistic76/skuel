@@ -32,12 +32,12 @@ from typing import Any
 from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import UserUID
 from core.models.user import User
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)

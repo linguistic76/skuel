@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Priority
-from core.utils.dto_helpers import to_domain_model
+from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

@@ -72,6 +72,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.models.entity_types import SubmissionEntity
     from core.models.exercises.exercise import Exercise
+    from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.entry_report import EntryReport
     from core.models.report_schedule import ReportSchedule
@@ -262,9 +263,13 @@ class EntryReportBackendOperations(Protocol):
         ...
 
     async def create_report_and_revised_exercise(
-        self, params: dict[str, Any]
+        self, params: dict[str, Any], re_entity: RevisedExercise
     ) -> Result[list[Neo4jProperties]]:
-        """Atomically create EntryReport + RevisedExercise in one transaction."""
+        """Atomically create EntryReport + RevisedExercise in one transaction.
+
+        The RevisedExercise model is serialized to node properties below the
+        hexagonal boundary (adapter-side ``to_neo4j_node``).
+        """
         ...
 
 

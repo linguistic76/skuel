@@ -24,7 +24,12 @@ from core.models.habit.habit_dto import HabitDTO
 from core.ports.domain_protocols import HabitsOperations
 from core.services.habits.habit_relationships import HabitRelationships
 from core.services.user import UserContext
-from core.utils.dto_helpers import to_domain_model
+from core.services.user.rich_context import (
+    find_rich_graph_context,
+    get_model_from_rich_context,
+    rich_graph_uids,
+)
+from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -105,13 +110,7 @@ class HabitsProgressService:
         Returns:
             Habit if found in rich context, None otherwise
         """
-        for habit_data in user_context.entities_rich.get("habits", []):
-            habit_dict = habit_data.get("entity", {})
-            if habit_dict.get("uid") == habit_uid:
-                # Convert dict to Habit domain model
-                return self._dict_to_habit(habit_dict)
-
-        return None
+        return get_model_from_rich_context(user_context, "habits", habit_uid, HabitDTO, Habit)
 
     def _get_relationships_from_rich_context(
         self, habit_uid: str, user_context: UserContext
@@ -129,66 +128,14 @@ class HabitsProgressService:
         Returns:
             HabitRelationships if found in rich context, None otherwise
         """
-        for habit_data in user_context.entities_rich.get("habits", []):
-            habit_dict = habit_data.get("entity", {})
-            if habit_dict.get("uid") == habit_uid:
-                graph_ctx = habit_data.get("graph_context", {})
-                if graph_ctx:
-                    return HabitRelationships(
-                        linked_goal_uids=[
-                            g.get("uid")
-                            for g in graph_ctx.get("linked_goals", [])
-                            if g and g.get("uid")
-                        ],
-                        knowledge_reinforcement_uids=[
-                            k.get("uid")
-                            for k in graph_ctx.get("applied_knowledge", [])
-                            if k and k.get("uid")
-                        ],
-                        # NOTE: prerequisite_habit_uids not in HabitRelationships model
-                    )
-
-        return None
-
-    def _dict_to_habit(self, habit_dict: dict[str, Any]) -> Habit:
-        """
-        Convert a habit dict (from rich context) to Habit domain model.
-
-        Args:
-            habit_dict: Habit properties as dict
-
-        Returns:
-            Habit domain model instance
-        """
-        # Create DTO first, then convert to domain model
-        # Map old field names to new HabitDTO field names
-        dto = HabitDTO(
-            uid=habit_dict.get("uid", ""),
-            user_uid=habit_dict.get("user_uid", ""),
-            title=habit_dict.get("title", habit_dict.get("name", "")),
-            description=habit_dict.get("description"),
-            # Map 'frequency' to 'recurrence_pattern' (model uses RecurrencePattern enum)
-            recurrence_pattern=habit_dict.get(
-                "recurrence_pattern", habit_dict.get("frequency", HabitFrequency.DAILY)
-            ),
-            # Map 'target_count' to 'target_days_per_week' (closest equivalent)
-            target_days_per_week=habit_dict.get(
-                "target_days_per_week", habit_dict.get("target_count", 7)
-            ),
-            current_streak=habit_dict.get("current_streak", 0),
-            best_streak=habit_dict.get("best_streak", 0),
-            total_completions=habit_dict.get("total_completions", 0),
-            # NOTE: consistency_30d and is_keystone not in HabitDTO - use success_rate for metrics
-            success_rate=habit_dict.get("success_rate", habit_dict.get("consistency_30d", 0.0)),
-            last_completed=habit_dict.get("last_completed"),
-            status=habit_dict.get("status", "active"),
-            cue=habit_dict.get("cue"),
-            routine=habit_dict.get("routine"),
-            reward=habit_dict.get("reward"),
-            created_at=habit_dict.get("created_at") or datetime.now(),
-            updated_at=habit_dict.get("updated_at") or datetime.now(),
+        graph_ctx = find_rich_graph_context(user_context, "habits", habit_uid)
+        if graph_ctx is None:
+            return None
+        return HabitRelationships(
+            linked_goal_uids=rich_graph_uids(graph_ctx, "linked_goals"),
+            knowledge_reinforcement_uids=rich_graph_uids(graph_ctx, "applied_knowledge"),
+            # NOTE: prerequisite_habit_uids not in HabitRelationships model
         )
-        return to_domain_model(dto, HabitDTO, Habit)
 
     # ========================================================================
     # HABIT COMPLETION AND STREAK MANAGEMENT
@@ -283,11 +230,14 @@ class HabitsProgressService:
             "total_completions": habit.total_completions + 1,
         }
 
-        # Calculate consistency score (pass completions for calculation)
+        # Calculate consistency score (pass completions for calculation).
+        # Persisted as success_rate — the canonical Habit/HabitDTO field every
+        # reader consumes (a legacy consistency_30d property was write-only:
+        # scripts/migrate_activity_completion_aliases.py renames old nodes).
         consistency = self._calculate_consistency_from_completions(
             habit, existing_completions, completion_date
         )
-        updates["consistency_30d"] = consistency
+        updates["success_rate"] = consistency
 
         update_result = await self.backend.update_habit(habit_uid, dict(updates))
         if update_result.is_error:

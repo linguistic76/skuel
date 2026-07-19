@@ -321,3 +321,20 @@ class Task(UserOwnedEntity):
             f"status={self.status}, priority={self.priority}, "
             f"due_date={self.due_date}, user_uid={self.user_uid})"
         )
+
+
+def get_task_urgency(task: Any) -> tuple[Any, Any]:
+    """
+    Sort key: (priority value, due date) for ordering tasks by urgency.
+
+    Task-domain sorting policy (Dynamic Enum Pattern — the policy lives with
+    its domain, not in a generic utils grab-bag). None due_dates sort last.
+
+    Example:
+        critical_tasks.sort(key=get_task_urgency)
+    """
+    from core.ports.base_protocols import HasPriority
+
+    priority_value = getattr(task.priority, "value", 0) if isinstance(task, HasPriority) else 0
+    due_date = getattr(task, "due_date", None) or date.max
+    return (priority_value, due_date)

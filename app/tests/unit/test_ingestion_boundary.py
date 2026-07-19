@@ -2,7 +2,7 @@
 Hexagonal boundary guard for core/ingestion/ (ADR-044).
 
 core/ingestion/ holds only pure, transport-agnostic ingestion pieces
-(batch_preparer, ingestion_types, vectors). All Neo4j driver/session access and
+(ingestion_types, vectors). All Neo4j driver/session access and
 the Cypher that uses it were relocated below the boundary into
 adapters/persistence/neo4j/ (PRs #53/#54). This test locks that in: it fails fast
 if any core/ingestion module reaches for the Neo4j driver again.

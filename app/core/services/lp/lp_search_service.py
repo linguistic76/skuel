@@ -107,13 +107,11 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
         if not goal_uid:
             return Result.fail(Errors.validation(message="goal_uid is required", field="goal_uid"))
 
-        from core.utils.neo4j_mapper import from_neo4j_node
-
         result = await self.backend.get_paths_aligned_with_goal(goal_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
-        paths = [from_neo4j_node(record["lp"], LearningPath) for record in result.value]
+        paths = result.value
 
         self.logger.debug(f"Found {len(paths)} paths aligned with goal {goal_uid}")
         return Result.ok(paths)
@@ -137,13 +135,11 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
         if not ku_uid:
             return Result.fail(Errors.validation(message="ku_uid is required", field="ku_uid"))
 
-        from core.utils.neo4j_mapper import from_neo4j_node
-
         result = await self.backend.get_paths_by_knowledge(ku_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
-        paths = [from_neo4j_node(record["lp"], LearningPath) for record in result.value]
+        paths = result.value
 
         self.logger.debug(f"Found {len(paths)} learning paths for knowledge {ku_uid}")
         return Result.ok(paths)
@@ -168,13 +164,11 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
         Returns:
             Result containing prioritized Learning Paths
         """
-        from core.utils.neo4j_mapper import from_neo4j_node
-
         result = await self.backend.get_user_paths_prioritized(user_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
-        paths = [from_neo4j_node(record["lp"], LearningPath) for record in result.value]
+        paths = result.value
 
         self.logger.debug(f"Prioritized LP search returned {len(paths)} results")
         return Result.ok(paths)

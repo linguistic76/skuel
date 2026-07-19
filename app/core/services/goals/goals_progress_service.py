@@ -29,7 +29,12 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
 from core.services.infrastructure import ProgressCalculator
 from core.services.user import UserContext
-from core.utils.dto_helpers import to_domain_model
+from core.services.user.rich_context import (
+    find_rich_graph_context,
+    get_model_from_rich_context,
+    rich_graph_uids,
+)
+from core.utils.dto_converters import to_domain_model
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
@@ -120,13 +125,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Returns:
             Goal if found in rich context, None otherwise
         """
-        for goal_data in user_context.entities_rich.get("goals", []):
-            goal_dict = goal_data.get("entity", {})
-            if goal_dict.get("uid") == goal_uid:
-                # Convert dict to Goal domain model
-                return self._dict_to_goal(goal_dict)
-
-        return None
+        return get_model_from_rich_context(user_context, "goals", goal_uid, GoalDTO, Goal)
 
     def _get_relationships_from_rich_context(
         self, goal_uid: str, user_context: UserContext
@@ -144,129 +143,15 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Returns:
             GoalRelationships if found in rich context, None otherwise
         """
-        for goal_data in user_context.entities_rich.get("goals", []):
-            goal_dict = goal_data.get("entity", {})
-            if goal_dict.get("uid") == goal_uid:
-                graph_ctx = goal_data.get("graph_context", {})
-                if graph_ctx:
-                    return GoalRelationships(
-                        supporting_habit_uids=[
-                            h.get("uid")
-                            for h in graph_ctx.get("supporting_habits", [])
-                            if h and h.get("uid")
-                        ],
-                        required_knowledge_uids=[
-                            k.get("uid")
-                            for k in graph_ctx.get("required_knowledge", [])
-                            if k and k.get("uid")
-                        ],
-                        sub_goal_uids=[
-                            g.get("uid")
-                            for g in graph_ctx.get("sub_goals", [])
-                            if g and g.get("uid")
-                        ],
-                        aligned_learning_path_uids=[
-                            lp.get("uid")
-                            for lp in graph_ctx.get("aligned_paths", [])
-                            if lp and lp.get("uid")
-                        ],
-                        guiding_principle_uids=[
-                            p.get("uid")
-                            for p in graph_ctx.get("guiding_principles", [])
-                            if p and p.get("uid")
-                        ],
-                    )
-        return None
-
-    def _dict_to_goal(self, goal_dict: dict[str, Any]) -> Goal:
-        """
-        Convert a goal dictionary from MEGA-QUERY to Goal domain model.
-
-        Args:
-            goal_dict: Dict with goal properties from Neo4j
-
-        Returns:
-            Goal domain model
-        """
-        # Parse date fields
-        target_date = goal_dict.get("target_date")
-        if target_date and isinstance(target_date, str):
-            target_date = date.fromisoformat(target_date)
-        elif target_date and not isinstance(target_date, date):
-            target_date = (
-                date(target_date.year, target_date.month, target_date.day) if target_date else None
-            )
-
-        completion_date = goal_dict.get("completion_date")
-        if completion_date and isinstance(completion_date, str):
-            completion_date = date.fromisoformat(completion_date)
-        elif completion_date and not isinstance(completion_date, date):
-            completion_date = (
-                date(completion_date.year, completion_date.month, completion_date.day)
-                if completion_date
-                else None
-            )
-
-        # Parse datetime fields
-        created_at_raw = goal_dict.get("created_at")
-        if isinstance(created_at_raw, str):
-            created_at: datetime = datetime.fromisoformat(created_at_raw)
-        elif isinstance(created_at_raw, datetime):
-            created_at = created_at_raw
-        else:
-            created_at = datetime.now()
-
-        updated_at_raw = goal_dict.get("updated_at")
-        if isinstance(updated_at_raw, str):
-            updated_at: datetime = datetime.fromisoformat(updated_at_raw)
-        elif isinstance(updated_at_raw, datetime):
-            updated_at = updated_at_raw
-        else:
-            updated_at = datetime.now()
-
-        # Parse enums
-        status_val = goal_dict.get("status", "active")
-        status = EntityStatus(status_val) if isinstance(status_val, str) else status_val
-
-        domain_val = goal_dict.get("domain")
-        if isinstance(domain_val, str):
-            domain: Domain = Domain(domain_val)
-        elif isinstance(domain_val, Domain):
-            domain = domain_val
-        else:
-            domain = Domain.KNOWLEDGE
-
-        measurement_val = goal_dict.get("measurement_type", "milestone")
-        measurement_type = (
-            MeasurementType(measurement_val)
-            if isinstance(measurement_val, str)
-            else measurement_val
-        )
-
-        # Convert milestones list to tuple for frozen dataclass
-        milestones_list = goal_dict.get("milestones", [])
-        milestones_tuple = (
-            tuple(milestones_list) if isinstance(milestones_list, list) else milestones_list
-        )
-
-        return Goal(
-            uid=goal_dict.get("uid", ""),
-            user_uid=goal_dict.get("user_uid", ""),
-            title=goal_dict.get("title", ""),
-            description=goal_dict.get("description"),
-            status=status,
-            domain=domain,
-            measurement_type=measurement_type,
-            target_date=target_date,
-            # NOTE: Goal uses 'achieved_date' not 'completion_date'
-            achieved_date=goal_dict.get("achieved_date", goal_dict.get("completion_date")),
-            progress_percentage=goal_dict.get("progress_percentage", 0.0),
-            current_value=goal_dict.get("current_value", 0.0),
-            target_value=goal_dict.get("target_value", 100.0),
-            milestones=milestones_tuple,
-            fulfills_goal_uid=goal_dict.get("parent_goal_uid"),
-            created_at=created_at,
-            updated_at=updated_at,
+        graph_ctx = find_rich_graph_context(user_context, "goals", goal_uid)
+        if graph_ctx is None:
+            return None
+        return GoalRelationships(
+            supporting_habit_uids=rich_graph_uids(graph_ctx, "supporting_habits"),
+            required_knowledge_uids=rich_graph_uids(graph_ctx, "required_knowledge"),
+            sub_goal_uids=rich_graph_uids(graph_ctx, "sub_goals"),
+            aligned_learning_path_uids=rich_graph_uids(graph_ctx, "aligned_paths"),
+            guiding_principle_uids=rich_graph_uids(graph_ctx, "guiding_principles"),
         )
 
     # ========================================================================
@@ -423,7 +308,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Check if goal is complete
         if completed_count == len(updated_milestones):
             updates["status"] = EntityStatus.COMPLETED
-            updates["completion_date"] = date.today()
+            updates["achieved_date"] = date.today()
 
         update_result = await self.backend.update_goal(goal_uid, dict(updates))
         if update_result.is_error:
@@ -523,7 +408,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # Check if goal is achieved
             if new_progress >= 100:
                 updates["status"] = EntityStatus.COMPLETED
-                updates["completion_date"] = date.today()
+                updates["achieved_date"] = date.today()
 
             update_result = await self.backend.update_goal(goal_uid, dict(updates))
             if update_result.is_error:
@@ -1117,7 +1002,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Check if goal is achieved
         if new_progress >= 100:
             updates["status"] = EntityStatus.COMPLETED.value
-            updates["completion_date"] = date.today()
+            updates["achieved_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)
         if update_result.is_error:
@@ -1286,7 +1171,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Check if goal is achieved
         if new_progress >= 100:
             updates["status"] = EntityStatus.COMPLETED.value
-            updates["completion_date"] = date.today()
+            updates["achieved_date"] = date.today()
 
         update_result = await self.backend.update(goal_uid, updates)
         if update_result.is_error:

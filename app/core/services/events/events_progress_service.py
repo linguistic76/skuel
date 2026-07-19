@@ -28,6 +28,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.user import UserContext
+from core.services.user.rich_context import get_model_from_rich_context
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -86,18 +87,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         self, event_uid: str, user_context: UserContext
     ) -> Event | None:
         """Try to get Entity from UserContext.entities_rich["events"]."""
-        for event_data in user_context.entities_rich.get("events", []):
-            event_dict = event_data.get("entity", {})
-            if event_dict.get("uid") == event_uid:
-                return self._dict_to_event(event_dict)
-        return None
-
-    def _dict_to_event(self, event_dict: dict[str, Any]) -> Event | None:
-        """Convert raw Neo4j dict to Event domain model."""
-        if not event_dict or not event_dict.get("uid"):
-            return None
-        dto = EventDTO.from_dict(event_dict)
-        return Event.from_dto(dto)
+        return get_model_from_rich_context(user_context, "events", event_uid, EventDTO, Event)
 
     # ========================================================================
     # EVENT COMPLETION

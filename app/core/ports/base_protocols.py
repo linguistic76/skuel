@@ -745,14 +745,14 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Query user's active (non-terminal) entities."""
         ...
 
-    async def prerequisite_traversal_raw(
+    async def prerequisite_traversal(
         self,
         uid: str,
         relationship_types: builtins.list[str],
         depth: int = 3,
         direction: Direction = "outgoing",
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Traverse prerequisite relationships and return raw records."""
+    ) -> ResultType[builtins.list[T]]:
+        """Traverse prerequisite relationships and return typed domain models."""
         ...
 
     async def hierarchy_query_raw(

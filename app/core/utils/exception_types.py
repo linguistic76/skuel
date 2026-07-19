@@ -20,21 +20,52 @@ See: /docs/patterns/ERROR_HANDLING.md
 """
 
 import json
+from typing import TYPE_CHECKING
 
 import yaml
-from neo4j.exceptions import (
-    AuthError,
-    DriverError,
-    Neo4jError,
-    ServiceUnavailable,
-    SessionExpired,
-)
 
 # ============================================================================
 # DATABASE EXCEPTIONS
 # ============================================================================
 
-NEO4J_EXCEPTIONS = (Neo4jError, DriverError, ServiceUnavailable, SessionExpired, AuthError)
+# Import the exception CLASSES by name, guarded like every other SDK below
+# (ADR-063 carve-out: exception classes are the one sanctioned SDK import in
+# core). Core stays importable without the driver installed; when the driver
+# is absent no driver exception can be raised, so the empty tuple is inert.
+#
+# The TYPE_CHECKING split keeps the static type a concrete fixed-length tuple:
+# call sites star-unpack it into except clauses (`except (*NEO4J_EXCEPTIONS,
+# *DATA_CONVERSION_EXCEPTIONS)`), which mypy rejects for variadic
+# `tuple[type[BaseException], ...]` values.
+#
+# NOTE (Tier 6 consideration): a "register driver exceptions at composition
+# time" design was evaluated and rejected — 100+ call sites bind this name via
+# `from ... import NEO4J_EXCEPTIONS` at module import time, so a tuple
+# reassigned at compose time would silently never reach existing `except`
+# clauses. The guarded class import is the honest one-path version.
+if TYPE_CHECKING:
+    from neo4j.exceptions import (
+        AuthError,
+        DriverError,
+        Neo4jError,
+        ServiceUnavailable,
+        SessionExpired,
+    )
+
+    NEO4J_EXCEPTIONS = (Neo4jError, DriverError, ServiceUnavailable, SessionExpired, AuthError)
+else:
+    try:
+        from neo4j.exceptions import (
+            AuthError,
+            DriverError,
+            Neo4jError,
+            ServiceUnavailable,
+            SessionExpired,
+        )
+
+        NEO4J_EXCEPTIONS = (Neo4jError, DriverError, ServiceUnavailable, SessionExpired, AuthError)
+    except ImportError:
+        NEO4J_EXCEPTIONS = ()
 """Neo4j driver and query exceptions. Map to Errors.database()."""
 
 # ============================================================================

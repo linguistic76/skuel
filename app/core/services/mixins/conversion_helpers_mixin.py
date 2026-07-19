@@ -13,14 +13,12 @@ REQUIRES (Mixin Dependencies):
 PROVIDES (Methods for Other Mixins):
     - _to_domain_model: Convert backend data to domain model
     - _to_domain_models: Bulk convert backend data to domain models
-    - _records_to_domain_models: Extract and convert Neo4j query records
     - _validate_required_user_uid: Validate presence of user_uid
     - _create_and_convert: Create entity and convert to domain model
 
 Methods:
     - _to_domain_model: Convert backend data to domain model
     - _to_domain_models: Bulk convert backend data to domain models
-    - _records_to_domain_models: Extract and convert Neo4j query records
     - _validate_required_user_uid: Validate presence of user_uid
     - _create_and_convert: Create entity and convert to domain model
 """
@@ -79,34 +77,6 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
     ) -> builtins.list[T]:
         """Convert list of backend data to domain models."""
         return _to_domain_models_fn(data_list, dto_class, model_class)
-
-    def _records_to_domain_models(
-        self,
-        records: builtins.list[dict[str, Any]],
-        node_key: str = "n",
-    ) -> builtins.list[T]:
-        """
-        Extract nodes from query records and convert to domain models.
-
-        consolidation helper: handles the common pattern of extracting
-        nodes from RETURN n queries and converting to domain models.
-
-        Args:
-            records: List of record dicts from execute_query
-            node_key: Key containing the node data (default: "n")
-
-        Returns:
-            List of domain model instances
-        """
-        from core.utils.neo4j_mapper import from_neo4j_node
-
-        if self._model_class is None:
-            raise RuntimeError(
-                f"{type(self).__name__} requires _model_class to convert Neo4j records. "
-                "Set it via DomainConfig or as a class attribute."
-            )
-
-        return [from_neo4j_node(record[node_key], self._model_class) for record in records]
 
     # ========================================================================
     # CREATE OPERATION HELPERS (January 2026 - DRY Consolidation)

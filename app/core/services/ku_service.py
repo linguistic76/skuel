@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import coerce_int
+from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

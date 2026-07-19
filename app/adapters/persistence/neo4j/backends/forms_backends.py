@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import UserRole
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_submission import FormSubmission
-    from core.models.forms.form_template import FormTemplate  # noqa: F401
+    from core.models.forms.form_template import FormTemplate
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.report_schedule import ReportSchedule  # noqa: F401
@@ -42,8 +42,11 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             return Result.ok(0)
         return Result.ok(result.value[0].get("count", 0))
 
-    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all FormTemplates embedded in a path step."""
+    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]:
+        """Get all FormTemplates embedded in a path step as typed models."""
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+        from core.models.forms.form_template import FormTemplate
+
         result = await self.execute_query(
             f"""
             MATCH (a:Entity {{uid: $ps_uid}})
@@ -56,7 +59,9 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
         )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record["ft"]) for record in (result.value or [])])
+        return Result.ok(
+            [from_neo4j_node(dict(record["ft"]), FormTemplate) for record in (result.value or [])]
+        )
 
     async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
         """Create EMBEDS_FORM relationship from path step to form template."""
@@ -157,7 +162,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         form_template_uid: str,
     ) -> Result[FormSubmission]:
         """Atomically create node + OWNS + RESPONDS_TO_FORM in one transaction."""
-        from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 
         node_data = to_neo4j_node(submission)
         node_data.update(self.default_filters)
