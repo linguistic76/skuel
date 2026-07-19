@@ -2152,6 +2152,71 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
             "applied_knowledge",
             "knowledge",
         ),
+        # Incoming: EntryReport → UserEntry (reports evaluating this entry).
+        # 1-to-many by design: a submission may hold both an AI report and a
+        # teacher report (ReportSource discriminates).
+        UnifiedRelationshipDefinition(
+            RelationshipName.REPORT_FOR,
+            "EntryReport",
+            "incoming",
+            "reports",
+            "reports",
+            fields=("uid", "title", "status", "processor_type"),
+        ),
+    ),
+    bidirectional_relationships=(),
+    default_context_intent=QueryIntent.HIERARCHICAL,
+)
+
+# -----------------------------------------------------------------------------
+# ENTRY_REPORT (Four-Phase Learning Loop — Phase 3 feedback artifact)
+# The report evaluates one UserEntry (REPORT_FOR, created in the same
+# transaction as the report node); teacher assessments additionally target the
+# student (ASSESSMENT_OF); revisions answer the report (RESPONDS_TO_REPORT).
+# Registered 2026-07 (learning-loop contract review): these edges were written
+# and read in backend Cypher but invisible to the declarative layer, so
+# enrichment/context queries could not project the report side of the loop.
+# -----------------------------------------------------------------------------
+ENTRY_REPORT_CONFIG = DomainRelationshipConfig(
+    domain=Domain.SYSTEM,
+    entity_label="EntryReport",
+    dto_class=EntityDTO,
+    model_class=Entity,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.OWNS,
+    is_shared_content=False,
+    relationships=(
+        # Outgoing: EntryReport → UserEntry (the artifact this report evaluates)
+        UnifiedRelationshipDefinition(
+            RelationshipName.REPORT_FOR,
+            "UserEntry",
+            "outgoing",
+            "reviewed_entry",
+            "reviewed_entry",
+            fields=("uid", "title", "status", "user_uid"),
+            single=True,
+        ),
+        # Outgoing: EntryReport → User (teacher assessment targets the student).
+        # User nodes store the username in `title` (create_user: title=username);
+        # a `username` node property never existed.
+        UnifiedRelationshipDefinition(
+            RelationshipName.ASSESSMENT_OF,
+            "User",
+            "outgoing",
+            "assessed_student",
+            "assessed_student",
+            fields=("uid", "title", "display_name"),
+            single=True,
+        ),
+        # Incoming: RevisedExercise → EntryReport (revision addressing this report)
+        UnifiedRelationshipDefinition(
+            RelationshipName.RESPONDS_TO_REPORT,
+            "Entity",
+            "incoming",
+            "revisions",
+            "revisions",
+            fields=("uid", "title", "status"),
+        ),
     ),
     bidirectional_relationships=(),
     default_context_intent=QueryIntent.HIERARCHICAL,
@@ -2262,6 +2327,8 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "RevisedExercise": REVISED_EXERCISE_CONFIG,
     # User-authored content (ADR-054)
     "UserEntry": USER_ENTRY_CONFIG,
+    # Learning-loop feedback artifact (Phase 3)
+    "EntryReport": ENTRY_REPORT_CONFIG,
     # Interaction audit records (ADR-051 — User Interaction Contract)
     "Interaction": INTERACTION_CONFIG,
     # Backward-compat aliases (old label keys used by DomainConfig files)
