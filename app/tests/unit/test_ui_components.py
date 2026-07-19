@@ -15,7 +15,6 @@ Run with:
 """
 
 from core.models.enums import (
-    BridgeType,
     EntityStatus,
     Priority,
     SeverityLevel,
@@ -295,18 +294,6 @@ def test_get_sel_icon():
     for category in categories:
         icon = get_sel_icon(category)
         assert isinstance(icon, str)
-
-
-# ============================================================================
-# ENUM HELPERS - BRIDGE TYPE
-# ============================================================================
-
-
-def test_get_bridge_color():
-    """Test knowledge bridge type color mapping."""
-    for bridge_type in BridgeType:
-        color = bridge_type.get_color()
-        assert isinstance(color, str)
 
 
 # ============================================================================

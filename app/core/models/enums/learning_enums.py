@@ -126,8 +126,8 @@ class FeedbackCategory(StrEnum):
     """
     Category of learning gap identified in an EntryReport.
 
-    Orthogonal to KnowledgeType (what kind of knowledge) — FeedbackCategory
-    classifies what kind of gap the teacher observed in the student's work.
+    FeedbackCategory classifies what kind of gap the teacher observed
+    in the student's work.
     Used on RevisedExercise.feedback_points to enable pattern tracking
     across submissions and over time.
 
@@ -556,28 +556,6 @@ class ContentType(StrEnum):
         ]
 
 
-class PracticeLevel(StrEnum):
-    """Difficulty/expertise levels"""
-
-    BEGINNER = "beginner"
-    INTERMEDIATE = "intermediate"
-    ADVANCED = "advanced"
-    EXPERT = "expert"
-
-    def to_learning_level(self) -> LearningLevel:
-        """Convert to LearningLevel"""
-        return LearningLevel(self.value)
-
-
-class KnowledgeType(StrEnum):
-    """Types of knowledge for classification"""
-
-    DECLARATIVE = "declarative"  # What is...
-    PROCEDURAL = "procedural"  # How to...
-    CONCEPTUAL = "conceptual"  # Why...
-    METACOGNITIVE = "metacognitive"  # When to...
-
-
 class SELCategory(StrEnum):
     """
     Social Emotional Learning (SEL) framework categories.
@@ -624,12 +602,3 @@ class SELCategory(StrEnum):
             SELCategory.RESPONSIBLE_DECISION_MAKING: "Making ethical, constructive choices",
         }
         return descriptions.get(self, "")
-
-
-# Domain to SEL mapping - Integrates existing SKUEL domains into SEL framework
-DOMAIN_SEL_MAPPING = {
-    "principles": SELCategory.SELF_AWARENESS,
-    "habits": SELCategory.SELF_MANAGEMENT,
-    "goals": SELCategory.SELF_MANAGEMENT,
-    "choices": SELCategory.RESPONSIBLE_DECISION_MAKING,
-}

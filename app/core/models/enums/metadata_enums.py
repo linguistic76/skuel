@@ -64,18 +64,6 @@ class GuidanceMode(StrEnum):
     ENCOURAGING = "encouraging"
 
 
-class LearningModality(StrEnum):
-    """Preferred learning modalities"""
-
-    VISUAL = "visual"
-    AUDITORY = "auditory"
-    READING = "reading"
-    KINESTHETIC = "kinesthetic"
-    INTERACTIVE = "interactive"
-    VIDEO = "video"
-    PRACTICE = "practice"
-
-
 # ============================================================================
 # RELATIONSHIPS & DEPENDENCIES
 # ============================================================================
@@ -223,41 +211,6 @@ class Intent(StrEnum):
     TRACK = "track"
     CONNECT = "connect"
     ORGANIZE = "organize"
-
-
-class ExtractionMethod(StrEnum):
-    """Method used for facet/intent extraction"""
-
-    PATTERN = "pattern"  # Rule-based patterns
-    EMBEDDING = "embedding"  # Semantic similarity
-    LLM = "llm"  # Language model
-    HYBRID = "hybrid"  # Combination of methods
-
-
-class SearchScope(StrEnum):
-    """Scope of search operations"""
-
-    LOCAL = "local"  # Current domain only
-    CROSS_DOMAIN = "cross_domain"  # Across all domains
-    RELATED = "related"  # Include related items
-    DEEP = "deep"  # Include prerequisites and dependencies
-
-
-class FacetType(StrEnum):
-    """Types of facets for filtering and categorization"""
-
-    DOMAIN = "domain"
-    TAG = "tag"
-    CATEGORY = "category"
-    STATUS = "status"
-    PRIORITY = "priority"
-    DATE_RANGE = "date_range"
-    AUTHOR = "author"
-    TYPE = "type"
-    DIFFICULTY = "difficulty"
-    MASTERY = "mastery"
-    AGE = "age"
-    LEVEL = "level"
 
 
 class MessageRole(StrEnum):
@@ -450,25 +403,6 @@ class SeverityLevel(StrEnum):
         """Convert to numeric value for sorting (1-3, higher is more severe)"""
         mapping = {SeverityLevel.LOW: 1, SeverityLevel.MEDIUM: 2, SeverityLevel.HIGH: 3}
         return mapping.get(self, 2)
-
-
-class BridgeType(StrEnum):
-    """Types of knowledge bridges for cross-domain learning"""
-
-    DIRECT = "direct"  # Direct transfer of concepts
-    ANALOGICAL = "analogical"  # Learning by analogy
-    METHODOLOGICAL = "methodological"  # Transfer of methods/approaches
-    SKILL_TRANSFER = "skill_transfer"  # Transfer of skills
-
-    def get_color(self) -> str:
-        """Get color for bridge type (Tailwind base color name)"""
-        colors = {
-            BridgeType.DIRECT: "green",
-            BridgeType.ANALOGICAL: "blue",
-            BridgeType.METHODOLOGICAL: "purple",
-            BridgeType.SKILL_TRANSFER: "orange",
-        }
-        return colors.get(self, "gray")
 
 
 # ============================================================================

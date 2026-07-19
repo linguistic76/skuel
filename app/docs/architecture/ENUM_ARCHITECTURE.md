@@ -21,7 +21,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
 | `pipeline.py` | User entry processing dispatch + report provenance (ADR-054, supersede ProcessorType) | Pipeline, ReportSource |
-| `user_entry_enums.py` | User entry (submissions/journal) processing and scheduling | SubmissionModality, ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
+| `user_entry_enums.py` | User entry (submissions/journal) processing and scheduling | SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
@@ -322,9 +322,6 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 | SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `UserEntry.modality` (set at creation). Orthogonal to `Pipeline` (what processes) — modality is *how* the submission was created. |
 | ExerciseScope | PERSONAL, ASSIGNED, ASSESSMENT, CURRICULUM | Exercise scope (user's own / teacher-assigned / formal test / content-vault-authored). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
 | EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `UserEntry.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
-| FormattingStyle | STRUCTURED, NARRATIVE, BULLET_POINTS, CONVERSATIONAL, EXECUTIVE_SUMMARY | Transcript formatting |
-| AnalysisDepth | BASIC, DETAILED, COMPREHENSIVE | LLM processing depth |
-| ContextEnrichmentLevel | NONE, BASIC, STANDARD, DEEP | SKUEL context integration |
 | ScheduleType | WEEKLY, BIWEEKLY, MONTHLY | Progress report frequency |
 | ProgressDepth | SUMMARY, STANDARD, DETAILED | Report detail level |
 
@@ -352,9 +349,8 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `MasteryStatus` (NOT_STARTED → MASTERED, 7-level progression, with `sort_order()`, `rank()`, `from_value()`)
 - `KnowledgeStatus` (DRAFT → UNDER_REVIEW, with `to_activity_status()`)
 - `ContentType` (CONCEPT, PRACTICE, THEORY, ... 12 values for faceted search)
-- `KnowledgeType` (DECLARATIVE, PROCEDURAL, CONCEPTUAL, METACOGNITIVE)
 - `SELCategory` (5 SEL framework categories)
-- `KuComplexity` (BASIC, MEDIUM, ADVANCED, with `sort_order()`, `from_value()`), `PracticeLevel`
+- `KuComplexity` (BASIC, MEDIUM, ADVANCED, with `sort_order()`, `from_value()`)
 
 **User** (`user_enums.py`):
 - `UserRole` — 4-tier hierarchy: REGISTERED < MEMBER < TEACHER < ADMIN. Has `has_permission()` for hierarchy-aware checks. Use `UserRole.from_string()` for Neo4j-sourced values — zero raw string comparisons remain.
@@ -367,7 +363,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `Intent` (23 values — user intent classification)
 - `Visibility` (PRIVATE, SHARED, TEAM, PUBLIC)
 - `SystemConstants` (class with thresholds: MASTERY_THRESHOLD=0.8, etc.)
-- Plus: ResponseTone, Personality, GuidanceMode, LearningModality, SearchScope, FacetType, MessageRole, ConversationState, CacheStrategy, TrendDirection, HealthStatus, SeverityLevel, BridgeType, ErrorSeverity, ExtractionMethod
+- Plus: ResponseTone, Personality, GuidanceMode, MessageRole, ConversationState, CacheStrategy, TrendDirection, HealthStatus, SeverityLevel, ErrorSeverity
 
 **Transcription** (`transcription_enums.py`):
 - `TranscriptionStatus` — PENDING, PROCESSING, COMPLETED, FAILED. Has `is_terminal()` and `can_retry()`.
@@ -467,9 +463,6 @@ Some enums bridge between systems:
 ```python
 # Knowledge status → Entity status
 KnowledgeStatus.PUBLISHED.to_activity_status()  # → EntityStatus.COMPLETED
-
-# Practice level → Learning level
-PracticeLevel.ADVANCED.to_learning_level()       # → LearningLevel.ADVANCED
 
 # Priority → numeric for sorting
 Priority.HIGH.to_numeric()                        # → 3
