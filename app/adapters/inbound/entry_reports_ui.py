@@ -34,6 +34,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.pipeline import ReportSource
 from core.utils.logging import get_logger
@@ -149,29 +150,23 @@ def create_entry_reports_ui_routes(
     # ========================================================================
 
     @rt("/reports/list")
+    @ui_boundary_handler("Error loading feedback", fragment_id="feedback-list")
     async def entry_reports_list(request: Request) -> Any:
         """HTMX fragment: teacher assessments received."""
-        try:
-            user_uid = require_authenticated_user(request)
-            if not orchestrator:
-                return Div(
-                    render_error_banner("Feedback service unavailable"),
-                    id="feedback-list",
-                )
-            result = await orchestrator.get_assessments_for_student(user_uid)
-            if result.is_error:
-                logger.error(f"Error loading feedback list: {result.error}")
-                return Div(
-                    render_error_banner("Failed to load feedback", str(result.error)),
-                    id="feedback-list",
-                )
-            return render_received_report_list(result.value or [])
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading feedback list: {e}", exc_info=True)
+        user_uid = require_authenticated_user(request)
+        if not orchestrator:
             return Div(
-                render_error_banner("Error loading feedback", str(e)),
+                render_error_banner("Feedback service unavailable"),
                 id="feedback-list",
             )
+        result = await orchestrator.get_assessments_for_student(user_uid)
+        if result.is_error:
+            logger.error(f"Error loading feedback list: {result.error}")
+            return Div(
+                render_error_banner("Failed to load feedback", str(result.error)),
+                id="feedback-list",
+            )
+        return render_received_report_list(result.value or [])
 
     # ========================================================================
     # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)

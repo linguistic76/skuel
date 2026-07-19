@@ -35,6 +35,7 @@ from fasthtml.common import H4, Div, P, Span
 from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
@@ -410,25 +411,19 @@ def create_user_entry_ui_routes(
         )
 
     @rt("/submissions/history/list")
+    @ui_boundary_handler("Error loading submissions", fragment_id="submissions-yours-list")
     async def history_list(request: Request) -> Any:
         """HTMX fragment: refreshed submissions list."""
-        try:
-            user_uid = require_authenticated_user(request)
-            result = await orchestrator.list_exercise_entries(user_uid)
-            if result.is_error:
-                logger.error(f"Error loading submissions history: {result.error}")
-                return Div(
-                    render_error_banner("Failed to load submissions", str(result.error)),
-                    id="submissions-yours-list",
-                )
-            items = [_to_history_dict(e) for e in (result.value or [])]
-            return render_yours_list(items)
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading submissions history: {e}", exc_info=True)
+        user_uid = require_authenticated_user(request)
+        result = await orchestrator.list_exercise_entries(user_uid)
+        if result.is_error:
+            logger.error(f"Error loading submissions history: {result.error}")
             return Div(
-                render_error_banner("Error loading submissions", str(e)),
+                render_error_banner("Failed to load submissions", str(result.error)),
                 id="submissions-yours-list",
             )
+        items = [_to_history_dict(e) for e in (result.value or [])]
+        return render_yours_list(items)
 
     @rt("/submissions/history/delete", methods=["POST"])
     @csrf_protected

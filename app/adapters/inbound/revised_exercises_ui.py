@@ -31,6 +31,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.text_truncation import truncate_to_budget
@@ -153,29 +154,23 @@ def create_revised_exercises_ui_routes(
     # ========================================================================
 
     @rt("/revised-exercises/list")
+    @ui_boundary_handler("Error loading revisions", fragment_id="revisions-list")
     async def revised_exercises_list(request: Request) -> Any:
         """HTMX fragment: revised exercises for current student."""
-        try:
-            user_uid = require_authenticated_user(request)
-            if not orchestrator:
-                return Div(
-                    render_error_banner("Revision orchestrator unavailable"),
-                    id="revisions-list",
-                )
-            result = await orchestrator.list_revised_exercises(user_uid)
-            if result.is_error:
-                logger.error(f"Error loading revisions list: {result.error}")
-                return Div(
-                    render_error_banner("Failed to load revisions", str(result.error)),
-                    id="revisions-list",
-                )
-            return render_revised_exercise_list(result.value or [])
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading revisions list: {e}", exc_info=True)
+        user_uid = require_authenticated_user(request)
+        if not orchestrator:
             return Div(
-                render_error_banner("Error loading revisions", str(e)),
+                render_error_banner("Revision orchestrator unavailable"),
                 id="revisions-list",
             )
+        result = await orchestrator.list_revised_exercises(user_uid)
+        if result.is_error:
+            logger.error(f"Error loading revisions list: {result.error}")
+            return Div(
+                render_error_banner("Failed to load revisions", str(result.error)),
+                id="revisions-list",
+            )
+        return render_revised_exercise_list(result.value or [])
 
     # ========================================================================
     # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
