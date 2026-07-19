@@ -136,12 +136,14 @@ def ButtonLink(
 
 
 def view_switcher(current_view: str, target_date: date) -> Any:  # boundary: fasthtml-elements
-    """Segmented Today | Week | Month lens control, shared by /today and /cal.
+    """Segmented Today | Week | Month lens control on the Today surface.
 
     Three lenses on one timeline (#665): the Today surface owns the current day;
-    Week and Month are the calendar's temporal lenses. The active segment is a
-    non-navigating span; the others are plain links. ``target_date`` anchors the
-    Week/Month hrefs — the Today lens always points at ``/today``.
+    Week and Month are the calendar's temporal lenses. The calendar views dropped
+    the switcher (lens links live in the activity sidebar), so /today is the sole
+    consumer. The active segment is a non-navigating span; the others are plain
+    links. ``target_date`` anchors the Week/Month hrefs — the Today lens always
+    points at ``/today``.
     """
     views = (
         ("Today", "today", "/today"),

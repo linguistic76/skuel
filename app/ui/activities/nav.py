@@ -26,6 +26,8 @@ ACTIVITY_STORAGE_KEY = "activity-sidebar"
 
 ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Today", "/today", "today", icon="sun"),
+    SidebarItem("Weekly", "/cal/week", "weekly", icon="calendar-range"),
+    SidebarItem("Monthly", "/cal/month", "monthly", icon="calendar-days"),
     SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
     SidebarItem("Events", "/cal", "events", icon="calendar"),
     SidebarItem("Goals", "/goals", "goals", icon="target"),
