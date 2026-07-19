@@ -23,7 +23,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, Required, TypedDict
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
@@ -31,7 +31,7 @@ from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams
 from core.utils.error_boundary import safe_backend_operation
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, ErrorSeverity, Result
 
 if TYPE_CHECKING:
     import builtins
@@ -40,6 +40,16 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from core.ports.base_protocols import Direction
+
+
+class _PairDiagnosis(TypedDict, total=False):
+    """Failure diagnosis from _validate_relationship_pair — kind + per-kind context."""
+
+    kind: Required[Literal["no_source_label", "invalid_type", "invalid_target"]]
+    source_label: str
+    valid_types: list[str]
+    actual_target: str
+    expected_targets: list[str]
 
 
 class _RelationshipCrudMixin[T: DomainModelProtocol]:
@@ -139,7 +149,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         rel_type: RelationshipName | str,
         source_labels: builtins.list[str],
         target_labels: builtins.list[str],
-    ) -> dict[str, Any] | None:
+    ) -> _PairDiagnosis | None:
         """
         Registry-validate one (source, target, relationship-type) triple.
 
@@ -195,14 +205,12 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     @staticmethod
     def _pair_diagnosis_to_error(
-        diagnosis: dict[str, Any],
+        diagnosis: _PairDiagnosis,
         from_uid: str,
         relationship_type: RelationshipName,
         target_labels: builtins.list[str],
-    ) -> Any:
+    ) -> ErrorContext:
         """Map a _validate_relationship_pair diagnosis to create_relationship's error surface."""
-        from core.utils.result_simplified import ErrorCategory, ErrorContext, ErrorSeverity
-
         if diagnosis["kind"] == "no_source_label":
             return Errors.validation(
                 message=f"Unable to determine source label for UID: {from_uid}",
