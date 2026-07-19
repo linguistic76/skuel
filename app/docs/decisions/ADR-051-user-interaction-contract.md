@@ -77,10 +77,31 @@ result.
    has a full `EntityIngestionConfig` so test fixtures and content authors can create
    them via YAML if needed.
 
-5. **`InteractionResult` tracks pipeline progression.** The `result_status` field starts
-   as `PENDING` and is intended to transition as the submission pipeline completes
-   (`REPORT_GENERATED`, `SHARED_WITH_TEACHER`, `COMPLETED`). Phase 2 will wire this
-   lifecycle to the report generation pipeline.
+5. **`InteractionResult` tracks pipeline progression (wired 2026-07-19).** The
+   `result_status` field starts as `PENDING` and transitions forward-only as the
+   report pipeline progresses:
+
+   ```
+   PENDING → SHARED_WITH_TEACHER → REPORT_GENERATED → COMPLETED
+       └────────────┴──→ FAILED   (pre-report pipeline error — terminal)
+   ```
+
+   The transition table lives on the enum (`InteractionResult.allowed_from()`,
+   Dynamic Enum Pattern) and the guard runs server-side in
+   `InteractionBackend.update_result_status_for_entry` (matched via
+   `source_entity_uid`), so out-of-order or duplicate events are logged no-ops —
+   a record never moves backwards. Trigger wiring:
+
+   | Transition | Trigger | Mechanism |
+   |---|---|---|
+   | → SHARED_WITH_TEACHER | TEACHER_REVIEW turn-in shared successfully | Direct call in `UserEntryService.create_entry` (only it knows the share outcome) |
+   | → REPORT_GENERATED | AI report (`EntryReportGenerated`, new event) or revision report (`UserEntryRevisionRequested`) — a report exists, loop continues | `core/events/handlers/interaction_result_handler.py` |
+   | → COMPLETED | Terminal teacher feedback (`ReportSubmitted` — `submit_report` marks the submission COMPLETED+APPROVED) or post-revision approval (`UserEntryApproved`) | same handler |
+   | → FAILED | Pipeline error (`UserEntryProcessingFailed`) | same handler |
+
+   Entries with no Interaction record (journal entries, living vault entries)
+   no-op through the same path — `InteractionService.record_result()` returns
+   `ok(False)` when nothing matched.
 
 ---
 
@@ -128,12 +149,12 @@ result.
   a direct uid lookup — the previous `SHARES_WITH {role:'teacher'}` gate silently
   returned empty for standalone submissions, showing "unavailable" to the admin.
 
-**Phase 2 (deferred):**
+**Phase 2:**
+- ✅ `result_status` is updated by the report pipeline (2026-07-19 — see Decision 5
+  for the transition table and trigger wiring).
 - ZPD will query `(u:User)-[:OWNS]->(i:Interaction)-[:INTERACTION_DURING]->(ps:PathStep)`
-  to build situated learning evidence.
-- Askesis will use Interaction history to contextualise its Socratic responses.
-- `result_status` will be updated by the report generation pipeline when a report is
-  created (currently remains PENDING).
+  to build situated learning evidence (deferred).
+- Askesis will use Interaction history to contextualise its Socratic responses (deferred).
 - `InteractionType.KU_VIEW`, `PATH_STEP_COMPLETION`, and `FORM_SUBMISSION` are reserved
   enum values for future interaction capture points.
 

@@ -345,7 +345,8 @@ recording that a submission happened against a given exercise.
 **Service:** `core/services/interaction/interaction_service.py` — `InteractionService`
 **UID prefix:** `ia_`
 **Enums:** `InteractionType` (EXERCISE_SUBMISSION, KU_VIEW, PATH_STEP_COMPLETION, FORM_SUBMISSION),
-`InteractionResult` (PENDING → REPORT_GENERATED → SHARED_WITH_TEACHER → COMPLETED/FAILED)
+`InteractionResult` (PENDING → SHARED_WITH_TEACHER → REPORT_GENERATED → COMPLETED, FAILED
+from pre-report states — forward-only, wired to the report pipeline 2026-07-19)
 
 **What it captures today (ADR-054; PathStep context wired 2026-07-03).**
 `_create_interaction_record()` builds the Interaction with:
@@ -377,6 +378,17 @@ recording that a submission happened against a given exercise.
 a first-class graph node — you can traverse all interactions for a PathStep, or find
 every student who submitted while enrolled in a given LearningPath. Embedding those
 fields in UserEntry would bury them.
+
+**Result lifecycle (ADR-051 Phase 2, wired 2026-07-19):** `result_status` transitions
+forward-only as the report pipeline progresses. `SHARED_WITH_TEACHER` is recorded
+directly by `UserEntryService.create_entry` after a successful TEACHER_REVIEW share;
+the rest are event-driven via `core/events/handlers/interaction_result_handler.py`:
+`EntryReportGenerated` (AI report) and `UserEntryRevisionRequested` (revision report)
+→ REPORT_GENERATED; `ReportSubmitted` (terminal approving feedback — `submit_report`
+marks the submission COMPLETED+APPROVED) and `UserEntryApproved` (post-revision
+approval) → COMPLETED; `UserEntryProcessingFailed` → FAILED. The transition guard
+lives on `InteractionResult.allowed_from()` and runs server-side in
+`InteractionBackend.update_result_status_for_entry` — stale events are logged no-ops.
 
 **Phase 2 (deferred):** ZPD and Askesis will query Interaction nodes to reason about
 *situated learning trajectories* — not just what a student submitted but where in the

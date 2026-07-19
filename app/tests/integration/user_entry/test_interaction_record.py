@@ -174,3 +174,66 @@ async def test_exercise_submission_creates_interaction_with_ps_context(
         "submissions-and-feedback query requires it (about_path_step_uid must "
         "flow through create_entry into the Interaction record)"
     )
+
+
+@pytest.mark.asyncio
+async def test_result_status_transitions_forward_only(
+    clean_neo4j,
+    interaction_service: InteractionService,
+    neo4j_driver,
+) -> None:
+    """ADR-051 Phase 2: record_result moves the record forward and the
+    server-side guard rejects stale (backwards) transitions."""
+    from core.models.enums.entity_enums import EntityType
+    from core.models.enums.interaction_enums import InteractionResult, InteractionType
+    from core.utils.uid_generator import UIDGenerator
+
+    entry_uid = "ue_transition_test"
+    ia = Interaction(
+        uid=UIDGenerator.generate_random_uid("ia"),
+        title="user_entry — ex.transition",
+        entity_type=EntityType.INTERACTION,
+        user_uid="user_ue_student",
+        interaction_type=InteractionType.EXERCISE_SUBMISSION,
+        target_uid="exercise.ue_demo",
+        source_entity_uid=entry_uid,
+    )
+    create_result = await interaction_service.create_interaction(ia)
+    assert create_result.is_ok, create_result.expect_error()
+
+    async def _status() -> str:
+        async with neo4j_driver.session() as session:
+            row = await (
+                await session.run(
+                    "MATCH (i:Entity:Interaction {uid: $uid}) RETURN i.result_status AS s",
+                    uid=ia.uid,
+                )
+            ).single()
+        return row["s"]
+
+    assert await _status() == "pending"
+
+    # PENDING → REPORT_GENERATED applies
+    forward = await interaction_service.record_result(entry_uid, InteractionResult.REPORT_GENERATED)
+    assert forward.is_ok and forward.value is True
+    assert await _status() == "report_generated"
+
+    # Stale SHARED_WITH_TEACHER arriving late is a no-op, never a demotion
+    stale = await interaction_service.record_result(
+        entry_uid, InteractionResult.SHARED_WITH_TEACHER
+    )
+    assert stale.is_ok and stale.value is False
+    assert await _status() == "report_generated"
+
+    # REPORT_GENERATED → COMPLETED applies; a repeat no-ops (terminal)
+    done = await interaction_service.record_result(entry_uid, InteractionResult.COMPLETED)
+    assert done.is_ok and done.value is True
+    repeat = await interaction_service.record_result(entry_uid, InteractionResult.COMPLETED)
+    assert repeat.is_ok and repeat.value is False
+    assert await _status() == "completed"
+
+    # An entry with no Interaction record no-ops cleanly (journal entries)
+    missing = await interaction_service.record_result(
+        "ue_no_such_entry", InteractionResult.COMPLETED
+    )
+    assert missing.is_ok and missing.value is False

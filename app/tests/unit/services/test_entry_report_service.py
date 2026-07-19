@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.events.learning_loop_events import EntryReportGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import ReportSource
@@ -137,6 +138,51 @@ class TestGenerateReportHappyPath:
         assert "Grade this harshly." in call_kwargs["prompt"]
         assert "Answer body." in call_kwargs["prompt"]
         assert call_kwargs["model"] == "claude-sonnet-4-6"
+
+
+# ============================================================================
+# TestEntryReportGeneratedEvent (ADR-051 Phase 2)
+# ============================================================================
+
+
+class TestEntryReportGeneratedEvent:
+    """A persisted AI report publishes EntryReportGenerated — the trigger for
+    the Interaction result_status transition (ADR-051 Phase 2)."""
+
+    @pytest.mark.asyncio
+    async def test_event_published_after_persist(self):
+        event_bus = MagicMock()
+        event_bus.publish_async = AsyncMock(return_value=None)
+        service = EntryReportService(
+            llm_caller=_make_llm_caller(),
+            backend=_make_ext_backend(),
+            event_bus=event_bus,
+        )
+
+        result = await service.generate_report(
+            entry=_make_submission(),
+            exercise=_make_exercise(),
+            user_uid=TEACHER_UID,
+        )
+
+        assert result.is_ok
+        event_bus.publish_async.assert_awaited_once()
+        event = event_bus.publish_async.await_args.args[0]
+        assert isinstance(event, EntryReportGenerated)
+        assert event.entry_uid == SUBMISSION_UID
+        assert event.report_uid == result.value.uid
+        assert event.student_uid == STUDENT_UID
+        assert event.source == ReportSource.LLM.value
+
+    @pytest.mark.asyncio
+    async def test_no_event_bus_is_fine(self):
+        service = _make_service()  # event_bus omitted
+        result = await service.generate_report(
+            entry=_make_submission(),
+            exercise=_make_exercise(),
+            user_uid=TEACHER_UID,
+        )
+        assert result.is_ok
 
 
 # ============================================================================

@@ -39,7 +39,7 @@ from core.events import publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.events.user_entry_events import UserEntryCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.interaction_enums import InteractionType
+from core.models.enums.interaction_enums import InteractionResult, InteractionType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_enums import UserRole
@@ -370,6 +370,25 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                     field="audience",
                 )
             )
+
+        # 5b. Record SHARED_WITH_TEACHER on the Interaction audit record
+        # (ADR-051 Phase 2). Direct call, not an event — only this method
+        # knows the share outcome. Later transitions (REPORT_GENERATED,
+        # COMPLETED, FAILED) are event-driven via interaction_result_handler.
+        if (
+            turn_in_exercise_uid
+            and request.pipeline == Pipeline.TEACHER_REVIEW
+            and outcome.any_success
+            and self.interaction_service is not None
+        ):
+            shared_result = await self.interaction_service.record_result(
+                created.uid, InteractionResult.SHARED_WITH_TEACHER
+            )
+            if shared_result.is_error:
+                self.logger.warning(
+                    f"Failed to record SHARED_WITH_TEACHER for entry {created.uid}: "
+                    f"{shared_result.expect_error()}"
+                )
 
         self.logger.info(
             f"UserEntry created: {created.uid} (pipeline={request.pipeline.value}, "

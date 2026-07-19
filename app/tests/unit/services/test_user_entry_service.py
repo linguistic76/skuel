@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.interaction_enums import InteractionResult
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
@@ -63,6 +64,7 @@ def _make_sharing_service() -> MagicMock:
 def _make_interaction_service() -> MagicMock:
     svc = MagicMock()
     svc.create_interaction = AsyncMock(return_value=Result.ok(True))
+    svc.record_result = AsyncMock(return_value=Result.ok(True))
     return svc
 
 
@@ -487,6 +489,69 @@ class TestInteractionAutoCreate:
         request = UserEntryCreateRequest(title="Note", pipeline=Pipeline.NONE)
         await service.create_entry(request, user_uid="user_1")
         interaction_svc.create_interaction.assert_not_called()
+
+
+class TestSharedWithTeacherTransition:
+    """ADR-051 Phase 2: a successful TEACHER_REVIEW share records
+    SHARED_WITH_TEACHER on the Interaction audit record."""
+
+    @pytest.mark.asyncio
+    async def test_successful_teacher_share_records_transition(self):
+        interaction_svc = _make_interaction_service()
+        sharing = _make_sharing_service()
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(
+            return_value=Result.ok([{"group_uid": "teacher_group_1"}])
+        )
+        service = _make_service(
+            sharing_service=sharing,
+            interaction_service=interaction_svc,
+        )
+        request = UserEntryCreateRequest(
+            title="Turn-in",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        created, _outcome = result.value
+        interaction_svc.record_result.assert_awaited_once_with(
+            created.uid, InteractionResult.SHARED_WITH_TEACHER
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_transition_when_nothing_was_shared(self):
+        """TEACHER_REVIEW resolving to zero shares (no failures either) stays PENDING."""
+        interaction_svc = _make_interaction_service()
+        service = _make_service(
+            sharing_service=_make_sharing_service(),  # no groups resolve
+            interaction_service=interaction_svc,
+        )
+        request = UserEntryCreateRequest(
+            title="Turn-in",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        interaction_svc.record_result.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_non_teacher_pipeline_never_records_share_transition(self):
+        interaction_svc = _make_interaction_service()
+        sharing = _make_sharing_service()
+        service = _make_service(
+            sharing_service=sharing,
+            interaction_service=interaction_svc,
+        )
+        request = UserEntryCreateRequest(
+            title="Personal turn-in",
+            pipeline=Pipeline.NONE,
+            fulfills_exercise_uid="ex_1",
+            share_with_users=["user_peer"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        interaction_svc.record_result.assert_not_called()
 
 
 class TestAudienceResolution:

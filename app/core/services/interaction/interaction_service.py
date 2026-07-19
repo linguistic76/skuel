@@ -8,29 +8,30 @@ that record the User Interaction Contract (who, what, where, result).
 Responsibilities:
 - Persist Interaction nodes to Neo4j
 - Create graph context relationships (INTERACTION_DURING, INTERACTION_WITHIN, RECORDS)
+- Transition result_status as the report pipeline progresses (ADR-051 Phase 2)
 - Query interactions for a user (for ZPD and analytics — Phase 2)
 
 Does NOT handle:
 - ZPD integration (deferred to Phase 2)
 - Askesis integration (deferred to Phase 2)
-- Updating result_status after report generation (deferred to Phase 2)
 """
 
+from core.models.enums.interaction_enums import InteractionResult
 from core.models.interaction.interaction import Interaction
 from core.models.interaction.interaction_dto import InteractionDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
-from core.ports import BackendOperations
+from core.ports.interaction_protocols import InteractionBackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.interaction")
 
 
-class InteractionService(BaseService[BackendOperations[Interaction], Interaction]):
+class InteractionService(BaseService[InteractionBackendOperations, Interaction]):
     """
     Service for Interaction entities (User Interaction Contract).
 
@@ -54,7 +55,7 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
 
     def __init__(
         self,
-        backend: BackendOperations[Interaction],
+        backend: InteractionBackendOperations,
         event_bus=None,
     ) -> None:
         super().__init__(backend, "InteractionService")
@@ -130,5 +131,52 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
         )
 
         return create_result
+
+    # =========================================================================
+    # RESULT-STATUS TRANSITIONS (ADR-051 Phase 2)
+    # =========================================================================
+
+    @with_error_handling("record_result")
+    async def record_result(self, entry_uid: str, new_status: InteractionResult) -> Result[bool]:
+        """Transition the result_status of the Interaction recording a UserEntry.
+
+        The lifecycle is forward-only — ``InteractionResult.allowed_from()``
+        defines which current statuses the transition applies from, and the
+        guard runs inside the Cypher so stale events can never demote a record.
+
+        Returns ``Result.ok(True)`` when a record transitioned, ``ok(False)``
+        for the two valid no-ops: no Interaction records this entry (e.g. a
+        journal entry), or the guard rejected an out-of-order event.
+
+        Backend: InteractionBackend.update_result_status_for_entry
+        """
+        allowed_from = new_status.allowed_from()
+        if not allowed_from:
+            return Result.fail(
+                Errors.validation(
+                    f"{new_status.value} is not a valid transition target",
+                    field="new_status",
+                )
+            )
+
+        update_result = await self.backend.update_result_status_for_entry(
+            entry_uid=entry_uid,
+            new_status=new_status,
+            allowed_from=allowed_from,
+        )
+        if update_result.is_error:
+            return Result.fail(update_result)
+
+        transitioned = update_result.value > 0
+        if transitioned:
+            self.logger.info(
+                f"Interaction result transitioned to {new_status.value} for entry {entry_uid}"
+            )
+        else:
+            self.logger.debug(
+                f"No interaction transition to {new_status.value} for entry {entry_uid} "
+                f"(no record, or already past {new_status.value})"
+            )
+        return Result.ok(transitioned)
 
     # =========================================================================
