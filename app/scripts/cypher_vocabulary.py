@@ -164,8 +164,13 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
 # The `MATCH path = (...)` form needs its own arm: the clause keyword is separated
 # from the first pattern by a path variable, so the bare `MATCH (` anchor misses
 # every named-path query (which is most multi-hop traversal Cypher).
+# The typed-DDL arm matters: Neo4j 5 spells index creation
+# `CREATE FULLTEXT|VECTOR|RANGE|TEXT|POINT|LOOKUP INDEX ... FOR (n:Label)`, so an
+# anchor requiring INDEX to follow CREATE *immediately* silently skips every one
+# of them — including the live fulltext DDL in neo4j_adapter.py (Codex P2 on #732).
 _CYPHER_CONTEXT_RE = re.compile(
-    r"(?:MATCH|MERGE|CREATE)\s*(?:\(|CONSTRAINT|INDEX)"
+    r"(?:MATCH|MERGE|CREATE)\s*\("
+    r"|CREATE\s+(?:\w+\s+){0,2}?(?:INDEX|CONSTRAINT)\b"
     r"|(?:MATCH|MERGE|CREATE)\s+\w+\s*=\s*\("
     r"|UNWIND \$"
 )

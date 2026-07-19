@@ -10,6 +10,8 @@ import ast
 import sys
 from pathlib import Path
 
+import pytest
+
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
@@ -1182,6 +1184,28 @@ class TestSKUEL030:
 
     def test_var_length_bound_is_stripped(self) -> None:
         assert lint_cypher('q = "MATCH ()-[:OWNS*1..3]->() RETURN 1"') == []
+
+    @pytest.mark.parametrize(
+        "ddl",
+        [
+            "CREATE CONSTRAINT c IF NOT EXISTS FOR (n:Bogus) REQUIRE n.uid IS UNIQUE",
+            "CREATE INDEX i IF NOT EXISTS FOR (n:Bogus) ON (n.uid)",
+            "CREATE RANGE INDEX i IF NOT EXISTS FOR (n:Bogus) ON (n.uid)",
+            "CREATE TEXT INDEX i IF NOT EXISTS FOR (n:Bogus) ON (n.uid)",
+            "CREATE POINT INDEX i IF NOT EXISTS FOR (n:Bogus) ON (n.loc)",
+            "CREATE FULLTEXT INDEX i IF NOT EXISTS FOR (n:Bogus) ON EACH [n.title]",
+            "CREATE VECTOR INDEX i IF NOT EXISTS FOR (n:Bogus) ON (n.embedding)",
+        ],
+    )
+    def test_typed_index_ddl_is_scanned(self, ddl: str) -> None:
+        """Neo4j 5 puts an index-type keyword between CREATE and INDEX.
+
+        An anchor requiring INDEX to follow CREATE immediately skipped every
+        typed form, including live fulltext DDL (Codex P2 on #732).
+        """
+        violations = lint_cypher(f'q = "{ddl}"')
+        assert len(violations) == 1, f"not scanned: {ddl}"
+        assert "Bogus" in violations[0].message
 
     def test_interpolated_name_is_skipped(self) -> None:
         """`[:HAS_{domain}]` composes its type at runtime — nothing to validate."""
