@@ -168,11 +168,16 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
 # `CREATE FULLTEXT|VECTOR|RANGE|TEXT|POINT|LOOKUP INDEX ... FOR (n:Label)`, so an
 # anchor requiring INDEX to follow CREATE *immediately* silently skips every one
 # of them — including the live fulltext DDL in neo4j_adapter.py (Codex P2 on #732).
+# The `CALL db.` arm covers vector/fulltext search: those queries OPEN with the
+# procedure call and only then filter (`YIELD node ... WHERE EXISTS((node)-[:X]->())`),
+# so a clause-keyword-only anchor left every search builder unscanned (Codex P2 on
+# #732). `CALL db.` is the same marker lint_skuel's own CYPHER_MARKERS uses.
 _CYPHER_CONTEXT_RE = re.compile(
     r"(?:MATCH|MERGE|CREATE)\s*\("
     r"|CREATE\s+(?:\w+\s+){0,2}?(?:INDEX|CONSTRAINT)\b"
     r"|(?:MATCH|MERGE|CREATE)\s+\w+\s*=\s*\("
     r"|UNWIND \$"
+    r"|CALL\s+db\."
 )
 
 # `[r:TYPE]` / `[:TYPE]` / `[r:A|B*1..3]`. The body stops at the first `]`,

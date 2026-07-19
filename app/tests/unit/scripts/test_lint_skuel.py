@@ -1207,6 +1207,21 @@ class TestSKUEL030:
         assert len(violations) == 1, f"not scanned: {ddl}"
         assert "Bogus" in violations[0].message
 
+    def test_procedure_call_query_is_scanned(self) -> None:
+        """Vector/fulltext search opens with `CALL db.` and filters after.
+
+        A clause-keyword-only anchor left every search builder unscanned
+        (Codex P2 on #732).
+        """
+        content = (
+            'q = """CALL db.index.fulltext.queryNodes($idx, $q) YIELD node\n'
+            "WHERE EXISTS((node)-[:BAD_EDGE]->(:Task))\n"
+            'RETURN node"""'
+        )
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "BAD_EDGE" in violations[0].message
+
     def test_type_predicate_equality_is_scanned(self) -> None:
         """`type(r) = 'X'` names an edge type as load-bearingly as `[:X]` does."""
         violations = lint_cypher("q = \"MATCH ()-[r]->() WHERE type(r) = 'BAD_EDGE'\"")

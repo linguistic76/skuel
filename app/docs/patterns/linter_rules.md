@@ -789,7 +789,9 @@ never the syntax around it.
 
 - **Pattern** — `(n:Label)`, `[r:TYPE]`, multi-label `(n:Entity:Ku)`, alternation
   `[:A|B]`, var-length `[:OWNS*1..3]`, and Neo4j 5 typed DDL
-  (`CREATE FULLTEXT|VECTOR|RANGE|TEXT|POINT INDEX ... FOR (n:Label)`).
+  (`CREATE FULLTEXT|VECTOR|RANGE|TEXT|POINT INDEX ... FOR (n:Label)`). Queries that
+  OPEN with a procedure call (`CALL db.index.vector.queryNodes(...) YIELD node WHERE
+  ...`) are recognised too — vector/fulltext search has no leading clause keyword.
 - **Predicate** — `type(r) = 'X'`, `type(r) IN ['A','B']`, `WHERE n:Label`,
   `AND NOT n:Label`. A typo here makes the predicate unsatisfiable, which fails
   exactly as silently as a typo'd pattern; this is what caught `get_siblings`
