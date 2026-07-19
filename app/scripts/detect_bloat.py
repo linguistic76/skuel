@@ -54,7 +54,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Production code that confers liveness. tests/ is parsed separately and only
 # ever contributes annotations ("published in tests"), never liveness.
-FIRST_PARTY_ROOTS = ["core", "adapters", "api", "ui", "services_bootstrap", "main.py"]
+FIRST_PARTY_ROOTS = ["core", "adapters", "ui", "services_bootstrap", "main.py"]
 EXCLUDED_PARTS = {"__pycache__", "archive"}
 
 EVENTS_PACKAGE = ROOT / "core" / "events"

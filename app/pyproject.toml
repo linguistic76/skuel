@@ -181,7 +181,7 @@ show_column_numbers = true
 show_error_context = true
 
 # Files to check (gradual migration strategy)
-files = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "agent"]
+files = ["core", "adapters", "main.py", "services_bootstrap", "ui", "agent"]
 exclude = [
     "build/",
     "dist/",
@@ -393,7 +393,7 @@ disable_error_code = ["method-assign", "type-var", "misc", "arg-type", "import-u
 # See: docs/patterns/linter_rules.md § Pyright
 
 [tool.pyright]
-include = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui"]
+include = ["core", "adapters", "main.py", "services_bootstrap", "ui"]
 exclude = [
     "**/__pycache__",
     ".venv",
@@ -796,7 +796,7 @@ fixable = ["ALL"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
-    "adapters", "api", "config", "database",
+    "adapters", "config", "database",
     "events", "models", "monitoring", "ports", "services",
     "tests", "utils"
 ]

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import Button, Div, Form, Input, P, Script, Span
+from fasthtml.common import Button, Div, Form, Input, P, Span
 
 from ui.components import Icon
 from ui.primitives import (
@@ -326,8 +326,3 @@ def render_upload_form(
             "x-data": f"submit('{default_destination}', '{portfolio_mode}', {str(not has_teacher_context).lower()})",
         },
     )
-
-
-def upload_form_script() -> Any:
-    """No-op — UX polish is now in the Alpine 'submit' component in skuel.js."""
-    return Script("")

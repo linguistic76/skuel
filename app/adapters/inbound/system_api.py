@@ -761,36 +761,4 @@ async def check_service_health(service):
         return {"healthy": False, "error": str(e)}
 
 
-# Migration Statistics:
-# =====================
-# Before (system_api.py):     609 lines (mixed patterns, some JSONResponse, some boundary_handler)
-# After (system_api_migrated): ~420 lines (consistent boundary_handler, Result[T] pattern)
-# Reduction:                   ~189 lines (31% reduction)
-#
-# Note: This API is 100% system monitoring/health checks, so CRUDRouteFactory
-# is not applicable. Migration focuses on:
-# 1. Consistent use of @boundary_handler for ALL routes
-# 2. All service calls return Result[T]
-# 3. Removed unused helper functions (create_health_response, create_component_health)
-# 4. Consistent error handling with Errors factory
-# 5. HTTP status codes: 201 for POST creates, 503 for unhealthy states
-# 6. Special handling for health endpoints that need custom status codes (200/503)
-#
-# Routes Summary (14 routes):
-# 1. GET  /api/health - Basic health check
-# 2. GET  /api/status - Status with health summary
-# 3. GET  /api/health/detailed - Detailed health with components
-# 4. GET  /api/version - Version information
-# 5. GET  /api/metrics - System metrics
-# 6. GET  /api/diagnostics - System diagnostics
-# 7. POST /api/services/register - Register service for monitoring (201)
-# 8. POST /api/services/unregister - Unregister service
-# 9. GET  /api/services - List registered services
-# 10. GET /api/validate - Validate health checkers
-# 11. GET /api/summary - Complete system summary
-# 12. GET /api/alerts - Check triggered alerts
-# 13. GET /api/alerts/thresholds - Get alert thresholds
-# 14. POST /api/alerts/thresholds - Update alert thresholds (201)
-
-
 __all__ = ["create_system_api_routes"]

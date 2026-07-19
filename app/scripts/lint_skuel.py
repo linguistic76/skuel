@@ -1528,11 +1528,11 @@ class SkuelLinter:
                 if self._should_run_rule("SKUEL005"):
                     self._check_result_return_types(file_path, rel_path, content, lines, tree)
 
-            # Inbound/presentation layers (routes, UI renderers, api/ models) —
-            # raw relationship-type / entity-type / error strings creep in here
+            # Inbound/presentation layers (routes, UI renderers) — raw
+            # relationship-type / entity-type / error strings creep in here
             # too, so SKUEL007, SKUEL013, and SKUEL014 run on these layers in
             # addition to services.
-            is_inbound_layer = rel_path.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
+            is_inbound_layer = rel_path.as_posix().startswith(("adapters/inbound/", "ui/"))
             if (is_service or is_inbound_layer) and not is_test:
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
