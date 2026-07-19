@@ -259,13 +259,13 @@ query, params = build_prerequisite_traversal_query(
 These functions return `RETURN n` consistently. Use `from_neo4j_node` to convert:
 
 ```python
-from core.utils.neo4j_mapper import from_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 
 result = await backend.execute_query(query, params)
 entities = [from_neo4j_node(record["n"], EntityClass) for record in result.value]
 ```
 
-BaseService provides `_records_to_domain_models()` helper for this pattern.
+Record→model conversion happens below the hexagonal boundary — backends return typed domain models (Tier 6).
 
 ### QueryBuilder - Service Layer Facade (Legacy)
 

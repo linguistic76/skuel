@@ -23,7 +23,7 @@ from core.services.adaptive_lp.adaptive_lp_models import CrossDomainOpportunity
 from core.services.adaptive_lp_types import KnowledgeState
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import coerce_float
+from core.utils.neo4j_props import coerce_float
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 

@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Errors, Result
@@ -26,6 +28,12 @@ if TYPE_CHECKING:
     import logging
 
 from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY
+
+
+def _step_row_sequence(row: dict[str, Any]) -> int:
+    """Sort key for {step, sequence} join rows (None sequence sorts first as 0)."""
+    sequence = row.get("sequence")
+    return sequence if sequence is not None else 0
 
 
 class _LpStepMixin:
@@ -50,8 +58,10 @@ class _LpStepMixin:
     # STEP MANAGEMENT (HAS_STEP edges)
     # ========================================================================
 
-    async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[dict[str, Any]]]:
-        """Get ordered steps in a learning path as raw dicts."""
+    async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
+        """Get ordered steps in a learning path as typed models."""
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
         query = f"""
         MATCH (lp:Entity {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ps:Entity {{entity_type: 'path_step'}})
         RETURN ps, r[0].sequence as sequence
@@ -60,10 +70,14 @@ class _LpStepMixin:
         result = await self.execute_query(query, {"path_uid": path_uid})
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([record["ps"] for record in (result.value or [])])
+        return Result.ok(
+            [from_neo4j_node(dict(record["ps"]), PathStep) for record in (result.value or [])]
+        )
 
-    async def get_parent_path_raw(self, step_uid: str) -> Result[dict[str, Any] | None]:
-        """Get parent learning path for a step as raw dict, or None."""
+    async def get_parent_path_raw(self, step_uid: str) -> Result[LearningPath | None]:
+        """Get parent learning path for a step as a typed model, or None."""
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
         query = """
         MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ps:Entity {uid: $step_uid})
         RETURN lp
@@ -74,7 +88,7 @@ class _LpStepMixin:
             return Result.fail(result)
         if not result.value:
             return Result.ok(None)
-        return Result.ok(result.value[0]["lp"])
+        return Result.ok(from_neo4j_node(dict(result.value[0]["lp"]), LearningPath))
 
     async def add_step_to_path(
         self, path_uid: str, step_uid: str, sequence: int, order: int = 0
@@ -157,12 +171,42 @@ class _LpStepMixin:
     # PATH CRUD (moved from LpCoreService — separation of concerns)
     # ========================================================================
 
-    async def get_path_with_steps(self, path_uid: str) -> Result[list[dict[str, Any]]]:
-        """
-        Get a single learning path node with its HAS_STEP steps.
+    @staticmethod
+    def _steps_from_steps_data(steps_data: list[dict[str, Any]]) -> list[PathStep]:
+        """Convert ``[{step, sequence}, ...]`` join rows to ordered PathStep models."""
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 
-        Returns raw records: each record has 'p' (path node) and 'steps_data'
-        (list of {step, sequence} dicts).
+        if not steps_data:
+            return []
+        ordered = sorted(steps_data, key=_step_row_sequence)
+        steps: list[PathStep] = []
+        for row in ordered:
+            step_node = row.get("step") or row
+            if step_node:
+                step_dict = dict(step_node)
+                if step_dict.get("uid"):
+                    steps.append(from_neo4j_node(step_dict, PathStep))
+        return steps
+
+    @staticmethod
+    def _record_to_path_with_steps(record: dict[str, Any], steps: list[PathStep]) -> LearningPath:
+        """Build a LearningPath model from a ``p`` node record + pre-built steps.
+
+        Steps (from HAS_STEP relationships) are stored in ``metadata["steps"]`` —
+        the composed shape LpCoreService has always returned.
+        """
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
+        path = from_neo4j_node(dict(record["p"]), LearningPath)
+        metadata = path.metadata if path.metadata else {}
+        metadata["steps"] = steps
+        object.__setattr__(path, "metadata", metadata)
+        return path
+
+    async def get_path_with_steps(self, path_uid: str) -> Result[LearningPath | None]:
+        """
+        Get a single learning path (with its HAS_STEP steps in
+        ``metadata["steps"]``) as a typed model, or None if not found.
         """
         query = """
         MATCH (p:Entity {uid: $uid})
@@ -170,14 +214,23 @@ class _LpStepMixin:
         WITH p, collect({step: s, sequence: r.sequence}) as steps_data
         RETURN p, steps_data
         """
-        return await self.execute_query(query, {"uid": path_uid})
+        result = await self.execute_query(query, {"uid": path_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        record = records[0]
+        return Result.ok(
+            self._record_to_path_with_steps(
+                record, self._steps_from_steps_data(record["steps_data"])
+            )
+        )
 
-    async def get_paths_batch_with_steps(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+    async def get_paths_batch_with_steps(self, uids: list[str]) -> Result[list[LearningPath]]:
         """
-        Batch-fetch multiple learning paths with their steps.
-
-        Returns raw records ordered by uid: each record has 'p' (path node)
-        and 'steps_data' (list of {step, sequence} dicts).
+        Batch-fetch multiple learning paths (with steps in ``metadata["steps"]``)
+        as typed models, ordered by uid.
         """
         query = """
         MATCH (p:Entity)
@@ -187,11 +240,21 @@ class _LpStepMixin:
         ORDER BY p.uid
         RETURN p, steps_data
         """
-        return await self.execute_query(query, {"uids": uids})
+        result = await self.execute_query(query, {"uids": uids})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                self._record_to_path_with_steps(
+                    record, self._steps_from_steps_data(record["steps_data"])
+                )
+                for record in (result.value or [])
+            ]
+        )
 
     async def list_user_paths_with_steps(
         self, user_uid: UserUID, limit: int | None = None
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """
         List a user's learning paths (authored via HAS_PATH or enrolled via
         ENROLLED_IN), with their steps.
@@ -199,7 +262,7 @@ class _LpStepMixin:
         ENROLLED_IN is the edge the enroll route writes; reading HAS_PATH
         alone left every enrollment invisible on the pathways dashboard.
 
-        Returns raw records: each record has 'p' (path node) and 'steps_data'.
+        Returns typed models with steps in ``metadata["steps"]``.
         """
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_PATH|ENROLLED_IN]->(p:Entity {entity_type: 'learning_path'})
@@ -215,7 +278,17 @@ class _LpStepMixin:
         params: dict[str, Any] = {"user_uid": user_uid}
         if limit:
             params["limit"] = limit
-        return await self.execute_query(query, params)
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                self._record_to_path_with_steps(
+                    record, self._steps_from_steps_data(record["steps_data"])
+                )
+                for record in (result.value or [])
+            ]
+        )
 
     async def list_all_paths_with_steps(
         self,
@@ -223,11 +296,12 @@ class _LpStepMixin:
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningPath]]:
         """
         List all learning paths with pagination and safe sorting.
 
         Validates order_by against _ALLOWED_ORDER_BY to prevent Cypher injection.
+        Returns typed models with steps in ``metadata["steps"]``.
         """
         validated_field = "uid"
         if order_by:
@@ -252,18 +326,31 @@ class _LpStepMixin:
         params: dict[str, Any] = {"offset": offset}
         if limit:
             params["limit"] = limit
-        return await self.execute_query(query, params)
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                self._record_to_path_with_steps(
+                    record, self._steps_from_steps_data(record["steps_data"])
+                )
+                for record in (result.value or [])
+            ]
+        )
 
     async def update_path_properties(
         self, set_clauses: list[str], params: dict[str, Any]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[LearningPath | None]:
         """
-        Update a learning path's properties and return the updated path with steps.
+        Update a learning path's properties; return the updated path (with steps
+        in ``metadata["steps"]``) as a typed model, or None if absent.
 
         Args:
             set_clauses: Pre-validated SET clause fragments (e.g. ['p.title = $title'])
             params: Query parameters including 'uid' and all SET values
         """
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
         query = f"""
         MATCH (p:Entity {{uid: $uid}})
         SET {", ".join(set_clauses)}
@@ -271,7 +358,19 @@ class _LpStepMixin:
         WITH p, collect(s) as steps
         RETURN p, steps
         """
-        return await self.execute_query(query, params)
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        record = records[0]
+        steps = [
+            from_neo4j_node(dict(step_node), PathStep)
+            for step_node in record["steps"]
+            if step_node and dict(step_node).get("uid")
+        ]
+        return Result.ok(self._record_to_path_with_steps(record, steps))
 
     async def delete_path_cascade(self, path_uid: str) -> Result[list[dict[str, Any]]]:
         """

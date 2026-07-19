@@ -123,7 +123,7 @@ def _validate_required_user_uid(self, user_uid: UserUID | None, operation: str) 
 Type conversion is pure computation with no I/O:
 
 ```python
-# core/utils/neo4j_mapper.py
+# adapters/persistence/neo4j/neo4j_mapper.py
 
 def to_neo4j_node(entity: Any) -> dict[str, Any]:
     """NO I/O - Pure type transformation"""

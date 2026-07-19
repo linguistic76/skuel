@@ -5,7 +5,7 @@ Prerequisite & Hierarchy Mixin
 Prerequisite / hierarchy query operations (April 2026).
 
 Provides:
-    prerequisite_traversal_raw: Traverse prerequisite relationships
+    prerequisite_traversal: Traverse prerequisite relationships (typed models)
     hierarchy_query_raw: Get parents + children
 
 Requires on concrete class:
@@ -41,17 +41,21 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
     if TYPE_CHECKING:
         driver: AsyncDriver
         label: NeoLabel
+        entity_class: type[T]
 
-    @safe_backend_operation("prerequisite_traversal_raw")
-    async def prerequisite_traversal_raw(
+    @safe_backend_operation("prerequisite_traversal")
+    async def prerequisite_traversal(
         self,
         uid: str,
         relationship_types: builtins.list[str],
         depth: int = 3,
         direction: Direction = "outgoing",
-    ) -> Result[builtins.list[dict[str, Any]]]:
+    ) -> Result[builtins.list[T]]:
         """
-        Traverse prerequisite relationships and return raw records.
+        Traverse prerequisite relationships and return typed domain models.
+
+        Record→model conversion happens here, below the hexagonal boundary —
+        services receive ``entity_class`` instances, never raw records.
 
         Args:
             uid: Entity UID to start from
@@ -60,8 +64,9 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
             direction: "outgoing" for prerequisites, "incoming" for enables
 
         Returns:
-            Result[list[dict]]: Raw Neo4j records with node key "n"
+            Result[list[T]]: Traversed entities as domain models
         """
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
         from adapters.persistence.neo4j.query.cypher import build_prerequisite_traversal_query
 
         cypher_query, params = build_prerequisite_traversal_query(
@@ -74,7 +79,8 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            records = await result.data()
+        return Result.ok([from_neo4j_node(record["n"], self.entity_class) for record in records])
 
     @safe_backend_operation("hierarchy_query_raw")
     async def hierarchy_query_raw(

@@ -15,10 +15,10 @@ import sys
 from datetime import UTC, datetime
 
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
+from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
 from core.auth.password import hash_password
 from core.models.enums import UserRole
 from core.models.user import create_user
-from core.utils.neo4j_mapper import to_neo4j_node
 
 PASSWORD = "TestPassword123!"
 TEACHER_A = "idor_smoke_teacher_a"
@@ -51,7 +51,7 @@ async def seed() -> None:
     student_1_props = _build_user_props(STUDENT_1, UserRole.MEMBER, pw_hash)
     student_2_props = _build_user_props(STUDENT_2, UserRole.MEMBER, pw_hash)
     # Real ingested entries store timestamps as ISO strings (via
-    # core/utils/neo4j_mapper.py:to_node which calls .isoformat()), NOT as
+    # adapters/persistence/neo4j/neo4j_mapper.py:to_node which calls .isoformat()), NOT as
     # Cypher datetime() values. Using datetime($now) here would create
     # neo4j.time.DateTime objects that the JSON boundary can't serialize,
     # surfacing a fixture artifact rather than the real route plumbing.

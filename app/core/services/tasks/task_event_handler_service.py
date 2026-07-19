@@ -35,7 +35,7 @@ from core.models.type_hints import EntityUID, UserUID
 from core.services.insight import persist_principle_alignment_insight
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import coerce_float, coerce_int
+from core.utils.neo4j_props import coerce_float, coerce_int
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations

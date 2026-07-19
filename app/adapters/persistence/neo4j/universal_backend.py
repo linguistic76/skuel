@@ -77,7 +77,7 @@ _temporal_mixin.py:
     user_activity_range_raw, upcoming_raw, overdue_raw, active_raw
 
 _prereq_progress_mixin.py:
-    prerequisite_traversal_raw, hierarchy_query_raw
+    prerequisite_traversal, hierarchy_query_raw
 
 _context_query_mixin.py:
     context_query_raw, basic_context_query_raw

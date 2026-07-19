@@ -5,7 +5,6 @@ Relationship Operations Mixin
 Provides graph relationship management and prerequisite/hierarchy traversal.
 
 REQUIRES (Mixin Dependencies):
-    - ConversionHelpersMixin: Uses _records_to_domain_models() for result conversion
 
 PROVIDES (Methods for Graph Operations):
     Core Relationships:
@@ -67,7 +66,6 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep"),
             used for domain-specific error messages and entity_type metadata.
         _prerequisite_relationships: list[str] - Relationship types for prerequisites
-        _records_to_domain_models: Method for DTO conversion
         _validate_prerequisites: Validation hook
     """
 
@@ -86,13 +84,6 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     @abstractmethod
     def config_lookup_label(self) -> str:
         """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
-        ...
-
-    @abstractmethod
-    def _records_to_domain_models(
-        self, records: builtins.list[dict[str, Any]], node_key: str = "n"
-    ) -> builtins.list[T]:
-        """DTO conversion - provided by ConversionHelpersMixin."""
         ...
 
     def _validate_prerequisites(
@@ -253,7 +244,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        result = await self.backend.prerequisite_traversal_raw(
+        result = await self.backend.prerequisite_traversal(
             uid=uid,
             relationship_types=self._prerequisite_relationships,
             depth=depth,
@@ -262,7 +253,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._records_to_domain_models(result.value)
+        entities = result.value
         self.logger.debug(f"Found {len(entities)} prerequisites for {uid}")
         return Result.ok(entities)
 
@@ -288,7 +279,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not uid:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
-        result = await self.backend.prerequisite_traversal_raw(
+        result = await self.backend.prerequisite_traversal(
             uid=uid,
             relationship_types=self._prerequisite_relationships,
             depth=depth,
@@ -297,7 +288,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        entities = self._records_to_domain_models(result.value)
+        entities = result.value
         self.logger.debug(f"Found {len(entities)} entities enabled by {uid}")
         return Result.ok(entities)
 

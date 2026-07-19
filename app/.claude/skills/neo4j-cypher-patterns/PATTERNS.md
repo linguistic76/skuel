@@ -357,7 +357,7 @@ entity = from_neo4j_node(record["n"], Task)  # JSON strings → dicts/lists base
 
 **Custom Cypher Path** (services that bypass UniversalNeo4jBackend):
 ```python
-from core.utils.neo4j_mapper import parse_neo4j_json, deserialize_json_fields
+from core.utils.neo4j_props import parse_neo4j_json, deserialize_json_fields
 
 # Single value — handles str, native types, None, and parse failures
 topics = parse_neo4j_json(record["key_topics"], default=[])
@@ -504,7 +504,7 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 | Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 14 domains |
 | Query generation | `query_optimizer.py`, `query_template_registry.py` | Builds Cypher by design |
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
-| JSON property utilities | `core/utils/neo4j_mapper.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
+| JSON property utilities | `core/utils/neo4j_props.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 
 **31 domain backends** live in `adapters/persistence/neo4j/backends/` (9 cluster files). Import directly from the cluster file:
 

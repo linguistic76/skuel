@@ -23,7 +23,7 @@ mixins composed alongside this one on ``UniversalNeo4jBackend``:
     D: _temporal_mixin.py        (_TemporalMixin)
         user_activity_range_raw, upcoming_raw, overdue_raw, active_raw
     E: _prereq_progress_mixin.py (_PrereqProgressMixin)
-        prerequisite_traversal_raw, hierarchy_query_raw
+        prerequisite_traversal, hierarchy_query_raw
     G: _context_query_mixin.py   (_ContextQueryMixin)
         context_query_raw, basic_context_query_raw
 
@@ -39,11 +39,11 @@ import time
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from core.models.protocols import DomainModelProtocol
 from core.models.type_hints import EntityUID, FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
-from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 from core.utils.validation_helpers import validate_field_name
 

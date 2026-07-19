@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
 from core.events import TaskCompleted, publish_event
-from core.models.enums import Domain, EntityStatus, Priority
+from core.models.enums import EntityStatus
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
@@ -37,6 +37,11 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.tasks.task_relationships import TaskRelationships
 from core.services.user import UserContext
+from core.services.user.rich_context import (
+    find_rich_graph_context,
+    get_model_from_rich_context,
+    rich_graph_uids,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
@@ -114,15 +119,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             Task if found in rich context, None otherwise
         """
-        if user_context is None:
-            return None
-        for task_data in user_context.entities_rich.get("tasks", []):
-            task_dict = task_data.get("entity", {})
-            if task_dict.get("uid") == task_uid:
-                # Convert dict to Task domain model
-                return self._dict_to_task(task_dict)
-
-        return None
+        return get_model_from_rich_context(user_context, "tasks", task_uid, TaskDTO, Task)
 
     def _get_relationships_from_rich_context(
         self, task_uid: str, user_context: UserContext | None
@@ -141,115 +138,13 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             TaskRelationships if found in rich context, None otherwise
         """
-        if user_context is None:
+        graph_ctx = find_rich_graph_context(user_context, "tasks", task_uid)
+        if graph_ctx is None:
             return None
-        for task_data in user_context.entities_rich.get("tasks", []):
-            task_dict = task_data.get("entity", {})
-            if task_dict.get("uid") == task_uid:
-                graph_ctx = task_data.get("graph_context", {})
-                if graph_ctx:
-                    return TaskRelationships(
-                        applies_knowledge_uids=[
-                            k.get("uid")
-                            for k in graph_ctx.get("applied_knowledge", [])
-                            if k and k.get("uid")
-                        ],
-                        prerequisite_task_uids=[
-                            t.get("uid")
-                            for t in graph_ctx.get("dependencies", [])
-                            if t and t.get("uid")
-                        ],
-                        subtask_uids=[
-                            s.get("uid")
-                            for s in graph_ctx.get("subtasks", [])
-                            if s and s.get("uid")
-                        ],
-                    )
-        return None
-
-    def _dict_to_task(self, task_dict: dict[str, Any]) -> Task:
-        """
-        Convert a task dictionary from MEGA-QUERY to Task domain model.
-
-        Args:
-            task_dict: Dict with task properties from Neo4j
-
-        Returns:
-            Task domain model
-        """
-        # Parse date fields
-        due_date = task_dict.get("due_date")
-        if due_date and isinstance(due_date, str):
-            due_date = date.fromisoformat(due_date)
-        elif due_date and not isinstance(due_date, date):
-            # Neo4j date objects
-            due_date = date(due_date.year, due_date.month, due_date.day) if due_date else None
-
-        completion_date = task_dict.get("completion_date")
-        if completion_date and isinstance(completion_date, str):
-            completion_date = date.fromisoformat(completion_date)
-        elif completion_date and not isinstance(completion_date, date):
-            completion_date = (
-                date(completion_date.year, completion_date.month, completion_date.day)
-                if completion_date
-                else None
-            )
-
-        # Parse datetime fields
-        created_at_raw = task_dict.get("created_at")
-        if isinstance(created_at_raw, str):
-            created_at: datetime = datetime.fromisoformat(created_at_raw)
-        elif isinstance(created_at_raw, datetime):
-            created_at = created_at_raw
-        else:
-            created_at = datetime.now()
-
-        updated_at_raw = task_dict.get("updated_at")
-        if isinstance(updated_at_raw, str):
-            updated_at: datetime = datetime.fromisoformat(updated_at_raw)
-        elif isinstance(updated_at_raw, datetime):
-            updated_at = updated_at_raw
-        else:
-            updated_at = datetime.now()
-
-        # Parse enums
-        status_val = task_dict.get("status", "pending")
-        status = EntityStatus(status_val) if isinstance(status_val, str) else status_val
-
-        priority_val = task_dict.get("priority", "medium")
-        priority = Priority(priority_val) if isinstance(priority_val, str) else priority_val
-
-        domain_val = task_dict.get("domain")
-        Domain(domain_val) if domain_val and isinstance(domain_val, str) else domain_val
-
-        # Convert tags list to tuple for frozen dataclass
-        tags_list = task_dict.get("tags", [])
-        tags_tuple = tuple(tags_list) if isinstance(tags_list, list) else tags_list
-
-        return Task(
-            uid=task_dict.get("uid", ""),
-            user_uid=task_dict.get("user_uid", ""),
-            title=task_dict.get("title", ""),
-            description=task_dict.get("description"),
-            status=status,
-            priority=priority,
-            due_date=due_date,
-            completion_date=completion_date,
-            duration_minutes=task_dict.get(
-                "duration_minutes", task_dict.get("estimated_minutes", 30)
-            ),
-            actual_minutes=task_dict.get("actual_minutes"),
-            fulfills_goal_uid=task_dict.get("fulfills_goal_uid"),
-            # reinforces_habit_uid is a derived field (graph edge) — populated by
-            # explicit enrichment, not read from the persisted node dict.
-            completion_updates_goal=task_dict.get("completion_updates_goal", False),
-            goal_progress_contribution=task_dict.get("goal_progress_contribution", 0.0),
-            knowledge_mastery_check=task_dict.get("knowledge_mastery_check", False),
-            parent_uid=task_dict.get("parent_uid", task_dict.get("parent_task_uid")),
-            tags=tags_tuple,
-            metadata=task_dict.get("metadata", {}),
-            created_at=created_at,
-            updated_at=updated_at,
+        return TaskRelationships(
+            applies_knowledge_uids=rich_graph_uids(graph_ctx, "applied_knowledge"),
+            prerequisite_task_uids=rich_graph_uids(graph_ctx, "dependencies"),
+            subtask_uids=rich_graph_uids(graph_ctx, "subtasks"),
         )
 
     def _get_completion_triggers_from_context(
@@ -265,16 +160,10 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             List of task UIDs that should be triggered on completion
         """
-        if user_context is None:
+        graph_ctx = find_rich_graph_context(user_context, "tasks", task_uid)
+        if graph_ctx is None:
             return []
-        for task_data in user_context.entities_rich.get("tasks", []):
-            task_dict = task_data.get("entity", {})
-            if task_dict.get("uid") == task_uid:
-                graph_ctx = task_data.get("graph_context", {})
-                triggers = graph_ctx.get("completion_triggers", [])
-                return [t.get("uid") for t in triggers if t and t.get("uid")]
-
-        return []
+        return rich_graph_uids(graph_ctx, "completion_triggers")
 
     def _get_unlocks_knowledge_from_context(
         self, task_uid: str, user_context: UserContext | None
@@ -289,16 +178,10 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         Returns:
             List of knowledge UIDs that should be unlocked on completion
         """
-        if user_context is None:
+        graph_ctx = find_rich_graph_context(user_context, "tasks", task_uid)
+        if graph_ctx is None:
             return []
-        for task_data in user_context.entities_rich.get("tasks", []):
-            task_dict = task_data.get("entity", {})
-            if task_dict.get("uid") == task_uid:
-                graph_ctx = task_data.get("graph_context", {})
-                unlocks = graph_ctx.get("unlocks_knowledge", [])
-                return [k.get("uid") for k in unlocks if k and k.get("uid")]
-
-        return []
+        return rich_graph_uids(graph_ctx, "unlocks_knowledge")
 
     # ========================================================================
     # TASK COMPLETION

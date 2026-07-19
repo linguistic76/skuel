@@ -17,12 +17,12 @@ import dataclasses
 import json
 from unittest.mock import AsyncMock, MagicMock
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from core.models.enums import LearningLevel, TimeOfDay
 from core.models.user.user import User, UserPreferences
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_context_populator import UserContextPopulator
 from core.services.user_service import UserService
-from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 _UID = "user_test_prefs"

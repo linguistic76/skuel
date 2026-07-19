@@ -625,7 +625,7 @@ class UserContextService:
 
         # Convert TaskDTOs to Task domain models
         from core.models.task.task import Task
-        from core.utils.dto_helpers import to_domain_model
+        from core.utils.dto_converters import to_domain_model
 
         task_dtos = tasks_result.value
         tasks = [to_domain_model(dto, type(dto), Task) for dto in task_dtos]

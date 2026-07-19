@@ -224,7 +224,7 @@ def test_batch_items_keep_registry_edge_sources_dropped_by_mapper() -> None:
     edges. prepare_batch_items must restore rel_config keys onto the item while
     keeping them out of _node_props (2026-07-03: PathStep exercise_uids anchors
     silently produced zero HAS_EXERCISE edges)."""
-    from core.ingestion.batch_preparer import prepare_batch_items
+    from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
     from core.services.ingestion.config import ENTITY_CONFIGS
 
     rel_config = ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config

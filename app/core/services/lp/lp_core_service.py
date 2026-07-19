@@ -39,9 +39,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_sequence
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations
@@ -101,36 +99,13 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         self.event_bus = event_bus
 
     @staticmethod
-    def _build_lp_from_record(path_data: dict, steps: list[PathStep]) -> LearningPath:
-        """Build LearningPath from Neo4j node dict + pre-built step list.
-
-        Uses from_neo4j_node for full field deserialization.
-        Steps (from HAS_STEP relationships) are stored in metadata["steps"].
-        """
-        ku = from_neo4j_node(path_data, LearningPath)
-        existing_metadata = ku.metadata if ku.metadata else {}
-        existing_metadata["steps"] = steps
-        object.__setattr__(ku, "metadata", existing_metadata)
-        return ku
-
-    @staticmethod
-    def _build_steps_from_data(steps_data: list[dict]) -> list[PathStep]:
-        """Build PathStep list from step node dicts fetched via HAS_STEP join.
-
-        Uses from_neo4j_node for full field deserialization of each step.
-        """
-        if not steps_data:
-            return []
-
-        sorted_steps = sorted(steps_data, key=get_sequence)
-        steps: list[PathStep] = []
-        for step_info in sorted_steps:
-            step_node = step_info.get("step") or step_info
-            if step_node:
-                step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
-                if step_dict.get("uid"):
-                    steps.append(from_neo4j_node(step_dict, PathStep))
-        return steps
+    def _with_steps(path: LearningPath, steps: list[PathStep]) -> LearningPath:
+        """Store a step list in ``path.metadata["steps"]`` (the composed shape
+        this service returns; persisted reads get the same shape from the backend)."""
+        metadata = path.metadata if path.metadata else {}
+        metadata["steps"] = steps
+        object.__setattr__(path, "metadata", metadata)
+        return path
 
     @with_error_handling(
         "create_path_from_knowledge_units", error_type="database", uid_param="user_uid"
@@ -178,16 +153,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 logger.warning(f"Failed to persist path: {persist_result.error}")
 
         # Store steps in metadata for return value
-        path_with_steps = self._build_lp_from_record(
-            {
-                "uid": path.uid,
-                "title": path.title,
-                "description": path.description,
-                "domain": get_enum_value(path.domain),
-                "entity_type": "learning_path",
-            },
-            steps,
-        )
+        path_with_steps = self._with_steps(path, steps)
 
         logger.info(f"✅ Created learning path {path_uid} with {len(steps)} steps")
         return Result.ok(path_with_steps)
@@ -259,12 +225,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if query_result.is_error:
             return Result.fail(query_result)
 
-        paths_map: dict[str, LearningPath] = {}
-        for record in query_result.value:
-            path_data = dict(record["p"])
-            steps = self._build_steps_from_data(record["steps_data"])
-            path = self._build_lp_from_record(path_data, steps)
-            paths_map[path.uid] = path
+        paths_map: dict[str, LearningPath] = {path.uid: path for path in query_result.value}
 
         # Return in same order as input UIDs
         result_list = [paths_map.get(uid) for uid in uids]
@@ -278,16 +239,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if query_result.is_error:
             return Result.fail(query_result)
 
-        records = query_result.value
-        if not records:
-            return Result.ok(None)  # Not found - return None instead of error
-
-        record = records[0]
-        path_data = dict(record["p"])
-        steps = self._build_steps_from_data(record["steps_data"])
-        path = self._build_lp_from_record(path_data, steps)
-
-        return Result.ok(path)
+        return Result.ok(query_result.value)
 
     @with_error_handling("list_user_paths", error_type="database", uid_param="user_uid")
     async def list_user_paths(
@@ -299,13 +251,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if query_result.is_error:
             return Result.fail(query_result)
 
-        paths = []
-        for record in query_result.value:
-            path_data = dict(record["p"])
-            steps = self._build_steps_from_data(record["steps_data"])
-            paths.append(self._build_lp_from_record(path_data, steps))
-
-        return Result.ok(paths)
+        return Result.ok(query_result.value)
 
     @with_error_handling("list_all_paths", error_type="database")
     async def list_all_paths(
@@ -331,13 +277,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if query_result.is_error:
             return Result.fail(query_result)
 
-        paths = []
-        for record in query_result.value or []:
-            path_data = dict(record["p"])
-            steps = self._build_steps_from_data(record["steps_data"])
-            paths.append(self._build_lp_from_record(path_data, steps))
-
-        return Result.ok(paths)
+        return Result.ok(query_result.value or [])
 
     async def get_path_steps(self, path_uid: str) -> Result[list[PathStep]]:
         """
@@ -437,24 +377,13 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if query_result.is_error:
             return Result.fail(query_result)
 
-        if not query_result.value:
+        updated_path = query_result.value
+        if updated_path is None:
             return Result.fail(
                 Errors.database(
                     operation="update_path", message=f"Failed to update path {path_uid}"
                 )
             )
-
-        record = query_result.value[0]
-        path_data = dict(record["p"])
-        steps_data = record["steps"]
-
-        steps = []
-        for step_node in steps_data:
-            step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
-            if step_dict.get("uid"):
-                steps.append(from_neo4j_node(step_dict, PathStep))
-
-        updated_path = self._build_lp_from_record(path_data, steps)
 
         # Post-persist embedding refresh (ADR-074) — only when a text field changed
         from core.events.embedding_publisher import publish_embedding_requested
@@ -514,7 +443,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         result = await self.backend.get_steps_raw(path_uid, depth)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([from_neo4j_node(data, PathStep) for data in result.value])
+        return Result.ok(result.value)
 
     @with_error_handling("get_parent_path", error_type="database", uid_param="step_uid")
     async def get_parent_path(self, step_uid: str) -> Result[LearningPath | None]:
@@ -522,9 +451,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         result = await self.backend.get_parent_path_raw(step_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
-        if result.value is None:
-            return Result.ok(None)
-        return Result.ok(self._to_domain_model(result.value, LearningPathDTO, LearningPath))
+        return Result.ok(result.value)
 
     @with_error_handling("add_step_to_path", error_type="database")
     async def add_step_to_path(

@@ -28,7 +28,7 @@ import pytest
 # Test extracted utilities
 from core.models.graph_models import GraphPath, Relationship
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
-from core.utils.dto_converters import from_domain_model, to_domain_model, to_domain_models
+from core.utils.dto_converters import to_domain_model, to_domain_models
 from core.utils.result_simplified import Result
 from core.utils.validation_helpers import (
     validate_date_range,
@@ -416,33 +416,6 @@ class TestDTOConverters:
         models = to_domain_models([], MockDTO, MockDomainModel)
         assert len(models) == 0
 
-    def test_from_domain_model_with_to_dto_method(self):
-        """from_domain_model uses to_dto() method."""
-        model = MockDomainModel(uid="test_4", title="Test Model", count=88)
-        dto = from_domain_model(model, MockDTO)
-
-        assert isinstance(dto, MockDTO)
-        assert dto.uid == "test_4"
-        assert dto.title == "Test Model"
-        assert dto.count == 88
-
-    def test_from_domain_model_fallback_to_dict(self):
-        """from_domain_model falls back to __dict__ if no to_dto()."""
-
-        @dataclass
-        class ModelWithoutToDTO:
-            uid: str
-            title: str
-            count: int
-
-        model = ModelWithoutToDTO(uid="test_5", title="No DTO", count=55)
-        dto = from_domain_model(model, MockDTO)
-
-        assert isinstance(dto, MockDTO)
-        assert dto.uid == "test_5"
-        assert dto.title == "No DTO"
-        assert dto.count == 55
-
 
 # ============================================================================
 # TESTS: core.models.graph
@@ -539,7 +512,6 @@ class TestBackwardCompatibility:
         assert validate_date_range is not None
         assert to_domain_model is not None
         assert to_domain_models is not None
-        assert from_domain_model is not None
         assert Relationship is not None
         assert GraphPath is not None
 
@@ -619,7 +591,7 @@ class TestIntegration:
         model = to_domain_model(data, MockDTO, MockDomainModel)
 
         # Convert back to DTO
-        dto = from_domain_model(model, MockDTO)
+        dto = model.to_dto()
 
         assert dto.count == 42
 

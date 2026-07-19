@@ -20,8 +20,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.pathways.learning_path import LearningPath
+from core.models.pathways.mastery import LearningPreference
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -188,19 +191,34 @@ class _AdaptiveMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Query user's active/in-progress learning paths.
+    async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[LearningPath]]:
+        """Query user's active/in-progress learning paths as typed models.
 
         Enrollment lifecycle lives on the ENROLLED_IN relationship
         (UserBackend.enroll_in_learning_path sets r.status='active';
         complete_learning_path flips it to 'completed') — not on the LP node.
+        Records that fail node→model conversion are skipped with a warning.
         """
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
         query = """
         MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath)
         WHERE coalesce(r.status, 'active') IN ['active', 'in_progress']
         RETURN lp
         """
-        return await self.execute_query(query, {"user_uid": user_uid})
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        paths: list[LearningPath] = []
+        for record in result.value or []:
+            lp_node = record.get("lp")
+            if not lp_node:
+                continue
+            try:
+                paths.append(from_neo4j_node(lp_node, LearningPath))
+            except DATA_CONVERSION_EXCEPTIONS as e:
+                self.logger.warning("Skipping unconvertible LearningPath node: %s", e)
+        return Result.ok(paths)
 
     async def query_completed_learning_paths(
         self, user_uid: UserUID
@@ -217,11 +235,27 @@ class _AdaptiveMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def query_learning_preferences(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Query user's learning preferences node."""
+    async def query_learning_preferences(
+        self, user_uid: UserUID
+    ) -> Result[LearningPreference | None]:
+        """Query user's learning preferences as a typed model (None when absent
+        or unconvertible)."""
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_PREFERENCE]->(pref:LearningPreference)
         RETURN pref
         LIMIT 1
         """
-        return await self.execute_query(query, {"user_uid": user_uid})
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        pref_node = records[0].get("pref") if records else None
+        if not pref_node:
+            return Result.ok(None)
+        try:
+            return Result.ok(from_neo4j_node(pref_node, LearningPreference))
+        except DATA_CONVERSION_EXCEPTIONS as e:
+            self.logger.warning("Skipping unconvertible LearningPreference node: %s", e)
+            return Result.ok(None)

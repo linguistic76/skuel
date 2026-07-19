@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.pipeline import Pipeline
 from core.models.exercises.exercise import Exercise
@@ -22,11 +23,10 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
 )
-from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
+    from core.models.exercises.revised_exercise import RevisedExercise
 
 
 class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
@@ -878,9 +878,12 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         return await self.execute_query(query, params)
 
     async def create_report_and_revised_exercise(
-        self, params: dict[str, Any]
+        self, params: dict[str, Any], re_entity: RevisedExercise
     ) -> Result[list[Neo4jProperties]]:
         """Atomically create EntryReport + RevisedExercise in one transaction.
+
+        ``re_entity`` is serialized to node properties here (``to_neo4j_node``),
+        below the hexagonal boundary, and injected as the ``re_props`` param.
 
         Combines the two-phase revision request (create_report_node + RevisedExercise
         create with relationships) into a single Cypher query. All-or-nothing: if any
@@ -894,6 +897,10 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             Phase 2 (RevisedExercise): re_props (from to_neo4j_node), re_uid,
                 original_exercise_uid
         """
+        from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
+
+        params = {**params, "re_props": to_neo4j_node(re_entity)}
+
         query = f"""
         // Phase 1: Match submission with status guard, create EntryReport
         MATCH (submission:Entity {{uid: $report_uid}})

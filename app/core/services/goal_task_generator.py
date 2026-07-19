@@ -15,15 +15,14 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
-from core.models.task.task import Task
+from core.models.task.task import Task, get_task_urgency
 from core.models.task.task_dto import TaskDTO
 from core.services.goals.goal_relationships import GoalRelationships
 
 # Import protocol interfaces
-from core.utils.dto_helpers import to_domain_model
+from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.sort_functions import get_task_urgency
 
 if TYPE_CHECKING:
     from core.ports import GoalsOperations, TasksOperations

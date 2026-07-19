@@ -35,7 +35,7 @@ from core.models.insight.persisted_insight import (
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import deserialize_json_fields
+from core.utils.neo4j_props import deserialize_json_fields
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

@@ -20,13 +20,13 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetToken
 from core.models.auth.session import Session, hash_session_token
 from core.models.type_hints import UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)

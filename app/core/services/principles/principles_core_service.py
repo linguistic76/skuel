@@ -20,7 +20,7 @@ from core.events import publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleStrength
-from core.models.principle.principle import Principle, merge_why_important
+from core.models.principle.principle import Principle, get_principle_priority, merge_why_important
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.principle.principle_types import PrincipleExpression
@@ -33,7 +33,6 @@ from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_principle_priority
 
 logger = get_logger(__name__)
 

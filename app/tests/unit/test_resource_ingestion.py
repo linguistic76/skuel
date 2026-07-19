@@ -163,7 +163,7 @@ def test_batch_items_keep_resource_uids_dropped_by_mapper() -> None:
     item to MERGE the CITES_RESOURCE edges. prepare_batch_items must restore
     it onto the item while keeping it out of _node_props — the exact #496 bug
     shape (silently-zero edges)."""
-    from core.ingestion.batch_preparer import prepare_batch_items
+    from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
 
     rel_config = ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config
     assert rel_config is not None and "resource_uids" in rel_config
@@ -219,7 +219,7 @@ def test_safe_external_url_rejects_unsafe_schemes(url: str | None) -> None:
 def test_ku_batch_items_keep_resource_uids() -> None:
     """Ku ingestion gains its first rel_config with this arc — pin the same
     seam for the Ku door."""
-    from core.ingestion.batch_preparer import prepare_batch_items
+    from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
 
     rel_config = ENTITY_CONFIGS[EntityType.KU].relationship_config
     assert rel_config is not None and "resource_uids" in rel_config

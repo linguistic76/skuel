@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import ExtractionTwinRow
-from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:

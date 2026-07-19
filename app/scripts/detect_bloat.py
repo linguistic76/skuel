@@ -378,7 +378,7 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
 # Context) are inherited by all domains, so a flagged base-mixin method is
 # genuinely uncalled across every inheritor (Vulture name-collision would have
 # masked any same-named call). Two pure-plumbing helpers were DELETED (live
-# winners exist: inline None-guard / standalone from_domain_model fn); these
+# winners exist: inline None-guard / a standalone conversion fn (itself since deleted in Tier 6)); these
 # three are feature-shaped surfaces with no superseded loser.
 # Chain builders on phantom edges (Mike ruled PLANNED, not delete, 2026-07-10).
 _PHANTOM_EDGE_CHAIN_BUILDERS = (

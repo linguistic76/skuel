@@ -35,7 +35,7 @@ from core.events.curriculum_events import (
 )
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.ports.query_types import PsKnowledgeSummaryResult
 from core.services.base_service import BaseService
@@ -43,12 +43,9 @@ from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.metrics import track_query_metrics
-from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from core.ports.curriculum_protocols import PsOperations
 
 logger = get_logger(__name__)
@@ -100,29 +97,6 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         """
         super().__init__(backend, "ps_core")
         self.event_bus = event_bus
-
-    @staticmethod
-    def _path_step_from_props(
-        step_data: Neo4jProperties, knowledge_uids: Sequence[str]
-    ) -> PathStep:
-        """Reconstruct a PathStep from Neo4j node properties + its knowledge UIDs.
-
-        Enum conversion (domain, status, step_difficulty) and type coercion are
-        handled by the generic node mapper. Defaults are injected for required
-        fields that older nodes may be missing (pre-schema writes).
-
-        GRAPH-NATIVE: knowledge_uids come from a CONTAINS_KNOWLEDGE traversal,
-        not node properties, so they are injected into the data dict.
-        """
-        data: dict[str, Any] = dict(step_data)
-        data.setdefault("title", "Path Step")
-        data.setdefault("intent", "Complete this path step")
-        data.setdefault("mastery_threshold", 0.7)
-        data.setdefault("current_mastery", 0.0)
-        data.setdefault("estimated_hours", 1.0)
-        data.setdefault("domain", "PERSONAL")
-        data["knowledge_uids"] = list(knowledge_uids)
-        return from_neo4j_node(data, PathStep)
 
     @with_error_handling(operation="create_step", error_type="database", uid_param="step.uid")
     async def create_step(self, step: PathStep, path_uid: str | None = None) -> Result[PathStep]:
@@ -207,23 +181,13 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         Returns:
             Result containing Ls or None if not found
         """
-        # GRAPH-NATIVE: Query node + knowledge relationships
+        # GRAPH-NATIVE: backend returns the typed model (node + knowledge UIDs)
         result = await self.backend.get_step_with_knowledge(step_uid)
 
         if result.is_error:
             return Result.fail(result)
 
-        records = result.value or []
-        if not records:
-            return Result.ok(None)
-
-        record = records[0]
-        step_data = record["s"]
-        knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
-
-        step = self._path_step_from_props(step_data, knowledge_uids)
-
-        return Result.ok(step)
+        return Result.ok(result.value)
 
     @with_error_handling(operation="update_step", error_type="database", uid_param="step_uid")
     async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[PathStep]:
@@ -284,19 +248,13 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
                 )
             )
 
-        records = result.value or []
-        if not records:
+        updated_step = result.value
+        if updated_step is None:
             return Result.fail(
                 Errors.database(
                     operation="update_step", message=f"Failed to update step {step_uid}"
                 )
             )
-
-        record = records[0]
-        step_data = record["s"]
-        knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
-
-        updated_step = self._path_step_from_props(step_data, knowledge_uids)
 
         logger.info(f"Updated path step {step_uid}")
 
@@ -419,13 +377,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         if result.is_error:
             return Result.fail(result)
 
-        steps = []
-        for record in result.value or []:
-            step_data = record["s"]
-            knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
-
-            steps.append(self._path_step_from_props(step_data, knowledge_uids))
-
+        steps = result.value or []
         logger.info(f"✅ Listed {len(steps)} path steps")
         return Result.ok(steps)
 

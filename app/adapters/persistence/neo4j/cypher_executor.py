@@ -92,7 +92,7 @@ class CypherExecutor[T]:
         Returns:
             Result containing query statistics
         """
-        from core.utils.neo4j_mapper import to_neo4j_node
+        from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
 
         try:
             params = {"item": to_neo4j_node(entity)}

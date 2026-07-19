@@ -358,3 +358,30 @@ class Principle(UserOwnedEntity):
             f"status={self.status}, principle_category={self.principle_category}, "
             f"strength={self.strength}, user_uid={self.user_uid})"
         )
+
+
+def get_principle_priority(principle: Any) -> int:
+    """
+    Sort key: numeric priority (1-4) for ordering principles.
+
+    Principle-domain sorting policy (Dynamic Enum Pattern): converts the
+    Priority enum via to_numeric(); string priorities (Neo4j deserialization)
+    are resolved through the Priority enum; anything else defaults to
+    MEDIUM (2).
+
+    Example:
+        principles.sort(key=get_principle_priority, reverse=True)
+    """
+    from core.ports.base_protocols import HasPriority, HasToNumeric
+
+    if isinstance(principle, HasPriority):
+        if isinstance(principle.priority, HasToNumeric):
+            return principle.priority.to_numeric()
+        if isinstance(principle.priority, str):
+            from core.models.enums import Priority
+
+            try:
+                return Priority(principle.priority).to_numeric()
+            except ValueError:
+                return 2
+    return 2  # Default to MEDIUM priority

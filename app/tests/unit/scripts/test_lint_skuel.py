@@ -382,7 +382,7 @@ class TestSKUEL001:
         linter = make_linter(["SKUEL001"])
         content = '"""Maps rows.\n\n    Avoid apoc.map.fromPairs() — use a dict.\n"""\nrows = []'
         violations = lint_content(
-            linter, content, file_path="core/utils/neo4j_mapper.py", is_service=False
+            linter, content, file_path="core/utils/neo4j_props.py", is_service=False
         )
         assert len(violations) == 0
 
@@ -752,7 +752,7 @@ class TestSKUEL007:
     def test_silent_outside_scope(self) -> None:
         # scripts/ and non-service core/ modules stay out of SKUEL007's scope.
         linter = make_linter(["SKUEL007"])
-        for path in ("scripts/some_tool.py", "core/utils/neo4j_mapper.py"):
+        for path in ("scripts/some_tool.py", "core/utils/neo4j_props.py"):
             violations = lint_content(
                 linter,
                 'return Result.fail("boom")',
@@ -1050,7 +1050,7 @@ class TestSKUEL013:
     def test_silent_outside_scope(self) -> None:
         # scripts/ and non-service core/ modules stay out of SKUEL013's scope.
         linter = make_linter(["SKUEL013"])
-        for path in ("scripts/some_tool.py", "core/utils/neo4j_mapper.py"):
+        for path in ("scripts/some_tool.py", "core/utils/neo4j_props.py"):
             violations = lint_content(
                 linter,
                 'rel = "SUPPORTS_GOAL"',
@@ -1231,7 +1231,7 @@ class TestSKUEL014:
     def test_silent_outside_scope(self) -> None:
         # scripts/ and non-service core/ modules stay out of SKUEL014's scope.
         linter = make_linter(["SKUEL014"])
-        for path in ("scripts/some_tool.py", "core/utils/neo4j_mapper.py"):
+        for path in ("scripts/some_tool.py", "core/utils/neo4j_props.py"):
             violations = lint_content(
                 linter,
                 'if entity_type == "task":\n    pass',
@@ -2223,7 +2223,7 @@ class TestSKUEL021:
         linter = make_linter(["SKUEL021"])
         content = '"""Maps rows.\n\n    MATCH (n) RETURN n\n"""\nrows = []'
         violations = lint_content(
-            linter, content, file_path="core/utils/neo4j_mapper.py", is_service=False
+            linter, content, file_path="core/utils/neo4j_props.py", is_service=False
         )
         assert len(violations) == 0
 

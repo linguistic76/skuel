@@ -17,7 +17,6 @@ Key Features:
 import inspect
 import json
 import types
-from contextlib import suppress
 from dataclasses import MISSING, fields, is_dataclass
 from datetime import date, datetime, time
 from enum import Enum
@@ -660,109 +659,6 @@ class Neo4jGenericMapper:
 _mapper = Neo4jGenericMapper()
 
 
-def coerce_int(value: object, default: int = 0) -> int:
-    """Coerce a Neo4j property (or any heterogeneous value) to ``int``.
-
-    Neo4j records expose values as ``str | int | float | bool | list | datetime | None``.
-    Passing such a value directly to ``int()`` trips mypy (``datetime`` / ``list``
-    don't satisfy ``SupportsInt``) and can crash at runtime. This helper narrows
-    the input and falls back to ``default`` for non-numeric shapes.
-
-    Args:
-        value: Raw value from a record / mixed-type dict.
-        default: Fallback when ``value`` is ``None`` or non-numeric.
-
-    Returns:
-        Integer representation, or ``default``.
-    """
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, (int, float, str)):
-        try:
-            return int(value)
-        except (ValueError, TypeError):  # fmt: skip
-            return default
-    return default
-
-
-def coerce_float(value: object, default: float = 0.0) -> float:
-    """Coerce a Neo4j property (or any heterogeneous value) to ``float``.
-
-    Counterpart to :func:`coerce_int` for ``float`` conversion — see that
-    function's docstring for rationale.
-
-    Args:
-        value: Raw value from a record / mixed-type dict.
-        default: Fallback when ``value`` is ``None`` or non-numeric.
-
-    Returns:
-        Float representation, or ``default``.
-    """
-    if isinstance(value, bool):
-        return float(value)
-    if isinstance(value, (int, float, str)):
-        try:
-            return float(value)
-        except (ValueError, TypeError):  # fmt: skip
-            return default
-    return default
-
-
-def parse_neo4j_json(value: Any, default: Any = None) -> Any:
-    """Parse a JSON-encoded value from a Neo4j node property.
-
-    Neo4j cannot store nested structures (dicts, lists of dicts), so they
-    are stored as JSON strings.  This helper transparently handles the
-    round-trip: if *value* is a JSON string it is parsed; if it is already
-    a native Python type it is returned as-is; ``None`` / empty string
-    returns *default*.
-
-    Use this when consuming raw Cypher query results (custom queries that
-    bypass ``from_neo4j_node``).
-
-    Args:
-        value: Raw value from a Neo4j record.
-        default: Fallback when *value* is ``None``, empty, or unparseable.
-
-    Returns:
-        Parsed Python object, the original value, or *default*.
-    """
-    if value is None:
-        return default
-    if not isinstance(value, str):
-        return value
-    if not value:
-        return default
-    try:
-        return json.loads(value)
-    except (json.JSONDecodeError, ValueError):  # fmt: skip
-        return default
-
-
-def deserialize_json_fields(data: dict[str, Any], *fields: str) -> dict[str, Any]:
-    """Deserialize JSON-string fields **in place** on a Neo4j result dict.
-
-    For services that run custom Cypher and get back raw node property
-    dicts, this replaces the repetitive pattern::
-
-        if isinstance(d.get("f"), str):
-            d["f"] = json.loads(d["f"])
-
-    Args:
-        data: Mutable dict of node properties (modified in place).
-        *fields: Names of fields that may be JSON-encoded strings.
-
-    Returns:
-        The same *data* dict (for chaining convenience).
-    """
-    for field in fields:
-        val = data.get(field)
-        if isinstance(val, str) and val:
-            with suppress(json.JSONDecodeError, ValueError):
-                data[field] = json.loads(val)
-    return data
-
-
 def to_neo4j_node(entity: Any) -> dict[str, Any]:
     """
     Convert domain entity to Neo4j node properties.
@@ -810,7 +706,7 @@ def from_neo4j_node[T](data: Neo4jProperties, entity_class: type[T]) -> T:
 """
 # In tasks_neo4j_backend.py:
 
-from core.utils.neo4j_mapper import to_neo4j_node, from_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node, from_neo4j_node
 from core.models.task import Task
 
 class Neo4jTasksBackend:

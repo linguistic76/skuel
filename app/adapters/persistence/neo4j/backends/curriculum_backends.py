@@ -23,8 +23,6 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     PsDeleteStepRow,
     PsKnowledgeSummaryResult,
-    PsStandaloneStepRow,
-    PsStepWithKnowledgeRow,
 )
 from core.utils.result_simplified import Result
 
@@ -602,22 +600,48 @@ class PsBackend(
         """
         return await self.execute_query(query, params)
 
-    async def get_step_with_knowledge(self, uid: str) -> Result[list[PsStepWithKnowledgeRow]]:
-        """Get step node with CONTAINS_KNOWLEDGE relationships."""
+    @staticmethod
+    def _step_with_knowledge_to_model(record: dict[str, Any]) -> PathStep:
+        """Reconstruct a PathStep from an ``s, knowledge_uids`` record.
+
+        Enum conversion (domain, status, step_difficulty) and type coercion are
+        handled by the generic node mapper. Defaults are injected for required
+        fields that older nodes may be missing (pre-schema writes).
+
+        GRAPH-NATIVE: knowledge_uids come from a CONTAINS_KNOWLEDGE traversal,
+        not node properties, so they are injected into the data dict.
+        """
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
+        data: dict[str, Any] = dict(record["s"])
+        data.setdefault("title", "Path Step")
+        data.setdefault("intent", "Complete this path step")
+        data.setdefault("mastery_threshold", 0.7)
+        data.setdefault("current_mastery", 0.0)
+        data.setdefault("estimated_hours", 1.0)
+        data.setdefault("domain", "PERSONAL")
+        data["knowledge_uids"] = [uid for uid in record["knowledge_uids"] if uid]
+        return from_neo4j_node(data, PathStep)
+
+    async def get_step_with_knowledge(self, uid: str) -> Result[PathStep | None]:
+        """Get a step (with its CONTAINS_KNOWLEDGE UIDs) as a typed model, or None."""
         query = """
         MATCH (s:Entity {uid: $uid})
         OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
         RETURN s, collect(ku.uid) as knowledge_uids
         """
-        return cast(
-            "Result[list[PsStepWithKnowledgeRow]]",
-            await self.execute_query(query, {"uid": uid}),
-        )
+        result = await self.execute_query(query, {"uid": uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        return Result.ok(self._step_with_knowledge_to_model(records[0]))
 
     async def update_step_fields(
         self, _uid: str, set_clauses: list[str], params: dict[str, Any]
-    ) -> Result[list[dict[str, Any]]]:
-        """Update step fields and return step with knowledge relationships."""
+    ) -> Result[PathStep | None]:
+        """Update step fields; return the updated step as a typed model (None if absent)."""
         query = f"""
         MATCH (s:Entity {{uid: $uid}})
         SET {", ".join(set_clauses)}
@@ -625,7 +649,13 @@ class PsBackend(
         OPTIONAL MATCH (s)-[:CONTAINS_KNOWLEDGE]->(ku:Entity)
         RETURN s, collect(ku.uid) as knowledge_uids
         """
-        return await self.execute_query(query, params)
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        return Result.ok(self._step_with_knowledge_to_model(records[0]))
 
     async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
         """DETACH DELETE a step node and return deletion count."""
@@ -647,8 +677,8 @@ class PsBackend(
         order_field: str,
         order_direction: str,
         user_uid: UserUID | None = None,
-    ) -> Result[list[dict[str, Any]]]:
-        """List step nodes with knowledge relationships, pagination, and optional filters."""
+    ) -> Result[list[PathStep]]:
+        """List steps (with knowledge UIDs) as typed models, with pagination and filters."""
         where_clause = "WHERE s.user_uid = $user_uid " if user_uid else ""
 
         if path_uid:
@@ -680,20 +710,38 @@ class PsBackend(
         if user_uid:
             params["user_uid"] = user_uid
 
-        return await self.execute_query(query, params)
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [self._step_with_knowledge_to_model(record) for record in (result.value or [])]
+        )
 
     # ========================================================================
     # SEARCH QUERIES (migrated from PsSearchService)
     # ========================================================================
 
-    async def get_standalone_steps(self, limit: int = 50) -> Result[list[PsStandaloneStepRow]]:
+    def _records_to_steps(
+        self, result: Result[list[dict[str, Any]]], node_key: str = "ps"
+    ) -> Result[list[PathStep]]:
+        """Convert raw PS node records to PathStep models (Tier 6: conversion
+        lives below the hexagonal boundary — services receive typed models)."""
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [from_neo4j_node(record[node_key], PathStep) for record in (result.value or [])]
+        )
+
+    async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """Get PathStep nodes not belonging to any learning path.
 
         Args:
             limit: Maximum results
 
         Returns:
-            Result containing raw PS node records
+            Result containing PathStep models
         """
         query = """
         MATCH (ps:Entity {entity_type: 'path_step'})
@@ -702,14 +750,11 @@ class PsBackend(
         ORDER BY ps.updated_at DESC
         LIMIT $limit
         """
-        return cast(
-            "Result[list[PsStandaloneStepRow]]",
-            await self.execute_query(query, {"limit": limit}),
-        )
+        return self._records_to_steps(await self.execute_query(query, {"limit": limit}))
 
     async def get_prioritized_steps(
         self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[PathStep]]:
         """Get PathStep nodes prioritized by user context.
 
         Prioritization order: in-progress first, then by status, then by priority,
@@ -720,7 +765,7 @@ class PsBackend(
             limit: Maximum results
 
         Returns:
-            Result containing raw PS node records
+            Result containing PathStep models
         """
         query = """
         MATCH (ps:Entity {entity_type: 'path_step'})
@@ -746,7 +791,9 @@ class PsBackend(
             ps.updated_at DESC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        return self._records_to_steps(
+            await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        )
 
 
 class LpBackend(

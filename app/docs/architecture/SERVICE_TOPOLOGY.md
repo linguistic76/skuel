@@ -172,7 +172,7 @@ All services are composed in `/services_bootstrap/`. This package:
 BaseService[B: BackendOperations, T: DomainModelProtocol]
     │
     ├─ ConversionHelpersMixin      ← Foundation (no dependencies)
-    │   └─ Methods: _to_domain_model(), _to_domain_models(), _records_to_domain_models(), _create_and_convert()
+    │   └─ Methods: _to_domain_model(), _to_domain_models(), _create_and_convert()
     │
     ├─ CrudOperationsMixin          ← Depends on ConversionHelpersMixin
     │   └─ Methods: create(), get(), update(), delete(), list()

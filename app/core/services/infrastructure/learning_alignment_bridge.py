@@ -31,7 +31,7 @@ from core.models.pathways.lp_position import LpPosition
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.utils.logging import get_logger
-from core.utils.neo4j_mapper import coerce_int
+from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 # Generic type variables
