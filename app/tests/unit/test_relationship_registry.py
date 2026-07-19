@@ -14,6 +14,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     DOMAIN_CONFIGS,
+    ENTRY_REPORT_CONFIG,
     EVENTS_CONFIG,
     GOAPS_CONFIG,
     HABITS_CONFIG,
@@ -23,6 +24,7 @@ from core.models.relationship_registry import (
     PRINCIPLES_CONFIG,
     PS_CONFIG,
     TASKS_CONFIG,
+    USER_ENTRY_CONFIG,
     DomainRelationshipConfig,
     UnifiedRelationshipDefinition,
     generate_enables_relationships,
@@ -76,6 +78,7 @@ class TestUnifiedRegistry:
             "User",
             "PrincipleReflection",
             "UserEntry",
+            "EntryReport",
             "Interaction",
         }
         assert set(LABEL_CONFIGS.keys()) == expected_labels
@@ -84,6 +87,44 @@ class TestUnifiedRegistry:
         """Verify all configs are DomainRelationshipConfig instances."""
         for config in LABEL_CONFIGS.values():
             assert isinstance(config, DomainRelationshipConfig)
+
+
+class TestEntryReportConfig:
+    """Test the learning-loop Phase 3 (EntryReport) registry config."""
+
+    def test_entry_report_registered_by_label(self):
+        """Verify EntryReport resolves to ENTRY_REPORT_CONFIG."""
+        assert ENTRY_REPORT_CONFIG is LABEL_CONFIGS["EntryReport"]
+
+    def test_entry_report_has_loop_relationships(self):
+        """Verify the three report edges of the learning loop are declared."""
+        rel_names = {r.relationship for r in ENTRY_REPORT_CONFIG.relationships}
+        assert rel_names == {
+            RelationshipName.REPORT_FOR,
+            RelationshipName.ASSESSMENT_OF,
+            RelationshipName.RESPONDS_TO_REPORT,
+        }
+
+    def test_report_for_is_single_outgoing(self):
+        """Every EntryReport evaluates exactly one UserEntry (lifecycle rule 2)."""
+        report_for = next(
+            r
+            for r in ENTRY_REPORT_CONFIG.relationships
+            if r.relationship is RelationshipName.REPORT_FOR
+        )
+        assert report_for.direction == "outgoing"
+        assert report_for.single is True
+        assert report_for.target_label == "UserEntry"
+
+    def test_user_entry_projects_incoming_reports(self):
+        """A UserEntry projects its reports (1-to-many: AI + teacher)."""
+        report_for = next(
+            r
+            for r in USER_ENTRY_CONFIG.relationships
+            if r.relationship is RelationshipName.REPORT_FOR
+        )
+        assert report_for.direction == "incoming"
+        assert report_for.single is False
 
 
 class TestUnifiedRelationshipDefinition:
