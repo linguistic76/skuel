@@ -255,6 +255,8 @@ class RelationshipName(StrEnum):
     VIEWED = "VIEWED"  # (user)-[:VIEWED]->(ku) - User has seen/read this content
     IN_PROGRESS = "IN_PROGRESS"  # (user)-[:IN_PROGRESS]->(ku) - Actively learning
     MASTERED = "MASTERED"  # (user)-[:MASTERED]->(ku) - Knowledge acquired
+    MARKED_AS_READ = "MARKED_AS_READ"  # (user)-[:MARKED_AS_READ]->(ku) - explicit "read it" mark, treated as studying
+    BOOKMARKED = "BOOKMARKED"  # (user)-[:BOOKMARKED]->(ku) - saved for later
 
     # =========================================================================
     # USER SOCIAL/PREFERENCE RELATIONSHIPS
@@ -265,6 +267,7 @@ class RelationshipName(StrEnum):
         "PINNED_TODAY"  # (user)-[:PINNED_TODAY {pinned_at: datetime}]->(entity) - Today-surface pin
     )
     FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following
+    INTERESTED_IN = "INTERESTED_IN"  # (user)-[:INTERESTED_IN {interest_score, interest_source}]->(ku) - written by UserBackend.record_interest
     PURSUING_GOAL = "PURSUING_GOAL"  # (user)-[:PURSUING_GOAL]->(goal) - Active goals
     ENROLLED_IN = "ENROLLED_IN"  # (user)-[:ENROLLED_IN {enrolled_at, status}]->(lp) - LP enrollment; r.status='completed' marks completion (written by UserBackend.enroll_in_learning_path)
     MEMBER_OF = "MEMBER_OF"  # (user)-[:MEMBER_OF]->(team) - Team membership
@@ -284,6 +287,11 @@ class RelationshipName(StrEnum):
     # =========================================================================
     REQUIRES_PATH_COMPLETION = "REQUIRES_PATH_COMPLETION"
     HAS_STEP = "HAS_STEP"  # (lp)-[:HAS_STEP]->(ls) - Learning path contains step
+    # (user)-[:HAS_PATH]->(lp) — written by the LP step mixin. NOTE: overlaps
+    # ENROLLED_IN, which UserBackend treats as the canonical enrollment edge;
+    # readers alternate `HAS_PATH|ENROLLED_IN`. Registered because it has a live
+    # writer, not because the duplication is settled — see the SKUEL030 backlog.
+    HAS_PATH = "HAS_PATH"
 
     # =========================================================================
     # CURRICULUM RELATIONSHIPS (January 2026 - Consolidation)
@@ -361,6 +369,13 @@ class RelationshipName(StrEnum):
     # Transcription, journal processing, and content linking
     # =========================================================================
     TRANSCRIBED_FOR = "TRANSCRIBED_FOR"  # Transcription created for journal
+    # Body-content subtree: (Entity)-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(:ContentChunk).
+    # Frontmatter lives on the Entity; body semantics live on the :Content subtree.
+    HAS_CONTENT = "HAS_CONTENT"  # (Entity)-[:HAS_CONTENT]->(Content)
+    HAS_CHUNK = "HAS_CHUNK"  # (Content)-[:HAS_CHUNK]->(ContentChunk) - RAG chunks
+    HAS_REFERENCE_CHUNK = (
+        "HAS_REFERENCE_CHUNK"  # (Resource)-[:HAS_REFERENCE_CHUNK]->(ReferenceChunk) - canon shelf
+    )
     HAS_SCHEDULE = "HAS_SCHEDULE"  # (User)-[:HAS_SCHEDULE]->(ReportSchedule) - User's report generation schedule
     ASSESSMENT_OF = (
         "ASSESSMENT_OF"  # (Report)-[:ASSESSMENT_OF]->(User) - Teacher assessment targets student
@@ -399,6 +414,20 @@ class RelationshipName(StrEnum):
     HAS_NOTIFICATION = "HAS_NOTIFICATION"  # (User)-[:HAS_NOTIFICATION]->(Notification)
 
     # =========================================================================
+    # INSIGHT RELATIONSHIPS
+    # Persisted intelligence output, attributed to the entity it describes
+    # =========================================================================
+    HAS_INSIGHT = "HAS_INSIGHT"  # (User)-[:HAS_INSIGHT]->(Insight)
+    ABOUT_ENTITY = "ABOUT_ENTITY"  # (Insight)-[:ABOUT_ENTITY]->(Entity)
+
+    # =========================================================================
+    # INGESTION / SNAPSHOT INFRASTRUCTURE
+    # Ingestion audit trail and periodic intelligence snapshots
+    # =========================================================================
+    HAD_ERROR = "HAD_ERROR"  # (IngestionHistory)-[:HAD_ERROR]->(IngestionError)
+    HAS_ZPD_HISTORY = "HAS_ZPD_HISTORY"  # (User)-[:HAS_ZPD_HISTORY]->(ZPDHistory)
+
+    # =========================================================================
     # AUTHENTICATION RELATIONSHIPS
     # Graph-native session and auth event tracking
     # =========================================================================
@@ -408,6 +437,10 @@ class RelationshipName(StrEnum):
     # conversation cases never collide because every query is label-scoped
     # (:Session vs :ConversationSession). HAS_TURN groups a session's messages.
     HAS_TURN = "HAS_TURN"  # (:ConversationSession)-[:HAS_TURN {turn_number}]->(:ConversationTurn)
+    # (user)-[:HAS_MESSAGE]->(:ConversationMessage) — the pre-ADR-078 Askesis
+    # transcript path, still written on every query turn. Parallel to HAS_TURN
+    # above; the two conversation stores are not yet reconciled (SKUEL030 backlog).
+    HAS_MESSAGE = "HAS_MESSAGE"
     HAD_AUTH_EVENT = "HAD_AUTH_EVENT"  # (user)-[:HAD_AUTH_EVENT]->(auth_event)
     HAS_RESET_TOKEN = "HAS_RESET_TOKEN"  # (user)-[:HAS_RESET_TOKEN]->(reset_token)
     HAS_DEVICE = "HAS_DEVICE"  # (user)-[:HAS_DEVICE]->(device) - enrolled vault-agent (ADR-075)

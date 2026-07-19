@@ -25,7 +25,7 @@ For implementation guidance, see:
 2. **MyPy** (`mypy`) - Static type checker
 3. **Pyright** (`pyright`) - Additional type checker for VS Code
 4. **SKUEL Pattern Linter** (`scripts/lint_skuel.py`) - Custom architectural patterns
-5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations, bulk-upsert templates — semicolon-split statements, comment-masked; since PR #710)
+5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP011), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations, bulk-upsert templates — semicolon-split statements, comment-masked; since PR #710)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
 - `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
@@ -84,6 +84,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL018** | Direct read of `RichUserContext` rich-only fields | Use accessor methods (`get_X()` / `X_or_empty()`) |
 | **SKUEL019** | Credential reads bypassing `get_credential()` | ERROR for catalog keys, WARNING for credential-shape names |
 | **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment — see "Suppression audit" below |
+| **SKUEL030** | Unregistered label / relationship type in persistence Cypher | Register it in `NeoLabel` / `RelationshipName`, or fix the name (AST rule, docstring-aware) |
 
 ## Inline Suppression
 
@@ -97,7 +98,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -762,6 +763,69 @@ turns the async iterator into a sync generator and breaks every `async for` call
 
 **Scope:** all non-test files.
 
+## Rule: SKUEL030 - Persistence Cypher Vocabulary Must Be Registered
+
+**Severity:** WARNING — runs on `adapters/persistence/**` only.
+
+Every relationship type and node label written in persistence-layer Cypher must be a
+registered member of `RelationshipName` / `NeoLabel`. Both enums document themselves as
+the single source of truth for the graph vocabulary ("All valid Neo4j relationship type
+names" / "All valid Neo4j node labels in SKUEL"); an edge or label the registry has never
+heard of makes that claim false.
+
+**Why it matters:** Neo4j validates neither labels nor relationship types. A typo'd
+`(:KnowlegeDomain)` or `[:OWNS_ENTITY]` raises no error — the pattern simply matches zero
+rows, silently, forever. Worse, an unregistered edge inside `WHERE NOT (x)<-[:REL]-(u)`
+makes the filter *always true*, so the query returns unfiltered results. This rule is the
+only check standing between a one-character typo and a feature that quietly returns
+nothing (or everything) in production.
+
+**This is a vocabulary rule, not an interpolation-style rule.** A plain `[:OWNS]` literal
+is fine below the boundary — SKUEL013's `[:{RelationshipName.OWNS}]` form is *not*
+required here, and no 300-site interpolation rewrite is implied. The rule reads the NAME,
+never the syntax around it.
+
+**Scope and exemptions:**
+
+- `adapters/persistence/**` `.py` string literals. The `.cypher` half is CYP011 in
+  `cypher_linter.py` — splitting by file type avoids double-reporting, and only the
+  Python side has the AST context needed to tell an executable query from a docstring.
+- Docstrings and other inert bare-string statements are skipped (the SKUEL001/SKUEL021
+  model), so illustrative Cypher in prose never trips it.
+- f-strings are flattened *whole* before scanning; names touching an interpolation
+  (`[:HAS_{domain.upper()}]`) are unresolvable statically and skipped. Scanning an
+  f-string's Constant children individually would tear `[:HAS_{domain}]` into `[:HAS_`
+  and report a bogus `HAS_` — hence `fstring_part_ids`.
+- `scripts/migrations/*` is excluded by design: a rename migration's job is to reference
+  the vocabulary it is renaming away.
+
+**The registry is read, not mirrored.** `scripts/cypher_vocabulary.py` recovers the enum
+members by AST-parsing the two declaration sites — no import, so the linters still carry
+no runtime dependency on `core/`. This replaced SKUEL013's 170-entry hand-mirror, which
+had already drifted once to a ~30-value subset with four stale names, silently
+under-enforcing for months. A parser cannot drift; a mirror always eventually does. An
+unreadable or empty registry raises `VocabularyError` rather than returning an empty set —
+failing closed is the only safe default for a rule whose value is catching what nothing
+else catches.
+
+**The baseline.** The 2026-07-19 introduction sweep found 65 unregistered names across 194
+sites. 32 were live vocabulary with real writers and were registered. The remaining 33 are
+listed in `SkuelLinter.SKUEL030_BASELINE` — every one a **known finding, not an accepted
+name**: reads against vocabulary nothing writes. They are baselined rather than registered
+because registering them would bless the bug; the fix is to repoint or delete the reader,
+which changes query semantics and belongs in its own PR. Full triage:
+[CYPHER_VOCABULARY_FINDINGS.md](CYPHER_VOCABULARY_FINDINGS.md).
+
+The baseline is a **shrinking list, never a growing one** — new unregistered vocabulary
+fails immediately, which is the invariant the rule exists to hold. `TestSKUEL030Registration`
+fails if a baselined name later gets registered, so the set cannot rot into a mask.
+
+**Suppress:** `# skuel-lint: disable=SKUEL030 -- <reason>` (line) /
+`disable-file=SKUEL030` (file) for a label or edge genuinely owned by an external or
+infrastructural schema the domain registry should not absorb. The `.cypher` equivalents
+are `// noqa: CYP011 - <reason>` and, for a file that is dead end to end,
+`// noqa-file: CYP011 - <reason>`.
+
 ## Authoring AST Rules
 
 Two bug classes recur when writing AST-based rules (SKUEL020, SKUEL021, SKUEL022). Both are
@@ -857,7 +921,7 @@ Add to pre-commit hooks or CI pipeline:
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
 - **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (25 rules)
-- **scripts/cypher_linter.py** - Cypher query static analysis (10 rules, 2 disabled)
+- **scripts/cypher_linter.py** - Cypher query static analysis (11 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
 **See:** [UV Guide](../guides/UV_GUIDE.md) for package manager commands, [Linter Guide](../guides/LINTER_GUIDE.md) for full CLI reference
@@ -876,6 +940,7 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 | **SKUEL017** | Tests, `scripts/`, `result_simplified.py` | `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` |
 | **SKUEL018** | Tests, `unified_user_context.py`, `user_context_populator.py` | `# skuel-lint: disable=SKUEL018` |
 | **SKUEL019** | Tests, `credential_store.py`, `credential_setup.py`, both `migrate_secrets_*` scripts, `lint_skuel.py` | `# skuel-lint: disable=SKUEL019` |
+| **SKUEL030** | Everything outside `adapters/persistence/`; `scripts/migrations/`; docstrings; names in `SKUEL030_BASELINE` | `# skuel-lint: disable=SKUEL030` |
 
 ## Benefits Achieved
 
@@ -887,5 +952,5 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 
 ---
 
-**Last Updated:** 2026-05-16
+**Last Updated:** 2026-07-19
 **Status:** Active - 25 rules (SKUEL001–SKUEL026; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.

@@ -736,3 +736,64 @@ class TestGetLineAtPosition:
         linter = make_linter()
         text = "short"
         assert linter._get_line_at_position(text, 100) == ""
+
+
+# ============================================================================
+# CYP011: vocabulary registry
+# ============================================================================
+
+
+class TestCYP011:
+    """`.cypher` half of the graph-vocabulary contract (SKUEL030 owns `.py`)."""
+
+    def test_detects_unregistered_label(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        f = tmp_path / "probe.cypher"
+        f.write_text("CREATE CONSTRAINT c IF NOT EXISTS FOR (n:Taskk) REQUIRE n.uid IS UNIQUE;")
+        violations = linter._check_vocabulary_registry(f.read_text(), f, 1)
+        assert len(violations) == 1
+        assert violations[0].rule_code == "CYP011"
+        assert violations[0].severity == Severity.ERROR
+        assert "Taskk" in violations[0].message
+
+    def test_detects_unregistered_relationship(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        f = tmp_path / "probe.cypher"
+        f.write_text("MATCH (u:User)-[:OWNS_ENTITY]->(t:Task) RETURN t;")
+        violations = linter._check_vocabulary_registry(f.read_text(), f, 1)
+        assert [v.message.count("OWNS_ENTITY") for v in violations] == [1]
+
+    def test_allows_registered_vocabulary(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        f = tmp_path / "probe.cypher"
+        f.write_text("MATCH (u:User)-[:OWNS]->(t:Task) RETURN t;")
+        assert linter._check_vocabulary_registry(f.read_text(), f, 1) == []
+
+    def test_python_files_are_left_to_skuel030(self, tmp_path: Path) -> None:
+        """Running here too would double-report every .py hit."""
+        linter = make_linter()
+        f = tmp_path / "backend.py"
+        f.write_text('q = "MATCH (n:Taskk) RETURN n"')
+        assert linter._check_vocabulary_registry(f.read_text(), f, 1) == []
+
+    def test_migrations_are_excluded(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        migrations = tmp_path / "migrations"
+        migrations.mkdir()
+        f = migrations / "rename_2026.cypher"
+        f.write_text("MATCH (n:RetiredLabel) REMOVE n:RetiredLabel;")
+        assert linter._check_vocabulary_registry(f.read_text(), f, 1) == []
+
+    def test_line_noqa_suppression(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        f = tmp_path / "probe.cypher"
+        query = "MATCH (n:Taskk) RETURN n; // noqa: CYP011 - external schema"
+        f.write_text(query)
+        assert linter._check_vocabulary_registry(query, f, 1) == []
+
+    def test_file_noqa_suppression(self, tmp_path: Path) -> None:
+        linter = make_linter()
+        f = tmp_path / "probe.cypher"
+        query = "MATCH (n:Taskk) RETURN n;"
+        f.write_text("// noqa-file: CYP011 - dead template\n" + query)
+        assert linter._check_vocabulary_registry(query, f, 1) == []

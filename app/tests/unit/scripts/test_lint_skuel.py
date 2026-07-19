@@ -90,6 +90,16 @@ def lint_content(
     if linter._should_run_rule("SKUEL029") and not is_test:
         linter._check_async_without_await(fp, rel, content, lines, tree)
 
+    # Graph-vocabulary rule — mirrors _lint_file's persistence gate.
+    is_persistence = "/adapters/persistence/" in str(fp)
+    if (
+        is_persistence
+        and not is_test
+        and not rel.as_posix().startswith(linter.SKUEL030_EXCLUDED_PREFIXES)
+        and linter._should_run_rule("SKUEL030")
+    ):
+        linter._check_cypher_vocabulary(fp, rel, content, lines, tree)
+
     # Boundary rules (ADR-044): SKUEL001 (APOC) + SKUEL021 (raw Cypher) run on all
     # of core/ as well as any /services/ path — mirror _lint_file's is_below_boundary.
     is_below_boundary = is_core or is_service
@@ -1082,32 +1092,183 @@ class TestSKUEL013:
 
 
 class TestRelationshipNamesDrift:
-    """The linter mirrors the FULL RelationshipName enum value set.
+    """The linter's vocabulary must equal the FULL RelationshipName enum.
 
-    If those drift, SKUEL013 silently under-enforces (new relationship values
-    pass as raw strings) or gives broken advice (suggesting enum members that
-    no longer exist — the pre-2026-07 catalog carried four stale names).
+    If they diverge, SKUEL013 silently under-enforces (new relationship values
+    pass as raw strings) or gives broken advice (suggesting enum members that no
+    longer exist — the pre-2026-07 hand-mirror carried four stale names).
+
+    The mirror is gone as of 2026-07-19: `SkuelLinter.RELATIONSHIP_NAMES` now
+    AST-parses the enum declaration site via `cypher_vocabulary.load_vocabulary`.
+    This test therefore pins the PARSER, not a copy — it fails if the parser
+    stops recovering members (e.g. someone converts the enum to a functional
+    `StrEnum("RelationshipName", [...])` call, which has no Assign nodes to read).
     """
 
-    def test_linter_catalog_matches_relationship_name_enum(self) -> None:
+    def test_parsed_vocabulary_matches_relationship_name_enum(self) -> None:
         # Import inside the test so collection still works in environments
         # where core/ isn't importable (e.g. minimal CI lint runners).
         from core.models.relationship_names import RelationshipName
 
         actual = {member.value for member in RelationshipName}
-        mirrored = set(SkuelLinter.RELATIONSHIP_NAMES)
+        parsed = set(make_linter(["SKUEL013"]).RELATIONSHIP_NAMES)
 
-        missing = actual - mirrored
-        extra = mirrored - actual
-        assert not missing, (
-            f"SkuelLinter.RELATIONSHIP_NAMES is missing values present in "
-            f"RelationshipName: {sorted(missing)}. "
-            f"Add them to scripts/lint_skuel.py::SkuelLinter.RELATIONSHIP_NAMES."
+        assert parsed == actual, (
+            "The AST-parsed RelationshipName vocabulary diverged from the enum. "
+            f"Missing: {sorted(actual - parsed)}. Extra: {sorted(parsed - actual)}. "
+            "See scripts/cypher_vocabulary.py::_enum_member_values."
         )
-        assert not extra, (
-            f"SkuelLinter.RELATIONSHIP_NAMES has values not in RelationshipName: "
-            f"{sorted(extra)}. Remove them from "
-            f"scripts/lint_skuel.py::SkuelLinter.RELATIONSHIP_NAMES."
+
+    def test_parsed_labels_match_neo_label_enum(self) -> None:
+        """Same contract for the label half, which SKUEL030/CYP011 read."""
+        from cypher_vocabulary import load_vocabulary  # type: ignore[import-not-found]
+
+        from core.models.enums.neo_labels import NeoLabel
+
+        actual = {member.value for member in NeoLabel}
+        parsed = set(load_vocabulary().labels)
+
+        assert parsed == actual, (
+            "The AST-parsed NeoLabel vocabulary diverged from the enum. "
+            f"Missing: {sorted(actual - parsed)}. Extra: {sorted(parsed - actual)}."
+        )
+
+
+# ============================================================================
+# SKUEL030: persistence Cypher vocabulary must be registered
+# ============================================================================
+
+PERSISTENCE_FILE = "adapters/persistence/neo4j/example_backend.py"
+
+
+def lint_cypher(content: str, *, file_path: str = PERSISTENCE_FILE) -> list[Violation]:
+    """Run SKUEL030 over persistence-layer content."""
+    return lint_content(
+        make_linter(["SKUEL030"]),
+        content,
+        file_path=file_path,
+        is_service=False,
+        is_adapter=True,
+    )
+
+
+class TestSKUEL030:
+    def test_detects_unregistered_relationship(self) -> None:
+        violations = lint_cypher('q = "MATCH (u:User)-[:OWNS_ENTITY]->(t:Task) RETURN t"')
+        assert [v.rule_id for v in violations] == ["SKUEL030"]
+        assert "OWNS_ENTITY" in violations[0].message
+
+    def test_detects_unregistered_label(self) -> None:
+        violations = lint_cypher('q = "MATCH (u:User)-[:OWNS]->(t:Taskk) RETURN t"')
+        assert [v.rule_id for v in violations] == ["SKUEL030"]
+        assert "Taskk" in violations[0].message
+
+    def test_allows_registered_vocabulary(self) -> None:
+        assert lint_cypher('q = "MATCH (u:User)-[:OWNS]->(t:Task) RETURN t"') == []
+
+    def test_multi_label_pattern_checks_each_part(self) -> None:
+        """`(n:Entity:Ku)` is two labels; a typo in either half must be caught."""
+        assert lint_cypher('q = "MATCH (n:Entity:Ku) RETURN n"') == []
+        violations = lint_cypher('q = "MATCH (n:Entity:Kuu) RETURN n"')
+        assert len(violations) == 1
+        assert "Kuu" in violations[0].message
+
+    def test_alternation_checks_each_branch(self) -> None:
+        """`[:A|B]` is two edge types."""
+        assert lint_cypher('q = "MATCH ()-[:OWNS|MASTERED]->() RETURN 1"') == []
+        violations = lint_cypher('q = "MATCH ()-[:OWNS|MASTERD]->() RETURN 1"')
+        assert len(violations) == 1
+        assert "MASTERD" in violations[0].message
+
+    def test_var_length_bound_is_stripped(self) -> None:
+        assert lint_cypher('q = "MATCH ()-[:OWNS*1..3]->() RETURN 1"') == []
+
+    def test_interpolated_name_is_skipped(self) -> None:
+        """`[:HAS_{domain}]` composes its type at runtime — nothing to validate."""
+        content = 'q = f"MATCH (u:User)-[:HAS_{domain.upper()}]->(e:Task) RETURN e"'
+        assert lint_cypher(content) == []
+
+    def test_fstring_literal_parts_still_checked(self) -> None:
+        """Interpolation elsewhere must not blind the rule to a literal typo."""
+        content = 'q = f"MATCH (u:User {{uid: {uid}}})-[:OWNZ]->(t:Task) RETURN t"'
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "OWNZ" in violations[0].message
+
+    def test_docstring_cypher_is_ignored(self) -> None:
+        """Illustrative Cypher in prose is not executable — same model as SKUEL021."""
+        content = '"""Example: MATCH (u:User)-[:MADE_UP_EDGE]->(x:Bogus)."""\nq = 1'
+        assert lint_cypher(content) == []
+
+    def test_non_cypher_string_is_ignored(self) -> None:
+        """A bracketed non-query string must not be parsed as a pattern."""
+        assert lint_cypher('label = "[:NOT_CYPHER]"') == []
+
+    def test_baseline_names_are_not_reported(self) -> None:
+        """Known findings are documented in SKUEL030_BASELINE, not re-reported."""
+        assert lint_cypher('q = "MATCH (r:Report) RETURN r"') == []
+
+    def test_migrations_are_excluded(self) -> None:
+        """A rename migration must be able to name what it renames away."""
+        assert (
+            lint_cypher(
+                'q = "MATCH (n:RetiredLabel) REMOVE n:RetiredLabel"',
+                file_path="scripts/migrations/rename_2026.py",
+            )
+            == []
+        )
+
+    def test_line_suppression(self) -> None:
+        content = (
+            'q = "MATCH (u:User)-[:OWNS_ENTITY]->(t:Task)"'
+            "  # skuel-lint: disable=SKUEL030 -- external schema\n"
+        )
+        assert lint_cypher(content) == []
+
+    def test_file_suppression(self) -> None:
+        content = (
+            "# skuel-lint: disable-file=SKUEL030 -- mirrors an external graph\n"
+            'q = "MATCH (u:User)-[:OWNS_ENTITY]->(t:Task)"\n'
+        )
+        assert lint_cypher(content) == []
+
+    def test_reports_the_offending_line_not_the_string_start(self) -> None:
+        """Multi-line queries must point at the bad name, not the opening quote."""
+        content = 'q = """\nMATCH (u:User)\nMATCH (u)-[:BAD_EDGE]->(t:Task)\n"""'
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 3
+
+
+class TestSKUEL030Registration:
+    """SKUEL030 must be wired into every registry the linter consults."""
+
+    def test_is_suppressible(self) -> None:
+        assert "SKUEL030" in SkuelLinter.SUPPRESSIBLE_RULES
+
+    def test_consumes_the_shared_ast(self) -> None:
+        assert "SKUEL030" in SkuelLinter.AST_RULE_IDS
+
+    def test_has_rule_docs(self) -> None:
+        from lint_skuel import RULE_DOCS  # type: ignore[import-not-found]
+
+        assert "SKUEL030" in RULE_DOCS
+        assert RULE_DOCS["SKUEL030"]["severity"] == "WARNING"
+
+    def test_baseline_names_are_all_currently_unregistered(self) -> None:
+        """A baselined name that got registered is stale — delete it from the set.
+
+        The baseline is a shrinking list of known findings. Once a name is
+        genuinely registered, keeping it here would mask a future regression of
+        that same name.
+        """
+        from cypher_vocabulary import load_vocabulary  # type: ignore[import-not-found]
+
+        vocabulary = load_vocabulary()
+        known = vocabulary.relationships | vocabulary.labels
+        stale = sorted(SkuelLinter.SKUEL030_BASELINE & known)
+        assert not stale, (
+            f"SKUEL030_BASELINE entries are now registered and must be removed: {stale}"
         )
 
 

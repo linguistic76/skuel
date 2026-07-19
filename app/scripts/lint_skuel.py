@@ -36,6 +36,7 @@ WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report o
   SKUEL019: Credential-shaped env reads bypassing get_credential()
   SKUEL026: Suppression comment that suppresses nothing (rot / typo / unsupported rule)
   SKUEL028: Result.fail(result.expect_error()) - use Result.fail(result) to propagate
+  SKUEL030: Unregistered relationship type / node label in persistence Cypher
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -77,6 +78,15 @@ from pathlib import Path
 from typing import ClassVar
 
 from core.utils.terminal_colors import Colors
+
+# Shared with cypher_linter.py (CYP011) — one registry reader, one name scanner.
+sys.path.insert(0, str(Path(__file__).parent))
+from cypher_vocabulary import (  # type: ignore[import-not-found]
+    fstring_part_ids,
+    load_vocabulary,
+    render_fstring,
+    unregistered_names,
+)
 
 
 class Severity(Enum):
@@ -809,6 +819,47 @@ def score_insights(self, insights: list[Insight]) -> list[Insight]:
     # no await anywhere — a sync computation wearing an async signature
     return sorted(insights, key=self._priority)""",
     },
+    "SKUEL030": {
+        "title": "Persistence Cypher Vocabulary Must Be Registered",
+        "severity": "WARNING",
+        "description": """Every relationship type and node label written in persistence-layer
+Cypher must be a registered member of `RelationshipName` / `NeoLabel`. Those enums
+document themselves as THE single source of truth ("All valid Neo4j relationship type
+names" / "All valid Neo4j node labels in SKUEL"); an edge or label the registry has
+never heard of makes that claim false.
+
+This is a VOCABULARY rule, not an interpolation-style rule. `[:OWNS]` written as a plain
+literal is fine — SKUEL013's `[:{RelationshipName.OWNS}]` interpolation is NOT required
+below the boundary. What is checked is only that the NAME exists in the registry.
+
+Why it matters: Neo4j does not validate labels or relationship types. A typo'd
+`(:KnowlegeDomain)` or `[:OWNS_ENTITY]` raises no error — the MATCH simply returns zero
+rows, silently, forever. This rule is the only thing standing between a one-character
+typo and a feature that quietly returns nothing in production.
+
+Scope: `adapters/persistence/**` (.py string literals + .cypher templates). Docstrings
+and other inert bare-string statements are skipped (same model as SKUEL001/SKUEL021), so
+illustrative Cypher in prose never trips it. Dynamic names built by interpolation
+(`[:HAS_{domain.upper()}]`) are unresolvable statically and are skipped.
+
+`scripts/migrations/*.cypher` are EXCLUDED by design: a migration's whole job is to
+reference the old vocabulary it is renaming away, so retired names there are correct.
+
+Suppress (a label/edge genuinely owned by an external or infrastructural schema that the
+domain registry should not absorb):
+  # skuel-lint: disable=SKUEL030 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL030 -- <reason>""",
+        "good": """# Name exists in the registry — literal form is fine below the boundary
+query = "MATCH (u:User)-[:OWNS]->(t:Task) RETURN t"
+
+# Interpolated form is equally fine — the rule reads the NAME, not the syntax
+query = f"MATCH (u:User)-[:{RelationshipName.OWNS}]->(t:Task) RETURN t\"""",
+        "bad": """# 'OWNS_ENTITY' is not a RelationshipName member — silently matches nothing
+query = "MATCH (u:User)-[:OWNS_ENTITY]->(t:Task) RETURN t"
+
+# 'Domain' is not a NeoLabel member (the real label is 'KnowledgeDomain')
+query = "MATCH (n)-[:IN_DOMAIN]->(d:Domain) RETURN d.name\"""",
+    },
 }
 
 
@@ -962,6 +1013,7 @@ class SkuelLinter:
             "SKUEL027",
             "SKUEL028",
             "SKUEL029",
+            "SKUEL030",
         }
     )
 
@@ -1026,6 +1078,7 @@ class SkuelLinter:
             "SKUEL027",
             "SKUEL028",
             "SKUEL029",
+            "SKUEL030",
         }
     )
 
@@ -1492,6 +1545,18 @@ class SkuelLinter:
                 )
             if self._should_run_rule("SKUEL028") and not is_test:
                 self._check_result_fail_expect_error(file_path, rel_path, content, lines, tree)
+
+            # Graph-vocabulary rule: persistence Cypher may only name labels and
+            # relationship types the enum registry knows (migrations excepted —
+            # renaming away from a retired name requires naming it).
+            is_persistence = "/adapters/persistence/" in path_str
+            if (
+                is_persistence
+                and not is_test
+                and not rel_path.as_posix().startswith(self.SKUEL030_EXCLUDED_PREFIXES)
+                and self._should_run_rule("SKUEL030")
+            ):
+                self._check_cypher_vocabulary(file_path, rel_path, content, lines, tree)
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -2163,186 +2228,15 @@ class SkuelLinter:
     # enum. A string literal whose value IS one of these (exact match) is a magic
     # string standing in for the enum member.
     #
-    # Canonical source of truth: `RelationshipName` in
-    # `core/models/relationship_names.py` — this is the FULL set of enum values.
-    # Mirrored here because the linter deliberately has no runtime dependency on
-    # `core/`. Keep both in sync — `TestRelationshipNamesDrift` in
-    # `test_lint_skuel.py` pins the contract (it previously drifted to a ~30-value
-    # subset with four stale names, silently under-enforcing the rule).
-    RELATIONSHIP_NAMES: ClassVar[frozenset[str]] = frozenset(
-        {
-            "AFFECTS_GOAL",
-            "ALIGNED_WITH_GOAL",
-            "ALIGNED_WITH_PATH",
-            "ALIGNED_WITH_PRINCIPLE",
-            "ALIGNMENT_SNAPSHOT",
-            "ALTERNATIVE_TO",
-            "APPLIES_KNOWLEDGE",
-            "ASSESSMENT_OF",
-            "ASSIGNED_TO",
-            "ASSIGNS_TASK",
-            "ATTENDS",
-            "AUNT_UNCLE",
-            "BLOCKED_BY",
-            "BLOCKED_BY_KNOWLEDGE",
-            "BLOCKS",
-            "BUILDS_HABIT",
-            "CAUSES",
-            "CELEBRATES_GOAL",
-            "CITES_RESOURCE",
-            "COMPLEMENTARY_TO",
-            "COMPLETED_TASK",
-            "COMPLETES_KNOWLEDGE",
-            "CONFLICTS_WITH",
-            "CONFLICTS_WITH_PRINCIPLE",
-            "CONTAINS_KNOWLEDGE",
-            "CONTRIBUTES_TO_GOAL",
-            "CORRELATED_WITH",
-            "COUSIN",
-            "DEMONSTRATES_PRINCIPLE",
-            "DEPENDS_ON",
-            "DEPENDS_ON_GOAL",
-            "EARNED_BADGE",
-            "EMBEDS_FORM",
-            "EMBODIES_PRINCIPLE",
-            "ENABLED_BY",
-            "ENABLES",
-            "ENABLES_GOAL",
-            "ENABLES_HABIT",
-            "ENABLES_KNOWLEDGE",
-            "ENABLES_TASK",
-            "ENGAGED_WITH",
-            "ENROLLED_IN",
-            "EXACERBATED_BY",
-            "EXECUTES_TASK",
-            "EXTRACTED_FROM",
-            "FOLLOWS",
-            "FULFILLS_EXERCISE",
-            "FULFILLS_GOAL",
-            "FULFILLS_REVISED_EXERCISE",
-            "FUNDS_EVENT",
-            "FUNDS_TASK",
-            "GENERATES_TASK",
-            "GROUNDED_IN_KNOWLEDGE",
-            "GROUNDS_PRINCIPLE",
-            "GUIDED_BY_KNOWLEDGE",
-            "GUIDED_BY_PRINCIPLE",
-            "GUIDES_CHOICE",
-            "GUIDES_GOAL",
-            "HAD_AUTH_EVENT",
-            "HAS_BROADER",
-            "HAS_CHILD",
-            "HAS_CHOICE",
-            "HAS_CHOICE_TEMPLATE",
-            "HAS_DEVICE",
-            "HAS_EVENT",
-            "HAS_EVENT_TEMPLATE",
-            "HAS_EXERCISE",
-            "HAS_GOAL",
-            "HAS_GOAL_TEMPLATE",
-            "HAS_HABIT",
-            "HAS_HABIT_TEMPLATE",
-            "HAS_KU",
-            "HAS_MILESTONE_EVENT",
-            "HAS_NARROWER",
-            "HAS_NOTIFICATION",
-            "HAS_PRINCIPLE",
-            "HAS_PRINCIPLE_TEMPLATE",
-            "HAS_REFLECTION",
-            "HAS_RESET_TOKEN",
-            "HAS_SCHEDULE",
-            "HAS_SESSION",
-            "HAS_STEP",
-            "HAS_SUBCHOICE",
-            "HAS_SUBEVENT",
-            "HAS_SUBGOAL",
-            "HAS_SUBHABIT",
-            "HAS_SUBPRINCIPLE",
-            "HAS_SUBTASK",
-            "HAS_TASK",
-            "HAS_TASK_TEMPLATE",
-            "HAS_TURN",
-            "IMPACTS_HABIT",
-            "IMPLEMENTS_CHOICE",
-            "INFERRED_KNOWLEDGE",
-            "INFORMED_BY_KNOWLEDGE",
-            "INFORMED_BY_PRINCIPLE",
-            "INFORMS_CHOICE",
-            "INSPIRED_BY_CHOICE",
-            "INSPIRES_GOAL",
-            "INSPIRES_HABIT",
-            "INTERACTION_DURING",
-            "INTERACTION_WITHIN",
-            "IN_DOMAIN",
-            "IN_PROGRESS",
-            "MADE_REFLECTION",
-            "MASTERED",
-            "MEMBER_OF",
-            "MOTIVATED_BY_GOAL",
-            "NIECE_NEPHEW",
-            "OPENS_LEARNING_PATH",
-            "ORGANIZES",
-            "OWNS",
-            "PART_OF_PROJECT",
-            "PINNED",
-            "PINNED_TODAY",
-            "PRACTICED_AT_EVENT",
-            "PRECEDES",
-            "PREREQUISITE_FOR",
-            "PURSUING_GOAL",
-            "RECOMMENDED_WITH",
-            "RECORDS",
-            "REDUCED_BY",
-            "REFLECTS_ON",
-            "REINFORCED_BY_KNOWLEDGE",
-            "REINFORCES_HABIT",
-            "REINFORCES_KNOWLEDGE",
-            "REINFORCES_STEP",
-            "RELATED_TO",
-            "REPORT_FOR",
-            "REQUESTED",
-            "REQUIRES_HABIT",
-            "REQUIRES_KNOWLEDGE",
-            "REQUIRES_KNOWLEDGE_FOR_DECISION",
-            "REQUIRES_PATH_COMPLETION",
-            "REQUIRES_PREREQUISITE",
-            "REQUIRES_PREREQUISITE_HABIT",
-            "REQUIRES_STEP",
-            "REQUIRES_TASK",
-            "RESPONDS_TO_FORM",
-            "RESPONDS_TO_REPORT",
-            "REVEALS_CONFLICT",
-            "REVISES_EXERCISE",
-            "SCHEDULES_EVENT",
-            "SERVES_LIFE_PATH",
-            "SHARED_WITH_GROUP",
-            "SHARES_WITH",
-            "SIBLING",
-            "SIMILAR_TO",
-            "SPAWNED_FROM",
-            "STACKS_WITH",
-            "SUBCHOICE_OF",
-            "SUBEVENT_OF",
-            "SUBGOAL_OF",
-            "SUBHABIT_OF",
-            "SUBPRINCIPLE_OF",
-            "SUBTASK_OF",
-            "SUPPORTS",
-            "SUPPORTS_GOAL",
-            "SUPPORTS_PRINCIPLE",
-            "TRAINS_KU",
-            "TRANSCRIBED_FOR",
-            "TRANSFORMS",
-            "TRIGGERED_BY",
-            "TRIGGERS_CHOICE",
-            "TRIGGERS_ON_COMPLETION",
-            "ULTIMATE_PATH",
-            "UNLOCKED_ACHIEVEMENT",
-            "UNLOCKS_KNOWLEDGE",
-            "USES_KU",
-            "VIEWED",
-        }
-    )
+    # Read straight from `RelationshipName` in `core/models/relationship_names.py`
+    # by AST-parsing the declaration site — no import, so the linter still carries
+    # no runtime dependency on `core/`. This replaced a 170-entry hand-mirror that
+    # had already drifted once to a ~30-value subset with four stale names,
+    # silently under-enforcing the rule for months. A parser cannot drift.
+    @property
+    def RELATIONSHIP_NAMES(self) -> frozenset[str]:  # noqa: N802  (was a ClassVar constant)
+        """Every registered RelationshipName value."""
+        return load_vocabulary().relationships
 
     def _check_relationship_name_strings(
         self,
@@ -4151,6 +4045,168 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    # SKUEL030: migrations are the one persistence path that SHOULD name retired
+    # vocabulary — a rename migration must reference what it is renaming away.
+    SKUEL030_EXCLUDED_PREFIXES: ClassVar[tuple[str, ...]] = ("scripts/migrations",)
+
+    # SKUEL030 baseline — names the 2026-07-19 introduction sweep found already in
+    # persistence Cypher. Every one is a KNOWN FINDING, not an accepted name: each
+    # is a read against vocabulary nothing writes, so the query silently returns
+    # zero rows today. They are baselined rather than registered because
+    # registering them would bless the bug — the fix is to repoint or delete the
+    # reader, which changes query semantics and belongs in its own PR.
+    #
+    # This set is a SHRINKING list, never a growing one. New unregistered
+    # vocabulary fails the rule immediately; that is the invariant this rule
+    # exists to hold. Full triage: docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
+    SKUEL030_BASELINE: ClassVar[frozenset[str]] = frozenset(
+        {
+            # --- The :Report cluster -------------------------------------------
+            # A 2026-03 migration REMOVED the :Report label from the graph, but
+            # AnalyticsRelationshipBackend (wired at composition) still runs 13
+            # MATCH (report:Report ...) queries plus the two edges only it uses.
+            # Every method on that backend has no-opped since March.
+            "Report",
+            "INCLUDES_ENTITY",
+            "REPORTS_ON_GOAL",
+            # --- Label mismatches: the node exists under a DIFFERENT name ------
+            "Domain",  # real label is KnowledgeDomain (faceted_query_builder)
+            "Document",  # bootstrap constraint for a label nothing writes
+            "Conversation",  # ditto — cf. ConversationSession / ConversationMessage
+            # --- Writer-less reads: designed, never built ----------------------
+            # ADR-002's UserProgress node model; STRUGGLING_WITH / NEEDS_REVIEW
+            # also exist as PROPERTY values in metadata_enums, so these may be
+            # edge-vs-property confusion rather than missing writers.
+            "HAS_PROGRESS",
+            "FOR_KNOWLEDGE",
+            "STRUGGLING_WITH",
+            "NEEDS_REVIEW",
+            "HAS_VELOCITY",
+            "MasteryRecord",
+            "LearningPreference",
+            "HAS_PREFERENCE",
+            "JournalAnalytics",  # 3 sibling analytics nodes have upserts; this one lost its writer with ADR-054
+            "ContentMetadata",
+            "HAS_METADATA",
+            # --- Always-true completion filters (highest correctness risk) -----
+            # All of the form `WHERE NOT (x)<-[:REL]-(:User)`. No writer means the
+            # NOT is always true, so every dependency-chain query returns
+            # UNFILTERED results. Same bug class as the 2026-07-10 PRACTICES audit,
+            # repeated across domain_queries.py.
+            "PRACTICES",  # superseded by APPLIES_KNOWLEDGE (2026-06 migration)
+            "ATTENDED",  # cf. registered ATTENDS / PRACTICED_AT_EVENT
+            "MADE_CHOICE",  # cf. registered IMPLEMENTS_CHOICE / HAS_CHOICE
+            "ADHERES_TO",  # cf. registered EMBODIES_PRINCIPLE / ALIGNED_WITH_PRINCIPLE
+            "COMPLETED",  # superseded by ENROLLED_IN {status:'completed'}
+            # Retired in favour of IN_PROGRESS — `test_no_legacy_patterns.py::
+            # test_no_legacy_relationship_name_learning` asserts it must NOT be a
+            # RelationshipName member. But UserBackend.record_learning_progress
+            # still WRITES it (`_merge_user_edge(..., "LEARNING", ...)`), so the
+            # graph is accumulating a retired edge that readers of IN_PROGRESS
+            # never see. Fix the writer, don't register the name.
+            "LEARNING",
+            # --- Near-duplicates of registered names ---------------------------
+            "CONTAINS",  # PathStep→Ku composition is USES_KU
+            "CONTRIBUTES_TO",  # cf. registered CONTRIBUTES_TO_GOAL
+            "INCLUDES_KU",  # cf. registered CONTAINS_KNOWLEDGE
+            "INCLUDES_KNOWLEDGE",  # alternation partner of registered CONTAINS_KNOWLEDGE; only that arm has a writer
+            "CHILD_OF",  # cf. registered HAS_CHILD
+            "PARENT_OF",  # cf. registered HAS_CHILD
+            "FUNDS_HABIT",  # siblings FUNDS_TASK / FUNDS_EVENT are registered
+            # --- SemanticRelationshipType names used as raw edge types ---------
+            # These exist as "learn:extends_pattern" style semantic URIs, never as
+            # Neo4j edge types.
+            "EXTENDS_PATTERN",
+            "DEEPENS_UNDERSTANDING",
+            # --- Contradiction between enum and ingestion ----------------------
+            # neo_labels.py says EXPENSE was removed (ADR-052 Phase 5), but the
+            # ingestion config still maps `type: expense` to entity_label="Expense",
+            # so a vault file creates one today. Either the config is the leftover
+            # or the label belongs back in the enum — the current split is the
+            # worst of both.
+            "Expense",
+        }
+    )
+
+    def _check_cypher_vocabulary(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL030 [WARNING]: Unregistered relationship type / node label in Cypher.
+
+        Neo4j silently matches zero rows against a label or relationship type that
+        does not exist, so a typo below the boundary is invisible until a feature
+        is quietly empty in production. Every name written in persistence Cypher is
+        checked against ``RelationshipName`` / ``NeoLabel`` — the enums that declare
+        themselves the single source of truth for the graph vocabulary.
+
+        Vocabulary only: a plain ``[:OWNS]`` literal is fine. This rule does NOT
+        require SKUEL013-style interpolation below the boundary — it reads the NAME,
+        never the syntax around it.
+
+        AST-based and docstring-aware (same inert-string model as SKUEL001/021), so
+        illustrative Cypher in prose is skipped. f-strings are flattened whole before
+        scanning, and names touching an interpolation are skipped as unresolvable.
+
+        Suppressible: `# skuel-lint: disable=SKUEL030 -- <reason>`.
+        """
+        if tree is None:
+            return
+        if self._is_file_suppressed(content, "SKUEL030"):
+            return
+
+        vocabulary = load_vocabulary()
+        inert_ids = self._inert_ids_for(tree)
+        part_ids = fstring_part_ids(tree)
+        reported: set[tuple[int, str]] = set()
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                fragment = render_fstring(node)
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                # Inert = docstring/example block. Part = a torn f-string
+                # fragment already covered by its parent JoinedStr.
+                if id(node) in inert_ids or id(node) in part_ids:
+                    continue
+                fragment = node.value
+            else:
+                continue
+
+            for name in unregistered_names(fragment, vocabulary):
+                if name.value in self.SKUEL030_BASELINE:
+                    continue
+                line_num = node.lineno + name.line_offset
+                if (line_num, name.value) in reported:
+                    continue
+                reported.add((line_num, name.value))
+                line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+                if self._is_line_suppressed(line, "SKUEL030"):
+                    continue
+                enum_name = vocabulary.enum_for(name.kind)
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=node.col_offset,
+                        severity=Severity.WARNING,
+                        rule_id="SKUEL030",
+                        message=(
+                            f"Cypher {name.kind.value} '{name.value}' is not a {enum_name} member"
+                        ),
+                        suggestion=(
+                            f"Register '{name.value}' in {enum_name}, or fix the "
+                            "name — Neo4j matches zero rows on an unknown "
+                            f"{name.kind.value} instead of erroring"
+                        ),
+                        line_content=line.strip(),
+                    )
+                )
 
     # =========================================================================
     # INFO RULES (visibility only)
