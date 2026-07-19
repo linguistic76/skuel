@@ -185,10 +185,10 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             )
         return Result.ok(from_neo4j_node(dict(records[0]["fs"]), self.entity_class))
 
-    async def list_by_user(
+    async def list_by_user(  # type: ignore[override]  # raw-props variant: callers expect node dicts, not models
         self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[dict[str, Any]]]:
-        """Get a user's form submissions."""
+        """Get a user's form submissions (raw node properties, not domain models)."""
         result = await self.execute_query(
             """
             MATCH (fs:Entity {entity_type: 'form_submission', user_uid: $user_uid})

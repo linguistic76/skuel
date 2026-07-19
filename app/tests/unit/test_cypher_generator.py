@@ -284,7 +284,7 @@ class TestCypherGeneratorSemantic:
             limit=50,
         )
 
-        assert "MATCH (n:Entity)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(target)" in query
+        assert "MATCH (n:Entity)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(other)" in query
         assert "r.confidence >= $min_confidence" in query
         assert "LIMIT $limit" in query
         assert params["min_confidence"] == 0.8
@@ -301,7 +301,7 @@ class TestCypherGeneratorSemantic:
             label="Task", semantic_type=mock_type, direction="incoming"
         )
 
-        assert "MATCH (n:Task)<-[r:ENABLES]-(source)" in query
+        assert "MATCH (n:Task)<-[r:ENABLES]-(other)" in query
 
     def test_build_semantic_filter_query_both(self):
         """Test semantic filter query with bidirectional."""
@@ -314,7 +314,7 @@ class TestCypherGeneratorSemantic:
             label="Task", semantic_type=mock_type, direction="both"
         )
 
-        assert "MATCH (n:Task)-[r:RELATED_TO]-(connected)" in query
+        assert "MATCH (n:Task)-[r:RELATED_TO]-(other)" in query
 
 
 class TestConvenienceFunctions:

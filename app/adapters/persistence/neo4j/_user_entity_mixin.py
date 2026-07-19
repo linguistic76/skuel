@@ -7,6 +7,7 @@ Generic user-entity relationship tracking for all UniversalNeo4jBackend instance
 Provides:
     create_user_relationship: Create (User)-[rel]->(Entity) edge
     get_user_entities: Get user's entities via relationship traversal
+    list_by_user: Flat (unpaginated) user-entity list
     count_user_entities: Count user's entities
     update_relationship_access: Increment access_count + last_accessed
     delete_user_relationship: Remove user-entity relationship
@@ -24,7 +25,6 @@ from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.error_boundary import safe_backend_operation
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 from core.utils.validation_helpers import validate_field_name
@@ -85,6 +85,34 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     # Auto-creates (User)-[:HAS_X]->(Entity) when entities are created with user_uid.
     # Provides query methods for user-specific entity filtering and statistics.
 
+    def _build_user_entity_filters(
+        self,
+        user_uid: UserUID,
+        filters: dict[str, Any] | None,
+        base_params: dict[str, Any] | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        """
+        Build the WHERE clause + params shared by get_user_entities and
+        count_user_entities: default filters (Ku-type discrimination) plus
+        identifier-validated caller filters on the ``e`` node variable.
+        """
+        filter_clauses: builtins.list[str] = []
+        params: dict[str, Any] = {"user_uid": user_uid, **(base_params or {})}
+
+        # Inject default_filters for Ku-type discrimination
+        self._inject_default_filters(filter_clauses, params, node_var="e")
+
+        if filters:
+            for key, value in filters.items():
+                if not validate_field_name(key):
+                    self.logger.warning(f"Skipping invalid filter key: {key!r}")
+                    continue
+                filter_clauses.append(f"e.{key} = ${key}")
+                params[key] = value
+
+        where_clause = f"WHERE {' AND '.join(filter_clauses)}" if filter_clauses else ""
+        return where_clause, params
+
     @safe_backend_operation("create_user_relationship")
     async def create_user_relationship(
         self,
@@ -117,54 +145,49 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 metadata={"priority": "high", "created_at": datetime.now().isoformat()}
             )
         """
-        try:
-            # Default relationship type: OWNS (domain-first architecture). The
-            # RelationshipName type is the injection-safety guarantee — no runtime
-            # validation needed before the interpolation below.
-            if relationship_type is None:
-                relationship_type = RelationshipName.OWNS
+        # Default relationship type: OWNS (domain-first architecture). The
+        # RelationshipName type is the injection-safety guarantee — no runtime
+        # validation needed before the interpolation below.
+        if relationship_type is None:
+            relationship_type = RelationshipName.OWNS
 
-            # Default metadata
-            default_metadata = {
-                "created_at": datetime.now().isoformat(),
-                "last_accessed": datetime.now().isoformat(),
-                "access_count": 0,
-                "is_active": True,
-            }
+        # Default metadata
+        default_metadata = {
+            "created_at": datetime.now().isoformat(),
+            "last_accessed": datetime.now().isoformat(),
+            "access_count": 0,
+            "is_active": True,
+        }
 
-            # Merge with provided metadata
-            props = {**default_metadata, **(metadata or {})}
+        # Merge with provided metadata
+        props = {**default_metadata, **(metadata or {})}
 
-            query = f"""
-            MATCH (u:User {{uid: $user_uid}})
-            MATCH (e:{self.label} {{uid: $entity_uid}})
-            MERGE (u)-[r:{relationship_type}]->(e)
-            SET r = $props
-            RETURN r
-            """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        MATCH (e:{self.label} {{uid: $entity_uid}})
+        MERGE (u)-[r:{relationship_type}]->(e)
+        SET r = $props
+        RETURN r
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"user_uid": user_uid, "entity_uid": entity_uid, "props": props}
+        async with self.driver.session() as session:
+            result = await session.run(
+                query, {"user_uid": user_uid, "entity_uid": entity_uid, "props": props}
+            )
+            record = await result.single()
+
+        if not record:
+            return Result.fail(
+                Errors.database(
+                    "create_user_relationship",
+                    f"Failed to create relationship: User {user_uid} or {self.label} {entity_uid} not found",
                 )
-                record = await result.single()
+            )
 
-                if not record:
-                    return Result.fail(
-                        Errors.database(
-                            "create_user_relationship",
-                            f"Failed to create relationship: User {user_uid} or {self.label} {entity_uid} not found",
-                        )
-                    )
-
-                self.logger.info(
-                    f"Created user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
-                )
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to create user relationship: {e}")
-            return Result.fail(Errors.database("create_user_relationship", str(e)))
+        self.logger.info(
+            f"Created user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
+        )
+        return Result.ok(True)
 
     @safe_backend_operation("get_user_entities")
     async def get_user_entities(
@@ -214,74 +237,66 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 filters={"priority": "high"}, limit=QueryLimit.PREVIEW
             )
         """
-        try:
-            # Default relationship type: OWNS (domain-first architecture). The
-            # RelationshipName type is the injection-safety guarantee — no runtime
-            # validation needed before interpolation.
-            if relationship_type is None:
-                relationship_type = RelationshipName.OWNS
+        # Default relationship type: OWNS (domain-first architecture). The
+        # RelationshipName type is the injection-safety guarantee — no runtime
+        # validation needed before interpolation.
+        if relationship_type is None:
+            relationship_type = RelationshipName.OWNS
 
-            # Build filter clause
-            filter_clauses: builtins.list[str] = []
-            params: dict[str, Any] = {"user_uid": user_uid, "limit": limit, "offset": offset}
+        where_clause, params = self._build_user_entity_filters(
+            user_uid, filters, base_params={"limit": limit, "offset": offset}
+        )
 
-            # Inject default_filters for Ku-type discrimination
-            self._inject_default_filters(filter_clauses, params, node_var="e")
-
-            if filters:
-                for key, value in filters.items():
-                    if not validate_field_name(key):
-                        self.logger.warning(f"Skipping invalid filter key: {key!r}")
-                        continue
-                    filter_clauses.append(f"e.{key} = ${key}")
-                    params[key] = value
-
-            where_clause = f"WHERE {' AND '.join(filter_clauses)}" if filter_clauses else ""
-
-            # Default sort field — validate to prevent injection
-            if not sort_by or not validate_field_name(sort_by):
-                if sort_by:
-                    self.logger.warning(
-                        f"Invalid sort_by rejected, falling back to created_at: {sort_by!r}"
-                    )
-                sort_by = "created_at"
-
-            # Sort direction
-            order_direction = "DESC" if sort_order.lower() == "desc" else "ASC"
-
-            query = f"""
-            MATCH (u:User {{uid: $user_uid}})-[:{relationship_type}]->(e:{self.label})
-            {where_clause}
-            RETURN e
-            ORDER BY e.{sort_by} {order_direction}
-            SKIP $offset
-            LIMIT $limit
-            """
-
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                records = [record async for record in result]
-
-                entities = []
-                for record in records:
-                    entity = from_neo4j_node(record["e"], self.entity_class)
-                    entities.append(entity)
-
-                # Get total count for pagination
-                count_result = await self.count_user_entities(user_uid, relationship_type, filters)
-                if count_result.is_error:
-                    return Result.fail(count_result)
-
-                total_count = count_result.value
-
-                self.logger.debug(
-                    f"Found {len(entities)} entities for user {user_uid} (total: {total_count})"
+        # Default sort field — validate to prevent injection
+        if not sort_by or not validate_field_name(sort_by):
+            if sort_by:
+                self.logger.warning(
+                    f"Invalid sort_by rejected, falling back to created_at: {sort_by!r}"
                 )
-                return Result.ok((entities, total_count))
+            sort_by = "created_at"
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get user entities: {e}")
-            return Result.fail(Errors.database("get_user_entities", str(e)))
+        # Sort direction
+        order_direction = "DESC" if sort_order.lower() == "desc" else "ASC"
+
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{relationship_type}]->(e:{self.label})
+        {where_clause}
+        RETURN e
+        ORDER BY e.{sort_by} {order_direction}
+        SKIP $offset
+        LIMIT $limit
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(query, params)
+            records = [record async for record in result]
+
+        entities = [from_neo4j_node(record["e"], self.entity_class) for record in records]
+
+        # Get total count for pagination
+        count_result = await self.count_user_entities(user_uid, relationship_type, filters)
+        if count_result.is_error:
+            return Result.fail(count_result)
+
+        total_count = count_result.value
+
+        self.logger.debug(
+            f"Found {len(entities)} entities for user {user_uid} (total: {total_count})"
+        )
+        return Result.ok((entities, total_count))
+
+    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[builtins.list[T]]:
+        """
+        List a user's entities as a flat list (not a paginated tuple).
+
+        THE generic body behind the domain backends' list_by_user /
+        get_user_{tasks,goals,...} wrappers.
+        """
+        page_result = await self.get_user_entities(user_uid, limit=limit)
+        if page_result.is_error:
+            return Result.fail(page_result)
+        entities, _ = page_result.value
+        return Result.ok(entities)
 
     @safe_backend_operation("count_user_entities")
     async def count_user_entities(
@@ -311,46 +326,26 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 filters={"status": "completed"}
             )
         """
-        try:
-            # Default relationship type: OWNS (domain-first architecture). The
-            # RelationshipName type is the injection-safety guarantee — no runtime
-            # validation needed before interpolation.
-            if relationship_type is None:
-                relationship_type = RelationshipName.OWNS
+        # Default relationship type: OWNS (domain-first architecture). The
+        # RelationshipName type is the injection-safety guarantee — no runtime
+        # validation needed before interpolation.
+        if relationship_type is None:
+            relationship_type = RelationshipName.OWNS
 
-            # Build filter clause
-            filter_clauses: builtins.list[str] = []
-            params: dict[str, Any] = {"user_uid": user_uid}
+        where_clause, params = self._build_user_entity_filters(user_uid, filters)
 
-            # Inject default_filters for Ku-type discrimination
-            self._inject_default_filters(filter_clauses, params, node_var="e")
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{relationship_type}]->(e:{self.label})
+        {where_clause}
+        RETURN count(e) as count
+        """
 
-            if filters:
-                for key, value in filters.items():
-                    if not validate_field_name(key):
-                        self.logger.warning(f"Skipping invalid filter key: {key!r}")
-                        continue
-                    filter_clauses.append(f"e.{key} = ${key}")
-                    params[key] = value
+        async with self.driver.session() as session:
+            result = await session.run(query, params)
+            record = await result.single()
 
-            where_clause = f"WHERE {' AND '.join(filter_clauses)}" if filter_clauses else ""
-
-            query = f"""
-            MATCH (u:User {{uid: $user_uid}})-[:{relationship_type}]->(e:{self.label})
-            {where_clause}
-            RETURN count(e) as count
-            """
-
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                record = await result.single()
-
-                count = record["count"] if record else 0
-                return Result.ok(count)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to count user entities: {e}")
-            return Result.fail(Errors.database("count_user_entities", str(e)))
+        count = record["count"] if record else 0
+        return Result.ok(count)
 
     @safe_backend_operation("update_relationship_access")
     async def update_relationship_access(
@@ -380,46 +375,41 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 entity_uid="task_456"
             )
         """
-        try:
-            # Default relationship type: OWNS; the RelationshipName type is the
-            # injection-safety guarantee (no runtime validation needed).
-            if relationship_type is None:
-                relationship_type = RelationshipName.OWNS
+        # Default relationship type: OWNS; the RelationshipName type is the
+        # injection-safety guarantee (no runtime validation needed).
+        if relationship_type is None:
+            relationship_type = RelationshipName.OWNS
 
-            query = f"""
-            MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
-            SET r.access_count = coalesce(r.access_count, 0) + 1,
-                r.last_accessed = $now
-            RETURN r.access_count as count
-            """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
+        SET r.access_count = coalesce(r.access_count, 0) + 1,
+            r.last_accessed = $now
+        RETURN r.access_count as count
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "entity_uid": entity_uid,
-                        "now": datetime.now().isoformat(),
-                    },
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "entity_uid": entity_uid,
+                    "now": datetime.now().isoformat(),
+                },
+            )
+            record = await result.single()
+
+        if not record:
+            return Result.fail(
+                Errors.not_found(
+                    "relationship",
+                    f"User {user_uid} --[{relationship_type}]-> {self.label} {entity_uid}",
                 )
-                record = await result.single()
+            )
 
-                if not record:
-                    return Result.fail(
-                        Errors.not_found(
-                            "relationship",
-                            f"User {user_uid} --[{relationship_type}]-> {self.label} {entity_uid}",
-                        )
-                    )
-
-                self.logger.debug(
-                    f"Updated access for {user_uid} -> {entity_uid} (count: {record['count']})"
-                )
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to update relationship access: {e}")
-            return Result.fail(Errors.database("update_relationship_access", str(e)))
+        self.logger.debug(
+            f"Updated access for {user_uid} -> {entity_uid} (count: {record['count']})"
+        )
+        return Result.ok(True)
 
     @safe_backend_operation("delete_user_relationship")
     async def delete_user_relationship(
@@ -448,35 +438,28 @@ class _UserEntityMixin[T: DomainModelProtocol]:
                 entity_uid="goal_456"
             )
         """
-        try:
-            # Default relationship type: OWNS; the RelationshipName type is the
-            # injection-safety guarantee (no runtime validation needed).
-            if relationship_type is None:
-                relationship_type = RelationshipName.OWNS
+        # Default relationship type: OWNS; the RelationshipName type is the
+        # injection-safety guarantee (no runtime validation needed).
+        if relationship_type is None:
+            relationship_type = RelationshipName.OWNS
 
-            query = f"""
-            MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
-            DELETE r
-            RETURN count(r) as deleted
-            """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
+        DELETE r
+        RETURN count(r) as deleted
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "entity_uid": entity_uid})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"user_uid": user_uid, "entity_uid": entity_uid})
+            record = await result.single()
 
-                deleted = (record and record["deleted"] > 0) if record else False
+        deleted = (record and record["deleted"] > 0) if record else False
 
-                if deleted:
-                    self.logger.info(
-                        f"Deleted user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"No relationship found to delete: {user_uid} -> {entity_uid}"
-                    )
+        if deleted:
+            self.logger.info(
+                f"Deleted user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
+            )
+        else:
+            self.logger.warning(f"No relationship found to delete: {user_uid} -> {entity_uid}")
 
-                return Result.ok(deleted)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to delete user relationship: {e}")
-            return Result.fail(Errors.database("delete_user_relationship", str(e)))
+        return Result.ok(deleted)

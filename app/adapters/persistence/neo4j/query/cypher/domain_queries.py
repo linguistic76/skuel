@@ -15,6 +15,7 @@ These methods wrap the semantic queries with domain-specific defaults.
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue, UserUID
 
@@ -621,20 +622,12 @@ def build_entity_with_context(
         limit = rel.get("limit")
         include_rel_type = rel.get("include_rel_type", False)
 
-        # Build direction arrows
-        if direction == "incoming":
-            arrow_left, arrow_right = "<-", "-"
-        elif direction == "outgoing":
-            arrow_left, arrow_right = "-", "->"
-        else:  # both
-            arrow_left, arrow_right = "-", "-"
-
         # Relationship variable for accessing properties
         rel_var = f"r{i}"
 
         # Build OPTIONAL MATCH
         parts.append(
-            f"OPTIONAL MATCH (entity){arrow_left}[{rel_var}:{rel_types}]{arrow_right}({alias}_node:{target_label})"
+            f"OPTIONAL MATCH (entity){direction_clause(direction, rel_var, rel_types)}({alias}_node:{target_label})"
         )
 
         # Combine all edge predicates into ONE WHERE (Cypher allows a single WHERE per

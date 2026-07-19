@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label
 from core.utils.logging import get_logger
 
@@ -60,30 +61,20 @@ class ConnectionFetchBackend:
         label = config.config_lookup_label.value
         rel_list = list(config.relationship_types)
 
-        if config.direction == "outgoing":
-            query = f"""
-            MATCH (n:Entity:{label})
-            WHERE n.uid IN $uids
-            OPTIONAL MATCH (n)-[r]->(other:Entity)
-            WHERE type(r) IN $rel_types
-            RETURN n.uid AS entity_uid,
-                   type(r) AS rel_type,
-                   other.uid AS connected_uid,
-                   other.title AS title,
-                   other.entity_type AS connected_type
-            """
-        else:
-            query = f"""
-            MATCH (n:Entity:{label})
-            WHERE n.uid IN $uids
-            OPTIONAL MATCH (other:Entity)-[r]->(n)
-            WHERE type(r) IN $rel_types
-            RETURN n.uid AS entity_uid,
-                   type(r) AS rel_type,
-                   other.uid AS connected_uid,
-                   other.title AS title,
-                   other.entity_type AS connected_type
-            """
+        # Historical behavior: any non-"outgoing" config traverses incoming
+        # (the gravity-well domains Goal/Principle).
+        arrow = direction_clause("outgoing" if config.direction == "outgoing" else "incoming")
+        query = f"""
+        MATCH (n:Entity:{label})
+        WHERE n.uid IN $uids
+        OPTIONAL MATCH (n){arrow}(other:Entity)
+        WHERE type(r) IN $rel_types
+        RETURN n.uid AS entity_uid,
+               type(r) AS rel_type,
+               other.uid AS connected_uid,
+               other.title AS title,
+               other.entity_type AS connected_type
+        """
 
         try:
             result = await self._executor.execute_query(

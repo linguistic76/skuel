@@ -49,6 +49,8 @@ See Also:
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
+
 
 @dataclass(frozen=True)
 class BatchQueryResult:
@@ -804,12 +806,7 @@ def _build_match_pattern(direction: str) -> str:
     Returns:
         Full OPTIONAL MATCH pattern like "(n)-[r]->(related)"
     """
-    if direction == "outgoing":
-        return "(n)-[r]->(related)"
-    elif direction == "incoming":
-        return "(n)<-[r]-(related)"
-    else:  # both
-        return "(n)-[r]-(related)"
+    return f"(n){direction_clause(direction)}(related)"
 
 
 # Operator mapping for property filters
@@ -867,21 +864,3 @@ def _parse_property_filters(
         params[param_name] = value
 
     return where_clauses, params
-
-
-def _build_direction_pattern(direction: str) -> str:
-    """
-    Build Neo4j relationship pattern for direction (partial pattern).
-
-    Args:
-        direction: "incoming", "outgoing", or "both"
-
-    Returns:
-        Cypher pattern string with [r] relationship variable
-    """
-    if direction == "incoming":
-        return "<-[r]-"
-    elif direction == "outgoing":
-        return "-[r]->"
-    else:  # both
-        return "-[r]-"

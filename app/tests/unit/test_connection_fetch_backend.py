@@ -57,8 +57,9 @@ class TestFetchEntityConnections:
 
         assert execute_query.await_args is not None
         query, _params = execute_query.await_args.args
-        # Incoming/gravity-well: source is other, target is n.
-        assert "(other:Entity)-[r]->(n)" in query
+        # Incoming/gravity-well: edge points from other into n
+        # (expressed via the shared direction_clause arrow).
+        assert "(n)<-[r]-(other:Entity)" in query
         assert ":Entity:Goal" in query
 
     @pytest.mark.asyncio

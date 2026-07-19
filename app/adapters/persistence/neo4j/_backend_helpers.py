@@ -8,6 +8,7 @@ Provides:
 - ``_ALLOWED_ORDER_BY`` — whitelist for ORDER BY field names (prevents Cypher injection)
 - ``_validate_rel_name()`` — rejects relationship names with non-``[A-Z0-9_]`` characters
 - ``to_native_datetime()`` — Neo4j temporal → native datetime conversion
+- ``direction_clause()`` — THE single builder for direction arrow segments
 
 See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 """
@@ -43,6 +44,49 @@ def _validate_rel_name(rel_name: str) -> None:
     if not rel_name or not all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for c in rel_name):
         msg = f"Invalid relationship name: {rel_name!r}"
         raise ValueError(msg)
+
+
+def direction_clause(
+    direction: str,
+    rel_var: str | None = "r",
+    rel_type: str | None = None,
+) -> str:
+    """
+    Build the arrow segment of a Cypher relationship pattern.
+
+    THE single home for the ``"-[r]->" if direction == "outgoing" else ...``
+    ternary that was copy-pasted across the persistence layer. Node parts stay
+    at the call site::
+
+        f"(n){direction_clause(direction)}(related)"  # (n)-[r]->(related)
+        f"(a){direction_clause('incoming', None, 'OWNS')}(b)"  # (a)<-[:OWNS]-(b)
+
+    Args:
+        direction: "outgoing", "incoming", or "both"
+        rel_var: Relationship variable name, or None for an anonymous edge
+        rel_type: Optional relationship type (caller-validated — this helper
+                  interpolates it verbatim, so pass only RelationshipName
+                  values or identifier-validated strings)
+
+    Returns:
+        Arrow segment like ``-[r:TYPE]->``, ``<-[r]-``, or ``-[:TYPE]-``.
+
+    Raises:
+        ValueError: On an unknown direction (fail-fast, matching the
+        query-builder modules' historical behavior).
+    """
+    rel_part = f"[{rel_var or ''}{f':{rel_type}' if rel_type else ''}]"
+    match direction:
+        case "outgoing":
+            return f"-{rel_part}->"
+        case "incoming":
+            return f"<-{rel_part}-"
+        case "both":
+            return f"-{rel_part}-"
+        case _:
+            raise ValueError(
+                f"Invalid direction: {direction}. Valid options: outgoing, incoming, both"
+            )
 
 
 def to_native_datetime(value: object) -> datetime | None:

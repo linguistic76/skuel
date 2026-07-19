@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
@@ -38,15 +38,114 @@ if TYPE_CHECKING:
     from core.models.resource.resource import Resource  # noqa: F401
 
 
+async def _count_user_stats(
+    backend: UniversalNeo4jBackend[Any],
+    user_uid: UserUID,
+    entity_type: str,
+    cases: dict[str, str],
+    extra_params: dict[str, Any] | None = None,
+) -> Result[dict[str, int]]:
+    """
+    Count per-user entity stats in one Cypher aggregate.
+
+    THE shared body of the six domain get_stats_for_user methods — each
+    domain supplies a spec dict of {result_key: CASE predicate on ``n``}.
+    Predicates are backend-internal literals (injection-safe); any values
+    they reference are parameterized via ``extra_params``.
+    """
+    case_lines = ",\n            ".join(
+        f"count(CASE WHEN {predicate} THEN 1 END) AS {key}" for key, predicate in cases.items()
+    )
+    query = f"""
+    MATCH (n:Entity {{user_uid: $user_uid, entity_type: $entity_type}})
+    RETURN
+        count(n) AS total,
+        {case_lines}
+    """
+    result = await backend.execute_query(
+        query, {"user_uid": user_uid, "entity_type": entity_type, **(extra_params or {})}
+    )
+    if result.is_error:
+        return Result.fail(result)
+    record = result.value[0] if result.value else {}
+    return Result.ok(
+        {"total": record.get("total", 0), **{key: record.get(key, 0) for key in cases}}
+    )
+
+
+async def _edge_targets(
+    backend: UniversalNeo4jBackend[Any],
+    source_entity_type: str,
+    rel_type: str,
+    source_uids: list[str],
+    target_entity_type: str | None = None,
+) -> Result[list[tuple[str, str]]]:
+    """
+    Batch-fetch (source_uid, target_uid) pairs for one edge type.
+
+    THE shared query behind the label-swapped link-map clones
+    (task→habit, event→habit, habit→goal, event→goal enrichment lookups).
+    ``rel_type`` is a RelationshipName value; entity types are parameterized.
+    """
+    if not source_uids:
+        return Result.ok([])
+
+    target_part = "(t:Entity {entity_type: $target_type})" if target_entity_type else "(t:Entity)"
+    params: dict[str, Any] = {"uids": source_uids, "source_type": source_entity_type}
+    if target_entity_type:
+        params["target_type"] = target_entity_type
+
+    query = f"""
+    MATCH (s:Entity {{entity_type: $source_type}})-[:{rel_type}]->{target_part}
+    WHERE s.uid IN $uids
+    RETURN s.uid AS source_uid, t.uid AS target_uid
+    """
+    result = await backend.execute_query(query, params)
+    if result.is_error:
+        return Result.fail(result)
+    return Result.ok([(row["source_uid"], row["target_uid"]) for row in (result.value or [])])
+
+
+async def _edge_map_single(
+    backend: UniversalNeo4jBackend[Any],
+    source_entity_type: str,
+    rel_type: str,
+    source_uids: list[str],
+) -> Result[dict[str, str]]:
+    """Edge map for single-valued links: source_uid → target_uid (last row wins)."""
+    pairs = await _edge_targets(backend, source_entity_type, rel_type, source_uids)
+    if pairs.is_error:
+        return Result.fail(pairs)
+    return Result.ok(dict(pairs.value))
+
+
+async def _edge_map_multi(
+    backend: UniversalNeo4jBackend[Any],
+    source_entity_type: str,
+    rel_type: str,
+    source_uids: list[str],
+    target_entity_type: str | None = None,
+) -> Result[dict[str, list[str]]]:
+    """Edge map for multi-valued links: source_uid → all linked target_uids."""
+    pairs = await _edge_targets(
+        backend, source_entity_type, rel_type, source_uids, target_entity_type
+    )
+    if pairs.is_error:
+        return Result.fail(pairs)
+    link_map: dict[str, list[str]] = {}
+    for source_uid, target_uid in pairs.value:
+        link_map.setdefault(source_uid, []).append(target_uid)
+    return Result.ok(link_map)
+
+
 class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     """
     Domain backend for Habit entities.
 
     Extends UniversalNeo4jBackend[Habit] with:
     - _HierarchyMixin: subhabit hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
-    - get_habit(uid)          → not matched by get_*_by_uid pattern
-    - list_by_user(uid, limit) → not matched by list_*s pattern
-    - get_user_habits(uid)    → not matched by any __getattr__ pattern
+    - get_habit(uid)          → get_or_fail() wrapper (NotFound as error)
+    - get_user_habits(uid)    → alias for inherited list_by_user()
     - archive_habit(uid)      → status transition (not just delete)
     - get_stats_for_user(uid) → habit count stats (total/active/streaks)
     """
@@ -60,22 +159,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
 
     async def get_habit(self, habit_id: str) -> Result[Habit]:
         """Get habit by ID. Returns error if not found (contrast with get() → None)."""
-        get_result: Result[Habit | None] = await self.get(habit_id)
-        if get_result.is_error:
-            return Result.fail(get_result)
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Habit", identifier=habit_id))
-        return Result.ok(get_result.value)
-
-    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
-        """List all habits for a user. Returns flat list (not paginated tuple)."""
-        page_result: Result[tuple[list[Habit], int]] = await self.get_user_entities(
-            user_uid, limit=limit
-        )
-        if page_result.is_error:
-            return Result.fail(page_result)
-        habits, _ = page_result.value
-        return Result.ok(habits)
+        return await self.get_or_fail(habit_id)
 
     async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get all habits for a user. Alias for list_by_user."""
@@ -131,24 +215,15 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[HabitStats]:
         """Count habit stats: total, active, streaks."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'habit'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'active' THEN 1 END) AS active,
-            count(CASE WHEN n.current_streak > 0 THEN 1 END) AS streaks
-        """
-        result = await self.execute_query(query, {"user_uid": user_uid})
+        result = await _count_user_stats(
+            self,
+            user_uid,
+            "habit",
+            {"active": "n.status = 'active'", "streaks": "n.current_streak > 0"},
+        )
         if result.is_error:
             return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "active": record.get("active", 0),
-                "streaks": record.get("streaks", 0),
-            }
-        )
+        return Result.ok(cast("HabitStats", result.value))
 
     async def get_user_badges(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all badges earned by a user via EARNED_BADGE relationships."""
@@ -363,20 +438,13 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         their derived ``supports_goal_uid`` field for scoring. Returns all
         linked goals per habit so the enricher can prefer active ones.
         """
-        if not habit_uids:
-            return Result.ok({})
-        query = f"""
-        MATCH (h:Entity {{entity_type: 'habit'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:Entity {{entity_type: 'goal'}})
-        WHERE h.uid IN $habit_uids
-        RETURN h.uid AS habit_uid, goal.uid AS goal_uid
-        """
-        result = await self.execute_query(query, {"habit_uids": habit_uids})
-        if result.is_error:
-            return Result.fail(result)
-        link_map: dict[str, list[str]] = {}
-        for row in result.value or []:
-            link_map.setdefault(row["habit_uid"], []).append(row["goal_uid"])
-        return Result.ok(link_map)
+        return await _edge_map_multi(
+            self,
+            "habit",
+            RelationshipName.SUPPORTS_GOAL.value,
+            habit_uids,
+            target_entity_type="goal",
+        )
 
 
 class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
@@ -385,9 +453,8 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
 
     Extends UniversalNeo4jBackend[Goal] with:
     - _HierarchyMixin: subgoal hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
-    - get_goal(uid)          → not matched by get_*_by_uid pattern
-    - list_by_user(uid, limit) → not matched by list_*s pattern
-    - get_user_goals(uid)    → delegates to list_by_user()
+    - get_goal(uid)          → get_or_fail() wrapper (NotFound as error)
+    - get_user_goals(uid)    → alias for inherited list_by_user()
     - get_stats_for_user(uid) → goal count stats (total/active/completed)
     - link_goal_to_habit    → Cypher MERGE
     - link_goal_to_knowledge → Cypher MERGE
@@ -403,47 +470,23 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
 
     async def get_goal(self, goal_id: str) -> Result[Goal]:
         """Get goal by ID. Returns error if not found (contrast with get() → None)."""
-        get_result: Result[Goal | None] = await self.get(goal_id)
-        if get_result.is_error:
-            return Result.fail(get_result)
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Goal", identifier=goal_id))
-        return Result.ok(get_result.value)
+        return await self.get_or_fail(goal_id)
 
     async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         """Get all goals for a user. Returns flat list (not paginated tuple)."""
         return await self.list_by_user(user_uid)
 
-    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Goal]]:
-        """List all goals for a user. Returns flat list (not paginated tuple)."""
-        page_result: Result[tuple[list[Goal], int]] = await self.get_user_entities(
-            user_uid, limit=limit
-        )
-        if page_result.is_error:
-            return Result.fail(page_result)
-        goals, _ = page_result.value
-        return Result.ok(goals)
-
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[GoalStats]:
         """Count goal stats: total, active, completed."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'goal'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'active' THEN 1 END) AS active,
-            count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed
-        """
-        result = await self.execute_query(query, {"user_uid": user_uid})
+        result = await _count_user_stats(
+            self,
+            user_uid,
+            "goal",
+            {"active": "n.status = 'active'", "completed": "n.status = 'completed'"},
+        )
         if result.is_error:
             return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "active": record.get("active", 0),
-                "completed": record.get("completed", 0),
-            }
-        )
+        return Result.ok(cast("GoalStats", result.value))
 
     async def find_linked_goals_for_task(
         self, task_uid: str, user_uid: UserUID
@@ -565,7 +608,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
 
     Extends UniversalNeo4jBackend[Task] with:
     - _HierarchyMixin: subtask hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
-    - get_task(uid)              → wraps get() with NotFound check
+    - get_task(uid)              → get_or_fail() wrapper (NotFound as error)
     - get_stats_for_user(…)      → task count stats (total/completed/overdue)
     - auto_complete_parent_if_ready(…) → auto-complete parent when all subtasks done
     - calculate_parent_progress(…) → weighted subtask completion percentage
@@ -580,22 +623,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
 
     async def get_task(self, task_id: str) -> Result[Task]:
         """Get task by ID. Returns error if not found (contrast with get() → None)."""
-        get_result: Result[Task | None] = await self.get(task_id)
-        if get_result.is_error:
-            return Result.fail(get_result)
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Task", identifier=task_id))
-        return Result.ok(get_result.value)
-
-    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Task]]:
-        """List all tasks for a user. Returns flat list (not paginated tuple)."""
-        page_result: Result[tuple[list[Task], int]] = await self.get_user_entities(
-            user_uid, limit=limit
-        )
-        if page_result.is_error:
-            return Result.fail(page_result)
-        tasks, _ = page_result.value
-        return Result.ok(tasks)
+        return await self.get_or_fail(task_id)
 
     async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get all tasks for a user. Alias for list_by_user."""
@@ -622,17 +650,9 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         Batch reverse-lookup of the REINFORCES_HABIT edge, used to populate the
         derived ``Task.reinforces_habit_uid`` field for in-memory scorers.
         """
-        if not task_uids:
-            return Result.ok({})
-        query = """
-        MATCH (t:Entity {entity_type: 'task'})-[:REINFORCES_HABIT]->(h:Entity)
-        WHERE t.uid IN $task_uids
-        RETURN t.uid AS task_uid, h.uid AS habit_uid
-        """
-        result = await self.execute_query(query, {"task_uids": task_uids})
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({row["task_uid"]: row["habit_uid"] for row in (result.value or [])})
+        return await _edge_map_single(
+            self, "task", RelationshipName.REINFORCES_HABIT.value, task_uids
+        )
 
     # ========================================================================
     # LEARNING LOOP METHODS (ADR-048)
@@ -675,27 +695,21 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[TaskStats]:
         """Count task stats via Cypher COUNT — no entity deserialization."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'task'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'completed' THEN 1 END) AS completed,
-            count(CASE WHEN n.due_date IS NOT NULL
-                       AND date(n.due_date) < date()
-                       AND n.status <> 'completed'
-                  THEN 1 END) AS overdue
-        """
-        result = await self.execute_query(query, {"user_uid": user_uid})
+        result = await _count_user_stats(
+            self,
+            user_uid,
+            "task",
+            {
+                "completed": "n.status = 'completed'",
+                "overdue": (
+                    "n.due_date IS NOT NULL AND date(n.due_date) < date() "
+                    "AND n.status <> 'completed'"
+                ),
+            },
+        )
         if result.is_error:
             return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "completed": record.get("completed", 0),
-                "overdue": record.get("overdue", 0),
-            }
-        )
+        return Result.ok(cast("TaskStats", result.value))
 
     async def auto_complete_parent_if_ready(self, completed_task_uid: str) -> Result[list[str]]:
         """Auto-complete parent task if all its subtasks are completed.
@@ -845,9 +859,8 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
 
     Extends UniversalNeo4jBackend[Event] with:
     - _HierarchyMixin: subevent hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
-    - get_event(uid)             → wraps get() with NotFound check
-    - list_by_user(uid, limit)   → wraps get_user_entities(), extracts list
-    - get_user_events(uid)       → alias for list_by_user()
+    - get_event(uid)             → get_or_fail() wrapper (NotFound as error)
+    - get_user_events(uid)       → alias for inherited list_by_user()
     - get_stats_for_user(uid)    → event count stats (total/scheduled/today)
     - get_goal_links_for_events(…)    → batch map event_uid → contributed goal_uid
     - get_habit_links_for_events(…)   → batch map event_uid → reinforced habit_uid
@@ -862,22 +875,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
 
     async def get_event(self, event_id: str) -> Result[Event]:
         """Get event by ID. Returns error if not found (contrast with get() → None)."""
-        get_result: Result[Event | None] = await self.get(event_id)
-        if get_result.is_error:
-            return Result.fail(get_result)
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Event", identifier=event_id))
-        return Result.ok(get_result.value)
-
-    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Event]]:
-        """List all events for a user. Returns flat list (not paginated tuple)."""
-        page_result: Result[tuple[list[Event], int]] = await self.get_user_entities(
-            user_uid, limit=limit
-        )
-        if page_result.is_error:
-            return Result.fail(page_result)
-        events, _ = page_result.value
-        return Result.ok(events)
+        return await self.get_or_fail(event_id)
 
     async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         """Get all events for a user. Alias for list_by_user."""
@@ -991,28 +989,21 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """Count event stats: total, scheduled, today."""
         from datetime import date
 
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'event'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'scheduled' THEN 1 END) AS scheduled,
-            count(CASE WHEN n.start_time IS NOT NULL
-                       AND substring(toString(n.start_time), 0, 10) = $today
-                  THEN 1 END) AS today
-        """
-        result = await self.execute_query(
-            query, {"user_uid": user_uid, "today": date.today().isoformat()}
+        result = await _count_user_stats(
+            self,
+            user_uid,
+            "event",
+            {
+                "scheduled": "n.status = 'scheduled'",
+                "today": (
+                    "n.start_time IS NOT NULL AND substring(toString(n.start_time), 0, 10) = $today"
+                ),
+            },
+            extra_params={"today": date.today().isoformat()},
         )
         if result.is_error:
             return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "scheduled": record.get("scheduled", 0),
-                "today": record.get("today", 0),
-            }
-        )
+        return Result.ok(cast("EventStats", result.value))
 
     async def count_recent_reschedules(self, user_uid: UserUID) -> Result[int]:
         """Count events rescheduled in last 30 days."""
@@ -1103,17 +1094,9 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         Reverse-lookup of the REINFORCES_HABIT edge, used to enrich events with
         their derived ``reinforces_habit_uid`` field on fallback (non-rich) paths.
         """
-        if not event_uids:
-            return Result.ok({})
-        query = """
-        MATCH (e:Entity {entity_type: 'event'})-[:REINFORCES_HABIT]->(h:Entity)
-        WHERE e.uid IN $event_uids
-        RETURN e.uid AS event_uid, h.uid AS habit_uid
-        """
-        result = await self.execute_query(query, {"event_uids": event_uids})
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({row["event_uid"]: row["habit_uid"] for row in (result.value or [])})
+        return await _edge_map_single(
+            self, "event", RelationshipName.REINFORCES_HABIT.value, event_uids
+        )
 
     async def get_goal_links_for_events(
         self, event_uids: list[str]
@@ -1124,20 +1107,9 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         their derived ``contributes_to_goal_uid`` field for scoring. Returns all
         linked goals per event so the enricher can prefer active ones.
         """
-        if not event_uids:
-            return Result.ok({})
-        query = """
-        MATCH (e:Entity {entity_type: 'event'})-[:CONTRIBUTES_TO_GOAL]->(g:Entity)
-        WHERE e.uid IN $event_uids
-        RETURN e.uid AS event_uid, g.uid AS goal_uid
-        """
-        result = await self.execute_query(query, {"event_uids": event_uids})
-        if result.is_error:
-            return Result.fail(result)
-        link_map: dict[str, list[str]] = {}
-        for row in result.value or []:
-            link_map.setdefault(row["event_uid"], []).append(row["goal_uid"])
-        return Result.ok(link_map)
+        return await _edge_map_multi(
+            self, "event", RelationshipName.CONTRIBUTES_TO_GOAL.value, event_uids
+        )
 
 
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
@@ -1146,9 +1118,8 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
 
     Extends UniversalNeo4jBackend[Choice] with:
     - _HierarchyMixin: subchoice hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
-    - get_choice(uid)                      → wraps get() with NotFound check
-    - list_by_user(uid, limit)             → wraps get_user_entities(), extracts list
-    - get_user_choices(uid)                → alias for list_by_user()
+    - get_choice(uid)                      → get_or_fail() wrapper (NotFound as error)
+    - get_user_choices(uid)                → alias for inherited list_by_user()
     - get_stats_for_user(uid)              → choice count stats (total/pending/decided)
     """
 
@@ -1162,22 +1133,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
 
     async def get_choice(self, choice_id: str) -> Result[Choice]:
         """Get choice by ID. Returns error if not found (contrast with get() → None)."""
-        get_result: Result[Choice | None] = await self.get(choice_id)
-        if get_result.is_error:
-            return Result.fail(get_result)
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_id))
-        return Result.ok(get_result.value)
-
-    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
-        """List all choices for a user. Returns flat list (not paginated tuple)."""
-        page_result: Result[tuple[list[Choice], int]] = await self.get_user_entities(
-            user_uid, limit=limit
-        )
-        if page_result.is_error:
-            return Result.fail(page_result)
-        choices, _ = page_result.value
-        return Result.ok(choices)
+        return await self.get_or_fail(choice_id)
 
     async def get_user_choices(self, user_uid: UserUID) -> Result[list[Choice]]:
         """Get all choices for a user. Alias for list_by_user."""
@@ -1185,24 +1141,15 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[ChoiceStats]:
         """Count choice stats: total, pending, decided."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'choice'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.status = 'pending' THEN 1 END) AS pending,
-            count(CASE WHEN n.status = 'decided' THEN 1 END) AS decided
-        """
-        result = await self.execute_query(query, {"user_uid": user_uid})
+        result = await _count_user_stats(
+            self,
+            user_uid,
+            "choice",
+            {"pending": "n.status = 'pending'", "decided": "n.status = 'decided'"},
+        )
         if result.is_error:
             return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "pending": record.get("pending", 0),
-                "decided": record.get("decided", 0),
-            }
-        )
+        return Result.ok(cast("ChoiceStats", result.value))
 
     async def get_pending_choices(
         self, user_uid: UserUID, limit: int = 100
@@ -1261,9 +1208,8 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
 
     Extends UniversalNeo4jBackend[Principle] with:
     - _HierarchyMixin: subprinciple hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
-    - get_principle(uid)                        → wraps get() with NotFound check
-    - list_by_user(uid, limit)                  → wraps get_user_entities(), extracts list
-    - get_user_principles(uid)                  → alias for list_by_user()
+    - get_principle(uid)                        → get_or_fail() wrapper (NotFound as error)
+    - get_user_principles(uid)                  → alias for inherited list_by_user()
     - get_stats_for_user(uid)                   → principle count stats (total/core/active)
     """
 
@@ -1276,22 +1222,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
 
     async def get_principle(self, principle_uid: str) -> Result[Principle]:
         """Get principle by ID. Returns error if not found (contrast with get() → None)."""
-        get_result: Result[Principle | None] = await self.get(principle_uid)
-        if get_result.is_error:
-            return Result.fail(get_result)
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
-        return Result.ok(get_result.value)
-
-    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Principle]]:
-        """List all principles for a user. Returns flat list (not paginated tuple)."""
-        page_result: Result[tuple[list[Principle], int]] = await self.get_user_entities(
-            user_uid, limit=limit
-        )
-        if page_result.is_error:
-            return Result.fail(page_result)
-        principles, _ = page_result.value
-        return Result.ok(principles)
+        return await self.get_or_fail(principle_uid)
 
     async def get_user_principles(self, user_uid: UserUID) -> Result[list[Principle]]:
         """Get all principles for a user. Alias for list_by_user."""
@@ -1299,24 +1230,15 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[PrincipleStats]:
         """Count principle stats: total, core, active."""
-        query = """
-        MATCH (n:Entity {user_uid: $user_uid, entity_type: 'principle'})
-        RETURN
-            count(n) AS total,
-            count(CASE WHEN n.strength = 'core' THEN 1 END) AS core,
-            count(CASE WHEN n.is_active = true THEN 1 END) AS active
-        """
-        result = await self.execute_query(query, {"user_uid": user_uid})
+        result = await _count_user_stats(
+            self,
+            user_uid,
+            "principle",
+            {"core": "n.strength = 'core'", "active": "n.is_active = true"},
+        )
         if result.is_error:
             return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total": record.get("total", 0),
-                "core": record.get("core", 0),
-                "active": record.get("active", 0),
-            }
-        )
+        return Result.ok(cast("PrincipleStats", result.value))
 
     async def get_user_items_in_range(
         self,

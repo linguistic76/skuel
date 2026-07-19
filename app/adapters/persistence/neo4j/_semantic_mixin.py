@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from adapters.persistence.neo4j._backend_helpers import _validate_rel_name
+from adapters.persistence.neo4j._backend_helpers import _validate_rel_name, direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Result
 
@@ -110,12 +110,7 @@ class _SemanticMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Find relationships by type and direction for an entity."""
         _validate_rel_name(rel_name)
-        if direction == "outgoing":
-            pattern = f"(source)-[r:{rel_name}]->(target)"
-        elif direction == "incoming":
-            pattern = f"(source)<-[r:{rel_name}]-(target)"
-        else:  # both
-            pattern = f"(source)-[r:{rel_name}]-(target)"
+        pattern = f"(source){direction_clause(direction, 'r', rel_name)}(target)"
 
         query = f"""
         MATCH {pattern}

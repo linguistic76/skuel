@@ -6,8 +6,10 @@ Graph-native relationship creation, deletion, validation, and private helpers.
 
 Provides:
     _extract_label_from_uid: Fast UID-to-label mapping
+    _validate_relationship_pair: Shared registry-validation pipeline (single + batch)
     _build_direction_pattern: Build directional Cypher patterns
     _get_node_labels: Query node labels from database
+    _batch_related: Shared UNWIND core of the batch_* relationship queries
     create_relationship: Create/update a graph relationship (with validation)
     delete_relationship: Delete a relationship
     delete_relationships_batch: Batch relationship deletion
@@ -23,6 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
@@ -130,6 +133,128 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 return label
         return labels[0] if labels else None
 
+    def _validate_relationship_pair(
+        self,
+        from_uid: str,
+        rel_type: RelationshipName | str,
+        source_labels: builtins.list[str],
+        target_labels: builtins.list[str],
+    ) -> dict[str, Any] | None:
+        """
+        Registry-validate one (source, target, relationship-type) triple.
+
+        THE shared pipeline behind create_relationship and
+        create_relationships_batch — source-label extraction (UID parse with
+        DB-label fallback), relationship-type registry check, and target-label
+        check. The label *fetch* stays with the callers (single vs batched
+        query); this helper only consumes the fetched labels.
+
+        Returns:
+            None when the pair is valid, else a diagnosis dict with a
+            ``"kind"`` key (``no_source_label`` | ``invalid_type`` |
+            ``invalid_target``) plus the context each caller needs to build
+            its own error surface.
+        """
+        from core.models.relationship_registry import (
+            get_relationship_metadata,
+            get_valid_relationships,
+            validate_relationship,
+        )
+
+        # Step 1: Extract source label (fast UID parsing, DB-label fallback —
+        # skipping the universal :Entity base label)
+        source_label = self._extract_label_from_uid(from_uid) or self._pick_domain_label(
+            source_labels
+        )
+        if not source_label:
+            return {"kind": "no_source_label"}
+
+        # Step 3: Validate relationship type for source domain
+        if not validate_relationship(source_label, rel_type):
+            return {
+                "kind": "invalid_type",
+                "source_label": source_label,
+                "valid_types": list(get_valid_relationships(source_label).keys()),
+            }
+
+        # Step 4: Validate target node label against the registry spec
+        spec = get_relationship_metadata(source_label, rel_type)
+        if (
+            spec
+            and spec.target_labels
+            and not any(label in spec.target_labels for label in target_labels)
+        ):
+            return {
+                "kind": "invalid_target",
+                "source_label": source_label,
+                "actual_target": self._pick_domain_label(target_labels) or "Unknown",
+                "expected_targets": spec.target_labels,
+            }
+
+        return None
+
+    @staticmethod
+    def _pair_diagnosis_to_error(
+        diagnosis: dict[str, Any],
+        from_uid: str,
+        relationship_type: RelationshipName,
+        target_labels: builtins.list[str],
+    ) -> Any:
+        """Map a _validate_relationship_pair diagnosis to create_relationship's error surface."""
+        from core.utils.result_simplified import ErrorCategory, ErrorContext, ErrorSeverity
+
+        if diagnosis["kind"] == "no_source_label":
+            return Errors.validation(
+                message=f"Unable to determine source label for UID: {from_uid}",
+                field="from_uid",
+                value=from_uid,
+            )
+
+        if diagnosis["kind"] == "invalid_type":
+            source_label = diagnosis["source_label"]
+            valid_types = diagnosis["valid_types"]
+            return ErrorContext(
+                category=ErrorCategory.VALIDATION,
+                code="VALIDATION_FIELD_RELATIONSHIP_TYPE",
+                message=(
+                    f"Invalid relationship type '{relationship_type}' for {source_label}. "
+                    f"Valid types: {valid_types}"
+                ),
+                severity=ErrorSeverity.LOW,
+                details={
+                    "field": "relationship_type",
+                    "value": relationship_type,
+                    "source_label": source_label,
+                    "source_uid": from_uid,
+                    "valid_relationship_types": valid_types,
+                },
+                user_message=f"Invalid relationship type '{relationship_type}'",
+                source_location=ErrorContext.capture_current_location(),
+            )
+
+        # invalid_target
+        return ErrorContext(
+            category=ErrorCategory.VALIDATION,
+            code="VALIDATION_FIELD_TARGET_LABEL",
+            message=(
+                f"Invalid target label for relationship: "
+                f"{diagnosis['source_label']} --[{relationship_type}]-> "
+                f"{diagnosis['actual_target']}. "
+                f"Expected target labels: {diagnosis['expected_targets']}"
+            ),
+            severity=ErrorSeverity.LOW,
+            details={
+                "field": "target_label",
+                "value": diagnosis["actual_target"],
+                "source_label": diagnosis["source_label"],
+                "target_labels": target_labels,
+                "expected_target_labels": diagnosis["expected_targets"],
+                "relationship_type": relationship_type,
+            },
+            user_message=f"Invalid target type for {relationship_type} relationship",
+            source_location=ErrorContext.capture_current_location(),
+        )
+
     def _build_direction_pattern(
         self,
         relationship_type: RelationshipName,
@@ -184,28 +309,16 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 )
             )
 
-        # Build relationship part: [r:TYPE] or [:TYPE]
-        rel_part = f"[{rel_var}:{relationship_type}]" if rel_var else f"[:{relationship_type}]"
-
         # Build target part: (related) or (related:Label)
         target_part = f"({target_var}:{target_label})" if target_label else f"({target_var})"
 
-        # Build pattern based on direction
-        match direction:
-            case "outgoing":
-                return Result.ok(f"({source_var})-{rel_part}->{target_part}")
-            case "incoming":
-                return Result.ok(f"({source_var})<-{rel_part}-{target_part}")
-            case "both":
-                return Result.ok(f"({source_var})-{rel_part}-{target_part}")
-            case _:
-                return Result.fail(
-                    Errors.validation(
-                        message=f"Invalid direction: {direction}. Valid options: outgoing, incoming, both",
-                        field="direction",
-                        value=direction,
-                    )
-                )
+        try:
+            arrow = direction_clause(direction, rel_var, str(relationship_type))
+        except ValueError as e:
+            return Result.fail(
+                Errors.validation(message=str(e), field="direction", value=direction)
+            )
+        return Result.ok(f"({source_var}){arrow}{target_part}")
 
     @safe_backend_operation("get_node_labels")
     async def _get_node_labels(
@@ -358,20 +471,11 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             - get_relationship_metadata(): Retrieve relationship properties
             - RelationshipRegistry: Valid relationship types per domain
         """
-        from core.models.relationship_registry import (
-            get_relationship_metadata,
-            get_valid_relationships,
-            validate_relationship,
-        )
-
         # ========================================================================
         # C: VALIDATION (Hard Failures)
         # ========================================================================
 
-        # Step 1: Extract source label (fast UID parsing first)
-        source_label = self._extract_label_from_uid(from_uid)
-
-        # Step 2: Get node labels from database (needed for target validation)
+        # Step 2: Get node labels from database (existence check + validation input)
         labels_result = await self._get_node_labels(from_uid, to_uid)
         if labels_result.is_error:
             return Result.fail(labels_result)  # Nodes don't exist
@@ -380,78 +484,14 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         target_labels: builtins.list[str]
         source_labels, target_labels = labels_result.value
 
-        # Use DB label if UID parsing failed (skip universal :Entity base label)
-        if not source_label:
-            source_label = self._pick_domain_label(source_labels)
-
-        if not source_label:
+        # Steps 1/3/4: shared registry-validation pipeline
+        diagnosis = self._validate_relationship_pair(
+            from_uid, relationship_type, source_labels, target_labels
+        )
+        if diagnosis is not None:
             return Result.fail(
-                Errors.validation(
-                    message=f"Unable to determine source label for UID: {from_uid}",
-                    field="from_uid",
-                    value=from_uid,
-                )
+                self._pair_diagnosis_to_error(diagnosis, from_uid, relationship_type, target_labels)
             )
-
-        # Step 3: Validate relationship type for source domain
-        if not validate_relationship(source_label, relationship_type):
-            valid_rels = get_valid_relationships(source_label)
-            from core.utils.result_simplified import ErrorCategory, ErrorContext, ErrorSeverity
-
-            return Result.fail(
-                ErrorContext(
-                    category=ErrorCategory.VALIDATION,
-                    code="VALIDATION_FIELD_RELATIONSHIP_TYPE",
-                    message=(
-                        f"Invalid relationship type '{relationship_type}' for {source_label}. "
-                        f"Valid types: {list(valid_rels.keys())}"
-                    ),
-                    severity=ErrorSeverity.LOW,
-                    details={
-                        "field": "relationship_type",
-                        "value": relationship_type,
-                        "source_label": source_label,
-                        "source_uid": from_uid,
-                        "valid_relationship_types": list(valid_rels.keys()),
-                    },
-                    user_message=f"Invalid relationship type '{relationship_type}'",
-                    source_location=ErrorContext.capture_current_location(),
-                )
-            )
-
-        # Step 4: Validate target node label
-        spec = get_relationship_metadata(source_label, relationship_type)
-        if spec and spec.target_labels:
-            primary_target_label = self._pick_domain_label(target_labels) or "Unknown"
-
-            # Check if any of the node's labels match the spec
-            valid_target = any(label in spec.target_labels for label in target_labels)
-
-            if not valid_target:
-                from core.utils.result_simplified import ErrorCategory, ErrorContext, ErrorSeverity
-
-                return Result.fail(
-                    ErrorContext(
-                        category=ErrorCategory.VALIDATION,
-                        code="VALIDATION_FIELD_TARGET_LABEL",
-                        message=(
-                            f"Invalid target label for relationship: "
-                            f"{source_label} --[{relationship_type}]-> {primary_target_label}. "
-                            f"Expected target labels: {spec.target_labels}"
-                        ),
-                        severity=ErrorSeverity.LOW,
-                        details={
-                            "field": "target_label",
-                            "value": primary_target_label,
-                            "source_label": source_label,
-                            "target_labels": target_labels,
-                            "expected_target_labels": spec.target_labels,
-                            "relationship_type": relationship_type,
-                        },
-                        user_message=f"Invalid target type for {relationship_type} relationship",
-                        source_location=ErrorContext.capture_current_location(),
-                    )
-                )
 
         # Note: Property validation and cardinality constraints were removed in January 2026
         # during the RelationshipRegistry migration. The new registry focuses on
@@ -848,12 +888,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             result = await backend.create_relationships_batch(rels)
             print(f"Created {result.value} relationships") # All or nothing
         """
-        from core.models.relationship_registry import (
-            get_relationship_metadata,
-            get_valid_relationships,
-            validate_relationship,
-        )
-
         if not relationships:
             return Result.ok(0)
 
@@ -873,10 +907,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         labels_map = labels_map_result.value
 
         for idx, (from_uid, to_uid, rel_type, _props) in enumerate(relationships):
-            # Step 1: Extract source label (fast UID parsing)
             # Note: _props intentionally unused - property validation not yet implemented
-            source_label = self._extract_label_from_uid(from_uid)
-
             # Step 2: Look up node labels from the batched map
             source_labels = labels_map.get(from_uid)
             target_labels = labels_map.get(to_uid)
@@ -894,57 +925,42 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 )
                 continue
 
-            # Use DB label if UID parsing failed (skip universal :Entity base label)
-            if not source_label:
-                source_label = self._pick_domain_label(source_labels)
-
-            if not source_label:
-                validation_errors.append(
-                    {
-                        "index": idx,
-                        "from_uid": from_uid,
-                        "error": "Unable to determine source label",
-                    }
-                )
+            # Steps 1/3/4: shared registry-validation pipeline
+            diagnosis = self._validate_relationship_pair(
+                from_uid, rel_type, source_labels, target_labels
+            )
+            if diagnosis is None:
                 continue
 
-            # Step 3: Validate relationship type for source domain
-            if not validate_relationship(source_label, rel_type):
-                valid_rels = get_valid_relationships(source_label)
-                validation_errors.append(
+            entry: dict[str, Any] = {"index": idx, "from_uid": from_uid}
+            if diagnosis["kind"] == "no_source_label":
+                entry["error"] = "Unable to determine source label"
+            elif diagnosis["kind"] == "invalid_type":
+                entry.update(
                     {
-                        "index": idx,
-                        "from_uid": from_uid,
                         "to_uid": to_uid,
                         "relationship_type": rel_type,
-                        "error": f"Invalid relationship type '{rel_type}' for {source_label}",
-                        "valid_types": list(valid_rels.keys()),
+                        "error": (
+                            f"Invalid relationship type '{rel_type}' "
+                            f"for {diagnosis['source_label']}"
+                        ),
+                        "valid_types": diagnosis["valid_types"],
                     }
                 )
-                continue
-
-            # Step 4: Validate target node label
-            spec = get_relationship_metadata(source_label, rel_type)
-            if spec and spec.target_labels:
-                # Check if any of the node's labels match the spec
-                valid_target = any(label in spec.target_labels for label in target_labels)
-
-                if not valid_target:
-                    primary_target_label = self._pick_domain_label(target_labels) or "Unknown"
-                    validation_errors.append(
-                        {
-                            "index": idx,
-                            "from_uid": from_uid,
-                            "to_uid": to_uid,
-                            "relationship_type": rel_type,
-                            "error": (
-                                f"Invalid target: {source_label} --[{rel_type}]-> {primary_target_label}"
-                            ),
-                            "expected_targets": spec.target_labels,
-                            "actual_target": primary_target_label,
-                        }
-                    )
-                    continue
+            else:  # invalid_target
+                entry.update(
+                    {
+                        "to_uid": to_uid,
+                        "relationship_type": rel_type,
+                        "error": (
+                            f"Invalid target: {diagnosis['source_label']} "
+                            f"--[{rel_type}]-> {diagnosis['actual_target']}"
+                        ),
+                        "expected_targets": diagnosis["expected_targets"],
+                        "actual_target": diagnosis["actual_target"],
+                    }
+                )
+            validation_errors.append(entry)
 
         # If ANY validation failed, return errors without creating relationships
         if validation_errors:
@@ -992,6 +1008,37 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     # Used by UnifiedRelationshipService's BatchOperationsMixin.
     # Entity label and relationship type come from DomainRelationshipConfig.
 
+    async def _batch_related(
+        self,
+        entity_label: NeoLabel,
+        entity_uids: builtins.list[str],
+        relationship_type: str,
+        direction: str,
+        return_clause: str,
+    ) -> builtins.list[dict[str, Any]]:
+        """
+        Shared UNWIND core behind the three batch_* relationship queries.
+
+        The public wrappers (batch_has_relationship / batch_count_related /
+        batch_get_related_uids) differ only in their RETURN line — pass it as
+        ``return_clause``. Exceptions propagate to the wrappers'
+        @safe_backend_operation decorators.
+        """
+        query = f"""
+        UNWIND $entity_uids AS entity_uid
+        MATCH (e:{entity_label} {{uid: entity_uid}})
+        OPTIONAL MATCH (e){direction_clause(direction)}(related)
+        WHERE type(r) = $relationship_type
+        RETURN entity_uid, {return_clause}
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {"entity_uids": entity_uids, "relationship_type": relationship_type},
+            )
+            return [dict(record) async for record in result]
+
     @safe_backend_operation("batch_has_relationship")
     async def batch_has_relationship(
         self,
@@ -1015,29 +1062,13 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         if not entity_uids:
             return Result.ok({})
 
-        direction_clause = (
-            "-[r]->"
-            if direction == "outgoing"
-            else "<-[r]-"
-            if direction == "incoming"
-            else "-[r]-"
+        records = await self._batch_related(
+            entity_label,
+            entity_uids,
+            relationship_type,
+            direction,
+            "count(related) > 0 AS has_relationship",
         )
-
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (e:{entity_label} {{uid: entity_uid}})
-        OPTIONAL MATCH (e){direction_clause}(related)
-        WHERE type(r) = $relationship_type
-        RETURN entity_uid, count(related) > 0 AS has_relationship
-        """
-
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {"entity_uids": entity_uids, "relationship_type": relationship_type},
-            )
-            records = [dict(record) async for record in result]
-
         return Result.ok({str(r["entity_uid"]): r.get("has_relationship", False) for r in records})
 
     @safe_backend_operation("batch_count_related")
@@ -1063,29 +1094,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         if not entity_uids:
             return Result.ok({})
 
-        direction_clause = (
-            "-[r]->"
-            if direction == "outgoing"
-            else "<-[r]-"
-            if direction == "incoming"
-            else "-[r]-"
+        records = await self._batch_related(
+            entity_label, entity_uids, relationship_type, direction, "count(related) AS count"
         )
-
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (e:{entity_label} {{uid: entity_uid}})
-        OPTIONAL MATCH (e){direction_clause}(related)
-        WHERE type(r) = $relationship_type
-        RETURN entity_uid, count(related) AS count
-        """
-
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {"entity_uids": entity_uids, "relationship_type": relationship_type},
-            )
-            records = [dict(record) async for record in result]
-
         return Result.ok({str(r["entity_uid"]): r.get("count", 0) for r in records})
 
     @safe_backend_operation("batch_get_related_uids")
@@ -1111,29 +1122,13 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         if not entity_uids:
             return Result.ok({})
 
-        direction_clause = (
-            "-[r]->"
-            if direction == "outgoing"
-            else "<-[r]-"
-            if direction == "incoming"
-            else "-[r]-"
+        records = await self._batch_related(
+            entity_label,
+            entity_uids,
+            relationship_type,
+            direction,
+            "collect(related.uid) AS related_uids",
         )
-
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (e:{entity_label} {{uid: entity_uid}})
-        OPTIONAL MATCH (e){direction_clause}(related)
-        WHERE type(r) = $relationship_type
-        RETURN entity_uid, collect(related.uid) AS related_uids
-        """
-
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {"entity_uids": entity_uids, "relationship_type": relationship_type},
-            )
-            records = [dict(record) async for record in result]
-
         return Result.ok(
             {
                 str(r["entity_uid"]): [

@@ -17,6 +17,7 @@ Methods:
 
 from typing import TYPE_CHECKING
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue
 
@@ -479,13 +480,8 @@ def build_semantic_filter_query(
     validate_label(label)
     rel_name = semantic_type.to_neo4j_name()
 
-    # Build direction pattern
-    if direction == "outgoing":
-        pattern = f"(n:{label})-[r:{rel_name}]->(target)"
-    elif direction == "incoming":
-        pattern = f"(n:{label})<-[r:{rel_name}]-(source)"
-    else:  # both
-        pattern = f"(n:{label})-[r:{rel_name}]-(connected)"
+    # Build direction pattern (the connected node is anonymous — RETURN only reads n/r)
+    pattern = f"(n:{label}){direction_clause(direction, 'r', rel_name)}(other)"
 
     cypher = f"""
     MATCH {pattern}
