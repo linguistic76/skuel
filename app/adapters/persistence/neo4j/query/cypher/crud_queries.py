@@ -17,6 +17,7 @@ Methods:
 from dataclasses import fields, is_dataclass
 from typing import Any, get_origin, get_type_hints
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums import ExerciseScope, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
@@ -383,16 +384,8 @@ def build_relationship_traversal_query(
         raise ValueError(f"Invalid target label: {target_label}")
 
     # Build direction pattern
-    if direction == "outgoing":
-        pattern = f"(source {{uid: $source_uid}})-[:{relationship_type}]->(target:{target_label})"
-    elif direction == "incoming":
-        pattern = f"(source {{uid: $source_uid}})<-[:{relationship_type}]-(target:{target_label})"
-    elif direction == "both":
-        pattern = f"(source {{uid: $source_uid}})-[:{relationship_type}]-(target:{target_label})"
-    else:
-        raise ValueError(
-            f"Invalid direction '{direction}'. Must be 'outgoing', 'incoming', or 'both'"
-        )
+    arrow = direction_clause(direction, None, relationship_type)
+    pattern = f"(source {{uid: $source_uid}}){arrow}(target:{target_label})"
 
     cypher = f"""
     MATCH {pattern}
@@ -491,16 +484,8 @@ def build_graph_aware_search_query(
         raise ValueError(f"Invalid relationship type: {relationship_type}")
 
     # Build direction pattern for relationship
-    if direction == "outgoing":
-        rel_pattern = f"(source {{uid: $source_uid}})-[:{relationship_type}]->(target:{label})"
-    elif direction == "incoming":
-        rel_pattern = f"(source {{uid: $source_uid}})<-[:{relationship_type}]-(target:{label})"
-    elif direction == "both":
-        rel_pattern = f"(source {{uid: $source_uid}})-[:{relationship_type}]-(target:{label})"
-    else:
-        raise ValueError(
-            f"Invalid direction '{direction}'. Must be 'outgoing', 'incoming', or 'both'"
-        )
+    arrow = direction_clause(direction, None, relationship_type)
+    rel_pattern = f"(source {{uid: $source_uid}}){arrow}(target:{label})"
 
     # Build OR clauses for text search on target. Parenthesized so the
     # visibility clause can be ANDed safely (AND binds tighter than OR).
@@ -993,23 +978,19 @@ def build_prerequisite_traversal_query(
     """
     rel_pattern = "|".join(relationship_types)
 
-    if direction == "outgoing":
-        # Prerequisites: start -> n (traversing forward)
-        query = f"""
-        MATCH (start:{label} {{uid: $uid}})
-        MATCH path = (start)-[:{rel_pattern}*1..{depth}]->(n:{label})
-        WITH DISTINCT n, length(path) as distance
-        ORDER BY distance DESC
-        RETURN n
-        """
-    else:
-        # Enabled-by: n -> start (inverse traversal)
-        query = f"""
-        MATCH (start:{label} {{uid: $uid}})
-        MATCH path = (n:{label})-[:{rel_pattern}*1..{depth}]->(start)
-        WITH DISTINCT n, length(path) as distance
-        ORDER BY distance ASC
-        RETURN n
-        """
+    # Prerequisites traverse forward from start (outgoing, farthest-first);
+    # enabled-by inverts the traversal (incoming, nearest-first).
+    is_outgoing = direction == "outgoing"
+    arrow = direction_clause(
+        "outgoing" if is_outgoing else "incoming", None, f"{rel_pattern}*1..{depth}"
+    )
+    order = "DESC" if is_outgoing else "ASC"
+    query = f"""
+    MATCH (start:{label} {{uid: $uid}})
+    MATCH path = (start){arrow}(n:{label})
+    WITH DISTINCT n, length(path) as distance
+    ORDER BY distance {order}
+    RETURN n
+    """
 
     return query, {"uid": uid}

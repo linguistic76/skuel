@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -123,32 +124,21 @@ class _TraversalMixin:
         """
         # Build direction-specific query; the WHERE clause is a no-op when
         # rel_type is None (no filter) and narrows to the named type otherwise.
-        # NOT n:Content in all three branches — the chunk store's shadow node
-        # shares its entity's uid, so an unguarded uid MATCH double-binds and
-        # duplicates every relationship row (G13).
-        if direction == "outgoing":
-            cypher = """
-            MATCH (n {uid: $uid})-[r]->(target)
-            WHERE NOT n:Content AND ($rel_type IS NULL OR type(r) = $rel_type)
-            RETURN type(r) as type, target.uid as target_uid,
-                   'outgoing' as direction, properties(r) as properties
-            """
-        elif direction == "incoming":
-            cypher = """
-            MATCH (n {uid: $uid})<-[r]-(source)
-            WHERE NOT n:Content AND ($rel_type IS NULL OR type(r) = $rel_type)
-            RETURN type(r) as type, source.uid as target_uid,
-                   'incoming' as direction, properties(r) as properties
-            """
-        else:  # both
-            cypher = """
-            MATCH (n {uid: $uid})-[r]-(other)
-            WHERE NOT n:Content AND ($rel_type IS NULL OR type(r) = $rel_type)
-            WITH r, other,
-                 CASE WHEN startNode(r).uid = $uid THEN 'outgoing' ELSE 'incoming' END as dir
-            RETURN type(r) as type, other.uid as target_uid,
-                   dir as direction, properties(r) as properties
-            """
+        # NOT n:Content — the chunk store's shadow node shares its entity's
+        # uid, so an unguarded uid MATCH double-binds and duplicates every
+        # relationship row (G13). For directed traversals the direction is a
+        # literal; "both" derives it per-edge from startNode().
+        dir_expr = (
+            "CASE WHEN startNode(r).uid = $uid THEN 'outgoing' ELSE 'incoming' END"
+            if direction == "both"
+            else f"'{direction}'"
+        )
+        cypher = f"""
+        MATCH (n {{uid: $uid}}){direction_clause(direction)}(other)
+        WHERE NOT n:Content AND ($rel_type IS NULL OR type(r) = $rel_type)
+        RETURN type(r) as type, other.uid as target_uid,
+               {dir_expr} as direction, properties(r) as properties
+        """
 
         params = {"uid": uid, "rel_type": str(rel_type) if rel_type is not None else None}
         async with self.driver.session() as session:

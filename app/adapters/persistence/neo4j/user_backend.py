@@ -35,7 +35,7 @@ from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_c
 from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import UserUID
 from core.models.user import User
-from core.utils.exception_types import NEO4J_EXCEPTIONS
+from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
@@ -66,6 +66,9 @@ class UserBackend:
     - Activity domain CRUD (handled by domain-specific backends)
     - Rich context building (handled by UserService → UserContext)
     - Statistical aggregation (handled by ProfileHubData)
+
+    Error boundary: every public method is wrapped in @safe_backend_operation,
+    which converts Neo4j exceptions to Result.fail(Errors.database(...)).
     """
 
     def __init__(self, driver: AsyncDriver) -> None:
@@ -80,9 +83,74 @@ class UserBackend:
         self.logger = logger
 
     # ========================================================================
+    # PRIVATE HELPERS
+    # ========================================================================
+
+    async def _get_user_by(self, prop: str, value: str) -> Result[User | None]:
+        """
+        Fetch a single user matching one node property.
+
+        THE shared body of the get_user_by_{uid,username,email} triple.
+        ``prop`` is a backend-internal literal ("uid" / "title" / "email"),
+        never caller input — injection-safe. Exceptions propagate to the
+        caller's @safe_backend_operation decorator.
+        """
+        query = f"""
+        MATCH (u:{self.label} {{{prop}: $value}})
+        RETURN u
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(query, {"value": value})
+            record = await result.single()
+
+        if not record:
+            return Result.ok(None)
+        return Result.ok(from_neo4j_node(dict(record["u"]), User))
+
+    async def _merge_user_edge(
+        self,
+        user_uid: UserUID,
+        target_uid: str,
+        rel_type: str,
+        set_clause: str,
+        params: dict[str, Any],
+        target_label: str = "Entity",
+    ) -> bool:
+        """
+        MERGE a ``(User)-[rel_type]->(target)`` edge and apply a SET clause.
+
+        THE shared body of the five user-edge writers (MASTERED / LEARNING /
+        ENROLLED_IN / INTERESTED_IN / BOOKMARKED). ``rel_type``,
+        ``set_clause`` and ``target_label`` are backend-internal literals
+        (injection-safe); every value inside ``set_clause`` is parameterized.
+
+        Returns True when the edge was merged, False when a MATCH found no
+        user/target node — callers translate False into their own error
+        surface. Exceptions propagate to the caller's @safe_backend_operation
+        decorator.
+        """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        MATCH (t:{target_label} {{uid: $target_uid}})
+        MERGE (u)-[r:{rel_type}]->(t)
+        SET {set_clause}
+        RETURN r
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                query, {"user_uid": user_uid, "target_uid": target_uid, **params}
+            )
+            record = await result.single()
+
+        return record is not None
+
+    # ========================================================================
     # IDENTITY OPERATIONS - UserOperations Protocol
     # ========================================================================
 
+    @safe_backend_operation("create_user")
     async def create_user(self, user: User) -> Result[User]:
         """
         Create a new user identity.
@@ -93,39 +161,31 @@ class UserBackend:
         Returns:
             Result[User]: Created user or error
         """
-        try:
-            # Convert User to Neo4j properties. Append-only fields are managed solely
-            # via atomic_append_dual_track_checkin, never seeded by a whole-model write.
-            user_dict = {
-                k: v for k, v in to_neo4j_node(user).items() if k not in _APPEND_ONLY_FIELDS
-            }
+        # Convert User to Neo4j properties. Append-only fields are managed solely
+        # via atomic_append_dual_track_checkin, never seeded by a whole-model write.
+        user_dict = {k: v for k, v in to_neo4j_node(user).items() if k not in _APPEND_ONLY_FIELDS}
 
-            query = f"""
-            CREATE (u:{self.label})
-            SET u = $properties
-            RETURN u
-            """
+        query = f"""
+        CREATE (u:{self.label})
+        SET u = $properties
+        RETURN u
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"properties": user_dict})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"properties": user_dict})
+            record = await result.single()
 
-                if not record:
-                    return Result.fail(
-                        Errors.database(
-                            operation="create_user", message="Failed to create user node"
-                        )
-                    )
+        if not record:
+            return Result.fail(
+                Errors.database(operation="create_user", message="Failed to create user node")
+            )
 
-                # Convert back to User domain model
-                created_user = from_neo4j_node(dict(record["u"]), User)
-                self.logger.info(f"Created user identity: {created_user.uid}")
-                return Result.ok(created_user)
+        # Convert back to User domain model
+        created_user = from_neo4j_node(dict(record["u"]), User)
+        self.logger.info(f"Created user identity: {created_user.uid}")
+        return Result.ok(created_user)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to create user: {e}")
-            return Result.fail(Errors.database(operation="create_user", message=str(e)))
-
+    @safe_backend_operation("get_user_by_uid")
     async def get_user_by_uid(self, user_uid: UserUID) -> Result[User | None]:
         """
         Get user by UID.
@@ -136,26 +196,9 @@ class UserBackend:
         Returns:
             Result[User | None]: User if found, None otherwise
         """
-        try:
-            query = f"""
-            MATCH (u:{self.label} {{uid: $uid}})
-            RETURN u
-            """
+        return await self._get_user_by("uid", user_uid)
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": user_uid})
-                record = await result.single()
-
-                if not record:
-                    return Result.ok(None)
-
-                user = from_neo4j_node(dict(record["u"]), User)
-                return Result.ok(user)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get user by UID: {e}")
-            return Result.fail(Errors.database(operation="get_user_by_uid", message=str(e)))
-
+    @safe_backend_operation("get_user_by_username")
     async def get_user_by_username(self, username: str) -> Result[User | None]:
         """
         Get user by username.
@@ -172,26 +215,9 @@ class UserBackend:
         Returns:
             Result[User | None]: User if found, None otherwise
         """
-        try:
-            query = f"""
-            MATCH (u:{self.label} {{title: $username}})
-            RETURN u
-            """
+        return await self._get_user_by("title", username)
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"username": username})
-                record = await result.single()
-
-                if not record:
-                    return Result.ok(None)
-
-                user = from_neo4j_node(dict(record["u"]), User)
-                return Result.ok(user)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get user by username: {e}")
-            return Result.fail(Errors.database(operation="get_user_by_username", message=str(e)))
-
+    @safe_backend_operation("get_user_by_email")
     async def get_user_by_email(self, email: str) -> Result[User | None]:
         """
         Get user by email address.
@@ -204,26 +230,9 @@ class UserBackend:
         Returns:
             Result[User | None]: User if found, None otherwise
         """
-        try:
-            query = f"""
-            MATCH (u:{self.label} {{email: $email}})
-            RETURN u
-            """
+        return await self._get_user_by("email", email)
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"email": email})
-                record = await result.single()
-
-                if not record:
-                    return Result.ok(None)
-
-                user = from_neo4j_node(dict(record["u"]), User)
-                return Result.ok(user)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get user by email: {e}")
-            return Result.fail(Errors.database(operation="get_user_by_email", message=str(e)))
-
+    @safe_backend_operation("update_user")
     async def update_user(self, user: User) -> Result[User]:
         """
         Update user identity.
@@ -234,43 +243,39 @@ class UserBackend:
         Returns:
             Result[User]: Updated user or error
         """
-        try:
-            # Convert User to Neo4j properties
-            user_dict = to_neo4j_node(user)
-            uid = user_dict.get("uid")
+        # Convert User to Neo4j properties
+        user_dict = to_neo4j_node(user)
+        uid = user_dict.get("uid")
 
-            if not uid:
-                return Result.fail(
-                    Errors.validation(message="User must have uid", field="uid", value=None)
-                )
+        if not uid:
+            return Result.fail(
+                Errors.validation(message="User must have uid", field="uid", value=None)
+            )
 
-            # Remove uid (match key) and append-only fields (managed solely via
-            # update_user_fields — a whole-model write must never clobber them).
-            updates = {
-                k: v for k, v in user_dict.items() if k != "uid" and k not in _APPEND_ONLY_FIELDS
-            }
+        # Remove uid (match key) and append-only fields (managed solely via
+        # update_user_fields — a whole-model write must never clobber them).
+        updates = {
+            k: v for k, v in user_dict.items() if k != "uid" and k not in _APPEND_ONLY_FIELDS
+        }
 
-            query = f"""
-            MATCH (u:{self.label} {{uid: $uid}})
-            SET u += $updates
-            RETURN u
-            """
+        query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        SET u += $updates
+        RETURN u
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": uid, "updates": updates})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"uid": uid, "updates": updates})
+            record = await result.single()
 
-                if not record:
-                    return Result.fail(Errors.not_found(resource="User", identifier=uid))
+        if not record:
+            return Result.fail(Errors.not_found(resource="User", identifier=uid))
 
-                updated_user = from_neo4j_node(dict(record["u"]), User)
-                self.logger.info(f"Updated user identity: {uid}")
-                return Result.ok(updated_user)
+        updated_user = from_neo4j_node(dict(record["u"]), User)
+        self.logger.info(f"Updated user identity: {uid}")
+        return Result.ok(updated_user)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to update user: {e}")
-            return Result.fail(Errors.database(operation="update_user", message=str(e)))
-
+    @safe_backend_operation("atomic_append_dual_track_checkin")
     async def atomic_append_dual_track_checkin(
         self,
         user_uid: UserUID,
@@ -298,25 +303,19 @@ class UserBackend:
         Returns:
             Result[bool]: True if appended, NotFound if the user does not exist.
         """
-        try:
-            appended = await atomic_append_checkin(
-                self.driver,
-                label=self.label,
-                uid=user_uid,
-                snapshot=snapshot,
-                history_limit=history_limit,
-                dimension=dimension,
-            )
-            if not appended:
-                return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-            return Result.ok(True)
+        appended = await atomic_append_checkin(
+            self.driver,
+            label=self.label,
+            uid=user_uid,
+            snapshot=snapshot,
+            history_limit=history_limit,
+            dimension=dimension,
+        )
+        if not appended:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+        return Result.ok(True)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to append dual-track check-in: {e}")
-            return Result.fail(
-                Errors.database(operation="atomic_append_dual_track_checkin", message=str(e))
-            )
-
+    @safe_backend_operation("atomic_append_knowledge_checkin")
     async def atomic_append_knowledge_checkin(
         self,
         user_uid: UserUID,
@@ -348,26 +347,20 @@ class UserBackend:
         Returns:
             Result[bool]: True if appended, NotFound if the user does not exist.
         """
-        try:
-            appended = await atomic_append_checkin(
-                self.driver,
-                label=self.label,
-                uid=user_uid,
-                snapshot=snapshot,
-                history_limit=history_limit,
-                dimension=ku_uid,
-                property_name="knowledge_checkins",
-            )
-            if not appended:
-                return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-            return Result.ok(True)
+        appended = await atomic_append_checkin(
+            self.driver,
+            label=self.label,
+            uid=user_uid,
+            snapshot=snapshot,
+            history_limit=history_limit,
+            dimension=ku_uid,
+            property_name="knowledge_checkins",
+        )
+        if not appended:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+        return Result.ok(True)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to append knowledge check-in: {e}")
-            return Result.fail(
-                Errors.database(operation="atomic_append_knowledge_checkin", message=str(e))
-            )
-
+    @safe_backend_operation("delete_user")
     async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """
         Soft-delete the User node: mark status=DELETED, scrub PII, preserve graph.
@@ -387,43 +380,39 @@ class UserBackend:
             Result[bool]: True if the user was marked deleted, False if the
             UID did not match an existing user.
         """
-        try:
-            now_iso = datetime.now(UTC).isoformat()
-            query = f"""
-            MATCH (u:{self.label} {{uid: $uid}})
-            SET u.status = $deleted_status,
-                u.is_active = false,
-                u.deleted_at = datetime($now),
-                u.email = null,
-                u.display_name = 'Deleted User',
-                u.password_hash = ''
-            RETURN count(u) as deleted_count
-            """
+        now_iso = datetime.now(UTC).isoformat()
+        query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        SET u.status = $deleted_status,
+            u.is_active = false,
+            u.deleted_at = datetime($now),
+            u.email = null,
+            u.display_name = 'Deleted User',
+            u.password_hash = ''
+        RETURN count(u) as deleted_count
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "uid": user_uid,
-                        "deleted_status": UserStatus.DELETED.value,
-                        "now": now_iso,
-                    },
-                )
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {
+                    "uid": user_uid,
+                    "deleted_status": UserStatus.DELETED.value,
+                    "now": now_iso,
+                },
+            )
+            record = await result.single()
 
-                deleted = record["deleted_count"] > 0 if record else False
+        deleted = record["deleted_count"] > 0 if record else False
 
-                if deleted:
-                    self.logger.info(f"Soft-deleted user identity: {user_uid}")
-                else:
-                    self.logger.warning(f"User not found for soft-delete: {user_uid}")
+        if deleted:
+            self.logger.info(f"Soft-deleted user identity: {user_uid}")
+        else:
+            self.logger.warning(f"User not found for soft-delete: {user_uid}")
 
-                return Result.ok(deleted)
+        return Result.ok(deleted)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to soft-delete user: {e}")
-            return Result.fail(Errors.database(operation="delete_user", message=str(e)))
-
+    @safe_backend_operation("hard_delete_user")
     async def hard_delete_user(self, user_uid: UserUID) -> Result[int]:
         """
         GDPR right-to-erasure: DETACH DELETE the user + every OWNS-linked entity.
@@ -443,42 +432,38 @@ class UserBackend:
             Result[int]: Total nodes deleted (user + every OWNS-linked entity).
             0 when the UID does not match an existing user.
         """
-        try:
-            query = f"""
-            MATCH (u:{self.label} {{uid: $uid}})
-            OPTIONAL MATCH (u)-[:OWNS]->(owned)
-            WITH u, collect(owned) AS owned_nodes
-            WITH u, owned_nodes, size(owned_nodes) AS owned_count
-            DETACH DELETE u
-            FOREACH (n IN owned_nodes | DETACH DELETE n)
-            RETURN owned_count + 1 AS deleted_count
-            """
+        query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        OPTIONAL MATCH (u)-[:OWNS]->(owned)
+        WITH u, collect(owned) AS owned_nodes
+        WITH u, owned_nodes, size(owned_nodes) AS owned_count
+        DETACH DELETE u
+        FOREACH (n IN owned_nodes | DETACH DELETE n)
+        RETURN owned_count + 1 AS deleted_count
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": user_uid})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"uid": user_uid})
+            record = await result.single()
 
-                deleted_count: int = record["deleted_count"] if record else 0
+        deleted_count: int = record["deleted_count"] if record else 0
 
-                if deleted_count > 0:
-                    self.logger.warning(
-                        f"Hard-deleted user {user_uid}: {deleted_count} nodes erased "
-                        f"(user + {deleted_count - 1} owned entities)"
-                    )
-                else:
-                    self.logger.warning(f"User not found for hard-delete: {user_uid}")
+        if deleted_count > 0:
+            self.logger.warning(
+                f"Hard-deleted user {user_uid}: {deleted_count} nodes erased "
+                f"(user + {deleted_count - 1} owned entities)"
+            )
+        else:
+            self.logger.warning(f"User not found for hard-delete: {user_uid}")
 
-                return Result.ok(deleted_count)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to hard-delete user: {e}")
-            return Result.fail(Errors.database(operation="hard_delete_user", message=str(e)))
+        return Result.ok(deleted_count)
 
     # ========================================================================
     # LEARNING & PROGRESS TRACKING
     # ========================================================================
     # These methods manage User-Knowledge relationships in the graph
 
+    @safe_backend_operation("update_user_progress")
     async def update_user_progress(
         self, user_uid: UserUID, progress_updates: dict[str, Any]
     ) -> Result[bool]:
@@ -495,27 +480,23 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            query = f"""
-            MATCH (u:{self.label} {{uid: $uid}})
-            SET u += $updates
-            RETURN u
-            """
+        query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        SET u += $updates
+        RETURN u
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": user_uid, "updates": progress_updates})
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(query, {"uid": user_uid, "updates": progress_updates})
+            record = await result.single()
 
-                if not record:
-                    return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+        if not record:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
 
-                self.logger.info(f"Updated user progress: {user_uid}")
-                return Result.ok(True)
+        self.logger.info(f"Updated user progress: {user_uid}")
+        return Result.ok(True)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to update user progress: {e}")
-            return Result.fail(Errors.database(operation="update_user_progress", message=str(e)))
-
+    @safe_backend_operation("record_knowledge_mastery")
     async def record_knowledge_mastery(
         self,
         user_uid: UserUID,
@@ -539,50 +520,32 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (k:Entity {uid: $knowledge_uid})
-            MERGE (u)-[r:MASTERED]->(k)
-            SET r.mastery_score = $mastery_score,
-                r.practice_count = $practice_count,
-                r.confidence_level = $confidence_level,
-                r.last_practiced = datetime()
-            RETURN r
-            """
-
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "knowledge_uid": knowledge_uid,
-                        "mastery_score": mastery_score,
-                        "practice_count": practice_count,
-                        "confidence_level": confidence_level,
-                    },
-                )
-                record = await result.single()
-
-                if not record:
-                    return Result.fail(
-                        Errors.database(
-                            operation="record_knowledge_mastery",
-                            message="Failed to create mastery relationship",
-                        )
-                    )
-
-                self.logger.info(
-                    f"Recorded mastery: {user_uid} → {knowledge_uid} ({mastery_score:.2f})"
-                )
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to record knowledge mastery: {e}")
+        merged = await self._merge_user_edge(
+            user_uid,
+            knowledge_uid,
+            "MASTERED",
+            """r.mastery_score = $mastery_score,
+            r.practice_count = $practice_count,
+            r.confidence_level = $confidence_level,
+            r.last_practiced = datetime()""",
+            {
+                "mastery_score": mastery_score,
+                "practice_count": practice_count,
+                "confidence_level": confidence_level,
+            },
+        )
+        if not merged:
             return Result.fail(
-                Errors.database(operation="record_knowledge_mastery", message=str(e))
+                Errors.database(
+                    operation="record_knowledge_mastery",
+                    message="Failed to create mastery relationship",
+                )
             )
 
+        self.logger.info(f"Recorded mastery: {user_uid} → {knowledge_uid} ({mastery_score:.2f})")
+        return Result.ok(True)
+
+    @safe_backend_operation("record_knowledge_progress")
     async def record_knowledge_progress(
         self,
         user_uid: UserUID,
@@ -606,48 +569,32 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (k:Entity {uid: $knowledge_uid})
-            MERGE (u)-[r:LEARNING]->(k)
-            SET r.progress = $progress,
-                r.time_invested_minutes = coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
-                r.difficulty_rating = $difficulty_rating,
-                r.last_updated = datetime()
-            RETURN r
-            """
-
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "knowledge_uid": knowledge_uid,
-                        "progress": progress,
-                        "time_invested_minutes": time_invested_minutes,
-                        "difficulty_rating": difficulty_rating,
-                    },
-                )
-                record = await result.single()
-
-                if not record:
-                    return Result.fail(
-                        Errors.database(
-                            operation="record_knowledge_progress",
-                            message="Failed to create learning relationship",
-                        )
-                    )
-
-                self.logger.info(f"Recorded progress: {user_uid} → {knowledge_uid} ({progress})")
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to record knowledge progress: {e}")
+        merged = await self._merge_user_edge(
+            user_uid,
+            knowledge_uid,
+            "LEARNING",
+            """r.progress = $progress,
+            r.time_invested_minutes = coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
+            r.difficulty_rating = $difficulty_rating,
+            r.last_updated = datetime()""",
+            {
+                "progress": progress,
+                "time_invested_minutes": time_invested_minutes,
+                "difficulty_rating": difficulty_rating,
+            },
+        )
+        if not merged:
             return Result.fail(
-                Errors.database(operation="record_knowledge_progress", message=str(e))
+                Errors.database(
+                    operation="record_knowledge_progress",
+                    message="Failed to create learning relationship",
+                )
             )
 
+        self.logger.info(f"Recorded progress: {user_uid} → {knowledge_uid} ({progress})")
+        return Result.ok(True)
+
+    @safe_backend_operation("get_user_mastery")
     async def get_user_mastery(
         self,
         user_uid: UserUID,
@@ -663,30 +610,26 @@ class UserBackend:
         Returns:
             Result[float]: Mastery score (0.0-1.0), or 0.0 if not found
         """
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity {uid: $concept_uid})
-            RETURN r.mastery_score as mastery_score
-            """
+        query = """
+        MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity {uid: $concept_uid})
+        RETURN r.mastery_score as mastery_score
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {"user_uid": user_uid, "concept_uid": concept_uid},
-                )
-                record = await result.single()
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {"user_uid": user_uid, "concept_uid": concept_uid},
+            )
+            record = await result.single()
 
-                if not record:
-                    # No mastery recorded means 0.0 mastery
-                    return Result.ok(0.0)
+        if not record:
+            # No mastery recorded means 0.0 mastery
+            return Result.ok(0.0)
 
-                mastery_score: float = record["mastery_score"]
-                return Result.ok(mastery_score)
+        mastery_score: float = record["mastery_score"]
+        return Result.ok(mastery_score)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get user mastery: {e}")
-            return Result.fail(Errors.database(operation="get_user_mastery", message=str(e)))
-
+    @safe_backend_operation("enroll_in_learning_path")
     async def enroll_in_learning_path(
         self,
         user_uid: UserUID,
@@ -710,51 +653,33 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            from datetime import datetime
+        merged = await self._merge_user_edge(
+            user_uid,
+            learning_path_uid,
+            "ENROLLED_IN",
+            """r.enrolled_at = coalesce(r.enrolled_at, datetime()),
+            r.target_completion = $target_completion,
+            r.weekly_time_commitment = $weekly_time_commitment,
+            r.motivation_note = $motivation_note,
+            r.status = 'active'""",
+            {
+                "target_completion": target_completion or datetime.now().isoformat(),
+                "weekly_time_commitment": weekly_time_commitment,
+                "motivation_note": motivation_note,
+            },
+            target_label="LearningPath",
+        )
+        if not merged:
+            # MERGE only fails to produce a row when a MATCH found nothing —
+            # the LP (or user) doesn't exist, not a database outage.
+            return Result.fail(
+                Errors.not_found(resource="LearningPath", identifier=learning_path_uid)
+            )
 
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (lp:LearningPath {uid: $learning_path_uid})
-            MERGE (u)-[r:ENROLLED_IN]->(lp)
-            SET r.enrolled_at = coalesce(r.enrolled_at, datetime()),
-                r.target_completion = $target_completion,
-                r.weekly_time_commitment = $weekly_time_commitment,
-                r.motivation_note = $motivation_note,
-                r.status = 'active'
-            RETURN r
-            """
+        self.logger.info(f"Enrolled user in path: {user_uid} → {learning_path_uid}")
+        return Result.ok(True)
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "learning_path_uid": learning_path_uid,
-                        "target_completion": target_completion or datetime.now().isoformat(),
-                        "weekly_time_commitment": weekly_time_commitment,
-                        "motivation_note": motivation_note,
-                    },
-                )
-                record = await result.single()
-
-                if not record:
-                    # MERGE only fails to produce a row when a MATCH found nothing —
-                    # the LP (or user) doesn't exist, not a database outage.
-                    return Result.fail(
-                        Errors.not_found(
-                            resource="LearningPath",
-                            identifier=learning_path_uid,
-                        )
-                    )
-
-                self.logger.info(f"Enrolled user in path: {user_uid} → {learning_path_uid}")
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to enroll in learning path: {e}")
-            return Result.fail(Errors.database(operation="enroll_in_learning_path", message=str(e)))
-
+    @safe_backend_operation("complete_learning_path")
     async def complete_learning_path(
         self,
         user_uid: UserUID,
@@ -776,43 +701,39 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $learning_path_uid})
-            SET r.status = 'completed',
-                r.completed_at = datetime(),
-                r.completion_score = $completion_score,
-                r.feedback_rating = $feedback_rating
-            RETURN r
-            """
+        query = """
+        MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $learning_path_uid})
+        SET r.status = 'completed',
+            r.completed_at = datetime(),
+            r.completion_score = $completion_score,
+            r.feedback_rating = $feedback_rating
+        RETURN r
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "learning_path_uid": learning_path_uid,
-                        "completion_score": completion_score,
-                        "feedback_rating": feedback_rating,
-                    },
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "learning_path_uid": learning_path_uid,
+                    "completion_score": completion_score,
+                    "feedback_rating": feedback_rating,
+                },
+            )
+            record = await result.single()
+
+        if not record:
+            return Result.fail(
+                Errors.not_found(
+                    resource="Enrollment",
+                    identifier=f"{user_uid} → {learning_path_uid}",
                 )
-                record = await result.single()
+            )
 
-                if not record:
-                    return Result.fail(
-                        Errors.not_found(
-                            resource="Enrollment",
-                            identifier=f"{user_uid} → {learning_path_uid}",
-                        )
-                    )
+        self.logger.info(f"Completed learning path: {user_uid} → {learning_path_uid}")
+        return Result.ok(True)
 
-                self.logger.info(f"Completed learning path: {user_uid} → {learning_path_uid}")
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to complete learning path: {e}")
-            return Result.fail(Errors.database(operation="complete_learning_path", message=str(e)))
-
+    @safe_backend_operation("express_interest_in_knowledge")
     async def express_interest_in_knowledge(
         self,
         user_uid: UserUID,
@@ -838,52 +759,34 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (k:Entity {uid: $knowledge_uid})
-            MERGE (u)-[r:INTERESTED_IN]->(k)
-            SET r.interest_score = $interest_score,
-                r.interest_source = $interest_source,
-                r.priority = $priority,
-                r.notes = $notes,
-                r.expressed_at = datetime()
-            RETURN r
-            """
-
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "knowledge_uid": knowledge_uid,
-                        "interest_score": interest_score,
-                        "interest_source": interest_source,
-                        "priority": priority,
-                        "notes": notes,
-                    },
-                )
-                record = await result.single()
-
-                if not record:
-                    return Result.fail(
-                        Errors.database(
-                            operation="express_interest_in_knowledge",
-                            message="Failed to create interest relationship",
-                        )
-                    )
-
-                self.logger.info(
-                    f"Expressed interest: {user_uid} → {knowledge_uid} ({interest_score})"
-                )
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to express interest: {e}")
+        merged = await self._merge_user_edge(
+            user_uid,
+            knowledge_uid,
+            "INTERESTED_IN",
+            """r.interest_score = $interest_score,
+            r.interest_source = $interest_source,
+            r.priority = $priority,
+            r.notes = $notes,
+            r.expressed_at = datetime()""",
+            {
+                "interest_score": interest_score,
+                "interest_source": interest_source,
+                "priority": priority,
+                "notes": notes,
+            },
+        )
+        if not merged:
             return Result.fail(
-                Errors.database(operation="express_interest_in_knowledge", message=str(e))
+                Errors.database(
+                    operation="express_interest_in_knowledge",
+                    message="Failed to create interest relationship",
+                )
             )
 
+        self.logger.info(f"Expressed interest: {user_uid} → {knowledge_uid} ({interest_score})")
+        return Result.ok(True)
+
+    @safe_backend_operation("bookmark_knowledge")
     async def bookmark_knowledge(
         self,
         user_uid: UserUID,
@@ -907,50 +810,36 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (k:Entity {uid: $knowledge_uid})
-            MERGE (u)-[r:BOOKMARKED]->(k)
-            SET r.bookmarked_at = datetime(),
-                r.bookmark_reason = $bookmark_reason,
-                r.tags = $tags,
-                r.reminder_date = $reminder_date
-            RETURN r
-            """
-
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "knowledge_uid": knowledge_uid,
-                        "bookmark_reason": bookmark_reason,
-                        "tags": tags or [],
-                        "reminder_date": reminder_date,
-                    },
+        merged = await self._merge_user_edge(
+            user_uid,
+            knowledge_uid,
+            "BOOKMARKED",
+            """r.bookmarked_at = datetime(),
+            r.bookmark_reason = $bookmark_reason,
+            r.tags = $tags,
+            r.reminder_date = $reminder_date""",
+            {
+                "bookmark_reason": bookmark_reason,
+                "tags": tags or [],
+                "reminder_date": reminder_date,
+            },
+        )
+        if not merged:
+            return Result.fail(
+                Errors.database(
+                    operation="bookmark_knowledge",
+                    message="Failed to create bookmark",
                 )
-                record = await result.single()
+            )
 
-                if not record:
-                    return Result.fail(
-                        Errors.database(
-                            operation="bookmark_knowledge",
-                            message="Failed to create bookmark",
-                        )
-                    )
-
-                self.logger.info(f"Bookmarked: {user_uid} → {knowledge_uid}")
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to bookmark knowledge: {e}")
-            return Result.fail(Errors.database(operation="bookmark_knowledge", message=str(e)))
+        self.logger.info(f"Bookmarked: {user_uid} → {knowledge_uid}")
+        return Result.ok(True)
 
     # ========================================================================
     # ACTIVITY & CONVERSATION TRACKING
     # ========================================================================
 
+    @safe_backend_operation("update_user_activity")
     async def update_user_activity(
         self, user_uid: UserUID, activity_updates: dict[str, Any]
     ) -> Result[bool]:
@@ -964,31 +853,25 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            from datetime import datetime
+        # Add last_active timestamp
+        activity_updates["last_active_at"] = datetime.now().isoformat()
 
-            # Add last_active timestamp
-            activity_updates["last_active_at"] = datetime.now().isoformat()
+        query = f"""
+        MATCH (u:{self.label} {{uid: $uid}})
+        SET u += $updates
+        RETURN u
+        """
 
-            query = f"""
-            MATCH (u:{self.label} {{uid: $uid}})
-            SET u += $updates
-            RETURN u
-            """
+        async with self.driver.session() as session:
+            result = await session.run(query, {"uid": user_uid, "updates": activity_updates})
+            record = await result.single()
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"uid": user_uid, "updates": activity_updates})
-                record = await result.single()
+        if not record:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
 
-                if not record:
-                    return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+        return Result.ok(True)
 
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to update user activity: {e}")
-            return Result.fail(Errors.database(operation="update_user_activity", message=str(e)))
-
+    @safe_backend_operation("add_conversation_message")
     async def add_conversation_message(
         self,
         user_uid: UserUID,
@@ -1010,61 +893,55 @@ class UserBackend:
         Returns:
             Result[bool]: Success status
         """
-        try:
-            import json
-            from uuid import uuid4
+        import json
+        from uuid import uuid4
 
-            message_uid = f"msg_{uuid4().hex[:12]}"
-            # Neo4j node properties cannot be maps; serialize metadata as a JSON string.
-            metadata_json: str | None = json.dumps(metadata) if metadata else None
+        message_uid = f"msg_{uuid4().hex[:12]}"
+        # Neo4j node properties cannot be maps; serialize metadata as a JSON string.
+        metadata_json: str | None = json.dumps(metadata) if metadata else None
 
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            CREATE (m:ConversationMessage {
-                uid: $message_uid,
-                role: $role,
-                content: $content,
-                timestamp: datetime(),
-                metadata: $metadata_json
-            })
-            CREATE (u)-[:HAS_MESSAGE]->(m)
-            RETURN m
-            """
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        CREATE (m:ConversationMessage {
+            uid: $message_uid,
+            role: $role,
+            content: $content,
+            timestamp: datetime(),
+            metadata: $metadata_json
+        })
+        CREATE (u)-[:HAS_MESSAGE]->(m)
+        RETURN m
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "message_uid": message_uid,
-                        "role": role,
-                        "content": content,
-                        "metadata_json": metadata_json,
-                    },
-                )
-                record = await result.single()
-
-                if not record:
-                    return Result.fail(
-                        Errors.database(
-                            operation="add_conversation_message",
-                            message="Failed to create message",
-                        )
-                    )
-
-                self.logger.info(f"Added conversation message: {user_uid} ({role})")
-                return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to add conversation message: {e}")
-            return Result.fail(
-                Errors.database(operation="add_conversation_message", message=str(e))
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "message_uid": message_uid,
+                    "role": role,
+                    "content": content,
+                    "metadata_json": metadata_json,
+                },
             )
+            record = await result.single()
+
+        if not record:
+            return Result.fail(
+                Errors.database(
+                    operation="add_conversation_message",
+                    message="Failed to create message",
+                )
+            )
+
+        self.logger.info(f"Added conversation message: {user_uid} ({role})")
+        return Result.ok(True)
 
     # ========================================================================
     # QUERY HELPERS - Additional lookups
     # ========================================================================
 
+    @safe_backend_operation("find_by")
     async def find_by(self, **filters: Any) -> Result[list[User]]:
         """
         Find users by arbitrary filters.
@@ -1075,28 +952,24 @@ class UserBackend:
         Returns:
             Result[list[User]]: Matching users
         """
-        try:
-            # Build WHERE clause from filters
-            where_clauses = [f"u.{key} = ${key}" for key in filters]
-            where_str = " AND ".join(where_clauses) if where_clauses else "1=1"
+        # Build WHERE clause from filters
+        where_clauses = [f"u.{key} = ${key}" for key in filters]
+        where_str = " AND ".join(where_clauses) if where_clauses else "1=1"
 
-            query = f"""
-            MATCH (u:{self.label})
-            WHERE {where_str}
-            RETURN u
-            """
+        query = f"""
+        MATCH (u:{self.label})
+        WHERE {where_str}
+        RETURN u
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, filters)
-                records = [record async for record in result]
+        async with self.driver.session() as session:
+            result = await session.run(query, filters)
+            records = [record async for record in result]
 
-                users = [from_neo4j_node(dict(record["u"]), User) for record in records]
-                return Result.ok(users)
+        users = [from_neo4j_node(dict(record["u"]), User) for record in records]
+        return Result.ok(users)
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to find users: {e}")
-            return Result.fail(Errors.database(operation="find_by", message=str(e)))
-
+    @safe_backend_operation("get_active_learners")
     async def get_active_learners(
         self, since_hours: int = 24, limit: int = 100
     ) -> Result[list[User]]:
@@ -1110,24 +983,19 @@ class UserBackend:
         Returns:
             Result[list[User]]: Active learners
         """
-        try:
-            query = """
-            MATCH (u:User)-[r:LEARNING|MASTERED]->(k:Entity)
-            WHERE r.last_updated >= datetime() - duration({hours: $hours})
-               OR r.last_practiced >= datetime() - duration({hours: $hours})
-            WITH DISTINCT u
-            RETURN u
-            ORDER BY u.last_active_at DESC
-            LIMIT $limit
-            """
+        query = """
+        MATCH (u:User)-[r:LEARNING|MASTERED]->(k:Entity)
+        WHERE r.last_updated >= datetime() - duration({hours: $hours})
+           OR r.last_practiced >= datetime() - duration({hours: $hours})
+        WITH DISTINCT u
+        RETURN u
+        ORDER BY u.last_active_at DESC
+        LIMIT $limit
+        """
 
-            async with self.driver.session() as session:
-                result = await session.run(query, {"hours": since_hours, "limit": limit})
-                records = [record async for record in result]
+        async with self.driver.session() as session:
+            result = await session.run(query, {"hours": since_hours, "limit": limit})
+            records = [record async for record in result]
 
-                users = [from_neo4j_node(dict(record["u"]), User) for record in records]
-                return Result.ok(users)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get active learners: {e}")
-            return Result.fail(Errors.database(operation="get_active_learners", message=str(e)))
+        users = [from_neo4j_node(dict(record["u"]), User) for record in records]
+        return Result.ok(users)

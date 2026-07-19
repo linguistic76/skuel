@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.utils.error_boundary import safe_backend_operation
@@ -89,20 +90,12 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         Returns:
             Result[list[str]] of related UIDs in order
         """
-        direction_clause = (
-            "-[r]->"
-            if direction == "outgoing"
-            else "<-[r]-"
-            if direction == "incoming"
-            else "-[r]-"
-        )
-
         order_clause = ""
         if order_by_property:
             order_clause = f"ORDER BY r.{order_by_property} {order_direction}"
 
         query = f"""
-        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause}(related)
+        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(related)
         WHERE type(r) = $relationship_type
         RETURN related.uid AS uid
         {order_clause}
@@ -144,14 +137,6 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
             Result[list[dict]] with structure:
             [{"uid": "ps:1", "title": "...", "edge": {"sequence": 0, ...}}, ...]
         """
-        direction_clause = (
-            "-[r]->"
-            if direction == "outgoing"
-            else "<-[r]-"
-            if direction == "incoming"
-            else "-[r]-"
-        )
-
         if edge_properties:
             edge_props_clause = ", ".join(f"{p}: r.{p}" for p in edge_properties)
             edge_return = f"{{{edge_props_clause}}}"
@@ -163,7 +148,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
             order_clause = f"ORDER BY r.{order_by_property} {order_direction}"
 
         query = f"""
-        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause}(related)
+        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(related)
         WHERE type(r) = $relationship_type
         RETURN related.uid AS uid,
                related.title AS title,
@@ -217,19 +202,11 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         if not target_uid_sequence:
             return Result.ok(0)
 
-        direction_clause = (
-            "-[r]->"
-            if direction == "outgoing"
-            else "<-[r]-"
-            if direction == "incoming"
-            else "-[r]-"
-        )
-
         ordering_data = [{"uid": uid, "seq": idx} for idx, uid in enumerate(target_uid_sequence)]
 
         query = f"""
         UNWIND $ordering AS item
-        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause}(target {{uid: item.uid}})
+        MATCH (e:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(target {{uid: item.uid}})
         WHERE type(r) = $relationship_type
         SET r.{sequence_property} = item.seq
         RETURN count(*) AS updated_count
@@ -271,12 +248,7 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         Returns:
             Result[bool] indicating success
         """
-        if direction == "outgoing":
-            merge_clause = f"MERGE (from)-[r:{relationship_type}]->(to)"
-        elif direction == "incoming":
-            merge_clause = f"MERGE (from)<-[r:{relationship_type}]-(to)"
-        else:
-            merge_clause = f"MERGE (from)-[r:{relationship_type}]-(to)"
+        merge_clause = f"MERGE (from){direction_clause(direction, 'r', str(relationship_type))}(to)"
 
         # NOT :Content — same G13 shadow-uid guard as create_relationship: an
         # unguarded MERGE would create the edge to BOTH the entity and its
@@ -330,20 +302,12 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
             Result[list[dict]] with structure:
             [{"uid": "...", "title": "...", "edge": {...}, "children": []}, ...]
         """
-        direction_clause = (
-            "-[r]->"
-            if direction == "outgoing"
-            else "<-[r]-"
-            if direction == "incoming"
-            else "-[r]-"
-        )
-
         order_clause = ""
         if order_by_property:
             order_clause = f"ORDER BY r.{order_by_property} {order_direction}"
 
         query = f"""
-        MATCH (root:{entity_label} {{uid: $entity_uid}}){direction_clause}(child:{target_label})
+        MATCH (root:{entity_label} {{uid: $entity_uid}}){direction_clause(direction)}(child:{target_label})
         WHERE type(r) = $rel_type
         RETURN child.uid AS uid,
                child.title AS title,
@@ -402,8 +366,10 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         Returns:
             Result[list[dict]] with nested children structure
         """
-        dir1_clause = "-[r1]->" if dir1 == "outgoing" else "<-[r1]-"
-        dir2_clause = "-[r2]->" if dir2 == "outgoing" else "<-[r2]-"
+        # Historical behavior: any non-"outgoing" value (incl. "both") traverses
+        # incoming — hierarchy configs only ever pass outgoing/incoming.
+        dir1_clause = direction_clause("outgoing" if dir1 == "outgoing" else "incoming", "r1")
+        dir2_clause = direction_clause("outgoing" if dir2 == "outgoing" else "incoming", "r2")
 
         order1 = f"r1.{order_by_property1}" if order_by_property1 else "n1.uid"
 

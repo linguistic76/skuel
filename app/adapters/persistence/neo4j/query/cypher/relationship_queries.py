@@ -17,6 +17,7 @@ Methods:
 
 from typing import Any
 
+from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue
 from core.ports.base_protocols import Direction
@@ -64,14 +65,7 @@ def build_relationship_count(
     validate_identifier(relationship_type, "relationship type")
 
     # Build Cypher pattern based on direction
-    if direction == "outgoing":
-        pattern = f"(n)-[r:{relationship_type}]->(related)"
-    elif direction == "incoming":
-        pattern = f"(n)<-[r:{relationship_type}]-(related)"
-    elif direction == "both":
-        pattern = f"(n)-[r:{relationship_type}]-(related)"
-    else:
-        raise ValueError(f"Invalid direction: {direction}. Valid options: outgoing, incoming, both")
+    pattern = f"(n){direction_clause(direction, 'r', relationship_type)}(related)"
 
     # Build WHERE clause for property filtering
     where_clauses = []
@@ -139,14 +133,7 @@ def build_relationship_uids_query(
     validate_identifier(relationship_type, "relationship type")
 
     # Build Cypher pattern based on direction
-    if direction == "outgoing":
-        pattern = f"(n)-[r:{relationship_type}]->(related)"
-    elif direction == "incoming":
-        pattern = f"(n)<-[r:{relationship_type}]-(related)"
-    elif direction == "both":
-        pattern = f"(n)-[r:{relationship_type}]-(related)"
-    else:
-        raise ValueError(f"Invalid direction: {direction}. Valid options: outgoing, incoming, both")
+    pattern = f"(n){direction_clause(direction, 'r', relationship_type)}(related)"
 
     # Build WHERE clause for property filtering
     where_clauses = []
@@ -206,14 +193,7 @@ def build_multi_relationship_count(
         - Improvement: 2-5x faster for 2-5 relationship types
     """
     # Build Cypher pattern based on direction
-    if direction == "outgoing":
-        pattern = "(n)-[r]->(related)"
-    elif direction == "incoming":
-        pattern = "(n)<-[r]-(related)"
-    elif direction == "both":
-        pattern = "(n)-[r]-(related)"
-    else:
-        raise ValueError(f"Invalid direction: {direction}. Valid options: outgoing, incoming, both")
+    pattern = f"(n){direction_clause(direction)}(related)"
 
     # Build query - filter by relationship type in WHERE clause
     cypher = f"""

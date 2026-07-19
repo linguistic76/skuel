@@ -241,55 +241,72 @@ class CrossDomainBackend:
             {"user_uid": user_uid},
         )
 
+    async def _upsert_counter_analytics(
+        self,
+        label: str,
+        counter: str,
+        first_prop: str,
+        last_prop: str,
+        user_uid: str,
+        occurred_at: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Upsert a per-user counter-analytics node (init-to-1 / increment).
+
+        THE shared body of the productivity/habit/event analytics upserts —
+        they differ only in node label and property names, all of which are
+        backend-internal literals (injection-safe).
+        """
+        return await self.executor.execute_query(
+            f"""
+            MERGE (analytics:{label} {{user_uid: $user_uid}})
+            ON CREATE SET
+                analytics.{counter} = 1,
+                analytics.{first_prop} = datetime($occurred_at)
+            ON MATCH SET
+                analytics.{counter} = analytics.{counter} + 1,
+                analytics.{last_prop} = datetime($occurred_at)
+            """,
+            {"user_uid": user_uid, "occurred_at": occurred_at},
+        )
+
     async def upsert_productivity_analytics(
         self, user_uid: str, occurred_at: str
     ) -> Result[list[dict[str, Any]]]:
         """Upsert ProductivityAnalytics node for task completion tracking."""
-        return await self.executor.execute_query(
-            """
-            MERGE (analytics:ProductivityAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.tasks_completed = 1,
-                analytics.first_completion_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.tasks_completed = analytics.tasks_completed + 1,
-                analytics.last_completion_at = datetime($occurred_at)
-            """,
-            {"user_uid": user_uid, "occurred_at": occurred_at},
+        return await self._upsert_counter_analytics(
+            "ProductivityAnalytics",
+            "tasks_completed",
+            "first_completion_at",
+            "last_completion_at",
+            user_uid,
+            occurred_at,
         )
 
     async def upsert_habit_analytics(
         self, user_uid: str, occurred_at: str
     ) -> Result[list[dict[str, Any]]]:
         """Upsert HabitAnalytics node for habit completion tracking."""
-        return await self.executor.execute_query(
-            """
-            MERGE (analytics:HabitAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.total_completions = 1,
-                analytics.first_completion_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.total_completions = analytics.total_completions + 1,
-                analytics.last_completion_at = datetime($occurred_at)
-            """,
-            {"user_uid": user_uid, "occurred_at": occurred_at},
+        return await self._upsert_counter_analytics(
+            "HabitAnalytics",
+            "total_completions",
+            "first_completion_at",
+            "last_completion_at",
+            user_uid,
+            occurred_at,
         )
 
     async def upsert_event_analytics(
         self, user_uid: str, occurred_at: str
     ) -> Result[list[dict[str, Any]]]:
         """Upsert EventAnalytics node for event attendance tracking."""
-        return await self.executor.execute_query(
-            """
-            MERGE (analytics:EventAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.events_attended = 1,
-                analytics.first_attendance_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.events_attended = analytics.events_attended + 1,
-                analytics.last_attendance_at = datetime($occurred_at)
-            """,
-            {"user_uid": user_uid, "occurred_at": occurred_at},
+        return await self._upsert_counter_analytics(
+            "EventAnalytics",
+            "events_attended",
+            "first_attendance_at",
+            "last_attendance_at",
+            user_uid,
+            occurred_at,
         )
 
     async def get_learning_velocity_metrics(

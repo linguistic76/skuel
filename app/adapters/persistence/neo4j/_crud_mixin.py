@@ -7,6 +7,7 @@ CrudOperations[T] protocol implementation.
 Provides:
     create: Create entity with auto-user OWNS relationship
     get: Get entity by UID
+    get_or_fail: Get entity by UID, not-found as error Result
     get_many: Batch entity retrieval (N+1 prevention)
     update: Partial update with updated_at timestamp
     delete: Delete with optional cascade (DETACH DELETE)
@@ -106,16 +107,24 @@ class _CrudMixin[T: DomainModelProtocol]:
     # UNIVERSAL CRUD - WORKS FOR ANY ENTITY TYPE
     # ============================================================================
 
-    @safe_backend_operation("create")
-    async def create(self, entity: T) -> Result[T]:
+    async def _create_node(
+        self,
+        entity: T,
+        operation: str,
+        match_clause: str = "",
+        extra_cypher: str = "",
+        params: dict[str, Any] | None = None,
+        failure_message: str | None = None,
+    ) -> Result[T]:
         """
-        Create any entity type.
+        Shared body of create() and create_with_spawned_from().
 
-        AUTO-CREATES USER RELATIONSHIP: If entity has user_uid field,
-        automatically creates (User)-[:OWNS]->(Entity) relationship.
-
-        Multi-label CREATE: When base_label is set, creates nodes with
-        dual labels: ``(n:Entity:Task)``.
+        Serializes the entity, CREATEs the multi-label node, optionally wraps
+        it with a caller-supplied MATCH prefix / extra Cypher (e.g. the
+        SPAWNED_FROM edge), auto-creates the OWNS relationship when the entity
+        carries a user_uid (warning-only on failure), and tracks metrics under
+        ``operation``. Exceptions propagate to the callers'
+        @safe_backend_operation decorators.
         """
         start_time = time.time()
         node_data = to_neo4j_node(entity)
@@ -127,19 +136,23 @@ class _CrudMixin[T: DomainModelProtocol]:
         user_uid = node_data.get("user_uid")
 
         query = f"""
+        {match_clause}
         CREATE (n:{self._create_labels})
         SET n = $props
+        {extra_cypher}
         RETURN n
         """
 
         async with self.driver.session() as session:
-            result = await session.run(query, {"props": node_data})
+            result = await session.run(query, {"props": node_data, **(params or {})})
             record = await result.single()
 
             if not record:
                 # Track error metrics
-                self._track_db_metrics("create", time.time() - start_time, is_error=True)
-                return Result.fail(Errors.database("create", f"Failed to create {self.label}"))
+                self._track_db_metrics(operation, time.time() - start_time, is_error=True)
+                return Result.fail(
+                    Errors.database(operation, failure_message or f"Failed to create {self.label}")
+                )
 
             created = from_neo4j_node(dict(record["n"]), self.entity_class)
 
@@ -162,9 +175,22 @@ class _CrudMixin[T: DomainModelProtocol]:
                     )
 
             # Track metrics
-            self._track_db_metrics("create", time.time() - start_time, is_error=False)
+            self._track_db_metrics(operation, time.time() - start_time, is_error=False)
 
             return Result.ok(created)
+
+    @safe_backend_operation("create")
+    async def create(self, entity: T) -> Result[T]:
+        """
+        Create any entity type.
+
+        AUTO-CREATES USER RELATIONSHIP: If entity has user_uid field,
+        automatically creates (User)-[:OWNS]->(Entity) relationship.
+
+        Multi-label CREATE: When base_label is set, creates nodes with
+        dual labels: ``(n:Entity:Task)``.
+        """
+        return await self._create_node(entity, "create")
 
     @safe_backend_operation("create_with_spawned_from")
     async def create_with_spawned_from(self, entity: T, template_uid: str) -> Result[T]:
@@ -179,54 +205,14 @@ class _CrudMixin[T: DomainModelProtocol]:
         Like ``create()``, auto-creates ``(User)-[:OWNS]->(entity)`` if the
         entity carries a ``user_uid`` (warning-only on failure).
         """
-        start_time = time.time()
-        node_data = to_neo4j_node(entity)
-        node_data.update(self.default_filters)
-
-        user_uid = node_data.get("user_uid")
-
-        query = f"""
-        MATCH (t {{uid: $template_uid}})
-        CREATE (n:{self._create_labels})
-        SET n = $props
-        CREATE (n)-[r:SPAWNED_FROM]->(t)
-        SET r.spawned_at = datetime()
-        RETURN n
-        """
-
-        async with self.driver.session() as session:
-            result = await session.run(query, {"props": node_data, "template_uid": template_uid})
-            record = await result.single()
-
-            if not record:
-                self._track_db_metrics(
-                    "create_with_spawned_from", time.time() - start_time, is_error=True
-                )
-                return Result.fail(
-                    Errors.database(
-                        "create_with_spawned_from",
-                        f"Failed to create {self.label} or locate template {template_uid}",
-                    )
-                )
-
-            created = from_neo4j_node(dict(record["n"]), self.entity_class)
-
-            if user_uid:
-                rel_result = await self.create_user_relationship(
-                    user_uid=user_uid,
-                    entity_uid=EntityUID(created.uid),
-                    relationship_type=RelationshipName.OWNS,
-                )
-                if rel_result.is_error:
-                    self.logger.warning(
-                        f"Created {self.label} {created.uid} with SPAWNED_FROM edge "
-                        f"but failed to create OWNS relationship: {rel_result.error}"
-                    )
-
-            self._track_db_metrics(
-                "create_with_spawned_from", time.time() - start_time, is_error=False
-            )
-            return Result.ok(created)
+        return await self._create_node(
+            entity,
+            "create_with_spawned_from",
+            match_clause="MATCH (t {uid: $template_uid})",
+            extra_cypher="CREATE (n)-[r:SPAWNED_FROM]->(t)\n        SET r.spawned_at = datetime()",
+            params={"template_uid": template_uid},
+            failure_message=f"Failed to create {self.label} or locate template {template_uid}",
+        )
 
     @safe_backend_operation("get")
     async def get(self, uid: str) -> Result[T | None]:
@@ -284,6 +270,23 @@ class _CrudMixin[T: DomainModelProtocol]:
 
             entity = from_neo4j_node(dict(record["n"]), self.entity_class)
             return Result.ok(entity)
+
+    async def get_or_fail(self, uid: str) -> Result[T]:
+        """
+        Get an entity by UID, converting "not found" into an error Result.
+
+        THE generic body behind the domain backends' get_task/get_goal/...
+        wrappers (contrast with get(), where not-found is Result.ok(None)).
+        The not-found resource name is the domain model class name.
+        """
+        get_result = await self.get(uid)
+        if get_result.is_error:
+            return Result.fail(get_result)
+        if not get_result.value:
+            return Result.fail(
+                Errors.not_found(resource=self.entity_class.__name__, identifier=uid)
+            )
+        return Result.ok(get_result.value)
 
     @safe_backend_operation("get_many")
     async def get_many(self, uids: builtins.list[str]) -> Result[builtins.list[T | None]]:
