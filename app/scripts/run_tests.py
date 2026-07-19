@@ -73,9 +73,9 @@ class TestRunner:
     def run_integration(self, extra_args: list[str]) -> int:
         """Run integration tests only (FAST)."""
         print("⚡ Running INTEGRATION tests only (fast)")
-        print("   Tests: 434")
-        print("   Expected: 434 passing (100% success)")
-        print("   Runtime: ~30-60 seconds")
+        print("   Tests: full tests/integration/ suite")
+        print("   Expected: 100% passing")
+        print("   Runtime: ~2-4 minutes")
         print("   Quality metric: Test pass rate (not coverage)")
         print("   Note: Use --cov flag if you want coverage reports\n")
 
