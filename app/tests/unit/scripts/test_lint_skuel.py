@@ -1204,9 +1204,21 @@ class TestSKUEL030:
         """A bracketed non-query string must not be parsed as a pattern."""
         assert lint_cypher('label = "[:NOT_CYPHER]"') == []
 
-    def test_baseline_names_are_not_reported(self) -> None:
-        """Known findings are documented in SKUEL030_BASELINE, not re-reported."""
-        assert lint_cypher('q = "MATCH (r:Report) RETURN r"') == []
+    def test_baseline_suppresses_only_the_known_file(self) -> None:
+        """The baseline is (file, name)-scoped, not name-scoped.
+
+        A name-keyed baseline would wave `:Report` through everywhere and
+        re-open the hole the rule exists to close (Codex P2 on #732).
+        """
+        known = "adapters/persistence/neo4j/analytics_relationship_backend.py"
+        assert lint_cypher('q = "MATCH (r:Report) RETURN r"', file_path=known) == []
+
+        elsewhere = lint_cypher(
+            'q = "MATCH (r:Report) RETURN r"',
+            file_path="adapters/persistence/neo4j/some_new_backend.py",
+        )
+        assert len(elsewhere) == 1
+        assert "Report" in elsewhere[0].message
 
     def test_migrations_are_excluded(self) -> None:
         """A rename migration must be able to name what it renames away."""
@@ -1265,11 +1277,25 @@ class TestSKUEL030Registration:
         from cypher_vocabulary import load_vocabulary  # type: ignore[import-not-found]
 
         vocabulary = load_vocabulary()
-        known = vocabulary.relationships | vocabulary.labels
-        stale = sorted(SkuelLinter.SKUEL030_BASELINE & known)
+        registered = vocabulary.relationships | vocabulary.labels
+        stale = sorted(name for _, name in SkuelLinter.SKUEL030_BASELINE if name in registered)
         assert not stale, (
             f"SKUEL030_BASELINE entries are now registered and must be removed: {stale}"
         )
+
+    def test_baseline_files_all_exist(self) -> None:
+        """A baselined path that no longer exists is dead weight — delete the entry.
+
+        Without this, deleting or renaming a flagged backend leaves a stale
+        exemption behind that would silently cover a future file of the same name.
+        """
+        from cypher_vocabulary import app_root  # type: ignore[import-not-found]
+
+        root = app_root()
+        missing = sorted(
+            {path for path, _ in SkuelLinter.SKUEL030_BASELINE if not (root / path).exists()}
+        )
+        assert not missing, f"SKUEL030_BASELINE references files that no longer exist: {missing}"
 
 
 # ============================================================================

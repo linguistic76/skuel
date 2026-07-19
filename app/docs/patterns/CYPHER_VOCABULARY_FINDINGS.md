@@ -2,8 +2,12 @@
 
 **Status:** open backlog. Every item here is baselined in
 `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
-`// noqa: CYP011`), so it does not block CI — but none of it is *accepted*. The
-baseline is a shrinking list; new unregistered vocabulary fails immediately.
+`// noqa: CYP011`), so it does not block CI — but none of it is *accepted*.
+
+The baseline holds **`(file, name)` pairs**, so only the known call sites are
+exempt: introducing any of these names in a *new* file still fails the rule. It
+is a shrinking list — fixing an item means deleting its entries, and a test fails
+if a baselined name later gets registered or a baselined path disappears.
 
 ## Why these are findings, not style nits
 

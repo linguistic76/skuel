@@ -4057,75 +4057,86 @@ class SkuelLinter:
     # registering them would bless the bug — the fix is to repoint or delete the
     # reader, which changes query semantics and belongs in its own PR.
     #
-    # This set is a SHRINKING list, never a growing one. New unregistered
-    # vocabulary fails the rule immediately; that is the invariant this rule
-    # exists to hold. Full triage: docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
-    SKUEL030_BASELINE: ClassVar[frozenset[str]] = frozenset(
+    # Entries are (file, name) pairs, NOT bare names. Scoping to the file that
+    # already has the finding keeps the invariant honest: a NEW query that
+    # introduces `:Report` or `[:PRACTICES]` somewhere else still fails, because
+    # only the known call sites are exempt. A name-keyed set would have globally
+    # waved the name through everywhere and quietly re-opened the hole this rule
+    # exists to close (Codex P2 on #732).
+    #
+    # File-level, not line-level, on purpose: line numbers churn on every edit
+    # above them, which would turn the baseline into merge-conflict bait for no
+    # extra safety — a second bad name in an already-flagged file is the case
+    # this trades away, and that file is already on the fix list.
+    #
+    # This set is a SHRINKING list, never a growing one. Full triage:
+    # docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
+    SKUEL030_BASELINE: ClassVar[frozenset[tuple[str, str]]] = frozenset(
         {
             # --- The :Report cluster -------------------------------------------
             # A 2026-03 migration REMOVED the :Report label from the graph, but
             # AnalyticsRelationshipBackend (wired at composition) still runs 13
             # MATCH (report:Report ...) queries plus the two edges only it uses.
             # Every method on that backend has no-opped since March.
-            "Report",
-            "INCLUDES_ENTITY",
-            "REPORTS_ON_GOAL",
+            ("adapters/persistence/neo4j/analytics_relationship_backend.py", "Report"),
+            ("adapters/persistence/neo4j/analytics_relationship_backend.py", "INCLUDES_ENTITY"),
+            ("adapters/persistence/neo4j/analytics_relationship_backend.py", "REPORTS_ON_GOAL"),
             # --- Label mismatches: the node exists under a DIFFERENT name ------
-            "Domain",  # real label is KnowledgeDomain (faceted_query_builder)
-            "Document",  # bootstrap constraint for a label nothing writes
-            "Conversation",  # ditto — cf. ConversationSession / ConversationMessage
+            ("adapters/persistence/neo4j/query_builders/faceted_query_builder.py", "Domain"),
+            ("adapters/persistence/neo4j_adapter.py", "Document"),
+            ("adapters/persistence/neo4j_adapter.py", "Conversation"),
             # --- Writer-less reads: designed, never built ----------------------
             # ADR-002's UserProgress node model; STRUGGLING_WITH / NEEDS_REVIEW
             # also exist as PROPERTY values in metadata_enums, so these may be
             # edge-vs-property confusion rather than missing writers.
-            "HAS_PROGRESS",
-            "FOR_KNOWLEDGE",
-            "STRUGGLING_WITH",
-            "NEEDS_REVIEW",
-            "HAS_VELOCITY",
-            "MasteryRecord",
-            "LearningPreference",
-            "HAS_PREFERENCE",
-            "JournalAnalytics",  # 3 sibling analytics nodes have upserts; this one lost its writer with ADR-054
-            "ContentMetadata",
-            "HAS_METADATA",
+            ("adapters/persistence/neo4j/_lp_intelligence_mixin.py", "HAS_PROGRESS"),
+            ("adapters/persistence/neo4j/user_progress_backend.py", "HAS_PROGRESS"),
+            ("adapters/persistence/neo4j/user_progress_backend.py", "FOR_KNOWLEDGE"),
+            ("adapters/persistence/neo4j/user_progress_backend.py", "STRUGGLING_WITH"),
+            ("adapters/persistence/neo4j/user_progress_backend.py", "NEEDS_REVIEW"),
+            ("adapters/persistence/neo4j/cross_domain_backend.py", "HAS_VELOCITY"),
+            ("adapters/persistence/neo4j/cross_domain_backend.py", "MasteryRecord"),
+            ("adapters/persistence/neo4j/_adaptive_mixin.py", "LearningPreference"),
+            ("adapters/persistence/neo4j/_adaptive_mixin.py", "HAS_PREFERENCE"),
+            ("adapters/persistence/neo4j/cross_domain_backend.py", "JournalAnalytics"),
+            ("adapters/persistence/neo4j/ingestion_backend.py", "ContentMetadata"),
+            ("adapters/persistence/neo4j/neo4j_content_adapter.py", "ContentMetadata"),
+            ("adapters/persistence/neo4j/ingestion_backend.py", "HAS_METADATA"),
+            ("adapters/persistence/neo4j/neo4j_content_adapter.py", "HAS_METADATA"),
             # --- Always-true completion filters (highest correctness risk) -----
             # All of the form `WHERE NOT (x)<-[:REL]-(:User)`. No writer means the
             # NOT is always true, so every dependency-chain query returns
-            # UNFILTERED results. Same bug class as the 2026-07-10 PRACTICES audit,
-            # repeated across domain_queries.py.
-            "PRACTICES",  # superseded by APPLIES_KNOWLEDGE (2026-06 migration)
-            "ATTENDED",  # cf. registered ATTENDS / PRACTICED_AT_EVENT
-            "MADE_CHOICE",  # cf. registered IMPLEMENTS_CHOICE / HAS_CHOICE
-            "ADHERES_TO",  # cf. registered EMBODIES_PRINCIPLE / ALIGNED_WITH_PRINCIPLE
-            "COMPLETED",  # superseded by ENROLLED_IN {status:'completed'}
-            # Retired in favour of IN_PROGRESS — `test_no_legacy_patterns.py::
-            # test_no_legacy_relationship_name_learning` asserts it must NOT be a
-            # RelationshipName member. But UserBackend.record_learning_progress
-            # still WRITES it (`_merge_user_edge(..., "LEARNING", ...)`), so the
-            # graph is accumulating a retired edge that readers of IN_PROGRESS
-            # never see. Fix the writer, don't register the name.
-            "LEARNING",
+            # UNFILTERED results. Same bug class as the 2026-07-10 PRACTICES audit.
+            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "PRACTICES"),
+            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "ATTENDED"),
+            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "MADE_CHOICE"),
+            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "ADHERES_TO"),
+            ("adapters/persistence/neo4j/_lp_intelligence_mixin.py", "COMPLETED"),
+            ("adapters/persistence/neo4j/query_builders/faceted_query_builder.py", "COMPLETED"),
+            # --- Retired name that still has a live writer ---------------------
+            # test_no_legacy_patterns asserts LEARNING must NOT be a RelationshipName
+            # member (replaced by IN_PROGRESS), yet record_learning_progress still
+            # writes it. Fix the writer, don't register the name.
+            ("adapters/persistence/neo4j/user_backend.py", "LEARNING"),
+            ("adapters/persistence/neo4j/user_context_queries.py", "LEARNING"),
             # --- Near-duplicates of registered names ---------------------------
-            "CONTAINS",  # PathStep→Ku composition is USES_KU
-            "CONTRIBUTES_TO",  # cf. registered CONTRIBUTES_TO_GOAL
-            "INCLUDES_KU",  # cf. registered CONTAINS_KNOWLEDGE
-            "INCLUDES_KNOWLEDGE",  # alternation partner of registered CONTAINS_KNOWLEDGE; only that arm has a writer
-            "CHILD_OF",  # cf. registered HAS_CHILD
-            "PARENT_OF",  # cf. registered HAS_CHILD
-            "FUNDS_HABIT",  # siblings FUNDS_TASK / FUNDS_EVENT are registered
+            ("adapters/persistence/neo4j/cross_domain_backend.py", "CONTAINS"),
+            ("adapters/persistence/neo4j/lifepath_backend.py", "CONTAINS"),
+            ("adapters/persistence/neo4j/user_context_queries.py", "CONTRIBUTES_TO"),
+            ("adapters/persistence/neo4j/_lp_progress_mixin.py", "INCLUDES_KU"),
+            ("adapters/persistence/neo4j/backends/curriculum_backends.py", "INCLUDES_KNOWLEDGE"),
+            ("adapters/persistence/neo4j/query/graph_traversal.py", "CHILD_OF"),
+            ("adapters/persistence/neo4j/query/graph_traversal.py", "PARENT_OF"),
+            ("adapters/persistence/neo4j/_traversal_mixin.py", "FUNDS_HABIT"),
             # --- SemanticRelationshipType names used as raw edge types ---------
             # These exist as "learn:extends_pattern" style semantic URIs, never as
             # Neo4j edge types.
-            "EXTENDS_PATTERN",
-            "DEEPENS_UNDERSTANDING",
+            ("adapters/persistence/neo4j/_knowledge_context_mixin.py", "EXTENDS_PATTERN"),
+            ("adapters/persistence/neo4j/_knowledge_context_mixin.py", "DEEPENS_UNDERSTANDING"),
             # --- Contradiction between enum and ingestion ----------------------
             # neo_labels.py says EXPENSE was removed (ADR-052 Phase 5), but the
-            # ingestion config still maps `type: expense` to entity_label="Expense",
-            # so a vault file creates one today. Either the config is the leftover
-            # or the label belongs back in the enum — the current split is the
-            # worst of both.
-            "Expense",
+            # ingestion config still maps `type: expense` to entity_label="Expense".
+            ("adapters/persistence/neo4j/ingestion_backend.py", "Expense"),
         }
     )
 
@@ -4179,7 +4190,7 @@ class SkuelLinter:
                 continue
 
             for name in unregistered_names(fragment, vocabulary):
-                if name.value in self.SKUEL030_BASELINE:
+                if (rel_path.as_posix(), name.value) in self.SKUEL030_BASELINE:
                     continue
                 line_num = node.lineno + name.line_offset
                 if (line_num, name.value) in reported:

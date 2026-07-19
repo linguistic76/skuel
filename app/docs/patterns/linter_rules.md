@@ -816,9 +816,17 @@ because registering them would bless the bug; the fix is to repoint or delete th
 which changes query semantics and belongs in its own PR. Full triage:
 [CYPHER_VOCABULARY_FINDINGS.md](CYPHER_VOCABULARY_FINDINGS.md).
 
-The baseline is a **shrinking list, never a growing one** — new unregistered vocabulary
-fails immediately, which is the invariant the rule exists to hold. `TestSKUEL030Registration`
-fails if a baselined name later gets registered, so the set cannot rot into a mask.
+Baseline entries are **`(file, name)` pairs, not bare names.** Scoping to the file that
+already carries the finding keeps the invariant honest: a new query introducing `:Report`
+or `[:PRACTICES]` *anywhere else* still fails. A name-keyed set would have globally waved
+the name through and quietly re-opened the hole the rule exists to close. File-level rather
+than line-level is deliberate — line numbers churn on every edit above them, turning the
+baseline into merge-conflict bait; the case that trades away is a second bad name in an
+already-flagged file, and that file is already on the fix list.
+
+The baseline is a **shrinking list, never a growing one**. Two tests keep it from rotting
+into a mask: one fails if a baselined name later gets registered, the other if a baselined
+path no longer exists.
 
 **Suppress:** `# skuel-lint: disable=SKUEL030 -- <reason>` (line) /
 `disable-file=SKUEL030` (file) for a label or edge genuinely owned by an external or
