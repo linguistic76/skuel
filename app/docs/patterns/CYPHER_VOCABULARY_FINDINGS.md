@@ -108,6 +108,25 @@ retired, so the fix is to repoint the *writer* to `IN_PROGRESS`, not to register
 
 ---
 
+## 3a. Bare `REQUIRES` — the prerequisite-chain traversal walks a non-existent edge
+
+13 sites in `adapters/persistence/neo4j/query/cypher/domain_queries.py` traverse
+`[:REQUIRES*1..{depth}]` or `[:REQUIRES]`. **No writer anywhere creates a bare
+`REQUIRES` edge.** The registered names are `REQUIRES_TASK`, `REQUIRES_HABIT`,
+`REQUIRES_PREREQUISITE`, `REQUIRES_PREREQUISITE_HABIT`, `REQUIRES_KNOWLEDGE`,
+`REQUIRES_STEP`.
+
+So the dependency-chain queries — the *core* of prerequisite/blocking-chain
+analysis — traverse nothing and return empty chains. This compounds §3: the same
+file's `WHERE NOT` completion filters are always-true, so these queries return
+"no prerequisites, nothing completed" regardless of graph state.
+
+Only visible once the scanner stopped skipping relationships whose *var-length
+bound* was interpolated (`[:REQUIRES*1..{depth}]` — the type name is static, only
+the depth is dynamic).
+
+---
+
 ## 3c. `get_siblings` ignores 5 of the 7 edge types it filters on
 
 `adapters/persistence/neo4j/backends/collab_backends.py:413`:

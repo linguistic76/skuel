@@ -4119,6 +4119,13 @@ class SkuelLinter:
             # writes it. Fix the writer, don't register the name.
             ("adapters/persistence/neo4j/user_backend.py", "LEARNING"),
             ("adapters/persistence/neo4j/user_context_queries.py", "LEARNING"),
+            # --- Bare REQUIRES: the prerequisite-chain traversal itself --------
+            # 13 sites in domain_queries.py walk `[:REQUIRES*1..{depth}]` /
+            # `[:REQUIRES]`, but no writer creates a bare REQUIRES edge — the
+            # registered names are REQUIRES_TASK / REQUIRES_HABIT /
+            # REQUIRES_PREREQUISITE / REQUIRES_KNOWLEDGE / REQUIRES_STEP. So the
+            # dependency-chain queries traverse nothing and return empty chains.
+            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "REQUIRES"),
             # --- Hierarchy sibling filter: 5 of its 7 types never match --------
             # `get_siblings` filters `type(r) IN ['SUBGOAL','SUBHABIT',...]`, but the
             # registered names are SUBGOAL_OF / SUBHABIT_OF / ... — only HAS_STEP

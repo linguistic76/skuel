@@ -1185,6 +1185,20 @@ class TestSKUEL030:
     def test_var_length_bound_is_stripped(self) -> None:
         assert lint_cypher('q = "MATCH ()-[:OWNS*1..3]->() RETURN 1"') == []
 
+    def test_interpolated_depth_still_validates_static_type(self) -> None:
+        """`[:BAD*1..{depth}]` interpolates only the BOUND — the name is static.
+
+        Testing for the sentinel before stripping the bound skipped the whole
+        relationship and hid every `*1..{depth}` traversal (Codex P2 on #732).
+        """
+        violations = lint_cypher('q = f"MATCH (a)-[:BAD_EDGE*1..{depth}]->(b) RETURN b"')
+        assert len(violations) == 1
+        assert "BAD_EDGE" in violations[0].message
+
+    def test_interpolated_type_with_interpolated_depth_is_skipped(self) -> None:
+        """Both halves dynamic — still nothing static to validate."""
+        assert lint_cypher('q = f"MATCH (a)-[:{rel}*1..{depth}]->(b) RETURN b"') == []
+
     @pytest.mark.parametrize(
         "ddl",
         [

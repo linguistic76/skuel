@@ -252,11 +252,16 @@ def scan_names(fragment: str) -> list[ScannedName]:
         (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE, ":"),
     ):
         for match in pattern.finditer(fragment):
-            body = match.group(1)
+            # Strip the var-length bound BEFORE the interpolation check, not after.
+            # `[:REQUIRES*1..{depth}]` interpolates only the DEPTH — the type name
+            # is static and must still be validated. Testing the raw body first
+            # saw the sentinel in the bound and skipped the whole relationship,
+            # hiding every `*1..{depth}` traversal in the codebase (Codex P2 on #732).
+            body = _VARLEN_RE.sub("", match.group(1))
             if INTERPOLATION_SENTINEL in body:
                 continue
             for raw in body.split(splitter):
-                name = _VARLEN_RE.sub("", raw.strip().strip(":"))
+                name = raw.strip().strip(":")
                 if name and name_re.fullmatch(name):
                     record(kind, name, match.start(1))
 
