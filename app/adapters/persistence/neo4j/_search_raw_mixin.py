@@ -32,7 +32,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     import builtins
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_filters import RelationshipFilters
@@ -52,6 +52,16 @@ class _SearchRawMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         label: NeoLabel
         entity_class: type[T]
 
@@ -100,10 +110,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             user_uid=user_uid,
         )
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher_query, params)
-            data = await result.data()
-            return Result.ok([record["n"] for record in data])
+        data = await self._run_records(cypher_query, params)
+        return Result.ok([record["n"] for record in data])
 
     @safe_backend_operation("relationship_traversal_raw")
     async def relationship_traversal_raw(
@@ -134,10 +142,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             direction=direction,
         )
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher_query, params)
-            data = await result.data()
-            return Result.ok([record["target"] for record in data])
+        data = await self._run_records(cypher_query, params)
+        return Result.ok([record["target"] for record in data])
 
     @safe_backend_operation("graph_aware_search_raw")
     async def graph_aware_search_raw(
@@ -189,10 +195,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             user_uid=user_uid,
         )
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher_query, params)
-            data = await result.data()
-            return Result.ok([record["target"] for record in data])
+        data = await self._run_records(cypher_query, params)
+        return Result.ok([record["target"] for record in data])
 
     @safe_backend_operation("array_any_match_raw")
     async def array_any_match_raw(
@@ -237,10 +241,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             user_uid=user_uid,
         )
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher_query, params)
-            data = await result.data()
-            return Result.ok([record["n"] for record in data])
+        data = await self._run_records(cypher_query, params)
+        return Result.ok([record["n"] for record in data])
 
     @safe_backend_operation("array_contains_raw")
     async def array_contains_raw(
@@ -276,10 +278,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc=order_desc,
         )
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher_query, params)
-            data = await result.data()
-            return Result.ok([record["n"] for record in data])
+        data = await self._run_records(cypher_query, params)
+        return Result.ok([record["n"] for record in data])
 
     @safe_backend_operation("distinct_values_raw")
     async def distinct_values_raw(

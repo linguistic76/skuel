@@ -86,7 +86,9 @@ def _make_client(
             _fake_session_user,
         )
 
-    create_goals_api_routes(app, rt, goals_service, principles_service)
+    # user_service is asserted at wiring time (fail-fast) — a mock satisfies it;
+    # these tests only exercise the field/hierarchy/link routes.
+    create_goals_api_routes(app, rt, goals_service, principles_service, user_service=MagicMock())
     return TestClient(app), goals_service, principles_service
 
 

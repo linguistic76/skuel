@@ -1008,9 +1008,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             RETURN n{{.*, subject_uid: sub.uid}} AS n
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"uid": uid})
-                records = await result.data()
+            records = await self._run_records(cypher, {"uid": uid})
             if not records:
                 return Result.ok(None)
             entity = from_neo4j_node(records[0]["n"], self.entity_class)
@@ -1032,9 +1030,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             ORDER BY n.created_at ASC
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"submission_uid": submission_uid})
-                records = await result.data()
+            records = await self._run_records(cypher, {"submission_uid": submission_uid})
             entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
             return Result.ok(entities)
         except Exception as e:  # safety-net: neo4j + mapping errors
@@ -1061,11 +1057,9 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             ORDER BY n.created_at DESC
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    cypher, {"student_uid": student_uid, "exercise_uid": exercise_uid}
-                )
-                records = await result.data()
+            records = await self._run_records(
+                cypher, {"student_uid": student_uid, "exercise_uid": exercise_uid}
+            )
             entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
             return Result.ok(entities)
         except Exception as e:  # safety-net: neo4j + mapping errors
@@ -1096,9 +1090,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             LIMIT $limit
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"teacher_uid": teacher_uid, "limit": limit})
-                records = await result.data()
+            records = await self._run_records(cypher, {"teacher_uid": teacher_uid, "limit": limit})
             entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
             return Result.ok(entities)
         except Exception as e:  # safety-net: neo4j + mapping errors

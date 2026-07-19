@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from core.models.enums.neo_labels import NeoLabel
     from core.models.semantic import EdgeMetadata
@@ -66,6 +66,16 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         logger: logging.Logger
         label: NeoLabel
         entity_class: type[T]
@@ -318,17 +328,15 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         RETURN properties(r) as props
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-            record = await result.single()
+        record = await self._run_single(query, {"from_uid": from_uid, "to_uid": to_uid})
 
-            if not record:
-                return Result.ok(None)
+        if not record:
+            return Result.ok(None)
 
-            # Cast to RelationshipMetadata for type safety
-            # TypedDict is structural - Neo4j properties map naturally
-            props: RelationshipMetadata = dict(record["props"])  # type: ignore[assignment]
-            return Result.ok(props)
+        # Cast to RelationshipMetadata for type safety
+        # TypedDict is structural - Neo4j properties map naturally
+        props: RelationshipMetadata = dict(record["props"])  # type: ignore[assignment]
+        return Result.ok(props)
 
     @safe_backend_operation("update_relationship_properties")
     async def update_relationship_properties(
@@ -373,24 +381,22 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         RETURN r
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query, {"from_uid": from_uid, "to_uid": to_uid, "properties": properties}
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query, {"from_uid": from_uid, "to_uid": to_uid, "properties": properties}
+        )
 
-            if not record:
-                return Result.fail(
-                    Errors.not_found(
-                        resource="Relationship",
-                        identifier=f"{from_uid} --[{rel_type}]-> {to_uid}",
-                    )
+        if not record:
+            return Result.fail(
+                Errors.not_found(
+                    resource="Relationship",
+                    identifier=f"{from_uid} --[{rel_type}]-> {to_uid}",
                 )
-
-            self.logger.debug(
-                f"Updated {len(properties)} properties on {from_uid} --[{rel_type}]-> {to_uid}"
             )
-            return Result.ok(True)
+
+        self.logger.debug(
+            f"Updated {len(properties)} properties on {from_uid} --[{rel_type}]-> {to_uid}"
+        )
+        return Result.ok(True)
 
     @safe_backend_operation("get_relationships_batch")
     async def get_relationships_batch(
@@ -583,21 +589,19 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         metadata_props = edge_metadata.to_neo4j_properties()
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query, {"from_uid": from_uid, "to_uid": to_uid, "metadata": metadata_props}
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query, {"from_uid": from_uid, "to_uid": to_uid, "metadata": metadata_props}
+        )
 
-            if not record:
-                return Result.fail(
-                    Errors.not_found(
-                        f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
-                    )
+        if not record:
+            return Result.fail(
+                Errors.not_found(
+                    f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
                 )
+            )
 
-            self.logger.debug(f"Updated edge metadata for {from_uid} -> {to_uid}")
-            return Result.ok(True)
+        self.logger.debug(f"Updated edge metadata for {from_uid} -> {to_uid}")
+        return Result.ok(True)
 
     @safe_backend_operation("increment_traversal_count")
     async def increment_traversal_count(
@@ -633,22 +637,18 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         RETURN r.traversal_count as count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-            record = await result.single()
+        record = await self._run_single(query, {"from_uid": from_uid, "to_uid": to_uid})
 
-            if not record:
-                return Result.fail(
-                    Errors.not_found(
-                        f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
-                    )
+        if not record:
+            return Result.fail(
+                Errors.not_found(
+                    f"Relationship not found: {from_uid} --[{relationship_type}]-> {to_uid}"
                 )
-
-            new_count = record["count"]
-            self.logger.debug(
-                f"Incremented traversal count to {new_count} for {from_uid} -> {to_uid}"
             )
-            return Result.ok(True)
+
+        new_count = record["count"]
+        self.logger.debug(f"Incremented traversal count to {new_count} for {from_uid} -> {to_uid}")
+        return Result.ok(True)
 
     # ============================================================================
     # RELATIONSHIP-FIRST API - FLUENT INTERFACE

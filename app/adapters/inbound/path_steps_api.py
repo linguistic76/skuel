@@ -293,14 +293,9 @@ def create_path_steps_api_routes(
         """Get personalized context for how the current user applies this path step."""
         user_uid = require_authenticated_user(request)
 
-        if not ps_service.user_service:
-            return Result.fail(
-                Errors.system(
-                    message="User service not available",
-                    operation="get_step_user_context",
-                )
-            )
-
+        # Fail-fast: PsService is always composed with user_service
+        # (services_bootstrap/_learning_services.py) — no per-request guard.
+        assert ps_service.user_service is not None, "PsService.user_service must be wired"
         context_result = await ps_service.user_service.get_user_context(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)

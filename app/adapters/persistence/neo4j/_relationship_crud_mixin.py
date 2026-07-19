@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from core.ports.base_protocols import Direction
 
@@ -66,6 +66,16 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         logger: logging.Logger
         label: NeoLabel
         entity_class: type[T]
@@ -362,22 +372,20 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         RETURN labels(a) as source_labels, labels(b) as target_labels
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-            record = await result.single()
+        record = await self._run_single(query, {"from_uid": from_uid, "to_uid": to_uid})
 
-            if not record:
-                return Result.fail(
-                    Errors.not_found(
-                        resource="Node",
-                        identifier=f"{from_uid} or {to_uid}",
-                    )
+        if not record:
+            return Result.fail(
+                Errors.not_found(
+                    resource="Node",
+                    identifier=f"{from_uid} or {to_uid}",
                 )
+            )
 
-            source_labels = record.get("source_labels", [])
-            target_labels = record.get("target_labels", [])
+        source_labels = record.get("source_labels", [])
+        target_labels = record.get("target_labels", [])
 
-            return Result.ok((source_labels, target_labels))
+        return Result.ok((source_labels, target_labels))
 
     @safe_backend_operation("get_node_labels_batch")
     async def _get_node_labels_batch(
@@ -396,9 +404,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         RETURN uid, labels(n) AS labels
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uids": uids})
-            records = await result.data()
+        records = await self._run_records(query, {"uids": uids})
 
         return Result.ok({record["uid"]: record["labels"] for record in records})
 
@@ -577,10 +583,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             ],
         }
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
-            link_count = int(record["link_count"]) if record else 0
+        record = await self._run_single(query, params)
+        link_count = int(record["link_count"]) if record else 0
 
         if link_count < len(links):
             self.logger.warning(
@@ -608,17 +612,14 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         SET r.vault_id = $vault_id
         RETURN count(r) AS updated
         """
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {"entity_uid": entity_uid, "entry_uid": entry_uid, "vault_id": vault_id},
+        record = await self._run_single(
+            query,
+            {"entity_uid": entity_uid, "entry_uid": entry_uid, "vault_id": vault_id},
+        )
+        if not record or int(record["updated"]) == 0:
+            self.logger.warning(
+                f"update_extracted_from_vault_id: no EXTRACTED_FROM edge {entity_uid} → {entry_uid}"
             )
-            record = await result.single()
-            if not record or int(record["updated"]) == 0:
-                self.logger.warning(
-                    f"update_extracted_from_vault_id: no EXTRACTED_FROM edge "
-                    f"{entity_uid} → {entry_uid}"
-                )
         return Result.ok(None)
 
     @safe_backend_operation("delete_relationship")
@@ -652,10 +653,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         RETURN count(r) as deleted_count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-            record = await result.single()
-            deleted_count = record["deleted_count"] if record else 0
+        record = await self._run_single(query, {"from_uid": from_uid, "to_uid": to_uid})
+        deleted_count = record["deleted_count"] if record else 0
 
         self.logger.debug(
             f"Deleted {deleted_count} relationship(s): {from_uid} --[{rel_type}]-> {to_uid}"
@@ -694,10 +693,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         # Use BatchCypherBuilder for query generation
         query_result = BatchCypherBuilder.build_relationship_delete_query(relationships)
 
-        async with self.driver.session() as session:
-            result = await session.run(query_result.query, query_result.params)
-            record = await result.single()
-            deleted_count = record["deleted_count"] if record else 0
+        record = await self._run_single(query_result.query, query_result.params)
+        deleted_count = record["deleted_count"] if record else 0
 
         self.logger.debug(
             f"Batch deleted {deleted_count} relationships ({len(relationships)} requested)"
@@ -766,10 +763,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         RETURN count(r) > 0 as exists
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"from_uid": from_uid, "to_uid": to_uid})
-            record = await result.single()
-            exists = record["exists"] if record else False
+        record = await self._run_single(query, {"from_uid": from_uid, "to_uid": to_uid})
+        exists = record["exists"] if record else False
 
         return Result.ok(exists)
 
@@ -852,10 +847,8 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         RETURN count(related) as count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
-            count = record["count"] if record else 0
+        record = await self._run_single(query, params)
+        count = record["count"] if record else 0
 
         return Result.ok(count)
 

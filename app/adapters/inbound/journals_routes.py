@@ -25,13 +25,22 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import rate_limited
-from core.models.enums.pipeline import Pipeline
+from core.services.conversation import (
+    build_source_selection,
+    history_to_follow_up_context,
+    parse_source_selection,
+    parse_transcript,
+    render_discussion_markdown,
+    render_follow_up_context,
+    safe_export_filename,
+    serialize_transcript,
+    transcript_to_pairs,
+)
 from core.utils.logging import get_logger
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-    from core.models.conversation import ConversationTurn
     from core.models.type_hints import UserUID
     from core.services.journal import BatchRunReport, JournalBatchService
     from services_bootstrap._container import Services
@@ -90,7 +99,7 @@ async def _process_single_upload(
     # the door's coarse booleans ride the composer so a Save records them.
     def _file_transcript(source_text: str, output: str) -> str:
         """The source→output opening pair (Option A) as a structured transcript."""
-        return _serialize_transcript([(ROLE_USER, source_text), (ROLE_ASSISTANT, output)])
+        return serialize_transcript([(ROLE_USER, source_text), (ROLE_ASSISTANT, output)])
 
     def _workspace(fragment: Any) -> Any:
         # Success fragments are rooted at ``#journal-workspace``. On the
@@ -216,170 +225,6 @@ async def _process_single_upload(
 
 
 # ---------------------------------------------------------------------------
-# Discussion persistence helpers (ADR-078) — typed /journals/start door
-# ---------------------------------------------------------------------------
-
-
-def _build_source_selection(
-    canon_book_uids: list[str], summon_canon: bool, summon_vault: bool
-) -> str:
-    """Serialize the current source dials to the stored ``source_selection`` JSON.
-
-    Shape: ``{"canon": [uid, …], "canon_on": bool, "vault": bool}`` (ADR-078 §3).
-    The book *scope* is kept independent of the *dial* so an ungrounded save
-    still records the session's book scope (mirrors the follow-up write, #635 P2).
-    """
-    import json
-
-    return json.dumps(
-        {
-            "canon": list(canon_book_uids),
-            "canon_on": bool(summon_canon),
-            "vault": bool(summon_vault),
-        }
-    )
-
-
-def _render_follow_up_context(items: list[tuple[str, str]]) -> tuple[str, str]:
-    """Reconstruct ``(original_entry, ai_response)`` for ``run_follow_up`` from turns.
-
-    Shared by both memory models (ADR-078): the Neo4j turn history (saved,
-    session-backed) and the client-side ``transcript_json`` accumulator
-    (ephemeral, unsaved) both flatten to the same ``(role, content)`` sequence,
-    so context is rebuilt identically from one source of truth. ``ai_response``
-    is the most recent assistant turn (the "previous response"); ``original_entry``
-    is a rendered transcript of everything before it.
-    """
-    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
-
-    if not items:
-        return "", ""
-    split = len(items)
-    ai_response = ""
-    for index in range(len(items) - 1, -1, -1):
-        if items[index][0] == ROLE_ASSISTANT:
-            ai_response = items[index][1]
-            split = index
-            break
-    rendered = "\n\n".join(
-        f"# {'You' if role == ROLE_USER else 'Journal'}\n\n{content}"
-        for role, content in items[:split]
-    )
-    return rendered, ai_response
-
-
-def _history_to_follow_up_context(turns: list[ConversationTurn]) -> tuple[str, str]:
-    """``_render_follow_up_context`` over a saved session's stored turns."""
-    return _render_follow_up_context([(turn.role, turn.content) for turn in turns])
-
-
-def _parse_transcript(raw: str) -> list[tuple[str, str]]:
-    """Parse the ephemeral ``transcript_json`` hidden field → ordered ``(role, content)``.
-
-    Shape: a JSON list of ``{"role": "user"|"assistant", "content": str}`` — the
-    unsaved (ephemeral-default) conversation memory the composer accumulates
-    client-side via OOB swaps (ADR-078 §5). Fail-soft: a malformed / empty value
-    is an empty transcript. Only the two known roles survive, so a hand-forged
-    field can never inject arbitrary turn shapes.
-    """
-    import json
-
-    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
-
-    try:
-        data = json.loads(raw) if raw else []
-    except ValueError, TypeError:
-        return []
-    if not isinstance(data, list):
-        return []
-    out: list[tuple[str, str]] = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        role = item.get("role")
-        content = item.get("content")
-        if role in (ROLE_USER, ROLE_ASSISTANT) and isinstance(content, str):
-            out.append((role, content))
-    return out
-
-
-def _serialize_transcript(items: list[tuple[str, str]]) -> str:
-    """Serialize an ordered ``(role, content)`` sequence to the ``transcript_json`` field."""
-    import json
-
-    return json.dumps([{"role": role, "content": content} for role, content in items])
-
-
-def _transcript_to_pairs(items: list[tuple[str, str]]) -> list[tuple[str, str]]:
-    """Fold an ordered ``(role, content)`` transcript into ``(user, assistant)`` pairs.
-
-    The ephemeral transcript is always grown one ``user``→``assistant`` pair at a
-    time, so a straight two-step fold is faithful; a stray/half turn is skipped
-    rather than paired with a mismatched neighbour (defensive against a forged
-    field). Used only at *Save* — the write path into the store (ADR-078 §5).
-    """
-    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
-
-    pairs: list[tuple[str, str]] = []
-    index = 0
-    while index + 1 < len(items):
-        if items[index][0] == ROLE_USER and items[index + 1][0] == ROLE_ASSISTANT:
-            pairs.append((items[index][1], items[index + 1][1]))
-            index += 2
-        else:
-            index += 1
-    return pairs
-
-
-def _parse_source_selection(raw: str) -> tuple[list[str], bool, bool]:
-    """Parse a stored ``source_selection`` JSON → (canon book uids, canon on, vault on).
-
-    Shape: ``{"canon": [uid, …], "canon_on": bool, "vault": bool}``. The book
-    *scope* (``canon``) is kept independent of the *dial* (``canon_on``) so an
-    ungrounded follow-up never erases the session's book scope (Codex #635 P2).
-    Fail-soft: a malformed / empty value restores nothing. Back-compat: pre-PR3
-    sessions carry no ``canon_on`` — infer it from a non-empty book list.
-    """
-    import json
-
-    try:
-        data = json.loads(raw) if raw else {}
-    except ValueError, TypeError:
-        return [], False, False
-    if not isinstance(data, dict):
-        return [], False, False
-    raw_canon = data.get("canon")
-    canon = [str(u) for u in raw_canon if isinstance(u, str)] if isinstance(raw_canon, list) else []
-    canon_on = bool(data.get("canon_on", bool(canon)))
-    vault = bool(data.get("vault"))
-    return canon, canon_on, vault
-
-
-def _render_discussion_markdown(title: str, turns: list[ConversationTurn]) -> str:
-    """Render a discussion to a markdown transcript for export (ADR-078 §8).
-
-    A user-ownable copy — NOT a vault read-back folder (ADR-073 has none).
-    """
-    from core.models.conversation import ROLE_USER
-
-    lines = [f"# {title or 'Discussion'}", ""]
-    for turn in turns:
-        lines.append(f"## {'You' if turn.role == ROLE_USER else 'Journal'}")
-        lines.append("")
-        lines.append(turn.content)
-        lines.append("")
-    return "\n".join(lines)
-
-
-def _safe_export_filename(title: str) -> str:
-    """A safe ``.md`` download filename derived from the discussion title."""
-    import re
-
-    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", (title or "discussion").strip()).strip("-")
-    return f"{slug[:60] or 'discussion'}.md"
-
-
-# ---------------------------------------------------------------------------
 # Route factory
 # ---------------------------------------------------------------------------
 
@@ -407,6 +252,22 @@ def create_journals_routes(
         "ConversationService must be wired before journals routes"
     )
     conversation_service = services.conversation
+
+    async def _resolve_founder(user_uid: UserUID) -> bool:
+        """THE FOUNDER-tier gate for journals entitlements (fail-closed).
+
+        A POST flag is forgeable, so every founder entitlement resolves the tier
+        server-side through this one helper — a load error reads as not-founder,
+        never as founder (a drifted hand-rolled copy could silently open a paid
+        feature). Handlers that already load the full ``User`` for the page use
+        ``user.journal_tier.is_founder()`` directly on that object instead.
+        """
+        user_result = await user_service.get_user(user_uid)
+        return (
+            user_result.is_ok
+            and user_result.value is not None
+            and user_result.value.journal_tier.is_founder()
+        )
 
     # ------------------------------------------------------------------
     # GET /journals — landing page
@@ -502,11 +363,7 @@ def create_journals_routes(
         if journal_service is None:
             return _err("Journal AI features are not available.")
 
-        user_result = await user_service.get_user(user_uid)
-        if user_result.is_error or user_result.value is None:
-            return _err("Could not load your profile.")
-
-        is_founder = user_result.value.journal_tier.is_founder()
+        is_founder = await _resolve_founder(user_uid)
         # Title = first ~60 chars of the opening message, no LLM (ADR-078 refinement
         # 2) — a deterministic label, inline-editable in the revisit list.
         title = raw_entry.split("\n")[0].strip()[:60] or "Journal Entry"
@@ -550,7 +407,7 @@ def create_journals_routes(
         # first-reply auto-save (guard 7, ADR-078 §7).
         from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
 
-        transcript_json = _serialize_transcript([(ROLE_USER, raw_entry), (ROLE_ASSISTANT, ai_text)])
+        transcript_json = serialize_transcript([(ROLE_USER, raw_entry), (ROLE_ASSISTANT, ai_text)])
 
         workspace = StandardResponseFragment(
             raw_entry=raw_entry,
@@ -632,12 +489,7 @@ def create_journals_routes(
                 processing_mode=processing_mode,
             )
 
-            user_result = await user_service.get_user(user_uid)
-            is_founder = (
-                user_result.is_ok
-                and user_result.value is not None
-                and user_result.value.journal_tier.is_founder()
-            )
+            is_founder = await _resolve_founder(user_uid)
 
             # Only the /journals landing form carries a #journal-workspace to
             # retarget into; the /submissions/journal form omits this flag and
@@ -815,10 +667,12 @@ def create_journals_routes(
     # FastHTML resolves routes in declaration order.
     # ------------------------------------------------------------------
 
+    # The UID-minting scheme + find-or-create live in
+    # ``UserEntryService.ensure_periodic_note`` (the persistence contract);
+    # routes only compute the period key + display title and redirect.
+
     @rt("/journals/daily/{date_str}", methods=["GET"])
     async def journal_daily_note(request: Request, date_str: str) -> Any:
-        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
@@ -826,92 +680,40 @@ def create_journals_routes(
             target_date = date.fromisoformat(date_str)
         except ValueError:
             target_date = date.today()
-        # user_uid in the UID makes it globally unique — two users sharing the
-        # same calendar date get independent notes without backend UID collisions.
-        uid = f"ue:daily:{user_uid}:{target_date.isoformat()}"
-        result = await user_entry_service.get_entry(uid, user_uid)
-        if result.is_error:
+        ensured = await user_entry_service.ensure_periodic_note(
+            user_uid,
+            "daily",
+            target_date.isoformat(),
+            f"Daily Note: {target_date.strftime('%A, %B %d, %Y')}",
+        )
+        if ensured.is_error:
             return Response("Error loading note", status_code=500)
-        if result.value is None:
-            create_result = await user_entry_service.create_entry(
-                UserEntryCreateRequest(
-                    uid=uid,
-                    title=f"Daily Note: {target_date.strftime('%A, %B %d, %Y')}",
-                    content="",
-                    # SEAM (intended): an in-app periodic note is a SKUEL-only stub.
-                    # It is NOT task-round-trip-eligible — outbound sync
-                    # (vault_reconciler._run_outbound) processes only entries with
-                    # pipeline=EXTRACT_ACTIVITIES that also carry a vault_file_path.
-                    # This stub has neither; the *vault file* (created/edited in
-                    # Obsidian with `pipeline: extract_activities` frontmatter, then
-                    # ingested) is the source of truth for round-trip eligibility.
-                    # Setting the pipeline here would NOT make it eligible (no
-                    # vault_file_path), so it would only mislead — hence NONE.
-                    pipeline=Pipeline.NONE,
-                    metadata={"entry_kind": "daily", "period_key": target_date.isoformat()},
-                ),
-                user_uid=user_uid,
-            )
-            if create_result.is_error:
-                return Response("Error creating note", status_code=500)
-        return RedirectResponse(f"/journals/{uid}", status_code=302)
+        return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
     @rt("/journals/weekly/{year}/{week}", methods=["GET"])
     async def journal_weekly_note(request: Request, year: int, week: int) -> Any:
-        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
-        uid = f"ue:weekly:{user_uid}:{year}-W{week:02d}"
-        result = await user_entry_service.get_entry(uid, user_uid)
-        if result.is_error:
+        ensured = await user_entry_service.ensure_periodic_note(
+            user_uid, "weekly", f"{year}-W{week:02d}", f"Weekly Note: W{week}, {year}"
+        )
+        if ensured.is_error:
             return Response("Error loading note", status_code=500)
-        if result.value is None:
-            create_result = await user_entry_service.create_entry(
-                UserEntryCreateRequest(
-                    uid=uid,
-                    title=f"Weekly Note: W{week}, {year}",
-                    content="",
-                    # SEAM (intended): SKUEL-only stub, not round-trip-eligible.
-                    # See the daily-note handler above for the full rationale.
-                    pipeline=Pipeline.NONE,
-                    metadata={"entry_kind": "weekly", "period_key": f"{year}-W{week:02d}"},
-                ),
-                user_uid=user_uid,
-            )
-            if create_result.is_error:
-                return Response("Error creating note", status_code=500)
-        return RedirectResponse(f"/journals/{uid}", status_code=302)
+        return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
     @rt("/journals/monthly/{year}/{month}", methods=["GET"])
     async def journal_monthly_note(request: Request, year: int, month: int) -> Any:
-        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
-        uid = f"ue:monthly:{user_uid}:{year}-{month:02d}"
-        result = await user_entry_service.get_entry(uid, user_uid)
-        if result.is_error:
+        month_name = date(year, month, 1).strftime("%B")
+        ensured = await user_entry_service.ensure_periodic_note(
+            user_uid, "monthly", f"{year}-{month:02d}", f"Monthly Note: {month_name} {year}"
+        )
+        if ensured.is_error:
             return Response("Error loading note", status_code=500)
-        if result.value is None:
-            month_name = date(year, month, 1).strftime("%B")
-            create_result = await user_entry_service.create_entry(
-                UserEntryCreateRequest(
-                    uid=uid,
-                    title=f"Monthly Note: {month_name} {year}",
-                    content="",
-                    # SEAM (intended): SKUEL-only stub, not round-trip-eligible.
-                    # See the daily-note handler above for the full rationale.
-                    pipeline=Pipeline.NONE,
-                    metadata={"entry_kind": "monthly", "period_key": f"{year}-{month:02d}"},
-                ),
-                user_uid=user_uid,
-            )
-            if create_result.is_error:
-                return Response("Error creating note", status_code=500)
-        return RedirectResponse(f"/journals/{uid}", status_code=302)
+        return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
     @rt("/journals/{entry_uid}/note", methods=["POST"])
     @csrf_protected
@@ -932,7 +734,7 @@ def create_journals_routes(
         entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
         if entry_result.is_error or entry_result.value is None:
             return _P("Note not found", id="note-save-status", cls="text-[13px] text-destructive")
-        if entry_result.value.metadata.get("entry_kind") not in {"daily", "weekly", "monthly"}:
+        if not user_entry_service.is_periodic_note(entry_result.value):
             return _P(
                 "Not a periodic note", id="note-save-status", cls="text-[13px] text-destructive"
             )
@@ -1024,7 +826,7 @@ def create_journals_routes(
 
         # Restore the session's last source selection (C3) — FOUNDER-gated, since
         # the composer dials are a FOUNDER entitlement.
-        canon_books, canon_on, vault_on = _parse_source_selection(session.source_selection)
+        canon_books, canon_on, vault_on = parse_source_selection(session.source_selection)
         workspace = DiscussionThreadFragment(
             session_id=session_id,
             title=session.title,
@@ -1086,8 +888,8 @@ def create_journals_routes(
         if turns_result.is_error:
             return Response("Not found", status_code=404)
 
-        markdown = _render_discussion_markdown(session.title, turns_result.value)
-        filename = _safe_export_filename(session.title)
+        markdown = render_discussion_markdown(session.title, turns_result.value)
+        filename = safe_export_filename(session.title)
         return Response(
             markdown,
             media_type="text/markdown; charset=utf-8",
@@ -1141,7 +943,7 @@ def create_journals_routes(
 
         # Only periodic notes have a stored page. Sessions (never stored) and any
         # other entry kind → 404.
-        if entry.metadata.get("entry_kind") not in {"daily", "weekly", "monthly"}:
+        if not user_entry_service.is_periodic_note(entry):
             return Response("Not found", status_code=404)
 
         from ui.journals import PeriodicNoteFragment
@@ -1218,16 +1020,11 @@ def create_journals_routes(
 
         # Both dials are FOUNDER entitlements — the composer dials are hidden
         # for other tiers, but a POST flag is forgeable, so gate them
-        # server-side (Codex #572 P1). One user resolve covers both; only load
+        # server-side (Codex #572 P1). One tier resolve covers both; only load
         # the user when a summon is actually requested (no cost on the common
         # ungrounded follow-up).
         if summon_canon or summon_vault:
-            user_result = await user_service.get_user(user_uid)
-            is_founder = (
-                user_result.is_ok
-                and user_result.value is not None
-                and user_result.value.journal_tier.is_founder()
-            )
+            is_founder = await _resolve_founder(user_uid)
             summon_canon = summon_canon and is_founder
             summon_vault = summon_vault and is_founder
 
@@ -1254,7 +1051,7 @@ def create_journals_routes(
                     turns_result.expect_error(),
                 )
                 return FollowUpErrorFragment("This discussion could not be found.")
-            prior_entry, prior_ai = _history_to_follow_up_context(turns_result.value)
+            prior_entry, prior_ai = history_to_follow_up_context(turns_result.value)
             result = await journal_service.run_follow_up(
                 original_entry=prior_entry,
                 ai_response=prior_ai,
@@ -1285,16 +1082,8 @@ def create_journals_routes(
             # NOT the summon-gated book_uids — so an ungrounded follow-up records
             # canon_on=false WITHOUT erasing the session's books (Codex #635 P2).
             # Best-effort: a write miss must not fail the reply already shown.
-            import json
-
             scope_books = [book for book in canon_book_uids.split(",") if book.strip()]
-            selection = json.dumps(
-                {
-                    "canon": scope_books,
-                    "canon_on": bool(summon_canon),
-                    "vault": bool(summon_vault),
-                }
-            )
+            selection = build_source_selection(scope_books, summon_canon, summon_vault)
             await conversation_service.update_source_selection(session_id, user_uid, selection)
             # transcript_json omitted → session-backed fragment (no OOB accumulator).
             return FollowUpFragment(
@@ -1311,8 +1100,8 @@ def create_journals_routes(
         # reload until the user presses *Save this chat*.
         from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
 
-        items = _parse_transcript(transcript_json)
-        prior_entry, prior_ai = _render_follow_up_context(items)
+        items = parse_transcript(transcript_json)
+        prior_entry, prior_ai = render_follow_up_context(items)
         result = await journal_service.run_follow_up(
             original_entry=prior_entry,
             ai_response=prior_ai,
@@ -1327,7 +1116,7 @@ def create_journals_routes(
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
             return FollowUpErrorFragment("Could not generate a response. Please try again.")
         ai_text = result.value.text
-        updated = _serialize_transcript([*items, (ROLE_USER, reply), (ROLE_ASSISTANT, ai_text)])
+        updated = serialize_transcript([*items, (ROLE_USER, reply), (ROLE_ASSISTANT, ai_text)])
         return FollowUpFragment(
             user_reply=reply,
             ai_text=ai_text,
@@ -1381,25 +1170,20 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        pairs = _transcript_to_pairs(_parse_transcript(transcript_json))
+        pairs = transcript_to_pairs(parse_transcript(transcript_json))
         if not pairs:
             return _save_error("There's nothing to save yet.")
 
         # The composer dials are a FOUNDER entitlement; resolve the tier once (a
         # POST flag is forgeable, so gate server-side) — also used to render the
         # session-backed composer's dials.
-        user_result = await user_service.get_user(user_uid)
-        is_founder = (
-            user_result.is_ok
-            and user_result.value is not None
-            and user_result.value.journal_tier.is_founder()
-        )
+        is_founder = await _resolve_founder(user_uid)
         summon_canon = summon_canon and is_founder
         summon_vault = summon_vault and is_founder
         # Book scope is stored independent of the dial (an ungrounded save keeps
         # the session's books), mirroring the follow-up write (#635 P2).
         scope_books = [b for b in canon_book_uids.split(",") if b.strip()]
-        source_selection = _build_source_selection(scope_books, summon_canon, summon_vault)
+        source_selection = build_source_selection(scope_books, summon_canon, summon_vault)
 
         clean_title = (
             title.strip()[:120] or pairs[0][0].split("\n")[0].strip()[:60] or "Journal Entry"
@@ -1452,10 +1236,7 @@ def create_journals_routes(
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
 
-        user_result = await user_service.get_user(user_uid)
-        if user_result.is_error or user_result.value is None:
-            return ErrorFragment("Could not load your profile.")
-        if not user_result.value.journal_tier.is_founder():
+        if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
 
         result = await journal_service.run_stage1(raw_entry.strip(), user_uid)
@@ -1491,10 +1272,7 @@ def create_journals_routes(
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
 
-        user_result = await user_service.get_user(user_uid)
-        if user_result.is_error or user_result.value is None:
-            return ErrorFragment("Could not load your profile.")
-        if not user_result.value.journal_tier.is_founder():
+        if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
 
         result = await journal_service.run_stage2(
@@ -1539,10 +1317,7 @@ def create_journals_routes(
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
 
-        user_result = await user_service.get_user(user_uid)
-        if user_result.is_error or user_result.value is None:
-            return ErrorFragment("Could not load your profile.")
-        if not user_result.value.journal_tier.is_founder():
+        if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
 
         result = await journal_service.run_stage3(
@@ -1562,7 +1337,7 @@ def create_journals_routes(
         # run's grounding rides the dials so a Save records it (ADR-078 P3).
         from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
 
-        transcript_json = _serialize_transcript(
+        transcript_json = serialize_transcript(
             [(ROLE_USER, raw_entry), (ROLE_ASSISTANT, result.value)]
         )
         return Stage3Fragment(

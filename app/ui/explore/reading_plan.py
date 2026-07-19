@@ -25,7 +25,6 @@ from fasthtml.common import (
     Button,
     Div,
     Header,
-    Kbd,
     Li,
     P,
     Section,
@@ -34,6 +33,7 @@ from fasthtml.common import (
 )
 
 from ui.components import Icon
+from ui.patterns.keyboard_hints import keyboard_hint, keyboard_hints_bar
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -805,21 +805,11 @@ def _library_section(plan: dict[str, Any]) -> "FT":
 
 
 def _keyboard_hints() -> "FT":
-    def _hint(key: str, label: str) -> "FT":
-        return Span(
-            Kbd(key, cls="px-1.5 py-0.5 border border-border rounded bg-muted text-[11px]"),
-            f" {label}",
-        )
-
-    return Div(
-        _hint("r", "read"),
-        _hint("w", "why am I ready"),
-        _hint("s", "save"),
-        _hint("/", "search library"),
-        cls=(
-            "mt-8 px-4 py-3.5 bg-card border border-border rounded-lg "
-            "flex items-center gap-6 text-[11px] text-muted-foreground font-mono flex-wrap"
-        ),
+    return keyboard_hints_bar(
+        keyboard_hint("read", "r"),
+        keyboard_hint("why am I ready", "w"),
+        keyboard_hint("save", "s"),
+        keyboard_hint("search library", "/"),
     )
 
 

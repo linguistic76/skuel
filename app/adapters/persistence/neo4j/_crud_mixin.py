@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from adapters.persistence.neo4j.query import UnifiedQueryBuilder
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
@@ -68,6 +68,16 @@ class _CrudMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         logger: logging.Logger
         entity_class: type[T]
         label: NeoLabel
@@ -143,41 +153,37 @@ class _CrudMixin[T: DomainModelProtocol]:
         RETURN n
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"props": node_data, **(params or {})})
-            record = await result.single()
+        record = await self._run_single(query, {"props": node_data, **(params or {})})
 
-            if not record:
-                # Track error metrics
-                self._track_db_metrics(operation, time.time() - start_time, is_error=True)
-                return Result.fail(
-                    Errors.database(operation, failure_message or f"Failed to create {self.label}")
+        if not record:
+            # Track error metrics
+            self._track_db_metrics(operation, time.time() - start_time, is_error=True)
+            return Result.fail(
+                Errors.database(operation, failure_message or f"Failed to create {self.label}")
+            )
+
+        created = from_neo4j_node(dict(record["n"]), self.entity_class)
+
+        # Auto-create user relationship if user_uid exists
+        if user_uid:
+            rel_result = await self.create_user_relationship(
+                user_uid=user_uid,
+                entity_uid=EntityUID(created.uid),
+                relationship_type=RelationshipName.OWNS,
+            )
+
+            if rel_result.is_error:
+                self.logger.warning(
+                    f"Created {self.label} {created.uid} but failed to create user relationship: {rel_result.error}"
                 )
+                # Don't fail the entire create operation - entity was created successfully
+            else:
+                self.logger.debug(f"Auto-created OWNS relationship for {self.label} {created.uid}")
 
-            created = from_neo4j_node(dict(record["n"]), self.entity_class)
+        # Track metrics
+        self._track_db_metrics(operation, time.time() - start_time, is_error=False)
 
-            # Auto-create user relationship if user_uid exists
-            if user_uid:
-                rel_result = await self.create_user_relationship(
-                    user_uid=user_uid,
-                    entity_uid=EntityUID(created.uid),
-                    relationship_type=RelationshipName.OWNS,
-                )
-
-                if rel_result.is_error:
-                    self.logger.warning(
-                        f"Created {self.label} {created.uid} but failed to create user relationship: {rel_result.error}"
-                    )
-                    # Don't fail the entire create operation - entity was created successfully
-                else:
-                    self.logger.debug(
-                        f"Auto-created OWNS relationship for {self.label} {created.uid}"
-                    )
-
-            # Track metrics
-            self._track_db_metrics(operation, time.time() - start_time, is_error=False)
-
-            return Result.ok(created)
+        return Result.ok(created)
 
     @safe_backend_operation("create")
     async def create(self, entity: T) -> Result[T]:
@@ -261,15 +267,13 @@ class _CrudMixin[T: DomainModelProtocol]:
         params: dict[str, Any] = {"uid": uid}
         params.update(self._default_filter_params())
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
+        record = await self._run_single(query, params)
 
-            if not record:
-                return Result.ok(None)
+        if not record:
+            return Result.ok(None)
 
-            entity = from_neo4j_node(dict(record["n"]), self.entity_class)
-            return Result.ok(entity)
+        entity = from_neo4j_node(dict(record["n"]), self.entity_class)
+        return Result.ok(entity)
 
     async def get_or_fail(self, uid: str) -> Result[T]:
         """
@@ -338,24 +342,22 @@ class _CrudMixin[T: DomainModelProtocol]:
         params: dict[str, Any] = {"uids": uids}
         params.update(self._default_filter_params())
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        records = await self._run_records(query, params)
 
-            # Create uid-to-entity map for fast lookup
-            entity_map = {}
-            for record in records:
-                entity = from_neo4j_node(record["n"], self.entity_class)
-                entity_map[entity.uid] = entity
+        # Create uid-to-entity map for fast lookup
+        entity_map = {}
+        for record in records:
+            entity = from_neo4j_node(record["n"], self.entity_class)
+            entity_map[entity.uid] = entity
 
-            # Return entities in same order as input UIDs (DataLoader requirement)
-            # Missing entities are None to maintain correspondence
-            entities = [entity_map.get(uid) for uid in uids]
+        # Return entities in same order as input UIDs (DataLoader requirement)
+        # Missing entities are None to maintain correspondence
+        entities = [entity_map.get(uid) for uid in uids]
 
-            self.logger.debug(
-                f"Batched get_many: fetched {len(records)} of {len(uids)} {self.label} entities"
-            )
-            return Result.ok(entities)
+        self.logger.debug(
+            f"Batched get_many: fetched {len(records)} of {len(uids)} {self.label} entities"
+        )
+        return Result.ok(entities)
 
     @safe_backend_operation("get_content")
     async def get_content(self, uid: str) -> Result[str | None]:
@@ -380,13 +382,11 @@ class _CrudMixin[T: DomainModelProtocol]:
         RETURN c.body AS body
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uid": uid})
-            record = await result.single()
+        record = await self._run_single(query, {"uid": uid})
 
-            if not record:
-                return Result.ok(None)
-            return Result.ok(record["body"])
+        if not record:
+            return Result.ok(None)
+        return Result.ok(record["body"])
 
     @safe_backend_operation("update")
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
@@ -460,20 +460,18 @@ class _CrudMixin[T: DomainModelProtocol]:
         params: dict[str, Any] = {"uid": uid, "updates": updates}
         params.update(self._default_filter_params())
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
+        record = await self._run_single(query, params)
 
-            if not record:
-                self._track_db_metrics("update", time.time() - start_time, is_error=True)
-                return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
+        if not record:
+            self._track_db_metrics("update", time.time() - start_time, is_error=True)
+            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
 
-            updated = from_neo4j_node(dict(record["n"]), self.entity_class)
+        updated = from_neo4j_node(dict(record["n"]), self.entity_class)
 
-            # Track metrics
-            self._track_db_metrics("update", time.time() - start_time, is_error=False)
+        # Track metrics
+        self._track_db_metrics("update", time.time() - start_time, is_error=False)
 
-            return Result.ok(updated)
+        return Result.ok(updated)
 
     @safe_backend_operation("atomic_append_dual_track_checkin")
     async def atomic_append_dual_track_checkin(
@@ -644,11 +642,9 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         query, params = builder.build()
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        records = await self._run_records(query, params)
 
-            entities = [from_neo4j_node(r["n"], self.entity_class) for r in records]
+        entities = [from_neo4j_node(r["n"], self.entity_class) for r in records]
 
         # Total count ignores pagination; count() re-applies default_filters itself.
         count_result = await self.count(**(filters or {}))

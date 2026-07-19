@@ -4,7 +4,8 @@ Admin Dashboard UI Routes
 
 Routes for the admin dashboard UI at /admin.
 
-All routes require ADMIN role and use the AdminLayout for consistent navigation.
+All routes require ADMIN role and wrap the page trees from
+``ui/admin/pages.py`` in ``create_admin_page`` — rendering lives in ``ui/``.
 
 Routes:
 - GET /admin - Overview dashboard with key stats
@@ -23,15 +24,12 @@ Note: KU progress is accessible per-student at /teaching/students/{uid}?tab=ku.
 Security:
 - All routes require authentication (401 if not logged in)
 - All routes require ADMIN role (403 if insufficient permissions)
-
-Version: 1.0.0
-Date: 2025-12-07
 """
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import Div, P
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.csrf import csrf_protected
@@ -39,6 +37,7 @@ from adapters.inbound.fasthtml_types import Request
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+from ui.admin import pages
 from ui.admin.layout import create_admin_page
 from ui.admin.prereq_views import (
     CHOICE_COMPLEMENTARY,
@@ -48,17 +47,7 @@ from ui.admin.prereq_views import (
     AdminPrereqComponents,
 )
 from ui.admin.types import UserCardData
-from ui.admin.views import (
-    AdminAnalyticsComponents,
-    AdminSystemComponents,
-    AdminUIComponents,
-)
-from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
-from ui.journals.components import render_batch_transcription_panel
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.page_header import PageHeader
-from ui.patterns.section_header import SectionHeader
-from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
@@ -75,6 +64,15 @@ APPROVE_CHOICES: dict[str, tuple[bool, str]] = {
     CHOICE_RELATED: (False, RelationshipName.RELATED_TO.value),
     CHOICE_COMPLEMENTARY: (False, RelationshipName.COMPLEMENTARY_TO.value),
 }
+
+
+def _parse_user_filters(role: str | None, status: str | None) -> tuple[str | None, bool]:
+    """Query-param filters → (role_filter, active_only) for the users query."""
+    role_filter_str = role if role and role != "all" else None
+    active_only = status != "inactive" if status else True
+    if status == "all":
+        active_only = False
+    return role_filter_str, active_only
 
 
 def create_admin_dashboard_routes(
@@ -104,111 +102,11 @@ def create_admin_dashboard_routes(
     @rt("/admin")
     @require_admin(get_user_service)
     async def admin_overview(request, current_user):
-        """
-        Admin dashboard overview with key stats.
-
-        Returns:
-            Admin page with overview content
-        """
+        """Admin dashboard overview with key stats."""
         system_status = await orchestrator.get_system_status()
 
-        system_status_content = (
-            render_error_banner("System status unavailable", severity="warning")
-            if not system_status.get("healthy", True)
-            else _render_system_summary(system_status)
-        )
-
-        content = Div(
-            PageHeader("Admin Dashboard", subtitle="System overview and management"),
-            # Quick links
-            Div(
-                SectionHeader("Quick Actions"),
-                Div(
-                    ButtonLink(
-                        Div(
-                            Span("👥", cls="text-2xl"),
-                            Span("Manage Users", cls="font-medium"),
-                            cls="flex items-center gap-3",
-                        ),
-                        href="/admin/users",
-                        cls=(
-                            ButtonT.ghost,
-                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
-                        ),
-                    ),
-                    ButtonLink(
-                        Div(
-                            Span("📈", cls="text-2xl"),
-                            Span("View Analytics", cls="font-medium"),
-                            cls="flex items-center gap-3",
-                        ),
-                        href="/admin/analytics",
-                        cls=(
-                            ButtonT.ghost,
-                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
-                        ),
-                    ),
-                    ButtonLink(
-                        Div(
-                            Span("⚙️", cls="text-2xl"),
-                            Span("System Health", cls="font-medium"),
-                            cls="flex items-center gap-3",
-                        ),
-                        href="/admin/system",
-                        cls=(
-                            ButtonT.ghost,
-                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
-                        ),
-                    ),
-                    ButtonLink(
-                        Div(
-                            Span("💰", cls="text-2xl"),
-                            Span("Finance Invoices", cls="font-medium"),
-                            cls="flex items-center gap-3",
-                        ),
-                        href="/finance/invoices",
-                        cls=(
-                            ButtonT.ghost,
-                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
-                        ),
-                    ),
-                    ButtonLink(
-                        Div(
-                            Span("📥", cls="text-2xl"),
-                            Span("Content Ingestion", cls="font-medium"),
-                            cls="flex items-center gap-3",
-                        ),
-                        href="/ingest",
-                        cls=(
-                            ButtonT.ghost,
-                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
-                        ),
-                    ),
-                    ButtonLink(
-                        Div(
-                            Span("🎙️", cls="text-2xl"),
-                            Span("Batch Transcription", cls="font-medium"),
-                            cls="flex items-center gap-3",
-                        ),
-                        href="/admin/batch-transcribe",
-                        cls=(
-                            ButtonT.ghost,
-                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
-                        ),
-                    ),
-                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
-                ),
-                cls="mb-8",
-            ),
-            # System status summary
-            Card(
-                CardHeader(CardTitle("System Status")),
-                CardBody(system_status_content),
-            ),
-        )
-
         return create_admin_page(
-            content=content,
+            content=pages.overview_page(system_status),
             active_section="overview",
             admin_username=current_user.display_name or current_user.title,
             title="Admin Dashboard",
@@ -228,16 +126,8 @@ def create_admin_dashboard_routes(
         Renders the Alpine-driven panel that drives
         POST /api/journals/batch-transcribe over a server-side directory.
         """
-        content = Div(
-            PageHeader(
-                "Batch Transcription",
-                subtitle="Transcribe a server-side directory of audio files to text",
-            ),
-            render_batch_transcription_panel(),
-        )
-
         return create_admin_page(
-            content=content,
+            content=pages.batch_transcribe_page(),
             active_section="transcription",
             admin_username=current_user.display_name or current_user.title,
             title="Batch Transcription",
@@ -262,17 +152,9 @@ def create_admin_dashboard_routes(
         Query Parameters:
             role: Filter by role (admin, teacher, member, registered)
             status: Filter by status (active, inactive, all)
-
-        Returns:
-            Admin page with user list
         """
-        # Parse filters
-        role_filter_str = role if role and role != "all" else None
-        active_only = status != "inactive" if status else True
-        if status == "all":
-            active_only = False
+        role_filter_str, active_only = _parse_user_filters(role, status)
 
-        # Fetch users with activity counts
         users_result = await orchestrator.get_users_with_activity_counts(
             role_filter=role_filter_str,
             active_only=active_only,
@@ -280,6 +162,7 @@ def create_admin_dashboard_routes(
         if users_result.is_error:
             logger.error(f"Failed to load users: {users_result.error}")
         users_data = users_result.value if not users_result.is_error else []
+        users_error = str(users_result.error) if users_result.is_error else None
 
         # Fetch stats for header via efficient Cypher COUNT query
         user_stats_result = await orchestrator.get_user_role_counts()
@@ -297,58 +180,10 @@ def create_admin_dashboard_routes(
         )
         system_status = await orchestrator.get_system_status()
 
-        users_error_banner = (
-            render_error_banner(
-                "Failed to load user list", str(users_result.error), severity="warning"
-            )
-            if users_result.is_error
-            else None
-        )
-
-        subtitle = (
-            "User statistics unavailable"
-            if stats_error
-            else f"{user_stats.get('total', 0)} total users"
-        )
-
-        stats_content = (
-            render_error_banner("User statistics unavailable", severity="warning")
-            if stats_error
-            else AdminUIComponents.render_user_stats(user_stats)
-        )
-
-        content = Div(
-            PageHeader("User Management", subtitle=subtitle),
-            # Stats
-            stats_content,
-            # Filters
-            Card(
-                CardHeader(CardTitle("Filters")),
-                CardBody(
-                    Div(
-                        AdminUIComponents.render_role_filter(role),
-                        AdminUIComponents.render_status_filter(status),
-                        cls="flex flex-wrap gap-4",
-                    ),
-                ),
-                cls="mb-6",
-            ),
-            # Error banner (if user list failed)
-            users_error_banner,
-            # User table
-            Card(
-                CardHeader(CardTitle("Users")),
-                CardBody(
-                    Div(
-                        AdminUIComponents.render_users_table(users_data),
-                        id="user-list",
-                    ),
-                ),
-            ),
-        )
-
         return create_admin_page(
-            content=content,
+            content=pages.users_list_page(
+                users_data, user_stats, stats_error, users_error, role, status
+            ),
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
             title="User Management",
@@ -364,16 +199,8 @@ def create_admin_dashboard_routes(
         role: str | None = None,
         status: str | None = None,
     ):
-        """
-        HTMX partial for filtered user list.
-
-        Returns just the user table HTML for HTMX swap.
-        """
-        # Parse filters
-        role_filter_str = role if role and role != "all" else None
-        active_only = status != "inactive" if status else True
-        if status == "all":
-            active_only = False
+        """HTMX partial for filtered user list — just the table for the swap."""
+        role_filter_str, active_only = _parse_user_filters(role, status)
 
         users_result = await orchestrator.get_users_with_activity_counts(
             role_filter=role_filter_str,
@@ -381,36 +208,19 @@ def create_admin_dashboard_routes(
         )
         if users_result.is_error:
             logger.error(f"Failed to load users: {users_result.error}")
-            return Div(
-                render_error_banner("Failed to load user list", str(users_result.error)),
-                id="user-list",
-            )
-        users_data = users_result.value or []
-
-        return Div(
-            AdminUIComponents.render_users_table(users_data),
-            id="user-list",
-        )
+            return pages.users_table_error_fragment(str(users_result.error))
+        return pages.users_table_fragment(users_result.value or [])
 
     @rt("/admin/users/{uid}")
     @require_admin(get_user_service)
     async def admin_user_detail(request, uid: str, current_user):
-        """
-        User detail view.
-
-        Returns:
-            Admin page with user details and role form
-        """
+        """User detail view with role form and account actions."""
         user_uid = UserUID(uid)
         result = await orchestrator.get_user(user_uid)
 
         if result.is_error or not result.value:
-            content = Div(
-                render_error_banner(f"No user found with UID: {uid}"),
-                ButtonLink("← Back to Users", href="/admin/users", cls=(ButtonT.ghost, "mt-4")),
-            )
             return create_admin_page(
-                content=content,
+                content=pages.user_not_found_page(uid),
                 active_section="users",
                 admin_username=current_user.display_name or current_user.title,
                 title="User Not Found",
@@ -439,98 +249,8 @@ def create_admin_dashboard_routes(
             logger.warning(f"Failed to load detail stats for {uid}: {detail_stats_result.error}")
         detail_stats = detail_stats_result.value if not detail_stats_error else {}
 
-        content = Div(
-            # Back button
-            ButtonLink(
-                "← Back to Users",
-                href="/admin/users",
-                cls=(ButtonT.ghost, "mb-4"),
-                size="sm",
-            ),
-            PageHeader(
-                user_data.display_name or user_data.username,
-                actions=Div(
-                    AdminUIComponents.render_role_badge(user_data.role),
-                    AdminUIComponents.render_status_badge(user_data.is_active),
-                    cls="flex gap-2",
-                ),
-            ),
-            # User details card
-            Card(
-                CardHeader(CardTitle("User Details")),
-                CardBody(
-                    Div(
-                        _detail_row("UID", user_data.uid),
-                        _detail_row("Username", f"@{user_data.username}"),
-                        _detail_row("Email", user_data.email),
-                        _detail_row("Created", user_data.created_at or "Unknown"),
-                        _detail_row("Last Login", user_data.last_login_at),
-                        _detail_row("Verified", "Yes" if user_data.is_verified else "No"),
-                        cls="space-y-3",
-                    ),
-                ),
-                cls="mb-6",
-            ),
-            # Activity & session stats
-            Card(
-                CardHeader(CardTitle("User Statistics")),
-                CardBody(
-                    render_error_banner("User statistics unavailable", severity="warning")
-                    if detail_stats_error
-                    else AdminUIComponents.render_user_activity_stats(detail_stats, user_uid),
-                ),
-                cls="mb-6",
-            ),
-            # Link to teaching view for submission/learning data
-            Card(
-                CardHeader(CardTitle("Student Work")),
-                CardBody(
-                    Div(
-                        P(
-                            "Submissions, reports, and learning progress are managed in the Teaching section.",
-                            cls="text-muted-foreground text-sm mb-3",
-                        ),
-                        ButtonLink(
-                            "View submissions →",
-                            href=f"/teaching/students/{uid}",
-                            cls=ButtonT.secondary,
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "KU progress →",
-                            href=f"/teaching/students/{uid}?tab=ku",
-                            cls=(ButtonT.secondary, "ml-2"),
-                            size="sm",
-                        ),
-                    ),
-                ),
-                cls="mb-6",
-            ),
-            # Role change section
-            Card(
-                CardHeader(CardTitle("Change Role")),
-                CardBody(AdminUIComponents.render_role_change_form(user_data)),
-                cls="mb-6",
-            ),
-            # Actions
-            Card(
-                CardHeader(CardTitle("Account Actions")),
-                CardBody(
-                    Div(
-                        Button(
-                            "Deactivate Account" if user_data.is_active else "Activate Account",
-                            cls=ButtonT.destructive if user_data.is_active else ButtonT.primary,
-                            hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data.is_active else 'activate'}",
-                            hx_confirm=f"Are you sure you want to {'deactivate' if user_data.is_active else 'activate'} this user?",
-                        ),
-                        cls="flex gap-4",
-                    ),
-                ),
-            ),
-        )
-
         return create_admin_page(
-            content=content,
+            content=pages.user_detail_page(user_data, detail_stats, detail_stats_error, uid),
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
             title=f"User: {user_data.display_name or user_data.username}",
@@ -541,11 +261,7 @@ def create_admin_dashboard_routes(
     @rt("/admin/users/{uid}/role-form")
     @require_admin(get_user_service)
     async def admin_user_role_form(request, uid: str, current_user):
-        """
-        HTMX partial for role change form.
-
-        Returns role change form HTML.
-        """
+        """HTMX partial for role change form."""
         result = await orchestrator.get_user(UserUID(uid))
 
         if result.is_error or not result.value:
@@ -562,7 +278,7 @@ def create_admin_dashboard_routes(
             is_active=user.is_active,
         )
 
-        return AdminUIComponents.render_role_change_form(user_data)
+        return pages.role_change_form(user_data)
 
     # ========================================================================
     # ANALYTICS
@@ -571,22 +287,12 @@ def create_admin_dashboard_routes(
     @rt("/admin/analytics")
     @require_admin(get_user_service)
     async def admin_analytics(request, current_user):
-        """
-        Analytics dashboard with user and activity stats.
-
-        Returns:
-            Admin page with analytics content
-        """
+        """Analytics dashboard with user and activity stats."""
         system_status = await orchestrator.get_system_status()
         analytics_data = await orchestrator.get_analytics_data()
 
-        content = Div(
-            PageHeader("Analytics", subtitle="Platform usage and user statistics"),
-            AdminAnalyticsComponents.render_analytics_dashboard(analytics_data),
-        )
-
         return create_admin_page(
-            content=content,
+            content=pages.analytics_page(analytics_data),
             active_section="analytics",
             admin_username=current_user.display_name or current_user.title,
             title="Analytics",
@@ -604,16 +310,8 @@ def create_admin_dashboard_routes(
         """Prerequisite-edge suggestion queue — generate, review, approve to Edge YAML."""
         system_status = await orchestrator.get_system_status()
 
-        content = Div(
-            PageHeader(
-                "Prereq Suggestions",
-                subtitle="Inferred Ku↔Ku edges awaiting review — approve writes Edge YAML",
-            ),
-            AdminPrereqComponents.render_page(prereq_suggestions.judge_available),
-        )
-
         return create_admin_page(
-            content=content,
+            content=pages.prereq_suggestions_page(prereq_suggestions.judge_available),
             active_section="prereq",
             admin_username=current_user.display_name or current_user.title,
             title="Prereq Suggestions",
@@ -683,32 +381,11 @@ def create_admin_dashboard_routes(
     @rt("/admin/system")
     @require_admin(get_user_service)
     async def admin_system(request, current_user):
-        """
-        System health dashboard.
-
-        Returns:
-            Admin page with system health content
-        """
+        """System health dashboard."""
         health_data = await orchestrator.get_full_health_status()
 
-        content = Div(
-            PageHeader("System Health", subtitle="Monitor system components and services"),
-            AdminSystemComponents.render_health_dashboard(health_data),
-            # Refresh button
-            Div(
-                Button(
-                    "Refresh",
-                    cls=ButtonT.secondary,
-                    hx_get="/admin/system",
-                    hx_target="body",
-                    hx_swap="outerHTML",
-                ),
-                cls="text-center mt-6",
-            ),
-        )
-
         return create_admin_page(
-            content=content,
+            content=pages.system_health_page(health_data),
             active_section="system",
             admin_username=current_user.display_name or current_user.title,
             title="System Health",
@@ -717,70 +394,6 @@ def create_admin_dashboard_routes(
         )
 
     logger.info("Admin dashboard UI routes registered")
-    logger.info("   - GET /admin - Overview dashboard")
-    logger.info("   - GET /admin/users - User management")
-    logger.info("   - GET /admin/users/{uid} - User detail")
-    logger.info("   - GET /admin/analytics - Analytics")
-    logger.info("   - GET /admin/system - System health")
-
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
-
-
-def _render_system_summary(status_data: dict) -> Div:
-    """Render a simple system status summary."""
-    status = status_data.get("status", "unknown")
-    is_healthy = status_data.get("healthy", True)
-
-    status_colors = {
-        "healthy": "text-success",
-        "warning": "text-warning",
-        "critical": "text-error",
-        "degraded": "text-warning",
-        "unknown": "text-muted-foreground",
-    }
-
-    dot_colors = {
-        "healthy": "bg-success",
-        "warning": "bg-warning",
-        "critical": "bg-error",
-        "degraded": "bg-warning",
-        "unknown": "bg-muted-foreground",
-    }
-
-    return Div(
-        Div(
-            Span(
-                cls=f"w-3 h-3 rounded-full {dot_colors.get(status, 'bg-muted-foreground')} animate-pulse"
-            ),
-            Span(
-                status.upper(),
-                cls=f"font-semibold ml-2 {status_colors.get(status, 'text-muted-foreground')}",
-            ),
-            cls="flex items-center",
-        ),
-        P(
-            "All systems operational" if is_healthy else "Some components need attention",
-            cls="text-muted-foreground text-sm mt-2",
-        ),
-        ButtonLink(
-            "View Details →",
-            href="/admin/system",
-            cls=(ButtonT.ghost, "mt-2"),
-            size="sm",
-        ),
-    )
-
-
-def _detail_row(label: str, value: str) -> Div:
-    """Render a detail row for user info."""
-    return Div(
-        Span(label, cls="text-muted-foreground w-32 inline-block"),
-        Span(value, cls="font-medium"),
-        cls="text-sm",
-    )
 
 
 # Export the route creation function

@@ -34,6 +34,7 @@ from fasthtml.common import (
 from core.models.enums import UserRole
 from ui.components import Icon
 from ui.library.resource_chip import resource_chip
+from ui.patterns.detail_nav import detail_back_link, detail_footer_nav
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -149,7 +150,7 @@ def render_ps_detail_content(
     seed_json = json.dumps(seed, default=str)
 
     return Div(
-        _back_link(),
+        detail_back_link("Explore", "/explore"),
         _hero_card(step, uid, user_uid),
         _body_section(content_html) if content_html else Div(),
         _kus_section(kus) if kus else Div(),
@@ -159,36 +160,10 @@ def render_ps_detail_content(
         _tasks_section(uid) if user_uid else Div(),
         _learning_loop_section(uid) if user_uid else Div(),
         _deps_accordion(),
-        _footer_nav(),
+        detail_footer_nav("Back to Explore", "/explore"),
         id="ps-detail-content",
         cls=_COLUMN_CLS,
         **{"x-data": f"pathstep({seed_json})"},
-    )
-
-
-# ---------------------------------------------------------------------------
-# Navigation
-# ---------------------------------------------------------------------------
-
-
-def _back_link() -> "FT":
-    return A(
-        Icon("arrow-left", cls="w-[15px] h-[15px]"),
-        " Explore",
-        href="/explore",
-        cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground mb-[18px]",
-    )
-
-
-def _footer_nav() -> "FT":
-    return Div(
-        A(
-            Icon("arrow-left", cls="w-4 h-4"),
-            " Back to Explore",
-            href="/explore",
-            cls="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground",
-        ),
-        cls="mt-9 flex items-center",
     )
 
 

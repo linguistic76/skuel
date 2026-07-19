@@ -26,7 +26,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     import logging
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from core.models.enums.neo_labels import NeoLabel
     from core.models.user_entry.user_entry import UserEntry
@@ -43,6 +43,16 @@ class _UserEntryCrudMixin:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         label: NeoLabel
         logger: logging.Logger
         entity_class: type[UserEntry]
@@ -109,26 +119,24 @@ class _UserEntryCrudMixin:
         RETURN n, coalesce(n.user_uid = $owner, false) AS owned
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "uid": node_data["uid"],
-                    "props": node_data,
-                    "on_match_props": on_match_props,
-                    "owner": user_uid,
-                },
+        record = await self._run_single(
+            query,
+            {
+                "uid": node_data["uid"],
+                "props": node_data,
+                "on_match_props": on_match_props,
+                "owner": user_uid,
+            },
+        )
+        if not record:
+            return Result.fail(Errors.database("upsert", f"Failed to upsert {self.label}"))
+        if not record["owned"]:
+            # A different user already owns this uid — reject without writing
+            # and without leaking that it exists (404-not-403).
+            return Result.fail(
+                Errors.not_found(resource=str(self.label), identifier=str(node_data["uid"]))
             )
-            record = await result.single()
-            if not record:
-                return Result.fail(Errors.database("upsert", f"Failed to upsert {self.label}"))
-            if not record["owned"]:
-                # A different user already owns this uid — reject without writing
-                # and without leaking that it exists (404-not-403).
-                return Result.fail(
-                    Errors.not_found(resource=str(self.label), identifier=str(node_data["uid"]))
-                )
-            upserted = from_neo4j_node(dict(record["n"]), self.entity_class)
+        upserted = from_neo4j_node(dict(record["n"]), self.entity_class)
 
         if user_uid:
             rel_result = await self.create_user_relationship(

@@ -76,7 +76,11 @@ if TYPE_CHECKING:
 
 # Re-exported for callers that import ``ShareOutcome`` from this module
 # (the dataclass moved to ``audience_resolver`` during the /upload integration).
-__all__ = ["ShareOutcome", "UserEntryService"]
+__all__ = ["PERIODIC_NOTE_KINDS", "ShareOutcome", "UserEntryService"]
+
+# The three stored periodic-note kinds (ADR-073: journal *sessions* are never
+# stored; periodic notes are the one deliberate stored journal feature).
+PERIODIC_NOTE_KINDS: frozenset[str] = frozenset({"daily", "weekly", "monthly"})
 
 
 class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
@@ -422,6 +426,60 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if getattr(entity, "user_uid", None) != user_uid:
             return Result.ok(None)
         return Result.ok(entity)
+
+    # =========================================================================
+    # PERIODIC NOTES (daily / weekly / monthly journal stubs)
+    # =========================================================================
+
+    def is_periodic_note(self, entry: UserEntry) -> bool:
+        """True when the entry is a stored periodic note (daily/weekly/monthly).
+
+        The metadata ``entry_kind`` stamp is the discriminator — routes use this
+        to keep the periodic-note page/save surface off every other entry kind.
+        """
+        return entry.metadata.get("entry_kind") in PERIODIC_NOTE_KINDS
+
+    @with_error_handling("ensure_periodic_note")
+    async def ensure_periodic_note(
+        self, user_uid: UserUID, entry_kind: str, period_key: str, title: str
+    ) -> Result[str]:
+        """Find-or-create a periodic note; returns its deterministic uid.
+
+        UID scheme (the persistence contract): ``ue:{kind}:{user_uid}:{period_key}``
+        — ``user_uid`` in the UID makes it globally unique, so two users sharing
+        the same calendar period get independent notes without backend UID
+        collisions. ``period_key`` is the ISO date (daily), ``{year}-W{week:02d}``
+        (weekly), or ``{year}-{month:02d}`` (monthly).
+
+        SEAM (intended): an in-app periodic note is a SKUEL-only stub. It is NOT
+        task-round-trip-eligible — outbound sync (vault_reconciler._run_outbound)
+        processes only entries with pipeline=EXTRACT_ACTIVITIES that also carry a
+        vault_file_path. This stub has neither; the *vault file* (created/edited
+        in Obsidian with ``pipeline: extract_activities`` frontmatter, then
+        ingested) is the source of truth for round-trip eligibility. Setting the
+        pipeline here would NOT make it eligible (no vault_file_path), so it
+        would only mislead — hence NONE.
+        """
+        if entry_kind not in PERIODIC_NOTE_KINDS:
+            return Result.fail(Errors.validation(f"Unknown periodic-note kind: {entry_kind}"))
+        uid = f"ue:{entry_kind}:{user_uid}:{period_key}"
+        existing = await self.get_entry(uid, user_uid)
+        if existing.is_error:
+            return Result.fail(existing)
+        if existing.value is None:
+            created = await self.create_entry(
+                UserEntryCreateRequest(
+                    uid=uid,
+                    title=title,
+                    content="",
+                    pipeline=Pipeline.NONE,
+                    metadata={"entry_kind": entry_kind, "period_key": period_key},
+                ),
+                user_uid=user_uid,
+            )
+            if created.is_error:
+                return Result.fail(created)
+        return Result.ok(uid)
 
     @with_error_handling("list_user_entries")
     async def list_for_user(

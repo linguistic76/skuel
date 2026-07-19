@@ -691,20 +691,6 @@
                     'user_entry': []
                 },
 
-                // Entity type labels for badges
-                entityTypeLabels: {
-                    'task': 'Tasks',
-                    'goal': 'Goals',
-                    'habit': 'Habits',
-                    'event': 'Events',
-                    'choice': 'Choices',
-                    'principle': 'Principles',
-                    'ku': 'Knowledge Units',
-                    'path_step': 'Path Steps',
-                    'learning_path': 'Learning Paths',
-                    'user_entry': 'My Entries'
-                },
-
                 // Computed: should show context filters row
                 get showContextFilters() {
                     return this.entityType !== '';
@@ -743,9 +729,15 @@
                     return filters.indexOf(group) !== -1;
                 },
 
+                // Badge labels read from the server-rendered Type dropdown's
+                // option text (ui/search/components.py _ENTITY_TYPE_OPTIONS is
+                // the single source) — no client-side label map to drift.
                 getFilterLabel: function(filterType, value) {
                     if (filterType === 'entity_type') {
-                        return this.entityTypeLabels[value] || value;
+                        var option = this.$root.querySelector(
+                            '[name="entity_type"] option[value="' + value + '"]'
+                        );
+                        return (option && option.textContent) || value;
                     }
                     return value;
                 },
@@ -2016,21 +2008,9 @@
                                 type: 'error',
                             });
                         });
-                },
-
-                // Get color class for confidence level
-                getConfidenceColor: function(confidence) {
-                    if (confidence >= 0.8) return 'text-success';
-                    if (confidence >= 0.6) return 'text-warning';
-                    return 'text-error';
-                },
-
-                // Get label for confidence level
-                getConfidenceLabel: function(confidence) {
-                    if (confidence >= 0.8) return 'High Confidence';
-                    if (confidence >= 0.6) return 'Medium Confidence';
-                    return 'Low Confidence';
                 }
+                // Confidence colors/labels are rendered server-side
+                // (ui/insights/insight_card.py) — no client-side mirror.
             };
         });
 

@@ -21,6 +21,7 @@ from typing import Any
 from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetToken
 from core.models.auth.session import Session, hash_session_token
@@ -44,7 +45,7 @@ LOCKOUT_MINUTES = 15
 MAX_FAILED_ATTEMPTS_PER_IP = 20
 
 
-class SessionBackend:
+class SessionBackend(Neo4jSessionRunner):
     """
     Neo4j backend for session persistence.
 
@@ -103,23 +104,21 @@ class SessionBackend:
         RETURN s
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(
-                query,
-                {
-                    "uid": session.uid,
-                    "token_hash": session.token_hash,
-                    "user_uid": session.user_uid,
-                    "created_at": session.created_at.isoformat(),
-                    "expires_at": session.expires_at.isoformat(),
-                    "last_active_at": session.last_active_at.isoformat(),
-                    "ip_address": session.ip_address,
-                    "user_agent": session.user_agent,
-                    "is_valid": session.is_valid,
-                    "user_is_active": session.user_is_active,
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "uid": session.uid,
+                "token_hash": session.token_hash,
+                "user_uid": session.user_uid,
+                "created_at": session.created_at.isoformat(),
+                "expires_at": session.expires_at.isoformat(),
+                "last_active_at": session.last_active_at.isoformat(),
+                "ip_address": session.ip_address,
+                "user_agent": session.user_agent,
+                "is_valid": session.is_valid,
+                "user_is_active": session.user_is_active,
+            },
+        )
 
         if not record:
             return Result.fail(
@@ -152,9 +151,7 @@ class SessionBackend:
         RETURN s
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"token_hash": token_hash})
-            record = await result.single()
+        record = await self._run_single(query, {"token_hash": token_hash})
 
         if not record:
             return Result.ok(None)
@@ -177,9 +174,7 @@ class SessionBackend:
         RETURN s
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"uid": session_uid})
-            record = await result.single()
+        record = await self._run_single(query, {"uid": session_uid})
 
         if not record:
             return Result.ok(None)
@@ -213,11 +208,9 @@ class SessionBackend:
         RETURN s
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(
-                query, {"token_hash": token_hash, "interval": batch_interval_seconds}
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query, {"token_hash": token_hash, "interval": batch_interval_seconds}
+        )
 
         return Result.ok(record is not None)
 
@@ -241,9 +234,7 @@ class SessionBackend:
         RETURN s
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"token_hash": token_hash})
-            record = await result.single()
+        record = await self._run_single(query, {"token_hash": token_hash})
 
         if record:
             self.logger.info(f"Invalidated session with token hash: {token_hash[:8]}...")
@@ -270,9 +261,7 @@ class SessionBackend:
         RETURN count(s) as invalidated_count
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"user_uid": user_uid})
-            record = await result.single()
+        record = await self._run_single(query, {"user_uid": user_uid})
 
         count = record["invalidated_count"] if record else 0
         self.logger.info(f"Invalidated {count} sessions for user: {user_uid}")
@@ -295,9 +284,7 @@ class SessionBackend:
         RETURN count(s) as deleted_count
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query)
-            record = await result.single()
+        record = await self._run_single(query)
 
         count = record["deleted_count"] if record else 0
         self.logger.info(f"Cleaned up {count} expired sessions")
@@ -398,22 +385,20 @@ class SessionBackend:
 
         import json
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(
-                query,
-                {
-                    "uid": event.uid,
-                    "event_type": event.event_type.value,
-                    "timestamp": event.timestamp.isoformat(),
-                    "ip_address": event.ip_address,
-                    "user_agent": event.user_agent,
-                    "user_uid": event.user_uid,
-                    "email": event.email,
-                    "session_uid": event.session_uid,
-                    "metadata": json.dumps(event.metadata) if event.metadata else "{}",
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "uid": event.uid,
+                "event_type": event.event_type.value,
+                "timestamp": event.timestamp.isoformat(),
+                "ip_address": event.ip_address,
+                "user_agent": event.user_agent,
+                "user_uid": event.user_uid,
+                "email": event.email,
+                "session_uid": event.session_uid,
+                "metadata": json.dumps(event.metadata) if event.metadata else "{}",
+            },
+        )
 
         if not record:
             return Result.fail(
@@ -450,9 +435,7 @@ class SessionBackend:
         RETURN count(e) as failed_count
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"email": email, "minutes": minutes})
-            record = await result.single()
+        record = await self._run_single(query, {"email": email, "minutes": minutes})
 
         count = record["failed_count"] if record else 0
         return Result.ok(count)
@@ -491,9 +474,7 @@ class SessionBackend:
         RETURN count(e) as failed_count
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"ip_address": ip_address, "minutes": minutes})
-            record = await result.single()
+        record = await self._run_single(query, {"ip_address": ip_address, "minutes": minutes})
 
         count = record["failed_count"] if record else 0
         return Result.ok(count)
@@ -544,20 +525,18 @@ class SessionBackend:
         RETURN t
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(
-                query,
-                {
-                    "uid": token.uid,
-                    "token": token.token,
-                    "user_uid": token.user_uid,
-                    "created_at": token.created_at.isoformat(),
-                    "expires_at": token.expires_at.isoformat(),
-                    "is_used": token.is_used,
-                    "created_by_admin_uid": token.created_by_admin_uid,
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "uid": token.uid,
+                "token": token.token,
+                "user_uid": token.user_uid,
+                "created_at": token.created_at.isoformat(),
+                "expires_at": token.expires_at.isoformat(),
+                "is_used": token.is_used,
+                "created_by_admin_uid": token.created_by_admin_uid,
+            },
+        )
 
         if not record:
             return Result.fail(
@@ -586,9 +565,7 @@ class SessionBackend:
         RETURN t
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"token": token_value})
-            record = await result.single()
+        record = await self._run_single(query, {"token": token_value})
 
         if not record:
             return Result.ok(None)
@@ -612,9 +589,7 @@ class SessionBackend:
         RETURN t
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query, {"token": token_value})
-            record = await result.single()
+        record = await self._run_single(query, {"token": token_value})
 
         return Result.ok(record is not None)
 
@@ -633,9 +608,7 @@ class SessionBackend:
         RETURN count(t) as deleted_count
         """
 
-        async with self.driver.session() as db_session:
-            result = await db_session.run(query)
-            record = await result.single()
+        record = await self._run_single(query)
 
         count = record["deleted_count"] if record else 0
         self.logger.info(f"Cleaned up {count} expired/used reset tokens")

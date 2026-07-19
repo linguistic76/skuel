@@ -34,7 +34,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     import builtins
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from core.models.enums.neo_labels import NeoLabel
 
@@ -50,6 +50,15 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
 
         async def get_related_entities(
             self,
@@ -261,16 +270,14 @@ class _RelationshipOrderedMixin[T: DomainModelProtocol]:
         RETURN r IS NOT NULL AS success
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "from_uid": entity_uid,
-                    "to_uid": target_uid,
-                    "properties": edge_properties,
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "from_uid": entity_uid,
+                "to_uid": target_uid,
+                "properties": edge_properties,
+            },
+        )
 
         success = record["success"] if record else False
         return Result.ok(success)

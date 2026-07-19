@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from core.models.enums.neo_labels import NeoLabel
     from core.ports.base_protocols import Direction
@@ -46,6 +46,16 @@ class _TraversalMixin:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         logger: logging.Logger
 
         async def create_relationship(
@@ -141,9 +151,7 @@ class _TraversalMixin:
         """
 
         params = {"uid": uid, "rel_type": str(rel_type) if rel_type is not None else None}
-        async with self.driver.session() as session:
-            result = await session.run(cypher, params)
-            records = await result.data()
+        records = await self._run_records(cypher, params)
 
         return Result.ok(records)
 
@@ -209,9 +217,7 @@ class _TraversalMixin:
             ORDER BY depth
             """
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, {"start_uid": start_uid})
-            records = await result.data()
+        records = await self._run_records(cypher, {"start_uid": start_uid})
 
         return Result.ok(records)
 
@@ -268,9 +274,7 @@ class _TraversalMixin:
         """
 
         try:
-            async with self.driver.session() as session:
-                result = await session.run(cypher, {"from_uid": from_uid, "to_uid": to_uid})
-                records = await result.data()
+            records = await self._run_records(cypher, {"from_uid": from_uid, "to_uid": to_uid})
         except NEO4J_EXCEPTIONS as e:
             # Neo4j returns error if no path exists in some versions
             if "no path" in str(e).lower():

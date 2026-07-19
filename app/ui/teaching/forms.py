@@ -8,7 +8,6 @@ revision requests, form metadata display, and form response rendering.
 Extracted here so route handlers only handle auth, service calls, and delegation.
 """
 
-from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Div, Form, Input, Label, P, Strong
@@ -16,6 +15,7 @@ from fasthtml.common import Div, Form, Input, Label, P, Strong
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms import Textarea
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.format_date import format_date
 
 
 def render_feedback_submission_form(submission_uid: str) -> Any:
@@ -102,15 +102,6 @@ def render_revision_request_form(submission_uid: str) -> Any:
     )
 
 
-def format_date(value: Any) -> str:
-    """Format a date value for display."""
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M")
-    if isinstance(value, str) and len(value) >= 10:
-        return value[:16].replace("T", " ")
-    return str(value) if value else "—"
-
-
 def form_data_preview(form_data: dict[str, Any] | None, max_fields: int = 3) -> str:
     """Build a short preview string from form_data for submission list cards."""
     if not form_data:
@@ -161,7 +152,10 @@ def render_submission_metadata(submission: Any, template: Any | None) -> Div:
         ),
         Div(
             Strong("Date", cls="text-sm"),
-            P(format_date(submission.created_at), cls="text-sm text-muted-foreground mt-0.5"),
+            P(
+                format_date(submission.created_at, "%Y-%m-%d %H:%M", empty="—"),
+                cls="text-sm text-muted-foreground mt-0.5",
+            ),
             cls="py-2",
         ),
     ]

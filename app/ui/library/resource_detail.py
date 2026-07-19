@@ -22,6 +22,7 @@ from fasthtml.common import H1, H2, A, Div, P, Section, Span
 
 from ui.components import Icon
 from ui.library.media_badge import media_badge
+from ui.patterns.detail_nav import detail_back_link, detail_footer_nav
 from ui.primitives import safe_external_url
 
 if TYPE_CHECKING:
@@ -38,7 +39,7 @@ _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
 def render_resource_not_found(uid: str) -> Div:
     """Render the not-found state for a Resource detail page."""
     return Div(
-        _back_link(),
+        detail_back_link("Resources", "/library/resources"),
         Div(
             P("Resource not found.", cls="text-[14px] font-semibold text-foreground"),
             P(f"No resource with ID: {uid}", cls="text-[13px] text-muted-foreground mt-1"),
@@ -80,7 +81,7 @@ def render_resource_detail(resource: Any, cited_by: tuple | list = ()) -> Div:
     source_url = safe_external_url(getattr(resource, "source_url", None))
 
     return Div(
-        _back_link(),
+        detail_back_link("Resources", "/library/resources"),
         Section(
             # Accent rail
             Div(cls="h-1 bg-strength-core"),
@@ -103,34 +104,8 @@ def render_resource_detail(resource: Any, cited_by: tuple | list = ()) -> Div:
         _annotation_section(annotation),
         _cited_by_section(cited_by),
         _tags_section(tags),
-        _footer_nav(),
+        detail_footer_nav("Back to Resources", "/library/resources"),
         cls=_COLUMN_CLS,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Navigation
-# ---------------------------------------------------------------------------
-
-
-def _back_link() -> "FT":
-    return A(
-        Icon("arrow-left", cls="w-[15px] h-[15px]"),
-        " Resources",
-        href="/library/resources",
-        cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground mb-[18px]",
-    )
-
-
-def _footer_nav() -> "FT":
-    return Div(
-        A(
-            Icon("arrow-left", cls="w-4 h-4"),
-            " Back to Resources",
-            href="/library/resources",
-            cls="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground",
-        ),
-        cls="mt-9 flex items-center",
     )
 
 

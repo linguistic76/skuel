@@ -17,6 +17,7 @@ Architecture:
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.ports.query_types import CurrentPathStepItem, GroupSummary
 from core.utils.decorators import with_error_handling
@@ -41,6 +42,33 @@ def _sort_by_last_viewed_at(item: dict[str, Any]) -> Any:
 
 
 # =============================================================================
+# STATUS-SET PARAMETERS
+# =============================================================================
+
+# MEGA_QUERY and CONSOLIDATED_QUERY express the same status-set business rules
+# ("which statuses count as open / overdue-eligible / pending"). They ride in
+# as parameters computed from EntityStatus so each rule exists exactly once
+# and cannot drift between the two queries or from the enum.
+STATUS_PARAMS: dict[str, Any] = {
+    "open_task_statuses": [
+        EntityStatus.DRAFT.value,
+        EntityStatus.SCHEDULED.value,
+        EntityStatus.ACTIVE.value,
+        EntityStatus.BLOCKED.value,
+    ],
+    "overdue_eligible_task_statuses": [
+        EntityStatus.DRAFT.value,
+        EntityStatus.SCHEDULED.value,
+        EntityStatus.ACTIVE.value,
+    ],
+    "pending_choice_statuses": [EntityStatus.DRAFT.value, EntityStatus.ACTIVE.value],
+    "open_ps_statuses": [EntityStatus.DRAFT.value, EntityStatus.ACTIVE.value],
+    "status_active": EntityStatus.ACTIVE.value,
+    "status_completed": EntityStatus.COMPLETED.value,
+}
+
+
+# =============================================================================
 # QUERY CONSTANTS
 # =============================================================================
 
@@ -54,16 +82,16 @@ OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 
 // Collect UIDs by status (for standard context)
 WITH user,
-     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active', 'blocked'] THEN task.uid END) as active_task_uids,
-     collect(CASE WHEN task.status = 'completed' THEN task.uid END) as completed_task_uids,
-     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active'] AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
+     collect(CASE WHEN task.status IN $open_task_statuses THEN task.uid END) as active_task_uids,
+     collect(CASE WHEN task.status = $status_completed THEN task.uid END) as completed_task_uids,
+     collect(CASE WHEN task.status IN $overdue_eligible_task_statuses AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
      collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids,
      collect(task) as all_tasks_nodes
 
 // Filter tasks for rich data — active status always included; window entities included if touched since $window_start
 UNWIND CASE WHEN size(all_tasks_nodes) > 0 THEN all_tasks_nodes ELSE [null] END as task
 OPTIONAL MATCH (task)-[:HAS_SUBTASK]->(subtask:Task)
-WHERE task IS NOT NULL AND (task.status IN ['draft', 'scheduled', 'active', 'blocked'] OR task.updated_at >= datetime($window_start))
+WHERE task IS NOT NULL AND (task.status IN $open_task_statuses OR task.updated_at >= datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, collect(DISTINCT {uid: subtask.uid, title: subtask.title, status: subtask.status}) as task_subtasks
 
@@ -105,15 +133,15 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     collect(CASE WHEN goal.status = 'active' THEN goal.uid END) as active_goal_uids,
-     collect(CASE WHEN goal.status = 'completed' THEN goal.uid END) as completed_goal_uids,
+     collect(CASE WHEN goal.status = $status_active THEN goal.uid END) as active_goal_uids,
+     collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
      collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_progress_data,
      collect(goal) as all_goals_nodes
 
 // Filter goals for rich data — active status always included; window entities included if touched since $window_start
 UNWIND CASE WHEN size(all_goals_nodes) > 0 THEN all_goals_nodes ELSE [null] END as goal
 OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
-WHERE goal IS NOT NULL AND (goal.status = 'active' OR goal.updated_at >= datetime($window_start))
+WHERE goal IS NOT NULL AND (goal.status = $status_active OR goal.updated_at >= datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, collect(DISTINCT {uid: contributing_task.uid, title: contributing_task.title, status: contributing_task.status}) as goal_tasks
@@ -225,13 +253,13 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // HABITS - Fetch UIDs, metadata, AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
-WHERE habit.status = 'active' OR habit.updated_at >= datetime($window_start)
+WHERE habit.status = $status_active OR habit.updated_at >= datetime($window_start)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     collect(CASE WHEN habit.status = 'active' THEN habit.uid END) as active_habit_uids,
-     collect(CASE WHEN habit.status = 'active' THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)} END) as habit_metadata,
+     collect(CASE WHEN habit.status = $status_active THEN habit.uid END) as active_habit_uids,
+     collect(CASE WHEN habit.status = $status_active THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)} END) as habit_metadata,
      collect(habit) as all_habit_nodes
 
 // Filter habits for rich data (with graph neighborhoods)
@@ -500,7 +528,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // CHOICES - Fetch UIDs AND rich data (pending/active; windowed completed also included)
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN ['draft', 'active'] OR datetime(choice.created_at) >= datetime($window_start)
+WHERE choice.status IN $pending_choice_statuses OR datetime(choice.created_at) >= datetime($window_start)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -508,7 +536,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids, principles_rich,
-     collect(CASE WHEN choice.status IN ['draft', 'active'] THEN choice.uid END) as pending_choice_uids,
+     collect(CASE WHEN choice.status IN $pending_choice_statuses THEN choice.uid END) as pending_choice_uids,
      collect(choice) as all_choice_nodes
 
 // Filter choices for rich data (with graph neighborhoods)
@@ -723,7 +751,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 OPTIONAL MATCH (user)-[:IN_PROGRESS]->(ps:PathStep)
 // Vault-ingested PathSteps carry no status property (NULL) — treat missing
 // status as active; the filter only excludes explicitly terminal states.
-WHERE ps.status IS NULL OR ps.status IN ['draft', 'active']
+WHERE ps.status IS NULL OR ps.status IN $open_ps_statuses
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -1218,14 +1246,14 @@ MATCH (user:User {uid: $user_uid})
 // Tasks - parallel collection with conditional aggregation
 OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 WITH user,
-     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active', 'blocked'] THEN task.uid END) as active_task_uids,
-     collect(CASE WHEN task.status = 'completed' THEN task.uid END) as completed_task_uids,
-     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active'] AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
+     collect(CASE WHEN task.status IN $open_task_statuses THEN task.uid END) as active_task_uids,
+     collect(CASE WHEN task.status = $status_completed THEN task.uid END) as completed_task_uids,
+     collect(CASE WHEN task.status IN $overdue_eligible_task_statuses AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
      collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids
 
 // Habits - parallel collection with metrics
 OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
-WHERE habit.status = 'active'
+WHERE habit.status = $status_active
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      collect(habit.uid) as active_habit_uids,
      collect({uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)}) as habit_data
@@ -1234,8 +1262,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
-     collect(CASE WHEN goal.status = 'active' THEN goal.uid END) as active_goal_uids,
-     collect(CASE WHEN goal.status = 'completed' THEN goal.uid END) as completed_goal_uids,
+     collect(CASE WHEN goal.status = $status_active THEN goal.uid END) as active_goal_uids,
+     collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
      collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_data
 
 // Knowledge - parallel collection with mastery scores
@@ -1304,7 +1332,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Principles - active principles guide daily decisions
 OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
-WHERE principle.status = 'active'
+WHERE principle.status = $status_active
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
@@ -1317,7 +1345,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Choices - pending decisions block forward motion
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN ['draft', 'active']
+WHERE choice.status IN $pending_choice_statuses
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
@@ -1494,6 +1522,7 @@ class UserContextQueryExecutor:
             "min_confidence": min_confidence,
             "window_start": effective_start.isoformat(),
             "window_end": effective_end.isoformat(),
+            **STATUS_PARAMS,
         }
 
         result = await self.executor.execute_query(MEGA_QUERY, params)
@@ -1648,7 +1677,7 @@ class UserContextQueryExecutor:
             Result containing structured domain data
         """
         today = date.today().isoformat()
-        params = {"user_uid": user_uid, "today": today}
+        params = {"user_uid": user_uid, "today": today, **STATUS_PARAMS}
 
         result = await self.executor.execute_query(CONSOLIDATED_QUERY, params)
         if result.is_error:

@@ -5,8 +5,8 @@
  * Everything colors-related belongs in tailwind.config.js
  * (priority.*, strength.*, shadow.focus). This file only covers:
  *   - drag animations that rely on an Alpine-bound CSS variable
- *   - the .kbd styling used in the keyboard-hint strip
  *   - prefers-reduced-motion overrides specific to the drag gesture
+ * (Keyboard-hint chips are Tailwind-styled via ui/patterns/keyboard_hints.py.)
  */
 
 /* Row translate is driven by Alpine setting --dx at mousemove. */
@@ -36,18 +36,6 @@
   opacity: 1;
   background: oklch(0.90 0.10 85);
   color: oklch(0.30 0.08 85);
-}
-
-/* Keyboard-hint chips in the hints strip. */
-.kbd {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 10px;
-  padding: 1px 5px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 3px;
-  background: hsl(var(--muted));
-  color: hsl(var(--foreground));
-  margin: 0 2px;
 }
 
 /* Drag is a progressive enhancement — disable transform when the user
