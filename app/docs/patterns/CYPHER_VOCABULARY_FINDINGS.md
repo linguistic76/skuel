@@ -108,6 +108,30 @@ retired, so the fix is to repoint the *writer* to `IN_PROGRESS`, not to register
 
 ---
 
+## 3c. `get_siblings` ignores 5 of the 7 edge types it filters on
+
+`adapters/persistence/neo4j/backends/collab_backends.py:413`:
+
+```cypher
+AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
+                 'SUBCHOICE', 'HAS_STEP', 'ORGANIZES']
+```
+
+The registered names are `SUBGOAL_OF`, `SUBHABIT_OF`, … — the bare forms are not
+`RelationshipName` members and no writer creates them. Only `HAS_STEP` and
+`ORGANIZES` in that list are real, so sibling lookup silently ignores every
+activity-hierarchy edge it was written to find.
+
+Found only after the scanner was extended to **predicate position** (`type(r) IN
+[...]`), not just pattern position — vocabulary named in a `WHERE` filter fails
+exactly as silently as vocabulary named in a `MATCH`.
+
+**Fix is a semantics change** — correcting the list makes `get_siblings` start
+returning rows it has never returned — so it is baselined here rather than fixed
+in the rule's own PR.
+
+---
+
 ## 4. Writer-less reads — designed, never built
 
 `user_progress_backend.py` is the densest cluster. `HAS_PROGRESS` and

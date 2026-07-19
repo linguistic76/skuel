@@ -785,6 +785,17 @@ is fine below the boundary — SKUEL013's `[:{RelationshipName.OWNS}]` form is *
 required here, and no 300-site interpolation rewrite is implied. The rule reads the NAME,
 never the syntax around it.
 
+**Both positions vocabulary can occupy are scanned:**
+
+- **Pattern** — `(n:Label)`, `[r:TYPE]`, multi-label `(n:Entity:Ku)`, alternation
+  `[:A|B]`, var-length `[:OWNS*1..3]`, and Neo4j 5 typed DDL
+  (`CREATE FULLTEXT|VECTOR|RANGE|TEXT|POINT INDEX ... FOR (n:Label)`).
+- **Predicate** — `type(r) = 'X'`, `type(r) IN ['A','B']`, `WHERE n:Label`,
+  `AND NOT n:Label`. A typo here makes the predicate unsatisfiable, which fails
+  exactly as silently as a typo'd pattern; this is what caught `get_siblings`
+  filtering on five edge types that do not exist. Parameterized forms
+  (`type(r) = $rel_type`) carry no static name and are skipped.
+
 **Scope and exemptions:**
 
 - `adapters/persistence/**` `.py` string literals. The `.cypher` half is CYP011 in

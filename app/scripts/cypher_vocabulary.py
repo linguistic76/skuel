@@ -195,6 +195,23 @@ INTERPOLATION_SENTINEL = "\x00interp\x00"
 # Var-length bounds (`*1..3`, `*`) trail the type name inside the brackets.
 _VARLEN_RE = re.compile(r"\*.*$")
 
+# Predicate position: `type(r) = 'X'` and `type(r) IN ['A', 'B']`. Vocabulary
+# named here is just as load-bearing as vocabulary in a pattern — a typo makes the
+# predicate unsatisfiable and the query returns nothing — but it is invisible to
+# the pattern regexes above (Codex P2 on #732). Parameterized forms
+# (`type(r) = $rel_type`) have no static name and simply do not match.
+_TYPE_PREDICATE_RE = re.compile(
+    r"\btype\s*\(\s*\w+\s*\)\s*(?:=|IN)\s*(\[[^\]]*\]|'[^']*'|\"[^\"]*\")"
+)
+_QUOTED_RE = re.compile(r"['\"]([^'\"]*)['\"]")
+
+# Predicate position for labels: `WHERE n:Content`, `AND NOT a:Content`. Anchored
+# on a boolean keyword so it cannot swallow Cypher map keys (`{uid: $x}`), the
+# `CASE n:Label WHEN` form, or namespaced string values ("learn:extends_pattern").
+_LABEL_PREDICATE_RE = re.compile(
+    r"\b(?:WHERE|AND|OR|NOT|WITH)\s+(?:NOT\s+)?[a-z_]\w*:([A-Z][A-Za-z0-9]*)"
+)
+
 
 def looks_like_cypher(fragment: str) -> bool:
     """True if ``fragment`` contains an anchored Cypher clause marker."""
@@ -204,6 +221,14 @@ def looks_like_cypher(fragment: str) -> bool:
 def scan_names(fragment: str) -> list[ScannedName]:
     """Recover every statically-known label / relationship type in ``fragment``.
 
+    Covers both positions vocabulary can occupy:
+
+    - **Pattern** — `(n:Label)`, `[r:TYPE]`, incl. multi-label `(n:A:B)` and
+      alternation `[:A|B]`.
+    - **Predicate** — `type(r) = 'X'`, `type(r) IN ['A','B']`, `WHERE n:Label`.
+      A typo here makes the predicate unsatisfiable, which fails exactly as
+      silently as a typo'd pattern.
+
     Names touching an interpolation sentinel are skipped: `[:HAS_{domain}]`
     composes its type at runtime, so there is no static name to validate. That
     is a sanctioned below-boundary pattern, not a violation.
@@ -212,6 +237,11 @@ def scan_names(fragment: str) -> list[ScannedName]:
         return []
 
     found: list[ScannedName] = []
+
+    def record(kind: NameKind, name: str, pos: int) -> None:
+        found.append(ScannedName(kind=kind, value=name, line_offset=fragment.count("\n", 0, pos)))
+
+    # Pattern position
     for kind, pattern, name_re, splitter in (
         (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE, "|"),
         (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE, ":"),
@@ -220,11 +250,27 @@ def scan_names(fragment: str) -> list[ScannedName]:
             body = match.group(1)
             if INTERPOLATION_SENTINEL in body:
                 continue
-            line_offset = fragment.count("\n", 0, match.start(1))
             for raw in body.split(splitter):
                 name = _VARLEN_RE.sub("", raw.strip().strip(":"))
                 if name and name_re.fullmatch(name):
-                    found.append(ScannedName(kind=kind, value=name, line_offset=line_offset))
+                    record(kind, name, match.start(1))
+
+    # Predicate position — type(r) = 'X' / type(r) IN ['A', 'B']
+    for match in _TYPE_PREDICATE_RE.finditer(fragment):
+        operand = match.group(1)
+        if INTERPOLATION_SENTINEL in operand:
+            continue
+        for quoted in _QUOTED_RE.finditer(operand):
+            name = quoted.group(1).strip()
+            if name and _REL_NAME_RE.fullmatch(name):
+                record(NameKind.RELATIONSHIP, name, match.start(1) + quoted.start(1))
+
+    # Predicate position — WHERE n:Label / AND NOT a:Label
+    for match in _LABEL_PREDICATE_RE.finditer(fragment):
+        name = match.group(1)
+        if _LABEL_NAME_RE.fullmatch(name):
+            record(NameKind.LABEL, name, match.start(1))
+
     return found
 
 

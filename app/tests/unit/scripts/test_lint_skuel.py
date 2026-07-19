@@ -1207,6 +1207,34 @@ class TestSKUEL030:
         assert len(violations) == 1, f"not scanned: {ddl}"
         assert "Bogus" in violations[0].message
 
+    def test_type_predicate_equality_is_scanned(self) -> None:
+        """`type(r) = 'X'` names an edge type as load-bearingly as `[:X]` does."""
+        violations = lint_cypher("q = \"MATCH ()-[r]->() WHERE type(r) = 'BAD_EDGE'\"")
+        assert len(violations) == 1
+        assert "BAD_EDGE" in violations[0].message
+
+    def test_type_predicate_in_list_is_scanned(self) -> None:
+        """Each element of `type(r) IN [...]` is checked (Codex P2 on #732)."""
+        violations = lint_cypher(
+            "q = \"MATCH ()-[r]->() WHERE type(r) IN ['OWNS', 'BAD_A', 'BAD_B']\""
+        )
+        assert sorted(v.message.split("'")[1] for v in violations) == ["BAD_A", "BAD_B"]
+
+    def test_parameterized_type_predicate_is_skipped(self) -> None:
+        """`type(r) = $rel_type` has no static name to validate."""
+        assert lint_cypher('q = "MATCH ()-[r]->() WHERE type(r) = $rel_type"') == []
+
+    def test_label_predicate_is_scanned(self) -> None:
+        """`WHERE n:Label` / `AND NOT n:Label` are label positions too."""
+        assert lint_cypher('q = "MATCH (n) WHERE NOT n:Content RETURN n"') == []
+        violations = lint_cypher('q = "MATCH (n) WHERE NOT n:Contnet RETURN n"')
+        assert len(violations) == 1
+        assert "Contnet" in violations[0].message
+
+    def test_map_keys_are_not_label_predicates(self) -> None:
+        """The label-predicate anchor must not swallow Cypher map syntax."""
+        assert lint_cypher('q = "MATCH (n:Task {uid: $uid}) WHERE n.x = 1 RETURN n"') == []
+
     def test_interpolated_name_is_skipped(self) -> None:
         """`[:HAS_{domain}]` composes its type at runtime — nothing to validate."""
         content = 'q = f"MATCH (u:User)-[:HAS_{domain.upper()}]->(e:Task) RETURN e"'
