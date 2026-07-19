@@ -10,8 +10,6 @@ nothing. These tests assert the ENROLLED_IN edge actually LANDS in the graph
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import pytest
 import pytest_asyncio
 
@@ -142,10 +140,9 @@ async def test_enrollment_lifecycle_visible_to_readers(neo4j_driver, enrollment_
         adaptive_res = await adaptive.query_active_learning_paths(_USER_UID)
         progress_res = await progress.get_active_learning_paths(_USER_UID)
         assert adaptive_res.is_ok and progress_res.is_ok
-        # RETURN lp yields the node's property dict — Neo4jProperties can't model nesting
-        adaptive_nodes = cast("list[dict[str, Any]]", adaptive_res.value)
+        # Tier 6: the backend returns typed LearningPath models, not raw records
         return (
-            [str(r["lp"]["uid"]) for r in adaptive_nodes],
+            [lp.uid for lp in adaptive_res.value],
             list(progress_res.value[0]["active_paths"]) if progress_res.value else [],
         )
 
