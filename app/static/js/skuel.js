@@ -37,6 +37,111 @@
     };
 
     // -------------------------------------------------------------------------
+    // JSON fetch helpers
+    //
+    // HTMX owns server communication; fetch() is reserved for hybrid patterns
+    // (drag-drop reschedule, bulk selection, graph payloads). These two helpers
+    // are the ONLY place those call sites encode the CSRF header, the
+    // status check, and JSON parsing — a call site handles failure once, in a
+    // single .catch()/catch block.
+    //
+    // Both reject with an Error carrying `.status` (HTTP code) and `.payload`
+    // (parsed body, when the server sent JSON). The message prefers the
+    // server's own wording, reading the three error shapes SKUEL emits:
+    // `{error: {message}}` (Result envelope), `{detail}` (FastHTML
+    // HTTPException), `{message}`.
+    // -------------------------------------------------------------------------
+
+    function _errorMessage(payload, status) {
+        if (payload) {
+            if (payload.error && payload.error.message) return payload.error.message;
+            if (payload.detail) return payload.detail;
+            if (payload.message) return payload.message;
+        }
+        return 'Request failed (' + status + ')';
+    }
+
+    function _requestJson(url, init) {
+        return fetch(url, init).then(function(response) {
+            // A body is not guaranteed to be JSON (502 HTML, 204 empty) — parse
+            // defensively so the status check still reports a useful message.
+            return response.text().then(function(text) {
+                var payload = null;
+                if (text) {
+                    try {
+                        payload = JSON.parse(text);
+                    } catch (e) {
+                        payload = null;
+                    }
+                }
+                if (!response.ok) {
+                    var error = new Error(_errorMessage(payload, response.status));
+                    error.status = response.status;
+                    error.payload = payload;
+                    throw error;
+                }
+                return payload;
+            });
+        });
+    }
+
+    /**
+     * GET a JSON endpoint. Rejects on any non-2xx.
+     *
+     * @param {string} url
+     * @returns {Promise<Object>} parsed response body
+     */
+    window.SKUEL.getJson = function(url) {
+        return _requestJson(url, undefined);
+    };
+
+    /**
+     * Send a JSON body to a mutating endpoint with the CSRF header attached.
+     * Rejects on any non-2xx.
+     *
+     * @param {string} url
+     * @param {Object} [body] - serialized as JSON; omit for bodyless mutations
+     * @param {Object} [options] - {method: 'POST'|'PATCH'|'PUT'|'DELETE'}
+     * @returns {Promise<Object>} parsed response body
+     */
+    window.SKUEL.postJson = function(url, body, options) {
+        options = options || {};
+        var init = {
+            method: options.method || 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.SKUEL.csrf()
+            }
+        };
+        if (body !== undefined) {
+            init.body = JSON.stringify(body);
+        }
+        return _requestJson(url, init);
+    };
+
+    /**
+     * Refresh the view after a fetch() mutation.
+     *
+     * SKUEL swaps partials, so prefer re-fetching the affected fragment: a full
+     * document reload discards scroll position and unrelated Alpine state. Pass
+     * the selector of an HTMX-bound container when one exists; the reload
+     * fallback covers pages whose lists are rendered whole with no fragment
+     * route to re-request.
+     *
+     * @param {string} [selector] - CSS selector of an HTMX container to refresh
+     */
+    window.SKUEL.refreshAfterMutation = function(selector) {
+        if (selector && window.htmx) {
+            var target = document.querySelector(selector);
+            if (target) {
+                window.htmx.trigger(target, 'refresh');
+                return;
+            }
+        }
+        window.location.reload();
+    };
+
+    // -------------------------------------------------------------------------
     // CSRF double-submit: attach X-CSRF-Token on every mutating HTMX call.
     // Registered on `document` at script-parse time (NOT inside DOMContentLoaded)
     // so it is ready before HTMX processes any `hx-trigger="load"` element —
@@ -86,6 +191,45 @@
     // =========================================================================
     // HTMX Integration - Task 10: Accessibility Announcements
     // =========================================================================
+
+    /**
+     * One route taxonomy for both announcement hooks: `verb` is announced while
+     * the request is in flight (htmx:beforeRequest), `done` after the swap
+     * lands (htmx:afterSwap). First match wins, so order is significant.
+     *
+     * A null `verb` means the route has no in-flight wording — the generic
+     * "Loading..." is announced instead.
+     */
+    var ANNOUNCE_ROUTES = [
+        { match: ['/create'], verb: 'Creating', done: 'Created successfully' },
+        { match: ['/update', '/edit', '/save'], verb: 'Updating', done: 'Updated successfully' },
+        { match: ['/delete', '/remove'], verb: 'Deleting', done: 'Deleted successfully' },
+        { match: ['/complete'], verb: 'Completing', done: 'Completed successfully' },
+        { match: ['/upload'], verb: 'Uploading', done: 'Uploaded successfully' },
+        { match: ['/track'], verb: 'Tracking', done: 'Tracked successfully' },
+        { match: ['/enroll'], verb: 'Enrolling', done: 'Enrolled successfully' },
+        { match: ['/toggle', '/status'], verb: 'Updating status', done: 'Status updated' },
+        { match: ['/decide'], verb: null, done: 'Decision recorded' }
+    ];
+
+    /**
+     * Resolve the announcement entry for a request path.
+     *
+     * @param {string} path - request path (empty string for GETs we skip)
+     * @returns {Object|null} the matching ANNOUNCE_ROUTES entry, or null
+     */
+    window.SKUEL.announceRouteFor = function(path) {
+        if (!path) return null;
+        for (var i = 0; i < ANNOUNCE_ROUTES.length; i++) {
+            var route = ANNOUNCE_ROUTES[i];
+            for (var j = 0; j < route.match.length; j++) {
+                if (path.includes(route.match[j])) {
+                    return route;
+                }
+            }
+        }
+        return null;
+    };
 
     /**
      * HTMX event handlers for accessibility announcements.
@@ -152,30 +296,12 @@
             var verb = (requestConfig.verb || 'get').toUpperCase();
             var path = requestConfig.path || '';
 
-            // Determine operation type from path/verb
-            var operation = 'Loading';
-            if (verb === 'POST' || verb === 'PUT') {
-                if (path.includes('/create')) {
-                    operation = 'Creating';
-                } else if (path.includes('/update') || path.includes('/edit') || path.includes('/save')) {
-                    operation = 'Updating';
-                } else if (path.includes('/delete') || path.includes('/remove')) {
-                    operation = 'Deleting';
-                } else if (path.includes('/complete')) {
-                    operation = 'Completing';
-                } else if (path.includes('/upload')) {
-                    operation = 'Uploading';
-                } else if (path.includes('/track')) {
-                    operation = 'Tracking';
-                } else if (path.includes('/enroll')) {
-                    operation = 'Enrolling';
-                } else if (path.includes('/toggle') || path.includes('/status')) {
-                    operation = 'Updating status';
-                }
-            }
-
-            // Announce for non-GET requests (mutations)
+            // Announce for non-GET requests (mutations). The verb lookup covers
+            // every mutating verb — DELETE /tasks/delete announces "Deleting",
+            // not the generic "Loading" it used to get.
             if (verb !== 'GET') {
+                var route = window.SKUEL.announceRouteFor(path);
+                var operation = (route && route.verb) || 'Loading';
                 window.SKUEL.announce(operation + '...', 'polite');
             }
         });
@@ -212,25 +338,9 @@
                 var requestConfig = event.detail.requestConfig || {};
                 var verb = (requestConfig.verb || 'get').toUpperCase();
                 var path = verb !== 'GET' ? (requestConfig.path || '') : '';
-
-                if (path.includes('/create')) {
-                    successMessage = 'Created successfully';
-                } else if (path.includes('/update') || path.includes('/edit') || path.includes('/save')) {
-                    successMessage = 'Updated successfully';
-                } else if (path.includes('/delete') || path.includes('/remove')) {
-                    successMessage = 'Deleted successfully';
-                } else if (path.includes('/complete')) {
-                    successMessage = 'Completed successfully';
-                } else if (path.includes('/upload')) {
-                    successMessage = 'Uploaded successfully';
-                } else if (path.includes('/track')) {
-                    successMessage = 'Tracked successfully';
-                } else if (path.includes('/enroll')) {
-                    successMessage = 'Enrolled successfully';
-                } else if (path.includes('/toggle') || path.includes('/status')) {
-                    successMessage = 'Status updated';
-                } else if (path.includes('/decide')) {
-                    successMessage = 'Decision recorded';
+                var route = window.SKUEL.announceRouteFor(path);
+                if (route) {
+                    successMessage = route.done;
                 }
             }
 
@@ -279,6 +389,252 @@
             window.SKUEL.announce('Network error. Please check your connection.', 'assertive');
         });
     });
+
+    // =========================================================================
+    // Vis.js Network helpers
+    //
+    // Three networks are rendered in this file — the lateral-relationship graph
+    // on detail pages, the Explore sidebar graph, and the Explore fullscreen
+    // overlay. They differ only in sizing, physics tuning and where a node
+    // click navigates, so the option literal, the styling passes and the
+    // click-to-navigate handler live here once. Sizing lives in GRAPH_PROFILES;
+    // a component picks a profile rather than re-typing the numbers.
+    // =========================================================================
+
+    window.SKUEL.graph = {};
+
+    /**
+     * Per-surface sizing and physics. `nodeFontColor`/`nodeFontStroke` are the
+     * Explore surfaces' label treatment; the relationship graph overrides font
+     * wholesale via `nodeFont`.
+     */
+    window.SKUEL.graph.PROFILES = {
+        // Lateral-relationship graph on entity detail pages.
+        relationship: {
+            // One size for every node — this surface does not style per-node.
+            globalNodeSize: 16,
+            nodeFont: { size: 14, color: '#333' },
+            nodeBorderWidth: 2,
+            nodeShadow: true,
+            edgeWidth: 2,
+            edgeShadow: true,
+            physics: {
+                gravitationalConstant: -50,
+                centralGravity: 0.01,
+                springLength: 100,
+                springConstant: 0.08
+            },
+            maxVelocity: 50,
+            stabilization: 150,
+            tooltipDelay: 200
+        },
+        // Explore sidebar — compact, must read in a narrow column.
+        exploreSidebar: {
+            centerSize: 24,
+            nodeSize: 14,
+            centerFontSize: 14,
+            nodeFontSize: 11,
+            edgeWidth: 1.5,
+            physics: {
+                gravitationalConstant: -40,
+                centralGravity: 0.015,
+                springLength: 80,
+                springConstant: 0.06
+            },
+            maxVelocity: 30,
+            stabilization: 100,
+            tooltipDelay: 300,
+            navigable: true
+        },
+        // Explore fullscreen overlay — roomier nodes, looser springs.
+        exploreExpanded: {
+            centerSize: 30,
+            nodeSize: 18,
+            centerFontSize: 16,
+            nodeFontSize: 13,
+            edgeWidth: 2,
+            physics: {
+                gravitationalConstant: -60,
+                centralGravity: 0.01,
+                springLength: 120,
+                springConstant: 0.04
+            },
+            maxVelocity: 30,
+            stabilization: 150,
+            tooltipDelay: 300,
+            navigable: true
+        }
+    };
+
+    /** True when the Vis.js Network library finished loading. */
+    window.SKUEL.graph.ready = function() {
+        return typeof vis !== 'undefined' && !!vis.Network;
+    };
+
+    /**
+     * Build the Vis.js options object for a profile.
+     *
+     * @param {Object} profile - an entry from SKUEL.graph.PROFILES
+     * @returns {Object} vis.Network options
+     */
+    window.SKUEL.graph.buildOptions = function(profile) {
+        var nodes = { shape: 'dot' };
+        if (profile.globalNodeSize) {
+            // Explore surfaces size every node individually (center vs. leaf);
+            // the relationship graph sets one global size instead.
+            nodes.size = profile.globalNodeSize;
+        }
+        nodes.font = profile.nodeFont || {
+            size: profile.nodeFontSize,
+            color: '#64748B',
+            strokeWidth: 2,
+            strokeColor: '#fff'
+        };
+        if (profile.nodeBorderWidth) nodes.borderWidth = profile.nodeBorderWidth;
+        if (profile.nodeShadow) nodes.shadow = true;
+
+        var edges = { width: profile.edgeWidth, smooth: { type: 'continuous' } };
+        if (profile.edgeShadow) edges.shadow = true;
+
+        var options = {
+            nodes: nodes,
+            edges: edges,
+            physics: {
+                forceAtlas2Based: profile.physics,
+                maxVelocity: profile.maxVelocity,
+                solver: 'forceAtlas2Based',
+                timestep: 0.35,
+                stabilization: { iterations: profile.stabilization }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: profile.tooltipDelay
+            }
+        };
+        if (profile.navigable) {
+            options.interaction.zoomView = true;
+            options.interaction.dragView = true;
+            options.layout = { improvedLayout: true };
+        }
+        return options;
+    };
+
+    /**
+     * Style Explore nodes by entity type, sized for the given profile.
+     *
+     * Carries `_entityType` / `_learningState` / `_isPinned` onto each node so
+     * the sidebar filter tabs can re-colour without refetching.
+     *
+     * @param {Array} nodes - raw nodes from the graph API
+     * @param {Object} profile - an entry from SKUEL.graph.PROFILES
+     * @param {Object} ctx - {centerUid, colors, hubCenter}
+     * @returns {Array} styled node objects
+     */
+    window.SKUEL.graph.styleNodes = function(nodes, profile, ctx) {
+        return (nodes || []).map(function(node) {
+            var nodeType = (node.type || '').toLowerCase();
+            // Map Neo4j labels to simple types
+            if (nodeType === 'pathstep' || nodeType === 'path_step') nodeType = 'ps';
+            var isCenter = (node.id === ctx.centerUid) || (node.group === 'center');
+            var colors = ctx.colors[nodeType] || ctx.colors.default;
+
+            if (isCenter && ctx.hubCenter) {
+                colors = ctx.colors.you;
+            }
+
+            return Object.assign({}, node, {
+                color: colors,
+                size: isCenter ? profile.centerSize : profile.nodeSize,
+                font: {
+                    size: isCenter ? profile.centerFontSize : profile.nodeFontSize,
+                    color: '#64748B',
+                    strokeWidth: 2,
+                    strokeColor: '#ffffff'
+                },
+                borderWidth: isCenter ? 3 : 1.5,
+                // Store metadata for filtering
+                _entityType: nodeType,
+                _learningState: node.learning_state || null,
+                _isPinned: node.is_pinned || false
+            });
+        });
+    };
+
+    /**
+     * Style Explore edges at the profile's width, keeping any server-supplied
+     * colour but defaulting the opacity.
+     *
+     * @param {Array} edges - raw edges from the graph API
+     * @param {Object} profile - an entry from SKUEL.graph.PROFILES
+     * @returns {Array} styled edge objects
+     */
+    window.SKUEL.graph.styleEdges = function(edges, profile) {
+        return (edges || []).map(function(edge) {
+            return Object.assign({}, edge, {
+                width: profile.edgeWidth,
+                color: Object.assign({ opacity: 0.6 }, edge.color || {}),
+                smooth: { type: 'continuous' }
+            });
+        });
+    };
+
+    /**
+     * Style lateral-relationship edges by confidence and priority: priority
+     * drives stroke width, confidence drives dashing and opacity so a weakly
+     * inferred link reads as tentative.
+     *
+     * @param {Array} edges - raw edges from the lateral graph API
+     * @returns {Array} styled edge objects
+     */
+    window.SKUEL.graph.styleEdgesByConfidence = function(edges) {
+        var priorityWidthMap = { critical: 4, high: 3, medium: 2, low: 1 };
+        return (edges || []).map(function(edge) {
+            var confidence = typeof edge.confidence === 'number' ? edge.confidence : 1.0;
+            var priority = edge.priority || 'medium';
+            var width = priorityWidthMap[priority] || 2;
+            var dashes = false;
+            var opacity = 1.0;
+
+            if (confidence >= 0.8) {
+                dashes = false;
+                opacity = 1.0;
+            } else if (confidence >= 0.5) {
+                dashes = [8, 4];
+                opacity = 0.7;
+            } else {
+                dashes = [3, 3];
+                opacity = 0.5;
+            }
+
+            return Object.assign({}, edge, {
+                width: width,
+                dashes: dashes,
+                color: Object.assign({}, edge.color || {}, { opacity: opacity })
+            });
+        });
+    };
+
+    /**
+     * Navigate on node click. The centre node is never a link — it is the page
+     * you are already on.
+     *
+     * @param {Object} network - vis.Network instance
+     * @param {Array} nodes - the styled nodes rendered into that network
+     * @param {string} centerUid - UID of the centre node
+     * @param {Function} hrefFor - node => URL string, or null for "not a link"
+     */
+    window.SKUEL.graph.attachClickNav = function(network, nodes, centerUid, hrefFor) {
+        network.on('click', function(params) {
+            if (params.nodes.length === 0) return;
+            var nodeId = params.nodes[0];
+            var node = nodes.find(function(n) { return n.id === nodeId; });
+            if (!node || node.id === centerUid || node.group === 'center') return;
+            var href = hrefFor(node);
+            if (href) {
+                window.location.href = href;
+            }
+        });
+    };
 
     // =========================================================================
     // Alpine.js Component Definitions
@@ -630,13 +986,7 @@
                     this.loading = true;
                     this.error = null;
 
-                    fetch(url)
-                        .then(function(response) {
-                            if (!response.ok) {
-                                throw new Error('Failed to load chart data: ' + response.status);
-                            }
-                            return response.json();
-                        })
+                    window.SKUEL.getJson(url)
                         .then(function(config) {
                             var canvas = self.$refs.canvas;
                             if (!canvas) {
@@ -692,13 +1042,7 @@
                     this.loading = true;
                     this.error = null;
 
-                    fetch(url)
-                        .then(function(response) {
-                            if (!response.ok) {
-                                throw new Error('Failed to load timeline data: ' + response.status);
-                            }
-                            return response.json();
-                        })
+                    window.SKUEL.getJson(url)
                         .then(function(data) {
                             var container = self.$refs.container;
                             if (!container) {
@@ -1215,23 +1559,16 @@
 
                     var self = this;
                     // Send bulk delete request
-                    fetch('/api/' + this.entityType + '/bulk-delete', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': window.SKUEL.csrf(),
-                        },
-                        body: JSON.stringify({uids: this.selected}),
-                    })
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
+                    window.SKUEL.postJson('/api/' + this.entityType + '/bulk-delete', {uids: this.selected})
+                    .then(function() {
                         self.$dispatch('toast', {
                             message: 'Deleted ' + self.selected.length + ' items',
                             type: 'success',
                         });
                         self.selected = [];
-                        // Refresh tree
-                        window.location.reload();
+                        // Refresh tree — the whole tree is rendered server-side,
+                        // so there is no fragment route to re-request.
+                        window.SKUEL.refreshAfterMutation();
                     })
                     .catch(function(error) {
                         self.$dispatch('toast', {
@@ -1269,24 +1606,17 @@
 
                     var self = this;
                     // Send move request
-                    fetch(this.moveEndpoint.replace('{uid}', this.draggedNode), {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': window.SKUEL.csrf(),
-                        },
-                        body: JSON.stringify({new_parent_uid: newParentUid}),
-                    })
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
+                    window.SKUEL.postJson(
+                        this.moveEndpoint.replace('{uid}', this.draggedNode),
+                        {new_parent_uid: newParentUid}
+                    )
+                    .then(function() {
                         self.$dispatch('toast', {
                             message: 'Moved successfully',
                             type: 'success',
                         });
                         // Refresh affected nodes via HTMX
-                        if (window.htmx) {
-                            window.htmx.trigger('#children-' + newParentUid, 'refresh');
-                        }
+                        window.SKUEL.refreshAfterMutation('#children-' + newParentUid);
                     })
                     .catch(function(error) {
                         self.$dispatch('toast', {
@@ -1327,16 +1657,12 @@
 
                 saveEdit: function(uid, newTitle) {
                     var self = this;
-                    fetch('/api/' + this.entityType + '/' + uid, {
-                        method: 'PATCH',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': window.SKUEL.csrf(),
-                        },
-                        body: JSON.stringify({title: newTitle}),
-                    })
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
+                    window.SKUEL.postJson(
+                        '/api/' + this.entityType + '/' + uid,
+                        {title: newTitle},
+                        {method: 'PATCH'}
+                    )
+                    .then(function() {
                         self.$dispatch('toast', {
                             message: 'Title updated',
                             type: 'success',
@@ -1450,29 +1776,13 @@
                     var uids = Array.from(this.selectedUids);
 
                     try {
-                        var response = await fetch('/api/insights/bulk/dismiss', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-Token': window.SKUEL.csrf()
-                            },
-                            body: JSON.stringify({ uids: uids })
-                        });
-
-                        if (response.ok) {
-                            // Reload page to show updated insights
-                            window.location.reload();
-                        } else {
-                            var error = await response.json();
-                            self.$dispatch('toast', {
-                                message: 'Failed to dismiss insights: ' + (error.detail || 'Unknown error'),
-                                type: 'error',
-                            });
-                        }
+                        await window.SKUEL.postJson('/api/insights/bulk/dismiss', { uids: uids });
+                        // The insights list is rendered whole — no fragment route.
+                        window.SKUEL.refreshAfterMutation();
                     } catch (err) {
                         console.error('Bulk dismiss failed:', err);
                         self.$dispatch('toast', {
-                            message: 'Failed to dismiss insights. Please try again.',
+                            message: 'Failed to dismiss insights: ' + err.message,
                             type: 'error',
                         });
                     }
@@ -1486,29 +1796,13 @@
                     var uids = Array.from(this.selectedUids);
 
                     try {
-                        var response = await fetch('/api/insights/bulk/action', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-Token': window.SKUEL.csrf()
-                            },
-                            body: JSON.stringify({ uids: uids })
-                        });
-
-                        if (response.ok) {
-                            // Reload page to show updated insights
-                            window.location.reload();
-                        } else {
-                            var error = await response.json();
-                            self.$dispatch('toast', {
-                                message: 'Failed to mark insights as actioned: ' + (error.detail || 'Unknown error'),
-                                type: 'error',
-                            });
-                        }
+                        await window.SKUEL.postJson('/api/insights/bulk/action', { uids: uids });
+                        // The insights list is rendered whole — no fragment route.
+                        window.SKUEL.refreshAfterMutation();
                     } catch (err) {
                         console.error('Bulk action failed:', err);
                         self.$dispatch('toast', {
-                            message: 'Failed to mark insights as actioned. Please try again.',
+                            message: 'Failed to mark insights as actioned: ' + err.message,
                             type: 'error',
                         });
                     }
@@ -1552,15 +1846,9 @@
                     self.error = null;
 
                     try {
-                        var response = await fetch(
+                        var data = await window.SKUEL.getJson(
                             '/api/' + self.entity_type + '/' + self.entity_uid + '/lateral/graph?depth=' + depth
                         );
-
-                        if (!response.ok) {
-                            throw new Error('HTTP ' + response.status);
-                        }
-
-                        var data = await response.json();
                         self.renderNetwork(data);
 
                     } catch (err) {
@@ -1585,92 +1873,26 @@
                     }
 
                     // Check if vis.Network is available
-                    if (typeof vis === 'undefined' || !vis.Network) {
+                    if (!window.SKUEL.graph.ready()) {
                         console.error('Vis.js Network library not loaded');
                         this.error = 'Graph library not loaded';
                         return;
                     }
 
-                    // Apply confidence + priority styling to edges
-                    var priorityWidthMap = { critical: 4, high: 3, medium: 2, low: 1 };
-                    data.edges = (data.edges || []).map(function(edge) {
-                        var confidence = typeof edge.confidence === 'number' ? edge.confidence : 1.0;
-                        var priority = edge.priority || 'medium';
-                        var width = priorityWidthMap[priority] || 2;
-                        var dashes = false;
-                        var opacity = 1.0;
+                    data.edges = window.SKUEL.graph.styleEdgesByConfidence(data.edges);
 
-                        if (confidence >= 0.8) {
-                            dashes = false;
-                            opacity = 1.0;
-                        } else if (confidence >= 0.5) {
-                            dashes = [8, 4];
-                            opacity = 0.7;
-                        } else {
-                            dashes = [3, 3];
-                            opacity = 0.5;
-                        }
-
-                        return Object.assign({}, edge, {
-                            width: width,
-                            dashes: dashes,
-                            color: Object.assign({}, edge.color || {}, { opacity: opacity })
-                        });
-                    });
-
-                    // Vis.js options
-                    var options = {
-                        nodes: {
-                            shape: 'dot',
-                            size: 16,
-                            font: {
-                                size: 14,
-                                color: '#333'
-                            },
-                            borderWidth: 2,
-                            shadow: true
-                        },
-                        edges: {
-                            width: 2,
-                            shadow: true,
-                            smooth: {
-                                type: 'continuous'
-                            }
-                        },
-                        physics: {
-                            forceAtlas2Based: {
-                                gravitationalConstant: -50,
-                                centralGravity: 0.01,
-                                springLength: 100,
-                                springConstant: 0.08
-                            },
-                            maxVelocity: 50,
-                            solver: 'forceAtlas2Based',
-                            timestep: 0.35,
-                            stabilization: {
-                                iterations: 150
-                            }
-                        },
-                        interaction: {
-                            hover: true,
-                            tooltipDelay: 200
-                        }
-                    };
+                    var options = window.SKUEL.graph.buildOptions(
+                        window.SKUEL.graph.PROFILES.relationship
+                    );
 
                     // Create network
                     this.network = new vis.Network(container, data, options);
 
                     // Click handler - navigate to entity
-                    var self = this;
-                    this.network.on('click', function(params) {
-                        if (params.nodes.length > 0) {
-                            var nodeId = params.nodes[0];
-                            var node = data.nodes.find(function(n) { return n.id === nodeId; });
-                            if (node && node.id !== self.entity_uid) {
-                                window.location.href = '/' + node.type + '/' + node.id;
-                            }
-                        }
-                    });
+                    window.SKUEL.graph.attachClickNav(
+                        this.network, data.nodes, this.entity_uid,
+                        function(node) { return '/' + node.type + '/' + node.id; }
+                    );
                 },
 
                 changeDepth: function(newDepth) {
@@ -1764,13 +1986,7 @@
                     self.loading = true;
                     self.error = null;
 
-                    fetch('/api/insights/' + this.insightUid + '/details')
-                        .then(function(response) {
-                            if (!response.ok) {
-                                throw new Error('Failed to load insight details');
-                            }
-                            return response.json();
-                        })
+                    window.SKUEL.getJson('/api/insights/' + this.insightUid + '/details')
                         .then(function(data) {
                             self.insight = data;
                             self.loading = false;
@@ -1788,21 +2004,11 @@
                         return;
                     }
 
-                    fetch('/api/insights/' + this.insightUid + '/snooze', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': window.SKUEL.csrf(),
-                        },
-                        body: JSON.stringify({days: days})
-                    })
-                        .then(function(response) {
-                            if (!response.ok) {
-                                throw new Error('Failed to snooze insight');
-                            }
+                    window.SKUEL.postJson('/api/insights/' + this.insightUid + '/snooze', {days: days})
+                        .then(function() {
                             self.close();
-                            // Reload page or remove card
-                            window.location.reload();
+                            // The card list is rendered whole — no fragment route.
+                            window.SKUEL.refreshAfterMutation();
                         })
                         .catch(function(err) {
                             self.$dispatch('toast', {
@@ -2206,11 +2412,7 @@
                     self.error = null;
 
                     try {
-                        var response = await fetch(self.getApiUrl());
-                        if (!response.ok) {
-                            throw new Error('HTTP ' + response.status);
-                        }
-                        self.graphData = await response.json();
+                        self.graphData = await window.SKUEL.getJson(self.getApiUrl());
                         self.isEmpty = !self.graphData.nodes || self.graphData.nodes.length === 0;
                         self.renderNetwork();
                     } catch (err) {
@@ -2221,6 +2423,54 @@
                     }
                 },
 
+                /**
+                 * Render this component's graph data into `container` at the
+                 * given size profile. Shared by the sidebar graph and the
+                 * fullscreen overlay — they differ only in profile.
+                 *
+                 * @param {Element} container
+                 * @param {Object} profile - an entry from SKUEL.graph.PROFILES
+                 * @returns {Object|null} {network, nodes, edges}, or null when
+                 *   the library or the data is not ready
+                 */
+                _buildNetwork: function(container, profile) {
+                    if (!window.SKUEL.graph.ready()) {
+                        this.error = 'Graph library not loaded';
+                        return null;
+                    }
+
+                    var data = this.graphData;
+                    if (!data || !data.nodes) return null;
+
+                    var styledNodes = window.SKUEL.graph.styleNodes(data.nodes, profile, {
+                        centerUid: this.entity_uid,
+                        colors: this.NODE_COLORS,
+                        hubCenter: this.mode === 'hub'
+                    });
+                    var styledEdges = window.SKUEL.graph.styleEdges(data.edges, profile);
+
+                    var visData = {
+                        nodes: new vis.DataSet(styledNodes),
+                        edges: new vis.DataSet(styledEdges)
+                    };
+                    var network = new vis.Network(
+                        container, visData, window.SKUEL.graph.buildOptions(profile)
+                    );
+
+                    // Click → navigate to entity in Explore
+                    window.SKUEL.graph.attachClickNav(
+                        network, styledNodes, this.entity_uid,
+                        function(node) {
+                            var type = node._entityType;
+                            return (type === 'ku' || type === 'ps')
+                                ? '/explore/' + type + '/' + node.id
+                                : null;
+                        }
+                    );
+
+                    return { network: network, nodes: visData.nodes, edges: visData.edges };
+                },
+
                 renderNetwork: function() {
                     var container = document.getElementById('explore-graph-container');
                     if (!container) return;
@@ -2229,111 +2479,17 @@
                         this.network.destroy();
                     }
 
-                    if (typeof vis === 'undefined' || !vis.Network) {
-                        this.error = 'Graph library not loaded';
-                        return;
-                    }
-
-                    var self = this;
-                    var data = this.graphData;
-                    if (!data || !data.nodes) return;
-
-                    // Style nodes by entity type
-                    var styledNodes = data.nodes.map(function(node) {
-                        var nodeType = (node.type || '').toLowerCase();
-                        // Map Neo4j labels to simple types
-                        if (nodeType === 'pathstep' || nodeType === 'path_step') nodeType = 'ps';
-                        var isCenter = (node.id === self.entity_uid) || (node.group === 'center');
-                        var colors = self.NODE_COLORS[nodeType] || self.NODE_COLORS.default;
-
-                        if (isCenter && self.mode === 'hub') {
-                            colors = self.NODE_COLORS.you;
-                        }
-
-                        return Object.assign({}, node, {
-                            color: colors,
-                            size: isCenter ? 24 : 14,
-                            font: {
-                                size: isCenter ? 14 : 11,
-                                color: '#64748B',
-                                strokeWidth: 2,
-                                strokeColor: '#ffffff'
-                            },
-                            borderWidth: isCenter ? 3 : 1.5,
-                            // Store metadata for filtering
-                            _entityType: nodeType,
-                            _learningState: node.learning_state || null,
-                            _isPinned: node.is_pinned || false
-                        });
-                    });
-
-                    // Style edges
-                    var styledEdges = (data.edges || []).map(function(edge) {
-                        return Object.assign({}, edge, {
-                            width: 1.5,
-                            color: Object.assign({ opacity: 0.6 }, edge.color || {}),
-                            smooth: { type: 'continuous' }
-                        });
-                    });
-
-                    // Vis.js options — compact for sidebar
-                    var options = {
-                        nodes: {
-                            shape: 'dot',
-                            font: { size: 11, color: '#64748B', strokeWidth: 2, strokeColor: '#fff' }
-                        },
-                        edges: {
-                            width: 1.5,
-                            smooth: { type: 'continuous' }
-                        },
-                        physics: {
-                            forceAtlas2Based: {
-                                gravitationalConstant: -40,
-                                centralGravity: 0.015,
-                                springLength: 80,
-                                springConstant: 0.06
-                            },
-                            maxVelocity: 30,
-                            solver: 'forceAtlas2Based',
-                            timestep: 0.35,
-                            stabilization: { iterations: 100 }
-                        },
-                        interaction: {
-                            hover: true,
-                            tooltipDelay: 300,
-                            zoomView: true,
-                            dragView: true
-                        },
-                        layout: {
-                            improvedLayout: true
-                        }
-                    };
-
-                    var visData = {
-                        nodes: new vis.DataSet(styledNodes),
-                        edges: new vis.DataSet(styledEdges)
-                    };
-
                     var skel = container.querySelector('#explore-graph-skeleton');
                     if (skel) skel.remove();
 
-                    this.network = new vis.Network(container, visData, options);
-                    this._visNodes = visData.nodes;
-                    this._visEdges = visData.edges;
+                    var built = this._buildNetwork(
+                        container, window.SKUEL.graph.PROFILES.exploreSidebar
+                    );
+                    if (!built) return;
 
-                    // Click → navigate to entity in Explore
-                    this.network.on('click', function(params) {
-                        if (params.nodes.length > 0) {
-                            var nodeId = params.nodes[0];
-                            var node = styledNodes.find(function(n) { return n.id === nodeId; });
-                            if (node && node.id !== self.entity_uid && node.group !== 'center') {
-                                var type = node._entityType;
-                                if (type === 'ku' || type === 'ps') {
-                                    window.location.href = '/explore/' + type + '/' + node.id;
-                                }
-                            }
-                        }
-                    });
+                    this.network = built.network;
+                    this._visNodes = built.nodes;
+                    this._visEdges = built.edges;
 
                     // Hover cursor
                     this.network.on('hoverNode', function() { container.style.cursor = 'pointer'; });
@@ -2379,93 +2535,59 @@
                 expandGraph: function() {
                     this.expanded = true;
                     var self = this;
-                    // Create a fullscreen overlay on document.body with a
-                    // second Vis.js network. This completely avoids the
-                    // sidebar's overflow:hidden and transform traps.
+                    // Fullscreen overlay mounted on document.body with a second
+                    // Vis.js network — this sidesteps the sidebar's
+                    // overflow:hidden and transform traps. Classes mirror the
+                    // AlpineModal pattern (ui/patterns/modal.py): a bg-black/50
+                    // backdrop over a bg-background panel, so the overlay
+                    // follows the design tokens and the dark theme instead of
+                    // the hardcoded light-mode colours it used to inline.
                     var overlay = document.createElement('div');
                     overlay.id = 'explore-graph-overlay';
-                    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;';
+                    overlay.className = 'fixed inset-0 z-[9999]';
+                    overlay.setAttribute('role', 'dialog');
+                    overlay.setAttribute('aria-modal', 'true');
+                    overlay.setAttribute('aria-label', 'Expanded relationship graph');
 
                     // Backdrop
                     var backdrop = document.createElement('div');
-                    backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,0.7);backdrop-filter:blur(4px);';
+                    backdrop.className = 'absolute inset-0 bg-black/50 backdrop-blur-sm';
                     backdrop.addEventListener('click', function() { self.collapseGraph(); });
                     overlay.appendChild(backdrop);
 
-                    // Graph panel
+                    // Graph panel — tighter inset on phones so a 375px viewport
+                    // still leaves the canvas a usable width.
                     var panel = document.createElement('div');
-                    panel.style.cssText = 'position:absolute;top:16px;left:16px;right:16px;bottom:16px;'
-                        + 'background:var(--background,#fff);border-radius:12px;'
-                        + 'box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden;';
+                    panel.className = 'absolute inset-2 sm:inset-4 bg-background '
+                        + 'rounded-lg shadow-lg overflow-hidden';
                     overlay.appendChild(panel);
 
-                    // Close button
+                    // Close button — 44px touch target (w-11 h-11).
                     var closeBtn = document.createElement('button');
+                    closeBtn.type = 'button';
                     closeBtn.innerHTML = '&times;';
-                    closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:10;'
-                        + 'width:36px;height:36px;border-radius:8px;border:1px solid #e2e8f0;'
-                        + 'background:#fff;font-size:20px;cursor:pointer;display:flex;'
-                        + 'align-items:center;justify-content:center;';
+                    closeBtn.setAttribute('aria-label', 'Close expanded graph');
+                    closeBtn.className = 'absolute top-2 right-2 z-10 w-11 h-11 '
+                        + 'flex items-center justify-center rounded-lg border border-border '
+                        + 'bg-background text-foreground text-xl leading-none cursor-pointer '
+                        + 'hover:bg-muted';
                     closeBtn.addEventListener('click', function(e) { e.stopPropagation(); self.collapseGraph(); });
                     panel.appendChild(closeBtn);
 
                     // Graph canvas container
                     var canvas = document.createElement('div');
-                    canvas.style.cssText = 'width:100%;height:100%;';
+                    canvas.className = 'w-full h-full';
                     panel.appendChild(canvas);
 
                     document.body.appendChild(overlay);
-                    self._overlay = overlay;
+                    this._overlay = overlay;
 
-                    // Render a second network with the same data
-                    if (self.graphData && typeof vis !== 'undefined') {
-                        var data = self.graphData;
-                        var styledNodes = data.nodes.map(function(node) {
-                            var nodeType = (node.type || '').toLowerCase();
-                            if (nodeType === 'pathstep' || nodeType === 'path_step') nodeType = 'ps';
-                            var isCenter = (node.id === self.entity_uid) || (node.group === 'center');
-                            var colors = self.NODE_COLORS[nodeType] || self.NODE_COLORS['default'];
-                            if (isCenter && self.mode === 'hub') colors = self.NODE_COLORS.you;
-                            return Object.assign({}, node, {
-                                color: colors,
-                                size: isCenter ? 30 : 18,
-                                font: { size: isCenter ? 16 : 13, color: '#64748B', strokeWidth: 2, strokeColor: '#ffffff' },
-                                borderWidth: isCenter ? 3 : 1.5,
-                                _entityType: nodeType
-                            });
-                        });
-                        var styledEdges = (data.edges || []).map(function(edge) {
-                            return Object.assign({}, edge, {
-                                width: 2,
-                                color: Object.assign({ opacity: 0.6 }, edge.color || {}),
-                                smooth: { type: 'continuous' }
-                            });
-                        });
-                        var options = {
-                            nodes: { shape: 'dot' },
-                            edges: { width: 2, smooth: { type: 'continuous' } },
-                            physics: {
-                                forceAtlas2Based: { gravitationalConstant: -60, centralGravity: 0.01, springLength: 120, springConstant: 0.04 },
-                                maxVelocity: 30, solver: 'forceAtlas2Based', timestep: 0.35,
-                                stabilization: { iterations: 150 }
-                            },
-                            interaction: { hover: true, tooltipDelay: 300, zoomView: true, dragView: true },
-                            layout: { improvedLayout: true }
-                        };
-                        var visData = { nodes: new vis.DataSet(styledNodes), edges: new vis.DataSet(styledEdges) };
-                        self._expandedNetwork = new vis.Network(canvas, visData, options);
-                        self._expandedNetwork.on('click', function(params) {
-                            if (params.nodes.length > 0) {
-                                var nodeId = params.nodes[0];
-                                var node = styledNodes.find(function(n) { return n.id === nodeId; });
-                                if (node && node.group !== 'center') {
-                                    var type = node._entityType;
-                                    if (type === 'ku' || type === 'ps') {
-                                        window.location.href = '/explore/' + type + '/' + node.id;
-                                    }
-                                }
-                            }
-                        });
+                    // Render a second network with the same data, sized up.
+                    var built = this._buildNetwork(
+                        canvas, window.SKUEL.graph.PROFILES.exploreExpanded
+                    );
+                    if (built) {
+                        this._expandedNetwork = built.network;
                     }
                 },
 
@@ -2544,29 +2666,18 @@
                     this.error = '';
                     if (previewOnly) { this.result = null; } else { this.preview = null; }
                     try {
-                        var resp = await fetch(endpoint, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-Token': window.SKUEL.csrf()
-                            },
-                            body: JSON.stringify({
-                                input_dir: this.inputDir,
-                                output_dir: this.outputDir,
-                                skip_existing: this.skipExisting,
-                                preview_only: previewOnly
-                            })
+                        var data = await window.SKUEL.postJson(endpoint, {
+                            input_dir: this.inputDir,
+                            output_dir: this.outputDir,
+                            skip_existing: this.skipExisting,
+                            preview_only: previewOnly
                         });
-                        var data = await resp.json();
-                        if (!resp.ok) {
-                            this.error = (data && data.error && data.error.message) ||
-                                (data && data.message) ||
-                                ('Request failed (' + resp.status + ')');
-                            return;
-                        }
                         if (previewOnly) { this.preview = data; } else { this.result = data; }
                     } catch (e) {
-                        this.error = 'Request failed: ' + (e && e.message ? e.message : e);
+                        // postJson already unwrapped the server's error message.
+                        this.error = (e && e.status)
+                            ? e.message
+                            : 'Request failed: ' + (e && e.message ? e.message : e);
                     } finally {
                         this.loading = false;
                     }
