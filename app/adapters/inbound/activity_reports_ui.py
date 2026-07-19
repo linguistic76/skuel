@@ -22,6 +22,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.text_truncation import truncate_to_budget
@@ -185,60 +186,48 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/reports/activity-list")
+    @ui_boundary_handler("Error loading activity feedback", fragment_id="activity-feedback-list")
     async def activity_report_list_fragment(request: Request) -> Any:
         """HTMX fragment: activity reports with optional time_period filter."""
-        try:
-            user_uid = require_authenticated_user(request)
-            if not orchestrator:
-                return Div(
-                    render_error_banner(
-                        "Activity feedback orchestrator unavailable", severity="warning"
-                    ),
-                    id="activity-feedback-list",
-                )
-            time_period = request.query_params.get("time_period", "")
-            result = await orchestrator.get_activity_report_history(user_uid, limit=50)
-            if result.is_error:
-                logger.error(f"Error loading activity feedback: {result.error}")
-                return Div(
-                    render_error_banner("Failed to load activity feedback", str(result.error)),
-                    id="activity-feedback-list",
-                )
-            reports = result.value or []
-            if time_period:
-                reports = [r for r in reports if getattr(r, "time_period", None) == time_period]
-            return render_activity_report_list(reports)
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading activity feedback list: {e}", exc_info=True)
+        user_uid = require_authenticated_user(request)
+        if not orchestrator:
             return Div(
-                render_error_banner("Error loading activity feedback", str(e)),
+                render_error_banner(
+                    "Activity feedback orchestrator unavailable", severity="warning"
+                ),
                 id="activity-feedback-list",
             )
+        time_period = request.query_params.get("time_period", "")
+        result = await orchestrator.get_activity_report_history(user_uid, limit=50)
+        if result.is_error:
+            logger.error(f"Error loading activity feedback: {result.error}")
+            return Div(
+                render_error_banner("Failed to load activity feedback", str(result.error)),
+                id="activity-feedback-list",
+            )
+        reports = result.value or []
+        if time_period:
+            reports = [r for r in reports if getattr(r, "time_period", None) == time_period]
+        return render_activity_report_list(reports)
 
     @rt("/reports/progress-list")
+    @ui_boundary_handler("Error loading progress reports", fragment_id="progress-list")
     async def progress_list_fragment(request: Request) -> Any:
         """HTMX fragment: progress reports."""
-        try:
-            user_uid = require_authenticated_user(request)
-            if not orchestrator:
-                return Div(
-                    render_error_banner("Submissions orchestrator unavailable"),
-                    id="progress-list",
-                )
-            result = await orchestrator.get_activity_report_history(user_uid, limit=10)
-            if result.is_error:
-                logger.error(f"Error loading progress reports: {result.error}")
-                return Div(
-                    render_error_banner("Failed to load progress reports", str(result.error)),
-                    id="progress-list",
-                )
-            return render_progress_report_list(result.value or [])
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading progress report list: {e}", exc_info=True)
+        user_uid = require_authenticated_user(request)
+        if not orchestrator:
             return Div(
-                render_error_banner("Error loading progress reports", str(e)),
+                render_error_banner("Submissions orchestrator unavailable"),
                 id="progress-list",
             )
+        result = await orchestrator.get_activity_report_history(user_uid, limit=10)
+        if result.is_error:
+            logger.error(f"Error loading progress reports: {result.error}")
+            return Div(
+                render_error_banner("Failed to load progress reports", str(result.error)),
+                id="progress-list",
+            )
+        return render_progress_report_list(result.value or [])
 
     # ========================================================================
     # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)

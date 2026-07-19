@@ -17,6 +17,7 @@ from adapters.inbound.boundary import (
     boundary_handler,
     result_to_exception,
     result_to_response,
+    ui_boundary_handler,
 )
 from core.utils.error_boundary import (
     exception_to_result,
@@ -751,6 +752,132 @@ async def test_boundary_handler_strips_internal_details():
     assert "details" not in body
     assert "stack_trace" not in body
     assert "source_location" not in body
+
+
+# ============================================================================
+# Test @ui_boundary_handler Decorator (UI/fragment routes)
+# ============================================================================
+
+
+class _FakeApp:
+    def __init__(self, debug: bool) -> None:
+        self.debug = debug
+
+
+class _FakeSettings:
+    def __init__(self, debug: bool) -> None:
+        self.application = _FakeApp(debug)
+
+
+@pytest.fixture
+def debug_off(monkeypatch):
+    """Settings stub — get_settings() needs real env config, unavailable in unit tests."""
+    from adapters.inbound import boundary
+
+    def fake_settings() -> _FakeSettings:
+        return _FakeSettings(debug=False)
+
+    monkeypatch.setattr(boundary, "get_settings", fake_settings)
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_passthrough_on_success():
+    """Successful handler output is returned untouched."""
+
+    @ui_boundary_handler("Error loading widgets")
+    async def mock_route():
+        return "the-fragment"
+
+    assert await mock_route() == "the-fragment"
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_renders_banner_on_exception(debug_off):
+    """Unexpected exceptions render an error banner instead of propagating."""
+    from fasthtml.common import to_xml
+
+    @ui_boundary_handler("Error loading widgets")
+    async def mock_route():
+        raise ValueError("boom")
+
+    html = to_xml(await mock_route())
+    assert "Error loading widgets" in html
+    assert 'role="alert"' in html
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_wraps_fragment_id(debug_off):
+    """fragment_id wraps the banner so HTMX swaps still target the right element."""
+    from fasthtml.common import to_xml
+
+    @ui_boundary_handler("Error loading feedback", fragment_id="feedback-list")
+    async def mock_route():
+        raise RuntimeError("boom")
+
+    html = to_xml(await mock_route())
+    assert 'id="feedback-list"' in html
+    assert "Error loading feedback" in html
+
+
+@pytest.mark.asyncio
+async def test_ui_boundary_handler_reraises_http_exception():
+    """Auth guards keep their semantics: HTTPException is never swallowed."""
+    from starlette.exceptions import HTTPException
+
+    @ui_boundary_handler("Error loading widgets")
+    async def mock_route():
+        raise HTTPException(status_code=401)
+
+    with pytest.raises(HTTPException):
+        await mock_route()
+
+
+def test_ui_boundary_handler_sync_handler(debug_off):
+    """Sync handlers (page shells) get the same boundary without becoming async."""
+
+    @ui_boundary_handler("Error loading page")
+    def mock_route():
+        raise ValueError("boom")
+
+    from fasthtml.common import to_xml
+
+    html = to_xml(mock_route())
+    assert "Error loading page" in html
+
+
+def test_ui_boundary_handler_sync_reraises_http_exception():
+    """Sync path re-raises HTTPException too."""
+    from starlette.exceptions import HTTPException
+
+    @ui_boundary_handler("Error loading page")
+    def mock_route():
+        raise HTTPException(status_code=401)
+
+    with pytest.raises(HTTPException):
+        mock_route()
+
+
+def test_ui_boundary_handler_details_hidden_by_default(monkeypatch):
+    """Technical details render only when application.debug is on."""
+    from fasthtml.common import to_xml
+
+    from adapters.inbound import boundary
+
+    @ui_boundary_handler("Error loading widgets")
+    def mock_route():
+        raise ValueError("secret internals")
+
+    def fake_settings_off() -> _FakeSettings:
+        return _FakeSettings(debug=False)
+
+    def fake_settings_on() -> _FakeSettings:
+        return _FakeSettings(debug=True)
+
+    monkeypatch.setattr(boundary, "get_settings", fake_settings_off)
+    assert "secret internals" not in to_xml(mock_route())
+
+    monkeypatch.setattr(boundary, "get_settings", fake_settings_on)
+    assert "secret internals" in to_xml(mock_route())
 
 
 if __name__ == "__main__":

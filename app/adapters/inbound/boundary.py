@@ -17,19 +17,22 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
+from inspect import iscoroutinefunction
 from json import JSONDecodeError
 from types import MappingProxyType
 from typing import Any, ParamSpec
 
-from fasthtml.common import FT, to_xml
+from fasthtml.common import FT, Div, to_xml
 from pydantic_core import to_jsonable_python
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
 from adapters.inbound.fasthtml_types import FastHTMLApp
+from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
+from ui.patterns.error_banner import render_error_banner
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +205,80 @@ def boundary_handler(
                 return JSONResponse({"error": "An internal error occurred"}, status_code=500)
 
         return wrapper
+
+    return decorator
+
+
+def ui_boundary_handler(
+    message: str,
+    fragment_id: str | None = None,
+) -> Callable[[Callable[P, Any]], Callable[P, Any]]:
+    """
+    Decorator for UI route handlers: unexpected exceptions render an error banner.
+
+    The HTML sibling of ``boundary_handler``. UI and HTMX-fragment routes return
+    FT nodes, so an unexpected exception must surface as a user-facing banner
+    (``render_error_banner``), not a JSON error body. Technical details are
+    rendered only in debug mode (``get_settings().application.debug``) — the
+    single place that wiring lives now.
+
+    ``HTTPException`` is always re-raised so auth guards keep their semantics:
+    ``require_authenticated_user`` inside a handler still produces a 401/login
+    redirect instead of a 200 with an error banner.
+
+    Args:
+        message: User-facing banner text; also prefixes the server-side log line.
+        fragment_id: When set, the banner is wrapped in ``Div(..., id=fragment_id)``
+            so an HTMX swap still targets the right element on failure.
+
+    Usage:
+        @rt("/reports/list")
+        @ui_boundary_handler("Error loading feedback", fragment_id="feedback-list")
+        async def entry_reports_list(request: Request) -> Any:
+            ...  # body needs no try/except scaffolding
+
+    Works on both sync and async handlers (UI shells are often sync,
+    fragments async).
+    """
+
+    def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
+        def render_failure(exc: Exception) -> FT:
+            banner = render_error_banner(
+                message,
+                technical_details=str(exc),
+                show_details=get_settings().application.debug,
+            )
+            return Div(banner, id=fragment_id) if fragment_id else banner
+
+        def log_failure(exc: Exception) -> None:
+            # exc_info=exc (not True): this helper runs outside the except frame (LOG014)
+            logger.error(f"{message} in {func.__name__}: {exc}", exc_info=exc)
+
+        if iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+                try:
+                    return await func(*args, **kwargs)
+                except HTTPException:
+                    raise  # Auth guards / redirects keep their status codes
+                except Exception as e:  # safety-net: UI boundary — catch-all after HTTPException
+                    log_failure(e)
+                    return render_failure(e)
+
+            return async_wrapper
+
+        @wraps(func)
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except HTTPException:
+                raise  # Auth guards / redirects keep their status codes
+            except Exception as e:  # safety-net: UI boundary — catch-all after HTTPException
+                log_failure(e)
+                return render_failure(e)
+
+        return sync_wrapper
 
     return decorator
 
