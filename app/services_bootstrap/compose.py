@@ -931,6 +931,7 @@ async def compose_services(
             backend=entry_report_backend,  # mastery-loop reads + canonical report-node creation
             ku_interaction_service=learning_services["ps"].mastery,  # closes mastery loop
             report_mastery_service=report_mastery_service,
+            event_bus=event_bus,  # EntryReportGenerated → ADR-051 result transition
         )
 
         exercise_backend = ExerciseBackend(
@@ -1754,6 +1755,7 @@ async def compose_services(
             group_backend=group_backend,
             ps_engagement=template_services["ps_engagement"],
             search_event_recorder=search_event_recorder,
+            interaction_service=interaction_service,
         )
         logger.info("✅ All services initialized")
 

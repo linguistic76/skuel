@@ -179,6 +179,7 @@ from core.events.learning_events import (
 from core.events.learning_loop_events import (
     ActivitySnapshotAccessed,
     AssessmentCreated,
+    EntryReportGenerated,
     ReportSubmitted,
     RevisedExerciseCreated,
     UserEntryApproved,
@@ -233,6 +234,7 @@ __all__ = [
     # Learning loop events
     "ActivitySnapshotAccessed",
     "AssessmentCreated",
+    "EntryReportGenerated",
     "ReportSubmitted",
     "RevisedExerciseCreated",
     "UserEntryApproved",
@@ -358,6 +360,7 @@ __all__ = [
 EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     # Learning loop
     "submission.report_submitted": ReportSubmitted,
+    "entry_report.generated": EntryReportGenerated,
     "user_entry.approved": UserEntryApproved,
     "user_entry.revision_requested": UserEntryRevisionRequested,
     "assessment.created": AssessmentCreated,
@@ -549,6 +552,7 @@ def list_event_types() -> list[str]:
 
 LEARNING_LOOP_EVENTS = [
     ReportSubmitted,
+    EntryReportGenerated,
     UserEntryApproved,
     AssessmentCreated,
     ActivitySnapshotAccessed,

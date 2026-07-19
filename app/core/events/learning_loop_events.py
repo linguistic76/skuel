@@ -44,6 +44,31 @@ class ReportSubmitted(BaseEvent):
 
 
 @dataclass(frozen=True)
+class EntryReportGenerated(BaseEvent):
+    """Published when an AI EntryReport is persisted for an exercise turn-in.
+
+    The AI-report counterpart of ``ReportSubmitted`` (which stays
+    teacher-specific — its notification semantics say "your teacher reviewed
+    this"). Subscribers that care about "a report now exists" regardless of
+    author — e.g. the ADR-051 InteractionResult handler — listen to both.
+
+    ``source`` carries the ``ReportSource`` enum value (``llm`` today; the
+    journal-response path does not publish — journal entries are not
+    turn-ins and have no Interaction record).
+    """
+
+    entry_uid: str
+    report_uid: str
+    student_uid: str
+    source: str
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def event_type(self) -> str:
+        return "entry_report.generated"
+
+
+@dataclass(frozen=True)
 class UserEntryApproved(BaseEvent):
     """Published when a teacher explicitly approves a user entry.
 

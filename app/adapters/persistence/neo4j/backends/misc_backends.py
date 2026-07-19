@@ -12,6 +12,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.models.enums.interaction_enums import InteractionResult
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
@@ -178,9 +179,47 @@ class InteractionBackend(UniversalNeo4jBackend["Interaction"]):
     Records situated learning-loop events: who submitted what, while studying
     which PathStep, within which LearningPath.
 
-    Inherits full CRUD + list from UniversalNeo4jBackend — no custom Cypher
-    needed in Phase 1. Future ZPD integration will add traversal queries here.
+    Inherits full CRUD + list from UniversalNeo4jBackend. Phase 2 adds the
+    guarded ``result_status`` transition. Future ZPD integration will add
+    traversal queries here.
     """
+
+    async def update_result_status_for_entry(
+        self,
+        entry_uid: str,
+        new_status: InteractionResult,
+        allowed_from: tuple[InteractionResult, ...],
+    ) -> Result[int]:
+        """Transition ``result_status`` on the Interaction recording a UserEntry.
+
+        Matches on ``source_entity_uid`` (always stamped at creation; the
+        RECORDS edge is best-effort) and applies the transition only when the
+        current status is in ``allowed_from`` — the forward-only guard runs
+        server-side so concurrent events cannot interleave a demotion.
+
+        Returns the number of transitioned records: 0 is a valid no-op
+        (entry has no Interaction — e.g. a journal entry — or the guard
+        rejected a stale transition).
+        """
+        result = await self.execute_query(
+            """
+            MATCH (i:Entity:Interaction {source_entity_uid: $entry_uid})
+            WHERE i.result_status IN $allowed_from
+            SET i.result_status = $new_status,
+                i.updated_at = datetime()
+            RETURN count(i) AS transitioned
+            """,
+            {
+                "entry_uid": entry_uid,
+                "new_status": new_status.value,
+                "allowed_from": [status.value for status in allowed_from],
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        transitioned = int(rows[0].get("transitioned", 0)) if rows else 0
+        return Result.ok(transitioned)
 
 
 class ReportScheduleBackend(UniversalNeo4jBackend["ReportSchedule"]):

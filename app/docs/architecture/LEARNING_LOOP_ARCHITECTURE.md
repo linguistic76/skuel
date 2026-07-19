@@ -415,7 +415,9 @@ Neo4j entity capturing *where in the curriculum* the student was when they submi
 **EntityType:** `EntityType.INTERACTION` (22nd entity type)
 **UID prefix:** `ia_`
 **Key fields:** `context_path_step_uid`, `context_learning_path_uid`, `target_uid` (exercise),
-`source_entity_uid` (back-pointer to UserEntry), `result_status` (PENDING → COMPLETED)
+`source_entity_uid` (back-pointer to UserEntry), `result_status` (forward-only:
+PENDING → SHARED_WITH_TEACHER → REPORT_GENERATED → COMPLETED, or FAILED pre-report —
+transitions driven by the report pipeline via `interaction_result_handler`, ADR-051 Phase 2)
 
 **Graph relationships:**
 ```cypher

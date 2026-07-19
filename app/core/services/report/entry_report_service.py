@@ -20,6 +20,8 @@ Following SKUEL principles:
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.events import publish_event
+from core.events.learning_loop_events import EntryReportGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import Pipeline, ReportSource
@@ -36,6 +38,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
+    from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.report_protocols import EntryReportBackendOperations
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
@@ -62,6 +65,7 @@ class EntryReportService:
         ku_interaction_service: "PsMasteryService | None" = None,
         report_mastery_service: "ReportMasteryService | None" = None,
         entry_service: "UserEntryService | None" = None,
+        event_bus: "EventBusOperations | None" = None,
     ) -> None:
         """
         Initialize with LLM caller and domain backends.
@@ -83,12 +87,17 @@ class EntryReportService:
             entry_service: Optional — UserEntryService facade used by
                 ``generate_entry_response`` for the ownership-verified entry
                 fetch and the journal-chain eligibility check (TRANSFORMS edge).
+            event_bus: Optional — publishes ``EntryReportGenerated`` after an
+                AI report persists (drives the ADR-051 InteractionResult
+                transition; the teacher path publishes ``ReportSubmitted``
+                from TeacherReviewService instead).
         """
         self.llm_caller = llm_caller
         self.backend = backend
         self.ku_interaction_service = ku_interaction_service
         self.report_mastery_service = report_mastery_service
         self.entry_service = entry_service
+        self.event_bus = event_bus
         self.logger = logger
 
         available = []
@@ -532,6 +541,17 @@ class EntryReportService:
                 await self._update_mastery_for_linked_ku(
                     submission, user_uid, exercise.mastery_impact
                 )
+
+            await publish_event(
+                self.event_bus,
+                EntryReportGenerated(
+                    entry_uid=submission.uid,
+                    report_uid=report_entity_uid,
+                    student_uid=str(student_uid),
+                    source=ReportSource.LLM.value,
+                ),
+                self.logger,
+            )
 
             return Result.ok(feedback_entity)
 

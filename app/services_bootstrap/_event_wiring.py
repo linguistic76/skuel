@@ -22,6 +22,7 @@ def _wire_event_subscribers(
     group_backend: Any,
     ps_engagement: Any,
     search_event_recorder: Any,
+    interaction_service: Any,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
 
@@ -95,6 +96,7 @@ def _wire_event_subscribers(
         KnowledgeReflectedInEntry,
     )
     from core.events.learning_loop_events import (
+        EntryReportGenerated,
         ReportSubmitted,
         RevisedExerciseCreated,
         UserEntryApproved,
@@ -247,6 +249,46 @@ def _wire_event_subscribers(
     logger.info(
         "✅ LearningLoopEventHandlerService subscribed to UserEntryCreated, "
         "ReportSubmitted, UserEntryApproved (iteration tracking + feedback turnaround + mastery velocity)"
+    )
+
+    # Interaction result-status transitions (ADR-051 Phase 2) — the audit
+    # record moves PENDING → REPORT_GENERATED → COMPLETED (or FAILED) as the
+    # report pipeline progresses. SHARED_WITH_TEACHER is recorded directly by
+    # UserEntryService.create_entry (only it knows the share outcome).
+    from core.events.handlers import interaction_result_handler
+
+    event_bus.subscribe(
+        ReportSubmitted,
+        functools.partial(
+            interaction_result_handler.handle_report_submitted,
+            interaction_service=interaction_service,
+        ),
+    )
+    event_bus.subscribe(
+        EntryReportGenerated,
+        functools.partial(
+            interaction_result_handler.handle_entry_report_generated,
+            interaction_service=interaction_service,
+        ),
+    )
+    event_bus.subscribe(
+        UserEntryApproved,
+        functools.partial(
+            interaction_result_handler.handle_entry_approved,
+            interaction_service=interaction_service,
+        ),
+    )
+    event_bus.subscribe(
+        UserEntryProcessingFailed,
+        functools.partial(
+            interaction_result_handler.handle_processing_failed,
+            interaction_service=interaction_service,
+        ),
+    )
+    logger.info(
+        "✅ Interaction result handler subscribed to ReportSubmitted, "
+        "EntryReportGenerated, UserEntryApproved, UserEntryProcessingFailed "
+        "(ADR-051 Phase 2 result_status transitions)"
     )
 
     # Learning events (user_uid may be absent on curriculum-level events)
