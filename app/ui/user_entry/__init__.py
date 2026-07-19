@@ -6,7 +6,7 @@ controls (replaced the legacy ``ui/submissions/forms.py``'s
 (Entry-Enrichment PR 4).
 """
 
-from ui.user_entry.forms import render_upload_form, upload_form_script
+from ui.user_entry.forms import render_upload_form
 from ui.user_entry.knowledge_notes import render_knowledge_notes_list
 
-__all__ = ["render_knowledge_notes_list", "render_upload_form", "upload_form_script"]
+__all__ = ["render_knowledge_notes_list", "render_upload_form"]

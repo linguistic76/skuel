@@ -530,11 +530,11 @@ CI Gate is the sole automatic check. Codex review is on-demand via `scripts/requ
 |------|--------|----------|
 | SKUEL001 | No APOC in `core/` (docstring-aware; unsuppressable) | CRITICAL |
 | SKUEL003 | `.is_error` not `.is_err` | ERROR |
-| SKUEL007 | `Errors` factory (incl. `str(...)` wraps) — services + `adapters/inbound/`, `ui/`, `api/` | WARNING |
+| SKUEL007 | `Errors` factory (incl. `str(...)` wraps) — services + `adapters/inbound/`, `ui/` | WARNING |
 | SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |
 | SKUEL012 | No lambda — named functions | ERROR |
-| SKUEL013 | `RelationshipName` enum — services + `adapters/inbound/`, `ui/`, `api/` | ERROR |
-| SKUEL014 | `EntityType`/`NonKuDomain` enum — services + `adapters/inbound/`, `ui/`, `api/` | ERROR |
+| SKUEL013 | `RelationshipName` enum — services + `adapters/inbound/`, `ui/` | ERROR |
+| SKUEL014 | `EntityType`/`NonKuDomain` enum — services + `adapters/inbound/`, `ui/` | ERROR |
 | SKUEL015 | No `print()` in production | ERROR |
 | SKUEL016 | No Poetry refs — SKUEL uses uv | ERROR |
 | SKUEL017 | No bare `except Exception` — specific types from `exception_types.py` | ERROR |

@@ -239,7 +239,7 @@ previously matched literals only and carried line-based exemptions for
 `str(result.error)` shape; both gaps are closed.
 
 **Scope:** any `/services/` path **plus the inbound/presentation layers** —
-`adapters/inbound/`, `ui/`, and `api/` (widened 2026-07, same layers as
+`adapters/inbound/` and `ui/` (widened 2026-07, same layers as
 SKUEL013/SKUEL014). Test files are skipped.
 
 ## Rule: SKUEL012 - Lambda Expressions
@@ -302,7 +302,7 @@ name embedded in a longer string (Cypher text, log messages) is not an exact mat
 so no Cypher-context heuristics are needed.
 
 **Scope:** any `/services/` path **plus the inbound/presentation layers** —
-`adapters/inbound/`, `ui/`, and `api/` (widened 2026-07: raw relationship strings
+`adapters/inbound/` and `ui/` (widened 2026-07: raw relationship strings
 crept into routes and renderers too, e.g. GraphQL edge builders). Test files are
 skipped. `adapters/persistence/` is below the boundary and stays out of scope —
 Cypher there interpolates `RelationshipName.X.value` by convention, guarded by
@@ -369,7 +369,7 @@ comparison routed through it is enum-safe, just a different taxonomy. Plain stri
 literals outside comparisons (dict keys, log messages) are deliberately not flagged.
 
 **Scope:** any `/services/` path **plus the inbound/presentation layers** —
-`adapters/inbound/`, `ui/`, and `api/` (widened 2026-07, same layers as SKUEL013).
+`adapters/inbound/` and `ui/` (widened 2026-07, same layers as SKUEL013).
 Test files are skipped.
 
 **Catalog (2026-07):** `ENTITY_TYPE_ENUM_VALUES` mirrors the **complete**

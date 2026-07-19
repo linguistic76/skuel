@@ -54,7 +54,7 @@ from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.hub import HubSection, MocCard, hub_cards_from_organizers
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
-from ui.user_entry.forms import render_upload_form, upload_form_script
+from ui.user_entry.forms import render_upload_form
 from ui.user_entry.knowledge_notes import render_knowledge_notes_list
 from ui.workbench.nav import render_submissions_sidebar_page
 
@@ -305,7 +305,6 @@ def create_user_entry_ui_routes(
                 from_ps=from_ps,
                 user_groups=user_groups,
             ),
-            upload_form_script(),
         )
         return render_submissions_sidebar_page(
             content=content,
