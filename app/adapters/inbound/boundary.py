@@ -21,10 +21,11 @@ from json import JSONDecodeError
 from types import MappingProxyType
 from typing import Any, ParamSpec
 
+from fasthtml.common import FT, to_xml
 from pydantic_core import to_jsonable_python
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, Response
 
 from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.utils.logging import get_logger
@@ -67,7 +68,7 @@ def jsonable_content(content: Any) -> Any:  # boundary: json-serialization (see 
 # ============================================================================
 
 
-def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONResponse:
+def result_to_response[T](result: Result[T], success_status: int = 200) -> Response:
     """
     Convert a Result to an HTTP JSON response.
     Used at route boundaries to convert service Results to HTTP responses.
@@ -94,6 +95,13 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
     """
     if result.is_ok:
         content = result.value
+
+        # Result[FT] handlers (the documented fragment convention) render as
+        # HTML — jsonable_content cannot serialize FT nodes, so without this
+        # branch every Result-wrapped fragment 500'd on SUCCESS.
+        if isinstance(content, FT):
+            return HTMLResponse(to_xml(content), status_code=success_status)
+
         headers = {}
 
         # Extract _headers if present in dict response
@@ -198,7 +206,7 @@ def boundary_handler(
     return decorator
 
 
-def malformed_json_handler(request: Request, exc: Exception) -> JSONResponse:
+def malformed_json_handler(request: Request, exc: Exception) -> Response:
     """Map a body-parse ``JSONDecodeError`` to a 400 validation response.
 
     FastHTML pre-parses ``application/json`` bodies during parameter
@@ -273,7 +281,7 @@ def instrument_with_boundary_handler(
 
     def decorator(handler: Callable) -> Callable:
         @wraps(handler)
-        async def wrapper(request, *args: Any, **kwargs: Any) -> JSONResponse:
+        async def wrapper(request, *args: Any, **kwargs: Any) -> Response:
             start_time = time.time()
             method = request.method
             status_code = success_status
