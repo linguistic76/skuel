@@ -174,8 +174,8 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         UserEntryProcessingCompleted: 1,
         UserEntryProcessingFailed: 2,  # invalidate + interaction FAILED transition
         UserEntryApproved: 3,  # student notification + learning-loop tracking + interaction COMPLETED
-        UserEntryRevisionRequested: 1,
-        ReportSubmitted: 3,  # student notification + learning-loop tracking + interaction REPORT_GENERATED
+        UserEntryRevisionRequested: 2,  # student notification + interaction REPORT_GENERATED
+        ReportSubmitted: 3,  # student notification + learning-loop tracking + interaction COMPLETED
         RevisedExerciseCreated: 1,
         EntryReportGenerated: 1,  # interaction REPORT_GENERATED (AI report path, ADR-051)
         # Curriculum / learning

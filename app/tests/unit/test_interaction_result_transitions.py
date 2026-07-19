@@ -15,6 +15,7 @@ from core.events.learning_loop_events import (
     EntryReportGenerated,
     ReportSubmitted,
     UserEntryApproved,
+    UserEntryRevisionRequested,
 )
 from core.events.user_entry_events import UserEntryProcessingFailed
 from core.models.enums.interaction_enums import InteractionResult
@@ -145,7 +146,10 @@ def _make_interaction_service(result: Result | None = None) -> MagicMock:
 
 class TestInteractionResultHandler:
     @pytest.mark.asyncio
-    async def test_report_submitted_marks_report_generated(self):
+    async def test_report_submitted_marks_completed(self):
+        """submit_report is the terminal approving path — the submission itself
+        transitions to COMPLETED+APPROVED, so the interaction completes too
+        (Codex P2 on PR #730: REPORT_GENERATED would strand it non-terminal)."""
         svc = _make_interaction_service()
         event = ReportSubmitted(
             submission_uid=ENTRY_UID,
@@ -154,6 +158,20 @@ class TestInteractionResultHandler:
             report_uid="er_001",
         )
         await interaction_result_handler.handle_report_submitted(event, svc)
+        svc.record_result.assert_awaited_once_with(ENTRY_UID, InteractionResult.COMPLETED)
+
+    @pytest.mark.asyncio
+    async def test_revision_requested_marks_report_generated(self):
+        """Both revision paths persist an EntryReport before publishing this
+        event — the report exists but the loop continues (non-terminal)."""
+        svc = _make_interaction_service()
+        event = UserEntryRevisionRequested(
+            entity_uid=ENTRY_UID,
+            teacher_uid="user_teacher",
+            student_uid="user_student",
+            revision_notes="tighten the argument",
+        )
+        await interaction_result_handler.handle_revision_requested(event, svc)
         svc.record_result.assert_awaited_once_with(ENTRY_UID, InteractionResult.REPORT_GENERATED)
 
     @pytest.mark.asyncio

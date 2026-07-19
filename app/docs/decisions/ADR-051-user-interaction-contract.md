@@ -95,8 +95,8 @@ result.
    | Transition | Trigger | Mechanism |
    |---|---|---|
    | → SHARED_WITH_TEACHER | TEACHER_REVIEW turn-in shared successfully | Direct call in `UserEntryService.create_entry` (only it knows the share outcome) |
-   | → REPORT_GENERATED | Teacher feedback (`ReportSubmitted`) or AI report (`EntryReportGenerated`, new event) | `core/events/handlers/interaction_result_handler.py` |
-   | → COMPLETED | Teacher approval (`UserEntryApproved`) | same handler |
+   | → REPORT_GENERATED | AI report (`EntryReportGenerated`, new event) or revision report (`UserEntryRevisionRequested`) — a report exists, loop continues | `core/events/handlers/interaction_result_handler.py` |
+   | → COMPLETED | Terminal teacher feedback (`ReportSubmitted` — `submit_report` marks the submission COMPLETED+APPROVED) or post-revision approval (`UserEntryApproved`) | same handler |
    | → FAILED | Pipeline error (`UserEntryProcessingFailed`) | same handler |
 
    Entries with no Interaction record (journal entries, living vault entries)

@@ -382,10 +382,12 @@ fields in UserEntry would bury them.
 **Result lifecycle (ADR-051 Phase 2, wired 2026-07-19):** `result_status` transitions
 forward-only as the report pipeline progresses. `SHARED_WITH_TEACHER` is recorded
 directly by `UserEntryService.create_entry` after a successful TEACHER_REVIEW share;
-`REPORT_GENERATED` / `COMPLETED` / `FAILED` are event-driven via
-`core/events/handlers/interaction_result_handler.py` (subscribed to `ReportSubmitted`,
-`EntryReportGenerated`, `UserEntryApproved`, `UserEntryProcessingFailed`). The
-transition guard lives on `InteractionResult.allowed_from()` and runs server-side in
+the rest are event-driven via `core/events/handlers/interaction_result_handler.py`:
+`EntryReportGenerated` (AI report) and `UserEntryRevisionRequested` (revision report)
+→ REPORT_GENERATED; `ReportSubmitted` (terminal approving feedback — `submit_report`
+marks the submission COMPLETED+APPROVED) and `UserEntryApproved` (post-revision
+approval) → COMPLETED; `UserEntryProcessingFailed` → FAILED. The transition guard
+lives on `InteractionResult.allowed_from()` and runs server-side in
 `InteractionBackend.update_result_status_for_entry` — stale events are logged no-ops.
 
 **Phase 2 (deferred):** ZPD and Askesis will query Interaction nodes to reason about

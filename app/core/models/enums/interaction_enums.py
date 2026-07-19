@@ -38,8 +38,10 @@ class InteractionResult(StrEnum):
 
     PENDING:             Interaction recorded, result not yet known.
     SHARED_WITH_TEACHER: Submission was shared with a teacher for review.
-    REPORT_GENERATED:    An EntryReport (teacher or AI) was created for the entry.
-    COMPLETED:           Teacher approved the entry — terminal.
+    REPORT_GENERATED:    A non-terminal EntryReport exists (AI report or teacher
+                         revision request) — the loop continues.
+    COMPLETED:           Terminal teacher outcome — approving feedback
+                         (submit_report) or post-revision approval.
     FAILED:              Pipeline processing failed before a report existed — terminal.
 
     Transitions are validated by ``allowed_from()``; a stale event can never

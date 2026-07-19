@@ -6,9 +6,14 @@ Transitions ``Interaction.result_status`` as the report pipeline progresses.
 The Interaction audit record is created at turn-in time with
 ``result_status=PENDING``; these handlers move it forward:
 
-  ReportSubmitted             → REPORT_GENERATED  (teacher wrote feedback)
+  ReportSubmitted             → COMPLETED         (submit_report is the terminal
+                                                   approving path: it marks the
+                                                   submission COMPLETED+APPROVED)
   EntryReportGenerated        → REPORT_GENERATED  (AI report persisted)
-  UserEntryApproved           → COMPLETED         (teacher approved — terminal)
+  UserEntryRevisionRequested  → REPORT_GENERATED  (revision report exists; the
+                                                   loop continues — approval
+                                                   arrives later as UserEntryApproved)
+  UserEntryApproved           → COMPLETED         (post-revision approval — terminal)
   UserEntryProcessingFailed   → FAILED            (pipeline broke pre-report)
 
 The SHARED_WITH_TEACHER transition is NOT event-driven — only
@@ -34,6 +39,7 @@ from core.events.learning_loop_events import (
     EntryReportGenerated,
     ReportSubmitted,
     UserEntryApproved,
+    UserEntryRevisionRequested,
 )
 from core.events.user_entry_events import UserEntryProcessingFailed
 from core.models.enums.interaction_enums import InteractionResult
@@ -63,8 +69,15 @@ async def handle_report_submitted(
     event: ReportSubmitted,
     interaction_service: InteractionService,
 ) -> None:
-    """Teacher feedback report created → REPORT_GENERATED."""
-    await _record(interaction_service, event.submission_uid, InteractionResult.REPORT_GENERATED)
+    """Teacher feedback submitted → COMPLETED.
+
+    ``TeacherReviewService.submit_report`` is the terminal approving path —
+    its Cypher transitions the submission itself to COMPLETED with
+    ``assessment_outcome=APPROVED``, so the interaction is fully processed
+    (REPORT_GENERATED would strand approved submissions non-terminal; the
+    revision path publishes UserEntryRevisionRequested instead).
+    """
+    await _record(interaction_service, event.submission_uid, InteractionResult.COMPLETED)
 
 
 async def handle_entry_report_generated(
@@ -73,6 +86,20 @@ async def handle_entry_report_generated(
 ) -> None:
     """AI report persisted → REPORT_GENERATED."""
     await _record(interaction_service, event.entry_uid, InteractionResult.REPORT_GENERATED)
+
+
+async def handle_revision_requested(
+    event: UserEntryRevisionRequested,
+    interaction_service: InteractionService,
+) -> None:
+    """Revision report created → REPORT_GENERATED (non-terminal).
+
+    Both revision paths (``request_revision`` and
+    ``request_revision_with_exercise``) persist an EntryReport before
+    publishing this event; the loop continues and terminal COMPLETED
+    arrives later via UserEntryApproved (``approve_report``).
+    """
+    await _record(interaction_service, event.entity_uid, InteractionResult.REPORT_GENERATED)
 
 
 async def handle_entry_approved(
