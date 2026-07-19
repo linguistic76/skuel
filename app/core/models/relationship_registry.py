@@ -2196,14 +2196,16 @@ ENTRY_REPORT_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title", "status", "user_uid"),
             single=True,
         ),
-        # Outgoing: EntryReport → User (teacher assessment targets the student)
+        # Outgoing: EntryReport → User (teacher assessment targets the student).
+        # User nodes store the username in `title` (create_user: title=username);
+        # a `username` node property never existed.
         UnifiedRelationshipDefinition(
             RelationshipName.ASSESSMENT_OF,
             "User",
             "outgoing",
             "assessed_student",
             "assessed_student",
-            fields=("uid", "username", "display_name"),
+            fields=("uid", "title", "display_name"),
             single=True,
         ),
         # Incoming: RevisedExercise → EntryReport (revision addressing this report)
