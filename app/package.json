@@ -7,16 +7,20 @@
     "css:build": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css",
     "css:watch": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch",
     "css:prod": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css --minify",
-    "vendor:copy": "node scripts/copy-vendor-libs.js"
+    "vendor:copy": "node scripts/copy-vendor-libs.js",
+    "test:js": "vitest run",
+    "test:js:watch": "vitest"
   },
   "dependencies": {
     "chart.js": "^4.4.7",
-    "vis-timeline": "^7.7.3",
-    "frappe-gantt": "^0.6.1"
+    "frappe-gantt": "^0.6.1",
+    "vis-timeline": "^7.7.3"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.0",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^3.4.0",
-    "@tailwindcss/typography": "^0.5.0"
+    "vitest": "^4.1.10"
   },
   "author": "SKUEL",
   "license": "UNLICENSED"

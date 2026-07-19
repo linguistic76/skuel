@@ -113,6 +113,11 @@ case "$1" in
     uv run python scripts/run_tests.py unit
     ;;
 
+  test-js)
+    echo -e "${GREEN}Running JS tests (vitest, static/js/)${NC}"
+    npm run test:js
+    ;;
+
   test-quick)
     echo -e "${GREEN}Running quick smoke test${NC}"
     uv run python scripts/run_tests.py quick
@@ -258,6 +263,7 @@ case "$1" in
     echo "  ./dev test-all          - Everything under tests/ (needs Docker)"
     echo "  ./dev test-integration  - Integration tests (local Docker Neo4j)"
     echo "  ./dev test-unit         - Unit tests — fast CI tier (no Docker) [FASTEST]"
+    echo "  ./dev test-js           - JS tests — vitest over static/js/ (npm run test:js)"
     echo "  ./dev test-quick        - Quick smoke subset (integration + auth + errors)"
     echo ""
     echo "Dependencies:"
