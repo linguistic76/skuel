@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from adapters.persistence.neo4j.query import UnifiedQueryBuilder
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
@@ -82,6 +82,16 @@ class _SearchMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         logger: logging.Logger
         entity_class: type[T]
         label: NeoLabel
@@ -177,12 +187,10 @@ class _SearchMixin[T: DomainModelProtocol]:
         LIMIT $limit
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        records = await self._run_records(query, params)
 
-            entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
-            return Result.ok(entities)
+        entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
+        return Result.ok(entities)
 
     @safe_backend_operation("search")
     async def search(self, query: str, limit: int = 10) -> Result[builtins.list[T]]:
@@ -222,12 +230,10 @@ class _SearchMixin[T: DomainModelProtocol]:
         params: dict[str, Any] = {"query": query, "limit": limit}
         params.update(self._default_filter_params())
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, params)
-            records = await result.data()
+        records = await self._run_records(cypher, params)
 
-            entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
-            return Result.ok(entities)
+        entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
+        return Result.ok(entities)
 
     @safe_backend_operation("find_by")
     async def find_by(self, limit: int = 100, **filters: Any) -> Result[builtins.list[T]]:
@@ -302,16 +308,14 @@ class _SearchMixin[T: DomainModelProtocol]:
 
         query, params = query_builder.build()
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            records = await result.data()
+        records = await self._run_records(query, params)
 
-            entities = [from_neo4j_node(r["n"], self.entity_class) for r in records]
+        entities = [from_neo4j_node(r["n"], self.entity_class) for r in records]
 
-            # Track metrics
-            self._track_db_metrics("read", time.time() - start_time, is_error=False)
+        # Track metrics
+        self._track_db_metrics("read", time.time() - start_time, is_error=False)
 
-            return Result.ok(entities)
+        return Result.ok(entities)
 
     @safe_backend_operation("count")
     async def count(self, **filters: Any) -> Result[int]:
@@ -337,11 +341,9 @@ class _SearchMixin[T: DomainModelProtocol]:
         """Check database health for any entity type."""
         cypher = "RETURN 1 as alive"
 
-        async with self.driver.session() as session:
-            result = await session.run(cypher, {})
-            record = await result.single()
+        record = await self._run_single(cypher, {})
 
-            return Result.ok(record and record["alive"] == 1)
+        return Result.ok(bool(record and record["alive"] == 1))
 
     # ============================================================================
     # B: RAW GRAPH CONTEXT (DOMAIN-AGNOSTIC)
@@ -392,16 +394,14 @@ class _SearchMixin[T: DomainModelProtocol]:
             )
 
             # Execute query
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                record = await result.single()
+            record = await self._run_single(query, params)
 
-                if not record:
-                    return Result.ok([])  # No context found (not an error)
+            if not record:
+                return Result.ok([])  # No context found (not an error)
 
-                # Return raw domain_context list
-                domain_context = record.get("domain_context", [])
-                return Result.ok(domain_context)
+            # Return raw domain_context list
+            domain_context = record.get("domain_context", [])
+            return Result.ok(domain_context)
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get raw domain context: {e}")

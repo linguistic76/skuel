@@ -18,6 +18,7 @@ from __future__ import annotations
 import inspect
 
 from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
+from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 
 # Cypher is built with f-strings, so source shows the templated forms: the User
 # match doubles its braces and the edge type interpolates the _HAS_SESSION const.
@@ -38,9 +39,10 @@ _OWNER_SCOPED_METHODS = [
 
 def test_backend_is_standalone_thin_class() -> None:
     # NOT a UniversalNeo4jBackend subclass — routing through the universal path
-    # would auto-wire the search/embedding machinery ADR-078 §2 forbids. object
-    # is the only base beyond the class itself.
-    assert ConversationBackend.__mro__[1:] == (object,)
+    # would auto-wire the search/embedding machinery ADR-078 §2 forbids.
+    # Neo4jSessionRunner is allowed: it is the session-run chokepoint only
+    # (open/run/drain a session), carrying none of the universal machinery.
+    assert ConversationBackend.__mro__[1:] == (Neo4jSessionRunner, object)
 
 
 def test_every_owner_scoped_method_anchors_on_the_owner() -> None:
@@ -82,5 +84,7 @@ def test_save_transcript_is_one_transaction() -> None:
     assert "CREATE (u)-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL}" in source
     assert "UNWIND $turns AS turn" in source
     assert "CREATE (s)-[:{_HAS_TURN}" in source
-    # Single driver.session() block → one transaction for the whole subtree.
-    assert source.count("self.driver.session()") == 1
+    # Single statement via the session-run chokepoint → one implicit
+    # transaction for the whole subtree (no create-then-append shape).
+    assert source.count("self._run_single(") == 1
+    assert "self.driver.session()" not in source

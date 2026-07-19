@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, Record
 
     from core.models.enums.neo_labels import NeoLabel
 
@@ -55,6 +55,16 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
     if TYPE_CHECKING:
         driver: AsyncDriver
+
+        # Session-run chokepoint (Neo4jSessionRunner)
+        async def _run_single(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> Record | None: ...
+
+        async def _run_records(
+            self, query: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]]: ...
+
         logger: logging.Logger
         label: NeoLabel
         entity_class: type[T]
@@ -170,11 +180,9 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         RETURN r
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query, {"user_uid": user_uid, "entity_uid": entity_uid, "props": props}
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query, {"user_uid": user_uid, "entity_uid": entity_uid, "props": props}
+        )
 
         if not record:
             return Result.fail(
@@ -340,9 +348,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         RETURN count(e) as count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, params)
-            record = await result.single()
+        record = await self._run_single(query, params)
 
         count = record["count"] if record else 0
         return Result.ok(count)
@@ -387,16 +393,14 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         RETURN r.access_count as count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "entity_uid": entity_uid,
-                    "now": datetime.now().isoformat(),
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "user_uid": user_uid,
+                "entity_uid": entity_uid,
+                "now": datetime.now().isoformat(),
+            },
+        )
 
         if not record:
             return Result.fail(
@@ -449,9 +453,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         RETURN count(r) as deleted
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"user_uid": user_uid, "entity_uid": entity_uid})
-            record = await result.single()
+        record = await self._run_single(query, {"user_uid": user_uid, "entity_uid": entity_uid})
 
         deleted = (record and record["deleted"] > 0) if record else False
 

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import Div, Form, Input, NotStr, Option, Script
+from fasthtml.common import Div, Form, Input, Option, Script
 
 from ui.activity_review.types import DOMAIN_CHOICES
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
@@ -112,20 +112,7 @@ def render_feedback_form(subject_uid: str = "", time_period: str = "7d") -> Any:
                 hx_include="[name='subject_uid'],[name='time_period'],[name='feedback_text']",
             ),
             # Sync hidden fields from snapshot form before posting
-            Script(
-                NotStr("""
-            document.body.addEventListener('htmx:afterRequest', function(evt) {
-                if (evt.detail.elt.getAttribute('hx-target') === '#snapshot-display') {
-                    var subjectEl = document.getElementById('snapshot-subject-uid');
-                    var periodEl = document.getElementById('snapshot-time-period');
-                    var fbSubjectEl = document.getElementById('feedback-subject-uid');
-                    var fbPeriodEl = document.getElementById('feedback-time-period');
-                    if (subjectEl && fbSubjectEl) fbSubjectEl.value = subjectEl.value;
-                    if (periodEl && fbPeriodEl) fbPeriodEl.value = periodEl.value;
-                }
-            });
-            """)
-            ),
+            Script(src="/static/js/activity-review.js"),
         ),
         cls="mt-4",
     )

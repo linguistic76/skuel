@@ -33,6 +33,7 @@ from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_checkin
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.enums.user_enums import UserStatus
 from core.models.type_hints import UserUID
 from core.models.user import User
@@ -52,7 +53,7 @@ logger = get_logger(__name__)
 _APPEND_ONLY_FIELDS: frozenset[str] = frozenset({"dual_track_checkins", "knowledge_checkins"})
 
 
-class UserBackend:
+class UserBackend(Neo4jSessionRunner):
     """
     Dedicated backend for User identity management.
 
@@ -100,9 +101,7 @@ class UserBackend:
         RETURN u
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"value": value})
-            record = await result.single()
+        record = await self._run_single(query, {"value": value})
 
         if not record:
             return Result.ok(None)
@@ -138,11 +137,9 @@ class UserBackend:
         RETURN r
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query, {"user_uid": user_uid, "target_uid": target_uid, **params}
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query, {"user_uid": user_uid, "target_uid": target_uid, **params}
+        )
 
         return record is not None
 
@@ -171,9 +168,7 @@ class UserBackend:
         RETURN u
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"properties": user_dict})
-            record = await result.single()
+        record = await self._run_single(query, {"properties": user_dict})
 
         if not record:
             return Result.fail(
@@ -264,9 +259,7 @@ class UserBackend:
         RETURN u
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uid": uid, "updates": updates})
-            record = await result.single()
+        record = await self._run_single(query, {"uid": uid, "updates": updates})
 
         if not record:
             return Result.fail(Errors.not_found(resource="User", identifier=uid))
@@ -392,16 +385,14 @@ class UserBackend:
         RETURN count(u) as deleted_count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "uid": user_uid,
-                    "deleted_status": UserStatus.DELETED.value,
-                    "now": now_iso,
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "uid": user_uid,
+                "deleted_status": UserStatus.DELETED.value,
+                "now": now_iso,
+            },
+        )
 
         deleted = record["deleted_count"] > 0 if record else False
 
@@ -442,9 +433,7 @@ class UserBackend:
         RETURN owned_count + 1 AS deleted_count
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uid": user_uid})
-            record = await result.single()
+        record = await self._run_single(query, {"uid": user_uid})
 
         deleted_count: int = record["deleted_count"] if record else 0
 
@@ -486,9 +475,7 @@ class UserBackend:
         RETURN u
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uid": user_uid, "updates": progress_updates})
-            record = await result.single()
+        record = await self._run_single(query, {"uid": user_uid, "updates": progress_updates})
 
         if not record:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
@@ -615,12 +602,10 @@ class UserBackend:
         RETURN r.mastery_score as mastery_score
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {"user_uid": user_uid, "concept_uid": concept_uid},
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {"user_uid": user_uid, "concept_uid": concept_uid},
+        )
 
         if not record:
             # No mastery recorded means 0.0 mastery
@@ -710,17 +695,15 @@ class UserBackend:
         RETURN r
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "learning_path_uid": learning_path_uid,
-                    "completion_score": completion_score,
-                    "feedback_rating": feedback_rating,
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "user_uid": user_uid,
+                "learning_path_uid": learning_path_uid,
+                "completion_score": completion_score,
+                "feedback_rating": feedback_rating,
+            },
+        )
 
         if not record:
             return Result.fail(
@@ -862,9 +845,7 @@ class UserBackend:
         RETURN u
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(query, {"uid": user_uid, "updates": activity_updates})
-            record = await result.single()
+        record = await self._run_single(query, {"uid": user_uid, "updates": activity_updates})
 
         if not record:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
@@ -913,18 +894,16 @@ class UserBackend:
         RETURN m
         """
 
-        async with self.driver.session() as session:
-            result = await session.run(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "message_uid": message_uid,
-                    "role": role,
-                    "content": content,
-                    "metadata_json": metadata_json,
-                },
-            )
-            record = await result.single()
+        record = await self._run_single(
+            query,
+            {
+                "user_uid": user_uid,
+                "message_uid": message_uid,
+                "role": role,
+                "content": content,
+                "metadata_json": metadata_json,
+            },
+        )
 
         if not record:
             return Result.fail(

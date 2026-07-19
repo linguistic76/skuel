@@ -20,6 +20,7 @@ from typing import Any, TypeVar
 
 from neo4j import AsyncDriver
 
+from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -54,7 +55,7 @@ def _validate_similarity(similarity: str) -> None:
         )
 
 
-class Neo4jSchemaManager:
+class Neo4jSchemaManager(Neo4jSessionRunner):
     """
     Manages Neo4j schema (indexes, constraints) based on model metadata.
 
@@ -246,9 +247,7 @@ class Neo4jSchemaManager:
         try:
             query = "SHOW INDEXES"
 
-            async with self.driver.session() as session:
-                result = await session.run(query)
-                indexes = await result.data()
+            indexes = await self._run_records(query)
 
             # Filter by label if provided
             if label:
@@ -275,9 +274,7 @@ class Neo4jSchemaManager:
         try:
             query = "SHOW CONSTRAINTS"
 
-            async with self.driver.session() as session:
-                result = await session.run(query)
-                constraints = await result.data()
+            constraints = await self._run_records(query)
 
             # Filter by label if provided
             if label:

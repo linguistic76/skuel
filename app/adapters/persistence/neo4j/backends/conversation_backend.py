@@ -34,6 +34,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from adapters.persistence.neo4j._backend_helpers import to_native_datetime
+from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.conversation import ROLE_ASSISTANT as _ROLE_ASSISTANT
 from core.models.conversation import ROLE_USER as _ROLE_USER
 from core.models.enums.neo_labels import NeoLabel
@@ -91,7 +92,7 @@ def _turn_record(data: dict[str, object]) -> Neo4jProperties:
     }
 
 
-class ConversationBackend:
+class ConversationBackend(Neo4jSessionRunner):
     """Neo4j persistence for owner-private discussion sessions (ADR-078)."""
 
     def __init__(self, driver: AsyncDriver) -> None:
@@ -122,20 +123,18 @@ class ConversationBackend:
         {_SESSION_RETURN}
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "session_id": session_id,
-                        "kind": kind,
-                        "title": title,
-                        "source_selection": source_selection,
-                        "now": now_iso,
-                    },
-                )
-                record = await result.single()
-                return Result.ok(_session_record(dict(record)) if record else None)
+            record = await self._run_single(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "session_id": session_id,
+                    "kind": kind,
+                    "title": title,
+                    "source_selection": source_selection,
+                    "now": now_iso,
+                },
+            )
+            return Result.ok(_session_record(dict(record)) if record else None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to create conversation session: {e}")
             return Result.fail(Errors.database("create_session", str(e)))
@@ -189,30 +188,28 @@ class ConversationBackend:
                at {{.turn_id, .session_id, .role, .content, .timestamp, .turn_number}} AS assistant_turn
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "session_id": session_id,
-                        "user_turn_id": user_turn_id,
-                        "assistant_turn_id": assistant_turn_id,
-                        "user_role": _ROLE_USER,
-                        "assistant_role": _ROLE_ASSISTANT,
-                        "user_content": user_content,
-                        "assistant_content": assistant_content,
-                        "now": now_iso,
-                    },
-                )
-                record = await result.single()
-                if record is None:
-                    return Result.ok(None)
-                return Result.ok(
-                    [
-                        _turn_record(dict(record["user_turn"])),
-                        _turn_record(dict(record["assistant_turn"])),
-                    ]
-                )
+            record = await self._run_single(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "session_id": session_id,
+                    "user_turn_id": user_turn_id,
+                    "assistant_turn_id": assistant_turn_id,
+                    "user_role": _ROLE_USER,
+                    "assistant_role": _ROLE_ASSISTANT,
+                    "user_content": user_content,
+                    "assistant_content": assistant_content,
+                    "now": now_iso,
+                },
+            )
+            if record is None:
+                return Result.ok(None)
+            return Result.ok(
+                [
+                    _turn_record(dict(record["user_turn"])),
+                    _turn_record(dict(record["assistant_turn"])),
+                ]
+            )
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to append conversation exchange: {e}")
             return Result.fail(Errors.database("append_exchange", str(e)))
@@ -267,21 +264,19 @@ class ConversationBackend:
         {_SESSION_RETURN}
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "session_id": session_id,
-                        "kind": kind,
-                        "title": title,
-                        "source_selection": source_selection,
-                        "turns": turns,
-                        "now": now_iso,
-                    },
-                )
-                record = await result.single()
-                return Result.ok(_session_record(dict(record)) if record else None)
+            record = await self._run_single(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "session_id": session_id,
+                    "kind": kind,
+                    "title": title,
+                    "source_selection": source_selection,
+                    "turns": turns,
+                    "now": now_iso,
+                },
+            )
+            return Result.ok(_session_record(dict(record)) if record else None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to save conversation transcript: {e}")
             return Result.fail(Errors.database("save_transcript", str(e)))
@@ -307,18 +302,16 @@ class ConversationBackend:
         RETURN s.session_id AS session_id
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "session_id": session_id,
-                        "title": title,
-                        "source_selection": source_selection,
-                    },
-                )
-                record = await result.single()
-                return Result.ok(record is not None)
+            record = await self._run_single(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "session_id": session_id,
+                    "title": title,
+                    "source_selection": source_selection,
+                },
+            )
+            return Result.ok(record is not None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to update conversation session meta: {e}")
             return Result.fail(Errors.database("update_session_meta", str(e)))
@@ -333,10 +326,8 @@ class ConversationBackend:
         LIMIT 1
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "session_id": session_id})
-                record = await result.single()
-                return Result.ok(_session_record(dict(record)) if record else None)
+            record = await self._run_single(query, {"user_uid": user_uid, "session_id": session_id})
+            return Result.ok(_session_record(dict(record)) if record else None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to get conversation session: {e}")
             return Result.fail(Errors.database("get_session", str(e)))
@@ -350,10 +341,8 @@ class ConversationBackend:
         LIMIT $limit
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "limit": limit})
-                records = await result.data()
-                return Result.ok([_session_record(row) for row in records])
+            records = await self._run_records(query, {"user_uid": user_uid, "limit": limit})
+            return Result.ok([_session_record(row) for row in records])
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to list conversation sessions: {e}")
             return Result.fail(Errors.database("list_sessions", str(e)))
@@ -379,13 +368,11 @@ class ConversationBackend:
         RETURN sid, collect(t {{.turn_id, .session_id, .role, .content, .timestamp, .turn_number}}) AS turns
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "session_id": session_id})
-                record = await result.single()
-                if record is None:
-                    return Result.ok(None)
-                turns = record["turns"] or []
-                return Result.ok([_turn_record(dict(row)) for row in turns])
+            record = await self._run_single(query, {"user_uid": user_uid, "session_id": session_id})
+            if record is None:
+                return Result.ok(None)
+            turns = record["turns"] or []
+            return Result.ok([_turn_record(dict(row)) for row in turns])
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to get conversation turns: {e}")
             return Result.fail(Errors.database("get_turns", str(e)))
@@ -401,10 +388,8 @@ class ConversationBackend:
         RETURN true AS deleted
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "session_id": session_id})
-                record = await result.single()
-                return Result.ok(record is not None)
+            record = await self._run_single(query, {"user_uid": user_uid, "session_id": session_id})
+            return Result.ok(record is not None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to delete conversation session: {e}")
             return Result.fail(Errors.database("delete_session", str(e)))

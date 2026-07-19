@@ -7,5 +7,27 @@ Journals opts out entirely (the wall).
 """
 
 from core.services.conversation.conversation_service import ConversationService
+from core.services.conversation.transcript_codec import (
+    build_source_selection,
+    history_to_follow_up_context,
+    parse_source_selection,
+    parse_transcript,
+    render_discussion_markdown,
+    render_follow_up_context,
+    safe_export_filename,
+    serialize_transcript,
+    transcript_to_pairs,
+)
 
-__all__ = ["ConversationService"]
+__all__ = [
+    "ConversationService",
+    "build_source_selection",
+    "history_to_follow_up_context",
+    "parse_source_selection",
+    "parse_transcript",
+    "render_discussion_markdown",
+    "render_follow_up_context",
+    "safe_export_filename",
+    "serialize_transcript",
+    "transcript_to_pairs",
+]

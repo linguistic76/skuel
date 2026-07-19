@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Button as RawButton
-from fasthtml.common import Div, Form, Input, Label, NotStr, P, Script, Span
+from fasthtml.common import Div, Form, Input, Label, P, Script, Span
 
 from ui.components import Icon
 from ui.primitives import dropdown_menu, primary_btn, section_label
@@ -660,65 +660,5 @@ def render_right_panel(*, is_founder: bool = False) -> Any:
 
 
 def upload_form_script() -> Any:
-    """HTMX event handlers for the journal upload form."""
-    return Script(
-        NotStr("""
-        document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id !== 'upload-form') return;
-            var fileInput = document.getElementById('file-input');
-            var folderInput = document.getElementById('folder-input');
-            var hasFiles = (fileInput && fileInput.files.length > 0) ||
-                           (folderInput && folderInput.files.length > 0);
-            if (!hasFiles) {
-                evt.preventDefault();
-                var status = document.getElementById('upload-status');
-                if (status) status.innerHTML =
-                    '<p class="text-destructive text-sm text-center mt-2">Please select a file first.</p>';
-                return;
-            }
-            var count = (fileInput ? fileInput.files.length : 0) +
-                        (folderInput ? folderInput.files.length : 0);
-            var btn = form.querySelector('button[type="submit"]');
-            if (btn) {
-                btn.disabled = true;
-                var label = btn.querySelector('.btn-label');
-                if (label) label.textContent = count > 1
-                    ? 'Processing ' + count + ' files...'
-                    : 'Processing...';
-            }
-        });
-
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id !== 'upload-form') return;
-            form.reset();
-            var btn = form.querySelector('button[type="submit"]');
-            if (btn) {
-                btn.disabled = false;
-                var label = btn.querySelector('.btn-label');
-                if (label) label.textContent = 'Process';
-            }
-            window.dispatchEvent(new CustomEvent('journals:upload-complete'));
-        });
-
-        document.body.addEventListener('htmx:responseError', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id !== 'upload-form') return;
-            console.error('[Journals] Request failed:', evt.detail.xhr.status);
-            var status = document.getElementById('upload-status');
-            if (status) status.innerHTML =
-                '<p class="text-destructive text-sm text-center mt-2">Upload failed (' +
-                evt.detail.xhr.status + '). Please try again.</p>';
-        });
-
-        document.body.addEventListener('htmx:sendError', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id !== 'upload-form') return;
-            console.error('[Journals] Network error:', evt.detail.error);
-            var status = document.getElementById('upload-status');
-            if (status) status.innerHTML =
-                '<p class="text-destructive text-sm text-center mt-2">Network error. Check your connection.</p>';
-        });
-    """)
-    )
+    """HTMX event handlers for the journal upload form (static/js/journals-upload.js)."""
+    return Script(src="/static/js/journals-upload.js")

@@ -63,13 +63,15 @@ from core.models.entity_requests import (
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.goal.goal_update_intent import GoalUpdateIntent
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.activities.goals_views import GoalCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.type_hints import UserUID
     from core.services.goals_service import GoalsService
     from core.services.principles_service import PrinciplesService
+    from core.services.user.unified_user_context import UserContext
     from core.services.user_service import UserService
 
 
@@ -82,6 +84,15 @@ def create_goals_api_routes(
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Goals API routes."""
+
+    # Fail-fast: UserService is always wired at compose (api_related_services
+    # maps it from services.user) — a missing one is a wiring defect, not a
+    # runtime condition to guard per handler.
+    assert user_service is not None, "UserService must be wired before goals API routes"
+
+    async def fetch_context(user_uid: UserUID) -> Result[UserContext]:
+        """The standard UserContext read shared by planning + scheduling handlers."""
+        return await user_service.get_user_context(user_uid)
 
     async def update_priority(uid: str, new_priority: str) -> Result[Goal]:
         return await goals_service.update_goal(uid, GoalUpdateIntent(priority=new_priority))
@@ -139,13 +150,9 @@ def create_goals_api_routes(
             limit: Max results (default 10)
         """
         user_uid = require_authenticated_user(request)
-        if not user_service:
-            return Result.fail(
-                Errors.system(message="user_service not available", operation="goals_stalled")
-            )
         max_progress = parse_float_query_param(request.query_params, "max_progress", 0.1)
         limit = parse_int_query_param(request.query_params, "limit", 10)
-        ctx_result = await user_service.get_user_context(user_uid)
+        ctx_result = await fetch_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
         return await goals_service.get_stalled_goals_for_user(ctx_result.value, max_progress, limit)
@@ -160,13 +167,9 @@ def create_goals_api_routes(
             limit: Max results (default 5)
         """
         user_uid = require_authenticated_user(request)
-        if not user_service:
-            return Result.fail(
-                Errors.system(message="user_service not available", operation="goals_achievable")
-            )
         min_progress = parse_float_query_param(request.query_params, "min_progress", 0.7)
         limit = parse_int_query_param(request.query_params, "limit", 5)
-        ctx_result = await user_service.get_user_context(user_uid)
+        ctx_result = await fetch_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
         return await goals_service.get_achievable_goals_for_user(
@@ -182,10 +185,6 @@ def create_goals_api_routes(
             limit: Max results (default 2)
         """
         user_uid = require_authenticated_user(request)
-        if not user_service:
-            return Result.fail(
-                Errors.system(message="user_service not available", operation="goals_advancing")
-            )
         limit = parse_int_query_param(request.query_params, "limit", 2)
         ctx_result = await user_service.get_rich_unified_context(user_uid)
         if ctx_result.is_error:
@@ -207,19 +206,13 @@ def create_goals_api_routes(
             check_capacity: Whether to enforce capacity limits (default true)
         """
         user_uid = require_authenticated_user(request)
-        if not user_service:
-            return Result.fail(
-                Errors.system(
-                    message="user_service not available", operation="goal_create_with_scheduling"
-                )
-            )
         check_capacity = parse_bool_query_param(
             request.query_params, "check_capacity", default=True
         )
         parsed = await parse_json_body(request, GoalCreateRequest)
         if parsed.is_error:
             return Result.fail(parsed)
-        ctx_result = await user_service.get_user_context(user_uid)
+        ctx_result = await fetch_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
         return await goals_service.create_goal_with_scheduling_context(
@@ -235,17 +228,10 @@ def create_goals_api_routes(
         Body: GoalCreateRequest JSON
         """
         user_uid = require_authenticated_user(request)
-        if not user_service:
-            return Result.fail(
-                Errors.system(
-                    message="user_service not available",
-                    operation="goal_create_with_learning_scheduling",
-                )
-            )
         parsed = await parse_json_body(request, GoalCreateRequest)
         if parsed.is_error:
             return Result.fail(parsed)
-        ctx_result = await user_service.get_user_context(user_uid)
+        ctx_result = await fetch_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
         return await goals_service.create_goal_with_learning_scheduling(

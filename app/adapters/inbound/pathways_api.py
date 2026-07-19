@@ -50,6 +50,10 @@ def create_pathways_api_routes(
         user_service: User service for admin role verification
     """
 
+    # Fail-fast: user_progress is always wired at compose (api_related_services
+    # maps it from services.user_progress) — a missing one is a wiring defect.
+    assert user_progress is not None, "UserProgressService must be wired before pathways API routes"
+
     # ========================================================================
     # DOMAIN-SPECIFIC ROUTES (Manual)
     # ========================================================================
@@ -149,14 +153,6 @@ def create_pathways_api_routes(
     async def get_progress_summary_route(request: Request) -> Result[dict[str, Any]]:
         """Get comprehensive learning progress summary for a user."""
         user_uid = require_authenticated_user(request)
-
-        if not user_progress:
-            return Result.fail(
-                Errors.system(
-                    message="User progress service not available",
-                    operation="get_progress_summary",
-                )
-            )
 
         profile_result: Result[
             UserKnowledgeProfile

@@ -32,6 +32,7 @@ from core.models.type_hints import EntityUID
 from ui.components import Icon
 from ui.explore.ku_mastery import render_ku_mastery_section
 from ui.library.resource_chip import resource_chip
+from ui.patterns.detail_nav import detail_back_link, detail_footer_nav
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 
@@ -128,50 +129,20 @@ def render_ku_detail_content(
         post_read.append(_related_placeholder(uid))
 
     return Div(
-        _back_link(),
+        detail_back_link("Explore", "/explore", htmx=True),
         Article(
             _article_header(uid, title, reading_minutes, user_uid, is_pinned),
             _reading_body(content_html),
             _end_of_read_marker(),
         ),
         *post_read,
-        _footer_nav(),
+        detail_footer_nav("Back to Explore", "/explore", htmx=True),
         id="ku-detail-content",
         cls=_COLUMN_CLS,
         **{
             "x-data": f"kuReading({seed_json})",
             "@keydown.window": "onKey($event)",
         },
-    )
-
-
-# ---------------------------------------------------------------------------
-# Navigation
-# ---------------------------------------------------------------------------
-
-
-def _back_link() -> "FT":
-    return A(
-        Icon("arrow-left", cls="w-3.5 h-3.5"),
-        " Explore",
-        href="/explore",
-        hx_get="/explore",
-        hx_push_url="true",
-        cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
-    )
-
-
-def _footer_nav() -> "FT":
-    return Div(
-        A(
-            Icon("arrow-left", cls="w-4 h-4"),
-            " Back to Explore",
-            href="/explore",
-            hx_get="/explore",
-            hx_push_url="true",
-            cls="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground",
-        ),
-        cls="mt-9 flex items-center",
     )
 
 

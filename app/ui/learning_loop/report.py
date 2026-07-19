@@ -32,6 +32,7 @@ from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.format_date import format_date
 from ui.primitives import ButtonLink
 
 # ============================================================================
@@ -70,19 +71,6 @@ def render_processor_badge(processor_type_str: str) -> Any:
     label = _PROCESSOR_LABELS.get(processor_type_str, processor_type_str or "AI")
     variant = _PROCESSOR_BADGE_VARIANTS.get(processor_type_str, BadgeT.ghost)
     return Badge(label, variant=variant, size=Size.sm)
-
-
-def format_date(dt_value: Any) -> str:
-    """Format a datetime-like value to a display string."""
-    if not dt_value:
-        return ""
-    try:
-        from datetime import datetime
-
-        dt = datetime.fromisoformat(str(dt_value))
-        return dt.strftime("%d %b %Y")
-    except (ValueError, TypeError):  # fmt: skip
-        return str(dt_value)[:10]
 
 
 # ============================================================================

@@ -153,6 +153,7 @@ from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
 from adapters.persistence.neo4j._temporal_mixin import _TemporalMixin
 from adapters.persistence.neo4j._traversal_mixin import _TraversalMixin
 from adapters.persistence.neo4j._user_entity_mixin import _UserEntityMixin
+from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 
 logger = get_logger(__name__)
 
@@ -169,6 +170,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
     _RelationshipCrudMixin[T],
     _UserEntityMixin[T],
     _TraversalMixin,
+    Neo4jSessionRunner,
 ):
     """
     Universal backend for ANY entity type implementing DomainModelProtocol.
@@ -438,22 +440,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             where_clauses.append(f"{node_var}.{k} = $_df_{k}")
             params[f"_df_{k}"] = v
 
-    def _is_driver_closed(self) -> bool:
-        """
-        Check if the Neo4j driver has been closed.
-
-        Used during test teardown to prevent "driver already closed" warnings.
-        The _closed attribute is an internal Neo4j driver state indicator.
-
-        Returns:
-            True if driver is closed, False if still open
-
-        Note:
-            The _closed attribute is private to the Neo4j driver but is the
-            recommended way to check driver state for graceful degradation.
-            See: https://github.com/neo4j/neo4j-python-driver/issues/949
-        """
-        return getattr(self.driver, "_closed", False)
+    # _is_driver_closed / _run_single / _run_records live on Neo4jSessionRunner.
 
     # ============================================================================
     # DYNAMIC PROTOCOL COMPLIANCE - A

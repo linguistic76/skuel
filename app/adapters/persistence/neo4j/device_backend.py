@@ -23,6 +23,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j._backend_helpers import to_native_datetime
+from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -58,7 +59,7 @@ def _device_record(data: dict[str, object]) -> Neo4jProperties:
     }
 
 
-class DeviceBackend:
+class DeviceBackend(Neo4jSessionRunner):
     """Neo4j persistence for vault-agent devices + pairing codes (ADR-075)."""
 
     def __init__(self, driver: AsyncDriver) -> None:
@@ -76,17 +77,15 @@ class DeviceBackend:
         RETURN u.uid AS uid
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "code_hash": code_hash,
-                        "expires_at": expires_at_iso,
-                    },
-                )
-                record = await result.single()
-                return Result.ok(record is not None)
+            record = await self._run_single(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "code_hash": code_hash,
+                    "expires_at": expires_at_iso,
+                },
+            )
+            return Result.ok(record is not None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to set pairing code: {e}")
             return Result.fail(Errors.database("set_pairing_code", str(e)))
@@ -105,10 +104,8 @@ class DeviceBackend:
         RETURN u.uid AS uid
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"code_hash": code_hash, "now": now_iso})
-                record = await result.single()
-                return Result.ok(str(record["uid"]) if record else None)
+            record = await self._run_single(query, {"code_hash": code_hash, "now": now_iso})
+            return Result.ok(str(record["uid"]) if record else None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to redeem pairing code: {e}")
             return Result.fail(Errors.database("redeem_pairing_code", str(e)))
@@ -133,19 +130,17 @@ class DeviceBackend:
         {_DEVICE_RETURN}
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "user_uid": user_uid,
-                        "device_uid": device_uid,
-                        "pubkey": pubkey,
-                        "device_name": device_name,
-                        "enrolled_at": enrolled_at_iso,
-                    },
-                )
-                record = await result.single()
-                return Result.ok(_device_record(dict(record)) if record else None)
+            record = await self._run_single(
+                query,
+                {
+                    "user_uid": user_uid,
+                    "device_uid": device_uid,
+                    "pubkey": pubkey,
+                    "device_name": device_name,
+                    "enrolled_at": enrolled_at_iso,
+                },
+            )
+            return Result.ok(_device_record(dict(record)) if record else None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to create device: {e}")
             return Result.fail(Errors.database("create_device", str(e)))
@@ -158,10 +153,8 @@ class DeviceBackend:
         ORDER BY d.enrolled_at DESC
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                records = await result.data()
-                return Result.ok([_device_record(row) for row in records])
+            records = await self._run_records(query, {"user_uid": user_uid})
+            return Result.ok([_device_record(row) for row in records])
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to list devices: {e}")
             return Result.fail(Errors.database("list_devices", str(e)))
@@ -175,13 +168,11 @@ class DeviceBackend:
         RETURN d.uid AS uid
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {"user_uid": user_uid, "device_uid": device_uid, "now": now_iso},
-                )
-                record = await result.single()
-                return Result.ok(record is not None)
+            record = await self._run_single(
+                query,
+                {"user_uid": user_uid, "device_uid": device_uid, "now": now_iso},
+            )
+            return Result.ok(record is not None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to revoke device: {e}")
             return Result.fail(Errors.database("revoke_device", str(e)))
@@ -195,10 +186,8 @@ class DeviceBackend:
         LIMIT 1
         """
         try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"pubkey": pubkey})
-                record = await result.single()
-                return Result.ok(_device_record(dict(record)) if record else None)
+            record = await self._run_single(query, {"pubkey": pubkey})
+            return Result.ok(_device_record(dict(record)) if record else None)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to get device by pubkey: {e}")
             return Result.fail(Errors.database("get_device_by_pubkey", str(e)))

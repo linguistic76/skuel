@@ -53,8 +53,17 @@ describe('labels', () => {
     expect(component.contextFilterLabel).toBe('Activity Filters');
   });
 
-  it('getFilterLabel resolves entity_type badges and passes values through', () => {
+  it('getFilterLabel reads entity_type badges from the server-rendered dropdown', () => {
+    // The Type dropdown (ui/search/components.py _ENTITY_TYPE_OPTIONS) is the
+    // single label source — the component reads option text, no JS map.
     const component = skuel.make('searchFilters');
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <select name="entity_type">
+        <option value="">All Types</option>
+        <option value="ku">Knowledge Units</option>
+      </select>`;
+    component.$root = root;
     expect(component.getFilterLabel('entity_type', 'ku')).toBe('Knowledge Units');
     expect(component.getFilterLabel('entity_type', 'unknown')).toBe('unknown');
     expect(component.getFilterLabel('status', 'active')).toBe('active');

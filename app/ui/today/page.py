@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import (
     H1,
@@ -24,7 +24,6 @@ from fasthtml.common import (
     Button,
     Div,
     Header,
-    Kbd,
     Li,
     Main,
     NotStr,
@@ -37,6 +36,7 @@ from fasthtml.common import (
 )
 
 from ui.components import Icon
+from ui.patterns.keyboard_hints import keyboard_hint, keyboard_hints_bar
 from ui.primitives import section_label, view_switcher
 
 if TYPE_CHECKING:
@@ -549,20 +549,13 @@ def _active_ribbon() -> FT:
 
 
 def _keyboard_hints() -> FT:
-    def _hint(*children: Any) -> FT:
-        return Span(*children)
-
-    return Div(
-        _hint(Kbd("j", cls="kbd"), Kbd("k", cls="kbd"), " move"),
-        _hint(Kbd("↵", cls="kbd"), " open"),
-        _hint(Kbd("x", cls="kbd"), " complete"),
-        _hint(Kbd("d", cls="kbd"), " defer 1d"),
-        _hint(Kbd("⇧", cls="kbd"), Kbd("d", cls="kbd"), " defer 1w"),
+    return keyboard_hints_bar(
+        keyboard_hint("move", "j", "k"),
+        keyboard_hint("open", "↵"),
+        keyboard_hint("complete", "x"),
+        keyboard_hint("defer 1d", "d"),
+        keyboard_hint("defer 1w", "⇧", "d"),
         Span("or drag any card →", cls="ml-auto"),
-        cls=(
-            "mt-8 px-[18px] py-3.5 bg-card border border-border rounded-lg "
-            "flex items-center gap-6 text-[11px] text-muted-foreground font-mono flex-wrap"
-        ),
         **{"x-show": "!allEmpty"},
     )
 
