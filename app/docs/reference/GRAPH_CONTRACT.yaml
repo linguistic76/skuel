@@ -1339,19 +1339,6 @@ labels:
 
 # Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).
 findings:
-  CHILD_OF:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/query/graph_traversal.py
-  CONTAINS:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/cross_domain_backend.py
-      - adapters/persistence/neo4j/lifepath_backend.py
-  CONTRIBUTES_TO:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/user_context_queries.py
   DEEPENS_UNDERSTANDING:
     kind: relationship
     sites:
@@ -1360,39 +1347,3 @@ findings:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/_knowledge_context_mixin.py
-  FUNDS_HABIT:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/_traversal_mixin.py
-  INCLUDES_KNOWLEDGE:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/backends/curriculum_backends.py
-  INCLUDES_KU:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/_lp_progress_mixin.py
-  PARENT_OF:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/query/graph_traversal.py
-  SUBCHOICE:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/backends/collab_backends.py
-  SUBEVENT:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/backends/collab_backends.py
-  SUBGOAL:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/backends/collab_backends.py
-  SUBHABIT:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/backends/collab_backends.py
-  SUBPRINCIPLE:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/backends/collab_backends.py

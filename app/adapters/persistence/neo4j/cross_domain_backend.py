@@ -37,7 +37,24 @@ if TYPE_CHECKING:
 # intent (RELATIONSHIP/EXPLORATORY/SPECIFIC/AGGREGATION) is absent here → empty set →
 # the producer traverses every edge type. Registry-sourced callers bypass this map.
 _INTENT_EDGE_SETS: dict[str, list[str]] = {
-    "hierarchical": ["HAS_CHILD", "PARENT_OF", "CHILD_OF"],
+    # "hierarchical" used to read ["HAS_CHILD", "PARENT_OF", "CHILD_OF"]. None of
+    # the three is a live edge: PARENT_OF and CHILD_OF are not RelationshipName
+    # members at all, and HAS_CHILD — though registered, and declared Task→Task
+    # in TASKS_CONFIG — has no writer anywhere. Its only apparent one is a
+    # docstring EXAMPLE in batch_cypher_builder.build_relationships_list. The
+    # live parent→child vocabulary is the six HAS_SUB* edges written by
+    # _HierarchyMixin.create_hierarchy_relationship, plus HAS_STEP and ORGANIZES
+    # (findings §8; same list as CollabBackend.get_siblings).
+    "hierarchical": [
+        "HAS_SUBTASK",
+        "HAS_SUBGOAL",
+        "HAS_SUBHABIT",
+        "HAS_SUBEVENT",
+        "HAS_SUBCHOICE",
+        "HAS_SUBPRINCIPLE",
+        "HAS_STEP",
+        "ORGANIZES",
+    ],
     "prerequisite": ["REQUIRES_KNOWLEDGE", "PREREQUISITE_FOR", "ENABLES"],
     # "practice" used to read ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"].
     # Neither of the first two is a RelationshipName member nor exists in the
@@ -772,7 +789,7 @@ class CrossDomainBackend:
             OPTIONAL MATCH (u)-[:MASTERED]->(ku:Entity)
             WITH u, collect(DISTINCT ku.uid) as mastered
             OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:LearningPath)
-            OPTIONAL MATCH (lp)-[:CONTAINS]->(step:PathStep)
+            OPTIONAL MATCH (lp)-[:HAS_STEP]->(step:PathStep)
             WITH u, mastered, lp, count(DISTINCT step) AS total_steps
             WITH u, mastered,
                  collect(DISTINCT {

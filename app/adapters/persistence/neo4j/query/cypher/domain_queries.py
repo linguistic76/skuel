@@ -261,7 +261,13 @@ def build_task_with_context(
     if include_subtasks:
         relationships.append(
             {
-                "rel_types": "PARENT_OF|CHILD_OF",
+                # Was "PARENT_OF|CHILD_OF" — neither is a RelationshipName member
+                # nor a live edge. The written subtask edge is the inverse leg of
+                # _HierarchyMixin's bidirectional pair, (child)-[:SUBTASK_OF]->
+                # (parent), which is exactly this spec's "incoming" direction
+                # (findings §8). This is a Python-side edge string, so SKUEL030
+                # could not see it and it carried no baseline pair.
+                "rel_types": "SUBTASK_OF",
                 "target_label": NeoLabel.TASK,
                 "alias": "subtasks",
                 "direction": "incoming",

@@ -194,10 +194,16 @@ class LifePathBackend:
         """Calculate knowledge dimension alignment score."""
         return await self._executor.execute_query(
             """
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
+            // `mastery_level` is NOT a number: _AdaptiveMixin is its only writer
+            // and sets the strings 'introduced'/'proficient'. `mastery_score` is
+            // the continuous 0-1 signal the other four MASTERED writers set —
+            // and an _AdaptiveMixin edge, which carries no score, still means
+            // mastered, so its existence scores 1.0.
             WITH ku, m,
-                 CASE WHEN m IS NOT NULL THEN m.mastery_level ELSE 0 END AS mastery
+                 CASE WHEN m IS NULL THEN 0.0
+                      ELSE coalesce(m.mastery_score, 1.0) END AS mastery
 
             // Get substance from knowledge applications
             OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Entity {entity_type: 'task', user_uid: $user_uid})
@@ -223,7 +229,7 @@ class LifePathBackend:
         return await self._executor.execute_query(
             """
             // Get life path knowledge
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
             WITH collect(ku.uid) AS lp_knowledge
 
             // Count aligned activities
@@ -305,17 +311,20 @@ class LifePathBackend:
         """Calculate momentum dimension (recent vs previous week activity)."""
         return await self._executor.execute_query(
             """
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
             WITH collect(ku.uid) AS lp_knowledge
 
-            // Recent week activities
-            MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
+            // Recent week activities. OPTIONAL: a user whose aligned activity
+            // dropped to zero must score as declining, not collapse the query to
+            // no rows — which the service reads back as the 0.5 "no data"
+            // default, the opposite signal.
+            OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
             WHERE ku.uid IN lp_knowledge
               AND datetime(task.created_at) >= datetime($seven_days_ago)
             WITH lp_knowledge, count(task) AS recent_tasks
 
             // Previous week activities
-            MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
+            OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
             WHERE ku.uid IN lp_knowledge
               AND datetime(task.created_at) >= datetime($fourteen_days_ago)
               AND datetime(task.created_at) < datetime($seven_days_ago)
@@ -346,10 +355,15 @@ class LifePathBackend:
         """Get counts of embodied vs theoretical knowledge."""
         return await self._executor.execute_query(
             """
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
 
-            WITH ku, COALESCE(m.substance_score, 0) AS substance
+            // No MASTERED writer has ever set `substance_score`, so this read
+            // classified every Ku as theoretical. Mastery stands in as the
+            // substance proxy, matching PsContextService.  A true ADR-046
+            // Ku-grain substance rollup is roadmap work, not a backlog fix.
+            WITH ku, CASE WHEN m IS NULL THEN 0.0
+                          ELSE coalesce(m.mastery_score, 1.0) END AS substance
 
             RETURN count(ku) AS total,
                    sum(CASE WHEN substance >= 0.7 THEN 1 ELSE 0 END) AS embodied,

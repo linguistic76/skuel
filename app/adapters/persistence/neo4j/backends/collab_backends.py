@@ -404,14 +404,30 @@ class LateralRelationshipBackend:
         return Result.ok(rows)
 
     async def get_siblings(self, entity_uid: EntityUID) -> Result[list[SiblingRow]]:
-        """Get sibling entities derived from hierarchy (same parent)."""
+        """Get sibling entities derived from hierarchy (same parent).
+
+        "Same parent" is defined by the forward (parent→child) hierarchy edges:
+        the six ``HAS_SUB*`` composition edges written by
+        ``_HierarchyMixin.create_hierarchy_relationship``, plus ``HAS_STEP``
+        (LearningPath→PathStep) and ``ORGANIZES`` (MOC composition). The inverse
+        ``SUB*_OF`` edges are deliberately absent — they point child→parent, the
+        wrong way round for this traversal.
+
+        Both the anchor edge and the sibling edge are constrained to that set, so
+        an unrelated edge into the entity (``BLOCKS``, ``OWNS``, …) cannot
+        manufacture a false parent.
+        """
         result = await self.executor.execute_query(
             """
+            MATCH (parent)-[anchor]->(entity {uid: $entity_uid})
             MATCH (parent)-[r]->(sibling)
-            WHERE (parent)-[]->(entity {uid: $entity_uid})
-            AND sibling.uid != $entity_uid
-            AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
-                             'SUBCHOICE', 'HAS_STEP', 'ORGANIZES']
+            WHERE sibling.uid != $entity_uid
+            AND type(anchor) IN ['HAS_SUBTASK', 'HAS_SUBGOAL', 'HAS_SUBHABIT',
+                                 'HAS_SUBEVENT', 'HAS_SUBCHOICE',
+                                 'HAS_SUBPRINCIPLE', 'HAS_STEP', 'ORGANIZES']
+            AND type(r) IN ['HAS_SUBTASK', 'HAS_SUBGOAL', 'HAS_SUBHABIT',
+                            'HAS_SUBEVENT', 'HAS_SUBCHOICE', 'HAS_SUBPRINCIPLE',
+                            'HAS_STEP', 'ORGANIZES']
             RETURN
                 sibling.uid as sibling_uid,
                 sibling.title as sibling_title,
@@ -435,14 +451,27 @@ class LateralRelationshipBackend:
         return Result.ok(rows)
 
     async def get_cousins(self, entity_uid: EntityUID) -> Result[list[CousinRow]]:
-        """Get first-cousin entities (same grandparent, different parent)."""
+        """Get first-cousin entities (same grandparent, different parent).
+
+        Uses the same forward hierarchy vocabulary as ``get_siblings`` — the
+        "not a sibling" exclusion is only correct if both methods agree on what
+        a parent edge is.
+        """
         result = await self.executor.execute_query(
             """
-            MATCH (grandparent)-[]->(parent1)-[]->(entity {uid: $entity_uid})
-            MATCH (grandparent)-[]->(parent2)-[]->(cousin)
+            MATCH (grandparent)-[gp]->(parent1)-[p1]->(entity {uid: $entity_uid})
+            MATCH (grandparent)-[gp2]->(parent2)-[p2]->(cousin)
             WHERE parent1 != parent2
             AND cousin.uid != $entity_uid
-            AND NOT (parent1)-[]->(cousin) // Not a sibling
+            AND all(rel IN [gp, p1, gp2, p2] WHERE type(rel) IN
+                ['HAS_SUBTASK', 'HAS_SUBGOAL', 'HAS_SUBHABIT', 'HAS_SUBEVENT',
+                 'HAS_SUBCHOICE', 'HAS_SUBPRINCIPLE', 'HAS_STEP', 'ORGANIZES'])
+            AND NOT EXISTS {
+                MATCH (parent1)-[s]->(cousin)
+                WHERE type(s) IN
+                    ['HAS_SUBTASK', 'HAS_SUBGOAL', 'HAS_SUBHABIT', 'HAS_SUBEVENT',
+                     'HAS_SUBCHOICE', 'HAS_SUBPRINCIPLE', 'HAS_STEP', 'ORGANIZES']
+            } // Not a sibling
             RETURN
                 cousin.uid as cousin_uid,
                 cousin.title as cousin_title,

@@ -240,9 +240,21 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
     async def get_learning_path_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get learning paths containing this KU."""
+        """Get learning paths containing this KU.
+
+        Both arms of the old ``CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE`` alternation
+        were wrong at this endpoint. ``INCLUDES_KNOWLEDGE`` is not a
+        ``RelationshipName`` member at all, and ``CONTAINS_KNOWLEDGE`` is a
+        PathStep→Ku edge, not a LearningPath→Ku one — so the query named a
+        relationship pair the graph cannot hold (findings §8). A path reaches a Ku
+        through its PathSteps, or directly via its ``required_knowledge``
+        prerequisites.
+        """
         query = """
-        MATCH (lp:LearningPath)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
+        MATCH (lp:LearningPath)
+        WHERE (lp)-[:REQUIRES_KNOWLEDGE]->(ku)
+           OR (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku)
         RETURN lp.uid as uid
         LIMIT 50
         """

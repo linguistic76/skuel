@@ -320,17 +320,21 @@ class _TraversalMixin:
         MATCH (entity:{entity_label} {{uid: entity_uid}})
         OPTIONAL MATCH (entity)-[:SUPPORTS_GOAL]->(goal:Goal)
         OPTIONAL MATCH (entity)-[:ENABLES_KNOWLEDGE|:APPLIES_KNOWLEDGE]->(ku:Entity)
-        OPTIONAL MATCH (entity)-[:FUNDS_HABIT]->(habit:Habit)
-        OPTIONAL MATCH (entity)-[:FUNDS_TASK|:ENABLES_TASK]->(task:Task)
+        OPTIONAL MATCH (entity)-[:ENABLES_TASK]->(task:Task)
         OPTIONAL MATCH (entity)-[:INFORMED_BY_PRINCIPLE]->(principle:Principle)
         RETURN
             entity_uid,
             collect(DISTINCT goal) as goals,
             collect(DISTINCT ku) as knowledge,
-            collect(DISTINCT habit) as habits,
             collect(DISTINCT task) as tasks,
             collect(DISTINCT principle) as principles
         """
+        # The FUNDS_* arms are gone, and with them the `habits` key. FUNDS_HABIT
+        # is not a RelationshipName member; FUNDS_TASK is registered but, like
+        # FUNDS_EVENT, has no writer anywhere — they are residue of the native
+        # expense module ADR-052 demolished (findings §8, §11). FUNDS_HABIT was
+        # the only edge that could ever populate `habits`, so the key went with
+        # it rather than being left as a permanent empty list.
         return await self.execute_query(query, {"entity_uids": entity_uids})
 
     async def get_goal_aligned_entities(

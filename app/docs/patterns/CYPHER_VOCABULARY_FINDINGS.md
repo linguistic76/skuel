@@ -20,8 +20,12 @@ in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
   Phase 1. Pairs stay baselined until that work reconciles them.
 - **Tranche order:** T1 = §3+§4 (done) · T2 = §6 LEARNING fix+migration,
   §1 deletion, §11 Expense (done) · T3 = §7 per decision, §2 label mismatches
-  (done) · **T4 (next) = §5 sibling filter, §8 near-duplicates** — plus §10's
-  unreachable `.cypher` templates, which still await their own pass.
+  (done) · T4 = §5 sibling filter, §8 near-duplicates (done) ·
+  **T5 (next) = §10's unreachable `.cypher` templates**, which still await
+  their own pass.
+- **§8 `HAS_PATH`/`ENROLLED_IN` → DEFERRED** with §9. Both are registered with
+  live writers, so neither is a SKUEL030 finding; reconciling them means
+  migrating real enrolment data and belongs to the semantic-layer roadmap.
 - **Tranche 2 shipped (2026-07-20):** §6, §1 and §11 resolved as ratified —
   6 baseline pairs closed (38 → 32). One migration covers both graph-side
   changes: `scripts/migrations/retire_learning_edge_and_expense_label_2026_07.cypher`.
@@ -34,6 +38,16 @@ in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
   One public endpoint was removed with its dead reader —
   `GET /api/analytics/mood-analysis` — along with two always-zero UI stat tiles
   on the pathways analytics page. Both are called out in §7.
+- **Tranche 4 shipped (2026-07-20):** §5 and §8 resolved — **13 baseline pairs
+  closed (15 → 2)**, leaving only the two deferred §9 pairs. No migration: none
+  of these names has ever had a writer, checked across the full history. Half
+  the "registered twins" §8's table proposed turned out to be wrong endpoints —
+  and the §5 suggestion was direction-wrong — so read that section's corrected
+  table before trusting any triage note here. Two new guard modules:
+  `tests/unit/test_hierarchy_vocabulary.py`,
+  `tests/unit/test_curriculum_read_vocabulary.py`. Also carried the §13
+  `"hierarchical"` rider and a third Python-side edge string in
+  `domain_queries.py`.
 
 The baseline holds **`(file, name)` pairs**, so only the known call sites are
 exempt: introducing any of these names in a *new* file still fails the rule. It
@@ -153,27 +167,45 @@ the depth is dynamic).
 
 ---
 
-## 5. `get_siblings` ignores 5 of the 7 edge types it filters on
+## 5. `get_siblings` ignores 5 of the 7 edge types it filters on — ✅ RESOLVED (tranche 4, 2026-07-20)
 
-`adapters/persistence/neo4j/backends/collab_backends.py:413`:
-
-```cypher
-AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
-                 'SUBCHOICE', 'HAS_STEP', 'ORGANIZES']
-```
-
-The registered names are `SUBGOAL_OF`, `SUBHABIT_OF`, … — the bare forms are not
-`RelationshipName` members and no writer creates them. Only `HAS_STEP` and
-`ORGANIZES` in that list are real, so sibling lookup silently ignores every
-activity-hierarchy edge it was written to find.
+Was: `LateralRelationshipBackend.get_siblings` filtered
+`type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE', 'SUBCHOICE',
+'HAS_STEP', 'ORGANIZES']`. The bare `SUB*` forms are not `RelationshipName`
+members and no writer creates them, so only `HAS_STEP` and `ORGANIZES` matched
+and sibling lookup silently ignored every activity-hierarchy edge.
 
 Found only after the scanner was extended to **predicate position** (`type(r) IN
 [...]`), not just pattern position — vocabulary named in a `WHERE` filter fails
 exactly as silently as vocabulary named in a `MATCH`.
 
-**Fix is a semantics change** — correcting the list makes `get_siblings` start
-returning rows it has never returned — so it is baselined here rather than fixed
-in the rule's own PR.
+**⚠️ The obvious repoint — `SUBGOAL` → `SUBGOAL_OF` — was direction-wrong, and
+this document proposed it.** `_HierarchyMixin.create_hierarchy_relationship` is
+the single writer and it creates a **bidirectional pair**: `HAS_SUB*` forward
+`(parent)->(child)` and `SUB*_OF` inverse `(child)->(parent)`. The query
+traverses `(parent)-[r]->(sibling)`, so the forward leg is the correct one;
+substituting the `_OF` names would have matched the graph in the wrong direction
+and traded one silent zero for another.
+
+**Resolution.** The filter is now the live forward hierarchy vocabulary — the
+six `HAS_SUB*` edges declared by the `HierarchyConfig` on each Activity backend,
+plus `HAS_STEP` and `ORGANIZES`. `HAS_SUBTASK` joins the list; Tasks were simply
+missing from the original seven.
+
+Two consequences handled in the same commit:
+
+- **The parent anchor was untyped.** `WHERE (parent)-[]->(entity {uid: …})` let
+  *any* edge into the entity nominate a parent, so a `BLOCKS` or `OWNS` edge
+  could manufacture a false parent whose real children then read as siblings.
+  Both the anchor and the sibling edge are constrained to the same set now.
+- **`get_cousins` had to move with it.** Its `NOT (parent1)-[]->(cousin)` "not a
+  sibling" exclusion is only correct if both methods agree on what a parent edge
+  is; it was untyped throughout. It now uses the same list.
+
+Guarded by `tests/unit/test_hierarchy_vocabulary.py`, which also pins the read
+vocabulary against every declared `HierarchyConfig` — a new sub-entity domain
+that adds a config without adding its forward edge would otherwise be invisible
+to every hierarchy read.
 
 ---
 
@@ -309,23 +341,127 @@ and untouched — it is an in-memory chunking model that is never persisted.
 
 ---
 
-## 8. Near-duplicates of registered names
+## 8. Near-duplicates of registered names — ✅ RESOLVED (tranche 4, 2026-07-20)
 
 Two names for one concept means reads split across both and each sees half the
-graph (or none).
+graph (or none). **Half the "registered twins" this table proposed were wrong** —
+see the corrected column. Tranche 3's lesson held: name similarity does not
+identify a twin, and the triage table is not authoritative.
 
-| Unregistered | Registered twin | Note |
+| Unregistered | Twin this table proposed | What it actually became |
 |---|---|---|
-| `CONTAINS` | `USES_KU` | PathStep→Ku composition; also LearningPath→PathStep in `cross_domain_backend.py:705` |
-| `CONTRIBUTES_TO` | `CONTRIBUTES_TO_GOAL` | `graph_models.py:63` writes the short form; `cross_domain_backend.py` reads the long one |
-| `INCLUDES_KU` | `CONTAINS_KNOWLEDGE` | only integration-test fixtures write `INCLUDES_KU` |
-| `INCLUDES_KNOWLEDGE` | `CONTAINS_KNOWLEDGE` | alternation partner; only the registered arm has a writer, so this arm is permanently empty |
-| `CHILD_OF`, `PARENT_OF` | `HAS_CHILD` | `graph_traversal.py:63` alternates all three |
-| `FUNDS_HABIT` | `FUNDS_TASK`, `FUNDS_EVENT` | adjacent lines in `_traversal_mixin.py`; siblings registered, this one is not and has no writer |
+| `CONTAINS` (`lifepath_backend.py` ×4) | `USES_KU` | ✅ `USES_KU\|CONTAINS_KNOWLEDGE` — PathStep→Ku |
+| `CONTAINS` (`cross_domain_backend.py`) | `USES_KU` | ❌ → `HAS_STEP`; this site is LearningPath→PathStep, not PathStep→Ku |
+| `CONTRIBUTES_TO` | `CONTRIBUTES_TO_GOAL` | ✅ as proposed |
+| `INCLUDES_KU` | `CONTAINS_KNOWLEDGE` | ❌ → `HAS_STEP`→PathStep→`USES_KU\|CONTAINS_KNOWLEDGE` |
+| `INCLUDES_KNOWLEDGE` | `CONTAINS_KNOWLEDGE` | ❌ → same PathStep route |
+| `CHILD_OF`, `PARENT_OF` | `HAS_CHILD` | ❌ → the six `HAS_SUB*` edges + `HAS_STEP`/`ORGANIZES` |
+| `FUNDS_HABIT` | `FUNDS_TASK`, `FUNDS_EVENT` | ❌ → deleted; the "twins" are dead too |
 
-`HAS_PATH` is the same shape but **was registered** (it has a live writer at
-`_lp_step_mixin.py:421`) — it still overlaps `ENROLLED_IN`, which
-`UserBackend` treats as canonical. Reconciling the two is open work.
+### `CONTAINS_KNOWLEDGE` is not a LearningPath edge
+
+`INCLUDES_KU` and `INCLUDES_KNOWLEDGE` both sat on a `LearningPath` anchor, and
+`CONTAINS_KNOWLEDGE` — the proposed twin — is a **PathStep**→Ku edge. Renaming in
+place would have named a relationship pair the graph cannot hold.
+
+**The live graph has no LearningPath→Ku relationship of any type** (verified:
+`USES_KU` is PathStep→Ku ×53, `HAS_STEP` is LearningPath→PathStep). A path
+reaches a Ku through its PathSteps, or directly via the ingestible
+`connections.required_knowledge` → `REQUIRES_KNOWLEDGE` prerequisite edge that
+`LP_CONFIG` declares. All three reads (`_lp_progress_mixin` ×2,
+`curriculum_backends.get_learning_path_uids`) now cover both routes.
+
+Verified on dev: `get_ku_mastery_progress` for `lp.mindfulness-101` returned
+**no rows before, `total_kus=7` after**.
+
+### `HAS_CHILD` is registered — and has no writer either
+
+The `CHILD_OF`/`PARENT_OF` fix could not be "keep the registered arm". `HAS_CHILD`
+is a `RelationshipName` member and `TASKS_CONFIG` declares it Task→Task
+"subtasks", but **nothing writes it anywhere in the repo, and nothing ever has**
+(checked across the full history). Its only apparent writer is a *docstring
+example* in `BatchCypherBuilder.build_relationships_list`. The live parent→child
+vocabulary is `_HierarchyMixin`'s six `HAS_SUB*` edges, so the hierarchy sites
+took the same list as §5.
+
+This is a class SKUEL030 cannot see: the rule checks membership, not liveness, so
+a registered-but-writer-less name reads as clean.
+
+`CHILD_OF` was also on the *outgoing* `child` pattern in `graph_traversal.py:65`,
+where — being the child→parent leg — it would have returned parents as children.
+
+### `FUNDS_HABIT`: the siblings are dead too
+
+`FUNDS_TASK` and `FUNDS_EVENT` are registered, but neither has a writer; they are
+residue of the native expense module ADR-052 demolished (§11). So there was no
+live twin to repoint onto. The `FUNDS_*` arms are deleted from
+`_TraversalMixin.get_batch_cross_domain_context`, and the `habits` result key
+went with them — `FUNDS_HABIT` was the only edge that could ever populate it, and
+leaving a permanently empty list would just relocate the silent zero. (That
+method is itself production-caller-less — recorded in §13.)
+
+### `CONTRIBUTES_TO`
+
+Repointed to `CONTRIBUTES_TO_GOAL` in the MEGA-QUERY habits block, matching the
+canonical `FULFILLS_GOAL|SUPPORTS_GOAL|CONTRIBUTES_TO_GOAL` alternation in
+`_TraversalMixin.get_goal_aligned_entities`. Note for future work: `HABITS_CONFIG`
+declares only `SUPPORTS_GOAL` as the Habit→Goal edge, so the other two arms are
+registered-but-inert *for habits* specifically. Harmless in an alternation, and
+narrowing it is a registry question rather than a vocabulary one.
+
+### `HAS_PATH` / `ENROLLED_IN` — explicitly deferred
+
+Unchanged and still open. Both are registered with live writers
+(`_lp_step_mixin.py:421` and `UserBackend`), so neither is a SKUEL030 finding and
+neither carries a baseline pair. Choosing a canonical enrolment edge means
+migrating real data on both sides, which is a decision with a migration attached,
+not a read repoint. It belongs with the semantic-layer roadmap alongside §9,
+**not** in this backlog.
+
+### Repointing these reads exposed three latent bugs
+
+Same shape as tranche 3's: a dead read hides what is broken inside it.
+
+- **`m.mastery_level * 0.6` would have thrown, not zeroed.**
+  `LifePathBackend.calculate_knowledge_alignment` weighted `mastery_level`
+  arithmetically, but `_AdaptiveMixin` is its only writer and sets the *strings*
+  `'introduced'`/`'proficient'`. Confirmed against the live server: `RETURN
+  'introduced' * 0.6` raises a type mismatch. Repointing `CONTAINS` without this
+  fix would have converted a silent zero into a hard query failure the moment any
+  adaptively-mastered Ku appeared. Now
+  `CASE WHEN m IS NULL THEN 0.0 ELSE coalesce(m.mastery_score, 1.0) END` — the
+  numeric property the other four writers set, with existence scoring 1.0 for the
+  writer that records mastery without a score (tranche 3's "mastery is the edge's
+  existence" rule, adapted to a query that genuinely needs a continuum).
+- **`m.substance_score` has no writer at all**, so
+  `get_knowledge_substance_stats` classified every Ku as theoretical and
+  `embodied` was structurally always 0. Uses the same mastery expression as a
+  proxy, matching the existing precedent in `PsContextService`
+  (`substance_score=mastery  # Use mastery as substance proxy`). A true ADR-046
+  Ku-grain substance rollup is roadmap work — no new writer was invented here.
+- **`calculate_momentum` collapsed to zero rows on a user whose activity
+  stopped.** Both week-window legs were mandatory `MATCH`es, so recent=0 returned
+  no rows and the service fell back to its neutral `0.5` default instead of the
+  declining branch — reporting "no data" for exactly the signal the metric
+  exists to catch. Both are `OPTIONAL MATCH` now.
+- `get_ku_mastery_progress` had the same trap on `MATCH (user)-[:MASTERED]->(ku)`:
+  a user who has mastered nothing would have read as "this path has no Kus". The
+  mastery test is an `EXISTS {}` predicate now, and an empty path yields one row
+  of zeros rather than no rows (the service already guards `total_kus == 0`).
+
+### No migration
+
+Unlike tranche 3's `ContentMetadata`, **none of these names has ever had a
+writer** — searched across the full history for any `MERGE`/`CREATE` of
+`INCLUDES_KU`, `CONTAINS`, `FUNDS_HABIT`, `HAS_CHILD` or `PARENT_OF` in
+`adapters/` or `core/`, at every commit. No environment can hold these edges, so
+there is nothing to move. ("Dev has zero rows" was not the basis for this — the
+writer history was.)
+
+Guarded by `tests/unit/test_hierarchy_vocabulary.py` and
+`tests/unit/test_curriculum_read_vocabulary.py`; every assertion was
+revert-checked against the pre-fix code (13 of 16 fail on it — the three that
+pass are pure registry invariants).
 
 ---
 
@@ -432,9 +568,30 @@ carry no baseline pairs — recorded here so they don't get lost.
     check what each one's writer actually connects before picking.**
 - **The same dict has a second bad entry, deliberately left for T4.**
   `"hierarchical": ["HAS_CHILD", "PARENT_OF", "CHILD_OF"]` — `PARENT_OF` and
-  `CHILD_OF` are not `RelationshipName` members either. Not fixed here because
-  §8 owns the `CHILD_OF`/`PARENT_OF`/`HAS_CHILD` reconciliation and this site
-  should take whatever that ruling decides, not pre-empt it.
+  `CHILD_OF` are not `RelationshipName` members either. Not fixed in tranche 3
+  because §8 owns the `CHILD_OF`/`PARENT_OF`/`HAS_CHILD` reconciliation.
+  **✅ Fixed in tranche 4** — takes §8's ruling: all three names were dead
+  (`HAS_CHILD` included), so the entry is now the six `HAS_SUB*` edges plus
+  `HAS_STEP`/`ORGANIZES`, identical to `get_siblings`.
+- **A third Python-side edge string, found by the tranche-4 sweep.**
+  `domain_queries.build_task_with_context` specified
+  `"rel_types": "PARENT_OF|CHILD_OF"` for its subtasks block. Same blind spot,
+  no baseline pair. **✅ Fixed in tranche 4** → `"SUBTASK_OF"`, which is the
+  inverse leg `_HierarchyMixin` writes and matches the spec's existing
+  `"incoming"` direction. (This sits inside the caller-less `*_with_context`
+  family above; fixed rather than left because it costs nothing and the family's
+  deletion ruling is still open.) Three such sites in three tranches makes the
+  scanner extension to Python edge lists the highest-value item on this list.
+- **`_TraversalMixin.get_batch_cross_domain_context` is production-caller-less.**
+  Found while removing its `FUNDS_*` arms (§8): only the protocol declaration in
+  `base_protocols.py:961` and the implementation exist. Bloat finding, not a
+  vocabulary one — left standing, wants its own One Path Forward ruling.
+- **Registered names can be just as dead as unregistered ones.** `HAS_CHILD`,
+  `FUNDS_TASK` and `FUNDS_EVENT` are all `RelationshipName` members with no
+  writer anywhere in the repo's history (§8). SKUEL030 checks *membership*, not
+  *liveness*, so this whole class is invisible to it and to this document's
+  scan — the findings here are a lower bound. A "registered but writer-less"
+  audit would be a natural companion rule.
 - **`EnhancedUserContext` is unreachable.** Found while tracing
   `learning_preferences` readers: the class in `user_intelligence.py` has zero
   references repo-wide, which also makes `update_intelligence`,

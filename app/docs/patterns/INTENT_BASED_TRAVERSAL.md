@@ -92,10 +92,10 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 |--------|--------------------------|--------|-------------------------------|
 | Tasks | `PREREQUISITE` | `TASKS_CONFIG` | `REQUIRES_KNOWLEDGE / PREREQUISITE_FOR / ENABLES` |
 | Goals | `GOAL_ACHIEVEMENT` | `GOAPS_CONFIG` | goal-tailored (`FULFILLS_GOAL / SUPPORTS_GOAL / …`) |
-| Habits | `PRACTICE` | `HABITS_CONFIG` | `PRACTICES / REINFORCES / APPLIES_KNOWLEDGE` |
-| Events | `PRACTICE` | `EVENTS_CONFIG` | `PRACTICES / REINFORCES / APPLIES_KNOWLEDGE` |
-| Choices | `HIERARCHICAL` | `CHOICES_CONFIG` | `HAS_CHILD / PARENT_OF / CHILD_OF` |
-| Principles | `HIERARCHICAL` | `PRINCIPLES_CONFIG` | `HAS_CHILD / PARENT_OF / CHILD_OF` |
+| Habits | `PRACTICE` | `HABITS_CONFIG` | `REINFORCES_KNOWLEDGE / APPLIES_KNOWLEDGE` |
+| Events | `PRACTICE` | `EVENTS_CONFIG` | `REINFORCES_KNOWLEDGE / APPLIES_KNOWLEDGE` |
+| Choices | `HIERARCHICAL` | `CHOICES_CONFIG` | `HAS_SUBTASK / HAS_SUBGOAL / HAS_SUBHABIT / HAS_SUBEVENT / HAS_SUBCHOICE / HAS_SUBPRINCIPLE / HAS_STEP / ORGANIZES` |
+| Principles | `HIERARCHICAL` | `PRINCIPLES_CONFIG` | `HAS_SUBTASK / HAS_SUBGOAL / HAS_SUBHABIT / HAS_SUBEVENT / HAS_SUBCHOICE / HAS_SUBPRINCIPLE / HAS_STEP / ORGANIZES` |
 
 > ⚠️ **Live defects the convergence roadmap targets.**
 > 1. **The intent wiring is inconsistent and mostly bypasses the config.** Of the six facade
@@ -103,7 +103,7 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 >    `EXPLORATORY`; and the Events facade path **errors** (bad `get_entity_context` kwarg, above). So
 >    the "specialized" per-domain intents reach almost no caller.
 > 2. **Even on mechanism B, Choice/Principle surface ~nothing.** They resolve to `HIERARCHICAL`
->    (`HAS_CHILD/PARENT_OF/CHILD_OF`) — tree edges those domains almost never write — so the traversal
+>    (the `HAS_SUB*` composition edges) — tree edges those domains almost never write — so the traversal
 >    misses their real neighbors (`AFFECTS_GOAL`, `INFORMED_BY_PRINCIPLE`, `GUIDES_CHOICE`,
 >    `INFORMED_BY_KNOWLEDGE`, …).
 >
@@ -121,9 +121,9 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 class QueryIntent(str, Enum):
     EXPLORATORY = "exploratory"      # Broad search/discovery (default; else-branch, no edge filter)
     SPECIFIC = "specific"            # Specific concept (else-branch)
-    HIERARCHICAL = "hierarchical"    # Parent/child context — HAS_CHILD/PARENT_OF/CHILD_OF
+    HIERARCHICAL = "hierarchical"    # Parent/child context — the six HAS_SUB* edges + HAS_STEP/ORGANIZES
     PREREQUISITE = "prerequisite"    # Prerequisite chains — REQUIRES_KNOWLEDGE/PREREQUISITE_FOR/ENABLES
-    PRACTICE = "practice"            # PRACTICES/REINFORCES/APPLIES_KNOWLEDGE
+    PRACTICE = "practice"            # REINFORCES_KNOWLEDGE/APPLIES_KNOWLEDGE
     AGGREGATION = "aggregation"      # Statistical (else-branch)
     RELATIONSHIP = "relationship"    # Graph-traversal focused (else-branch)
 ```
@@ -240,9 +240,10 @@ These are the `type(r) IN [...]` edge lists in `build_context_query_for_intent`,
 
 ### Reachable clauses
 
-- **HIERARCHICAL** — `HAS_CHILD`, `PARENT_OF`, `CHILD_OF`
+- **HIERARCHICAL** — `HAS_SUBTASK`, `HAS_SUBGOAL`, `HAS_SUBHABIT`, `HAS_SUBEVENT`,
+  `HAS_SUBCHOICE`, `HAS_SUBPRINCIPLE`, `HAS_STEP`, `ORGANIZES`
 - **PREREQUISITE** — `REQUIRES_KNOWLEDGE`, `PREREQUISITE_FOR`, `ENABLES`
-- **PRACTICE** — `PRACTICES`, `REINFORCES`, `APPLIES_KNOWLEDGE`
+- **PRACTICE** — `REINFORCES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`
 - **GOAL_ACHIEVEMENT** — `FULFILLS_GOAL`, `SUPPORTS_GOAL`, `REQUIRES_KNOWLEDGE`, `SUBGOAL_OF`,
   `GUIDED_BY_PRINCIPLE`, `CONTRIBUTES_TO_GOAL`
 - **else** (EXPLORATORY / SPECIFIC / AGGREGATION / RELATIONSHIP) — generic traversal, no edge filter

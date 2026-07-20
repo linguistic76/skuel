@@ -61,8 +61,17 @@ class _LpProgressMixin:
         Returns:
             Result containing list of LP UIDs
         """
+        # A learning path reaches a Ku two ways: directly, via the ingestible
+        # `connections.required_knowledge` prerequisite edge (LP_CONFIG), or —
+        # the normal case — through its PathSteps, which are what actually
+        # compose Kus. There is no LP→Ku containment edge: INCLUDES_KU was never
+        # a RelationshipName member and the live graph has no LearningPath→Ku
+        # relationship of any type (findings §8).
         query = """
-        MATCH (lp:Entity {entity_type: 'learning_path'})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (lp:Entity {entity_type: 'learning_path'})-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN DISTINCT lp.uid as lp_uid
+        UNION
+        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         RETURN DISTINCT lp.uid as lp_uid
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
@@ -88,13 +97,24 @@ class _LpProgressMixin:
             Result containing dict with 'total_kus' and 'mastered_kus' keys,
             or empty dict if the learning path contains no KUs.
         """
+        # Same two routes to the path's Kus as get_paths_containing_ku. Both
+        # legs are OPTIONAL and the mastery test is an EXISTS predicate rather
+        # than a MATCH: a user who has mastered nothing must read as 0-of-N, not
+        # collapse the query to zero rows, which the service would report as
+        # "this path has no Kus".
         query = """
-        MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
-        WITH count(DISTINCT ku) as total_kus
-        MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
-        MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
-        WITH total_kus, count(DISTINCT ku) as mastered_kus
-        RETURN total_kus, mastered_kus
+        MATCH (lp:Entity {uid: $lp_uid})
+        OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity)
+        WITH lp, collect(DISTINCT direct_ku) as direct_kus
+        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->(step_ku:Entity)
+        WITH direct_kus, collect(DISTINCT step_ku) as step_kus
+        WITH direct_kus + step_kus as candidate_kus
+        UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) as ku
+        WITH [k IN collect(DISTINCT ku) WHERE k IS NOT NULL] as lp_kus
+        RETURN
+            size(lp_kus) as total_kus,
+            size([k IN lp_kus
+                  WHERE EXISTS { (:User {uid: $user_uid})-[:MASTERED]->(k) }]) as mastered_kus
         """
         result = await self.execute_query(query, {"lp_uid": lp_uid, "user_uid": user_uid})
         if result.is_error:
