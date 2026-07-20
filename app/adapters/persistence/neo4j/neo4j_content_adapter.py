@@ -42,8 +42,8 @@ class Neo4jContentAdapter:
         """
         Delete an entity's full content subtree.
 
-        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) plus
-        (Content)-[:HAS_METADATA]->(ContentMetadata) — deleted leaf-first,
+        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) —
+        deleted leaf-first,
         mirroring IngestionBackend.delete_entities_with_metadata (deleting the
         Content node alone would orphan chunks in the vector index and chunk
         regeneration scans). The explicit clear path for a PathStep re-ingested
@@ -58,8 +58,7 @@ class Neo4jContentAdapter:
         query = """
         MATCH (unit:Entity {uid: $uid})-[:HAS_CONTENT]->(content:Content)
         OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
-        OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
-        DETACH DELETE chunk, meta
+        DETACH DELETE chunk
         WITH DISTINCT content
         DETACH DELETE content
         RETURN count(content) as deleted

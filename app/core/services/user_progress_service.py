@@ -123,9 +123,10 @@ class UserKnowledgeProfile:
     interested_uids: set[str]
     bookmarked_uids: set[str]
 
-    # Struggle identification
-    struggling_uids: set[str]
-    needs_review_uids: set[str]
+    # NOTE: struggling_uids / needs_review_uids removed (SKUEL030 tranche 3).
+    # They were fed by :STRUGGLING_WITH / :NEEDS_REVIEW edge reads that no
+    # writer ever created, so both sets were always empty — see
+    # UserProgressBackend for why there is nothing to repoint onto.
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-safe dictionary with datetime/set handling."""
@@ -142,8 +143,6 @@ class UserKnowledgeProfile:
             "completed_paths": sorted(self.completed_paths),
             "interested_uids": sorted(self.interested_uids),
             "bookmarked_uids": sorted(self.bookmarked_uids),
-            "struggling_uids": sorted(self.struggling_uids),
-            "needs_review_uids": sorted(self.needs_review_uids),
         }
 
 
@@ -229,10 +228,6 @@ class UserProgressService:
         interested = await self._get_interested_knowledge(user_uid)
         bookmarked = await self._get_bookmarked_knowledge(user_uid)
 
-        # Get struggle and review needs
-        struggling = await self._get_struggling_knowledge(user_uid)
-        needs_review = await self._get_needs_review_knowledge(user_uid)
-
         profile = UserKnowledgeProfile(
             user_uid=user_uid,
             username=username,
@@ -246,8 +241,6 @@ class UserProgressService:
             completed_paths=completed_paths,
             interested_uids=interested,
             bookmarked_uids=bookmarked,
-            struggling_uids=struggling,
-            needs_review_uids=needs_review,
         )
 
         self.logger.info(
@@ -442,26 +435,6 @@ class UserProgressService:
         records = result.value or []
         record = records[0] if records else None
         return set(record["bookmarked_uids"]) if record else set()
-
-    async def _get_struggling_knowledge(self, user_uid: UserUID) -> set[str]:
-        """Get knowledge units user is struggling with."""
-        result = await self.backend.get_struggling_knowledge(user_uid)
-        if result.is_error:
-            return set()
-
-        records = result.value or []
-        record = records[0] if records else None
-        return set(record["struggling_uids"]) if record else set()
-
-    async def _get_needs_review_knowledge(self, user_uid: UserUID) -> set[str]:
-        """Get knowledge units that need review."""
-        result = await self.backend.get_needs_review_knowledge(user_uid)
-        if result.is_error:
-            return set()
-
-        records = result.value or []
-        record = records[0] if records else None
-        return set(record["review_uids"]) if record else set()
 
     # ========================================================================
     # PHASE 4.5: Knowledge Coverage Analytics (October 6, 2025)

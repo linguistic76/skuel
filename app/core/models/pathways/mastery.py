@@ -337,32 +337,3 @@ def create_mastery(
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-
-
-def create_learning_preference(user_uid: UserUID) -> LearningPreference:
-    """Create initial learning preference profile."""
-    preference_uid = f"learning_pref_{user_uid}"
-
-    return LearningPreference(
-        uid=preference_uid,
-        user_uid=user_uid,
-        preferred_content_types=[ContentPreference.TEXTUAL, ContentPreference.PRACTICAL],
-        preferred_difficulty_progression="gradual",
-        preferred_learning_pace="self_paced",
-        successful_learning_patterns={},
-        effective_review_intervals={},
-        domain_preferences={},
-        preferred_learning_times=["morning", "evening"],
-        preferred_session_duration_minutes=45,
-        prefers_spaced_repetition=True,
-        prefers_interleaved_practice=False,
-        learns_better_with_examples=True,
-        prefers_bottom_up_or_top_down="bottom_up",
-        benefits_from_analogies=True,
-        needs_immediate_application=False,
-        total_learning_sessions=0,
-        successful_mastery_count=0,
-        average_time_to_mastery_hours=25.0,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    )

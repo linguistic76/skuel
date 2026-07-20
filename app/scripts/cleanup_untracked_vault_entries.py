@@ -165,7 +165,7 @@ async def _fetch_edge_breakdown(driver: Any, uids: list[str]) -> Counter[str]:
 
 
 async def _fetch_content_subtree_count(driver: Any, uids: list[str]) -> int:
-    """Count :Content/:ContentChunk/:ContentMetadata nodes hanging off the orphans.
+    """Count :Content/:ContentChunk nodes hanging off the orphans.
 
     The orphans hold 0 chunks today (retrieval is clean), but a blind
     ``DETACH DELETE`` of only the entry node would orphan any subtree in the
@@ -178,8 +178,7 @@ async def _fetch_content_subtree_count(driver: Any, uids: list[str]) -> int:
         MATCH (u:UserEntry)-[:HAS_CONTENT]->(content:Content)
         WHERE u.uid IN $uids
         OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
-        OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
-        RETURN count(DISTINCT content) + count(DISTINCT chunk) + count(DISTINCT meta) AS n
+        RETURN count(DISTINCT content) + count(DISTINCT chunk) AS n
         """,
         uids=uids,
     )
@@ -195,7 +194,7 @@ async def _delete_orphans(driver: Any, uids: list[str]) -> tuple[int, int]:
     chunk-regeneration scans. The subtree is counted up front (single aggregate
     row, no per-entry grouping — Codex #616 P2) so the ``[APPLIED]`` audit total
     is exact regardless of per-entry subtree size; the delete then runs
-    leaf-first (chunk/meta → content → entry) mirroring the adapter's proven
+    leaf-first (chunk → content → entry) mirroring the adapter's proven
     pattern. Returns ``(entries_deleted, subtree_nodes_deleted)``.
     """
     subtree = await _fetch_content_subtree_count(driver, uids)
@@ -205,8 +204,7 @@ async def _delete_orphans(driver: Any, uids: list[str]) -> tuple[int, int]:
         WHERE u.uid IN $uids
         OPTIONAL MATCH (u)-[:HAS_CONTENT]->(content:Content)
         OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
-        OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
-        DETACH DELETE chunk, meta
+        DETACH DELETE chunk
         WITH DISTINCT u, content
         DETACH DELETE content
         WITH DISTINCT u
@@ -238,7 +236,7 @@ def _print_report(
     print(f"\nEdge-type breakdown ({total_edges} edges total):")
     for rel_type, count in sorted(edge_breakdown.items(), key=lambda kv: (-kv[1], kv[0])):
         print(f"  {rel_type:<24} {count}")
-    print(f"\nContent subtree nodes (:Content/:ContentChunk/:ContentMetadata): {subtree_nodes}")
+    print(f"\nContent subtree nodes (:Content/:ContentChunk): {subtree_nodes}")
 
     print("\n" + "=" * 72)
     print(f"REVIEW — ambiguous, NOT auto-deleted (path not tracked): {len(ambiguous)}")

@@ -220,8 +220,12 @@ class Neo4jAdapter:
             constraints = [
                 "CREATE CONSTRAINT knowledge_unit_id_unique IF NOT EXISTS FOR (ku:Entity) REQUIRE ku.id IS UNIQUE",
                 "CREATE CONSTRAINT task_id_unique IF NOT EXISTS FOR (t:Task) REQUIRE t.id IS UNIQUE",
-                "CREATE CONSTRAINT document_id_unique IF NOT EXISTS FOR (d:Document) REQUIRE d.id IS UNIQUE",
-                "CREATE CONSTRAINT conversation_id_unique IF NOT EXISTS FOR (c:Conversation) REQUIRE c.id IS UNIQUE",
+                # NOTE: document_id_unique / conversation_id_unique removed
+                # (SKUEL030 tranche 3) — :Document and :Conversation are labels
+                # nothing writes. The real conversation store uses
+                # :ConversationSession / :ConversationMessage, and there is no
+                # :Document label at all. A constraint on an unused label is
+                # inert, but it advertised vocabulary that does not exist.
             ]
 
             # Define essential indexes for performance
@@ -229,7 +233,12 @@ class Neo4jAdapter:
                 # Full-text search indexes
                 "CREATE FULLTEXT INDEX knowledge_fulltext IF NOT EXISTS FOR (ku:Entity) ON EACH [ku.title, ku.description, ku.summary]",
                 "CREATE FULLTEXT INDEX tasks_fulltext IF NOT EXISTS FOR (t:Task) ON EACH [t.title, t.description, t.notes]",
-                "CREATE FULLTEXT INDEX journals_fulltext IF NOT EXISTS FOR (d:Document) ON EACH [d.title, d.description, d.content]",
+                # NOTE: journals_fulltext removed (SKUEL030 tranche 3) — it
+                # indexed (d:Document), a label nothing writes. It was also
+                # self-cancelling: Neo4jSchemaManager.drop_stale_indexes already
+                # lists journals_fulltext as stale, annotated "label Document no
+                # longer exists", so bootstrap created on every startup exactly
+                # what the schema manager was written to drop.
                 # Legacy property indexes for filtering and sorting
                 "CREATE INDEX knowledge_type_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.type)",
                 "CREATE INDEX knowledge_created_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.created_at)",

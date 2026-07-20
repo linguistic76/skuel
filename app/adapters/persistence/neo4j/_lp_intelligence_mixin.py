@@ -235,17 +235,22 @@ class _LpIntelligenceMixin:
     async def get_next_adaptive_step(
         self, current_step_uid: str, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:
-        """Get next path step based on adaptive intelligence."""
+        """Get next path step based on adaptive intelligence.
+
+        A prerequisite counts as complete when the user has MASTERED it. See
+        UserProgressBackend.calculate_knowledge_coverage for why this is edge
+        existence rather than ADR-002's never-built `mastery_level >= 0.7`.
+        """
         query = """
         MATCH (current:Entity {uid: $current_uid})-[r:ENABLES_KNOWLEDGE]->(next:Entity)
 
         // Get user progress for prerequisites
         OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
-        OPTIONAL MATCH (prereq)<-[:HAS_PROGRESS]-(up:UserProgress {user_uid: $user_uid})
+        OPTIONAL MATCH (:User {uid: $user_uid})-[mastery:MASTERED]->(prereq)
 
         WITH next, r,
              count(prereq) as total_prereqs,
-             count(CASE WHEN up.mastery_level >= 0.7 THEN 1 END) as completed_prereqs,
+             count(mastery) as completed_prereqs,
              avg(coalesce(r.confidence, 1.0)) as avg_confidence,
              avg(coalesce(r.strength, 1.0)) as avg_strength,
              avg(coalesce(r.difficulty_gap, 0.3)) as avg_difficulty
@@ -286,22 +291,24 @@ class _LpIntelligenceMixin:
         """Get recommended path steps for a user based on their progress."""
         query = """
         // Find knowledge units user has mastered
-        MATCH (mastered:Entity)<-[:HAS_PROGRESS]-(up:UserProgress {user_uid: $user_uid})
-        WHERE up.mastery_level >= 0.7
+        MATCH (:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
 
         // Find next steps enabled by mastered knowledge
         MATCH (mastered)-[r:ENABLES_KNOWLEDGE]->(next:Entity)
 
-        // Check if user hasn't started this yet
-        WHERE NOT exists((next)<-[:HAS_PROGRESS]-(:UserProgress {user_uid: $user_uid}))
+        // Check if user hasn't started this yet. "Started" spans both live
+        // states: MASTERED is the terminal state of VIEWED → IN_PROGRESS →
+        // MASTERED and its writers DELETE the IN_PROGRESS edge, so the two are
+        // mutually exclusive — neither arm alone covers "already engaged".
+        WHERE NOT exists((:User {uid: $user_uid})-[:IN_PROGRESS|MASTERED]->(next))
 
         // Check prerequisite readiness
         OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
-        OPTIONAL MATCH (prereq)<-[:HAS_PROGRESS]-(prereq_progress:UserProgress {user_uid: $user_uid})
+        OPTIONAL MATCH (:User {uid: $user_uid})-[prereq_mastery:MASTERED]->(prereq)
 
         WITH next, r,
              count(prereq) as total_prereqs,
-             count(CASE WHEN prereq_progress.mastery_level >= 0.7 THEN 1 END) as completed_prereqs
+             count(prereq_mastery) as completed_prereqs
 
         // Calculate readiness
         WITH next, r,

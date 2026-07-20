@@ -9,7 +9,26 @@ related: []
 
 # ADR-002: Knowledge Coverage Calculation Query
 
-**Status:** Accepted
+**Status:** Accepted — **single-query decision upheld, node model superseded (2026-07-20)**
+
+> **⚠️ The graph vocabulary in this ADR was never built.** Every Cypher block
+> below reads `(User)-[:HAS_PROGRESS]->(:UserProgress)-[:FOR_KNOWLEDGE]->(...)`
+> with a continuous `up.mastery_level >= 0.7`. No writer for that node model was
+> ever implemented, so `calculate_knowledge_coverage` silently returned zero
+> learned units from the day it shipped. (The `Curriculum` label the examples
+> use was separately renamed to `Ku` by a later migration — a second tell that
+> this text predates the graph it describes.)
+>
+> Live vocabulary splits the same continuum across two edge types:
+> `(User)-[:IN_PROGRESS]->` carries `progress`, and `(User)-[:MASTERED]->` is
+> its terminal state. Mastery is therefore the **edge's existence**, not a score
+> threshold — and it has to be, because `_AdaptiveMixin.track_mastery_completion`
+> writes MASTERED edges with no `mastery_score` property at all.
+>
+> SKUEL030 findings tranche 3 repointed the query onto MASTERED. The decision
+> this ADR actually records — *one complex query instead of N+M round trips* —
+> stands unchanged; only the vocabulary moved. See
+> `docs/patterns/CYPHER_VOCABULARY_FINDINGS.md` §7.
 
 **Date:** 2025-11-16
 

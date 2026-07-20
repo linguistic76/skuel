@@ -313,9 +313,8 @@ class IngestionBackend:
         Each item carries {file_path, entity_uid}. Matches the entity across the
         two uid-bearing node shapes ingestion can create (:Entity multi-label,
         :Group). The content subtree hangs off the entity as
-        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) with
-        (Content)-[:HAS_METADATA]->(ContentMetadata) — all of it is deleted
-        leaf-first (DETACH DELETE on the entity alone would orphan the content
+        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) — all of
+        it is deleted leaf-first (DETACH DELETE on the entity alone would orphan the content
         side, leaving deleted material in chunk regeneration scans and the
         vector index). A canon-shelved Resource additionally hangs
         (Resource)-[:HAS_REFERENCE_CHUNK]->(ReferenceChunk) directly off the
@@ -333,9 +332,8 @@ class IngestionBackend:
             OPTIONAL MATCH (g:Group {uid: item.entity_uid})
             OPTIONAL MATCH (e)-[:HAS_CONTENT]->(content:Content)
             OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
-            OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
             OPTIONAL MATCH (e)-[:HAS_REFERENCE_CHUNK]->(refchunk:ReferenceChunk)
-            DETACH DELETE chunk, meta, refchunk
+            DETACH DELETE chunk, refchunk
             WITH DISTINCT item, s, e, g, content
             DETACH DELETE content
             WITH DISTINCT item, s, e, g

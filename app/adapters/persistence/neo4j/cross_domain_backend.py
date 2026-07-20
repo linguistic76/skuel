@@ -39,7 +39,24 @@ if TYPE_CHECKING:
 _INTENT_EDGE_SETS: dict[str, list[str]] = {
     "hierarchical": ["HAS_CHILD", "PARENT_OF", "CHILD_OF"],
     "prerequisite": ["REQUIRES_KNOWLEDGE", "PREREQUISITE_FOR", "ENABLES"],
-    "practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"],
+    # "practice" used to read ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"].
+    # Neither of the first two is a RelationshipName member nor exists in the
+    # live graph — PRACTICES was the writer-less Event→Ku edge retired in the
+    # 2026-07-10 audit — so any alternation built from the old list matched only
+    # its third arm. This is a Python list rather than a Cypher string, so
+    # SKUEL030 cannot see it and it carried no baseline pair (findings §13).
+    #
+    # REINFORCES repoints to REINFORCES_KNOWLEDGE, NOT REINFORCES_HABIT. Both
+    # are registered and live, but they are different edges: REINFORCES_HABIT is
+    # (Task|Event)->Habit, while REINFORCES_KNOWLEDGE is Habit->Ku — the
+    # knowledge-practice edge HABITS_CONFIG maps and link_habit_to_knowledge
+    # writes. This lens finds practice context FOR knowledge, so it must pair
+    # with APPLIES_KNOWLEDGE exactly as the canonical
+    # `APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE` alternation does elsewhere
+    # (user_context_queries.py:280, curriculum_backends.py:272). Picking the
+    # habit arm would have omitted reinforcing habits while pulling in unrelated
+    # task/event→habit links (Codex P2 on #737).
+    "practice": ["REINFORCES_KNOWLEDGE", "APPLIES_KNOWLEDGE"],
     "goal_achievement": [
         "FULFILLS_GOAL",
         "SUPPORTS_GOAL",
@@ -312,14 +329,64 @@ class CrossDomainBackend:
     async def get_learning_velocity_metrics(
         self, user_uid: str, start_date: str
     ) -> Result[list[dict[str, Any]]]:
-        """Get LearningVelocity node with recent mastery records."""
+        """Get LearningVelocity node with recent masteries.
+
+        The LearningVelocity node itself is live (upserted by
+        `upsert_learning_velocity`); only its `<-[:HAS_VELOCITY]-(:MasteryRecord)`
+        satellites were writer-less. Recent masteries now come from the user's
+        own MASTERED edges — the live record of the same event.
+
+        The "when was this mastered" stamp is coalesced across the four MASTERED
+        writers, which disagree on its name. Creation stamps come first
+        (`mastered_at` / `achieved_at` / `created_at`) — all ON CREATE for the
+        same event, and exactly one writer creates any given edge, so coalesce
+        picks the only non-null rather than hiding a newer one.
+
+        `last_practiced` is the deliberate LAST fallback, and it is required:
+        `UserBackend.record_knowledge_mastery` — the writer behind the pathways
+        progress route — stamps NO creation timestamp at all, only
+        `last_practiced`. Without this arm its edges read as undated and drop
+        out of every velocity window (Codex P2 on #737). Ordering it last keeps
+        it from overriding a real creation stamp on the writers that set both.
+
+        `time_to_mastery_hours` is written by just one writer; sum() ignores the
+        nulls from the others.
+
+        **`total_kus` is counted here rather than read off the node.** The
+        node's `velocity.kus_mastered` is an EVENT-driven counter — only
+        `upsert_learning_velocity`, behind the `KnowledgeMastered` handler,
+        increments it — while `recent_kus` counts MASTERED edges from all four
+        writers. Mixing the two let the service compute
+        `previous = total - recent` as a NEGATIVE number whenever a mastery
+        landed through a non-event path such as the pathways progress route
+        (Codex P2 on #737). Both totals now come from the same source, so the
+        subtraction is well-founded by construction. `paths_completed` still
+        comes off the node — it has its own counter and no edge equivalent.
+
+        **Anchored on the User; the velocity node is OPTIONAL.** Requiring
+        `MATCH (velocity:LearningVelocity ...)` meant a user whose masteries all
+        came through non-event writers — no `KnowledgeMastered` event, so no
+        node was ever upserted — produced zero rows and reported `no_data`
+        despite having live MASTERED edges (Codex P2 on #737). That is the same
+        mandatory-match trap as the totals bug above, one clause higher up: the
+        edges are now the primary source, so the node must not gate them.
+        Callers must treat `velocity` as nullable.
+        """
         return await self.executor.execute_query(
             """
-            MATCH (velocity:LearningVelocity {user_uid: $user_uid})
-            OPTIONAL MATCH (velocity)<-[:HAS_VELOCITY]-(ku:MasteryRecord)
-            WHERE datetime(ku.mastered_at) >= datetime($start_date)
-            WITH velocity, count(ku) as recent_kus, sum(ku.time_to_mastery_hours) as total_hours
-            RETURN velocity, recent_kus, total_hours
+            MATCH (u:User {uid: $user_uid})
+            OPTIONAL MATCH (velocity:LearningVelocity {user_uid: $user_uid})
+            OPTIONAL MATCH (u)-[m:MASTERED]->(:Entity)
+            WITH velocity, m,
+                 coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)
+                     AS mastered_when
+            WITH velocity,
+                 count(m) AS total_kus,
+                 count(CASE WHEN mastered_when >= datetime($start_date) THEN 1 END)
+                     AS recent_kus,
+                 sum(CASE WHEN mastered_when >= datetime($start_date)
+                          THEN m.time_to_mastery_hours END) AS total_hours
+            RETURN velocity, total_kus, recent_kus, total_hours
             """,
             {"user_uid": user_uid, "start_date": start_date},
         )
@@ -327,15 +394,13 @@ class CrossDomainBackend:
     # NOTE: get_spending_by_category removed (ADR-052 Phase 5) — native expense
     # module demolished; no FinancialAnalytics nodes to read.
 
-    async def get_journal_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get JournalAnalytics node for mood analysis."""
-        return await self.executor.execute_query(
-            """
-            MATCH (analytics:JournalAnalytics {user_uid: $user_uid})
-            RETURN analytics
-            """,
-            {"user_uid": user_uid},
-        )
+    # NOTE: get_journal_analytics removed (SKUEL030 tranche 3) — it read a
+    # JournalAnalytics node whose upsert writer went away with ADR-054's
+    # journal/submissions consolidation, unlike its three sibling analytics
+    # nodes (Learning/Productivity/Habit), which each still have one. It had
+    # matched zero rows ever since, so `get_mood_analysis` and the
+    # /api/analytics/mood-analysis endpoint it backed returned placeholder
+    # constants for every user; both went with it.
 
     # NOTE: get_financial_goal_with_expenses removed (ADR-052 Phase 5) — native
     # expense module demolished; no Expense nodes link to goals.

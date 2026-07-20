@@ -1352,57 +1352,18 @@ findings:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/user_context_queries.py
-  ContentMetadata:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j/ingestion_backend.py
-      - adapters/persistence/neo4j/neo4j_content_adapter.py
-  Conversation:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j_adapter.py
   DEEPENS_UNDERSTANDING:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/_knowledge_context_mixin.py
-  Document:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j_adapter.py
-  Domain:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j/query_builders/faceted_query_builder.py
   EXTENDS_PATTERN:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/_knowledge_context_mixin.py
-  FOR_KNOWLEDGE:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/user_progress_backend.py
   FUNDS_HABIT:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/_traversal_mixin.py
-  HAS_METADATA:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/ingestion_backend.py
-      - adapters/persistence/neo4j/neo4j_content_adapter.py
-  HAS_PREFERENCE:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/_adaptive_mixin.py
-  HAS_PROGRESS:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/_lp_intelligence_mixin.py
-      - adapters/persistence/neo4j/user_progress_backend.py
-  HAS_VELOCITY:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/cross_domain_backend.py
   INCLUDES_KNOWLEDGE:
     kind: relationship
     sites:
@@ -1411,30 +1372,10 @@ findings:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/_lp_progress_mixin.py
-  JournalAnalytics:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j/cross_domain_backend.py
-  LearningPreference:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j/_adaptive_mixin.py
-  MasteryRecord:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j/cross_domain_backend.py
-  NEEDS_REVIEW:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/user_progress_backend.py
   PARENT_OF:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/query/graph_traversal.py
-  STRUGGLING_WITH:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/user_progress_backend.py
   SUBCHOICE:
     kind: relationship
     sites:

@@ -148,26 +148,13 @@ class UserProgressBackend:
             {"user_uid": user_uid},
         )
 
-    async def get_struggling_knowledge(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get knowledge units user is struggling with."""
-        return await self._executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:STRUGGLING_WITH]->(k:Entity)
-            RETURN collect(k.uid) as struggling_uids
-            """,
-            {"user_uid": user_uid},
-        )
-
-    async def get_needs_review_knowledge(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get knowledge units that need review (due today or earlier)."""
-        return await self._executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[r:NEEDS_REVIEW]->(k:Entity)
-            WHERE date(r.next_review_due) <= date()
-            RETURN collect(k.uid) as review_uids
-            """,
-            {"user_uid": user_uid},
-        )
+    # NOTE: get_struggling_knowledge / get_needs_review_knowledge removed
+    # (SKUEL030 tranche 3) — they matched :STRUGGLING_WITH / :NEEDS_REVIEW
+    # edges that no writer ever created. Both names are real, but as PROPERTY
+    # values on RelationshipMetadata ("struggling_with" / "needs_review" in
+    # core/models/enums/metadata_enums.py), not as edge types: an edge-vs-property
+    # mix-up, so there is nothing to repoint onto. Re-deriving these signals is
+    # semantic-layer roadmap work, not a rename.
 
     # ========================================================================
     # Readiness Calculation
@@ -272,13 +259,31 @@ class UserProgressBackend:
     async def calculate_knowledge_coverage(
         self, user_uid: str, domain: str | None
     ) -> Result[list[dict[str, Any]]]:
-        """Calculate coverage of learned knowledge over unlearned topics."""
+        """Calculate coverage of learned knowledge over unlearned topics.
+
+        "Learned" is the MASTERED edge's existence, not a score threshold.
+        ADR-002's UserProgress node was to carry a single continuous
+        `mastery_level` (read here as `>= 0.7`), but that model was never built;
+        the live vocabulary splits the same continuum across two edge types —
+        IN_PROGRESS carries `progress`, MASTERED is its terminal state. Mastery
+        is therefore the edge, not a property comparison, and it has to be:
+        `_AdaptiveMixin.track_mastery_completion` creates MASTERED edges with no
+        `mastery_score` at all (its `mastery_level` is a STRING — 'introduced' /
+        'proficient'), so any numeric filter here would silently drop them.
+
+        The mastery match is OPTIONAL and the query anchors on the User. A
+        mandatory match yields zero rows for a user who has mastered nothing,
+        which kills the whole query and reports "no unlearned topics" for
+        exactly the learner who has the most (Codex P2 on #737). A brand-new
+        user is the meaningful case here: every topic unlearned, and the ones
+        with no prerequisites already ready. `collect()` skips nulls, so
+        `learned_uids` is simply `[]`.
+        """
         return await self._executor.execute_query(
             """
-            // Get learned knowledge UIDs
-            MATCH (user:User {uid: $user_uid})-[:HAS_PROGRESS]->(up:UserProgress)
-                -[:FOR_KNOWLEDGE]->(learned:Entity)
-            WHERE up.mastery_level >= 0.7
+            // Get learned knowledge UIDs (empty list when the user has none)
+            MATCH (user:User {uid: $user_uid})
+            OPTIONAL MATCH (user)-[:MASTERED]->(learned:Entity)
             WITH collect(learned.uid) as learned_uids
 
             // Get unlearned knowledge

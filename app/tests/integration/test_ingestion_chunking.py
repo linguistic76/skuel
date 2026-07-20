@@ -218,7 +218,7 @@ One shared chunk step, two doors.
 @pytest.mark.asyncio
 async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path: Path):
     """A PathStep re-ingested with its body emptied must not keep the previous
-    body's :Content/:ContentChunk/:ContentMetadata subtree or word_count — the
+    body's :Content/:ContentChunk subtree or word_count — the
     explicit clear path (ADR-074). The bulk upsert alone can't do it: `n +=
     props` never removes omitted keys, and orphaned chunks would keep serving
     stale vectors from the chunk index."""
@@ -245,11 +245,9 @@ async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path
         MATCH (ps:PathStep {uid: $uid})
         OPTIONAL MATCH (ps)-[:HAS_CONTENT]->(c:Content)
         OPTIONAL MATCH (c)-[:HAS_CHUNK]->(chunk:ContentChunk)
-        OPTIONAL MATCH (c)-[:HAS_METADATA]->(meta:ContentMetadata)
         RETURN ps.word_count AS word_count,
                count(DISTINCT c) AS content_nodes,
-               count(DISTINCT chunk) AS chunk_nodes,
-               count(DISTINCT meta) AS meta_nodes
+               count(DISTINCT chunk) AS chunk_nodes
     """
 
     async with neo4j_driver.session() as session:
@@ -270,7 +268,6 @@ async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path
     assert record["word_count"] == 0, "Emptied body must overwrite word_count with 0"
     assert record["content_nodes"] == 0, "Stale :Content must be deleted"
     assert record["chunk_nodes"] == 0, "Stale :ContentChunk nodes must be deleted"
-    assert record["meta_nodes"] == 0, "Stale :ContentMetadata must be deleted"
 
 
 @pytest.mark.asyncio

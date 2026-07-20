@@ -18,12 +18,22 @@ in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
   wanted features go to the roadmap instead.
 - **§9 semantic-as-edge → DEFERRED** to semantic-relationship-layer roadmap
   Phase 1. Pairs stay baselined until that work reconciles them.
-- **Tranche order:** T1 = §3+§4 (done below) · T2 = §6 LEARNING fix+migration,
-  §1 deletion, §11 Expense (done below) · T3 = §7 per decision, §2 label
-  mismatches · T4 = §5 sibling filter, §8 near-duplicates.
+- **Tranche order:** T1 = §3+§4 (done) · T2 = §6 LEARNING fix+migration,
+  §1 deletion, §11 Expense (done) · T3 = §7 per decision, §2 label mismatches
+  (done) · **T4 (next) = §5 sibling filter, §8 near-duplicates** — plus §10's
+  unreachable `.cypher` templates, which still await their own pass.
 - **Tranche 2 shipped (2026-07-20):** §6, §1 and §11 resolved as ratified —
   6 baseline pairs closed (38 → 32). One migration covers both graph-side
   changes: `scripts/migrations/retire_learning_edge_and_expense_label_2026_07.cypher`.
+- **Tranche 3 shipped (2026-07-20):** §7 and §2 resolved as ratified, plus the
+  §13 `"practice"` rider — **17 baseline pairs closed (32 → 15)**. Note the
+  count: the plan said 13 (11 for §7), but §7 carried 14 pairs, not 11
+  (`ContentMetadata` and `HAS_METADATA` each appear in two files). Migration:
+  `drop_stale_bootstrap_constraints_2026_07.cypher` +
+  `drop_orphaned_content_metadata_2026_07.cypher`.
+  One public endpoint was removed with its dead reader —
+  `GET /api/analytics/mood-analysis` — along with two always-zero UI stat tiles
+  on the pathways analytics page. Both are called out in §7.
 
 The baseline holds **`(file, name)` pairs**, so only the known call sites are
 exempt: introducing any of these names in a *new* file still fails the rule. It
@@ -65,13 +75,36 @@ domain services).
 
 ---
 
-## 2. Label mismatches — the node exists under a different name
+## 2. Label mismatches — ✅ RESOLVED (tranche 3, 2026-07-20)
 
-| Flagged | Real label | Site | Impact |
-|---|---|---|---|
-| `Domain` | `KnowledgeDomain` | `query_builders/faceted_query_builder.py:220,307,323` | Facet counts would come back empty. **Dormant** — `generate_facet_counts_query` has no production caller yet, so this bites the moment the explore catalog wires it up. |
-| `Document` | — | `neo4j_adapter.py:223` | Bootstrap constraint for a label nothing writes. |
-| `Conversation` | `ConversationSession` / `ConversationMessage` | `neo4j_adapter.py:224` | Same — a stale bootstrap constraint. |
+| Flagged | Real label | Resolution |
+|---|---|---|
+| `Domain` | `KnowledgeDomain` | **Repointed** in `query_builders/faceted_query_builder.py` (facet-count query + both arms of the `faceted_knowledge_search` template). |
+| `Document` | — | **Deleted** — bootstrap constraint AND a `journals_fulltext` index, both in `neo4j_adapter.py`. |
+| `Conversation` | `ConversationSession` / `ConversationMessage` | **Deleted** — stale bootstrap constraint. |
+
+**The `Domain` repoint was not a rename.** `KnowledgeDomain`'s only two writers
+(`bulk_knowledge_units.cypher`, `bulk_life_principles.cypher`) do
+`MERGE (d:KnowledgeDomain {uid: dom})` and set nothing else — so the reads'
+`d.name` / `{name: $domain}` named a property that is never written. Swapping
+only the label would have traded one silent zero for another; the property moved
+to `uid` in the same edit. (Same lesson as tranche 2: joining a live name
+inherits its invariants — check the writers, not just the registry.)
+
+`generate_facet_counts_query` is still production-caller-less (only the
+`QueryBuilder` facade delegation at `query_builder.py:249` and a test asserting
+that delegation), so it was repointed rather than deleted: it is a facade API
+and a registered query template, not abandoned code.
+
+**A third `:Document` site was hiding behind the file-level baseline.**
+`neo4j_adapter.py` also created `journals_fulltext` on `(d:Document)` — and
+`Neo4jSchemaManager.drop_stale_indexes` already listed that index as stale,
+annotated *"label Document no longer exists"*. Bootstrap created on every
+startup exactly what the schema manager was written to drop. Removing the pair
+came with `scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher`
+for the two constraints, which linger in `SHOW CONSTRAINTS` on any environment
+where bootstrap already ran (absent on dev; migration is a no-op there and was
+run against it anyway to prove the syntax).
 
 ---
 
@@ -173,22 +206,106 @@ name stayed retired.
 
 ---
 
-## 7. Writer-less reads — designed, never built
+## 7. Writer-less reads — ✅ RESOLVED (tranche 3, 2026-07-20)
 
-`user_progress_backend.py` is the densest cluster. `HAS_PROGRESS` and
-`FOR_KNOWLEDGE` trace to `docs/decisions/ADR-002-user-progress-service-query.md`,
-which still refers to a `Curriculum` label that a migration renamed to `Ku` —
-suggesting the whole `UserProgress` node model was specified but never
-implemented.
+Executed the ratified REPOINT-OR-DELETE. 14 baseline pairs closed.
 
-| Name | Kind | Note |
+### Repointed onto live vocabulary
+
+| Was | Now | Site |
 |---|---|---|
-| `HAS_PROGRESS`, `FOR_KNOWLEDGE` | edge | ADR-002's unbuilt UserProgress model |
-| `STRUGGLING_WITH`, `NEEDS_REVIEW` | edge | **Also exist as *property* values** in `core/models/enums/metadata_enums.py:120-121` — likely edge-vs-property confusion rather than a missing writer |
-| `HAS_VELOCITY` + `MasteryRecord` | edge + label | Only occurrence repo-wide; empty `OPTIONAL MATCH` inside an otherwise live query |
-| `HAS_PREFERENCE` + `LearningPreference` | edge + label | `ps_adaptive_service.py::_load_learning_preferences` therefore always yields `None` |
-| `JournalAnalytics` | label | Its 3 sibling analytics nodes each have an upsert; this one lost its writer with ADR-054 |
-| `HAS_METADATA` + `ContentMetadata` | edge + label | Read and deleted, never created — harmless `OPTIONAL MATCH` no-ops |
+| `HAS_PROGRESS` → `UserProgress` → `FOR_KNOWLEDGE`, `up.mastery_level >= 0.7` | `(:User)-[:MASTERED]->` | `user_progress_backend.calculate_knowledge_coverage` |
+| same, as a prerequisite-completion count | `(:User)-[m:MASTERED]->(prereq)`, `count(m)` | `_lp_intelligence_mixin.get_next_adaptive_step` |
+| same, plus "hasn't started yet" | `(:User)-[:IN_PROGRESS\|MASTERED]->` | `_lp_intelligence_mixin.get_recommended_path_steps` |
+| `(velocity)<-[:HAS_VELOCITY]-(:MasteryRecord)` | the user's own MASTERED edges | `cross_domain_backend.get_learning_velocity_metrics` |
+
+**Mastery is the edge's existence, not a score.** ADR-002 specified one node
+carrying a continuous `mastery_level`; the live model splits that continuum in
+two (IN_PROGRESS carries `progress`, MASTERED is terminal). Translating the
+`>= 0.7` filter into `m.mastery_score >= 0.7` would have been the obvious
+rename and a **new** silent-zero bug: `_AdaptiveMixin.track_mastery_completion`
+creates MASTERED edges with no `mastery_score` at all, and its `mastery_level`
+is a *string* (`'introduced'` / `'proficient'`), not a float. Existence is the
+one invariant all four MASTERED writers share.
+
+Two more consequences of joining that vocabulary:
+- "hasn't started yet" needs **both** arms. MASTERED's writers DELETE the
+  IN_PROGRESS edge, so the two are mutually exclusive and neither alone means
+  "not yet engaged".
+- **A mandatory MATCH that finds nothing kills the whole query — twice.** Both
+  repointed reads inherited a `MATCH` where an `OPTIONAL MATCH` was needed
+  (Codex P2s on #737):
+  - `calculate_knowledge_coverage` anchored on
+    `MATCH (user)-[:MASTERED]->(learned)`, so a user who has mastered nothing
+    got zero rows and was told there are **no unlearned topics** — the exact
+    inverse of the truth, for the learner it matters most to. Anchors on the
+    `User` now, mastery OPTIONAL; `collect()` skips nulls so `learned_uids` is
+    `[]`. Verified on dev: 0 topics before, 364 after.
+  - `get_learning_velocity_metrics` required the `LearningVelocity` node, which
+    only the `KnowledgeMastered` event handler upserts — so a user whose
+    masteries all came through non-event writers reported `no_data` despite
+    live MASTERED edges. The node is OPTIONAL now and `velocity` is nullable.
+    The service's emptiness test moved onto `total_kus`, so `"no_data"` still
+    means "no masteries" rather than degrading into a bogus all-zero
+    `"steady"`.
+  **This trap hides behind the very bug you are fixing:** the coverage query
+  was *already* mandatory-matching before tranche 3 — it just never matched
+  anything, so the zero-row collapse was invisible. Repointing a dead read onto
+  live vocabulary turns latent structural bugs live. Check every `MATCH` in a
+  repointed query for whether it should be `OPTIONAL`.
+- **The velocity totals had to move together.** `recent_kus` counts MASTERED
+  edges from all four writers, but `total_kus` was still read off
+  `velocity.kus_mastered` — a counter only the `KnowledgeMastered` event
+  handler increments. A mastery via a non-event writer bumped one and not the
+  other, so `previous = total - recent` went NEGATIVE and the trend percentage
+  silently collapsed to 0.0 (Codex P2 on #737). Both totals now come from the
+  same MASTERED match; the node still supplies `paths_completed`, which has no
+  edge form. **General rule: when a repoint changes where one operand of an
+  arithmetic comparison comes from, move the other operand too or the
+  comparison is no longer well-founded.** Guarded by
+  `tests/unit/test_cross_domain_analytics_velocity.py` — note the trend string
+  alone does *not* discriminate (the buggy path also reports "accelerating"),
+  so the guard asserts the percentage.
+- The mastery stamp is
+  `coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)` —
+  the four writers disagree on its name. The three creation stamps are safe to
+  coalesce (all ON CREATE for the same event, one writer per edge). The
+  `last_practiced` fallback is *required*, not defensive:
+  `UserBackend.record_knowledge_mastery` — the writer behind the pathways
+  progress route — stamps no creation timestamp at all, so without that arm its
+  edges read as undated and vanish from every velocity window. Tranche 3 shipped
+  the three-arm version and Codex caught it (P2 on #737). Ordering matters:
+  an update stamp coalesced FIRST would hide a real creation stamp, which is
+  tranche 2's lesson; coalesced LAST it only fills a genuine gap.
+
+### Deleted (no live signal to repoint onto)
+
+| Name | What went |
+|---|---|
+| `STRUGGLING_WITH`, `NEEDS_REVIEW` | Backend methods, protocol stubs, service helpers, the two `UserKnowledgeProfile` fields + `to_dict` keys, the `lp_service` analytics keys, and the two **UI stat tiles** that had always rendered `0`. Confirmed edge-vs-property: both are lowercase `RelationshipMetadata` *values* in `metadata_enums.py:120-121`, so there was never an edge to find. |
+| `HAS_PREFERENCE` + `LearningPreference` | `_AdaptiveMixin.query_learning_preferences`, its protocol stub, and its sole caller `ps_adaptive_service._load_learning_preferences` (deleted rather than left yielding a constant `None`), plus the already-caller-less `create_learning_preference` factory. |
+| `JournalAnalytics` | `get_journal_analytics`, `get_mood_analysis`, the `JournalMoodAnalysis` dataclass, the `mood_analysis` key on `get_combined_dashboard`, and **`GET /api/analytics/mood-analysis`**. Its writer went with ADR-054; the endpoint had been serving hardcoded placeholders (`average_mood=0.65`, `mood_trend="stable"`, fixed themes) to every caller. No UI consumed it. |
+| `HAS_METADATA` + `ContentMetadata` | Clause-only: dead `OPTIONAL MATCH` no-ops inside three otherwise-live delete queries (`ingestion_backend`, `neo4j_content_adapter`, and the `cleanup_untracked_vault_entries` script). The write side was removed in July 2026 and the read side was left behind. |
+
+**Removing a dead READ can still orphan real data.** The clauses were dead on
+any graph that never had the writer — but the write was only removed in July
+2026, so an environment whose content predates that still holds real
+`:ContentMetadata` nodes, and those delete queries were the only thing pruning
+them leaf-first. Without the clause, `DETACH DELETE content` merely detaches
+them (Codex P2 on #737). `scripts/migrations/drop_orphaned_content_metadata_2026_07.cypher`
+removes them once — both the still-attached and the already-orphaned — so the
+reads can stay gone. Run it before/with deploying tranche 3 on a long-lived
+environment.
+
+**The `ContentMetadata` clauses were load-bearing in tests, not in production.**
+Two integration tests seeded a fake `:ContentMetadata` node specifically to
+prove the delete removed it (`test_ingestion_e2e`, `test_ingestion_chunking`);
+both had to be updated in the same commit or they would fail. The unit guard in
+`test_content_adapter_chunk_persistence` gained a matching assertion for the
+delete query, so neither half can come back without a real writer.
+
+The Python `ContentMetadata` dataclass (`core/models/ps_content/`) is unrelated
+and untouched — it is an in-memory chunking model that is never persisted.
 
 ---
 
@@ -293,10 +410,35 @@ carry no baseline pairs — recorded here so they don't get lost.
   the live successor. Needs its own caller sweep + One Path Forward ruling; if
   dead, `domain_queries.py` shrinks to the prerequisite-chain + time-based
   query sections.
-- **Python-side edge lists escape SKUEL030.** `cross_domain_backend.py:42` maps
-  `"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]` — the first
-  two are not `RelationshipName` members (`REINFORCES`'s registered twin is
-  `REINFORCES_HABIT`; live graph has only the latter). The names live in a
-  Python list, not a Cypher string, so the scanner can't see them. Any
-  alternation built from that map matches only the `APPLIES_KNOWLEDGE` arm.
-  Fold into the §7/T3 pass (same file) or extend the scanner later.
+- **Python-side edge lists escape SKUEL030.** `cross_domain_backend.py:42`
+  mapped `"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]` — the
+  first two are not `RelationshipName` members and the live graph has neither.
+  The names live in a Python list, not a Cypher string, so the scanner can't
+  see them, and any alternation built from that map matched only the
+  `APPLIES_KNOWLEDGE` arm. **✅ Fixed in tranche 3** (rider, no baseline pair)
+  → `["REINFORCES_KNOWLEDGE", "APPLIES_KNOWLEDGE"]`. Extending the scanner to
+  Python edge lists is still open.
+  - ⚠️ **This entry originally named the wrong twin.** It said `REINFORCES`'s
+    registered twin is `REINFORCES_HABIT`, and tranche 3 shipped that before
+    Codex caught it (P2 on #737). Both names are registered and live, but they
+    are different edges: `REINFORCES_HABIT` is `(Task|Event)->Habit`, while
+    `REINFORCES_KNOWLEDGE` is `Habit->Ku` — the knowledge-practice edge
+    `HABITS_CONFIG` maps and `link_habit_to_knowledge` writes. A *knowledge*
+    practice lens must pair with `APPLIES_KNOWLEDGE`, matching the canonical
+    `APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE` alternation used elsewhere.
+    **Lesson for T4's §8 near-duplicate work: "the registered twin" is not
+    decided by name similarity. Two registered names that look like variants of
+    one concept can be genuinely different edges with different endpoints —
+    check what each one's writer actually connects before picking.**
+- **The same dict has a second bad entry, deliberately left for T4.**
+  `"hierarchical": ["HAS_CHILD", "PARENT_OF", "CHILD_OF"]` — `PARENT_OF` and
+  `CHILD_OF` are not `RelationshipName` members either. Not fixed here because
+  §8 owns the `CHILD_OF`/`PARENT_OF`/`HAS_CHILD` reconciliation and this site
+  should take whatever that ruling decides, not pre-empt it.
+- **`EnhancedUserContext` is unreachable.** Found while tracing
+  `learning_preferences` readers: the class in `user_intelligence.py` has zero
+  references repo-wide, which also makes `update_intelligence`,
+  `get_optimal_learning_session` and `get_dominant_content_preferences` dead.
+  Left standing in tranche 3 (the `learning_preferences` field stays a typed
+  `None`) because it is a bloat finding, not a vocabulary one — wants its own
+  One Path Forward ruling.

@@ -231,6 +231,24 @@ async def test_content_upsert_writes_no_metadata_node():
 
 
 @pytest.mark.asyncio
+async def test_content_subtree_delete_reads_no_metadata_node():
+    """The delete side lost its :ContentMetadata clause too (SKUEL030 tranche 3).
+
+    Removing the write in 2026-07 left the matching OPTIONAL MATCH behind, so
+    the delete carried a clause that could never bind. Both halves are gone now
+    and neither may come back without a real writer.
+    """
+    conn = _FakeConnection(responses={"MATCH (unit:Entity": [{"deleted": 1}]})
+    adapter = Neo4jContentAdapter(conn)
+
+    assert await adapter.delete_content_subtree("ps:test:doc")
+
+    delete_query, _ = conn.queries[0]
+    assert "ContentMetadata" not in delete_query
+    assert "HAS_METADATA" not in delete_query
+
+
+@pytest.mark.asyncio
 async def test_store_chunk_embeddings_stamps_event_text_provenance():
     """embedding_source_text comes from the texts the vectors were generated
     from (per-chunk param), NEVER the node-current context_window — a
