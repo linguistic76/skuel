@@ -150,7 +150,11 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
         # Step 2: Create relationship via RELATIONSHIP-FIRST API (fluent interface)
         # Replaces: backend.create_semantic_relationship()
         # With: backend.relate().from_node().via().to_node().with_metadata().create()
+        # `via()` supplies the coarse RelationshipName edge type; `semantic_type`
+        # in the metadata preserves the precise namespaced predicate so the
+        # many-to-one to_neo4j_name() collapse loses nothing (roadmap Phase 1).
         metadata_props = metadata.to_neo4j_properties()
+        metadata_props["semantic_type"] = semantic_type.value
 
         result = (
             await self.backend.relate()

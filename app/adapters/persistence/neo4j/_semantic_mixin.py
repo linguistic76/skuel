@@ -87,19 +87,36 @@ class _SemanticMixin:
         return await self.execute_query(query, params)
 
     async def delete_semantic_relationship(
-        self, rel_name: str, subject_uid: str, object_uid: str
+        self,
+        rel_name: str,
+        subject_uid: str,
+        object_uid: str,
+        semantic_type: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Delete a semantic relationship between two entities."""
+        """Delete a semantic relationship between two entities.
+
+        ``rel_name`` is the coarse ``RelationshipName`` edge type; pass
+        ``semantic_type`` (the precise namespaced predicate) to delete only the
+        edge with that meaning. Without it a targeted delete would remove every
+        edge that shares the collapsed edge type between the two nodes (roadmap
+        Phase 1). See ``build_semantic_merge``.
+        """
         _validate_rel_name(rel_name)
         query = f"""
         MATCH (s:Entity {{uid: $subject_uid}})
               -[r:{rel_name}]->
               (o:Entity {{uid: $object_uid}})
-        DETACH DELETE r
+        WHERE $semantic_type IS NULL OR r.semantic_type = $semantic_type
+        DELETE r
         RETURN count(r) as deleted
         """
         return await self.execute_query(
-            query, {"subject_uid": subject_uid, "object_uid": object_uid}
+            query,
+            {
+                "subject_uid": subject_uid,
+                "object_uid": object_uid,
+                "semantic_type": semantic_type,
+            },
         )
 
     async def query_relationships_by_type(
@@ -107,19 +124,26 @@ class _SemanticMixin:
         uid: str,
         rel_name: str,
         direction: Literal["outgoing", "incoming", "both"] = "both",
+        semantic_type: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Find relationships by type and direction for an entity."""
+        """Find relationships by type and direction for an entity.
+
+        ``rel_name`` is the coarse ``RelationshipName`` edge type; pass
+        ``semantic_type`` to narrow to a single precise predicate that collapsed
+        onto it (roadmap Phase 1).
+        """
         _validate_rel_name(rel_name)
         pattern = f"(source){direction_clause(direction, 'r', rel_name)}(target)"
 
         query = f"""
         MATCH {pattern}
         WHERE source.uid = $uid
+          AND ($semantic_type IS NULL OR r.semantic_type = $semantic_type)
         RETURN target, r,
                startNode(r).uid as subject_uid,
                endNode(r).uid as object_uid
         """
-        return await self.execute_query(query, {"uid": uid})
+        return await self.execute_query(query, {"uid": uid, "semantic_type": semantic_type})
 
     async def discover_semantic_bridges(
         self, uid: str, target_domain: str | None, limit: int

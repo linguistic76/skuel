@@ -260,11 +260,13 @@ async def test_semantic_boost_multiple_relationships(
             MATCH (target:Entity {uid: 'ku.target'})
             MATCH (c1:Entity {uid: 'ku.context1'})
             MATCH (c2:Entity {uid: 'ku.context2'})
-            CREATE (target)-[:REQUIRES_THEORETICAL_UNDERSTANDING {
+            CREATE (target)-[:REQUIRES_KNOWLEDGE {
+                semantic_type: 'learn:requires_theoretical_understanding',
                 confidence: 0.9,
                 strength: 1.0
             }]->(c1)
-            CREATE (target)-[:BUILDS_MENTAL_MODEL {
+            CREATE (target)-[:RELATED_TO {
+                semantic_type: 'learn:builds_mental_model',
                 confidence: 0.8,
                 strength: 0.9
             }]->(c2)
@@ -326,7 +328,8 @@ async def test_performance_semantic_enhanced_search(
             result = await session.run(f"""
                 MATCH (k1:Entity {{uid: 'ku.test-{i}'}})
                 MATCH (k2:Entity {{uid: 'ku.test-{i + 5}'}})
-                CREATE (k1)-[:REQUIRES_THEORETICAL_UNDERSTANDING {{
+                CREATE (k1)-[:REQUIRES_KNOWLEDGE {{
+                    semantic_type: 'learn:requires_theoretical_understanding',
                     confidence: 0.8,
                     strength: 1.0
                 }}]->(k2)
@@ -508,13 +511,15 @@ async def test_end_to_end_semantic_discovery_workflow(
         result = await session.run("""
             MATCH (intermediate:Entity {uid: 'ku.python-intermediate'})
             MATCH (basics:Entity {uid: 'ku.python-basics'})
-            CREATE (intermediate)-[:REQUIRES_THEORETICAL_UNDERSTANDING {
+            CREATE (intermediate)-[:REQUIRES_KNOWLEDGE {
+                semantic_type: 'learn:requires_theoretical_understanding',
                 confidence: 0.9,
                 strength: 1.0
             }]->(basics)
             WITH intermediate
             MATCH (advanced:Entity {uid: 'ku.python-advanced'})
-            CREATE (advanced)-[:BUILDS_MENTAL_MODEL {
+            CREATE (advanced)-[:RELATED_TO {
+                semantic_type: 'learn:builds_mental_model',
                 confidence: 0.85,
                 strength: 0.9
             }]->(intermediate)

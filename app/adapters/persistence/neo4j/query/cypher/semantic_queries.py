@@ -101,7 +101,14 @@ def build_semantic_merge(
     rel_label = triple.predicate.to_neo4j_name()
     validate_identifier(rel_label, "relationship type")
 
+    # RelationshipName owns the edge type (the coarse bucket); the precise
+    # namespaced predicate is preserved as the `semantic_type` property so the
+    # many-to-one to_neo4j_name() collapse is non-lossy and the two intra-enum
+    # collisions (cross:related_to vs moc:related_to, concept:child_of vs
+    # moc:child_of) stay distinguishable. See the semantic-relationship-layer
+    # roadmap Phase 1.
     props = triple.metadata.to_neo4j_properties()
+    props["semantic_type"] = triple.predicate.value
     props_str = ", ".join(f"{k}: ${k}" for k in props)
 
     cypher = f"""

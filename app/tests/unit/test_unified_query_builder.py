@@ -164,7 +164,12 @@ class TestSemanticQueryBuilder:
         assert params.get("end_uid") == "ku.async_programming"
 
     def test_semantic_type_conversion(self):
-        """Test that semantic types are converted to Neo4j names."""
+        """Semantic types resolve to their coarse RelationshipName edge (roadmap Phase 1).
+
+        `learn:requires_theoretical_understanding` collapses onto REQUIRES_KNOWLEDGE;
+        the precise predicate lives in the `semantic_type` edge property, not the
+        traversal pattern.
+        """
         cypher, _params = (
             query()
             .semantic("test.uid")
@@ -172,8 +177,8 @@ class TestSemanticQueryBuilder:
             .build()
         )
 
-        # Should contain Neo4j relationship name
-        assert "REQUIRES_THEORETICAL_UNDERSTANDING" in cypher
+        # Should contain the canonical RelationshipName edge, not the semantic URI.
+        assert "REQUIRES_KNOWLEDGE" in cypher
 
 
 # TestBatchQueryBuilder removed - Pure Cypher migration (October 20, 2025)

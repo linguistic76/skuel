@@ -57,19 +57,35 @@ It is the Digital-layer enrichment of the Analog relationship vocabulary.
 
 ## Development plan
 
-### Phase 1 — Reconcile the vocabularies (foundation)
+### Phase 1 — Reconcile the vocabularies (foundation) — ✅ DONE (2026-07-20, PR #TBD)
 
-The precondition for everything else: one edge name, one owner.
+The precondition for everything else: one edge name, one owner. **Shipped.**
 
-- Audit which `to_neo4j_name()` outputs collide with `RelationshipName` members and
-  which are semantic-only. Produce the mapping table.
-- Decide the authority rule. Recommended: **`RelationshipName` owns every string that
-  reaches Neo4j**; `SemanticRelationshipType` becomes a *semantic annotation layer over*
-  `RelationshipName` members (each semantic type maps to exactly one `RelationshipName`),
-  rather than a second emitter. `to_neo4j_name()` then returns a `RelationshipName`
-  instead of a raw string.
-- Add a drift test: every `SemanticRelationshipType.to_neo4j_name()` result must be a
-  valid `RelationshipName` value.
+- ✅ Collision/mapping audit: 81 semantic members → 6 collide with a `RelationshipName`
+  value, 75 were semantic-only (unregistered). Two members even collided *within* the
+  enum (`cross:related_to`/`moc:related_to`, `concept:child_of`/`moc:child_of`) because
+  `to_neo4j_name()` discarded the namespace.
+- ✅ Authority rule (ratified as written): **`RelationshipName` owns every string that
+  reaches Neo4j.** `to_neo4j_name()` returns a `RelationshipName` via the 81-member
+  `SEMANTIC_TO_RELATIONSHIP_NAME` map (name-aligned/direction-clear → the matching
+  semantic edge; ambiguous → `RELATED_TO`, the coarse bucket). No semantic type can emit
+  unregistered vocabulary again, by construction.
+- ✅ **Precision preserved as an edge property**, not lost to the collapse: `build_semantic_merge`
+  (and the linker's fluent `.relate()` path) write `semantic_type: "learn:extends_pattern"`.
+  This also disambiguates the two intra-enum collisions and gives Phases 3–4 a real
+  substrate. Delete/query-by-type gained a `semantic_type` filter to stay precise.
+- ✅ Drift test: `tests/unit/test_semantic_neo4j_name_drift.py`.
+- ✅ Closed the SKUEL030 baseline entirely (§9's two pairs); `test_lint_skuel.py`'s
+  baseline fixture rewritten to inject a synthetic entry.
+
+**What the audit changed for later phases:** §9 turned out NOT to be a writer-less read —
+the live admin route `POST /api/path-steps/relationships` reaches `build_semantic_merge`,
+so the semantic layer was a *second live emitter*, not dead code. That strengthens the
+case for Phase 2 (register the edges) and Phase 4 (reason over them): the write path is
+real, only unexercised (0 live rows). The `semantic_type` property Phase 1 introduced is
+the natural key for the registry work in Phase 2 and the confidence-weighted traversal in
+Phase 4 — both should key on it, not on the coarse `RelationshipName`. Sequence 2→3→4 still
+holds.
 
 ### Phase 2 — Register semantic edges declaratively
 

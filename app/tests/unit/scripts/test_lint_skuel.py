@@ -1288,26 +1288,31 @@ class TestSKUEL030:
     def test_baseline_suppresses_only_the_known_file(self) -> None:
         """The baseline is (file, name)-scoped, not name-scoped.
 
-        A name-keyed baseline would wave `EXTENDS_PATTERN` through everywhere
-        and re-open the hole the rule exists to close (Codex P2 on #732).
+        A name-keyed baseline would wave the name through everywhere and re-open
+        the hole the rule exists to close (Codex P2 on #732).
 
-        The example pair has to be one that is STILL baselined — this test used
-        (user_progress_backend.py, HAS_PROGRESS) until tranche 3 repointed that
-        read onto MASTERED and closed the pair, which broke the fixture. Picked
-        the §9 semantic-as-edge pair deliberately: it is DEFERRED to the
-        semantic-relationship-layer roadmap rather than scheduled in a tranche,
-        so it outlives the remaining T4 clean-ups.
+        SKUEL030_BASELINE is EMPTY since the semantic-relationship-layer roadmap
+        Phase 1 closed §9 (the last real pairs). Rather than couple this fixture
+        to whatever the next real finding happens to be — it has been
+        invalidated by a repoint twice — inject a SYNTHETIC (file, name) entry
+        and prove the scoping mechanism directly. `MADE_UP_EDGE` is unregistered,
+        so absent the baseline it fires everywhere.
         """
-        query = 'q = "MATCH (a)-[:EXTENDS_PATTERN]->(b) RETURN b"'
-        known = "adapters/persistence/neo4j/_knowledge_context_mixin.py"
-        assert lint_cypher(query, file_path=known) == []
+        query = 'q = "MATCH (a)-[:MADE_UP_EDGE]->(b) RETURN b"'
+        known = "adapters/persistence/neo4j/example_backend.py"
+        other = "adapters/persistence/neo4j/some_new_backend.py"
 
-        elsewhere = lint_cypher(
-            query,
-            file_path="adapters/persistence/neo4j/some_new_backend.py",
-        )
+        # Sanity: with an empty baseline the name fires in the known file too.
+        assert len(lint_cypher(query, file_path=known)) == 1
+
+        linter = make_linter(["SKUEL030"])
+        linter.SKUEL030_BASELINE = frozenset({(known, "MADE_UP_EDGE")})
+
+        assert lint_content(linter, query, file_path=known, is_service=False, is_adapter=True) == []
+
+        elsewhere = lint_content(linter, query, file_path=other, is_service=False, is_adapter=True)
         assert len(elsewhere) == 1
-        assert "EXTENDS_PATTERN" in elsewhere[0].message
+        assert "MADE_UP_EDGE" in elsewhere[0].message
 
     def test_migrations_are_excluded(self) -> None:
         """A rename migration must be able to name what it renames away."""
@@ -1398,12 +1403,31 @@ class TestSKUEL030PythonEdgeLists:
         assert lint_cypher(content) == []
 
     def test_respects_the_baseline(self) -> None:
-        """Same (file, name) baseline as the Cypher half — one rule, two scanners."""
-        baselined_file, baselined_name = next(iter(SkuelLinter.SKUEL030_BASELINE))
-        content = f'EDGES = ["{baselined_name}", "HAS_STEP"]'
-        assert lint_cypher(content, file_path=baselined_file) == []
+        """Same (file, name) baseline as the Cypher half — one rule, two scanners.
+
+        SKUEL030_BASELINE is empty since roadmap Phase 1 closed §9, so inject a
+        synthetic entry (as the Cypher-half test does) and prove the Python
+        edge-list scanner honors it. HAS_STEP is registered, so the corroboration
+        rule treats the group as vocabulary and MADE_UP_EDGE fires absent the
+        baseline.
+        """
+        known = "adapters/persistence/neo4j/example_backend.py"
+        other = "adapters/persistence/neo4j/some_new_backend.py"
+        content = 'EDGES = ["MADE_UP_EDGE", "HAS_STEP"]'
+
+        # Sanity: with an empty baseline, the name fires in the known file too.
+        assert lint_cypher(content, file_path=known) != []
+
+        linter = make_linter(["SKUEL030"])
+        linter.SKUEL030_BASELINE = frozenset({(known, "MADE_UP_EDGE")})
+
+        assert (
+            lint_content(linter, content, file_path=known, is_service=False, is_adapter=True) == []
+        )
         # Same names in a DIFFERENT file are still reported.
-        assert lint_cypher(content) != []
+        assert (
+            lint_content(linter, content, file_path=other, is_service=False, is_adapter=True) != []
+        )
 
     def test_non_persistence_files_are_out_of_scope(self) -> None:
         """Scope is unchanged: this scanner rides the existing SKUEL030 gate."""

@@ -1339,11 +1339,3 @@ labels:
 
 # Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).
 findings:
-  DEEPENS_UNDERSTANDING:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/_knowledge_context_mixin.py
-  EXTENDS_PATTERN:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/_knowledge_context_mixin.py

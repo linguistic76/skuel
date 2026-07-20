@@ -68,11 +68,16 @@ def test_artifact_parses_with_complete_vocabulary_spine() -> None:
 
 
 def test_findings_are_never_presented_as_vocabulary() -> None:
-    """Baselined names are known bugs — they must appear ONLY under findings."""
+    """Baselined names are known bugs — they must appear ONLY under findings.
+
+    The SKUEL030 baseline is EMPTY since the semantic-relationship-layer roadmap
+    Phase 1 closed §9 (its last two pairs). The disjointness invariant below then
+    holds vacuously; it stays to guard the next time the baseline grows. An empty
+    findings section is the expected state, not a gather bug.
+    """
     document = yaml.safe_load(render_contract())
 
-    finding_names = set(document["findings"])
-    assert finding_names, "SKUEL030 baseline is non-empty today; empty means a gather bug"
+    finding_names = set(document["findings"] or {})
     assert finding_names.isdisjoint(document["relationships"]), (
         "A SKUEL030-baselined name appears in the relationships vocabulary section. "
         "If the name was legitimately registered, its baseline entries must be "

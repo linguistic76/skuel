@@ -77,7 +77,7 @@ class _KnowledgeContextMixin:
             confidence: coalesce(r2.confidence, 1.0)
         }) as dependents
 
-        OPTIONAL MATCH (ku)-[r3:RELATED_TO|EXTENDS_PATTERN|DEEPENS_UNDERSTANDING]-(related:Entity)
+        OPTIONAL MATCH (ku)-[r3:RELATED_TO]-(related:Entity)
         WHERE coalesce(r3.confidence, 1.0) >= $min_confidence * 0.85
         WITH ku, prerequisites, dependents, collect(DISTINCT {
             uid: related.uid,

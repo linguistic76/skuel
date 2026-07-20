@@ -20,6 +20,7 @@ from typing import Any
 
 from core.constants import ConfidenceLevel
 from core.models.enums import RelationshipType
+from core.models.relationship_names import RelationshipName
 
 
 class RelationshipNamespace(StrEnum):
@@ -190,9 +191,20 @@ class SemanticRelationshipType(StrEnum):
         }
         return mapping.get(generic_type, cls.SHARES_PRINCIPLE_WITH)
 
-    def to_neo4j_name(self) -> str:
-        """Convert semantic type to Neo4j relationship name."""
-        return self.local_name.upper()
+    def to_neo4j_name(self) -> RelationshipName:
+        """Resolve this semantic type to its canonical Neo4j edge name.
+
+        Authority rule (semantic-relationship-layer roadmap, Phase 1):
+        ``RelationshipName`` owns every string that reaches Neo4j. Each
+        semantic type maps to exactly one ``RelationshipName`` (the coarse
+        edge bucket); the precise namespaced predicate is preserved as the
+        ``semantic_type`` edge property at write time (``build_semantic_merge``),
+        so this many-to-one collapse is non-lossy. A semantic type can never
+        emit unregistered vocabulary again, by construction.
+
+        See: ``SEMANTIC_TO_RELATIONSHIP_NAME``, ``docs/roadmap/semantic-relationship-layer.md``.
+        """
+        return SEMANTIC_TO_RELATIONSHIP_NAME[self]
 
     @property
     def is_blocking(self) -> bool:
@@ -232,6 +244,118 @@ class SemanticRelationshipType(StrEnum):
             self.ELABORATES_ON: self.SIMPLIFIES,
         }
         return inverses.get(self)
+
+
+# ---------------------------------------------------------------------------
+# Semantic type -> canonical Neo4j edge name (RelationshipName)
+# ---------------------------------------------------------------------------
+# The annotation layer over RelationshipName (roadmap Phase 1). Every one of the
+# 81 SemanticRelationshipType members maps to exactly ONE RelationshipName -- the
+# coarse edge bucket that reaches Neo4j. The precise namespaced predicate
+# survives as the `semantic_type` edge property (see build_semantic_merge), so
+# this many-to-one collapse loses nothing the graph needs.
+#
+# Mapping discipline:
+#   - Name-aligned or direction-unambiguous  -> the matching semantic edge
+#     (COMPLEMENTS -> COMPLEMENTARY_TO, CHAINS_WITH -> STACKS_WITH,
+#      OCCURS_BEFORE -> PRECEDES, PARENT_MOC_OF -> HAS_CHILD, ...).
+#   - Ambiguous or directionally risky       -> RELATED_TO (the coarse bucket).
+#     RELATED_TO is deliberate, not a gap: the `semantic_type` property carries
+#     the exact meaning, so an unverifiable coarse direction is never asserted.
+# Guarded by the drift test tests/unit/test_semantic_neo4j_name_drift.py -- a new
+# member with no entry here raises KeyError, and every value must be a
+# RelationshipName. See docs/roadmap/semantic-relationship-layer.md.
+SEMANTIC_TO_RELATIONSHIP_NAME: dict[SemanticRelationshipType, RelationshipName] = {
+    # ---- learn: ----------------------------------------------------------
+    SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING: RelationshipName.REQUIRES_KNOWLEDGE,
+    SemanticRelationshipType.REQUIRES_PRACTICAL_APPLICATION: RelationshipName.REQUIRES_KNOWLEDGE,
+    SemanticRelationshipType.REQUIRES_CONCEPTUAL_FOUNDATION: RelationshipName.REQUIRES_KNOWLEDGE,
+    SemanticRelationshipType.REQUIRES_TOOL_PROFICIENCY: RelationshipName.REQUIRES_KNOWLEDGE,
+    SemanticRelationshipType.BUILDS_MENTAL_MODEL: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.EXTENDS_PATTERN: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.DEEPENS_UNDERSTANDING: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PROVIDES_FOUNDATION_FOR: RelationshipName.ENABLES_KNOWLEDGE,
+    SemanticRelationshipType.PROVIDES_PRACTICAL_APPLICATION: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.REINFORCES_KNOWLEDGE: RelationshipName.REINFORCES_KNOWLEDGE,
+    SemanticRelationshipType.INFORMED_BY_KNOWLEDGE: RelationshipName.INFORMED_BY_KNOWLEDGE,
+    SemanticRelationshipType.CONTRASTS_WITH: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.COMPLEMENTS: RelationshipName.COMPLEMENTARY_TO,
+    SemanticRelationshipType.ALTERNATIVE_APPROACH_TO: RelationshipName.ALTERNATIVE_TO,
+    SemanticRelationshipType.SIMPLIFIES: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.ELABORATES_ON: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.ANALOGOUS_TO: RelationshipName.SIMILAR_TO,
+    SemanticRelationshipType.REQUIRES_KNOWLEDGE: RelationshipName.REQUIRES_KNOWLEDGE,
+    SemanticRelationshipType.BUILDS_ON_FOUNDATION: RelationshipName.REQUIRES_KNOWLEDGE,
+    # ---- task: -----------------------------------------------------------
+    SemanticRelationshipType.BLOCKS_UNTIL_COMPLETE: RelationshipName.BLOCKS,
+    SemanticRelationshipType.ENABLES_START_OF: RelationshipName.LATERAL_ENABLES,
+    SemanticRelationshipType.MUST_COMPLETE_BEFORE: RelationshipName.PRECEDES,
+    SemanticRelationshipType.CAN_PARALLEL_WITH: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.CONTRIBUTES_TO_GOAL: RelationshipName.CONTRIBUTES_TO_GOAL,
+    SemanticRelationshipType.SUPPORTS_GOAL_ACHIEVEMENT: RelationshipName.SUPPORTS_GOAL,
+    SemanticRelationshipType.ENABLES_ACHIEVEMENT: RelationshipName.ENABLES_GOAL,
+    SemanticRelationshipType.SHARES_RESOURCES_WITH: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PRODUCES_INPUT_FOR: RelationshipName.PRECEDES,
+    SemanticRelationshipType.VALIDATES_OUTPUT_OF: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.REPLACES_DEPRECATED: RelationshipName.RELATED_TO,
+    # ---- habit: ----------------------------------------------------------
+    SemanticRelationshipType.TRIGGERS_AFTER: RelationshipName.FOLLOWS,
+    SemanticRelationshipType.REINFORCES: RelationshipName.REINFORCES_HABIT,
+    SemanticRelationshipType.CHAINS_WITH: RelationshipName.STACKS_WITH,
+    SemanticRelationshipType.SUBSTITUTES_FOR: RelationshipName.ALTERNATIVE_TO,
+    SemanticRelationshipType.REINFORCES_THROUGH_REPETITION: RelationshipName.REINFORCES_HABIT,
+    SemanticRelationshipType.STRENGTHENS_PRACTICE: RelationshipName.REINFORCES_HABIT,
+    SemanticRelationshipType.MAINTAINS_SKILL: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.BUILDS_CAPACITY_FOR: RelationshipName.LATERAL_ENABLES,
+    SemanticRelationshipType.ALIGNS_WITH_PRINCIPLE: RelationshipName.ALIGNED_WITH_PRINCIPLE,
+    # ---- cross: ----------------------------------------------------------
+    SemanticRelationshipType.IMPLEMENTS_VIA_TASK: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PRACTICES_VIA_HABIT: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PRACTICES_VIA_EVENT: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.DEMONSTRATES_IN_PROJECT: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.APPLIES_KNOWLEDGE_TO: RelationshipName.APPLIES_KNOWLEDGE,
+    SemanticRelationshipType.DISCOVERED_THROUGH: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.REVEALS_PATTERN_IN: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.SHARES_PRINCIPLE_WITH: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.CONNECTS_DOMAINS: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.SUPPORTS_ACHIEVEMENT: RelationshipName.SUPPORTS_GOAL,
+    SemanticRelationshipType.RELATED_TO: RelationshipName.RELATED_TO,
+    # ---- skill: ----------------------------------------------------------
+    SemanticRelationshipType.DEVELOPS_SKILL: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PRACTICES_TECHNIQUE: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PRACTICES_SKILL: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.MASTERS_THROUGH: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.REQUIRES_SKILL_LEVEL: RelationshipName.REQUIRES_KNOWLEDGE,
+    # ---- concept: --------------------------------------------------------
+    SemanticRelationshipType.DERIVES_FROM: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.GENERALIZES: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.SPECIALIZES: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.INSTANTIATES: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.ABSTRACTS: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.HAS_BROADER_CONCEPT: RelationshipName.HAS_BROADER,
+    SemanticRelationshipType.HAS_NARROWER_CONCEPT: RelationshipName.HAS_NARROWER,
+    SemanticRelationshipType.CHILD_OF: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PART_OF_SYSTEM: RelationshipName.RELATED_TO,
+    # ---- time: -----------------------------------------------------------
+    SemanticRelationshipType.OCCURS_BEFORE: RelationshipName.PRECEDES,
+    SemanticRelationshipType.OCCURS_AFTER: RelationshipName.FOLLOWS,
+    SemanticRelationshipType.OCCURS_DURING: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.DEADLINE_FOR: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.SCHEDULED_WITH: RelationshipName.RELATED_TO,
+    # ---- moc: ------------------------------------------------------------
+    SemanticRelationshipType.ORGANIZED_IN_MOC: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.FEATURED_IN_MOC: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.INTRODUCES_TOPIC: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PROVIDES_OVERVIEW_OF: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.RELATED_MOC: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.PARENT_MOC_OF: RelationshipName.HAS_CHILD,
+    SemanticRelationshipType.CHILD_MOC_OF: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.EXTENDS_MOC: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.AGGREGATES_KNOWLEDGE: RelationshipName.ORGANIZES,
+    SemanticRelationshipType.BRIDGES_DOMAINS: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.MAPS_LEARNING_PATH: RelationshipName.RELATED_TO,
+    SemanticRelationshipType.CONNECTS_PRINCIPLES: RelationshipName.RELATED_TO,
+}
 
 
 @dataclass

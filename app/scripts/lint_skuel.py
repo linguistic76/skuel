@@ -4053,36 +4053,26 @@ class SkuelLinter:
     # vocabulary — a rename migration must reference what it is renaming away.
     SKUEL030_EXCLUDED_PREFIXES: ClassVar[tuple[str, ...]] = ("scripts/migrations",)
 
-    # SKUEL030 baseline — names the 2026-07-19 introduction sweep found already in
-    # persistence Cypher. Every one is a KNOWN FINDING, not an accepted name: each
-    # is a read against vocabulary nothing writes, so the query silently returns
-    # zero rows today. They are baselined rather than registered because
-    # registering them would bless the bug — the fix is to repoint or delete the
-    # reader, which changes query semantics and belongs in its own PR.
+    # SKUEL030 baseline — (file, name) pairs of KNOWN FINDINGS: reads against
+    # vocabulary nothing writes, so the query silently returns zero rows today.
+    # Baselined rather than registered because registering them would bless the
+    # bug — the fix is to repoint or delete the reader, which changes query
+    # semantics and belongs in its own PR.
     #
-    # Entries are (file, name) pairs, NOT bare names. Scoping to the file that
-    # already has the finding keeps the invariant honest: a NEW query that
-    # introduces `:Report` or `[:PRACTICES]` somewhere else still fails, because
-    # only the known call sites are exempt. A name-keyed set would have globally
-    # waved the name through everywhere and quietly re-opened the hole this rule
-    # exists to close (Codex P2 on #732).
+    # EMPTY as of the semantic-relationship-layer roadmap Phase 1 (2026-07-20):
+    # the last two entries (EXTENDS_PATTERN / DEEPENS_UNDERSTANDING in
+    # _knowledge_context_mixin.py) were NOT writer-less after all — the semantic
+    # layer's live admin writer (POST /api/path-steps/relationships →
+    # build_semantic_merge) emitted them. Phase 1 made to_neo4j_name() return a
+    # RelationshipName, so those edges now persist as RELATED_TO (the coarse
+    # bucket) with the precise predicate in the `semantic_type` property, and the
+    # reader was repointed to RELATED_TO. See CYPHER_VOCABULARY_FINDINGS.md §9.
     #
-    # File-level, not line-level, on purpose: line numbers churn on every edit
-    # above them, which would turn the baseline into merge-conflict bait for no
-    # extra safety — a second bad name in an already-flagged file is the case
-    # this trades away, and that file is already on the fix list.
-    #
-    # This set is a SHRINKING list, never a growing one. Full triage:
-    # docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
-    SKUEL030_BASELINE: ClassVar[frozenset[tuple[str, str]]] = frozenset(
-        {
-            # --- SemanticRelationshipType names used as raw edge types ---------
-            # These exist as "learn:extends_pattern" style semantic URIs, never as
-            # Neo4j edge types.
-            ("adapters/persistence/neo4j/_knowledge_context_mixin.py", "EXTENDS_PATTERN"),
-            ("adapters/persistence/neo4j/_knowledge_context_mixin.py", "DEEPENS_UNDERSTANDING"),
-        }
-    )
+    # Entries are (file, name) pairs, NOT bare names — scoping to the file that
+    # already has the finding keeps a NEW bad name elsewhere failing (Codex P2 on
+    # #732). File-level, not line-level, to avoid churn. SHRINKING list, never
+    # growing. Full triage: docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
+    SKUEL030_BASELINE: ClassVar[frozenset[tuple[str, str]]] = frozenset()
 
     def _check_cypher_vocabulary(
         self,
