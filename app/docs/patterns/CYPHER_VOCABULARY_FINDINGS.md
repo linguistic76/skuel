@@ -231,11 +231,17 @@ Two more consequences of joining that vocabulary:
 - "hasn't started yet" needs **both** arms. MASTERED's writers DELETE the
   IN_PROGRESS edge, so the two are mutually exclusive and neither alone means
   "not yet engaged".
-- The creation stamp is `coalesce(m.mastered_at, m.achieved_at, m.created_at)` —
-  the four writers disagree on its name. Safe here (all are ON CREATE stamps for
-  the same event, and exactly one writer creates a given edge) but *only* here;
-  tranche 2's lesson about coalesce hiding a newer timestamp applies whenever
-  creation and update stamps are mixed.
+- The mastery stamp is
+  `coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)` —
+  the four writers disagree on its name. The three creation stamps are safe to
+  coalesce (all ON CREATE for the same event, one writer per edge). The
+  `last_practiced` fallback is *required*, not defensive:
+  `UserBackend.record_knowledge_mastery` — the writer behind the pathways
+  progress route — stamps no creation timestamp at all, so without that arm its
+  edges read as undated and vanish from every velocity window. Tranche 3 shipped
+  the three-arm version and Codex caught it (P2 on #737). Ordering matters:
+  an update stamp coalesced FIRST would hide a real creation stamp, which is
+  tranche 2's lesson; coalesced LAST it only fills a genuine gap.
 
 ### Deleted (no live signal to repoint onto)
 
@@ -359,15 +365,26 @@ carry no baseline pairs — recorded here so they don't get lost.
   the live successor. Needs its own caller sweep + One Path Forward ruling; if
   dead, `domain_queries.py` shrinks to the prerequisite-chain + time-based
   query sections.
-- **Python-side edge lists escape SKUEL030.** `cross_domain_backend.py:42` maps
-  `"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]` — the first
-  two are not `RelationshipName` members (`REINFORCES`'s registered twin is
-  `REINFORCES_HABIT`; live graph has only the latter). The names live in a
-  Python list, not a Cypher string, so the scanner can't see them. Any
-  alternation built from that map matches only the `APPLIES_KNOWLEDGE` arm.
-  **✅ Fixed in tranche 3** (rider, no baseline pair) → `["REINFORCES_HABIT",
-  "APPLIES_KNOWLEDGE"]`. Extending the scanner to Python edge lists is still
-  open.
+- **Python-side edge lists escape SKUEL030.** `cross_domain_backend.py:42`
+  mapped `"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]` — the
+  first two are not `RelationshipName` members and the live graph has neither.
+  The names live in a Python list, not a Cypher string, so the scanner can't
+  see them, and any alternation built from that map matched only the
+  `APPLIES_KNOWLEDGE` arm. **✅ Fixed in tranche 3** (rider, no baseline pair)
+  → `["REINFORCES_KNOWLEDGE", "APPLIES_KNOWLEDGE"]`. Extending the scanner to
+  Python edge lists is still open.
+  - ⚠️ **This entry originally named the wrong twin.** It said `REINFORCES`'s
+    registered twin is `REINFORCES_HABIT`, and tranche 3 shipped that before
+    Codex caught it (P2 on #737). Both names are registered and live, but they
+    are different edges: `REINFORCES_HABIT` is `(Task|Event)->Habit`, while
+    `REINFORCES_KNOWLEDGE` is `Habit->Ku` — the knowledge-practice edge
+    `HABITS_CONFIG` maps and `link_habit_to_knowledge` writes. A *knowledge*
+    practice lens must pair with `APPLIES_KNOWLEDGE`, matching the canonical
+    `APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE` alternation used elsewhere.
+    **Lesson for T4's §8 near-duplicate work: "the registered twin" is not
+    decided by name similarity. Two registered names that look like variants of
+    one concept can be genuinely different edges with different endpoints —
+    check what each one's writer actually connects before picking.**
 - **The same dict has a second bad entry, deliberately left for T4.**
   `"hierarchical": ["HAS_CHILD", "PARENT_OF", "CHILD_OF"]` — `PARENT_OF` and
   `CHILD_OF` are not `RelationshipName` members either. Not fixed here because
