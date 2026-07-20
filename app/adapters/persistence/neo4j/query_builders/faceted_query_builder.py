@@ -218,9 +218,17 @@ class FacetedQueryBuilder:
                     # former (n)-[:IN_DOMAIN]->(:KnowledgeDomain) count was retired
                     # with the KnowledgeDomain stack — 0 nodes, 0 edges, nothing
                     # authored `domains:`. n.domain is the real, populated domain.
+                    #
+                    # `WITH n WHERE` (not a bare WHERE) so the predicate composes
+                    # even when match_clause already carries a WHERE — a bare
+                    # second WHERE would be a syntax error. The sibling facets
+                    # (level/content_type/generic) still use the bare form; a
+                    # holistic fix is out of scope for this deletion PR (and this
+                    # Cypher path is test-only — live faceting uses
+                    # build_facet_counts over results).
                     facet_queries["domain"] = f"""
                         {match_clause}
-                        WHERE n.domain IS NOT NULL
+                        WITH n WHERE n.domain IS NOT NULL
                         RETURN n.domain as value, count(DISTINCT n) as count
                         ORDER BY count DESC
                     """
