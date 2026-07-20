@@ -232,6 +232,27 @@ Two more consequences of joining that vocabulary:
 - "hasn't started yet" needs **both** arms. MASTERED's writers DELETE the
   IN_PROGRESS edge, so the two are mutually exclusive and neither alone means
   "not yet engaged".
+- **A mandatory MATCH that finds nothing kills the whole query — twice.** Both
+  repointed reads inherited a `MATCH` where an `OPTIONAL MATCH` was needed
+  (Codex P2s on #737):
+  - `calculate_knowledge_coverage` anchored on
+    `MATCH (user)-[:MASTERED]->(learned)`, so a user who has mastered nothing
+    got zero rows and was told there are **no unlearned topics** — the exact
+    inverse of the truth, for the learner it matters most to. Anchors on the
+    `User` now, mastery OPTIONAL; `collect()` skips nulls so `learned_uids` is
+    `[]`. Verified on dev: 0 topics before, 364 after.
+  - `get_learning_velocity_metrics` required the `LearningVelocity` node, which
+    only the `KnowledgeMastered` event handler upserts — so a user whose
+    masteries all came through non-event writers reported `no_data` despite
+    live MASTERED edges. The node is OPTIONAL now and `velocity` is nullable.
+    The service's emptiness test moved onto `total_kus`, so `"no_data"` still
+    means "no masteries" rather than degrading into a bogus all-zero
+    `"steady"`.
+  **This trap hides behind the very bug you are fixing:** the coverage query
+  was *already* mandatory-matching before tranche 3 — it just never matched
+  anything, so the zero-row collapse was invisible. Repointing a dead read onto
+  live vocabulary turns latent structural bugs live. Check every `MATCH` in a
+  repointed query for whether it should be `OPTIONAL`.
 - **The velocity totals had to move together.** `recent_kus` counts MASTERED
   edges from all four writers, but `total_kus` was still read off
   `velocity.kus_mastered` — a counter only the `KnowledgeMastered` event

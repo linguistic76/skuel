@@ -37,9 +37,17 @@ class _FakeBackend:
         return Result.ok([self._record])
 
 
-def _record(*, event_counter: int, total_kus: int, recent_kus: int) -> dict[str, Any]:
+def _record(
+    *,
+    event_counter: int,
+    total_kus: int,
+    recent_kus: int,
+    velocity_node: bool = True,
+) -> dict[str, Any]:
     return {
-        "velocity": {"kus_mastered": event_counter, "paths_completed": 2},
+        "velocity": (
+            {"kus_mastered": event_counter, "paths_completed": 2} if velocity_node else None
+        ),
         "total_kus": total_kus,
         "recent_kus": recent_kus,
         "total_hours": 4.0,
@@ -103,3 +111,50 @@ async def test_paths_completed_still_reads_from_the_velocity_node():
 
     assert result.is_ok
     assert result.value.paths_completed == 2
+
+
+@pytest.mark.asyncio
+async def test_real_velocity_without_a_velocity_node():
+    """A missing LearningVelocity node must not suppress edge-derived figures.
+
+    The node is only upserted by the KnowledgeMastered event handler, so a user
+    whose masteries all came through non-event writers has none. The query used
+    to require it with a mandatory MATCH, yielding zero rows and a bogus
+    "no_data" for a user with live MASTERED edges (Codex P2 on #737). It now
+    anchors on the User and OPTIONAL-matches the node, so `velocity` is null and
+    the service must cope.
+    """
+    service = CrossDomainAnalyticsService(
+        _FakeBackend(_record(event_counter=0, total_kus=8, recent_kus=6, velocity_node=False))
+    )
+
+    result = await service.get_learning_velocity("user_x", days_back=7)
+
+    assert result.is_ok
+    metrics = result.value
+    assert metrics.velocity_trend != "no_data"
+    assert metrics.kus_mastered_per_week == pytest.approx(6.0)
+    # previous = 8 - 6 = 2/wk vs recent 6/wk → accelerating.
+    assert metrics.velocity_trend == "accelerating"
+    # No node means no path counter — 0, not an AttributeError on None.
+    assert metrics.paths_completed == 0
+
+
+@pytest.mark.asyncio
+async def test_no_mastery_history_still_reports_no_data():
+    """ "no_data" must mean "no masteries", not "no LearningVelocity node".
+
+    Since a valid user now always yields a row, the emptiness test moved onto
+    total_kus. Without it a brand-new learner would fall through to the trend
+    arithmetic and be reported as "steady" with all-zero figures — an absence of
+    measurement dressed up as a measurement.
+    """
+    service = CrossDomainAnalyticsService(
+        _FakeBackend(_record(event_counter=0, total_kus=0, recent_kus=0, velocity_node=False))
+    )
+
+    result = await service.get_learning_velocity("user_x", days_back=30)
+
+    assert result.is_ok
+    assert result.value.velocity_trend == "no_data"
+    assert result.value.kus_mastered_per_week == 0.0

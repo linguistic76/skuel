@@ -270,11 +270,20 @@ class UserProgressBackend:
         `_AdaptiveMixin.track_mastery_completion` creates MASTERED edges with no
         `mastery_score` at all (its `mastery_level` is a STRING — 'introduced' /
         'proficient'), so any numeric filter here would silently drop them.
+
+        The mastery match is OPTIONAL and the query anchors on the User. A
+        mandatory match yields zero rows for a user who has mastered nothing,
+        which kills the whole query and reports "no unlearned topics" for
+        exactly the learner who has the most (Codex P2 on #737). A brand-new
+        user is the meaningful case here: every topic unlearned, and the ones
+        with no prerequisites already ready. `collect()` skips nulls, so
+        `learned_uids` is simply `[]`.
         """
         return await self._executor.execute_query(
             """
-            // Get learned knowledge UIDs
-            MATCH (user:User {uid: $user_uid})-[:MASTERED]->(learned:Entity)
+            // Get learned knowledge UIDs (empty list when the user has none)
+            MATCH (user:User {uid: $user_uid})
+            OPTIONAL MATCH (user)-[:MASTERED]->(learned:Entity)
             WITH collect(learned.uid) as learned_uids
 
             // Get unlearned knowledge

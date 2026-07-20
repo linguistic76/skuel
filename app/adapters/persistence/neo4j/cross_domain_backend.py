@@ -362,11 +362,21 @@ class CrossDomainBackend:
         (Codex P2 on #737). Both totals now come from the same source, so the
         subtraction is well-founded by construction. `paths_completed` still
         comes off the node — it has its own counter and no edge equivalent.
+
+        **Anchored on the User; the velocity node is OPTIONAL.** Requiring
+        `MATCH (velocity:LearningVelocity ...)` meant a user whose masteries all
+        came through non-event writers — no `KnowledgeMastered` event, so no
+        node was ever upserted — produced zero rows and reported `no_data`
+        despite having live MASTERED edges (Codex P2 on #737). That is the same
+        mandatory-match trap as the totals bug above, one clause higher up: the
+        edges are now the primary source, so the node must not gate them.
+        Callers must treat `velocity` as nullable.
         """
         return await self.executor.execute_query(
             """
-            MATCH (velocity:LearningVelocity {user_uid: $user_uid})
-            OPTIONAL MATCH (:User {uid: $user_uid})-[m:MASTERED]->(:Entity)
+            MATCH (u:User {uid: $user_uid})
+            OPTIONAL MATCH (velocity:LearningVelocity {user_uid: $user_uid})
+            OPTIONAL MATCH (u)-[m:MASTERED]->(:Entity)
             WITH velocity, m,
                  coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)
                      AS mastered_when

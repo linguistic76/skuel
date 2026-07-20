@@ -356,13 +356,22 @@ class CrossDomainAnalyticsService:
         records = result.value or []
         record = records[0] if records else None
 
-        if not record:
+        # "no_data" means no mastery history, NOT "no LearningVelocity node".
+        # The query anchors on the User and OPTIONAL-matches both the node and
+        # the edges, so a valid user always yields one row — `record` is now
+        # falsy only for a user that does not exist. Without the total_kus test
+        # a brand-new learner would fall through and be reported as "steady"
+        # with all-zero figures, which reads as a real measurement rather than
+        # an absence of one.
+        if not record or not (record["total_kus"] or 0):
             return Result.ok(
                 LearningVelocityMetrics(
                     user_uid=user_uid,
                     period_days=days_back,
                     kus_mastered_per_week=0.0,
-                    paths_completed=0,
+                    paths_completed=(record["velocity"] or {}).get("paths_completed", 0)
+                    if record
+                    else 0,
                     total_learning_hours=0.0,
                     velocity_trend="no_data",
                     compared_to_previous_period=0.0,
@@ -379,8 +388,12 @@ class CrossDomainAnalyticsService:
         # that node property is an event-driven counter, so a mastery recorded
         # through a non-event path (e.g. the pathways progress route) would
         # inflate recent_kus past it and make previous_kus negative
-        # (Codex P2 on #737). The node still supplies paths_completed.
-        velocity_data = record["velocity"]
+        # (Codex P2 on #737). The node still supplies paths_completed — but it
+        # is NULLABLE: the query anchors on the User and OPTIONAL-matches the
+        # node, so a user whose masteries all came through non-event writers
+        # (no KnowledgeMastered event → no node upserted) still gets real
+        # velocity figures instead of a bogus "no_data".
+        velocity_data = record["velocity"] or {}
         total_kus = record["total_kus"] or 0
         previous_kus = total_kus - recent_kus
         previous_per_week = previous_kus / weeks if weeks > 0 else 0
