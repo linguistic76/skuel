@@ -55,9 +55,10 @@ jobs:
               - 'app/**/*.py'
               - 'app/pyproject.toml'
               - 'app/uv.lock'
-              # Generated contract view: a hand edit of the YAML alone must
-              # still trigger the unit-test drift guard that rejects it.
+              # Generated artifacts: a hand edit of one alone must still
+              # trigger the unit-test drift guard that rejects it.
               - 'app/docs/reference/GRAPH_CONTRACT.yaml'
+              - 'app/docs/reference/BASESERVICE_METHOD_INDEX.md'
               - '.github/workflows/ci.yml'
             docs:
               - 'app/docs/**'
