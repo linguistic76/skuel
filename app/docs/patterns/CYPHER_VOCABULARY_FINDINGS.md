@@ -29,7 +29,8 @@ in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
   §13 `"practice"` rider — **17 baseline pairs closed (32 → 15)**. Note the
   count: the plan said 13 (11 for §7), but §7 carried 14 pairs, not 11
   (`ContentMetadata` and `HAS_METADATA` each appear in two files). Migration:
-  `scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher`.
+  `drop_stale_bootstrap_constraints_2026_07.cypher` +
+  `drop_orphaned_content_metadata_2026_07.cypher`.
   One public endpoint was removed with its dead reader —
   `GET /api/analytics/mood-analysis` — along with two always-zero UI stat tiles
   on the pathways analytics page. Both are called out in §7.
@@ -231,6 +232,19 @@ Two more consequences of joining that vocabulary:
 - "hasn't started yet" needs **both** arms. MASTERED's writers DELETE the
   IN_PROGRESS edge, so the two are mutually exclusive and neither alone means
   "not yet engaged".
+- **The velocity totals had to move together.** `recent_kus` counts MASTERED
+  edges from all four writers, but `total_kus` was still read off
+  `velocity.kus_mastered` — a counter only the `KnowledgeMastered` event
+  handler increments. A mastery via a non-event writer bumped one and not the
+  other, so `previous = total - recent` went NEGATIVE and the trend percentage
+  silently collapsed to 0.0 (Codex P2 on #737). Both totals now come from the
+  same MASTERED match; the node still supplies `paths_completed`, which has no
+  edge form. **General rule: when a repoint changes where one operand of an
+  arithmetic comparison comes from, move the other operand too or the
+  comparison is no longer well-founded.** Guarded by
+  `tests/unit/test_cross_domain_analytics_velocity.py` — note the trend string
+  alone does *not* discriminate (the buggy path also reports "accelerating"),
+  so the guard asserts the percentage.
 - The mastery stamp is
   `coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)` —
   the four writers disagree on its name. The three creation stamps are safe to
@@ -251,6 +265,16 @@ Two more consequences of joining that vocabulary:
 | `HAS_PREFERENCE` + `LearningPreference` | `_AdaptiveMixin.query_learning_preferences`, its protocol stub, and its sole caller `ps_adaptive_service._load_learning_preferences` (deleted rather than left yielding a constant `None`), plus the already-caller-less `create_learning_preference` factory. |
 | `JournalAnalytics` | `get_journal_analytics`, `get_mood_analysis`, the `JournalMoodAnalysis` dataclass, the `mood_analysis` key on `get_combined_dashboard`, and **`GET /api/analytics/mood-analysis`**. Its writer went with ADR-054; the endpoint had been serving hardcoded placeholders (`average_mood=0.65`, `mood_trend="stable"`, fixed themes) to every caller. No UI consumed it. |
 | `HAS_METADATA` + `ContentMetadata` | Clause-only: dead `OPTIONAL MATCH` no-ops inside three otherwise-live delete queries (`ingestion_backend`, `neo4j_content_adapter`, and the `cleanup_untracked_vault_entries` script). The write side was removed in July 2026 and the read side was left behind. |
+
+**Removing a dead READ can still orphan real data.** The clauses were dead on
+any graph that never had the writer — but the write was only removed in July
+2026, so an environment whose content predates that still holds real
+`:ContentMetadata` nodes, and those delete queries were the only thing pruning
+them leaf-first. Without the clause, `DETACH DELETE content` merely detaches
+them (Codex P2 on #737). `scripts/migrations/drop_orphaned_content_metadata_2026_07.cypher`
+removes them once — both the still-attached and the already-orphaned — so the
+reads can stay gone. Run it before/with deploying tranche 3 on a long-lived
+environment.
 
 **The `ContentMetadata` clauses were load-bearing in tests, not in production.**
 Two integration tests seeded a fake `:ContentMetadata` node specifically to

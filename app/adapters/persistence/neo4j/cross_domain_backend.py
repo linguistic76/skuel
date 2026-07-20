@@ -351,15 +351,32 @@ class CrossDomainBackend:
 
         `time_to_mastery_hours` is written by just one writer; sum() ignores the
         nulls from the others.
+
+        **`total_kus` is counted here rather than read off the node.** The
+        node's `velocity.kus_mastered` is an EVENT-driven counter — only
+        `upsert_learning_velocity`, behind the `KnowledgeMastered` handler,
+        increments it — while `recent_kus` counts MASTERED edges from all four
+        writers. Mixing the two let the service compute
+        `previous = total - recent` as a NEGATIVE number whenever a mastery
+        landed through a non-event path such as the pathways progress route
+        (Codex P2 on #737). Both totals now come from the same source, so the
+        subtraction is well-founded by construction. `paths_completed` still
+        comes off the node — it has its own counter and no edge equivalent.
         """
         return await self.executor.execute_query(
             """
             MATCH (velocity:LearningVelocity {user_uid: $user_uid})
             OPTIONAL MATCH (:User {uid: $user_uid})-[m:MASTERED]->(:Entity)
-            WHERE coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)
-                  >= datetime($start_date)
-            WITH velocity, count(m) as recent_kus, sum(m.time_to_mastery_hours) as total_hours
-            RETURN velocity, recent_kus, total_hours
+            WITH velocity, m,
+                 coalesce(m.mastered_at, m.achieved_at, m.created_at, m.last_practiced)
+                     AS mastered_when
+            WITH velocity,
+                 count(m) AS total_kus,
+                 count(CASE WHEN mastered_when >= datetime($start_date) THEN 1 END)
+                     AS recent_kus,
+                 sum(CASE WHEN mastered_when >= datetime($start_date)
+                          THEN m.time_to_mastery_hours END) AS total_hours
+            RETURN velocity, total_kus, recent_kus, total_hours
             """,
             {"user_uid": user_uid, "start_date": start_date},
         )

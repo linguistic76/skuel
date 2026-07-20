@@ -374,9 +374,14 @@ class CrossDomainAnalyticsService:
         weeks = days_back / 7
         kus_per_week = recent_kus / weeks if weeks > 0 else 0
 
-        # Compare to previous period
+        # Compare to previous period. total_kus is counted from the same
+        # MASTERED edges as recent_kus, NOT read off velocity.kus_mastered:
+        # that node property is an event-driven counter, so a mastery recorded
+        # through a non-event path (e.g. the pathways progress route) would
+        # inflate recent_kus past it and make previous_kus negative
+        # (Codex P2 on #737). The node still supplies paths_completed.
         velocity_data = record["velocity"]
-        total_kus = velocity_data.get("kus_mastered", 0)
+        total_kus = record["total_kus"] or 0
         previous_kus = total_kus - recent_kus
         previous_per_week = previous_kus / weeks if weeks > 0 else 0
 
