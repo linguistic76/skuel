@@ -1772,7 +1772,6 @@ async def compose_services(
             finance=core_services["finance"],
             # Curriculum
             ku=learning_services["atomic_ku_service"],
-            knowledge_domains=learning_services["knowledge_domains"],
             resource=resource_service,
             activity_knowledge_intelligence=learning_services["activity_knowledge_intelligence"],
             cross_domain=learning_services["cross_domain"],

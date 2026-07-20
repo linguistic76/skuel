@@ -85,9 +85,6 @@ class NeoLabel(StrEnum):
     PATH_STEP = "PathStep"
     LEARNING_PATH = "LearningPath"
 
-    # Ontology Infrastructure (World Layer)
-    KNOWLEDGE_DOMAIN = "KnowledgeDomain"  # Domain taxonomy node — groups Kus into semantic domains
-
     # Content Processing — user submissions and reports
     SUBMISSION = "Submission"  # Base label for multi-label queries
     ACTIVITY_REPORT = "ActivityReport"

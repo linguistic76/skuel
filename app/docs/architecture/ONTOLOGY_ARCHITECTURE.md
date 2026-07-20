@@ -1,9 +1,9 @@
 ---
 title: Ontology Architecture — World Layer and User Layer
-updated: 2026-04-02
+updated: 2026-07-20
 status: current
 category: architecture
-tags: [architecture, ontology, knowledge-domain, world-layer, user-layer, curriculum]
+tags: [architecture, ontology, world-layer, user-layer, curriculum]
 related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, RELATIONSHIPS_ARCHITECTURE.md]
 ---
 
@@ -26,7 +26,6 @@ These nodes exist independently of any user. They represent the **objective stru
 
 | Node | Purpose |
 |------|---------|
-| `KnowledgeDomain` | Taxonomy node — groups Kus into stable semantic domains |
 | `Ku` | Atomic knowledge unit — a single concept, state, practice, or principle |
 | `PathStep` | Unit for learning — composes Kus into curriculum content |
 | `LearningPath` | Ordered sequence of PathSteps |
@@ -39,33 +38,6 @@ World Layer nodes:
 - Are **read by all users**
 - Have `ContentScope.SHARED`
 
-### KnowledgeDomain
-
-`KnowledgeDomain` is the outermost taxonomy layer — stable semantic domains that classify Kus.
-
-```cypher
-// A KnowledgeDomain node (taxonomy only — no content)
-(:KnowledgeDomain {uid: "kd.self_awareness"})
-
-// Kus are members of domains
-(:Ku {uid: "ku_attention-buzzing_a1b2"})-[:IN_DOMAIN]->(:KnowledgeDomain {uid: "kd.self_awareness"})
-```
-
-KnowledgeDomain nodes are created automatically during Ku ingestion when a Ku YAML file
-includes the `domains:` frontmatter field:
-
-```yaml
----
-uid: ku_attention-buzzing_a1b2
-title: Attention Buzzing
-domains:
-  - kd.self_awareness
-  - kd.nervous_system
----
-```
-
-Python service: `KnowledgeDomainService` in `core/services/knowledge_domain_service.py`.
-
 ### Ku (Atomic Knowledge Unit)
 
 Kus are the leaf nodes of the World Layer — the smallest indivisible unit of knowledge.
@@ -77,12 +49,27 @@ Every PathStep, LearningPath, and Exercise ultimately points back to Kus.
 (:PathStep)-[:TRAINS_KU]->(:Ku)  // step trains this Ku as a learning objective
 ```
 
-Kus have a `namespace` property for lightweight internal classification:
-- `namespace` = single string (e.g., `"attention"`, `"emotion"`, `"body"`)
-- `KnowledgeDomain` = graph taxonomy node (richer, queryable via relationships)
+#### Domain classification lives ON the Ku
 
-These are **different granularities** of the same idea. `namespace` is an in-model property;
-`KnowledgeDomain` is a proper graph node you can traverse and query.
+A Ku carries its own taxonomy as in-model properties — there is **no separate
+`:KnowledgeDomain` node**. The three levels are all populated at ingestion from Ku
+frontmatter and are queryable as node properties + search facets:
+
+| Property | Level | Type |
+|----------|-------|------|
+| `nous` | outermost topic taxonomy (L1) | multi-valued slugs (11 official, e.g. `self-awareness`, `body`, `stories`) |
+| `nous_subtopic` | topic taxonomy (L2) | multi-valued slugs |
+| `sel_category` | SEL competency | `SELCategory` enum (5 members) |
+
+These drive the search facets (`SearchRouter.nous_subtopic_map`), Askesis retrieval
+scope, and cross-domain grouping. See `docs/patterns/NOUS_SUBTOPIC_FACET.md`.
+
+> **Historical note.** An earlier design added a separate `:KnowledgeDomain`
+> taxonomy node with `(Ku)-[:IN_DOMAIN]->(:KnowledgeDomain)` membership, authored
+> via a `domains:` frontmatter field. It never had a live writer (0 nodes, 0 edges,
+> nothing authored `domains:`) and was redundant with `nous`/`nous_subtopic`/
+> `sel_category`, so the whole stack was deleted (2026-07-20). Domain classification
+> is a Ku property, not a graph node.
 
 ---
 
@@ -132,14 +119,12 @@ This chain is everything:
 (:PathStep)
   -[:USES_KU]->
 (:Ku)
-  -[:IN_DOMAIN]->
-(:KnowledgeDomain)
 ```
 
 From this chain, SKUEL can derive:
 - Learning progression (what did the user submit, for which exercise, on which PathStep)
 - Knowledge coverage (which Kus has the user engaged with)
-- Domain coverage (which domains has the user touched)
+- Domain coverage (via each Ku's `nous` / `sel_category` classification)
 - ZPD assessment (what is the user ready to learn next)
 
 ---
@@ -150,7 +135,6 @@ These are the structural relationships that hold the ontology together:
 
 | Relationship | Pattern | Meaning |
 |-------------|---------|---------|
-| `IN_DOMAIN` | `(Ku)-[:IN_DOMAIN]->(KnowledgeDomain)` | Ku belongs to semantic domain |
 | `USES_KU` | `(PathStep)-[:USES_KU]->(Ku)` | PathStep composes this Ku as content |
 | `TRAINS_KU` | `(PathStep)-[:TRAINS_KU]->(Ku)` | PathStep declares this Ku as learning objective |
 | `HAS_STEP` | `(LearningPath)-[:HAS_STEP]->(PathStep)` | Path contains this step |
@@ -185,7 +169,7 @@ Not everything connects to the user. **Only interaction + ownership objects do.*
 // ❌ These are wrong — World Layer belongs to the system, not the user
 (:User)-[:OWNS]->(:Ku)
 (:User)-[:OWNS]->(:PathStep)
-(:User)-[:OWNS]->(:KnowledgeDomain)
+(:User)-[:OWNS]->(:LearningPath)
 ```
 
 ---
@@ -194,21 +178,11 @@ Not everything connects to the user. **Only interaction + ownership objects do.*
 
 | Component | File |
 |-----------|------|
-| KnowledgeDomainService | `core/services/knowledge_domain_service.py` |
-| Ku model | `core/models/ku/ku.py` |
+| Ku model (incl. `nous` / `nous_subtopic` / `sel_category`) | `core/models/ku/ku.py` |
 | PathStep model | `core/models/pathways/path_step.py` |
 | LearningPath model | `core/models/pathways/learning_path.py` |
-| RelationshipName | `core/models/relationship_names.py` (see `IN_DOMAIN`, `USES_KU`, `TRAINS_KU`) |
-| NeoLabel | `core/models/enums/neo_labels.py` (see `KNOWLEDGE_DOMAIN`, `KU`, `PATH_STEP`) |
-
-> **⚠️ The `IN_DOMAIN` / `:KnowledgeDomain` taxonomy has no live writer.** Its only
-> writers were the `bulk_knowledge_units` / `bulk_life_principles` `.cypher`
-> templates, which were never reachable and were deleted in tranche 5 (see
-> `docs/patterns/CYPHER_VOCABULARY_FINDINGS.md` § 10). No vault file authors a
-> `domains:` field and the live graph holds zero `:KnowledgeDomain` nodes, so
-> `KnowledgeDomainService` and every `IN_DOMAIN` read return empty. Both names are
-> still registered, so the linter reads them as clean. Retiring the stack is an
-> open ruling in that document's § 13.
+| RelationshipName | `core/models/relationship_names.py` (see `USES_KU`, `TRAINS_KU`) |
+| NeoLabel | `core/models/enums/neo_labels.py` (see `KU`, `PATH_STEP`) |
 
 **See also:**
 - `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — KU/PS/LP grouping patterns

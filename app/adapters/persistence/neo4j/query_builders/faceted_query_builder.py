@@ -108,7 +108,7 @@ class FacetedQueryBuilder:
                 elif facet_set.domain == "tasks":
                     request.labels.add("Task")
 
-                # Also add as a property constraint for IN_DOMAIN relationships
+                # Add as a constraint on the live Entity.domain property.
                 request.constraints.append(
                     QueryConstraint(property_name="domain", operator="=", value=facet_set.domain)
                 )
@@ -214,25 +214,14 @@ class FacetedQueryBuilder:
 
             for field in facet_fields:
                 if field == "domain":
-                    # Count by domain. The label is :KnowledgeDomain and its
-                    # identifying property is `uid` — the former `:Domain` /
-                    # `d.name` pair named neither a real label nor a written
-                    # property.
-                    #
-                    # ⚠️ REGISTERED BUT WRITER-LESS. :KnowledgeDomain and
-                    # :IN_DOMAIN are NeoLabel/RelationshipName members, so
-                    # SKUEL030 reads this as clean — but their only writers were
-                    # the unreachable bulk_knowledge_units / bulk_life_principles
-                    # templates deleted in tranche 5, and no vault file authors a
-                    # `domains:` field. Live graph: 0 nodes, 0 edges. This facet
-                    # therefore still returns nothing; the tranche-3 :Domain
-                    # repoint traded one silent zero for another. Retiring the
-                    # whole KnowledgeDomain stack is its own ruling — see
-                    # docs/patterns/CYPHER_VOCABULARY_FINDINGS.md § 13.
+                    # Count by the live Entity.domain property (Domain enum). The
+                    # former (n)-[:IN_DOMAIN]->(:KnowledgeDomain) count was retired
+                    # with the KnowledgeDomain stack — 0 nodes, 0 edges, nothing
+                    # authored `domains:`. n.domain is the real, populated domain.
                     facet_queries["domain"] = f"""
                         {match_clause}
-                        MATCH (n)-[:IN_DOMAIN]->(d:KnowledgeDomain)
-                        RETURN d.uid as value, count(DISTINCT n) as count
+                        WHERE n.domain IS NOT NULL
+                        RETURN n.domain as value, count(DISTINCT n) as count
                         ORDER BY count DESC
                     """
 
@@ -318,7 +307,7 @@ class FacetedQueryBuilder:
                 description="Search knowledge with facets",
                 base_template="""
                     MATCH (n:Entity)
-                    WHERE ($domain IS NULL OR EXISTS((n)-[:IN_DOMAIN]->(:KnowledgeDomain {uid: $domain})))
+                    WHERE ($domain IS NULL OR n.domain = $domain)
                     AND ($level IS NULL OR n.level = $level)
                     AND ($search_text IS NULL OR
                          n.title CONTAINS $search_text OR
@@ -334,7 +323,7 @@ class FacetedQueryBuilder:
                     "has_fulltext_index": """
                         CALL db.index.fulltext.queryNodes('knowledge_fulltext', $search_text)
                         YIELD node, score
-                        WHERE ($domain IS NULL OR EXISTS((node)-[:IN_DOMAIN]->(:KnowledgeDomain {uid: $domain})))
+                        WHERE ($domain IS NULL OR node.domain = $domain)
                         AND ($level IS NULL OR node.level = $level)
                         RETURN node as n, score
                         ORDER BY score DESC

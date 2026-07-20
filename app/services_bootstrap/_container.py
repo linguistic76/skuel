@@ -50,7 +50,6 @@ if TYPE_CHECKING:
     from core.services.journal import JournalBatchService, JournalService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
-    from core.services.knowledge_domain_service import KnowledgeDomainService
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
@@ -157,9 +156,6 @@ class Services:
     # CURRICULUM DOMAINS (3) - PS, KU, LP
     # ========================================================================
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
-    knowledge_domains: "KnowledgeDomainService | None" = (
-        None  # KnowledgeDomainService — world-layer domain taxonomy (groups Kus)
-    )
     resource: "ResourceService | None" = (
         None  # ResourceService (curated content — books, talks, films)
     )

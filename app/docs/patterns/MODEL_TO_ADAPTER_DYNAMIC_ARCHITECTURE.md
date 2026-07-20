@@ -325,11 +325,10 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `IngestionBackend` | `ingestion_backend.py` | 15 | `IngestionHistoryService`, `IngestionTracker` (+3 deletion-propagation methods, 2026-06-12) |
 | `JupyterSyncBackend` | `jupyter_sync_backend.py` | 9 | `JupyterNeo4jSyncService` |
 | `EmbeddingsBackend` | `embeddings_backend.py` | 3 | `EmbeddingsService` (the worker stores through it) |
-| `KnowledgeDomainBackend` | `knowledge_domain_backend.py` | 3 | `KnowledgeDomainService` |
 
 **CrossDomainBackend expansion (+9 methods):** `get_entity_system_metrics`, `get_all_users_progress`, `get_user_ku_detail`, `get_user_submissions_detail`, `get_user_activity_detail`, `get_learning_metrics`, `get_user_overview_stats`, `get_user_learning_goal_progress`, `get_system_health`. Migrated from `AdminStatsService` and `UserStatsAggregator`.
 
-**Protocols created:** `VectorSearchBackendOperations`, `IngestionBackendOperations`, `JupyterSyncBackendOperations`, `EmbeddingsBackendOperations`, `KnowledgeDomainBackendOperations`, `CrossDomainBackendOperations` (expanded).
+**Protocols created:** `VectorSearchBackendOperations`, `IngestionBackendOperations`, `JupyterSyncBackendOperations`, `EmbeddingsBackendOperations`, `CrossDomainBackendOperations` (expanded).
 
 **Total:** 45 `execute_query` calls migrated from 10 services into typed backend methods. All services now call `self.backend.method_name()` instead of raw Cypher.
 
