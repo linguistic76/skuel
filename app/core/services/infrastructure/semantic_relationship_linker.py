@@ -236,9 +236,13 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
             f"types={[t.value for t in semantic_types]}, direction={direction}"
         )
 
-        # Step 1: Build semantic filter query
-        # Build relationship type list for Cypher
-        rel_types = "|".join([st.to_neo4j_name() for st in semantic_types])
+        # Step 1: Build semantic filter query.
+        # The pattern carries the coarse RelationshipName edge type(s) (deduped —
+        # many predicates collapse onto one); the precise predicates are passed
+        # separately so the backend filters by r.semantic_type and does not return
+        # other semantic types that share the same edge (roadmap Phase 1).
+        rel_types = "|".join(sorted({str(st.to_neo4j_name()) for st in semantic_types}))
+        semantic_type_values = [st.value for st in semantic_types]
         label = self.model_class.__name__
 
         # Build direction pattern
@@ -254,6 +258,7 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
             pattern=pattern,
             target_uid=target_uid,
             min_confidence=min_confidence,
+            semantic_type_values=semantic_type_values,
         )
         if result.is_error:
             return result

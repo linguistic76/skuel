@@ -954,6 +954,7 @@ class GraphTraversalOperations(Protocol):
         pattern: str,
         target_uid: str,
         min_confidence: float,
+        semantic_type_values: builtins.list[str] | None = None,
     ) -> ResultType[builtins.list[str]]:
         """Find entity UIDs matching a semantic relationship pattern."""
         ...

@@ -295,15 +295,27 @@ class _TraversalMixin:
         pattern: str,
         target_uid: str,
         min_confidence: float,
+        semantic_type_values: list[str] | None = None,
     ) -> Result[list[str]]:
-        """Find entity UIDs matching a semantic relationship pattern."""
+        """Find entity UIDs matching a semantic relationship pattern.
+
+        ``pattern`` carries the coarse RelationshipName edge type(s); pass
+        ``semantic_type_values`` (the precise namespaced predicates) to narrow to
+        the exact semantic types requested rather than everything that collapsed
+        onto the same edge (roadmap Phase 1).
+        """
         cypher = f"""
         MATCH {pattern}
         WHERE target.uid = $target_uid
           AND r.confidence >= $min_confidence
+          AND ($semantic_type_values IS NULL OR r.semantic_type IN $semantic_type_values)
         RETURN DISTINCT n.uid as uid
         """
-        params = {"target_uid": target_uid, "min_confidence": min_confidence}
+        params = {
+            "target_uid": target_uid,
+            "min_confidence": min_confidence,
+            "semantic_type_values": semantic_type_values,
+        }
         result = await self.execute_query(cypher, params)
         if result.is_error:
             return Result.fail(result)

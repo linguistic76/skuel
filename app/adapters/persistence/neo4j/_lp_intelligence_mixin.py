@@ -66,7 +66,14 @@ class _LpIntelligenceMixin:
             SemanticRelationshipType.REQUIRES_CONCEPTUAL_FOUNDATION,
             SemanticRelationshipType.BUILDS_ON_FOUNDATION,
         ]
-        rel_pattern = "|".join([st.to_neo4j_name() for st in prerequisite_types])
+        # All four collapse onto REQUIRES_KNOWLEDGE (roadmap Phase 1), so dedupe.
+        # NO semantic_type filter here on purpose: this validates the ACTUAL
+        # prerequisite structure of the path, which is the ingestion-written
+        # REQUIRES_KNOWLEDGE edge (no semantic_type property). Filtering by the
+        # four semantic predicates would exclude those real edges and re-empty the
+        # query — the opposite of the intent. This is prerequisite structure, not
+        # a semantic-type-scoped traversal.
+        rel_pattern = "|".join(sorted({str(st.to_neo4j_name()) for st in prerequisite_types}))
         return f"""
         OPTIONAL MATCH ({knowledge_var})<-[:{rel_pattern}*1..{depth}]-(prereq:Entity)
         WITH {knowledge_var}, collect(DISTINCT prereq) as prereqs
