@@ -970,12 +970,16 @@ class UserBackend(Neo4jSessionRunner):
             Result[list[User]]: Active learners
         """
         query = """
+        WITH datetime() - duration({hours: $hours}) AS cutoff
         MATCH (u:User)-[r:IN_PROGRESS|MASTERED]->(k:Entity)
-        // IN_PROGRESS writers stamp last_accessed (record_knowledge_progress,
-        // UserProgressBackend) or last_activity_at (_learning_state_mixin);
-        // MASTERED stamps last_practiced. Coalesce covers all three.
-        WHERE coalesce(r.last_accessed, r.last_activity_at, r.last_practiced)
-              >= datetime() - duration({hours: $hours})
+        // One IN_PROGRESS edge can carry BOTH stamps — last_accessed
+        // (record_knowledge_progress, UserProgressBackend) and last_activity_at
+        // (_learning_state_mixin) — and MASTERED carries last_practiced. Each is
+        // tested separately: a coalesce would pick the first non-null and hide a
+        // newer stamp behind a stale one. NULL comparisons are simply not true.
+        WHERE r.last_accessed >= cutoff
+           OR r.last_activity_at >= cutoff
+           OR r.last_practiced >= cutoff
         WITH DISTINCT u
         RETURN u
         ORDER BY u.last_active_at DESC
