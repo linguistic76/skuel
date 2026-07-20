@@ -253,12 +253,13 @@ class Neo4jAdapter:
                 # md_heading_level, parent_knowledge_unit_id, depth_level,
                 # root_domain_id, knowledge_path, source_md_file, schema_version
                 # (+ the two combined ku_domain_level_idx / ku_parent_level_idx).
-                # None of these are ever set on an :Entity/:Ku node — Ku domain
-                # membership lives on the (ku)-[:IN_DOMAIN]->(:KnowledgeDomain)
-                # edge, not a property; depth_level only ever appears as a
-                # query-computed alias. Indexes on properties nothing writes are
-                # inert (they index zero rows), but they advertised a Ku schema
-                # that does not exist.
+                # The knowledge_domain pair was already dropped when the
+                # writer-less KnowledgeDomain stack was deleted (#741); the rest
+                # go here. None of these are ever set on an :Entity/:Ku node —
+                # depth_level only ever appears as a query-computed alias.
+                # Indexes on properties nothing writes are inert (they index
+                # zero rows), but they advertised a Ku schema that does not
+                # exist. drop_stale_indexes() sheds any that older boots created.
                 # Task management indexes
                 "CREATE INDEX task_status_idx IF NOT EXISTS FOR (t:Task) ON (t.status)",
                 "CREATE INDEX task_priority_idx IF NOT EXISTS FOR (t:Task) ON (t.priority)",

@@ -6,72 +6,13 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
 from itertools import islice
-from typing import Any
 
 from fasthtml.common import H3, A, Div, P, Span
 
-from core.models.type_hints import UserUID
 from core.services.user.unified_user_context import UserContext
 from ui.feedback import Progress
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.section_header import SectionHeader
-
-
-def KnowledgeDomainView(
-    context: UserContext,
-    services: Any = None,
-    user_uid: UserUID = "",  # type: ignore[assignment]
-) -> Div:
-    """Knowledge domain: all KUs with user's VIEWED/BOOKMARKED status.
-
-    Queries Neo4j for all Entity nodes and enriches with per-user relationships.
-
-    Args:
-        context: UserContext (used for mastered/in_progress status)
-        services: Services container (for Neo4j driver access)
-        user_uid: Current user's UID (for relationship queries)
-    """
-    # The KU list is populated via the route handler which queries Neo4j
-    # This view is a placeholder that expects ku_items to be passed via
-    # the route handler wrapping this in a Div
-    mastered = len(context.mastered_knowledge_uids)
-    in_progress = len(context.in_progress_knowledge_uids)
-    ready = len(context.ready_to_learn_uids)
-
-    return Div(
-        SectionHeader("Knowledge Units"),
-        P(
-            "All knowledge units in the curriculum. Track your learning progress.",
-            cls="text-muted-foreground mb-4",
-        ),
-        # Quick stats row
-        Div(
-            Div(
-                Span(str(mastered), cls="text-xl font-bold text-success"),
-                Span(" mastered", cls="text-sm text-muted-foreground"),
-                cls="flex items-baseline gap-1",
-            ),
-            Div(
-                Span(str(in_progress), cls="text-xl font-bold text-warning"),
-                Span(" in progress", cls="text-sm text-muted-foreground"),
-                cls="flex items-baseline gap-1",
-            ),
-            Div(
-                Span(str(ready), cls="text-xl font-bold text-info"),
-                Span(" ready", cls="text-sm text-muted-foreground"),
-                cls="flex items-baseline gap-1",
-            ),
-            cls="flex gap-6 mb-6",
-        ),
-        # KU list placeholder - actual items injected by route handler
-        Div(id="ku-list-content"),
-        # Link to main KU listing
-        A(
-            "Browse All Knowledge →",
-            href="/knowledge",
-            cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
-        ),
-    )
 
 
 def PathStepsDomainView(_context: UserContext, _focus_uid: str | None = None) -> Div:
