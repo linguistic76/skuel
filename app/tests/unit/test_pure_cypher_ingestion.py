@@ -182,17 +182,18 @@ def test_required_field_validation():
     error = result.expect_error()
     assert "statement" in error.message, f"Expected 'statement' in error: {error.message}"
 
-    # Test 3: Missing required field for finance (needs 'amount')
-    invalid_finance_data = {"description": "Test expense"}  # Missing 'amount'
-    result = validate_required_fields(NonKuDomain.FINANCE, invalid_finance_data, mock_path)
-    assert result.is_error, "Expected error for finance missing 'amount'"
+    # Test 3: A domain with no ingestion config is rejected, not silently
+    # ingested. FINANCE lost its config with ADR-052 Phase 5 (SKUEL030 §11).
+    result = validate_required_fields(
+        NonKuDomain.FINANCE, {"description": "Coffee", "amount": 5.00}, mock_path
+    )
+    assert result.is_error, "Expected error for a domain with no ingestion config"
     error = result.expect_error()
-    assert "amount" in error.message, f"Expected 'amount' in error: {error.message}"
+    assert "Unknown entity type" in error.message, f"Unexpected error: {error.message}"
 
-    # Test 4: Valid finance data
-    valid_finance_data = {"description": "Coffee", "amount": 5.00}
-    result = validate_required_fields(NonKuDomain.FINANCE, valid_finance_data, mock_path)
-    assert result.is_ok, f"Expected OK for valid finance data, got: {result}"
+    # Test 4: Valid data for a configured NonKuDomain
+    result = validate_required_fields(NonKuDomain.GROUP, {"name": "Period 3 Biology"}, mock_path)
+    assert result.is_ok, f"Expected OK for valid group data, got: {result}"
 
     # Test 5: validate_entity_data - check post-preparation validation
     # Simulate prepared entity data missing title
@@ -263,17 +264,18 @@ def test_user_uid_injection():
     )
     assert "user_uid" not in prepared, "KU should not have user_uid (shared knowledge)"
 
-    # Test 4: Finance domain should get user_uid
-    finance_data = {"description": "Coffee", "amount": 5.00}
+    # Test 4: Group domain stamps the uploading user as owner_uid
+    # (owner_uid_from_user_uid — Group is not an Entity type, so no user_uid)
+    group_data = {"name": "Period 3 Biology"}
     prepared = prepare_entity_data(
-        NonKuDomain.FINANCE,
-        finance_data,
+        NonKuDomain.GROUP,
+        group_data,
         None,
-        Path("/tmp/expense.yaml"),
+        Path("/tmp/group.yaml"),
         service.default_user_uid,
     )
-    assert "user_uid" in prepared, "Finance should have user_uid injected"
-    assert prepared["user_uid"] == custom_user_uid
+    assert "owner_uid" in prepared, "Group should have owner_uid stamped"
+    assert prepared["owner_uid"] == custom_user_uid
 
     # Test 5: All Activity domains should require user_uid (using EntityType keys)
     activity_types = [
@@ -339,10 +341,13 @@ def test_entity_type_detection():
     result = detect_entity_type(data_uppercase, Path("/tmp/test.yaml"))
     assert result == EntityType.HABIT, f"Expected EntityType.HABIT, got {result}"
 
-    # Test 6: Finance alias (expense -> FINANCE)
-    data_expense = {"type": "expense", "description": "Coffee", "amount": 5.00}
-    result = detect_entity_type(data_expense, Path("/tmp/test.yaml"))
-    assert result == NonKuDomain.FINANCE, f"Expected NonKuDomain.FINANCE, got {result}"
+    # Test 6: Retired finance aliases are rejected outright (ADR-052 Phase 5).
+    # The native expense module is gone; `type: expense` must not silently mint
+    # a constraint-less :Expense node any more (SKUEL030 findings §11).
+    for retired in ("expense", "finance"):
+        with pytest.raises(ValueError) as exc_info:
+            detect_entity_type({"type": retired}, Path("/tmp/test.yaml"))
+        assert "ADR-052" in str(exc_info.value), f"Expected ADR-052 rejection for {retired}"
 
     # Test 7: Verify type detection (January 2026 - Unified domains)
     result = detect_entity_type({"type": "task"}, Path("/tmp/test.yaml"))

@@ -231,7 +231,7 @@ class IngestionBackend:
         """Which of ``uids`` name a live node, across the three uid-bearing shapes.
 
         Mirrors the shapes ``delete_entities_with_metadata`` can delete
-        (:Entity multi-label, :Group, :Expense). Used by the move-detection
+        (:Entity multi-label, :Group). Used by the move-detection
         pre-pass as its live-node guard: a stale tracker row whose uid names
         no node is not a move source — rewriting it would attach a
         hand-deleted entity's identity to the new path.
@@ -241,9 +241,8 @@ class IngestionBackend:
             UNWIND $uids AS uid
             OPTIONAL MATCH (e:Entity {uid: uid})
             OPTIONAL MATCH (g:Group {uid: uid})
-            OPTIONAL MATCH (x:Expense {uid: uid})
-            WITH uid, e, g, x
-            WHERE e IS NOT NULL OR g IS NOT NULL OR x IS NOT NULL
+            WITH uid, e, g
+            WHERE e IS NOT NULL OR g IS NOT NULL
             RETURN uid AS uid
             """,
             {"uids": uids},
@@ -256,8 +255,8 @@ class IngestionBackend:
         sync): the gone row's node still holds the body as it was last
         ingested, which is compared against new files' resolved on-disk
         content — no extra fingerprint storage needed. :Entity only — the
-        other uid-bearing shapes (:Group, :Expense) carry no comparable body,
-        so their rows simply never similarity-match (safe delete+create).
+        other uid-bearing shape (:Group) carries no comparable body, so its
+        rows simply never similarity-match (safe delete+create).
         A returned row doubles as the live-node proof for its uid. Nodes
         with no ``content`` yield no row; body-chunked types (Ku, PathStep)
         store content on the :Content subtree, not the node, so they are
@@ -289,8 +288,7 @@ class IngestionBackend:
         Covers every uid-bearing shape ``delete_entities_with_metadata`` can
         delete (Kody #522): :Entity carries ``user_uid``, :Group carries
         ``owner_uid`` (stamped from the uploading user — see
-        ``owner_uid_from_user_uid`` in ingestion config), :Expense carries
-        ``user_uid``. Ownerless nodes (SHARED curriculum, by design) yield no
+        ``owner_uid_from_user_uid`` in ingestion config). Ownerless nodes (SHARED curriculum, by design) yield no
         row. Used by deletion reconciliation to refuse cross-owner deletes: a
         tracked node owned by a different user than the syncing vault's owner
         is skipped, not deleted.
@@ -300,8 +298,7 @@ class IngestionBackend:
             UNWIND $uids AS uid
             OPTIONAL MATCH (e:Entity {uid: uid})
             OPTIONAL MATCH (g:Group {uid: uid})
-            OPTIONAL MATCH (x:Expense {uid: uid})
-            WITH uid, coalesce(e.user_uid, g.owner_uid, x.user_uid) AS owner_uid
+            WITH uid, coalesce(e.user_uid, g.owner_uid) AS owner_uid
             WHERE owner_uid IS NOT NULL
             RETURN uid AS uid, owner_uid AS user_uid
             """,
@@ -314,8 +311,8 @@ class IngestionBackend:
         """Delete vault-removed entities, their content subtree, and tracking rows.
 
         Each item carries {file_path, entity_uid}. Matches the entity across the
-        three uid-bearing node shapes ingestion can create (:Entity multi-label,
-        :Group, :Expense). The content subtree hangs off the entity as
+        two uid-bearing node shapes ingestion can create (:Entity multi-label,
+        :Group). The content subtree hangs off the entity as
         (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) with
         (Content)-[:HAS_METADATA]->(ContentMetadata) — all of it is deleted
         leaf-first (DETACH DELETE on the entity alone would orphan the content
@@ -334,16 +331,15 @@ class IngestionBackend:
             MATCH (s:IngestionMetadata {file_path: item.file_path})
             OPTIONAL MATCH (e:Entity {uid: item.entity_uid})
             OPTIONAL MATCH (g:Group {uid: item.entity_uid})
-            OPTIONAL MATCH (x:Expense {uid: item.entity_uid})
             OPTIONAL MATCH (e)-[:HAS_CONTENT]->(content:Content)
             OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
             OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
             OPTIONAL MATCH (e)-[:HAS_REFERENCE_CHUNK]->(refchunk:ReferenceChunk)
             DETACH DELETE chunk, meta, refchunk
-            WITH DISTINCT item, s, e, g, x, content
+            WITH DISTINCT item, s, e, g, content
             DETACH DELETE content
-            WITH DISTINCT item, s, e, g, x
-            DETACH DELETE e, g, x, s
+            WITH DISTINCT item, s, e, g
+            DETACH DELETE e, g, s
             RETURN item.file_path AS file_path, item.entity_uid AS entity_uid
             """,
             {"items": items},

@@ -356,13 +356,6 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         ),
         embeddable=True,
     ),
-    NonKuDomain.FINANCE: EntityIngestionConfig(
-        entity_label="Expense",
-        uid_prefix="expense",
-        required_fields=("description", "amount"),
-        requires_user_uid=True,
-        base_label=None,  # Expense is not an Entity type
-    ),
     NonKuDomain.GROUP: EntityIngestionConfig(
         entity_label="Group",
         uid_prefix="group",

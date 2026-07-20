@@ -60,9 +60,8 @@ class DailyPlanningMixin(IntelligenceMixinBase):
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic
     enhancement of the P5 learning block.
 
-    Other services on UserContextIntelligence (lp, report, analytics,
-    calendar, zpd_service) are used by sibling mixins — this mixin does
-    not call them.
+    Other services on UserContextIntelligence (lp, report, calendar,
+    zpd_service) are used by sibling mixins — this mixin does not call them.
     """
 
     # Forward declarations of TemporalMomentumMixin methods used here. These

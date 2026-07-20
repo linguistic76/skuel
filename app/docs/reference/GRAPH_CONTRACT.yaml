@@ -1377,10 +1377,6 @@ findings:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/_knowledge_context_mixin.py
-  Expense:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j/ingestion_backend.py
   FOR_KNOWLEDGE:
     kind: relationship
     sites:
@@ -1407,10 +1403,6 @@ findings:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/cross_domain_backend.py
-  INCLUDES_ENTITY:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/analytics_relationship_backend.py
   INCLUDES_KNOWLEDGE:
     kind: relationship
     sites:
@@ -1423,11 +1415,6 @@ findings:
     kind: label
     sites:
       - adapters/persistence/neo4j/cross_domain_backend.py
-  LEARNING:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/user_backend.py
-      - adapters/persistence/neo4j/user_context_queries.py
   LearningPreference:
     kind: label
     sites:
@@ -1444,14 +1431,6 @@ findings:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/query/graph_traversal.py
-  REPORTS_ON_GOAL:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/analytics_relationship_backend.py
-  Report:
-    kind: label
-    sites:
-      - adapters/persistence/neo4j/analytics_relationship_backend.py
   STRUGGLING_WITH:
     kind: relationship
     sites:

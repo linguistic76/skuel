@@ -126,7 +126,6 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             "ex:": "Exercise",
             "ex.": "Exercise",
             "user.": "User",
-            "expense:": "Expense",
             "ue_": "UserEntry",  # ADR-054 unified user-authored content
         }
 

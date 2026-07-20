@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.filtered_context_protocols import FilteredContextProvider
-    from core.ports.relationship_backend_protocols import AnalyticsRelationshipOperations
     from core.services.calendar_service import CalendarService
     from core.services.report import ReportRelationshipService
     from core.services.user.unified_user_context import RichUserContext
@@ -57,9 +56,8 @@ class IntelligenceMixinBase:
     lp: Any
     exercises: Any  # ExerciseService facade — daily-plan exercise enrichment
 
-    # Processing Domains (2)
+    # Processing Domain (1)
     report: ReportRelationshipService
-    analytics: AnalyticsRelationshipOperations
 
     # Temporal Domain (1)
     calendar: CalendarService

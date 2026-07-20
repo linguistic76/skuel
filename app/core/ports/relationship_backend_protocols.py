@@ -1,20 +1,17 @@
 """
-Relationship Backend Protocols
-==============================
+Relationship Backend Protocol
+=============================
 
-Ports for the two relationship backends that live below the hexagonal
-boundary (``adapters/persistence/neo4j/``) and author parameterized Cypher
+Port for the relationship backend that lives below the hexagonal
+boundary (``adapters/persistence/neo4j/``) and authors parameterized Cypher
 against a ``Neo4jQueryExecutor``:
 
 - ``UserRelationshipOperations`` — user-centric graph edges (PINNED,
   PINNED_TODAY, PURSUING_GOAL, FOLLOWS, MEMBER_OF).
   Implementation: ``adapters/persistence/neo4j/user_relationship_backend.py``
-- ``AnalyticsRelationshipOperations`` — report aggregation edges
-  (INCLUDES_ENTITY, REPORTS_ON_GOAL).
-  Implementation: ``adapters/persistence/neo4j/analytics_relationship_backend.py``
 
 Core-layer consumers (orchestrators, the user-intelligence factory) depend on
-these protocols, never on the concrete adapter classes — keeping the
+this protocol, never on the concrete adapter class — keeping the
 dependency arrow pointed inward (ADR-044).
 
 See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
@@ -79,52 +76,4 @@ class UserRelationshipOperations(Protocol):
         current_goal_uids: list[str] | None = None,
         following_uids: list[str] | None = None,
         team_uids: list[str] | None = None,
-    ) -> Result[int]: ...
-
-
-@runtime_checkable
-class AnalyticsRelationshipOperations(Protocol):
-    """Graph relationship operations for analytics report entities.
-
-    Reports aggregate activity-domain data into statistical summaries and link
-    to the entities and goals they cover via INCLUDES_ENTITY / REPORTS_ON_GOAL.
-    """
-
-    # User reports
-    async def get_user_reports(self, user_uid: UserUID, limit: int = 50) -> Result[list[str]]: ...
-    async def get_user_reports_by_type(
-        self, user_uid: UserUID, report_type: str, limit: int = 20
-    ) -> Result[list[str]]: ...
-
-    # Entity inclusion
-    async def get_included_entities(self, report_uid: str) -> Result[list[str]]: ...
-    async def get_reports_including_entity(self, entity_uid: EntityUID) -> Result[list[str]]: ...
-
-    # Goal coverage
-    async def get_reported_goals(self, report_uid: str) -> Result[list[str]]: ...
-    async def get_goal_reports(self, goal_uid: str) -> Result[list[str]]: ...
-
-    # Existence checks
-    async def has_included_entities(self, report_uid: str) -> Result[bool]: ...
-    async def covers_goals(self, report_uid: str) -> Result[bool]: ...
-
-    # Counts / summaries
-    async def count_included_entities(self, report_uid: str) -> Result[int]: ...
-    async def count_covered_goals(self, report_uid: str) -> Result[int]: ...
-    async def get_report_summary(self, report_uid: str) -> Result[dict[str, Any]]: ...
-
-    # Period-based queries
-    async def get_reports_in_period(
-        self, user_uid: UserUID, start_date: str, end_date: str
-    ) -> Result[list[str]]: ...
-    async def get_latest_report_by_type(
-        self, user_uid: UserUID, report_type: str
-    ) -> Result[list[str]]: ...
-
-    # Batch creation
-    async def create_report_relationships(
-        self,
-        report_uid: str,
-        included_entity_uids: list[str] | None = None,
-        goal_uids: list[str] | None = None,
     ) -> Result[int]: ...

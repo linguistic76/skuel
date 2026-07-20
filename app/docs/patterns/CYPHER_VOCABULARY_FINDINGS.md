@@ -19,8 +19,11 @@ in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
 - **§9 semantic-as-edge → DEFERRED** to semantic-relationship-layer roadmap
   Phase 1. Pairs stay baselined until that work reconciles them.
 - **Tranche order:** T1 = §3+§4 (done below) · T2 = §6 LEARNING fix+migration,
-  §1 deletion, §11 Expense · T3 = §7 per decision, §2 label mismatches ·
-  T4 = §5 sibling filter, §8 near-duplicates.
+  §1 deletion, §11 Expense (done below) · T3 = §7 per decision, §2 label
+  mismatches · T4 = §5 sibling filter, §8 near-duplicates.
+- **Tranche 2 shipped (2026-07-20):** §6, §1 and §11 resolved as ratified —
+  6 baseline pairs closed (38 → 32). One migration covers both graph-side
+  changes: `scripts/migrations/retire_learning_edge_and_expense_label_2026_07.cypher`.
 
 The baseline holds **`(file, name)` pairs**, so only the known call sites are
 exempt: introducing any of these names in a *new* file still fails the rule. It
@@ -39,35 +42,26 @@ PR that introduced the rule. See `docs/patterns/linter_rules.md § SKUEL030`.
 
 ---
 
-## 1. The `:Report` cluster — an entire wired backend querying a purged label
+## 1. The `:Report` cluster — ✅ RESOLVED (tranche 2, 2026-07-20)
 
-**Severity: highest.** `AnalyticsRelationshipBackend` is instantiated at
-composition time (`services_bootstrap/_intelligence_hub.py`) and runs 13
-`MATCH (report:Report ...)` queries. There is no `CREATE`/`MERGE` of `:Report`
-anywhere in the repo — and `scripts/migrations/backfill_entity_type_property_2026_03.cypher`
-*actively removes* the label:
+**Was the highest-severity item.** `AnalyticsRelationshipBackend` was
+instantiated at composition time (`services_bootstrap/_intelligence_hub.py`) and
+ran 13 `MATCH (report:Report ...)` queries against a label
+`scripts/migrations/backfill_entity_type_property_2026_03.cypher` actively
+removes — so `link_report_to_entity`, `get_reports_for_goal`,
+`count_entities_in_report`, … had all silently no-opped since March 2026.
+`INCLUDES_ENTITY` and `REPORTS_ON_GOAL` existed nowhere else in the repo.
 
-```cypher
-// Fix nodes that may have been ingested with wrong :Report label (stale config).
-MATCH (n:Report) WHERE n:Entity
-REMOVE n:Report
-```
-
-So every method on that backend — `link_report_to_entity`, `get_reports_for_goal`,
-`count_entities_in_report`, … — has silently no-opped since March 2026.
-
-The real labels are `NeoLabel.ACTIVITY_REPORT` (`"ActivityReport"`) and
-`NeoLabel.ENTRY_REPORT` (`"EntryReport"`).
-
-| Name | Kind | Sites |
-|---|---|---|
-| `Report` | label | `analytics_relationship_backend.py` ×13 |
-| `INCLUDES_ENTITY` | edge | same file ×5 — used nowhere else |
-| `REPORTS_ON_GOAL` | edge | same file ×5 — used nowhere else |
-
-**Decision needed:** repoint the backend at `ActivityReport`/`EntryReport` and
-register the two edges, or delete the backend if the feature is genuinely gone.
-Not a mechanical fix — the two report types have different owners and scopes.
+**Resolution — deleted**, per Mike's ratified decision. The backend was
+consumer-less on top of label-less: the intelligence factory stored it as
+`self.analytics` and no code called any of its 12 methods; the live report stack
+is `ReportRelationshipService` + `REPORT_FOR` against
+`NeoLabel.ACTIVITY_REPORT` / `NeoLabel.ENTRY_REPORT`. Removed together:
+`adapters/persistence/neo4j/analytics_relationship_backend.py`, the
+`AnalyticsRelationshipOperations` protocol and its `core/ports` export, the hub
+wiring, and the `analytics` parameter/attribute on
+`UserContextIntelligenceFactory` + `UserContextIntelligence` (12 → 11 required
+domain services).
 
 ---
 
@@ -150,28 +144,32 @@ in the rule's own PR.
 
 ---
 
-## 6. `LEARNING` — a retired edge that still has a live writer
+## 6. `LEARNING` — ✅ RESOLVED (tranche 2, 2026-07-20)
 
-`tests/unit/test_no_legacy_patterns.py::test_no_legacy_relationship_name_learning`
-asserts that `RelationshipName.LEARNING` must **not** exist:
+Was: `tests/unit/test_no_legacy_patterns.py::test_no_legacy_relationship_name_learning`
+asserts `RelationshipName.LEARNING` must **not** exist (replaced by
+`IN_PROGRESS`), yet `UserBackend.record_knowledge_progress` still wrote it — so
+the graph accumulated `(User)-[:LEARNING]->(Ku)` edges every `IN_PROGRESS`
+reader was blind to. The one **active-writer** bug in this file.
 
-> `RelationshipName.LEARNING` was replaced by `IN_PROGRESS` — must not exist.
+**Resolution:** inverted from the rest of the file — the *writer* moved, the
+name stayed retired.
 
-But `UserBackend.record_learning_progress` (`user_backend.py:562`) still writes it:
-
-```python
-merged = await self._merge_user_edge(user_uid, knowledge_uid, "LEARNING", ...)
-```
-
-So the graph accumulates `(User)-[:LEARNING]->(Ku)` edges that every reader of
-`IN_PROGRESS` is blind to — progress recorded through this method is invisible to
-the learning-state queries that matter. `user_backend.py:966` also reads
-`[r:LEARNING|MASTERED]`, so the write path and one read path agree with each other
-while disagreeing with the rest of the system.
-
-**This one is inverted from the rest of the file:** the name is deliberately
-retired, so the fix is to repoint the *writer* to `IN_PROGRESS`, not to register
-`LEARNING`. It was registered mid-review and reverted when the legacy test caught it.
+- `record_knowledge_progress` now merges `IN_PROGRESS` with the property shape
+  `UserProgressBackend.record_progress` already writes (`progress`,
+  `started_at` via `coalesce` so it stays create-only, `time_invested_minutes`,
+  `difficulty_rating`, `last_accessed`).
+- Both readers repointed: `user_backend.get_active_learners` matches
+  `[r:IN_PROGRESS|MASTERED]` and coalesces the three real recency stamps
+  (`last_accessed` / `last_activity_at` / `last_practiced`) instead of the
+  now-unwritten `last_updated`; the MEGA-QUERY knowledge block in
+  `user_context_queries.py` drops the `LEARNING` alternation arm (its `ELSE 0.5`
+  score branch went with it — only `MASTERED` and `IN_PROGRESS` reach it now).
+- Historical edges fold over via
+  `scripts/migrations/retire_learning_edge_and_expense_label_2026_07.cypher`,
+  which merges into an existing `IN_PROGRESS` edge where one exists and converts
+  the rest. Idempotent; the dev graph had zero `LEARNING` edges, so it ships for
+  prod-shaped graphs.
 
 ---
 
@@ -245,23 +243,27 @@ pre-ADR-068 shape.
 
 ---
 
-## 11. `Expense` — enum and ingestion contradict each other
+## 11. `Expense` — ✅ RESOLVED (tranche 2, 2026-07-20)
 
-`core/models/enums/neo_labels.py` states:
+Was: `core/models/enums/neo_labels.py` records `EXPENSE` as removed (ADR-052
+Phase 5, native expense module demolished), but the ingestion path survived —
+`core/services/ingestion/config.py` still registered `entity_label="Expense"`
+and `detector.py` mapped `type: expense` onto it, so a vault file created a
+live `:Expense` node with no uniqueness constraint (`ensure_constraints`
+resolved a filename that does not exist). `scripts/indexes.cypher` indexed it too.
 
-> `EXPENSE` removed (ADR-052 Phase 5) — native expense module demolished
+**Resolution — the ingestion config was the leftover, and it is gone.** The
+`NonKuDomain.FINANCE` ingestion config, the `expense`/`finance` type mappings,
+and the `:Expense` date index are deleted, along with the `:Expense` arm of the
+three `ingestion_backend.py` uid-bearing-shape queries (live shapes are now
+`:Entity` and `:Group`) and the dead `"expense:"` entry in the uid-prefix →
+label map.
 
-But the ingestion path survived: `core/services/ingestion/config.py:360` still
-registers `entity_label="Expense"` and `detector.py:54` still maps
-`type: expense` frontmatter to it. **A vault file with `type: expense` creates a
-live `:Expense` node today** — one with no uniqueness constraint, since
-`ensure_constraints("Expense")` looks for a file that does not exist.
-
-`scripts/indexes.cypher:60` also creates an index on it.
-
-Either the ingestion config is the leftover and should go, or `EXPENSE` belongs
-back in `NeoLabel`. The current split — a writable label the source-of-truth enum
-declares demolished — is the worst of both.
+`type: expense` no longer falls through to a silent mislabel: `detect_entity_type`
+rejects `expense` and `finance` explicitly with an ADR-052 message, checked
+*before* the `NonKuDomain.from_string()` fallback that would otherwise resolve
+them right back. Finance remains the admin-only Firefly III sidecar, which is
+not vault-ingestible. Stray nodes are swept by the tranche-2 migration.
 
 ---
 

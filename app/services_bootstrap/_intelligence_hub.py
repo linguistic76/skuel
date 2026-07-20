@@ -37,18 +37,11 @@ def _create_intelligence_hub(
     forwarded into Askesis for PS-scoped readings grounding (ADR-077). None when
     embeddings are absent (guided pipeline degrades canon-free).
     """
-    from adapters.persistence.neo4j.analytics_relationship_backend import (
-        AnalyticsRelationshipBackend,
-    )
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.services.report import ReportRelationshipService
     from core.services.user.intelligence import UserContextIntelligenceFactory
 
     report_relationship_service = ReportRelationshipService(backend=user_entry_backend)
-    # AnalyticsRelationshipBackend runs parameterized Cypher via the executor — wrap
-    # the driver (its methods call executor.execute(), which AsyncDriver lacks).
-    analytics_relationship_service = AnalyticsRelationshipBackend(Neo4jQueryExecutor(driver))
-    logger.info("✅ Processing domain relationship services created (Report, Analytics)")
+    logger.info("✅ Processing domain relationship service created (Report)")
 
     # ── PsEngagementService post-wire to context_builder (ADR-059) ──────────
     # ps_engagement is core-tier (always wired by template_services before this
@@ -155,9 +148,8 @@ def _create_intelligence_hub(
         ps=learning_services["ps"],
         lp=learning_services["learning_paths"].relationships,  # factory param name
         exercises=services.exercises,
-        # Processing Domains (2)
+        # Processing Domain (1)
         report=report_relationship_service,
-        analytics=analytics_relationship_service,
         # Temporal Domain (1)
         calendar=calendar_service,
         # Optional services
@@ -167,7 +159,7 @@ def _create_intelligence_hub(
     )
     services.context_intelligence = context_intelligence_factory
     logger.info(
-        "✅ UserContextIntelligence factory created (12 domain services + ZPD + %d filtered providers)",
+        "✅ UserContextIntelligence factory created (11 domain services + ZPD + %d filtered providers)",
         len(filtered_providers),
     )
 

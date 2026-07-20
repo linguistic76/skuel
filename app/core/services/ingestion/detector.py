@@ -22,6 +22,13 @@ _LEGACY_USER_ENTRY_ALIASES: frozenset[str] = frozenset(
     {"je_input", "je_output", "exercise_submission"}
 )
 
+# ADR-052 Phase 5 demolished the native expense module: EXPENSE left NeoLabel and
+# :Expense stopped being a writable label. The ingestion mapping outlived it by a
+# quarter, so `type: expense` files kept minting constraint-less :Expense nodes
+# nothing reads. Rejected explicitly rather than dropped from TYPE_MAPPING —
+# NonKuDomain.from_string("finance") would otherwise resolve it right back.
+_RETIRED_FINANCE_ALIASES: frozenset[str] = frozenset({"expense", "finance"})
+
 # ============================================================================
 # TYPE MAPPING
 # ============================================================================
@@ -50,9 +57,6 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "ps": EntityType.PATH_STEP,
     "pathstep": EntityType.PATH_STEP,
     "learningstep": EntityType.PATH_STEP,
-    # Finance
-    "expense": NonKuDomain.FINANCE,
-    "finance": NonKuDomain.FINANCE,
     # Groups (teacher-student class management)
     "group": NonKuDomain.GROUP,
     # User-authored content (ADR-054: UserEntry is the unified domain).
@@ -117,6 +121,13 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
                 "Use 'type: user_entry' with an explicit 'pipeline:' field "
                 "(none | teacher_review | llm_summary). "
                 f"File: {file_path.name}"
+            )
+        if explicit_type in _RETIRED_FINANCE_ALIASES:
+            raise ValueError(
+                f"Type '{explicit_type}' was retired by ADR-052 Phase 5 — the native "
+                "expense module was demolished and :Expense is no longer a writable "
+                "label. Finance lives in the Firefly III sidecar (admin-only), which "
+                f"is not vault-ingestible. File: {file_path.name}"
             )
         if explicit_type in TYPE_MAPPING:
             return TYPE_MAPPING[explicit_type]

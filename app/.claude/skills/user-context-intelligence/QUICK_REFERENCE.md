@@ -90,7 +90,7 @@ from core.models.context_types import (
 
 ---
 
-## The 12 Required Services
+## The 11 Required Services
 
 | # | Domain | Service Type | Attribute |
 |---|--------|--------------|-----------|
@@ -105,11 +105,10 @@ from core.models.context_types import (
 | 7 | PS | `PsService` (facade) | `self.ps` |
 | 8 | LP | `UnifiedRelationshipService` | `self.lp` |
 | 9 | Exercises | `ExerciseService` (facade) | `self.exercises` |
-| **Processing (2)** |
+| **Processing (1)** |
 | 10 | Report | `ReportRelationshipService` | `self.report` |
-| 11 | Analytics | `AnalyticsRelationshipService` | `self.analytics` |
 | **Temporal (1)** |
-| 12 | Calendar | `CalendarService` | `self.calendar` |
+| 11 | Calendar | `CalendarService` | `self.calendar` |
 
 ### Optional: FilteredContextProvider Dict
 
@@ -328,9 +327,8 @@ class UserContextIntelligenceFactory:
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing (2)
+        # Processing (1)
         report: ReportRelationshipService,
-        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
         # Optional: semantic search enhancements
@@ -350,7 +348,7 @@ class UserContextIntelligenceFactory:
 # At bootstrap — pass facade services directly (not .relationships)
 factory = UserContextIntelligenceFactory(
     tasks=tasks_service,
-    # ... 12 more services
+    # ... 11 more services
 )
 services.context_intelligence = factory
 
