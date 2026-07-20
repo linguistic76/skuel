@@ -1,3 +1,7 @@
+// noqa-file: CYP011 - unreachable template; every label/edge below is unregistered vocabulary.
+// ensure_constraints() resolves '{entity_label.lower()}_constraints.cypher' and upsert_batch()
+// only loads a named template when a caller passes template_name= — no caller does. Nothing
+// here can execute. Deletion is tracked in docs/patterns/CYPHER_VOCABULARY_FINDINGS.md.
 // Bulk upsert template for LifePrinciples with relationships
 UNWIND $items AS i
 MERGE (lp:LifePrinciple {uid: i.uid})

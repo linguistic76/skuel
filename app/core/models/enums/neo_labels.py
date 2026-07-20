@@ -127,15 +127,37 @@ class NeoLabel(StrEnum):
     # Organizational (non-Entity)
     # =========================================================================
     GROUP = "Group"  # Teacher-student class management (ADR-040)
+    REVIEW_REQUEST = "ReviewRequest"  # Teacher review queue rows — not an Entity subclass
 
     # =========================================================================
     # Content/Processing Infrastructure
     # =========================================================================
+    CONTENT = "Content"  # Body-content root: (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk)
     CONTENT_CHUNK = "ContentChunk"  # RAG chunks for semantic retrieval
     REFERENCE_CHUNK = "ReferenceChunk"  # Canon reference-book chunks (own vector index, invisible to SearchRouter)
     REPORT_PROJECT = "ReportProject"  # Legacy — pre-Exercise report project nodes
     REPORT_SCHEDULE = "ReportSchedule"
     TRANSCRIPTION = "Transcription"
+    CHANGE_LOG = "ChangeLog"  # Jupyter sync change audit rows
+
+    # =========================================================================
+    # Ingestion Audit Trail
+    # =========================================================================
+    INGESTION_HISTORY = "IngestionHistory"  # One row per ingestion run
+    INGESTION_ERROR = "IngestionError"  # (IngestionHistory)-[:HAD_ERROR]->(IngestionError)
+    INGESTION_METADATA = "IngestionMetadata"  # Per-file ingestion watermark (file_path keyed)
+
+    # =========================================================================
+    # Intelligence Snapshots (non-Entity aggregate nodes)
+    # =========================================================================
+    # "Analytics aggregate, they don't create" holds for DOMAIN data — these are
+    # counters/snapshots keyed by user_uid, not domain entities.
+    INSIGHT = "Insight"  # Persisted intelligence output (ABOUT_ENTITY → subject)
+    ZPD_HISTORY = "ZPDHistory"  # Periodic ZPD assessment snapshots
+    LEARNING_VELOCITY = "LearningVelocity"  # Per-user learning-rate counters
+    PRODUCTIVITY_ANALYTICS = "ProductivityAnalytics"  # Per-user task-completion counters
+    HABIT_ANALYTICS = "HabitAnalytics"  # Per-user habit-completion counters
+    ACHIEVEMENT = "Achievement"  # Badge nodes unlocked by habit streaks
 
     # =========================================================================
     # Notifications
@@ -148,6 +170,7 @@ class NeoLabel(StrEnum):
     SESSION = "Session"  # User session nodes for auth
     AUTH_EVENT = "AuthEvent"  # Audit trail nodes for security events
     DEVICE = "Device"  # Enrolled vault-agent devices (ADR-075) — auth infra, not an Entity
+    PASSWORD_RESET_TOKEN = "PasswordResetToken"  # (user)-[:HAS_RESET_TOKEN]->(PasswordResetToken)
 
     # =========================================================================
     # Conversation Persistence (ADR-078) — discussion sessions, owner-private
@@ -157,6 +180,11 @@ class NeoLabel(StrEnum):
     # context-builder are all structurally blind to these nodes (ADR-078 §2/§6).
     CONVERSATION_SESSION = "ConversationSession"  # Companion-neutral discussion session
     CONVERSATION_TURN = "ConversationTurn"  # One message within a session
+    # Pre-ADR-078 Askesis transcript node, written on every query turn via
+    # (user)-[:HAS_MESSAGE]->(ConversationMessage). A second, older conversation
+    # store running in parallel with the pair above — outside the understanding
+    # wall, and not yet reconciled with it (SKUEL030 backlog).
+    CONVERSATION_MESSAGE = "ConversationMessage"
 
     # =========================================================================
     # Cross-Cutting Systems

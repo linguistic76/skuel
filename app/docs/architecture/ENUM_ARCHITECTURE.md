@@ -31,7 +31,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
 | `interaction_enums.py` | Learning-loop interaction records | InteractionType, InteractionResult |
 | `relationship_enums.py` | Knowledge-relationship qualifiers | ProficiencyLevel, KnowledgeRelevance |
-| `neo_labels.py` | Neo4j node labels | NeoLabel (44 labels) |
+| `neo_labels.py` | Neo4j node labels | NeoLabel (62 labels) |
 
 **Import convention:**
 ```python
@@ -375,7 +375,21 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `ProficiencyLevel` (4 values) — proficiency on knowledge/skill relationships; `KnowledgeRelevance` (3 values) — how a principle or goal relates to a knowledge unit.
 
 **Neo4j Labels** (`neo_labels.py`):
-- `NeoLabel` — 48 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
+- `NeoLabel` — 62 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
+
+**Vocabulary enforcement (SKUEL030 / CYP011, since 2026-07-19):** `NeoLabel` and
+`RelationshipName` are not merely *available* below the boundary — they are *enforced*
+there. Every label and relationship type written in `adapters/persistence/**` Cypher
+(Python string literals via SKUEL030, standalone `.cypher` files via CYP011) must be a
+registered member. Neo4j validates neither, so an unregistered name matches zero rows
+silently rather than erroring; the linter is the only thing that catches it.
+
+This is a *vocabulary* check, not an interpolation-style check — a plain `[:OWNS]` literal
+below the boundary is fine, and SKUEL013's enum-interpolation requirement stops at the
+boundary. The linters read the enum members by AST-parsing these two files, so the check
+cannot drift from the declaration site. See
+[linter_rules.md § SKUEL030](../patterns/linter_rules.md) and the open findings in
+[CYPHER_VOCABULARY_FINDINGS.md](../patterns/CYPHER_VOCABULARY_FINDINGS.md).
 
 ---
 

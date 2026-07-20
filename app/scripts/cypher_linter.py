@@ -27,6 +27,10 @@ before they reach runtime. Lints two source shapes:
 - CYP008: WITH clause without DISTINCT (WARNING) - DISABLED
 - CYP009: Query complexity too high (WARNING)
 - CYP010: Missing index hint for large dataset (INFO)
+- CYP011: Node label / relationship type not registered in NeoLabel /
+  RelationshipName (ERROR) — .cypher files only; the .py half is SKUEL030.
+  Neo4j never validates a label or edge type, so an unregistered name matches
+  zero rows silently. Suppress: // noqa: CYP011 - <reason>
 
 **Usage:**
     uv run python scripts/cypher_linter.py                    # Lint all files (warnings-only mode)
@@ -48,6 +52,14 @@ import sys
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+
+# Shared with lint_skuel.py (SKUEL030) — one registry reader, one name scanner.
+sys.path.insert(0, str(Path(__file__).parent))
+from cypher_vocabulary import (  # type: ignore[import-not-found]
+    VocabularyError,
+    load_vocabulary,
+    unregistered_names,
+)
 
 
 class Severity(StrEnum):
@@ -137,6 +149,7 @@ class CypherLinter:
             violations.extend(self._check_missing_depth_limit(query, file_path, start_line))
             violations.extend(self._check_missing_limit(query, file_path, start_line))
             violations.extend(self._check_duplicate_variables(query, file_path, start_line))
+            violations.extend(self._check_vocabulary_registry(query, file_path, start_line))
 
             # Advanced features (Week 5-6)
             violations.extend(self._check_query_complexity(query, file_path, start_line))
@@ -598,6 +611,82 @@ class CypherLinter:
                 )
             )
 
+        return violations
+
+    def _check_vocabulary_registry(
+        self, query: str, file_path: Path, start_line: int
+    ) -> list[Violation]:
+        """
+        CYP011: Node label / relationship type must be registered in the enums.
+
+        The `.cypher` half of SKUEL030. Neo4j validates neither labels nor
+        relationship types, so a typo'd `(:Vectr)` in a constraint template or a
+        retired edge name in a bulk-upsert simply matches nothing — no error, no
+        log line, just a silently empty result forever.
+
+        Scope is deliberately narrow: standalone `.cypher` files only.
+        Cypher inside `.py` string literals is covered by SKUEL030 in
+        lint_skuel.py, which has the AST context needed to tell an executable
+        query from a docstring example. Running both here would double-report.
+
+        `scripts/migrations/*.cypher` are excluded — a rename migration's job is
+        to name the vocabulary it is renaming away.
+
+        Suppress one line with `// noqa: CYP011 - <reason>`, or a whole file with
+        `// noqa-file: CYP011 - <reason>` anywhere in it. The file-level form
+        exists for templates that are dead end to end: annotating every line of a
+        file that should not exist buries the point in ceremony.
+        """
+        if file_path.suffix != ".cypher":
+            return []
+        if "migrations" in file_path.parts:
+            return []
+        if re.search(r"noqa-file:\s*CYP011", file_path.read_text()):
+            return []
+
+        try:
+            vocabulary = load_vocabulary()
+        except VocabularyError as exc:
+            # Fail loud, not open: an unreadable registry must never look clean.
+            return [
+                Violation(
+                    rule_code="CYP011",
+                    severity=Severity.ERROR,
+                    message=f"Cannot read the enum vocabulary registry: {exc}",
+                    file_path=file_path,
+                    line_number=start_line,
+                    line_content="",
+                    suggestion="Check core/models/relationship_names.py and core/models/enums/neo_labels.py",
+                )
+            ]
+
+        violations: list[Violation] = []
+        for name in unregistered_names(query, vocabulary):
+            line_num = start_line + name.line_offset
+            query_lines = query.splitlines()
+            line_content = (
+                query_lines[name.line_offset] if name.line_offset < len(query_lines) else ""
+            )
+            if re.search(r"noqa:\s*CYP011", line_content):
+                continue
+            violations.append(
+                Violation(
+                    rule_code="CYP011",
+                    severity=Severity.ERROR,
+                    message=(
+                        f"Cypher {name.kind.value} '{name.value}' is not a "
+                        f"{vocabulary.enum_for(name.kind)} member"
+                    ),
+                    file_path=file_path,
+                    line_number=line_num,
+                    line_content=line_content,
+                    suggestion=(
+                        f"Register '{name.value}' in {vocabulary.enum_for(name.kind)}, "
+                        f"or fix the name — Neo4j matches zero rows on an unknown "
+                        f"{name.kind.value} instead of erroring"
+                    ),
+                )
+            )
         return violations
 
     def _check_unbounded_traversal(

@@ -57,7 +57,12 @@ CREATE INDEX event_status_idx IF NOT EXISTS FOR (n:Event) ON (n.status);
 CREATE INDEX task_due_date_idx IF NOT EXISTS FOR (n:Task) ON (n.due_date);
 CREATE INDEX event_event_date_idx IF NOT EXISTS FOR (n:Event) ON (n.event_date);
 CREATE INDEX goal_target_date_idx IF NOT EXISTS FOR (n:Goal) ON (n.target_date);
-CREATE INDEX expense_expense_date_idx IF NOT EXISTS FOR (n:Expense) ON (n.expense_date);
+// noqa: CYP011 - :Expense is unregistered on purpose-by-accident: neo_labels.py says EXPENSE was
+// removed (ADR-052 Phase 5), but core/services/ingestion/config.py still maps `type: expense` to
+// entity_label="Expense", so a vault file creates one today. Resolve the contradiction (drop the
+// ingestion config, or re-register the label) before removing this suppression — see
+// docs/patterns/CYPHER_VOCABULARY_FINDINGS.md.
+CREATE INDEX expense_expense_date_idx IF NOT EXISTS FOR (n:Expense) ON (n.expense_date); // noqa: CYP011
 
 // Entity type discriminator index
 CREATE INDEX entity_type_idx IF NOT EXISTS FOR (n:Entity) ON (n.entity_type);
