@@ -243,19 +243,22 @@ class Neo4jAdapter:
                 "CREATE INDEX knowledge_type_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.type)",
                 "CREATE INDEX knowledge_created_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.created_at)",
                 "CREATE INDEX knowledge_updated_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.updated_at)",
-                # Hierarchical KnowledgeUnit indexes
-                "CREATE INDEX ku_knowledge_domain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_domain)",
-                "CREATE INDEX ku_knowledge_subdomain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_subdomain)",
-                "CREATE INDEX ku_md_heading_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.md_heading_level)",
-                "CREATE INDEX ku_parent_id_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.parent_knowledge_unit_id)",
-                "CREATE INDEX ku_depth_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.depth_level)",
-                "CREATE INDEX ku_root_domain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.root_domain_id)",
-                "CREATE INDEX ku_knowledge_path_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_path)",
-                "CREATE INDEX ku_source_file_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.source_md_file)",
-                "CREATE INDEX ku_schema_version_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.schema_version)",
-                # Combined indexes for common hierarchical query patterns
-                "CREATE INDEX ku_domain_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_domain, ku.md_heading_level)",
-                "CREATE INDEX ku_parent_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.parent_knowledge_unit_id, ku.depth_level)",
+                # NOTE: the entire "Hierarchical KnowledgeUnit indexes" block was
+                # removed here — it created indexes on Ku properties that no
+                # writer produces. The current Ku model (core/models/ku/ku.py)
+                # carries only entity_type, aliases, sel_category, nous,
+                # nous_subtopic plus inherited Entity fields. The removed indexes
+                # led with legacy conceptual-trajectory / hierarchical-KU schema
+                # that was deleted: knowledge_domain, knowledge_subdomain,
+                # md_heading_level, parent_knowledge_unit_id, depth_level,
+                # root_domain_id, knowledge_path, source_md_file, schema_version
+                # (+ the two combined ku_domain_level_idx / ku_parent_level_idx).
+                # None of these are ever set on an :Entity/:Ku node — Ku domain
+                # membership lives on the (ku)-[:IN_DOMAIN]->(:KnowledgeDomain)
+                # edge, not a property; depth_level only ever appears as a
+                # query-computed alias. Indexes on properties nothing writes are
+                # inert (they index zero rows), but they advertised a Ku schema
+                # that does not exist.
                 # Task management indexes
                 "CREATE INDEX task_status_idx IF NOT EXISTS FOR (t:Task) ON (t.status)",
                 "CREATE INDEX task_priority_idx IF NOT EXISTS FOR (t:Task) ON (t.priority)",
