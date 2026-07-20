@@ -1288,18 +1288,19 @@ class TestSKUEL030:
     def test_baseline_suppresses_only_the_known_file(self) -> None:
         """The baseline is (file, name)-scoped, not name-scoped.
 
-        A name-keyed baseline would wave `:Report` through everywhere and
+        A name-keyed baseline would wave `HAS_PROGRESS` through everywhere and
         re-open the hole the rule exists to close (Codex P2 on #732).
         """
-        known = "adapters/persistence/neo4j/analytics_relationship_backend.py"
-        assert lint_cypher('q = "MATCH (r:Report) RETURN r"', file_path=known) == []
+        query = 'q = "MATCH (u)-[:HAS_PROGRESS]->(p) RETURN p"'
+        known = "adapters/persistence/neo4j/user_progress_backend.py"
+        assert lint_cypher(query, file_path=known) == []
 
         elsewhere = lint_cypher(
-            'q = "MATCH (r:Report) RETURN r"',
+            query,
             file_path="adapters/persistence/neo4j/some_new_backend.py",
         )
         assert len(elsewhere) == 1
-        assert "Report" in elsewhere[0].message
+        assert "HAS_PROGRESS" in elsewhere[0].message
 
     def test_migrations_are_excluded(self) -> None:
         """A rename migration must be able to name what it renames away."""

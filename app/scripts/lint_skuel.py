@@ -4073,14 +4073,6 @@ class SkuelLinter:
     # docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
     SKUEL030_BASELINE: ClassVar[frozenset[tuple[str, str]]] = frozenset(
         {
-            # --- The :Report cluster -------------------------------------------
-            # A 2026-03 migration REMOVED the :Report label from the graph, but
-            # AnalyticsRelationshipBackend (wired at composition) still runs 13
-            # MATCH (report:Report ...) queries plus the two edges only it uses.
-            # Every method on that backend has no-opped since March.
-            ("adapters/persistence/neo4j/analytics_relationship_backend.py", "Report"),
-            ("adapters/persistence/neo4j/analytics_relationship_backend.py", "INCLUDES_ENTITY"),
-            ("adapters/persistence/neo4j/analytics_relationship_backend.py", "REPORTS_ON_GOAL"),
             # --- Label mismatches: the node exists under a DIFFERENT name ------
             ("adapters/persistence/neo4j/query_builders/faceted_query_builder.py", "Domain"),
             ("adapters/persistence/neo4j_adapter.py", "Document"),
@@ -4103,12 +4095,6 @@ class SkuelLinter:
             ("adapters/persistence/neo4j/neo4j_content_adapter.py", "ContentMetadata"),
             ("adapters/persistence/neo4j/ingestion_backend.py", "HAS_METADATA"),
             ("adapters/persistence/neo4j/neo4j_content_adapter.py", "HAS_METADATA"),
-            # --- Retired name that still has a live writer ---------------------
-            # test_no_legacy_patterns asserts LEARNING must NOT be a RelationshipName
-            # member (replaced by IN_PROGRESS), yet record_learning_progress still
-            # writes it. Fix the writer, don't register the name.
-            ("adapters/persistence/neo4j/user_backend.py", "LEARNING"),
-            ("adapters/persistence/neo4j/user_context_queries.py", "LEARNING"),
             # --- Hierarchy sibling filter: 5 of its 7 types never match --------
             # `get_siblings` filters `type(r) IN ['SUBGOAL','SUBHABIT',...]`, but the
             # registered names are SUBGOAL_OF / SUBHABIT_OF / ... — only HAS_STEP
@@ -4133,10 +4119,6 @@ class SkuelLinter:
             # Neo4j edge types.
             ("adapters/persistence/neo4j/_knowledge_context_mixin.py", "EXTENDS_PATTERN"),
             ("adapters/persistence/neo4j/_knowledge_context_mixin.py", "DEEPENS_UNDERSTANDING"),
-            # --- Contradiction between enum and ingestion ----------------------
-            # neo_labels.py says EXPENSE was removed (ADR-052 Phase 5), but the
-            # ingestion config still maps `type: expense` to entity_label="Expense".
-            ("adapters/persistence/neo4j/ingestion_backend.py", "Expense"),
         }
     )
 

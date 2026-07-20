@@ -23,7 +23,7 @@ class UserContextIntelligence(
 | Aspect | BaseIntelligenceService | Mixin Composition |
 |--------|------------------------|-------------------|
 | **Focus** | Single domain entities | Cross-domain synthesis |
-| **Backend** | Single domain backend | 12 domain services |
+| **Backend** | Single domain backend | 11 domain services |
 | **Context** | Entity-focused | User state (~250 fields) |
 | **Methods** | CRUD + intelligence | 8 specialized methods |
 | **Testing** | Mock single backend | Mock context + services |
@@ -308,7 +308,7 @@ async def get_ready_to_work_on_today(
 ```
 UserContextIntelligence.__init__()
          │
-         ├── Store context and 12 services
+         ├── Store context and 11 services
          │
          ▼
      Mixins provide methods
@@ -341,7 +341,7 @@ UserContextIntelligence.__init__()
 
 ### All Services Required
 
-The main class requires ALL 12 services because `DailyPlanningMixin` synthesizes all domains:
+The main class requires ALL 11 services because `DailyPlanningMixin` synthesizes all domains:
 
 ```python
 class UserContextIntelligence(...):
@@ -359,19 +359,18 @@ class UserContextIntelligence(...):
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing (2)
+        # Processing (1)
         report: ReportRelationshipService,
-        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
         # Optional
         vector_search: Any = None,
     ):
-        # Validate all 12 required services present
+        # Validate all 11 required services present
         required = {
             "context": context,
             "tasks": tasks,
-            # ... all 12
+            # ... all 11
         }
         missing = [name for name, svc in required.items() if svc is None]
         if missing:

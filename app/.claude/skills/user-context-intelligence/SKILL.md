@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "THE CORE VALUE PROPOSITION: What should I work on next?"
 
-SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~250 fields) with all 12 domain services to answer the fundamental question: **"What should I work on today?"**
+SKUEL's `UserContextIntelligence` is the central intelligence hub that synthesizes user state (`UserContext` ~250 fields) with all 11 domain services to answer the fundamental question: **"What should I work on today?"**
 
 ## Quick Start
 
@@ -26,13 +26,13 @@ class UserContextIntelligence(
     DailyPlanningMixin,             # Method 5: THE FLAGSHIP - Daily work plan
     PerceptionIntelligenceMixin,    # Method 9: Dual-track perception-gap synthesis (ADR-030)
 ):
-    """Learning journey intelligence = Context + 12 Domain Services."""
+    """Learning journey intelligence = Context + 11 Domain Services."""
 ```
 
 ### Core Architecture
 
 ```
-UserContextIntelligence = UserContext + 12 Domain Services
+UserContextIntelligence = UserContext + 11 Domain Services
                         = User State + Complete Graph Intelligence
 ```
 
@@ -42,7 +42,7 @@ UserContextIntelligence = UserContext + 12 Domain Services
 - Workload capacity, available time, energy levels
 - Life path alignment, recommended next steps
 
-**12 Domain Services** provide:
+**11 Domain Services** provide:
 - Fresh graph queries for real-time data
 - Cross-domain relationship traversal
 - Actionable recommendations
@@ -67,9 +67,9 @@ Method 9 (`PerceptionIntelligenceMixin`) synthesizes the dual-track perception g
 
 ---
 
-## The 12 Required Domain Services
+## The 11 Required Domain Services
 
-`UserContextIntelligence` requires ALL 12 domain services at construction:
+`UserContextIntelligence` requires ALL 11 domain services at construction:
 
 ### Activity (6)
 
@@ -90,19 +90,17 @@ Method 9 (`PerceptionIntelligenceMixin`) synthesizes the dual-track perception g
 | PS | `self.ps` | PathStep sequencing (UnifiedRelationshipService) |
 | LP | `self.lp` | Life path analysis (UnifiedRelationshipService) |
 
-### Processing (2)
+### Processing (1)
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
 | Report | `self.report` | Report loop graph queries — pending submissions, completion rate (`ReportRelationshipService`) |
-| Analytics | `self.analytics` | Cross-domain analytics (`AnalyticsRelationshipService`) |
 
 > **Processing Domain Status (March 2026)**
 >
 > | Service | Status |
 > |---------|--------|
-> | `self.analytics` | Wired, not called (cross-domain pattern queries planned) |
-> | `self.report` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5) and `context.pending_revised_exercises` (Priority 2.3). Daily planning reads both fields directly. |
+> > | `self.report` | Wired. Exercise data now flows via MEGA-QUERY → `context.unsubmitted_exercises` (Priority 2.5) and `context.pending_revised_exercises` (Priority 2.3). Daily planning reads both fields directly. |
 
 ### Temporal Domain (1)
 
@@ -146,7 +144,7 @@ if tier.ai_enabled:  # FULL tier
     services.zpd_service = zpd_service
 
 factory = UserContextIntelligenceFactory(
-    ...,  # 12 required services
+    ...,  # 11 required services
     zpd_service=zpd_service,
 )
 ```
@@ -262,7 +260,7 @@ UserContextIntelligence (Level 1)
 └── ScheduleIntelligenceMixin     → Pure Cypher: calendar + capacity scoring
 ```
 
-All 12 required services are Level 1. `ReportRelationshipService` and `AnalyticsRelationshipService` are pure Cypher — no LLM required.
+All 11 required services are Level 1. `ReportRelationshipService` is pure Cypher — no LLM required.
 
 ### Level 2 — AI Enhancement (Optional)
 
@@ -277,7 +275,7 @@ tasks_ai_service.py            ← Level 2: BaseAIService (optional, requires LL
 
 ### Why the Processing Domains Are Wired But Not Called
 
-`self.report` and `self.analytics` are Level 1 services stored on the instance. The mixin methods that CALL them have not been written yet — the architecture is established, the implementation is next.
+`self.report` is a Level 1 service stored on the instance. The mixin methods that CALL it have not been written yet — the architecture is established, the implementation is next.
 
 This is by design. The slot reservation ensures future implementation is a fill-in, not a redesign.
 
@@ -289,7 +287,7 @@ This is by design. The slot reservation ensures future implementation is a fill-
 
 - `UserContextIntelligence` requires a `UserContext` at construction
 - Context is user-specific and built on-demand
-- The 12 domain services are singletons (created once at bootstrap)
+- The 11 domain services are singletons (created once at bootstrap)
 - Factory pattern separates **service wiring** from **context binding**
 
 ### UserContextIntelligenceFactory
@@ -312,7 +310,6 @@ factory = UserContextIntelligenceFactory(
     exercises=services.exercises,  # ExerciseService facade (REQUIRED)
     # Processing Domains (2)
     report=report_relationship_service,
-    analytics=analytics_relationship_service,
     # Temporal Domain (1)
     calendar=calendar_service,
     # Optional: ZPD (FULL tier only)
@@ -351,13 +348,10 @@ async def get_ready_to_work_on_today(
     """
     THE FLAGSHIP METHOD - What should I focus on TODAY?
 
-    Currently synthesizes 10 of 12 wired domains:
+    Currently synthesizes 10 of 11 wired domains:
     - Activity (6): tasks, habits, goals, events, choices, principles
     - Curriculum (3): ku, ls, lp
     - Submissions Domain (1): self.report — Priority 2.5: unsubmitted exercises
-
-    Processing Domains (1): wired, not yet called
-    - self.analytics: cross-domain pattern scoring (planned)
 
     Respects:
     - context.available_minutes_daily (capacity)
@@ -456,7 +450,7 @@ class UserContextIntelligence(
     PerceptionIntelligenceMixin,
 ):
     def __init__(self, context: UserContext, ...):
-        # Store context and all 12 services
+        # Store context and all 11 services
         self.context = context
         self.tasks = tasks
         # ... 11 more services
@@ -693,7 +687,6 @@ intelligence = factory.create(context)
 | `/core/services/user/intelligence/synergy_intelligence.py` | Method 6 |
 | `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 |
 | `/core/services/report/report_relationship_service.py` | Level 1 — report loop graph queries |
-| `/core/services/analytics_relationship_service.py` | Level 1 — cross-domain analytics queries |
 | `/core/services/relationships/_domain_planning_mixin.py` | 6 domain-specific planning methods called by DailyPlanningMixin on URS instances |
 | `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md` | Documentation |
 
@@ -720,6 +713,6 @@ intelligence = factory.create(context)
 
 ## See Also
 
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - 12 services, 8 methods, 5 return types
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - 11 services, 8 methods, 5 return types
 - [MIXIN_ARCHITECTURE.md](MIXIN_ARCHITECTURE.md) - 5 mixins and responsibilities
 - [FACTORY_PATTERN.md](FACTORY_PATTERN.md) - UserContextIntelligenceFactory usage

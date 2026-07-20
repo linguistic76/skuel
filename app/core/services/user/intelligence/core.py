@@ -46,7 +46,6 @@ from core.services.user.intelligence.temporal_momentum import TemporalMomentumMi
 
 if TYPE_CHECKING:
     from core.ports.filtered_context_protocols import FilteredContextProvider
-    from core.ports.relationship_backend_protocols import AnalyticsRelationshipOperations
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.calendar_service import CalendarService
     from core.services.choices_service import ChoicesService
@@ -75,7 +74,7 @@ class UserContextIntelligence(
 
     **Architecture:**
     This service synthesizes user state (UserContext) with graph
-    intelligence (12 domain services) to answer: "What should I work on?"
+    intelligence (11 domain services) to answer: "What should I work on?"
 
     **Required Dependencies (entity types):**
 
@@ -92,9 +91,8 @@ class UserContextIntelligence(
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
     - exercises: ExerciseService facade - Daily-plan exercise enrichment
 
-    Processing Domains (2):
+    Processing Domain (1):
     - report: ReportRelationshipService - Report loop graph queries
-    - analytics: AnalyticsRelationshipOperations - Cross-domain analytics
 
     Temporal Domain (1):
     - calendar: CalendarService - Schedule-aware intelligence
@@ -132,9 +130,8 @@ class UserContextIntelligence(
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
         exercises: Any,  # ExerciseService facade — daily-plan exercise enrichment
-        # Processing Domains (2) - REQUIRED
+        # Processing Domain (1) - REQUIRED
         report: ReportRelationshipService,
-        analytics: AnalyticsRelationshipOperations,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
@@ -145,7 +142,7 @@ class UserContextIntelligence(
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
-        Initialize with user context and all 12 required relationship services.
+        Initialize with user context and all 11 required relationship services.
 
         Args:
             context: Complete UserContext snapshot (~240 fields)
@@ -162,9 +159,8 @@ class UserContextIntelligence(
                 ps: PathStep service facade for learning readiness
                 lp: Learning path service for critical path analysis
 
-            Processing Domains (2):
+            Processing Domain (1):
                 report: Report relationship service (pending submissions, completion rate)
-                analytics: Analytics relationship service (cross-domain)
 
             Temporal Domain (1):
                 calendar: Calendar service for schedule-aware intelligence
@@ -190,9 +186,8 @@ class UserContextIntelligence(
             "ps": ps,
             "lp": lp,
             "exercises": exercises,
-            # Processing Domains (2)
+            # Processing Domain (1)
             "report": report,
-            "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
         }
@@ -200,7 +195,7 @@ class UserContextIntelligence(
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligence requires all 12 domain services. "
+                f"UserContextIntelligence requires all 11 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -220,9 +215,8 @@ class UserContextIntelligence(
         self.lp = lp
         self.exercises = exercises
 
-        # Processing domains (2)
+        # Processing domain (1)
         self.report = report
-        self.analytics = analytics
 
         # Temporal domain (1)
         self.calendar = calendar

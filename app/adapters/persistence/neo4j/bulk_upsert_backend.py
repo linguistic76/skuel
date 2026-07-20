@@ -57,7 +57,7 @@ _TEMPLATE_DIR = Path(__file__).parent / "cypher_templates"
 
 
 def _label_clause(entity_label: str, base_label: str | None) -> str:
-    """Neo4j label clause for MERGE/CREATE, e.g. 'Entity:Task' or just 'Expense'."""
+    """Neo4j label clause for MERGE/CREATE, e.g. 'Entity:Task' or just 'Group'."""
     if base_label and base_label != entity_label:
         return f"{base_label}:{entity_label}"
     return entity_label

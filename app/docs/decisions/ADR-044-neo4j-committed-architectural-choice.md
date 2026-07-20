@@ -181,7 +181,7 @@ keep orchestration + result-shaping and call backend methods:
 | Was (core/services) | Now (adapter backend) |
 |---|---|
 | `user_relationship_service` *(false "Direct Driver" docstring)* | `UserRelationshipBackend` + `UserRelationshipOperations` |
-| `analytics_relationship_service` *(false "Direct Driver" docstring)* | `AnalyticsRelationshipBackend` + `AnalyticsRelationshipOperations` |
+| `analytics_relationship_service` *(false "Direct Driver" docstring)* | `AnalyticsRelationshipBackend` + `AnalyticsRelationshipOperations` — **both since deleted** (2026-07, SKUEL030 findings §1: the backend queried a purged `:Report` label and had no callers) |
 | `schema_service` | `Neo4jSchemaService` (relocated) |
 | `templates/__init__` attach/detach/list | `TemplateAttachmentBackend` + `TemplateAttachmentOperations` |
 | `infrastructure/graph_query_builder` | `query/graph_context_query_builder` (backend builds by intent) |

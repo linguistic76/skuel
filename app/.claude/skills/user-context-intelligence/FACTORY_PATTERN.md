@@ -4,7 +4,7 @@
 
 `UserContextIntelligenceFactory` separates **service wiring** (at bootstrap) from **context binding** (at runtime). This pattern is essential because:
 
-1. The 12 domain services are **singletons** (created once at bootstrap)
+1. The 11 domain services are **singletons** (created once at bootstrap)
 2. `UserContext` is **user-specific** and built on-demand
 3. `UserContextIntelligence` requires **both** at construction
 
@@ -31,7 +31,7 @@ Bootstrap (once)          Runtime (per request)
 async def get_daily_plan(user_uid: UserUID):
     context = await user_service.get_user_context(user_uid)
 
-    # Where do these 12 services come from?
+    # Where do these 11 services come from?
     intelligence = UserContextIntelligence(
         context=context,
         tasks=???,        # Need to access global services
@@ -50,7 +50,7 @@ async def get_daily_plan(user_uid: UserUID):
 async def get_daily_plan(user_uid: UserUID):
     context = await user_service.get_user_context(user_uid)
 
-    # Factory already has the 12 services
+    # Factory already has the 11 services
     intelligence = factory.create(context)
 
     return await intelligence.get_ready_to_work_on_today()
@@ -77,9 +77,8 @@ class UserContextIntelligenceFactory:
         ps: PsService,
         ku: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
-        # Processing (2)
+        # Processing (1)
         report: ReportRelationshipService,
-        analytics: AnalyticsRelationshipService,
         # Temporal Domain (1)
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
@@ -87,7 +86,7 @@ class UserContextIntelligenceFactory:
         # Optional: ZPD service for curriculum-graph-aware step ranking (FULL tier only)
         zpd_service: ZPDOperations | None = None,
     ) -> None:
-        # Validate all 12 required services present
+        # Validate all 11 required services present
         required = {
             "tasks": tasks,
             "goals": goals,
@@ -100,14 +99,13 @@ class UserContextIntelligenceFactory:
             "lp": lp,
             "submissions": submissions,
             "report": report,
-            "analytics": analytics,
             "calendar": calendar,
         }
 
         missing = [name for name, svc in required.items() if svc is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligenceFactory requires all 12 services. "
+                f"UserContextIntelligenceFactory requires all 11 services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -124,7 +122,6 @@ class UserContextIntelligenceFactory:
         # Processing domains (3)
         self._submissions = submissions
         self._report = report
-        self._analytics = analytics
         # Temporal domain (1)
         self._calendar = calendar
         # Optional services
@@ -149,7 +146,6 @@ class UserContextIntelligenceFactory:
             # Processing domains (3)
             submissions=self._submissions,
             report=self._report,
-            analytics=self._analytics,
             # Temporal domain (1)
             calendar=self._calendar,
             # Optional services
@@ -167,7 +163,7 @@ class UserContextIntelligenceFactory:
 Factory creation, ZPD wiring, and Askesis creation are handled by `_create_intelligence_hub()` — called near the end of `compose_services()`:
 
 ```python
-# _create_intelligence_hub() creates the factory with all 12 domain services:
+# _create_intelligence_hub() creates the factory with all 11 domain services:
 context_intelligence_factory = UserContextIntelligenceFactory(
     # Activity (6) — facade services directly (NOT .relationships)
     tasks=activity_services["tasks"],
@@ -182,7 +178,6 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     exercises=services.exercises,  # ExerciseService facade (REQUIRED)
     # Processing (2)
     report=report_relationship_service,
-    analytics=analytics_relationship_service,
     # Temporal Domain (1)
     calendar=calendar_service,
     # Optional: ZPD service (FULL tier only — set to None in CORE tier)
@@ -289,7 +284,6 @@ def mock_factory():
         lp=MagicMock(),
         submissions=MagicMock(),
         report=MagicMock(),
-        analytics=MagicMock(),
         calendar=MagicMock(),
     )
 
@@ -398,7 +392,7 @@ async def test_route(mock_factory):
 ### 3. Clean Dependency Injection
 
 ```python
-# Service only needs factory, not 12 individual services
+# Service only needs factory, not 11 individual services
 class MyService:
     def __init__(self, factory: UserContextIntelligenceFactory):
         self.factory = factory
@@ -452,7 +446,7 @@ class GoodService:
 async def handler(request):
     factory = UserContextIntelligenceFactory(
         tasks=services.tasks.relationships,
-        # ... 12 more
+        # ... 11 more
     )
     intelligence = factory.create(context)
 

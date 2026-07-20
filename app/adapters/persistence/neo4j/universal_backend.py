@@ -196,7 +196,6 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
     Supported Domains:
         - Activity: Tasks, Events, Habits, Goals, Choices, Principles
         - Knowledge: KnowledgeUnit, LearningPath, PathStep
-        - Finance: Expenses, Budgets
         - Content: Journals, Transcriptions, Assignments
         - Identity: Users (with UserBackend extensions)
 

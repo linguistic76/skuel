@@ -119,7 +119,7 @@ class UserBackend(Neo4jSessionRunner):
         """
         MERGE a ``(User)-[rel_type]->(target)`` edge and apply a SET clause.
 
-        THE shared body of the five user-edge writers (MASTERED / LEARNING /
+        THE shared body of the five user-edge writers (MASTERED / IN_PROGRESS /
         ENROLLED_IN / INTERESTED_IN / BOOKMARKED). ``rel_type``,
         ``set_clause`` and ``target_label`` are backend-internal literals
         (injection-safe); every value inside ``set_clause`` is parameterized.
@@ -544,7 +544,7 @@ class UserBackend(Neo4jSessionRunner):
         """
         Record user's progress on a knowledge unit.
 
-        Creates/updates (User)-[:LEARNING]->(Knowledge) relationship.
+        Creates/updates (User)-[:IN_PROGRESS]->(Knowledge) relationship.
 
         Args:
             user_uid: User UID
@@ -559,11 +559,15 @@ class UserBackend(Neo4jSessionRunner):
         merged = await self._merge_user_edge(
             user_uid,
             knowledge_uid,
-            "LEARNING",
+            "IN_PROGRESS",
+            # Property shape matches UserProgressBackend.record_progress (the other
+            # IN_PROGRESS writer): started_at is create-only, so coalesce preserves
+            # the first one; last_accessed is what every IN_PROGRESS reader sorts on.
             """r.progress = $progress,
+            r.started_at = coalesce(r.started_at, datetime()),
             r.time_invested_minutes = coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
             r.difficulty_rating = $difficulty_rating,
-            r.last_updated = datetime()""",
+            r.last_accessed = datetime()""",
             {
                 "progress": progress,
                 "time_invested_minutes": time_invested_minutes,
@@ -963,9 +967,12 @@ class UserBackend(Neo4jSessionRunner):
             Result[list[User]]: Active learners
         """
         query = """
-        MATCH (u:User)-[r:LEARNING|MASTERED]->(k:Entity)
-        WHERE r.last_updated >= datetime() - duration({hours: $hours})
-           OR r.last_practiced >= datetime() - duration({hours: $hours})
+        MATCH (u:User)-[r:IN_PROGRESS|MASTERED]->(k:Entity)
+        // IN_PROGRESS writers stamp last_accessed (record_knowledge_progress,
+        // UserProgressBackend) or last_activity_at (_learning_state_mixin);
+        // MASTERED stamps last_practiced. Coalesce covers all three.
+        WHERE coalesce(r.last_accessed, r.last_activity_at, r.last_practiced)
+              >= datetime() - duration({hours: $hours})
         WITH DISTINCT u
         RETURN u
         ORDER BY u.last_active_at DESC

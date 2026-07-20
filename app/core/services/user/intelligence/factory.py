@@ -4,19 +4,19 @@ User Context Intelligence Factory
 
 Factory for creating UserContextIntelligence instances.
 
-This factory holds all 12 required domain services and creates
+This factory holds all 11 required domain services and creates
 UserContextIntelligence instances when given a UserContext.
 
 **Why a Factory?**
 - UserContextIntelligence requires a context at construction
 - The context is user-specific and built on-demand
-- The 12 domain services are singletons (created once at bootstrap)
+- The 11 domain services are singletons (created once at bootstrap)
 - Factory pattern separates service wiring from context binding
 
 **Entity Types:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
 - Curriculum Domains (3): ps, lp, exercises
-- Processing Domains (2): report, analytics
+- Processing Domain (1): report
 - Temporal Domain (1): calendar
 
 **Usage:**
@@ -44,7 +44,6 @@ from core.services.user.intelligence.core import UserContextIntelligence
 
 if TYPE_CHECKING:
     from core.ports.filtered_context_protocols import FilteredContextProvider
-    from core.ports.relationship_backend_protocols import AnalyticsRelationshipOperations
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.calendar_service import CalendarService
     from core.services.choices_service import ChoicesService
@@ -63,19 +62,19 @@ class UserContextIntelligenceFactory:
     """
     Factory for creating UserContextIntelligence instances.
 
-    This factory holds all 12 required domain services and creates
+    This factory holds all 11 required domain services and creates
     UserContextIntelligence instances when given a UserContext.
 
     **Why a Factory?**
     - UserContextIntelligence requires a context at construction
     - The context is user-specific and built on-demand
-    - The 12 domain services are singletons (created once at bootstrap)
+    - The 11 domain services are singletons (created once at bootstrap)
     - Factory pattern separates service wiring from context binding
 
     **Entity Types:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
     - Curriculum Domains (3): ps, lp, exercises
-    - Processing Domains (2): report, analytics
+    - Processing Domain (1): report
     - Temporal Domain (1): calendar
 
     **Usage:**
@@ -108,9 +107,8 @@ class UserContextIntelligenceFactory:
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
         exercises: Any,  # ExerciseService facade — get_actionable_exercises_for_user / get_pending_revisions_for_user
-        # Processing Domains (2) - REQUIRED
+        # Processing Domain (1) - REQUIRED
         report: ReportRelationshipService,
-        analytics: AnalyticsRelationshipOperations,
         # Temporal Domain (1) - REQUIRED
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
@@ -121,7 +119,7 @@ class UserContextIntelligenceFactory:
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
-        Initialize factory with all 12 required domain services.
+        Initialize factory with all 11 required domain services.
 
         Args:
             Activity Domains (6) - Concrete facade services:
@@ -137,9 +135,8 @@ class UserContextIntelligenceFactory:
                 lp: Learning path relationship service
                 exercises: ExerciseService facade
 
-            Processing Domains (2):
+            Processing Domain (1):
                 report: Report relationship service (pending submissions, completion rate)
-                analytics: Analytics relationship service (cross-domain)
 
             Temporal Domain (1):
                 calendar: Calendar service for schedule awareness
@@ -153,9 +150,9 @@ class UserContextIntelligenceFactory:
         Raises:
             ValueError: If any required service is None
         """
-        # Single source of truth for the 12 required services. Both validation
+        # Single source of truth for the 11 required services. Both validation
         # and forwarding to UserContextIntelligence read from this dict — adding
-        # a 14th service means one entry here (plus the matching __init__ param
+        # a 12th service means one entry here (plus the matching __init__ param
         # and the matching UserContextIntelligence.__init__ param).
         self._required_services: dict[str, Any] = {
             # Activity Domains (6)
@@ -169,9 +166,8 @@ class UserContextIntelligenceFactory:
             "ps": ps,
             "lp": lp,
             "exercises": exercises,
-            # Processing Domains (2)
+            # Processing Domain (1)
             "report": report,
-            "analytics": analytics,
             # Temporal Domain (1)
             "calendar": calendar,
         }

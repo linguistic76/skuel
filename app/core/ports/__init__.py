@@ -217,10 +217,7 @@ from .query_types import (
     PsUpdatePayload,
     WhereClauseSpec,
 )
-from .relationship_backend_protocols import (
-    AnalyticsRelationshipOperations,
-    UserRelationshipOperations,
-)
+from .relationship_backend_protocols import UserRelationshipOperations
 
 # Report protocols — Report stage of the educational loop
 from .report_protocols import (
@@ -328,7 +325,6 @@ __all__ = [
     "ConnectionFetchOperations",
     "ConversationBackendOperations",
     "ConversationOperations",
-    "AnalyticsRelationshipOperations",
     "CrossDomainAnalyticsOperations",
     "CrossDomainBackendOperations",
     "PsEngagementOperations",
