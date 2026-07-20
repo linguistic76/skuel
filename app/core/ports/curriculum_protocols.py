@@ -111,7 +111,6 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.ku.ku import Ku  # noqa: F401 — used in BackendOperations["Ku"]
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.mastery import LearningPreference
     from core.models.pathways.path_step import PathStep
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
@@ -916,12 +915,6 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         self, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {lp_uid}
         """Query UIDs of completed learning paths for a user."""
-        ...
-
-    async def query_learning_preferences(
-        self, user_uid: UserUID
-    ) -> Result[LearningPreference | None]:
-        """Query user's learning preferences as a typed model (None when absent)."""
         ...
 
     # =========================================================================

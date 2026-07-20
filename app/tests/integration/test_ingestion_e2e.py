@@ -405,17 +405,14 @@ async def test_deletion_propagation_removes_entity(
     assert result1.is_ok
 
     # Attach the content subtree the content adapter creates
-    # ((Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) plus
-    # (Content)-[:HAS_METADATA]->(ContentMetadata)) so the test proves
-    # deletion removes it leaf-first instead of orphaning it.
+    # ((Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk)) so the
+    # test proves deletion removes it leaf-first instead of orphaning it.
     async with neo4j_driver.session() as session:
         await session.run(
             """
             MATCH (e:Entity {uid: 'ku.e2e-test-02'})
             MERGE (c:Content {uid: 'ku.e2e-test-02'})
             MERGE (e)-[:HAS_CONTENT]->(c)
-            MERGE (m:ContentMetadata {uid: 'ku.e2e-test-02'})
-            MERGE (c)-[:HAS_METADATA]->(m)
             CREATE (ch:ContentChunk {uid: 'ku.e2e-test-02-chunk-0'})
             CREATE (c)-[:HAS_CHUNK {sequence: 0}]->(ch)
             """
@@ -446,9 +443,8 @@ async def test_deletion_propagation_removes_entity(
         orphans = await session.run(
             """
             OPTIONAL MATCH (c:Content {uid: 'ku.e2e-test-02'})
-            OPTIONAL MATCH (m:ContentMetadata {uid: 'ku.e2e-test-02'})
             OPTIONAL MATCH (ch:ContentChunk {uid: 'ku.e2e-test-02-chunk-0'})
-            RETURN count(c) + count(m) + count(ch) AS n
+            RETURN count(c) + count(ch) AS n
             """
         )
         assert (await orphans.single())["n"] == 0

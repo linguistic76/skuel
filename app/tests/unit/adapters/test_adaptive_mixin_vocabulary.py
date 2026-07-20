@@ -21,11 +21,6 @@ from core.models.relationship_names import RelationshipName
 
 _EDGE_TOKEN = re.compile(r"\[\s*\w*\s*:([A-Z_0-9|]+)\]")
 
-# HAS_PREFERENCE (query_learning_preferences) predates the RelationshipName
-# registry and has no writer either — a separate pre-existing gap, tracked
-# outside this guard so it doesn't mask NEW unregistered vocabulary.
-_KNOWN_UNREGISTERED = {"HAS_PREFERENCE"}
-
 
 def _module_edge_tokens() -> set[str]:
     source = inspect.getsource(_adaptive_mixin)
@@ -40,7 +35,7 @@ def test_edge_types_are_registered_relationship_names() -> None:
     assert used, "expected the adaptive mixin to reference at least one edge type"
 
     valid_values = {member.value for member in RelationshipName}
-    unregistered = sorted(used - valid_values - _KNOWN_UNREGISTERED)
+    unregistered = sorted(used - valid_values)
     assert not unregistered, (
         f"_adaptive_mixin references edge types missing from RelationshipName: {unregistered}. "
         "Either use a registered edge with a real write path, or add the new edge "
@@ -57,3 +52,12 @@ def test_practice_read_uses_the_canonical_event_ku_edge() -> None:
 def test_dead_practices_vocabulary_never_returns() -> None:
     """PRACTICES was writer-less (2026-07-10 audit) — it must never come back."""
     assert "PRACTICES" not in _module_edge_tokens()
+
+
+def test_dead_preference_vocabulary_never_returns() -> None:
+    """HAS_PREFERENCE was writer-less too — its read went in SKUEL030 tranche 3.
+
+    It used to sit in a known-unregistered exemption set here; the exemption is
+    gone with the query, so the module now has to be fully registered.
+    """
+    assert "HAS_PREFERENCE" not in _module_edge_tokens()

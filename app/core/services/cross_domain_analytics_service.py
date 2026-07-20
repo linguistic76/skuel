@@ -6,9 +6,7 @@ Subscribes to domain events to build cross-domain analytics and insights.
 
 Features:
 - Financial goal tracking (link expenses to goals)
-- Journal mood analysis (track sentiment over time)
 - Learning velocity tracking
-- Spending patterns by domain
 - Cross-domain correlation analysis
 
 All analytics are built by subscribing to existing events - no service changes needed!
@@ -55,21 +53,11 @@ class LearningVelocityMetrics:
     compared_to_previous_period: float  # % change
 
 
-@dataclass
-class JournalMoodAnalysis:
-    """Mood analysis from journal entries."""
-
-    user_uid: UserUID
-    period_days: int
-
-    # Mood tracking
-    average_mood: float  # 0.0 to 1.0
-    mood_trend: str  # "improving", "stable", "declining"
-    most_common_themes: list[str]
-
-    # Frequency
-    entries_per_week: float
-    longest_streak: int
+# NOTE: JournalMoodAnalysis + get_mood_analysis removed (SKUEL030 tranche 3).
+# They were fed by a JournalAnalytics node that lost its writer with ADR-054, so
+# the query matched nothing and the analysis was assembled from hardcoded
+# placeholders (average_mood=0.65, mood_trend="stable", fixed themes). Real
+# sentiment analysis over UserEntry is semantic-layer roadmap work.
 
 
 class CrossDomainAnalyticsService:
@@ -92,7 +80,6 @@ class CrossDomainAnalyticsService:
 
         # Query analytics
         velocity = await analytics.get_learning_velocity(user_uid, days_back=30)
-        mood = await analytics.get_mood_analysis(user_uid, days_back=30)
 
     Semantic Types Used:
     - This is an analytics service that does not create semantic relationships
@@ -417,59 +404,6 @@ class CrossDomainAnalyticsService:
 
         return Result.ok(metrics)
 
-    @with_error_handling(error_type="system", operation="get_mood_analysis", uid_param="user_uid")
-    async def get_mood_analysis(
-        self, user_uid: UserUID, days_back: int = 30
-    ) -> Result[JournalMoodAnalysis]:
-        """
-        Analyze journal mood and sentiment.
-
-        Args:
-            user_uid: UID of the user,
-            days_back: Number of days to analyze
-
-        Returns:
-            Result containing mood analysis
-        """
-        result = await self.backend.get_journal_analytics(user_uid=user_uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        records = result.value or []
-        record = records[0] if records else None
-
-        if not record:
-            return Result.ok(
-                JournalMoodAnalysis(
-                    user_uid=user_uid,
-                    period_days=days_back,
-                    average_mood=0.5,
-                    mood_trend="no_data",
-                    most_common_themes=[],
-                    entries_per_week=0.0,
-                    longest_streak=0,
-                )
-            )
-
-        analytics = record["analytics"]
-        total_entries = analytics.get("total_entries", 0)
-
-        weeks = days_back / 7
-        entries_per_week = total_entries / weeks if weeks > 0 else 0.0
-
-        # Simplified mood analysis (would integrate with sentiment analysis in production)
-        analysis = JournalMoodAnalysis(
-            user_uid=user_uid,
-            period_days=days_back,
-            average_mood=0.65,  # Placeholder - would calculate from sentiment
-            mood_trend="stable",  # Placeholder - would analyze trend
-            most_common_themes=["reflection", "goals", "learning"],  # Placeholder
-            entries_per_week=entries_per_week,
-            longest_streak=7,  # Placeholder - would calculate from dates
-        )
-
-        return Result.ok(analysis)
-
     @with_error_handling(
         error_type="system", operation="get_productivity_metrics", uid_param="user_uid"
     )
@@ -595,27 +529,26 @@ class CrossDomainAnalyticsService:
     ) -> Result[dict[str, Any]]:
         """Build a combined analytics dashboard from multiple sub-queries.
 
-        Gathers learning velocity and mood analysis into a single response dict.
-        (Spending patterns removed in ADR-052 Phase 5 — native expense module
-        demolished.)
+        Currently just learning velocity. (Spending patterns removed in ADR-052
+        Phase 5 — native expense module demolished; the `mood_analysis` key
+        removed in SKUEL030 tranche 3 — its JournalAnalytics source lost its
+        writer with ADR-054 and it had been serving placeholder constants.)
 
         Args:
             user_uid: User identifier
             days_back: Number of days to analyze
 
         Returns:
-            Result with combined dashboard containing learning_velocity and
-            mood_analysis (each None if unavailable)
+            Result with combined dashboard containing learning_velocity
+            (None if unavailable)
         """
         learning_result = await self.get_learning_velocity(user_uid, days_back)
-        mood_result = await self.get_mood_analysis(user_uid, days_back)
 
         dashboard: dict[str, Any] = {
             "user_uid": user_uid,
             "period_days": days_back,
             "generated_at": datetime.now().isoformat(),
             "learning_velocity": None,
-            "mood_analysis": None,
         }
 
         if learning_result.is_ok:
@@ -624,14 +557,6 @@ class CrossDomainAnalyticsService:
                 "kus_mastered_per_week": v.kus_mastered_per_week,
                 "paths_completed": v.paths_completed,
                 "velocity_trend": v.velocity_trend,
-            }
-
-        if mood_result.is_ok:
-            m = mood_result.value
-            dashboard["mood_analysis"] = {
-                "average_mood": m.average_mood,
-                "mood_trend": m.mood_trend,
-                "entries_per_week": m.entries_per_week,
             }
 
         return Result.ok(dashboard)

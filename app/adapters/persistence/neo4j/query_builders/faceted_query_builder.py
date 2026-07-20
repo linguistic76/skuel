@@ -214,11 +214,16 @@ class FacetedQueryBuilder:
 
             for field in facet_fields:
                 if field == "domain":
-                    # Count by domain
+                    # Count by domain. The label is :KnowledgeDomain and its
+                    # identifying property is `uid` — the only two writers
+                    # (bulk_knowledge_units / bulk_life_principles .cypher)
+                    # `MERGE (d:KnowledgeDomain {uid: dom})` and set nothing
+                    # else, so the former `:Domain` / `d.name` pair named
+                    # neither a real label nor a written property.
                     facet_queries["domain"] = f"""
                         {match_clause}
-                        MATCH (n)-[:IN_DOMAIN]->(d:Domain)
-                        RETURN d.name as value, count(DISTINCT n) as count
+                        MATCH (n)-[:IN_DOMAIN]->(d:KnowledgeDomain)
+                        RETURN d.uid as value, count(DISTINCT n) as count
                         ORDER BY count DESC
                     """
 
@@ -304,7 +309,7 @@ class FacetedQueryBuilder:
                 description="Search knowledge with facets",
                 base_template="""
                     MATCH (n:Entity)
-                    WHERE ($domain IS NULL OR EXISTS((n)-[:IN_DOMAIN]->(:Domain {name: $domain})))
+                    WHERE ($domain IS NULL OR EXISTS((n)-[:IN_DOMAIN]->(:KnowledgeDomain {uid: $domain})))
                     AND ($level IS NULL OR n.level = $level)
                     AND ($search_text IS NULL OR
                          n.title CONTAINS $search_text OR
@@ -320,7 +325,7 @@ class FacetedQueryBuilder:
                     "has_fulltext_index": """
                         CALL db.index.fulltext.queryNodes('knowledge_fulltext', $search_text)
                         YIELD node, score
-                        WHERE ($domain IS NULL OR EXISTS((node)-[:IN_DOMAIN]->(:Domain {name: $domain})))
+                        WHERE ($domain IS NULL OR EXISTS((node)-[:IN_DOMAIN]->(:KnowledgeDomain {uid: $domain})))
                         AND ($level IS NULL OR node.level = $level)
                         RETURN node as n, score
                         ORDER BY score DESC

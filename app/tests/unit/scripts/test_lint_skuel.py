@@ -1288,11 +1288,18 @@ class TestSKUEL030:
     def test_baseline_suppresses_only_the_known_file(self) -> None:
         """The baseline is (file, name)-scoped, not name-scoped.
 
-        A name-keyed baseline would wave `HAS_PROGRESS` through everywhere and
-        re-open the hole the rule exists to close (Codex P2 on #732).
+        A name-keyed baseline would wave `EXTENDS_PATTERN` through everywhere
+        and re-open the hole the rule exists to close (Codex P2 on #732).
+
+        The example pair has to be one that is STILL baselined — this test used
+        (user_progress_backend.py, HAS_PROGRESS) until tranche 3 repointed that
+        read onto MASTERED and closed the pair, which broke the fixture. Picked
+        the §9 semantic-as-edge pair deliberately: it is DEFERRED to the
+        semantic-relationship-layer roadmap rather than scheduled in a tranche,
+        so it outlives the remaining T4 clean-ups.
         """
-        query = 'q = "MATCH (u)-[:HAS_PROGRESS]->(p) RETURN p"'
-        known = "adapters/persistence/neo4j/user_progress_backend.py"
+        query = 'q = "MATCH (a)-[:EXTENDS_PATTERN]->(b) RETURN b"'
+        known = "adapters/persistence/neo4j/_knowledge_context_mixin.py"
         assert lint_cypher(query, file_path=known) == []
 
         elsewhere = lint_cypher(
@@ -1300,7 +1307,7 @@ class TestSKUEL030:
             file_path="adapters/persistence/neo4j/some_new_backend.py",
         )
         assert len(elsewhere) == 1
-        assert "HAS_PROGRESS" in elsewhere[0].message
+        assert "EXTENDS_PATTERN" in elsewhere[0].message
 
     def test_migrations_are_excluded(self) -> None:
         """A rename migration must be able to name what it renames away."""

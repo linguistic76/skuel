@@ -21,7 +21,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.mastery import LearningPreference
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
@@ -235,27 +234,15 @@ class _AdaptiveMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def query_learning_preferences(
-        self, user_uid: UserUID
-    ) -> Result[LearningPreference | None]:
-        """Query user's learning preferences as a typed model (None when absent
-        or unconvertible)."""
-        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
-
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_PREFERENCE]->(pref:LearningPreference)
-        RETURN pref
-        LIMIT 1
-        """
-        result = await self.execute_query(query, {"user_uid": user_uid})
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        pref_node = records[0].get("pref") if records else None
-        if not pref_node:
-            return Result.ok(None)
-        try:
-            return Result.ok(from_neo4j_node(pref_node, LearningPreference))
-        except DATA_CONVERSION_EXCEPTIONS as e:
-            self.logger.warning("Skipping unconvertible LearningPreference node: %s", e)
-            return Result.ok(None)
+    # NOTE: query_learning_preferences removed (SKUEL030 tranche 3) — it walked a
+    # HAS_PREFERENCE edge from User to a LearningPreference node, neither of
+    # which anything in the repo ever wrote, so it returned None for every user
+    # since the day it was written. Its sole caller
+    # (PsAdaptiveService._load_learning_preferences) went with it rather than
+    # being left to yield a constant None. Capturing real learning preferences
+    # is semantic-layer roadmap work, not a repoint.
+    #
+    # Deliberately written in prose, not Cypher: test_adaptive_mixin_vocabulary
+    # scans this module's bracketed edge tokens and now asserts HAS_PREFERENCE
+    # is gone, so naming it in Cypher syntax here — even in a comment — would
+    # re-trip the guard.

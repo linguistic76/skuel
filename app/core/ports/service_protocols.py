@@ -60,10 +60,7 @@ if TYPE_CHECKING:
         SignInResult,
         SignUpResult,
     )
-    from core.services.cross_domain_analytics_service import (
-        JournalMoodAnalysis,
-        LearningVelocityMetrics,
-    )
+    from core.services.cross_domain_analytics_service import LearningVelocityMetrics
     from core.services.user.unified_user_context import UserContext
 
 # ============================================================================
@@ -293,14 +290,6 @@ class CrossDomainAnalyticsOperations(Protocol):
         days_back: int,
     ) -> "Result[LearningVelocityMetrics]":
         """Get learning velocity metrics. Returns Result[LearningVelocityMetrics]."""
-        ...
-
-    async def get_mood_analysis(
-        self,
-        user_uid: UserUID,
-        days_back: int,
-    ) -> "Result[JournalMoodAnalysis]":
-        """Get journal mood analysis. Returns Result[JournalMoodAnalysis]."""
         ...
 
     async def get_productivity_metrics(

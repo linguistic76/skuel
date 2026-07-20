@@ -372,11 +372,14 @@ def analytics_content(analytics: dict[str, Any]) -> Any:
     """HTMX fragment: learning analytics body."""
     concepts_mastered = analytics.get("concepts_mastered", 0)
     in_progress = analytics.get("in_progress", 0)
-    needs_review = analytics.get("needs_review", 0)
-    struggling = analytics.get("struggling", 0)
     active_paths_count = analytics.get("active_paths_count", 0)
     avg_retention = analytics.get("avg_retention", 0.0)
 
+    # The former "Learning Health" card is folded in here (SKUEL030 tranche 3):
+    # two of its three tiles ("Needs Review", "Struggling") read analytics keys
+    # fed by writer-less :NEEDS_REVIEW / :STRUGGLING_WITH edges, so they always
+    # rendered 0. With those gone only "Active Paths" remained — a lone tile in
+    # a 3-column grid — so it joins the Knowledge Profile row.
     return Div(
         Card(
             CardHeader(CardTitle("Knowledge Profile")),
@@ -394,22 +397,9 @@ def analytics_content(analytics: dict[str, Any]) -> Any:
                             value=f"{avg_retention * 100:.0f}%",
                             color="warning",
                         ),
-                    ],
-                    cols=3,
-                ),
-            ),
-            cls="mb-8",
-        ),
-        Card(
-            CardHeader(CardTitle("Learning Health")),
-            CardBody(
-                StatsGrid(
-                    [
                         StatItem(label="Active Paths", value=str(active_paths_count)),
-                        StatItem(label="Needs Review", value=str(needs_review)),
-                        StatItem(label="Struggling", value=str(struggling)),
                     ],
-                    cols=3,
+                    cols=4,
                 ),
             ),
             cls="mb-8",

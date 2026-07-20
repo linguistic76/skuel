@@ -539,11 +539,12 @@ class LpService:
         user_progress: Any | None,
     ) -> Result[dict[str, Any]]:
         """Get learning analytics data from user's knowledge profile."""
+        # NOTE: "needs_review" / "struggling" keys removed (SKUEL030 tranche 3) —
+        # they counted UserKnowledgeProfile sets fed by writer-less
+        # :NEEDS_REVIEW / :STRUGGLING_WITH edge reads, so both were always 0.
         analytics: dict[str, Any] = {
             "concepts_mastered": 0,
             "in_progress": 0,
-            "needs_review": 0,
-            "struggling": 0,
             "active_paths_count": 0,
             "avg_retention": 0.0,
         }
@@ -554,8 +555,6 @@ class LpService:
                 profile = profile_result.value
                 analytics["concepts_mastered"] = len(profile.mastered_knowledge)
                 analytics["in_progress"] = len(profile.in_progress_knowledge)
-                analytics["needs_review"] = len(profile.needs_review_uids)
-                analytics["struggling"] = len(profile.struggling_uids)
                 analytics["active_paths_count"] = len(profile.active_learning_paths)
                 if profile.mastered_knowledge:
                     analytics["avg_retention"] = sum(

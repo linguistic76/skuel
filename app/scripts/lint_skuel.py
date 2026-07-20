@@ -4073,28 +4073,6 @@ class SkuelLinter:
     # docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
     SKUEL030_BASELINE: ClassVar[frozenset[tuple[str, str]]] = frozenset(
         {
-            # --- Label mismatches: the node exists under a DIFFERENT name ------
-            ("adapters/persistence/neo4j/query_builders/faceted_query_builder.py", "Domain"),
-            ("adapters/persistence/neo4j_adapter.py", "Document"),
-            ("adapters/persistence/neo4j_adapter.py", "Conversation"),
-            # --- Writer-less reads: designed, never built ----------------------
-            # ADR-002's UserProgress node model; STRUGGLING_WITH / NEEDS_REVIEW
-            # also exist as PROPERTY values in metadata_enums, so these may be
-            # edge-vs-property confusion rather than missing writers.
-            ("adapters/persistence/neo4j/_lp_intelligence_mixin.py", "HAS_PROGRESS"),
-            ("adapters/persistence/neo4j/user_progress_backend.py", "HAS_PROGRESS"),
-            ("adapters/persistence/neo4j/user_progress_backend.py", "FOR_KNOWLEDGE"),
-            ("adapters/persistence/neo4j/user_progress_backend.py", "STRUGGLING_WITH"),
-            ("adapters/persistence/neo4j/user_progress_backend.py", "NEEDS_REVIEW"),
-            ("adapters/persistence/neo4j/cross_domain_backend.py", "HAS_VELOCITY"),
-            ("adapters/persistence/neo4j/cross_domain_backend.py", "MasteryRecord"),
-            ("adapters/persistence/neo4j/_adaptive_mixin.py", "LearningPreference"),
-            ("adapters/persistence/neo4j/_adaptive_mixin.py", "HAS_PREFERENCE"),
-            ("adapters/persistence/neo4j/cross_domain_backend.py", "JournalAnalytics"),
-            ("adapters/persistence/neo4j/ingestion_backend.py", "ContentMetadata"),
-            ("adapters/persistence/neo4j/neo4j_content_adapter.py", "ContentMetadata"),
-            ("adapters/persistence/neo4j/ingestion_backend.py", "HAS_METADATA"),
-            ("adapters/persistence/neo4j/neo4j_content_adapter.py", "HAS_METADATA"),
             # --- Hierarchy sibling filter: 5 of its 7 types never match --------
             # `get_siblings` filters `type(r) IN ['SUBGOAL','SUBHABIT',...]`, but the
             # registered names are SUBGOAL_OF / SUBHABIT_OF / ... — only HAS_STEP

@@ -11,7 +11,6 @@ Event-driven analytics API for querying live metrics.
 
 Endpoints:
 - GET /api/analytics/learning-velocity
-- GET /api/analytics/mood-analysis
 - GET /api/analytics/productivity
 - GET /api/analytics/habit-consistency
 - GET /api/analytics/dashboard (combined metrics)
@@ -94,53 +93,6 @@ def register_analytics_routes(app, services):
     # ========================================================================
     # REMOVED (ADR-052 Phase 5): /api/analytics/spending-patterns — the native
     # expense module was demolished, so there is no spending data to aggregate.
-
-    # ========================================================================
-    # MOOD ANALYSIS ANALYTICS
-    # ========================================================================
-
-    @rt("/api/analytics/mood-analysis")
-    @boundary_handler()
-    async def mood_analysis(request):
-        """
-        Get journal mood analysis for user.
-
-        Query params:
-            user_uid: User identifier (required)
-            days_back: Number of days to analyze (default: 30)
-
-        Returns:
-            JournalMoodAnalysis with:
-            - average_mood (0.0 to 1.0)
-            - mood_trend (improving/stable/declining)
-            - most_common_themes
-            - entries_per_week
-            - longest_streak
-        """
-        user_uid = require_authenticated_user(request)
-
-        days_back = parse_int_query_param(
-            request.query_params, "days_back", 30, minimum=1, maximum=365
-        )
-
-        result = await analytics.get_mood_analysis(user_uid, days_back)
-
-        if result.is_ok:
-            analysis = result.value
-            return Result.ok(
-                {
-                    "user_uid": analysis.user_uid,
-                    "period_days": analysis.period_days,
-                    "average_mood": analysis.average_mood,
-                    "mood_trend": analysis.mood_trend,
-                    "most_common_themes": analysis.most_common_themes,
-                    "entries_per_week": analysis.entries_per_week,
-                    "longest_streak": analysis.longest_streak,
-                    "generated_at": datetime.now().isoformat(),
-                }
-            )
-
-        return result
 
     # ========================================================================
     # PRODUCTIVITY ANALYTICS
@@ -244,4 +196,4 @@ def register_analytics_routes(app, services):
 
         return await analytics.get_combined_dashboard(user_uid, days_back)
 
-    logger.info("✅ Analytics API routes registered (5 endpoints)")
+    logger.info("✅ Analytics API routes registered (4 endpoints)")

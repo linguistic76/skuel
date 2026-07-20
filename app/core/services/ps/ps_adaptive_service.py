@@ -25,7 +25,6 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from core.models.pathways.mastery import (
     ContentPreference,
-    LearningPreference,
     LearningVelocity,
     Mastery,
     MasteryLevel,
@@ -355,7 +354,9 @@ class PsAdaptiveService:
             intelligence.learning_velocity_by_domain = self._calculate_learning_velocities(
                 masteries
             )
-            intelligence.learning_preferences = await self._load_learning_preferences(user_uid)
+            # intelligence.learning_preferences stays at its UserLearningIntelligence
+            # default (None): its only source was a :LearningPreference node nothing
+            # ever wrote (SKUEL030 tranche 3).
             intelligence.recent_search_queries = []
             intelligence.knowledge_recommendations = []
             intelligence.intelligence_sources = [
@@ -551,14 +552,3 @@ class PsAdaptiveService:
             except KeyError:
                 return Domain.KNOWLEDGE
         return Domain.KNOWLEDGE
-
-    async def _load_learning_preferences(self, user_uid: UserUID) -> LearningPreference | None:
-        """Load user's learning preferences if available (backend returns the model)."""
-        try:
-            result = await self.backend.query_learning_preferences(user_uid)
-            if result.is_error:
-                return None
-            return result.value
-
-        except NEO4J_EXCEPTIONS:
-            return None

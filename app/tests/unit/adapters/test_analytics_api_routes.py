@@ -54,7 +54,6 @@ def _make_harness(
 
     analytics = MagicMock()
     analytics.get_learning_velocity = AsyncMock(return_value=Result.ok(_velocity_metrics()))
-    analytics.get_mood_analysis = AsyncMock(return_value=Result.ok(MagicMock()))
     analytics.get_productivity_metrics = AsyncMock(
         return_value=Result.ok(
             {
