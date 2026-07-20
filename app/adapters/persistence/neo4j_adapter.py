@@ -244,7 +244,6 @@ class Neo4jAdapter:
                 "CREATE INDEX knowledge_created_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.created_at)",
                 "CREATE INDEX knowledge_updated_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.updated_at)",
                 # Hierarchical KnowledgeUnit indexes
-                "CREATE INDEX ku_knowledge_domain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_domain)",
                 "CREATE INDEX ku_knowledge_subdomain_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_subdomain)",
                 "CREATE INDEX ku_md_heading_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.md_heading_level)",
                 "CREATE INDEX ku_parent_id_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.parent_knowledge_unit_id)",
@@ -254,7 +253,6 @@ class Neo4jAdapter:
                 "CREATE INDEX ku_source_file_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.source_md_file)",
                 "CREATE INDEX ku_schema_version_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.schema_version)",
                 # Combined indexes for common hierarchical query patterns
-                "CREATE INDEX ku_domain_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.knowledge_domain, ku.md_heading_level)",
                 "CREATE INDEX ku_parent_level_idx IF NOT EXISTS FOR (ku:Entity) ON (ku.parent_knowledge_unit_id, ku.depth_level)",
                 # Task management indexes
                 "CREATE INDEX task_status_idx IF NOT EXISTS FOR (t:Task) ON (t.status)",

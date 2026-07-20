@@ -32,7 +32,6 @@ The universal ownership edge and the sharing model (ADR-038).
 | `CONTAINS_KNOWLEDGE` | PathStep | Ku | Step covers knowledge (coexists with USES_KU) |
 | `HAS_EXERCISE` | PathStep | Exercise | Curriculum loop anchor (dual-written with `Exercise.path_step_uid`) |
 | `ORGANIZES` | Entity | Entity | MOC hierarchy (`order`, `importance` props) — MOC is emergent, not a label |
-| `IN_DOMAIN` | Ku | KnowledgeDomain | Domain taxonomy membership |
 | `CITES_RESOURCE` | PathStep / Ku | Resource | Curriculum cites reference material (`context` prop) |
 
 ```cypher

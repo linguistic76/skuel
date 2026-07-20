@@ -37,7 +37,7 @@ Curriculum entities are **World Layer** nodes — they exist independently of an
 
 | Layer | Nodes |
 |-------|-------|
-| **World (shared, stable)** | KnowledgeDomain, Ku, PathStep, LearningPath, Exercise, Resource |
+| **World (shared, stable)** | Ku, PathStep, LearningPath, Exercise, Resource |
 | **User (contextual, dynamic)** | UserEntry, EntryReport, and all Activity Domains |
 
 The interaction edge between layers is where SKUEL's power emerges:
@@ -133,14 +133,10 @@ await ku_service.get_organized_children(parent_uid, depth=1)
 await ku_service.find_organizers(ku_uid)  # Multiple parents possible
 ```
 
-### Query KnowledgeDomains (taxonomy)
-```python
-# List all domains with Ku counts
-domains = await services.knowledge_domains.get_all_domains()
-
-# Get all Ku UIDs in a domain
-ku_uids = await services.knowledge_domains.get_ku_uids_in_domain("kd.self_awareness")
-```
+### Ku domain classification (on the Ku, not a node)
+A Ku's domain is an in-model property, not a separate `:KnowledgeDomain` node
+(that stack was deleted 2026-07-20). Filter/facet on `nous` (L1 topic), `nous_subtopic`
+(L2), and `sel_category` (SEL competency) — see `docs/patterns/NOUS_SUBTOPIC_FACET.md`.
 
 ## PS AI Sub-Service (FULL tier only)
 

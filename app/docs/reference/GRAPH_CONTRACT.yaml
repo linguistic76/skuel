@@ -29,8 +29,8 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 182, with_contract: 98}
-    labels: {total: 62, with_contract: 16}
+    relationships: {total: 181, with_contract: 98}
+    labels: {total: 61, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
 relationships:
@@ -184,8 +184,6 @@ relationships:
       - config: PathStep
         definitions:
           - {direction: outgoing, target: Ku, context_field: trained_kus, method: trains_ku, ingestion_field: trains_ku_uids}
-  IN_DOMAIN:
-    contract: null
   SUPPORTS:
     contract: null
   HAS_SUBTASK:
@@ -1185,8 +1183,6 @@ labels:
         - HAS_MILESTONE_EVENT
         - OPENS_LEARNING_PATH
         - REQUIRES_STEP
-  KnowledgeDomain:
-    contract: null
   Submission:
     contract: null
   ActivityReport:

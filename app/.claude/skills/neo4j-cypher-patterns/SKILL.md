@@ -28,8 +28,6 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Path Steps | `PathStep` | `ps.{namespace}.{slug}` (authored `ps:{ns}:{slug}`; ingestion normalizes `:` → `.`) | `ps.python.intro` |
 | Learning Paths | `LearningPath` | `lp.{namespace}.{slug}` (same colon→dot normalization) | `lp.python.developer` |
 | Exercises | `Exercise` | varies | |
-| **Ontology — shared taxonomy** | | | |
-| Knowledge Domains | `KnowledgeDomain` | `kd.{domain_name}` | `kd.self_awareness` |
 | **Curated Content — shared content** | | | |
 | Resources | `Resource` | *(no fixed format)* | |
 | **User-authored content + Reports (3) — ADR-054** | | | |
@@ -72,9 +70,6 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 // Resource citations — curriculum cites reference material
 (ps:PathStep)-[:CITES_RESOURCE]->(r:Resource)
 (ku:Ku)-[:CITES_RESOURCE]->(r:Resource)
-
-// Domain taxonomy (World Layer)
-(ku:Ku)-[:IN_DOMAIN]->(d:KnowledgeDomain)
 
 // Principles guidance
 (goal:Goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)

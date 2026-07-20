@@ -860,8 +860,8 @@ query = f"MATCH (u:User)-[:{RelationshipName.OWNS}]->(t:Task) RETURN t\"""",
         "bad": """# 'OWNS_ENTITY' is not a RelationshipName member — silently matches nothing
 query = "MATCH (u:User)-[:OWNS_ENTITY]->(t:Task) RETURN t"
 
-# 'Domain' is not a NeoLabel member (the real label is 'KnowledgeDomain')
-query = "MATCH (n)-[:IN_DOMAIN]->(d:Domain) RETURN d.name\"""",
+# 'Taskk' is a typo — not a NeoLabel member, so the query matches zero rows
+query = "MATCH (u:User)-[:OWNS]->(t:Taskk) RETURN t\"""",
     },
 }
 

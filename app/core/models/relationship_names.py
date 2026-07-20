@@ -81,8 +81,6 @@ class RelationshipName(StrEnum):
     USES_KU = "USES_KU"  # (PathStep)-[:USES_KU]->(Ku) — path step composes atomic Kus
     TRAINS_KU = "TRAINS_KU"  # (PathStep)-[:TRAINS_KU]->(Ku) — path step trains atomic Ku
 
-    # KnowledgeDomain taxonomy (World Layer)
-    IN_DOMAIN = "IN_DOMAIN"  # (Ku)-[:IN_DOMAIN]->(KnowledgeDomain) — domain membership
     SUPPORTS = "SUPPORTS"  # (Ku)-[:SUPPORTS]->(Ku) — generic support relationship (ingestion)
 
     # =========================================================================

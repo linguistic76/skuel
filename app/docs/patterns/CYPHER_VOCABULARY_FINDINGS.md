@@ -7,8 +7,10 @@ also owns the §8 `HAS_PATH`/`ENROLLED_IN` reconciliation. **The natural success
 to this document is that roadmap, not a tranche 6.**
 
 §12 and §13 remain open, but neither is a vocabulary finding: §12 is an
-architectural reconciliation and §13 is a bloat/tooling list. The largest open
-item is the `KnowledgeDomain` stack tranche 5 exposed (§13).
+architectural reconciliation and §13 is a bloat/tooling list. The `KnowledgeDomain`
+stack tranche 5 exposed (the largest item) is now **✅ RESOLVED — deleted** (2026-07-20,
+its own PR), redundant with the Ku's live `nous` / `nous_subtopic` / `sel_category`
+classification; see the §10 cascade note.
 
 **These findings are a LOWER BOUND.** SKUEL030 checks whether a name is
 *registered*, not whether anything *writes* it — and tranche 5 showed a writer
@@ -39,8 +41,9 @@ passes every rule in this repo cleanly; see the §13 audit-rule entry.
 - **§10 → DELETE, with the machinery** (T5 ruling): the templates plus
   `upsert_batch`, `ensure_constraints` and the file-backed template loader, which
   existed only to reach them. The `KnowledgeDomain` stack the deletion exposed as
-  writer-less is deliberately NOT in that diff — it touches the enum registry and
-  a search path, so it gets its own PR (§13).
+  writer-less was **✅ deleted in its own PR** (2026-07-20) — enum members, service/
+  backend/protocol, bootstrap wiring, `KnowledgeDomainView`, phantom `ku.knowledge_domain`
+  indexes, and the faceted-query arms (repointed to the live `n.domain` property).
 - **`USES_KU|CONTAINS_KNOWLEDGE` two-arm sites → SWEEP to the canonical triple**
   (T5 ruling, resolving the §8 follow-up). `TRAINS_KU` joins all five sites: a
   step's declared objectives count exactly as its content does.
@@ -122,7 +125,7 @@ domain services).
 
 | Flagged | Real label | Resolution |
 |---|---|---|
-| `Domain` | `KnowledgeDomain` | **Repointed** in `query_builders/faceted_query_builder.py` (facet-count query + both arms of the `faceted_knowledge_search` template). |
+| `Domain` | `KnowledgeDomain` | **Repointed** in `query_builders/faceted_query_builder.py`, then **re-repointed to the live `n.domain` property** when the whole `KnowledgeDomain` stack was deleted (2026-07-20). The facet now counts/filters `Entity.domain`. |
 | `Document` | — | **Deleted** — bootstrap constraint AND a `journals_fulltext` index, both in `neo4j_adapter.py`. |
 | `Conversation` | `ConversationSession` / `ConversationMessage` | **Deleted** — stale bootstrap constraint. |
 
@@ -139,8 +142,8 @@ inherits its invariants — check the writers, not just the registry.)
 > has never been a live writer for `:KnowledgeDomain` or `[:IN_DOMAIN]`, and the
 > live graph holds zero of each, so the repointed facet still returns nothing.
 > The section checked *what the writers set* but not *whether they could run* —
-> the extra step the § 10 cascade note spells out. Retiring the stack is an open
-> § 13 item; the query carries an inline warning meanwhile.
+> the extra step the § 10 cascade note spells out. **The stack was retired
+> (deleted) on 2026-07-20; the facet now uses the live `n.domain` property.**
 
 `generate_facet_counts_query` is still production-caller-less (only the
 `QueryBuilder` facade delegation at `query_builder.py:249` and a test asserting
@@ -617,7 +620,15 @@ caller that could ever have run these templates was itself deleted 14 months
 before, and the constraint half was unreachable from the first commit. No
 environment can hold this data.
 
-### ⚠️ The cascade: `KnowledgeDomain` / `IN_DOMAIN` are registered but writer-less
+### The cascade: `KnowledgeDomain` / `IN_DOMAIN` were registered but writer-less — ✅ RESOLVED (deleted 2026-07-20)
+
+**Outcome:** the whole stack was deleted in its own PR. `nous` / `nous_subtopic` /
+`sel_category` already ship a live 3-level Ku taxonomy (120/121 Kus), so a separate
+`:KnowledgeDomain` node was redundant, not staged. Deleted: `NeoLabel.KNOWLEDGE_DOMAIN`,
+`RelationshipName.IN_DOMAIN`, `KnowledgeDomainService`/`Backend`/protocol, bootstrap
+wiring, `KnowledgeDomainView`, the two phantom `ku.knowledge_domain` indexes; the
+`faceted_query_builder` domain facet + template were repointed to the live `n.domain`
+property. The analysis that led here:
 
 The deleted templates were the **only** writers of `:KnowledgeDomain` and
 `[:IN_DOMAIN]` in the entire repo. Both are registered
@@ -631,11 +642,10 @@ two writers" — correct, but they cannot execute, and that section did not chec
 The same trap it warned about ("joining a live name inherits its invariants —
 check the writers") applies one level up: *check that the writer can run.*
 
-Consequently dead, and left standing for its own ruling (see § 13):
+Consequently dead, and deleted in the 2026-07-20 ruling:
 `KnowledgeDomainService`, `KnowledgeDomainBackend`, its protocol, the bootstrap
-wiring, and `KnowledgeDomainView` — `services.knowledge_domains` is referenced
-nowhere but that service's own docstring example. The `faceted_query_builder`
-domain facet carries an inline warning pointing here.
+wiring, and `KnowledgeDomainView` — `services.knowledge_domains` was referenced
+nowhere but that service's own docstring example.
 
 Guarded by `tests/unit/test_bulk_upsert_template_removal.py`, which pins that no
 `.cypher` file returns under `adapters/persistence/` and that the live bulk-write
@@ -756,16 +766,16 @@ carry no baseline pairs — recorded here so they don't get lost.
   `(parent)-[:R]->(n)` and `(n)-[:R]->(child)`, so adding the `SUB*_OF` inverses
   would make every child match as its own parent. Guarded in
   `tests/unit/test_hierarchy_vocabulary.py`.
-- **`KnowledgeDomain` / `IN_DOMAIN` — the §10 cascade, ruled OUT of tranche 5.**
-  Both registered, neither with a reachable writer, zero rows live (§10). Dead
-  with them: `KnowledgeDomainService`, `KnowledgeDomainBackend`, its protocol,
-  the bootstrap wiring, `KnowledgeDomainView`, and the `faceted_query_builder`
-  domain facet that tranche 3 repointed onto them. Deliberately its own PR: it
-  deregisters two enum members and changes a search code path, which is a
-  different risk shape from deleting unreachable files. **The open question is
-  product, not code — is a Ku domain taxonomy planned?** If yes it belongs in the
-  bloat detector's PLANNED tier with an authoring surface; if no, delete the
-  stack. Nothing authors `domains:` today.
+- **`KnowledgeDomain` / `IN_DOMAIN` — the §10 cascade — ✅ RESOLVED (deleted 2026-07-20).**
+  Both registered, neither with a reachable writer, zero rows live (§10). The
+  product question ("is a Ku domain taxonomy planned?") was answered NO: the Ku
+  already carries a live 3-level taxonomy (`nous` L1, `nous_subtopic` L2,
+  `sel_category`; 120/121 Kus), and `nous` *is* the outermost layer `KnowledgeDomain`
+  claimed to be. So the stack was DELETED, not registered in PLANNED: enum members
+  (`NeoLabel.KNOWLEDGE_DOMAIN`, `RelationshipName.IN_DOMAIN`), `KnowledgeDomainService`/
+  `Backend`/protocol, bootstrap wiring, `KnowledgeDomainView`, the two phantom
+  `ku.knowledge_domain` indexes; the `faceted_query_builder` domain facet + template
+  were repointed to the live `n.domain` property.
 - **`_TraversalMixin.get_batch_cross_domain_context` is production-caller-less.**
   Found while removing its `FUNDS_*` arms (§8): only the protocol declaration in
   `base_protocols.py:961` and the implementation exist. Bloat finding, not a
