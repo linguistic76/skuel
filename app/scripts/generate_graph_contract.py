@@ -42,7 +42,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -189,7 +189,25 @@ def _config_definitions(config: DomainRelationshipConfig) -> list[UnifiedRelatio
     return [*config.relationships, *inline_bidirectional]
 
 
-def gather_relationship_contracts() -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[str]]]:
+class ContractOccurrence(TypedDict):
+    """One config's touchpoints for a relationship: definitions plus role-only uses."""
+
+    config: str
+    roles: list[str]
+    definitions: list[str]
+    creation_keys: list[str]
+
+
+class Finding(TypedDict):
+    """One SKUEL030-baselined name: a known silent-zero bug, not vocabulary."""
+
+    kind: str
+    sites: list[str]
+
+
+def gather_relationship_contracts() -> tuple[
+    dict[str, list[ContractOccurrence]], dict[str, list[str]]
+]:
     """Per relationship value: one occurrence dict per config that touches it.
 
     Also returns the per-config edge list (first-touch order), recorded in the
@@ -199,10 +217,10 @@ def gather_relationship_contracts() -> tuple[dict[str, list[dict[str, Any]]], di
     with no definition, e.g. TASKS_CONFIG's REQUIRES_TASK) appear in one section
     and not the other.
     """
-    contracts: dict[str, dict[str, dict[str, Any]]] = {}
+    contracts: dict[str, dict[str, ContractOccurrence]] = {}
     label_edges: dict[str, list[str]] = {}
 
-    def occurrence(rel_value: str, config_key: str) -> dict[str, Any]:
+    def occurrence(rel_value: str, config_key: str) -> ContractOccurrence:
         per_config = contracts.setdefault(rel_value, {})
         if config_key not in per_config:
             label_edges.setdefault(config_key, []).append(rel_value)
@@ -243,9 +261,9 @@ def gather_label_entity_types() -> dict[str, list[str]]:
     return mapping
 
 
-def gather_findings() -> dict[str, dict[str, Any]]:
+def gather_findings() -> dict[str, Finding]:
     """SKUEL030 baseline grouped by name: known bugs in persistence Cypher."""
-    findings: dict[str, dict[str, Any]] = {}
+    findings: dict[str, Finding] = {}
     for file_path, name in sorted(SkuelLinter.SKUEL030_BASELINE):
         # Labels are PascalCase, relationship types UPPER_SNAKE — the same shape
         # rule the Cypher scanner applies (cypher_vocabulary name regexes).
@@ -263,7 +281,7 @@ def gather_findings() -> dict[str, dict[str, Any]]:
 
 def _render_relationship(
     member: RelationshipName,
-    occurrences: list[dict[str, Any]],
+    occurrences: list[ContractOccurrence],
     lines: list[str],
 ) -> None:
     lines.append(f"  {member.value}:")
