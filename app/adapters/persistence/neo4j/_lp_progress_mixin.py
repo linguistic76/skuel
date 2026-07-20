@@ -71,7 +71,7 @@ class _LpProgressMixin:
         MATCH (lp:Entity {entity_type: 'learning_path'})-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         RETURN DISTINCT lp.uid as lp_uid
         UNION
-        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {uid: $ku_uid})
         RETURN DISTINCT lp.uid as lp_uid
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
@@ -106,7 +106,7 @@ class _LpProgressMixin:
         MATCH (lp:Entity {uid: $lp_uid})
         OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity)
         WITH lp, collect(DISTINCT direct_ku) as direct_kus
-        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->(step_ku:Entity)
+        OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity)
         WITH direct_kus, collect(DISTINCT step_ku) as step_kus
         WITH direct_kus + step_kus as candidate_kus
         UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) as ku

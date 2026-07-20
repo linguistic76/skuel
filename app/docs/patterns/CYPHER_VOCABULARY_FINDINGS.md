@@ -374,6 +374,24 @@ reaches a Ku through its PathSteps, or directly via the ingestible
 Verified on dev: `get_ku_mastery_progress` for `lp.mindfulness-101` returned
 **no rows before, `total_kus=7` after**.
 
+**The PathStep→Ku alternation is a triple, not a pair.** The first cut of this
+work used `USES_KU|CONTAINS_KNOWLEDGE` and omitted `TRAINS_KU` (Codex P2 on
+#738). `TRAINS_KU` is registered, `PS_CONFIG` maps it to the ingestible
+`trains_ku_uids`, and `USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU` is the established
+triple — used by `ps_intelligence_backend.py:133` and
+`curriculum_backends.py:171/198`, the last two *adjacent to code this tranche
+edited*. A PathStep that declares its Kus as objectives rather than content
+would have stayed invisible. **When joining an existing alternation, copy the
+canonical one from a neighbour rather than composing it from the names you
+happen to be fixing.**
+
+> **Follow-up, not fixed here.** Five pre-existing sites still use the two-arm
+> pair: `_learning_state_mixin.py:269,271`, `exercise_backends.py:488` (+ two
+> docstrings). They are outside this tranche's diff and the omission may be
+> deliberate — `USES_KU` is a step's *content* while `TRAINS_KU` is its
+> *objectives*, so "Kus this step teaches" and "Kus this step covers" are not
+> obviously the same question. Wants a deliberate ruling, not a sweep.
+
 ### `HAS_CHILD` is registered — and has no writer either
 
 The `CHILD_OF`/`PARENT_OF` fix could not be "keep the registered arm". `HAS_CHILD`

@@ -194,7 +194,7 @@ class LifePathBackend:
         """Calculate knowledge dimension alignment score."""
         return await self._executor.execute_query(
             """
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
             // `mastery_level` is NOT a number: _AdaptiveMixin is its only writer
             // and sets the strings 'introduced'/'proficient'. `mastery_score` is
@@ -229,7 +229,7 @@ class LifePathBackend:
         return await self._executor.execute_query(
             """
             // Get life path knowledge
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
             WITH collect(ku.uid) AS lp_knowledge
 
             // Count aligned activities
@@ -311,7 +311,7 @@ class LifePathBackend:
         """Calculate momentum dimension (recent vs previous week activity)."""
         return await self._executor.execute_query(
             """
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
             WITH collect(ku.uid) AS lp_knowledge
 
             // Recent week activities. OPTIONAL: a user whose aligned activity
@@ -355,7 +355,7 @@ class LifePathBackend:
         """Get counts of embodied vs theoretical knowledge."""
         return await self._executor.execute_query(
             """
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {entity_type: 'ku'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
             OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
 
             // No MASTERED writer has ever set `substance_score`, so this read

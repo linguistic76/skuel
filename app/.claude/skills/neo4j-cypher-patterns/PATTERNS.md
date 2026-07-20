@@ -215,7 +215,7 @@ MATCH (lp:Entity {entity_type: 'learning_path'})-[:REQUIRES_KNOWLEDGE]->(ku:Enti
 RETURN DISTINCT lp.uid AS lp_uid
 UNION
 MATCH (lp:Entity {entity_type: 'learning_path'})
-      -[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->
+      -[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->
       (ku:Entity {uid: $ku_uid})
 RETURN DISTINCT lp.uid AS lp_uid
 
@@ -225,7 +225,7 @@ RETURN DISTINCT lp.uid AS lp_uid
 MATCH (lp:Entity {uid: $lp_uid})
 OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity)
 WITH lp, collect(DISTINCT direct_ku) AS direct_kus
-OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->(step_ku:Entity)
+OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity)
 WITH direct_kus, collect(DISTINCT step_ku) AS step_kus
 WITH direct_kus + step_kus AS candidate_kus
 UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) AS ku

@@ -17,7 +17,7 @@ This document defines SKUEL-specific Pure Cypher query patterns optimized for th
 > show `(lp:LearningPath)-[:CONTAINS]->(ku)`; no writer creates that edge and
 > `CONTAINS` is not a `RelationshipName` member, so every such query returned
 > nothing. A path reaches a Ku through its PathSteps —
-> `(lp)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku)` — or
+> `(lp)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` — or
 > directly via its `REQUIRES_KNOWLEDGE` prerequisites. See
 > `docs/patterns/CYPHER_VOCABULARY_FINDINGS.md` § 8.
 
@@ -103,7 +103,7 @@ WITH user,
      $available_minutes AS time_budget
 
 // Step 3: Query curriculum with context filters
-MATCH (lp:LearningPath)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Ku)
+MATCH (lp:LearningPath)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Ku)
 WHERE
   // Context-driven filtering
   lp.uid = current_path
@@ -129,7 +129,7 @@ MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:LearningPath)
 WHERE lp.uid = $current_path_uid
 
 // Get all knowledge units in this path
-MATCH (lp)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Ku)
+MATCH (lp)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Ku)
 
 // Filter by prerequisites
 OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
@@ -173,7 +173,7 @@ LIMIT $limit
 MATCH (user:User {uid: $user_uid})-[:ULTIMATE_PATH]->(life_path:LearningPath)
 
 // Get all knowledge in life path
-MATCH (life_path)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Ku)
+MATCH (life_path)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Ku)
 
 // Get substance score (real-world application)
 OPTIONAL MATCH (user)-[r:APPLIED]->(ku)
@@ -387,7 +387,7 @@ MATCH (user:User {uid: $user_uid})
 
 // Get all enrolled learning paths
 OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:LearningPath)
-OPTIONAL MATCH (lp)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Ku)
+OPTIONAL MATCH (lp)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Ku)
 
 // Get mastery state
 OPTIONAL MATCH (user)-[m:MASTERED]->(mastered_ku:Curriculum)
@@ -448,7 +448,7 @@ MATCH (user)-[:ENROLLED_IN]->(current_path:LearningPath)
 WHERE current_path.uid = $current_path_uid
 
 // Get available knowledge units
-MATCH (current_path)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Ku)
+MATCH (current_path)-[:HAS_STEP]->(:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Ku)
 
 // Filter by prerequisites (all must be mastered)
 OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)

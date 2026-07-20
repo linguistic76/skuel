@@ -16,7 +16,7 @@ none of them named a live edge:
 members. ``CONTAINS_KNOWLEDGE`` *is*, but it is a PathStep→Ku edge — naming it
 at a LearningPath endpoint is a different silent zero, not a fix. The live graph
 holds no LearningPath→Ku relationship of any type: a path reaches a Ku through
-``HAS_STEP``→PathStep→``USES_KU|CONTAINS_KNOWLEDGE``, or directly via its
+``HAS_STEP``→PathStep→``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU``, or directly via its
 ingestible ``REQUIRES_KNOWLEDGE`` prerequisites.
 
 The second half of this module guards what repointing those reads exposed. A
@@ -78,7 +78,7 @@ def test_lp_progress_reads_kus_through_path_steps() -> None:
 
     for name in DEAD_CURRICULUM_NAMES:
         assert name not in source
-    assert source.count("[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->") == 2
+    assert source.count("[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->") == 2
 
 
 def test_ku_mastery_progress_survives_a_user_with_no_masteries() -> None:
@@ -101,7 +101,7 @@ def test_curriculum_lp_lookup_uses_live_endpoints() -> None:
     source = _cypher_only(_source(curriculum_backends.KuBackend.get_learning_path_uids))
 
     assert "INCLUDES_KNOWLEDGE" not in source
-    assert "(lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku)" in source
+    assert "(lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)" in source
     # CONTAINS_KNOWLEDGE is legitimate — but only at the PathStep endpoint.
     assert "(lp:LearningPath)-[:CONTAINS_KNOWLEDGE" not in source
 
@@ -111,7 +111,7 @@ def test_lifepath_reads_kus_through_path_steps() -> None:
     source = _cypher_only(_source(lifepath_backend))
 
     assert "-[:CONTAINS]->" not in source
-    assert source.count("-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity") == 4
+    assert source.count("-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity") == 4
 
 
 def test_lifepath_mastery_reads_use_mastery_score_not_mastery_level() -> None:
