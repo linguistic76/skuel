@@ -1017,6 +1017,9 @@ labels:
         - EXECUTES_TASK
         - IMPLEMENTS_CHOICE
         - SERVES_LIFE_PATH
+        - HAS_TASK
+        - REQUIRES_TASK
+        - BLOCKS
   Goal:
     entity_types: [goal]
     contract:
@@ -1033,6 +1036,9 @@ labels:
         - FULFILLS_GOAL
         - GUIDES_GOAL
         - SERVES_LIFE_PATH
+        - HAS_GOAL
+        - DEPENDS_ON_GOAL
+        - ENABLES_GOAL
   Habit:
     entity_types: [habit]
     contract:
@@ -1050,6 +1056,7 @@ labels:
         - SERVES_LIFE_PATH
         - INFORMS_CHOICE
         - IMPACTS_HABIT
+        - OWNS
   Event:
     entity_types: [event]
     contract:
@@ -1067,6 +1074,8 @@ labels:
         - TRIGGERS_CHOICE
         - SCHEDULES_EVENT
         - DEMONSTRATES_PRINCIPLE
+        - HAS_EVENT
+        - REQUIRES_KNOWLEDGE
   Choice:
     entity_types: [choice]
     contract:
@@ -1085,6 +1094,8 @@ labels:
         - INFORMS_CHOICE
         - SCHEDULES_EVENT
         - TRIGGERS_CHOICE
+        - OWNS
+        - REQUIRES_KNOWLEDGE_FOR_DECISION
   Principle:
     entity_types: [principle]
     contract:
@@ -1103,6 +1114,7 @@ labels:
         - DEMONSTRATES_PRINCIPLE
         - PRACTICED_AT_EVENT
         - SERVES_LIFE_PATH
+        - OWNS
   TaskTemplate:
     entity_types: [task_template]
     contract: null
@@ -1172,6 +1184,7 @@ labels:
         - EMBODIES_PRINCIPLE
         - HAS_MILESTONE_EVENT
         - OPENS_LEARNING_PATH
+        - REQUIRES_STEP
   KnowledgeDomain:
     contract: null
   Submission:
@@ -1188,6 +1201,7 @@ labels:
         - REPORT_FOR
         - ASSESSMENT_OF
         - RESPONDS_TO_REPORT
+        - OWNS
   UserEntry:
     entity_types: [user_entry]
     contract:
@@ -1198,6 +1212,7 @@ labels:
         - FULFILLS_EXERCISE
         - APPLIES_KNOWLEDGE
         - REPORT_FOR
+        - OWNS
   Exercise:
     entity_types: [exercise]
     contract:
@@ -1207,6 +1222,7 @@ labels:
         - REQUIRES_KNOWLEDGE
         - SHARED_WITH_GROUP
         - FULFILLS_EXERCISE
+        - OWNS
   RevisedExercise:
     entity_types: [revised_exercise]
     contract:
@@ -1216,6 +1232,7 @@ labels:
         - RESPONDS_TO_REPORT
         - REVISES_EXERCISE
         - FULFILLS_REVISED_EXERCISE
+        - OWNS
   FormTemplate:
     entity_types: [form_template]
     contract: null
@@ -1231,6 +1248,7 @@ labels:
         - RECORDS
         - INTERACTION_DURING
         - INTERACTION_WITHIN
+        - OWNS
   LifePath:
     entity_types: [life_path]
     contract: null

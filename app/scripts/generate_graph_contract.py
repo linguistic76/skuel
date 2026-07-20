@@ -189,12 +189,23 @@ def _config_definitions(config: DomainRelationshipConfig) -> list[UnifiedRelatio
     return [*config.relationships, *inline_bidirectional]
 
 
-def gather_relationship_contracts() -> dict[str, list[dict[str, Any]]]:
-    """Per relationship value: one occurrence dict per config that touches it."""
+def gather_relationship_contracts() -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[str]]]:
+    """Per relationship value: one occurrence dict per config that touches it.
+
+    Also returns the per-config edge list (first-touch order), recorded in the
+    SAME walk that builds the occurrences: the label-side ``relationships`` list
+    and the relationship-side ``config:`` occurrences must be two projections of
+    one enumeration, or role-only edges (prerequisite/enables/ownership names
+    with no definition, e.g. TASKS_CONFIG's REQUIRES_TASK) appear in one section
+    and not the other.
+    """
     contracts: dict[str, dict[str, dict[str, Any]]] = {}
+    label_edges: dict[str, list[str]] = {}
 
     def occurrence(rel_value: str, config_key: str) -> dict[str, Any]:
         per_config = contracts.setdefault(rel_value, {})
+        if config_key not in per_config:
+            label_edges.setdefault(config_key, []).append(rel_value)
         return per_config.setdefault(
             config_key, {"config": config_key, "roles": [], "definitions": [], "creation_keys": []}
         )
@@ -217,7 +228,10 @@ def gather_relationship_contracts() -> dict[str, list[dict[str, Any]]]:
         for creation_key, (name, _target, _props) in config.relationship_creation_map.items():
             occurrence(name.value, config_key)["creation_keys"].append(creation_key)
 
-    return {value: list(per_config.values()) for value, per_config in contracts.items()}
+    return (
+        {value: list(per_config.values()) for value, per_config in contracts.items()},
+        label_edges,
+    )
 
 
 def gather_label_entity_types() -> dict[str, list[str]]:
@@ -293,6 +307,7 @@ def _render_label(
     label: NeoLabel,
     entity_types: list[str],
     config: DomainRelationshipConfig | None,
+    edges: list[str],
     lines: list[str],
 ) -> None:
     lines.append(f"  {label.value}:")
@@ -307,22 +322,16 @@ def _render_label(
         lines.append(f"      ownership: {config.ownership_relationship.value}")
     if config.is_shared_content:
         lines.append("      shared_content: true")
-    definitions = _config_definitions(config)
-    if definitions:
+    if edges:
         lines.append("      relationships:")
-        seen: set[str] = set()
-        for definition in definitions:
-            value = definition.relationship.value
-            if value not in seen:
-                seen.add(value)
-                lines.append(f"        - {value}")
+        lines.extend(f"        - {value}" for value in edges)
 
 
 def render_contract() -> str:
     """Render the full artifact. Pure function of the imported sources."""
     _assert_vocabulary_consistency()
 
-    relationship_contracts = gather_relationship_contracts()
+    relationship_contracts, label_edges = gather_relationship_contracts()
     label_configs = canonical_label_configs()
     label_entity_types = gather_label_entity_types()
     findings = gather_findings()
@@ -394,6 +403,7 @@ def render_contract() -> str:
             label,
             label_entity_types.get(label.value, []),
             label_configs.get(label.value),
+            label_edges.get(label.value, []),
             lines,
         )
 
