@@ -2,11 +2,11 @@
 Drift + honesty guards for docs/reference/GRAPH_CONTRACT.yaml
 =============================================================
 
-The contract view is a checked-in generated artifact (like
-BASESERVICE_METHOD_INDEX.md) — but unlike that precedent, its freshness is
+The contract view is a checked-in generated artifact whose freshness is
 enforced: any registry/enum/baseline change that lands without regenerating
 the YAML fails here (the CREDENTIAL_CATALOG mirror-test pattern, applied to a
-whole artifact instead of a mirrored set).
+whole artifact instead of a mirrored set; BASESERVICE_METHOD_INDEX.md follows
+the same pattern via test_generate_method_index.py).
 
 The honesty guards pin the properties the artifact exists to provide:
 - every enum member appears (the view can never imply an unconfigured name

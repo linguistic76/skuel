@@ -1,328 +1,274 @@
 #!/usr/bin/env python3
 """
-Generate BaseService Method Index Documentation
-===============================================
+Generate the BaseService Method Index — docs/reference/BASESERVICE_METHOD_INDEX.md
+===================================================================================
 
-Automatically generates /docs/reference/BASESERVICE_METHOD_INDEX.md
-by extracting method signatures from:
-- BaseService mixins (7 mixins)
-- Activity Domain facades (_delegations dicts)
+One checked-in view of the method surface a SKUEL service developer works
+against, read from the live classes so it can never describe code that does
+not exist:
+
+- ``BaseService`` mixin methods — the mixin spine is read from
+  ``BaseService.__bases__`` (never a hand-maintained list), so a newly
+  composed mixin cannot be silently omitted
+- the shared ``KnowledgeIntelligenceDelegationMixin`` surface inherited by
+  all six Activity Domain facades
+- each facade's *facade-specific* public methods — every public callable
+  whose defining class (first hit walking the MRO) is outside the shared
+  spine, which includes facade-local mixins like ``_OrchestrationMixin``
+
+The output is a pure function of its sources — no timestamps — so the drift
+test can regenerate and byte-compare it
+(``tests/unit/scripts/test_generate_method_index.py``). There is NO
+commit-time automation: regenerate manually after changing mixins or facades;
+CI fails on a stale artifact.
 
 Usage:
-    python scripts/generate_method_index.py
-
-Output:
-    /docs/reference/BASESERVICE_METHOD_INDEX.md (auto-generated)
-
-Pre-commit Hook:
-    This script runs automatically on commit to keep docs in sync.
-
-Version: 1.0.0
-Date: 2026-01-29
+    uv run python scripts/generate_method_index.py          # regenerate
+    uv run python scripts/generate_method_index.py --check  # exit 1 on drift
 """
 
-import ast
+from __future__ import annotations
 
-# Add project root to Python path
+import argparse
+import inspect
 import sys
-from datetime import datetime
 from pathlib import Path
+from typing import Generic
 
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
+from core.services.base_service import BaseService
+from core.services.choices_service import ChoicesService
+from core.services.events_service import EventsService
+from core.services.goals_service import GoalsService
+from core.services.habits_service import HabitsService
+from core.services.mixins import KnowledgeIntelligenceDelegationMixin
+from core.services.principles_service import PrinciplesService
+from core.services.tasks_service import TasksService
 
-def extract_delegations_from_file(filepath: Path) -> dict[str, tuple[str, str]]:
-    """
-    Extract _delegations dict from a facade service file.
+ARTIFACT_PATH = PROJECT_ROOT / "docs" / "reference" / "BASESERVICE_METHOD_INDEX.md"
 
-    Args:
-        filepath: Path to the facade service file
+FACADES: tuple[type, ...] = (
+    TasksService,
+    GoalsService,
+    HabitsService,
+    EventsService,
+    ChoicesService,
+    PrinciplesService,
+)
 
-    Returns:
-        Dictionary of {facade_method: (sub_service, target_method)}
-    """
-    with filepath.open() as f:
-        source = f.read()
-
-    tree = ast.parse(source)
-
-    # Find the class with _delegations attribute
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            for item in node.body:
-                if (
-                    isinstance(item, ast.Assign)
-                    and isinstance(item.targets[0], ast.Name)
-                    and item.targets[0].id == "_delegations"
-                ):
-                    # Found _delegations assignment
-                    # Try to evaluate it (works for simple dicts)
-                    try:
-                        return ast.literal_eval(item.value)
-                    except ValueError, SyntaxError:
-                        # Complex expression (merge_delegations, etc.)
-                        # Fall back to parsing the structure
-                        return _parse_delegation_expr(item.value)
-
-    return {}
-
-
-def _parse_delegation_expr(node: ast.expr) -> dict[str, tuple[str, str]]:
-    """
-    Parse complex delegation expressions like merge_delegations(...).
-
-    Args:
-        node: AST expression node
-
-    Returns:
-        Dictionary of delegations
-    """
-    result: dict[str, tuple[str, str]] = {}
-
-    # Handle merge_delegations() calls
-    if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "merge_delegations"
-    ):
-        for arg in node.args:
-            if isinstance(arg, ast.Dict):
-                # Direct dict argument
-                for key, value in zip(arg.keys, arg.values, strict=False):
-                    if isinstance(key, ast.Constant) and isinstance(value, ast.Tuple):
-                        method_name = key.value
-                        if not isinstance(method_name, str):
-                            continue
-                        if len(value.elts) == 2:
-                            sub_service = ast.literal_eval(value.elts[0])
-                            target_method = ast.literal_eval(value.elts[1])
-                            result[method_name] = (sub_service, target_method)
-
-    # Handle simple dict
-    elif isinstance(node, ast.Dict):
-        for key, value in zip(node.keys, node.values, strict=False):
-            if isinstance(key, ast.Constant) and isinstance(value, ast.Tuple):
-                method_name = key.value
-                if not isinstance(method_name, str):
-                    continue
-                if len(value.elts) == 2:
-                    sub_service = ast.literal_eval(value.elts[0])
-                    target_method = ast.literal_eval(value.elts[1])
-                    result[method_name] = (sub_service, target_method)
-
-    return result
+# Prose only — the mixin LIST comes from BaseService.__bases__, never from
+# these keys. A newly composed mixin renders with "N/A" until described here.
+MIXIN_DESCRIPTIONS: dict[str, str] = {
+    "ConversionHelpersMixin": "DTO ↔ Domain model conversion and result handling",
+    "CrudOperationsMixin": "CRUD operations with ownership verification",
+    "SearchOperationsMixin": "Text search, filtering, and graph-aware queries",
+    "RelationshipOperationsMixin": "Graph relationship operations and traversal",
+    "TimeQueryMixin": "Calendar and scheduling queries",
+    "ContextOperationsMixin": "Retrieve entities with enriched graph context",
+    "KnowledgeIntelligenceDelegationMixin": (
+        "Knowledge intelligence delegation shared by all Activity Domain facades"
+    ),
+}
 
 
-def get_mixin_methods() -> dict[str, list[str]]:
-    """
-    Get methods from each BaseService mixin.
+def mixin_spine() -> tuple[type, ...]:
+    """The mixins BaseService composes, in definition (MRO) order."""
+    return tuple(base for base in BaseService.__bases__ if base.__name__.endswith("Mixin"))
 
-    Returns:
-        Dictionary of {mixin_name: [method_names]}
-    """
-    # Import mixins dynamically to extract methods
-    from core.services.mixins import (
-        ContextOperationsMixin,
-        ConversionHelpersMixin,
-        CrudOperationsMixin,
-        RelationshipOperationsMixin,
-        SearchOperationsMixin,
-        TimeQueryMixin,
+
+def _shared_spine_classes() -> frozenset[type]:
+    """Classes whose methods are shared surface, not facade-specific."""
+    return frozenset(
+        {object, Generic, BaseService, KnowledgeIntelligenceDelegationMixin, *mixin_spine()}
     )
 
-    mixins = {
-        "ConversionHelpersMixin": ConversionHelpersMixin,
-        "CrudOperationsMixin": CrudOperationsMixin,
-        "SearchOperationsMixin": SearchOperationsMixin,
-        "RelationshipOperationsMixin": RelationshipOperationsMixin,
-        "TimeQueryMixin": TimeQueryMixin,
-        "ContextOperationsMixin": ContextOperationsMixin,
-    }
 
-    result: dict[str, list[str]] = {}
-
-    for mixin_name, mixin_class in mixins.items():
-        methods = []
-        for name in dir(mixin_class):
-            if not name.startswith("_") or name == "__init__":
-                attr = getattr(mixin_class, name)
-                if callable(attr):
-                    methods.append(name)
-        result[mixin_name] = sorted(methods)
-
-    return result
-
-
-def generate_method_index() -> str:
-    """
-    Generate the complete method index markdown.
-
-    Returns:
-        Markdown content
-    """
-    lines = []
-
-    # Header
-    lines.append("# BaseService Method Index")
-    lines.append("")
-    lines.append(
-        "**Purpose:** Complete reference of all methods available in BaseService and Activity Domain facades."
+def public_methods(cls: type) -> list[str]:
+    """Sorted public callables reachable on the class."""
+    return sorted(
+        name for name in dir(cls) if not name.startswith("_") and callable(getattr(cls, name))
     )
-    lines.append("")
-    lines.append(f"**Last Updated:** {datetime.now().strftime('%Y-%m-%d')} (Auto-generated)")
-    lines.append("")
-    lines.append("**WARNING:** This file is AUTO-GENERATED. Do not edit manually.")
-    lines.append("**To update:** Run `python scripts/generate_method_index.py`")
-    lines.append("")
-    lines.append("---")
-    lines.append("")
 
-    # Table of Contents
-    lines.append("## Table of Contents")
-    lines.append("")
-    lines.append(
-        "- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from 6 mixins"
+
+def _first_definer(cls: type, name: str) -> type | None:
+    """The class that actually defines ``name`` — first hit walking the MRO."""
+    for klass in cls.__mro__:
+        if name in vars(klass):
+            return klass
+    return None
+
+
+def facade_specific_methods(facade: type) -> list[str]:
+    """Public methods the facade adds on top of the shared spine.
+
+    Attribution by defining class, so methods contributed by facade-local
+    mixins (e.g. ``_OrchestrationMixin``) and facade overrides of spine
+    methods are both included.
+    """
+    shared = _shared_spine_classes()
+    return sorted(
+        name for name in public_methods(facade) if _first_definer(facade, name) not in shared
     )
-    lines.append("- [Activity Domain Facades](#activity-domain-facades) - Facade delegations")
-    lines.append("- [Common Patterns](#common-patterns) - Usage examples")
-    lines.append("")
-    lines.append("---")
-    lines.append("")
 
-    # BaseService Mixin Methods
-    lines.append("## BaseService Mixin Methods")
-    lines.append("")
-    lines.append("These methods are available on **all services that extend BaseService**.")
-    lines.append("")
 
-    mixin_methods = get_mixin_methods()
+def _method_table(cls: type, methods: list[str]) -> list[str]:
+    lines = ["| Method | Async |", "|--------|-------|"]
+    for method in methods:
+        marker = "✅" if inspect.iscoroutinefunction(getattr(cls, method)) else "—"
+        lines.append(f"| `{method}()` | {marker} |")
+    return lines
 
-    mixin_descriptions = {
-        "ConversionHelpersMixin": "DTO ↔ Domain model conversion and result handling",
-        "CrudOperationsMixin": "CRUD operations with ownership verification",
-        "SearchOperationsMixin": "Text search, filtering, and graph-aware queries",
-        "RelationshipOperationsMixin": "Graph relationship operations and traversal",
-        "TimeQueryMixin": "Calendar and scheduling queries",
-        "ContextOperationsMixin": "Retrieve entities with enriched graph context",
-    }
 
-    for mixin_name, methods in mixin_methods.items():
-        lines.append(f"### {mixin_name}")
+def render_method_index() -> str:
+    """Render the full artifact. Pure function of the imported classes."""
+    mixins = mixin_spine()
+    lines = [
+        "# BaseService Method Index",
+        "",
+        "**Purpose:** Complete reference of all methods available in BaseService"
+        " and Activity Domain facades.",
+        "",
+        "**WARNING:** This file is AUTO-GENERATED. Do not edit manually.",
+        "**Regenerate:** `cd app && uv run python scripts/generate_method_index.py`",
+        "**Drift-guarded:** `tests/unit/scripts/test_generate_method_index.py`",
+        "",
+        "---",
+        "",
+        "## Table of Contents",
+        "",
+        f"- [BaseService Mixin Methods](#baseservice-mixin-methods) - Methods from"
+        f" {len(mixins)} mixins",
+        "- [Shared Facade Mixins](#shared-facade-mixins) - Inherited by all"
+        f" {len(FACADES)} Activity Domain facades",
+        "- [Activity Domain Facades](#activity-domain-facades) - Facade-specific public methods",
+        "- [Common Patterns](#common-patterns) - Usage examples",
+        "",
+        "---",
+        "",
+        "## BaseService Mixin Methods",
+        "",
+        "These methods are available on **all services that extend BaseService**.",
+        "",
+    ]
+
+    for mixin in mixins:
+        lines.append(f"### {mixin.__name__}")
         lines.append("")
-        lines.append(f"**Purpose:** {mixin_descriptions.get(mixin_name, 'N/A')}")
+        lines.append(f"**Purpose:** {MIXIN_DESCRIPTIONS.get(mixin.__name__, 'N/A')}")
         lines.append("")
-        lines.append("| Method | Public |")
-        lines.append("|--------|--------|")
-
-        for method in methods:
-            is_public = "✅" if not method.startswith("_") else "🔒 (internal)"
-            lines.append(f"| `{method}()` | {is_public} |")
-
+        lines.extend(_method_table(mixin, public_methods(mixin)))
         lines.append("")
         lines.append("---")
         lines.append("")
 
-    # Activity Domain Facades
-    lines.append("## Activity Domain Facades")
+    lines.append("## Shared Facade Mixins")
     lines.append("")
-    lines.append("Auto-generated delegation methods for each Activity Domain facade.")
+    lines.append(f"Inherited by all {len(FACADES)} Activity Domain facades on top of BaseService.")
     lines.append("")
-
-    # Extract delegations from facade files
-    facades = [
-        ("TasksService", "tasks_service.py"),
-        ("GoalsService", "goals_service.py"),
-        ("HabitsService", "habits_service.py"),
-        ("EventsService", "events_service.py"),
-        ("ChoicesService", "choices_service.py"),
-        ("PrinciplesService", "principles_service.py"),
-    ]
-
-    for facade_name, filename in facades:
-        filepath = project_root / "core" / "services" / filename
-        if filepath.exists():
-            delegations = extract_delegations_from_file(filepath)
-
-            lines.append(f"### {facade_name}")
-            lines.append("")
-            lines.append(f"**Total Delegated Methods:** {len(delegations)}")
-            lines.append("")
-
-            if delegations:
-                # Group by sub-service
-                by_service: dict[str, list[tuple[str, str]]] = {}
-                for facade_method, (sub_service, target_method) in delegations.items():
-                    if sub_service not in by_service:
-                        by_service[sub_service] = []
-                    by_service[sub_service].append((facade_method, target_method))
-
-                for sub_service, sub_methods in sorted(by_service.items()):
-                    lines.append(
-                        f"#### {sub_service.capitalize()} Delegations ({len(sub_methods)} methods)"
-                    )
-                    lines.append("")
-                    lines.append("| Facade Method | Target Method |")
-                    lines.append("|---------------|---------------|")
-
-                    for facade_method, target_method in sorted(sub_methods):
-                        lines.append(f"| `{facade_method}()` | `{sub_service}.{target_method}()` |")
-
-                    lines.append("")
-
-            lines.append("---")
-            lines.append("")
-
-    # Common Patterns
-    lines.append("## Common Patterns")
+    lines.append(f"### {KnowledgeIntelligenceDelegationMixin.__name__}")
     lines.append("")
-    lines.append("### Facade Usage (Production)")
+    lines.append(
+        "**Purpose:** "
+        f"{MIXIN_DESCRIPTIONS.get(KnowledgeIntelligenceDelegationMixin.__name__, 'N/A')}"
+    )
     lines.append("")
-    lines.append("```python")
-    lines.append("from core.services.tasks_service import TasksService")
-    lines.append("")
-    lines.append("# Auto-delegation to sub-services")
-    lines.append("result = await tasks_service.create_task(request, user_uid)")
-    lines.append("```")
-    lines.append("")
-    lines.append("### Direct Sub-Service Usage (Testing)")
-    lines.append("")
-    lines.append("```python")
-    lines.append("from core.services.tasks import TasksCoreService")
-    lines.append("")
-    lines.append("core = TasksCoreService(backend=mock_backend)")
-    lines.append("result = await core.create_task(request, user_uid)")
-    lines.append("```")
+    lines.extend(
+        _method_table(
+            KnowledgeIntelligenceDelegationMixin,
+            public_methods(KnowledgeIntelligenceDelegationMixin),
+        )
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("## See Also")
+
+    lines.append("## Activity Domain Facades")
     lines.append("")
     lines.append(
-        "- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) - Which service does what"
+        "Facade-specific public methods — what each facade adds on top of the"
+        " shared BaseService + KnowledgeIntelligenceDelegationMixin surface"
+        " (explicit delegation methods, facade-local mixins, and overrides)."
     )
-    lines.append("- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - Usage patterns")
-    lines.append(
-        "- [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams"
-    )
-    lines.append("- [BaseService Source](/core/services/base_service.py) - Implementation")
     lines.append("")
+
+    for facade in FACADES:
+        methods = facade_specific_methods(facade)
+        lines.append(f"### {facade.__name__}")
+        lines.append("")
+        lines.append(f"**Facade-specific public methods:** {len(methods)}")
+        lines.append("")
+        lines.extend(_method_table(facade, methods))
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Common Patterns",
+            "",
+            "### Facade Usage (Production)",
+            "",
+            "```python",
+            "from core.services.tasks_service import TasksService",
+            "",
+            "# Auto-delegation to sub-services",
+            "result = await tasks_service.create_task(request, user_uid)",
+            "```",
+            "",
+            "### Direct Sub-Service Usage (Testing)",
+            "",
+            "```python",
+            "from core.services.tasks import TasksCoreService",
+            "",
+            "core = TasksCoreService(backend=mock_backend)",
+            "result = await core.create_task(request, user_uid)",
+            "```",
+            "",
+            "---",
+            "",
+            "## See Also",
+            "",
+            "- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md)"
+            " - Which service does what",
+            "- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - Usage patterns",
+            "- [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams",
+            "- [BaseService Source](/core/services/base_service.py) - Implementation",
+            "",
+        ]
+    )
 
     return "\n".join(lines)
 
 
-def main() -> None:
-    """Generate the method index documentation."""
-    print("Generating BaseService Method Index...")
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Generate docs/reference/BASESERVICE_METHOD_INDEX.md"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit 1 if the checked-in artifact differs from a fresh render (no write).",
+    )
+    args = parser.parse_args()
 
-    content = generate_method_index()
+    content = render_method_index()
 
-    output_path = project_root / "docs" / "reference" / "BASESERVICE_METHOD_INDEX.md"
-    output_path.write_text(content)
+    if args.check:
+        on_disk = ARTIFACT_PATH.read_text(encoding="utf-8") if ARTIFACT_PATH.exists() else ""
+        if on_disk != content:
+            print("❌ BASESERVICE_METHOD_INDEX.md is stale.")
+            print("   Regenerate: cd app && uv run python scripts/generate_method_index.py")
+            return 1
+        print("✅ BASESERVICE_METHOD_INDEX.md is fresh.")
+        return 0
 
-    print(f"✅ Generated: {output_path}")
+    ARTIFACT_PATH.write_text(content, encoding="utf-8")
+    print(f"✅ Generated: {ARTIFACT_PATH}")
     print(f"   Total lines: {len(content.splitlines())}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
