@@ -150,7 +150,11 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
         # Step 2: Create relationship via RELATIONSHIP-FIRST API (fluent interface)
         # Replaces: backend.create_semantic_relationship()
         # With: backend.relate().from_node().via().to_node().with_metadata().create()
+        # `via()` supplies the coarse RelationshipName edge type; `semantic_type`
+        # in the metadata preserves the precise namespaced predicate so the
+        # many-to-one to_neo4j_name() collapse loses nothing (roadmap Phase 1).
         metadata_props = metadata.to_neo4j_properties()
+        metadata_props["semantic_type"] = semantic_type.value
 
         result = (
             await self.backend.relate()
@@ -232,9 +236,13 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
             f"types={[t.value for t in semantic_types]}, direction={direction}"
         )
 
-        # Step 1: Build semantic filter query
-        # Build relationship type list for Cypher
-        rel_types = "|".join([st.to_neo4j_name() for st in semantic_types])
+        # Step 1: Build semantic filter query.
+        # The pattern carries the coarse RelationshipName edge type(s) (deduped —
+        # many predicates collapse onto one); the precise predicates are passed
+        # separately so the backend filters by r.semantic_type and does not return
+        # other semantic types that share the same edge (roadmap Phase 1).
+        rel_types = "|".join(sorted({str(st.to_neo4j_name()) for st in semantic_types}))
+        semantic_type_values = [st.value for st in semantic_types]
         label = self.model_class.__name__
 
         # Build direction pattern
@@ -250,6 +258,7 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
             pattern=pattern,
             target_uid=target_uid,
             min_confidence=min_confidence,
+            semantic_type_values=semantic_type_values,
         )
         if result.is_error:
             return result

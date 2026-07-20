@@ -116,26 +116,32 @@ class GraphQLConfig:
 
 
 def _default_relationship_type_weights() -> dict[str, float]:
+    # Keyed by the namespaced SemanticRelationshipType value (the `semantic_type`
+    # edge property), not the coarse RelationshipName edge type. Since Phase 1 of
+    # the semantic-relationship-layer roadmap, many semantic predicates collapse
+    # onto one RelationshipName (e.g. several onto RELATED_TO); the precise
+    # predicate survives only in `semantic_type`, so weight tuning must key on it.
+    # get_semantic_relationships returns COALESCE(r.semantic_type, type(r)).
     return {
         # Learning domain - high importance
-        "REQUIRES_THEORETICAL_UNDERSTANDING": 1.0,
-        "REQUIRES_PRACTICAL_APPLICATION": 0.9,
-        "REQUIRES_CONCEPTUAL_FOUNDATION": 0.9,
-        "BUILDS_MENTAL_MODEL": 0.8,
-        "PROVIDES_FOUNDATION_FOR": 0.8,
-        "EXTENDS_PATTERN": 0.7,
+        "learn:requires_theoretical_understanding": 1.0,
+        "learn:requires_practical_application": 0.9,
+        "learn:requires_conceptual_foundation": 0.9,
+        "learn:builds_mental_model": 0.8,
+        "learn:provides_foundation_for": 0.8,
+        "learn:extends_pattern": 0.7,
         # Task domain - medium importance
-        "BLOCKS_UNTIL_COMPLETE": 1.0,
-        "ENABLES_START_OF": 0.9,
-        "CONTRIBUTES_TO_GOAL": 0.8,
+        "task:blocks_until_complete": 1.0,
+        "task:enables_start_of": 0.9,
+        "task:contributes_to_goal": 0.8,
         # Cross-domain - medium importance
-        "APPLIES_KNOWLEDGE_TO": 0.8,
-        "PRACTICES_VIA_HABIT": 0.7,
-        "IMPLEMENTS_VIA_TASK": 0.7,
+        "cross:applies_knowledge_to": 0.8,
+        "cross:practices_via_habit": 0.7,
+        "cross:implements_via_task": 0.7,
         # Conceptual - lower importance
-        "RELATED_TO": 0.5,
-        "ANALOGOUS_TO": 0.6,
-        "PART_OF_SYSTEM": 0.6,
+        "cross:related_to": 0.5,
+        "learn:analogous_to": 0.6,
+        "concept:part_of_system": 0.6,
     }
 
 
@@ -240,7 +246,7 @@ class VectorSearchConfig:
         Get importance weight for a semantic relationship type.
 
         Args:
-            relationship_type: Semantic relationship type (e.g., "REQUIRES_THEORETICAL_UNDERSTANDING")
+            relationship_type: Namespaced semantic predicate (e.g., "learn:requires_theoretical_understanding")
 
         Returns:
             Weight value (0.0-1.0), defaults to 0.5 for unknown types

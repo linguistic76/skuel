@@ -291,10 +291,13 @@ class PsSemanticService:
         Returns:
             Result indicating success
         """
-        # Build relationship name for Neo4j
+        # Coarse edge type + precise predicate: delete only the edge whose
+        # semantic_type matches, not every edge that collapsed onto rel_name.
         rel_name = predicate.to_neo4j_name()
 
-        results = await self.repo.delete_semantic_relationship(rel_name, subject_uid, object_uid)
+        results = await self.repo.delete_semantic_relationship(
+            rel_name, subject_uid, object_uid, semantic_type=predicate.value
+        )
 
         if results.is_error:
             return Result.fail(results)
@@ -335,7 +338,9 @@ class PsSemanticService:
 
         rel_name = predicate.to_neo4j_name()
 
-        results = await self.repo.query_relationships_by_type(uid, rel_name, direction)
+        results = await self.repo.query_relationships_by_type(
+            uid, rel_name, direction, semantic_type=predicate.value
+        )
 
         # Check for query errors
         if results.is_error:

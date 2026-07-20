@@ -817,7 +817,11 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     async def delete_semantic_relationship(
-        self, rel_name: str, subject_uid: str, object_uid: str
+        self,
+        rel_name: str,
+        subject_uid: str,
+        object_uid: str,
+        semantic_type: str | None = None,
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {deleted}
         """Delete a semantic relationship between two entities."""
         ...
@@ -827,6 +831,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         uid: str,
         rel_name: str,
         direction: Literal["outgoing", "incoming", "both"] = "both",
+        semantic_type: str | None = None,
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns target node + rel properties
         """Find relationships by type and direction."""
         ...

@@ -530,12 +530,42 @@ pass are pure registry invariants).
 
 ---
 
-## 9. `SemanticRelationshipType` names used as raw edge types
+## 9. `SemanticRelationshipType` names used as raw edge types — ✅ RESOLVED (semantic-layer roadmap Phase 1, 2026-07-20)
 
-`EXTENDS_PATTERN` and `DEEPENS_UNDERSTANDING` exist only as semantic URIs
-(`"learn:extends_pattern"`) in `core/infrastructure/relationships/semantic_relationships.py`
-— different strings entirely. `_knowledge_context_mixin.py:80` matches them as
-Neo4j edge types, which no writer creates.
+**This section was wrong.** It read: "`_knowledge_context_mixin.py:80` matches
+them as Neo4j edge types, which no writer creates." There *is* a writer, and it
+is HTTP-reachable:
+
+```
+POST /api/path-steps/relationships   (@require_admin, live route)
+  -> path_steps_api.py  create_step_relationship(relationship_type=req.type)
+  -> ps_service.py      add_semantic_relationship(predicate=...)
+  -> ps_semantic_service.py  repo.create_semantic_relationship(triple)
+  -> _semantic_mixin.py      build_semantic_merge(triple)
+  -> semantic_queries.py     MERGE (s)-[r:{to_neo4j_name()}]->(o)
+```
+
+`StepRelationshipCreateRequest.type` is validated against the full 81-member
+`SemanticRelationshipType` enum, and the OLD `to_neo4j_name()` emitted the
+namespace-stripped uppercase — so an admin POSTing `learn:extends_pattern` wrote a
+real `[:EXTENDS_PATTERN]` edge. SKUEL030 was structurally blind to this: it lints
+*reads* in `adapters/persistence/`, but the writer's edge name was computed at
+runtime from the enum. So §9 was a **registry gap** (a second, unregistered
+emitter), not a writer-less read. The read at `:80` was correct by intent — it
+read exactly what the semantic writer emits. Live-graph rows: 0 (endpoint
+unexercised — data absence, not dead vocabulary; cf. `TRAINS_KU` in §8's lesson).
+
+**Resolution (roadmap Phase 1):** `to_neo4j_name()` now returns a
+`RelationshipName` (the coarse edge bucket) via the 81-member
+`SEMANTIC_TO_RELATIONSHIP_NAME` map; the precise namespaced predicate is preserved
+as the `semantic_type` edge property in `build_semantic_merge`. A semantic type
+can no longer emit unregistered vocabulary, by construction. `EXTENDS_PATTERN` /
+`DEEPENS_UNDERSTANDING` both collapse to `RELATED_TO`, so the reader at `:80` was
+repointed to `RELATED_TO` and both `SKUEL030_BASELINE` pairs are deleted (the
+baseline is now empty). Delete/query-by-type gained a `semantic_type` filter so
+the collapse does not turn a targeted delete into "delete every `RELATED_TO`
+between these two nodes." Guarded by `tests/unit/test_semantic_neo4j_name_drift.py`;
+round-tripped against the live graph (write → read → precise delete → survivor).
 
 ---
 

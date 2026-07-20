@@ -100,7 +100,7 @@ class VectorSearchBackend:
             MATCH (entity)-[r]->(context)
             WHERE r.confidence IS NOT NULL
             RETURN
-                type(r) as relationship_type,
+                COALESCE(r.semantic_type, type(r)) as relationship_type,
                 r.confidence as confidence,
                 COALESCE(r.strength, 1.0) as strength
             """,

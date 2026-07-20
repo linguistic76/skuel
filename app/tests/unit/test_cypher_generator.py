@@ -183,7 +183,8 @@ class TestCypherGeneratorSemantic:
         )
 
         assert "MATCH (center {uid: $uid})" in query
-        assert "REQUIRES_THEORETICAL_UNDERSTANDING|BUILDS_MENTAL_MODEL" in query
+        # _coarse_alternation dedupes + sorts for deterministic output (Phase 1).
+        assert "BUILDS_MENTAL_MODEL|REQUIRES_THEORETICAL_UNDERSTANDING" in query
         assert "c >= $min_confidence" in query
         assert params["uid"] == "ku.python_basics"
         assert params["min_confidence"] == 0.8

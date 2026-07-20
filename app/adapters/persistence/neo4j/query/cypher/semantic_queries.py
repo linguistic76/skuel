@@ -30,6 +30,30 @@ if TYPE_CHECKING:
     )
 
 
+def _coarse_alternation(semantic_types: "list[SemanticRelationshipType]") -> str:
+    """Deduped RelationshipName alternation for the edge pattern (the coarse bucket).
+
+    Since roadmap Phase 1, many semantic predicates collapse onto one
+    RelationshipName, so the raw join would repeat names (``RELATED_TO|RELATED_TO``);
+    dedupe them. Precision is restored by ``_semantic_values`` + an
+    ``r.semantic_type IN $...`` filter, NOT by the edge type alone.
+    """
+    return "|".join(sorted({st.to_neo4j_name() for st in semantic_types}))
+
+
+def _semantic_values(
+    semantic_types: "list[SemanticRelationshipType]",
+) -> list[str | int | float]:
+    """The precise namespaced predicate values, for ``r.semantic_type IN $...`` filtering.
+
+    Without this filter, a request for one semantic type would match every predicate
+    that collapsed onto the same coarse edge (roadmap Phase 1). See the callers.
+    Typed as the ``Neo4jValue`` list member so the param dicts stay ``Neo4jValue``.
+    """
+    values: list[str | int | float] = [st.value for st in semantic_types]
+    return values
+
+
 def build_semantic_context(
     node_uid: str,
     semantic_types: list["SemanticRelationshipType"],
@@ -55,8 +79,11 @@ def build_semantic_context(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    # Convert semantic types to Cypher pattern
-    rel_pattern = "|".join([st.to_neo4j_name() for st in semantic_types])
+    # Coarse edge alternation + precise semantic_type filter (roadmap Phase 1):
+    # the pattern narrows to the collapsed RelationshipName(s); the filter narrows
+    # to the exact predicates requested, so a RELATED_TO edge of a different
+    # semantic type is not returned.
+    rel_pattern = _coarse_alternation(semantic_types)
 
     cypher = f"""
     MATCH (center {{uid: $uid}})
@@ -66,6 +93,7 @@ def build_semantic_context(
          length(path) as path_length
     WHERE related IS NOT NULL
       AND all(c in confidences WHERE c >= $min_confidence)
+      AND all(rel in rels WHERE rel.semantic_type IN $semantic_type_values)
     RETURN
         center.uid as center_uid,
         collect(DISTINCT {{
@@ -77,7 +105,11 @@ def build_semantic_context(
         }}) as semantic_context
     """
 
-    parameters: dict[str, Neo4jValue] = {"uid": node_uid, "min_confidence": min_confidence}
+    parameters: dict[str, Neo4jValue] = {
+        "uid": node_uid,
+        "min_confidence": min_confidence,
+        "semantic_type_values": _semantic_values(semantic_types),
+    }
 
     return cypher, parameters
 
@@ -101,13 +133,28 @@ def build_semantic_merge(
     rel_label = triple.predicate.to_neo4j_name()
     validate_identifier(rel_label, "relationship type")
 
+    # RelationshipName owns the edge type (the coarse bucket); the precise
+    # namespaced predicate is preserved as the `semantic_type` property so the
+    # many-to-one to_neo4j_name() collapse is non-lossy and the two intra-enum
+    # collisions (cross:related_to vs moc:related_to, concept:child_of vs
+    # moc:child_of) stay distinguishable. See the semantic-relationship-layer
+    # roadmap Phase 1.
+    #
+    # `semantic_type` is part of the MERGE IDENTITY, not just a SET property: two
+    # distinct predicates that collapse onto the same RelationshipName (e.g.
+    # learn:extends_pattern and learn:deepens_understanding, both -> RELATED_TO)
+    # must coexist as two edges between the same pair, else the second write
+    # would match the first coarse edge and overwrite its meaning — leaving the
+    # delete/query-by-semantic_type path unable to find the first. The metadata
+    # then updates only the edge with THIS predicate.
     props = triple.metadata.to_neo4j_properties()
+    props["semantic_type"] = triple.predicate.value
     props_str = ", ".join(f"{k}: ${k}" for k in props)
 
     cypher = f"""
     MERGE (s {{uid: $subject}})
     MERGE (o {{uid: $object}})
-    MERGE (s)-[r:{rel_label}]->(o)
+    MERGE (s)-[r:{rel_label} {{semantic_type: $semantic_type}}]->(o)
     ON CREATE SET r = {{{props_str}}}
     ON MATCH SET r += {{{props_str}}}
     """
@@ -272,15 +319,21 @@ def build_prerequisite_chain(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    rel_pattern = "|".join([st.to_neo4j_name() for st in semantic_types])
+    rel_pattern = _coarse_alternation(semantic_types)
 
+    # The root check and the per-edge filter both narrow to the exact requested
+    # predicates via r.semantic_type, not just the collapsed edge type (Phase 1).
     cypher = f"""
     MATCH (target {{uid: $uid}})
     MATCH path = (target)<-[rs:{rel_pattern}*1..{depth}]-(prereq)
-    WHERE NOT (prereq)<-[:{rel_pattern}]-()
+    WHERE NOT EXISTS {{
+          MATCH (prereq)<-[rp:{rel_pattern}]-()
+          WHERE rp.semantic_type IN $semantic_type_values
+      }}
       AND all(r IN rs WHERE
           coalesce(r.confidence, 1.0) >= $min_confidence
           AND coalesce(r.strength, 1.0) >= $min_strength
+          AND r.semantic_type IN $semantic_type_values
       )
     WITH prereq, path, relationships(path) as chain
     RETURN
@@ -299,6 +352,7 @@ def build_prerequisite_chain(
         "uid": node_uid,
         "min_confidence": min_confidence,
         "min_strength": min_strength,
+        "semantic_type_values": _semantic_values(semantic_types),
     }
     return cypher, parameters
 
@@ -324,7 +378,7 @@ def build_semantic_traversal(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    rel_pattern = "|".join([st.to_neo4j_name() for st in semantic_types])
+    rel_pattern = _coarse_alternation(semantic_types)
 
     cypher = f"""
     MATCH (start {{uid: $start_uid}})
@@ -332,6 +386,7 @@ def build_semantic_traversal(
     MATCH path = shortestPath(
         (start)-[r:{rel_pattern}*1..{max_depth}]-(end)
     )
+    WHERE all(rel IN relationships(path) WHERE rel.semantic_type IN $semantic_type_values)
     WITH path, relationships(path) as rels
     RETURN
         [n in nodes(path) | {{
@@ -346,7 +401,11 @@ def build_semantic_traversal(
         length(path) as path_length
     """
 
-    parameters: dict[str, Neo4jValue] = {"start_uid": start_uid, "end_uid": end_uid}
+    parameters: dict[str, Neo4jValue] = {
+        "start_uid": start_uid,
+        "end_uid": end_uid,
+        "semantic_type_values": _semantic_values(semantic_types),
+    }
 
     return cypher, parameters
 
@@ -372,14 +431,15 @@ def build_hierarchical_context(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    parent_pattern = "|".join([st.to_neo4j_name() for st in parent_types])
-    child_pattern = "|".join([st.to_neo4j_name() for st in child_types])
+    parent_pattern = _coarse_alternation(parent_types)
+    child_pattern = _coarse_alternation(child_types)
 
     cypher = f"""
     MATCH (center {{uid: $uid}})
 
     // Get parents
     OPTIONAL MATCH parent_path = (center)-[pr:{parent_pattern}*1..{depth}]->(parent)
+    WHERE all(rel IN relationships(parent_path) WHERE rel.semantic_type IN $parent_type_values)
     WITH center, collect(DISTINCT {{
         uid: parent.uid,
         title: parent.title,
@@ -389,6 +449,7 @@ def build_hierarchical_context(
 
     // Get children
     OPTIONAL MATCH child_path = (center)<-[cr:{child_pattern}*1..{depth}]-(child)
+    WHERE all(rel IN relationships(child_path) WHERE rel.semantic_type IN $child_type_values)
     WITH center, parents, collect(DISTINCT {{
         uid: child.uid,
         title: child.title,
@@ -403,7 +464,11 @@ def build_hierarchical_context(
         size(parents) + size(children) as total_related
     """
 
-    parameters: dict[str, Neo4jValue] = {"uid": node_uid}
+    parameters: dict[str, Neo4jValue] = {
+        "uid": node_uid,
+        "parent_type_values": _semantic_values(parent_types),
+        "child_type_values": _semantic_values(child_types),
+    }
     return cypher, parameters
 
 
@@ -428,7 +493,7 @@ def build_cross_domain_bridges(
     Returns:
         Tuple of (cypher_query, parameters)
     """
-    rel_pattern = "|".join([st.to_neo4j_name() for st in semantic_types])
+    rel_pattern = _coarse_alternation(semantic_types)
 
     cypher = f"""
     MATCH (a {{domain: $domain_a}})
@@ -436,7 +501,10 @@ def build_cross_domain_bridges(
     MATCH path = shortestPath(
         (a)-[r:{rel_pattern}*1..5]-(b)
     )
-    WITH path, relationships(path) as rels, nodes(path) as nodes
+    WHERE all(rel IN relationships(path) WHERE rel.semantic_type IN $semantic_type_values)
+    // Carry a, b through the projection — the RETURN reads them (they were
+    // dropped by this WITH before, an unreachable-but-invalid pre-existing bug).
+    WITH a, b, path, relationships(path) as rels, nodes(path) as nodes
     RETURN
         a.uid as source_uid,
         a.title as source_title,
@@ -449,7 +517,12 @@ def build_cross_domain_bridges(
     LIMIT $limit
     """
 
-    parameters: dict[str, Neo4jValue] = {"domain_a": domain_a, "domain_b": domain_b, "limit": limit}
+    parameters: dict[str, Neo4jValue] = {
+        "domain_a": domain_a,
+        "domain_b": domain_b,
+        "limit": limit,
+        "semantic_type_values": _semantic_values(semantic_types),
+    }
 
     return cypher, parameters
 
@@ -483,9 +556,12 @@ def build_semantic_filter_query(
     # Build direction pattern (the connected node is anonymous — RETURN only reads n/r)
     pattern = f"(n:{label}){direction_clause(direction, 'r', rel_name)}(other)"
 
+    # Coarse edge type + precise semantic_type filter (Phase 1): the requested
+    # predicate may share its RelationshipName with others, so match by property.
     cypher = f"""
     MATCH {pattern}
     WHERE r.confidence >= $min_confidence
+      AND r.semantic_type = $semantic_type_value
     WITH n, r, count(*) as rel_count
     RETURN
         n.uid as uid,
@@ -497,6 +573,10 @@ def build_semantic_filter_query(
     LIMIT $limit
     """
 
-    parameters: dict[str, Neo4jValue] = {"min_confidence": min_confidence, "limit": limit}
+    parameters: dict[str, Neo4jValue] = {
+        "min_confidence": min_confidence,
+        "limit": limit,
+        "semantic_type_value": semantic_type.value,
+    }
 
     return cypher, parameters

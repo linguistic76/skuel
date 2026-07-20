@@ -408,13 +408,13 @@ class TestVectorSearchConfig:
     """Unit tests for VectorSearchConfig helper methods."""
 
     def test_get_relationship_weight_known_type(self):
-        """Test getting weight for known relationship type."""
+        """Weights are keyed by the namespaced semantic predicate (roadmap Phase 1)."""
         config = VectorSearchConfig()
 
-        weight = config.get_relationship_weight("REQUIRES_THEORETICAL_UNDERSTANDING")
+        weight = config.get_relationship_weight("learn:requires_theoretical_understanding")
         assert weight == 1.0  # High importance
 
-        weight = config.get_relationship_weight("RELATED_TO")
+        weight = config.get_relationship_weight("cross:related_to")
         assert weight == 0.5  # Lower importance
 
     def test_get_relationship_weight_unknown_type(self):
