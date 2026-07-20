@@ -563,10 +563,13 @@ class UserBackend(Neo4jSessionRunner):
             # Property shape matches UserProgressBackend.record_progress (the other
             # IN_PROGRESS writer): started_at is create-only, so coalesce preserves
             # the first one; last_accessed is what every IN_PROGRESS reader sorts on.
+            # difficulty_rating coalesces the other way — the param is optional (the
+            # pathways progress route omits it), and a bare SET of NULL would REMOVE
+            # a rating the other writer stored on the same shared edge.
             """r.progress = $progress,
             r.started_at = coalesce(r.started_at, datetime()),
             r.time_invested_minutes = coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
-            r.difficulty_rating = $difficulty_rating,
+            r.difficulty_rating = coalesce($difficulty_rating, r.difficulty_rating),
             r.last_accessed = datetime()""",
             {
                 "progress": progress,

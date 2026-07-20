@@ -183,7 +183,10 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      collect({
          uid: ku.uid,
-         score: coalesce(mastered.mastery_score, CASE WHEN type(mastered) = 'MASTERED' THEN 1.0 ELSE 0.1 END),
+         // MASTERED carries mastery_score; IN_PROGRESS carries progress (0.0-1.0)
+         // from record_knowledge_progress / UserProgressBackend.record_progress.
+         // The constants are the last resort for an edge with neither.
+         score: coalesce(mastered.mastery_score, mastered.progress, CASE WHEN type(mastered) = 'MASTERED' THEN 1.0 ELSE 0.1 END),
          mastered_at: mastered.mastered_at,
          confidence: coalesce(mastered.confidence, 1.0)
      }) as knowledge_mastery_data,
