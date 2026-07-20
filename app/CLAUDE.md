@@ -655,6 +655,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 | Base analytics | `/core/services/base_analytics_service.py` |
 | Knowledge intelligence | `/core/services/knowledge/` |
 | Domain enums | `/core/models/enums/` |
+| Graph contract view | `/docs/reference/GRAPH_CONTRACT.yaml` — generated; after enum/registry changes run `uv run python scripts/generate_graph_contract.py` (drift-tested) |
 | Protocols | `/core/ports/` |
 | Generic backend | `/adapters/persistence/neo4j/universal_backend.py` |
 | Event bus | `/adapters/infrastructure/event_bus.py` (protocols: `/core/ports/infrastructure_protocols.py`) |

@@ -1,0 +1,1503 @@
+# =============================================================================
+# GRAPH VOCABULARY CONTRACT — AUTO-GENERATED, DO NOT EDIT
+# =============================================================================
+# Regenerate:   cd app && uv run python scripts/generate_graph_contract.py
+# Drift-guarded: tests/unit/scripts/test_generate_graph_contract.py
+#
+# The emitted Analog view of the graph contract (2026-07 DSL review, step 5).
+# Spine: every RelationshipName / NeoLabel member — the exact vocabulary
+# SKUEL030 / CYP011 enforce in persistence Cypher. Metadata: read solely from
+# core/models/relationship_registry.py (the generic relationship machinery's
+# config).
+#
+# `contract: null` is a mechanical fact, not a judgment: the name is valid
+# vocabulary that the generic machinery (UnifiedRelationshipService, graph
+# enrichment, ingestion mapping) has no config for — either deliberately plain
+# (served by dedicated backend code; registry membership is conditional by
+# design, see the maintenance note in relationship_names.py) or not yet
+# registered (the semantic-relationship-layer roadmap grows coverage).
+#
+# `findings:` names are NOT vocabulary. They appear in persistence Cypher but
+# are known silent-zero bugs (SKUEL030 baseline) — see
+# docs/patterns/CYPHER_VOCABULARY_FINDINGS.md for the triage.
+
+meta:
+  sources:
+    vocabulary:
+      relationships: core/models/relationship_names.py::RelationshipName
+      labels: core/models/enums/neo_labels.py::NeoLabel
+    contract: core/models/relationship_registry.py
+    findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
+  coverage:
+    relationships: {total: 182, with_contract: 98}
+    labels: {total: 62, with_contract: 16}
+  legacy_label_config_aliases: [Lesson, Ls, Lp]
+
+relationships:
+  REQUIRES_PREREQUISITE:
+    traits: [lateral]
+    lateral:
+      category: dependency
+      symmetric: false
+      inverse: PREREQUISITE_FOR
+    contract: null
+  RELATED_TO:
+    traits: [knowledge, lateral]
+    lateral:
+      category: semantic
+      symmetric: true
+      requires_same_depth: true
+    contract:
+      - config: Habit
+        definitions:
+          - {direction: both, target: Entity, context_field: related_habits, method: related_habits, fields: [uid, title, current_streak]}
+      - config: Principle
+        definitions:
+          - {direction: both, target: Principle, context_field: related_principles, method: related_principles}
+      - config: PathStep
+        definitions:
+          - {direction: both, target: Entity, context_field: related, method: related, ingestion_field: connections.related}
+  HAS_NARROWER:
+    traits: [knowledge]
+    contract: null
+  HAS_BROADER:
+    traits: [knowledge]
+    contract: null
+  REQUIRES_KNOWLEDGE:
+    traits: [knowledge, blocking, prerequisite]
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: required_knowledge, method: prerequisite_knowledge, use_confidence: true}
+      - config: Goal
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: required_knowledge, method: knowledge, use_confidence: true, ingestion_field: connections.requires_knowledge}
+      - config: Event
+        roles: [prerequisite]
+      - config: PathStep
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: prerequisite_knowledge_units, method: prerequisite_knowledge, use_confidence: true, ingestion_field: prerequisite_knowledge_uids}
+          - {direction: incoming, target: Entity, context_field: dependents, method: required_by}
+          - {direction: incoming, target: Goal, context_field: required_by_goals, method: required_by_goals}
+      - config: LearningPath
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: required_knowledge, method: prerequisites, ingestion_field: connections.required_knowledge}
+      - config: Exercise
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: required_knowledge, method: required_knowledge, fields: [uid, title, complexity, learning_level]}
+  APPLIES_KNOWLEDGE:
+    traits: [knowledge]
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: applied_knowledge, method: knowledge, use_confidence: true, ingestion_field: connections.applies_knowledge}
+          - {direction: both, target: Task, context_field: related_tasks, method: related_tasks, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [APPLIES_KNOWLEDGE, FULFILLS_GOAL], target: Task, alias: related_tasks}}
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: applied_knowledge, method: knowledge, ingestion_field: connections.applies_knowledge}
+          - {direction: both, target: Event, context_field: related_events, method: related_events, fields: [uid, title, start_time], limit: 5, shared_neighbor: {via: [APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL], target: Event, alias: related_events}}
+      - config: PathStep
+        definitions:
+          - {direction: incoming, target: Task, context_field: applied_in_tasks, method: applied_in_tasks}
+      - config: UserEntry
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: applied_knowledge, method: knowledge}
+  REINFORCES_KNOWLEDGE:
+    traits: [knowledge]
+    contract:
+      - config: Habit
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: reinforced_knowledge, method: knowledge, ingestion_field: connections.reinforces_knowledge}
+          - {direction: both, target: Entity, context_field: related_habits_shared, method: related_habits_shared, fields: [uid, title, current_streak], limit: 5, shared_neighbor: {via: [REINFORCES_KNOWLEDGE, SUPPORTS_GOAL], target: Habit, alias: related_habits_shared}}
+      - config: PathStep
+        definitions:
+          - {direction: incoming, target: Entity, context_field: reinforced_by_habits, method: reinforced_by_habits}
+  GROUNDED_IN_KNOWLEDGE:
+    traits: [knowledge]
+    contract:
+      - config: Principle
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: grounding_knowledge, method: knowledge, ingestion_field: connections.grounded_in_knowledge}
+  GROUNDS_PRINCIPLE:
+    traits: [knowledge]
+    contract: null
+  ENABLES_KNOWLEDGE:
+    traits: [knowledge]
+    contract:
+      - config: PathStep
+        roles: [enables]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: enables_learning, method: enables, ingestion_field: connections.enables}
+          - {direction: incoming, target: Entity, context_field: enabled_by_kus, method: enabled_by}
+  ENABLES_GOAL:
+    contract:
+      - config: Goal
+        roles: [enables]
+  ENABLES_TASK:
+    contract:
+      - config: Task
+        roles: [enables]
+        definitions:
+          - {direction: outgoing, target: Task, context_field: enabled_tasks, method: enables}
+  INFORMS_CHOICE:
+    contract:
+      - config: Habit
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: informed_choices, method: informed_choices, fields: [uid, title, status]}
+      - config: Choice
+        definitions:
+          - {direction: incoming, target: Entity, context_field: informing_habits, method: informing_habits, fields: [uid, title, current_streak]}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: informed_choices, method: choices, ingestion_field: choice_uids}
+  COMPLETES_KNOWLEDGE:
+    contract: null
+  INFERRED_KNOWLEDGE:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: inferred_knowledge, method: inferred_knowledge}
+  GUIDED_BY_KNOWLEDGE:
+    contract: null
+  REINFORCED_BY_KNOWLEDGE:
+    contract: null
+  BLOCKED_BY_KNOWLEDGE:
+    contract: null
+  USES_KU:
+    contract:
+      - config: Ku
+        definitions:
+          - {direction: incoming, target: Entity, context_field: used_by_steps, method: used_by}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Ku, context_field: used_kus, method: uses_ku, ingestion_field: uses_kus}
+  TRAINS_KU:
+    contract:
+      - config: Ku
+        definitions:
+          - {direction: incoming, target: Entity, context_field: trained_by_steps, method: trained_by}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Ku, context_field: trained_kus, method: trains_ku, ingestion_field: trains_ku_uids}
+  IN_DOMAIN:
+    contract: null
+  SUPPORTS:
+    contract: null
+  HAS_SUBTASK:
+    traits: [parent_child]
+    contract: null
+  SUBTASK_OF:
+    traits: [parent_child]
+    contract: null
+  DEPENDS_ON:
+    traits: [blocking]
+    contract:
+      - config: Task
+        roles: [bidirectional]
+        definitions:
+          - {direction: outgoing, target: Task, context_field: dependencies, method: prerequisite_tasks, fields: [uid, title, status, priority], include_rel_type: true, ingestion_field: connections.depends_on}
+  BLOCKS:
+    traits: [blocking, lateral]
+    lateral:
+      category: dependency
+      symmetric: false
+      inverse: BLOCKED_BY
+      requires_same_parent: true
+      check_cycles: true
+    contract:
+      - config: Task
+        roles: [enables]
+  BLOCKED_BY:
+    traits: [lateral]
+    lateral:
+      category: dependency
+      symmetric: false
+      inverse: BLOCKS
+    contract:
+      - config: Task
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Task, context_field: blocked_by, method: blocked_by, fields: [uid, title, status, priority], include_rel_type: true}
+          - {direction: incoming, target: Task, context_field: dependents, method: dependents, fields: [uid, title, status]}
+  REQUIRES_TASK:
+    traits: [prerequisite]
+    contract:
+      - config: Task
+        roles: [prerequisite]
+  CONTRIBUTES_TO_GOAL:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: contributing_goals, method: contributes_to_goal}
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: supported_goals, method: goals, ingestion_field: connections.contributes_to_goal}
+  FULFILLS_GOAL:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: goal_context, method: fulfills_goal, fields: [uid, title, progress_percentage], single: true, ingestion_field: connections.fulfills_goal}
+      - config: Goal
+        definitions:
+          - {direction: incoming, target: Task, context_field: contributing_tasks, method: fulfilling_tasks, fields: [uid, title, status, priority]}
+          - {direction: both, target: Goal, context_field: related_goals, method: related_goals, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [FULFILLS_GOAL, SUPPORTS_GOAL], target: Goal, alias: related_goals}}
+  GENERATES_TASK:
+    contract: null
+  EXECUTES_TASK:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: incoming, target: Event, context_field: execution_events, method: execution_events, fields: [uid, title, start_time]}
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Task, context_field: executed_tasks, method: tasks, fields: [uid, title, status, priority], ingestion_field: connections.executes_task}
+  FUNDS_TASK:
+    contract: null
+  TRIGGERS_ON_COMPLETION:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Task, context_field: triggered_tasks, method: triggers}
+  UNLOCKS_KNOWLEDGE:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: unlocked_knowledge, method: unlocks_knowledge}
+  COMPLETED_TASK:
+    contract: null
+  ASSIGNED_TO:
+    contract: null
+  SUBGOAL_OF:
+    traits: [parent_child]
+    contract:
+      - config: Goal
+        roles: [bidirectional]
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: parent_goal, method: parent_goal, fields: [uid, title, progress_percentage], single: true, ingestion_field: connections.parent_goal}
+          - {direction: incoming, target: Goal, context_field: sub_goals, method: subgoals, fields: [uid, title, status, progress_percentage], ingestion_field: connections.sub_goals}
+  HAS_SUBGOAL:
+    traits: [parent_child]
+    contract: null
+  HAS_CHILD:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Task, context_field: subtasks, method: subtasks, fields: [uid, title, status, priority]}
+  DEPENDS_ON_GOAL:
+    traits: [blocking, prerequisite]
+    contract:
+      - config: Goal
+        roles: [prerequisite]
+  GUIDED_BY_PRINCIPLE:
+    contract:
+      - config: Goal
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: aligned_principles, method: principles, ingestion_field: connections.aligned_with_principle}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: guiding_principles, method: principles, ingestion_field: principle_uids}
+  SUPPORTS_GOAL:
+    contract:
+      - config: Goal
+        definitions:
+          - {direction: incoming, target: Entity, context_field: contributing_habits, method: supporting_habits, fields: [uid, title, current_streak], ingestion_field: connections.supporting_habits}
+          - {direction: incoming, target: Entity, context_field: essential_habits, method: essential_habits, filter_property: essentiality, filter_value: essential}
+          - {direction: incoming, target: Entity, context_field: critical_habits, method: critical_habits, filter_property: essentiality, filter_value: critical}
+          - {direction: incoming, target: Entity, context_field: optional_habits, method: optional_habits, filter_property: essentiality, filter_value: optional}
+      - config: Habit
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: supported_goals, method: supported_goals, fields: [uid, title, progress_percentage], ingestion_field: connections.supports_goal}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: supports_goals, method: practice_goals, ingestion_field: goal_uids}
+  INSPIRES_GOAL:
+    contract: null
+  CELEBRATES_GOAL:
+    contract:
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: celebrated_goals, method: celebrated_goals}
+  ALIGNED_WITH_PATH:
+    contract:
+      - config: Goal
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: aligned_paths, method: aligned_paths}
+  MOTIVATED_BY_GOAL:
+    contract: null
+  HAS_SUBHABIT:
+    traits: [parent_child]
+    contract: null
+  SUBHABIT_OF:
+    traits: [parent_child]
+    contract: null
+  UNLOCKED_ACHIEVEMENT:
+    contract: null
+  EARNED_BADGE:
+    contract: null
+  REQUIRES_PREREQUISITE_HABIT:
+    traits: [blocking, prerequisite]
+    contract:
+      - config: Habit
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: prerequisite_habits, method: prerequisite_habits, ingestion_field: connections.prerequisite_habits}
+  ENABLES_HABIT:
+    contract:
+      - config: Habit
+        roles: [enables]
+        definitions:
+          - {direction: incoming, target: Entity, context_field: enabling_habits, method: enabling_habits}
+  REQUIRES_HABIT:
+    traits: [prerequisite]
+    contract: null
+  REINFORCES_HABIT:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: habit_context, method: habits, fields: [uid, title, current_streak], single: true, ingestion_field: connections.reinforces_habit}
+      - config: Habit
+        definitions:
+          - {direction: incoming, target: Entity, context_field: reinforcing_habits, method: reinforcing_habits}
+          - {direction: incoming, target: Event, context_field: reinforcing_events, method: reinforcing_events}
+          - {direction: incoming, target: Task, context_field: reinforcing_tasks, method: reinforcing_tasks, fields: [uid, title, status]}
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: reinforced_habits, method: habits, ingestion_field: connections.reinforces_habit}
+  INSPIRES_HABIT:
+    contract:
+      - config: Habit
+        definitions:
+          - {direction: incoming, target: Principle, context_field: inspiring_principles, method: inspiring_principles}
+      - config: Principle
+        roles: [enables]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: inspired_habits, method: inspired_habits, ingestion_field: connections.inspires_habit}
+  IMPACTS_HABIT:
+    contract:
+      - config: Habit
+        definitions:
+          - {direction: incoming, target: Entity, context_field: impacting_choices, method: impacting_choices, fields: [uid, title, status]}
+      - config: Choice
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: impacted_habits, method: impacted_habits, fields: [uid, title, current_streak], ingestion_field: connections.impacts_habit}
+  REINFORCES_STEP:
+    contract: null
+  EMBODIES_PRINCIPLE:
+    contract:
+      - config: Habit
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: embodied_principles, method: principles, ingestion_field: connections.embodies_principle}
+      - config: Principle
+        definitions:
+          - {direction: incoming, target: Entity, context_field: embodying_habits, method: embodying_habits}
+      - config: LearningPath
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: embodied_principles, method: principles, ingestion_field: connections.embodied_principles}
+  PRACTICED_AT_EVENT:
+    contract:
+      - config: Event
+        definitions:
+          - {direction: incoming, target: Entity, context_field: practiced_habits, method: practiced_habits}
+      - config: Principle
+        definitions:
+          - {direction: outgoing, target: Event, context_field: practice_events, method: practice_events, fields: [uid, title, start_time]}
+  HAS_SUBEVENT:
+    traits: [parent_child]
+    contract: null
+  SUBEVENT_OF:
+    traits: [parent_child]
+    contract: null
+  CONFLICTS_WITH:
+    traits: [lateral]
+    lateral:
+      category: semantic
+      symmetric: true
+    contract:
+      - config: Event
+        roles: [bidirectional]
+        definitions:
+          - {direction: both, target: Event, context_field: conflicting_events, method: conflicting_events}
+  FUNDS_EVENT:
+    contract: null
+  ATTENDS:
+    contract: null
+  HAS_SUBPRINCIPLE:
+    traits: [parent_child]
+    contract: null
+  SUBPRINCIPLE_OF:
+    traits: [parent_child]
+    contract: null
+  SUPPORTS_PRINCIPLE:
+    contract:
+      - config: Principle
+        roles: [bidirectional]
+        definitions:
+          - {direction: incoming, target: Principle, context_field: supporting_principles, method: supporting_principles}
+  CONFLICTS_WITH_PRINCIPLE:
+    contract:
+      - config: Principle
+        roles: [bidirectional]
+        definitions:
+          - {direction: incoming, target: Principle, context_field: conflicting_principles, method: conflicting_principles}
+  GUIDES_GOAL:
+    contract:
+      - config: Goal
+        definitions:
+          - {direction: incoming, target: Principle, context_field: guiding_principles_incoming, method: guided_by_principles}
+      - config: Principle
+        roles: [enables]
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: guided_goals, method: guided_goals, ingestion_field: connections.guides_goal}
+          - {direction: both, target: Principle, context_field: related_principles_shared, method: related_principles_shared, fields: [uid, title, strength], limit: 5, shared_neighbor: {via: [GUIDES_GOAL, GROUNDED_IN_KNOWLEDGE], target: Principle, alias: related_principles_shared}}
+  GUIDES_CHOICE:
+    contract:
+      - config: Choice
+        definitions:
+          - {direction: incoming, target: Principle, context_field: guiding_principles, method: guided_by_principles}
+      - config: Principle
+        roles: [enables]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: guided_choices, method: guided_choices}
+  ALIGNED_WITH_PRINCIPLE:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: aligned_principles, method: principles}
+      - config: Principle
+        definitions:
+          - {direction: incoming, target: Task, context_field: aligned_tasks, method: aligned_tasks}
+  DEMONSTRATES_PRINCIPLE:
+    contract:
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: demonstrated_principles, method: demonstrated_principles, fields: [uid, title, strength]}
+      - config: Principle
+        definitions:
+          - {direction: incoming, target: Event, context_field: demonstrating_events, method: demonstrating_events, fields: [uid, title, start_time]}
+  REFLECTS_ON:
+    contract:
+      - config: PrincipleReflection
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: reflected_principle, method: principle}
+  TRIGGERED_BY:
+    contract:
+      - config: PrincipleReflection
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: trigger_goal, method: trigger}
+          - {direction: outgoing, target: Entity, context_field: trigger_habit, method: trigger}
+          - {direction: outgoing, target: Event, context_field: trigger_event, method: trigger}
+          - {direction: outgoing, target: Entity, context_field: trigger_choice, method: trigger}
+  REVEALS_CONFLICT:
+    contract:
+      - config: PrincipleReflection
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: conflicting_principles, method: conflicts}
+  MADE_REFLECTION:
+    contract:
+      - config: User
+        definitions:
+          - {direction: outgoing, target: PrincipleReflection, context_field: reflections, method: reflections}
+      - config: PrincipleReflection
+        roles: [ownership]
+        definitions:
+          - {direction: incoming, target: User, context_field: creator, method: user}
+  HAS_REFLECTION:
+    contract: null
+  HAS_SUBCHOICE:
+    traits: [parent_child]
+    contract: null
+  SUBCHOICE_OF:
+    traits: [parent_child]
+    contract: null
+  INFORMED_BY_PRINCIPLE:
+    contract:
+      - config: Choice
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: aligned_principles, method: principles, ingestion_field: connections.guided_by_principle}
+          - {direction: both, target: Entity, context_field: related_choices, method: related_choices, fields: [uid, title, status], limit: 5, shared_neighbor: {via: [INFORMED_BY_PRINCIPLE, AFFECTS_GOAL], target: Entity, alias: related_choices}}
+  INFORMED_BY_KNOWLEDGE:
+    contract:
+      - config: Choice
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: informed_by_knowledge, method: knowledge, ingestion_field: connections.informed_by_knowledge}
+      - config: PathStep
+        definitions:
+          - {direction: incoming, target: Entity, context_field: informs_choices, method: informs_choices}
+  INSPIRED_BY_CHOICE:
+    contract:
+      - config: Goal
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: inspired_by_choice, method: inspired_by_choice, single: true}
+      - config: Choice
+        definitions:
+          - {direction: incoming, target: Entity, context_field: inspired_choices, method: inspired_choices}
+  IMPLEMENTS_CHOICE:
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: implemented_choices, method: implements_choices, fields: [uid, title, status]}
+      - config: Choice
+        definitions:
+          - {direction: incoming, target: Task, context_field: implementing_tasks, method: implementing_tasks}
+  REQUIRES_KNOWLEDGE_FOR_DECISION:
+    contract:
+      - config: Choice
+        roles: [prerequisite]
+  OPENS_LEARNING_PATH:
+    contract:
+      - config: Choice
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: opened_paths, method: learning_paths}
+      - config: LearningPath
+        definitions:
+          - {direction: incoming, target: Entity, context_field: opened_by_choices, method: opened_by}
+  AFFECTS_GOAL:
+    contract:
+      - config: Choice
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: affected_goals, method: goals, ingestion_field: connections.affects_goal}
+  TRIGGERS_CHOICE:
+    contract:
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: triggered_choices, method: triggered_choices, fields: [uid, title, status]}
+      - config: Choice
+        definitions:
+          - {direction: incoming, target: Event, context_field: triggering_events, method: triggering_events, fields: [uid, title, start_time]}
+  OWNS:
+    contract:
+      - config: Habit
+        roles: [ownership]
+      - config: Choice
+        roles: [ownership]
+      - config: Principle
+        roles: [ownership]
+      - config: Exercise
+        roles: [ownership]
+      - config: RevisedExercise
+        roles: [ownership]
+      - config: UserEntry
+        roles: [ownership]
+      - config: EntryReport
+        roles: [ownership]
+      - config: Interaction
+        roles: [ownership]
+  REQUESTED:
+    contract: null
+  HAS_TASK:
+    traits: [ownership]
+    contract:
+      - config: Task
+        roles: [ownership]
+      - config: User
+        definitions:
+          - {direction: outgoing, target: Task, context_field: tasks, method: tasks}
+  HAS_EVENT:
+    traits: [ownership]
+    contract:
+      - config: Event
+        roles: [ownership]
+      - config: User
+        definitions:
+          - {direction: outgoing, target: Event, context_field: events, method: events}
+  HAS_HABIT:
+    traits: [ownership]
+    contract:
+      - config: User
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: habits, method: habits}
+  HAS_GOAL:
+    traits: [ownership]
+    contract:
+      - config: Goal
+        roles: [ownership]
+      - config: User
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: goals, method: goals}
+  HAS_PRINCIPLE:
+    traits: [ownership]
+    contract:
+      - config: User
+        definitions:
+          - {direction: outgoing, target: Principle, context_field: principles, method: principles}
+  HAS_CHOICE:
+    traits: [ownership]
+    contract:
+      - config: User
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: choices, method: choices}
+  HAS_KU:
+    contract: null
+  HAS_TASK_TEMPLATE:
+    contract: null
+  HAS_GOAL_TEMPLATE:
+    contract: null
+  HAS_HABIT_TEMPLATE:
+    contract: null
+  HAS_EVENT_TEMPLATE:
+    contract: null
+  HAS_CHOICE_TEMPLATE:
+    contract: null
+  HAS_PRINCIPLE_TEMPLATE:
+    contract: null
+  SPAWNED_FROM:
+    contract: null
+  ENGAGED_WITH:
+    contract: null
+  VIEWED:
+    traits: [learning_progress]
+    contract: null
+  IN_PROGRESS:
+    traits: [learning_progress]
+    contract: null
+  MASTERED:
+    traits: [learning_progress]
+    contract: null
+  MARKED_AS_READ:
+    contract: null
+  BOOKMARKED:
+    contract: null
+  PINNED:
+    contract: null
+  PINNED_TODAY:
+    contract: null
+  FOLLOWS:
+    contract: null
+  INTERESTED_IN:
+    contract: null
+  PURSUING_GOAL:
+    contract: null
+  ENROLLED_IN:
+    contract: null
+  MEMBER_OF:
+    contract: null
+  SHARES_WITH:
+    contract: null
+  PART_OF_PROJECT:
+    contract: null
+  REQUIRES_PATH_COMPLETION:
+    contract:
+      - config: Goal
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: required_paths, method: required_paths}
+  HAS_STEP:
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: incoming, target: Entity, context_field: learning_paths, method: in_paths, single: true, ingestion_field: learning_path_uids}
+      - config: LearningPath
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: path_steps, method: steps, order_by: sequence, edge_properties: [sequence, completed], ingestion_field: connections.contains_steps}
+  HAS_PATH:
+    contract: null
+  CONTAINS_KNOWLEDGE:
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: knowledge_units, method: knowledge, ingestion_field: knowledge_uids}
+  REQUIRES_STEP:
+    traits: [prerequisite]
+    contract:
+      - config: PathStep
+        roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: prerequisites, method: prerequisite_steps, ingestion_field: prerequisite_step_uids}
+      - config: LearningPath
+        roles: [prerequisite]
+  BUILDS_HABIT:
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: builds_habits, method: practice_habits, ingestion_field: habit_uids}
+  ASSIGNS_TASK:
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Task, context_field: assigned_tasks, method: practice_tasks, ingestion_field: task_uids}
+  SCHEDULES_EVENT:
+    contract:
+      - config: Event
+        definitions:
+          - {direction: incoming, target: Entity, context_field: scheduled_by_choices, method: scheduled_by_choices, fields: [uid, title, status]}
+      - config: Choice
+        definitions:
+          - {direction: outgoing, target: Event, context_field: scheduled_events, method: scheduled_events, fields: [uid, title, start_time]}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Event, context_field: scheduled_events, method: practice_events, ingestion_field: event_template_uids}
+  HAS_EXERCISE:
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: exercises, method: exercises, ingestion_field: exercise_uids}
+  ALIGNED_WITH_GOAL:
+    contract:
+      - config: LearningPath
+        definitions:
+          - {direction: outgoing, target: Goal, context_field: aligned_goals, method: goals, ingestion_field: connections.aligned_goals}
+  HAS_MILESTONE_EVENT:
+    contract:
+      - config: LearningPath
+        definitions:
+          - {direction: outgoing, target: Event, context_field: milestone_events, method: milestones, ingestion_field: connections.milestone_events}
+  ORGANIZES:
+    contract:
+      - config: Ku
+        definitions:
+          - {direction: outgoing, target: Ku, context_field: organized_children, method: organizes}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: organized_children, method: organizes, order_by: order, edge_properties: [order], ingestion_field: organizes}
+          - {direction: incoming, target: Entity, context_field: organized_by, method: organized_by}
+  ULTIMATE_PATH:
+    traits: [life_path]
+    contract: null
+  ALIGNMENT_SNAPSHOT:
+    traits: [life_path]
+    contract: null
+  SERVES_LIFE_PATH:
+    traits: [life_path]
+    contract:
+      - config: Task
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: life_path, method: life_path, single: true}
+      - config: Goal
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: life_path, method: life_path, single: true}
+      - config: Habit
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: life_path, method: life_path, single: true}
+      - config: Event
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: life_path, method: life_path, single: true}
+      - config: Choice
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: life_path, method: life_path, single: true}
+      - config: Principle
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: life_path, method: life_path, single: true}
+  FULFILLS_EXERCISE:
+    contract:
+      - config: Exercise
+        definitions:
+          - {direction: incoming, target: Entity, context_field: submissions, method: submissions, fields: [uid, title, status, user_uid]}
+      - config: UserEntry
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: exercise, method: exercise, single: true}
+  FULFILLS_REVISED_EXERCISE:
+    contract:
+      - config: RevisedExercise
+        definitions:
+          - {direction: incoming, target: Entity, context_field: submissions, method: submissions, fields: [uid, title, status, user_uid]}
+  SHARED_WITH_GROUP:
+    contract:
+      - config: Exercise
+        definitions:
+          - {direction: outgoing, target: Group, context_field: shared_groups, method: shared_groups, fields: [uid, name]}
+  RESPONDS_TO_REPORT:
+    contract:
+      - config: RevisedExercise
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: source_feedback, method: source_feedback, fields: [uid, title, status], single: true}
+      - config: EntryReport
+        definitions:
+          - {direction: incoming, target: Entity, context_field: revisions, method: revisions, fields: [uid, title, status]}
+  REVISES_EXERCISE:
+    contract:
+      - config: RevisedExercise
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: original_exercise, method: original_exercise, single: true}
+  CITES_RESOURCE:
+    contract:
+      - config: Ku
+        definitions:
+          - {direction: outgoing, target: Resource, context_field: cited_resources, method: resources, ingestion_field: resource_uids}
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: Resource, context_field: cited_resources, method: resources, ingestion_field: resource_uids}
+  EMBEDS_FORM:
+    contract: null
+  RESPONDS_TO_FORM:
+    contract: null
+  TRANSCRIBED_FOR:
+    contract: null
+  HAS_CONTENT:
+    contract: null
+  HAS_CHUNK:
+    contract: null
+  HAS_REFERENCE_CHUNK:
+    contract: null
+  HAS_SCHEDULE:
+    contract: null
+  ASSESSMENT_OF:
+    contract:
+      - config: EntryReport
+        definitions:
+          - {direction: outgoing, target: User, context_field: assessed_student, method: assessed_student, fields: [uid, title, display_name], single: true}
+  REPORT_FOR:
+    contract:
+      - config: UserEntry
+        definitions:
+          - {direction: incoming, target: EntryReport, context_field: reports, method: reports, fields: [uid, title, status, processor_type]}
+      - config: EntryReport
+        definitions:
+          - {direction: outgoing, target: UserEntry, context_field: reviewed_entry, method: reviewed_entry, fields: [uid, title, status, user_uid], single: true}
+  TRANSFORMS:
+    contract:
+      - config: UserEntry
+        definitions:
+          - {direction: outgoing, target: UserEntry, context_field: source_entry, method: source_entry, fields: [uid, title, pipeline], single: true}
+  EXTRACTED_FROM:
+    contract: null
+  EXACERBATED_BY:
+    traits: [evidence]
+    contract: null
+  REDUCED_BY:
+    traits: [evidence]
+    contract: null
+  CORRELATED_WITH:
+    traits: [evidence]
+    contract: null
+  CAUSES:
+    traits: [evidence]
+    contract: null
+  PRECEDES:
+    traits: [evidence]
+    contract: null
+  HAS_NOTIFICATION:
+    contract: null
+  HAS_INSIGHT:
+    contract: null
+  ABOUT_ENTITY:
+    contract: null
+  HAD_ERROR:
+    contract: null
+  HAS_ZPD_HISTORY:
+    contract: null
+  HAS_SESSION:
+    contract: null
+  HAS_TURN:
+    contract: null
+  HAS_MESSAGE:
+    contract: null
+  HAD_AUTH_EVENT:
+    contract: null
+  HAS_RESET_TOKEN:
+    contract: null
+  HAS_DEVICE:
+    contract: null
+  SIBLING:
+    traits: [lateral]
+    lateral:
+      category: structural
+      symmetric: true
+      requires_same_parent: true
+      requires_same_depth: true
+    contract: null
+  COUSIN:
+    traits: [lateral]
+    lateral:
+      category: structural
+      symmetric: true
+      requires_same_depth: true
+    contract: null
+  AUNT_UNCLE:
+    traits: [lateral]
+    lateral:
+      category: structural
+      symmetric: false
+      inverse: NIECE_NEPHEW
+    contract: null
+  NIECE_NEPHEW:
+    traits: [lateral]
+    lateral:
+      category: structural
+      symmetric: false
+      inverse: AUNT_UNCLE
+    contract: null
+  PREREQUISITE_FOR:
+    traits: [lateral]
+    lateral:
+      category: dependency
+      symmetric: false
+      inverse: REQUIRES_PREREQUISITE
+      check_cycles: true
+    contract: null
+  ENABLES:
+    enum_member: LATERAL_ENABLES
+    traits: [lateral]
+    lateral:
+      category: dependency
+      symmetric: false
+      inverse: ENABLED_BY
+    contract: null
+  ENABLED_BY:
+    enum_member: LATERAL_ENABLED_BY
+    traits: [lateral]
+    lateral:
+      category: dependency
+      symmetric: false
+      inverse: ENABLES
+    contract: null
+  SIMILAR_TO:
+    traits: [lateral]
+    lateral:
+      category: semantic
+      symmetric: true
+    contract: null
+  COMPLEMENTARY_TO:
+    traits: [lateral]
+    lateral:
+      category: semantic
+      symmetric: true
+    contract: null
+  ALTERNATIVE_TO:
+    traits: [lateral]
+    lateral:
+      category: associative
+      symmetric: true
+      requires_same_depth: true
+    contract: null
+  RECOMMENDED_WITH:
+    traits: [lateral]
+    lateral:
+      category: associative
+      symmetric: true
+    contract: null
+  STACKS_WITH:
+    traits: [lateral]
+    lateral:
+      category: associative
+      symmetric: true
+      requires_same_parent: true
+    contract: null
+  RECORDS:
+    contract:
+      - config: Interaction
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: recorded_entry, method: recorded_entry, fields: [uid, title, pipeline], single: true}
+  INTERACTION_DURING:
+    contract:
+      - config: Interaction
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: context_path_step, method: path_step, single: true}
+  INTERACTION_WITHIN:
+    contract:
+      - config: Interaction
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: context_learning_path, method: learning_path, single: true}
+
+labels:
+  Entity:
+    contract: null
+  Task:
+    entity_types: [task]
+    contract:
+      domain: tasks
+      ownership: HAS_TASK
+      relationships:
+        - APPLIES_KNOWLEDGE
+        - REQUIRES_KNOWLEDGE
+        - ALIGNED_WITH_PRINCIPLE
+        - ENABLES_TASK
+        - TRIGGERS_ON_COMPLETION
+        - UNLOCKS_KNOWLEDGE
+        - CONTRIBUTES_TO_GOAL
+        - FULFILLS_GOAL
+        - REINFORCES_HABIT
+        - BLOCKED_BY
+        - HAS_CHILD
+        - DEPENDS_ON
+        - INFERRED_KNOWLEDGE
+        - EXECUTES_TASK
+        - IMPLEMENTS_CHOICE
+        - SERVES_LIFE_PATH
+        - HAS_TASK
+        - REQUIRES_TASK
+        - BLOCKS
+  Goal:
+    entity_types: [goal]
+    contract:
+      domain: goals
+      ownership: HAS_GOAL
+      relationships:
+        - REQUIRES_KNOWLEDGE
+        - GUIDED_BY_PRINCIPLE
+        - ALIGNED_WITH_PATH
+        - REQUIRES_PATH_COMPLETION
+        - SUBGOAL_OF
+        - INSPIRED_BY_CHOICE
+        - SUPPORTS_GOAL
+        - FULFILLS_GOAL
+        - GUIDES_GOAL
+        - SERVES_LIFE_PATH
+        - HAS_GOAL
+        - DEPENDS_ON_GOAL
+        - ENABLES_GOAL
+  Habit:
+    entity_types: [habit]
+    contract:
+      domain: habits
+      ownership: OWNS
+      relationships:
+        - REINFORCES_KNOWLEDGE
+        - EMBODIES_PRINCIPLE
+        - SUPPORTS_GOAL
+        - REQUIRES_PREREQUISITE_HABIT
+        - REINFORCES_HABIT
+        - ENABLES_HABIT
+        - INSPIRES_HABIT
+        - RELATED_TO
+        - SERVES_LIFE_PATH
+        - INFORMS_CHOICE
+        - IMPACTS_HABIT
+        - OWNS
+  Event:
+    entity_types: [event]
+    contract:
+      domain: events
+      ownership: HAS_EVENT
+      relationships:
+        - APPLIES_KNOWLEDGE
+        - CONTRIBUTES_TO_GOAL
+        - REINFORCES_HABIT
+        - CELEBRATES_GOAL
+        - EXECUTES_TASK
+        - PRACTICED_AT_EVENT
+        - CONFLICTS_WITH
+        - SERVES_LIFE_PATH
+        - TRIGGERS_CHOICE
+        - SCHEDULES_EVENT
+        - DEMONSTRATES_PRINCIPLE
+        - HAS_EVENT
+        - REQUIRES_KNOWLEDGE
+  Choice:
+    entity_types: [choice]
+    contract:
+      domain: choices
+      ownership: OWNS
+      relationships:
+        - INFORMED_BY_KNOWLEDGE
+        - INFORMED_BY_PRINCIPLE
+        - AFFECTS_GOAL
+        - OPENS_LEARNING_PATH
+        - INSPIRED_BY_CHOICE
+        - IMPLEMENTS_CHOICE
+        - GUIDES_CHOICE
+        - SERVES_LIFE_PATH
+        - IMPACTS_HABIT
+        - INFORMS_CHOICE
+        - SCHEDULES_EVENT
+        - TRIGGERS_CHOICE
+        - OWNS
+        - REQUIRES_KNOWLEDGE_FOR_DECISION
+  Principle:
+    entity_types: [principle]
+    contract:
+      domain: principles
+      ownership: OWNS
+      relationships:
+        - GROUNDED_IN_KNOWLEDGE
+        - GUIDES_GOAL
+        - GUIDES_CHOICE
+        - INSPIRES_HABIT
+        - EMBODIES_PRINCIPLE
+        - SUPPORTS_PRINCIPLE
+        - CONFLICTS_WITH_PRINCIPLE
+        - ALIGNED_WITH_PRINCIPLE
+        - RELATED_TO
+        - DEMONSTRATES_PRINCIPLE
+        - PRACTICED_AT_EVENT
+        - SERVES_LIFE_PATH
+        - OWNS
+  TaskTemplate:
+    entity_types: [task_template]
+    contract: null
+  GoalTemplate:
+    entity_types: [goal_template]
+    contract: null
+  HabitTemplate:
+    entity_types: [habit_template]
+    contract: null
+  EventTemplate:
+    entity_types: [event_template]
+    contract: null
+  ChoiceTemplate:
+    entity_types: [choice_template]
+    contract: null
+  PrincipleTemplate:
+    entity_types: [principle_template]
+    contract: null
+  Ku:
+    entity_types: [ku]
+    contract:
+      domain: knowledge
+      shared_content: true
+      relationships:
+        - USES_KU
+        - TRAINS_KU
+        - CITES_RESOURCE
+        - ORGANIZES
+  Resource:
+    entity_types: [resource]
+    contract: null
+  PathStep:
+    entity_types: [path_step]
+    contract:
+      domain: learning
+      shared_content: true
+      relationships:
+        - USES_KU
+        - CONTAINS_KNOWLEDGE
+        - TRAINS_KU
+        - REQUIRES_STEP
+        - REQUIRES_KNOWLEDGE
+        - ENABLES_KNOWLEDGE
+        - RELATED_TO
+        - APPLIES_KNOWLEDGE
+        - REINFORCES_KNOWLEDGE
+        - INFORMED_BY_KNOWLEDGE
+        - ORGANIZES
+        - BUILDS_HABIT
+        - ASSIGNS_TASK
+        - SCHEDULES_EVENT
+        - SUPPORTS_GOAL
+        - GUIDED_BY_PRINCIPLE
+        - INFORMS_CHOICE
+        - HAS_EXERCISE
+        - CITES_RESOURCE
+        - HAS_STEP
+  LearningPath:
+    entity_types: [learning_path]
+    contract:
+      domain: learning
+      shared_content: true
+      relationships:
+        - HAS_STEP
+        - REQUIRES_KNOWLEDGE
+        - ALIGNED_WITH_GOAL
+        - EMBODIES_PRINCIPLE
+        - HAS_MILESTONE_EVENT
+        - OPENS_LEARNING_PATH
+        - REQUIRES_STEP
+  KnowledgeDomain:
+    contract: null
+  Submission:
+    contract: null
+  ActivityReport:
+    entity_types: [activity_report]
+    contract: null
+  EntryReport:
+    entity_types: [entry_report]
+    contract:
+      domain: system
+      ownership: OWNS
+      relationships:
+        - REPORT_FOR
+        - ASSESSMENT_OF
+        - RESPONDS_TO_REPORT
+        - OWNS
+  UserEntry:
+    entity_types: [user_entry]
+    contract:
+      domain: system
+      ownership: OWNS
+      relationships:
+        - TRANSFORMS
+        - FULFILLS_EXERCISE
+        - APPLIES_KNOWLEDGE
+        - REPORT_FOR
+        - OWNS
+  Exercise:
+    entity_types: [exercise]
+    contract:
+      domain: knowledge
+      ownership: OWNS
+      relationships:
+        - REQUIRES_KNOWLEDGE
+        - SHARED_WITH_GROUP
+        - FULFILLS_EXERCISE
+        - OWNS
+  RevisedExercise:
+    entity_types: [revised_exercise]
+    contract:
+      domain: knowledge
+      ownership: OWNS
+      relationships:
+        - RESPONDS_TO_REPORT
+        - REVISES_EXERCISE
+        - FULFILLS_REVISED_EXERCISE
+        - OWNS
+  FormTemplate:
+    entity_types: [form_template]
+    contract: null
+  FormSubmission:
+    entity_types: [form_submission]
+    contract: null
+  Interaction:
+    entity_types: [interaction]
+    contract:
+      domain: system
+      ownership: OWNS
+      relationships:
+        - RECORDS
+        - INTERACTION_DURING
+        - INTERACTION_WITHIN
+        - OWNS
+  LifePath:
+    entity_types: [life_path]
+    contract: null
+  HabitCompletion:
+    contract: null
+  PrincipleReflection:
+    contract:
+      domain: principles
+      ownership: MADE_REFLECTION
+      relationships:
+        - REFLECTS_ON
+        - TRIGGERED_BY
+        - REVEALS_CONFLICT
+        - MADE_REFLECTION
+  Invoice:
+    contract: null
+  Group:
+    contract: null
+  ReviewRequest:
+    contract: null
+  Content:
+    contract: null
+  ContentChunk:
+    contract: null
+  ReferenceChunk:
+    contract: null
+  ReportProject:
+    contract: null
+  ReportSchedule:
+    contract: null
+  Transcription:
+    contract: null
+  ChangeLog:
+    contract: null
+  IngestionHistory:
+    contract: null
+  IngestionError:
+    contract: null
+  IngestionMetadata:
+    contract: null
+  Insight:
+    contract: null
+  ZPDHistory:
+    contract: null
+  LearningVelocity:
+    contract: null
+  ProductivityAnalytics:
+    contract: null
+  HabitAnalytics:
+    contract: null
+  Achievement:
+    contract: null
+  Notification:
+    contract: null
+  Session:
+    contract: null
+  AuthEvent:
+    contract: null
+  Device:
+    contract: null
+  PasswordResetToken:
+    contract: null
+  ConversationSession:
+    contract: null
+  ConversationTurn:
+    contract: null
+  ConversationMessage:
+    contract: null
+  User:
+    contract:
+      domain: system
+      relationships:
+        - MADE_REFLECTION
+        - HAS_TASK
+        - HAS_GOAL
+        - HAS_HABIT
+        - HAS_EVENT
+        - HAS_CHOICE
+        - HAS_PRINCIPLE
+  UserProgress:
+    contract: null
+  EmbeddingVector:
+    contract: null
+  Askesis:
+    contract: null
+  SearchEvent:
+    contract: null
+
+# Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).
+findings:
+  ADHERES_TO:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/query/cypher/domain_queries.py
+  ATTENDED:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/query/cypher/domain_queries.py
+  CHILD_OF:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/query/graph_traversal.py
+  COMPLETED:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/_lp_intelligence_mixin.py
+      - adapters/persistence/neo4j/query_builders/faceted_query_builder.py
+  CONTAINS:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/cross_domain_backend.py
+      - adapters/persistence/neo4j/lifepath_backend.py
+  CONTRIBUTES_TO:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/user_context_queries.py
+  ContentMetadata:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j/ingestion_backend.py
+      - adapters/persistence/neo4j/neo4j_content_adapter.py
+  Conversation:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j_adapter.py
+  DEEPENS_UNDERSTANDING:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/_knowledge_context_mixin.py
+  Document:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j_adapter.py
+  Domain:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j/query_builders/faceted_query_builder.py
+  EXTENDS_PATTERN:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/_knowledge_context_mixin.py
+  Expense:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j/ingestion_backend.py
+  FOR_KNOWLEDGE:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/user_progress_backend.py
+  FUNDS_HABIT:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/_traversal_mixin.py
+  HAS_METADATA:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/ingestion_backend.py
+      - adapters/persistence/neo4j/neo4j_content_adapter.py
+  HAS_PREFERENCE:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/_adaptive_mixin.py
+  HAS_PROGRESS:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/_lp_intelligence_mixin.py
+      - adapters/persistence/neo4j/user_progress_backend.py
+  HAS_VELOCITY:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/cross_domain_backend.py
+  INCLUDES_ENTITY:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/analytics_relationship_backend.py
+  INCLUDES_KNOWLEDGE:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/backends/curriculum_backends.py
+  INCLUDES_KU:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/_lp_progress_mixin.py
+  JournalAnalytics:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j/cross_domain_backend.py
+  LEARNING:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/user_backend.py
+      - adapters/persistence/neo4j/user_context_queries.py
+  LearningPreference:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j/_adaptive_mixin.py
+  MADE_CHOICE:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/query/cypher/domain_queries.py
+  MasteryRecord:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j/cross_domain_backend.py
+  NEEDS_REVIEW:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/user_progress_backend.py
+  PARENT_OF:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/query/graph_traversal.py
+  PRACTICES:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/query/cypher/domain_queries.py
+  REPORTS_ON_GOAL:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/analytics_relationship_backend.py
+  REQUIRES:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/query/cypher/domain_queries.py
+  Report:
+    kind: label
+    sites:
+      - adapters/persistence/neo4j/analytics_relationship_backend.py
+  STRUGGLING_WITH:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/user_progress_backend.py
+  SUBCHOICE:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/backends/collab_backends.py
+  SUBEVENT:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/backends/collab_backends.py
+  SUBGOAL:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/backends/collab_backends.py
+  SUBHABIT:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/backends/collab_backends.py
+  SUBPRINCIPLE:
+    kind: relationship
+    sites:
+      - adapters/persistence/neo4j/backends/collab_backends.py
