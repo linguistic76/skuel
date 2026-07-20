@@ -83,7 +83,50 @@ four more times in one file (`adapters/persistence/neo4j/query/cypher/domain_que
 
 ---
 
-## 3b. `LEARNING` — a retired edge that still has a live writer
+## 4. Bare `REQUIRES` — the prerequisite-chain traversal walks a non-existent edge
+
+13 sites in `adapters/persistence/neo4j/query/cypher/domain_queries.py` traverse
+`[:REQUIRES*1..{depth}]` or `[:REQUIRES]`. **No writer anywhere creates a bare
+`REQUIRES` edge.** The registered names are `REQUIRES_TASK`, `REQUIRES_HABIT`,
+`REQUIRES_PREREQUISITE`, `REQUIRES_PREREQUISITE_HABIT`, `REQUIRES_KNOWLEDGE`,
+`REQUIRES_STEP`.
+
+So the dependency-chain queries — the *core* of prerequisite/blocking-chain
+analysis — traverse nothing and return empty chains. This compounds §3: the same
+file's `WHERE NOT` completion filters are always-true, so these queries return
+"no prerequisites, nothing completed" regardless of graph state.
+
+Only visible once the scanner stopped skipping relationships whose *var-length
+bound* was interpolated (`[:REQUIRES*1..{depth}]` — the type name is static, only
+the depth is dynamic).
+
+---
+
+## 5. `get_siblings` ignores 5 of the 7 edge types it filters on
+
+`adapters/persistence/neo4j/backends/collab_backends.py:413`:
+
+```cypher
+AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
+                 'SUBCHOICE', 'HAS_STEP', 'ORGANIZES']
+```
+
+The registered names are `SUBGOAL_OF`, `SUBHABIT_OF`, … — the bare forms are not
+`RelationshipName` members and no writer creates them. Only `HAS_STEP` and
+`ORGANIZES` in that list are real, so sibling lookup silently ignores every
+activity-hierarchy edge it was written to find.
+
+Found only after the scanner was extended to **predicate position** (`type(r) IN
+[...]`), not just pattern position — vocabulary named in a `WHERE` filter fails
+exactly as silently as vocabulary named in a `MATCH`.
+
+**Fix is a semantics change** — correcting the list makes `get_siblings` start
+returning rows it has never returned — so it is baselined here rather than fixed
+in the rule's own PR.
+
+---
+
+## 6. `LEARNING` — a retired edge that still has a live writer
 
 `tests/unit/test_no_legacy_patterns.py::test_no_legacy_relationship_name_learning`
 asserts that `RelationshipName.LEARNING` must **not** exist:
@@ -108,50 +151,7 @@ retired, so the fix is to repoint the *writer* to `IN_PROGRESS`, not to register
 
 ---
 
-## 3a. Bare `REQUIRES` — the prerequisite-chain traversal walks a non-existent edge
-
-13 sites in `adapters/persistence/neo4j/query/cypher/domain_queries.py` traverse
-`[:REQUIRES*1..{depth}]` or `[:REQUIRES]`. **No writer anywhere creates a bare
-`REQUIRES` edge.** The registered names are `REQUIRES_TASK`, `REQUIRES_HABIT`,
-`REQUIRES_PREREQUISITE`, `REQUIRES_PREREQUISITE_HABIT`, `REQUIRES_KNOWLEDGE`,
-`REQUIRES_STEP`.
-
-So the dependency-chain queries — the *core* of prerequisite/blocking-chain
-analysis — traverse nothing and return empty chains. This compounds §3: the same
-file's `WHERE NOT` completion filters are always-true, so these queries return
-"no prerequisites, nothing completed" regardless of graph state.
-
-Only visible once the scanner stopped skipping relationships whose *var-length
-bound* was interpolated (`[:REQUIRES*1..{depth}]` — the type name is static, only
-the depth is dynamic).
-
----
-
-## 3c. `get_siblings` ignores 5 of the 7 edge types it filters on
-
-`adapters/persistence/neo4j/backends/collab_backends.py:413`:
-
-```cypher
-AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
-                 'SUBCHOICE', 'HAS_STEP', 'ORGANIZES']
-```
-
-The registered names are `SUBGOAL_OF`, `SUBHABIT_OF`, … — the bare forms are not
-`RelationshipName` members and no writer creates them. Only `HAS_STEP` and
-`ORGANIZES` in that list are real, so sibling lookup silently ignores every
-activity-hierarchy edge it was written to find.
-
-Found only after the scanner was extended to **predicate position** (`type(r) IN
-[...]`), not just pattern position — vocabulary named in a `WHERE` filter fails
-exactly as silently as vocabulary named in a `MATCH`.
-
-**Fix is a semantics change** — correcting the list makes `get_siblings` start
-returning rows it has never returned — so it is baselined here rather than fixed
-in the rule's own PR.
-
----
-
-## 4. Writer-less reads — designed, never built
+## 7. Writer-less reads — designed, never built
 
 `user_progress_backend.py` is the densest cluster. `HAS_PROGRESS` and
 `FOR_KNOWLEDGE` trace to `docs/decisions/ADR-002-user-progress-service-query.md`,
@@ -170,7 +170,7 @@ implemented.
 
 ---
 
-## 5. Near-duplicates of registered names
+## 8. Near-duplicates of registered names
 
 Two names for one concept means reads split across both and each sees half the
 graph (or none).
@@ -190,7 +190,7 @@ graph (or none).
 
 ---
 
-## 6. `SemanticRelationshipType` names used as raw edge types
+## 9. `SemanticRelationshipType` names used as raw edge types
 
 `EXTENDS_PATTERN` and `DEEPENS_UNDERSTANDING` exist only as semantic URIs
 (`"learn:extends_pattern"`) in `core/infrastructure/relationships/semantic_relationships.py`
@@ -199,7 +199,7 @@ Neo4j edge types, which no writer creates.
 
 ---
 
-## 7. Unreachable `.cypher` templates
+## 10. Unreachable `.cypher` templates
 
 Suppressed with `// noqa-file: CYP011`. Three files cannot execute:
 
@@ -221,7 +221,7 @@ pre-ADR-068 shape.
 
 ---
 
-## 8. `Expense` — enum and ingestion contradict each other
+## 11. `Expense` — enum and ingestion contradict each other
 
 `core/models/enums/neo_labels.py` states:
 
@@ -241,7 +241,7 @@ declares demolished — is the worst of both.
 
 ---
 
-## 9. Two parallel conversation stores
+## 12. Two parallel conversation stores
 
 Not a mismatch, but surfaced by the same sweep. `user_backend.py:886` writes
 `(User)-[:HAS_MESSAGE]->(:ConversationMessage)` on every Askesis turn, while
