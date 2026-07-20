@@ -264,11 +264,17 @@ class _LearningStateMixin:
     async def detect_path_step_completion(
         self, ku_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Find PathSteps where all KUs are mastered after a KU mastery event."""
+        """Find PathSteps where all KUs are mastered after a KU mastery event.
+
+        Uses the canonical PathStep→Ku triple. ``TRAINS_KU`` (a step's declared
+        objectives, from ``trains_ku_uids``) counts toward completion exactly as
+        ``USES_KU``/``CONTAINS_KNOWLEDGE`` (its content) does — a step whose
+        objectives are unmastered is not complete.
+        """
         query = """
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {uid: $ku_uid})
         WITH ps
-        MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE]->(all_ku:Entity)
+        MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(all_ku:Entity)
         WITH ps, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered_ku:Entity)
         WHERE mastered_ku.uid IN all_ku_uids

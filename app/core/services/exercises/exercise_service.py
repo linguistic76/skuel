@@ -624,7 +624,7 @@ class ExerciseService(BaseService):
     ) -> Result[list[dict[str, Any]]]:
         """Get exercises associated with the given PathStep UIDs.
 
-        Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise.
+        Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise.
 
         Args:
             ps_uids: List of PathStep UIDs to look up exercises for

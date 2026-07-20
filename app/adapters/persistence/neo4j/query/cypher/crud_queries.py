@@ -890,6 +890,31 @@ def build_distinct_values_query(
     return query, params
 
 
+# The live FORWARD (parent)->(child) containment vocabulary: the six HAS_SUB*
+# edges `_HierarchyMixin` writes, plus HAS_STEP and ORGANIZES. Copied from the
+# canonical alternation in `query/graph_traversal.py:69-72`, which traverses the
+# same bidirectional parent/child shape.
+#
+# Forward-only is deliberate. `build_hierarchy_query` walks both directions
+# EXPLICITLY — `(parent)-[:R]->(n)` and `(n)-[:R]->(child)` — so adding the
+# inverse `SUB*_OF` legs would make each child match as its own parent.
+#
+# Was `["CONTAINS", "AGGREGATES", "HAS_STEP"]`: neither CONTAINS nor AGGREGATES
+# is a RelationshipName member or exists in the graph, so this read had only
+# ever matched HAS_STEP and every activity hierarchy was invisible to it — the
+# same bug as `get_siblings` (CYPHER_VOCABULARY_FINDINGS.md § 5).
+_HIERARCHY_FORWARD_EDGES: tuple[str, ...] = (
+    RelationshipName.HAS_SUBTASK.value,
+    RelationshipName.HAS_SUBGOAL.value,
+    RelationshipName.HAS_SUBHABIT.value,
+    RelationshipName.HAS_SUBEVENT.value,
+    RelationshipName.HAS_SUBCHOICE.value,
+    RelationshipName.HAS_SUBPRINCIPLE.value,
+    RelationshipName.HAS_STEP.value,
+    RelationshipName.ORGANIZES.value,
+)
+
+
 def build_hierarchy_query(
     label: NeoLabel,
     uid: str,
@@ -903,7 +928,8 @@ def build_hierarchy_query(
     Args:
         label: Neo4j node label
         uid: Entity UID
-        relationship_types: Relationship types for hierarchy (default: CONTAINS|AGGREGATES|HAS_STEP)
+        relationship_types: Relationship types for hierarchy. Defaults to the
+            live forward containment vocabulary (see ``_HIERARCHY_FORWARD_EDGES``).
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -912,7 +938,7 @@ def build_hierarchy_query(
         query, params = build_hierarchy_query("Lp", "lp:python-basics")
     """
     _validate_label(label)
-    rel_list = relationship_types or ["CONTAINS", "AGGREGATES", "HAS_STEP"]
+    rel_list = relationship_types or list(_HIERARCHY_FORWARD_EDGES)
     for rel in rel_list:
         _validate_identifier(rel, context="relationship type")
     rel_types = "|".join(rel_list)

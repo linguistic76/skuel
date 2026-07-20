@@ -20,8 +20,6 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from neo4j import AsyncSession
 from core.utils.result_simplified import Errors, Result
 
@@ -37,22 +35,6 @@ class CypherTemplate:
     name: str
     template: str
     description: str
-
-    @classmethod
-    def from_file(cls, path: Path) -> CypherTemplate:
-        """Load template from a .cypher file."""
-        if not path.exists():
-            raise FileNotFoundError(f"Template not found: {path}")
-
-        content = path.read_text()
-        # Extract description from first comment line if present
-        lines = content.split("\n")
-        description = ""
-        if lines and lines[0].startswith("//"):
-            description = lines[0][2:].strip()
-            content = "\n".join(lines[1:])
-
-        return cls(name=path.stem, template=content.strip(), description=description)
 
 
 class CypherExecutor[T]:
@@ -223,48 +205,3 @@ class CypherExecutor[T]:
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Query execution failed: {e}")
             return Result.fail(Errors.database(operation=f"query_{template.name}", message=str(e)))
-
-    async def execute_constraints(self, template: CypherTemplate) -> Result[list[str]]:
-        """
-        Execute constraint creation template.
-
-        Constraints are idempotent with IF NOT EXISTS clause.
-
-        Args:
-            template: The constraint template to execute
-
-        Returns:
-            Result containing list of created constraint names
-        """
-        try:
-            # Split template into individual constraint statements
-            statements = [stmt.strip() for stmt in template.template.split(";") if stmt.strip()]
-
-            created = []
-            for statement in statements:
-                if not statement:
-                    continue
-
-                try:
-                    await self.session.run(statement)
-                    # Extract constraint name from statement
-                    if "CONSTRAINT" in statement and "IF NOT EXISTS" in statement:
-                        # Parse constraint name
-                        parts = statement.split()
-                        idx = parts.index("CONSTRAINT")
-                        if idx + 1 < len(parts):
-                            name = parts[idx + 1]
-                            created.append(name)
-                            self.logger.info(f"Constraint ensured: {name}")
-                except NEO4J_EXCEPTIONS as e:
-                    # Constraint might already exist (older Neo4j versions)
-                    if "already exists" in str(e).lower():
-                        self.logger.debug(f"Constraint already exists: {statement[:50]}...")
-                    else:
-                        raise
-
-            return Result.ok(created)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Constraint creation failed: {e}")
-            return Result.fail(Errors.database(operation="create_constraints", message=str(e)))

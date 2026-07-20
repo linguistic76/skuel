@@ -200,8 +200,15 @@ Not everything connects to the user. **Only interaction + ownership objects do.*
 | LearningPath model | `core/models/pathways/learning_path.py` |
 | RelationshipName | `core/models/relationship_names.py` (see `IN_DOMAIN`, `USES_KU`, `TRAINS_KU`) |
 | NeoLabel | `core/models/enums/neo_labels.py` (see `KNOWLEDGE_DOMAIN`, `KU`, `PATH_STEP`) |
-| Ku ingestion template | `core/ingestion/cypher_templates/upserts/bulk_knowledge_units.cypher` |
-| KD constraints | `core/ingestion/cypher_templates/constraints/knowledge_units.cypher` |
+
+> **⚠️ The `IN_DOMAIN` / `:KnowledgeDomain` taxonomy has no live writer.** Its only
+> writers were the `bulk_knowledge_units` / `bulk_life_principles` `.cypher`
+> templates, which were never reachable and were deleted in tranche 5 (see
+> `docs/patterns/CYPHER_VOCABULARY_FINDINGS.md` § 10). No vault file authors a
+> `domains:` field and the live graph holds zero `:KnowledgeDomain` nodes, so
+> `KnowledgeDomainService` and every `IN_DOMAIN` read return empty. Both names are
+> still registered, so the linter reads them as clean. Retiring the stack is an
+> open ruling in that document's § 13.
 
 **See also:**
 - `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — KU/PS/LP grouping patterns

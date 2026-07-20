@@ -30,9 +30,7 @@ See: core/ports/ingestion_protocols.py (BulkUpsertOperations),
 
 from __future__ import annotations
 
-import time
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
@@ -52,45 +50,12 @@ logger = get_logger("skuel.adapters.bulk_upsert")
 # need headroom but should still be bounded.
 _BULK_INGESTION_TIMEOUT_SECONDS: float = 600.0
 
-# Templates were relocated alongside this backend (ADR-044).
-_TEMPLATE_DIR = Path(__file__).parent / "cypher_templates"
-
 
 def _label_clause(entity_label: str, base_label: str | None) -> str:
     """Neo4j label clause for MERGE/CREATE, e.g. 'Entity:Task' or just 'Group'."""
     if base_label and base_label != entity_label:
         return f"{base_label}:{entity_label}"
     return entity_label
-
-
-def _get_template(template_name: str, subdir: str = "upserts") -> CypherTemplate:
-    """Load a relocated ``.cypher`` template by name."""
-    template_path = _TEMPLATE_DIR / subdir / f"{template_name}.cypher"
-    if not template_path.exists():
-        template_path = _TEMPLATE_DIR / f"{template_name}.cypher"
-    return CypherTemplate.from_file(template_path)
-
-
-def _create_default_upsert_template(entity_label: str, base_label: str | None) -> CypherTemplate:
-    """Default MERGE-on-uid template for node-only upserts."""
-    label_clause = _label_clause(entity_label, base_label)
-    template_str = f"""
-// Generic bulk upsert template
-UNWIND $items AS item
-MERGE (n:{label_clause} {{uid: item.uid}})
-  ON CREATE SET
-    n = item,
-    n.created_at = datetime()
-  ON MATCH SET
-    n += item,
-    n.updated_at = datetime()
-RETURN count(n) as processed
-"""
-    return CypherTemplate(
-        name=f"default_{entity_label.lower()}_upsert",
-        template=template_str,
-        description=f"Default bulk upsert for {entity_label}",
-    )
 
 
 def build_node_upsert_template(
@@ -256,80 +221,6 @@ class BulkUpsertBackend:
     def __init__(self, driver: AsyncDriver) -> None:
         self._driver = driver
         self.logger = logger
-
-    async def ensure_constraints(self, entity_label: str) -> Result[list[str]]:
-        """Run the constraint template for ``entity_label`` (no-op if none exists)."""
-        with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
-            async with self._driver.session() as session:
-                executor = CypherExecutor(session, dict)
-                try:
-                    template = _get_template(
-                        f"{entity_label.lower()}_constraints", subdir="constraints"
-                    )
-                    return await executor.execute_constraints(template)
-                except FileNotFoundError:
-                    self.logger.debug(f"No constraint template for {entity_label}")
-                    return Result.ok([])
-
-    async def upsert_batch(
-        self,
-        entity_label: str,
-        base_label: str | None,
-        entities: list[dict[str, Any]],
-        batch_size: int = 1000,
-        template_name: str | None = None,
-    ) -> Result[IngestionResult]:
-        """Node-only bulk upsert (default template or a named ``.cypher`` file)."""
-        if not entities:
-            return Result.ok(
-                IngestionResult(
-                    total_processed=0,
-                    nodes_created=0,
-                    nodes_updated=0,
-                    relationships_created=0,
-                    errors=[],
-                )
-            )
-
-        start_time = time.time()
-
-        if template_name:
-            template = _get_template(template_name)
-        else:
-            template = _create_default_upsert_template(entity_label, base_label)
-
-        with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
-            async with self._driver.session() as session:
-                executor = CypherExecutor(session, dict)
-                items = prepare_batch_items(entities)
-
-                result = await executor.execute_batch(
-                    template=template,
-                    items=items,
-                    batch_size=batch_size,
-                    extra_params={"entity_label": entity_label},
-                )
-
-                if result.is_error:
-                    return Result.fail(result)
-
-                stats = result.value
-                duration = (time.time() - start_time) * 1000
-                # Updates = properties set minus creates.
-                nodes_updated = max(
-                    0, stats.get("properties_set", 0) - stats.get("nodes_created", 0)
-                )
-
-                return Result.ok(
-                    IngestionResult(
-                        total_processed=len(entities),
-                        nodes_created=stats.get("nodes_created", 0),
-                        nodes_updated=nodes_updated,
-                        relationships_created=stats.get("relationships_created", 0),
-                        errors=[],
-                        duration_ms=duration,
-                    )
-                )
 
     async def upsert_nodes(
         self,

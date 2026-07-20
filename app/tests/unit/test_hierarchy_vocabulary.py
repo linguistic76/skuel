@@ -149,3 +149,52 @@ def test_no_dead_hierarchy_name_survives_in_any_site() -> None:
         )
         found = {n for n in found if re.search(rf"\b{n}\b", cypher_only)}
         assert not found, f"dead hierarchy vocabulary still live: {found}"
+
+
+# ============================================================================
+# build_hierarchy_query — tranche 5
+#
+# Found by the new Python-edge-list scanner, which is the point: the default
+# was a Python list literal, so no Cypher-reading rule could ever see it.
+# ============================================================================
+
+
+def test_build_hierarchy_query_default_is_live_vocabulary() -> None:
+    """The default edge list is the live forward hierarchy, not CONTAINS.
+
+    Was ``["CONTAINS", "AGGREGATES", "HAS_STEP"]``: neither CONTAINS nor
+    AGGREGATES is a RelationshipName member or exists in the graph, so this
+    read had only ever matched HAS_STEP.
+    """
+    from adapters.persistence.neo4j.query.cypher.crud_queries import (
+        _HIERARCHY_FORWARD_EDGES,
+    )
+
+    assert set(_HIERARCHY_FORWARD_EDGES) == FORWARD_HIERARCHY
+
+
+def test_build_hierarchy_query_default_is_forward_only() -> None:
+    """No inverse legs: the query walks both directions explicitly.
+
+    ``build_hierarchy_query`` emits ``(parent)-[:R]->(n)`` AND
+    ``(n)-[:R]->(child)``. Adding the ``SUB*_OF`` inverses would make every
+    child match as its own parent — the direction trap from findings § 5.
+    """
+    from adapters.persistence.neo4j.query.cypher.crud_queries import (
+        _HIERARCHY_FORWARD_EDGES,
+    )
+
+    assert not any(name.endswith("_OF") for name in _HIERARCHY_FORWARD_EDGES)
+
+
+def test_build_hierarchy_query_emits_no_dead_vocabulary() -> None:
+    """The rendered query carries neither retired name."""
+    from adapters.persistence.neo4j.query.cypher.crud_queries import build_hierarchy_query
+    from core.models.enums.neo_labels import NeoLabel
+
+    query, _ = build_hierarchy_query(label=NeoLabel.TASK, uid="task_x")
+
+    assert "CONTAINS" not in query
+    assert "AGGREGATES" not in query
+    for name in FORWARD_HIERARCHY:
+        assert name in query, f"{name} missing from the hierarchy traversal"

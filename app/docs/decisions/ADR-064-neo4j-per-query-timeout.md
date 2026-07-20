@@ -59,7 +59,7 @@ schema_manager = Neo4jSchemaManager(raw_driver)   # ← intentional raw-driver c
 **Per-operation policy:**
 
 - Default: `120s` (`DatabaseConfig.transaction_timeout`, env `NEO4J_TRANSACTION_TIMEOUT`, `0`=unbounded).
-- Bulk ingestion: `600s` via `with neo4j_query_timeout(600.0):` in `BulkUpsertBackend.{ensure_constraints, upsert_batch, upsert_with_relationships}`. Large MD/YAML imports legitimately exceed 120s; a wedged import still self-heals after 10 minutes.
+- Bulk ingestion: `600s` via `with neo4j_query_timeout(600.0):` in `BulkUpsertBackend.{upsert_nodes, create_relationships}` (and `upsert_with_relationships`, which delegates to both). Large MD/YAML imports legitimately exceed 120s; a wedged import still self-heals after 10 minutes.
 - MEGA-QUERY + analytics: no wrap. Typical run is 5–30s, well under 120s; a true runaway is still caught.
 - Startup DDL (`Neo4jSchemaManager`): uses the raw (unwrapped) driver. Vector / full-text / domain index creation on a large `:Entity` label can exceed 120s; aborting at bootstrap would be wrong.
 - Migration / one-off scripts that instantiate `Neo4jConnection` directly bypass the wrapper for the same reason.

@@ -1,8 +1,19 @@
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
 
-**Status:** open backlog, being worked in tranches. Every open item is baselined
-in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
-`// noqa: CYP011`), so it does not block CI — but none of it is *accepted*.
+**Status: the vocabulary backlog is CLOSED as of tranche 5 (2026-07-20).** All of
+§1–§8, §10 and §11 are resolved. The only baselined pairs left are §9's two,
+deferred by decision to the semantic-relationship-layer roadmap Phase 1, which
+also owns the §8 `HAS_PATH`/`ENROLLED_IN` reconciliation. **The natural successor
+to this document is that roadmap, not a tranche 6.**
+
+§12 and §13 remain open, but neither is a vocabulary finding: §12 is an
+architectural reconciliation and §13 is a bloat/tooling list. The largest open
+item is the `KnowledgeDomain` stack tranche 5 exposed (§13).
+
+**These findings are a LOWER BOUND.** SKUEL030 checks whether a name is
+*registered*, not whether anything *writes* it — and tranche 5 showed a writer
+can exist in the source and still be unreachable. Registered-but-dead vocabulary
+passes every rule in this repo cleanly; see the §13 audit-rule entry.
 
 ## Decision log (Mike, 2026-07-20)
 
@@ -21,8 +32,18 @@ in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
 - **Tranche order:** T1 = §3+§4 (done) · T2 = §6 LEARNING fix+migration,
   §1 deletion, §11 Expense (done) · T3 = §7 per decision, §2 label mismatches
   (done) · T4 = §5 sibling filter, §8 near-duplicates (done) ·
-  **T5 (next) = §10's unreachable `.cypher` templates**, which still await
-  their own pass.
+  T5 = §10 unreachable `.cypher` templates (done). **The vocabulary backlog is
+  closed** — the only baselined pairs left are §9's two, deferred to the
+  semantic-layer roadmap. The natural successor is that roadmap's Phase 1, not
+  another tranche.
+- **§10 → DELETE, with the machinery** (T5 ruling): the templates plus
+  `upsert_batch`, `ensure_constraints` and the file-backed template loader, which
+  existed only to reach them. The `KnowledgeDomain` stack the deletion exposed as
+  writer-less is deliberately NOT in that diff — it touches the enum registry and
+  a search path, so it gets its own PR (§13).
+- **`USES_KU|CONTAINS_KNOWLEDGE` two-arm sites → SWEEP to the canonical triple**
+  (T5 ruling, resolving the §8 follow-up). `TRAINS_KU` joins all five sites: a
+  step's declared objectives count exactly as its content does.
 - **§8 `HAS_PATH`/`ENROLLED_IN` → DEFERRED** with §9. Both are registered with
   live writers, so neither is a SKUEL030 finding; reconciling them means
   migrating real enrolment data and belongs to the semantic-layer roadmap.
@@ -48,6 +69,14 @@ in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
   `tests/unit/test_curriculum_read_vocabulary.py`. Also carried the §13
   `"hierarchical"` rider and a third Python-side edge string in
   `domain_queries.py`.
+- **Tranche 5 shipped (2026-07-20):** §10 resolved — the template tree and its
+  loader machinery deleted. **No baseline pairs closed: §10 was CYP011-suppressed,
+  not baselined**, so the tranche's obligation was owning the noqa removals
+  instead. The suppression audit (SKUEL026) confirms it: 104 active / 104 used,
+  no orphans. Also shipped the §13 **Python-edge-list scanner** — SKUEL030's
+  second position — and swept the five two-arm `USES_KU|CONTAINS_KNOWLEDGE` sites
+  to the canonical triple. The new scanner immediately paid for itself: it found
+  a **fourth** Python-side edge list nobody had catalogued (§13).
 
 The baseline holds **`(file, name)` pairs**, so only the known call sites are
 exempt: introducing any of these names in a *new* file still fails the rule. It
@@ -104,6 +133,14 @@ domain services).
 only the label would have traded one silent zero for another; the property moved
 to `uid` in the same edit. (Same lesson as tranche 2: joining a live name
 inherits its invariants — check the writers, not just the registry.)
+
+> **⚠️ Corrected by tranche 5 — this repoint did not fix the silent zero.** Both
+> "writers" named above were **unreachable templates** (§ 10), now deleted. There
+> has never been a live writer for `:KnowledgeDomain` or `[:IN_DOMAIN]`, and the
+> live graph holds zero of each, so the repointed facet still returns nothing.
+> The section checked *what the writers set* but not *whether they could run* —
+> the extra step the § 10 cascade note spells out. Retiring the stack is an open
+> § 13 item; the query carries an inline warning meanwhile.
 
 `generate_facet_counts_query` is still production-caller-less (only the
 `QueryBuilder` facade delegation at `query_builder.py:249` and a test asserting
@@ -385,12 +422,22 @@ would have stayed invisible. **When joining an existing alternation, copy the
 canonical one from a neighbour rather than composing it from the names you
 happen to be fixing.**
 
-> **Follow-up, not fixed here.** Five pre-existing sites still use the two-arm
-> pair: `_learning_state_mixin.py:269,271`, `exercise_backends.py:488` (+ two
-> docstrings). They are outside this tranche's diff and the omission may be
-> deliberate — `USES_KU` is a step's *content* while `TRAINS_KU` is its
-> *objectives*, so "Kus this step teaches" and "Kus this step covers" are not
-> obviously the same question. Wants a deliberate ruling, not a sweep.
+> **Follow-up — ✅ RULED AND SWEPT (tranche 5).** Five pre-existing sites still
+> used the two-arm pair: `_learning_state_mixin.py:269,271`,
+> `exercise_backends.py:488` (+ two docstrings). Tranche 4 left them because the
+> omission might have been deliberate — `USES_KU` is a step's *content* while
+> `TRAINS_KU` is its *objectives*. **Ruling: they are the same question.** A
+> PathStep's declared objectives are part of what it covers, so
+> `detect_path_step_completion` must require them mastered and the exercise
+> traversal must reach them; all five now use
+> `USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`.
+>
+> `TRAINS_KU` is live vocabulary, not a second `HAS_CHILD`: `relationship_registry`
+> maps it to the ingestible `trains_ku_uids`, which the two-phase relationship
+> template writes. Dev holds zero `TRAINS_KU` edges — that is data absence (no
+> vault file authors the field yet), not a missing writer. The rewritten queries
+> were run against the live graph: same 13 PathSteps / 53 edges as before, so the
+> sweep is non-regressive on current data and correct for graphs that have them.
 
 ### `HAS_CHILD` is registered — and has no writer either
 
@@ -492,25 +539,78 @@ Neo4j edge types, which no writer creates.
 
 ---
 
-## 10. Unreachable `.cypher` templates
+## 10. Unreachable `.cypher` templates — ✅ RESOLVED (tranche 5, 2026-07-20)
 
-Suppressed with `// noqa-file: CYP011`. Three files cannot execute:
+Was: five `// noqa-file: CYP011`-suppressed templates that could not execute.
+**The unreachability claim held, and was broader than this section stated.**
 
-- `cypher_templates/upserts/bulk_vectors.cypher`
-- `cypher_templates/upserts/bulk_life_principles.cypher`
-- `cypher_templates/constraints/vectors.cypher`
-- (plus `constraints/knowledge_units.cypher`, `constraints/life_principles.cypher`)
+`BulkUpsertBackend.ensure_constraints` resolved
+`{entity_label.lower()}_constraints.cypher`; the files were named
+`vectors.cypher` / `knowledge_units.cypher` / `life_principles.cypher`. **No
+label has ever produced a matching filename, so the constraint path was a silent
+no-op for every entity type from the day it was written** — including for the one
+historical caller, which called `ensure_constraints("LifePrinciple")` and would
+have needed `lifeprinciple_constraints.cypher`. There is no fallback that
+rescues it: the second lookup only strips the subdirectory.
 
-`BulkUpsertBackend.ensure_constraints` resolves `{entity_label.lower()}_constraints.cypher`
-— no file matches that pattern — and `upsert_batch` only loads a named template
-when a caller passes `template_name=`, which no production caller does.
+`upsert_batch` had **zero callers repo-wide** — protocol declaration plus
+implementation, nothing else. Its one historical caller was
+`scripts/ingest_knowledge_vault.py`, deleted in May 2026 (PR #56) as part of the
+"never-functional conceptual-trajectory vector code"; these templates were
+residue of that same demolition, missed at the time.
 
-They are the sole source of the labels `Vector`, `State`, `LifePrinciple`,
-`JournalEntry` and the edges `MENTIONS_IN`, `GROUNDED_BY`, `FROM`, `TO`. Live
-embeddings use `NeoLabel.EMBEDDING_VECTOR` + native vector indexes; this is the
-pre-ADR-068 shape.
+### Resolution — deleted, along with the machinery that loaded them
 
-**One Path Forward says delete them.**
+The whole `adapters/persistence/neo4j/cypher_templates/` tree is gone, plus
+everything whose only purpose was reaching it: `upsert_batch` (and its
+`template_name` parameter on `BulkUpsertOperations`), `ensure_constraints` on
+both backend and port, `_get_template`, `_create_default_upsert_template`,
+`CypherTemplate.from_file`, and `CypherExecutor.execute_constraints`. The two
+live `ensure_constraints` call sites in the ingestion service and batch helper
+went with it.
+
+**Constraints did not go with it.** Real uniqueness constraints come from
+`Neo4jAdapter` bootstrap and `Neo4jSchemaManager`; the deleted path had never
+created one. The unrelated `IngestionTracker`/`IngestionHistory.ensure_constraints`
+(backed by live DDL in `ingestion_backend.py`) is untouched.
+
+**`bulk_knowledge_units.cypher` was equally dead and was NOT on this list** —
+only because every label and edge in it is *registered*, so CYP011 never fired.
+Same zero reachability, invisible to the rule. It was deleted with the rest.
+
+### No migration
+
+The labels `Vector`, `State`, `LifePrinciple`, `JournalEntry` and the edges
+`MENTIONS_IN`, `GROUNDED_BY`, `FROM`, `TO` have zero rows on dev — but the basis
+for shipping no migration is the writer history, per tranche 4's rule: the only
+caller that could ever have run these templates was itself deleted 14 months
+before, and the constraint half was unreachable from the first commit. No
+environment can hold this data.
+
+### ⚠️ The cascade: `KnowledgeDomain` / `IN_DOMAIN` are registered but writer-less
+
+The deleted templates were the **only** writers of `:KnowledgeDomain` and
+`[:IN_DOMAIN]` in the entire repo. Both are registered
+(`NeoLabel.KNOWLEDGE_DOMAIN`, `RelationshipName.IN_DOMAIN`), so SKUEL030 reads
+every one of their call sites as clean. Live graph: **0 nodes, 0 edges.** No
+vault file authors a `domains:` field, so there is no authoring surface either.
+
+This means **tranche 3's § 2 `Domain` → `KnowledgeDomain` repoint traded one
+silent zero for another.** § 2 called these two templates "KnowledgeDomain's only
+two writers" — correct, but they cannot execute, and that section did not check.
+The same trap it warned about ("joining a live name inherits its invariants —
+check the writers") applies one level up: *check that the writer can run.*
+
+Consequently dead, and left standing for its own ruling (see § 13):
+`KnowledgeDomainService`, `KnowledgeDomainBackend`, its protocol, the bootstrap
+wiring, and `KnowledgeDomainView` — `services.knowledge_domains` is referenced
+nowhere but that service's own docstring example. The `faceted_query_builder`
+domain facet carries an inline warning pointing here.
+
+Guarded by `tests/unit/test_bulk_upsert_template_removal.py`, which pins that no
+`.cypher` file returns under `adapters/persistence/` and that the live bulk-write
+surface (`upsert_nodes`, `create_relationships`, `upsert_with_relationships`,
+`delete_batch`) survived the deletion.
 
 ---
 
@@ -598,8 +698,44 @@ carry no baseline pairs — recorded here so they don't get lost.
   inverse leg `_HierarchyMixin` writes and matches the spec's existing
   `"incoming"` direction. (This sits inside the caller-less `*_with_context`
   family above; fixed rather than left because it costs nothing and the family's
-  deletion ruling is still open.) Three such sites in three tranches makes the
+  deletion ruling is still open.) Three such sites in three tranches made the
   scanner extension to Python edge lists the highest-value item on this list.
+- **✅ The scanner extension shipped (tranche 5).** SKUEL030 now has two
+  scanners: the Cypher one, and `_check_python_edge_lists` for names held in
+  Python. It covers both shapes the three sites took — a list/tuple/set literal
+  of bare edge names, and a bare `"A|B"` alternation string (the `rel_types`
+  spec shape). Same file scope, baseline, suppression and severity: one rule,
+  two positions.
+
+  **The corroboration rule keeps false positives at zero.** A group of
+  UPPER_SNAKE strings is read as graph vocabulary only when at least one member
+  is a registered `RelationshipName` — that sibling is the evidence. Without it,
+  every list of UPPER_SNAKE constants in the persistence layer (status codes,
+  header names) would be flagged. **The deliberate trade: a group in which every
+  name is wrong stays invisible.** That is the safe direction to fail, and all
+  four known sites carried a registered sibling.
+- **✅ A FOURTH Python-side edge list, found by the new scanner on its first
+  run.** `crud_queries.build_hierarchy_query` defaulted to
+  `["CONTAINS", "AGGREGATES", "HAS_STEP"]`. Neither `CONTAINS` nor `AGGREGATES`
+  is a `RelationshipName` member or exists in the graph, and the sole caller
+  (`_prereq_progress_mixin.get_hierarchy`) never passes the parameter — so every
+  hierarchy read had only ever matched `HAS_STEP`, exactly §5's bug. Repointed to
+  the live forward vocabulary, **copied from the neighbour** (`graph_traversal.py`
+  lines 69–72, which walks the same bidirectional parent/child shape) rather than
+  composed. Forward-only is load-bearing: the query already emits both
+  `(parent)-[:R]->(n)` and `(n)-[:R]->(child)`, so adding the `SUB*_OF` inverses
+  would make every child match as its own parent. Guarded in
+  `tests/unit/test_hierarchy_vocabulary.py`.
+- **`KnowledgeDomain` / `IN_DOMAIN` — the §10 cascade, ruled OUT of tranche 5.**
+  Both registered, neither with a reachable writer, zero rows live (§10). Dead
+  with them: `KnowledgeDomainService`, `KnowledgeDomainBackend`, its protocol,
+  the bootstrap wiring, `KnowledgeDomainView`, and the `faceted_query_builder`
+  domain facet that tranche 3 repointed onto them. Deliberately its own PR: it
+  deregisters two enum members and changes a search code path, which is a
+  different risk shape from deleting unreachable files. **The open question is
+  product, not code — is a Ku domain taxonomy planned?** If yes it belongs in the
+  bloat detector's PLANNED tier with an authoring surface; if no, delete the
+  stack. Nothing authors `domains:` today.
 - **`_TraversalMixin.get_batch_cross_domain_context` is production-caller-less.**
   Found while removing its `FUNDS_*` arms (§8): only the protocol declaration in
   `base_protocols.py:961` and the implementation exist. Bloat finding, not a
@@ -610,6 +746,17 @@ carry no baseline pairs — recorded here so they don't get lost.
   *liveness*, so this whole class is invisible to it and to this document's
   scan — the findings here are a lower bound. A "registered but writer-less"
   audit would be a natural companion rule.
+  - **Tranche 5 added three more, and sharpened the definition.**
+    `:KnowledgeDomain`, `[:IN_DOMAIN]` (§10) and `HAS_STEP`'s dead list-mates
+    show the class is bigger than "no writer in the source": a writer can exist
+    in the source and still be **unreachable**. The `bulk_*` templates were
+    genuine `MERGE` statements for `KnowledgeDomain` — a grep for writers finds
+    them and reports the name live. **So the audit rule needs two questions, not
+    one: does a writer exist, and can anything call it?** Tranche 3's §2 asked
+    only the first and shipped a repoint onto dead vocabulary because of it.
+    A cheap high-signal proxy while the rule is unwritten: for any name whose
+    only writers are in `.cypher` files or behind an optional parameter, check
+    the live graph for a nonzero count before trusting it.
 - **`EnhancedUserContext` is unreachable.** Found while tracing
   `learning_preferences` readers: the class in `user_intelligence.py` has zero
   references repo-wide, which also makes `update_intelligence`,

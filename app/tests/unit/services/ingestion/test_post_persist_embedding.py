@@ -236,9 +236,6 @@ class _FakeBulkBackend:
     def __init__(self) -> None:
         self.upserted: dict[str, list[dict[str, Any]]] = {}
 
-    async def ensure_constraints(self, entity_label: str) -> None:
-        return None
-
     async def upsert_nodes(
         self,
         entity_label: str,

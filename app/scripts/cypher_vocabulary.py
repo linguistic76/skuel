@@ -289,6 +289,52 @@ def unregistered_names(fragment: str, vocabulary: Vocabulary) -> list[ScannedNam
     return [n for n in scan_names(fragment) if not vocabulary.is_registered(n)]
 
 
+# =============================================================================
+# Python-side edge lists
+# =============================================================================
+
+# A bare edge name as it appears in a Python string: UPPER_SNAKE, nothing else.
+# Anchored, so `"MATCH (n)"` and `"some prose"` cannot match.
+_BARE_EDGE_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+# A pipe alternation written as a plain Python string — the `rel_types` spec
+# shape (`"PARENT_OF|CHILD_OF"`). Two or more bare names, no Cypher syntax
+# around them, so the pattern regexes above never see it.
+_BARE_ALTERNATION_RE = re.compile(r"^[A-Z][A-Z0-9_]*(?:\|[A-Z][A-Z0-9_]*)+$")
+
+
+def bare_alternation_parts(text: str) -> list[str] | None:
+    """Split a bare ``"A|B|C"`` edge alternation, or ``None`` if not one."""
+    if not _BARE_ALTERNATION_RE.match(text):
+        return None
+    return text.split("|")
+
+
+def unregistered_edge_names(candidates: list[str], vocabulary: Vocabulary) -> list[str]:
+    """Unregistered edge names in a group that is DEMONSTRABLY an edge list.
+
+    The corroboration rule: a group of bare UPPER_SNAKE strings is treated as
+    graph vocabulary only when at least one member is a registered
+    ``RelationshipName``. That sibling is the evidence — without it, any list of
+    UPPER_SNAKE constants (status codes, env-var names, header names) would be
+    read as edges and the rule would drown in false positives.
+
+    The deliberate trade: a group in which EVERY name is wrong is invisible.
+    That is the safe direction to fail, and the three sites this rule was built
+    from (``_INTENT_EDGE_SETS`` "practice"/"hierarchical", ``domain_queries``
+    ``rel_types``) each carried a registered sibling.
+
+    Returns ``[]`` when the group is not corroborated.
+    """
+    bare = [c for c in candidates if _BARE_EDGE_NAME_RE.match(c)]
+    if len(bare) < 2:
+        return []
+    registered = [b for b in bare if b in vocabulary.relationships]
+    if not registered:
+        return []
+    return [b for b in bare if b not in vocabulary.relationships]
+
+
 def fstring_part_ids(tree: ast.AST) -> set[int]:
     """``id()``s of the string Constants that are literal PARTS of an f-string.
 

@@ -215,11 +215,20 @@ class FacetedQueryBuilder:
             for field in facet_fields:
                 if field == "domain":
                     # Count by domain. The label is :KnowledgeDomain and its
-                    # identifying property is `uid` — the only two writers
-                    # (bulk_knowledge_units / bulk_life_principles .cypher)
-                    # `MERGE (d:KnowledgeDomain {uid: dom})` and set nothing
-                    # else, so the former `:Domain` / `d.name` pair named
-                    # neither a real label nor a written property.
+                    # identifying property is `uid` — the former `:Domain` /
+                    # `d.name` pair named neither a real label nor a written
+                    # property.
+                    #
+                    # ⚠️ REGISTERED BUT WRITER-LESS. :KnowledgeDomain and
+                    # :IN_DOMAIN are NeoLabel/RelationshipName members, so
+                    # SKUEL030 reads this as clean — but their only writers were
+                    # the unreachable bulk_knowledge_units / bulk_life_principles
+                    # templates deleted in tranche 5, and no vault file authors a
+                    # `domains:` field. Live graph: 0 nodes, 0 edges. This facet
+                    # therefore still returns nothing; the tranche-3 :Domain
+                    # repoint traded one silent zero for another. Retiring the
+                    # whole KnowledgeDomain stack is its own ruling — see
+                    # docs/patterns/CYPHER_VOCABULARY_FINDINGS.md § 13.
                     facet_queries["domain"] = f"""
                         {match_clause}
                         MATCH (n)-[:IN_DOMAIN]->(d:KnowledgeDomain)

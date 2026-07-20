@@ -128,23 +128,15 @@ class IngestionWriteOperations(Protocol):
 
 @runtime_checkable
 class BulkUpsertOperations(Protocol):
-    """Bulk node upsert / constraint / delete Cypher for ingestion (ADR-044).
+    """Bulk node upsert / delete Cypher for ingestion (ADR-044).
 
     Stateless w.r.t. entity label — the ``entity_label``/``base_label`` are passed
-    per call (sourced from ``ENTITY_CONFIGS``, trusted), so the per-label
-    constraint-once bookkeeping stays in the orchestrating service.
+    per call (sourced from ``ENTITY_CONFIGS``, trusted), so a single backend
+    instance serves every entity type.
+
+    Uniqueness constraints are NOT this backend's job: they are created at
+    startup by ``Neo4jAdapter`` bootstrap + ``Neo4jSchemaManager``.
     """
-
-    async def ensure_constraints(self, entity_label: str) -> Result[list[str]]: ...
-
-    async def upsert_batch(
-        self,
-        entity_label: str,
-        base_label: str | None,
-        entities: list[dict[str, Any]],
-        batch_size: int = 1000,
-        template_name: str | None = None,
-    ) -> Result[IngestionResult]: ...
 
     async def upsert_nodes(
         self,
