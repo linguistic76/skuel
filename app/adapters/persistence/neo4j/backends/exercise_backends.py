@@ -471,7 +471,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     ) -> Result[list[Neo4jProperties]]:
         """Get exercises associated with a list of PathStep UIDs.
 
-        Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise
+        Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise
         to find exercises that practice knowledge from those PathSteps.
 
         Args:
@@ -485,7 +485,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
         result = await self.execute_query(
             f"""
-            MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity)
+            MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
                   <-[:{RelationshipName.REQUIRES_KNOWLEDGE}]-(ex:Entity {{entity_type: 'exercise'}})
             WHERE ps.uid IN $ps_uids
             RETURN DISTINCT ex.uid AS uid,

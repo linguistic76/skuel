@@ -82,9 +82,12 @@ from core.utils.terminal_colors import Colors
 # Shared with cypher_linter.py (CYP011) — one registry reader, one name scanner.
 sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
+    Vocabulary,
+    bare_alternation_parts,
     fstring_part_ids,
     load_vocabulary,
     render_fstring,
+    unregistered_edge_names,
     unregistered_names,
 )
 
@@ -4159,6 +4162,92 @@ class SkuelLinter:
                         line_content=line.strip(),
                     )
                 )
+
+        self._check_python_edge_lists(rel_path, lines, tree, vocabulary, inert_ids)
+
+    def _check_python_edge_lists(
+        self,
+        rel_path: Path,
+        lines: list[str],
+        tree: ast.Module,
+        vocabulary: Vocabulary,
+        inert_ids: set[int],
+    ) -> None:
+        """SKUEL030, second position: edge names held in PYTHON, not Cypher.
+
+        The Cypher scanner reads string literals that look like Cypher. But an
+        alternation is just as often assembled from a Python list —
+        ``{"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]}`` — or
+        from a bare pipe string in a query spec (``"rel_types": "A|B"``). Those
+        names never appear inside a Cypher fragment at lint time, so they were
+        invisible to the rule while being exactly as load-bearing: the built
+        alternation matches only its live arms and the dead ones contribute
+        nothing, silently.
+
+        Three such sites surfaced in three consecutive tranches (the two
+        ``_INTENT_EDGE_SETS`` entries and ``domain_queries``' ``rel_types``),
+        which is what motivated closing this gap.
+
+        Corroboration keeps the false-positive rate at zero: see
+        ``unregistered_edge_names``. Same baseline, suppression and severity as
+        the Cypher half — this is one rule with two scanners, not two rules.
+        """
+        reported: set[tuple[int, str]] = set()
+
+        def report(name: str, line_num: int, col: int) -> None:
+            if (rel_path.as_posix(), name) in self.SKUEL030_BASELINE:
+                return
+            if (line_num, name) in reported:
+                return
+            reported.add((line_num, name))
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL030"):
+                return
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=col,
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL030",
+                    message=(
+                        f"Python edge list names '{name}', which is not a RelationshipName member"
+                    ),
+                    suggestion=(
+                        f"Register '{name}' in RelationshipName, or fix the name "
+                        "— an alternation built from this list matches only its "
+                        "live arms, so the dead ones contribute nothing silently"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+        for node in ast.walk(tree):
+            # Position 1: a list/tuple/set literal of bare edge names.
+            if isinstance(node, ast.List | ast.Tuple | ast.Set):
+                elements = [
+                    elt
+                    for elt in node.elts
+                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str)
+                ]
+                if len(elements) < 2:
+                    continue
+                by_value: dict[str, ast.Constant] = {}
+                for elt in elements:
+                    by_value.setdefault(elt.value, elt)
+                for bad in unregistered_edge_names(list(by_value), vocabulary):
+                    elt = by_value[bad]
+                    report(bad, elt.lineno, elt.col_offset)
+
+            # Position 2: a bare `"A|B"` alternation string (query-spec shape).
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if id(node) in inert_ids:
+                    continue
+                parts = bare_alternation_parts(node.value)
+                if not parts:
+                    continue
+                for bad in unregistered_edge_names(parts, vocabulary):
+                    report(bad, node.lineno, node.col_offset)
 
     # =========================================================================
     # INFO RULES (visibility only)

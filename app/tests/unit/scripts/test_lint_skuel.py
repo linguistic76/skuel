@@ -1341,6 +1341,81 @@ class TestSKUEL030:
         assert violations[0].line_number == 3
 
 
+class TestSKUEL030PythonEdgeLists:
+    """SKUEL030's second scanner: edge names held in Python, not in Cypher.
+
+    An alternation is as often assembled from a Python list as written inline.
+    Those names never sit inside a Cypher fragment, so the Cypher scanner cannot
+    see them — while the alternation they build silently matches only its live
+    arms. Three such sites surfaced in three consecutive tranches.
+    """
+
+    def test_detects_dead_name_in_a_corroborated_list(self) -> None:
+        """The tranche-3 `"practice"` site's original shape."""
+        violations = lint_cypher(
+            'EDGES = {"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]}'
+        )
+        assert {v.rule_id for v in violations} == {"SKUEL030"}
+        assert {"PRACTICES", "REINFORCES"} == {
+            name for v in violations for name in ("PRACTICES", "REINFORCES") if name in v.message
+        }
+
+    def test_detects_dead_name_in_a_bare_alternation_string(self) -> None:
+        """The tranche-4 `rel_types` site's original shape."""
+        violations = lint_cypher('spec = {"rel_types": "PARENT_OF|CHILD_OF|HAS_STEP"}')
+        assert {v.rule_id for v in violations} == {"SKUEL030"}
+        assert len(violations) == 2
+
+    def test_allows_a_fully_registered_list(self) -> None:
+        assert lint_cypher('EDGES = ["OWNS", "HAS_STEP", "ORGANIZES"]') == []
+
+    def test_allows_a_fully_registered_alternation(self) -> None:
+        assert lint_cypher('spec = {"rel_types": "HAS_STEP|ORGANIZES"}') == []
+
+    def test_uncorroborated_upper_snake_lists_are_ignored(self) -> None:
+        """The false-positive guard: no registered sibling means not an edge list.
+
+        Without this, every list of UPPER_SNAKE constants in the persistence
+        layer — status codes, env-var names, header names — would be read as
+        graph vocabulary.
+        """
+        assert lint_cypher('LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"]') == []
+
+    def test_single_element_lists_are_ignored(self) -> None:
+        """One string is not a list of vocabulary; corroboration needs a sibling."""
+        assert lint_cypher('X = ["NOT_AN_EDGE"]') == []
+
+    def test_lowercase_and_mixed_case_strings_are_ignored(self) -> None:
+        """Edge names are UPPER_SNAKE; anything else is not vocabulary."""
+        assert lint_cypher('X = ["HAS_STEP", "some prose", "MixedCase"]') == []
+
+    def test_docstring_alternations_are_inert(self) -> None:
+        """Prose describing an alternation must not be linted as one."""
+        assert lint_cypher('def f():\n    """PARENT_OF|CHILD_OF|HAS_STEP"""\n    return 1') == []
+
+    def test_respects_line_suppression(self) -> None:
+        content = 'EDGES = ["PARENT_OF", "HAS_STEP"]  # skuel-lint: disable=SKUEL030 -- external\n'
+        assert lint_cypher(content) == []
+
+    def test_respects_the_baseline(self) -> None:
+        """Same (file, name) baseline as the Cypher half — one rule, two scanners."""
+        baselined_file, baselined_name = next(iter(SkuelLinter.SKUEL030_BASELINE))
+        content = f'EDGES = ["{baselined_name}", "HAS_STEP"]'
+        assert lint_cypher(content, file_path=baselined_file) == []
+        # Same names in a DIFFERENT file are still reported.
+        assert lint_cypher(content) != []
+
+    def test_non_persistence_files_are_out_of_scope(self) -> None:
+        """Scope is unchanged: this scanner rides the existing SKUEL030 gate."""
+        assert (
+            lint_cypher(
+                'EDGES = ["PARENT_OF", "HAS_STEP"]',
+                file_path="core/services/example_service.py",
+            )
+            == []
+        )
+
+
 class TestSKUEL030Registration:
     """SKUEL030 must be wired into every registry the linter consults."""
 

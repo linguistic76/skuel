@@ -248,21 +248,6 @@ class UnifiedIngestionService:
                 "events publish (expected in CORE tier, miswired in FULL)"
             )
 
-        # Track which entity types have had constraints ensured (avoid per-file
-        # round-trip). The Cypher lives in BulkUpsertBackend; this set is the
-        # orchestration bookkeeping that stays in the service.
-        self._constraints_ensured: set[EntityType | NonKuDomain] = set()
-
-    async def _ensure_constraints(self, entity_type: EntityType | NonKuDomain) -> None:
-        """Ensure constraints once per entity type per service lifetime."""
-        if entity_type in self._constraints_ensured:
-            return
-        config = ENTITY_CONFIGS.get(entity_type)
-        if not config:
-            raise ValueError(f"Unknown entity type: {entity_type}")
-        await self._bulk_backend.ensure_constraints(config.entity_label)
-        self._constraints_ensured.add(entity_type)
-
     # ========================================================================
     # EDGE INGESTION
     # ========================================================================
@@ -895,9 +880,6 @@ class UnifiedIngestionService:
             # `or ""` — frontmatter `content:` with no value parses to None
             chunk_content_body = entity_data.pop("content", "") or ""
             entity_data["word_count"] = len(chunk_content_body.split())
-
-        # Ensure constraints once per entity type, not per file.
-        await self._ensure_constraints(entity_type)
 
         # Ingest with relationships (node upsert + edge creation below the boundary)
         rel_config = config.relationship_config or {}

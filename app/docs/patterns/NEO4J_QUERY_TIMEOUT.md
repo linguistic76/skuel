@@ -16,7 +16,7 @@ related: [ADR-044, ADR-064]
 Every `session.run(...)`, `driver.execute_query(...)`, and `session.begin_transaction(...)` that flows through the app-wide shared driver carries a server-side `Query(timeout=)` / `begin_transaction(timeout=)` ceiling. A runaway Cypher is **aborted by the Neo4j server**, not by the client giving up.
 
 - **Default:** `120s` (`DatabaseConfig.transaction_timeout`, env `NEO4J_TRANSACTION_TIMEOUT`, `0`=unbounded).
-- **Bulk ingestion:** `600s` (baked into `BulkUpsertBackend.ensure_constraints` / `upsert_batch` / `upsert_with_relationships`).
+- **Bulk ingestion:** `600s` (baked into `BulkUpsertBackend.upsert_nodes` / `create_relationships` / `upsert_with_relationships`).
 - **Startup DDL:** untimed — `Neo4jSchemaManager` is constructed from the raw (unwrapped) driver in compose; vector / full-text / domain index creation on a large `:Entity` label can exceed 120s legitimately.
 - **Migration / one-off scripts** that build their own `Neo4jConnection` directly bypass the wrapper for the same reason.
 
@@ -76,7 +76,7 @@ Semantics:
 | Standard CRUD, list queries, single-entity reads | ❌ No | 120s default is generous (typical query: ms to seconds). |
 | MEGA-QUERY (`user_context_queries.execute_mega_query`) | ❌ No | Typically 5–30s, well under 120s — a true runaway is still caught. |
 | Heavy analytics (`cross_domain_backend.find_knowledge_hubs`, `analyze_prerequisite_depth`) | ❌ No | Same — default headroom is enough; if a tenant's graph legitimately needs longer, wrap that one call site. |
-| Bulk ingestion (`upsert_batch` / `upsert_with_relationships`) | ✅ Already wrapped (600s) | Large MD/YAML imports legitimately exceed 120s; the wrap is in `BulkUpsertBackend`. |
+| Bulk ingestion (`upsert_nodes` / `create_relationships` / `upsert_with_relationships`) | ✅ Already wrapped (600s) | Large MD/YAML imports legitimately exceed 120s; the wrap is in `BulkUpsertBackend`. |
 | Constraint / index creation on a large label | ✅ Use `unbounded_neo4j_query_timeout()` | DDL workloads can run minutes on a populated graph; `Neo4jSchemaManager` already gets the raw driver at compose. |
 | One-off admin maintenance through the wrapped driver | Consider `unbounded_neo4j_query_timeout()` | Only when you're certain it's intentional and bounded by another mechanism. |
 

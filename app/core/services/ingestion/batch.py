@@ -1143,8 +1143,6 @@ async def ingest_directory(
         if not config or bulk_backend is None:
             continue
 
-        await bulk_backend.ensure_constraints(config.entity_label)
-
         # Strip the engine's private bookkeeping key before persistence — the
         # bulk backend stores every remaining key as a node property, so leaving
         # _file_path on would (and historically did) leak it into the graph.

@@ -25,7 +25,7 @@ For implementation guidance, see:
 2. **MyPy** (`mypy`) - Static type checker
 3. **Pyright** (`pyright`) - Additional type checker for VS Code
 4. **SKUEL Pattern Linter** (`scripts/lint_skuel.py`) - Custom architectural patterns
-5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP011), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations, bulk-upsert templates — semicolon-split statements, comment-masked; since PR #710)
+5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP011), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations — semicolon-split statements, comment-masked; since PR #710)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
 - `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
@@ -798,6 +798,23 @@ never the syntax around it.
   filtering on five edge types that do not exist. Parameterized forms
   (`type(r) = $rel_type`) carry no static name and are skipped.
 
+**Python edge lists — the rule's second scanner (since tranche 5).** An alternation is
+as often assembled from a Python literal as written inline:
+`{"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]}`, or a bare
+`"rel_types": "PARENT_OF|CHILD_OF"` in a query spec. Those names never sit inside a
+Cypher fragment, so the Cypher scanner could not see them — while the alternation they
+build silently matches only its live arms. Four such sites surfaced across four tranches,
+the last found by this scanner on its first run. Both shapes are covered: a
+list/tuple/set literal of bare edge names, and a bare `A|B` alternation string. Same
+scope, baseline, suppression and severity as the Cypher half — one rule, two positions.
+
+*Corroboration keeps false positives at zero.* A group of UPPER_SNAKE strings counts as
+graph vocabulary only when at least one member is a registered `RelationshipName`; that
+sibling is the evidence. Without it, every list of UPPER_SNAKE constants in the
+persistence layer (status codes, header names) would be flagged. The deliberate trade:
+**a group in which every name is wrong stays invisible.** That is the safe direction to
+fail, and all four known sites carried a registered sibling.
+
 **Scope and exemptions:**
 
 - `adapters/persistence/**` `.py` string literals. The `.cypher` half is CYP011 in
@@ -822,12 +839,18 @@ failing closed is the only safe default for a rule whose value is catching what 
 else catches.
 
 **The baseline.** The 2026-07-19 introduction sweep found 65 unregistered names across 194
-sites. 32 were live vocabulary with real writers and were registered. The remaining 33 are
-listed in `SkuelLinter.SKUEL030_BASELINE` — every one a **known finding, not an accepted
+sites. 32 were live vocabulary with real writers and were registered. The remaining 33
+went into `SkuelLinter.SKUEL030_BASELINE` — every one a **known finding, not an accepted
 name**: reads against vocabulary nothing writes. They are baselined rather than registered
 because registering them would bless the bug; the fix is to repoint or delete the reader,
 which changes query semantics and belongs in its own PR. Full triage:
 [CYPHER_VOCABULARY_FINDINGS.md](CYPHER_VOCABULARY_FINDINGS.md).
+
+Five tranches worked that list down from 45 `(file, name)` pairs to **2**, both belonging
+to the semantic-relationship-layer roadmap rather than to this rule. Note what the count
+does *not* measure: SKUEL030 checks whether a name is **registered**, never whether
+anything **writes** it, so registered-but-dead vocabulary passes cleanly and never appears
+in the baseline at all. The findings document is explicit that it is a lower bound.
 
 Baseline entries are **`(file, name)` pairs, not bare names.** Scoping to the file that
 already carries the finding keeps the invariant honest: a new query introducing `:Report`
