@@ -380,18 +380,6 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
 # masked any same-named call). Two pure-plumbing helpers were DELETED (live
 # winners exist: inline None-guard / a standalone conversion fn (itself since deleted in Tier 6)); these
 # three are feature-shaped surfaces with no superseded loser.
-# Chain builders on phantom edges (Mike ruled PLANNED, not delete, 2026-07-10).
-_PHANTOM_EDGE_CHAIN_BUILDERS = (
-    "caller-less dependency-chain query builder (export lists only) built on "
-    "phantom edge vocabulary: REQUIRES between Principles/Habits plus the "
-    "user-scoped filter edges ADHERES_TO (User→Principle) and PRACTICES "
-    "(User→Habit) — none of these are in RelationshipName and none has a "
-    "writer anywhere (2026-07 writer audits; PRACTICES Event→Ku remapped in "
-    "#586, these User-scoped reads are the separate shape). Completing this "
-    "requires real edge vocabulary FIRST (register the edges + build write "
-    "paths), then wire a dependency-chain surface on the detail pages"
-)
-
 _MIXIN_PREREQUISITE_WRITE = (
     "config-driven prerequisite-write half staged — the write twin of the LIVE "
     "get_prerequisites/get_enables read pair (PsService + GraphQL curriculum "
@@ -788,15 +776,6 @@ PLANNED_METHODS: dict[str, str] = {
         "count query for ingestion history entries; unit test coverage in "
         "tests/unit/test_ingestion_history.py; no production caller yet — "
         "wire into the ingestion admin dashboard or a /status route"
-    ),
-    # --- Query builders: dependency chains on phantom edge vocabulary ---
-    # (outside METHOD_SCOPE — reported via the existence-checked out-of-scope
-    # path, not the vulture pipeline)
-    "adapters/persistence/neo4j/query/cypher/domain_queries.py::build_principle_dependencies": (
-        _PHANTOM_EDGE_CHAIN_BUILDERS
-    ),
-    "adapters/persistence/neo4j/query/cypher/domain_queries.py::build_habit_dependencies": (
-        _PHANTOM_EDGE_CHAIN_BUILDERS
     ),
 }
 

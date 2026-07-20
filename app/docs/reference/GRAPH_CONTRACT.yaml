@@ -1339,23 +1339,10 @@ labels:
 
 # Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).
 findings:
-  ADHERES_TO:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/query/cypher/domain_queries.py
-  ATTENDED:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/query/cypher/domain_queries.py
   CHILD_OF:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/query/graph_traversal.py
-  COMPLETED:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/_lp_intelligence_mixin.py
-      - adapters/persistence/neo4j/query_builders/faceted_query_builder.py
   CONTAINS:
     kind: relationship
     sites:
@@ -1445,10 +1432,6 @@ findings:
     kind: label
     sites:
       - adapters/persistence/neo4j/_adaptive_mixin.py
-  MADE_CHOICE:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/query/cypher/domain_queries.py
   MasteryRecord:
     kind: label
     sites:
@@ -1461,18 +1444,10 @@ findings:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/query/graph_traversal.py
-  PRACTICES:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/query/cypher/domain_queries.py
   REPORTS_ON_GOAL:
     kind: relationship
     sites:
       - adapters/persistence/neo4j/analytics_relationship_backend.py
-  REQUIRES:
-    kind: relationship
-    sites:
-      - adapters/persistence/neo4j/query/cypher/domain_queries.py
   Report:
     kind: label
     sites:

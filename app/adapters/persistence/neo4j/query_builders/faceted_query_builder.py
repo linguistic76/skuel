@@ -332,7 +332,8 @@ class FacetedQueryBuilder:
             category="faceted_search",
         )
 
-        # Progressive learning search
+        # Progressive learning search — user completion of learning content is
+        # the MASTERED edge (a :COMPLETED user-edge never had a writer).
         template_manager.register_template(
             "progressive_learning_search",
             TemplateSpec(
@@ -341,11 +342,11 @@ class FacetedQueryBuilder:
                 base_template="""
                     MATCH (n:Entity)
                     WHERE n.level <= $user_level
-                    AND NOT EXISTS((n)<-[:COMPLETED]-(:User {uid: $user_uid}))
+                    AND NOT EXISTS((n)<-[:MASTERED]-(:User {uid: $user_uid}))
                     AND ($search_text IS NULL OR n.title CONTAINS $search_text)
                     OPTIONAL MATCH (n)<-[:PREREQUISITE_FOR]-(prereq)
                     WITH n, collect(prereq.uid) as prerequisites
-                    WHERE ALL(p IN prerequisites WHERE EXISTS((:User {uid: $user_uid})-[:COMPLETED]->(:Entity {uid: p})))
+                    WHERE ALL(p IN prerequisites WHERE EXISTS((:User {uid: $user_uid})-[:MASTERED]->(:Entity {uid: p})))
                     RETURN n
                     ORDER BY n.level ASC, n.created_at DESC
                     LIMIT $limit

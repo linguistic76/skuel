@@ -1,8 +1,26 @@
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
 
-**Status:** open backlog. Every item here is baselined in
-`scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
+**Status:** open backlog, being worked in tranches. Every open item is baselined
+in `scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE` (or suppressed with a
 `// noqa: CYP011`), so it does not block CI — but none of it is *accepted*.
+
+## Decision log (Mike, 2026-07-20)
+
+- **§1 `:Report` cluster → DELETE** the whole `AnalyticsRelationshipBackend`
+  (tranche 2). The audit found it consumer-less on top of label-less: the
+  factory stores it as `self.analytics` and no code calls any of its 12
+  methods; the live report stack is `ReportRelationshipService` + `REPORT_FOR`.
+- **§7 writer-less reads → REPOINT-OR-DELETE** (tranche 3): repoint
+  `HAS_PROGRESS`/`UserProgress`/`MasteryRecord` reads onto the live
+  `MASTERED`/`IN_PROGRESS`/`ENROLLED_IN` vocabulary; delete reader paths with
+  no live equivalent (`STRUGGLING_WITH`, `NEEDS_REVIEW`, `LearningPreference`,
+  `JournalAnalytics`, `ContentMetadata`). No new writers inside this backlog —
+  wanted features go to the roadmap instead.
+- **§9 semantic-as-edge → DEFERRED** to semantic-relationship-layer roadmap
+  Phase 1. Pairs stay baselined until that work reconciles them.
+- **Tranche order:** T1 = §3+§4 (done below) · T2 = §6 LEARNING fix+migration,
+  §1 deletion, §11 Expense · T3 = §7 per decision, §2 label mismatches ·
+  T4 = §5 sibling filter, §8 near-duplicates.
 
 The baseline holds **`(file, name)` pairs**, so only the known call sites are
 exempt: introducing any of these names in a *new* file still fails the rule. It
@@ -63,38 +81,44 @@ Not a mechanical fix — the two report types have different owners and scopes.
 
 ---
 
-## 3. Always-true completion filters (highest correctness risk after §1)
+## 3. Always-true completion filters — ✅ RESOLVED (tranche 1, 2026-07-20)
 
-All of the form `WHERE NOT (x)<-[:REL]-(:User {uid: $user_uid})`. Because no
-writer ever creates the edge, the `NOT` is **always true**, so every
-dependency-chain query returns *unfiltered* results — the user's completed items
-are never excluded.
+Was: filters of the form `WHERE NOT (x)<-[:REL]-(:User {uid: $user_uid})` on
+edges (`PRACTICES`, `ATTENDED`, `MADE_CHOICE`, `ADHERES_TO`, `COMPLETED`) no
+writer creates — the `NOT` was always true. Same bug class as the 2026-07-10
+`PRACTICES` audit.
 
-This is the same bug class the 2026-07-10 `PRACTICES` audit found, replicated
-four more times in one file (`adapters/persistence/neo4j/query/cypher/domain_queries.py`).
+**Resolution:**
 
-| Edge | Registered equivalent | Sites |
-|---|---|---|
-| `PRACTICES` | `APPLIES_KNOWLEDGE` (renamed by a 2026-06 migration) | `domain_queries.py:371,379`, `_adaptive_mixin.py:65`, `cross_domain_backend.py:42` |
-| `ATTENDED` | `ATTENDS` / `PRACTICED_AT_EVENT` | `domain_queries.py:432,440` |
-| `MADE_CHOICE` | `IMPLEMENTS_CHOICE` / `HAS_CHOICE` | `domain_queries.py:530,538` |
-| `ADHERES_TO` | `EMBODIES_PRINCIPLE` / `ALIGNED_WITH_PRINCIPLE` | `domain_queries.py:490` |
-| `COMPLETED` | `ENROLLED_IN {status:'completed'}` | `_lp_intelligence_mixin.py:173`, `faceted_query_builder.py:344,348` — `user_progress_backend.py:119` already documents that `:COMPLETED` never had a writer |
+- The four `domain_queries.py` filter sites lived inside the caller-less
+  `build_{task,goal,habit,event,principle,choice}_dependencies` builders —
+  **deleted**, together with the orphaned helpers only they called
+  (`build_knowledge_prerequisites`, `build_unmastered_prerequisite_chain` —
+  which also carried an unregistered `MASTERED_BY` default the scanner couldn't
+  see — and `build_multi_domain_context`). Mike explicitly superseded the
+  2026-07-10 "PLANNED, not delete" bloat ruling for the habit/principle pair:
+  the staged user story (dependency chains on detail pages) is already served
+  by lateral relationships + BlockingChainView, so the two
+  `_PHANTOM_EDGE_CHAIN_BUILDERS` entries left `detect_bloat.py` with them.
+- The two **live** `COMPLETED` sites were repointed onto real vocabulary:
+  `_lp_intelligence_mixin.get_optimal_path_recommendations` now filters
+  `NOT (u)-[:ENROLLED_IN {status: 'completed'}]->(path)` (the state
+  `UserBackend.complete_learning_path` actually writes), and the
+  `progressive_learning_search` faceted template filters on `MASTERED`.
 
 ---
 
-## 4. Bare `REQUIRES` — the prerequisite-chain traversal walks a non-existent edge
+## 4. Bare `REQUIRES` prerequisite chains — ✅ RESOLVED (tranche 1, 2026-07-20)
 
-13 sites in `adapters/persistence/neo4j/query/cypher/domain_queries.py` traverse
-`[:REQUIRES*1..{depth}]` or `[:REQUIRES]`. **No writer anywhere creates a bare
-`REQUIRES` edge.** The registered names are `REQUIRES_TASK`, `REQUIRES_HABIT`,
-`REQUIRES_PREREQUISITE`, `REQUIRES_PREREQUISITE_HABIT`, `REQUIRES_KNOWLEDGE`,
-`REQUIRES_STEP`.
+Was: 13 sites in `domain_queries.py` traversing `[:REQUIRES*1..{depth}]` /
+`[:REQUIRES]` — an edge nothing writes (registered names are `REQUIRES_TASK`,
+`REQUIRES_HABIT`, `REQUIRES_PREREQUISITE`, `REQUIRES_PREREQUISITE_HABIT`,
+`REQUIRES_KNOWLEDGE`, `REQUIRES_STEP`), so every dependency chain came back
+empty.
 
-So the dependency-chain queries — the *core* of prerequisite/blocking-chain
-analysis — traverse nothing and return empty chains. This compounds §3: the same
-file's `WHERE NOT` completion filters are always-true, so these queries return
-"no prerequisites, nothing completed" regardless of graph state.
+**Resolution:** every site sat inside the same dead dependency builders as §3 —
+resolved by the same deletion. `build_simple_prerequisite_chain` (live via
+`_semantic_mixin`, callers pass real edge names) was kept.
 
 Only visible once the scanner stopped skipping relationships whose *var-length
 bound* was interpolated (`[:REQUIRES*1..{depth}]` — the type name is static, only
@@ -251,3 +275,26 @@ ADR-078's `conversation_backend.py` writes
 Both were registered in this PR because both have live writers, but the older
 path sits **outside** the ADR-078 "understanding wall" documented in
 `neo_labels.py`. Reconciling them is open work.
+
+---
+
+## 13. New findings from the tranche-1 audit (2026-07-20)
+
+Surfaced while verifying §3/§4; not vocabulary violations themselves, so they
+carry no baseline pairs — recorded here so they don't get lost.
+
+- **The `*_with_context` family looks caller-less.** `build_entity_with_context`
+  plus the 8 per-domain wrappers (`build_task_with_context` …
+  `build_principle_with_context`, ~840 lines of `domain_queries.py`) have no
+  production callers — only docstring mentions. The registry-driven
+  `context_query_generator.generate_context_query` (January 2026) appears to be
+  the live successor. Needs its own caller sweep + One Path Forward ruling; if
+  dead, `domain_queries.py` shrinks to the prerequisite-chain + time-based
+  query sections.
+- **Python-side edge lists escape SKUEL030.** `cross_domain_backend.py:42` maps
+  `"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]` — the first
+  two are not `RelationshipName` members (`REINFORCES`'s registered twin is
+  `REINFORCES_HABIT`; live graph has only the latter). The names live in a
+  Python list, not a Cypher string, so the scanner can't see them. Any
+  alternation built from that map matches only the `APPLIES_KNOWLEDGE` arm.
+  Fold into the §7/T3 pass (same file) or extend the scanner later.
