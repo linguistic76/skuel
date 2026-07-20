@@ -790,6 +790,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         - journals_fulltext (legacy — label Document no longer exists)
         - curriculum_fulltext_idx (legacy — Curriculum label replaced by PathStep)
         - lpstep_fulltext_idx (legacy — label Lpstep renamed to PathStep)
+        - ku_* hierarchical-KU idxs (legacy — Ku properties no writer produces;
+          bootstrap CREATE removed, this drops leftovers from older boots)
         """
         stale_indexes = [
             "ai_report_uid_idx",
@@ -815,6 +817,21 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             "journals_fulltext",
             "curriculum_fulltext_idx",
             "lpstep_fulltext_idx",
+            # Legacy hierarchical-KU property indexes — bootstrap CREATE block
+            # removed from neo4j_adapter.py (Ku carries none of these props;
+            # domain membership is the IN_DOMAIN edge, depth_level a query
+            # alias). These drop leftovers on DBs that ran the older bootstrap.
+            "ku_knowledge_domain_idx",
+            "ku_knowledge_subdomain_idx",
+            "ku_md_heading_level_idx",
+            "ku_parent_id_idx",
+            "ku_depth_level_idx",
+            "ku_root_domain_idx",
+            "ku_knowledge_path_idx",
+            "ku_source_file_idx",
+            "ku_schema_version_idx",
+            "ku_domain_level_idx",
+            "ku_parent_level_idx",
         ]
         results: dict[str, Any] = {"dropped": [], "failed": []}
 
