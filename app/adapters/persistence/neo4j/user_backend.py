@@ -119,8 +119,9 @@ class UserBackend(Neo4jSessionRunner):
         """
         MERGE a ``(User)-[rel_type]->(target)`` edge and apply a SET clause.
 
-        THE shared body of the five user-edge writers (MASTERED / IN_PROGRESS /
-        ENROLLED_IN / INTERESTED_IN / BOOKMARKED). ``rel_type``,
+        THE shared body of the user-edge writers (IN_PROGRESS / ENROLLED_IN /
+        INTERESTED_IN / BOOKMARKED — MASTERED authors its own query because it
+        must also retire the IN_PROGRESS edge). ``rel_type``,
         ``set_clause`` and ``target_label`` are backend-internal literals
         (injection-safe); every value inside ``set_clause`` is parameterized.
 
@@ -507,21 +508,34 @@ class UserBackend(Neo4jSessionRunner):
         Returns:
             Result[bool]: Success status
         """
-        merged = await self._merge_user_edge(
-            user_uid,
-            knowledge_uid,
-            "MASTERED",
-            """r.mastery_score = $mastery_score,
-            r.practice_count = $practice_count,
-            r.confidence_level = $confidence_level,
-            r.last_practiced = datetime()""",
+        # Not _merge_user_edge: mastering a KU must also retire its IN_PROGRESS
+        # edge (the state progression is VIEWED → IN_PROGRESS → MASTERED, and
+        # readers like count_in_progress_path_steps would otherwise keep counting
+        # a mastered KU as actively studied). Mirrors
+        # UserProgressBackend.record_mastery, the other MASTERED writer.
+        record = await self._run_single(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (t:Entity {uid: $target_uid})
+            MERGE (u)-[r:MASTERED]->(t)
+            SET r.mastery_score = $mastery_score,
+                r.practice_count = $practice_count,
+                r.confidence_level = $confidence_level,
+                r.last_practiced = datetime()
+            WITH u, t, r
+            OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(t)
+            DELETE ip
+            RETURN r
+            """,
             {
+                "user_uid": user_uid,
+                "target_uid": knowledge_uid,
                 "mastery_score": mastery_score,
                 "practice_count": practice_count,
                 "confidence_level": confidence_level,
             },
         )
-        if not merged:
+        if record is None:
             return Result.fail(
                 Errors.database(
                     operation="record_knowledge_mastery",

@@ -16,7 +16,9 @@
 //   onto last_accessed and doubles as the started_at floor (the true start was
 //   never recorded). Where an IN_PROGRESS edge already exists for the same pair,
 //   the two are merged: progress/difficulty take the more advanced value,
-//   time_invested_minutes sums, timestamps take the wider span.
+//   time_invested_minutes sums, timestamps take the wider span. Pairs the user
+//   has already MASTERED drop the LEARNING edge outright rather than convert —
+//   mastery retires in-progress state, it does not coexist with it.
 //
 // Part 2 — stray :Expense nodes
 //   ADR-052 Phase 5 demolished the native expense module, but the ingestion
@@ -28,7 +30,19 @@
 // remains. Safe to run against a graph that never had either.
 
 // ---------------------------------------------------------------------
-// Part 1a: fold LEARNING into an EXISTING IN_PROGRESS edge for the same pair
+// Part 1a: pairs already MASTERED — drop the LEARNING edge, don't convert
+// ---------------------------------------------------------------------
+// The state progression is VIEWED -> IN_PROGRESS -> MASTERED, and MASTERED
+// retires IN_PROGRESS (UserProgressBackend.record_mastery,
+// UserBackend.record_knowledge_mastery). Converting here would resurrect an
+// active-study edge on knowledge the user has already mastered, so
+// count_in_progress_path_steps and friends would count it as in progress.
+MATCH (u:User)-[l:LEARNING]->(k)
+WHERE EXISTS { (u)-[:MASTERED]->(k) }
+DELETE l;
+
+// ---------------------------------------------------------------------
+// Part 1b: fold LEARNING into an EXISTING IN_PROGRESS edge for the same pair
 // ---------------------------------------------------------------------
 MATCH (u:User)-[l:LEARNING]->(k)
 MATCH (u)-[p:IN_PROGRESS]->(k)
@@ -49,7 +63,7 @@ SET p.progress = CASE
 DELETE l;
 
 // ---------------------------------------------------------------------
-// Part 1b: convert the remaining LEARNING edges (no IN_PROGRESS counterpart)
+// Part 1c: convert the remaining LEARNING edges (no IN_PROGRESS counterpart)
 // ---------------------------------------------------------------------
 MATCH (u:User)-[l:LEARNING]->(k)
 MERGE (u)-[p:IN_PROGRESS]->(k)
