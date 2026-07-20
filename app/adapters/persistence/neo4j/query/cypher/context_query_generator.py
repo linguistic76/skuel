@@ -46,7 +46,7 @@ query, params = generate_context_query(
 
 **See Also:**
     - /core/models/relationship_registry.py - THE single source
-    - /core/models/query/cypher/domain_queries.py - build_entity_with_context() engine
+    - /adapters/persistence/neo4j/query/cypher/domain_queries.py - build_entity_with_context() engine
 """
 
 from __future__ import annotations

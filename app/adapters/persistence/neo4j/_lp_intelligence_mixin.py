@@ -168,9 +168,11 @@ class _LpIntelligenceMixin:
         OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Entity)
         WITH u, collect(mastered.uid) as mastered_uids
 
-        // Get available paths
+        // Get available paths — completion lives on ENROLLED_IN r.status
+        // (written by UserBackend.complete_learning_path); a :COMPLETED edge
+        // never had a writer.
         MATCH (path:Entity {{entity_type: 'learning_path'}})
-        WHERE NOT (u)-[:COMPLETED]->(path) {domain_filter}
+        WHERE NOT (u)-[:ENROLLED_IN {{status: 'completed'}}]->(path) {domain_filter}
 
         // Calculate path readiness
         MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})

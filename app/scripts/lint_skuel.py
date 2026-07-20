@@ -4103,29 +4103,12 @@ class SkuelLinter:
             ("adapters/persistence/neo4j/neo4j_content_adapter.py", "ContentMetadata"),
             ("adapters/persistence/neo4j/ingestion_backend.py", "HAS_METADATA"),
             ("adapters/persistence/neo4j/neo4j_content_adapter.py", "HAS_METADATA"),
-            # --- Always-true completion filters (highest correctness risk) -----
-            # All of the form `WHERE NOT (x)<-[:REL]-(:User)`. No writer means the
-            # NOT is always true, so every dependency-chain query returns
-            # UNFILTERED results. Same bug class as the 2026-07-10 PRACTICES audit.
-            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "PRACTICES"),
-            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "ATTENDED"),
-            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "MADE_CHOICE"),
-            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "ADHERES_TO"),
-            ("adapters/persistence/neo4j/_lp_intelligence_mixin.py", "COMPLETED"),
-            ("adapters/persistence/neo4j/query_builders/faceted_query_builder.py", "COMPLETED"),
             # --- Retired name that still has a live writer ---------------------
             # test_no_legacy_patterns asserts LEARNING must NOT be a RelationshipName
             # member (replaced by IN_PROGRESS), yet record_learning_progress still
             # writes it. Fix the writer, don't register the name.
             ("adapters/persistence/neo4j/user_backend.py", "LEARNING"),
             ("adapters/persistence/neo4j/user_context_queries.py", "LEARNING"),
-            # --- Bare REQUIRES: the prerequisite-chain traversal itself --------
-            # 13 sites in domain_queries.py walk `[:REQUIRES*1..{depth}]` /
-            # `[:REQUIRES]`, but no writer creates a bare REQUIRES edge — the
-            # registered names are REQUIRES_TASK / REQUIRES_HABIT /
-            # REQUIRES_PREREQUISITE / REQUIRES_KNOWLEDGE / REQUIRES_STEP. So the
-            # dependency-chain queries traverse nothing and return empty chains.
-            ("adapters/persistence/neo4j/query/cypher/domain_queries.py", "REQUIRES"),
             # --- Hierarchy sibling filter: 5 of its 7 types never match --------
             # `get_siblings` filters `type(r) IN ['SUBGOAL','SUBHABIT',...]`, but the
             # registered names are SUBGOAL_OF / SUBHABIT_OF / ... — only HAS_STEP
