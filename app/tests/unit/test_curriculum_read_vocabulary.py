@@ -1,0 +1,147 @@
+"""
+Guard: LearningPath→Ku reads go through PathSteps, and mastery reads use the
+property mastery writers actually set.
+===========================================================================
+
+SKUEL030 findings §8 (tranche 4). Four sites read curriculum composition and
+none of them named a live edge:
+
+- ``_LpProgressMixin`` matched ``(lp)-[:INCLUDES_KU]->(ku)``.
+- ``KuBackend.get_learning_path_uids`` matched
+  ``(lp:LearningPath)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku)``.
+- ``LifePathBackend`` matched ``(ps)-[:CONTAINS]->(ku)`` in four queries.
+- ``CrossDomainBackend`` matched ``(lp)-[:CONTAINS]->(step:PathStep)``.
+
+``INCLUDES_KU``/``INCLUDES_KNOWLEDGE``/``CONTAINS`` are not ``RelationshipName``
+members. ``CONTAINS_KNOWLEDGE`` *is*, but it is a PathStep→Ku edge — naming it
+at a LearningPath endpoint is a different silent zero, not a fix. The live graph
+holds no LearningPath→Ku relationship of any type: a path reaches a Ku through
+``HAS_STEP``→PathStep→``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU``, or directly via its
+ingestible ``REQUIRES_KNOWLEDGE`` prerequisites.
+
+The second half of this module guards what repointing those reads exposed. A
+dead read hides the bugs inside it; making it live turns them on:
+
+- ``mastery_level`` is written by exactly one MASTERED writer
+  (``_AdaptiveMixin``) and it is a STRING (``'introduced'``/``'proficient'``).
+  ``LifePathBackend.calculate_knowledge_alignment`` multiplied it by 0.6 — Neo4j
+  raises a type error on that, so the repoint would have turned a silent zero
+  into a hard query failure.
+- ``substance_score`` is written by no MASTERED writer at all, so
+  ``get_knowledge_substance_stats`` classified every Ku as theoretical.
+"""
+
+from __future__ import annotations
+
+import inspect
+import re
+
+from adapters.persistence.neo4j import _lp_progress_mixin, _traversal_mixin, lifepath_backend
+from adapters.persistence.neo4j.backends import curriculum_backends
+from core.models.relationship_names import RelationshipName
+
+# Names these reads used to carry that no writer creates.
+DEAD_CURRICULUM_NAMES = ["INCLUDES_KU", "INCLUDES_KNOWLEDGE", "FUNDS_HABIT", "FUNDS_TASK"]
+
+
+def _source(obj: object) -> str:
+    return inspect.getsource(obj)  # type: ignore[arg-type]
+
+
+def _cypher_only(source: str) -> str:
+    """Keep only the executable Cypher in a module or method.
+
+    Docstrings and comments here deliberately name the retired vocabulary to
+    explain why it went; that prose must not read as usage. Cypher lives in
+    triple-quoted blocks containing a clause keyword, so keep only those, minus
+    any ``//`` comment lines inside them.
+    """
+    blocks = re.findall(r'"""([\s\S]*?)"""', source)
+    cypher = [b for b in blocks if re.search(r"\b(MATCH|RETURN|MERGE)\b", b)]
+    return "\n".join(
+        line for block in cypher for line in block.splitlines() if not line.strip().startswith("//")
+    )
+
+
+def test_dead_curriculum_names_are_not_registered() -> None:
+    """The names these reads used are genuinely absent from the vocabulary."""
+    members = {r.value for r in RelationshipName}
+    assert "INCLUDES_KU" not in members
+    assert "INCLUDES_KNOWLEDGE" not in members
+    assert "CONTAINS" not in members
+    assert "FUNDS_HABIT" not in members
+
+
+def test_lp_progress_reads_kus_through_path_steps() -> None:
+    """Both LP progress reads traverse HAS_STEP rather than a direct LP→Ku edge."""
+    source = _cypher_only(_source(_lp_progress_mixin._LpProgressMixin))
+
+    for name in DEAD_CURRICULUM_NAMES:
+        assert name not in source
+    assert source.count("[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->") == 2
+
+
+def test_ku_mastery_progress_survives_a_user_with_no_masteries() -> None:
+    """The mastery test is a predicate, not a MATCH that can collapse the query.
+
+    A mandatory ``MATCH (user)-[:MASTERED]->(ku)`` returns zero rows for a user
+    who has mastered nothing, which the service reads back as "this path has no
+    Kus" — the inverse of the truth, for the learner it matters most to.
+    """
+    source = _cypher_only(_source(_lp_progress_mixin._LpProgressMixin.get_ku_mastery_progress))
+
+    assert "EXISTS {" in source
+    assert "MATCH (user:User" not in source
+    # An empty path must still yield one row of zeros rather than no rows.
+    assert "CASE WHEN size(candidate_kus) = 0 THEN [null]" in source
+
+
+def test_curriculum_lp_lookup_uses_live_endpoints() -> None:
+    """get_learning_path_uids never names a LearningPath→Ku edge."""
+    source = _cypher_only(_source(curriculum_backends.KuBackend.get_learning_path_uids))
+
+    assert "INCLUDES_KNOWLEDGE" not in source
+    assert "(lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)" in source
+    # CONTAINS_KNOWLEDGE is legitimate — but only at the PathStep endpoint.
+    assert "(lp:LearningPath)-[:CONTAINS_KNOWLEDGE" not in source
+
+
+def test_lifepath_reads_kus_through_path_steps() -> None:
+    """All four LifePath alignment queries traverse the live composition edge."""
+    source = _cypher_only(_source(lifepath_backend))
+
+    assert "-[:CONTAINS]->" not in source
+    assert source.count("-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity") == 4
+
+
+def test_lifepath_mastery_reads_use_mastery_score_not_mastery_level() -> None:
+    """`mastery_level` is a string; arithmetic on it raises a Neo4j type error."""
+    source = _cypher_only(_source(lifepath_backend))
+
+    assert "mastery_level" not in source
+    # Both the alignment score and the substance proxy read the numeric property,
+    # falling back to 1.0 for the one writer that records mastery without a score.
+    assert source.count("coalesce(m.mastery_score, 1.0)") == 2
+    assert "substance_score" not in source
+
+
+def test_momentum_does_not_collapse_when_recent_activity_is_zero() -> None:
+    """A user whose aligned activity stopped must score as declining, not "no data"."""
+    source = _cypher_only(_source(lifepath_backend.LifePathBackend.calculate_momentum))
+
+    assert "APPLIES_KNOWLEDGE" in source
+    # Both week-window legs are OPTIONAL; a mandatory MATCH would return no rows
+    # and the service would fall back to the neutral 0.5 default.
+    assert source.count("OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(task") == 2
+
+
+def test_batch_cross_domain_context_drops_the_dead_funds_arms() -> None:
+    """FUNDS_* is ADR-052 residue with no writer; `habits` went with it."""
+    source = _cypher_only(_source(_traversal_mixin._TraversalMixin.get_batch_cross_domain_context))
+
+    assert "FUNDS_HABIT" not in source
+    assert "FUNDS_TASK" not in source
+    # The key could never be populated once its only edge was gone, so it must
+    # not survive as a permanently empty list.
+    assert "as habits" not in source
+    assert "collect(DISTINCT habit)" not in source

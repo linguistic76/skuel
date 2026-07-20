@@ -267,7 +267,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter habits for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_habit_nodes) > 0 THEN all_habit_nodes ELSE [null] END as habit
-OPTIONAL MATCH (habit)-[:FULFILLS_GOAL|SUPPORTS_GOAL|CONTRIBUTES_TO]->(linked_goal:Goal)
+OPTIONAL MATCH (habit)-[:FULFILLS_GOAL|SUPPORTS_GOAL|CONTRIBUTES_TO_GOAL]->(linked_goal:Goal)
 WHERE habit IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,

@@ -444,13 +444,13 @@ class TestCurriculumRelationships:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (lp)-[:CONTAINS {order: 1}]->(ps)
+                CREATE (lp)-[:HAS_STEP {order: 1}]->(ps)
             """)
 
         # Verify relationship exists
         async with neo4j_driver.session() as session:
             result = await session.run("""
-                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ps:Entity {uid: 'ps:step_1'})
+                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:HAS_STEP]->(ps:Entity {uid: 'ps:step_1'})
                 RETURN lp.uid as lp_uid, ps.uid as ps_uid, r.order as step_order
             """)
             record = await result.single()

@@ -207,19 +207,31 @@ RETURN true AS success
 
 **Solution**:
 ```cypher
-// LpBackend.get_paths_containing_ku() — match either relationship type
+// LpBackend.get_paths_containing_ku() — a path reaches a Ku two ways: directly,
+// via its ingestible REQUIRES_KNOWLEDGE prerequisites, or (the normal case)
+// through the PathSteps that actually compose Kus. There is NO LearningPath→Ku
+// containment edge — this query used to match INCLUDES_KU, which nothing writes.
+MATCH (lp:Entity {entity_type: 'learning_path'})-[:REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+RETURN DISTINCT lp.uid AS lp_uid
+UNION
 MATCH (lp:Entity {entity_type: 'learning_path'})
-      -[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->
+      -[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->
       (ku:Entity {uid: $ku_uid})
 RETURN DISTINCT lp.uid AS lp_uid
 
-// LpBackend.get_ku_mastery_progress() — two-pass calculation
-MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
-WITH count(DISTINCT ku) AS total_kus
-MATCH (lp:Entity {uid: $lp_uid})-[:INCLUDES_KU|REQUIRES_KNOWLEDGE]->(ku:Entity)
-MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
-WITH total_kus, count(DISTINCT ku) AS mastered_kus
-RETURN total_kus, mastered_kus
+// LpBackend.get_ku_mastery_progress() — collect both routes, then test mastery
+// with a predicate. A mandatory MATCH on MASTERED would return zero rows for a
+// user who has mastered nothing, which the service reads as "path has no Kus".
+MATCH (lp:Entity {uid: $lp_uid})
+OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(direct_ku:Entity)
+WITH lp, collect(DISTINCT direct_ku) AS direct_kus
+OPTIONAL MATCH (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(step_ku:Entity)
+WITH direct_kus, collect(DISTINCT step_ku) AS step_kus
+WITH direct_kus + step_kus AS candidate_kus
+UNWIND (CASE WHEN size(candidate_kus) = 0 THEN [null] ELSE candidate_kus END) AS ku
+WITH [k IN collect(DISTINCT ku) WHERE k IS NOT NULL] AS lp_kus
+RETURN size(lp_kus) AS total_kus,
+       size([k IN lp_kus WHERE EXISTS { (:User {uid: $user_uid})-[:MASTERED]->(k) }]) AS mastered_kus
 
 // user_context_queries.py — user progress via multiple relationship types
 OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity)

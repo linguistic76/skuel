@@ -57,13 +57,19 @@ def build_graph_context_query(
     from core.models.query_types import QueryIntent
 
     if intent == QueryIntent.HIERARCHICAL:
-        # Pure Cypher variable-length pattern for hierarchical traversal
+        # Pure Cypher variable-length pattern for hierarchical traversal.
+        # The alternation is the live forward (parent→child) hierarchy vocabulary:
+        # the six HAS_SUB* composition edges plus HAS_STEP and ORGANIZES. The old
+        # HAS_CHILD|PARENT_OF|CHILD_OF set matched nothing — PARENT_OF/CHILD_OF are
+        # not RelationshipName members and HAS_CHILD, though registered, has no
+        # writer (findings §8). CHILD_OF also sat on the *outgoing* `child` pattern,
+        # where it would have found parents.
         return f"""
             MATCH (u:Entity {{uid: $uid}})
-            OPTIONAL MATCH path = (u)-[:HAS_CHILD|PARENT_OF|CHILD_OF*0..{depth}]-(related)
+            OPTIONAL MATCH path = (u)-[:HAS_SUBTASK|HAS_SUBGOAL|HAS_SUBHABIT|HAS_SUBEVENT|HAS_SUBCHOICE|HAS_SUBPRINCIPLE|HAS_STEP|ORGANIZES*0..{depth}]-(related)
             WITH u, collect(DISTINCT related) as related_nodes
-            OPTIONAL MATCH (u)-[:HAS_CHILD|CHILD_OF]->(child)
-            OPTIONAL MATCH (u)<-[:HAS_CHILD|PARENT_OF]-(parent)
+            OPTIONAL MATCH (u)-[:HAS_SUBTASK|HAS_SUBGOAL|HAS_SUBHABIT|HAS_SUBEVENT|HAS_SUBCHOICE|HAS_SUBPRINCIPLE|HAS_STEP|ORGANIZES]->(child)
+            OPTIONAL MATCH (u)<-[:HAS_SUBTASK|HAS_SUBGOAL|HAS_SUBHABIT|HAS_SUBEVENT|HAS_SUBCHOICE|HAS_SUBPRINCIPLE|HAS_STEP|ORGANIZES]-(parent)
             RETURN related_nodes,
                    collect(DISTINCT child.uid) as children,
                    parent.uid as parent

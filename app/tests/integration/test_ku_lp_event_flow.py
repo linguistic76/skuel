@@ -123,18 +123,25 @@ class TestKuLpEventFlow:
         assert result.is_ok
         created_lp = result.value
 
-        # Create graph relationships: (LP)-[:INCLUDES_KU]->(KU)
+        # Create graph relationships along the real composition route:
+        # (LP)-[:HAS_STEP]->(PathStep)-[:USES_KU]->(KU). These used to seed a
+        # direct (LP)-[:INCLUDES_KU]->(KU) edge, which no writer creates and
+        # which is not a RelationshipName member (findings §8).
         async with neo4j_driver.session() as session:
-            for ku in kus:
+            for index, ku in enumerate(kus):
                 await session.run(
                     """
                     MATCH (lp:Entity {uid: $lp_uid})
                     MATCH (ku:Entity {uid: $ku_uid})
-                    MERGE (lp)-[:INCLUDES_KU]->(ku)
+                    MERGE (ps:Entity:PathStep {uid: $ps_uid})
+                      ON CREATE SET ps.entity_type = 'path_step', ps.title = $ps_uid
+                    MERGE (lp)-[:HAS_STEP]->(ps)
+                    MERGE (ps)-[:USES_KU]->(ku)
                     RETURN lp.uid, ku.uid
                     """,
                     lp_uid=lp.uid,
                     ku_uid=ku.uid,
+                    ps_uid=f"{lp.uid}.step{index}",
                 )
 
         return created_lp, kus
@@ -354,10 +361,14 @@ class TestKuLpEventFlow:
                 """
                 MATCH (lp:Entity {uid: $lp_uid})
                 MATCH (ku:Entity {uid: $ku_uid})
-                MERGE (lp)-[:INCLUDES_KU]->(ku)
+                MERGE (ps:Entity:PathStep {uid: $ps_uid})
+                  ON CREATE SET ps.entity_type = 'path_step', ps.title = $ps_uid
+                MERGE (lp)-[:HAS_STEP]->(ps)
+                MERGE (ps)-[:USES_KU]->(ku)
                 """,
                 lp_uid=lp2.uid,
                 ku_uid=kus[0].uid,
+                ps_uid=f"{lp2.uid}.step0",
             )
 
         event_bus.subscribe(KnowledgeMastered, lp_progress_service.handle_knowledge_mastered)

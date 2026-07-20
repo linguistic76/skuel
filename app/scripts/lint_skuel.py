@@ -4073,25 +4073,6 @@ class SkuelLinter:
     # docs/patterns/CYPHER_VOCABULARY_FINDINGS.md
     SKUEL030_BASELINE: ClassVar[frozenset[tuple[str, str]]] = frozenset(
         {
-            # --- Hierarchy sibling filter: 5 of its 7 types never match --------
-            # `get_siblings` filters `type(r) IN ['SUBGOAL','SUBHABIT',...]`, but the
-            # registered names are SUBGOAL_OF / SUBHABIT_OF / ... — only HAS_STEP
-            # and ORGANIZES in that list are real, so the sibling lookup silently
-            # ignores every hierarchy edge it was written to find.
-            ("adapters/persistence/neo4j/backends/collab_backends.py", "SUBGOAL"),
-            ("adapters/persistence/neo4j/backends/collab_backends.py", "SUBHABIT"),
-            ("adapters/persistence/neo4j/backends/collab_backends.py", "SUBEVENT"),
-            ("adapters/persistence/neo4j/backends/collab_backends.py", "SUBPRINCIPLE"),
-            ("adapters/persistence/neo4j/backends/collab_backends.py", "SUBCHOICE"),
-            # --- Near-duplicates of registered names ---------------------------
-            ("adapters/persistence/neo4j/cross_domain_backend.py", "CONTAINS"),
-            ("adapters/persistence/neo4j/lifepath_backend.py", "CONTAINS"),
-            ("adapters/persistence/neo4j/user_context_queries.py", "CONTRIBUTES_TO"),
-            ("adapters/persistence/neo4j/_lp_progress_mixin.py", "INCLUDES_KU"),
-            ("adapters/persistence/neo4j/backends/curriculum_backends.py", "INCLUDES_KNOWLEDGE"),
-            ("adapters/persistence/neo4j/query/graph_traversal.py", "CHILD_OF"),
-            ("adapters/persistence/neo4j/query/graph_traversal.py", "PARENT_OF"),
-            ("adapters/persistence/neo4j/_traversal_mixin.py", "FUNDS_HABIT"),
             # --- SemanticRelationshipType names used as raw edge types ---------
             # These exist as "learn:extends_pattern" style semantic URIs, never as
             # Neo4j edge types.

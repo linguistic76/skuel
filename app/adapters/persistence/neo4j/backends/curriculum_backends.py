@@ -168,7 +168,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             ku.{timestamp_field} = datetime($timestamp),
             ku._substance_cache_timestamp = NULL
         WITH ku
-        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU|TRAINS_KU]->(ku)
         WITH ps WHERE ps IS NOT NULL
         SET ps.{metric} = COALESCE(ps.{metric}, 0) + 1,
             ps.{timestamp_field} = datetime($timestamp),
@@ -195,7 +195,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             ku.{timestamp_field} = datetime($timestamp),
             ku._substance_cache_timestamp = NULL
         WITH ku
-        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU|TRAINS_KU]->(ku)
         WITH ku, ps WHERE ps IS NOT NULL
         SET ps.{metric} = COALESCE(ps.{metric}, 0) + 1,
             ps.{timestamp_field} = datetime($timestamp),
@@ -240,9 +240,21 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
     async def get_learning_path_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get learning paths containing this KU."""
+        """Get learning paths containing this KU.
+
+        Both arms of the old ``CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE`` alternation
+        were wrong at this endpoint. ``INCLUDES_KNOWLEDGE`` is not a
+        ``RelationshipName`` member at all, and ``CONTAINS_KNOWLEDGE`` is a
+        PathStep→Ku edge, not a LearningPath→Ku one — so the query named a
+        relationship pair the graph cannot hold (findings §8). A path reaches a Ku
+        through its PathSteps, or directly via its ``required_knowledge``
+        prerequisites.
+        """
         query = """
-        MATCH (lp:LearningPath)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
+        MATCH (lp:LearningPath)
+        WHERE (lp)-[:REQUIRES_KNOWLEDGE]->(ku)
+           OR (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
         RETURN lp.uid as uid
         LIMIT 50
         """
@@ -516,7 +528,7 @@ class PsBackend(
             Result containing dict with total_kus and mastered_kus
         """
         query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity)
+        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
         WITH collect(DISTINCT ku) as all_kus, count(DISTINCT ku) as total
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
         WHERE mastered IN all_kus
@@ -542,7 +554,7 @@ class PsBackend(
     async def find_path_steps_for_ku(self, ku_uid: str) -> Result[list[str]]:
         """Find all PathStep UIDs that contain a given KU via USES_KU or CONTAINS_KNOWLEDGE."""
         query = """
-        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {uid: $ku_uid})
         RETURN ps.uid as ps_uid
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
