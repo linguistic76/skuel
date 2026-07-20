@@ -119,9 +119,10 @@ class UserBackend(Neo4jSessionRunner):
         """
         MERGE a ``(User)-[rel_type]->(target)`` edge and apply a SET clause.
 
-        THE shared body of the user-edge writers (IN_PROGRESS / ENROLLED_IN /
-        INTERESTED_IN / BOOKMARKED — MASTERED authors its own query because it
-        must also retire the IN_PROGRESS edge). ``rel_type``,
+        THE shared body of the unconditional user-edge writers (ENROLLED_IN /
+        INTERESTED_IN / BOOKMARKED). The two learning-state writers author their
+        own queries: MASTERED must also retire the IN_PROGRESS edge, and
+        IN_PROGRESS must not be written over an existing MASTERED. ``rel_type``,
         ``set_clause`` and ``target_label`` are backend-internal literals
         (injection-safe); every value inside ``set_clause`` is parameterized.
 
@@ -558,7 +559,12 @@ class UserBackend(Neo4jSessionRunner):
         """
         Record user's progress on a knowledge unit.
 
-        Creates/updates (User)-[:IN_PROGRESS]->(Knowledge) relationship.
+        Creates/updates (User)-[:IN_PROGRESS]->(Knowledge) relationship, unless
+        the user has already MASTERED it — mastery is the terminal state of the
+        VIEWED → IN_PROGRESS → MASTERED progression, so a late progress update
+        (e.g. a sub-threshold /api/pathways/progress call on a step whose KUs are
+        already mastered) must not demote it back into active study. Skipping is
+        success, not failure.
 
         Args:
             user_uid: User UID
@@ -570,28 +576,40 @@ class UserBackend(Neo4jSessionRunner):
         Returns:
             Result[bool]: Success status
         """
-        merged = await self._merge_user_edge(
-            user_uid,
-            knowledge_uid,
-            "IN_PROGRESS",
-            # Property shape matches UserProgressBackend.record_progress (the other
-            # IN_PROGRESS writer): started_at is create-only, so coalesce preserves
-            # the first one; last_accessed is what every IN_PROGRESS reader sorts on.
-            # difficulty_rating coalesces the other way — the param is optional (the
-            # pathways progress route omits it), and a bare SET of NULL would REMOVE
-            # a rating the other writer stored on the same shared edge.
-            """r.progress = $progress,
-            r.started_at = coalesce(r.started_at, datetime()),
-            r.time_invested_minutes = coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
-            r.difficulty_rating = coalesce($difficulty_rating, r.difficulty_rating),
-            r.last_accessed = datetime()""",
+        # Not _merge_user_edge: the write is conditional on the absence of
+        # MASTERED, which that shared body cannot express.
+        #
+        # Property shape matches UserProgressBackend.record_progress (the other
+        # IN_PROGRESS writer): started_at is create-only, so coalesce preserves
+        # the first one; last_accessed is what every IN_PROGRESS reader sorts on.
+        # difficulty_rating coalesces the other way — the param is optional (the
+        # pathways progress route omits it), and a bare SET of NULL would REMOVE
+        # a rating the other writer stored on the same shared edge.
+        record = await self._run_single(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (t:Entity {uid: $target_uid})
+            OPTIONAL MATCH (u)-[mastered:MASTERED]->(t)
+            FOREACH (_ IN CASE WHEN mastered IS NULL THEN [1] ELSE [] END |
+                MERGE (u)-[r:IN_PROGRESS]->(t)
+                SET r.progress = $progress,
+                    r.started_at = coalesce(r.started_at, datetime()),
+                    r.time_invested_minutes =
+                        coalesce(r.time_invested_minutes, 0) + $time_invested_minutes,
+                    r.difficulty_rating = coalesce($difficulty_rating, r.difficulty_rating),
+                    r.last_accessed = datetime()
+            )
+            RETURN mastered IS NOT NULL AS skipped
+            """,
             {
+                "user_uid": user_uid,
+                "target_uid": knowledge_uid,
                 "progress": progress,
                 "time_invested_minutes": time_invested_minutes,
                 "difficulty_rating": difficulty_rating,
             },
         )
-        if not merged:
+        if record is None:
             return Result.fail(
                 Errors.database(
                     operation="record_knowledge_progress",
@@ -599,7 +617,10 @@ class UserBackend(Neo4jSessionRunner):
                 )
             )
 
-        self.logger.info(f"Recorded progress: {user_uid} → {knowledge_uid} ({progress})")
+        if record["skipped"]:
+            self.logger.info(f"Skipped progress (already mastered): {user_uid} → {knowledge_uid}")
+        else:
+            self.logger.info(f"Recorded progress: {user_uid} → {knowledge_uid} ({progress})")
         return Result.ok(True)
 
     @safe_backend_operation("get_user_mastery")
