@@ -881,3 +881,19 @@ The path-level mean folds into `analyze_path_knowledge_scope` as
 `practice_coverage` (degrades to `null`, never fails the scope, if practice
 intelligence is unwired). Pinned by the `TestPracticeGaps` class in the
 same file.
+
+**Deferred create_path persistence closed (2026-07-21, #755).** The programmatic
+create path (`create_path` / `create_path_from_knowledge_units`) persisted LPs
+without the graph structure these queries read — the Codex P1 deferred on #753.
+`_persist_path` dropped each step's `knowledge_uids`, and `persist_path_with_steps`
+wrote only `HAS_STEP` on bare `:Entity` nodes. Now it writes
+`(:PathStep)-[:USES_KU]->(:Ku)` edges (MATCH-not-MERGE the Ku — a missing KU
+yields no edge and no placeholder, mirroring `link_to_ku`) and the full
+multi-labels (`:Entity:LearningPath`, `:Entity:PathStep`) so domain-label reads
+(`backend.get`, search) see the nodes. Codex P2 on the same PR then caught a
+straggler reader: `get_paths_by_knowledge` (`_lp_progress_mixin`, behind the
+public `LpSearchService.get_by_knowledge`) still matched `CONTAINS_KNOWLEDGE`
+alone, so API-created paths (USES_KU only) were invisible to knowledge search —
+repointed to the canonical `USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU` union, matching
+its sibling `get_paths_containing_ku`. `TestCreatePathKnowledgeScopeRoundTrip`
+pins the create→scope and create→search round trips.
