@@ -20,6 +20,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.dto_helpers import parse_datetime_field
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -88,7 +89,11 @@ class LifePathCoreService:
             if not result.value:
                 return Result.ok(None)
 
-            record = result.value[0]
+            record = dict(result.value[0])
+            # Timestamps are persisted as ISO strings — coerce them back to
+            # datetime so LifePathDesignation consumers can call .isoformat()
+            parse_datetime_field(record, "vision_captured_at")
+            parse_datetime_field(record, "designated_at")
 
             # User exists but may not have a designation
             vision_statement = record.get("vision_statement") or ""
@@ -221,7 +226,8 @@ class LifePathCoreService:
             if not records:
                 return Result.fail(Errors.not_found("User or LP", f"{user_uid} or {life_path_uid}"))
 
-            record = records[0]
+            record = dict(records[0])
+            parse_datetime_field(record, "vision_captured_at")
             logger.info(f"Life path {life_path_uid} designated for user {user_uid}")
 
             return Result.ok(

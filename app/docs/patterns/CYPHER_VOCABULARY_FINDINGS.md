@@ -804,3 +804,49 @@ carry no baseline pairs — recorded here so they don't get lost.
   Left standing in tranche 3 (the `learning_preferences` field stays a typed
   `None`) because it is a bloat finding, not a vocabulary one — wants its own
   One Path Forward ruling.
+
+---
+
+## 14. LP-intelligence prerequisite queries were compile-broken (2026-07-21)
+
+Found while writing the LifePath/LP-intelligence integration coverage
+(backlog item #1); fixed in the same PR. Three
+`_lp_intelligence_mixin` queries — `validate_path_prerequisites`,
+`identify_path_blockers`, `get_optimal_path_recommendations` — had
+never executed successfully:
+
+- **Out-of-scope variables (Cypher compile error).** The shared
+  `_build_prerequisite_subquery` aggregated with `WITH k, collect(...)`,
+  dropping `path`/`step`/`r` that the very next clause referenced.
+  `EXPLAIN` on the live server: `Variable `path` not defined`. Every
+  call returned a database-error Result. Fixed with a `carry` parameter.
+- **Phantom property, the §13 audit-rule class.** All three matched
+  `(k:Entity {uid: step.knowledge_uid})` — no writer has ever set a
+  singular `knowledge_uid` on PathStep nodes (KUs hang off steps as
+  edges; `PathStep.knowledge_uids` is reconstructed from them). SKUEL030
+  can't see it: it checks edge/label *names*, not node properties.
+  Repointed onto the canonical `USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`
+  triple (T5 ruling, §8 follow-up).
+- **Inverted prerequisite direction.** The subquery traversed
+  `(k)<-[:REQUIRES_KNOWLEDGE*]-(prereq)` — collecting *dependents* of k,
+  not prerequisites. Sanctioned direction everywhere else
+  (GRAPH_CONTRACT.yaml, `UserProgressBackend.get_prerequisite_map`) is
+  `(dependent)-[:REQUIRES_KNOWLEDGE]->(prerequisite)`. Flipped outgoing.
+- Riders fixed in passing: the first step was silently dropped from
+  validation (bare `MATCH` on earlier steps), and the optimal-path query
+  emitted one readiness row per (step, ku) — the same path could appear
+  several times in one recommendation list. `path.name` in its
+  projection was also phantom (LPs carry `title`); the map projection now
+  provides both keys.
+
+Behavior is pinned by `tests/integration/test_lp_intelligence_consolidated.py`
+against a seeded testcontainer graph.
+
+**Still broken, deliberately left:** `analyze_path_knowledge_scope`
+(`lp_intelligence_service.py`) calls four methods that exist on no class
+(`get_knowledge_scope_summary`, `get_all_knowledge_uids`,
+`knowledge_complexity_score`, `practice_coverage_score` on
+`LearningPath`, whose `steps` property is always `()`), so it raises
+`AttributeError` on any real path. Route-unwired; needs a One Path
+Forward ruling (implement as a graph aggregation vs delete with its
+facade delegation) rather than a drive-by fix.
