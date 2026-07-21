@@ -15,6 +15,8 @@ Graph seeded here (sanctioned vocabulary only):
              (prerequisite taught before its dependent — valid ordering)
   BAD path:  step1→USES_KU→delta, step2→USES_KU→gamma, delta─REQUIRES→gamma
              (step 1 depends on knowledge taught in step 2 — invalid)
+  MULTI path: one step→USES_KU→{multi_a, multi_b}, multi_b─REQUIRES→gamma
+             (the PathStep norm — a step composes 2+ KUs; counts as ONE step)
   Adaptive:  alpha─ENABLES{conf .9, str .8, gap .2}→next, next─REQUIRES→alpha
              alpha─ENABLES{conf .3, str .3, gap .9}→hard
   Optimal:   two domain-scoped paths, one with its prerequisite mastered
@@ -33,6 +35,7 @@ _ADEPT = "user_lpintel_adept"  # MASTERED: alpha, gamma, opt_prereq
 
 _LP_GOOD = "lp.test.lpintel.good"
 _LP_BAD = "lp.test.lpintel.bad"
+_LP_MULTI = "lp.test.lpintel.multi"
 _LP_OPT_READY = "lp.test.lpintel.opt.ready"
 _LP_OPT_BLOCKED = "lp.test.lpintel.opt.blocked"
 
@@ -53,12 +56,14 @@ _UIDS = [
     _ADEPT,
     _LP_GOOD,
     _LP_BAD,
+    _LP_MULTI,
     _LP_OPT_READY,
     _LP_OPT_BLOCKED,
     "ps.test.lpintel.good.1",
     "ps.test.lpintel.good.2",
     "ps.test.lpintel.bad.1",
     "ps.test.lpintel.bad.2",
+    "ps.test.lpintel.multi.1",
     "ps.test.lpintel.opt.a",
     "ps.test.lpintel.opt.b",
     _KU_ALPHA,
@@ -68,6 +73,8 @@ _UIDS = [
     _KU_NEXT,
     _KU_HARD,
     _KU_ISLAND,
+    "ku_lpintel_multi_a",
+    "ku_lpintel_multi_b",
     "ku_lpintel_opt_a",
     "ku_lpintel_opt_b",
     "ku_lpintel_opt_prereq",
@@ -121,6 +128,8 @@ async def lpintel_graph(neo4j_driver):
             _KU_NEXT,
             _KU_HARD,
             _KU_ISLAND,
+            "ku_lpintel_multi_a",
+            "ku_lpintel_multi_b",
             "ku_lpintel_opt_a",
             "ku_lpintel_opt_b",
             "ku_lpintel_opt_prereq",
@@ -146,6 +155,21 @@ async def lpintel_graph(neo4j_driver):
             "LP Intel Bad Ordering",
             [("ps.test.lpintel.bad.1", _KU_DELTA), ("ps.test.lpintel.bad.2", _KU_GAMMA)],
         )
+        # One step composing TWO KUs (the PathStep norm — "every Ps = 2+ Kus")
+        await _seed_path(
+            session,
+            _LP_MULTI,
+            "LP Intel Multi-KU Step",
+            [("ps.test.lpintel.multi.1", "ku_lpintel_multi_a")],
+        )
+        await session.run(
+            """
+            MATCH (ps:Entity {uid: 'ps.test.lpintel.multi.1'}),
+                  (ku:Entity {uid: 'ku_lpintel_multi_b'})
+            MERGE (ps)-[:USES_KU]->(ku)
+            """
+        )
+
         await _seed_path(
             session,
             _LP_OPT_READY,
@@ -168,6 +192,7 @@ async def lpintel_graph(neo4j_driver):
             (_KU_BETA, _KU_ALPHA),
             (_KU_DELTA, _KU_GAMMA),
             (_KU_NEXT, _KU_ALPHA),
+            ("ku_lpintel_multi_b", _KU_GAMMA),
             ("ku_lpintel_opt_a", "ku_lpintel_opt_prereq"),
             ("ku_lpintel_opt_b", "ku_lpintel_opt_unmet"),
         ):
@@ -243,9 +268,24 @@ class TestValidatePathPrerequisites:
 
         issue = validation["issues"][0]
         assert issue["sequence"] == 1
-        assert issue["knowledge_uid"] == _KU_DELTA
+        assert issue["knowledge_uids"] == [_KU_DELTA]
         assert issue["unmet_prerequisites"] == [_KU_GAMMA]
         assert any("Reorder steps" in r for r in validation["recommendations"])
+
+    async def test_multi_ku_step_counts_as_one_step(self, services, lpintel_graph):
+        """A step composing several KUs is ONE step, not one per KU —
+        total_steps/steps_with_issues derive from row counts (Codex P2)."""
+        result = await services.lp.validate_path_prerequisites(_LP_MULTI)
+
+        assert result.is_ok
+        validation = result.value
+        assert validation["total_steps"] == 1
+        assert validation["steps_with_issues"] == 1
+
+        issue = validation["issues"][0]
+        assert set(issue["knowledge_uids"]) == {"ku_lpintel_multi_a", "ku_lpintel_multi_b"}
+        # multi_b requires gamma, which no earlier step teaches
+        assert issue["unmet_prerequisites"] == [_KU_GAMMA]
 
     async def test_unknown_path_is_trivially_valid(self, services, lpintel_graph):
         result = await services.lp.validate_path_prerequisites("lp.test.lpintel.ghost")
@@ -280,6 +320,19 @@ class TestIdentifyPathBlockers:
         assert analysis["blocker_count"] == 0
         assert analysis["can_progress"] is True
         assert "No blockers - continue with next step!" in analysis["recommendations"]
+
+    async def test_multi_ku_step_is_one_blocker_entry(self, services, lpintel_graph):
+        """The per-KU fan-out must collapse: one blocked multi-KU step is one
+        entry in blocked_steps and total_steps counts steps, not KUs."""
+        result = await services.lp.identify_path_blockers(_LP_MULTI, _NOVICE)
+
+        assert result.is_ok
+        analysis = result.value
+        assert analysis["total_steps"] == 1
+        assert analysis["blocker_count"] == 1
+        first = analysis["first_blocker"]
+        assert set(first["knowledge_uids"]) == {"ku_lpintel_multi_a", "ku_lpintel_multi_b"}
+        assert first["blocking_prerequisites"] == [_KU_GAMMA]
 
     async def test_unknown_path_defaults_to_ready(self, services, lpintel_graph):
         result = await services.lp.identify_path_blockers("lp.test.lpintel.ghost", _NOVICE)

@@ -96,10 +96,12 @@ class _LpIntelligenceMixin:
     async def validate_path_prerequisites(self, path_uid: str) -> Result[list[dict[str, Any]]]:
         """Run prerequisite validation query for a learning path.
 
-        One row per (step, knowledge unit): a step's KUs are graph edges
-        (USES_KU et al.), not a ``knowledge_uid`` node property. The first
-        step is validated too — its ``earlier_knowledge`` is simply empty,
-        so any prerequisite it carries is unmet by construction.
+        One row per STEP: a step's KUs are graph edges (USES_KU et al.), not
+        a ``knowledge_uid`` node property, and a multi-KU step must not be
+        counted once per KU — the service derives ``total_steps`` from row
+        counts. The first step is validated too — its ``earlier_knowledge``
+        is simply empty, so any prerequisite it carries is unmet by
+        construction.
         """
         query = f"""
         MATCH (path:Entity {{uid: $path_uid}})
@@ -109,24 +111,30 @@ class _LpIntelligenceMixin:
         // Get all prerequisites using pure Cypher
         {self._build_prerequisite_subquery("k", 3, carry="path, step, r")}
 
+        // Collapse the per-KU fan-out to ONE row per step. The [null] pad
+        // keeps zero-prerequisite KUs alive through UNWIND; collect() drops it.
+        UNWIND (prereqs + [null]) as p
+        WITH path, step, r.sequence as step_seq,
+             collect(DISTINCT k.uid) as knowledge_uids,
+             collect(DISTINCT p) as step_prereqs
+
         // Check if prerequisites are covered by earlier steps' knowledge.
         // OPTIONAL: the first step has no earlier steps and must still be
         // returned (a bare MATCH would drop it from the results).
-        WITH path, step, k, r.sequence as step_seq, prereqs
         OPTIONAL MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'path_step'}})
             -[:{self._STEP_KNOWLEDGE_EDGES}]->(ek:Entity {{entity_type: 'ku'}})
         WHERE r2.sequence < step_seq
 
-        WITH step, k, step_seq, prereqs,
+        WITH step, step_seq, knowledge_uids, step_prereqs,
              collect(DISTINCT ek.uid) as earlier_knowledge
 
         // Find unmet prerequisites
-        WITH step, k, step_seq,
-             [p IN prereqs WHERE NOT p.uid IN earlier_knowledge | p.uid] as unmet_prereqs
+        WITH step, step_seq, knowledge_uids,
+             [p IN step_prereqs WHERE NOT p.uid IN earlier_knowledge | p.uid] as unmet_prereqs
 
         RETURN {{
             step_uid: step.uid,
-            knowledge_uid: k.uid,
+            knowledge_uids: knowledge_uids,
             sequence: step_seq,
             unmet_prerequisites: unmet_prereqs,
             has_issues: size(unmet_prereqs) > 0
@@ -140,9 +148,11 @@ class _LpIntelligenceMixin:
     ) -> Result[list[dict[str, Any]]]:
         """Run blocker identification query for a user on a learning path.
 
-        One entry per (step, knowledge unit) — a step's KUs are graph edges,
-        not a node property. ``blocking_prerequisites`` holds UIDs (they feed
-        user-facing "Focus on mastering: …" strings in the service).
+        One entry per STEP — a step's KUs are graph edges, not a node
+        property, and the per-KU fan-out is collapsed so a multi-KU step is
+        one entry (``total_steps``/``blocked_steps`` count steps, not KUs).
+        ``blocking_prerequisites`` holds UIDs (they feed user-facing
+        "Focus on mastering: …" strings in the service).
         """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
@@ -159,11 +169,18 @@ class _LpIntelligenceMixin:
         // Check prerequisites
         {self._build_prerequisite_subquery("k", 2, carry="step, r, mastered_uids")}
 
-        WITH step, k, r.sequence as seq, mastered_uids,
-             [p IN prereqs WHERE NOT p.uid IN mastered_uids | p.uid] as blocking_prereqs
+        // Collapse the per-KU fan-out to ONE row per step (same pattern as
+        // validate_path_prerequisites)
+        UNWIND (prereqs + [null]) as p
+        WITH step, r.sequence as seq, mastered_uids,
+             collect(DISTINCT k.uid) as knowledge_uids,
+             collect(DISTINCT p) as step_prereqs
+
+        WITH step, seq, knowledge_uids,
+             [p IN step_prereqs WHERE NOT p.uid IN mastered_uids | p.uid] as blocking_prereqs
 
         // Identify blockers
-        WITH step, k, seq,
+        WITH step, seq, knowledge_uids,
              blocking_prereqs,
              size(blocking_prereqs) > 0 as is_blocked
 
@@ -173,7 +190,7 @@ class _LpIntelligenceMixin:
         WITH collect({{
             step_uid: step.uid,
             step_title: step.title,
-            knowledge_uid: k.uid,
+            knowledge_uids: knowledge_uids,
             sequence: seq,
             is_blocked: is_blocked,
             blocking_prerequisites: blocking_prereqs
