@@ -125,7 +125,6 @@ Application (~/skuel/app) → Connects to → Infrastructure (~/skuel/infrastruc
 **Volumes**:
 - `./neo4j/data` - Database files (persistent storage)
 - `./neo4j/logs` - Neo4j logs
-- `./neo4j/conf` - Configuration files
 - `./neo4j/plugins` - APOC and other plugins
 - `./neo4j/import` - For bulk imports
 - `./neo4j/backups` - Database backups
@@ -149,8 +148,6 @@ open http://localhost:7474
 └── neo4j/                 # Neo4j database directory
     ├── data/              # Graph database storage
     ├── logs/              # Neo4j server logs
-    ├── conf/              # Configuration files
-    │   └── neo4j.conf     # Neo4j settings (managed by docker-compose env vars)
     ├── plugins/           # APOC and other plugins
     ├── import/            # CSV/data import directory
     └── backups/           # Database backup storage

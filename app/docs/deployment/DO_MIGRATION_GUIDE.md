@@ -188,6 +188,11 @@ services:
       NEO4J_db_transaction_timeout: 600s
       NEO4J_server_memory_query__cache_per__db__cache__num__entries: "2000"
       NEO4J_dbms_cypher_planner: COST
+      # Keep query semantics on CYPHER_5 (the vendor conf pins CYPHER_25 for
+      # new installs; see docs/patterns/NEO4J_SERVER_TUNING.md)
+      NEO4J_db_query_default__language: "CYPHER_5"
+      # Vector API (SIMD) — appends to the vendor JVM flag set
+      NEO4J_server_jvm_additional: "--add-modules jdk.incubator.vector"
       NEO4J_db_logs_query_enabled: INFO
       NEO4J_db_logs_query_threshold: 1s
       NEO4J_db_logs_query_parameter__logging__enabled: "true"
@@ -198,9 +203,10 @@ services:
       NEO4J_server_http_enabled: "true"
       NEO4J_server_http_listen__address: 0.0.0.0:7474
     volumes:
+      # Deliberately NO /conf mount — it makes the entrypoint wipe the image's
+      # default neo4j.conf (~22 vendor JVM flags); config via NEO4J_* env only
       - ./data:/data
       - ./logs:/logs
-      - ./conf:/conf
       - ./plugins:/plugins
       - ./import:/import
       - ./backups:/backups

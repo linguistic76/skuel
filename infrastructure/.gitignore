@@ -4,10 +4,9 @@ test.cypher
 # Credentials
 .env
 
-# Neo4j volumes (all 6 mounts from docker-compose.yml)
+# Neo4j volumes (all 5 mounts from docker-compose.yml — /conf is deliberately not mounted)
 neo4j/data/
 neo4j/logs/
-neo4j/conf/
 neo4j/plugins/
 neo4j/import/
 neo4j/backups/

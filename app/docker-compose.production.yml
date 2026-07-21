@@ -123,6 +123,9 @@ services:
   #     NEO4J_server_memory_heap_initial__size: 1G
   #     NEO4J_server_memory_heap_max__size: 2G
   #     NEO4J_server_memory_pagecache_size: 1G
+  #     # Keep query semantics on CYPHER_5 (vendor conf pins CYPHER_25;
+  #     # see infrastructure/docker-compose.yml + NEO4J_SERVER_TUNING.md)
+  #     NEO4J_db_query_default__language: "CYPHER_5"
   #     # APOC NOT USED - SKUEL uses pure Cypher (see FUTURE_SERVICES.md)
   #     # NEO4J_dbms_security_procedures_unrestricted: n10s.*,apoc.*
   #     # NEO4J_dbms_security_procedures_allowlist: apoc.*,n10s.*
