@@ -36,15 +36,23 @@ See: /docs/patterns/DOMAIN_LATERAL_SERVICES.md
 
 from typing import TYPE_CHECKING, Any, cast
 
+from fasthtml.common import FT
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties
-from core.ports.query_types import BlockingChainResult, RelationshipGraphData
+from core.ports.query_types import RelationshipGraphData
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.patterns.relationships.alternatives_grid import render_alternatives_fragment
+from ui.patterns.relationships.blocking_chain import render_chain_fragment
+from ui.patterns.relationships.manage_list import (
+    MANAGEABLE_TYPES,
+    render_lateral_manage_fragment,
+)
 
 if TYPE_CHECKING:
     from core.ports.service_protocols import (
@@ -53,6 +61,10 @@ if TYPE_CHECKING:
     )
 
 logger = get_logger(__name__)
+
+# Emitted by every lateral write (create/delete) so the shared readers and the
+# relationship graph refresh off one DOM event. See LATERAL_RELATIONSHIPS_VISUALIZATION.md.
+_RELATIONSHIPS_CHANGED_HEADERS: dict[str, str] = {"HX-Trigger": "relationships-changed"}
 
 
 class LateralRouteFactory:
@@ -83,6 +95,8 @@ class LateralRouteFactory:
             self._create_chain_route(rt),
             self._create_comparison_route(rt),
             self._create_graph_route(rt),
+            # Authoring: flat, deletable edit list
+            self._create_manage_route(rt),
         ]
 
     def _create_blocking_routes(self, rt) -> list[Any]:
@@ -139,6 +153,7 @@ class LateralRouteFactory:
                     "message": f"{self.entity_name} blocking relationship created",
                     "blocker_uid": uid,
                     "blocked_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
                 }
             )
 
@@ -254,6 +269,7 @@ class LateralRouteFactory:
                     "message": f"{self.entity_name} prerequisite relationship created",
                     "prerequisite_uid": uid,
                     "dependent_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
                 }
             )
 
@@ -347,6 +363,7 @@ class LateralRouteFactory:
                     "message": f"{self.entity_name} alternative relationship created",
                     "entity_a_uid": uid,
                     "entity_b_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
                 }
             )
 
@@ -435,6 +452,7 @@ class LateralRouteFactory:
                     "message": f"{self.entity_name} complementary relationship created",
                     "entity_a_uid": uid,
                     "entity_b_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
                 }
             )
 
@@ -553,6 +571,7 @@ class LateralRouteFactory:
                     "message": f"{self.entity_name} {relationship_type} relationship deleted",
                     "source_uid": uid,
                     "target_uid": target_uid,
+                    "_headers": _RELATIONSHIPS_CHANGED_HEADERS,
                 }
             )
 
@@ -572,25 +591,25 @@ class LateralRouteFactory:
             request: Request,
             uid: str,
             max_depth: int = 10,
-        ) -> "Result[BlockingChainResult]":
+        ) -> "Result[FT]":
             """
-            Get transitive blocking chain organized by depth.
+            Get the transitive blocking chain, rendered as an HTML fragment.
+
+            The BlockingChainView container HTMX-loads this and swaps it inline, so
+            the route returns rendered HTML (Result[FT] → HTMLResponse), not JSON.
 
             Args:
                 uid: Entity UID
                 max_depth: Maximum depth to traverse (default 10)
-
-            Returns:
-                Chain data with levels, depth, and critical path
             """
             require_authenticated_user(request)
 
             result = await self.lateral_service.get_blocking_chain(EntityUID(uid), max_depth)
 
             if result.is_error:
-                return result
+                return cast("Result[FT]", result)
 
-            return Result.ok(result.value)
+            return Result.ok(render_chain_fragment(cast("dict[str, Any]", result.value)))
 
         return get_chain
 
@@ -607,16 +626,16 @@ class LateralRouteFactory:
             request: Request,
             uid: str,
             fields: str | None = None,
-        ) -> Result[dict[str, Any]]:
+        ) -> "Result[FT]":
             """
-            Get alternative entities with side-by-side comparison data.
+            Get alternatives rendered as a side-by-side comparison HTML fragment.
+
+            The AlternativesComparisonGrid container HTMX-loads this and swaps it
+            inline, so the route returns rendered HTML (Result[FT] → HTMLResponse).
 
             Args:
                 uid: Entity UID
                 fields: Comma-separated list of comparison fields (optional)
-
-            Returns:
-                List of alternatives with comparison data
             """
             require_authenticated_user(request)
 
@@ -627,13 +646,10 @@ class LateralRouteFactory:
             )
 
             if result.is_error:
-                return cast("Result[dict[str, Any]]", result)
+                return cast("Result[FT]", result)
 
             return Result.ok(
-                {
-                    "alternatives": result.value,
-                    "count": len(result.value),
-                }
+                render_alternatives_fragment(cast("list[dict[str, Any]]", result.value))
             )
 
         return get_comparison
@@ -682,6 +698,36 @@ class LateralRouteFactory:
             return Result.ok(result.value)
 
         return get_graph
+
+    def _create_manage_route(self, rt) -> Any:
+        """Create the flat, deletable relationship-management list route (authoring)."""
+
+        # GET /api/{domain}/{uid}/lateral/manage - Flat list of direct lateral edges
+        @rt(f"/api/{self.domain}/{{uid}}/lateral/manage", methods=["GET"])
+        @boundary_handler()
+        async def get_manage_list(request: Request, uid: str) -> "Result[FT]":
+            """Owner-scoped flat list of an entity's direct lateral edges, with delete buttons.
+
+            Drives the existing DELETE route for removals; refreshes on the shared
+            ``relationships-changed`` event. Queries only the four primary (non-inverse)
+            lateral types, both directions, so each authored edge appears once.
+            """
+            user_uid = require_authenticated_user(request)
+
+            result = await self.lateral_service.get_lateral_relationships(
+                entity_uid=EntityUID(uid),
+                relationship_types=list(MANAGEABLE_TYPES),
+                direction="both",
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
+
+            if result.is_error:
+                return cast("Result[FT]", result)
+
+            return Result.ok(render_lateral_manage_fragment(uid, self.domain, result.value))
+
+        return get_manage_list
 
 
 __all__ = ["LateralRouteFactory"]

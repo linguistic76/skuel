@@ -137,7 +137,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### TasksService
 
-**Facade-specific public methods:** 55
+**Facade-specific public methods:** 58
 
 | Method | Async |
 |--------|-------|
@@ -158,6 +158,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_task_with_learning_context()` | ✅ |
 | `create_tasks_from_learning_path()` | ✅ |
 | `delete_task()` | ✅ |
+| `delete_task_dependency()` | ✅ |
 | `generate_task_insights()` | ✅ |
 | `generate_task_knowledge_insights()` | ✅ |
 | `get_actionable_tasks_for_user()` | ✅ |
@@ -175,6 +176,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `get_subtasks()` | ✅ |
 | `get_task()` | ✅ |
 | `get_task_dependencies_for_user()` | ✅ |
+| `get_task_dependency_neighbors()` | ✅ |
 | `get_task_hierarchy()` | ✅ |
 | `get_tasks_applying_knowledge()` | ✅ |
 | `get_tasks_batch()` | ✅ |
@@ -196,6 +198,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `update()` | ✅ |
 | `update_for_user()` | ✅ |
 | `update_task()` | ✅ |
+| `would_create_dependency_cycle()` | ✅ |
 
 ---
 

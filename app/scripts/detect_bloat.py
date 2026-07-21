@@ -236,12 +236,6 @@ _TASKS_KU_ORCHESTRATION = (
     "event-handler path is live; this variant returns curated results for review "
     "instead of auto-creating; wire an admin/review route"
 )
-_TASKS_DEPENDENCY_WRITE = (
-    "task-dependency write path staged — the ONLY writer of (Task)-[:DEPENDS_ON]->(Task), "
-    "which MEGA-QUERY task_dependencies and the gantt timeline read live (lateral routes "
-    "write PREREQUISITE_FOR, not DEPENDS_ON); integration-tested with cache-invalidation "
-    "events; wire a dependency UI on the task detail page"
-)
 _TASKS_GRAVITY = (
     "goal/Ku link surface staged (link_task_to_knowledge is the LIVE knowledge-edge "
     "write path); wire link routes/UI or fold into relationship routes"
@@ -586,8 +580,9 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/tasks/_orchestration_mixin.py::trigger_manual_knowledge_generation": (
         _TASKS_KU_ORCHESTRATION
     ),
-    # --- Tasks: dependency write path + gravity links (inlined into facade) ---
-    "core/services/tasks_service.py::create_task_dependency": _TASKS_DEPENDENCY_WRITE,
+    # --- Tasks: gravity links (inlined into facade) ---
+    # create_task_dependency + delete_task_dependency wired live: the task-detail
+    # Dependencies section (GET/POST /tasks/{uid}/dependencies*) authors DEPENDS_ON.
     "core/services/tasks_service.py::create_semantic_knowledge_relationship": _TASKS_GRAVITY,
     # --- PS: semantic write-path symmetry + inference lens ---
     "core/services/ps/ps_semantic_service.py::remove_semantic_relationship": (_PS_SEMANTIC_DELETE),

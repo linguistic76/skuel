@@ -58,7 +58,7 @@ def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
                 SkeletonLines(count=3),
                 id=f"chain-{entity_uid}",
                 hx_get=f"/api/{entity_type}/{entity_uid}/lateral/chain",
-                hx_trigger="load",
+                hx_trigger="load, relationships-changed from:body",
                 hx_swap="innerHTML",
             ),
         ),

@@ -23,8 +23,10 @@ from fasthtml.common import Div
 
 from core.models.type_hints import EntityUID
 from ui.components import Accordion, AccordionItem
+from ui.patterns.relationships.add_modal import PICKER_TYPES, AddRelationshipModal
 from ui.patterns.relationships.alternatives_grid import AlternativesComparisonGrid
 from ui.patterns.relationships.blocking_chain import BlockingChainView
+from ui.patterns.relationships.manage_list import LateralManageContainer
 from ui.patterns.relationships.relationship_graph import RelationshipGraphView
 from ui.patterns.section_header import SectionHeader
 
@@ -35,6 +37,7 @@ def EntityRelationshipsSection(
     show_blocking_chain: bool = True,
     show_alternatives: bool = True,
     show_graph: bool = True,
+    authoring: bool = False,
 ) -> Div:
     """Unified relationships section for entity detail pages.
 
@@ -44,15 +47,25 @@ def EntityRelationshipsSection(
         show_blocking_chain: Show blocking dependencies section
         show_alternatives: Show alternative approaches section
         show_graph: Show relationship network graph
+        authoring: Prepend a "Manage Relationships" panel with an add-relationship
+            modal and a flat, deletable edge list. Only takes effect for entity
+            types the EntityPicker supports (task/goal/habit) — ignored otherwise.
 
     Returns:
         Div containing complete relationships section with all components
 
     Example:
-        # Add to task detail page
+        # Add to task detail page (read-only)
         EntityRelationshipsSection(
             entity_uid=task.uid,
             entity_type="tasks"
+        )
+
+        # With authoring (add/delete) enabled
+        EntityRelationshipsSection(
+            entity_uid=task.uid,
+            entity_type="tasks",
+            authoring=True,
         )
 
         # Add to goal detail page (hide alternatives if not applicable)
@@ -63,6 +76,20 @@ def EntityRelationshipsSection(
         )
     """
     items = []
+
+    if authoring and entity_type in PICKER_TYPES:
+        items.append(
+            AccordionItem(
+                "Manage Relationships",
+                Div(
+                    AddRelationshipModal(entity_uid, entity_type),
+                    LateralManageContainer(entity_uid, entity_type),
+                    cls="space-y-4",
+                ),
+                open=True,
+                title_cls="text-lg font-semibold flex justify-between items-center w-full",
+            )
+        )
 
     if show_blocking_chain:
         items.append(

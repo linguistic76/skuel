@@ -111,3 +111,78 @@ class TestTaskDependencyEdgeRoundTrip:
         assert updates[0].task_uid == "task:evt_dependent"
         assert updates[0].user_uid == "user_test"
         assert "dependencies" in updates[0].updated_fields
+
+    async def test_delete_task_dependency_removes_edge(self, services, clean_neo4j):
+        """delete_task_dependency removes the ``(dependent)-[:DEPENDS_ON]->(blocks)`` edge."""
+        await self._create_task(services, "task:del_dependent", "Dependent Task")
+        await self._create_task(services, "task:del_blocks", "Blocking Task")
+
+        assert (
+            await services.tasks.create_task_dependency(
+                dependent_task_uid="task:del_dependent",
+                blocks_task_uid="task:del_blocks",
+            )
+        ).is_ok
+
+        removed = await services.tasks.delete_task_dependency(
+            dependent_task_uid="task:del_dependent",
+            blocks_task_uid="task:del_blocks",
+        )
+        assert removed.is_ok, f"delete_task_dependency failed: {removed}"
+
+        edges = await services.tasks.backend.get_relationships(
+            "task:del_dependent",
+            rel_type=RelationshipName.DEPENDS_ON,
+            direction="outgoing",
+        )
+        assert edges.is_ok
+        assert edges.value == []
+
+    async def test_get_task_dependency_neighbors_both_directions(self, services, clean_neo4j):
+        """Direct neighbours resolve to depends_on (outgoing) and required_by (incoming)."""
+        await self._create_task(services, "task:nb_dependent", "Dependent Task")
+        await self._create_task(services, "task:nb_blocks", "Blocking Task")
+        assert (
+            await services.tasks.create_task_dependency(
+                dependent_task_uid="task:nb_dependent",
+                blocks_task_uid="task:nb_blocks",
+            )
+        ).is_ok
+
+        # From the dependent's side: it depends on the blocker, nothing requires it.
+        dependent_view = await services.tasks.get_task_dependency_neighbors("task:nb_dependent")
+        assert dependent_view.is_ok, dependent_view
+        assert [n["uid"] for n in dependent_view.value["depends_on"]] == ["task:nb_blocks"]
+        assert dependent_view.value["required_by"] == []
+
+        # From the blocker's side: nothing it depends on, the dependent requires it.
+        blocks_view = await services.tasks.get_task_dependency_neighbors("task:nb_blocks")
+        assert blocks_view.is_ok, blocks_view
+        assert blocks_view.value["depends_on"] == []
+        assert [n["uid"] for n in blocks_view.value["required_by"]] == ["task:nb_dependent"]
+        assert blocks_view.value["required_by"][0]["title"] == "Dependent Task"
+
+    async def test_would_create_dependency_cycle(self, services, clean_neo4j):
+        """The cycle guard flags self-links and back-edges, and clears independent pairs."""
+        await self._create_task(services, "task:cyc_a", "Task A")
+        await self._create_task(services, "task:cyc_b", "Task B")
+        await self._create_task(services, "task:cyc_c", "Task C")
+
+        # A depends on B.
+        assert (
+            await services.tasks.create_task_dependency(
+                dependent_task_uid="task:cyc_a", blocks_task_uid="task:cyc_b"
+            )
+        ).is_ok
+
+        # Adding B → A would close the loop (A already reaches B).
+        back_edge = await services.tasks.would_create_dependency_cycle("task:cyc_b", "task:cyc_a")
+        assert back_edge.is_ok and back_edge.value is True
+
+        # A self-link is always a cycle.
+        self_link = await services.tasks.would_create_dependency_cycle("task:cyc_a", "task:cyc_a")
+        assert self_link.is_ok and self_link.value is True
+
+        # An unrelated pair is fine.
+        independent = await services.tasks.would_create_dependency_cycle("task:cyc_a", "task:cyc_c")
+        assert independent.is_ok and independent.value is False

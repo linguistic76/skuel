@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
+    from core.ports.query_types import TaskDependencyNeighbor, TaskDependencyNeighbors
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.entity_inference_service import EntityInferenceService
@@ -890,6 +891,93 @@ class TasksService(
             seen.add(user_uid)
             event = TaskUpdated(task_uid=uid, user_uid=user_uid, updated_fields=["dependencies"])
             await publish_event(self.event_bus, event, self.logger)
+
+    async def delete_task_dependency(
+        self, dependent_task_uid: str, blocks_task_uid: str
+    ) -> Result[bool]:
+        """Remove a ``(dependent)-[:DEPENDS_ON]->(blocks)`` dependency edge.
+
+        The delete twin of :meth:`create_task_dependency`. Reuses the config-driven
+        ``"prerequisite_tasks"`` relationship key (the outgoing ``DEPENDS_ON`` spec for
+        Task) so the edge is oriented the same way it was written, then publishes the
+        same ``TaskUpdated`` invalidation so both owners' rich-context caches refresh.
+
+        Backend: UnifiedRelationshipService.delete_relationship → TasksBackend.delete_relationship.
+        """
+        result = await self.relationships.delete_relationship(
+            "prerequisite_tasks", dependent_task_uid, blocks_task_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        await self._publish_dependency_update(dependent_task_uid, blocks_task_uid)
+        return Result.ok(True)
+
+    async def get_task_dependency_neighbors(self, task_uid: str) -> Result[TaskDependencyNeighbors]:
+        """Return a task's *direct* ``DEPENDS_ON`` neighbours in both directions.
+
+        Distinct from :meth:`get_task_dependencies_for_user` (contextual, planner-facing,
+        variable-length transitive): this is the immediate one-hop neighbourhood the
+        task-detail Dependencies fragment renders — ``depends_on`` (outgoing) and
+        ``required_by`` (incoming). Reads via the backend enum traversal (the proven
+        direct-neighbour path, no config method-key for the incoming direction) and
+        hydrates titles/status in one batched fetch per direction.
+
+        Backend: TasksBackend.get_related_uids (both directions) + get_many.
+        """
+        depends_on = await self._hydrate_dependency_neighbors(task_uid, "outgoing")
+        if depends_on.is_error:
+            return Result.fail(depends_on)
+        required_by = await self._hydrate_dependency_neighbors(task_uid, "incoming")
+        if required_by.is_error:
+            return Result.fail(required_by)
+        neighbors: TaskDependencyNeighbors = {
+            "depends_on": depends_on.value,
+            "required_by": required_by.value,
+        }
+        return Result.ok(neighbors)
+
+    async def _hydrate_dependency_neighbors(
+        self, task_uid: str, direction: str
+    ) -> Result[list[TaskDependencyNeighbor]]:
+        """Fetch direct DEPENDS_ON neighbour UIDs in one direction and hydrate them."""
+        uids_result = await self.backend.get_related_uids(
+            EntityUID(task_uid), RelationshipName.DEPENDS_ON, direction=direction
+        )
+        if uids_result.is_error:
+            return Result.fail(uids_result)
+        uids = uids_result.value
+        if not uids:
+            return Result.ok([])
+        tasks_result = await self.backend.get_many(uids)
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+        neighbors: list[TaskDependencyNeighbor] = [
+            {"uid": task.uid, "title": task.title, "status": task.status.value}
+            for task in tasks_result.value
+            if task is not None
+        ]
+        return Result.ok(neighbors)
+
+    async def would_create_dependency_cycle(
+        self, dependent_task_uid: str, blocks_task_uid: str
+    ) -> Result[bool]:
+        """Report whether adding ``dependent -[:DEPENDS_ON]-> blocks`` would form a cycle.
+
+        A self-link is always a cycle. Otherwise the new edge closes a loop iff ``blocks``
+        already (transitively) depends on ``dependent`` — i.e. a ``blocks -[:DEPENDS_ON*]->
+        dependent`` path exists. Guards the variable-length transitive traversal in
+        ``get_task_dependencies_for_user`` from runaway on a cyclic graph.
+
+        Backend: TasksBackend.get_transitive_dependencies.
+        """
+        if dependent_task_uid == blocks_task_uid:
+            return Result.ok(True)
+        reachable = await self.backend.get_transitive_dependencies(
+            blocks_task_uid, RelationshipName.DEPENDS_ON, max_depth=10
+        )
+        if reachable.is_error:
+            return Result.fail(reachable)
+        return Result.ok(dependent_task_uid in reachable.value)
 
     async def create_semantic_knowledge_relationship(
         self,

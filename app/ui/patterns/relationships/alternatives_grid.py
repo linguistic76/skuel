@@ -51,7 +51,7 @@ def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> Div:
                 SkeletonLines(count=5),
                 id=f"alternatives-{entity_uid}",
                 hx_get=f"/api/{entity_type}/{entity_uid}/lateral/alternatives/compare",
-                hx_trigger="load delay:300ms",
+                hx_trigger="load delay:300ms, relationships-changed from:body",
                 hx_swap="innerHTML",
             ),
         ),

@@ -26,6 +26,22 @@ Provides interactive visualization of lateral relationships across all 9 SKUEL d
 
 ---
 
+## Authoring (add / delete) — live on Tasks
+
+The visualizations are now backed by **authoring**, not read-only. Two things landed with the task-relationships-authoring arc:
+
+1. **The chain + alternatives readers now render.** `BlockingChainView` and `AlternativesComparisonGrid` HTMX-load `/api/{domain}/{uid}/lateral/chain` and `.../alternatives/compare`, which now return **HTML fragments** (`render_chain_fragment` / `render_alternatives_fragment`) instead of JSON — fixing all domains that mount `EntityRelationshipsSection`. (The graph route stays JSON; Vis.js consumes it directly.)
+
+2. **`EntityRelationshipsSection(..., authoring=True)`** prepends a "Manage Relationships" panel: an **Add-relationship modal** (`ui/patterns/relationships/add_modal.py`) whose four sub-forms POST directly to the existing `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` routes, and a flat, deletable edge list (`GET .../lateral/manage` → `render_lateral_manage_fragment`) whose "×" buttons drive the existing `DELETE .../lateral/{type}/{target_uid}` route. Authoring is gated to entity types the `EntityPicker` supports (task/goal/habit) and is currently enabled only on the **Tasks** detail page.
+
+**One refresh event.** Every lateral write (create/delete) additively returns `HX-Trigger: relationships-changed` (via the boundary `_headers` path). The chain/alternatives/manage containers listen with `hx_trigger="load, relationships-changed from:body"`; the Vis.js graph listens with `x-on:relationships-changed.window="loadGraph(depth)"`. No full reload; every surface re-syncs off one event.
+
+**Ownership + cycles** are enforced by the shared `LateralRelationshipService` (both-endpoint `verify_ownership` → 404, and `spec.check_cycles` for BLOCKS/PREREQUISITE_FOR). Note the shared constraints inherited by authoring: BLOCKS requires a shared parent, ALTERNATIVE_TO requires equal depth.
+
+**DEPENDS_ON is separate.** The lightweight scheduling edge `(Task)-[:DEPENDS_ON]->(Task)` has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`) — kept deliberately distinct from the annotated lateral BLOCKS edge (see the task-relationships-authoring plan, decision R1).
+
+---
+
 ## Problem
 
 **Before Phase 5:**
