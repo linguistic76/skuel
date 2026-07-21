@@ -326,14 +326,14 @@ class TestNeo4jVersionCanary:
     """
     Canary tests for Neo4j version verification.
 
-    The server tracks the calendar line (2026.05.0); the driver stays on the
+    The server tracks the calendar line (2026.06.0); the driver stays on the
     last 5.x release (5.26.0). The two are DECOUPLED — Bolt keeps the 5.26
     driver forward-compatible with 2026.x servers. See ADR-067 §§ 3, 3a.
     """
 
     async def test_neo4j_server_version_matches_calendar_pin(self, neo4j_driver: AsyncDriver):
         """
-        Canary: Verify the Neo4j server is the pinned calendar release (2026.05.0).
+        Canary: Verify the Neo4j server is the pinned calendar release (2026.06.0).
 
         Pinned in infrastructure/docker-compose.yml + tests/integration/conftest.py
         (ADR-067 § 3a). Bump both together when the calendar pin moves.
@@ -351,8 +351,8 @@ class TestNeo4jVersionCanary:
             edition = record["edition"]
 
             # Verify version matches the pinned calendar release
-            assert version.startswith("2026.05"), (
-                f"Expected Neo4j 2026.05.x, got {version}. "
+            assert version.startswith("2026.06"), (
+                f"Expected Neo4j 2026.06.x, got {version}. "
                 "Update the pin in infrastructure/docker-compose.yml + "
                 "tests/integration/conftest.py if intentionally upgraded (ADR-067 § 3a)."
             )

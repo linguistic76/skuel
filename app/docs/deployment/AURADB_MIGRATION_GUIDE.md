@@ -17,7 +17,7 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 
 ### Current Setup (Development)
 
-- **Environment:** Docker-based Neo4j 2026.05.0
+- **Environment:** Docker-based Neo4j 2026.06.0
 - **Connection:** `bolt://localhost:7687`
 - **Plugins:** APOC (meta only) — no GenAI plugin needed
 - **Embeddings:** Python-side via OpenAI Embeddings API (`OPENAI_API_KEY` — ADR-068)

@@ -14,7 +14,7 @@ SKUEL is a knowledge graph-based productivity system built on the principle that
 
 - Python 3.14
 - uv (package manager)
-- Neo4j 2026.05.0 (running separately)
+- Neo4j 2026.06.0 (running separately)
 - Node.js (for frontend assets)
 
 ### 1. Install Dependencies
@@ -334,7 +334,7 @@ uv run ruff format .
 
 - **Language**: Python 3.14
 - **Web Framework**: FastHTML
-- **Database**: Neo4j 2026.05.0 (Graph Database)
+- **Database**: Neo4j 2026.06.0 (Graph Database)
 - **Package Manager**: uv
 - **Type Checking**: MyPy + Pyright
 - **Testing**: pytest

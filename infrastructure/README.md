@@ -12,7 +12,7 @@
 
 This directory contains **all infrastructure services** that SKUEL depends on, completely separated from application code.
 
-**What runs here:** Neo4j 2026.05.0 (graph database)
+**What runs here:** Neo4j 2026.06.0 (graph database)
 **What connects here:** SKUEL application (`/home/mike/skuel/app`)
 
 **Quick Start:**
@@ -116,7 +116,7 @@ Application (~/skuel/app) → Connects to → Infrastructure (~/skuel/infrastruc
 
 **Status**: ✅ Active
 **Container**: `skuel-neo4j`
-**Image**: `neo4j:2026.05.0`
+**Image**: `neo4j:2026.06.0`
 
 **Ports**:
 - `7474` - HTTP browser interface (http://localhost:7474)
@@ -177,7 +177,7 @@ docker compose ps
 Expected output:
 ```
 NAME          IMAGE        COMMAND     SERVICE   STATUS      PORTS
-skuel-neo4j   neo4j:2026.05.0   ...         neo4j     Up 2 hours  127.0.0.1:7474->7474/tcp, 127.0.0.1:7687->7687/tcp
+skuel-neo4j   neo4j:2026.06.0   ...         neo4j     Up 2 hours  127.0.0.1:7474->7474/tcp, 127.0.0.1:7687->7687/tcp
 ```
 
 ### Viewing Logs
@@ -442,7 +442,7 @@ docker stats skuel-neo4j
 
 | Service | Status | Purpose | Ports |
 |---------|--------|---------|-------|
-| **Neo4j 2026.05.0** | ✅ Running | Graph database (primary data store) | 7474 (HTTP), 7687 (Bolt) |
+| **Neo4j 2026.06.0** | ✅ Running | Graph database (primary data store) | 7474 (HTTP), 7687 (Bolt) |
 
 **Total Active Services:** 1
 **Total Data Volume:** All in `./neo4j/data/`
@@ -556,7 +556,7 @@ docker system prune -a  # Remove unused containers, images, networks
 ## Upgrading Neo4j
 
 **Version policy (ADR-067 § 3a):** SKUEL runs the **latest monthly** of Neo4j's
-**calendar-versioned** line (`YYYY.MM`) — today **`neo4j:2026.05.0`**. Neo4j hotfixes each monthly
+**calendar-versioned** line (`YYYY.MM`) — today **`neo4j:2026.06.0`**. Neo4j hotfixes each monthly
 release only until the next monthly ships, so we track the *current* monthly rather than soaking on an
 older one (which would already be EOL for fixes). When a new monthly lands, bump to it; take its
 `.1`/`.2` hotfixes as they appear. Pinning is deliberate and exact (no floating `latest`/major/minor
@@ -564,7 +564,7 @@ tags) so every environment is reproducible. The long-support, no-treadmill alter
 LTS — a separate, ADR-worthy call.
 
 > **Direction matters.** Neo4j auto-migrates the store *forward*, so moving to a newer monthly
-> (e.g. `2026.05.0` → `2026.06.0`) is an in-place upgrade — back up, swap the tag, restart.
+> (e.g. `2026.06.0` → `2026.07.0`) is an in-place upgrade — back up, swap the tag, restart.
 > It does **not** support *downgrades*: a store written by a newer server will not open on an older
 > one, so rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.
 
@@ -580,7 +580,7 @@ LTS — a separate, ADR-worthy call.
    ```yaml
    services:
      neo4j:
-       image: neo4j:2026.05.0  # current pinned calendar release (ADR-067)
+       image: neo4j:2026.06.0  # current pinned calendar release (ADR-067)
    ```
 
 3. **Restart with new image**:

@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
       - name: neo4j
-        image: neo4j:2026.05.0
+        image: neo4j:2026.06.0
         ports:
         - containerPort: 7474
           name: http

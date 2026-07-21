@@ -9,7 +9,7 @@ become a gate or a requirement.
 Seeds an engagement edge (task -[:APPLIES_KNOWLEDGE]-> Ku) plus authored
 ENABLES / PREREQUISITE_FOR edges, then asserts on ZPDBackend.get_zone_data
 directly (no MIN_KU_THRESHOLD service guard in the way). Also exercises the
-CALL (vars) {...} scope syntax against the live 2026.05 server.
+CALL (vars) {...} scope syntax against the live 2026.06 server.
 """
 
 from __future__ import annotations

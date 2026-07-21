@@ -25,11 +25,17 @@ driver side, see [NEO4J_QUERY_TIMEOUT.md](NEO4J_QUERY_TIMEOUT.md) / ADR-064.
 | APOC allowlist | `dbms_security_procedures_allowlist` | `apoc.meta.*` | Meta procedures only (SKUEL001 — domain services use pure Cypher) |
 | **JVM extra args** | **`server_jvm_additional`** | **`--add-modules jdk.incubator.vector`** | **Vector API — see below** |
 
-The image ships **no default `server.jvm.additional` lines** (verified on `2026.05.0`: the live JVM
-carries only `-Xms`/`-Xmx` from the memory settings, no GC flags — modern JDK defaults to G1GC
-implicitly). So `NEO4J_server_jvm_additional` is **purely additive** here — it does not clobber GC or
-heap flags. If a future image ever ships default `jvm.additional` lines, this var would need to
-re-list them (the setting is multi-valued).
+The image's bundled `neo4j.conf` DOES ship ~22 default `server.jvm.additional` lines (verified on
+`2026.05.0` and `2026.06.0`: explicit G1GC, `-XX:+AlwaysPreTouch`, `--add-opens`, netty/Lucene
+flags) — but none of them reach the live JVM here. Compose mounts the (empty)
+`infrastructure/neo4j/conf/` at `/conf`, and the entrypoint wipes `$NEO4J_HOME/conf/*` and copies
+the mount's contents in whenever `/conf` is mounted — so the server runs on built-in defaults plus
+env-var settings only. The env var itself is append-not-replace (`_append_not_replace_configs` in
+`/startup/docker-entrypoint.sh`), so it wouldn't clobber those defaults even if they survived the
+mount. Live JVM observed on `2026.06.0`: `--add-modules=jdk.incubator.vector` + `-Xms`/`-Xmx`, no
+GC flags (modern JDK defaults to G1GC implicitly). Restoring the vendor flag set would mean
+dropping the empty `/conf` mount (or populating it via the image's `dump-config`) — a deliberate
+tuning decision, not part of a routine version bump.
 
 ## Vector API (SIMD) — why it is enabled
 
