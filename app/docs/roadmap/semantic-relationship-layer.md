@@ -1,8 +1,10 @@
 # Semantic Relationship Layer — Development Roadmap
 
 *Created: 2026-07-19*
-*Status: PLANNED — staged capability, not abandoned (One Path Forward: staged ≠ abandoned)*
-*Owner decision: Mike, 2026-07-19 — "Not abandoned. I want to plan this for future."*
+*Status: SUBSTRATE COMPLETE — Phases 1–3 shipped; Phase 4 (consumption) RE-SCOPED and deferred
+until a product feature demands it (staged ≠ abandoned). Not abandoned.*
+*Owner decision: Mike, 2026-07-19 — "Not abandoned. I want to plan this for future."; re-scope
+confirmed 2026-07-21.*
 
 ---
 
@@ -142,11 +144,78 @@ curated map + its first reader together. `is_blocking` stays unwired unless a *n
 genuinely wants blocking-detection over the coarse `{REQUIRES_KNOWLEDGE, BLOCKS, PRECEDES}`
 edges (a different question from ZPD's prerequisite gate).
 
-### Phase 4 — Intelligence consumption (Digital layer)
+### Phase 4 — Intelligence consumption (Digital layer) — ⚠️ RE-SCOPED, consumption deferred (2026-07-21, PR #TBD)
 
-- Askesis: namespace-scoped retrieval ("show me `concept:` structure around this Ku").
-- Inverse materialization or query-time inversion via `get_inverse()`.
-- Confidence-weighted traversal using `RelationshipMetadata.confidence` in ranking.
+Step Zero (the Phase-2/3 lesson applied: *build a reader only with a verified consumer
+AND verified data*) re-derived all three bullets from the **live code + running graph**.
+Result: every bullet is both **consumer-gated** and **data-gated** today. The vocabulary +
+property + write-path substrate is fully staged and already threaded through several
+graceful-degradation readers — what is missing everywhere is a *reasoner* consumer and any
+`semantic_type` **data**. None of the three has a slice that is simultaneously consumed,
+data-backed, and net-new-valuable, so consumption is **deferred until a product feature creates
+demand** (staged ≠ abandoned — One Path Forward). The three Phase-4 *consumption* surfaces
+(Askesis namespace-prefix retrieval, `get_inverse()` consumption, semantic-confidence ranking)
+are future features with **no code yet**, so there is nothing to register in the bloat detector.
+What *is* staged-and-registered is the semantic **write path** — `create_semantic_*_relationship`
+(the four domain facades), `remove_semantic_relationship`, and `infer_relationships` all sit in
+`scripts/detect_bloat.py` PLANNED tiers, and `./dev bloat` reports no structurally-dead findings.
+
+**The data gate (measured against the running graph, 2026-07-21):**
+- **0 live edges carry `semantic_type`.** The whole semantic write path is live-but-unexercised.
+- `confidence` lives entirely on **analog** edges — `APPLIES_KNOWLEDGE`(57), `ENABLES`(26),
+  `RELATED_TO`(12), `COMPLEMENTARY_TO`(4), `SIMILAR_TO`(3), `PREREQUISITE_FOR`(3),
+  `EXACERBATED_BY`(1) — **none** written by `build_semantic_merge`.
+
+**Bullet A — Askesis namespace-scoped retrieval — DEFERRED (no consumer, no data).**
+- Askesis reads nothing semantic: zero `semantic_type` / `SemanticRelationshipType` /
+  `find_by_semantic_filter` hits under `core/services/askesis`. This is net-new consumer wiring.
+- The *existing* `find_by_semantic_filter` (live via `choices_api` →
+  `find_choices_aligned_with_principle`; the goals/habits twins are unreached-by-route) is
+  **exact-value-set** filtering — `r.semantic_type IN config.semantic_types` (`_traversal_mixin.py`
+  `find_uids_by_semantic_filter`) — **not** namespace-**prefix** scoping (`learn:*`, `concept:*`).
+  Over the 0-row graph it returns empty. "Namespace-scoped retrieval" as worded is a different,
+  net-new capability with no caller.
+
+**Bullet B — Inverse materialization / query-time inversion (`get_inverse()`) — DEFERRED (zero
+readers, no data).**
+- `SemanticRelationshipType.get_inverse()` has **zero external consumers** — the only uses are
+  self-referential inside `semantic_relationships.py` (`SemanticTriple.get_inverse` / `TripleBuilder`).
+  Materializing or query-time-inverting would be building the **first** reader, over an empty edge set.
+  Pure decoration today — the KnowledgeDomain trap in miniature.
+
+**Bullet C — Confidence-weighted traversal — REDUNDANT / MISFRAMED (the consumed confidence is a
+*different* one).**
+- The confidence-weighted traversal that is **already consumed** rides on **analog** edges:
+  `_context_query_mixin.py` (`coalesce(r.confidence, 1.0) >= $min_confidence` over the cross-domain
+  context path), written by `_learning_state_mixin.py` (`r.confidence = mastery_score`). This is
+  learning-progress/grounding confidence, **not** `RelationshipMetadata.confidence`.
+- On **semantic** edges, a confidence *threshold* reader already exists and is live
+  (`find_uids_by_semantic_filter`, choices route) — but it filters, it does not *rank*, and it
+  reads 0 rows. `RelationshipMetadata.confidence` always writes (default `1.0`), so the substrate
+  is correct; it simply has no data and no distinct ranking consumer. Bullet C as worded would
+  either duplicate the analog case or rank an empty set.
+
+**A reinforcing discovery — the substrate already degrades gracefully.** `semantic_type` is
+*already* read by several **live** paths that all handle the 0-row case correctly:
+`vector_search_backend.py` (`COALESCE(r.semantic_type, type(r))`), the choices filter
+(`find_uids_by_semantic_filter`), and the `get_relationships_by_type` query-by-type path behind
+`GET /api/path-steps/relationships`. The matching **write** path (`POST` on the same endpoint →
+`create_step_relationship`, admin-only) is live but unexercised. The *delete*-by-type path
+(`remove_semantic_relationship`) is **staged, not live** — it has no DELETE route and stays in the
+bloat detector's PLANNED tier. So the vocabulary is not merely staged — its read side is threaded
+through real readers. The gap is exclusively **a reasoner consumer + data**, not plumbing.
+
+**Net — what unblocks Phase 4 consumption (do these *together*, not before):**
+- A real product feature that reads semantic meaning (an Askesis `concept:`-structure surface, or a
+  confidence-**ranked** recommendation UI), wired end-to-end with graceful degradation.
+- Real `semantic_type` data — either the admin write route gets exercised, or an
+  ingestion/enrichment path emits semantic edges.
+- **Part A of Phase 3 rides along here**: when a reasoner needs loop-edge meaning, add the curated
+  static `RelationshipName → SemanticRelationshipType` map (loop edges only) **and its first reader**
+  in the same change — never the map alone.
+- Any new `SemanticRelationshipType` annotation surface must resolve through `to_neo4j_name()`
+  (a `RelationshipName`) and never emit a raw string — `test_semantic_neo4j_name_drift.py` enforces
+  this; extend it if a new annotation surface appears.
 
 ## Non-goals
 
