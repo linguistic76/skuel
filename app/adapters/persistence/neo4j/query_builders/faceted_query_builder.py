@@ -222,10 +222,9 @@ class FacetedQueryBuilder:
                     # `WITH n WHERE` (not a bare WHERE) so the predicate composes
                     # even when match_clause already carries a WHERE — a bare
                     # second WHERE would be a syntax error. The sibling facets
-                    # (level/content_type/generic) still use the bare form; a
-                    # holistic fix is out of scope for this deletion PR (and this
-                    # Cypher path is test-only — live faceting uses
-                    # build_facet_counts over results).
+                    # (level/content_type/has_prerequisites/generic) share this
+                    # discipline. This Cypher path is test-only — live faceting
+                    # uses build_facet_counts over results.
                     facet_queries["domain"] = f"""
                         {match_clause}
                         WITH n WHERE n.domain IS NOT NULL
@@ -234,19 +233,22 @@ class FacetedQueryBuilder:
                     """
 
                 elif field == "level":
-                    # Count by level
+                    # Count by level. `WITH n WHERE` (not a bare WHERE) so the
+                    # predicate composes even when match_clause already carries
+                    # a WHERE — see the domain branch above.
                     facet_queries["level"] = f"""
                         {match_clause}
-                        WHERE n.level IS NOT NULL
+                        WITH n WHERE n.level IS NOT NULL
                         RETURN n.level as value, count(*) as count
                         ORDER BY value
                     """
 
                 elif field == "content_type":
-                    # Count by content type
+                    # Count by content type. `WITH n WHERE` for the same
+                    # composition reason as the level/domain branches.
                     facet_queries["content_type"] = f"""
                         {match_clause}
-                        WHERE n.content_type IS NOT NULL
+                        WITH n WHERE n.content_type IS NOT NULL
                         RETURN n.content_type as value, count(*) as count
                         ORDER BY count DESC
                     """
@@ -263,8 +265,12 @@ class FacetedQueryBuilder:
 
                 elif field == "has_prerequisites":
                     # Count items with/without prerequisites
+                    # `WITH n` gives the base query's WHERE a clean boundary
+                    # before the OPTIONAL MATCH — the same composition
+                    # discipline as the level/content_type/domain branches.
                     facet_queries["has_prerequisites"] = f"""
                         {match_clause}
+                        WITH n
                         OPTIONAL MATCH (n)<-[:PREREQUISITE_FOR]-()
                         RETURN
                             CASE WHEN count(*) > 0 THEN 'Has Prerequisites'
@@ -277,9 +283,12 @@ class FacetedQueryBuilder:
                     if not validate_field_name(field):
                         self.logger.warning(f"Skipping invalid facet field: {field!r}")
                         continue
+                    # `WITH n WHERE` so the predicate composes even when
+                    # match_clause already carries a WHERE — see the domain
+                    # branch above.
                     facet_queries[field] = f"""
                         {match_clause}
-                        WHERE n.{field} IS NOT NULL
+                        WITH n WHERE n.{field} IS NOT NULL
                         RETURN n.{field} as value, count(*) as count
                         ORDER BY count DESC
                         LIMIT 20
