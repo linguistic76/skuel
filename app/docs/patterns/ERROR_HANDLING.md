@@ -501,7 +501,6 @@ async def profile_page(request: Request) -> Any:
 
 **See:**
 - `/adapters/inbound/user_profile_ui.py` - Profile Hub implementation
-- `/ui/profile/domain_views.py` - UI components with required parameters
 
 ---
 

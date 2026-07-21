@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+from core.utils.uid_generator import UIDGenerator
 
 
 @dataclass
@@ -87,16 +88,6 @@ class HierarchyStructure:
         }
 
 
-def slugify(text: str) -> str:
-    """Convert text to URL-friendly slug."""
-    # Remove markdown links
-    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
-    # Remove special characters, keep alphanumeric and spaces
-    text = re.sub(r"[^\w\s-]", "", text.lower())
-    # Replace spaces with hyphens
-    return re.sub(r"[-\s]+", "-", text).strip("-")
-
-
 def parse_frontmatter(content: str) -> tuple[dict, str]:
     """Extract YAML frontmatter and body."""
     return _parse_frontmatter(content)
@@ -129,7 +120,7 @@ def parse_hierarchy_markdown(content: str) -> HierarchyStructure:
     for i, match in enumerate(matches):
         level = len(match.group(1))
         title_text = match.group(2).strip()
-        slug = slugify(title_text)
+        slug = UIDGenerator.slugify(title_text)
 
         # Get content between this heading and the next
         start = match.end()
@@ -275,5 +266,4 @@ __all__ = [
     "generate_ku_yaml_from_heading",
     "parse_hierarchy_file",
     "parse_hierarchy_markdown",
-    "slugify",
 ]

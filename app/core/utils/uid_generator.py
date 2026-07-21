@@ -51,12 +51,20 @@ class UIDGenerator:
         """
         Convert text to a URL-safe slug.
 
+        THE canonical slugify — UID generation and markdown heading slugs
+        (hierarchy_parser) both use this. Markdown links are reduced to their
+        link text before slugging, so ``[Foo](https://bar)`` slugs to ``foo``
+        rather than leaking URL characters into the slug.
+
         Args:
             text: Input text
 
         Returns:
             Slugified version
         """
+        # Reduce markdown links to their link text
+        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+
         # Convert to lowercase
         text = text.lower()
 

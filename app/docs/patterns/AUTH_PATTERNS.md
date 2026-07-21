@@ -358,29 +358,20 @@ navbar = create_navbar(
 
 ### Layout Integration
 
-All domain layouts support the `request` parameter:
+Pages build on `BasePage` (see CLAUDE.md § UI Component Pattern); passing
+`request` makes it delegate to `create_navbar_for_request()` internally:
 
-**Activity Domain Layouts:**
 ```python
-from ui.habits.layout import create_habits_page
+from ui.layouts.base_page import BasePage
 
-@rt("/habits")
-async def habits_dashboard(request):
-    # Pass request for automatic navbar auth
-    return create_habits_page(content, request=request)
-```
-
-**DocsLayout (Nous pages):**
-```python
-from ui.docs import create_docs_page
-
-return create_docs_page(
-    title="Topic Title",
-    content=content,
-    sections=sections,
-    base_path="/nous",
-    request=request,  # Auto-detects auth for navbar
-)
+@rt("/library")
+async def library_page(request: Request) -> Any:
+    return BasePage(
+        content=content,
+        title="Library",
+        request=request,  # Auto-detects auth for navbar + bottom nav
+        active_page="library",
+    )
 ```
 
 ### What the Navbar Shows
@@ -395,10 +386,9 @@ return create_docs_page(
 
 | File | Purpose |
 |------|---------|
-| `/ui/layouts/navbar.py` | `create_navbar()`, `create_navbar_for_request()` |
-| `/ui/layouts/activity_layout.py` | Activity domain layout with request support |
-| `/ui/habits/layout.py` (etc.) | Domain-specific layouts delegating to activity_layout |
-| `/ui/docs/layout.py` | Documentation layout with request support |
+| `/ui/layouts/navbar.py` | `create_navbar()`, `create_navbar_for_request()`, bottom-nav variants |
+| `/ui/layouts/base_page.py` | `BasePage()` / `AuthPage()` — pass `request` for auto-detected navbar auth |
+| `/ui/layouts/nav_config.py` | Type-safe `NavItem` definitions consumed by the navbar |
 
 ## Session Flow
 

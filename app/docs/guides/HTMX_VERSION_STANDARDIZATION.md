@@ -98,30 +98,27 @@ def my_page(content):
 
 ## Activity Domain Pattern
 
-All Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) use the shared `create_activity_page()` function:
+All Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) share one wrapper — there are no per-domain layout modules:
 
 ```python
-from ui.layouts.activity_layout import create_activity_page
+from ui.activities.nav import render_activity_sidebar_page
 
-def create_tasks_page(content, request=None, **kwargs):
-    return create_activity_page(
-        content=content,
-        domain="tasks",
-        request=request,
-        **kwargs,
-    )
+return render_activity_sidebar_page(
+    content=content,
+    active="tasks",
+    request=request,
+)
 ```
+
+`render_activity_sidebar_page()` delegates to `SidebarPage`, which builds on `BasePage(CUSTOM)` — so every activity page gets the same complete `Html` document.
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — canonical head builder |
-| `/ui/layouts/activity_layout.py` | Shared layout using `build_head()` |
-| `/ui/tasks/layout.py` | Tasks - delegates to `create_activity_page()` |
-| `/ui/goals/layout.py` | Goals - delegates to `create_activity_page()` |
-| `/ui/habits/layout.py` | Habits - delegates to `create_activity_page()` |
-| `/ui/events/layout.py` | Events - delegates to `create_activity_page()` |
+| `/ui/patterns/sidebar.py` | `SidebarPage` — sidebar layout on top of `BasePage(CUSTOM)` |
+| `/ui/activities/nav.py` | `render_activity_sidebar_page()` — shared Activity Domain wrapper |
 
 ## Version Matrix
 
@@ -260,14 +257,14 @@ Script(src="https://unpkg.com/htmx.org@1.9.10")
 
 ```python
 # WRONG - custom implementation with manual head
-def create_tasks_page(content):
+def tasks_page(content):
     return Html(Head(...), Body(...))  # Duplicates build_head()
 
-# RIGHT - delegate to shared layout
-from ui.layouts.activity_layout import create_activity_page
+# RIGHT - delegate to the shared page wrapper
+from ui.layouts.base_page import BasePage
 
-def create_tasks_page(content, request=None):
-    return create_activity_page(content, domain="tasks", request=request)
+def tasks_page(content, request=None):
+    return BasePage(content=content, title="Tasks", request=request, active_page="activity")
 ```
 
 ### Mistake 5: Constructing Head Manually
