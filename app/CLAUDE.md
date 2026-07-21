@@ -43,7 +43,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 ## Neo4j Infrastructure
 
-**Core Principle:** "One Path Forward - Docker -> DigitalOcean -> AuraDB"
+**Core Principle:** "One Path Forward - Docker → DigitalOcean → AuraDB"
 
 **Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068, BGE staged long-term).
 
@@ -57,7 +57,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Schema-change monitoring (opt-in, default OFF):** `SchemaChangeDetector` fingerprints the live schema and invalidates query-optimization caches on drift. On-demand via `Neo4jAdapter.check_schema_changes()`; or wire a background poll at startup with `NEO4J_SCHEMA_MONITORING=true` (+ `NEO4J_SCHEMA_MONITORING_INTERVAL`, default 900s, validated ≥1). Tier-independent (not `INTELLIGENCE_TIER`-gated) — off by default keeps the CORE-tier "no background workers" guarantee. **See:** neo4j-cypher-patterns skill § 7.
 
-**Server tuning (memory, JVM, Vector API):** all server config is `NEO4J_*` env vars on the `neo4j` service in `infrastructure/docker-compose.yml`. The Java Vector API (SIMD) is enabled via `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` — required for optimal performance of the 7 vector indexes (Entity/ContentChunk/ReferenceChunk/Goal/Task/Ku/PathStep embeddings); `2026.x` warns without it.
+**Server tuning (memory, JVM, Vector API):** all server config is `NEO4J_*` env vars on the `neo4j` service in the base compose `../infrastructure/docker-compose.yml` (repo root; the app `docker-compose.yml` extends it, overriding only deltas). The Java Vector API (SIMD) is enabled via `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` — required for optimal performance of the 7 vector indexes (Entity/ContentChunk/ReferenceChunk/Goal/Task/Ku/PathStep embeddings); `2026.x` warns without it.
 
 **See:** `/docs/patterns/NEO4J_SERVER_TUNING.md`, `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md`
 
@@ -231,10 +231,10 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 
 ```
 Content to Storage:
-Markdown -> UnifiedIngestionService -> KnowledgeUnit -> GraphNode -> Neo4j
+Markdown → UnifiedIngestionService → KnowledgeUnit → GraphNode → Neo4j
 
 Request Processing:
-HTTP -> FastHTML Route -> Pydantic -> Service -> Domain -> Repository -> Neo4j
+HTTP → FastHTML Route → Pydantic → Service → Domain → Repository → Neo4j
 ```
 
 ## Knowledge Substance Philosophy
@@ -267,7 +267,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 - **Query Parameters (GET):** Shared helpers in `route_helpers.py` (`parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`, etc.)
 - **JSON Bodies (POST):** Pydantic request models (auto-validated)
 - **Request Model Location:** `core/models/{domain}/{domain}_request.py`
-- **Error Codes:** Query params -> 400 Bad Request, JSON bodies -> 422 Unprocessable Entity
+- **Error Codes:** Query params → 400 Bad Request, JSON bodies → 422 Unprocessable Entity
 
 **See:** `/docs/patterns/API_VALIDATION_PATTERNS.md`
 
@@ -302,7 +302,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 **Core Principle:** "Three-level visibility with relationship-based access control"
 
-**Visibility:** PRIVATE (default) -> SHARED (SHARES_WITH relationship) -> TEAM (group-scoped) -> PUBLIC (portfolio)
+**Visibility:** PRIVATE (default) → SHARED (SHARES_WITH relationship) → TEAM (group-scoped) → PUBLIC (portfolio)
 
 **Three Sharing Modes:** Manual sharing, Assignment auto-sharing (ADR-040), Group sharing (SHARED_WITH_GROUP)
 
@@ -446,13 +446,11 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
 
-**See:** `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`
-
 ## Unified Content Ingestion
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/submit` (exercise) uses `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth for user data: `/settings/vault` (Obsidian bidirectional sync) is the primary personal-data ingestion path. Incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards). Ingestion is **human-initiated per event** (ADR-070 Decision 9 — no background watcher): the personal-vault "Sync from Obsidian" button, the admin "Sync content vault" button (`POST /api/vault/sync/content`), or one-shot `./dev vault-sync` (`scripts/vault_bridge_sync.py`, in-process reconciler). Force re-ingest (`force=True` engine flag; route body `{"force": true}`; `./dev vault-sync --force`) re-processes unchanged files for re-chunk/migration campaigns while keeping the wall + deletion reconciliation (force ≠ full).
+One-way pipeline: Markdown/YAML → Neo4j. Most EntityTypes are file-ingestible. `/submit` (exercise) uses `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth for user data: `/settings/vault` (Obsidian bidirectional sync) is the primary personal-data ingestion path. Incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards). Ingestion is **human-initiated per event** (ADR-070 Decision 9 — no background watcher): the personal-vault "Sync from Obsidian" button, the admin "Sync content vault" button (`POST /api/vault/sync/content`), or one-shot `./dev vault-sync` (`scripts/vault_bridge_sync.py`, in-process reconciler). Force re-ingest (`force=True` engine flag; route body `{"force": true}`; `./dev vault-sync --force`) re-processes unchanged files for re-chunk/migration campaigns while keeping the wall + deletion reconciliation (force ≠ full).
 
 **Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
 
@@ -496,7 +494,7 @@ Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks wri
 
 ## EntityTimestampMixin
 
-Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), `timestamp_properties()` (creation). Only `TranscriptionService` currently inherits it.
+Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), `timestamp_properties()` (creation). Sole inheritor is `TranscriptionService` — grep `EntityTimestampMixin` to confirm before assuming wider adoption.
 
 **See:** `/docs/patterns/entity_timestamp_mixin.md`
 
@@ -504,7 +502,7 @@ Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), 
 
 **Core Principle:** "Latest stable by default — pins are deliberate and documented"
 
-Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins. **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (conservative driver pin, Bolt-forward-compatible with the calendar-line server — driver version is *decoupled* from server version; ADR-044 + ADR-067 § 3) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite). **Neo4j server policy:** **latest monthly** of the *calendar* line (`YYYY.MM`, today `neo4j:2026.06.0`) — Neo4j hotfixes each monthly only until the next ships, so track the current one (don't soak), bump ~monthly, pin exactly (never a floating tag). "Latest" = newest whose **Docker image is published** (the `library/neo4j` image lags release notes by days — a released-but-unpublished tag isn't pinnable). Upgrades forward/in-place, downgrades unsupported; 5.26 LTS is the no-treadmill alternative (ADR-067 § 3a). Renovate opens update PRs only (no auto-merge — CI runs `tests/unit/` + `tests/integration/` (Neo4j testcontainer) on Python-file changes; verify locally: `./dev quality` + `./dev test-integration`). Ruff `target-version` is `py314` (matches runtime); TC002/TC003/UP037 are explicitly ignored to isolate their ~1024-site deferred sweep (runtime-risky w/ Pydantic/FastHTML) — see `[tool.ruff]` ignore list in `pyproject.toml`. Black still lags at `py312` (see `[tool.black]` note there).
+Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins. **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (conservative driver pin, Bolt-forward-compatible with the calendar-line server — driver version is *decoupled* from server version; ADR-044 + ADR-067 § 3) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite). **Neo4j server policy:** **latest monthly** of the *calendar* line (`YYYY.MM`; the exact pinned tag lives in `../infrastructure/docker-compose.yml`, the base compose) — Neo4j hotfixes each monthly only until the next ships, so track the current one (don't soak), bump ~monthly, pin exactly (never a floating tag). "Latest" = newest whose **Docker image is published** (the `library/neo4j` image lags release notes by days — a released-but-unpublished tag isn't pinnable). Upgrades forward/in-place, downgrades unsupported; 5.26 LTS is the no-treadmill alternative (ADR-067 § 3a). Renovate opens update PRs only (no auto-merge — CI runs `tests/unit/` + `tests/integration/` (Neo4j testcontainer) on Python-file changes; verify locally: `./dev quality` + `./dev test-integration`). Ruff `target-version` is `py314` (matches runtime); TC002/TC003/UP037 are explicitly ignored to isolate their ~1024-site deferred sweep (runtime-risky w/ Pydantic/FastHTML) — see `[tool.ruff]` ignore list in `pyproject.toml`. Black still lags at `py312` (see `[tool.black]` note there).
 
 **See:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
 
@@ -591,7 +589,7 @@ Use `# GRAPH-NATIVE:` prefix for comments about relationship data stored as Neo4
 
 ## HTTP Status Codes
 
-POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
+POST (Create) → 201, GET/PUT/DELETE → 200, POST (Action) → 200
 
 ## Route Factories
 
