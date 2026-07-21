@@ -38,6 +38,8 @@ _LP_BAD = "lp.test.lpintel.bad"
 _LP_MULTI = "lp.test.lpintel.multi"
 _LP_OPT_READY = "lp.test.lpintel.opt.ready"
 _LP_OPT_BLOCKED = "lp.test.lpintel.opt.blocked"
+_LP_SOLO = "lp.test.lpintel.solo"  # 1 step, 1 KU, no prerequisites (depth 0)
+_LP_DEEP = "lp.test.lpintel.deep"  # 1 step, 1 KU, 2-hop prerequisite chain
 
 # Domain used ONLY to scope the optimal-path query to this file's seeds.
 # 'transcription' is a valid Domain member no other integration seed uses.
@@ -50,6 +52,9 @@ _KU_DELTA = "ku_lpintel_delta"
 _KU_NEXT = "ku_lpintel_next"
 _KU_HARD = "ku_lpintel_hard"
 _KU_ISLAND = "ku_lpintel_island"
+_KU_DEEP_A = "ku_lpintel_deep_a"
+_KU_DEEP_B = "ku_lpintel_deep_b"
+_KU_DEEP_C = "ku_lpintel_deep_c"
 
 _UIDS = [
     _NOVICE,
@@ -59,6 +64,8 @@ _UIDS = [
     _LP_MULTI,
     _LP_OPT_READY,
     _LP_OPT_BLOCKED,
+    _LP_SOLO,
+    _LP_DEEP,
     "ps.test.lpintel.good.1",
     "ps.test.lpintel.good.2",
     "ps.test.lpintel.bad.1",
@@ -66,6 +73,8 @@ _UIDS = [
     "ps.test.lpintel.multi.1",
     "ps.test.lpintel.opt.a",
     "ps.test.lpintel.opt.b",
+    "ps.test.lpintel.solo.1",
+    "ps.test.lpintel.deep.1",
     _KU_ALPHA,
     _KU_BETA,
     _KU_GAMMA,
@@ -73,6 +82,9 @@ _UIDS = [
     _KU_NEXT,
     _KU_HARD,
     _KU_ISLAND,
+    _KU_DEEP_A,
+    _KU_DEEP_B,
+    _KU_DEEP_C,
     "ku_lpintel_multi_a",
     "ku_lpintel_multi_b",
     "ku_lpintel_opt_a",
@@ -128,6 +140,9 @@ async def lpintel_graph(neo4j_driver):
             _KU_NEXT,
             _KU_HARD,
             _KU_ISLAND,
+            _KU_DEEP_A,
+            _KU_DEEP_B,
+            _KU_DEEP_C,
             "ku_lpintel_multi_a",
             "ku_lpintel_multi_b",
             "ku_lpintel_opt_a",
@@ -186,6 +201,15 @@ async def lpintel_graph(neo4j_driver):
             domain=_OPT_DOMAIN,
             estimated_hours=20,
         )
+        # Scope isolation pair: SOLO (1 KU, no prereqs → depth 0) vs DEEP (1 KU
+        # whose prereq chain runs two hops → depth 2). Same breadth, so any
+        # complexity gap between them is purely the depth axis.
+        await _seed_path(
+            session, _LP_SOLO, "LP Intel Solo", [("ps.test.lpintel.solo.1", _KU_ISLAND)]
+        )
+        await _seed_path(
+            session, _LP_DEEP, "LP Intel Deep Chain", [("ps.test.lpintel.deep.1", _KU_DEEP_C)]
+        )
 
         # Prerequisite edges — sanctioned direction: dependent → prerequisite
         for dependent, prerequisite in (
@@ -195,6 +219,8 @@ async def lpintel_graph(neo4j_driver):
             ("ku_lpintel_multi_b", _KU_GAMMA),
             ("ku_lpintel_opt_a", "ku_lpintel_opt_prereq"),
             ("ku_lpintel_opt_b", "ku_lpintel_opt_unmet"),
+            (_KU_DEEP_C, _KU_DEEP_B),  # two-hop chain: deep_c → deep_b → deep_a
+            (_KU_DEEP_B, _KU_DEEP_A),
         ):
             await session.run(
                 """
@@ -480,6 +506,71 @@ class TestProtocolMethods:
         from core.utils.result_simplified import ErrorCategory
 
         result = await services.lp.intelligence.get_domain_insights("lp.test.lpintel.ghost")
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+class TestKnowledgeScope:
+    async def test_scope_counts_steps_and_unique_kus(self, services, lpintel_graph):
+        result = await services.lp.analyze_path_knowledge_scope(_LP_GOOD)
+
+        assert result.is_ok, f"scope failed: {result.error}"
+        scope = result.value
+        assert scope["path_uid"] == _LP_GOOD
+        assert scope["total_steps"] == 2
+        assert scope["total_unique_kus"] == 2
+        assert scope["kus_per_step"] == pytest.approx(1.0)
+        assert scope["max_prerequisite_depth"] == 1  # beta → alpha
+        assert scope["all_knowledge_uids"] == [_KU_ALPHA, _KU_BETA]  # deduped + sorted
+        assert 0.0 <= scope["complexity_score"] <= 1.0
+
+    async def test_multi_ku_step_counts_kus_not_pairs(self, services, lpintel_graph):
+        """A step composing two KUs is ONE step with two unique KUs — the
+        (step, ku) fan-out must not inflate total_steps (the PathStep norm)."""
+        result = await services.lp.analyze_path_knowledge_scope(_LP_MULTI)
+
+        assert result.is_ok
+        scope = result.value
+        assert scope["total_steps"] == 1
+        assert scope["total_unique_kus"] == 2
+        assert scope["kus_per_step"] == pytest.approx(2.0)
+        assert scope["all_knowledge_uids"] == ["ku_lpintel_multi_a", "ku_lpintel_multi_b"]
+
+    async def test_prerequisite_depth_measures_longest_chain(self, services, lpintel_graph):
+        solo = await services.lp.analyze_path_knowledge_scope(_LP_SOLO)
+        deep = await services.lp.analyze_path_knowledge_scope(_LP_DEEP)
+
+        assert solo.is_ok and deep.is_ok
+        assert solo.value["max_prerequisite_depth"] == 0
+        assert deep.value["max_prerequisite_depth"] == 2  # deep_c → deep_b → deep_a
+        # The path only TEACHES deep_c; its prerequisites are not path coverage.
+        assert deep.value["total_unique_kus"] == 1
+        assert deep.value["all_knowledge_uids"] == [_KU_DEEP_C]
+
+    async def test_complexity_rises_with_prerequisite_depth(self, services, lpintel_graph):
+        """SOLO and DEEP have identical breadth (1 KU); DEEP's deeper prereq
+        chain must make it strictly more complex — isolating the depth axis so
+        the assertion holds regardless of how the blend weights are tuned."""
+        solo = await services.lp.analyze_path_knowledge_scope(_LP_SOLO)
+        deep = await services.lp.analyze_path_knowledge_scope(_LP_DEEP)
+
+        assert solo.is_ok and deep.is_ok
+        assert deep.value["complexity_score"] > solo.value["complexity_score"]
+
+    async def test_broader_deeper_path_is_more_complex(self, services, lpintel_graph):
+        # GOOD is both broader (2 KUs vs 1) and deeper (depth 1 vs 0) than SOLO,
+        # so it is strictly more complex on both axes at once.
+        good = await services.lp.analyze_path_knowledge_scope(_LP_GOOD)
+        solo = await services.lp.analyze_path_knowledge_scope(_LP_SOLO)
+
+        assert good.is_ok and solo.is_ok
+        assert good.value["complexity_score"] > solo.value["complexity_score"]
+
+    async def test_unknown_path_is_not_found(self, services, lpintel_graph):
+        from core.utils.result_simplified import ErrorCategory
+
+        result = await services.lp.analyze_path_knowledge_scope("lp.test.lpintel.ghost")
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND

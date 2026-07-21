@@ -82,6 +82,7 @@ from core.ports.query_types import (
     KuEmbeddingRow,
     LearningGapResult,
     LearningRecommendationResult,
+    LpKnowledgeScopeSummary,
     OrganizerResult,
     PrereqMasteryResult,
     PsDeleteStepRow,
@@ -1200,29 +1201,42 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     # KNOWLEDGE AGGREGATION
     # =========================================================================
 
-    async def get_all_knowledge_uids(self, uid: str) -> Result[set[str]]:
+    async def get_all_knowledge_uids(self, path_uid: str) -> Result[set[str]]:
         """
-        Get all KU UIDs across all steps in this path.
+        Get all distinct KU UIDs this path teaches, across every step.
+
+        Traverses the canonical PS→KU union
+        (USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU) and dedupes KUs shared by
+        several steps.
 
         Args:
-            uid: LP UID
+            path_uid: LP UID
 
         Returns:
-            Result[set[str]]: All unique KU UIDs
+            Result[set[str]]: distinct KU UIDs (empty for an unknown/stepless path)
         """
         ...
 
-    async def get_knowledge_scope_summary(self, uid: str) -> Result[dict[str, Any]]:
+    async def get_knowledge_scope_summary(self, path_uid: str) -> Result[LpKnowledgeScopeSummary]:
         """
-        Get comprehensive knowledge scope summary.
+        Measure the structural facts of a path's KU coverage (one row).
+
+        Reports only what the graph knows — step count, distinct-KU count,
+        breadth density, and prerequisite-chain depth. There is deliberately no
+        primary/supporting split: PS→KU edges carry no importance weight today,
+        so no such distinction is asserted (a KU importance scale is a deferred
+        arc). The interpreted ``complexity_score`` is derived from these facts
+        at the service layer (analyze_path_knowledge_scope), not here.
+
+        Args:
+            path_uid: LP UID
 
         Returns:
-            Result[dict]: Scope including:
-                - total_unique_kus: Count of unique KUs
-                - primary_ku_count: Core knowledge count
-                - supporting_ku_count: Supporting knowledge count
-                - total_steps: Step count
-                - complexity_score: Overall difficulty
+            Result[LpKnowledgeScopeSummary]:
+                - total_steps: path steps (a multi-KU step counts once)
+                - total_unique_kus: distinct KUs across all steps
+                - kus_per_step: mean distinct KUs per step (breadth density)
+                - max_prerequisite_depth: longest REQUIRES_KNOWLEDGE chain
         """
         ...
 

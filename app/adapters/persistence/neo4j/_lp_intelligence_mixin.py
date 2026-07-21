@@ -19,11 +19,18 @@ from typing import TYPE_CHECKING, Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.type_hints import UserUID
+from core.ports.query_types import LpKnowledgeScopeSummary
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
     import logging
+
+# Safety bound on how deep a REQUIRES_KNOWLEDGE prerequisite chain is walked when
+# measuring a path's depth. Prerequisite graphs are shallow DAGs (chains of 1-3
+# are typical); this caps pathological cases and bounds the traversal. Reported
+# ``max_prerequisite_depth`` is therefore honest up to this many hops.
+_PREREQUISITE_DEPTH_CAP = 10
 
 
 class _LpIntelligenceMixin:
@@ -92,6 +99,87 @@ class _LpIntelligenceMixin:
         OPTIONAL MATCH ({knowledge_var})-[:{rel_pattern}*1..{depth}]->(prereq:Entity)
         WITH {carry_clause}{knowledge_var}, collect(DISTINCT prereq) as prereqs
         """
+
+    # ========================================================================
+    # KNOWLEDGE AGGREGATION (LpOperations "KNOWLEDGE AGGREGATION" contract)
+    # ========================================================================
+
+    async def get_all_knowledge_uids(self, path_uid: str) -> Result[set[str]]:
+        """All distinct KU UIDs a path teaches, across every step.
+
+        Traverses the canonical PS→KU union (``USES_KU|CONTAINS_KNOWLEDGE|
+        TRAINS_KU``); dedupes KUs shared by several steps. An unknown or
+        stepless path yields an empty set (not an error).
+        """
+        query = f"""
+        MATCH (path:Entity {{uid: $path_uid}})-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
+        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(ku:Entity {{entity_type: 'ku'}})
+        RETURN collect(DISTINCT ku.uid) AS uids
+        """
+        result = await self.execute_query(query, {"path_uid": path_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        uids = records[0]["uids"] if records else []
+        return Result.ok({uid for uid in uids if uid})
+
+    async def get_knowledge_scope_summary(self, path_uid: str) -> Result[LpKnowledgeScopeSummary]:
+        """Structural facts about a path's KU coverage — one row.
+
+        Measures only what the graph knows: step count, distinct-KU count,
+        breadth density (mean distinct KUs per step), and the longest
+        REQUIRES_KNOWLEDGE prerequisite chain among those KUs. A multi-KU step
+        counts once (KUs hang off steps as edges — never count the (step, ku)
+        fan-out as steps). The interpreted ``complexity_score`` is derived from
+        these facts at the service layer, not here. An unknown or stepless path
+        returns all-zeros.
+        """
+        query = f"""
+        MATCH (path:Entity {{uid: $path_uid}})
+        OPTIONAL MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
+        OPTIONAL MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(ku:Entity {{entity_type: 'ku'}})
+        WITH path,
+             count(DISTINCT step) AS total_steps,
+             count(DISTINCT ku) AS total_unique_kus,
+             count(DISTINCT CASE WHEN ku IS NOT NULL THEN [step.uid, ku.uid] END) AS step_ku_pairs,
+             collect(DISTINCT ku) AS kus
+
+        // Longest REQUIRES_KNOWLEDGE prerequisite chain among the path's KUs.
+        // The [null] pad keeps the row alive when the path has no KUs (UNWIND of
+        // [] yields no rows); a KU with no prerequisites contributes depth 0.
+        UNWIND (kus + [null]) AS k
+        OPTIONAL MATCH prereq_path = (k)-[:REQUIRES_KNOWLEDGE*1..{_PREREQUISITE_DEPTH_CAP}]->(:Entity)
+        WITH total_steps, total_unique_kus, step_ku_pairs,
+             max(coalesce(length(prereq_path), 0)) AS max_prerequisite_depth
+
+        RETURN total_steps,
+               total_unique_kus,
+               CASE WHEN total_steps = 0 THEN 0.0
+                    ELSE toFloat(step_ku_pairs) / total_steps END AS kus_per_step,
+               max_prerequisite_depth
+        """
+        result = await self.execute_query(query, {"path_uid": path_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(
+                LpKnowledgeScopeSummary(
+                    total_steps=0,
+                    total_unique_kus=0,
+                    kus_per_step=0.0,
+                    max_prerequisite_depth=0,
+                )
+            )
+        record = records[0]
+        return Result.ok(
+            LpKnowledgeScopeSummary(
+                total_steps=int(record["total_steps"]),
+                total_unique_kus=int(record["total_unique_kus"]),
+                kus_per_step=float(record["kus_per_step"]),
+                max_prerequisite_depth=int(record["max_prerequisite_depth"]),
+            )
+        )
 
     async def validate_path_prerequisites(self, path_uid: str) -> Result[list[dict[str, Any]]]:
         """Run prerequisite validation query for a learning path.

@@ -86,7 +86,7 @@ class LpSearchService(BaseService["LpOperations", Lp]):
 
 ## Backend Methods (LpBackend)
 
-All Cypher queries are encapsulated in `LpBackend` (26 methods decomposed into 3 focused mixins — `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`). LpCoreService and LpSearchService call typed backend methods — no inline Cypher in services.
+All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3 focused mixins — `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`). LpCoreService and LpSearchService call typed backend methods — no inline Cypher in services.
 
 | Method | Purpose |
 |--------|---------|
@@ -115,6 +115,8 @@ All Cypher queries are encapsulated in `LpBackend` (26 methods decomposed into 3
 | `find_learning_sequence(start_uid, goal_uid)` | Shortest path graph traversal |
 | `get_next_adaptive_step(current_step_uid, user_uid)` | Adaptive next step |
 | `get_recommended_path_steps(user_uid, max_difficulty, limit)` | Recommended steps by progress |
+| `get_all_knowledge_uids(path_uid)` | Distinct KU UIDs across all steps (deduped) |
+| `get_knowledge_scope_summary(path_uid)` | Structural scope facts: steps, unique KUs, density, prereq depth |
 
 ## Key Files
 
@@ -128,7 +130,7 @@ All Cypher queries are encapsulated in `LpBackend` (26 methods decomposed into 3
 | Domain Backend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` (`LpBackend`) |
 | Step Mixin | `/adapters/persistence/neo4j/_lp_step_mixin.py` (14 methods) |
 | Progress Mixin | `/adapters/persistence/neo4j/_lp_progress_mixin.py` (6 methods) |
-| Intelligence Mixin | `/adapters/persistence/neo4j/_lp_intelligence_mixin.py` (8 methods) |
+| Intelligence Mixin | `/adapters/persistence/neo4j/_lp_intelligence_mixin.py` (10 methods) |
 | Model | `/core/models/lp/lp.py` |
 | DTO | `/core/models/lp/lp_dto.py` |
 | Relationship Config | `LP_CONFIG` in `/core/models/relationship_registry.py` |
@@ -221,8 +223,8 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 | **Validation** | `validate_path_prerequisites(path_uid)` | `Result[LpPrerequisiteValidation]` | Check prerequisites met (→ LpBackend) |
 | **Validation** | `identify_path_blockers(path_uid, user_uid)` | `Result[LpBlockerAnalysis]` | Find blockers (→ LpBackend) |
 | **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[LpPathRecommendation]` | Best path for user (→ LpBackend) |
-| **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | Knowledge coverage analysis |
-| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses PathStep practice relationships via `(LP)-[:HAS_STEP]->(PathStep)-[:activity_rel]->` |
+| **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | KU coverage + structural complexity: unique KUs, steps, breadth density, prereq depth, `complexity_score` (→ LpBackend). No primary/supporting split — PS→KU edges carry no importance weight (a KU importance scale is a deferred arc) |
+| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Follow-up PR* — per-step practice completeness via `PsIntelligenceService`, feeds real `practice_coverage` into the scope summary |
 | **Adaptive** | `find_learning_sequence(start_uid, goal_uid)` | `Result[list[str]]` | Optimal step sequence (→ LpBackend) |
 | **Adaptive** | `get_next_adaptive_step(step_uid, user_uid)` | `Result[str\|None]` | Best next step (→ LpBackend) |
 | **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list[LpRecommendedStep]]` | Daily "what to learn" (→ LpBackend) |

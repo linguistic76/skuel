@@ -819,5 +819,5 @@ class LpBackend(
     Extends UniversalNeo4jBackend[LearningPath] with:
     - ``_LpStepMixin`` — step management CRUD + path CRUD + exercise traversal (15 methods)
     - ``_LpProgressMixin`` — KU mastery progress + search queries (6 methods)
-    - ``_LpIntelligenceMixin`` — intelligence + adaptive learning (8 methods)
+    - ``_LpIntelligenceMixin`` — intelligence + adaptive learning + knowledge scope (10 methods)
     """

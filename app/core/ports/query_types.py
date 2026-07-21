@@ -1906,6 +1906,29 @@ class LpBlockerAnalysis(TypedDict, total=False):
     can_progress: bool
 
 
+class LpKnowledgeScopeSummary(TypedDict):
+    """Return shape for LpOperations.get_knowledge_scope_summary().
+
+    Structural facts a learning path's KU coverage yields — measured entirely
+    from the graph (the ``HAS_STEP`` → ``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU``
+    fan-out plus ``REQUIRES_KNOWLEDGE`` prerequisite chains). This is the raw
+    measurement; the interpreted ``complexity_score`` is derived from these
+    fields at the service layer (analyze_path_knowledge_scope), not here.
+
+    - ``total_steps`` — path steps (a multi-KU step counts once).
+    - ``total_unique_kus`` — distinct KUs across all steps (deduped).
+    - ``kus_per_step`` — mean distinct KUs per step (breadth density); 0.0 for a
+      stepless path.
+    - ``max_prerequisite_depth`` — longest REQUIRES_KNOWLEDGE chain from any of
+      the path's KUs (0 when no KU has prerequisites).
+    """
+
+    total_steps: int
+    total_unique_kus: int
+    kus_per_step: float
+    max_prerequisite_depth: int
+
+
 class LpPathRecommendation(TypedDict, total=False):
     """Return shape for LpIntelligenceService.get_optimal_path_recommendation()."""
 
