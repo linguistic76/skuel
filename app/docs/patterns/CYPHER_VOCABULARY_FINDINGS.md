@@ -838,6 +838,11 @@ never executed successfully:
   several times in one recommendation list. `path.name` in its
   projection was also phantom (LPs carry `title`); the map projection now
   provides both keys.
+- **Codex P2 on the fix itself:** validate/blockers still emitted one row
+  per (step, ku), so a multi-KU step — the PathStep norm, every Ps = 2+
+  Kus — counted once per KU in `total_steps`/`blocked_steps`. Both now
+  UNWIND-aggregate to one row per step; the row field is accordingly
+  `knowledge_uids` (list), not `knowledge_uid`.
 
 Behavior is pinned by `tests/integration/test_lp_intelligence_consolidated.py`
 against a seeded testcontainer graph.
