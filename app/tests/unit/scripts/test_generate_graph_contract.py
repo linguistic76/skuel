@@ -143,12 +143,15 @@ def test_label_semantic_types_are_valid_predicates() -> None:
 
 
 def test_semantic_edge_properties_match_the_write_path() -> None:
-    """The sanctioned property set equals what build_semantic_merge actually emits.
+    """The declared property set equals the TYPED base build_semantic_merge emits.
 
     build_semantic_merge writes RelationshipMetadata.to_neo4j_properties() plus
     the semantic_type predicate. Re-deriving the expectation from the metadata
     dataclass here (not from the render) catches a generator hand-edited to
-    diverge from the writer — a new metadata field must appear in both or fail.
+    diverge from the writer — a new typed metadata field must appear in both or
+    fail. The free-form `properties` map is intentionally excluded from the
+    declared set (it is unbounded); the open_extension block below is where the
+    contract stays honest about it.
     """
     document = yaml.safe_load(render_contract())
     emitted = set(document["semantic_edge_properties"]["properties"])
@@ -168,3 +171,18 @@ def test_semantic_edge_properties_match_the_write_path() -> None:
     )
     # The generator's own helper must agree with the writer too.
     assert emitted == set(sanctioned_semantic_edge_properties())
+
+
+def test_semantic_edge_properties_flag_the_open_extension() -> None:
+    """The declared set is honest that it is NOT hard-closed.
+
+    RelationshipMetadata.to_neo4j_properties() merges a free-form `properties`
+    map verbatim (reachable via TripleBuilder.custom(properties=...)), so the
+    typed set above cannot claim exhaustiveness. The open_extension block records
+    that escape hatch so a Phase-4 consumer does not read the typed list as a
+    closed universe (Codex #744 P2).
+    """
+    document = yaml.safe_load(render_contract())
+    extension = document["semantic_edge_properties"]["open_extension"]
+    assert extension["field"] == "properties"
+    assert extension["exhaustive"] is False

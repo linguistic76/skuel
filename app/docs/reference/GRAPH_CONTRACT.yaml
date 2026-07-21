@@ -1344,14 +1344,18 @@ labels:
     contract: null
 
 # Sanctioned edge-property vocabulary for semantic edges (roadmap Phase 2).
-# Written by build_semantic_merge: every key RelationshipMetadata may emit,
-# plus semantic_type — the precise SemanticRelationshipType predicate (Phase 1).
-# Per-config `semantic_types:` under labels names which predicates a domain's
-# find_by_semantic_filter defaults to. Phase 4 keys confidence-weighted
-# traversal on this property set.
+# `properties` = the typed base set build_semantic_merge writes: every typed
+# RelationshipMetadata field plus semantic_type (the precise
+# SemanticRelationshipType predicate, Phase 1). NOT hard-closed —
+# RelationshipMetadata also carries a free-form `properties` map merged
+# verbatim (open_extension below), so a consumer must not treat this set as
+# exhaustive once custom props are written. Per-config `semantic_types:`
+# under labels names which predicates a domain's find_by_semantic_filter
+# defaults to. Phase 4 keys confidence-weighted traversal on this set.
 semantic_edge_properties:
   source: core/infrastructure/relationships/semantic_relationships.py::RelationshipMetadata.to_neo4j_properties
   properties: [confidence, created_at, evidence, notes, semantic_type, source, strength, valid_from, valid_until]
+  open_extension: {field: properties, merged_by: RelationshipMetadata.to_neo4j_properties, exhaustive: false, callers_today: 0}
 
 # Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).
 findings:

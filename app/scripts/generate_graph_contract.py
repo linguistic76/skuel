@@ -280,15 +280,24 @@ def gather_findings() -> dict[str, Finding]:
 
 
 def sanctioned_semantic_edge_properties() -> list[str]:
-    """The closed edge-property vocabulary a semantic edge may carry.
+    """The typed base edge-property vocabulary a semantic edge may carry.
 
     Derived from the single writer (``build_semantic_merge``), which persists
     ``RelationshipMetadata.to_neo4j_properties()`` plus the ``semantic_type``
     predicate (roadmap Phase 1). Sourcing the set from the metadata dataclass
-    itself keeps the contract in lockstep with the writer: a new metadata field
-    drifts this artifact instead of going silently unsanctioned. The probe
+    itself keeps the contract in lockstep with the writer: a new *typed* metadata
+    field drifts this artifact instead of going silently unsanctioned. The probe
     populates every optional field so no conditionally-emitted key is missed
     (``to_neo4j_properties`` omits falsy source/temporal/evidence/notes).
+
+    This is the base set, not a hard-closed universe: ``RelationshipMetadata``
+    also carries a free-form ``properties`` map that ``to_neo4j_properties()``
+    merges verbatim, so an author (via ``TripleBuilder.custom(properties=...)``)
+    could persist arbitrary extra keys. No caller does today — the extension is
+    unexercised — so the contract declares the typed base and flags ``properties``
+    as the open escape hatch rather than inventing unbounded keys. A future
+    consumer that starts writing custom props must not assume this set is
+    exhaustive.
     """
     probe = RelationshipMetadata(
         source="registry",
@@ -460,17 +469,31 @@ def render_contract() -> str:
 
     lines.append("")
     lines.append("# Sanctioned edge-property vocabulary for semantic edges (roadmap Phase 2).")
-    lines.append("# Written by build_semantic_merge: every key RelationshipMetadata may emit,")
-    lines.append("# plus semantic_type — the precise SemanticRelationshipType predicate (Phase 1).")
-    lines.append("# Per-config `semantic_types:` under labels names which predicates a domain's")
-    lines.append("# find_by_semantic_filter defaults to. Phase 4 keys confidence-weighted")
-    lines.append("# traversal on this property set.")
+    lines.append("# `properties` = the typed base set build_semantic_merge writes: every typed")
+    lines.append("# RelationshipMetadata field plus semantic_type (the precise")
+    lines.append("# SemanticRelationshipType predicate, Phase 1). NOT hard-closed —")
+    lines.append("# RelationshipMetadata also carries a free-form `properties` map merged")
+    lines.append("# verbatim (open_extension below), so a consumer must not treat this set as")
+    lines.append("# exhaustive once custom props are written. Per-config `semantic_types:`")
+    lines.append("# under labels names which predicates a domain's find_by_semantic_filter")
+    lines.append("# defaults to. Phase 4 keys confidence-weighted traversal on this set.")
     lines.append("semantic_edge_properties:")
     lines.append(
         "  source: core/infrastructure/relationships/"
         "semantic_relationships.py::RelationshipMetadata.to_neo4j_properties"
     )
     lines.append(f"  properties: {_flow_seq(sanctioned_semantic_edge_properties())}")
+    lines.append(
+        "  open_extension: "
+        + _flow_map(
+            [
+                ("field", "properties"),
+                ("merged_by", "RelationshipMetadata.to_neo4j_properties"),
+                ("exhaustive", "false"),
+                ("callers_today", "0"),
+            ]
+        )
+    )
 
     lines.append("")
     lines.append("# Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).")
