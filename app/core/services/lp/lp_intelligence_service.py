@@ -39,6 +39,8 @@ from core.ports.query_types import (
     LpDomainInsights,
     LpPathRecommendation,
     LpPerformanceAnalytics,
+    LpPracticeGap,
+    LpPracticeGapAnalysis,
     LpPrerequisiteValidation,
     LpRecommendedStep,
 )
@@ -56,6 +58,11 @@ from core.services.lp_intelligence.types import (
     ContentRecommendation,
     LearningAnalysis,
     LearningIntervention,
+)
+from core.services.ps.ps_intelligence_service import (
+    PsIntelligenceService,
+    missing_practice_domains,
+    practice_completeness_from_summary,
 )
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
@@ -75,6 +82,27 @@ def _structural_complexity_score(total_unique_kus: int, max_prerequisite_depth: 
     breadth = min(total_unique_kus / c.KU_BREADTH_SATURATION, 1.0)
     depth = min(max_prerequisite_depth / c.PREREQUISITE_DEPTH_SATURATION, 1.0)
     return round(breadth * c.BREADTH_WEIGHT + depth * c.DEPTH_WEIGHT, 4)
+
+
+def _build_practice_recommendations(total_steps: int, gaps: list[LpPracticeGap]) -> list[str]:
+    """Human-facing summary of a path's practice gaps.
+
+    Same shape as the validation/blocker analyses: a headline count plus a
+    callout for any step that has no practice at all (the worst case — a pure
+    reading step). Empty gaps yields a single "all complete" line.
+    """
+    if not gaps:
+        if total_steps == 0:
+            return ["Path has no steps to analyze for practice."]
+        return [f"All {total_steps} steps have complete practice opportunities."]
+
+    recommendations = [f"{len(gaps)} of {total_steps} steps lack complete practice opportunities."]
+    recommendations.extend(
+        f"{gap['step_title']} has no practice at all — add a task or habit."
+        for gap in gaps
+        if gap["practice_completeness"] == 0.0
+    )
+    return recommendations
 
 
 class LpIntelligenceService(
@@ -122,6 +150,7 @@ class LpIntelligenceService(
         progress_backend: Any | None = None,
         event_bus: Any | None = None,
         user_service: Any | None = None,
+        ps_intelligence: PsIntelligenceService | None = None,
     ) -> None:
         """
         Initialize unified intelligence service.
@@ -133,6 +162,9 @@ class LpIntelligenceService(
             progress_backend: Progress backend (LP-specific)
             event_bus: Event bus for publishing events
             user_service: UserService for UserContext
+            ps_intelligence: PsIntelligenceService — per-step practice reads for
+                path-level practice-gap analysis (identify_practice_gaps). Wired
+                from the owning PsService (ps_service.intelligence) at composition.
 
         NOTE: No embeddings_service or llm_service parameters (ADR-030).
         """
@@ -147,6 +179,7 @@ class LpIntelligenceService(
         # Store LP-specific dependencies
         self.progress_backend = progress_backend
         self.user_service = user_service
+        self.ps_intelligence = ps_intelligence
 
         # Initialize all sub-services (no AI dependencies - ADR-030)
         self.state_analyzer = LearningStateAnalyzer(
@@ -651,7 +684,8 @@ class LpIntelligenceService(
 
         Returns:
             Result[dict]: total_steps, total_unique_kus, kus_per_step,
-            max_prerequisite_depth, complexity_score, all_knowledge_uids.
+            max_prerequisite_depth, complexity_score, all_knowledge_uids,
+            practice_coverage.
         """
         if not self.backend:
             return Result.fail(
@@ -685,6 +719,7 @@ class LpIntelligenceService(
             "complexity_score": _structural_complexity_score(
                 summary["total_unique_kus"], summary["max_prerequisite_depth"]
             ),
+            "practice_coverage": await self._practice_coverage(path_uid),
             "analysis_timestamp": datetime.now().isoformat(),
         }
 
@@ -694,27 +729,113 @@ class LpIntelligenceService(
         )
         return Result.ok(analysis)
 
-    # ========================================================================
-    # FUTURE: identify_practice_gaps(path_uid)
-    # ========================================================================
-    # Blocked: Learning paths need content with practice relationships populated.
-    #
-    # The per-step infrastructure ALREADY EXISTS in PsIntelligenceService:
-    # - get_practice_summary(ps_uid) → {"habits": int, "tasks": int, "events": int}
-    # - practice_completeness_score(ps_uid) → 0.0-1.0 (each type = 1/3)
-    #
-    # Implementation: Inject ls_intelligence (or access via ps_service.intelligence),
-    # iterate path steps, call practice_completeness_score per step, aggregate.
-    #
-    # Wiring checklist:
-    # 1. Add ls_intelligence param to __init__ (or resolve from ps_service)
-    # 2. Implement identify_practice_gaps() calling PS per-step methods
-    # 3. Add explicit delegation method to LpService
-    # 4. Add API route
-    #
-    # Full design: /docs/domains/lp.md § "Future: Practice Gap Analysis"
-    # PS infrastructure: /docs/domains/ps.md § "Cross-Domain: Practice Infrastructure"
-    # ========================================================================
+    async def _practice_coverage(self, path_uid: str) -> float | None:
+        """Path-level mean practice completeness, or None if unavailable.
+
+        Practice coverage is independent of the KU/complexity facts, so it must
+        not fail the whole scope: if practice intelligence is unwired or the
+        rollup errors, this degrades to None rather than propagating.
+        """
+        gaps_result = await self.identify_practice_gaps(path_uid)
+        if gaps_result.is_error:
+            self.logger.warning(
+                f"practice_coverage unavailable for {path_uid}: "
+                f"{gaps_result.expect_error().message}"
+            )
+            return None
+        return gaps_result.value["overall_practice_coverage"]
+
+    async def identify_practice_gaps(self, path_uid: str) -> Result[LpPracticeGapAnalysis]:
+        """Find which steps of a learning path lack complete practice.
+
+        Every step is scored by the canonical PS measure — the fraction of the
+        six activity-domain practice edges (``BUILDS_HABIT``, ``ASSIGNS_TASK``,
+        ``SCHEDULES_EVENT``, ``SUPPORTS_GOAL``, ``GUIDED_BY_PRINCIPLE``,
+        ``INFORMS_CHOICE``) present on it. A step below 1.0 is a *practice gap*:
+        the learner can read the concept but has an incomplete set of structured
+        ways to embody it. Reuses ``PsIntelligenceService.get_practice_summary``
+        per step so LP never forks a competing practice definition (One Path
+        Forward); the path-level mean feeds ``practice_coverage`` in
+        analyze_path_knowledge_scope.
+
+        Backend: LpBackend.get_steps_raw (ordered steps) +
+        PsIntelligenceService per-step practice reads.
+
+        Args:
+            path_uid: Learning path identifier
+
+        Returns:
+            Result[LpPracticeGapAnalysis]: total_steps, steps_with_gaps,
+            overall_practice_coverage, gaps, recommendations.
+        """
+        if not self.backend:
+            return Result.fail(
+                Errors.system(
+                    message="Learning backend not available",
+                    operation="identify_practice_gaps",
+                )
+            )
+        if self.ps_intelligence is None:
+            return Result.fail(
+                Errors.system(
+                    message="PathStep intelligence not available for practice analysis",
+                    operation="identify_practice_gaps",
+                )
+            )
+
+        # Existence guard — a nonexistent path is not-found, not empty gaps.
+        path_result = await self.backend.get(path_uid)
+        if path_result.is_error:
+            return Result.fail(path_result)
+        if not path_result.value:
+            return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
+
+        steps_result = await self.backend.get_steps_raw(path_uid)
+        if steps_result.is_error:
+            return Result.fail(steps_result)
+        steps = steps_result.value or []
+
+        gaps: list[LpPracticeGap] = []
+        completeness_scores: list[float] = []
+        for step in steps:
+            summary_result = await self.ps_intelligence.get_practice_summary(step.uid)
+            if summary_result.is_error:
+                return Result.fail(summary_result)
+            summary = summary_result.value
+
+            completeness = practice_completeness_from_summary(summary)
+            completeness_scores.append(completeness)
+            if completeness < 1.0:
+                gaps.append(
+                    LpPracticeGap(
+                        step_uid=step.uid,
+                        step_title=step.title or step.uid,
+                        practice_completeness=round(completeness, 4),
+                        missing_types=missing_practice_domains(summary),
+                    )
+                )
+
+        overall = (
+            round(sum(completeness_scores) / len(completeness_scores), 4)
+            if completeness_scores
+            else 0.0
+        )
+
+        analysis: LpPracticeGapAnalysis = {
+            "path_uid": path_uid,
+            "total_steps": len(steps),
+            "steps_with_gaps": len(gaps),
+            "overall_practice_coverage": overall,
+            "gaps": gaps,
+            "recommendations": _build_practice_recommendations(len(steps), gaps),
+            "analysis_timestamp": datetime.now().isoformat(),
+        }
+
+        self.logger.info(
+            f"Practice gap analysis for {path_uid}: "
+            f"{len(gaps)}/{len(steps)} steps with practice gaps"
+        )
+        return Result.ok(analysis)
 
     # ========================================================================
     # ADAPTIVE OPERATIONS (January 2026 - Consolidated from LpAdaptiveService)

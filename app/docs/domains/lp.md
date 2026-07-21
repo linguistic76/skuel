@@ -223,8 +223,8 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 | **Validation** | `validate_path_prerequisites(path_uid)` | `Result[LpPrerequisiteValidation]` | Check prerequisites met (→ LpBackend) |
 | **Validation** | `identify_path_blockers(path_uid, user_uid)` | `Result[LpBlockerAnalysis]` | Find blockers (→ LpBackend) |
 | **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[LpPathRecommendation]` | Best path for user (→ LpBackend) |
-| **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | KU coverage + structural complexity: unique KUs, steps, breadth density, prereq depth, `complexity_score` (→ LpBackend). No primary/supporting split — PS→KU edges carry no importance weight (a KU importance scale is a deferred arc) |
-| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Follow-up PR* — per-step practice completeness via `PsIntelligenceService`, feeds real `practice_coverage` into the scope summary |
+| **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | KU coverage + structural complexity: unique KUs, steps, breadth density, prereq depth, `complexity_score`, `practice_coverage` (→ LpBackend + PS practice reads). No primary/supporting split — PS→KU edges carry no importance weight (a KU importance scale is a deferred arc) |
+| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[LpPracticeGapAnalysis]` | Per-step practice completeness via `PsIntelligenceService`; the path-level mean feeds `practice_coverage` into the scope summary |
 | **Adaptive** | `find_learning_sequence(start_uid, goal_uid)` | `Result[list[str]]` | Optimal step sequence (→ LpBackend) |
 | **Adaptive** | `get_next_adaptive_step(step_uid, user_uid)` | `Result[str\|None]` | Best next step (→ LpBackend) |
 | **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list[LpRecommendedStep]]` | Daily "what to learn" (→ LpBackend) |
@@ -254,147 +254,88 @@ config = LP_CONFIG
 # Defines: steps, prerequisites, enables, goal alignment, milestones
 ```
 
-## Future: Practice Gap Analysis
+## Practice Gap Analysis
 
-**Status:** Blocked — learning paths need real content with practice relationships populated
-**Method:** `LpIntelligenceService.identify_practice_gaps(path_uid)` → `Result[dict]`
-**Code location:** TODO block in `/core/services/lp_intelligence_service.py`
+**Method:** `LpIntelligenceService.identify_practice_gaps(path_uid)` → `Result[LpPracticeGapAnalysis]`
+**Facade:** `LpService.identify_practice_gaps(path_uid)`
 
 ### What It Does
 
-For a learning path, analyzes every step to determine which steps lack complete practice
-opportunities. A step with full practice has all three relationship types:
+For a learning path, scores every step's practice completeness and surfaces the steps that
+lack complete practice. A step's completeness is the fraction of the **six activity-domain
+practice edges** present on it (the canonical PS measure — see below):
 
 | Relationship | Target | Meaning |
 |--------------|--------|---------|
 | `BUILDS_HABIT` | Habit | "Practice this daily to internalize the knowledge" |
 | `ASSIGNS_TASK` | Task | "Do this concrete thing to apply the knowledge" |
 | `SCHEDULES_EVENT` | Event | "Attend this to experience the knowledge" |
+| `SUPPORTS_GOAL` | Goal | "This advances a goal you're pursuing" |
+| `GUIDED_BY_PRINCIPLE` | Principle | "A value that frames how you apply it" |
+| `INFORMS_CHOICE` | Choice | "A decision this knowledge informs" |
 
-A step missing one or more of these types has a *practice gap* — the learner can read about
-the concept but has no structured way to embody it.
+A step below 1.0 has a *practice gap* — the learner can read the concept but has an incomplete
+set of structured ways to embody it. The path-level mean completeness is
+`overall_practice_coverage`, which is also folded into `analyze_path_knowledge_scope` as
+`practice_coverage`.
 
-### Existing Infrastructure (Already Built)
+### Reuses the PS Practice Measure (One Path Forward)
 
-The per-step practice analysis already works via `PsIntelligenceService`:
+Rather than fork its own definition of "practice", LP reuses `PsIntelligenceService`:
 
 ```python
-# These methods exist TODAY in /core/services/ps/ps_intelligence_service.py
+# /core/services/ps/ps_intelligence_service.py
 
-# Count practice items per step
-result = await ls_intelligence.get_practice_summary("ls:functions")
-# → {"habits": 2, "tasks": 3, "events": 1, "total": 6}
+# Count the six practice domains for one step
+summary = await ps_intelligence.get_practice_summary("ps.python.decorators")
+# → {"habits": 2, "tasks": 3, "events": 1, "goals": 0,
+#    "principles": 0, "choices": 0, "total": 6}
 
-# Calculate 0.0-1.0 completeness per step
-# (each type contributes 1/3: habits + tasks + events)
-score = await ls_intelligence.practice_completeness_score("ls:functions")
-# → 1.0 (all three types present)
-
-# Boolean checks
-await ls_intelligence.has_practice_opportunities("ls:functions")  # → True
+# Fraction of the six domains present (0.0-1.0) — shared pure helper, the single
+# source of truth for the score (used by both the PS scorer and the LP rollup)
+practice_completeness_from_summary(summary)  # → 0.5  (3 of 6 domains present)
 ```
 
-The Cypher that powers this (activity relationships authored directly on the PathStep):
+`identify_practice_gaps` iterates the path's steps (`LpBackend.get_steps_raw`), calls
+`get_practice_summary` once per step, and derives each step's completeness and missing
+domains from that single summary. The Cypher that counts the six edges lives once, in
+`PsIntelligenceBackend.fetch_practice_counts` — LP never duplicates it.
 
-```cypher
-MATCH (ps:Entity {uid: $ps_uid})
-OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(h)
-OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(t)
-OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(e)
-OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(g)
-OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
-OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
-RETURN count(DISTINCT h) as habits,
-       count(DISTINCT t) as tasks,
-       count(DISTINCT e) as events,
-       count(DISTINCT g) as goals,
-       count(DISTINCT p) as principles,
-       count(DISTINCT c) as choices
-```
+`ps_intelligence` is injected into `LpIntelligenceService` from the owning `PsService`
+(`ps_service.intelligence`) in `create_lp_sub_services` (`curriculum_domain_config.py`).
 
-### What's Missing (The Gap Between PS and LP)
-
-The per-step methods work, but LP-level analysis needs **cross-service access**:
-
-```
-LpIntelligenceService  ──needs──>  PsIntelligenceService
-        │                                    │
-        │  "For each step in this path,      │  "For this step, count
-        │   what practice is missing?"       │   habits, tasks, events"
-        └────────────────────────────────────┘
-```
-
-**Current state:** `LpIntelligenceService` has no reference to `PsIntelligenceService`.
-**Required change:** Inject `ls_intelligence` as a constructor parameter, or access via
-`PsService.intelligence` through the existing `ps_service` dependency.
-
-### Implementation Path
-
-When learning paths have content with practice relationships:
-
-1. **Wire the dependency** — `LpIntelligenceService.__init__` accepts `ls_intelligence` parameter
-   (or access `ps_service.intelligence` from the factory in `curriculum_domain_config.py`)
-
-2. **Implement the method:**
-   ```python
-   async def identify_practice_gaps(self, path_uid: str) -> Result[dict[str, Any]]:
-       # Get path and its steps
-       path = await self.backend.get(path_uid)
-
-       # For each step, call existing PS intelligence
-       gaps = []
-       for step in path.steps:
-           score = await self.ls_intelligence.practice_completeness_score(step.uid)
-           if score.value < 1.0:
-               summary = await self.ls_intelligence.get_practice_summary(step.uid)
-               missing = [t for t in ("habits", "tasks", "events") if summary.value[t] == 0]
-               gaps.append({
-                   "step_uid": step.uid,
-                   "step_title": step.title,
-                   "practice_completeness": score.value,
-                   "missing_types": missing,
-               })
-
-       return Result.ok({
-           "path_uid": path_uid,
-           "total_steps": len(path.steps),
-           "steps_with_gaps": len(gaps),
-           "overall_practice_coverage": avg(completeness scores),
-           "gaps": gaps,
-       })
-   ```
-
-3. **Wire to facade** — Add explicit delegation method to `LpService`
-4. **Wire to route** — Add API endpoint in LP routes
-
-### Expected Return Shape
+### Return Shape (`LpPracticeGapAnalysis`)
 
 ```json
 {
-  "path_uid": "lp:python-fundamentals",
+  "path_uid": "lp.python.fundamentals",
   "total_steps": 8,
   "steps_with_gaps": 3,
   "overall_practice_coverage": 0.625,
   "gaps": [
     {
-      "step_uid": "ls:decorators",
+      "step_uid": "ps.python.decorators",
       "step_title": "Python Decorators",
-      "practice_completeness": 0.33,
-      "missing_types": ["habits", "events"]
+      "practice_completeness": 0.3333,
+      "missing_types": ["events", "goals", "principles", "choices"]
     },
     {
-      "step_uid": "ls:generators",
+      "step_uid": "ps.python.generators",
       "step_title": "Generator Functions",
       "practice_completeness": 0.0,
-      "missing_types": ["habits", "tasks", "events"]
+      "missing_types": ["habits", "tasks", "events", "goals", "principles", "choices"]
     }
   ],
   "recommendations": [
-    "3 of 8 steps lack complete practice opportunities",
-    "ls:generators has no practice at all — consider adding a task or habit"
+    "3 of 8 steps lack complete practice opportunities.",
+    "Generator Functions has no practice at all — add a task or habit."
   ]
 }
 ```
+
+`missing_types` is ordered by the canonical `PRACTICE_DOMAINS` sequence (habits, tasks,
+events, goals, principles, choices). `practice_coverage` on the scope summary degrades to
+`null` only if practice intelligence is unwired — it never fails the whole scope analysis.
 
 ### Why This Matters
 

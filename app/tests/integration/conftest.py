@@ -554,11 +554,17 @@ async def services(neo4j_driver):
     )
 
     # Create PS service (used by LP service)
-    # January 2026: graph_intel now REQUIRED for unified Curriculum architecture
+    # January 2026: graph_intel now REQUIRED for unified Curriculum architecture.
+    # ps_intelligence_backend mirrors the production composition root (built here,
+    # injected — the service never imports the adapter, ADR-044 / SKUEL022) so
+    # ps.intelligence practice/readiness reads work against the testcontainer.
+    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
+
     ps_service = PsService(
         backend=ps_backend,
         executor=query_executor,
         graph_intel=mock_graph_intel,
+        ps_intelligence_backend=PsIntelligenceBackend(query_executor),
     )
 
     # Create LP service (January 2026: intelligence created internally)

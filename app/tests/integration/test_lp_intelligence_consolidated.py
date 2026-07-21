@@ -40,6 +40,31 @@ _LP_OPT_READY = "lp.test.lpintel.opt.ready"
 _LP_OPT_BLOCKED = "lp.test.lpintel.opt.blocked"
 _LP_SOLO = "lp.test.lpintel.solo"  # 1 step, 1 KU, no prerequisites (depth 0)
 _LP_DEEP = "lp.test.lpintel.deep"  # 1 step, 1 KU, 2-hop prerequisite chain
+_LP_PRACTICE = "lp.test.lpintel.practice"  # 3 steps: full / partial / no practice
+_LP_PRACTICE_FULL = "lp.test.lpintel.practice.full_path"  # 1 fully-practiced step
+
+# Practice edge → target node, one activity node per domain (shared across the
+# practice paths; MERGE-idempotent). A step wired to all six has complete practice.
+_PRACTICE_EDGES = {
+    "habits": "BUILDS_HABIT",
+    "tasks": "ASSIGNS_TASK",
+    "events": "SCHEDULES_EVENT",
+    "goals": "SUPPORTS_GOAL",
+    "principles": "GUIDED_BY_PRINCIPLE",
+    "choices": "INFORMS_CHOICE",
+}
+_PRACTICE_TARGETS = {
+    "habits": "act_lpintel_habit",
+    "tasks": "act_lpintel_task",
+    "events": "act_lpintel_event",
+    "goals": "act_lpintel_goal",
+    "principles": "act_lpintel_principle",
+    "choices": "act_lpintel_choice",
+}
+_PS_PRACTICE_FULL = "ps.test.lpintel.practice.full"
+_PS_PRACTICE_PARTIAL = "ps.test.lpintel.practice.partial"
+_PS_PRACTICE_NONE = "ps.test.lpintel.practice.none"
+_PS_PRACTICE_SOLO = "ps.test.lpintel.practice.solo"
 
 # Domain used ONLY to scope the optimal-path query to this file's seeds.
 # 'transcription' is a valid Domain member no other integration seed uses.
@@ -66,6 +91,8 @@ _UIDS = [
     _LP_OPT_BLOCKED,
     _LP_SOLO,
     _LP_DEEP,
+    _LP_PRACTICE,
+    _LP_PRACTICE_FULL,
     "ps.test.lpintel.good.1",
     "ps.test.lpintel.good.2",
     "ps.test.lpintel.bad.1",
@@ -75,6 +102,11 @@ _UIDS = [
     "ps.test.lpintel.opt.b",
     "ps.test.lpintel.solo.1",
     "ps.test.lpintel.deep.1",
+    _PS_PRACTICE_FULL,
+    _PS_PRACTICE_PARTIAL,
+    _PS_PRACTICE_NONE,
+    _PS_PRACTICE_SOLO,
+    *_PRACTICE_TARGETS.values(),
     _KU_ALPHA,
     _KU_BETA,
     _KU_GAMMA,
@@ -121,6 +153,26 @@ async def _seed_path(session, lp_uid: str, title: str, steps: list[tuple[str, st
             ps_uid=ps_uid,
             ku_uid=ku_uid,
             sequence=sequence,
+        )
+
+
+async def _seed_practice(session, ps_uid: str, domains):
+    """Wire the given practice domains (BUILDS_HABIT/ASSIGNS_TASK/…) onto a step.
+
+    Each domain gets one activity target node (shared, MERGE-idempotent). A step
+    seeded with all six domains has complete practice; fewer leaves a gap.
+    """
+    for domain in domains:
+        await session.run(
+            f"""
+            MERGE (t:Entity {{uid: $target}})
+            ON CREATE SET t.status = 'active'
+            WITH t
+            MATCH (ps:Entity {{uid: $ps_uid}})
+            MERGE (ps)-[:{_PRACTICE_EDGES[domain]}]->(t)
+            """,
+            ps_uid=ps_uid,
+            target=_PRACTICE_TARGETS[domain],
         )
 
 
@@ -210,6 +262,32 @@ async def lpintel_graph(neo4j_driver):
         await _seed_path(
             session, _LP_DEEP, "LP Intel Deep Chain", [("ps.test.lpintel.deep.1", _KU_DEEP_C)]
         )
+
+        # Practice-gap path: three steps with descending practice completeness —
+        # full (all six activity domains → 1.0), partial (habit+task → 2/6), and
+        # none (no practice edges → 0.0). Each step USES_KU alpha (KU coverage is
+        # irrelevant to practice — the practice tests only read practice edges).
+        await _seed_path(
+            session,
+            _LP_PRACTICE,
+            "LP Intel Practice",
+            [
+                (_PS_PRACTICE_FULL, _KU_ALPHA),
+                (_PS_PRACTICE_PARTIAL, _KU_ALPHA),
+                (_PS_PRACTICE_NONE, _KU_ALPHA),
+            ],
+        )
+        await _seed_practice(session, _PS_PRACTICE_FULL, _PRACTICE_EDGES.keys())
+        await _seed_practice(session, _PS_PRACTICE_PARTIAL, ("habits", "tasks"))
+
+        # All-complete path (one fully-practiced step) — the zero-gap case.
+        await _seed_path(
+            session,
+            _LP_PRACTICE_FULL,
+            "LP Intel Practice Full",
+            [(_PS_PRACTICE_SOLO, _KU_ALPHA)],
+        )
+        await _seed_practice(session, _PS_PRACTICE_SOLO, _PRACTICE_EDGES.keys())
 
         # Prerequisite edges — sanctioned direction: dependent → prerequisite
         for dependent, prerequisite in (
@@ -524,6 +602,9 @@ class TestKnowledgeScope:
         assert scope["max_prerequisite_depth"] == 1  # beta → alpha
         assert scope["all_knowledge_uids"] == [_KU_ALPHA, _KU_BETA]  # deduped + sorted
         assert 0.0 <= scope["complexity_score"] <= 1.0
+        # GOOD's steps carry no practice edges → real 0.0 coverage (folded in,
+        # not None: ps.intelligence is wired, the steps simply have no practice).
+        assert scope["practice_coverage"] == pytest.approx(0.0)
 
     async def test_multi_ku_step_counts_kus_not_pairs(self, services, lpintel_graph):
         """A step composing two KUs is ONE step with two unique KUs — the
@@ -571,6 +652,70 @@ class TestKnowledgeScope:
         from core.utils.result_simplified import ErrorCategory
 
         result = await services.lp.analyze_path_knowledge_scope("lp.test.lpintel.ghost")
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+    async def test_scope_folds_in_practice_coverage(self, services, lpintel_graph):
+        """practice_coverage on the scope dict is the path's mean per-step
+        practice completeness — the same number identify_practice_gaps reports."""
+        result = await services.lp.analyze_path_knowledge_scope(_LP_PRACTICE)
+
+        assert result.is_ok
+        # full 1.0 + partial 2/6 + none 0.0, over 3 steps = 4/9
+        assert result.value["practice_coverage"] == pytest.approx(4 / 9, abs=1e-3)
+
+
+class TestPracticeGaps:
+    async def test_identifies_partial_and_empty_steps(self, services, lpintel_graph):
+        result = await services.lp.identify_practice_gaps(_LP_PRACTICE)
+
+        assert result.is_ok, f"practice gaps failed: {result.error}"
+        analysis = result.value
+        assert analysis["path_uid"] == _LP_PRACTICE
+        assert analysis["total_steps"] == 3
+        assert analysis["steps_with_gaps"] == 2  # partial + none (full is complete)
+        assert analysis["overall_practice_coverage"] == pytest.approx(4 / 9, abs=1e-3)
+
+        gaps_by_uid = {g["step_uid"]: g for g in analysis["gaps"]}
+        assert set(gaps_by_uid) == {_PS_PRACTICE_PARTIAL, _PS_PRACTICE_NONE}
+        assert _PS_PRACTICE_FULL not in gaps_by_uid  # complete step is not a gap
+
+        partial = gaps_by_uid[_PS_PRACTICE_PARTIAL]
+        assert partial["practice_completeness"] == pytest.approx(1 / 3, abs=1e-3)
+        # habits + tasks present; the other four domains missing, in canonical order
+        assert partial["missing_types"] == ["events", "goals", "principles", "choices"]
+
+        none = gaps_by_uid[_PS_PRACTICE_NONE]
+        assert none["practice_completeness"] == pytest.approx(0.0)
+        assert none["missing_types"] == list(_PRACTICE_TARGETS.keys())  # all six
+
+    async def test_recommendations_flag_zero_practice_step(self, services, lpintel_graph):
+        result = await services.lp.identify_practice_gaps(_LP_PRACTICE)
+
+        assert result.is_ok
+        recommendations = result.value["recommendations"]
+        assert any("2 of 3 steps" in r for r in recommendations)
+        # only the fully-empty step earns a "no practice at all" callout
+        no_practice_lines = [r for r in recommendations if "no practice at all" in r]
+        assert len(no_practice_lines) == 1
+        assert _PS_PRACTICE_NONE in no_practice_lines[0]
+
+    async def test_fully_practiced_path_has_no_gaps(self, services, lpintel_graph):
+        result = await services.lp.identify_practice_gaps(_LP_PRACTICE_FULL)
+
+        assert result.is_ok
+        analysis = result.value
+        assert analysis["total_steps"] == 1
+        assert analysis["steps_with_gaps"] == 0
+        assert analysis["gaps"] == []
+        assert analysis["overall_practice_coverage"] == pytest.approx(1.0)
+        assert analysis["recommendations"] == ["All 1 steps have complete practice opportunities."]
+
+    async def test_unknown_path_is_not_found(self, services, lpintel_graph):
+        from core.utils.result_simplified import ErrorCategory
+
+        result = await services.lp.identify_practice_gaps("lp.test.lpintel.ghost")
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND

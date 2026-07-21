@@ -1929,6 +1929,48 @@ class LpKnowledgeScopeSummary(TypedDict):
     max_prerequisite_depth: int
 
 
+class LpPracticeGap(TypedDict):
+    """One step's practice shortfall in LpIntelligenceService.identify_practice_gaps().
+
+    - ``step_uid`` / ``step_title`` — the PathStep with incomplete practice.
+    - ``practice_completeness`` — fraction of the six activity-domain practice
+      edges present on the step (0.0-1.0); a gap is any step below 1.0.
+    - ``missing_types`` — the practice domains absent on the step, in canonical
+      ``PRACTICE_DOMAINS`` order (habits, tasks, events, goals, principles, choices).
+    """
+
+    step_uid: str
+    step_title: str
+    practice_completeness: float
+    missing_types: list[str]
+
+
+class LpPracticeGapAnalysis(TypedDict):
+    """Return shape for LpIntelligenceService.identify_practice_gaps().
+
+    Path-level rollup of per-step practice completeness. Each step is scored by
+    the canonical PS measure (``practice_completeness_from_summary`` — fraction of
+    the six activity-domain practice edges present), so LP never forks a competing
+    "what counts as practice" definition. ``overall_practice_coverage`` is the
+    mean per-step completeness and is folded into analyze_path_knowledge_scope as
+    ``practice_coverage``.
+
+    - ``steps_with_gaps`` — steps scoring below 1.0 (== len(``gaps``)).
+    - ``overall_practice_coverage`` — mean per-step completeness; 0.0 for a
+      stepless path.
+    - ``recommendations`` — human-facing summary lines (same family as the
+      validation/blocker analyses).
+    """
+
+    path_uid: str
+    total_steps: int
+    steps_with_gaps: int
+    overall_practice_coverage: float
+    gaps: list[LpPracticeGap]
+    recommendations: list[str]
+    analysis_timestamp: str
+
+
 class LpPathRecommendation(TypedDict, total=False):
     """Return shape for LpIntelligenceService.get_optimal_path_recommendation()."""
 

@@ -397,6 +397,8 @@ def create_lp_sub_services(
     # ADR-030: Analytics services have zero AI dependencies.
     # relationship_service is REQUIRED for the inherited mechanism-B get_with_context
     # (registry-sourced graph context); matches Ku/Ps wiring.
+    # ps_service.intelligence provides per-step practice reads for identify_practice_gaps
+    # — reusing the PS practice measure rather than forking it (One Path Forward).
     intelligence = LpIntelligenceService(
         backend=backend,
         graph_intel=graph_intel,
@@ -404,6 +406,7 @@ def create_lp_sub_services(
         progress_backend=progress_backend,
         event_bus=event_bus,
         user_service=user_service,
+        ps_intelligence=ps_service.intelligence,
     )
 
     return LpSubServices(
