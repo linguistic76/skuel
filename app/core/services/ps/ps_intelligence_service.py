@@ -24,7 +24,8 @@ Architecture:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
@@ -41,6 +42,43 @@ if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
 
 logger = get_logger(__name__)
+
+
+# The six activity-domain practice edges a PathStep can carry (the keys
+# get_practice_summary returns, minus the derived ``total``). A step with all six
+# present has "complete" practice; each contributes an equal 1/6 to completeness.
+# This is the single source of truth for "what counts as practice" — reused by
+# the PS per-step scorer AND LpIntelligenceService.identify_practice_gaps, so the
+# two never fork competing definitions (One Path Forward).
+PRACTICE_DOMAINS: Final = ("habits", "tasks", "events", "goals", "principles", "choices")
+
+
+def _practice_counts(summary: PsPracticeSummaryResult) -> Mapping[str, int]:
+    """View a practice summary as its underlying str→int count map.
+
+    A summary IS a str→int mapping at runtime; the TypedDict is just a stricter
+    view. Casting once lets the six domains be indexed by their runtime names
+    (PRACTICE_DOMAINS) without a per-key string literal.
+    """
+    return cast("Mapping[str, int]", summary)
+
+
+def practice_completeness_from_summary(summary: PsPracticeSummaryResult) -> float:
+    """Fraction of the six practice domains present on a step (0.0-1.0).
+
+    Pure computation over an already-fetched practice summary — lets a caller
+    that already holds the summary (e.g. an LP-level rollup deriving both the
+    score and the missing types) avoid re-running the count query.
+    """
+    counts = _practice_counts(summary)
+    present = sum(1 for domain in PRACTICE_DOMAINS if counts[domain] > 0)
+    return present / len(PRACTICE_DOMAINS)
+
+
+def missing_practice_domains(summary: PsPracticeSummaryResult) -> list[str]:
+    """The practice domains absent on a step, in canonical PRACTICE_DOMAINS order."""
+    counts = _practice_counts(summary)
+    return [domain for domain in PRACTICE_DOMAINS if counts[domain] == 0]
 
 
 class PsIntelligenceService(
@@ -337,19 +375,7 @@ class PsIntelligenceService(
         if summary_result.is_error:
             return Result.fail(summary_result)
 
-        summary = summary_result.value
-        domain_counts = [
-            summary["habits"],
-            summary["tasks"],
-            summary["events"],
-            summary["goals"],
-            summary["principles"],
-            summary["choices"],
-        ]
-        present = sum(1 for count in domain_counts if count > 0)
-
-        score = present / len(domain_counts)
-        return Result.ok(score)
+        return Result.ok(practice_completeness_from_summary(summary_result.value))
 
     # ========================================================================
     # GUIDANCE ANALYSIS

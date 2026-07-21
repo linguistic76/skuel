@@ -863,6 +863,21 @@ the Codex-P2 rule above). The service derives a structural
 aspirational primary/supporting split was **dropped** — PS→KU edges carry
 no importance weight, so no such distinction is asserted (a KU importance
 scale, Markdown-heading-depth style, is a separate deferred arc).
-`practice_coverage` is the one remaining phantom, tracked to a follow-up
-PR (`identify_practice_gaps`). Pinned by the `TestKnowledgeScope` class in
+Pinned by the `TestKnowledgeScope` class in
 `tests/integration/test_lp_intelligence_consolidated.py`.
+
+**Follow-up shipped (2026-07-21): `practice_coverage` is now real.** It was
+the one remaining phantom in the scope dict. `identify_practice_gaps`
+(`lp_intelligence_service.py`) iterates the path's steps
+(`LpBackend.get_steps_raw`) and scores each by the canonical PS practice
+measure — the fraction of the six activity-domain practice edges
+(`BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT`, `SUPPORTS_GOAL`,
+`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`) present, counted once in
+`PsIntelligenceBackend.fetch_practice_counts`. LP reuses that measure via
+the injected `ps_service.intelligence` rather than forking a second
+definition (One Path Forward); the shared pure helper
+`practice_completeness_from_summary` is the single source of the score.
+The path-level mean folds into `analyze_path_knowledge_scope` as
+`practice_coverage` (degrades to `null`, never fails the scope, if practice
+intelligence is unwired). Pinned by the `TestPracticeGaps` class in the
+same file.

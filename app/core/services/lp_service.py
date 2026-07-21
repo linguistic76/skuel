@@ -22,6 +22,7 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import (
     LpBlockerAnalysis,
     LpPathRecommendation,
+    LpPracticeGapAnalysis,
     LpPrerequisiteValidation,
     LpRecommendedStep,
 )
@@ -100,7 +101,8 @@ class LpService:
             get_current_step, update_path, delete_path
     - Intelligence: validate_path_prerequisites, identify_path_blockers,
             get_optimal_path_recommendation, analyze_path_knowledge_scope,
-            find_learning_sequence, get_next_adaptive_step, get_recommended_path_steps
+            identify_practice_gaps, find_learning_sequence, get_next_adaptive_step,
+            get_recommended_path_steps
 
     Explicit Methods (custom logic):
     - Step operations: create_step, get_step, update_step, delete_step, list_steps (ps_service guard)
@@ -295,6 +297,10 @@ class LpService:
     async def analyze_path_knowledge_scope(self, path_uid: str) -> Result[dict[str, Any]]:
         """Analyze knowledge scope of a learning path."""
         return await self.intelligence.analyze_path_knowledge_scope(path_uid)
+
+    async def identify_practice_gaps(self, path_uid: str) -> Result[LpPracticeGapAnalysis]:
+        """Identify per-step practice gaps in a learning path."""
+        return await self.intelligence.identify_practice_gaps(path_uid)
 
     async def find_learning_sequence(
         self, start_uid: str, goal_uid: str, _user_uid: UserUID | None = None
