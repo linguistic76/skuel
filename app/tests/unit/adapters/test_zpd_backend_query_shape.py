@@ -17,9 +17,17 @@ from __future__ import annotations
 import re
 
 from adapters.persistence.neo4j.zpd_backend import (
+    _PREREQUISITE_GATE_EDGE,
+    _PROXIMAL_EXPANSION_EDGES,
+    _PROXIMAL_EXPANSION_PATTERN,
     _TARGETED_KU_ENGAGEMENT_QUERY,
     _ZONE_QUERY,
 )
+from core.infrastructure.relationships.semantic_relationships import (
+    SEMANTIC_TO_RELATIONSHIP_NAME,
+    SemanticRelationshipType,
+)
+from core.models.relationship_names import RelationshipName
 
 
 def _strip_comments(cypher: str) -> str:
@@ -77,6 +85,50 @@ class TestEnablesProximalOnly:
     def test_targeted_engagement_query_has_no_enables(self) -> None:
         """The targeted (Socratic) query reads engagement only — no zone expansion."""
         assert "ENABLES" not in _TARGETED
+
+
+class TestEdgeSetConstantsAreSingleSource:
+    """The three ZPD edge sets are named constants; the query is built FROM them.
+
+    Semantic-relationship-layer Phase 3 (resolved 2026-07-21): the sets were
+    de-hardcoded into `_PROXIMAL_EXPANSION_EDGES` / `_PREREQUISITE_GATE_EDGE`,
+    NOT wired to `SemanticRelationshipType.is_blocking`. These guards pin the
+    constants to the emitted Cypher and document why is_blocking is the wrong
+    predicate.
+    """
+
+    def test_constants_resolve_through_relationship_name(self) -> None:
+        """Every edge in the sets is a RelationshipName member (roadmap Phase 1 rule)."""
+        for edge in _PROXIMAL_EXPANSION_EDGES:
+            assert isinstance(edge, RelationshipName)
+        assert isinstance(_PREREQUISITE_GATE_EDGE, RelationshipName)
+
+    def test_proximal_pattern_is_the_frozen_set(self) -> None:
+        """The proximal union is exactly PREREQUISITE_FOR + both enabler vocabularies.
+
+        Frozen literal on purpose: if the constant changes, this canary fails
+        and forces a conscious ruling (an enabler joining/leaving proximal).
+        """
+        assert _PROXIMAL_EXPANSION_PATTERN == "PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE"
+        assert _ZONE.count(_PROXIMAL_EXPANSION_PATTERN) == 2
+
+    def test_gate_is_prerequisite_for_only(self) -> None:
+        """The readiness/blocking gate is PREREQUISITE_FOR, incoming — nothing else."""
+        assert _PREREQUISITE_GATE_EDGE is RelationshipName.PREREQUISITE_FOR
+        assert _ZONE.count(f"<-[:{_PREREQUISITE_GATE_EDGE.value}]-") == 2
+
+    def test_gate_is_not_is_blocking_vocabulary(self) -> None:
+        """PREREQUISITE_FOR is NOT reachable from is_blocking — is_blocking is a regression.
+
+        `SemanticRelationshipType.is_blocking` collapses (via
+        SEMANTIC_TO_RELATIONSHIP_NAME) onto {REQUIRES_KNOWLEDGE, BLOCKS, PRECEDES}.
+        The ZPD gate must never be sourced from that set.
+        """
+        is_blocking_coarse = {
+            SEMANTIC_TO_RELATIONSHIP_NAME[s] for s in SemanticRelationshipType if s.is_blocking
+        }
+        assert _PREREQUISITE_GATE_EDGE not in is_blocking_coarse
+        assert not set(_PROXIMAL_EXPANSION_EDGES) & is_blocking_coarse
 
 
 class TestCallSubqueryScopeSyntax:

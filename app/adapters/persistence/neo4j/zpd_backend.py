@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.zpd_protocols import PrereqCount, SubmissionScore
 
@@ -29,12 +30,58 @@ logger = get_logger(__name__)
 
 
 # ============================================================================
+# ZPD EDGE SETS — deliberately different per step, direction-correct
+# ============================================================================
+#
+# THREE distinct traversals, ONE source of truth each. These are NOT
+# interchangeable, and they are deliberately NOT `SemanticRelationshipType.is_blocking`:
+#
+#   - Proximal expansion (Step 2) follows enablement FORWARD — "you engaged A,
+#     A enables B → B is proximal". Two enabler vocabularies exist (Codex P2 #600):
+#     standalone Edge YAML authors ENABLES (all live enabler edges); the
+#     relationship registry maps frontmatter connections.enables →
+#     ENABLES_KNOWLEDGE. The proximal expansion must read both, plus the forward
+#     prerequisite edge.
+#   - Readiness (Step 3) and blocking gaps (Step 5) follow ONLY the prerequisite
+#     edge, INCOMING (`<-[:PREREQUISITE_FOR]-`) — an enabler is an invitation,
+#     never a gate or a requirement (ruling 2026-07-10).
+#
+# Why NOT is_blocking (semantic-relationship-layer roadmap Phase 3, resolved
+# 2026-07-21): `is_blocking` resolves — via SEMANTIC_TO_RELATIONSHIP_NAME — to the
+# coarse edges {REQUIRES_KNOWLEDGE, BLOCKS, PRECEDES}. NONE of those is
+# PREREQUISITE_FOR, so wiring ZPD's gate steps to `is_blocking` would silently
+# read a disjoint edge set — a regression in "what should I learn next". The
+# gate is PREREQUISITE_FOR, full stop. See docs/roadmap/semantic-relationship-layer.md.
+#
+# Guarded by tests/unit/adapters/test_zpd_backend_query_shape.py (asserts the
+# emitted query matches these constants) + tests/integration/test_zpd_enables_proximal.py.
+
+# Step 2 — proximal expansion (forward enablement, Ku- and PS-grain bridge).
+_PROXIMAL_EXPANSION_EDGES: tuple[RelationshipName, ...] = (
+    RelationshipName.PREREQUISITE_FOR,
+    RelationshipName.LATERAL_ENABLES,  # value "ENABLES" — standalone Edge YAML enabler
+    RelationshipName.ENABLES_KNOWLEDGE,
+)
+# Steps 3 & 5 — the prerequisite gate (incoming, prerequisite-only).
+_PREREQUISITE_GATE_EDGE: RelationshipName = RelationshipName.PREREQUISITE_FOR
+
+# Cypher edge-union pattern for the proximal expansion (`A|B|C`).
+_PROXIMAL_EXPANSION_PATTERN: str = "|".join(e.value for e in _PROXIMAL_EXPANSION_EDGES)
+
+
+# ============================================================================
 # CYPHER QUERIES
 # ============================================================================
 
 # Steps 1-6: Current zone (engaged KUs, per-source), proximal zone, readiness,
 # engaged paths, blocking gaps, and submission scores — all in a single round-trip.
-_ZONE_QUERY = """
+#
+# The proximal-expansion (`zpd_proximal_edges`) and prerequisite-gate
+# (`zpd_prereq_gate`) edge sets are substituted from the constants above at
+# module load — one source of truth, no buried literals. 17 Cypher map-literal
+# brace pairs make f-string interpolation error-prone, so this uses a plain-string
+# template + `.replace()` (byte-identical output; the shape test pins it).
+_ZONE_QUERY_TEMPLATE = """
 // ── Step 1: Current zone — KUs the user has meaningfully engaged ──────────
 // Returns per-source lists for compound evidence tracking.
 // Activity→knowledge edges target :Entity nodes (ADR-046) — both atomic :Ku and
@@ -92,7 +139,7 @@ CALL (engaged_raw_entity_uids) {
     UNWIND CASE WHEN size(engaged_raw_entity_uids) = 0 THEN [null]
            ELSE engaged_raw_entity_uids END AS raw_uid
     OPTIONAL MATCH (src:Entity {uid: raw_uid})
-        -[:PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE]->(target:Entity)
+        -[:zpd_proximal_edges]->(target:Entity)
     WITH collect(DISTINCT target) AS targets
     RETURN [t IN targets WHERE t:Ku | t.uid] +
            reduce(acc = [], p IN [t IN targets WHERE t:PathStep] |
@@ -111,7 +158,7 @@ WITH u, task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
 // authors ENABLES (all 32 live edges), while the relationship registry maps
 // frontmatter connections.enables → ENABLES_KNOWLEDGE — traverse both.
 UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid
-OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE]->(next:Entity)
+OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:zpd_proximal_edges]->(next:Entity)
 OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:COMPLEMENTARY_TO]->(adj:Entity)
 // Next step in the same Learning Path: find siblings that come after engaged_uid
 OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)
@@ -140,7 +187,7 @@ WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
 // For each proximal KU, find how many prerequisites it has and how many
 // are in the current zone
 UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS proximal_uid
-OPTIONAL MATCH (prox:Entity {uid: proximal_uid})<-[:PREREQUISITE_FOR]-(prereq:Entity)
+OPTIONAL MATCH (prox:Entity {uid: proximal_uid})<-[:zpd_prereq_gate]-(prereq:Entity)
 WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
      engaged_uids, proximal_uids,
      proximal_uid,
@@ -169,7 +216,7 @@ WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
 // A blocking gap = a prerequisite KU that is not in current_zone and
 // blocks at least one proximal KU
 UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS p_uid
-OPTIONAL MATCH (p:Entity {uid: p_uid})<-[:PREREQUISITE_FOR]-(gap:Entity)
+OPTIONAL MATCH (p:Entity {uid: p_uid})<-[:zpd_prereq_gate]-(gap:Entity)
 WHERE gap.uid IS NOT NULL AND NOT gap.uid IN engaged_uids
 
 WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
@@ -197,6 +244,13 @@ RETURN
     submission_data    AS submission_data
 LIMIT 1
 """
+
+# Substitute the edge-set sentinels from the constants above — single source of
+# truth, byte-identical to the historical literals (pinned by the shape test).
+_ZONE_QUERY = _ZONE_QUERY_TEMPLATE.replace(
+    "zpd_proximal_edges", _PROXIMAL_EXPANSION_PATTERN
+).replace("zpd_prereq_gate", _PREREQUISITE_GATE_EDGE.value)
+
 
 # Targeted KU engagement query — fetch evidence for specific KU UIDs only
 # Used by assess_ku_readiness() for query-time ZPD (Socratic pipeline)

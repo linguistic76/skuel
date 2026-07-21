@@ -94,15 +94,53 @@ holds.
 - Surface `RelationshipMetadata` fields (confidence, evidence, valid_from/until) as
   sanctioned edge properties in the registry definitions.
 
-### Phase 3 — Learning-loop semantic annotation
+### Phase 3 — Learning-loop semantic annotation — ⚠️ RESOLVED, mostly deferred (2026-07-21, PR #TBD)
 
-- Annotate loop edges with semantic meaning: e.g. `FULFILLS_EXERCISE` ⇒
-  `learn:provides_practical_application`; `RESPONDS_TO_REPORT` ⇒
-  `learn:informed_by_knowledge`-family. The loop keeps its edge names; the semantic
-  layer adds the reasoning dimension.
-- Let ZPD consume `is_blocking` semantics for prerequisite reasoning instead of
-  hardcoded relationship lists (`zpd_backend.py` currently hardcodes
-  `PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE`).
+Step Zero (the Phase-2 lesson applied: *register/annotate a name only with a verified
+consumer*) re-derived both parts from the live code + graph and found the roadmap's
+original wording — written before Phase 1's property model — is consumer-gated decoration
+(Part A) and a silent regression (Part B). Both original bullets are struck; what shipped is
+a small, consumed slice.
+
+**Part A — annotate loop edges (`FULFILLS_EXERCISE` ⇒ `learn:provides_practical_application`,
+etc.) — DEFERRED into Phase 4.** No consumer exists today:
+- All four loop edges are written as plain `MERGE`/`CREATE`, no `semantic_type`, never
+  through `build_semantic_merge` (`_user_entry_lifecycle_mixin.py`; `exercise_backends.py`).
+  Zero live edges carry a `semantic_type` property.
+- The only loop-edge *reader*, ZPD Step 6, traverses `FULFILLS_EXERCISE` **structurally**
+  (a join to `APPLIES_KNOWLEDGE`) — it never reads the edge's meaning. No reasoner consumes
+  loop-edge semantics.
+- Annotating now would be the KnowledgeDomain trap in miniature (registered ≠ consumed).
+  **Fold Part A into Phase 4**: annotate a loop edge only when Phase 4's reasoner actually
+  reads it. Preferred mechanism when that day comes: a **static curated map**
+  `RelationshipName → SemanticRelationshipType` (loop edges only — the inverse of the
+  many-to-one `SEMANTIC_TO_RELATIONSHIP_NAME` is one-to-many and useless), consulted by the
+  reasoner. Write `semantic_type` onto the edge itself only if a Cypher filter needs it.
+
+**Part B — "let ZPD consume `is_blocking` instead of the hardcoded edge list" — DECLINED
+as a regression. A de-hardcoding refactor shipped instead.** The premise was wrong twice:
+- ZPD's edge lists were **not** sloppy. `zpd_backend.py` uses THREE deliberately-different,
+  direction-correct, documented, test-frozen sets: proximal expansion (Step 2) follows
+  `PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE` **forward** (enablement); readiness (Step 3)
+  and blocking gaps (Step 5) follow **only** `<-[:PREREQUISITE_FOR]-` incoming (an enabler is
+  an invitation, never a gate — ruling 2026-07-10).
+- `SemanticRelationshipType.is_blocking` resolves — via `SEMANTIC_TO_RELATIONSHIP_NAME` — onto
+  the coarse edges `{REQUIRES_KNOWLEDGE, BLOCKS, PRECEDES}`. **None is `PREREQUISITE_FOR`**;
+  no semantic type maps to `PREREQUISITE_FOR` at all. Live counts: ZPD's gate traverses 9
+  `PREREQUISITE_FOR` edges; the `is_blocking` set is 4 disjoint edges. Wiring ZPD to
+  `is_blocking` would silently swap the "what should I learn next" traversal for a mismatched
+  edge set — a regression. `is_blocking` also has **zero consumers** anywhere (grep confirms).
+- **What shipped instead** (`zpd_backend.py`): the three sets were de-hardcoded into named,
+  `RelationshipName`-derived constants (`_PROXIMAL_EXPANSION_EDGES`, `_PREREQUISITE_GATE_EDGE`)
+  and the query is built from them via byte-identical `.replace()` — one source of truth per
+  set, same direction discipline, **no traversal change** (emitted Cypher byte-identical,
+  pinned by `test_zpd_backend_query_shape.py`, which also asserts the gate is *not* sourced
+  from the `is_blocking` vocabulary). NOT `is_blocking`.
+
+**Net for Phase 4:** Part A rides along — when a reasoner needs loop-edge meaning, add the
+curated map + its first reader together. `is_blocking` stays unwired unless a *new* consumer
+genuinely wants blocking-detection over the coarse `{REQUIRES_KNOWLEDGE, BLOCKS, PRECEDES}`
+edges (a different question from ZPD's prerequisite gate).
 
 ### Phase 4 — Intelligence consumption (Digital layer)
 
