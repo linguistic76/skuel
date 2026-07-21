@@ -33,7 +33,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports import PsOperations
 
 
 class LearningState(StrEnum):
@@ -83,7 +83,7 @@ class PsMasteryService:
 
     def __init__(
         self,
-        backend: "BackendOperations[Any]",
+        backend: "PsOperations",
         event_bus=None,
     ) -> None:
         self.backend = backend
@@ -102,7 +102,7 @@ class PsMasteryService:
         Creates or updates VIEWED relationship with timestamps and counts.
         """
         now = datetime.now(UTC).isoformat()
-        result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)  # type: ignore[attr-defined]
+        result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)
 
         if result.is_error:
             return Result.fail(result)
@@ -121,7 +121,7 @@ class PsMasteryService:
 
     async def count_in_progress_steps(self, user_uid: UserUID) -> Result[int]:
         """Count PathSteps the user is currently enrolled in (IN_PROGRESS)."""
-        result = await self.backend.count_in_progress_path_steps(user_uid)  # type: ignore[attr-defined]
+        result = await self.backend.count_in_progress_path_steps(user_uid)
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
@@ -130,7 +130,7 @@ class PsMasteryService:
 
     async def get_in_progress_step_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Get UIDs of PathSteps the user is enrolled in (IN_PROGRESS)."""
-        result = await self.backend.get_in_progress_path_step_uids(user_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_in_progress_path_step_uids(user_uid)
         if result.is_error:
             return Result.fail(result)
         uids = [rec["uid"] for rec in (result.value or []) if rec.get("uid")]
@@ -143,7 +143,7 @@ class PsMasteryService:
     ) -> Result[bool]:
         """Mark a knowledge unit as in-progress for a user."""
         now = datetime.now(UTC).isoformat()
-        result = await self.backend.mark_in_progress(user_uid, ku_uid, now)  # type: ignore[attr-defined]
+        result = await self.backend.mark_in_progress(user_uid, ku_uid, now)
 
         if result.is_error:
             return Result.fail(result)
@@ -170,7 +170,7 @@ class PsMasteryService:
         Checks for MASTERED, IN_PROGRESS, and VIEWED relationships in that order
         to determine the highest state achieved.
         """
-        result = await self.backend.get_learning_state_raw(user_uid, ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_learning_state_raw(user_uid, ku_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -231,7 +231,7 @@ class PsMasteryService:
         if not ku_uids:
             return Result.ok({})
 
-        result = await self.backend.get_learning_states_batch_raw(user_uid, ku_uids)  # type: ignore[attr-defined]
+        result = await self.backend.get_learning_states_batch_raw(user_uid, ku_uids)
 
         if result.is_error:
             return Result.fail(result)
@@ -260,7 +260,7 @@ class PsMasteryService:
         Deletes MARKED_AS_READ, ensures IN_PROGRESS. Does NOT fire PathStepEnrolled
         — this is a re-read, not a new enrollment.
         """
-        result = await self.backend.mark_as_learning(user_uid, ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.mark_as_learning(user_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
         if result.value:
@@ -274,7 +274,7 @@ class PsMasteryService:
         ku_uid: str,
     ) -> Result[bool]:
         """Mark a KU as read by the user."""
-        result = await self.backend.mark_as_read(user_uid, ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.mark_as_read(user_uid, ku_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -290,9 +290,9 @@ class PsMasteryService:
         genuinely wants to flip whatever the current state is.
         """
         if desired:
-            result = await self.backend.create_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
+            result = await self.backend.create_bookmark(user_uid, ku_uid)
         else:
-            result = await self.backend.delete_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
+            result = await self.backend.delete_bookmark(user_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
         self.logger.debug("Set bookmark", user_uid=user_uid, ku_uid=ku_uid, desired=desired)
@@ -305,7 +305,7 @@ class PsMasteryService:
     ) -> Result[bool]:
         """Toggle bookmark state for a KU."""
         # Check if bookmark exists
-        check_result = await self.backend.check_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
+        check_result = await self.backend.check_bookmark(user_uid, ku_uid)
 
         if check_result.is_error:
             return Result.fail(check_result)
@@ -313,13 +313,13 @@ class PsMasteryService:
         is_bookmarked = check_result.value[0]["is_bookmarked"] if check_result.value else False
 
         if is_bookmarked:
-            del_result = await self.backend.delete_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
+            del_result = await self.backend.delete_bookmark(user_uid, ku_uid)
             if del_result.is_error:
                 return Result.fail(del_result)
             self.logger.info(f"Removed bookmark: {user_uid} -> {ku_uid}")
             return Result.ok(False)
         else:
-            create_result = await self.backend.create_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
+            create_result = await self.backend.create_bookmark(user_uid, ku_uid)
             if create_result.is_error:
                 return Result.fail(create_result)
             self.logger.info(f"Added bookmark: {user_uid} -> {ku_uid}")
@@ -346,7 +346,7 @@ class PsMasteryService:
         See: core/models/enums/learning_enums.py - MasteryImpact
         """
         now = datetime.now(UTC).isoformat()
-        result = await self.backend.mark_mastered(user_uid, ku_uid, now, mastery_score, method)  # type: ignore[attr-defined]
+        result = await self.backend.mark_mastered(user_uid, ku_uid, now, mastery_score, method)
 
         if result.is_error:
             return Result.fail(result)
@@ -385,7 +385,7 @@ class PsMasteryService:
         KU mastery from failing if path step detection fails.
         """
         try:
-            result = await self.backend.detect_path_step_completion(event.ku_uid, event.user_uid)  # type: ignore[attr-defined]
+            result = await self.backend.detect_path_step_completion(event.ku_uid, event.user_uid)
 
             if result.is_error:
                 self.logger.error(f"Failed to check path step completion: {result.error}")
@@ -412,7 +412,7 @@ class PsMasteryService:
         user_uid: UserUID,
     ) -> Result[list[str]]:
         """Get list of bookmarked KU UIDs for user."""
-        result = await self.backend.get_bookmarked_kus(user_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_bookmarked_kus(user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -426,7 +426,7 @@ class PsMasteryService:
         self, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:
         """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
-        result = await self.backend.get_all_user_knowledge_status(user_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_all_user_knowledge_status(user_uid)
 
         if result.is_error:
             return Result.fail(result)

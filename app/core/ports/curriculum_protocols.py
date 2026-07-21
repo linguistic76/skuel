@@ -974,6 +974,106 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """List steps (with knowledge UIDs) as typed models, with pagination and filters."""
         ...
 
+    # =========================================================================
+    # LEARNING STATE TRACKING (VIEWED / IN_PROGRESS / MASTERED / bookmarks)
+    # =========================================================================
+    # Per-user progress edges on :Entity nodes, consumed by PsMasteryService.
+    # These return raw Cypher rows the service interprets into UserKuProgress /
+    # LearningState. The rows are genuinely heterogeneous — bool flags, counts,
+    # UIDs, and Neo4j temporal objects (.to_native()) in one dict — so they use
+    # the dict[str, Any] boundary shared by the raw-row methods above, not the
+    # narrower Neo4jProperties value union (which cannot model the temporals).
+
+    async def record_view(
+        self, user_uid: UserUID, ku_uid: str, now: str, time_spent: int
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {view_count}
+        """MERGE a VIEWED edge with timestamp and view-count tracking."""
+        ...
+
+    async def mark_in_progress(
+        self, user_uid: UserUID, ku_uid: str, now: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
+        """MERGE an IN_PROGRESS edge for a user/KU pair."""
+        ...
+
+    async def mark_as_learning(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
+        """Delete MARKED_AS_READ and ensure IN_PROGRESS (Review again action)."""
+        ...
+
+    async def mark_as_read(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns the MARKED_AS_READ edge
+        """MERGE a MARKED_AS_READ edge for a user/KU pair."""
+        ...
+
+    async def mark_mastered(
+        self, user_uid: UserUID, ku_uid: str, now: str, mastery_score: float, method: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {mastery_score}
+        """MERGE a MASTERED edge; higher score always wins on conflict."""
+        ...
+
+    async def count_in_progress_path_steps(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {cnt}
+        """Count PathSteps with an IN_PROGRESS edge for a user."""
+        ...
+
+    async def get_in_progress_path_step_uids(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {uid}
+        """Get UIDs of PathSteps the user is enrolled in (IN_PROGRESS)."""
+        ...
+
+    async def check_bookmark(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {is_bookmarked}
+        """Check whether a BOOKMARKED edge exists for a user/KU pair."""
+        ...
+
+    async def create_bookmark(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: no RETURN (empty rows)
+        """MERGE a BOOKMARKED edge for a user/KU pair."""
+        ...
+
+    async def delete_bookmark(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: no RETURN (empty rows)
+        """Delete the BOOKMARKED edge for a user/KU pair."""
+        ...
+
+    async def get_learning_state_raw(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: flags + counts + Neo4j temporals
+        """Fetch all user learning-state edges for one KU in a single query."""
+        ...
+
+    async def get_learning_states_batch_raw(
+        self, user_uid: UserUID, ku_uids: list[str]
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {ku_uid, has_* flags}
+        """Batch-fetch learning states for multiple KUs."""
+        ...
+
+    async def detect_path_step_completion(
+        self, ku_uid: str, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {ps_uid, ps_title, all_ku_uids}
+        """Find PathSteps whose KUs are all mastered after a KU-mastery event."""
+        ...
+
+    async def get_bookmarked_kus(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {ku_uid}
+        """Get all bookmarked KU UIDs for a user."""
+        ...
+
+    async def get_all_user_knowledge_status(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {uid, title, domain, status flags}
+        """Get all Ku entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
+        ...
+
 
 @runtime_checkable
 class LpOperations(CurriculumOperations["LearningPath"], Protocol):
@@ -1093,6 +1193,59 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
 
     async def reorder_steps(self, path_uid: str, step_uids: list[str]) -> Result[bool]:
         """Batch reorder all steps in a path."""
+        ...
+
+    # =========================================================================
+    # PATH CRUD (steps composed into metadata["steps"])
+    # =========================================================================
+    # These return paths with their HAS_STEP steps eagerly loaded into
+    # ``metadata["steps"]`` — the composed shape LpCoreService reads and returns.
+
+    async def get_path_with_steps(self, path_uid: str) -> Result[LearningPath | None]:
+        """Get a single path with its steps in ``metadata["steps"]``, or None."""
+        ...
+
+    async def get_paths_batch_with_steps(self, uids: list[str]) -> Result[list[LearningPath]]:
+        """Batch-fetch paths (steps in ``metadata["steps"]``), ordered by uid."""
+        ...
+
+    async def list_user_paths_with_steps(
+        self, user_uid: UserUID, limit: int | None = None
+    ) -> Result[list[LearningPath]]:
+        """List a user's authored/enrolled paths, steps in ``metadata["steps"]``."""
+        ...
+
+    async def list_all_paths_with_steps(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        order_by: str | None = None,
+        order_desc: bool = False,
+    ) -> Result[list[LearningPath]]:
+        """List all paths with pagination/sorting, steps in ``metadata["steps"]``."""
+        ...
+
+    async def update_path_properties(
+        self, set_clauses: list[str], params: dict[str, Any]
+    ) -> Result[LearningPath | None]:
+        """Apply pre-validated SET clauses; return the updated path, or None."""
+        ...
+
+    async def delete_path_cascade(self, path_uid: str) -> Result[list[dict[str, Any]]]:
+        """Delete a path and cascade-delete its step nodes; rows carry deleted_count."""
+        ...
+
+    async def persist_path_with_steps(
+        self,
+        user_uid: UserUID,
+        path_params: dict[str, Any],
+        steps_params: list[dict[str, Any]],
+    ) -> Result[bool]:
+        """Persist a path node (+ User edge), its step nodes, and PS→KU edges."""
+        ...
+
+    async def entity_exists(self, uid: str) -> Result[bool]:
+        """Check whether an :Entity node with the given UID exists."""
         ...
 
     # =========================================================================
