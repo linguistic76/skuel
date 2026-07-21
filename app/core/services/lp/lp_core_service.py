@@ -519,6 +519,10 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 "step_difficulty": get_enum_value(step.step_difficulty),
                 "status": get_enum_value(step.status),
                 "domain": get_enum_value(step.domain),
+                # PS→KU composition: carried as edges (USES_KU), never a node
+                # property. The backend MATCHes existing Kus and MERGEs the edge;
+                # knowledge_uids is reconstructed from those edges on read.
+                "knowledge_uids": list(step.knowledge_uids),
             }
             for step in steps
         ]

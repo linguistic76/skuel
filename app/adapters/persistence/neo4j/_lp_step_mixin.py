@@ -393,17 +393,27 @@ class _LpStepMixin:
         steps_params: list[dict[str, Any]],
     ) -> Result[bool]:
         """
-        Persist a learning path node with User relationship, then create step nodes.
+        Persist a learning path node with User relationship, then create step
+        nodes and their PS→KU composition edges.
+
+        Each step's ``knowledge_uids`` become ``(:PathStep)-[:USES_KU]->(:Ku)``
+        edges (never a node property — knowledge_uids is reconstructed from these
+        edges on read). Only existing Kus are linked: a missing KU yields no edge,
+        mirroring ingestion (``link_to_ku``); placeholder Kus are never created.
 
         Args:
             user_uid: Owner user UID
             path_params: Properties for the path node
-            steps_params: List of property dicts for each step node
+            steps_params: List of property dicts for each step node (each carrying
+                a ``knowledge_uids`` list)
         """
-        # Create path node and user relationship
+        # Create path node and user relationship. The node carries the full
+        # multi-label (:Entity:LearningPath) so domain-label reads — backend.get,
+        # search — find it, matching how ingestion writes LP nodes (a bare
+        # :Entity node is invisible to every domain-scoped query).
         path_query = """
         MERGE (u:User {uid: $user_uid})
-        CREATE (p:Entity {
+        CREATE (p:Entity:LearningPath {
             uid: $uid,
             entity_type: 'learning_path',
             title: $title,
@@ -424,10 +434,15 @@ class _LpStepMixin:
         if path_result.is_error:
             return Result.fail(path_result)
 
-        # Create step nodes and HAS_STEP relationships
+        # Create step nodes + HAS_STEP relationships, then wire PS→KU composition
+        # edges (USES_KU) from the step's knowledge_uids. The step node is CREATEd
+        # before the UNWIND, so it persists even when knowledge_uids is empty
+        # (an empty UNWIND drops downstream rows without rolling back prior writes).
+        # MATCH (not MERGE) the Ku so a missing KU yields no edge — never a
+        # placeholder Ku — mirroring ingestion's link_to_ku.
         step_query = """
         MATCH (p:Entity {uid: $path_uid})
-        CREATE (s:Entity {
+        CREATE (s:Entity:PathStep {
             uid: $uid,
             entity_type: 'path_step',
             title: $title,
@@ -445,6 +460,10 @@ class _LpStepMixin:
             updated_at: datetime()
         })
         CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
+        WITH s
+        UNWIND $knowledge_uids AS ku_uid
+        MATCH (ku:Entity {uid: ku_uid})
+        MERGE (s)-[:USES_KU]->(ku)
         """
         for step_params in steps_params:
             step_result = await self.execute_query(step_query, step_params)

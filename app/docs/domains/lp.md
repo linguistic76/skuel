@@ -96,7 +96,7 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | `list_all_paths_with_steps(limit, offset, order_by, order_desc)` | All LPs with `_ALLOWED_ORDER_BY` validation |
 | `update_path_properties(set_clauses, params)` | Dynamic SET update |
 | `delete_path_cascade(uid)` | Cascade delete LP + step nodes |
-| `persist_path_with_steps(user_uid, path_params, steps_params)` | Create LP node + User relationship + steps |
+| `persist_path_with_steps(user_uid, path_params, steps_params)` | Create LP node (`:Entity:LearningPath`) + User relationship + step nodes (`:Entity:PathStep`) + PS→KU `USES_KU` edges from each step's `knowledge_uids` |
 | `entity_exists(uid)` | Simple existence check |
 | `get_steps_raw(path_uid, depth)` | Ordered steps as raw dicts |
 | `get_parent_path_raw(step_uid)` | Parent LP for a step |

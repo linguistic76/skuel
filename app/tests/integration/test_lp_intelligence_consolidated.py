@@ -712,6 +712,136 @@ class TestPracticeGaps:
         assert analysis["overall_practice_coverage"] == pytest.approx(1.0)
         assert analysis["recommendations"] == ["All 1 steps have complete practice opportunities."]
 
+
+# ============================================================================
+# create_path → USES_KU persistence → knowledge-scope round trip
+#
+# Guards the fix for the deferred Codex P1 on #753: the programmatic create
+# path (`create_path` / `create_path_from_knowledge_units`) dropped each step's
+# knowledge_uids at persist time, so `persist_path_with_steps` wrote HAS_STEP
+# step nodes but NO PS→KU edges — leaving every LP-intel query (scope included)
+# reporting 0 KUs for API-created paths. These tests prove the USES_KU edges now
+# land end-to-end by reading them back through analyze_path_knowledge_scope.
+# ============================================================================
+
+_CREATE_USER = "user_lpcreate"
+_CREATE_KU_A = "ku_lpcreate_a"
+_CREATE_KU_B = "ku_lpcreate_b"
+_CREATE_KU_C = "ku_lpcreate_c"
+_CREATE_KU_GHOST = "ku_lpcreate_ghost"  # deliberately never seeded
+_CREATE_KUS = [_CREATE_KU_A, _CREATE_KU_B, _CREATE_KU_C]
+
+
+async def _cleanup_create_graph(session):
+    """Delete this user's paths+steps (auto-generated UIDs) and the seed Kus."""
+    await session.run(
+        """
+        MATCH (u:User {uid: $user})
+        OPTIONAL MATCH (u)-[:HAS_PATH]->(p:Entity)
+        OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Entity)
+        DETACH DELETE u, p, s
+        """,
+        user=_CREATE_USER,
+    )
+    await session.run("MATCH (k:Entity) WHERE k.uid IN $uids DETACH DELETE k", uids=_CREATE_KUS)
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def create_scope_graph(neo4j_driver):
+    """Seed only bare Ku nodes; the LP + steps come from create_path itself."""
+    async with neo4j_driver.session() as session:
+        await _cleanup_create_graph(session)
+        for ku_uid in _CREATE_KUS:
+            await session.run(
+                """
+                MERGE (k:Entity:Ku {uid: $uid})
+                SET k.title = $uid, k.entity_type = 'ku', k.status = 'active'
+                """,
+                uid=ku_uid,
+            )
+    yield neo4j_driver
+    async with neo4j_driver.session() as session:
+        await _cleanup_create_graph(session)
+
+
+def _step(uid: str, sequence: int, knowledge_uids: tuple[str, ...]):
+    """Build a minimal PathStep carrying the given KU references."""
+    from core.constants import MasteryLevel
+    from core.models.pathways.path_step import PathStep
+
+    return PathStep(
+        uid=uid,
+        title=f"Step {sequence + 1}",
+        intent="Complete this path step",
+        knowledge_uids=knowledge_uids,
+        sequence=sequence,
+        estimated_hours=2,
+        mastery_threshold=MasteryLevel.PROFICIENT,
+    )
+
+
+class TestCreatePathKnowledgeScopeRoundTrip:
+    async def test_create_path_persists_uses_ku_edges(self, services, create_scope_graph):
+        """create_path with multi-KU, single-KU, and KU-less steps: the scope
+        query reads back exactly the composed KUs, and the KU-less step still
+        counts (an empty UNWIND must not drop the step node)."""
+        created = await services.lp.create_path(
+            user_uid=_CREATE_USER,
+            title="Create Path Scope Round Trip",
+            description="programmatic path exercising USES_KU persistence",
+            steps=[
+                _step("ps_lpcreate_1", 0, (_CREATE_KU_A, _CREATE_KU_B)),  # multi-KU
+                _step("ps_lpcreate_2", 1, (_CREATE_KU_C,)),  # single-KU
+                _step("ps_lpcreate_3", 2, ()),  # KU-less — empty UNWIND
+            ],
+        )
+        assert created.is_ok, f"create_path failed: {created.error}"
+        path_uid = created.value.uid
+
+        scope = await services.lp.analyze_path_knowledge_scope(path_uid)
+        assert scope.is_ok, f"scope failed: {scope.error}"
+        assert scope.value["total_steps"] == 3  # KU-less step still counted
+        assert scope.value["total_unique_kus"] == 3
+        assert scope.value["all_knowledge_uids"] == sorted(_CREATE_KUS)
+
+    async def test_missing_ku_yields_no_edge_and_no_placeholder(self, services, create_scope_graph):
+        """A knowledge_uid with no matching Ku node links nothing and — because
+        the backend MATCHes rather than MERGEs the Ku — creates no placeholder."""
+        created = await services.lp.create_path(
+            user_uid=_CREATE_USER,
+            title="Create Path Missing KU",
+            description="one real KU, one dangling reference",
+            steps=[_step("ps_lpcreate_1", 0, (_CREATE_KU_A, _CREATE_KU_GHOST))],
+        )
+        assert created.is_ok, f"create_path failed: {created.error}"
+
+        scope = await services.lp.analyze_path_knowledge_scope(created.value.uid)
+        assert scope.is_ok
+        assert scope.value["all_knowledge_uids"] == [_CREATE_KU_A]  # ghost absent
+
+        async with create_scope_graph.session() as session:
+            result = await session.run(
+                "MATCH (k:Entity {uid: $uid}) RETURN count(k) AS n", uid=_CREATE_KU_GHOST
+            )
+            record = await result.single()
+        assert record["n"] == 0  # no placeholder Ku was created
+
+    async def test_create_path_from_knowledge_units_persists_edges(
+        self, services, create_scope_graph
+    ):
+        """The single-KU-per-step entrypoint also writes USES_KU edges."""
+        created = await services.lp.create_path_from_knowledge_units(
+            user_uid=_CREATE_USER,
+            knowledge_units=[_CREATE_KU_A, _CREATE_KU_B],
+        )
+        assert created.is_ok, f"create failed: {created.error}"
+
+        scope = await services.lp.analyze_path_knowledge_scope(created.value.uid)
+        assert scope.is_ok, f"scope failed: {scope.error}"
+        assert scope.value["total_steps"] == 2
+        assert scope.value["total_unique_kus"] == 2
+        assert scope.value["all_knowledge_uids"] == [_CREATE_KU_A, _CREATE_KU_B]
+
     async def test_unknown_path_is_not_found(self, services, lpintel_graph):
         from core.utils.result_simplified import ErrorCategory
 
