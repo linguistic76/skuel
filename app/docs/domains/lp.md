@@ -71,10 +71,13 @@ await lp_service.intelligence.get_next_adaptive_step(path_uid, user_uid)
 Both LpCoreService and LpSearchService extend `BaseService` (January 2026 alignment with PS pattern):
 
 ```python
-class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
+class LpCoreService(BaseService["LpOperations", Lp]):
     _dto_class = LpDTO
     _model_class = Lp
     _user_ownership_relationship = None  # Shared curriculum content
+    # Type-narrowed to LpOperations (July 2026) — retired the attr-defined
+    # ignores that the generic BackendOperations[Lp] forced on every
+    # get_path_with_steps()/persist_path_with_steps()/… call
     ...
 
 class LpSearchService(BaseService["LpOperations", Lp]):

@@ -17,8 +17,8 @@ Part of LpService decomposition (October 24, 2025)
 - Single responsibility: CRUD operations
 
 **Architecture (January 2026 Unified):**
-- Extends BaseService[BackendOperations[Lp], Lp] for unified infrastructure
-- All Cypher queries delegated to LpBackend methods
+- Extends BaseService[LpOperations, Lp] for unified infrastructure
+- All Cypher queries delegated to LpBackend methods (typed via LpOperations)
 - Class attributes match unified domain conventions
 """
 
@@ -42,18 +42,18 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports import LpOperations
 
 logger = get_logger(__name__)
 
 
-class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]):
+class LpCoreService(BaseService["LpOperations", LearningPath]):
     """
     Core CRUD operations for learning paths.
 
     **Architecture (January 2026 Unified):**
-    Extends BaseService[BackendOperations[Lp], Lp] for unified infrastructure.
-    All Cypher queries delegated to typed LpBackend methods.
+    Extends BaseService[LpOperations, LearningPath] for unified infrastructure.
+    All Cypher queries delegated to typed LpBackend methods (via LpOperations).
 
     This service owns:
     - Path creation and persistence to Neo4j
@@ -79,7 +79,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
     def __init__(
         self,
-        backend: BackendOperations[LearningPath],
+        backend: LpOperations,
         ps_service: Any = None,
         event_bus: Any = None,
     ) -> None:
@@ -90,7 +90,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         The backend is REQUIRED. Services run at full capacity or fail immediately.
 
         Args:
-            backend: BackendOperations[Lp] for graph operations (REQUIRED)
+            backend: LpOperations backend for graph operations (REQUIRED)
             ps_service: PsService for step operations (optional for get_path_steps)
             event_bus: Event bus for domain events (optional)
         """
@@ -220,7 +220,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if not uids:
             return Result.ok([])
 
-        query_result = await self.backend.get_paths_batch_with_steps(uids)  # type: ignore[attr-defined]
+        query_result = await self.backend.get_paths_batch_with_steps(uids)
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -234,7 +234,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     @with_error_handling("get_learning_path", error_type="database", uid_param="path_uid")
     async def get_learning_path(self, path_uid: str) -> Result[LearningPath | None]:
         """Get a single learning path by UID (returns None if not found)."""
-        query_result = await self.backend.get_path_with_steps(path_uid)  # type: ignore[attr-defined]
+        query_result = await self.backend.get_path_with_steps(path_uid)
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -246,7 +246,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[LearningPath]]:
         """List all learning paths for a specific user."""
-        query_result = await self.backend.list_user_paths_with_steps(user_uid, limit)  # type: ignore[attr-defined]
+        query_result = await self.backend.list_user_paths_with_steps(user_uid, limit)
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -270,7 +270,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             order_by: Field to sort by (e.g., 'uid', 'created_at', 'title')
             order_desc: Sort in descending order if True
         """
-        query_result = await self.backend.list_all_paths_with_steps(  # type: ignore[attr-defined]
+        query_result = await self.backend.list_all_paths_with_steps(
             limit=limit, offset=offset, order_by=order_by, order_desc=order_desc
         )
 
@@ -372,7 +372,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         set_clauses.append("p.updated_at = $updated_at")
         params["updated_at"] = datetime.now().isoformat()
 
-        query_result = await self.backend.update_path_properties(set_clauses, params)  # type: ignore[attr-defined]
+        query_result = await self.backend.update_path_properties(set_clauses, params)
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -415,7 +415,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
 
-        query_result = await self.backend.delete_path_cascade(path_uid)  # type: ignore[attr-defined]
+        query_result = await self.backend.delete_path_cascade(path_uid)
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -440,7 +440,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     @with_error_handling("get_steps", error_type="database", uid_param="path_uid")
     async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
         """Get all steps in a learning path ordered by sequence."""
-        result = await self.backend.get_steps_raw(path_uid, depth)  # type: ignore[attr-defined]
+        result = await self.backend.get_steps_raw(path_uid, depth)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value)
@@ -448,7 +448,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     @with_error_handling("get_parent_path", error_type="database", uid_param="step_uid")
     async def get_parent_path(self, step_uid: str) -> Result[LearningPath | None]:
         """Get the learning path containing this step (first match)."""
-        result = await self.backend.get_parent_path_raw(step_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_parent_path_raw(step_uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value)
@@ -464,23 +464,23 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             return Result.fail(Errors.not_found(f"Learning path not found: {path_uid}"))
 
         # Validate step exists
-        step_check = await self.backend.entity_exists(step_uid)  # type: ignore[attr-defined]
+        step_check = await self.backend.entity_exists(step_uid)
         if step_check.is_error:
             return Result.fail(step_check)
         if not step_check.value:
             return Result.fail(Errors.not_found(f"Path step not found: {step_uid}"))
 
-        return await self.backend.add_step_to_path(path_uid, step_uid, sequence, order)  # type: ignore[attr-defined]
+        return await self.backend.add_step_to_path(path_uid, step_uid, sequence, order)
 
     @with_error_handling("remove_step_from_path", error_type="database")
     async def remove_step_from_path(self, path_uid: str, step_uid: str) -> Result[bool]:
         """Remove a step from a path and reorder remaining steps."""
-        return await self.backend.remove_step_from_path(path_uid, step_uid)  # type: ignore[attr-defined]
+        return await self.backend.remove_step_from_path(path_uid, step_uid)
 
     @with_error_handling("reorder_steps", error_type="database")
     async def reorder_steps(self, path_uid: str, step_uids: list[str]) -> Result[bool]:
         """Batch reorder all steps in a learning path."""
-        return await self.backend.reorder_steps(path_uid, step_uids)  # type: ignore[attr-defined]
+        return await self.backend.reorder_steps(path_uid, step_uids)
 
     # ============================================================================
     # PRIVATE HELPERS
@@ -527,7 +527,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             for step in steps
         ]
 
-        result = await self.backend.persist_path_with_steps(user_uid, path_params, steps_params)  # type: ignore[attr-defined]
+        result = await self.backend.persist_path_with_steps(user_uid, path_params, steps_params)
         if result.is_error:
             return Result.fail(result)
 
