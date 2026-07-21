@@ -39,7 +39,11 @@ APPENDS: live JVM = 22 vendor flags + `--add-modules jdk.incubator.vector` + `-X
 vendor-conf setting is deliberately overridden: the vendor pins
 `db.query.default_language=CYPHER_25` for new installs, while SKUEL's query corpus runs CYPHER_5 —
 pinned explicitly in compose and the k8s manifest so a CYPHER_25 migration happens as its own
-deliberate arc, never as a config side effect.
+deliberate arc, never as a config side effect. The setting applies to **newly created** databases
+only — an existing database keeps the language it was created with. Verify with
+`SHOW DATABASES YIELD name, defaultLanguage`; migrate a pre-pin database with
+`ALTER DATABASE neo4j SET DEFAULT LANGUAGE CYPHER 5`. (Dev verified 2026-07-20: `neo4j` and
+`system` both report `CYPHER 5`.)
 
 ## Vector API (SIMD) — why it is enabled
 
