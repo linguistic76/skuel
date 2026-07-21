@@ -38,7 +38,7 @@ def neo4j_container():
     Note: Requires Docker to be running.
     Uses Neo4j 5.26 to match production environment.
     """
-    container = Neo4jContainer("neo4j:2026.05.0")
+    container = Neo4jContainer("neo4j:2026.06.0")
     # Disable auth completely for testing
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
     container.with_env("NEO4J_PLUGINS", '["apoc"]')

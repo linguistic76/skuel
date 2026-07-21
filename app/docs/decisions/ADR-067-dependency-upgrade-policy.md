@@ -76,7 +76,7 @@ routine upgrade pass:
 ### 3a. Neo4j **server** version policy — latest calendar monthly, hotfix-tracked
 
 The server (Docker image, testcontainers, k8s, all environments) tracks Neo4j's **calendar-versioned
-line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`neo4j:2026.05.0`**.
+line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`neo4j:2026.06.0`**.
 
 - **Track the latest monthly, don't soak.** Neo4j hotfixes each monthly release **only until the next
   monthly ships** — e.g. `2026.04.0` stopped receiving fixes the moment `2026.05` released. So on this
@@ -93,7 +93,7 @@ line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`
 - **Bump cadence ≈ monthly, always deliberate.** When a new monthly's image publishes, bump to it (it
   supersedes the prior line's hotfix support). Pin **exactly** — never a floating `latest`/major/minor
   tag — so every environment is reproducible; the bump is a conscious PR, not an auto-pull.
-- **Upgrades are forward and in-place.** Neo4j auto-migrates the store forward, so `2026.05.0` → a
+- **Upgrades are forward and in-place.** Neo4j auto-migrates the store forward, so `2026.06.0` → a
   later monthly is: back up → swap the tag everywhere it is pinned → restart → run integration.
 - **Downgrades are not supported** — a store written by a newer server will not open on an older one.
   Rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.

@@ -98,7 +98,7 @@ The Neo4j server itself has a global default tx timeout (`db.transaction.timeout
 - **Wiring:** `services_bootstrap/compose.py:117` (the one wrap site + the `Neo4jSchemaManager(raw_driver)` carve-out).
 - **Config:** `core/config/unified_config.py` (`DatabaseConfig.transaction_timeout`).
 - **Ingestion wrap site:** `adapters/persistence/neo4j/bulk_upsert_backend.py` (`with neo4j_query_timeout(600.0):`).
-- **Tests:** `tests/unit/test_timed_driver.py` (12 tests — fake-session captures the `Query` object), `tests/integration/test_timed_driver.py` (5 tests against `neo4j:2026.05.0` testcontainer; busy Cartesian-product Cypher — no APOC, per SKUEL001).
+- **Tests:** `tests/unit/test_timed_driver.py` (12 tests — fake-session captures the `Query` object), `tests/integration/test_timed_driver.py` (5 tests against `neo4j:2026.06.0` testcontainer; busy Cartesian-product Cypher — no APOC, per SKUEL001).
 
 ## See also
 

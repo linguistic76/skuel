@@ -116,7 +116,7 @@ services:
   # This definition kept for reference/fallback only
   # --------------------------------------------------------------------------
   # neo4j:
-  #   image: neo4j:2026.05.0
+  #   image: neo4j:2026.06.0
   #   container_name: skuel-neo4j
   #   environment:
   #     NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}

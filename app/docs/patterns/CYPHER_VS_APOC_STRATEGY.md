@@ -545,7 +545,7 @@ class TestApocCanary:
 uv run pytest tests/integration/test_apoc_canary.py -v
 
 # Upgrade
-docker pull neo4j:2026.05.0
+docker pull neo4j:2026.06.0
 # Update apoc plugin to 5.16.0
 
 # After upgrading

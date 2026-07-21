@@ -168,7 +168,7 @@ cd /opt/skuel-neo4j
 cat > docker-compose.yml << 'EOF'
 services:
   neo4j:
-    image: neo4j:2026.05.0
+    image: neo4j:2026.06.0
     container_name: skuel-neo4j
     restart: unless-stopped
     ports:

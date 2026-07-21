@@ -1,7 +1,7 @@
 # SKUEL Setup Guide
 
 **Last Updated:** 2026-01-02
-**Infrastructure Version:** Neo4j 2026.05.0 (Consolidated)
+**Infrastructure Version:** Neo4j 2026.06.0 (Consolidated)
 
 ---
 
@@ -40,7 +40,7 @@ cd ~/skuel/infrastructure
 docker compose up -d
 ```
 
-This starts Neo4j 2026.05.0 with:
+This starts Neo4j 2026.06.0 with:
 - HTTP interface: http://localhost:7474
 - Bolt connection: bolt://localhost:7687
 - Production-ready memory tuning
