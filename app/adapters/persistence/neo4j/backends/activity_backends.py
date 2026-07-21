@@ -852,6 +852,30 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             return Result.fail(result)
         return Result.ok([record["uid"] for record in result.value])
 
+    async def dependency_path_exists(
+        self, from_uid: str, to_uid: str, rel_type: RelationshipName
+    ) -> Result[bool]:
+        """Report whether a directed ``rel_type`` path exists from ``from_uid`` to ``to_uid``.
+
+        UNBOUNDED reachability — unlike ``get_transitive_dependencies`` (capped at 10
+        for the planner), the cycle guard must see arbitrarily-long chains, or it would
+        admit a cycle that closes beyond the cap. Variable-length paths never reuse a
+        relationship, so this terminates even on an already-cyclic graph; ``EXISTS``
+        short-circuits at the first path found.
+        """
+        query = f"""
+        MATCH (start:Entity {{uid: $from_uid}})
+        RETURN EXISTS {{
+            MATCH (start)-[:{rel_type}*1..]->(:Entity {{uid: $to_uid}})
+        }} AS reachable
+        """
+        result = await self.execute_query(query, {"from_uid": from_uid, "to_uid": to_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(False)
+        return Result.ok(bool(result.value[0]["reachable"]))
+
 
 class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     """

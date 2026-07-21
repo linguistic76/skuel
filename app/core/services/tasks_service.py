@@ -965,19 +965,18 @@ class TasksService(
 
         A self-link is always a cycle. Otherwise the new edge closes a loop iff ``blocks``
         already (transitively) depends on ``dependent`` — i.e. a ``blocks -[:DEPENDS_ON*]->
-        dependent`` path exists. Guards the variable-length transitive traversal in
-        ``get_task_dependencies_for_user`` from runaway on a cyclic graph.
+        dependent`` path exists. Uses an UNBOUNDED reachability check (not the depth-10
+        ``get_transitive_dependencies``, which would miss a cycle closing beyond the cap),
+        guarding the variable-length transitive traversal in ``get_task_dependencies_for_user``
+        from runaway on a cyclic graph.
 
-        Backend: TasksBackend.get_transitive_dependencies.
+        Backend: TasksBackend.dependency_path_exists.
         """
         if dependent_task_uid == blocks_task_uid:
             return Result.ok(True)
-        reachable = await self.backend.get_transitive_dependencies(
-            blocks_task_uid, RelationshipName.DEPENDS_ON, max_depth=10
+        return await self.backend.dependency_path_exists(
+            blocks_task_uid, dependent_task_uid, RelationshipName.DEPENDS_ON
         )
-        if reachable.is_error:
-            return Result.fail(reachable)
-        return Result.ok(dependent_task_uid in reachable.value)
 
     async def create_semantic_knowledge_relationship(
         self,

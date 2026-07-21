@@ -15,6 +15,8 @@ real Neo4j and read it back — exactly what this test does. Against the broken
 code it fails (no edge is created); against the fix it passes.
 """
 
+import itertools
+
 import pytest
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
@@ -186,3 +188,25 @@ class TestTaskDependencyEdgeRoundTrip:
         # An unrelated pair is fine.
         independent = await services.tasks.would_create_dependency_cycle("task:cyc_a", "task:cyc_c")
         assert independent.is_ok and independent.value is False
+
+    async def test_cycle_guard_catches_chains_deeper_than_ten(self, services, clean_neo4j):
+        """The cycle guard is unbounded — it catches a loop that closes beyond 10 hops.
+
+        A depth-capped reachability check (get_transitive_dependencies clamps at 10)
+        would miss the back-edge on a 12-long chain and silently admit a cycle. Build
+        t0 → t1 → … → t12 and confirm adding t12 → t0 is flagged.
+        """
+        chain = [f"task:deep_{i}" for i in range(13)]
+        for i, uid in enumerate(chain):
+            await self._create_task(services, uid, f"Deep Task {i}")
+        # t0 depends on t1 depends on … depends on t12 (12 edges).
+        for dependent, blocks in itertools.pairwise(chain):
+            assert (
+                await services.tasks.create_task_dependency(
+                    dependent_task_uid=dependent, blocks_task_uid=blocks
+                )
+            ).is_ok
+
+        # Adding t12 → t0 closes a 13-node loop (path t0→…→t12 is 12 hops, > the cap of 10).
+        deep_cycle = await services.tasks.would_create_dependency_cycle(chain[-1], chain[0])
+        assert deep_cycle.is_ok and deep_cycle.value is True

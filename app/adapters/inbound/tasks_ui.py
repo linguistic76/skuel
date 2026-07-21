@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from adapters.inbound.auth import require_authenticated_user
@@ -337,9 +337,9 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         owned = await tasks_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return DependencyListFragment(
-                uid, {"depends_on": [], "required_by": []}, error="Task not found."
-            )
+            # Ownership contract: a task the caller does not own reads as 404, not a
+            # 200 fragment — HTMX won't swap it, keeping foreign/missing indistinguishable.
+            return Response("Not found", status_code=404)
         return await _dependencies_view(uid)
 
     @rt("/tasks/{uid}/dependencies/add", methods=["POST"])
@@ -350,12 +350,10 @@ def create_tasks_ui_routes(
         form = await request.form()
         target_uid = str(form.get("target_uid", "")).strip()
 
-        # Guard the page's own task first (no leak on a foreign uid).
+        # Guard the page's own task first (404, no leak on a foreign uid).
         owned = await tasks_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return DependencyListFragment(
-                uid, {"depends_on": [], "required_by": []}, error="Task not found."
-            )
+            return Response("Not found", status_code=404)
         if not target_uid:
             return await _dependencies_view(uid, error="Pick a task to depend on.")
         # Both endpoints must be owned by the caller (404-not-403).
@@ -383,9 +381,7 @@ def create_tasks_ui_routes(
 
         owned = await tasks_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return DependencyListFragment(
-                uid, {"depends_on": [], "required_by": []}, error="Task not found."
-            )
+            return Response("Not found", status_code=404)
         # Verify the caller owns both endpoints of the edge being unlinked.
         for endpoint in (dependent_uid, blocks_uid):
             endpoint_owned = await tasks_service.verify_ownership(endpoint, user_uid)
