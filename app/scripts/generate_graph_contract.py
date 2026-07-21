@@ -4,13 +4,16 @@ Generate the Graph Vocabulary Contract view — docs/reference/GRAPH_CONTRACT.ya
 ================================================================================
 
 The emitted Analog view of the graph contract (2026-07 DSL review, step 5 of the
-contract-hardening sequence). One YAML document, four sections:
+contract-hardening sequence). One YAML document, five sections:
 
 - ``meta``          — sources and computed coverage counts
 - ``relationships`` — every ``RelationshipName`` member (the SKUEL030-enforced
                       edge vocabulary), keyed by graph-facing value
 - ``labels``        — every ``NeoLabel`` member (the CYP011-enforced label
-                      vocabulary), keyed by graph-facing value
+                      vocabulary), keyed by graph-facing value; each configured
+                      label also names its semantic-layer ``semantic_types``
+- ``semantic_edge_properties`` — the sanctioned edge-property vocabulary a
+                      semantic edge may carry (roadmap Phase 2)
 - ``findings``      — names that appear in persistence Cypher but are NOT
                       vocabulary (the SKUEL030 baseline: known bugs, never
                       accepted names)
@@ -41,6 +44,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
 
@@ -51,6 +55,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from cypher_vocabulary import load_vocabulary  # type: ignore[import-not-found]
 from lint_skuel import SkuelLinter  # type: ignore[import-not-found]
 
+from core.infrastructure.relationships.semantic_relationships import RelationshipMetadata
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
@@ -274,6 +279,27 @@ def gather_findings() -> dict[str, Finding]:
     return dict(sorted(findings.items()))
 
 
+def sanctioned_semantic_edge_properties() -> list[str]:
+    """The closed edge-property vocabulary a semantic edge may carry.
+
+    Derived from the single writer (``build_semantic_merge``), which persists
+    ``RelationshipMetadata.to_neo4j_properties()`` plus the ``semantic_type``
+    predicate (roadmap Phase 1). Sourcing the set from the metadata dataclass
+    itself keeps the contract in lockstep with the writer: a new metadata field
+    drifts this artifact instead of going silently unsanctioned. The probe
+    populates every optional field so no conditionally-emitted key is missed
+    (``to_neo4j_properties`` omits falsy source/temporal/evidence/notes).
+    """
+    probe = RelationshipMetadata(
+        source="registry",
+        valid_from=datetime(2000, 1, 1),
+        valid_until=datetime(2000, 1, 1),
+        evidence=["registry"],
+        notes="registry",
+    )
+    return sorted(set(probe.to_neo4j_properties()) | {"semantic_type"})
+
+
 # =============================================================================
 # Rendering
 # =============================================================================
@@ -343,6 +369,13 @@ def _render_label(
     if edges:
         lines.append("      relationships:")
         lines.extend(f"        - {value}" for value in edges)
+    # Semantic-layer registration (roadmap Phase 2): the precise predicates this
+    # config's find_by_semantic_filter defaults to (config.semantic_types, live-read
+    # in _intelligence_mixin). Emitted as SemanticRelationshipType values — the
+    # namespaced predicate surface, distinct from the RelationshipName edge spine.
+    if config.semantic_types:
+        semantic_values = [predicate.value for predicate in config.semantic_types]
+        lines.append(f"      semantic_types: {_flow_seq(semantic_values)}")
 
 
 def render_contract() -> str:
@@ -424,6 +457,20 @@ def render_contract() -> str:
             label_edges.get(label.value, []),
             lines,
         )
+
+    lines.append("")
+    lines.append("# Sanctioned edge-property vocabulary for semantic edges (roadmap Phase 2).")
+    lines.append("# Written by build_semantic_merge: every key RelationshipMetadata may emit,")
+    lines.append("# plus semantic_type — the precise SemanticRelationshipType predicate (Phase 1).")
+    lines.append("# Per-config `semantic_types:` under labels names which predicates a domain's")
+    lines.append("# find_by_semantic_filter defaults to. Phase 4 keys confidence-weighted")
+    lines.append("# traversal on this property set.")
+    lines.append("semantic_edge_properties:")
+    lines.append(
+        "  source: core/infrastructure/relationships/"
+        "semantic_relationships.py::RelationshipMetadata.to_neo4j_properties"
+    )
+    lines.append(f"  properties: {_flow_seq(sanctioned_semantic_edge_properties())}")
 
     lines.append("")
     lines.append("# Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).")

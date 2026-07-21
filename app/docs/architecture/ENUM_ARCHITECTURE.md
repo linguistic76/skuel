@@ -403,7 +403,12 @@ only under `findings:`, marked as known silent-zero bugs — never as vocabulary
 no config for a name, not a judgment that the edge is unmodelled — registry membership is
 conditional by design (see the maintenance note in `relationship_names.py`), and the
 `meta.coverage` counts make registry growth (e.g. the semantic-relationship-layer roadmap)
-diffable over time. The artifact is checked in; a unit drift test
+diffable over time. Each configured label also names its semantic-layer `semantic_types`
+(the precise `SemanticRelationshipType` predicates its `find_by_semantic_filter` defaults
+to), and a `semantic_edge_properties:` section sanctions the edge-property vocabulary a
+semantic edge may carry — sourced from `RelationshipMetadata.to_neo4j_properties()` plus
+`semantic_type`, so Phase 4's confidence-weighted traversal has a declared surface to key
+on (roadmap Phase 2). The artifact is checked in; a unit drift test
 (`tests/unit/scripts/test_generate_graph_contract.py`) regenerates and byte-compares it,
 so a registry or enum change that lands without rerunning the generator fails CI.
 
