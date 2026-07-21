@@ -1226,18 +1226,24 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         ...
 
     async def update_path_properties(
-        self, set_clauses: list[str], params: dict[str, Any]
+        self,
+        set_clauses: list[str],
+        # boundary: heterogeneous Neo4j query params (uid + mixed-type SET values)
+        params: dict[str, Any],
     ) -> Result[LearningPath | None]:
         """Apply pre-validated SET clauses; return the updated path, or None."""
         ...
 
-    async def delete_path_cascade(self, path_uid: str) -> Result[list[dict[str, Any]]]:
+    async def delete_path_cascade(
+        self, path_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {deleted_count}
         """Delete a path and cascade-delete its step nodes; rows carry deleted_count."""
         ...
 
     async def persist_path_with_steps(
         self,
         user_uid: UserUID,
+        # boundary: heterogeneous Neo4j node-property dicts (mixed-type values)
         path_params: dict[str, Any],
         steps_params: list[dict[str, Any]],
     ) -> Result[bool]:
