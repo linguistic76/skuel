@@ -369,9 +369,8 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
     "askesis context-orchestration surface staged — load_askesis_context centralises the "
     "get_askesis → get_rich_unified_context bundle (AskesisContext) for instance-aware "
     "intelligence API routes that were never wired (the live pipeline loads UserContext "
-    "inline, instance-free), and find_relevant_from_user_context is the unwired "
-    "UserContext→relevant-KU discovery entry point; wire instance-aware intelligence "
-    "routes + a 'relevant knowledge for you' recommendation (Mike ruled PLANNED 2026-06-13)"
+    "inline, instance-free); wire instance-aware intelligence routes consuming it "
+    "(Mike ruled PLANNED 2026-06-13)"
 )
 # Shared BaseService-mixin dead-code campaign (2026-06-13, campaign 16): the 6
 # common mixins (ConversionHelpers, CRUD, Search, Relationships, TimeQuery,
@@ -390,14 +389,15 @@ _MIXIN_PREREQUISITE_WRITE = (
     "ingestion (Edge YAML). Wire a prerequisite-edit control on entity detail "
     "pages (Mike ruled PLANNED 2026-06-13)"
 )
-_MIXIN_GENERIC_HIERARCHY = (
-    "generic parents/children hierarchy read staged — the base-mixin entry point "
-    "over backend.hierarchy_query_raw (whose only caller is this method); the "
-    "per-domain get_*_hierarchy methods use the richer get_hierarchy_raw and are "
-    "themselves PLANNED, and campaign-14's get_hierarchical_children is the "
-    "curriculum multi-hop twin. No live consumer of either; wire a hierarchy "
-    "explorer/breadcrumb consuming the unified surface (Mike ruled PLANNED 2026-06-13)"
-)
+# NOTE: RelationshipOperationsMixin.get_hierarchy (the generic parents/children
+# read over backend.hierarchy_query_raw) was PLANNED here. Tier 2 (#721) added
+# HierarchyAPIConfig with a `get_hierarchy` field, called as config.get_hierarchy(uid)
+# and populated per-domain with the get_*_hierarchy methods — that same-named
+# attribute access name-collides with the mixin method, so vulture stopped
+# flagging it and the marking went stale. The mixin method is still genuinely
+# unwired (no route calls it; the live path is the per-domain get_*_hierarchy
+# over get_hierarchy_raw), so it was removed per the stale convention. Wire a
+# hierarchy explorer/breadcrumb consuming the unified surface to complete it.
 _MIXIN_ARRAY_SEARCH = (
     "generic array-field search staged — the 'any array field contains value' "
     "generalization of the live search_by_tags (which covers the tags case); no "
@@ -454,9 +454,8 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE
     ),
-    "core/services/mixins/relationship_operations_mixin.py::get_hierarchy": (
-        _MIXIN_GENERIC_HIERARCHY
-    ),
+    # get_hierarchy removed — name-collision-masked stale marking (see NOTE by
+    # _MIXIN_ARRAY_SEARCH); still genuinely unwired, tracked in that comment.
     "core/services/mixins/search_operations_mixin.py::search_array_field": _MIXIN_ARRAY_SEARCH,
     # --- Exercises: teacher-management half (campaign 17) ---
     "core/services/exercises/exercise_service.py::list_group_exercises": (_EXERCISES_GROUP_LISTING),
@@ -672,10 +671,17 @@ PLANNED_METHODS: dict[str, str] = {
         _ASKESIS_CITATION_QUALITY
     ),
     # --- Askesis: context-orchestration surface ---
+    # NOTE: find_relevant_from_user_context was PLANNED here alongside
+    # load_askesis_context. Tier 6 (#725) extracted ContextRelevanceEngine and
+    # turned the askesis_service method into a one-line delegator to
+    # relevance_engine.find_relevant_from_user_context — the same-named call
+    # name-collides with the facade method, so vulture stopped flagging it and
+    # the marking went stale. The facade entry point is still genuinely unwired
+    # (no route/intelligence surface reaches it; the live engine method has one
+    # caller, that delegator), so it was removed per the stale convention. Wire
+    # instance-aware intelligence routes + a "relevant knowledge for you"
+    # recommendation to complete it (Mike ruled PLANNED 2026-06-13).
     "core/services/askesis_service.py::load_askesis_context": _ASKESIS_CONTEXT_ORCHESTRATION,
-    "core/services/askesis_service.py::find_relevant_from_user_context": (
-        _ASKESIS_CONTEXT_ORCHESTRATION
-    ),
     # --- Campaign 18 (2026-06): standalone service staged capabilities ---
     "core/services/content_enrichment_service.py::process_audio": (
         "audio transcription pipeline staged — wire a /upload-audio route that "
