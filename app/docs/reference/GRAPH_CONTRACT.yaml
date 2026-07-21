@@ -1018,6 +1018,7 @@ labels:
         - HAS_TASK
         - REQUIRES_TASK
         - BLOCKS
+      semantic_types: ["learn:requires_theoretical_understanding", "learn:builds_mental_model", "learn:provides_practical_application"]
   Goal:
     entity_types: [goal]
     contract:
@@ -1037,6 +1038,7 @@ labels:
         - HAS_GOAL
         - DEPENDS_ON_GOAL
         - ENABLES_GOAL
+      semantic_types: ["learn:requires_theoretical_understanding", "learn:requires_practical_application", "task:contributes_to_goal", "task:enables_achievement"]
   Habit:
     entity_types: [habit]
     contract:
@@ -1055,6 +1057,7 @@ labels:
         - INFORMS_CHOICE
         - IMPACTS_HABIT
         - OWNS
+      semantic_types: ["learn:reinforces_knowledge", "learn:provides_practical_application", "skill:develops_skill"]
   Event:
     entity_types: [event]
     contract:
@@ -1074,6 +1077,7 @@ labels:
         - DEMONSTRATES_PRINCIPLE
         - HAS_EVENT
         - REQUIRES_KNOWLEDGE
+      semantic_types: ["learn:provides_practical_application", "learn:deepens_understanding"]
   Choice:
     entity_types: [choice]
     contract:
@@ -1094,6 +1098,7 @@ labels:
         - TRIGGERS_CHOICE
         - OWNS
         - REQUIRES_KNOWLEDGE_FOR_DECISION
+      semantic_types: ["learn:informed_by_knowledge", "learn:requires_theoretical_understanding"]
   Principle:
     entity_types: [principle]
     contract:
@@ -1113,6 +1118,7 @@ labels:
         - PRACTICED_AT_EVENT
         - SERVES_LIFE_PATH
         - OWNS
+      semantic_types: ["learn:builds_on_foundation", "learn:requires_theoretical_understanding"]
   TaskTemplate:
     entity_types: [task_template]
     contract: null
@@ -1170,6 +1176,7 @@ labels:
         - HAS_EXERCISE
         - CITES_RESOURCE
         - HAS_STEP
+      semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application", "learn:builds_on_foundation"]
   LearningPath:
     entity_types: [learning_path]
     contract:
@@ -1183,6 +1190,7 @@ labels:
         - HAS_MILESTONE_EVENT
         - OPENS_LEARNING_PATH
         - REQUIRES_STEP
+      semantic_types: ["learn:requires_theoretical_understanding", "task:enables_achievement"]
   Submission:
     contract: null
   ActivityReport:
@@ -1219,6 +1227,7 @@ labels:
         - SHARED_WITH_GROUP
         - FULFILLS_EXERCISE
         - OWNS
+      semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application"]
   RevisedExercise:
     entity_types: [revised_exercise]
     contract:
@@ -1229,6 +1238,7 @@ labels:
         - REVISES_EXERCISE
         - FULFILLS_REVISED_EXERCISE
         - OWNS
+      semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application"]
   FormTemplate:
     entity_types: [form_template]
     contract: null
@@ -1332,6 +1342,20 @@ labels:
     contract: null
   SearchEvent:
     contract: null
+
+# Sanctioned edge-property vocabulary for semantic edges (roadmap Phase 2).
+# `properties` = the typed base set build_semantic_merge writes: every typed
+# RelationshipMetadata field plus semantic_type (the precise
+# SemanticRelationshipType predicate, Phase 1). NOT hard-closed —
+# RelationshipMetadata also carries a free-form `properties` map merged
+# verbatim (open_extension below), so a consumer must not treat this set as
+# exhaustive once custom props are written. Per-config `semantic_types:`
+# under labels names which predicates a domain's find_by_semantic_filter
+# defaults to. Phase 4 keys confidence-weighted traversal on this set.
+semantic_edge_properties:
+  source: core/infrastructure/relationships/semantic_relationships.py::RelationshipMetadata.to_neo4j_properties
+  properties: [confidence, created_at, evidence, notes, semantic_type, source, strength, valid_from, valid_until]
+  open_extension: {field: properties, merged_by: RelationshipMetadata.to_neo4j_properties, exhaustive: false, callers_today: 0}
 
 # Known silent-zero bugs, NOT vocabulary (SKUEL030 baseline; shrinking list).
 findings:

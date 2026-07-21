@@ -15,6 +15,7 @@ The honesty guards pin the properties the artifact exists to provide:
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -25,8 +26,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from generate_graph_contract import (  # type: ignore[import-not-found]
     ARTIFACT_PATH,
     render_contract,
+    sanctioned_semantic_edge_properties,
 )
 
+from core.infrastructure.relationships.semantic_relationships import (
+    RelationshipMetadata,
+    SemanticRelationshipType,
+)
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 
@@ -103,3 +109,80 @@ def test_contract_occurrences_reference_configured_labels() -> None:
                 f"relationship {value} cites config {occurrence['config']!r}, "
                 "which has no label contract entry"
             )
+
+
+# =============================================================================
+# Semantic-layer surfaces (roadmap Phase 2)
+# =============================================================================
+
+
+def test_label_semantic_types_are_valid_predicates() -> None:
+    """Every `semantic_types` value under labels is a real SemanticRelationshipType.
+
+    The label spine names edges (RelationshipName); the semantic layer names
+    predicates (SemanticRelationshipType). This guards the second surface — a
+    typo or a migrated-away predicate value can never masquerade as sanctioned
+    vocabulary (the drift rule test_semantic_neo4j_name_drift.py enforces for
+    to_neo4j_name(), applied here to the emitted contract).
+    """
+    document = yaml.safe_load(render_contract())
+    valid_values = {predicate.value for predicate in SemanticRelationshipType}
+
+    seen_any = False
+    for label, entry in document["labels"].items():
+        contract = entry.get("contract")
+        if not contract:
+            continue
+        for value in contract.get("semantic_types", []):
+            seen_any = True
+            assert value in valid_values, (
+                f"label {label} lists semantic_type {value!r}, which is not a "
+                "SemanticRelationshipType value"
+            )
+    assert seen_any, "no label emitted semantic_types — the Phase 2 surface vanished"
+
+
+def test_semantic_edge_properties_match_the_write_path() -> None:
+    """The declared property set equals the TYPED base build_semantic_merge emits.
+
+    build_semantic_merge writes RelationshipMetadata.to_neo4j_properties() plus
+    the semantic_type predicate. Re-deriving the expectation from the metadata
+    dataclass here (not from the render) catches a generator hand-edited to
+    diverge from the writer — a new typed metadata field must appear in both or
+    fail. The free-form `properties` map is intentionally excluded from the
+    declared set (it is unbounded); the open_extension block below is where the
+    contract stays honest about it.
+    """
+    document = yaml.safe_load(render_contract())
+    emitted = set(document["semantic_edge_properties"]["properties"])
+
+    probe = RelationshipMetadata(
+        source="registry",
+        valid_from=datetime(2000, 1, 1),
+        valid_until=datetime(2000, 1, 1),
+        evidence=["registry"],
+        notes="registry",
+    )
+    expected = set(probe.to_neo4j_properties()) | {"semantic_type"}
+
+    assert emitted == expected, (
+        "semantic_edge_properties drifted from RelationshipMetadata's write path: "
+        f"contract has {emitted - expected} extra, missing {expected - emitted}"
+    )
+    # The generator's own helper must agree with the writer too.
+    assert emitted == set(sanctioned_semantic_edge_properties())
+
+
+def test_semantic_edge_properties_flag_the_open_extension() -> None:
+    """The declared set is honest that it is NOT hard-closed.
+
+    RelationshipMetadata.to_neo4j_properties() merges a free-form `properties`
+    map verbatim (reachable via TripleBuilder.custom(properties=...)), so the
+    typed set above cannot claim exhaustiveness. The open_extension block records
+    that escape hatch so a Phase-4 consumer does not read the typed list as a
+    closed universe (Codex #744 P2).
+    """
+    document = yaml.safe_load(render_contract())
+    extension = document["semantic_edge_properties"]["open_extension"]
+    assert extension["field"] == "properties"
+    assert extension["exhaustive"] is False
