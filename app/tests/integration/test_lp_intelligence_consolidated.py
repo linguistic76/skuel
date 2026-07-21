@@ -842,6 +842,24 @@ class TestCreatePathKnowledgeScopeRoundTrip:
         assert scope.value["total_unique_kus"] == 2
         assert scope.value["all_knowledge_uids"] == [_CREATE_KU_A, _CREATE_KU_B]
 
+    async def test_created_path_is_discoverable_by_knowledge_search(
+        self, services, create_scope_graph
+    ):
+        """A path created via create_path (USES_KU edges only) is found by the
+        public knowledge search — get_by_knowledge must traverse the full PS→KU
+        union, not CONTAINS_KNOWLEDGE alone, or API-created paths are invisible."""
+        created = await services.lp.create_path(
+            user_uid=_CREATE_USER,
+            title="Create Path Search Discoverable",
+            description="discoverable via USES_KU",
+            steps=[_step("ps_lpcreate_1", 0, (_CREATE_KU_A,))],
+        )
+        assert created.is_ok, f"create_path failed: {created.error}"
+
+        found = await services.lp.search.get_by_knowledge(_CREATE_KU_A)
+        assert found.is_ok, f"search failed: {found.error}"
+        assert created.value.uid in {p.uid for p in found.value}
+
     async def test_unknown_path_is_not_found(self, services, lpintel_graph):
         from core.utils.result_simplified import ErrorCategory
 

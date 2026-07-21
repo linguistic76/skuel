@@ -166,8 +166,11 @@ class _LpProgressMixin:
     async def get_paths_by_knowledge(
         self, ku_uid: str, limit: int = 20
     ) -> Result[list[LearningPath]]:
-        """Get learning paths that teach a knowledge unit (2-hop via HAS_STEP + CONTAINS_KNOWLEDGE).
+        """Get learning paths that teach a knowledge unit (2-hop via HAS_STEP + the PS→KU edge union).
 
+        Traverses the canonical ``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` union
+        (matching the sibling ``get_paths_containing_ku``) so API-created paths —
+        which compose Kus via ``USES_KU`` only — are not invisible to search.
         Uses DISTINCT since multiple steps within a path may contain the same knowledge.
 
         Args:
@@ -178,7 +181,7 @@ class _LpProgressMixin:
             Result containing LearningPath models
         """
         query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
+        MATCH (ku:Entity {uid: $ku_uid})<-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-(ps:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
         RETURN DISTINCT lp
         ORDER BY lp.created_at DESC
         LIMIT $limit
