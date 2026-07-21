@@ -30,6 +30,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from core.constants import LpKnowledgeScopeComplexity
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import UserUID
 from core.ports.content_protocols import ContentAdapter
@@ -59,6 +60,21 @@ from core.services.lp_intelligence.types import (
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+
+
+def _structural_complexity_score(total_unique_kus: int, max_prerequisite_depth: int) -> float:
+    """Blend a path's KU breadth and prerequisite depth into a 0.0-1.0 score.
+
+    A v1 STRUCTURAL score (see `LpKnowledgeScopeComplexity`): each axis
+    saturates, then the two combine by weight. Deliberately uses only graph
+    facts — no authored difficulty field, no importance weighting (both
+    deferred). Interpreting the raw scope facts belongs here at the service
+    layer, not in the measuring backend query.
+    """
+    c = LpKnowledgeScopeComplexity
+    breadth = min(total_unique_kus / c.KU_BREADTH_SATURATION, 1.0)
+    depth = min(max_prerequisite_depth / c.PREREQUISITE_DEPTH_SATURATION, 1.0)
+    return round(breadth * c.BREADTH_WEIGHT + depth * c.DEPTH_WEIGHT, 4)
 
 
 class LpIntelligenceService(
@@ -621,13 +637,21 @@ class LpIntelligenceService(
         """
         Analyze the knowledge scope of a learning path.
 
-        Uses LearningPath model methods to provide comprehensive curriculum analysis.
+        Aggregates the path's KU coverage from the graph: the distinct KUs it
+        teaches across the ``HAS_STEP`` → ``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU``
+        fan-out, how they distribute across steps, and a structural
+        ``complexity_score`` blending KU breadth with prerequisite depth.
+        Knowledge scope is core LP identity, not an add-on — this fills the
+        ``LpOperations`` KNOWLEDGE AGGREGATION contract.
+
+        Backend: LpBackend.get_knowledge_scope_summary + get_all_knowledge_uids.
 
         Args:
             path_uid: Learning path identifier
 
         Returns:
-            Knowledge scope analysis including coverage, complexity, practice
+            Result[dict]: total_steps, total_unique_kus, kus_per_step,
+            max_prerequisite_depth, complexity_score, all_knowledge_uids.
         """
         if not self.backend:
             return Result.fail(
@@ -637,29 +661,36 @@ class LpIntelligenceService(
                 )
             )
 
-        # Get the path using backend
+        # Existence guard — a nonexistent path is not-found, not empty scope.
         path_result = await self.backend.get(path_uid)
         if path_result.is_error:
-            return path_result
-
-        path = path_result.value
-        if not path:
+            return Result.fail(path_result)
+        if not path_result.value:
             return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
 
-        # Use model methods for analysis
-        scope_summary = path.get_knowledge_scope_summary()
-        all_knowledge_uids = path.get_all_knowledge_uids()
+        # Backend measures the graph facts; the service interprets them.
+        summary_result = await self.backend.get_knowledge_scope_summary(path_uid)
+        if summary_result.is_error:
+            return Result.fail(summary_result)
+        summary = summary_result.value
+
+        uids_result = await self.backend.get_all_knowledge_uids(path_uid)
+        if uids_result.is_error:
+            return Result.fail(uids_result)
 
         analysis = {
-            **scope_summary,
-            "all_knowledge_uids": list(all_knowledge_uids),
-            "knowledge_complexity": path.knowledge_complexity_score(),
-            "practice_coverage": path.practice_coverage_score(),
+            **summary,
+            "path_uid": path_uid,
+            "all_knowledge_uids": sorted(uids_result.value),
+            "complexity_score": _structural_complexity_score(
+                summary["total_unique_kus"], summary["max_prerequisite_depth"]
+            ),
             "analysis_timestamp": datetime.now().isoformat(),
         }
 
         self.logger.info(
-            f"Knowledge scope analysis for {path_uid}: {analysis['total_unique_knowledge_units']} units"
+            f"Knowledge scope analysis for {path_uid}: "
+            f"{summary['total_unique_kus']} KUs across {summary['total_steps']} steps"
         )
         return Result.ok(analysis)
 

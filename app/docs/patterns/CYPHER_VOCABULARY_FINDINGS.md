@@ -847,11 +847,22 @@ never executed successfully:
 Behavior is pinned by `tests/integration/test_lp_intelligence_consolidated.py`
 against a seeded testcontainer graph.
 
-**Still broken, deliberately left:** `analyze_path_knowledge_scope`
-(`lp_intelligence_service.py`) calls four methods that exist on no class
-(`get_knowledge_scope_summary`, `get_all_knowledge_uids`,
+**Ruling: implemented (2026-07-21).** `analyze_path_knowledge_scope`
+(`lp_intelligence_service.py`) previously called four methods that exist
+on no class (`get_knowledge_scope_summary`, `get_all_knowledge_uids`,
 `knowledge_complexity_score`, `practice_coverage_score` on
-`LearningPath`, whose `steps` property is always `()`), so it raises
-`AttributeError` on any real path. Route-unwired; needs a One Path
-Forward ruling (implement as a graph aggregation vs delete with its
-facade delegation) rather than a drive-by fix.
+`LearningPath`, whose `steps` property is always `()`), so it raised
+`AttributeError` on any real path. Mike ruled knowledge scope is CORE LP
+identity — implement, never delete. It is now a real graph aggregation:
+`_lp_intelligence_mixin` gained `get_all_knowledge_uids` and
+`get_knowledge_scope_summary`, which measure the `HAS_STEP` →
+`USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU` fan-out plus `REQUIRES_KNOWLEDGE`
+prerequisite depth (per-step-aggregated, so a multi-KU step counts once —
+the Codex-P2 rule above). The service derives a structural
+`complexity_score` (KU breadth × prerequisite depth). The protocol's
+aspirational primary/supporting split was **dropped** — PS→KU edges carry
+no importance weight, so no such distinction is asserted (a KU importance
+scale, Markdown-heading-depth style, is a separate deferred arc).
+`practice_coverage` is the one remaining phantom, tracked to a follow-up
+PR (`identify_practice_gaps`). Pinned by the `TestKnowledgeScope` class in
+`tests/integration/test_lp_intelligence_consolidated.py`.

@@ -840,3 +840,39 @@ CANON_RETRIEVAL_LIMIT: Final = 4
 # Deliberately permissive (the journal is associative, not a precision search) —
 # below this the passage is noise and is dropped. Tunable once we measure.
 CANON_RETRIEVAL_MIN_SCORE: Final = 0.3
+
+
+# ============================================================================
+# LP KNOWLEDGE-SCOPE COMPLEXITY (lp_intelligence_service.analyze_path_knowledge_scope)
+# ============================================================================
+
+
+class LpKnowledgeScopeComplexity:
+    """Weights and saturation caps for a learning path's structural complexity.
+
+    Complexity is a v1 STRUCTURAL score — derived only from graph facts we know
+    exist (how many KUs the path covers, how deep their prerequisite chains run),
+    not from authored difficulty fields (sparsely populated) or an importance
+    weighting (deferred to a later arc). It is a blend of two saturating axes:
+
+    - **Breadth** — the count of unique KUs the path teaches. A path covering
+      many concepts is broader, hence more complex.
+    - **Depth** — the longest REQUIRES_KNOWLEDGE prerequisite chain among those
+      KUs. Deeply-dependent knowledge is harder than the same number of
+      independent facts.
+
+    Each axis saturates (``min(value / cap, 1.0)``) so a very large path does not
+    push the score past 1.0, then the two are combined by the weights below
+    (which sum to 1.0). All five numbers are deliberately tunable — measure real
+    paths before treating them as anything but a reasonable first cut.
+    """
+
+    # A path covering this many unique KUs is treated as maximally broad.
+    KU_BREADTH_SATURATION: Final = 30
+
+    # A prerequisite chain this many hops deep is treated as maximally deep.
+    PREREQUISITE_DEPTH_SATURATION: Final = 5
+
+    # Blend weights (sum to 1.0) — breadth leads, depth refines.
+    BREADTH_WEIGHT: Final = 0.6
+    DEPTH_WEIGHT: Final = 0.4
