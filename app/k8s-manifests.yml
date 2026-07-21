@@ -81,6 +81,11 @@ spec:
           value: "2G"
         - name: NEO4J_server_memory_pagecache_size
           value: "1G"
+        # No /conf mount here, so the vendor neo4j.conf applies — it pins
+        # db.query.default_language=CYPHER_25. Pin CYPHER_5 explicitly to keep
+        # query semantics identical to dev (infrastructure/docker-compose.yml).
+        - name: NEO4J_db_query_default__language
+          value: "CYPHER_5"
         - name: NEO4J_dbms_security_procedures_unrestricted
           value: "n10s.*,apoc.*"
         - name: NEO4J_dbms_security_procedures_allowlist

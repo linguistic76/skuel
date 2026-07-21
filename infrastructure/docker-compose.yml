@@ -64,6 +64,13 @@ services:
       # Cypher planner (cost-based optimization) - Neo4j 5.26+ syntax
       NEO4J_dbms_cypher_planner: COST
 
+      # Cypher language version. The vendor neo4j.conf pins CYPHER_25 for new
+      # installs; SKUEL's query corpus runs CYPHER_5 semantics (the server
+      # built-in default). Pinned explicitly so restoring the vendor conf
+      # (no /conf mount, see volumes note) does not silently flip language
+      # versions — a CYPHER_25 migration is its own deliberate arc.
+      NEO4J_db_query_default__language: "CYPHER_5"
+
       # Note: Query plan caching is enabled by default in Neo4j 5.x
 
       # ============================================
@@ -90,9 +97,11 @@ services:
       # Enable the Java Vector API (SIMD) for the vector indexes SKUEL relies on
       # (Entity/ContentChunk/ReferenceChunk/Goal/Task embeddings — semantic search,
       # canon retrieval, ZPD). Without it 2026.x warns "Java vector incubator module
-      # is not readable ... For optimal vector performance". Purely additive — the
-      # image sets no other server.jvm.additional lines (heap comes from the memory
-      # settings above), so this does not clobber GC/heap flags.
+      # is not readable ... For optimal vector performance". The entrypoint treats
+      # server.jvm.additional as append-not-replace, so this line APPENDS to the
+      # ~22 vendor-recommended JVM flags in the image's neo4j.conf (G1GC,
+      # AlwaysPreTouch, --enable-native-access, Lucene vectorization, ...).
+      # See docs/patterns/NEO4J_SERVER_TUNING.md.
       NEO4J_server_jvm_additional: "--add-modules jdk.incubator.vector"
 
       # ============================================
@@ -108,9 +117,12 @@ services:
       # NEO4J_DATA_DIR: absolute path to data directory (set in .env).
       # Default ./neo4j is relative to this file's directory — works for local
       # dev but set an absolute path in .env to avoid CWD-dependent resolution.
+      # NOTE: deliberately NO /conf mount. Mounting /conf makes the entrypoint
+      # wipe the image's default neo4j.conf — including ~22 vendor-recommended
+      # server.jvm.additional flags — and SKUEL configures the server entirely
+      # via NEO4J_* env vars above. See docs/patterns/NEO4J_SERVER_TUNING.md.
       - ${NEO4J_DATA_DIR:-./neo4j}/data:/data
       - ${NEO4J_DATA_DIR:-./neo4j}/logs:/logs
-      - ${NEO4J_DATA_DIR:-./neo4j}/conf:/conf
       - ${NEO4J_DATA_DIR:-./neo4j}/plugins:/plugins
       - ${NEO4J_DATA_DIR:-./neo4j}/import:/import
       - ${NEO4J_DATA_DIR:-./neo4j}/backups:/backups
