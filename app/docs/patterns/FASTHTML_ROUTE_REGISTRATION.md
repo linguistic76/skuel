@@ -201,13 +201,13 @@ When routes return `Div`, FastHTML wraps them with default headers including HTM
 ### Correct Pattern
 
 ```python
-# GOOD: Return complete Html document via layout function
-from ui.layouts.activity_layout import create_activity_page
+# GOOD: Return complete Html document via BasePage
+from ui.layouts.base_page import BasePage
 
 @rt("/tasks")
 async def tasks_dashboard(request):
     content = build_task_content(...)
-    return create_activity_page(content, domain="tasks", request=request)
+    return BasePage(content=content, title="Tasks", request=request, active_page="tasks")
 ```
 
 ### Incorrect Pattern

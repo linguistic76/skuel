@@ -51,8 +51,7 @@ action_items: list[str] = field(default_factory=list)
 
 **Impact:** Runtime crash
 **Count:** 82 errors initially (Phase 1); 138 additional found in Phase 4 (~220 total)
-**Status:** **FIXED** — Phase 1 via automated script, Phase 4 via manual sweep after re-enabling `assignment` error code
-**Script:** `scripts/fix_dataclass_trailing_commas.py`
+**Status:** **FIXED** — Phase 1 via a one-shot automated script (since deleted), Phase 4 via manual sweep after re-enabling `assignment` error code
 
 ---
 

@@ -1,7 +1,7 @@
 # Placeholder Parameter Index
 
 *Technical debt register for underscore-prefixed placeholder parameters.*
-*Last updated: 2026-02-25*
+*Last updated: 2026-07-21*
 
 ## Convention
 
@@ -148,8 +148,8 @@ These are FastHTML component functions that accept parameters that are not yet r
 
 | File | Line | Function | Parameter | Notes |
 |------|------|----------|-----------|-------|
-| `ui/profile/domain_views.py` | 1084 | `PathStepsDomainView()` | `_focus_uid` | Focus-on-UID not yet implemented |
-| `ui/admin/views.py` | 594 | `render_user_reports_list()` | `_user_uid` | UID passed but not used in query |
+| `ui/profile/curriculum_views.py` | 18 | `PathStepsDomainView()` | `_focus_uid` | Focus-on-UID not yet implemented |
+| `ui/admin/views.py` | 526 | `render_user_reports_list()` | `_user_uid` | UID passed but not used in query |
 
 ---
 
