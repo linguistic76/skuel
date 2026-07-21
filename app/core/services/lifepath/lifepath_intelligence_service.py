@@ -81,6 +81,11 @@ class LifePathIntelligenceService:
         raw_dims = alignment_data.get("dimensions", {})
         dimensions: dict[str, float] = {k: coerce_float(v) for k, v in raw_dims.items()}
 
+        # LifePathAlignmentResult is total=False — alignment data without a
+        # dimensions breakdown can't be analyzed (min() below needs ≥1 item).
+        if not dimensions:
+            return Result.ok(self._default_recommendations())
+
         def get_dimension_score(item: tuple[str, float]) -> float:
             return item[1]
 

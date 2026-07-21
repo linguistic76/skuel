@@ -48,14 +48,27 @@ class _LpIntelligenceMixin:
     # INTELLIGENCE QUERIES (moved from LpIntelligenceService)
     # ========================================================================
 
+    # PS→KU edge union: the same vocabulary LifePathBackend's alignment queries
+    # traverse. USES_KU is THE composition edge; CONTAINS_KNOWLEDGE and
+    # TRAINS_KU are the sanctioned siblings.
+    _STEP_KNOWLEDGE_EDGES = "USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU"
+
     @staticmethod
-    def _build_prerequisite_subquery(knowledge_var: str = "k", depth: int = 3) -> str:
+    def _build_prerequisite_subquery(
+        knowledge_var: str = "k", depth: int = 3, carry: str = ""
+    ) -> str:
         """
         Build pure Cypher prerequisite subquery using semantic relationships.
+
+        Traverses OUTGOING edges — the sanctioned direction is
+        ``(dependent)-[:REQUIRES_KNOWLEDGE]->(prerequisite)`` (see
+        GRAPH_CONTRACT.yaml and UserProgressBackend.get_prerequisite_map).
 
         Args:
             knowledge_var: Variable name for knowledge node in query
             depth: Maximum prerequisite depth
+            carry: Comma-separated variables to keep in scope through the
+                aggregating WITH (the collect() would otherwise drop them)
 
         Returns:
             Cypher subquery fragment for prerequisite discovery
@@ -74,36 +87,54 @@ class _LpIntelligenceMixin:
         # query — the opposite of the intent. This is prerequisite structure, not
         # a semantic-type-scoped traversal.
         rel_pattern = "|".join(sorted({str(st.to_neo4j_name()) for st in prerequisite_types}))
+        carry_clause = f"{carry}, " if carry else ""
         return f"""
-        OPTIONAL MATCH ({knowledge_var})<-[:{rel_pattern}*1..{depth}]-(prereq:Entity)
-        WITH {knowledge_var}, collect(DISTINCT prereq) as prereqs
+        OPTIONAL MATCH ({knowledge_var})-[:{rel_pattern}*1..{depth}]->(prereq:Entity)
+        WITH {carry_clause}{knowledge_var}, collect(DISTINCT prereq) as prereqs
         """
 
     async def validate_path_prerequisites(self, path_uid: str) -> Result[list[dict[str, Any]]]:
-        """Run prerequisite validation query for a learning path."""
+        """Run prerequisite validation query for a learning path.
+
+        One row per STEP: a step's KUs are graph edges (USES_KU et al.), not
+        a ``knowledge_uid`` node property, and a multi-KU step must not be
+        counted once per KU — the service derives ``total_steps`` from row
+        counts. The first step is validated too — its ``earlier_knowledge``
+        is simply empty, so any prerequisite it carries is unmet by
+        construction.
+        """
         query = f"""
         MATCH (path:Entity {{uid: $path_uid}})
         MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (k:Entity {{uid: step.knowledge_uid}})
+        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(k:Entity {{entity_type: 'ku'}})
 
         // Get all prerequisites using pure Cypher
-        {self._build_prerequisite_subquery("k", 3)}
+        {self._build_prerequisite_subquery("k", 3, carry="path, step, r")}
 
-        // Check if prerequisites are in earlier steps
-        WITH path, step, k, r.sequence as step_seq, prereqs
-        MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'path_step'}})
+        // Collapse the per-KU fan-out to ONE row per step. The [null] pad
+        // keeps zero-prerequisite KUs alive through UNWIND; collect() drops it.
+        UNWIND (prereqs + [null]) as p
+        WITH path, step, r.sequence as step_seq,
+             collect(DISTINCT k.uid) as knowledge_uids,
+             collect(DISTINCT p) as step_prereqs
+
+        // Check if prerequisites are covered by earlier steps' knowledge.
+        // OPTIONAL: the first step has no earlier steps and must still be
+        // returned (a bare MATCH would drop it from the results).
+        OPTIONAL MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'path_step'}})
+            -[:{self._STEP_KNOWLEDGE_EDGES}]->(ek:Entity {{entity_type: 'ku'}})
         WHERE r2.sequence < step_seq
 
-        WITH step, k, step_seq, prereqs,
-             collect(earlier.knowledge_uid) as earlier_knowledge
+        WITH step, step_seq, knowledge_uids, step_prereqs,
+             collect(DISTINCT ek.uid) as earlier_knowledge
 
         // Find unmet prerequisites
-        WITH step, k, step_seq,
-             [p IN prereqs WHERE NOT p.uid IN earlier_knowledge | p.uid] as unmet_prereqs
+        WITH step, step_seq, knowledge_uids,
+             [p IN step_prereqs WHERE NOT p.uid IN earlier_knowledge | p.uid] as unmet_prereqs
 
         RETURN {{
             step_uid: step.uid,
-            knowledge_uid: k.uid,
+            knowledge_uids: knowledge_uids,
             sequence: step_seq,
             unmet_prerequisites: unmet_prereqs,
             has_issues: size(unmet_prereqs) > 0
@@ -115,7 +146,14 @@ class _LpIntelligenceMixin:
     async def identify_path_blockers(
         self, path_uid: str, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:
-        """Run blocker identification query for a user on a learning path."""
+        """Run blocker identification query for a user on a learning path.
+
+        One entry per STEP — a step's KUs are graph edges, not a node
+        property, and the per-KU fan-out is collapsed so a multi-KU step is
+        one entry (``total_steps``/``blocked_steps`` count steps, not KUs).
+        ``blocking_prerequisites`` holds UIDs (they feed user-facing
+        "Focus on mastering: …" strings in the service).
+        """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
         MATCH (path:Entity {{uid: $path_uid}})
@@ -124,18 +162,25 @@ class _LpIntelligenceMixin:
         OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Entity)
         WITH u, path, collect(mastered.uid) as mastered_uids
 
-        // Get path steps
+        // Get path steps and their knowledge units (graph edges, not properties)
         MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (k:Entity {{uid: step.knowledge_uid}})
+        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(k:Entity {{entity_type: 'ku'}})
 
         // Check prerequisites
-        {self._build_prerequisite_subquery("k", 2)}
+        {self._build_prerequisite_subquery("k", 2, carry="step, r, mastered_uids")}
 
-        WITH step, k, r.sequence as seq, mastered_uids, prereqs,
-             [p IN prereqs WHERE NOT p.uid IN mastered_uids] as blocking_prereqs
+        // Collapse the per-KU fan-out to ONE row per step (same pattern as
+        // validate_path_prerequisites)
+        UNWIND (prereqs + [null]) as p
+        WITH step, r.sequence as seq, mastered_uids,
+             collect(DISTINCT k.uid) as knowledge_uids,
+             collect(DISTINCT p) as step_prereqs
+
+        WITH step, seq, knowledge_uids,
+             [p IN step_prereqs WHERE NOT p.uid IN mastered_uids | p.uid] as blocking_prereqs
 
         // Identify blockers
-        WITH step, k, seq,
+        WITH step, seq, knowledge_uids,
              blocking_prereqs,
              size(blocking_prereqs) > 0 as is_blocked
 
@@ -143,8 +188,9 @@ class _LpIntelligenceMixin:
 
         // Find first blocker
         WITH collect({{
-            step: step,
-            knowledge: k,
+            step_uid: step.uid,
+            step_title: step.title,
+            knowledge_uids: knowledge_uids,
             sequence: seq,
             is_blocked: is_blocked,
             blocking_prerequisites: blocking_prereqs
@@ -181,16 +227,23 @@ class _LpIntelligenceMixin:
         MATCH (path:Entity {{entity_type: 'learning_path'}})
         WHERE NOT (u)-[:ENROLLED_IN {{status: 'completed'}}]->(path) {domain_filter}
 
-        // Calculate path readiness
+        // Calculate path readiness over the path's knowledge units
+        // (graph edges from each step, not a node property)
         MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (k:Entity {{uid: step.knowledge_uid}})
+        MATCH (step)-[:{self._STEP_KNOWLEDGE_EDGES}]->(k:Entity {{entity_type: 'ku'}})
 
         // Get prerequisites
-        {self._build_prerequisite_subquery("k", 2)}
+        {self._build_prerequisite_subquery("k", 2, carry="path, mastered_uids")}
 
-        WITH path, mastered_uids,
-             size([p IN prereqs WHERE p.uid IN mastered_uids]) as met,
-             size(prereqs) as total
+        // Aggregate prerequisites across ALL of the path's knowledge units —
+        // one readiness row per path, not one per (step, ku). The [null] pad
+        // keeps zero-prereq rows alive through UNWIND; collect() drops it.
+        UNWIND (prereqs + [null]) as p
+        WITH path, mastered_uids, collect(DISTINCT p) as all_prereqs
+
+        WITH path,
+             size([p IN all_prereqs WHERE p.uid IN mastered_uids]) as met,
+             size(all_prereqs) as total
 
         WITH path,
              CASE WHEN total = 0 THEN 1.0
@@ -204,7 +257,7 @@ class _LpIntelligenceMixin:
 
         RETURN {{
             recommended_paths: collect({{
-                path: path,
+                path: {{uid: path.uid, name: path.title, title: path.title}},
                 readiness_score: readiness_score,
                 estimated_hours: path.estimated_hours,
                 reason: CASE
