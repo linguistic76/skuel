@@ -9,6 +9,14 @@ NOTE: These tests require:
 1. Running Neo4j instance
 2. OPENAI_API_KEY environment variable (for full app bootstrap)
 3. HF_API_TOKEN environment variable (for embeddings)
+
+KNOWN FLAKE: these tests exercise the live OpenAI API end-to-end, so they can
+fail transiently (network, rate limits, nondeterministic LLM output). Observed
+once 2026-07-20: test_ask_endpoint_success failed in a full-suite run, then
+passed in isolation AND on the full re-run of the same commit (during the
+neo4j 2026.06.0 bump — the bump was exonerated by exactly this pattern).
+Policy: capture the traceback BEFORE re-running; add retry machinery only if
+it recurs — a blanket retry could mask a real Askesis regression.
 """
 
 import pytest
