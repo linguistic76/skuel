@@ -259,3 +259,86 @@ describe('SKUEL.graph.attachClickNav', () => {
     expect(navigate(null)).not.toHaveBeenCalled();
   });
 });
+
+describe('SKUEL.graph.exploreHrefFor', () => {
+  beforeEach(() => {
+    loadSkuel();
+  });
+
+  it('prefers the server-resolved url (lateral mode)', () => {
+    // Lateral nodes carry a Neo4j label as type but a canonical url; a path-step
+    // whose label is "Entity" would derive nothing from _entityType — url wins.
+    const node = { id: 'ps_1', _entityType: 'entity', url: '/explore/ps/ps_1' };
+    expect(window.SKUEL.graph.exploreHrefFor(node)).toBe('/explore/ps/ps_1');
+  });
+
+  it('falls back to the short-form type in hub mode (no url)', () => {
+    expect(window.SKUEL.graph.exploreHrefFor({ id: 'ku_1', _entityType: 'ku' })).toBe(
+      '/explore/ku/ku_1',
+    );
+    expect(window.SKUEL.graph.exploreHrefFor({ id: 'ps_1', _entityType: 'ps' })).toBe(
+      '/explore/ps/ps_1',
+    );
+  });
+
+  it('returns null for a hub node with no route and no url', () => {
+    expect(window.SKUEL.graph.exploreHrefFor({ id: 'you', _entityType: 'you' })).toBeNull();
+  });
+});
+
+describe('Explore click-nav pipeline (styleNodes → exploreHrefFor → attachClickNav)', () => {
+  let handler;
+  const network = {
+    on: (event, fn) => {
+      if (event === 'click') handler = fn;
+    },
+  };
+
+  beforeEach(() => {
+    loadSkuel();
+    handler = null;
+  });
+
+  function clickNavTarget(rawNodes, centerUid) {
+    const styled = window.SKUEL.graph.styleNodes(rawNodes, window.SKUEL.graph.PROFILES.exploreSidebar, {
+      centerUid,
+      colors: COLORS,
+      hubCenter: false,
+    });
+    window.SKUEL.graph.attachClickNav(network, styled, centerUid, window.SKUEL.graph.exploreHrefFor);
+
+    const assign = vi.fn();
+    vi.stubGlobal('location', {
+      set href(value) {
+        assign(value);
+      },
+    });
+    handler({ nodes: [rawNodes[1].id] });
+    vi.unstubAllGlobals();
+    return assign;
+  }
+
+  it('navigates a lateral path-step node (label "Entity") via its server url — the bug fix', () => {
+    // Lateral graph nodes: type is the Neo4j label (PathStep → "Entity"), so
+    // _entityType would derive nothing; the server-resolved url carries it.
+    const target = clickNavTarget(
+      [
+        { id: 'ps_center', type: 'Entity', entity_type: 'path_step', url: '/explore/ps/ps_center' },
+        { id: 'ps_leaf', type: 'Entity', entity_type: 'path_step', url: '/explore/ps/ps_leaf' },
+      ],
+      'ps_center',
+    );
+    expect(target).toHaveBeenCalledWith('/explore/ps/ps_leaf');
+  });
+
+  it('navigates a hub short-form node with no url', () => {
+    const target = clickNavTarget(
+      [
+        { id: 'ku_center', type: 'ku' },
+        { id: 'ku_leaf', type: 'ku' },
+      ],
+      'ku_center',
+    );
+    expect(target).toHaveBeenCalledWith('/explore/ku/ku_leaf');
+  });
+});
