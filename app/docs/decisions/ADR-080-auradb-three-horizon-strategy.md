@@ -73,10 +73,13 @@ Model development as **three horizons on one graph.** ("The plant grows on the l
 reads the lattice once the plant has grown on it.)
 
 **1. Horizon 0 — AuraDB Free readiness (near-term, finite).** Make the graph cap-safe and
-managed-ready. Concretely: telemetry retention/TTL (AuthEvent/Session/SearchEvent/ConversationTurn/
-Interaction/VIEWED are unbounded-growth and dwarf the curriculum — `HAD_AUTH_EVENT`=1089,
-`HAS_SESSION`=431 today; Free is node-capped), and tolerance of a **paused/waking** instance
-(Free auto-pauses on inactivity). Everything else already ports: embeddings are Python-side (ADR-068,
+managed-ready. Concretely: telemetry retention/TTL for the auto-accreting **system** telemetry
+(AuthEvent/Session/SearchEvent/Interaction/VIEWED are unbounded-growth and dwarf the curriculum —
+`HAD_AUTH_EVENT`=1089, `HAS_SESSION`=431 today; Free is node-capped), and tolerance of a
+**paused/waking** instance (Free auto-pauses on inactivity). Saved discussions
+(`:ConversationSession`/`:ConversationTurn`) are **excluded from retention** — they are
+explicitly-saved user content (ADR-078 "Save this chat"), not auto-growing telemetry, so a prune
+must never delete them. Everything else already ports: embeddings are Python-side (ADR-068,
 no server plugin), connection is a `.env` change, and the `AURA-TEMPORARY` knobs fall away.
 
 **2. Horizon 1 — nurture the graph edge-first (ongoing, the real work).** Author the knowledge

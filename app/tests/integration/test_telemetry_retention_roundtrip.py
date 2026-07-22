@@ -9,10 +9,11 @@ Load-bearing checks:
   ISO STRING (exactly how the universal-backend ``to_neo4j_node`` writer stores
   it), and the ``datetime(e.created_at)`` predicate still selects the old one —
   the single most likely correctness failure here.
-- Native-datetime types (:AuthEvent, :SearchEvent, :VIEWED, :ConversationSession)
-  prune by direct comparison.
-- **Conversation cascade:** pruning a stale session removes its :ConversationTurn
-  nodes too (no orphans), and leaves a recent session's subgraph intact.
+- Native-datetime types (:AuthEvent, :SearchEvent, :VIEWED) prune by direct
+  comparison.
+- **Saved-discussion exclusion:** a full retention pass leaves a stale
+  :ConversationSession + its :ConversationTurn completely intact — they are
+  user content (ADR-078), never telemetry.
 - **VIEWED** prunes the stale edge but never its Ku endpoint.
 - dry-run counts exactly what a real run then deletes (no global-isolation needed:
   measured back-to-back).
@@ -152,13 +153,23 @@ async def test_viewed_edge_pruned_but_ku_survives(neo4j_driver, seeded):
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_conversation_prune_cascades_turns(neo4j_driver, seeded):
-    """Pruning a stale session removes its turns too; recent session subgraph intact."""
-    result = await seeded.prune_conversations(days=90, batch_size=500, dry_run=False)
-    assert result.is_ok and result.value >= 1
+async def test_saved_conversations_survive_full_retention(neo4j_driver, seeded):
+    """Saved discussions are user content (ADR-078) — no prune ever touches them.
 
-    assert not await _exists(neo4j_driver, "session_id", "ret_cs_old")
-    assert not await _exists(neo4j_driver, "turn_id", "ret_ct_old")  # cascaded, no orphan
+    A full real retention pass (all four SYSTEM-telemetry prunes) at a window that
+    catches the 200-day-old rows must leave the old ConversationSession AND its
+    turn completely intact. This is the load-bearing exclusion guard.
+    """
+    for prune in (
+        seeded.prune_auth_events,
+        seeded.prune_search_events,
+        seeded.prune_interactions,
+        seeded.prune_viewed_edges,
+    ):
+        assert (await prune(days=90, batch_size=500, dry_run=False)).is_ok
+
+    assert await _exists(neo4j_driver, "session_id", "ret_cs_old")  # stale, but saved → kept
+    assert await _exists(neo4j_driver, "turn_id", "ret_ct_old")
     assert await _exists(neo4j_driver, "session_id", "ret_cs_new")
     assert await _exists(neo4j_driver, "turn_id", "ret_ct_new")
 
@@ -171,7 +182,6 @@ async def test_dry_run_deletes_nothing(neo4j_driver, seeded):
         seeded.prune_search_events,
         seeded.prune_interactions,
         seeded.prune_viewed_edges,
-        seeded.prune_conversations,
     ):
         result = await prune(days=90, batch_size=500, dry_run=True)
         assert result.is_ok and result.value >= 1
@@ -179,8 +189,6 @@ async def test_dry_run_deletes_nothing(neo4j_driver, seeded):
     # Nothing was deleted.
     assert await _exists(neo4j_driver, "uid", "ret_auth_old")
     assert await _exists(neo4j_driver, "uid", "ret_int_old")
-    assert await _exists(neo4j_driver, "session_id", "ret_cs_old")
-    assert await _exists(neo4j_driver, "turn_id", "ret_ct_old")
 
 
 @pytest.mark.asyncio(loop_scope="session")

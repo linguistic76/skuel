@@ -61,14 +61,14 @@ periodically after) with the one-shot retention command:
 ./dev telemetry-retention --days 30
 ```
 
-It age-prunes `:AuthEvent`, `:SearchEvent`, `:Interaction`, stale `:VIEWED` edges,
-and old `:ConversationSession` subgraphs, and clears expired `:Session` /
-`:PasswordResetToken`. **One-shot, no background loop** — this preserves the CORE
-"no background workers" guarantee, so run it from a cron/CI step or by hand, not an
-in-process daemon. `:ConversationSession` holds deliberately-**saved** discussions
-(user content, ADR-078), so it carries the most conservative default window —
-`--dry-run` first if that matters. Windows and batch size live in
-`core/constants.py` (`TelemetryRetention`).
+It age-prunes `:AuthEvent`, `:SearchEvent`, `:Interaction`, and stale `:VIEWED`
+edges, and clears expired `:Session` / `:PasswordResetToken`. **One-shot, no
+background loop** — this preserves the CORE "no background workers" guarantee, so
+run it from a cron/CI step or by hand, not an in-process daemon. Only auto-growing
+**system telemetry** is in scope: saved discussions (`:ConversationSession`) are
+deliberately excluded — they are explicitly-**saved** user content (ADR-078 "Save
+this chat"), not telemetry, so a retention run never touches them. Windows and
+batch size live in `core/constants.py` (`TelemetryRetention`).
 
 ### 2. Startup tolerance for a paused/waking instance
 
