@@ -362,7 +362,7 @@ def _render_knowledge_health_fixture() -> "FT":
         "total_path_steps": 14,
         "total_learning_paths": 2,
         "total_exercises": 15,
-        "avg_ku_degree": 2.1653,
+        "avg_ku_degree": 2.157,
         "max_ku_degree": 12,
         "orphan_ku_count": 17,
         "orphan_fraction": 0.1405,

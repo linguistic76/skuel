@@ -3185,13 +3185,15 @@ class KnowledgeHealthReport(TypedDict):
     and a near-empty prerequisite DAG as content gaps) and the GDS-readiness
     signal for Horizon 2 — all measurable in plain Cypher, no GDS required.
 
-    Degree fields count **all incident** relationships on each Ku (the ratified
-    ADR-080 measurement: avg ≈ 2.17, 17 orphans on the 2026-07-22 dev graph). The
-    specialized structural slices below each restrict to an explicit canonical
-    ``RelationshipName`` edge set, so telemetry never enters them.
+    Degree fields count incident relationships on each Ku **excluding learner-state
+    telemetry** (VIEWED/IN_PROGRESS/MASTERED/MARKED_AS_READ/BOOKMARKED/…) so the
+    gauge stays structural as usage grows (avg ≈ 2.16, 17 orphans on the 2026-07-22
+    dev graph). The specialized structural slices below each restrict to an explicit
+    canonical ``RelationshipName`` edge set, so telemetry never enters them.
 
     - node counts — the four curriculum entity types in scope.
-    - ``avg_ku_degree`` / ``max_ku_degree`` — incident-edge degree distribution.
+    - ``avg_ku_degree`` / ``max_ku_degree`` — degree distribution over structural
+      (non-telemetry) incident edges.
     - ``orphan_ku_count`` / ``orphan_fraction`` / ``orphan_kus`` — isolated Kus.
     - ``composition`` — PathStep→Ku composition (USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU).
     - ``prerequisite_dag`` — hard-prerequisite edges (PREREQUISITE_FOR|DEPENDS_ON|

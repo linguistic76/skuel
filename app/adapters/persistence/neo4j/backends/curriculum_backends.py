@@ -848,11 +848,41 @@ _COMPOSITION_EDGES = "|".join(
 )
 # Hard prerequisites only — ENABLES/ENABLED_BY (soft enablement) are reported
 # separately so ``prerequisite_edge_count`` stays the DAG the ZPD reasons over.
+# Used for the broad edge COUNT + COVERAGE (direction doesn't matter there).
 _DAG_EDGES = "|".join(
     (
         RelationshipName.PREREQUISITE_FOR.value,
         RelationshipName.DEPENDS_ON.value,
         RelationshipName.REQUIRES_PREREQUISITE.value,
+    )
+)
+# For the DEPTH walk, direction matters: PREREQUISITE_FOR points prereq→dependent,
+# while DEPENDS_ON / REQUIRES_PREREQUISITE (its lateral auto-inverse) point
+# dependent→prereq. Mixing them in one directed variable-length pattern lets an
+# inverse pair (A-PREREQUISITE_FOR→B, B-REQUIRES_PREREQUISITE→A) form a 2-cycle
+# that inflates depth to the cap. So depth is the max over TWO direction-coherent
+# traversals, never one mixed pattern.
+_DAG_FORWARD_EDGES = RelationshipName.PREREQUISITE_FOR.value
+_DAG_INVERSE_EDGES = "|".join(
+    (RelationshipName.DEPENDS_ON.value, RelationshipName.REQUIRES_PREREQUISITE.value)
+)
+# Learner-state / preference edges. A *structural* gauge must ignore these — user
+# activity (viewing, mastering, bookmarking a Ku) is not authoring connectivity,
+# and would otherwise raise avg/max degree and un-orphan an isolated Ku as usage
+# grows. Degree and orphans are scoped to exclude them (Codex #770 P2).
+_TELEMETRY_EDGE_LIST = "[{}]".format(
+    ", ".join(
+        f"'{rel.value}'"
+        for rel in (
+            RelationshipName.VIEWED,
+            RelationshipName.IN_PROGRESS,
+            RelationshipName.MASTERED,
+            RelationshipName.MARKED_AS_READ,
+            RelationshipName.BOOKMARKED,
+            RelationshipName.INTERESTED_IN,
+            RelationshipName.PINNED,
+            RelationshipName.PINNED_TODAY,
+        )
     )
 )
 # Semantic / associative / structural laterals (the "lateral relationships" the
@@ -890,9 +920,11 @@ def _knowledge_node(var: str) -> str:
 
 # One round-trip corpus measurement. ``__TOKEN__`` placeholders are substituted
 # (not f-string braces — the query is dense with map / count{} / exists{} literals
-# that would need doubling). Degree counts ALL incident edges per Ku (the ratified
-# ADR-080 measure: avg ≈ 2.17, 17 orphans); every specialized slice below scopes
-# both endpoints to knowledge nodes via ``__KA__``/``__KB__``/``__KO__``.
+# that would need doubling). Degree counts incident edges per Ku EXCLUDING
+# learner-state telemetry (``__TELEMETRY__``) so the gauge stays structural as
+# usage grows (reproduces the ADR-080 measure: avg ≈ 2.16, 17 orphans); every
+# specialized slice scopes both endpoints to knowledge nodes via
+# ``__KA__``/``__KB__``/``__KO__``.
 _KNOWLEDGE_HEALTH_QUERY_TEMPLATE = """
 CALL () { MATCH (k:Ku) RETURN count(k) AS total_kus }
 CALL () { MATCH (ps:PathStep) RETURN count(ps) AS total_path_steps }
@@ -900,14 +932,14 @@ CALL () { MATCH (lp:LearningPath) RETURN count(lp) AS total_learning_paths }
 CALL () { MATCH (ex:Exercise) RETURN count(ex) AS total_exercises }
 CALL () {
     MATCH (k:Ku)
-    WITH k, count{ (k)--() } AS deg
+    WITH k, count{ (k)-[r]-() WHERE NOT type(r) IN __TELEMETRY__ } AS deg
     RETURN coalesce(round(avg(deg), 4), 0.0) AS avg_ku_degree,
            coalesce(max(deg), 0) AS max_ku_degree,
            count(CASE WHEN deg = 0 THEN 1 END) AS orphan_ku_count
 }
 CALL () {
     MATCH (k:Ku)
-    WHERE count{ (k)--() } = 0
+    WHERE count{ (k)-[r]-() WHERE NOT type(r) IN __TELEMETRY__ } = 0
     WITH k ORDER BY k.uid
     RETURN collect({ uid: k.uid, title: coalesce(k.title, k.uid) }) AS orphan_kus
 }
@@ -926,8 +958,16 @@ CALL () {
     RETURN count(k) AS dag_ku_count
 }
 CALL () {
-    OPTIONAL MATCH p = (a:Ku)-[:__DAG__*1..__DEPTH__]->(b:Ku)
-    RETURN coalesce(max(length(p)), 0) AS dag_max_depth
+    // Depth over the forward prerequisite chain (PREREQUISITE_FOR: prereq→dependent).
+    OPTIONAL MATCH fp = (a:Ku)-[:__DAG_FWD__*1..__DEPTH__]->(b:Ku)
+    RETURN coalesce(max(length(fp)), 0) AS fwd_depth
+}
+CALL () {
+    // Depth over the inverse-direction chain (DEPENDS_ON/REQUIRES_PREREQUISITE:
+    // dependent→prereq). Kept in a SEPARATE pattern from the forward walk so an
+    // inverse pair cannot form a depth-inflating cycle.
+    OPTIONAL MATCH bp = (a:Ku)-[:__DAG_INV__*1..__DEPTH__]->(b:Ku)
+    RETURN coalesce(max(length(bp)), 0) AS inv_depth
 }
 CALL () {
     RETURN count{ (a)-[:__ORGANIZES__]->(b) WHERE __KA__ AND __KB__ } AS organizes_edge_count
@@ -951,7 +991,8 @@ CALL () {
 RETURN total_kus, total_path_steps, total_learning_paths, total_exercises,
        avg_ku_degree, max_ku_degree, orphan_ku_count, orphan_kus,
        composition_edge_count, composed_ku_count,
-       prerequisite_edge_count, dag_ku_count, dag_max_depth,
+       prerequisite_edge_count, dag_ku_count,
+       CASE WHEN fwd_depth > inv_depth THEN fwd_depth ELSE inv_depth END AS dag_max_depth,
        organizes_edge_count, organized_ku_count,
        lateral_edge_count, enablement_edge_count, path_steps_with_exercise
 """
@@ -963,11 +1004,15 @@ def _build_knowledge_health_query() -> str:
     query = _KNOWLEDGE_HEALTH_QUERY_TEMPLATE
     substitutions = {
         "__COMPOSITION__": _COMPOSITION_EDGES,
+        # Order matters: replace the longer __DAG_* tokens before __DAG__.
+        "__DAG_FWD__": _DAG_FORWARD_EDGES,
+        "__DAG_INV__": _DAG_INVERSE_EDGES,
         "__DAG__": _DAG_EDGES,
         "__ORGANIZES__": RelationshipName.ORGANIZES.value,
         "__LATERAL__": _LATERAL_EDGES,
         "__ENABLEMENT__": _ENABLEMENT_EDGES,
         "__HAS_EXERCISE__": RelationshipName.HAS_EXERCISE.value,
+        "__TELEMETRY__": _TELEMETRY_EDGE_LIST,
         "__DEPTH__": str(KnowledgeHealth.PREREQUISITE_DEPTH_CAP),
         "__KA__": _knowledge_node("a"),
         "__KB__": _knowledge_node("b"),
@@ -1009,11 +1054,11 @@ class KnowledgeHealthBackend:
     ``UniversalNeo4jBackend[T]`` subclass: this gauge spans all four curriculum
     labels (Ku / PathStep / LearningPath / Exercise) at once, so the
     single-entity-type model does not fit. One round-trip yields the raw
-    structural facts — node counts, all-incident Ku degree distribution, the
-    orphan-Ku list, and composition / prerequisite-DAG / ORGANIZES / lateral /
-    practice coverage. ``KnowledgeHealthService`` derives coverage ratios, the
-    composite GDS-readiness score, and the authoring flags from these facts
-    (ADR-080 Horizon-1).
+    structural facts — node counts, Ku degree distribution (incident edges minus
+    learner-state telemetry), the orphan-Ku list, and composition /
+    prerequisite-DAG / ORGANIZES / lateral / practice coverage.
+    ``KnowledgeHealthService`` derives coverage ratios, the composite
+    GDS-readiness score, and the authoring flags from these facts (ADR-080 H1).
     """
 
     def __init__(self, executor: "Neo4jQueryExecutor") -> None:
@@ -1024,7 +1069,7 @@ class KnowledgeHealthBackend:
         """Measure the knowledge subgraph's raw structural facts in one query.
 
         Backend: the corpus query scopes every specialized metric to knowledge
-        nodes; degree/orphans use all-incident edges (the ratified ADR-080 measure).
+        nodes; degree/orphans count incident edges minus learner-state telemetry.
         An empty graph yields the all-zeros shape, not an error.
         """
         result = await self.executor.execute_query(_KNOWLEDGE_HEALTH_QUERY)

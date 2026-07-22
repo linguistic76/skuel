@@ -152,6 +152,80 @@ async def test_service_derives_report(neo4j_driver, clean_neo4j) -> None:
 
 
 @pytest.mark.asyncio
+async def test_depth_ignores_inverse_prerequisite_cycle(neo4j_driver, clean_neo4j) -> None:
+    """An auto-inverse prerequisite pair must not inflate dag_max_depth (Codex #770 P2).
+
+    `A-PREREQUISITE_FOR->B` + `B-REQUIRES_PREREQUISITE->A` (the lateral auto-inverse)
+    is a 2-cycle. A single mixed directed walk would loop it to the depth cap; the
+    direction-coherent traversal reports the true chain depth of 1.
+    """
+    async with neo4j_driver.session() as s:
+        for uid in (P + "d1", P + "d2"):
+            await s.run(
+                "CREATE (n:Entity:Ku {uid:$u, entity_type:'ku', title:$u, "
+                "status:'active', created_at:datetime()})",
+                u=uid,
+            )
+        await s.run(
+            "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (a)-[:PREREQUISITE_FOR]->(b)",
+            a=P + "d1",
+            b=P + "d2",
+        )
+        await s.run(
+            "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (b)-[:REQUIRES_PREREQUISITE]->(a)",
+            a=P + "d1",
+            b=P + "d2",
+        )
+    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    raw = (await backend.measure_knowledge_subgraph()).value
+    # Both edges are counted broadly, but depth is the true chain length, not the cap.
+    assert raw["prerequisite_edge_count"] == 2
+    assert raw["dag_max_depth"] == 1
+
+
+@pytest.mark.asyncio
+async def test_learner_telemetry_excluded_from_degree(neo4j_driver, clean_neo4j) -> None:
+    """Learner-state telemetry must not count toward degree or un-orphan a Ku (Codex #770 P2).
+
+    A Ku whose only incident edge is a MASTERED (learner state) edge is
+    structurally isolated → orphan, and does not raise avg degree.
+    """
+    async with neo4j_driver.session() as s:
+        for uid in (P + "t_iso", P + "t_a", P + "t_b"):
+            await s.run(
+                "CREATE (n:Entity:Ku {uid:$u, entity_type:'ku', title:$u, "
+                "status:'active', created_at:datetime()})",
+                u=uid,
+            )
+        await s.run(
+            "CREATE (u:Entity:Task {uid:$u, entity_type:'task', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=P + "t_user",
+        )
+        # Telemetry-only edge on t_iso (type-filtered out regardless of endpoints).
+        await s.run(
+            "MATCH (u{uid:$u}),(k{uid:$k}) CREATE (u)-[:MASTERED]->(k)",
+            u=P + "t_user",
+            k=P + "t_iso",
+        )
+        # Structural lateral so t_a / t_b are genuinely connected.
+        await s.run(
+            "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (a)-[:RELATED_TO]->(b)",
+            a=P + "t_a",
+            b=P + "t_b",
+        )
+    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    raw = (await backend.measure_knowledge_subgraph()).value
+    assert raw["total_kus"] == 3
+    assert raw["orphan_ku_count"] == 1
+    assert [o["uid"] for o in raw["orphan_kus"]] == [P + "t_iso"]
+    # Degrees after excluding MASTERED: [0, 1, 1] → avg 2/3.
+    assert raw["avg_ku_degree"] == pytest.approx(2 / 3, abs=1e-3)
+
+
+@pytest.mark.asyncio
 async def test_empty_subgraph_is_all_zeros(neo4j_driver, clean_neo4j) -> None:
     """An empty knowledge subgraph measures to zeros, not an error."""
     backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))

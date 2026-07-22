@@ -328,13 +328,17 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
 
                 # Query 4: Knowledge-subgraph structural health (ADR-080 Horizon-1).
                 # Knowledge-scoped view — the raw signals the KnowledgeHealthService
-                # interprets. Both prerequisite/ORGANIZES counts scope BOTH endpoints
-                # to knowledge nodes (DEPENDS_ON is also the Task edge; ORGANIZES is
-                # used across domains), matching KnowledgeHealthBackend.
+                # interprets, matching KnowledgeHealthBackend. Degree/orphans exclude
+                # learner-state telemetry (_TELEMETRY_EDGE_LIST) so the gauge stays
+                # structural as usage grows; prerequisite/ORGANIZES counts scope BOTH
+                # endpoints to knowledge nodes (DEPENDS_ON is also the Task edge;
+                # ORGANIZES is used across domains).
                 query_knowledge = """
                 CALL () {
                     MATCH (k:Ku)
-                    WITH k, count{ (k)--() } AS deg
+                    WITH k, count{ (k)-[r]-() WHERE NOT type(r) IN
+                        ['VIEWED','IN_PROGRESS','MASTERED','MARKED_AS_READ',
+                         'BOOKMARKED','INTERESTED_IN','PINNED','PINNED_TODAY'] } AS deg
                     RETURN count(k) AS total_kus,
                            coalesce(avg(deg), 0.0) AS avg_degree,
                            count(CASE WHEN deg = 0 THEN 1 END) AS orphan_kus

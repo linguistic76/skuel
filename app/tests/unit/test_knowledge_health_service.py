@@ -16,13 +16,14 @@ from core.services.analytics.knowledge_health_service import KnowledgeHealthServ
 from core.utils.result_simplified import Errors, Result
 
 # Raw measurement of the live dev graph on 2026-07-22 — the numbers ADR-080
-# records. The derived report must corroborate the ADR, not contradict it.
+# records. Degree excludes learner-state telemetry (Codex #770 P2), so avg is
+# 2.157 rather than the all-incident 2.1653; still ≈ the ADR's "~2.17", 17 orphans.
 LIVE_RAW: KnowledgeHealthRaw = {
     "total_kus": 121,
     "total_path_steps": 14,
     "total_learning_paths": 2,
     "total_exercises": 15,
-    "avg_ku_degree": 2.1653,
+    "avg_ku_degree": 2.157,
     "max_ku_degree": 12,
     "orphan_ku_count": 17,
     "orphan_kus": [{"uid": "ku.yoga.prana", "title": "Prana"}],
@@ -97,7 +98,7 @@ class TestBuildReport:
         assert report["total_path_steps"] == 14
         assert report["total_learning_paths"] == 2
         assert report["total_exercises"] == 15
-        assert report["avg_ku_degree"] == 2.1653
+        assert report["avg_ku_degree"] == 2.157
         assert report["max_ku_degree"] == 12
         assert report["orphan_ku_count"] == 17
 
@@ -126,7 +127,7 @@ class TestBuildReport:
     def test_score_matches_weighted_formula(self) -> None:
         """The composite is the documented weighted blend of the five signals."""
         report = KnowledgeHealthService._build_report(LIVE_RAW)
-        connectivity = min(2.1653 / KnowledgeHealth.TARGET_AVG_DEGREE, 1.0)
+        connectivity = min(2.157 / KnowledgeHealth.TARGET_AVG_DEGREE, 1.0)
         non_orphan = 1.0 - 17 / 121
         dag_coverage = 12 / 121
         organizes_coverage = 0.0
