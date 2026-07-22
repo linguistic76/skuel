@@ -64,6 +64,8 @@ The test suite runs without any API mocking for AI services. Services accept `No
 | **Content Enrichment** | Quality analysis, complexity scoring | Automated content metadata |
 | **12 AI Services** | Domain-specific BaseAIService instances | Per-domain AI capabilities |
 
+**Staged (not yet a capability):** Neo4j **Graph Data Science (GDS/AuraDS)** — centrality, shortest-path over the prerequisite DAG, community detection, structural similarity — is another Digital-layer enhancer, deliberately deferred until the knowledge graph is dense enough to compute over (ADR-080). Like the rows above it *enhances* an Analog fallback (heuristic ZPD, hand-authored MOCs, text-vector similarity) rather than replacing the meaning layer; unlike them it is **density-gated**, not just tier-gated, and rides a **separate paid product line** (AuraDS ≠ AuraDB Free). **See:** [ADR-080](../decisions/ADR-080-auradb-three-horizon-strategy.md).
+
 ## The Toggle
 
 One environment variable controls everything:

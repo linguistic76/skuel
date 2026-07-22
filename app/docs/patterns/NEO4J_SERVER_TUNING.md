@@ -103,6 +103,7 @@ docker exec skuel-neo4j cypher-shell -u neo4j -p "$NEO4J_PASSWORD" -d neo4j \
 ## See also
 
 - [NEO4J_QUERY_TIMEOUT.md](NEO4J_QUERY_TIMEOUT.md), [ADR-064](../decisions/ADR-064-neo4j-per-query-timeout.md) — the driver-side per-query timeout (the other half of "server behaviour we control")
+- [ADR-080 — AuraDB Three-Horizon Strategy](../decisions/ADR-080-auradb-three-horizon-strategy.md) — the strategy behind the `AURA-TEMPORARY` convention: these self-host knobs drop on the (Horizon-0) move to AuraDB Free; §5 formalizes the marker
 - [ADR-067 § 3a](../decisions/ADR-067-dependency-upgrade-policy.md) — Neo4j server version policy (calendar line, forward-only upgrades)
 - [ADR-068](../decisions/ADR-068-openai-embeddings-now-bge-later.md) — embedding provider (why the vectors exist; the server only indexes them)
 - `neo4j-cypher-patterns` skill § vector indexes — the query/DDL side (`sync_vector_indexes()`, `VectorSearchBackend`)
