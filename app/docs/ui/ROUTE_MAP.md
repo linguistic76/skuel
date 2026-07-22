@@ -14,6 +14,10 @@ Admin navbar: SKUEL logo (left, → `/`) + empty center + avatar (→ `/`) + Sig
 
 Admin-only interactive queue (sidebar: "Prereq Edges"). "Generate suggestions" runs the on-demand pipeline (mid-band Ku-pair candidates → LLM judge on FULL tier; undirected pairs on CORE). Each row: pair titles + cosine + judge rationale, a relation/direction select, **Approve** (writes ONE Edge YAML into the content vault's `edges/` — lands in the graph on the next content sync) and **Reject** (client-side only; stateless v1). Routes in `adapters/inbound/admin_dashboard_ui.py`; components in `ui/admin/prereq_views.py`.
 
+### `/admin/knowledge-health` — Knowledge-Subgraph Structural Health
+
+Admin-only read-only gauge (sidebar: "Knowledge Health"; ADR-080 Horizon-1). One consolidated corpus-level report over the knowledge subgraph (Ku / PathStep / LearningPath / Exercise — telemetry excluded): a headline **GDS-readiness score** with a progress bar, node counts, Ku degree distribution, and structural-coverage cards (composition, prerequisite-DAG depth/coverage, ORGANIZES/MOC, lateral density, practice coverage). Below: **authoring-guidance flags** (content gaps to fill) and the **orphan-Ku list** (isolated concepts, each linking to `/explore/ku/{uid}`). Serves curriculum authoring today and is the density signal for the deferred GDS work (Horizon 2). Route in `adapters/inbound/admin_dashboard_ui.py` → `AdminOrchestrator.get_knowledge_health()` → `AnalyticsService.analyze_knowledge_subgraph_health()`; page in `ui/admin/pages.py`. Also available as `./dev knowledge-health` (CLI) and as knowledge-scoped Prometheus gauges. CORE-safe (pure graph analytics, no AI).
+
 ---
 
 ## Regular User Navigation

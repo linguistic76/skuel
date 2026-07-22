@@ -19,7 +19,9 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.user import User
+    from core.ports.query_types import KnowledgeHealthReport
     from core.services.admin_stats_service import AdminStatsService
+    from core.services.analytics_service import AnalyticsService
     from core.services.system_service import SystemService
     from core.services.user_service import UserService
 
@@ -32,8 +34,9 @@ class AdminOrchestrator:
 
     Abstracts cross-domain reads so the UI routing layer depends only on
     this orchestrator. ``user_service`` and ``admin_stats`` are required;
-    ``system_service`` is optional (degrades gracefully — system health
-    returns unknown status).
+    ``system_service`` and ``analytics_service`` are optional (degrade
+    gracefully — system health returns unknown status, knowledge-health
+    returns a clean error).
     """
 
     def __init__(
@@ -41,10 +44,12 @@ class AdminOrchestrator:
         user_service: "UserService",
         admin_stats: "AdminStatsService",
         system_service: "SystemService | None" = None,
+        analytics_service: "AnalyticsService | None" = None,
     ) -> None:
         self._user_service = user_service
         self._admin_stats = admin_stats
         self._system_service = system_service
+        self._analytics_service = analytics_service
 
     @property
     def user_service(self) -> "UserService":
@@ -183,3 +188,25 @@ class AdminOrchestrator:
             "search_gaps": search_gaps,
             "search_event_total": search_event_total,
         }
+
+    # ------------------------------------------------------------------
+    # Knowledge-Subgraph Structural Health (ADR-080 Horizon-1)
+    # ------------------------------------------------------------------
+
+    async def get_knowledge_health(self) -> "Result[KnowledgeHealthReport]":
+        """Corpus-level structural-health report over the knowledge subgraph.
+
+        Delegates to the analytics facade's knowledge-health gauge. Returns a
+        clean error Result when analytics is not wired (rather than raising), so
+        the admin page can render an error banner.
+        """
+        if self._analytics_service is None:
+            from core.utils.result_simplified import Errors
+
+            return Result.fail(
+                Errors.system(
+                    message="Analytics service not available",
+                    operation="get_knowledge_health",
+                )
+            )
+        return await self._analytics_service.analyze_knowledge_subgraph_health()

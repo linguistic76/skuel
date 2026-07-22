@@ -3148,6 +3148,121 @@ class Violation(TypedDict):
 
 
 # ============================================================================
+# KNOWLEDGE-HEALTH INSTRUMENT (ADR-080 Horizon-1 structural-health gauge)
+# ============================================================================
+
+
+class KnowledgeOrphanKu(TypedDict):
+    """One orphan Ku — a knowledge unit with zero incident relationships.
+
+    The strongest authoring signal: a Ku nothing points at, that points at
+    nothing, and has no body-content subtree. It is invisible to every learner
+    path and to GDS alike until it is composed into a PathStep or linked.
+    """
+
+    uid: str
+    title: str
+
+
+class KnowledgeCoverageMetric(TypedDict):
+    """A structural coverage slice — edge count, participating Kus, coverage ratio.
+
+    Reused for composition (USES_KU…), the prerequisite DAG, and ORGANIZES/MOC.
+    ``coverage`` is the fraction of the corpus's Kus that participate in ≥1 edge
+    of this kind (0.0-1.0); ``participating_kus`` is the numerator.
+    """
+
+    edge_count: int
+    participating_kus: int
+    coverage: float
+
+
+class KnowledgeHealthReport(TypedDict):
+    """Consolidated corpus-level structural-health report over the knowledge
+    subgraph (Ku / PathStep / LearningPath / Exercise — telemetry excluded).
+
+    THE Horizon-1 gauge (ADR-080): an authoring guide today (it flags orphan Kus
+    and a near-empty prerequisite DAG as content gaps) and the GDS-readiness
+    signal for Horizon 2 — all measurable in plain Cypher, no GDS required.
+
+    Degree fields count **all incident** relationships on each Ku (the ratified
+    ADR-080 measurement: avg ≈ 2.17, 17 orphans on the 2026-07-22 dev graph). The
+    specialized structural slices below each restrict to an explicit canonical
+    ``RelationshipName`` edge set, so telemetry never enters them.
+
+    - node counts — the four curriculum entity types in scope.
+    - ``avg_ku_degree`` / ``max_ku_degree`` — incident-edge degree distribution.
+    - ``orphan_ku_count`` / ``orphan_fraction`` / ``orphan_kus`` — isolated Kus.
+    - ``composition`` — PathStep→Ku composition (USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU).
+    - ``prerequisite_dag`` — hard-prerequisite edges (PREREQUISITE_FOR|DEPENDS_ON|
+      REQUIRES_PREREQUISITE); ``dag_max_depth`` is the longest prerequisite chain.
+    - ``organizes`` — ORGANIZES/MOC hierarchy coverage.
+    - ``lateral_edge_count`` / ``lateral_density`` — semantic/associative lateral
+      edges among knowledge nodes, and their edges-per-Ku density.
+    - ``enablement_edge_count`` — ENABLES/ENABLED_BY edges, surfaced separately
+      (not folded into lateral) for transparency.
+    - ``practice_coverage`` — fraction of PathSteps anchoring ≥1 Exercise.
+    - ``gds_readiness_score`` — composite 0.0-1.0; ``gds_ready`` crosses the
+      configured threshold. ``flags`` are human-readable authoring-guidance lines.
+    """
+
+    # Node counts
+    total_kus: int
+    total_path_steps: int
+    total_learning_paths: int
+    total_exercises: int
+    # Degree distribution (all incident edges)
+    avg_ku_degree: float
+    max_ku_degree: int
+    orphan_ku_count: int
+    orphan_fraction: float
+    orphan_kus: list[KnowledgeOrphanKu]
+    # Structural coverage slices
+    composition: KnowledgeCoverageMetric
+    prerequisite_dag: KnowledgeCoverageMetric
+    dag_max_depth: int
+    organizes: KnowledgeCoverageMetric
+    lateral_edge_count: int
+    lateral_density: float
+    enablement_edge_count: int
+    # Practice loop coverage
+    exercise_count: int
+    path_steps_with_exercise: int
+    practice_coverage: float
+    # Composite readiness + authoring guidance
+    gds_readiness_score: float
+    gds_ready: bool
+    flags: list[str]
+
+
+class KnowledgeHealthRaw(TypedDict):
+    """Raw structural facts the KnowledgeHealthBackend measures in one round-trip.
+
+    Pure graph measurement — the KnowledgeHealthService derives coverage ratios,
+    the composite readiness score, and the authoring flags from these fields.
+    """
+
+    total_kus: int
+    total_path_steps: int
+    total_learning_paths: int
+    total_exercises: int
+    avg_ku_degree: float
+    max_ku_degree: int
+    orphan_ku_count: int
+    orphan_kus: list[KnowledgeOrphanKu]
+    composition_edge_count: int
+    composed_ku_count: int
+    prerequisite_edge_count: int
+    dag_ku_count: int
+    dag_max_depth: int
+    organizes_edge_count: int
+    organized_ku_count: int
+    lateral_edge_count: int
+    enablement_edge_count: int
+    path_steps_with_exercise: int
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -3337,4 +3452,9 @@ __all__ = [
     "KuUserSubstanceResult",
     # PS Template Validation Types
     "Violation",
+    # Knowledge-Health Instrument Types (ADR-080 Horizon-1)
+    "KnowledgeOrphanKu",
+    "KnowledgeCoverageMetric",
+    "KnowledgeHealthReport",
+    "KnowledgeHealthRaw",
 ]

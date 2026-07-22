@@ -195,6 +195,8 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
         - Lateral relationship breakdown
         - Blocking/dependency chains
         - Orphaned entities
+        - Knowledge-subgraph structural health (ADR-080 Horizon-1): Ku count,
+          orphan Kus, avg Ku degree, composition/prerequisite/ORGANIZES coverage
         """
         while True:
             try:
@@ -323,6 +325,55 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                 prometheus_metrics.relationships.lateral_by_category.labels(
                     category="associative"
                 ).set(associative_count)
+
+                # Query 4: Knowledge-subgraph structural health (ADR-080 Horizon-1).
+                # Knowledge-scoped view — the raw signals the KnowledgeHealthService
+                # interprets. Both prerequisite/ORGANIZES counts scope BOTH endpoints
+                # to knowledge nodes (DEPENDS_ON is also the Task edge; ORGANIZES is
+                # used across domains), matching KnowledgeHealthBackend.
+                query_knowledge = """
+                CALL () {
+                    MATCH (k:Ku)
+                    WITH k, count{ (k)--() } AS deg
+                    RETURN count(k) AS total_kus,
+                           coalesce(avg(deg), 0.0) AS avg_degree,
+                           count(CASE WHEN deg = 0 THEN 1 END) AS orphan_kus
+                }
+                CALL () {
+                    MATCH (k:Ku)
+                    WHERE exists{ (:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k) }
+                    RETURN count(k) AS composed_kus
+                }
+                CALL () {
+                    RETURN count{ (a)-[:PREREQUISITE_FOR|DEPENDS_ON|REQUIRES_PREREQUISITE]->(b)
+                        WHERE (a:Ku OR a:PathStep OR a:LearningPath OR a:Exercise)
+                          AND (b:Ku OR b:PathStep OR b:LearningPath OR b:Exercise)
+                    } AS prerequisite_edges
+                }
+                CALL () {
+                    RETURN count{ (a)-[:ORGANIZES]->(b)
+                        WHERE (a:Ku OR a:PathStep OR a:LearningPath OR a:Exercise)
+                          AND (b:Ku OR b:PathStep OR b:LearningPath OR b:Exercise)
+                    } AS organizes_edges
+                }
+                RETURN total_kus, avg_degree, orphan_kus, composed_kus,
+                       prerequisite_edges, organizes_edges
+                """
+                result_knowledge = await neo4j_adapter.driver.execute_query(query_knowledge)
+                if result_knowledge.records:
+                    krec = result_knowledge.records[0]
+                    prometheus_metrics.relationships.knowledge_kus_total.set(krec["total_kus"])
+                    prometheus_metrics.relationships.knowledge_orphan_kus.set(krec["orphan_kus"])
+                    prometheus_metrics.relationships.knowledge_avg_ku_degree.set(krec["avg_degree"])
+                    prometheus_metrics.relationships.knowledge_composed_kus.set(
+                        krec["composed_kus"]
+                    )
+                    prometheus_metrics.relationships.knowledge_prerequisite_edges.set(
+                        krec["prerequisite_edges"]
+                    )
+                    prometheus_metrics.relationships.knowledge_organizes_edges.set(
+                        krec["organizes_edges"]
+                    )
 
                 logger.debug("✅ Graph health metrics updated")
 

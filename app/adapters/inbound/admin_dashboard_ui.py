@@ -301,6 +301,32 @@ def create_admin_dashboard_routes(
         )
 
     # ========================================================================
+    # KNOWLEDGE HEALTH (ADR-080 Horizon-1 structural-health gauge)
+    # ========================================================================
+
+    @rt("/admin/knowledge-health")
+    @require_admin(get_user_service)
+    async def admin_knowledge_health(request, current_user):
+        """Structural-health gauge over the knowledge subgraph (ADR-080)."""
+        system_status = await orchestrator.get_system_status()
+        health_result = await orchestrator.get_knowledge_health()
+
+        if health_result.is_error:
+            err = health_result.expect_error()
+            content: Any = render_error_banner(err.user_message or err.message, severity="warning")
+        else:
+            content = pages.knowledge_health_page(health_result.value)
+
+        return create_admin_page(
+            content=content,
+            active_section="knowledge-health",
+            admin_username=current_user.display_name or current_user.title,
+            title="Knowledge Health",
+            system_status=system_status.get("status", "unknown"),
+            request=request,
+        )
+
+    # ========================================================================
     # PREREQUISITE-EDGE SUGGESTIONS (Discovery Analytics PR 4)
     # ========================================================================
 

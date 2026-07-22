@@ -344,6 +344,60 @@ def _render_authed_chrome_fixture() -> "FT":
     return BasePage(content, title="Authed Chrome Smoke", is_authenticated=True)
 
 
+def _render_knowledge_health_fixture() -> "FT":
+    """The /admin/knowledge-health page in the real admin sidebar chrome (ADR-080).
+
+    Renders the full admin document (SidebarPage → build_head → skuel.js) around a
+    representative KnowledgeHealthReport, exercising the StatsGrid cards, the
+    inline-style readiness bar, the flags list, and the orphan-Ku links under the
+    live JS bundle — no server / Neo4j needed.
+    """
+    from fasthtml.common import Div, Script
+
+    from ui.admin.layout import create_admin_page
+    from ui.admin.pages import knowledge_health_page
+
+    sample_report: Any = {
+        "total_kus": 121,
+        "total_path_steps": 14,
+        "total_learning_paths": 2,
+        "total_exercises": 15,
+        "avg_ku_degree": 2.1653,
+        "max_ku_degree": 12,
+        "orphan_ku_count": 17,
+        "orphan_fraction": 0.1405,
+        "orphan_kus": [
+            {"uid": "ku.yoga.prana", "title": "Prana"},
+            {"uid": "ku.sel.empathy", "title": "Empathy"},
+        ],
+        "composition": {"edge_count": 53, "participating_kus": 47, "coverage": 0.3884},
+        "prerequisite_dag": {"edge_count": 9, "participating_kus": 12, "coverage": 0.0992},
+        "dag_max_depth": 2,
+        "organizes": {"edge_count": 0, "participating_kus": 0, "coverage": 0.0},
+        "lateral_edge_count": 33,
+        "lateral_density": 0.2727,
+        "enablement_edge_count": 32,
+        "exercise_count": 15,
+        "path_steps_with_exercise": 10,
+        "practice_coverage": 0.7143,
+        "gds_readiness_score": 0.3278,
+        "gds_ready": False,
+        "flags": [
+            "17 orphan Kus (14%) — compose them into PathSteps or add prerequisite / lateral links.",
+            "No ORGANIZES / MOC hierarchy — author Maps of Content to cluster related Kus.",
+        ],
+    }
+    # Stub the PWA service-worker registration (the static fixture server doesn't
+    # serve /service-worker.js) before BasePage's footer script runs it — same
+    # neutralisation the authed_chrome fixture applies.
+    return create_admin_page(
+        content=Div(Script(_FIXTURE_STUB_JS), knowledge_health_page(sample_report)),
+        active_section="knowledge-health",
+        admin_username="Smoke Admin",
+        title="Knowledge Health",
+    )
+
+
 def _render_enroll_failure_fixture() -> "FT":
     """Hermetic page for the enroll-failure surfacing pipeline (G7 totality).
 
@@ -388,6 +442,8 @@ def render_pages() -> dict[str, str]:
       lifecycle against the fixture server, guarding the three exception classes
       found live on every authed page (2026-07-04). Live-layer counterpart:
       ``scripts/authed_smoke.py`` (CDP against a running app; not CI).
+    - ``knowledge_health``: the /admin/knowledge-health page (ADR-080 H1) in the
+      real admin sidebar chrome, under the live JS bundle.
     """
     from fasthtml.common import to_xml
 
@@ -398,6 +454,7 @@ def render_pages() -> dict[str, str]:
         "js_smoke": _render_js_smoke_fixture,
         "enroll_failure": _render_enroll_failure_fixture,
         "authed_chrome": _render_authed_chrome_fixture,
+        "knowledge_health": _render_knowledge_health_fixture,
     }
 
     pages: dict[str, str] = {}

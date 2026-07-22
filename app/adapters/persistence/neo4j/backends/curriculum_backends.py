@@ -16,17 +16,24 @@ from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
 from adapters.persistence.neo4j._organizes_mixin import _OrganizesMixin
 from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.constants import KnowledgeHealth
+from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
+    KnowledgeHealthRaw,
+    KnowledgeOrphanKu,
     PsDeleteStepRow,
     PsKnowledgeSummaryResult,
 )
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
@@ -821,3 +828,237 @@ class LpBackend(
     - ``_LpProgressMixin`` — KU mastery progress + search queries (6 methods)
     - ``_LpIntelligenceMixin`` — intelligence + adaptive learning + knowledge scope (10 methods)
     """
+
+
+# ============================================================================
+# KNOWLEDGE-HEALTH BACKEND (ADR-080 Horizon-1 structural-health gauge)
+# ============================================================================
+
+# Structural edge sets, built from canonical RelationshipName members (typo-proof;
+# SKUEL013/030). Every metric scopes BOTH endpoints to knowledge nodes: DEPENDS_ON
+# is also the live Task-dependency edge, and BLOCKS/RELATED_TO/… are lateral edges
+# on all six activity domains, so an unscoped count would fold activity structure
+# into a *knowledge* gauge.
+_COMPOSITION_EDGES = "|".join(
+    (
+        RelationshipName.USES_KU.value,
+        RelationshipName.CONTAINS_KNOWLEDGE.value,
+        RelationshipName.TRAINS_KU.value,
+    )
+)
+# Hard prerequisites only — ENABLES/ENABLED_BY (soft enablement) are reported
+# separately so ``prerequisite_edge_count`` stays the DAG the ZPD reasons over.
+_DAG_EDGES = "|".join(
+    (
+        RelationshipName.PREREQUISITE_FOR.value,
+        RelationshipName.DEPENDS_ON.value,
+        RelationshipName.REQUIRES_PREREQUISITE.value,
+    )
+)
+# Semantic / associative / structural laterals (the "lateral relationships" the
+# UI exposes), EXCLUDING the prerequisite pair (counted in the DAG) and the
+# enablement pair (counted separately).
+_LATERAL_EDGES = "|".join(
+    (
+        RelationshipName.RELATED_TO.value,
+        RelationshipName.SIMILAR_TO.value,
+        RelationshipName.COMPLEMENTARY_TO.value,
+        RelationshipName.ALTERNATIVE_TO.value,
+        RelationshipName.BLOCKS.value,
+        RelationshipName.BLOCKED_BY.value,
+        RelationshipName.RECOMMENDED_WITH.value,
+        RelationshipName.STACKS_WITH.value,
+        RelationshipName.SIBLING.value,
+        RelationshipName.COUSIN.value,
+    )
+)
+_ENABLEMENT_EDGES = "|".join(
+    (RelationshipName.LATERAL_ENABLES.value, RelationshipName.LATERAL_ENABLED_BY.value)
+)
+_KNOWLEDGE_LABELS = (
+    NeoLabel.KU.value,
+    NeoLabel.PATH_STEP.value,
+    NeoLabel.LEARNING_PATH.value,
+    NeoLabel.EXERCISE.value,
+)
+
+
+def _knowledge_node(var: str) -> str:
+    """``(var:Ku OR var:PathStep OR …)`` — is this node in the knowledge subgraph."""
+    return "(" + " OR ".join(f"{var}:{label}" for label in _KNOWLEDGE_LABELS) + ")"
+
+
+# One round-trip corpus measurement. ``__TOKEN__`` placeholders are substituted
+# (not f-string braces — the query is dense with map / count{} / exists{} literals
+# that would need doubling). Degree counts ALL incident edges per Ku (the ratified
+# ADR-080 measure: avg ≈ 2.17, 17 orphans); every specialized slice below scopes
+# both endpoints to knowledge nodes via ``__KA__``/``__KB__``/``__KO__``.
+_KNOWLEDGE_HEALTH_QUERY_TEMPLATE = """
+CALL () { MATCH (k:Ku) RETURN count(k) AS total_kus }
+CALL () { MATCH (ps:PathStep) RETURN count(ps) AS total_path_steps }
+CALL () { MATCH (lp:LearningPath) RETURN count(lp) AS total_learning_paths }
+CALL () { MATCH (ex:Exercise) RETURN count(ex) AS total_exercises }
+CALL () {
+    MATCH (k:Ku)
+    WITH k, count{ (k)--() } AS deg
+    RETURN coalesce(round(avg(deg), 4), 0.0) AS avg_ku_degree,
+           coalesce(max(deg), 0) AS max_ku_degree,
+           count(CASE WHEN deg = 0 THEN 1 END) AS orphan_ku_count
+}
+CALL () {
+    MATCH (k:Ku)
+    WHERE count{ (k)--() } = 0
+    WITH k ORDER BY k.uid
+    RETURN collect({ uid: k.uid, title: coalesce(k.title, k.uid) }) AS orphan_kus
+}
+CALL () { RETURN count{ (:PathStep)-[:__COMPOSITION__]->(:Ku) } AS composition_edge_count }
+CALL () {
+    MATCH (k:Ku)
+    WHERE exists{ (:PathStep)-[:__COMPOSITION__]->(k) }
+    RETURN count(k) AS composed_ku_count
+}
+CALL () {
+    RETURN count{ (a)-[:__DAG__]->(b) WHERE __KA__ AND __KB__ } AS prerequisite_edge_count
+}
+CALL () {
+    MATCH (k:Ku)
+    WHERE exists{ (k)-[:__DAG__]-(o) WHERE __KO__ }
+    RETURN count(k) AS dag_ku_count
+}
+CALL () {
+    OPTIONAL MATCH p = (a:Ku)-[:__DAG__*1..__DEPTH__]->(b:Ku)
+    RETURN coalesce(max(length(p)), 0) AS dag_max_depth
+}
+CALL () {
+    RETURN count{ (a)-[:__ORGANIZES__]->(b) WHERE __KA__ AND __KB__ } AS organizes_edge_count
+}
+CALL () {
+    MATCH (k:Ku)
+    WHERE exists{ (k)-[:__ORGANIZES__]-(o) WHERE __KO__ }
+    RETURN count(k) AS organized_ku_count
+}
+CALL () {
+    RETURN count{ (a)-[:__LATERAL__]->(b) WHERE __KA__ AND __KB__ } AS lateral_edge_count
+}
+CALL () {
+    RETURN count{ (a)-[:__ENABLEMENT__]->(b) WHERE __KA__ AND __KB__ } AS enablement_edge_count
+}
+CALL () {
+    MATCH (ps:PathStep)
+    WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(:Exercise) }
+    RETURN count(ps) AS path_steps_with_exercise
+}
+RETURN total_kus, total_path_steps, total_learning_paths, total_exercises,
+       avg_ku_degree, max_ku_degree, orphan_ku_count, orphan_kus,
+       composition_edge_count, composed_ku_count,
+       prerequisite_edge_count, dag_ku_count, dag_max_depth,
+       organizes_edge_count, organized_ku_count,
+       lateral_edge_count, enablement_edge_count, path_steps_with_exercise
+"""
+
+
+def _build_knowledge_health_query() -> str:
+    """Substitute the structural edge sets, knowledge-node predicates, and depth
+    cap into the corpus query. Built once at import time."""
+    query = _KNOWLEDGE_HEALTH_QUERY_TEMPLATE
+    substitutions = {
+        "__COMPOSITION__": _COMPOSITION_EDGES,
+        "__DAG__": _DAG_EDGES,
+        "__ORGANIZES__": RelationshipName.ORGANIZES.value,
+        "__LATERAL__": _LATERAL_EDGES,
+        "__ENABLEMENT__": _ENABLEMENT_EDGES,
+        "__HAS_EXERCISE__": RelationshipName.HAS_EXERCISE.value,
+        "__DEPTH__": str(KnowledgeHealth.PREREQUISITE_DEPTH_CAP),
+        "__KA__": _knowledge_node("a"),
+        "__KB__": _knowledge_node("b"),
+        "__KO__": _knowledge_node("o"),
+    }
+    for token, value in substitutions.items():
+        query = query.replace(token, value)
+    return query
+
+
+_KNOWLEDGE_HEALTH_QUERY = _build_knowledge_health_query()
+
+_EMPTY_KNOWLEDGE_HEALTH_RAW: KnowledgeHealthRaw = {
+    "total_kus": 0,
+    "total_path_steps": 0,
+    "total_learning_paths": 0,
+    "total_exercises": 0,
+    "avg_ku_degree": 0.0,
+    "max_ku_degree": 0,
+    "orphan_ku_count": 0,
+    "orphan_kus": [],
+    "composition_edge_count": 0,
+    "composed_ku_count": 0,
+    "prerequisite_edge_count": 0,
+    "dag_ku_count": 0,
+    "dag_max_depth": 0,
+    "organizes_edge_count": 0,
+    "organized_ku_count": 0,
+    "lateral_edge_count": 0,
+    "enablement_edge_count": 0,
+    "path_steps_with_exercise": 0,
+}
+
+
+class KnowledgeHealthBackend:
+    """Read-only corpus-level structural measurement over the knowledge subgraph.
+
+    Executor-based (like ``CrossDomainBackend``) rather than a
+    ``UniversalNeo4jBackend[T]`` subclass: this gauge spans all four curriculum
+    labels (Ku / PathStep / LearningPath / Exercise) at once, so the
+    single-entity-type model does not fit. One round-trip yields the raw
+    structural facts — node counts, all-incident Ku degree distribution, the
+    orphan-Ku list, and composition / prerequisite-DAG / ORGANIZES / lateral /
+    practice coverage. ``KnowledgeHealthService`` derives coverage ratios, the
+    composite GDS-readiness score, and the authoring flags from these facts
+    (ADR-080 Horizon-1).
+    """
+
+    def __init__(self, executor: "Neo4jQueryExecutor") -> None:
+        self.executor = executor
+        self.logger = get_logger("skuel.backends.knowledge_health")
+
+    async def measure_knowledge_subgraph(self) -> Result[KnowledgeHealthRaw]:
+        """Measure the knowledge subgraph's raw structural facts in one query.
+
+        Backend: the corpus query scopes every specialized metric to knowledge
+        nodes; degree/orphans use all-incident edges (the ratified ADR-080 measure).
+        An empty graph yields the all-zeros shape, not an error.
+        """
+        result = await self.executor.execute_query(_KNOWLEDGE_HEALTH_QUERY)
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            # Defensive: the aggregating query always returns exactly one row, so
+            # this is essentially unreachable. Read-only constant, never mutated.
+            return Result.ok(_EMPTY_KNOWLEDGE_HEALTH_RAW)
+        row = rows[0]
+        orphan_kus: list[KnowledgeOrphanKu] = [
+            {"uid": str(entry["uid"]), "title": str(entry["title"])}
+            for entry in (row.get("orphan_kus") or [])
+        ]
+        return Result.ok(
+            KnowledgeHealthRaw(
+                total_kus=int(row["total_kus"]),
+                total_path_steps=int(row["total_path_steps"]),
+                total_learning_paths=int(row["total_learning_paths"]),
+                total_exercises=int(row["total_exercises"]),
+                avg_ku_degree=float(row["avg_ku_degree"]),
+                max_ku_degree=int(row["max_ku_degree"]),
+                orphan_ku_count=int(row["orphan_ku_count"]),
+                orphan_kus=orphan_kus,
+                composition_edge_count=int(row["composition_edge_count"]),
+                composed_ku_count=int(row["composed_ku_count"]),
+                prerequisite_edge_count=int(row["prerequisite_edge_count"]),
+                dag_ku_count=int(row["dag_ku_count"]),
+                dag_max_depth=int(row["dag_max_depth"]),
+                organizes_edge_count=int(row["organizes_edge_count"]),
+                organized_ku_count=int(row["organized_ku_count"]),
+                lateral_edge_count=int(row["lateral_edge_count"]),
+                enablement_edge_count=int(row["enablement_edge_count"]),
+                path_steps_with_exercise=int(row["path_steps_with_exercise"]),
+            )
+        )

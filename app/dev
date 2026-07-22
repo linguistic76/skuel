@@ -138,6 +138,11 @@ case "$1" in
     uv run python scripts/vault_bridge_sync.py "${@:2}"
     ;;
 
+  knowledge-health)
+    echo -e "${GREEN}Measuring knowledge-subgraph structural health (ADR-080)...${NC}"
+    uv run python scripts/knowledge_health_report.py "${@:2}"
+    ;;
+
   css)
     echo -e "${GREEN}Watching CSS changes...${NC}"
     npm run css:watch
@@ -285,6 +290,7 @@ case "$1" in
     echo "  ./dev serve          - Start development server (requires Neo4j running)"
     echo "  ./dev smoke          - Render smoke test (headless Chrome; catches client-side render hangs)"
     echo "  ./dev vault-sync     - One-shot vault sync via reconciler (--vault content | --user <uid> | --force)"
+    echo "  ./dev knowledge-health - Knowledge-subgraph structural-health report (ADR-080; --json)"
     echo "  ./dev css            - Watch and rebuild CSS on changes"
     echo "  ./dev css-build      - Build CSS once"
     echo "  ./dev css-prod       - Build minified CSS for production"

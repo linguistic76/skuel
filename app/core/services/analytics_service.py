@@ -16,7 +16,7 @@ See: /docs/architecture/REPORTS_ARCHITECTURE.md
 from calendar import monthrange
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.analytics import AnalyticsSummary, AnalyticsSummaryDTO, dto_to_summary
 from core.models.enums import AnalyticsDomain
@@ -25,7 +25,13 @@ from core.services.analytics import (
     AnalyticsAggregationService,
     AnalyticsLifePathService,
     AnalyticsMetricsService,
+    KnowledgeHealthService,
 )
+from core.utils.result_simplified import Errors
+
+if TYPE_CHECKING:
+    from core.ports.knowledge_health_protocols import KnowledgeHealthOperations
+    from core.ports.query_types import KnowledgeHealthReport
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -76,6 +82,7 @@ class AnalyticsService:
         report_dir: Path | None = None,
         event_bus=None,
         cross_domain_backend=None,
+        knowledge_health_backend: "KnowledgeHealthOperations | None" = None,
     ) -> None:
         """
         Initialize analytics facade with all domain and curriculum services.
@@ -95,9 +102,19 @@ class AnalyticsService:
             report_dir: Directory for storing generated analytics
             event_bus: Event bus for automatic analytics generation
             cross_domain_backend: CrossDomainBackend for cross-domain queries
+            knowledge_health_backend: KnowledgeHealthBackend for the ADR-080
+                Horizon-1 structural-health gauge (optional — the knowledge-health
+                report is unavailable when unwired)
         """
         self.event_bus = event_bus
         self.user_service = user_service
+        # Knowledge-subgraph structural-health gauge (ADR-080 Horizon-1). CORE-tier
+        # safe (no AI); None only when the backend is not wired (e.g. unit tests).
+        self.knowledge_health: KnowledgeHealthService | None = (
+            KnowledgeHealthService(backend=knowledge_health_backend)
+            if knowledge_health_backend is not None
+            else None
+        )
         # Initialize sub-services
         self.metrics = AnalyticsMetricsService(
             # Layer 1: Activity domains
@@ -620,6 +637,28 @@ class AnalyticsService:
             }
         """
         return await self.life_path.calculate_life_path_alignment(user_uid)
+
+    # ========================================================================
+    # KNOWLEDGE-SUBGRAPH STRUCTURAL HEALTH (ADR-080 Horizon-1)
+    # ========================================================================
+
+    async def analyze_knowledge_subgraph_health(self) -> "Result[KnowledgeHealthReport]":
+        """Corpus-level structural-health report over the knowledge subgraph.
+
+        The Horizon-1 gauge (ADR-080): node counts, Ku degree distribution, the
+        orphan-Ku list, prerequisite-DAG depth/coverage, ORGANIZES/MOC coverage,
+        lateral density, practice coverage, a composite GDS-readiness score, and
+        authoring-guidance flags. Delegates to :class:`KnowledgeHealthService`;
+        fails cleanly when the knowledge-health backend is not wired.
+        """
+        if self.knowledge_health is None:
+            return Result.fail(
+                Errors.system(
+                    message="Knowledge-health backend not wired",
+                    operation="analyze_knowledge_subgraph_health",
+                )
+            )
+        return await self.knowledge_health.analyze_knowledge_subgraph_health()
 
     # ========================================================================
     # FILE STORAGE
