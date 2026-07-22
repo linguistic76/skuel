@@ -3203,7 +3203,9 @@ class KnowledgeHealthReport(TypedDict):
       edges among knowledge nodes, and their edges-per-Ku density.
     - ``enablement_edge_count`` — ENABLES/ENABLED_BY edges, surfaced separately
       (not folded into lateral) for transparency.
-    - ``practice_coverage`` — fraction of PathSteps anchoring ≥1 Exercise.
+    - ``practice_coverage`` — fraction of PathSteps anchoring ≥1 CURRICULUM-scoped
+      Exercise (PERSONAL/ASSIGNED/ASSESSMENT templates are learner/teacher practice,
+      not corpus authoring, so they don't count).
     - ``gds_readiness_score`` — composite 0.0-1.0; ``gds_ready`` crosses the
       configured threshold. ``flags`` are human-readable authoring-guidance lines.
     """

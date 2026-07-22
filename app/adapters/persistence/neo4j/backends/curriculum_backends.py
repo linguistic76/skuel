@@ -18,6 +18,7 @@ from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import KnowledgeHealth
 from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
@@ -984,8 +985,12 @@ CALL () {
     RETURN count{ (a)-[:__ENABLEMENT__]->(b) WHERE __KA__ AND __KB__ } AS enablement_edge_count
 }
 CALL () {
+    // Practice coverage counts CURRICULUM-scoped exercises only: PERSONAL (and
+    // ASSIGNED/ASSESSMENT) exercises dual-write the same HAS_EXERCISE edge, so an
+    // unscoped check would count learner/teacher practice templates as corpus
+    // authoring coverage and hide missing curriculum exercises.
     MATCH (ps:PathStep)
-    WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(:Exercise) }
+    WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(ex:Exercise) WHERE ex.scope = __CURRICULUM_SCOPE__ }
     RETURN count(ps) AS path_steps_with_exercise
 }
 RETURN total_kus, total_path_steps, total_learning_paths, total_exercises,
@@ -1012,6 +1017,7 @@ def _build_knowledge_health_query() -> str:
         "__LATERAL__": _LATERAL_EDGES,
         "__ENABLEMENT__": _ENABLEMENT_EDGES,
         "__HAS_EXERCISE__": RelationshipName.HAS_EXERCISE.value,
+        "__CURRICULUM_SCOPE__": f"'{ExerciseScope.CURRICULUM.value}'",
         "__TELEMETRY__": _TELEMETRY_EDGE_LIST,
         "__DEPTH__": str(KnowledgeHealth.PREREQUISITE_DEPTH_CAP),
         "__KA__": _knowledge_node("a"),

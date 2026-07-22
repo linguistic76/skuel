@@ -70,6 +70,11 @@ async def _build_graph(neo4j_driver) -> None:
                 u=uid,
                 t=etype,
             )
+        # ex1 is a CURRICULUM-scoped exercise (the only scope practice coverage counts).
+        await s.run(
+            "MATCH (ex{uid:$u}) SET ex.scope = 'curriculum'",
+            u=P + "ex1",
+        )
         for from_uid, rel, to_uid in edges:
             await s.run(
                 f"MATCH (a{{uid:$a}}),(b{{uid:$b}}) CREATE (a)-[:{rel}]->(b)",
@@ -223,6 +228,47 @@ async def test_learner_telemetry_excluded_from_degree(neo4j_driver, clean_neo4j)
     assert [o["uid"] for o in raw["orphan_kus"]] == [P + "t_iso"]
     # Degrees after excluding MASTERED: [0, 1, 1] → avg 2/3.
     assert raw["avg_ku_degree"] == pytest.approx(2 / 3, abs=1e-3)
+
+
+@pytest.mark.asyncio
+async def test_practice_coverage_counts_curriculum_scope_only(neo4j_driver, clean_neo4j) -> None:
+    """PERSONAL exercises must not count toward corpus practice coverage (Codex #770 P2).
+
+    A learner's PERSONAL exercise dual-writes the same `HAS_EXERCISE` edge as a
+    vault-authored CURRICULUM exercise, so only CURRICULUM scope counts.
+    """
+    async with neo4j_driver.session() as s:
+        for uid, label, etype, scope in (
+            (P + "pc_ps1", "PathStep", "path_step", None),
+            (P + "pc_ps2", "PathStep", "path_step", None),
+            (P + "pc_cur", "Exercise", "exercise", "curriculum"),
+            (P + "pc_per", "Exercise", "exercise", "personal"),
+        ):
+            await s.run(
+                f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
+                f"status:'active', created_at:datetime()}})",
+                u=uid,
+                t=etype,
+            )
+            if scope is not None:
+                await s.run("MATCH (n{uid:$u}) SET n.scope = $s", u=uid, s=scope)
+        # ps1 → CURRICULUM exercise (counts); ps2 → PERSONAL exercise (excluded).
+        await s.run(
+            "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (a)-[:HAS_EXERCISE]->(b)",
+            a=P + "pc_ps1",
+            b=P + "pc_cur",
+        )
+        await s.run(
+            "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (a)-[:HAS_EXERCISE]->(b)",
+            a=P + "pc_ps2",
+            b=P + "pc_per",
+        )
+    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    raw = (await backend.measure_knowledge_subgraph()).value
+    assert raw["total_path_steps"] == 2
+    # Only ps1 (CURRICULUM exercise) counts; ps2's PERSONAL exercise is excluded.
+    assert raw["path_steps_with_exercise"] == 1
 
 
 @pytest.mark.asyncio
