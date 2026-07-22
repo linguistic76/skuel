@@ -15,6 +15,10 @@
 
 services:
   neo4j:
+    # AURA-TEMPORARY (obligation, not a feature): the monthly calendar-version pin
+    # is self-host upkeep — AuraDB auto-upgrades and removes the ~monthly bump.
+    # Keep tracking it while self-hosting (see the treadmill policy); it simply
+    # goes away on migration. See docs/deployment/AURADB_MIGRATION_GUIDE.md § 6.2.
     image: neo4j:2026.06.0
     container_name: skuel-neo4j
     restart: unless-stopped
@@ -41,6 +45,9 @@ services:
       # ============================================
       # MEMORY CONFIGURATION (Phase 6.3 tuned)
       # ============================================
+      # AURA-TEMPORARY: self-host-only. AuraDB sizes heap + page-cache by the
+      # chosen instance tier, so these knobs disappear on migration — don't
+      # invest further in tuning them. See docs/deployment/AURADB_MIGRATION_GUIDE.md § 6.2.
       # Heap memory settings
       NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT}"
       NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP_MAX}"
@@ -94,6 +101,9 @@ services:
       # ============================================
       # JVM CONFIGURATION
       # ============================================
+      # AURA-TEMPORARY: self-host-only. AuraDB runs vector search optimally by
+      # default (Vector API enabled), so this SIMD flag is a chore that vanishes
+      # on migration — NOT a capability we lose. See docs/deployment/AURADB_MIGRATION_GUIDE.md § 6.2.
       # Enable the Java Vector API (SIMD) for the vector indexes SKUEL relies on
       # (Entity/ContentChunk/ReferenceChunk/Goal/Task embeddings — semantic search,
       # canon retrieval, ZPD). Without it 2026.x warns "Java vector incubator module
