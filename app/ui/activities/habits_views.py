@@ -452,10 +452,11 @@ def HabitDetailView(
         checkins=habit.dual_track_checkins,
     )
 
-    # Lateral relationships
+    # Lateral relationships (Vis.js graph, blocking chain, alternatives) + authoring.
     relationships = EntityRelationshipsSection(
         entity_uid=habit.uid,
         entity_type="habits",
+        authoring=True,
     )
 
     return Container(
