@@ -912,7 +912,9 @@ class TasksService(
         await self._publish_dependency_update(dependent_task_uid, blocks_task_uid)
         return Result.ok(True)
 
-    async def get_task_dependency_neighbors(self, task_uid: str) -> Result[TaskDependencyNeighbors]:
+    async def get_task_dependency_neighbors(
+        self, task_uid: str, user_uid: UserUID
+    ) -> Result[TaskDependencyNeighbors]:
         """Return a task's *direct* ``DEPENDS_ON`` neighbours in both directions.
 
         Distinct from :meth:`get_task_dependencies_for_user` (contextual, planner-facing,
@@ -922,12 +924,16 @@ class TasksService(
         direct-neighbour path, no config method-key for the incoming direction) and
         hydrates titles/status in one batched fetch per direction.
 
+        Owner-scoped: a ``DEPENDS_ON`` edge to a task owned by another user (from
+        ingestion or a non-UI caller) is OMITTED, not disclosed — the list equivalent
+        of the "not found for entities the user doesn't own" contract.
+
         Backend: TasksBackend.get_related_uids (both directions) + get_many.
         """
-        depends_on = await self._hydrate_dependency_neighbors(task_uid, "outgoing")
+        depends_on = await self._hydrate_dependency_neighbors(task_uid, "outgoing", user_uid)
         if depends_on.is_error:
             return Result.fail(depends_on)
-        required_by = await self._hydrate_dependency_neighbors(task_uid, "incoming")
+        required_by = await self._hydrate_dependency_neighbors(task_uid, "incoming", user_uid)
         if required_by.is_error:
             return Result.fail(required_by)
         neighbors: TaskDependencyNeighbors = {
@@ -937,9 +943,13 @@ class TasksService(
         return Result.ok(neighbors)
 
     async def _hydrate_dependency_neighbors(
-        self, task_uid: str, direction: str
+        self, task_uid: str, direction: str, user_uid: UserUID
     ) -> Result[list[TaskDependencyNeighbor]]:
-        """Fetch direct DEPENDS_ON neighbour UIDs in one direction and hydrate them."""
+        """Fetch direct DEPENDS_ON neighbour UIDs in one direction and hydrate them.
+
+        Neighbours owned by another user are filtered out (privacy — never disclose a
+        foreign task's title/status through a dependency edge).
+        """
         uids_result = await self.backend.get_related_uids(
             EntityUID(task_uid), RelationshipName.DEPENDS_ON, direction=direction
         )
@@ -954,7 +964,7 @@ class TasksService(
         neighbors: list[TaskDependencyNeighbor] = [
             {"uid": task.uid, "title": task.title, "status": task.status.value}
             for task in tasks_result.value
-            if task is not None
+            if task is not None and task.user_uid == user_uid
         ]
         return Result.ok(neighbors)
 

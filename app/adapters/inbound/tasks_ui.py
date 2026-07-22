@@ -26,6 +26,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
+from core.models.type_hints import UserUID
 from core.utils.connection_configs import TASK_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_tasks
 from core.utils.logging import get_logger
@@ -325,9 +326,9 @@ def create_tasks_ui_routes(
     # Dependency fragments (DEPENDS_ON): GET read + POST add/remove
     # ------------------------------------------------------------------
 
-    async def _dependencies_view(uid: str, error: str | None = None) -> Any:
-        """Fetch the task's DEPENDS_ON neighbours and render the fragment."""
-        neighbors = await tasks_service.get_task_dependency_neighbors(uid)
+    async def _dependencies_view(uid: str, user_uid: UserUID, error: str | None = None) -> Any:
+        """Fetch the task's owner-scoped DEPENDS_ON neighbours and render the fragment."""
+        neighbors = await tasks_service.get_task_dependency_neighbors(uid, user_uid)
         value = neighbors.value if neighbors.is_ok else {"depends_on": [], "required_by": []}
         return DependencyListFragment(uid, value, error=error)
 
@@ -340,7 +341,7 @@ def create_tasks_ui_routes(
             # Ownership contract: a task the caller does not own reads as 404, not a
             # 200 fragment — HTMX won't swap it, keeping foreign/missing indistinguishable.
             return Response("Not found", status_code=404)
-        return await _dependencies_view(uid)
+        return await _dependencies_view(uid, user_uid)
 
     @rt("/tasks/{uid}/dependencies/add", methods=["POST"])
     @csrf_protected
@@ -355,20 +356,22 @@ def create_tasks_ui_routes(
         if owned.is_error:
             return Response("Not found", status_code=404)
         if not target_uid:
-            return await _dependencies_view(uid, error="Pick a task to depend on.")
+            return await _dependencies_view(uid, user_uid, error="Pick a task to depend on.")
         # Both endpoints must be owned by the caller (404-not-403).
         target_owned = await tasks_service.verify_ownership(target_uid, user_uid)
         if target_owned.is_error:
-            return await _dependencies_view(uid, error="That task was not found.")
+            return await _dependencies_view(uid, user_uid, error="That task was not found.")
 
         cycle = await tasks_service.would_create_dependency_cycle(uid, target_uid)
         if cycle.is_error or cycle.value:
-            return await _dependencies_view(uid, error="That dependency would create a cycle.")
+            return await _dependencies_view(
+                uid, user_uid, error="That dependency would create a cycle."
+            )
 
         created = await tasks_service.create_task_dependency(uid, target_uid)
         if created.is_error:
-            return await _dependencies_view(uid, error="Could not add the dependency.")
-        return await _dependencies_view(uid)
+            return await _dependencies_view(uid, user_uid, error="Could not add the dependency.")
+        return await _dependencies_view(uid, user_uid)
 
     @rt("/tasks/{uid}/dependencies/remove", methods=["POST"])
     @csrf_protected
@@ -386,12 +389,12 @@ def create_tasks_ui_routes(
         for endpoint in (dependent_uid, blocks_uid):
             endpoint_owned = await tasks_service.verify_ownership(endpoint, user_uid)
             if endpoint_owned.is_error:
-                return await _dependencies_view(uid, error="That task was not found.")
+                return await _dependencies_view(uid, user_uid, error="That task was not found.")
 
         removed = await tasks_service.delete_task_dependency(dependent_uid, blocks_uid)
         if removed.is_error:
-            return await _dependencies_view(uid, error="Could not remove the dependency.")
-        return await _dependencies_view(uid)
+            return await _dependencies_view(uid, user_uid, error="Could not remove the dependency.")
+        return await _dependencies_view(uid, user_uid)
 
     return [
         *base_routes,

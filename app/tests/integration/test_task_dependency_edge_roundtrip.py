@@ -152,17 +152,46 @@ class TestTaskDependencyEdgeRoundTrip:
         ).is_ok
 
         # From the dependent's side: it depends on the blocker, nothing requires it.
-        dependent_view = await services.tasks.get_task_dependency_neighbors("task:nb_dependent")
+        dependent_view = await services.tasks.get_task_dependency_neighbors(
+            "task:nb_dependent", "user_test"
+        )
         assert dependent_view.is_ok, dependent_view
         assert [n["uid"] for n in dependent_view.value["depends_on"]] == ["task:nb_blocks"]
         assert dependent_view.value["required_by"] == []
 
         # From the blocker's side: nothing it depends on, the dependent requires it.
-        blocks_view = await services.tasks.get_task_dependency_neighbors("task:nb_blocks")
+        blocks_view = await services.tasks.get_task_dependency_neighbors(
+            "task:nb_blocks", "user_test"
+        )
         assert blocks_view.is_ok, blocks_view
         assert blocks_view.value["depends_on"] == []
         assert [n["uid"] for n in blocks_view.value["required_by"]] == ["task:nb_dependent"]
         assert blocks_view.value["required_by"][0]["title"] == "Dependent Task"
+
+    async def test_dependency_neighbors_omits_foreign_owned(self, services, clean_neo4j):
+        """A DEPENDS_ON edge to another user's task is omitted, not disclosed."""
+        await self._create_task(services, "task:own_dependent", "My Task")
+        foreign = Task(
+            uid="task:foreign_blocks",
+            title="Someone Else's Secret Task",
+            description="foreign-owned",
+            user_uid="user_other",
+            priority=Priority.MEDIUM,
+            status=EntityStatus.DRAFT,
+        )
+        assert (await services.tasks.backend.create(foreign)).is_ok
+        # A cross-owner edge can exist from ingestion / a non-UI caller.
+        assert (
+            await services.tasks.create_task_dependency(
+                dependent_task_uid="task:own_dependent",
+                blocks_task_uid="task:foreign_blocks",
+            )
+        ).is_ok
+
+        view = await services.tasks.get_task_dependency_neighbors("task:own_dependent", "user_test")
+        assert view.is_ok
+        # The foreign-owned neighbour is filtered out — no title/status disclosure.
+        assert view.value["depends_on"] == []
 
     async def test_would_create_dependency_cycle(self, services, clean_neo4j):
         """The cycle guard flags self-links and back-edges, and clears independent pairs."""
