@@ -532,7 +532,11 @@
      */
     window.SKUEL.graph.styleNodes = function(nodes, profile, ctx) {
         return (nodes || []).map(function(node) {
-            var nodeType = (node.type || '').toLowerCase();
+            // Lateral mode carries the canonical entity_type ("path_step", "ku");
+            // node.type there is the Neo4j label (a PathStep's is "Entity"), which
+            // would mis-colour. Hub mode has no entity_type, so fall back to its
+            // short-form node.type ("ku"/"ps"/"you").
+            var nodeType = (node.entity_type || node.type || '').toLowerCase();
             // Map Neo4j labels to simple types
             if (nodeType === 'pathstep' || nodeType === 'path_step') nodeType = 'ps';
             var isCenter = (node.id === ctx.centerUid) || (node.group === 'center');

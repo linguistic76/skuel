@@ -92,6 +92,19 @@ describe('SKUEL.graph.styleNodes', () => {
     expect(styled.map((n) => n._entityType)).toEqual(['ps', 'ps']);
   });
 
+  it('prefers the canonical entity_type over the Neo4j label', () => {
+    // Lateral mode: a path-step's node.type is the label "Entity"; the canonical
+    // entity_type must win so it colours as "ps", not the default.
+    const [node] = window.SKUEL.graph.styleNodes(
+      [{ id: 'ps_1', type: 'Entity', entity_type: 'path_step' }],
+      profile(),
+      { centerUid: '', colors: COLORS, hubCenter: false },
+    );
+
+    expect(node._entityType).toBe('ps');
+    expect(node.color).toBe(COLORS.ps);
+  });
+
   it('paints the hub centre with the "you" colour', () => {
     const [node] = window.SKUEL.graph.styleNodes(
       [{ id: 'me', group: 'center', type: 'ku' }],
