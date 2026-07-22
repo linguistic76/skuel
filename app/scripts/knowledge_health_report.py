@@ -89,10 +89,15 @@ async def run_report(as_json: bool) -> tuple[int, dict[str, Any] | None]:
     lifecycle under a stdout→stderr redirect and emits the JSON afterward, so no
     bootstrap/teardown log can land on stdout.
     """
-    # The report is pure graph analytics — force CORE so it runs with no API keys
-    # (compose defaults to FULL when INTELLIGENCE_TIER is unset, which would fail
-    # on the FULL-only OpenAI/Deepgram credentials this command never needs).
-    os.environ.setdefault("INTELLIGENCE_TIER", "core")
+    # The report is pure graph analytics (BaseAnalyticsService, no AI in either
+    # tier), so pin this process to CORE unconditionally — never merely default.
+    # A `setdefault` would let an ambient `INTELLIGENCE_TIER=full` (common in a
+    # FULL dev shell) drag the report through FULL compose and crash on the
+    # OpenAI/Deepgram credentials it never uses. Forcing CORE honors the CLI's
+    # advertised no-API-key contract; it overrides no meaningful choice, since the
+    # report has no FULL-tier behavior to opt into. This process's env only —
+    # child of the shell, so the user's environment is untouched.
+    os.environ["INTELLIGENCE_TIER"] = "core"
 
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
