@@ -636,6 +636,23 @@
         });
     };
 
+    /**
+     * Resolve the Explore graph detail-page URL for a clicked node.
+     *
+     * Lateral mode: the server attaches `node.url`, resolved from the canonical
+     * entity_type (node.type is a Neo4j label there, not a route) — always prefer it.
+     * Hub mode: no url is emitted, so fall back to the short-form `_entityType`
+     * ("ku"/"ps"), which maps straight to `/explore/{type}/{id}`.
+     *
+     * @param {Object} node - a styled graph node
+     * @returns {string|null} detail-page URL, or null when the node is not a link
+     */
+    window.SKUEL.graph.exploreHrefFor = function(node) {
+        if (node.url) return node.url;
+        var type = node._entityType;
+        return (type === 'ku' || type === 'ps') ? '/explore/' + type + '/' + node.id : null;
+    };
+
     // =========================================================================
     // Alpine.js Component Definitions
     // =========================================================================
@@ -2439,15 +2456,14 @@
                         container, visData, window.SKUEL.graph.buildOptions(profile)
                     );
 
-                    // Click → navigate to entity in Explore
+                    // Click → navigate to the entity's real detail page. In lateral
+                    // mode the server resolves node.url from the canonical entity_type
+                    // (node.type there is a Neo4j label, not a route). Hub mode carries
+                    // no url, so exploreHrefFor falls back to its short-form _entityType.
+                    // attachClickNav no-ops on a null href.
                     window.SKUEL.graph.attachClickNav(
                         network, styledNodes, this.entity_uid,
-                        function(node) {
-                            var type = node._entityType;
-                            return (type === 'ku' || type === 'ps')
-                                ? '/explore/' + type + '/' + node.id
-                                : null;
-                        }
+                        window.SKUEL.graph.exploreHrefFor
                     );
 
                     return { network: network, nodes: visData.nodes, edges: visData.edges };
