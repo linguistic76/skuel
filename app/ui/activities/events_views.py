@@ -347,6 +347,7 @@ def EventDetailView(
     relationships = EntityRelationshipsSection(
         entity_uid=event.uid,
         entity_type="events",
+        authoring=True,
     )
 
     return Container(
