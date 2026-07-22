@@ -207,6 +207,26 @@ def convert_dates_to_iso(data: dict, field_names: list[str]) -> None:
             data[field_name] = value.isoformat()
 
 
+def coerce_date_fields(changes: dict[str, Any], *field_names: str) -> dict[str, Any]:
+    """Down-cast a ``datetime`` in a declared *date* field to its ``date``, in place.
+
+    Update intents (ADR-066) send raw field values straight to ``backend.update``,
+    which serializes them through the field-blind mapper — bypassing the DTO
+    ``to_dict`` -> :func:`convert_dates_to_iso` chokepoint that ``create`` and
+    dto-based updates use. So a ``datetime`` handed to a date-typed intent field
+    (e.g. ``TaskUpdateIntent(due_date=datetime(...))``) would persist a time
+    component and make Cypher's ``date()`` throw on a range read, blanking the
+    whole range (#766, update path). Each intent whose ``to_changes`` carries date
+    fields routes them through here so the "date fields never store a time" invariant
+    holds on updates too. Returns the same dict for chaining.
+    """
+    for name in field_names:
+        value = changes.get(name)
+        if isinstance(value, datetime):
+            changes[name] = value.date()
+    return changes
+
+
 def convert_datetimes_to_iso(data: dict, field_names: list[str]) -> None:
     """
     Convert multiple datetime fields to ISO format in-place.

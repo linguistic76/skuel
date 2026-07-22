@@ -73,11 +73,15 @@ class TaskUpdateIntent:
 
         Fields left ``UNSET`` are omitted (untouched); a field set to ``None`` is
         included (an explicit clear). This is the dict materialized at the single
-        ``backend.update`` seam.
+        ``backend.update`` seam. Date fields are down-cast from any stray ``datetime``
+        so an update never persists a time component in a date field (#766).
         """
-        return {
+        from core.models.dto_helpers import coerce_date_fields
+
+        changes = {
             f.name: value for f in fields(self) if (value := getattr(self, f.name)) is not UNSET
         }
+        return coerce_date_fields(changes, "due_date", "scheduled_date", "completion_date")
 
 
 __all__ = ["TaskUpdateIntent"]
