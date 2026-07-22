@@ -185,10 +185,14 @@ class TestPickerSearchEventChoicePrinciple:
         assert "Bias Toward Action" in recent  # title is the displayed label
         assert "principle.picker_foreign" not in recent
 
-        # PrinciplesSearchService searches statement/description/why_important
-        # (not title), so query a word that lives in the owned principle's
-        # statement; the option still renders the title as its label.
-        found = to_xml(await handler(_make_request(OWNER), type="principle", q="shipping"))
-        assert 'data-uid="principle.picker_seed"' in found
-        assert "Bias Toward Action" in found
-        assert "principle.picker_foreign" not in found
+        # PrinciplesSearchService now searches title (fixed a phantom `name`
+        # field), so typing the visible principle label finds it.
+        by_title = to_xml(await handler(_make_request(OWNER), type="principle", q="Bias Toward"))
+        assert 'data-uid="principle.picker_seed"' in by_title
+        assert "principle.picker_foreign" not in by_title
+
+        # ...and statement text (a distinctive, non-title field) matches too.
+        by_statement = to_xml(await handler(_make_request(OWNER), type="principle", q="shipping"))
+        assert 'data-uid="principle.picker_seed"' in by_statement
+        assert "Bias Toward Action" in by_statement
+        assert "principle.picker_foreign" not in by_statement

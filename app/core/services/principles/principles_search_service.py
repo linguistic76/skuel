@@ -68,14 +68,15 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     # DomainConfig consolidation (January 2026)
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
-    # Note: Principles use name instead of title, plus statement and why_important
+    # Principles carry their label in ``title`` (Entity base) — there is no
+    # ``name`` property — plus a distinctive ``statement`` and ``why_important``.
     _config = create_activity_domain_config(
         dto_class=PrincipleDTO,
         model_class=Principle,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
-        search_fields=("name", "statement", "description", "why_important"),
+        search_fields=("title", "statement", "description", "why_important"),
         category_field="principle_category",  # Principles store category as 'principle_category'
     )
 

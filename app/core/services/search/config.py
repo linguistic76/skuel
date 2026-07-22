@@ -176,7 +176,9 @@ SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
         order_by="decision_deadline",
     ),
     EntityType.PRINCIPLE: SearchFieldConfig(
-        text_fields=("name", "statement", "description", "why_important"),
+        # Principles carry their label in ``title`` (Entity base); ``name`` was a
+        # phantom straggler of the domain-wide name→title rename.
+        text_fields=("title", "statement", "description", "why_important"),
         array_fields=("tags",),
         filter_fields=("domain", "strength"),
         order_by="created_at",
