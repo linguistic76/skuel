@@ -3016,11 +3016,13 @@ class RelationshipGraphRow(TypedDict, total=False):
 
     center_uid: str
     center_title: str
-    center_type: str
+    center_type: str  # Neo4j label (styling); NOT a route domain
+    center_entity_type: str | None  # canonical EntityType value (detail-URL resolution)
     center_status: str | None
     related_uid: str
     related_title: str
-    related_type: str
+    related_type: str  # Neo4j label (styling); NOT a route domain
+    related_entity_type: str | None  # canonical EntityType value (detail-URL resolution)
     related_status: str | None
     relationships: list[dict[str, Any]]
     depth_level: int

@@ -1880,10 +1880,12 @@
                     // Create network
                     this.network = new vis.Network(container, data, options);
 
-                    // Click handler - navigate to entity
+                    // Click handler - navigate to the entity's real detail page. The
+                    // server resolves node.url from the canonical entity_type (node.type
+                    // is a Neo4j label, not a route); attachClickNav no-ops on a null url.
                     window.SKUEL.graph.attachClickNav(
                         this.network, data.nodes, this.entity_uid,
-                        function(node) { return '/' + node.type + '/' + node.id; }
+                        function(node) { return node.url || null; }
                     );
                 },
 

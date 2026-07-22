@@ -47,6 +47,7 @@ from core.models.type_hints import EntityUID, Neo4jProperties
 from core.ports.query_types import RelationshipGraphData
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.relationships.alternatives_grid import render_alternatives_fragment
 from ui.patterns.relationships.blocking_chain import render_chain_fragment
 from ui.patterns.relationships.manage_list import (
@@ -693,6 +694,13 @@ class LateralRouteFactory:
 
             if result.is_error:
                 return result
+
+            # Enrich each node with its real detail-page URL (click-to-navigate).
+            # URL knowledge is a UI/route concern — resolved here, not in core, from the
+            # canonical entity_type property (never the Neo4j label, which isn't a route).
+            # Types with no detail page get url=None; the graph's click handler no-ops on it.
+            for node in result.value["nodes"]:
+                node["url"] = entity_detail_href(node.get("entity_type"), node["id"])
 
             # Return Vis.js format directly (includes nodes and edges)
             return Result.ok(result.value)
