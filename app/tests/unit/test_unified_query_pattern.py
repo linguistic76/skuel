@@ -36,9 +36,10 @@ class TestUnifiedQueryPattern:
         # Verify query structure
         assert "MATCH (n:Task)" in query
         assert "WHERE n.user_uid = $user_uid" in query
-        # date() coercion on the node field — handles date-vs-datetime-string storage.
-        assert "date(n.due_date) >= date($start_date)" in query
-        assert "date(n.due_date) <= date($end_date)" in query
+        # date(left(toString(...), 10)) coercion — tolerant of date-only strings,
+        # datetime strings (which bare date() throws on, #766), and temporal types.
+        assert "date(left(toString(n.due_date), 10)) >= date($start_date)" in query
+        assert "date(left(toString(n.due_date), 10)) <= date($end_date)" in query
         assert "NOT n.status IN $exclude_statuses" in query
         assert "RETURN n" in query
         assert "ORDER BY n.created_at DESC" in query
@@ -64,8 +65,8 @@ class TestUnifiedQueryPattern:
 
         # Verify Event-specific query
         assert "MATCH (n:Event)" in query
-        assert "date(n.event_date) >= date($start_date)" in query
-        assert "date(n.event_date) <= date($end_date)" in query
+        assert "date(left(toString(n.event_date), 10)) >= date($start_date)" in query
+        assert "date(left(toString(n.event_date), 10)) <= date($end_date)" in query
         assert params["exclude_statuses"] == ["completed", "cancelled"]
 
     def test_build_user_activity_query_no_date_filtering(self):
@@ -154,8 +155,8 @@ class TestUnifiedQueryPattern:
             assert "WHERE n.user_uid = $user_uid" in query
 
             if date_field:
-                assert f"date(n.{date_field}) >= date($start_date)" in query
-                assert f"date(n.{date_field}) <= date($end_date)" in query
+                assert f"date(left(toString(n.{date_field}), 10)) >= date($start_date)" in query
+                assert f"date(left(toString(n.{date_field}), 10)) <= date($end_date)" in query
 
 
 @pytest.mark.asyncio

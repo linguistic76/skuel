@@ -583,8 +583,8 @@ async def test_find_by_date_range_backend():
     call_args = mock_session.run.call_args
     cypher = call_args[0][0]
 
-    assert "date(n.due_date) >= date($start_date)" in cypher
-    assert "date(n.due_date) <= date($end_date)" in cypher
+    assert "date(left(toString(n.due_date), 10)) >= date($start_date)" in cypher
+    assert "date(left(toString(n.due_date), 10)) <= date($end_date)" in cypher
 
 
 # ============================================================================

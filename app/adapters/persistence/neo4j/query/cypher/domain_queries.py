@@ -1015,11 +1015,14 @@ def build_user_activity_query(
 
     # Date range filtering (if provided)
     if date_field and start_date and end_date:
-        # date(...) coerces ISO-string-stored date fields so the comparison is
-        # date-vs-date, not string-vs-date (which Neo4j evaluates to null → the
-        # row is silently dropped). No-op for fields already stored as temporal types.
-        where_clauses.append(f"date(n.{date_field}) >= date($start_date)")
-        where_clauses.append(f"date(n.{date_field}) <= date($end_date)")
+        # left(toString(...), 10) takes the YYYY-MM-DD prefix before date() so the
+        # comparison is date-vs-date, not string-vs-date (Neo4j evaluates the latter
+        # to null → the row is silently dropped). Bare date() on a *datetime* string
+        # ("2026-06-17T09:00") THROWS ("Text cannot be parsed to a Date"), taking the
+        # whole range query down (see #766); the prefix tolerates every storage shape
+        # — date/datetime temporal types and date-only/datetime strings alike.
+        where_clauses.append(f"date(left(toString(n.{date_field}), 10)) >= date($start_date)")
+        where_clauses.append(f"date(left(toString(n.{date_field}), 10)) <= date($end_date)")
 
     # Status filtering (if provided)
     if exclude_statuses:
@@ -1099,10 +1102,10 @@ def build_due_soon_query(
     today = date.today()
     end_date = today + timedelta(days=days_ahead)
 
-    # Build WHERE clauses (date(...) coerces ISO-string date fields — see build_user_activity_query)
+    # date(left(toString(...), 10)) coerces ISO date/datetime strings — see build_user_activity_query
     where_clauses = [
-        f"date(n.{date_field}) >= date($today)",
-        f"date(n.{date_field}) <= date($end_date)",
+        f"date(left(toString(n.{date_field}), 10)) >= date($today)",
+        f"date(left(toString(n.{date_field}), 10)) <= date($end_date)",
     ]
 
     if exclude_statuses:
@@ -1182,9 +1185,9 @@ def build_overdue_query(
 
     today = date.today()
 
-    # Build WHERE clauses (date(...) coerces ISO-string date fields — see build_user_activity_query)
+    # date(left(toString(...), 10)) coerces ISO date/datetime strings — see build_user_activity_query
     where_clauses = [
-        f"date(n.{date_field}) < date($today)",
+        f"date(left(toString(n.{date_field}), 10)) < date($today)",
     ]
 
     if exclude_statuses:

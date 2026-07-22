@@ -23,7 +23,7 @@ ORDER BY t.priority DESC, t.due_date ASC
 MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
 WHERE t.status IN ['draft', 'scheduled', 'active', 'blocked']
   AND t.due_date IS NOT NULL
-  AND date(t.due_date) < date()
+  AND date(left(toString(t.due_date), 10)) < date()  -- prefix guard: tolerates a mis-stored datetime (#766)
 RETURN t
 ORDER BY t.due_date ASC
 ```
@@ -361,7 +361,7 @@ WITH user,
      collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active', 'blocked'] THEN task.uid END) as active_tasks,
      collect(CASE WHEN task.status = 'completed' THEN task.uid END) as completed_tasks,
      collect(CASE WHEN task.due_date IS NOT NULL
-                   AND date(task.due_date) < date()
+                   AND date(left(toString(task.due_date), 10)) < date()
                    AND task.status NOT IN ['completed', 'cancelled']
              THEN task.uid END) as overdue_tasks
 

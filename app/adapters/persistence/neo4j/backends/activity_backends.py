@@ -702,7 +702,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             {
                 "completed": "n.status = 'completed'",
                 "overdue": (
-                    "n.due_date IS NOT NULL AND date(n.due_date) < date() "
+                    "n.due_date IS NOT NULL AND date(left(toString(n.due_date), 10)) < date() "
                     "AND n.status <> 'completed'"
                 ),
             },
@@ -926,8 +926,8 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         user_clause = "AND e.user_uid = $user_uid" if user_uid else ""
         query = f"""
         MATCH (e:Entity)
-        WHERE date(e.event_date) >= date($start_date)
-          AND date(e.event_date) <= date($end_date)
+        WHERE date(left(toString(e.event_date), 10)) >= date($start_date)
+          AND date(left(toString(e.event_date), 10)) <= date($end_date)
           {user_clause}
         RETURN e
         ORDER BY e.event_date ASC, e.start_time ASC
@@ -991,7 +991,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """
         query = """
         MATCH (e:Entity)
-        WHERE date(e.event_date) = date($event_date)
+        WHERE date(left(toString(e.event_date), 10)) = date($event_date)
           AND e.user_uid = $user_uid
           AND e.uid <> $event_uid
           AND NOT e.status IN ['cancelled']
@@ -1034,7 +1034,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         query = """
         MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
         WHERE e.rescheduled_at IS NOT NULL
-          AND date(e.rescheduled_at) >= date() - duration('P30D')
+          AND date(left(toString(e.rescheduled_at), 10)) >= date() - duration('P30D')
         RETURN count(e) as reschedule_count
         """
         result = await self.execute_query(query, {"user_uid": user_uid})
@@ -1049,7 +1049,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """Count events in a date range."""
         query = """
         MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
-        WHERE date(e.event_date) >= date($start_date) AND date(e.event_date) <= date($end_date)
+        WHERE date(left(toString(e.event_date), 10)) >= date($start_date) AND date(left(toString(e.event_date), 10)) <= date($end_date)
         RETURN count(e) as event_count
         """
         result = await self.execute_query(
@@ -1071,7 +1071,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """
         query = """
         MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event', status: 'completed'})
-        WHERE date(e.event_date) >= date($start_date)
+        WHERE date(left(toString(e.event_date), 10)) >= date($start_date)
         OPTIONAL MATCH (e)-[:CELEBRATES_GOAL]->(g:Goal)
         RETURN count(DISTINCT e) AS total_completed,
                count(DISTINCT CASE WHEN g IS NOT NULL THEN e.uid END) AS milestone_count,
@@ -1215,7 +1215,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         query = """
         MATCH (c:Entity {entity_type: 'choice'})
         WHERE c.user_uid = $user_uid
-          AND date(c.decision_deadline) <= date($end_date)
+          AND date(left(toString(c.decision_deadline), 10)) <= date($end_date)
           AND NOT c.status IN ['completed', 'decided', 'cancelled', 'archived']
         RETURN c
         ORDER BY c.decision_deadline ASC
@@ -1289,8 +1289,8 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         query = """
         MATCH (n:Principle)
         WHERE n.user_uid = $user_uid
-          AND date(n.adopted_date) >= date($start_date)
-          AND date(n.adopted_date) <= date($end_date)
+          AND date(left(toString(n.adopted_date), 10)) >= date($start_date)
+          AND date(left(toString(n.adopted_date), 10)) <= date($end_date)
         """
         if not include_completed:
             query += "  AND n.is_active = true\n"
@@ -1348,7 +1348,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         MATCH (p:Principle)
         WHERE p.is_active = true
           AND (p.last_review_date IS NULL
-               OR date(p.last_review_date) < date($cutoff_date))
+               OR date(left(toString(p.last_review_date), 10)) < date($cutoff_date))
           {user_clause}
         RETURN p
         {order_clause}
@@ -1386,7 +1386,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         MATCH (p:Principle)
         WHERE p.is_active = true
           AND (p.last_review_date IS NULL
-               OR date(p.last_review_date) <= date($cutoff_date))
+               OR date(left(toString(p.last_review_date), 10)) <= date($cutoff_date))
           {user_clause}
         RETURN p
         ORDER BY p.last_review_date ASC

@@ -84,8 +84,8 @@ OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 WITH user,
      collect(CASE WHEN task.status IN $open_task_statuses THEN task.uid END) as active_task_uids,
      collect(CASE WHEN task.status = $status_completed THEN task.uid END) as completed_task_uids,
-     collect(CASE WHEN task.status IN $overdue_eligible_task_statuses AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
-     collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids,
+     collect(CASE WHEN task.status IN $overdue_eligible_task_statuses AND task.due_date IS NOT NULL AND date(left(toString(task.due_date), 10)) < date($today) THEN task.uid END) as overdue_task_uids,
+     collect(CASE WHEN task.due_date IS NOT NULL AND date(left(toString(task.due_date), 10)) = date($today) THEN task.uid END) as today_task_uids,
      collect(task) as all_tasks_nodes
 
 // Filter tasks for rich data — active status always included; window entities included if touched since $window_start
@@ -324,14 +324,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // EVENTS - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
-WHERE date(event.event_date) >= date(datetime($window_start))
+WHERE date(left(toString(event.event_date), 10)) >= date(datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata, habits_rich,
-     collect(CASE WHEN date(event.event_date) >= date($today) THEN event.uid END) as upcoming_event_uids,
-     collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids,
+     collect(CASE WHEN date(left(toString(event.event_date), 10)) >= date($today) THEN event.uid END) as upcoming_event_uids,
+     collect(CASE WHEN date(left(toString(event.event_date), 10)) = date($today) THEN event.uid END) as today_event_uids,
      collect(event) as all_event_nodes
 
 // Filter events for rich data (with graph neighborhoods)
@@ -1251,8 +1251,8 @@ OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 WITH user,
      collect(CASE WHEN task.status IN $open_task_statuses THEN task.uid END) as active_task_uids,
      collect(CASE WHEN task.status = $status_completed THEN task.uid END) as completed_task_uids,
-     collect(CASE WHEN task.status IN $overdue_eligible_task_statuses AND task.due_date IS NOT NULL AND date(task.due_date) < date($today) THEN task.uid END) as overdue_task_uids,
-     collect(CASE WHEN task.due_date IS NOT NULL AND date(task.due_date) = date($today) THEN task.uid END) as today_task_uids
+     collect(CASE WHEN task.status IN $overdue_eligible_task_statuses AND task.due_date IS NOT NULL AND date(left(toString(task.due_date), 10)) < date($today) THEN task.uid END) as overdue_task_uids,
+     collect(CASE WHEN task.due_date IS NOT NULL AND date(left(toString(task.due_date), 10)) = date($today) THEN task.uid END) as today_task_uids
 
 // Habits - parallel collection with metrics
 OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
@@ -1322,7 +1322,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Events - parallel collection with date filtering
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
-WHERE date(event.event_date) >= date($today)
+WHERE date(left(toString(event.event_date), 10)) >= date($today)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
@@ -1331,7 +1331,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      enrolled_path_uids,
      active_moc_uids, moc_data,
      collect(event.uid) as upcoming_event_uids,
-     collect(CASE WHEN date(event.event_date) = date($today) THEN event.uid END) as today_event_uids
+     collect(CASE WHEN date(left(toString(event.event_date), 10)) = date($today) THEN event.uid END) as today_event_uids
 
 // Principles - active principles guide daily decisions
 OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)

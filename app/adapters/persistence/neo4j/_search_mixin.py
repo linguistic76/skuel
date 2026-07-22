@@ -152,16 +152,17 @@ class _SearchMixin[T: DomainModelProtocol]:
         # Inject default_filters for Ku-type discrimination
         self._inject_default_filters(where_clauses, params)
 
-        # Build date range conditions
+        # Build date range conditions. left(toString(...), 10) takes the YYYY-MM-DD
+        # prefix so a datetime-string value doesn't make date() throw (#766).
         if start_date:
-            where_clauses.append(f"date(n.{date_field}) >= date($start_date)")
+            where_clauses.append(f"date(left(toString(n.{date_field}), 10)) >= date($start_date)")
             if isinstance(start_date, date | datetime):
                 params["start_date"] = start_date.isoformat()
             else:
                 params["start_date"] = start_date
 
         if end_date:
-            where_clauses.append(f"date(n.{date_field}) <= date($end_date)")
+            where_clauses.append(f"date(left(toString(n.{date_field}), 10)) <= date($end_date)")
             if isinstance(end_date, date | datetime):
                 params["end_date"] = end_date.isoformat()
             else:

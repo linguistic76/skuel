@@ -142,7 +142,7 @@ WITH user,
      collect(CASE WHEN task.status = 'completed'
                   THEN task.uid END) AS completed_task_uids,
      collect(CASE WHEN task.due_date IS NOT NULL
-                       AND date(task.due_date) < date($today)
+                       AND date(left(toString(task.due_date), 10)) < date($today)
                   THEN task.uid END) AS overdue_task_uids,
      collect(task) AS all_task_nodes
 
@@ -459,11 +459,14 @@ Before "fixing" a comparison, **grep the write path**: `.isoformat()` → string
 WHERE datetime(n.created_at) >= datetime($window_start)
 WHERE datetime(s.next_due_at) <= datetime()
 
-// date-typed field (date-only string "2026-06-05"): use date()
-WHERE date(n.due_date) >= date($start_date)
+// date field (due_date, event_date, ...): take the YYYY-MM-DD prefix. A bare
+// date(n.due_date) works for a clean date-only string but THROWS if a writer
+// mis-stored a datetime there — which blanks the whole range (#766). left(...,10)
+// tolerates every shape (date-only string, datetime string, date/datetime type).
+WHERE date(left(toString(n.due_date), 10)) >= date($start_date)
 ```
 
-🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`). For a **datetime**-typed field compared against a *date*, parse-then-extract:
+🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`) — and a throw inside a range `WHERE` or a mega-query `CASE` takes the **whole** query down, so the user silently loses every row, not just the malformed one (#766). The `left(toString(x), 10)` prefix above is the defensive default for any date field. For a **datetime**-typed field compared against a *date*, `date(datetime(...))` (parse-then-extract) is equivalent:
 ```cypher
 // last_completed is a datetime string; we want "before today"
 CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
