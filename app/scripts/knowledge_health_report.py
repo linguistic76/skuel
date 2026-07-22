@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
+import os
 import sys
 from typing import Any
 
@@ -80,7 +82,18 @@ def _print_human(report: dict[str, Any]) -> None:
     print()
 
 
-async def run_report(as_json: bool) -> int:
+async def run_report(as_json: bool) -> tuple[int, dict[str, Any] | None]:
+    """Compose services, measure the subgraph, and return (exit_code, report).
+
+    Printing is the caller's job — in --json mode ``main`` runs this whole async
+    lifecycle under a stdout→stderr redirect and emits the JSON afterward, so no
+    bootstrap/teardown log can land on stdout.
+    """
+    # The report is pure graph analytics — force CORE so it runs with no API keys
+    # (compose defaults to FULL when INTELLIGENCE_TIER is unset, which would fail
+    # on the FULL-only OpenAI/Deepgram credentials this command never needs).
+    os.environ.setdefault("INTELLIGENCE_TIER", "core")
+
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from services_bootstrap import compose_services
@@ -93,24 +106,19 @@ async def run_report(as_json: bool) -> int:
         composed = await compose_services(adapter, InMemoryEventBus())
         if composed.is_error:
             print(f"ERROR: composition failed: {composed.expect_error()}", file=sys.stderr)
-            return 1
+            return 1, None
 
         analytics = composed.value.analytics
         if analytics is None:
             print("ERROR: analytics service is not wired", file=sys.stderr)
-            return 1
+            return 1, None
 
         result = await analytics.analyze_knowledge_subgraph_health()
         if result.is_error:
             print(f"ERROR: {result.expect_error()}", file=sys.stderr)
-            return 1
+            return 1, None
 
-        report = dict(result.value)
-        if as_json:
-            print(json.dumps(report, indent=2))
-        else:
-            _print_human(report)
-        return 0
+        return 0, dict(result.value)
     finally:
         await adapter.close()
 
@@ -123,7 +131,23 @@ def main() -> None:
         "--json", action="store_true", help="emit the raw report as JSON instead of a summary"
     )
     args = parser.parse_args()
-    sys.exit(asyncio.run(run_report(as_json=args.json)))
+
+    if args.json:
+        # Redirect the ENTIRE async lifecycle (compose → measure → teardown) to
+        # stderr: logging's StreamHandler binds sys.stdout at configure time, which
+        # happens inside this guard, so every log — including late teardown lines —
+        # lands on stderr. The JSON, printed after the guard closes, is then the
+        # only thing on stdout (safe to pipe to jq).
+        with contextlib.redirect_stdout(sys.stderr):
+            code, report = asyncio.run(run_report(as_json=True))
+        if report is not None:
+            print(json.dumps(report, indent=2))
+        sys.exit(code)
+
+    code, report = asyncio.run(run_report(as_json=False))
+    if report is not None:
+        _print_human(report)
+    sys.exit(code)
 
 
 if __name__ == "__main__":
