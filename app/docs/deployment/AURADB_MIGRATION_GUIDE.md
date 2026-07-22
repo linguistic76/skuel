@@ -505,16 +505,33 @@ NEO4J_DATABASE=neo4j
 INTELLIGENCE_TIER=full
 ```
 
-### 6.2 Remove Docker-Specific Configuration
+### 6.2 Remove Docker-Specific Configuration (self-host-only knobs)
 
-**Remove or comment out:**
+These knobs exist **only because SKUEL self-hosts Neo4j** — AuraDB provides each
+by default, so they disappear on migration and are not worth further investment.
+They are marked in the compose/k8s files with a grep-able `# AURA-TEMPORARY:`
+comment; run `grep -rn "AURA-TEMPORARY" infrastructure/ app/` to find every one.
+
+**Remove or comment out (env / `.env`):**
 
 ```bash
-# ❌ REMOVE - Docker-specific (not needed for AuraDB)
-# NEO4J_HEAP_INIT=512m              # AuraDB manages memory
-# NEO4J_HEAP_MAX=2G                 # AuraDB manages memory
-# NEO4J_PAGECACHE=1G                # AuraDB manages memory
+# ❌ REMOVE - self-host-only (AuraDB manages memory by instance tier)
+# NEO4J_HEAP_INIT=512m
+# NEO4J_HEAP_MAX=2G
+# NEO4J_PAGECACHE=1G
 ```
+
+**Drop from the compose/k8s Neo4j service (each managed by AuraDB):**
+
+| Knob | Why it disappears on Aura |
+|------|---------------------------|
+| `NEO4J_server_memory_heap_*`, `NEO4J_server_memory_pagecache_size` | AuraDB sizes memory by the chosen instance tier |
+| `NEO4J_server_jvm_additional: --add-modules jdk.incubator.vector` | AuraDB enables the Vector API (SIMD) by default — vector search is optimal without the flag |
+| `image: neo4j:<calendar-monthly>` version pin | AuraDB auto-upgrades — the ~monthly bump obligation goes away |
+
+**Keep — these port cleanly (driver/app-side, not server knobs):** the per-query
+timeout (`TimedDriver`), schema-change monitoring (`NEO4J_SCHEMA_MONITORING`), and
+APOC allowlist scoping all apply above the server and work unchanged against AuraDB.
 
 ### 6.3 Update Code Comments (If Needed)
 

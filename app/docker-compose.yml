@@ -35,6 +35,8 @@ services:
       # Override: APOC only — no GenAI plugin (SKUEL uses HuggingFace Python-side)
       NEO4J_PLUGINS: '["apoc"]'
       # Override: dev-friendly memory defaults
+      # AURA-TEMPORARY: self-host-only — AuraDB sizes memory by instance tier.
+      # See docs/deployment/AURADB_MIGRATION_GUIDE.md § 6.2.
       NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT:-1G}"
       NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP_MAX:-1500M}"
       NEO4J_server_memory_pagecache_size: "${NEO4J_PAGECACHE:-2G}"

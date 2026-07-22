@@ -59,6 +59,8 @@ spec:
     spec:
       containers:
       - name: neo4j
+        # AURA-TEMPORARY (obligation, not a feature): monthly version pin is
+        # self-host upkeep; AuraDB auto-upgrades. See AURADB_MIGRATION_GUIDE.md § 6.2.
         image: neo4j:2026.06.0
         ports:
         - containerPort: 7474
@@ -75,6 +77,8 @@ spec:
             secretKeyRef:
               name: skuel-secrets
               key: NEO4J_PASSWORD
+        # AURA-TEMPORARY: self-host-only — AuraDB sizes memory by instance tier.
+        # See docs/deployment/AURADB_MIGRATION_GUIDE.md § 6.2.
         - name: NEO4J_server_memory_heap_initial__size
           value: "1G"
         - name: NEO4J_server_memory_heap_max__size

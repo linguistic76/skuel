@@ -12,6 +12,14 @@ AuraDB.
 This doc covers the **server process** knobs. For the per-query transaction ceiling wired on the
 driver side, see [NEO4J_QUERY_TIMEOUT.md](NEO4J_QUERY_TIMEOUT.md) / ADR-064.
 
+> **Self-host-only (AURA-TEMPORARY):** the memory sizing (heap/page-cache) and the Vector API
+> (SIMD) flag below exist **only because SKUEL self-hosts Neo4j**. AuraDB provides both by default
+> (memory by instance tier; Vector API on), so they are temporary scaffolding — marked
+> `# AURA-TEMPORARY:` in the compose/k8s files and dropped on migration. Don't over-invest in
+> tuning them. Checklist: [AURADB_MIGRATION_GUIDE.md § 6.2](../deployment/AURADB_MIGRATION_GUIDE.md).
+> The driver-side knobs (per-query timeout, schema monitoring, APOC scoping) port cleanly and are
+> **not** temporary.
+
 ## Config surface
 
 | Concern | `NEO4J_*` env var | Value | Notes |
@@ -99,3 +107,4 @@ docker exec skuel-neo4j cypher-shell -u neo4j -p "$NEO4J_PASSWORD" -d neo4j \
 - [ADR-068](../decisions/ADR-068-openai-embeddings-now-bge-later.md) — embedding provider (why the vectors exist; the server only indexes them)
 - `neo4j-cypher-patterns` skill § vector indexes — the query/DDL side (`sync_vector_indexes()`, `VectorSearchBackend`)
 - `infrastructure/README.md` — running the Neo4j service (image, ports, volumes, upgrade steps)
+- [AURADB_MIGRATION_GUIDE.md § 6.2](../deployment/AURADB_MIGRATION_GUIDE.md) — the self-host-only (`AURA-TEMPORARY`) knobs that disappear on AuraDB, vs. what ports cleanly
