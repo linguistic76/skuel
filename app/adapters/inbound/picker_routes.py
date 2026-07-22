@@ -5,7 +5,7 @@ Picker Routes — searchable cross-domain entity dropdown
 Backend for ``ui/patterns/entity_picker.py``. One HTML-fragment endpoint
 that the picker hits via HTMX:
 
-    GET /api/picker/search?type={goal|habit|task}
+    GET /api/picker/search?type={goal|habit|task|event|choice|principle}
                           &q=<text>
                           &exclude_uid=<uid>
                           &exclude_descendants_of=<uid>
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.picker")
 
 
-_SUPPORTED_TYPES = ("goal", "habit", "task")
+_SUPPORTED_TYPES = ("goal", "habit", "task", "event", "choice", "principle")
 
 
 def create_picker_routes(
@@ -98,6 +98,9 @@ def _resolve_search_service(
         "task": services.tasks,
         "goal": services.goals,
         "habit": services.habits,
+        "event": services.events,
+        "choice": services.choices,
+        "principle": services.principles,
     }.get(target_type)
     if facade is None:
         return None

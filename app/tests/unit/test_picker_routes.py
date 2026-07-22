@@ -45,10 +45,10 @@ def _make_entity(uid: str, title: str) -> Any:
 
 @pytest.fixture
 def mock_services() -> Any:
-    """Three activity-domain facades, each with a `.search` sub-service."""
+    """All six activity-domain facades, each with a `.search` sub-service."""
     services = MagicMock()
 
-    for facade_name in ("tasks", "goals", "habits"):
+    for facade_name in ("tasks", "goals", "habits", "events", "choices", "principles"):
         facade = MagicMock()
         facade.search = MagicMock()
         facade.search.list_recent_for_user = AsyncMock(return_value=Result.ok([]))
@@ -129,6 +129,35 @@ class TestNonEmptyQuery:
         await handler(_make_request(), type="task", q="   ")
         mock_services.tasks.search.list_recent_for_user.assert_awaited_once()
         mock_services.tasks.search.search_for_user.assert_not_awaited()
+
+
+class TestTypeRouting:
+    """Each supported type dispatches to its own activity-domain facade."""
+
+    @pytest.mark.parametrize(
+        ("target_type", "facade_name"),
+        [
+            ("task", "tasks"),
+            ("goal", "goals"),
+            ("habit", "habits"),
+            ("event", "events"),
+            ("choice", "choices"),
+            ("principle", "principles"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_type_routes_to_facade(
+        self, handler: Any, mock_services: Any, target_type: str, facade_name: str
+    ) -> None:
+        facade = getattr(mock_services, facade_name)
+        facade.search.list_recent_for_user.return_value = Result.ok(
+            [_make_entity(f"{target_type}:1", f"A {target_type}")]
+        )
+        result = await handler(_make_request(), type=target_type, q="")
+        facade.search.list_recent_for_user.assert_awaited_once()
+        html = render(result)
+        assert f"A {target_type}" in html
+        assert f'data-uid="{target_type}:1"' in html
 
 
 class TestExclusions:

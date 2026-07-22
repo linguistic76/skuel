@@ -61,6 +61,18 @@ class TestTargetTypeRouting:
         html = render(EntityPicker(name="parent_uid", target_type="task"))
         assert "/api/picker/search?type=task" in html
 
+    def test_event_picker_url(self):
+        html = render(EntityPicker(name="triggered_by_event_uid", target_type="event"))
+        assert "/api/picker/search?type=event" in html
+
+    def test_choice_picker_url(self):
+        html = render(EntityPicker(name="informs_choice_uid", target_type="choice"))
+        assert "/api/picker/search?type=choice" in html
+
+    def test_principle_picker_url(self):
+        html = render(EntityPicker(name="guided_by_principle_uid", target_type="principle"))
+        assert "/api/picker/search?type=principle" in html
+
     def test_unsupported_type_raises(self):
         with pytest.raises(ValueError, match="unsupported target_type"):
             EntityPicker(name="x", target_type="not_a_type")
