@@ -272,11 +272,13 @@ class TestGetRelationshipGraph:
         mock_record = {
             "center_uid": "task_a",
             "center_title": "Task A",
-            "center_type": "Task",
+            "center_type": "Task",  # Neo4j label (styling)
+            "center_entity_type": "task",  # canonical value (detail URL)
             "center_status": "pending",
             "related_uid": "task_b",
             "related_title": "Task B",
             "related_type": "Task",
+            "related_entity_type": "task",
             "related_status": "completed",
             "relationships": [{"type": "BLOCKS", "from": "task_b", "to": "task_a"}],
             "depth_level": 1,
@@ -289,6 +291,12 @@ class TestGetRelationshipGraph:
         graph = result.value
         assert len(graph["nodes"]) == 2
         assert len(graph["edges"]) == 1
+
+        # Nodes carry the canonical entity_type (distinct from the Neo4j-label `type`)
+        # so the route can resolve a real detail URL via entity_detail_href.
+        related_node = next(n for n in graph["nodes"] if n["id"] == "task_b")
+        assert related_node["entity_type"] == "task"
+        assert related_node["type"] == "Task"  # label preserved for styling
 
         # Check edge properties
         edge = graph["edges"][0]
@@ -308,10 +316,12 @@ class TestGetRelationshipGraph:
                 "center_uid": "goal_a",
                 "center_title": "Goal A",
                 "center_type": "Goal",
+                "center_entity_type": "goal",
                 "center_status": "active",
                 "related_uid": "goal_b",
                 "related_title": "Goal B",
                 "related_type": "Goal",
+                "related_entity_type": "goal",
                 "related_status": "completed",
                 "relationships": [{"type": "PREREQUISITE_FOR", "from": "goal_b", "to": "goal_a"}],
                 "depth_level": 1,
@@ -320,10 +330,12 @@ class TestGetRelationshipGraph:
                 "center_uid": "goal_a",
                 "center_title": "Goal A",
                 "center_type": "Goal",
+                "center_entity_type": "goal",
                 "center_status": "active",
                 "related_uid": "goal_c",
                 "related_title": "Goal C",
                 "related_type": "Goal",
+                "related_entity_type": "goal",
                 "related_status": "active",
                 "relationships": [{"type": "ALTERNATIVE_TO", "from": "goal_a", "to": "goal_c"}],
                 "depth_level": 1,
@@ -342,3 +354,42 @@ class TestGetRelationshipGraph:
         edge_colors = {edge["relationship_type"]: edge["color"]["color"] for edge in graph["edges"]}
         assert edge_colors["PREREQUISITE_FOR"] == "#F59E0B"  # Orange
         assert edge_colors["ALTERNATIVE_TO"] == "#3B82F6"  # Blue
+
+    @pytest.mark.asyncio
+    async def test_node_entity_type_resolves_to_real_detail_url(
+        self, lateral_service, mock_backend
+    ):
+        """Graph nodes resolve to real detail routes via the canonical entity_type.
+
+        Regression guard for the dead click-nav: the node's Neo4j label ("Ku") is NOT a
+        route, so the route builds the URL from the entity_type property ("ku") through
+        entity_detail_href — the same path shape the detail pages register.
+        """
+        from ui.patterns.entity_links import entity_detail_href
+
+        mock_record = {
+            "center_uid": "task_a",
+            "center_title": "Task A",
+            "center_type": "Task",
+            "center_entity_type": "task",
+            "center_status": "pending",
+            "related_uid": "ku.pedagogy.zpd",
+            "related_title": "ZPD",
+            "related_type": "Ku",  # label — would have produced a dead /Ku/... link
+            "related_entity_type": "ku",
+            "related_status": "active",
+            "relationships": [{"type": "RELATED_TO", "from": "task_a", "to": "ku.pedagogy.zpd"}],
+            "depth_level": 1,
+        }
+        mock_backend.get_relationship_graph.return_value = Result.ok([mock_record])
+
+        result = await lateral_service.get_relationship_graph("task_a", depth=2)
+        assert not result.is_error
+
+        # Replicate the route's enrichment (entity_detail_href on each node's entity_type).
+        urls = {
+            n["id"]: entity_detail_href(n.get("entity_type"), n["id"])
+            for n in result.value["nodes"]
+        }
+        assert urls["task_a"] == "/tasks/detail?uid=task_a"
+        assert urls["ku.pedagogy.zpd"] == "/explore/ku/ku.pedagogy.zpd"  # path-param shape, live

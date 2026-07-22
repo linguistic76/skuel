@@ -332,12 +332,18 @@ Alpine.data('relationshipGraph', (entityUid, entityType, initialDepth = 1) => ({
     // Initialize Vis.js Network
     this.network = new vis.Network(container, data, options);
 
-    // Event: Click node to navigate
+    // Event: Click node to navigate to its real detail page.
+    // Do NOT build the URL from the node's Neo4j label / entity_type — labels
+    // ("Ku"/"Task") are not routes, and detail routes vary in shape
+    // (/tasks/detail?uid=, /explore/ku/{uid}, /lp/{uid}). The graph route resolves
+    // each node's `url` server-side via ui/patterns/entity_links.entity_detail_href
+    // (None for types with no detail page); the click handler just uses it.
     this.network.on('click', (params) => {
       if (params.nodes.length > 0) {
-        const nodeId = params.nodes[0];
-        // Navigate to entity detail page
-        window.location.href = `/${entityType}/${nodeId}`;
+        const node = data.nodes.find((n) => n.id === params.nodes[0]);
+        if (node && node.url) {
+          window.location.href = node.url;
+        }
       }
     });
 
