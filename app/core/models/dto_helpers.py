@@ -46,6 +46,14 @@ def parse_date_field(data: dict, field_name: str) -> None:
     """
     Parse date field in-place if it's a string.
 
+    Tolerates a full *datetime* string in a date field (a mis-writing path: some
+    writer stored ``"2026-10-21T09:00:00"`` where a date belongs). Bare
+    ``date.fromisoformat`` rejects that with ``ValueError`` and fails the entire
+    DTO conversion — which, on a range read, blanks the whole result set for the
+    user (see #766). Taking the ``YYYY-MM-DD`` prefix is the DTO-layer sibling of
+    the ``date(left(toString(...), 10))`` guard in the range queries, so both read
+    layers tolerate the same malformed value.
+
     Args:
         data: Dictionary to modify
         field_name: Field name to parse
@@ -56,7 +64,9 @@ def parse_date_field(data: dict, field_name: str) -> None:
         # data['due_date'] is now date(2025, 10, 21)
     """
     if field_name in data and isinstance(data[field_name], str):
-        data[field_name] = date.fromisoformat(data[field_name])
+        # [:10] is a no-op for an already date-only ISO string (exactly 10 chars)
+        # and extracts the date component from a datetime string.
+        data[field_name] = date.fromisoformat(data[field_name][:10])
 
 
 def parse_time_field(data: dict, field_name: str) -> None:
