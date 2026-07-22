@@ -383,11 +383,11 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 
 ### Step 4: Test Interactive Graph (5 min)
 
-1. Navigate to entity detail page (`/{domain}/{uid}`)
+1. Navigate to entity detail page (e.g. `/tasks/detail?uid=...`, `/explore/ku/{uid}`)
 2. Scroll to "Relationships" section
 3. Click "Interactive Graph" tab
 4. Change depth dropdown (1 → 2 → 3)
-5. Click a node → should navigate to that entity's detail page
+5. Click a node → should navigate to that entity's detail page (server-resolved `node.url`)
 6. Drag a node → should move smoothly
 7. Zoom/pan → should work
 
