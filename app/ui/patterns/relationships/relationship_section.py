@@ -49,7 +49,8 @@ def EntityRelationshipsSection(
         show_graph: Show relationship network graph
         authoring: Prepend a "Manage Relationships" panel with an add-relationship
             modal and a flat, deletable edge list. Only takes effect for entity
-            types the EntityPicker supports (task/goal/habit) — ignored otherwise.
+            types the EntityPicker supports (the six Activity types:
+            task/goal/habit/event/choice/principle) — ignored otherwise.
 
     Returns:
         Div containing complete relationships section with all components

@@ -411,6 +411,7 @@ def PrincipleDetailView(
     relationships = EntityRelationshipsSection(
         entity_uid=principle.uid,
         entity_type="principles",
+        authoring=True,
     )
 
     return Container(

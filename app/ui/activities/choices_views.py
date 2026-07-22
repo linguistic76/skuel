@@ -317,6 +317,7 @@ def ChoiceDetailView(
     relationships = EntityRelationshipsSection(
         entity_uid=choice.uid,
         entity_type="choices",
+        authoring=True,
     )
 
     return Container(

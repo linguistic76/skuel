@@ -357,7 +357,7 @@ ORDER BY complementary.synergy_score DESC
 - `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` — Create (emits `HX-Trigger: relationships-changed`)
 - `DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid}` — Delete (emits `HX-Trigger: relationships-changed`)
 
-**Authoring** (add/delete UI) is live on the **Tasks** detail page via `EntityRelationshipsSection(authoring=True)`; the shared routes/components make it near-free to enable on the other 8 domains. The `DEPENDS_ON` scheduling edge has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`), kept distinct from `BLOCKS` (see the task-relationships-authoring plan, R1). See [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) § Authoring.
+**Authoring** (add/delete UI) is live on all **6 Activity** detail pages (Tasks/Goals/Habits/Events/Choices/Principles) via `EntityRelationshipsSection(authoring=True)`, gated by `PICKER_TYPES`. Curriculum KU/PS/LP stay read-only (not in `PICKER_TYPES`). The `DEPENDS_ON` scheduling edge has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`), kept distinct from `BLOCKS` (see the task-relationships-authoring plan, R1). See [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) § Authoring.
 
 ---
 

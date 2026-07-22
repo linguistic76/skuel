@@ -15,8 +15,9 @@ refresh off the same event. Errors surface via the global toast handler
 Target selection reuses :func:`EntityPicker`; CSRF rides the global
 ``htmx:configRequest`` ``X-CSRF-Token`` header (no hidden field needed).
 
-Authoring is currently enabled for entity types the picker supports
-(task/goal/habit); DEPENDS_ON has its own task-scoped section.
+Authoring is enabled for the six Activity entity types the picker supports
+(task/goal/habit/event/choice/principle); DEPENDS_ON stays task-scoped in its
+own section.
 """
 
 from __future__ import annotations
@@ -32,7 +33,14 @@ from ui.patterns.modal import AlpineModal
 __all__ = ["AddRelationshipModal", "PICKER_TYPES"]
 
 # entity_type (route form) → EntityPicker target_type. Only these support authoring.
-PICKER_TYPES: dict[str, str] = {"tasks": "task", "goals": "goal", "habits": "habit"}
+PICKER_TYPES: dict[str, str] = {
+    "tasks": "task",
+    "goals": "goal",
+    "habits": "habit",
+    "events": "event",
+    "choices": "choice",
+    "principles": "principle",
+}
 
 # (relType value, path segment, label) for each authorable lateral type.
 # relType speaks the canonical RelationshipName value (drives x-model/x-show).
