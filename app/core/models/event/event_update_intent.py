@@ -92,10 +92,15 @@ class EventUpdateIntent:
         included (an explicit clear). This is the dict materialized at the single
         ``backend.update`` seam — call it only on the *property* sub-intent, after the
         facade has split the two edge fields off (see ``_split_relationship_intent``).
+        ``event_date`` is down-cast from any stray ``datetime`` so an update never
+        persists a time component in a date field (#766).
         """
-        return {
+        from core.models.dto_helpers import coerce_date_fields
+
+        changes = {
             f.name: value for f in fields(self) if (value := getattr(self, f.name)) is not UNSET
         }
+        return coerce_date_fields(changes, "event_date")
 
 
 __all__ = ["EventUpdateIntent"]

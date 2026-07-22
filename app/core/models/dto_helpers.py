@@ -172,11 +172,21 @@ def ensure_dict_field(data: dict, field_name: str) -> None:
 
 def convert_dates_to_iso(data: dict, field_names: list[str]) -> None:
     """
-    Convert multiple date fields to ISO format in-place.
+    Convert multiple *date* fields to ISO ``YYYY-MM-DD`` strings in-place.
+
+    ``field_names`` are declared date fields, so a ``datetime`` value that reached
+    one is a mis-write (some upstream path handed a ``datetime`` where a ``date``
+    belongs). ``datetime`` subclasses ``date``, so a bare ``.isoformat()`` would
+    persist the time component (``"2026-06-17T09:00:00"``) — which then makes
+    Cypher's ``date()`` throw on read and blanks the whole range (#766, write side).
+    This is the single serialization chokepoint every DTO's ``to_dict`` routes
+    through, so normalizing ``datetime → .date()`` here guarantees the invariant:
+    a date field never persists a time component. (The read side coerces defensively
+    for any legacy rows; this keeps new writes clean.)
 
     Args:
         data: Dictionary to modify
-        field_names: List of field names to convert
+        field_names: List of date field names to convert
 
     Example:
         data = {
@@ -187,8 +197,34 @@ def convert_dates_to_iso(data: dict, field_names: list[str]) -> None:
         # Both fields are now ISO strings
     """
     for field_name in field_names:
-        if field_name in data and isinstance(data[field_name], date):
-            data[field_name] = data[field_name].isoformat()
+        if field_name not in data:
+            continue
+        value = data[field_name]
+        # datetime FIRST — it is a subclass of date; strip the time component.
+        if isinstance(value, datetime):
+            data[field_name] = value.date().isoformat()
+        elif isinstance(value, date):
+            data[field_name] = value.isoformat()
+
+
+def coerce_date_fields(changes: dict[str, Any], *field_names: str) -> dict[str, Any]:
+    """Down-cast a ``datetime`` in a declared *date* field to its ``date``, in place.
+
+    Update intents (ADR-066) send raw field values straight to ``backend.update``,
+    which serializes them through the field-blind mapper — bypassing the DTO
+    ``to_dict`` -> :func:`convert_dates_to_iso` chokepoint that ``create`` and
+    dto-based updates use. So a ``datetime`` handed to a date-typed intent field
+    (e.g. ``TaskUpdateIntent(due_date=datetime(...))``) would persist a time
+    component and make Cypher's ``date()`` throw on a range read, blanking the
+    whole range (#766, update path). Each intent whose ``to_changes`` carries date
+    fields routes them through here so the "date fields never store a time" invariant
+    holds on updates too. Returns the same dict for chaining.
+    """
+    for name in field_names:
+        value = changes.get(name)
+        if isinstance(value, datetime):
+            changes[name] = value.date()
+    return changes
 
 
 def convert_datetimes_to_iso(data: dict, field_names: list[str]) -> None:
