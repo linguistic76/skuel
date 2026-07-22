@@ -919,3 +919,68 @@ class KnowledgeHealth:
 
     # Safety bound on the prerequisite-DAG depth walk (matches the LP mixin cap).
     PREREQUISITE_DEPTH_CAP: Final = 15
+
+
+# ============================================================================
+# TELEMETRY RETENTION (ADR-080 Horizon 0 — AuraDB Free node-cap safety)
+# ============================================================================
+
+
+class TelemetryRetention:
+    """Age windows and batch size for the one-shot telemetry-retention prune.
+
+    AuraDB Free is node-capped, and the unbounded-growth telemetry types dwarf
+    the curriculum (AuthEvent/Session run into the thousands while the whole
+    knowledge subgraph is ~150 nodes — ADR-080 Horizon 0). ``./dev
+    telemetry-retention`` age-prunes them so the graph stays cap-safe. It is a
+    deliberate, human-run one-shot (no background loop — the CORE "no background
+    workers" guarantee holds).
+
+    Each type gets its own default window. Pure system telemetry (auth, search,
+    interactions, learner VIEWED edges) prunes on a shorter horizon than
+    saved discussions, which are deliberately-kept user content (ADR-078) and so
+    default to the most conservative window. ``--days N`` on the CLI overrides
+    every window uniformly; expired sessions/reset-tokens are pruned on their own
+    stored ``expires_at`` (not age-based, so ``--days`` does not apply to them).
+    """
+
+    # Per-type default age windows, in days. A row older than its window is a
+    # prune candidate; ``--days N`` overrides all of these to N.
+    AUTH_EVENT_DAYS: Final = 90  # security audit trail — 90d covers lockout forensics
+    SEARCH_EVENT_DAYS: Final = 90  # discovery-analytics log (matches the 90d gap window)
+    INTERACTION_DAYS: Final = 365  # situated learning-loop events feed ZPD/analytics
+    VIEWED_DAYS: Final = 365  # stale learner VIEWED edges (last_viewed_at)
+    CONVERSATION_DAYS: Final = 365  # saved discussions = user content — most conservative
+
+    # Batch size for the delete loop. Each batch is its own transaction (the
+    # executor auto-commits per query), so a large prune never holds one giant
+    # transaction open — safe on a managed instance with a per-tx ceiling.
+    BATCH_SIZE: Final = 500
+
+
+# ============================================================================
+# NEO4J STARTUP CONNECT-RETRY (ADR-080 Horizon 0 — paused/waking AuraDB Free)
+# ============================================================================
+
+
+class Neo4jConnectRetry:
+    """Bounded exponential-backoff bounds for the initial Neo4j connectivity probe.
+
+    AuraDB Free auto-pauses on inactivity and takes a few seconds to resume on
+    the next connection. Without retry, bootstrap would crash with a bare
+    ``ServiceUnavailable`` stacktrace the moment it hits a paused instance. The
+    startup probe (``Neo4jAdapter.connect``) retries the ``RETURN 1`` check with
+    exponential backoff so a waking instance is tolerated; after the bound it
+    fails with one clear, actionable error. This is startup-only — deep
+    live-request reconnect/circuit-breaker across query sites is deliberately
+    deferred (ADR-080 "When to Revisit").
+
+    Defaults: 6 attempts → 5 backoffs of 1+2+4+8+16 = ~31s total patience
+    (plus per-attempt probe time) — comfortably longer than a Free-tier resume,
+    short enough to fail fast on a genuine misconfiguration. ``MAX_DELAY_SECONDS``
+    caps the growth (only reached if ``MAX_ATTEMPTS`` is raised well past 6).
+    """
+
+    MAX_ATTEMPTS: Final = 6
+    BASE_DELAY_SECONDS: Final = 1.0
+    MAX_DELAY_SECONDS: Final = 30.0

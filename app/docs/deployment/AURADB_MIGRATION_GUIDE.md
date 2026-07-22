@@ -35,6 +35,60 @@ This guide covers migrating from Docker-based Neo4j to Neo4j AuraDB (production 
 
 ---
 
+## AuraDB Free Readiness (ADR-080 Horizon 0)
+
+Before moving to **AuraDB Free** (as opposed to Professional/Enterprise, which the
+phases below target), two Free-specific constraints must be handled. They are the
+whole of "Horizon 0" in [ADR-080](/docs/decisions/ADR-080-auradb-three-horizon-strategy.md);
+everything else already ports (embeddings are Python-side, connection is a `.env`
+change, and the `AURA-TEMPORARY` self-host knobs simply fall away — see § 6.2).
+
+### 1. Telemetry retention (Free is node-capped)
+
+Free caps total nodes (~50k). The unbounded-growth telemetry types dwarf the
+curriculum — on the dev graph, AuthEvent/Session run into the thousands while the
+entire knowledge subgraph is ~150 nodes. Prune them **before** migrating (and
+periodically after) with the one-shot retention command:
+
+```bash
+# Report what would be pruned — deletes nothing
+./dev telemetry-retention --dry-run
+
+# Prune with the default per-type windows (core/constants.py TelemetryRetention)
+./dev telemetry-retention
+
+# Prune everything older than N days (uniform override)
+./dev telemetry-retention --days 30
+```
+
+It age-prunes `:AuthEvent`, `:SearchEvent`, `:Interaction`, stale `:VIEWED` edges,
+and old `:ConversationSession` subgraphs, and clears expired `:Session` /
+`:PasswordResetToken`. **One-shot, no background loop** — this preserves the CORE
+"no background workers" guarantee, so run it from a cron/CI step or by hand, not an
+in-process daemon. `:ConversationSession` holds deliberately-**saved** discussions
+(user content, ADR-078), so it carries the most conservative default window —
+`--dry-run` first if that matters. Windows and batch size live in
+`core/constants.py` (`TelemetryRetention`).
+
+### 2. Startup tolerance for a paused/waking instance
+
+Free **auto-pauses on inactivity** and takes a few seconds to resume on the next
+connection. Bootstrap's initial Neo4j connect (`Neo4jAdapter.connect`) wraps the
+connectivity probe in **bounded exponential-backoff retry** (`connect_with_retry`,
+bounds in `core/constants.py` `Neo4jConnectRetry`), so a waking instance is
+tolerated with a clear per-attempt log rather than a bare `ServiceUnavailable`
+stacktrace. After the bound it fails with one actionable error naming the likely
+paused-instance cause. No configuration needed — it is on for every startup path.
+
+**Deliberately deferred (Horizon 0 boundary):** deep **live-request** connection
+resilience — reconnect / circuit-breaker across the ~124 `session.run` query sites
+mid-request — is *not* built. Horizon 0 covers only the startup/waking case. This
+is a documented pathway, not an omission: see ADR-080 "When to Revisit". A managed
+instance rarely pauses under active traffic, so the marginal value is low until it
+proves otherwise.
+
+---
+
 ## When to Migrate
 
 ### You Should Migrate When...

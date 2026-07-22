@@ -290,6 +290,22 @@ class SessionBackend(Neo4jSessionRunner):
         self.logger.info(f"Cleaned up {count} expired sessions")
         return Result.ok(count)
 
+    @safe_backend_operation("count_expired_sessions")
+    async def count_expired_sessions(self) -> Result[int]:
+        """Count expired sessions without deleting (telemetry-retention dry-run).
+
+        Same predicate as ``cleanup_expired_sessions`` — kept alongside it so the
+        expiry rule lives in exactly one place.
+        """
+        query = """
+        MATCH (s:Session)
+        WHERE s.expires_at < datetime()
+        RETURN count(s) as expired_count
+        """
+
+        record = await self._run_single(query)
+        return Result.ok(record["expired_count"] if record else 0)
+
     # Query constants for get_user_sessions (no dynamic string interpolation)
     _QUERY_USER_SESSIONS_VALID_ONLY = """
         MATCH (u:User {uid: $user_uid})-[:HAS_SESSION]->(s:Session)
@@ -613,6 +629,22 @@ class SessionBackend(Neo4jSessionRunner):
         count = record["deleted_count"] if record else 0
         self.logger.info(f"Cleaned up {count} expired/used reset tokens")
         return Result.ok(count)
+
+    @safe_backend_operation("count_expired_tokens")
+    async def count_expired_tokens(self) -> Result[int]:
+        """Count expired/used reset tokens without deleting (retention dry-run).
+
+        Same predicate as ``cleanup_expired_tokens`` — kept adjacent so the rule
+        for "prunable token" lives in one place.
+        """
+        query = """
+        MATCH (t:PasswordResetToken)
+        WHERE t.expires_at < datetime() OR t.is_used = true
+        RETURN count(t) as expired_count
+        """
+
+        record = await self._run_single(query)
+        return Result.ok(record["expired_count"] if record else 0)
 
     # ========================================================================
     # HELPER METHODS

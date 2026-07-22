@@ -23,6 +23,7 @@ there would be wrong.
 __version__ = "1.0"
 
 
+import asyncio
 import os
 from typing import Any
 
@@ -132,24 +133,23 @@ class Neo4jConnection:
         """Async context manager exit."""
         await self.close()
 
-    async def test_connection(self) -> bool:
-        """
-        Test if the connection is working.
+    async def probe_connectivity(self) -> None:
+        """Verify the server is reachable AND queryable — raise if not.
 
-        Returns:
-            True if connection is successful, False otherwise
+        Runs ``RETURN 1`` (a stronger check than the driver's routing-only
+        ``verify_connectivity``: it confirms the database is actually resumed and
+        answering, which matters for an AuraDB Free instance waking from pause).
+        Propagates ``NEO4J_EXCEPTIONS`` (incl. ``ServiceUnavailable``) so callers
+        — notably ``connect_with_retry`` — can back off and retry.
         """
-        try:
-            self.connect()
-            if self.driver is None:
-                return False
-            async with self.driver.session() as session:
-                result = await session.run("RETURN 1 as test")
-                data = await result.single()
-                return data is not None and data["test"] == 1
-        except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Connection test failed: {e}")
-            return False
+        self.connect()
+        if self.driver is None:
+            raise RuntimeError("Neo4j driver not initialized")
+        async with self.driver.session() as session:
+            result = await session.run("RETURN 1 as test")
+            data = await result.single()
+        if data is None or data["test"] != 1:
+            raise RuntimeError("Neo4j connectivity probe returned no result")
 
     async def execute_query(
         self, query: str, params: dict[str, Any] | None = None
@@ -194,3 +194,54 @@ def get_connection() -> Neo4jConnection:
         _connection_instance.connect()
 
     return _connection_instance
+
+
+async def connect_with_retry(
+    connection: Neo4jConnection,
+    *,
+    max_attempts: int,
+    base_delay_seconds: float,
+    max_delay_seconds: float,
+) -> None:
+    """Probe Neo4j with bounded exponential backoff; raise a clear error if it stays down.
+
+    ADR-080 Horizon 0: AuraDB Free auto-pauses on inactivity and takes a few
+    seconds to resume on the next connection. Without retry, bootstrap would die
+    on a bare ``ServiceUnavailable`` the instant it hit a paused instance. This
+    retries ``connection.probe_connectivity()`` (a ``RETURN 1`` check) so a waking
+    instance is tolerated, logging each attempt; after ``max_attempts`` it raises
+    one actionable ``RuntimeError``.
+
+    Startup-only. Deep live-request reconnect / circuit-breaker across query
+    sites is deliberately deferred (ADR-080 "When to Revisit").
+
+    Delay before attempt *n* (1-indexed) is
+    ``min(base_delay_seconds * 2**(n-1), max_delay_seconds)``.
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            await connection.probe_connectivity()
+            if attempt > 1:
+                logger.info("Neo4j reachable on attempt %d/%d — proceeding.", attempt, max_attempts)
+            return
+        except NEO4J_EXCEPTIONS as e:
+            last_error = e
+            if attempt >= max_attempts:
+                break
+            delay = min(base_delay_seconds * (2 ** (attempt - 1)), max_delay_seconds)
+            logger.warning(
+                "Neo4j not ready (attempt %d/%d): %s. Retrying in %.1fs "
+                "(an AuraDB Free instance may be waking from pause)...",
+                attempt,
+                max_attempts,
+                e,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+    raise RuntimeError(
+        f"Neo4j unreachable after {max_attempts} attempts: {last_error}. "
+        "If this is AuraDB Free, the instance may be paused — resume it in the "
+        "Aura console; otherwise verify NEO4J_URI, credentials, and network reachability."
+    ) from last_error

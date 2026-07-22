@@ -193,3 +193,23 @@ Reconsider the GDS deferral when **both** hold:
 At that point: introduce the algorithm-compute **port with its first real adapter**, graduate Free →
 AuraDS, and implement the willingly-absent capabilities one at a time — each still delegating meaning
 (ZPD/semantics/interpretation) to SKUEL, with its Analog fallback retained as the CORE-tier path.
+
+### Deferred within Horizon 0: deep live-request connection resilience
+
+Horizon 0 (shipped) handles the **startup/waking** case only: `Neo4jAdapter.connect` retries the
+initial connectivity probe with bounded exponential backoff (`connect_with_retry`; bounds in
+`core/constants.py` `Neo4jConnectRetry`), so a paused/waking AuraDB Free instance no longer crashes
+bootstrap. Telemetry retention (`./dev telemetry-retention`, one-shot) keeps the graph under the Free
+node cap.
+
+What is **deliberately not built** is **mid-request** resilience — reconnect / circuit-breaker across
+the ~124 `session.run` query sites, so an in-flight request survives an instance that pauses under
+active traffic. This is a *documented pathway, not dead code*: there is no method to register in
+`PLANNED_METHODS` because the work is unbuilt (that mechanism tracks staged-but-unwired *methods*, and
+inventing an empty symbol would trip SKUEL026 / the bloat auditor). Instead this note is the marker.
+
+**Revisit it when** a managed instance is observed pausing under real traffic (Free auto-pauses on
+*inactivity*, so an actively-used instance rarely does — hence the low present value), or when moving
+off a tier whose pause behavior differs. The natural home if built: a thin retry/reconnect wrapper at
+the driver/executor seam (`TimedDriver` / `Neo4jQueryExecutor`), where a single chokepoint already
+exists — *not* 124 call-site edits.
