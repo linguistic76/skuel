@@ -119,7 +119,18 @@ weighting). It does not touch CRUD/traversal Cypher (the store) or text-vector s
 - `PLANNED_METHODS` / `PLANNED_EVENTS` register deferred GDS-shaped work as a visible backlog rather
   than dead code.
 
-### Willingly-absent capabilities (deferred to Horizon 2, each with a present Analog fallback)
+**6. Reserve the GDS write-back namespace now — cheap to declare, painful to retrofit.** GDS
+`write`/`mutate` mode lands algorithm results as node properties (`n.pagerank`, `n.communityId`,
+`n.fastrp_embedding`). Two reservations cost nothing today and avoid a rename-under-load later:
+- **Prefix algorithm-derived properties `gds_*`** (`gds_pagerank`, `gds_community`), keeping the
+  compute-derived scores/labels visibly distinct from authored domain fields — the property-level
+  echo of "GDS replaces the compute, not the meaning."
+- **Name any structural (FastRP/GraphSAGE) embedding `structural_embedding`, never `embedding`.**
+  SKUEL already runs 7 text-vector indexes (Entity / ContentChunk / ReferenceChunk / Goal / Task / Ku
+  / PathStep) keyed on `embedding`; a structural vector reusing that name would silently collide with
+  the semantic index. Structural and semantic similarity are the *complementary lenses* of the
+  willingly-absent table — their vectors must live on separate properties. This reservation is naming
+  only; no property is written until Horizon 2.
 
 | GDS capability | What it would give SKUEL | Present Analog fallback (holds the floor) |
 |---|---|---|
@@ -216,3 +227,24 @@ inventing an empty symbol would trip SKUEL026 / the bloat auditor). Instead this
 off a tier whose pause behavior differs. The natural home if built: a thin retry/reconnect wrapper at
 the driver/executor seam (`TimedDriver` / `Neo4jQueryExecutor`), where a single chokepoint already
 exists — *not* 124 call-site edits.
+
+### Deferred within Horizon 1: prerequisite-DAG cycle guard
+
+The Horizon-1 gauge measures the prerequisite DAG's depth and coverage but *assumes* it is acyclic —
+which it is today by authoring luck, not by enforcement. ORGANIZES and the generic hierarchy already
+reject cycles at write time (`_organizes_mixin.check_organizes_cycle`,
+`_hierarchy_mixin.would_create_cycle`); `PREREQUISITE_FOR` has no equivalent guard, so one bad ingest
+could introduce a cycle that corrupts ZPD readiness/blocking logic **today** and would break GDS
+topological-sort / DAG-longest-path **later**. Closing it is no-regret hygiene, not GDS-specific work.
+
+Like the mid-request-resilience deferral above, this is a *documented pathway, not dead code*, and it
+is **not** registered in `PLANNED_METHODS` — deliberately. That mechanism tracks staged-but-unwired
+methods that *exist* in the tree; the bloat auditor flags any entry whose function is absent (the
+in-scope vulture-demotion check and `_out_of_scope_planned_findings` in `scripts/detect_bloat.py`). A
+guard that has not been written yet has no symbol to register, so registering it would trip the
+auditor as a stale marking. This note is the marker.
+
+**The natural home if built:** a cycle check on the `PREREQUISITE_FOR` write/ingest path, mirroring
+the existing ORGANIZES guard, surfaced by the H1 gauge as an explicit DAG-validity flag (today the
+gauge reports depth, not validity). Low urgency at a 9-edge DAG; promote it to real work when the
+DAG's density climbs — the same density trigger that activates Horizon 2.
