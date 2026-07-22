@@ -25,7 +25,7 @@ Layout:
 
 from typing import Any
 
-from fasthtml.common import H3, A, Div, Span
+from fasthtml.common import H3, Div, Span
 
 from core.models.type_hints import EntityUID
 from ui.components import Card, CardBody
@@ -58,7 +58,7 @@ def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
                 SkeletonLines(count=3),
                 id=f"chain-{entity_uid}",
                 hx_get=f"/api/{entity_type}/{entity_uid}/lateral/chain",
-                hx_trigger="load",
+                hx_trigger="load, relationships-changed from:body",
                 hx_swap="innerHTML",
             ),
         ),
@@ -102,21 +102,21 @@ def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
                 status_color = "text-muted-foreground"
                 status_icon = "•"
 
+            # Plain text, not a link: the backend supplies a Neo4j label
+            # (labels(blocker)[0], e.g. "Entity"/"Task") as entity_type, which does
+            # not map to a real detail route (`/{domain}/detail?uid=...`). The graph
+            # view provides reliable click-to-navigate.
             entity_card = Div(
-                A(
-                    Div(
-                        Span(status_icon, cls=f"{status_color} text-lg mr-2"),
-                        Span(entity["title"], cls="font-medium"),
-                        cls="flex items-center",
-                    ),
-                    Div(
-                        f"Blocks {entity['blocks_count']} entities",
-                        cls="text-xs text-muted-foreground ml-6",
-                    ),
-                    href=f"/{entity['entity_type']}/{entity['uid']}",
-                    cls="hover:bg-muted p-2 rounded transition-colors block",
+                Div(
+                    Span(status_icon, cls=f"{status_color} text-lg mr-2"),
+                    Span(entity["title"], cls="font-medium"),
+                    cls="flex items-center",
                 ),
-                cls="mb-2",
+                Div(
+                    f"Blocks {entity['blocks_count']} entities",
+                    cls="text-xs text-muted-foreground ml-6",
+                ),
+                cls="mb-2 p-2 rounded",
             )
             entity_cards.append(entity_card)
 

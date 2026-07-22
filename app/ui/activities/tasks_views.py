@@ -7,6 +7,7 @@ Usage:
     from ui.activities.tasks_views import TaskList, TaskStatsBar
 """
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -18,6 +19,7 @@ from fasthtml.common import (
     Span,
 )
 
+from core.models.enums import EntityStatus
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import (
     ActivityList,
@@ -30,6 +32,7 @@ from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.forms import Input
 from ui.layout import Container, DivHStacked
+from ui.patterns.entity_picker import EntityPicker
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -39,6 +42,7 @@ if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from core.models.task.task import Task
+    from core.ports.query_types import TaskDependencyNeighbor, TaskDependencyNeighbors
 
 
 def TaskStatsBar(tasks: list["Task"]) -> "FT":
@@ -269,6 +273,137 @@ def _subtask_row(task: "Task") -> "FT":
     )
 
 
+# ============================================================================
+# DEPENDENCIES (DEPENDS_ON) — scheduling edges, add/remove inline
+# ============================================================================
+
+
+def _dependency_container_id(task_uid: str) -> str:
+    return f"dependencies-{safe_id(task_uid)}"
+
+
+def DependencySection(task_uid: str) -> "FT":
+    """Section shell that HTMX auto-loads the task's DEPENDS_ON dependency list.
+
+    DEPENDS_ON is the lightweight *scheduling* edge that feeds the planner/gantt —
+    kept distinct from the annotated lateral edges (Blocking/Prerequisites/…) which
+    live in the Relationships section below. See task-relationships-authoring plan (R1).
+    """
+    return Div(
+        section_label("Dependencies"),
+        Div(
+            id=_dependency_container_id(task_uid),
+            hx_get=f"/tasks/{task_uid}/dependencies",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        ),
+        cls="my-4",
+    )
+
+
+def _dependency_row(task_uid: str, neighbor: "TaskDependencyNeighbor", direction: str) -> "FT":
+    """One dependency row with a delete button.
+
+    ``direction`` is "depends_on" (edge this→neighbor) or "required_by"
+    (edge neighbor→this) — it orients which end is the dependent for removal.
+    """
+    is_completed = neighbor["status"] == EntityStatus.COMPLETED.value
+    icon_cls = f"flex-none {'text-success' if is_completed else 'text-muted-foreground'}"
+    title_cls = "text-sm line-through text-muted-foreground" if is_completed else "text-sm"
+
+    if direction == "depends_on":
+        dependent_uid, blocks_uid = task_uid, neighbor["uid"]
+    else:  # required_by: the neighbour depends on this task
+        dependent_uid, blocks_uid = neighbor["uid"], task_uid
+
+    remove_btn = Button(
+        "×",
+        type="button",
+        hx_post=f"/tasks/{task_uid}/dependencies/remove",
+        hx_vals=json.dumps({"dependent_uid": dependent_uid, "blocks_uid": blocks_uid}),
+        hx_target=f"#{_dependency_container_id(task_uid)}",
+        hx_swap="outerHTML",
+        hx_confirm="Remove this dependency?",
+        cls="text-muted-foreground hover:text-destructive text-lg leading-none px-2 shrink-0",
+        **{"aria-label": f"Remove dependency {neighbor['title'] or neighbor['uid']}"},
+    )
+    return Div(
+        Icon(
+            "check-circle" if is_completed else "circle",
+            size=14,
+            cls=icon_cls,
+        ),
+        A(
+            neighbor["title"] or neighbor["uid"],
+            href=f"/tasks/detail?uid={neighbor['uid']}",
+            cls=f"{title_cls} hover:underline truncate flex-1 min-w-0",
+        ),
+        remove_btn,
+        cls="flex items-center gap-2 py-1.5",
+    )
+
+
+def DependencyListFragment(
+    task_uid: str,
+    neighbors: "TaskDependencyNeighbors",
+    error: str | None = None,
+) -> "FT":
+    """Replaceable HTMX fragment: depends-on + required-by rows + add form.
+
+    ``error`` renders an inline banner above the lists (ownership / cycle
+    rejections surface here). The root carries the container id so an
+    ``outerHTML`` swap replaces the whole section.
+    """
+    from ui.patterns.error_banner import render_error_banner
+
+    container_id = _dependency_container_id(task_uid)
+    depends_on = neighbors["depends_on"]
+    required_by = neighbors["required_by"]
+
+    banner: Any = render_error_banner(error) if error else ""
+
+    depends_rows: list[Any] = (
+        [_dependency_row(task_uid, n, "depends_on") for n in depends_on]
+        if depends_on
+        else [P("Not waiting on any task.", cls="text-sm text-muted-foreground py-1")]
+    )
+    required_rows: list[Any] = (
+        [_dependency_row(task_uid, n, "required_by") for n in required_by]
+        if required_by
+        else [P("No task depends on this yet.", cls="text-sm text-muted-foreground py-1")]
+    )
+
+    add_form = Form(
+        EntityPicker(
+            name="target_uid",
+            target_type="task",
+            exclude_uid=task_uid,
+            required=True,
+        ),
+        Button("Add dependency", type="submit", cls=ButtonT.primary, size="sm"),
+        hx_post=f"/tasks/{task_uid}/dependencies/add",
+        hx_target=f"#{container_id}",
+        hx_swap="outerHTML",
+        cls="mt-3 pt-3 border-t border-border space-y-2",
+    )
+
+    return Div(
+        banner,
+        Div(
+            Small("Depends on", cls="text-muted-foreground block mb-1"),
+            *depends_rows,
+            cls="mb-3",
+        ),
+        Div(
+            Small("Required by", cls="text-muted-foreground block mb-1"),
+            *required_rows,
+        ),
+        add_form,
+        id=container_id,
+        hx_swap="outerHTML",
+    )
+
+
 def TaskDetailView(
     task: "Task",
     connections: list[dict[str, str]],
@@ -341,10 +476,14 @@ def TaskDetailView(
     # Sub-tasks (HTMX-loaded: parent breadcrumb + children + quick-add)
     subtasks = SubtaskSection(task.uid)
 
-    # Lateral relationships (Vis.js graph, blocking chain, alternatives)
+    # Task dependencies (DEPENDS_ON) — scheduling edges, add/remove inline.
+    dependencies = DependencySection(task.uid)
+
+    # Lateral relationships (Vis.js graph, blocking chain, alternatives) + authoring.
     relationships = EntityRelationshipsSection(
         entity_uid=task.uid,
         entity_type="tasks",
+        authoring=True,
     )
 
     return Container(
@@ -355,6 +494,7 @@ def TaskDetailView(
         tags_el,
         conn_section,
         subtasks,
+        dependencies,
         relationships,
         size="3xl",
     )

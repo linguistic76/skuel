@@ -2027,6 +2027,31 @@ class LateralRelationshipItem(TypedDict, total=False):
     direction: str
 
 
+class TaskDependencyNeighbor(TypedDict):
+    """A single direct ``DEPENDS_ON`` neighbour of a task.
+
+    Lightweight row for the task-detail Dependencies fragment — the immediate
+    (non-transitive) neighbour on either end of a ``(Task)-[:DEPENDS_ON]->(Task)``
+    edge, hydrated with just the fields the fragment renders.
+    """
+
+    uid: str
+    title: str
+    status: str
+
+
+class TaskDependencyNeighbors(TypedDict):
+    """Both directions of a task's direct ``DEPENDS_ON`` neighbours.
+
+    ``depends_on`` are the tasks this one must wait on (outgoing edge);
+    ``required_by`` are the tasks waiting on this one (incoming edge).
+    Populated by ``TasksService.get_task_dependency_neighbors``.
+    """
+
+    depends_on: list[TaskDependencyNeighbor]
+    required_by: list[TaskDependencyNeighbor]
+
+
 class RelationshipRow(TypedDict):
     """Single relationship row from ``get_relationships()``.
 

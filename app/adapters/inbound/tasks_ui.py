@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from adapters.inbound.auth import require_authenticated_user
@@ -26,6 +26,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
+from core.models.type_hints import UserUID
 from core.utils.connection_configs import TASK_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_tasks
 from core.utils.logging import get_logger
@@ -33,6 +34,7 @@ from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.nav import render_activity_sidebar_page
 from ui.activities.tasks_form import TaskCreateForm, TaskEditForm
 from ui.activities.tasks_views import (
+    DependencyListFragment,
     SubtaskListFragment,
     TaskDetailView,
     TaskList,
@@ -320,6 +322,80 @@ def create_tasks_ui_routes(
 
         return SubtaskListFragment(parent_uid, grandparent, children)
 
+    # ------------------------------------------------------------------
+    # Dependency fragments (DEPENDS_ON): GET read + POST add/remove
+    # ------------------------------------------------------------------
+
+    async def _dependencies_view(uid: str, user_uid: UserUID, error: str | None = None) -> Any:
+        """Fetch the task's owner-scoped DEPENDS_ON neighbours and render the fragment."""
+        neighbors = await tasks_service.get_task_dependency_neighbors(uid, user_uid)
+        value = neighbors.value if neighbors.is_ok else {"depends_on": [], "required_by": []}
+        return DependencyListFragment(uid, value, error=error)
+
+    @rt("/tasks/{uid}/dependencies", methods=["GET"])
+    async def dependencies_fragment(request: Request, uid: str) -> Any:
+        """HTMX fragment: this task's DEPENDS_ON neighbours (both directions)."""
+        user_uid = require_authenticated_user(request)
+        owned = await tasks_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            # Ownership contract: a task the caller does not own reads as 404, not a
+            # 200 fragment — HTMX won't swap it, keeping foreign/missing indistinguishable.
+            return Response("Not found", status_code=404)
+        return await _dependencies_view(uid, user_uid)
+
+    @rt("/tasks/{uid}/dependencies/add", methods=["POST"])
+    @csrf_protected
+    async def dependencies_add(request: Request, uid: str) -> Any:
+        """Add a ``(this)-[:DEPENDS_ON]->(target)`` edge, guarding ownership + cycles."""
+        user_uid = require_authenticated_user(request)
+        form = await request.form()
+        target_uid = str(form.get("target_uid", "")).strip()
+
+        # Guard the page's own task first (404, no leak on a foreign uid).
+        owned = await tasks_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return Response("Not found", status_code=404)
+        if not target_uid:
+            return await _dependencies_view(uid, user_uid, error="Pick a task to depend on.")
+        # Both endpoints must be owned by the caller (404-not-403).
+        target_owned = await tasks_service.verify_ownership(target_uid, user_uid)
+        if target_owned.is_error:
+            return await _dependencies_view(uid, user_uid, error="That task was not found.")
+
+        cycle = await tasks_service.would_create_dependency_cycle(uid, target_uid)
+        if cycle.is_error or cycle.value:
+            return await _dependencies_view(
+                uid, user_uid, error="That dependency would create a cycle."
+            )
+
+        created = await tasks_service.create_task_dependency(uid, target_uid)
+        if created.is_error:
+            return await _dependencies_view(uid, user_uid, error="Could not add the dependency.")
+        return await _dependencies_view(uid, user_uid)
+
+    @rt("/tasks/{uid}/dependencies/remove", methods=["POST"])
+    @csrf_protected
+    async def dependencies_remove(request: Request, uid: str) -> Any:
+        """Remove a DEPENDS_ON edge, guarding ownership of both endpoints."""
+        user_uid = require_authenticated_user(request)
+        form = await request.form()
+        dependent_uid = str(form.get("dependent_uid", "")).strip()
+        blocks_uid = str(form.get("blocks_uid", "")).strip()
+
+        owned = await tasks_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return Response("Not found", status_code=404)
+        # Verify the caller owns both endpoints of the edge being unlinked.
+        for endpoint in (dependent_uid, blocks_uid):
+            endpoint_owned = await tasks_service.verify_ownership(endpoint, user_uid)
+            if endpoint_owned.is_error:
+                return await _dependencies_view(uid, user_uid, error="That task was not found.")
+
+        removed = await tasks_service.delete_task_dependency(dependent_uid, blocks_uid)
+        if removed.is_error:
+            return await _dependencies_view(uid, user_uid, error="Could not remove the dependency.")
+        return await _dependencies_view(uid, user_uid)
+
     return [
         *base_routes,
         task_create_page,
@@ -328,4 +404,7 @@ def create_tasks_ui_routes(
         task_edit_submit,
         subtasks_fragment,
         subtasks_add,
+        dependencies_fragment,
+        dependencies_add,
+        dependencies_remove,
     ]

@@ -77,6 +77,8 @@ def RelationshipGraphView(
                 **{
                     "x-data": f"relationshipGraph('{entity_uid}', '{entity_type}', {depth})",
                     "x-init": "init()",
+                    # Reload the network whenever an add/delete fires relationships-changed.
+                    "x-on:relationships-changed.window": "loadGraph(depth)",
                 },
             ),
             # Legend

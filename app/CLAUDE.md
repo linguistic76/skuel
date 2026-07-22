@@ -1,7 +1,13 @@
+# SKUEL — Claude Code Project Instructions
+
+Quick-reference for working in this codebase: terse givens, each pointing (`**See:**`) to the authoritative doc for detail. Sections are grouped under themed banners below. Editorial rule: keep sections short — prose and examples live in the linked docs, not here (see [Documentation Architecture](#documentation-architecture)).
+
+## Working Conventions & Development Philosophy
+
 - We use uv for package management and for running files.
 - **Preferred document format: Markdown (`.md`).** Downloadable content (exercises, worksheets, reports) is served as `.md` so users can open, edit, and respond in any text editor or Obsidian. PDF is reserved for finance (invoices). Never introduce a new binary document format when `.md` will do.
 
-## Code Responsibility Philosophy
+### Code Responsibility Philosophy
 
 **If you see a problem, fix it.** Don't look the other way. Take responsibility to make the code better.
 
@@ -9,9 +15,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **This is not a license for scope creep.** Fix what is genuinely wrong. Don't redesign systems you were not asked to touch. The distinction: a bug you notice while working nearby should be fixed; a large refactor you think would be nice requires a deliberate decision.
 
----
-
-## One Path Forward - Core Development Philosophy
+### One Path Forward - Core Development Philosophy
 
 **SKUEL does NOT maintain backward compatibility.** When a better pattern emerges, the old pattern is removed entirely. No legacy wrappers, no deprecation periods, no alternative paths. Update all call sites immediately. Dead code is deleted, not archived.
 
@@ -21,78 +25,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`
 
-## Entity and Ku
-
-**Core Principle:** "Entity is the universal base. Ku is one type of Entity."
-
-`Entity` is the base frozen dataclass for all 25 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
-
-- **PathStep** (`EntityType.PATH_STEP`, extends `Curriculum`) — THE curriculum content entity. Composes Kus into learning content and sits within LearningPaths. Services in `core/services/ps/`. Facade: `PsService` in `core/services/ps_service.py`.
-- **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
-- **Exercise** (`EntityType.EXERCISE`, extends `Curriculum`) — the instruction template that closes the learning loop. Four scopes: `PERSONAL` (user's AI-feedback template; PathStep anchor optional — when set, dual-writes both `Exercise.path_step_uid` and the `HAS_EXERCISE` edge), `ASSIGNED` (teacher → group via ADR-040), `ASSESSMENT` (formal test with scoring rubric), `CURRICULUM` (content-vault-authored shared content, no user owner; anchored via `exercise_uids:` in PathStep YAML; not creatable via API). Service: `ExerciseService` in `core/services/exercises/exercise_service.py`.
-- **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content. `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — PathSteps anchor PERSONAL exercises.
-- **Learning loop (4 phases):** Exercise → UserEntry → EntryReport → RevisedExercise → UserEntry → ... The PathStep detail page (`/explore/ps/{uid}`) surfaces the loop — HTMX-loads exercises (with status), entries, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
-- **Knowledge principle:** PathStep IS knowledge. Exercise is APPLIED knowledge — subordinate to PathStep, not a peer. This hierarchy mirrors `Goal.fulfills_goal_uid`: `Exercise.path_step_uid` is a hierarchy-membership property (persisted at creation, dual-written with the `HAS_EXERCISE` edge), not a scoring/enrichment field. `EntityType.EXERCISE.is_applied_knowledge()` → `True`; `EntityType.LEARNING_PATH.is_curriculum_structure()` → `True`. **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
-
-## Naming Conventions
-
-- **Files:** Names must reflect function. Rename randomly-generated plan file names immediately.
-- **Parameters:** Underscore prefix (`_filters`, `_ctx`) marks a placeholder for future implementation.
-- **Entities / edges / variants:** EntityType = noun, Relationship = verb, Variant = enum field. **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`.
-- **Emission rule:** aliases (`ps`, `lp`) are input-only — `from_string()` resolves them at the boundary; every machine channel (payloads, stamps, option values) speaks canonical enum values. Route segments (`/explore/ps/`) are naming, not entity_type values. **See:** `/docs/architecture/ENUM_ARCHITECTURE.md § Canonical Values vs Aliases`.
-
-## Neo4j Infrastructure
-
-**Core Principle:** "One Path Forward - Docker -> DigitalOcean -> AuraDB"
-
-**Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068, BGE staged long-term).
-
-**Stage 2:** Droplet (Neo4j) + App Platform (app). Same config as local Docker.
-
-**Stage 3:** AuraDB. Database-level API keys, `neo4j+s://` connection, automated backups.
-
-**Code is environment-agnostic** — only `.env` configuration changes across stages.
-
-**Per-query server-side timeout:** every query through the shared driver carries a server-side per-tx ceiling (`NEO4J_TRANSACTION_TIMEOUT`, default 120s; `0`=unbounded). Wired at compose via `TimedDriver` — single chokepoint, no call-site edits. Bulk ingestion wraps to 600s; startup DDL stays untimed (`Neo4jSchemaManager(raw_driver)` carve-out). Override per op with `neo4j_query_timeout(s)` / `unbounded_neo4j_query_timeout()`.
-
-**Schema-change monitoring (opt-in, default OFF):** `SchemaChangeDetector` fingerprints the live schema and invalidates query-optimization caches on drift. On-demand via `Neo4jAdapter.check_schema_changes()`; or wire a background poll at startup with `NEO4J_SCHEMA_MONITORING=true` (+ `NEO4J_SCHEMA_MONITORING_INTERVAL`, default 900s, validated ≥1). Tier-independent (not `INTELLIGENCE_TIER`-gated) — off by default keeps the CORE-tier "no background workers" guarantee. **See:** neo4j-cypher-patterns skill § 7.
-
-**Server tuning (memory, JVM, Vector API):** all server config is `NEO4J_*` env vars on the `neo4j` service in `infrastructure/docker-compose.yml`. The Java Vector API (SIMD) is enabled via `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` — required for optimal performance of the 7 vector indexes (Entity/ContentChunk/ReferenceChunk/Goal/Task/Ku/PathStep embeddings); `2026.x` warns without it.
-
-**See:** `/docs/patterns/NEO4J_SERVER_TUNING.md`, `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md`
-
-## Skills & Documentation Cross-Reference
-
-**Core Principle:** "Local curated docs first, external lookup only when missing"
-
-See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete skill-to-documentation mapping.
-
-**Key skill categories:** Foundation (python, pydantic, ui-css, chartjs), Web Framework (fasthtml, domain-route-config, ui-browser), UX (accessibility-guide, skuel-ui, ui-error-handling), Database (neo4j-cypher-patterns), Infrastructure (docker, prometheus-grafana), Architecture (result-pattern, base-analytics-service, base-ai-service, prompt-templates, learning-loop, skuel-search-architecture, user-context-intelligence), Security (security), Testing (pytest), Meta (docs-skills-evolution).
-
-## Documentation Architecture
-
-**Single Source of Truth:** `/home/mike/skuel/app/docs/`
-- `docs/decisions/` — Architecture Decision Records
-- `docs/patterns/` — Implementation patterns
-- `docs/architecture/` — System architecture
-- `docs/INDEX.md` — Complete documentation index
-
-**CLAUDE.md Purpose:** Quick-reference with pointers to detailed docs. Sections should be 10-20 lines max with `**See:**` pointers. Prose and examples belong in the linked docs, not here.
-
-**Content Vault:** `/home/mike/0bsidian/0vault/` — Obsidian vault for content authoring (Ku / PathStep / edge YAMLs, markdown). Default ingestion source; override with `INGESTION_PATH` env var. NOT technical documentation.
-
-## Docstring Philosophy
-
-**Three layers:** docstrings describe implementation, patterns describe approach, architecture describes design.
-
-- **Always write:** Public APIs, complex functions, service classes, protocols
-- **Skip:** Obvious one-liners, simple private helpers
-- **Cross-reference:** `See: /docs/patterns/PATTERN_NAME.md`
-- **`core/services/` — intent, not mechanism:** describe WHAT the operation means in domain language; reference the backend for HOW (`Backend: KuBackend.get_path_steps_using`). Cypher belongs in backend / `core/utils/` docstrings, not service docstrings. SKUEL021 skips docstrings (correctly — prose can't execute), so this discipline isn't lint-enforced.
-
-**See:** `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/patterns/SERVICE_DOCSTRING_STYLE.md`
-
-## Analog-to-Digital Development Model
+### Analog-to-Digital Development Model
 
 **Core Principle:** "Plain English in, working code out"
 
@@ -100,7 +33,7 @@ Explicit human-AI partnership: the human provides intent in plain language, the 
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`
 
-## Analog + Digital Runtime Architecture
+### Analog + Digital Runtime Architecture
 
 **Core Principle:** "The Analog layer is not a degraded version of the Digital layer — it is the foundation"
 
@@ -108,7 +41,36 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`, `/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md`
 
-## SKUEL's 25 EntityTypes + 5 Cross-Cutting Systems
+### Fail-Fast Dependency Philosophy
+
+**Core Principle:** "All dependencies are REQUIRED - no graceful degradation"
+
+**Required at bootstrap:** Neo4j (always). OpenAI and Deepgram are FULL-tier only — not read in CORE mode. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs).
+
+### Knowledge Substance Philosophy
+
+**Core Principle:** "Applied knowledge, not pure theory"
+
+SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activity across Habits, UserEntry (grounded knowledge/je_pro entries — explicit `@ku()` refs via EXTRACT_ACTIVITIES ADR-069 + vector grounding via `EntryGroundingService`; two writers, one `KnowledgeReflectedInEntry` event), Choices, Principles, Events, and Tasks — each with a per-contribution weight and a per-domain cap. Total capped at 1.0.
+
+**See:** `/docs/architecture/knowledge_substance_philosophy.md`
+
+## Domain Model & Content
+
+### Entity and Ku
+
+**Core Principle:** "Entity is the universal base. Ku is one type of Entity."
+
+`Entity` is the base frozen dataclass for all 25 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
+
+- **PathStep** (`EntityType.PATH_STEP`, extends `Curriculum`) — THE curriculum content entity. Composes Kus into learning content and sits within LearningPaths. Services in `core/services/ps/`. Facade: `PsService` in `core/services/ps_service.py`.
+- **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
+- **Exercise** (`EntityType.EXERCISE`, extends `Curriculum`) — the instruction template that closes the learning loop. Four scopes: `PERSONAL` (user's AI-feedback template; optional PathStep anchor dual-writes `Exercise.path_step_uid` + the `HAS_EXERCISE` edge), `ASSIGNED` (teacher → group, ADR-040), `ASSESSMENT` (formal test + scoring rubric), `CURRICULUM` (content-vault-authored shared content, no user owner, not API-creatable). Service: `ExerciseService` in `core/services/exercises/exercise_service.py`.
+- **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content. `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — PathSteps anchor PERSONAL exercises.
+- **Learning loop (4 phases):** Exercise → UserEntry → EntryReport → RevisedExercise → UserEntry → ... The PathStep detail page (`/explore/ps/{uid}`) surfaces the loop — HTMX-loads exercises (with status), entries, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
+- **Knowledge principle:** PathStep IS knowledge. Exercise is APPLIED knowledge — subordinate to PathStep, not a peer. This hierarchy mirrors `Goal.fulfills_goal_uid`: `Exercise.path_step_uid` is a hierarchy-membership property (persisted at creation, dual-written with the `HAS_EXERCISE` edge), not a scoring/enrichment field. `EntityType.EXERCISE.is_applied_knowledge()` → `True`; `EntityType.LEARNING_PATH.is_curriculum_structure()` → `True`. **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
+
+### SKUEL's 25 EntityTypes + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
@@ -122,7 +84,59 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` (full table, traits, UID formats), `/docs/architecture/SEVEN_SUBSYSTEMS.md`, `/docs/architecture/THREE_LAYER_LENS.md`, `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
 
-## Type System
+### Curriculum Grouping Patterns
+
+| Pattern | UID authored (vault) → stored (graph) | Topology | Metaphor |
+|---------|-----------|----------|----------|
+| Ku | `ku:{ns}:{slug}` → `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atom | A single concept/fact |
+| PS | `ps:{namespace}:{slug}` → `ps.{namespace}.{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
+| LP | `lp:{namespace}:{slug}` → `lp.{namespace}.{slug}` | Path | An ordered sequence of path steps |
+
+**Colon → dot normalization:** ingestion rewrites `:` → `.` in every UID (`normalize_uid`, `core/services/ingestion/preparer.py` — entity `uid:`, rel-config fields, edge `from`/`to`). Vault files author colons; the graph stores dots. Never compare file↔graph UIDs raw.
+
+**Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships. Authoring surface: `moc: true` frontmatter on any ingestible file → body links become `ORGANIZES {order}` edges (dangling links: silent in personal vaults, warned in content vault). **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
+
+**Ku UID is flat & opaque** — hierarchy lives in `(parent)-[:ORGANIZES {order, importance}]->(child)` edges (multiple parents allowed), not in the UID. Two sanctioned forms — authored `ku.{ns}.{slug}` (vault) and generated `ku_{slug}_{random}` (API) — are BOTH valid; **never sniff type from the prefix** (spelling is provenance, not type information; determine entity kind by label/`entity_type`/edge).
+
+**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/decisions/ADR-013-ku-uid-flat-identity.md`, `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
+
+### Content Origin Tiers
+
+| Tier | ContentOrigin | EntityTypes | Description |
+|------|--------------|---------|-------------|
+| A | `CURATED` | Resource | Admin-curated content |
+| B | `CURRICULUM` | Curriculum, PS, LP | Curriculum structure |
+| C | `USER_CREATED` | Activities, UserEntry, LifePath | User-generated |
+| D | `REPORT` | ActivityReport, EntryReport | Analysis/reports |
+
+`ContentScope` controls access, `ContentOrigin` classifies purpose. Derived from `EntityType`.
+
+### Content Sharing
+
+**Core Principle:** "Three-level visibility with relationship-based access control"
+
+**Visibility:** PRIVATE (default) → SHARED (SHARES_WITH relationship) → TEAM (group-scoped) → PUBLIC (portfolio)
+
+**Three Sharing Modes:** Manual sharing, Assignment auto-sharing (ADR-040), Group sharing (SHARED_WITH_GROUP)
+
+**Service:** `from core.services.sharing import UnifiedSharingService` — entity-agnostic, methods: `share()`, `check_access()`, `set_visibility()`, group sharing.
+
+**Teacher Review:** `TeacherReviewService` — `get_review_queue()`, `submit_report()`, `request_revision()`, `approve_report()`
+
+**Graph:** `(user)-[:SHARES_WITH {shared_at, role, share_version}]->(entity)`, `(entity)-[:SHARED_WITH_GROUP]->(group)`
+
+**See:** `/docs/patterns/SHARING_PATTERNS.md`, `/docs/decisions/ADR-038-content-sharing-model.md`, `/docs/decisions/ADR-040-teacher-exercise-workflow.md`
+
+### Naming Conventions
+
+- **Files:** Names must reflect function. Rename randomly-generated plan file names immediately.
+- **Parameters:** Underscore prefix (`_filters`, `_ctx`) marks a placeholder for future implementation.
+- **Entities / edges / variants:** EntityType = noun, Relationship = verb, Variant = enum field. **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`.
+- **Emission rule:** aliases (`ps`, `lp`) are input-only — `from_string()` resolves them at the boundary; every machine channel (payloads, stamps, option values) speaks canonical enum values. Route segments (`/explore/ps/`) are naming, not entity_type values. **See:** `/docs/architecture/ENUM_ARCHITECTURE.md § Canonical Values vs Aliases`.
+
+## Type System & Enums
+
+### Type System
 
 **Core Principle:** "Pydantic at the edges, pure Python at the core; a type error from MyPy reveals a real design problem"
 
@@ -152,47 +166,7 @@ DTOs mirror the hierarchy: `EntityDTO → UserOwnedDTO, KuDTO, CurriculumDTO →
 
 **See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md`, `docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `docs/patterns/ANY_USAGE_POLICY.md`, `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
 
-## User Roles & Authentication
-
-**Core Principle:** "Graph-native authentication - all auth data in Neo4j"
-
-| Role | Level | Permissions |
-|------|-------|-------------|
-| REGISTERED | 0 | Free trial |
-| MEMBER | 1 | Paid subscription |
-| TEACHER | 2 | Member + create curriculum |
-| ADMIN | 3 | Teacher + user management |
-
-Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.auth`); role gates like `@require_admin(get_user_service)` take a named function, not a lambda (SKUEL012).
-
-**See:** `/docs/patterns/AUTH_PATTERNS.md`
-
-## Unified User Architecture
-
-**Core Principle:** "UserContext is THE single object for understanding a user's complete state"
-
-One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Carries core identity from the `User` model (`user_uid`, `username`, `display_name`, `email`, `user_role`) — only fetch `User` directly when you need `user.preferences`.
-
-| Depth | Method | Use Case |
-|-------|--------|----------|
-| Standard | `build()` | API responses, ownership checks (~150 fields) |
-| Rich | `build_rich()` | Intelligence, daily planning (~250 fields) |
-
-**ZPD Capstone:** `build_rich()` computes `context.zpd_assessment` (ZPDAssessment) as its final step — the pedagogical gravity well that synthesizes curriculum graph, behavioral signals, life path alignment, and compound evidence into recommended learning actions. FULL tier only. See: `core/services/zpd/zpd_service.py`.
-
-**Canonical Location:** `/core/services/user/unified_user_context.py`
-
-**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`
-
-## Analytics Architecture
-
-**Core Principle:** "Analytics aggregate, they don't create"
-
-Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONLY queries across all domains.
-
-**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
-
-## Dynamic Enum Pattern
+### Dynamic Enum Pattern
 
 **Core Principle:** "Enums define behavior, services consume it"
 
@@ -200,13 +174,15 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 
 **See:** `/docs/architecture/ENUM_ARCHITECTURE.md`, `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md`
 
-## Activity DSL & Domain Enums
+### Activity DSL & Domain Enums
 
-`EntityType` (25 values) covers multi-label `:Entity` Neo4j nodes. `NonKuDomain` (FINANCE, GROUP, CALENDAR, LEARNING) covers the 4 non-Entity domains. Both expose `from_string()` with alias support (e.g. `"knowledge"` → `EntityType.KU`).
+`EntityType` (25 values) covers multi-label `:Entity` Neo4j nodes; `NonKuDomain` (FINANCE, GROUP, CALENDAR, LEARNING) covers the 4 non-Entity domains. Both expose `from_string()` with alias support (e.g. `"knowledge"` → `EntityType.KU`) — aliases are input-only (see [Naming Conventions](#naming-conventions) § Emission rule).
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`, `/docs/dsl/DSL_USAGE_GUIDE.md`
 
-## Protocol-Based Architecture
+## Services, Backends & Events
+
+### Protocol-Based Architecture
 
 **Core Principle:** "Right type at the right boundary — concrete for facades, protocol for thin services"
 
@@ -223,55 +199,221 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 
 **See:** `/docs/patterns/protocol_architecture.md`, `/docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
-## Async/Sync Design Pattern
+### Generic Programming Patterns
+
+**Core Principle:** "One generic backend serves all 25 entity types"
+
+Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtocol`); generic service base `BaseService[Op, T]` (Op=protocol, T=domain model); generic type aliases in `core/models/type_hints.py` — `Validator[T]`, `EntityFilter[T]`, `Scorer[T]`.
+
+**See:** `docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `/docs/patterns/query_architecture.md`
+
+### BaseService Architecture
+
+**6 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, Context.
+
+**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (supports `skip` parameter for facades that override sub-services). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — 4 delegation methods via `KnowledgeIntelligenceDelegationMixin`, inherited by all 6 facades.
+
+**Harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. Domain-specific sub-services (Habits `completions`, Events `habit_integration`, Principles `alignment`) preserve uniqueness inside it.
+
+**Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins. **Floor:** inline back when a mixin is <250 lines, single-consumer, and mostly delegates to one dependency — don't extract just to satisfy a line count. **See:** `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`
+
+**Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
+
+### 100% Dynamic Backend Pattern
+
+**Core Principle:** "The plant grows on the lattice"
+
+**4 layers:** `*Operations` protocol → `*Backend` subclass → `{Domain}Service` facade → sub-services.
+
+Domain backends live in clustered files under `adapters/persistence/neo4j/backends/` (activity, curriculum, exercise, user_entry, sharing, forms, collab, misc) and standalone files for cross-cutting backends. Import from the cluster file directly.
+
+**Rules:** Domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services; services call `self.backend.method_name()` (never inline `execute_query()`). `cascade=True` for Activity Domains.
+
+**`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j is a committed architectural choice (ADR-044), not a swappable adapter.
+
+**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md` (full backend inventory + mixin layout)
+
+### Infrastructure Helpers
+
+**Location:** `/core/services/infrastructure/`
+
+| Helper | Purpose |
+|--------|---------|
+| `PrerequisiteChecker` | `check_prerequisites()` → `PrerequisiteResult` (score, is_ready, missing_knowledge, blocking_reasons); `build_learning_requirements()` → `LearningRequirements`. **See:** `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md` |
+| `LearningAlignmentBridge` | LP integration for any domain |
+| `SemanticRelationshipLinker` | Semantic relationship ops |
+
+### Async/Sync Design Pattern
 
 **Rule:** async for I/O (database, service calls), sync for computation and data conversion. If you need `await` inside the function, make it `async def`. Otherwise use `def`.
 
-## Data Flow Architecture
+### Event-Driven Architecture
+
+**Core Principle:** "Events over dependencies"
+
+**Event Naming:** `{domain}.{action}` (e.g., `task.completed`, `goal.achieved`). **Location:** `/core/events/`
+
+**Auto-timestamp:** `BaseEvent.occurred_at` defaults to `datetime.now()` via `kw_only` field — never pass it manually. Override only for tests or event replay.
+
+**Publish:** `await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)` — import from `core.events.utils`.
+
+## Data, Persistence & Search
+
+### Neo4j Infrastructure
+
+**Core Principle:** "One Path Forward - Docker → DigitalOcean → AuraDB"
+
+**Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068, BGE staged long-term).
+
+**Stage 2:** Droplet (Neo4j) + App Platform (app). Same config as local Docker.
+
+**Stage 3:** AuraDB. Database-level API keys, `neo4j+s://` connection, automated backups.
+
+**Code is environment-agnostic** — only `.env` configuration changes across stages.
+
+**Per-query server-side timeout:** every query through the shared driver carries a server-side per-tx ceiling (`NEO4J_TRANSACTION_TIMEOUT`, default 120s; `0`=unbounded). Wired at compose via `TimedDriver` — single chokepoint, no call-site edits. Bulk ingestion wraps to 600s; startup DDL stays untimed (`Neo4jSchemaManager(raw_driver)` carve-out). Override per op with `neo4j_query_timeout(s)` / `unbounded_neo4j_query_timeout()`.
+
+**Schema-change monitoring (opt-in, default OFF):** `SchemaChangeDetector` fingerprints the live schema and invalidates query-optimization caches on drift. On-demand via `Neo4jAdapter.check_schema_changes()`; or wire a background poll at startup with `NEO4J_SCHEMA_MONITORING=true` (+ `NEO4J_SCHEMA_MONITORING_INTERVAL`, default 900s, validated ≥1). Tier-independent (not `INTELLIGENCE_TIER`-gated) — off by default keeps the CORE-tier "no background workers" guarantee. **See:** neo4j-cypher-patterns skill § 7.
+
+**Server tuning (memory, JVM, Vector API):** all server config is `NEO4J_*` env vars on the `neo4j` service in the base compose `../infrastructure/docker-compose.yml` (repo root; the app `docker-compose.yml` extends it, overriding only deltas). The Java Vector API (SIMD) is enabled via `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` — required for optimal performance of the 7 vector indexes (Entity/ContentChunk/ReferenceChunk/Goal/Task/Ku/PathStep embeddings); `2026.x` warns without it.
+
+**See:** `/docs/patterns/NEO4J_SERVER_TUNING.md`, `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md`
+
+### Data Flow Architecture
 
 ```
 Content to Storage:
-Markdown -> UnifiedIngestionService -> KnowledgeUnit -> GraphNode -> Neo4j
+Markdown → UnifiedIngestionService → KnowledgeUnit → GraphNode → Neo4j
 
 Request Processing:
-HTTP -> FastHTML Route -> Pydantic -> Service -> Domain -> Repository -> Neo4j
+HTTP → FastHTML Route → Pydantic → Service → Domain → Repository → Neo4j
 ```
 
-## Knowledge Substance Philosophy
+### Search & Query Architecture
 
-**Core Principle:** "Applied knowledge, not pure theory"
+**Core Principle:** "SearchRouter is THE single path for all external search access"
 
-SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activity across Habits, UserEntry (grounded knowledge/je_pro entries — explicit `@ku()` refs via EXTRACT_ACTIVITIES ADR-069 + vector grounding via `EntryGroundingService`; two writers, one `KnowledgeReflectedInEntry` event), Choices, Principles, Events, and Tasks — each with a per-contribution weight and a per-domain cap. Total capped at 1.0.
+**Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
 
-**See:** `/docs/architecture/knowledge_substance_philosophy.md`
+**Searchable Domains (SearchRouter):** 12 — Task, Goal, Habit, Event, Choice, Principle, Ku, PS, LP, Exercise, RevisedExercise, UserEntry. UserEntry search REQUIRES `user_uid` (privacy line — refused unscoped; excluded from cross-domain sweeps). Forms search via their own services (see SEARCH_ARCHITECTURE § Searchable Entity Types).
 
-## Error Handling
+**Ownership scoping:** every strategy (text/tags/graph/faceted) is scoped by the domain's `SearchVisibility` declaration on DomainConfig — `OWNER_ONLY` (Activities, UserEntry), `PUBLIC` (PS/LP/KU), `SCOPE_AWARE` (Exercise: curriculum visible to all, owned scopes via OWNS/SHARES_WITH/group membership). One Cypher composition point: `build_search_visibility_clause()`. **See:** SEARCH_ARCHITECTURE § Ownership Scoping.
 
-**Core Principle:** "Use `Result[T]` internally, convert to HTTP at boundaries"
+**DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `search_visibility`, `graph_enrichment_patterns`, etc.
 
-- Use `.is_error` (not `.is_err`) for failure checks
-- Use `Result.fail(result)` to propagate errors across type boundaries (not `Result.fail(result.expect_error())`)
-- Use `.expect_error()` only when you need to _read_ the error (logging, branching on category)
-- Use `require_found(result, resource, uid)` for the fetch + not-found guard pattern in routes
-- Use `Errors` factory for creating errors
-- Seven error types: Validation, NotFound, Database, Integration, Business, System, Forbidden
-- **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). Convention: persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
-- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL030. Every lint run audits suppressions; one that suppresses nothing is flagged as SKUEL026 — delete it.
+**Factory functions:** `create_activity_domain_config()`, `create_curriculum_domain_config()`
 
-**See:** `/docs/patterns/ERROR_HANDLING.md`
+**See:** `/docs/patterns/query_architecture.md`, `/docs/architecture/SEARCH_ARCHITECTURE.md`
 
-## API Input Validation
+### EntityTimestampMixin
 
-**Core Principle:** "Validate at boundaries, fail fast with clear errors"
+Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), `timestamp_properties()` (creation). Sole inheritor is `TranscriptionService` — grep `EntityTimestampMixin` to confirm before assuming wider adoption.
 
-- **Query Parameters (GET):** Shared helpers in `route_helpers.py` (`parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`, etc.)
-- **JSON Bodies (POST):** Pydantic request models (auto-validated)
-- **Request Model Location:** `core/models/{domain}/{domain}_request.py`
-- **Error Codes:** Query params -> 400 Bad Request, JSON bodies -> 422 Unprocessable Entity
+**See:** `/docs/patterns/entity_timestamp_mixin.md`
 
-**See:** `/docs/patterns/API_VALIDATION_PATTERNS.md`
+## Content Ingestion & Vault
 
-## Ownership Verification
+### Unified Content Ingestion
+
+**Core Principle:** "The hips of SKUEL — one of three foundational systems"
+
+One-way pipeline: Markdown/YAML → Neo4j; most EntityTypes are file-ingestible.
+
+- **Human-initiated per event** (ADR-070 Decision 9 — no background watcher). Three doors: the personal-vault "Sync from Obsidian" button, the admin "Sync content vault" button (`POST /api/vault/sync/content`, the one directory-ingest path), and one-shot `./dev vault-sync` (`scripts/vault_bridge_sync.py`, in-process reconciler).
+- **Deletions propagate** on incremental/smart runs (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards).
+- **Force re-ingest** (`force=True` engine flag / route `{"force": true}` / `./dev vault-sync --force`) re-processes unchanged files for re-chunk/migration campaigns but keeps the wall + deletion reconciliation (force ≠ full).
+- `/submit` (exercise) uses `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` (ADR-054), not the directory door. The vault is the source of truth for user data; `/settings/vault` (Obsidian bidirectional sync) is the primary personal-data path.
+
+**Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
+
+**Import:** `from core.services.ingestion import UnifiedIngestionService`
+
+**API:** `POST /api/ingest/file`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `POST /api/vault/sync/content`, `WS /ws/ingest/progress/{operation_id}`
+
+**See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` (legacy YAML rejection, explicit `type` field rule, UID prefix validation, UserEntry `pipeline`/`audience` fields), `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
+
+### Obsidian VaultBridge (ADR-070)
+
+**Core Principle:** "Obsidian is the personal knowledge layer; SKUEL is the structured backbone"
+
+Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks written to Obsidian as `- [ ] task title 🆔 sk_<6>`; completions (`[x]` + `✅ date`) propagate back to SKUEL. The `🆔 sk_<6>` suffix is the join key — never strip it.
+
+- `VAULT_ROOT` — the PRIMARY personal vault (`/home/mike/0bsidian/skuel/`), distinct from `INGESTION_PATH` (content vault `0vault/`)
+- **Per-user roots:** `VAULT_ROOT` is owner-bound (`SKUEL_PERSONAL_VAULT_OWNER`, defaults to the `SKUEL_DEFAULT_USER_UID` chain); any other user resolves to `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/` or gets a clear not-found — no code path serves one user another user's vault
+- `VaultBridgePort` / `FilesystemVaultAdapter` / `VaultReconciler` — hexagonal port/adapter/reconciler triple
+- First-run consent gate guards the FIRST sync end to end (read + write) — nothing is ingested before consent; vault-root containment guard prevents upload-entry contamination
+- **Transport toggle:** `VAULT_TRANSPORT=filesystem|local_agent` (ADR-075, default filesystem) — `local_agent` reaches personal vaults through the user's connected `skuel-vault-agent` via a server-side staging mirror; content vault always stays filesystem
+
+**See:** `/docs/decisions/ADR-070-bidirectional-vault-bridge.md`, `/docs/decisions/ADR-075-local-agent-vault-transport.md`
+
+## Intelligence & User Context
+
+### Unified User Architecture
+
+**Core Principle:** "UserContext is THE single object for understanding a user's complete state"
+
+One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Carries core identity from the `User` model (`user_uid`, `username`, `display_name`, `email`, `user_role`) — only fetch `User` directly when you need `user.preferences`.
+
+| Depth | Method | Use Case |
+|-------|--------|----------|
+| Standard | `build()` | API responses, ownership checks (~150 fields) |
+| Rich | `build_rich()` | Intelligence, daily planning (~250 fields) |
+
+**ZPD Capstone:** `build_rich()` computes `context.zpd_assessment` (ZPDAssessment) as its final step — the pedagogical gravity well that synthesizes curriculum graph, behavioral signals, life path alignment, and compound evidence into recommended learning actions. FULL tier only. See: `core/services/zpd/zpd_service.py`.
+
+**Canonical Location:** `/core/services/user/unified_user_context.py`
+
+**See:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`
+
+### Analytics Architecture
+
+**Core Principle:** "Analytics aggregate, they don't create"
+
+Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONLY queries across all domains.
+
+**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
+
+### Intelligence Services Architecture
+
+**Core Principle:** "Graph analytics separated from AI — app runs without LLM dependencies"
+
+| Layer | Base Class | Dependencies |
+|-------|------------|--------------|
+| Analytics | `BaseAnalyticsService` | Graph + Python (NO AI) |
+| AI | `BaseAIService` | LLM + Embeddings (optional) |
+
+**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default). All 6 Activity Domain + 2 Curriculum facades have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
+
+**LLM/embedding SDK clients (ADR-063):** `openai`/`anthropic`/`huggingface_hub` clients live in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`. `core/` is SDK-client-free (only `exception_types.py` imports SDK exception classes). Guarded by `tests/unit/test_llm_sdk_boundary.py` (fails closed on any new vendor import).
+
+**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`, `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`
+
+### Embedding Text Extraction
+
+**Location:** `/core/utils/embedding_text_builder.py` — `build_embedding_text(EntityType, dict) -> str`
+
+**Supported:** 16 content-bearing entity types (all 6 Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`. PathStep + Ku ENTITY vectors = frontmatter fields only; body semantics = CHUNK embeddings (`chunks_body_content` ingestion configs — lesson bodies live on the :Content subtree, read back via `UniversalNeo4jBackend.get_content`).
+
+**Write paths (ADR-074):** ingestion never embeds inline — all create/update paths + both ingest doors publish `*EmbeddingRequested` post-persist through `core/events/embedding_publisher.py` → background worker (FULL tier; ingestion `event_bus` is None in CORE). One-shot script syncs (`./dev vault-sync`) subscribe the worker pre-sync and `drain()` post-sync — same event path, in-process. Backfill/staleness backstop: `scripts/generate_embeddings_batch.py [--stale|--audit]` (`--audit` = timestamp-free full-corpus hash sweep). Content-hash idempotency (ADR-074 §8): unchanged text never re-embeds — `embedding_text_hash` + `EmbeddingsService.verify_fresh_embeddings` skip BEFORE generation (worker + `--stale`); version outranks hash (a version bump always re-embeds). **See:** `/docs/decisions/ADR-074-post-persist-embedding-events.md`
+
+## Web Layer: Auth, Routing, API & UI
+
+### User Roles & Authentication
+
+**Core Principle:** "Graph-native authentication - all auth data in Neo4j"
+
+| Role | Level | Permissions |
+|------|-------|-------------|
+| REGISTERED | 0 | Free trial |
+| MEMBER | 1 | Paid subscription |
+| TEACHER | 2 | Member + create curriculum |
+| ADMIN | 3 | Teacher + user management |
+
+Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.auth`); role gates like `@require_admin(get_user_service)` take a named function, not a lambda (SKUEL012).
+
+**See:** `/docs/patterns/AUTH_PATTERNS.md`
+
+### Ownership Verification
 
 **Core Principle:** "Return 'not found' for entities the user doesn't own"
 
@@ -287,58 +429,67 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
-## Content Origin Tiers
+### Error Handling
 
-| Tier | ContentOrigin | EntityTypes | Description |
-|------|--------------|---------|-------------|
-| A | `CURATED` | Resource | Admin-curated content |
-| B | `CURRICULUM` | Curriculum, PS, LP | Curriculum structure |
-| C | `USER_CREATED` | Activities, UserEntry, LifePath | User-generated |
-| D | `REPORT` | ActivityReport, EntryReport | Analysis/reports |
+**Core Principle:** "Use `Result[T]` internally, convert to HTTP at boundaries"
 
-`ContentScope` controls access, `ContentOrigin` classifies purpose. Derived from `EntityType`.
+- Use `.is_error` (not `.is_err`) for failure checks
+- Use `Result.fail(result)` to propagate errors across type boundaries (not `Result.fail(result.expect_error())`)
+- Use `.expect_error()` only when you need to _read_ the error (logging, branching on category)
+- Use `require_found(result, resource, uid)` for the fetch + not-found guard pattern in routes
+- Use `Errors` factory for creating errors
+- Seven error types: Validation, NotFound, Database, Integration, Business, System, Forbidden
+- **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). Convention: persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
+- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL030. Every lint run audits suppressions; one that suppresses nothing is flagged as SKUEL026 — delete it.
 
-## Content Sharing
+**See:** `/docs/patterns/ERROR_HANDLING.md`
 
-**Core Principle:** "Three-level visibility with relationship-based access control"
+### API Input Validation
 
-**Visibility:** PRIVATE (default) -> SHARED (SHARES_WITH relationship) -> TEAM (group-scoped) -> PUBLIC (portfolio)
+**Core Principle:** "Validate at boundaries, fail fast with clear errors"
 
-**Three Sharing Modes:** Manual sharing, Assignment auto-sharing (ADR-040), Group sharing (SHARED_WITH_GROUP)
+- **Query Parameters (GET):** Shared helpers in `route_helpers.py` (`parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`, etc.)
+- **JSON Bodies (POST):** Pydantic request models (auto-validated)
+- **Request Model Location:** `core/models/{domain}/{domain}_request.py`
+- **Error Codes:** Query params → 400 Bad Request, JSON bodies → 422 Unprocessable Entity
 
-**Service:** `from core.services.sharing import UnifiedSharingService` — entity-agnostic, methods: `share()`, `check_access()`, `set_visibility()`, group sharing.
+**See:** `/docs/patterns/API_VALIDATION_PATTERNS.md`
 
-**Teacher Review:** `TeacherReviewService` — `get_review_queue()`, `submit_report()`, `request_revision()`, `approve_report()`
+### HTTP Status Codes
 
-**Graph:** `(user)-[:SHARES_WITH {shared_at, role, share_version}]->(entity)`, `(entity)-[:SHARED_WITH_GROUP]->(group)`
+POST (Create) → 201, GET/PUT/DELETE → 200, POST (Action) → 200
 
-**See:** `/docs/patterns/SHARING_PATTERNS.md`, `/docs/decisions/ADR-038-content-sharing-model.md`, `/docs/decisions/ADR-040-teacher-exercise-workflow.md`
+### Route Factories
 
-## Generic Programming Patterns
+| Factory | Purpose |
+|---------|---------|
+| CRUDRouteFactory | Standard CRUD |
+| StatusRouteFactory | Status changes |
+| OwnershipRouteFactory | Ownership-verified domain routes (GET/POST with ownership checks) |
+| CommonQueryRouteFactory | Query patterns |
+| AnalyticsRouteFactory | Analytics |
+All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`). `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently.
 
-**Core Principle:** "One generic backend serves all 25 entity types"
+**See:** `/docs/patterns/ROUTE_FACTORIES.md`
 
-Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtocol`); generic service base `BaseService[Op, T]` (Op=protocol, T=domain model); generic type aliases in `core/models/type_hints.py` — `Validator[T]`, `EntityFilter[T]`, `Scorer[T]`.
+### Domain Route Configuration
 
-**See:** `docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `/docs/patterns/query_architecture.md`
+**Core Principle:** "Configuration over code for route registration"
 
-## Infrastructure Helpers
+DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD / Query / Intelligence registration. Three wiring patterns exist — **A) DomainRouteConfig** (default), **B) Orchestrator** (explore/lateral/library), **C) Manual `@rt()`** (home, settings, submissions_hub, graphql). `ai_routes.py` uses its own `AIRouteSpec`.
 
-**Location:** `/core/services/infrastructure/`
+**See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` (full config fields, wiring decision guide, worked example)
 
-| Helper | Purpose |
-|--------|---------|
-| `PrerequisiteChecker` | `check_prerequisites()` → `PrerequisiteResult` (score, is_ready, missing_knowledge, blocking_reasons); `build_learning_requirements()` → `LearningRequirements`. **See:** `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md` |
-| `LearningAlignmentBridge` | LP integration for any domain |
-| `SemanticRelationshipLinker` | Semantic relationship ops |
+### FastHTML Best Practices
 
-## Fail-Fast Dependency Philosophy
+- Query parameters over path parameters (`/tasks/get?uid=...`)
+- POST for all mutations
+- Type hints for automatic parameter extraction
+- **Critical:** Do NOT use `routes = []` / `routes.append()` with `@rt()`. The decorator registers immediately.
 
-**Core Principle:** "All dependencies are REQUIRED - no graceful degradation"
+**See:** `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`
 
-**Required at bootstrap:** Neo4j (always). OpenAI and Deepgram are FULL-tier only — not read in CORE mode. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs).
-
-## UI Component Pattern
+### UI Component Pattern
 
 **Core Principle:** "BasePage for consistency, AuthPage for unauthenticated flows"
 
@@ -357,7 +508,7 @@ All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS).
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` — shared components (`PageHeader`, `CardGenerator`, `StatsGrid`, `ButtonLink`, badges, `AlpineModal`, etc.) + Key UI Files inventory
 - `/docs/ui/COMPONENT_CATALOG.md` — component catalog
 
-## Alpine.js Architecture
+### Alpine.js Architecture
 
 | Layer | Tool | Purpose |
 |-------|------|---------|
@@ -367,7 +518,7 @@ All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS).
 
 **Key Files:** `/static/js/skuel.js` (ALL Alpine.data() components), `/static/vendor/alpinejs/alpine.3.14.8.min.js`
 
-## PWA Mobile Strategy
+### PWA Mobile Strategy
 
 **Core Principle:** "One format (HTML), installable everywhere — no app store dependency"
 
@@ -382,7 +533,7 @@ All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS).
 
 **See:** `/docs/decisions/ADR-050-pwa-mobile-strategy.md`
 
-## Lateral Relationships & Vis.js Graph Visualization
+### Lateral Relationships & Vis.js Graph Visualization
 
 Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP).
 
@@ -394,129 +545,9 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 **See:** `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md`, `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md`
 
-## Event-Driven Architecture
+## Tooling, Quality & Process
 
-**Core Principle:** "Events over dependencies"
-
-**Event Naming:** `{domain}.{action}` (e.g., `task.completed`, `goal.achieved`). **Location:** `/core/events/`
-
-**Auto-timestamp:** `BaseEvent.occurred_at` defaults to `datetime.now()` via `kw_only` field — never pass it manually. Override only for tests or event replay.
-
-**Publish:** `await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)` — import from `core.events.utils`.
-
-## 100% Dynamic Backend Pattern
-
-**Core Principle:** "The plant grows on the lattice"
-
-**4 layers:** `*Operations` protocol → `*Backend` subclass → `{Domain}Service` facade → sub-services.
-
-Domain backends live in clustered files under `adapters/persistence/neo4j/backends/` (activity, curriculum, exercise, user_entry, sharing, forms, collab, misc) and standalone files for cross-cutting backends. Import from the cluster file directly.
-
-**Rules:** Domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services; services call `self.backend.method_name()` (never inline `execute_query()`). `cascade=True` for Activity Domains.
-
-**`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j is a committed architectural choice (ADR-044), not a swappable adapter.
-
-**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md` (full backend inventory + mixin layout)
-
-## Search & Query Architecture
-
-**Core Principle:** "SearchRouter is THE single path for all external search access"
-
-**Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
-
-**Searchable Domains (SearchRouter):** 12 — Task, Goal, Habit, Event, Choice, Principle, Ku, PS, LP, Exercise, RevisedExercise, UserEntry. UserEntry search REQUIRES `user_uid` (privacy line — refused unscoped; excluded from cross-domain sweeps). Forms search via their own services (see SEARCH_ARCHITECTURE § Searchable Entity Types).
-
-**Ownership scoping:** every strategy (text/tags/graph/faceted) is scoped by the domain's `SearchVisibility` declaration on DomainConfig — `OWNER_ONLY` (Activities, UserEntry), `PUBLIC` (PS/LP/KU), `SCOPE_AWARE` (Exercise: curriculum visible to all, owned scopes via OWNS/SHARES_WITH/group membership). One Cypher composition point: `build_search_visibility_clause()`. **See:** SEARCH_ARCHITECTURE § Ownership Scoping.
-
-**DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `search_visibility`, `graph_enrichment_patterns`, etc.
-
-**Factory functions:** `create_activity_domain_config()`, `create_curriculum_domain_config()`
-
-**See:** `/docs/patterns/query_architecture.md`, `/docs/architecture/SEARCH_ARCHITECTURE.md`
-
-## BaseService Architecture
-
-**6 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, Context.
-
-**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (supports `skip` parameter for facades that override sub-services). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — 4 delegation methods via `KnowledgeIntelligenceDelegationMixin`, inherited by all 6 facades.
-
-**Harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. Domain-specific sub-services (Habits `completions`, Events `habit_integration`, Principles `alignment`) preserve uniqueness inside it.
-
-**Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins. **Floor:** inline back when a mixin is <250 lines, single-consumer, and mostly delegates to one dependency — don't extract just to satisfy a line count. **See:** `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`
-
-**Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
-
-**See:** `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`
-
-## Unified Content Ingestion
-
-**Core Principle:** "The hips of SKUEL — one of three foundational systems"
-
-One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/submit` (exercise) uses `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth for user data: `/settings/vault` (Obsidian bidirectional sync) is the primary personal-data ingestion path. Incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards). Ingestion is **human-initiated per event** (ADR-070 Decision 9 — no background watcher): the personal-vault "Sync from Obsidian" button, the admin "Sync content vault" button (`POST /api/vault/sync/content`), or one-shot `./dev vault-sync` (`scripts/vault_bridge_sync.py`, in-process reconciler). Force re-ingest (`force=True` engine flag; route body `{"force": true}`; `./dev vault-sync --force`) re-processes unchanged files for re-chunk/migration campaigns while keeping the wall + deletion reconciliation (force ≠ full).
-
-**Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
-
-**Import:** `from core.services.ingestion import UnifiedIngestionService`
-
-**API:** `POST /api/ingest/file`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `POST /api/vault/sync/content` (admin content-vault sync via reconciler — the one directory-ingest path, ADR-070 Decision 9), `WS /ws/ingest/progress/{operation_id}`
-
-**See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` (legacy YAML rejection, explicit `type` field rule, UID prefix validation, UserEntry `pipeline`/`audience` fields), `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
-
-## Obsidian VaultBridge (ADR-070)
-
-**Core Principle:** "Obsidian is the personal knowledge layer; SKUEL is the structured backbone"
-
-Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks written to Obsidian as `- [ ] task title 🆔 sk_<6>`; completions (`[x]` + `✅ date`) propagate back to SKUEL. The `🆔 sk_<6>` suffix is the join key — never strip it.
-
-- `VAULT_ROOT` — the PRIMARY personal vault (`/home/mike/0bsidian/skuel/`), distinct from `INGESTION_PATH` (content vault `0vault/`)
-- **Per-user roots:** `VAULT_ROOT` is owner-bound (`SKUEL_PERSONAL_VAULT_OWNER`, defaults to the `SKUEL_DEFAULT_USER_UID` chain); any other user resolves to `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/` or gets a clear not-found — no code path serves one user another user's vault
-- `VaultBridgePort` / `FilesystemVaultAdapter` / `VaultReconciler` — hexagonal port/adapter/reconciler triple
-- First-run consent gate guards the FIRST sync end to end (read + write) — nothing is ingested before consent; vault-root containment guard prevents upload-entry contamination
-- **Transport toggle:** `VAULT_TRANSPORT=filesystem|local_agent` (ADR-075, default filesystem) — `local_agent` reaches personal vaults through the user's connected `skuel-vault-agent` via a server-side staging mirror; content vault always stays filesystem
-
-**See:** `/docs/decisions/ADR-070-bidirectional-vault-bridge.md`, `/docs/decisions/ADR-075-local-agent-vault-transport.md`
-
-## Curriculum Grouping Patterns
-
-| Pattern | UID authored (vault) → stored (graph) | Topology | Metaphor |
-|---------|-----------|----------|----------|
-| Ku | `ku:{ns}:{slug}` → `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atom | A single concept/fact |
-| PS | `ps:{namespace}:{slug}` → `ps.{namespace}.{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
-| LP | `lp:{namespace}:{slug}` → `lp.{namespace}.{slug}` | Path | An ordered sequence of path steps |
-
-**Colon → dot normalization:** ingestion rewrites `:` → `.` in every UID (`normalize_uid`, `core/services/ingestion/preparer.py` — entity `uid:`, rel-config fields, edge `from`/`to`). Vault files author colons; the graph stores dots. Never compare file↔graph UIDs raw.
-
-**Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships. Authoring surface: `moc: true` frontmatter on any ingestible file → body links become `ORGANIZES {order}` edges (dangling links: silent in personal vaults, warned in content vault). **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
-
-**Ku UID is flat** (`ku_{slug}_{random}`) — hierarchy lives in `(parent)-[:ORGANIZES {order, importance}]->(child)` edges (multiple parents allowed), not in the UID.
-
-**Two KU UID forms, never sniff:** authored (vault) `ku.{ns}.{slug}` and generated (API) `ku_{slug}_{random}` are BOTH sanctioned. UIDs are opaque — spelling is provenance, not type information; determine entity kind by label/`entity_type`/edge, never by UID prefix. **See:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md`
-
-**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/decisions/ADR-013-ku-uid-flat-identity.md`, `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
-
-## EntityTimestampMixin
-
-Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), `timestamp_properties()` (creation). Only `TranscriptionService` currently inherits it.
-
-**See:** `/docs/patterns/entity_timestamp_mixin.md`
-
-## Dependency & Python Versioning
-
-**Core Principle:** "Latest stable by default — pins are deliberate and documented"
-
-Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins. **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (conservative driver pin, Bolt-forward-compatible with the calendar-line server — driver version is *decoupled* from server version; ADR-044 + ADR-067 § 3) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite). **Neo4j server policy:** **latest monthly** of the *calendar* line (`YYYY.MM`, today `neo4j:2026.06.0`) — Neo4j hotfixes each monthly only until the next ships, so track the current one (don't soak), bump ~monthly, pin exactly (never a floating tag). "Latest" = newest whose **Docker image is published** (the `library/neo4j` image lags release notes by days — a released-but-unpublished tag isn't pinnable). Upgrades forward/in-place, downgrades unsupported; 5.26 LTS is the no-treadmill alternative (ADR-067 § 3a). Renovate opens update PRs only (no auto-merge — CI runs `tests/unit/` + `tests/integration/` (Neo4j testcontainer) on Python-file changes; verify locally: `./dev quality` + `./dev test-integration`). Ruff `target-version` is `py314` (matches runtime); TC002/TC003/UP037 are explicitly ignored to isolate their ~1024-site deferred sweep (runtime-risky w/ Pydantic/FastHTML) — see `[tool.ruff]` ignore list in `pyproject.toml`. Black still lags at `py312` (see `[tool.black]` note there).
-
-**See:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
-
-## PR Review Workflow
-
-**Core Principle:** "Reviews are advisory and a flaky service can't deadlock a merge — but the gate is never cleared by a timer, only by a read verdict"
-
-CI Gate is the sole automatic check. Codex review is on-demand via `scripts/request_codex_review.sh <PR#>` — summon + patient in-script poll across all three verdict surfaces (exit 0 clean+labeled / 2 findings-read / 3 timeout; run AFTER the final push — the gate drops the label on synchronize). Patience lives in the bash primitive, not a harness scheduler, so the workflow stays agent/LLM-agnostic (Codex here can take >13min — #317). The script **never labels without a real verdict**: on timeout the gate stays RED (exit 3) and proceeding past a genuine outage is a deliberate human call, not a timer. The required `Codex Review Gate` clears via a PR-side consideration note (accept/reject + why) plus the `codex-considered` label — *considered*, not necessarily agreed with. Apply the label via `scripts/apply_codex_considered.sh <PR#>` (never a bare `gh pr edit --add-label`): a gate run still queued from the last push race-strips a hand-applied label (#584); the script drains in-flight runs and confirms the gate goes green.
-
-**See:** `/docs/development/PR_WORKFLOW.md`, `.github/workflows/README.md` (repo root), `AGENTS.md` (repo root)
-
-## Code Quality & Formatting
+### Code Quality & Formatting
 
 **Formatting:** Ruff. `./dev format` to format, `./dev quality` for full checks (Ruff + MyPy + audit scripts).
 
@@ -559,7 +590,29 @@ CI Gate is the sole automatic check. Codex review is on-demand via `scripts/requ
 
 **See:** `/docs/patterns/linter_rules.md`, `docs/patterns/mypy_pragmatic_strategy.md`
 
-## Observability & Monitoring
+### Dependency & Python Versioning
+
+**Core Principle:** "Latest stable by default — pins are deliberate and documented"
+
+- Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins.
+- **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (conservative driver pin, Bolt-forward-compatible with the calendar-line server; driver version is *decoupled* from server version — ADR-044 + ADR-067 §3) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite).
+- **Neo4j server policy:** latest *published* monthly of the *calendar* line (`YYYY.MM`); pinned exactly in `../infrastructure/docker-compose.yml` (never a floating tag). Bump ~monthly (each monthly is hotfixed only until the next ships); upgrades are forward/in-place, downgrades unsupported. 5.26 LTS is the no-treadmill alternative (ADR-067 §3a).
+- Renovate opens update PRs only (no auto-merge); CI runs `tests/unit/` + `tests/integration/` (Neo4j testcontainer) on Python-file changes — verify locally with `./dev quality` + `./dev test-integration`.
+- Ruff `target-version` is `py314`; TC002/TC003/UP037 are ignored to isolate their ~1024-site deferred sweep (runtime-risky w/ Pydantic/FastHTML — see the `[tool.ruff]` ignore list). Black lags at `py312` (see `[tool.black]`).
+
+**See:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
+
+### PR Review Workflow
+
+**Core Principle:** "Reviews are advisory and a flaky service can't deadlock a merge — but the gate is never cleared by a timer, only by a read verdict"
+
+- **CI Gate** is the sole automatic check.
+- **Codex** is on-demand via `scripts/request_codex_review.sh <PR#>` — run it AFTER the final push (the gate drops the label on synchronize). The script polls patiently in-bash (Codex can take >13 min — #317) and **never labels without a real verdict**: on timeout the gate stays RED (exit 3) and proceeding past a genuine outage is a deliberate human call, not a timer. Exit codes: 0 clean+labeled / 2 findings-read / 3 timeout.
+- The required **`Codex Review Gate`** clears via a PR-side consideration note (accept/reject + why) plus the `codex-considered` label — *considered*, not necessarily agreed with. Apply it via `scripts/apply_codex_considered.sh <PR#>`, never a bare `gh pr edit --add-label` (a gate run still queued from the last push race-strips a hand-applied label, #584; the script drains in-flight runs and confirms the gate goes green).
+
+**See:** `/docs/development/PR_WORKFLOW.md`, `.github/workflows/README.md` (repo root), `AGENTS.md` (repo root)
+
+### Observability & Monitoring
 
 **Core Principle:** "Prometheus tracks system health, Neo4j tracks user behavior"
 
@@ -571,7 +624,7 @@ Metrics across 7 categories (HTTP, Database, Event Bus, Domains, Relationships, 
 
 **See:** `@prometheus-grafana` skill, `monitoring/README.md`
 
-## Logging Patterns
+### Logging Patterns
 
 | Context | Tool |
 |---------|------|
@@ -583,70 +636,46 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.services.tasks")
 ```
 
-## Graph-Native Comment Standard
+### Graph-Native Comment Standard
 
 Use `# GRAPH-NATIVE:` prefix for comments about relationship data stored as Neo4j edges.
 
 **See:** `/docs/patterns/GRAPH_NATIVE_PLACEHOLDERS.md`
 
-## HTTP Status Codes
+### Docstring Philosophy
 
-POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
+**Three layers:** docstrings describe implementation, patterns describe approach, architecture describes design.
 
-## Route Factories
+- **Always write:** Public APIs, complex functions, service classes, protocols
+- **Skip:** Obvious one-liners, simple private helpers
+- **Cross-reference:** `See: /docs/patterns/PATTERN_NAME.md`
+- **`core/services/` — intent, not mechanism:** describe WHAT the operation means in domain language; reference the backend for HOW (`Backend: KuBackend.get_path_steps_using`). Cypher belongs in backend / `core/utils/` docstrings, not service docstrings. SKUEL021 skips docstrings (correctly — prose can't execute), so this discipline isn't lint-enforced.
 
-| Factory | Purpose |
-|---------|---------|
-| CRUDRouteFactory | Standard CRUD |
-| StatusRouteFactory | Status changes |
-| OwnershipRouteFactory | Ownership-verified domain routes (GET/POST with ownership checks) |
-| CommonQueryRouteFactory | Query patterns |
-| AnalyticsRouteFactory | Analytics |
-All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`). `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently.
+**See:** `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/patterns/SERVICE_DOCSTRING_STYLE.md`
 
-**See:** `/docs/patterns/ROUTE_FACTORIES.md`
+### Skills & Documentation Cross-Reference
 
-## Domain Route Configuration
+**Core Principle:** "Local curated docs first, external lookup only when missing"
 
-**Core Principle:** "Configuration over code for route registration"
+See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete skill-to-documentation mapping.
 
-DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD / Query / Intelligence registration. Three wiring patterns exist — **A) DomainRouteConfig** (default), **B) Orchestrator** (explore/lateral/library), **C) Manual `@rt()`** (home, settings, submissions_hub, graphql). `ai_routes.py` uses its own `AIRouteSpec`.
+**Key skill categories:** Foundation (python, pydantic, ui-css, chartjs), Web Framework (fasthtml, domain-route-config, ui-browser), UX (accessibility-guide, skuel-ui, ui-error-handling), Database (neo4j-cypher-patterns), Infrastructure (docker, prometheus-grafana), Architecture (result-pattern, base-analytics-service, base-ai-service, prompt-templates, learning-loop, skuel-search-architecture, user-context-intelligence), Security (security), Testing (pytest), Meta (docs-skills-evolution).
 
-**See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` (full config fields, wiring decision guide, worked example)
+### Documentation Architecture
 
-## FastHTML Best Practices
+**Single Source of Truth:** `/home/mike/skuel/app/docs/`
+- `docs/decisions/` — Architecture Decision Records
+- `docs/patterns/` — Implementation patterns
+- `docs/architecture/` — System architecture
+- `docs/INDEX.md` — Complete documentation index
 
-- Query parameters over path parameters (`/tasks/get?uid=...`)
-- POST for all mutations
-- Type hints for automatic parameter extraction
-- **Critical:** Do NOT use `routes = []` / `routes.append()` with `@rt()`. The decorator registers immediately.
+**CLAUDE.md Purpose:** Quick-reference with pointers to detailed docs. Sections should be 10-20 lines max with `**See:**` pointers. Prose and examples belong in the linked docs, not here.
 
-**See:** `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`
+**Content Vault:** `/home/mike/0bsidian/0vault/` — Obsidian vault for content authoring (Ku / PathStep / edge YAMLs, markdown). Default ingestion source; override with `INGESTION_PATH` env var. NOT technical documentation.
 
-## Intelligence Services Architecture
+## Reference
 
-**Core Principle:** "Graph analytics separated from AI — app runs without LLM dependencies"
-
-| Layer | Base Class | Dependencies |
-|-------|------------|--------------|
-| Analytics | `BaseAnalyticsService` | Graph + Python (NO AI) |
-| AI | `BaseAIService` | LLM + Embeddings (optional) |
-
-**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default). All 6 Activity Domain + 2 Curriculum facades have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
-
-**LLM/embedding SDK clients (ADR-063):** `openai`/`anthropic`/`huggingface_hub` clients live in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`. `core/` is SDK-client-free (only `exception_types.py` imports SDK exception classes). Guarded by `tests/unit/test_llm_sdk_boundary.py` (fails closed on any new vendor import).
-
-**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`, `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`
-
-## Embedding Text Extraction
-
-**Location:** `/core/utils/embedding_text_builder.py` — `build_embedding_text(EntityType, dict) -> str`
-
-**Supported:** 16 content-bearing entity types (all 6 Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`. PathStep + Ku ENTITY vectors = frontmatter fields only; body semantics = CHUNK embeddings (`chunks_body_content` ingestion configs — lesson bodies live on the :Content subtree, read back via `UniversalNeo4jBackend.get_content`).
-
-**Write paths (ADR-074):** ingestion never embeds inline — all create/update paths + both ingest doors publish `*EmbeddingRequested` post-persist through `core/events/embedding_publisher.py` → background worker (FULL tier; ingestion `event_bus` is None in CORE). One-shot script syncs (`./dev vault-sync`) subscribe the worker pre-sync and `drain()` post-sync — same event path, in-process. Backfill/staleness backstop: `scripts/generate_embeddings_batch.py [--stale|--audit]` (`--audit` = timestamp-free full-corpus hash sweep). Content-hash idempotency (ADR-074 §8): unchanged text never re-embeds — `embedding_text_hash` + `EmbeddingsService.verify_fresh_embeddings` skip BEFORE generation (worker + `--stale`); version outranks hash (a version bump always re-embeds). **See:** `/docs/decisions/ADR-074-post-persist-embedding-events.md`
-
-## Quick Reference: Key Files
+### Quick Reference: Key Files
 
 | Purpose | Location |
 |---------|----------|
@@ -671,7 +700,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 | Architecture | `/docs/architecture/` |
 | Troubleshooting | `/docs/TROUBLESHOOTING.md` |
 
-## Troubleshooting
+### Troubleshooting
 
 **Server Won't Start:** Port in use (`lsof -ti:8000 | xargs kill -9`), import errors (check `fasthtml.common`).
 

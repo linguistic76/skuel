@@ -343,14 +343,21 @@ ORDER BY complementary.synergy_score DESC
 |-----------|------|---------|
 | `BlockingChainView` | `ui/patterns/relationships/blocking_chain.py` | Vertical flow chart with depth-based layout |
 | `AlternativesComparisonGrid` | `ui/patterns/relationships/alternatives_grid.py` | Side-by-side comparison table |
-| `RelationshipGraphView` | `ui/patterns/relationships/graph_view.py` | Interactive Vis.js force-directed graph |
-| `EntityRelationshipsSection` | `ui/patterns/relationships/__init__.py` | Drop-in section for any entity detail page |
+| `RelationshipGraphView` | `ui/patterns/relationships/relationship_graph.py` | Interactive Vis.js force-directed graph |
+| `AddRelationshipModal` | `ui/patterns/relationships/add_modal.py` | Authoring modal (add lateral edges) |
+| `LateralManageContainer` / `render_lateral_manage_fragment` | `ui/patterns/relationships/manage_list.py` | Flat, deletable edge list (authoring) |
+| `EntityRelationshipsSection` | `ui/patterns/relationships/__init__.py` | Drop-in section for any entity detail page (`authoring=True` opts into add/delete) |
 
 ### API Endpoints (per domain)
 
-- `GET /api/{domain}/{uid}/lateral/chain` — Blocking chain data
-- `GET /api/{domain}/{uid}/lateral/alternatives/compare` — Comparison data
-- `GET /api/{domain}/{uid}/lateral/graph` — Vis.js format (nodes + edges)
+- `GET /api/{domain}/{uid}/lateral/chain` — Blocking chain (HTML fragment)
+- `GET /api/{domain}/{uid}/lateral/alternatives/compare` — Comparison (HTML fragment)
+- `GET /api/{domain}/{uid}/lateral/graph` — Vis.js format (nodes + edges, JSON)
+- `GET /api/{domain}/{uid}/lateral/manage` — Flat deletable edge list (HTML fragment)
+- `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` — Create (emits `HX-Trigger: relationships-changed`)
+- `DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid}` — Delete (emits `HX-Trigger: relationships-changed`)
+
+**Authoring** (add/delete UI) is live on the **Tasks** detail page via `EntityRelationshipsSection(authoring=True)`; the shared routes/components make it near-free to enable on the other 8 domains. The `DEPENDS_ON` scheduling edge has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`), kept distinct from `BLOCKS` (see the task-relationships-authoring plan, R1). See [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) § Authoring.
 
 ---
 

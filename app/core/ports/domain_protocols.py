@@ -317,6 +317,13 @@ class TasksOperations(
         """Get transitive dependency UIDs via variable-length path traversal."""
         ...
 
+    async def dependency_path_exists(
+        self, from_uid: str, to_uid: str, rel_type: RelationshipName
+    ) -> Result[bool]:
+        """Report whether a directed ``rel_type`` path exists from one task to another
+        (unbounded reachability — powers the dependency cycle guard)."""
+        ...
+
 
 @runtime_checkable
 class EventsOperations(
