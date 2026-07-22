@@ -936,12 +936,12 @@ class TelemetryRetention:
     deliberate, human-run one-shot (no background loop — the CORE "no background
     workers" guarantee holds).
 
-    Each type gets its own default window. Pure system telemetry (auth, search,
-    interactions, learner VIEWED edges) prunes on a shorter horizon than
-    saved discussions, which are deliberately-kept user content (ADR-078) and so
-    default to the most conservative window. ``--days N`` on the CLI overrides
-    every window uniformly; expired sessions/reset-tokens are pruned on their own
-    stored ``expires_at`` (not age-based, so ``--days`` does not apply to them).
+    Only auto-accreting SYSTEM telemetry is in scope. Saved discussions
+    (:ConversationSession) are deliberately NOT pruned — they are explicitly-kept
+    user content (ADR-078), and retention must never delete something a user chose
+    to keep. ``--days N`` on the CLI overrides every window uniformly; expired
+    sessions/reset-tokens are pruned on their own stored ``expires_at`` (not
+    age-based, so ``--days`` does not apply to them).
     """
 
     # Per-type default age windows, in days. A row older than its window is a
@@ -950,7 +950,6 @@ class TelemetryRetention:
     SEARCH_EVENT_DAYS: Final = 90  # discovery-analytics log (matches the 90d gap window)
     INTERACTION_DAYS: Final = 365  # situated learning-loop events feed ZPD/analytics
     VIEWED_DAYS: Final = 365  # stale learner VIEWED edges (last_viewed_at)
-    CONVERSATION_DAYS: Final = 365  # saved discussions = user content — most conservative
 
     # Batch size for the delete loop. Each batch is its own transaction (the
     # executor auto-commits per query), so a large prune never holds one giant

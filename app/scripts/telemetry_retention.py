@@ -9,12 +9,11 @@ curriculum and would otherwise breach the AuraDB Free node cap:
   - :SearchEvent          (discovery-analytics log)   — TelemetryRetention.SEARCH_EVENT_DAYS
   - :Interaction          (learning-loop events)      — TelemetryRetention.INTERACTION_DAYS
   - :VIEWED edges         (stale learner view-state)  — TelemetryRetention.VIEWED_DAYS
-  - :ConversationSession  (SAVED discussions*)        — TelemetryRetention.CONVERSATION_DAYS
   - expired :Session / :PasswordResetToken (own expires_at — not age-based)
 
-*Saved discussions are user content (ADR-078), not pure telemetry, so they carry
-the most conservative default window and are pruned by session ``last_activity``
-(their turns cascade). --dry-run first if that matters to you.
+Saved discussions (:ConversationSession) are deliberately OUT OF SCOPE — they are
+explicitly-kept user content (ADR-078 "Save this chat"), not auto-accreting
+telemetry, so a retention run never touches them.
 
 Windows live in ``core/constants.py`` (``TelemetryRetention``). ``--days N``
 overrides every age-based window uniformly; it does NOT change the expired
@@ -78,11 +77,6 @@ async def run_retention(*, days_override: int | None, batch_size: int, dry_run: 
                 "VIEWED edges",
                 backend.prune_viewed_edges,
                 _window(TelemetryRetention.VIEWED_DAYS),
-            ),
-            (
-                "Conversations",
-                backend.prune_conversations,
-                _window(TelemetryRetention.CONVERSATION_DAYS),
             ),
         ]
 

@@ -153,20 +153,21 @@ async def test_empty_delete_returns_zero() -> None:
     assert len(executor.calls) == 1
 
 
-@pytest.mark.anyio
-async def test_conversation_delete_cascades_turns() -> None:
-    """Conversation prune deletes the session AND its turns (FOREACH over HAS_TURN)."""
-    executor = _FakeExecutor([_rows(1)])
-    backend = TelemetryRetentionBackend(executor)  # type: ignore[arg-type]
+def test_prune_surface_excludes_conversations() -> None:
+    """The prune surface is exactly the four SYSTEM-telemetry types.
 
-    result = await backend.prune_conversations(days=365, batch_size=500, dry_run=False)
-
-    assert result.value == 1
-    query, _ = executor.calls[0]
-    assert "ConversationSession" in query
-    assert "HAS_TURN" in query
-    assert "ConversationTurn" in query
-    assert "FOREACH" in query  # turns collected + deleted, not orphaned
+    Regression guard: saved discussions (:ConversationSession) are user content
+    (ADR-078 "Save this chat") — retention must never delete something a user
+    chose to keep. If someone re-adds a conversation prune (or drops an expected
+    one), this fails loudly.
+    """
+    prune_methods = {m for m in dir(TelemetryRetentionBackend) if m.startswith("prune_")}
+    assert prune_methods == {
+        "prune_auth_events",
+        "prune_search_events",
+        "prune_interactions",
+        "prune_viewed_edges",
+    }
 
 
 @pytest.mark.anyio

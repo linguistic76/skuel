@@ -20,11 +20,16 @@ the #1 correctness risk here). Verified against the live graph 2026-07-22:
                                  ``datetime($iso)``)
   - ``VIEWED.last_viewed_at``    ZONED DATETIME  (_learning_state_mixin wraps
                                  ``datetime($now)``)
-  - ``ConversationSession.last_activity``  ZONED DATETIME (conversation_backend)
   - ``Interaction.created_at``   **STRING**  (written through the universal
                                  backend's ``to_neo4j_node`` mapper, which
                                  ``.isoformat()``-serializes datetimes) → its
                                  filter parses with Cypher ``datetime(...)``.
+
+**Saved discussions (:ConversationSession / :ConversationTurn) are deliberately
+NOT pruned.** They are explicitly-saved user content (ADR-078 "Save this chat",
+"ephemeral-by-default; explicit Save only"), not auto-accreting telemetry — a
+retention run must never delete something a user chose to keep. Only auto-growing
+system telemetry is in scope here.
 
 Deletion is batched: each batch is its own auto-committed transaction (the
 executor opens a fresh session per ``execute_query``), so a large prune never
@@ -49,10 +54,7 @@ if TYPE_CHECKING:
 _AUTH_EVENT = NeoLabel.AUTH_EVENT.value
 _SEARCH_EVENT = NeoLabel.SEARCH_EVENT.value
 _INTERACTION = NeoLabel.INTERACTION.value
-_CONVERSATION_SESSION = NeoLabel.CONVERSATION_SESSION.value
-_CONVERSATION_TURN = NeoLabel.CONVERSATION_TURN.value
 _VIEWED = RelationshipName.VIEWED.value
-_HAS_TURN = RelationshipName.HAS_TURN.value
 
 
 class TelemetryRetentionBackend:
@@ -122,38 +124,9 @@ class TelemetryRetentionBackend:
         )
         return await self._run(count_q, delete_q, days=days, batch_size=batch_size, dry_run=dry_run)
 
-    # ------------------------------------------------------------------ #
-    # Conversation sessions (user content — cascade turns; ADR-078)
-    # ------------------------------------------------------------------ #
-
-    async def prune_conversations(
-        self, *, days: int, batch_size: int, dry_run: bool
-    ) -> Result[int]:
-        """Prune whole :ConversationSession subgraphs stale for ``days``.
-
-        Age is the session's ``last_activity`` (native). A session's turns hang
-        off it via :HAS_TURN and are **not** cascaded by ``DETACH DELETE`` of the
-        session alone, so they are collected and deleted explicitly (mirrors
-        ConversationBackend.delete_session). Returns the SESSION count; turns
-        cascade with each session.
-
-        These are deliberately-saved discussions (ADR-078 "Save this chat"), i.e.
-        user content rather than pure telemetry — hence the most conservative
-        default window (``TelemetryRetention.CONVERSATION_DAYS``).
-        """
-        where = "s.last_activity < datetime() - duration({days: $days})"
-        count_q = f"MATCH (s:{_CONVERSATION_SESSION}) WHERE {where} RETURN count(s) AS cnt"
-        delete_q = (
-            f"MATCH (s:{_CONVERSATION_SESSION}) WHERE {where} "
-            "WITH s LIMIT $batch "
-            f"OPTIONAL MATCH (s)-[:{_HAS_TURN}]->(t:{_CONVERSATION_TURN}) "
-            "WITH collect(DISTINCT s) AS ss, collect(DISTINCT t) AS ts "
-            "WITH ss, ts, size(ss) AS cnt "
-            "FOREACH (x IN ss | DETACH DELETE x) "
-            "FOREACH (y IN ts | DETACH DELETE y) "
-            "RETURN cnt"
-        )
-        return await self._run(count_q, delete_q, days=days, batch_size=batch_size, dry_run=dry_run)
+    # NOTE: There is deliberately NO prune method for :ConversationSession /
+    # :ConversationTurn. Saved discussions are explicitly-kept user content
+    # (ADR-078), not auto-accreting telemetry — see the module docstring.
 
     # ------------------------------------------------------------------ #
     # Internals
