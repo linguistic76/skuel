@@ -301,10 +301,11 @@ def GoalDetailView(
         checkins=goal.dual_track_checkins,
     )
 
-    # Lateral relationships (Vis.js graph, blocking chain, alternatives)
+    # Lateral relationships (Vis.js graph, blocking chain, alternatives) + authoring.
     relationships = EntityRelationshipsSection(
         entity_uid=goal.uid,
         entity_type="goals",
+        authoring=True,
     )
 
     return Div(
