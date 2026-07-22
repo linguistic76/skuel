@@ -33,10 +33,13 @@ MATCH (n {uid: $uid}) WHERE NOT n:Content
 // datetime-typed field (DTO .isoformat() → STRING): coerce the stored side
 WHERE datetime(n.created_at) >= datetime($window_start)
 
-// date-only field
-WHERE date(n.due_date) < date()
+// date field (due_date, event_date, ...): SKUEL's standard guard takes the
+// YYYY-MM-DD prefix so a *mis-stored* datetime string ("2026-06-17T09:00")
+// doesn't make date() ERROR and blank the whole range (#766)
+WHERE date(left(toString(n.due_date), 10)) < date()
 
-// datetime field compared against a date: parse-then-extract (date() ERRORS on datetime strings)
+// genuinely-datetime field compared against a date: parse-then-extract
+// (date() ERRORS on a datetime string; date(datetime(...)) or left(...,10) both fix it)
 WHERE date(datetime(h.last_completed)) < date()
 ```
 
