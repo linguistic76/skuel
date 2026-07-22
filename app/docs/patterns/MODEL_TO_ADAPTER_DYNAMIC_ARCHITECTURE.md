@@ -23,6 +23,12 @@ New standalone READ-ONLY **`PrereqCandidateBackend`** (`adapters/persistence/neo
 
 ---
 
+## July 2026 Update: TelemetryRetentionBackend (ADR-080 Horizon 0)
+
+New standalone **`TelemetryRetentionBackend`** (`adapters/persistence/neo4j/telemetry_retention_backend.py`). Age-based, batched prune of the unbounded-growth telemetry types so the graph stays AuraDB-Free node-cap-safe. Like `SearchEventBackend`/`InsightBackend` it takes the shared `QueryExecutor` directly (the pruned nodes/edges — `:AuthEvent`, `:SearchEvent`, `:Interaction`, `:VIEWED`, `:ConversationSession` — are plain infrastructure, not EntityTypes) rather than extending `UniversalNeo4jBackend`. Driven by the one-shot `scripts/telemetry_retention.py` / `./dev telemetry-retention` — **no port** (single script consumer, no route/facade wiring) and **no background loop** (CORE "no background workers" holds). Each batch is its own auto-committed transaction. Note the temporal-storage split its predicates encode: native `datetime` on most types but a stored ISO **string** on `Interaction.created_at` (universal-backend `to_neo4j_node` writer) → parsed with `datetime(...)`. Expired `:Session`/`:PasswordResetToken` reuse `SessionBackend.cleanup_expired_*`. **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`.
+
+---
+
 ## July 2026 Update: SearchEventBackend (Discovery Analytics Phase 1)
 
 New standalone **`SearchEventBackend`** (`adapters/persistence/neo4j/search_event_backend.py`) behind the **`SearchEventBackendOperations`** port (`core/ports/search_protocols.py`). Persists and aggregates `:SearchEvent` behavioral-log nodes (`NeoLabel.SEARCH_EVENT` — a plain infrastructure node like `:ContentChunk`, not an EntityType). Like `InsightBackend`/`CrossDomainBackend`, it takes the shared `QueryExecutor` directly rather than extending `UniversalNeo4jBackend`. Methods: `record_search_event` (written by `SearchEventRecorder`, the `search.executed` subscriber), `get_search_gaps` (zero/low-result content-gap aggregation), `count_search_events` (the 1000+ discovery-analytics trigger). **See:** `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md`.

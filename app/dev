@@ -144,6 +144,11 @@ case "$1" in
     uv run python scripts/knowledge_health_report.py "${@:2}"
     ;;
 
+  telemetry-retention)
+    echo -e "${GREEN}Pruning unbounded-growth telemetry (ADR-080 Horizon 0)...${NC}" >&2
+    uv run python scripts/telemetry_retention.py "${@:2}"
+    ;;
+
   css)
     echo -e "${GREEN}Watching CSS changes...${NC}"
     npm run css:watch
@@ -292,6 +297,7 @@ case "$1" in
     echo "  ./dev smoke          - Render smoke test (headless Chrome; catches client-side render hangs)"
     echo "  ./dev vault-sync     - One-shot vault sync via reconciler (--vault content | --user <uid> | --force)"
     echo "  ./dev knowledge-health - Knowledge-subgraph structural-health report (ADR-080; --json)"
+    echo "  ./dev telemetry-retention - Prune unbounded-growth telemetry (ADR-080 H0; --dry-run | --days N)"
     echo "  ./dev css            - Watch and rebuild CSS on changes"
     echo "  ./dev css-build      - Build CSS once"
     echo "  ./dev css-prod       - Build minified CSS for production"

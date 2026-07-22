@@ -98,9 +98,20 @@ class Neo4jAdapter:
 
         self.driver = self.connection.driver
 
-        connected = await self.connection.test_connection()
-        if not connected:
-            raise RuntimeError("Failed to connect to Neo4j")
+        # Bounded exponential-backoff connectivity probe (ADR-080 Horizon 0):
+        # tolerate a paused/waking AuraDB Free instance instead of crashing
+        # bootstrap on a bare ServiceUnavailable. Single startup chokepoint —
+        # every caller of adapter.connect() (app bootstrap + one-shot scripts)
+        # inherits the resilience.
+        from adapters.persistence.neo4j.neo4j_connection import connect_with_retry
+        from core.constants import Neo4jConnectRetry
+
+        await connect_with_retry(
+            self.connection,
+            max_attempts=Neo4jConnectRetry.MAX_ATTEMPTS,
+            base_delay_seconds=Neo4jConnectRetry.BASE_DELAY_SECONDS,
+            max_delay_seconds=Neo4jConnectRetry.MAX_DELAY_SECONDS,
+        )
         logger.info(f"Connected to Neo4j at {self.connection.uri}")
 
     def get_driver(self) -> Any:
