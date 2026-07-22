@@ -5,7 +5,7 @@ Picker Routes — searchable cross-domain entity dropdown
 Backend for ``ui/patterns/entity_picker.py``. One HTML-fragment endpoint
 that the picker hits via HTMX:
 
-    GET /api/picker/search?type={goal|habit|task}
+    GET /api/picker/search?type={goal|habit|task|event|choice|principle}
                           &q=<text>
                           &exclude_uid=<uid>
                           &exclude_descendants_of=<uid>
@@ -31,6 +31,7 @@ from fasthtml.common import Li
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -41,7 +42,19 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.picker")
 
 
-_SUPPORTED_TYPES = ("goal", "habit", "task")
+# The activity EntityTypes the picker can search. The ``type`` query param is a
+# route-input string resolved to its canonical EntityType at the boundary via
+# ``EntityType.from_string`` (aliases in, canonical enum internally).
+_SUPPORTED_TYPES: frozenset[EntityType] = frozenset(
+    {
+        EntityType.GOAL,
+        EntityType.HABIT,
+        EntityType.TASK,
+        EntityType.EVENT,
+        EntityType.CHOICE,
+        EntityType.PRINCIPLE,
+    }
+)
 
 
 def create_picker_routes(
@@ -60,13 +73,14 @@ def create_picker_routes(
         """Return a fragment of <li> options for the picker dropdown."""
         user_uid = require_authenticated_user(request)
 
-        if type not in _SUPPORTED_TYPES:
+        entity_type = EntityType.from_string(type)
+        if entity_type is None or entity_type not in _SUPPORTED_TYPES:
             logger.warning("picker.search rejected unknown type=%r", type)
             return _empty_results(message=f"Unsupported picker type: {type!r}")
 
-        search_service = _resolve_search_service(services, type)
+        search_service = _resolve_search_service(services, entity_type)
         if search_service is None:
-            logger.error("picker.search has no service wired for type=%r", type)
+            logger.error("picker.search has no service wired for type=%r", entity_type.value)
             return _empty_results(message="Picker service unavailable")
 
         excluded = await _build_exclusion_set(
@@ -91,14 +105,17 @@ def create_picker_routes(
 
 
 def _resolve_search_service(
-    services: Services, target_type: str
+    services: Services, entity_type: EntityType
 ) -> DomainSearchOperations[Any] | None:
-    """Map ``target_type`` to the correct activity-domain search service."""
+    """Map an activity ``EntityType`` to its domain search service."""
     facade = {
-        "task": services.tasks,
-        "goal": services.goals,
-        "habit": services.habits,
-    }.get(target_type)
+        EntityType.TASK: services.tasks,
+        EntityType.GOAL: services.goals,
+        EntityType.HABIT: services.habits,
+        EntityType.EVENT: services.events,
+        EntityType.CHOICE: services.choices,
+        EntityType.PRINCIPLE: services.principles,
+    }.get(entity_type)
     if facade is None:
         return None
     return facade.search

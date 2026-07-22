@@ -331,7 +331,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
 class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     _dto_class = PrincipleDTO
     _model_class = Principle
-    _search_fields = ["name", "statement", "description", "why_important"]
+    _search_fields = ["title", "statement", "description", "why_important"]
     _prerequisite_relationships = [GROUNDED_IN_KNOWLEDGE]
     _enables_relationships = [GUIDES_GOAL, GUIDES_CHOICE, INSPIRES_HABIT]
 

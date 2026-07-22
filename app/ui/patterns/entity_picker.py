@@ -3,8 +3,9 @@ EntityPicker — Searchable dropdown for cross-domain UID fields
 ==============================================================
 
 Renders a hidden input + visible search box + HTMX-driven dropdown for picking
-a single entity (Goal, Habit, Task) by title. Designed for use as a
-``custom_widgets`` entry in :class:`ui.patterns.form_generator.FormGenerator`.
+a single entity (Goal, Habit, Task, Event, Choice, Principle) by title.
+Designed for use as a ``custom_widgets`` entry in
+:class:`ui.patterns.form_generator.FormGenerator`.
 
 Pattern: the hidden input carries the picked UID (the form-submitted value);
 the visible input is for human search and is **not** named, so it never
@@ -36,6 +37,9 @@ _TARGET_TYPE_LABELS = {
     "goal": "goal",
     "habit": "habit",
     "task": "task",
+    "event": "event",
+    "choice": "choice",
+    "principle": "principle",
 }
 
 
@@ -55,8 +59,9 @@ def EntityPicker(
         name: The form-field name. The hidden input uses this as ``name``,
             so this is what the parent form receives on POST (e.g.
             ``"fulfills_goal_uid"``).
-        target_type: One of ``"goal"``, ``"habit"``, ``"task"``. Determines
-            which entity collection the search endpoint queries.
+        target_type: One of ``"goal"``, ``"habit"``, ``"task"``, ``"event"``,
+            ``"choice"``, ``"principle"``. Determines which entity collection
+            the search endpoint queries.
         value: Pre-fill UID for edit mode. Becomes the hidden input's value.
         display: Pre-fill human-readable title shown in the visible input
             for edit mode. The caller is responsible for resolving
