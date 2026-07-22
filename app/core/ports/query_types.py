@@ -3197,7 +3197,9 @@ class KnowledgeHealthReport(TypedDict):
     - ``orphan_ku_count`` / ``orphan_fraction`` / ``orphan_kus`` — isolated Kus.
     - ``composition`` — PathStep→Ku composition (USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU).
     - ``prerequisite_dag`` — hard-prerequisite edges (PREREQUISITE_FOR|DEPENDS_ON|
-      REQUIRES_PREREQUISITE); ``dag_max_depth`` is the longest prerequisite chain.
+      REQUIRES_PREREQUISITE at the Ku level, plus REQUIRES_STEP at the PathStep
+      level); ``dag_max_depth`` is the longest prerequisite chain (Ku or PathStep).
+      ``participating_kus`` is Ku-level coverage (REQUIRES_STEP links PathSteps).
     - ``organizes`` — ORGANIZES/MOC hierarchy coverage.
     - ``lateral_edge_count`` / ``lateral_density`` — semantic/associative lateral
       edges among knowledge nodes, and their edges-per-Ku density.

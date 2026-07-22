@@ -29,7 +29,7 @@ LIVE_RAW: KnowledgeHealthRaw = {
     "orphan_kus": [{"uid": "ku.yoga.prana", "title": "Prana"}],
     "composition_edge_count": 53,
     "composed_ku_count": 47,
-    "prerequisite_edge_count": 9,
+    "prerequisite_edge_count": 13,  # 9 PREREQUISITE_FOR (Ku) + 4 REQUIRES_STEP (PathStep)
     "dag_ku_count": 12,
     "dag_max_depth": 2,
     "organizes_edge_count": 0,
@@ -108,7 +108,7 @@ class TestBuildReport:
         assert report["composition"]["edge_count"] == 53
         assert report["composition"]["participating_kus"] == 47
         assert report["prerequisite_dag"]["coverage"] == pytest.approx(12 / 121)
-        assert report["prerequisite_dag"]["edge_count"] == 9
+        assert report["prerequisite_dag"]["edge_count"] == 13
         assert report["dag_max_depth"] == 2
         assert report["organizes"]["coverage"] == 0.0
         assert report["lateral_edge_count"] == 33

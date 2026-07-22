@@ -17,7 +17,7 @@ from adapters.persistence.neo4j._organizes_mixin import _OrganizesMixin
 from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import KnowledgeHealth
-from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
@@ -850,11 +850,16 @@ _COMPOSITION_EDGES = "|".join(
 # Hard prerequisites only — ENABLES/ENABLED_BY (soft enablement) are reported
 # separately so ``prerequisite_edge_count`` stays the DAG the ZPD reasons over.
 # Used for the broad edge COUNT + COVERAGE (direction doesn't matter there).
+# Includes REQUIRES_STEP — the PathStep→PathStep prerequisite edge ingestion writes
+# from a step's ``prerequisite_step_uids`` and PS-readiness checks read; a corpus
+# with authored PathStep prerequisites but no Ku PREREQUISITE_FOR would otherwise
+# read as an empty DAG (Codex #770 P2).
 _DAG_EDGES = "|".join(
     (
         RelationshipName.PREREQUISITE_FOR.value,
         RelationshipName.DEPENDS_ON.value,
         RelationshipName.REQUIRES_PREREQUISITE.value,
+        RelationshipName.REQUIRES_STEP.value,
     )
 )
 # For the DEPTH walk, direction matters: PREREQUISITE_FOR points prereq→dependent,
@@ -906,75 +911,91 @@ _LATERAL_EDGES = "|".join(
 _ENABLEMENT_EDGES = "|".join(
     (RelationshipName.LATERAL_ENABLES.value, RelationshipName.LATERAL_ENABLED_BY.value)
 )
-_KNOWLEDGE_LABELS = (
-    NeoLabel.KU.value,
-    NeoLabel.PATH_STEP.value,
-    NeoLabel.LEARNING_PATH.value,
-    NeoLabel.EXERCISE.value,
+# The gauge matches knowledge nodes by ``entity_type``, NOT by domain label:
+# ``create_step_node`` (and other API-create paths) persist ``:Entity {entity_type:
+# 'path_step'}`` WITHOUT the ``:PathStep`` label, and the rest of this file reads
+# PathSteps the same entity_type way. Label-only matching would silently drop those
+# legitimate steps from the corpus census and coverage (Codex #770 P2).
+_KNOWLEDGE_ENTITY_TYPES = (
+    EntityType.KU.value,
+    EntityType.PATH_STEP.value,
+    EntityType.LEARNING_PATH.value,
+    EntityType.EXERCISE.value,
 )
 
 
 def _knowledge_node(var: str) -> str:
-    """``(var:Ku OR var:PathStep OR …)`` — is this node in the knowledge subgraph."""
-    return "(" + " OR ".join(f"{var}:{label}" for label in _KNOWLEDGE_LABELS) + ")"
+    """``(var.entity_type IN ['ku','path_step',…])`` — in the knowledge subgraph."""
+    types = ", ".join(f"'{t}'" for t in _KNOWLEDGE_ENTITY_TYPES)
+    return f"({var}.entity_type IN [{types}])"
 
 
 # One round-trip corpus measurement. ``__TOKEN__`` placeholders are substituted
 # (not f-string braces — the query is dense with map / count{} / exists{} literals
-# that would need doubling). Degree counts incident edges per Ku EXCLUDING
-# learner-state telemetry (``__TELEMETRY__``) so the gauge stays structural as
-# usage grows (reproduces the ADR-080 measure: avg ≈ 2.16, 17 orphans); every
-# specialized slice scopes both endpoints to knowledge nodes via
+# that would need doubling). Nodes are matched by ``entity_type`` (not domain
+# label — some are persisted label-less). Degree counts incident edges per Ku
+# EXCLUDING learner-state telemetry (``__TELEMETRY__``) so the gauge stays
+# structural as usage grows (reproduces the ADR-080 measure: avg ≈ 2.16, 17
+# orphans); every specialized slice scopes both endpoints to knowledge nodes via
 # ``__KA__``/``__KB__``/``__KO__``.
 _KNOWLEDGE_HEALTH_QUERY_TEMPLATE = """
-CALL () { MATCH (k:Ku) RETURN count(k) AS total_kus }
-CALL () { MATCH (ps:PathStep) RETURN count(ps) AS total_path_steps }
-CALL () { MATCH (lp:LearningPath) RETURN count(lp) AS total_learning_paths }
-CALL () { MATCH (ex:Exercise) RETURN count(ex) AS total_exercises }
+CALL () { MATCH (k:Entity {entity_type: __ET_KU__}) RETURN count(k) AS total_kus }
+CALL () { MATCH (ps:Entity {entity_type: __ET_PS__}) RETURN count(ps) AS total_path_steps }
+CALL () { MATCH (lp:Entity {entity_type: __ET_LP__}) RETURN count(lp) AS total_learning_paths }
+CALL () { MATCH (ex:Entity {entity_type: __ET_EX__}) RETURN count(ex) AS total_exercises }
 CALL () {
-    MATCH (k:Ku)
+    MATCH (k:Entity {entity_type: __ET_KU__})
     WITH k, count{ (k)-[r]-() WHERE NOT type(r) IN __TELEMETRY__ } AS deg
     RETURN coalesce(round(avg(deg), 4), 0.0) AS avg_ku_degree,
            coalesce(max(deg), 0) AS max_ku_degree,
            count(CASE WHEN deg = 0 THEN 1 END) AS orphan_ku_count
 }
 CALL () {
-    MATCH (k:Ku)
+    MATCH (k:Entity {entity_type: __ET_KU__})
     WHERE count{ (k)-[r]-() WHERE NOT type(r) IN __TELEMETRY__ } = 0
     WITH k ORDER BY k.uid
     RETURN collect({ uid: k.uid, title: coalesce(k.title, k.uid) }) AS orphan_kus
 }
-CALL () { RETURN count{ (:PathStep)-[:__COMPOSITION__]->(:Ku) } AS composition_edge_count }
 CALL () {
-    MATCH (k:Ku)
-    WHERE exists{ (:PathStep)-[:__COMPOSITION__]->(k) }
+    RETURN count{ (:Entity {entity_type: __ET_PS__})-[:__COMPOSITION__]->(:Entity {entity_type: __ET_KU__}) }
+        AS composition_edge_count
+}
+CALL () {
+    MATCH (k:Entity {entity_type: __ET_KU__})
+    WHERE exists{ (:Entity {entity_type: __ET_PS__})-[:__COMPOSITION__]->(k) }
     RETURN count(k) AS composed_ku_count
 }
 CALL () {
     RETURN count{ (a)-[:__DAG__]->(b) WHERE __KA__ AND __KB__ } AS prerequisite_edge_count
 }
 CALL () {
-    MATCH (k:Ku)
+    MATCH (k:Entity {entity_type: __ET_KU__})
     WHERE exists{ (k)-[:__DAG__]-(o) WHERE __KO__ }
     RETURN count(k) AS dag_ku_count
 }
 CALL () {
-    // Depth over the forward prerequisite chain (PREREQUISITE_FOR: prereq→dependent).
-    OPTIONAL MATCH fp = (a:Ku)-[:__DAG_FWD__*1..__DEPTH__]->(b:Ku)
+    // Depth over the forward Ku prerequisite chain (PREREQUISITE_FOR: prereq→dependent).
+    OPTIONAL MATCH fp = (a:Entity {entity_type: __ET_KU__})-[:__DAG_FWD__*1..__DEPTH__]->(b:Entity {entity_type: __ET_KU__})
     RETURN coalesce(max(length(fp)), 0) AS fwd_depth
 }
 CALL () {
-    // Depth over the inverse-direction chain (DEPENDS_ON/REQUIRES_PREREQUISITE:
+    // Depth over the inverse-direction Ku chain (DEPENDS_ON/REQUIRES_PREREQUISITE:
     // dependent→prereq). Kept in a SEPARATE pattern from the forward walk so an
     // inverse pair cannot form a depth-inflating cycle.
-    OPTIONAL MATCH bp = (a:Ku)-[:__DAG_INV__*1..__DEPTH__]->(b:Ku)
+    OPTIONAL MATCH bp = (a:Entity {entity_type: __ET_KU__})-[:__DAG_INV__*1..__DEPTH__]->(b:Entity {entity_type: __ET_KU__})
     RETURN coalesce(max(length(bp)), 0) AS inv_depth
+}
+CALL () {
+    // Depth over PathStep prerequisite chains (REQUIRES_STEP: dependent step→prereq
+    // step), a coherent direction of its own.
+    OPTIONAL MATCH sp = (a:Entity {entity_type: __ET_PS__})-[:__REQUIRES_STEP__*1..__DEPTH__]->(b:Entity {entity_type: __ET_PS__})
+    RETURN coalesce(max(length(sp)), 0) AS step_depth
 }
 CALL () {
     RETURN count{ (a)-[:__ORGANIZES__]->(b) WHERE __KA__ AND __KB__ } AS organizes_edge_count
 }
 CALL () {
-    MATCH (k:Ku)
+    MATCH (k:Entity {entity_type: __ET_KU__})
     WHERE exists{ (k)-[:__ORGANIZES__]-(o) WHERE __KO__ }
     RETURN count(k) AS organized_ku_count
 }
@@ -989,15 +1010,16 @@ CALL () {
     // ASSIGNED/ASSESSMENT) exercises dual-write the same HAS_EXERCISE edge, so an
     // unscoped check would count learner/teacher practice templates as corpus
     // authoring coverage and hide missing curriculum exercises.
-    MATCH (ps:PathStep)
-    WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(ex:Exercise) WHERE ex.scope = __CURRICULUM_SCOPE__ }
+    MATCH (ps:Entity {entity_type: __ET_PS__})
+    WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(ex:Entity {entity_type: __ET_EX__}) WHERE ex.scope = __CURRICULUM_SCOPE__ }
     RETURN count(ps) AS path_steps_with_exercise
 }
 RETURN total_kus, total_path_steps, total_learning_paths, total_exercises,
        avg_ku_degree, max_ku_degree, orphan_ku_count, orphan_kus,
        composition_edge_count, composed_ku_count,
        prerequisite_edge_count, dag_ku_count,
-       CASE WHEN fwd_depth > inv_depth THEN fwd_depth ELSE inv_depth END AS dag_max_depth,
+       reduce(m = 0, x IN [fwd_depth, inv_depth, step_depth] | CASE WHEN x > m THEN x ELSE m END)
+           AS dag_max_depth,
        organizes_edge_count, organized_ku_count,
        lateral_edge_count, enablement_edge_count, path_steps_with_exercise
 """
@@ -1016,10 +1038,15 @@ def _build_knowledge_health_query() -> str:
         "__ORGANIZES__": RelationshipName.ORGANIZES.value,
         "__LATERAL__": _LATERAL_EDGES,
         "__ENABLEMENT__": _ENABLEMENT_EDGES,
+        "__REQUIRES_STEP__": RelationshipName.REQUIRES_STEP.value,
         "__HAS_EXERCISE__": RelationshipName.HAS_EXERCISE.value,
         "__CURRICULUM_SCOPE__": f"'{ExerciseScope.CURRICULUM.value}'",
         "__TELEMETRY__": _TELEMETRY_EDGE_LIST,
         "__DEPTH__": str(KnowledgeHealth.PREREQUISITE_DEPTH_CAP),
+        "__ET_KU__": f"'{EntityType.KU.value}'",
+        "__ET_PS__": f"'{EntityType.PATH_STEP.value}'",
+        "__ET_LP__": f"'{EntityType.LEARNING_PATH.value}'",
+        "__ET_EX__": f"'{EntityType.EXERCISE.value}'",
         "__KA__": _knowledge_node("a"),
         "__KB__": _knowledge_node("b"),
         "__KO__": _knowledge_node("o"),

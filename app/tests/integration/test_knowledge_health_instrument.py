@@ -272,6 +272,66 @@ async def test_practice_coverage_counts_curriculum_scope_only(neo4j_driver, clea
 
 
 @pytest.mark.asyncio
+async def test_requires_step_counts_in_prerequisite_dag(neo4j_driver, clean_neo4j) -> None:
+    """PathStep prerequisites (REQUIRES_STEP) belong in the DAG (Codex #770 P2).
+
+    Authored via `prerequisite_step_uids`, REQUIRES_STEP is a real PathStep→PathStep
+    prerequisite edge; a corpus with these but no Ku PREREQUISITE_FOR must not read
+    as an empty DAG.
+    """
+    async with neo4j_driver.session() as s:
+        for uid in (P + "rs1", P + "rs2", P + "rs3"):
+            await s.run(
+                "CREATE (n:Entity:PathStep {uid:$u, entity_type:'path_step', title:$u, "
+                "status:'active', created_at:datetime()})",
+                u=uid,
+            )
+        # rs1 requires rs2 requires rs3 → a 2-hop PathStep prerequisite chain.
+        await s.run(
+            "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (a)-[:REQUIRES_STEP]->(b)",
+            a=P + "rs1",
+            b=P + "rs2",
+        )
+        await s.run(
+            "MATCH (a{uid:$a}),(b{uid:$b}) CREATE (a)-[:REQUIRES_STEP]->(b)",
+            a=P + "rs2",
+            b=P + "rs3",
+        )
+    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    raw = (await backend.measure_knowledge_subgraph()).value
+    assert raw["prerequisite_edge_count"] == 2  # both REQUIRES_STEP edges counted
+    assert raw["dag_max_depth"] == 2  # rs1→rs2→rs3 chain contributes depth
+
+
+@pytest.mark.asyncio
+async def test_label_less_pathstep_counted_by_entity_type(neo4j_driver, clean_neo4j) -> None:
+    """PathSteps persisted without the :PathStep label must still count (Codex #770 P2).
+
+    `create_step_node` persists `:Entity {entity_type:'path_step'}` with no
+    `:PathStep` label; the gauge matches by entity_type so such steps are not
+    silently dropped from the census/coverage.
+    """
+    async with neo4j_driver.session() as s:
+        # Label-less path step (mirrors create_step_node) + a labelled one.
+        await s.run(
+            "CREATE (n:Entity {uid:$u, entity_type:'path_step', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=P + "ll_nolabel",
+        )
+        await s.run(
+            "CREATE (n:Entity:PathStep {uid:$u, entity_type:'path_step', title:$u, "
+            "status:'active', created_at:datetime()})",
+            u=P + "ll_labelled",
+        )
+    backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    raw = (await backend.measure_knowledge_subgraph()).value
+    # Both count — label-only matching would have found just the labelled one.
+    assert raw["total_path_steps"] == 2
+
+
+@pytest.mark.asyncio
 async def test_empty_subgraph_is_all_zeros(neo4j_driver, clean_neo4j) -> None:
     """An empty knowledge subgraph measures to zeros, not an error."""
     backend = KnowledgeHealthBackend(Neo4jQueryExecutor(neo4j_driver))

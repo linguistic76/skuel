@@ -335,7 +335,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                 # ORGANIZES is used across domains).
                 query_knowledge = """
                 CALL () {
-                    MATCH (k:Ku)
+                    MATCH (k:Entity {entity_type: 'ku'})
                     WITH k, count{ (k)-[r]-() WHERE NOT type(r) IN
                         ['VIEWED','IN_PROGRESS','MASTERED','MARKED_AS_READ',
                          'BOOKMARKED','INTERESTED_IN','PINNED','PINNED_TODAY'] } AS deg
@@ -344,20 +344,21 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                            count(CASE WHEN deg = 0 THEN 1 END) AS orphan_kus
                 }
                 CALL () {
-                    MATCH (k:Ku)
-                    WHERE exists{ (:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k) }
+                    MATCH (k:Entity {entity_type: 'ku'})
+                    WHERE exists{ (:Entity {entity_type: 'path_step'})
+                                  -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k) }
                     RETURN count(k) AS composed_kus
                 }
                 CALL () {
-                    RETURN count{ (a)-[:PREREQUISITE_FOR|DEPENDS_ON|REQUIRES_PREREQUISITE]->(b)
-                        WHERE (a:Ku OR a:PathStep OR a:LearningPath OR a:Exercise)
-                          AND (b:Ku OR b:PathStep OR b:LearningPath OR b:Exercise)
+                    RETURN count{ (a)-[:PREREQUISITE_FOR|DEPENDS_ON|REQUIRES_PREREQUISITE|REQUIRES_STEP]->(b)
+                        WHERE (a.entity_type IN ['ku','path_step','learning_path','exercise'])
+                          AND (b.entity_type IN ['ku','path_step','learning_path','exercise'])
                     } AS prerequisite_edges
                 }
                 CALL () {
                     RETURN count{ (a)-[:ORGANIZES]->(b)
-                        WHERE (a:Ku OR a:PathStep OR a:LearningPath OR a:Exercise)
-                          AND (b:Ku OR b:PathStep OR b:LearningPath OR b:Exercise)
+                        WHERE (a.entity_type IN ['ku','path_step','learning_path','exercise'])
+                          AND (b.entity_type IN ['ku','path_step','learning_path','exercise'])
                     } AS organizes_edges
                 }
                 RETURN total_kus, avg_degree, orphan_kus, composed_kus,
