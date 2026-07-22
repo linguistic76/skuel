@@ -19,6 +19,7 @@ from fasthtml.common import (
     Span,
 )
 
+from core.models.enums import EntityStatus
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import (
     ActivityList,
@@ -306,7 +307,7 @@ def _dependency_row(task_uid: str, neighbor: "TaskDependencyNeighbor", direction
     ``direction`` is "depends_on" (edge this→neighbor) or "required_by"
     (edge neighbor→this) — it orients which end is the dependent for removal.
     """
-    is_completed = neighbor["status"] == "completed"
+    is_completed = neighbor["status"] == EntityStatus.COMPLETED.value
     icon_cls = f"flex-none {'text-success' if is_completed else 'text-muted-foreground'}"
     title_cls = "text-sm line-through text-muted-foreground" if is_completed else "text-sm"
 
