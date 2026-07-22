@@ -107,3 +107,4 @@ The Neo4j server itself has a global default tx timeout (`db.transaction.timeout
 - [`docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`](MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md) — the backend layer the wrapper sits above.
 - [`docs/deployment/DO_MIGRATION_GUIDE.md`](../deployment/DO_MIGRATION_GUIDE.md) — server-side `db.transaction.timeout` configuration.
 - [`@neo4j-cypher-patterns` skill — Best Practice 6](../../.claude/skills/neo4j-cypher-patterns/SKILL.md#6-per-query-server-side-timeout-timeddriver) — actionable how-to for query authors.
+- [ADR-080 — AuraDB Three-Horizon Strategy](../decisions/ADR-080-auradb-three-horizon-strategy.md) — the **startup** connectivity sibling of this per-query ceiling. The timeout bounds a query that runs too long; `connect_with_retry` / `probe_connectivity` (Horizon 0, `neo4j_connection.py`) bound a server that *isn't answering yet* (a paused/waking AuraDB Free instance). Distinct concerns, same driver seam.

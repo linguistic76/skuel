@@ -375,6 +375,34 @@ with unbounded_neo4j_query_timeout():
 
 See: [`docs/patterns/NEO4J_QUERY_TIMEOUT.md`](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) for the override mechanism, when-to-wrap table, and the `ContextVar` + `asyncio.create_task` caveat.
 
+#### Sibling at the driver seam — startup connectivity resilience (`connect_with_retry`)
+
+The per-query timeout bounds a query that *runs too long*. The complementary startup concern is a
+server that *isn't answering yet* — an AuraDB Free instance auto-pauses on inactivity and takes a
+few seconds to resume. `connect_with_retry()` (`neo4j_connection.py`, ADR-080 Horizon 0) wraps the
+startup connectivity probe in bounded exponential backoff, catching `NEO4J_EXCEPTIONS`:
+
+```python
+# Single chokepoint: Neo4jAdapter.connect() awaits this, so every startup path
+# (app bootstrap + the one-shot ./dev scripts) inherits waking-instance tolerance.
+await connect_with_retry(
+    connection,
+    max_attempts=Neo4jConnectRetry.MAX_ATTEMPTS,          # core/constants.py — 6
+    base_delay_seconds=Neo4jConnectRetry.BASE_DELAY_SECONDS,   # 1.0s
+    max_delay_seconds=Neo4jConnectRetry.MAX_DELAY_SECONDS,     # 30.0s cap (~31s total)
+)
+```
+
+`probe_connectivity()` runs `RETURN 1` — a stronger check than the driver's routing-only
+`verify_connectivity()`, because it confirms the database is actually **resumed and answering**,
+not merely routable (which is what matters for a paused instance waking up). After the bound it
+raises one actionable `RuntimeError`, never a bare `ServiceUnavailable` stacktrace.
+
+This is **startup-only**. Deep mid-request reconnect / circuit-breaker across the ~124
+`session.run` sites is deliberately deferred (ADR-080 "When to Revisit"); the natural home if it
+is ever built is this same driver/executor seam (a thin wrapper), **not** 124 call-site edits —
+the same "one chokepoint, not N edits" reasoning behind the `TimedDriver` above.
+
 ### 7. Schema-Change Monitoring (opt-in)
 
 `SchemaChangeDetector` (`core/services/schema_change_detector.py`) fingerprints the live Neo4j schema (labels, indexes, constraints, relationship types) and, on drift, invalidates the adapter's lazily-built query-optimization caches (`_index_aware_builder`, `_enhanced_templates`) via the auto-registered `AdaptiveOptimizationHandler`.
@@ -396,11 +424,65 @@ NEO4J_SCHEMA_MONITORING_INTERVAL=900    # poll interval (seconds); must be ≥ 1
 
 ### 8. Coerce string-stored temporals in comparisons
 
-Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comparing them directly to `date()`/`datetime()` yields `null` and silently drops rows. Wrap the stored side: `datetime(n.created_at) >= datetime($w)`. `datetime()` is universally safe (parses date and datetime strings, no-op on natives); `date()` **errors on a datetime string** → use `date(datetime(field))`. The writer decides the type: DTO `.isoformat()` → string (coerce); Cypher `= datetime()` → native (leave). **See [PATTERNS.md](PATTERNS.md) Pattern 10 + Key Rules #17–18.**
+Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comparing them directly to `date()`/`datetime()` yields `null` and silently drops rows. Wrap the stored side: `datetime(n.created_at) >= datetime($w)`. `datetime()` is universally safe (parses date and datetime strings, no-op on natives); `date()` **errors on a datetime string** → use `date(datetime(field))`. **The writer decides the type** — a hand-written Cypher writer that does `SET n.ts = datetime($iso)` stores a native `ZONED DATETIME`; the universal backend's `to_neo4j_node` mapper `.isoformat()`-serializes datetimes and stores a **string**. Two nodes in the same family can differ.
+
+**Worked case — telemetry retention (ADR-080 H0), verified with `valueType()` on the live graph.**
+`telemetry_retention_backend.py` splits its prune predicates by exactly this rule:
+
+```cypher
+-- Native ZONED DATETIME (writer wrapped datetime($iso)): AuthEvent.timestamp,
+-- SearchEvent.created_at, VIEWED.last_viewed_at — compare directly.
+MATCH (e:AuthEvent) WHERE e.timestamp < datetime() - duration({days: $days})
+
+-- STRING (written through UniversalNeo4jBackend.to_neo4j_node → .isoformat()):
+-- Interaction.created_at — parse first, or every row silently fails the filter.
+MATCH (e:Interaction) WHERE datetime(e.created_at) < datetime() - duration({days: $days})
+```
+
+Same "telemetry node older than N days" intent, opposite predicate shape, because `:Interaction`
+persists through the universal mapper while the others use hand-Cypher writers. Before writing any
+temporal predicate, confirm the writer — or run `RETURN valueType(e.created_at)` on a live sample.
+**See [PATTERNS.md](PATTERNS.md) Pattern 10 + Key Rules #17–18.**
 
 ### 9. Relationship reads/writes go through real, config-keyed methods
 
 `UnifiedRelationshipService` has no `__getattr__` — calling a method it doesn't define is an `AttributeError`, and `get_related_uids(method_key, uid)` takes an **exact** `DomainRelationshipConfig` method-key that **fails closed** on a typo. Don't invent `get_<x>_<y>` methods or guess keys; never trust a mocked relationship service (it resolves any attribute). **See [/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md) § Phantom methods & keys.**
+
+### 10. Batched age-based deletes — loop `WITH … LIMIT … DETACH DELETE` in Python
+
+Canonical shape for pruning a large, unbounded set (telemetry retention, ADR-080 H0). A single
+`MATCH … DETACH DELETE` over tens of thousands of nodes holds **one** transaction open — bad against
+a per-tx-ceilinged managed instance (the `TimedDriver` 120s bound, or AuraDB's own limits). Delete in
+bounded batches instead, each batch its **own** auto-committed transaction, looped from Python until a
+batch removes fewer rows than the batch size (candidate set drained):
+
+```cypher
+-- One batch. The executor opens a fresh session per execute_query, so each call auto-commits.
+MATCH (e:AuthEvent) WHERE e.timestamp < datetime() - duration({days: $days})
+WITH e LIMIT $batch          -- WITH … LIMIT bounds the write set BEFORE the DELETE
+DETACH DELETE e
+RETURN count(e) AS cnt        -- loop again while cnt == $batch
+```
+
+```python
+# telemetry_retention_backend.py::_run — the driving loop
+while True:
+    rows = (await self._executor.execute_query(delete_q, {"days": days, "batch": batch})).value or []
+    deleted = int(rows[0]["cnt"]) if rows else 0
+    total += deleted
+    if deleted < batch:       # last (partial) batch drained the set
+        break
+```
+
+Use `DELETE r` (not `DETACH DELETE`) when pruning **edges** (e.g. stale `:VIEWED`) so the endpoint
+Ku/PathStep survives — delete the learner-state edge, never the content it points at.
+
+**Why not `CALL { … } IN TRANSACTIONS`?** That subquery form *looks* like the built-in batcher, but it
+**requires an implicit (auto-commit) transaction** and throws inside an explicit/managed tx — which is
+how the executor and most call sites run. The Python delete-loop is the portable equivalent and keeps
+each batch a normal auto-commit call. (Aside: on the `2026.x` calendar line the modern subquery syntax
+is the variable-scope clause `CALL (e) { … }`; the legacy `CALL { WITH e … }` import form is deprecated
+— relevant if you ever do reach for a subquery here.)
 
 ## Additional Resources
 
@@ -408,6 +490,7 @@ Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comp
 - [examples.md](examples.md) - Full query examples for each domain
 - [docs/patterns/NEO4J_QUERY_TIMEOUT.md](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) - Per-query server-side timeout (TimedDriver, override mechanism)
 - [ADR-064](/docs/decisions/ADR-064-neo4j-per-query-timeout.md) - Why the chokepoint is a driver wrapper, not 124 call-site edits
+- [ADR-080](/docs/decisions/ADR-080-auradb-three-horizon-strategy.md) - AuraDB three-horizon strategy: telemetry retention (batched deletes, BP 10), startup connect-retry (BP 6), and the temporal-storage split (BP 8)
 
 ## Related Skills
 

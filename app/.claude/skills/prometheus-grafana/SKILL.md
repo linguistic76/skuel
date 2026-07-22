@@ -28,7 +28,7 @@ SKUEL tracks 33 metrics across 7 categories:
 | **Database** (3) | Queries, duration, errors | Neo4j performance | `skuel_neo4j_queries_total`, `skuel_neo4j_query_duration_seconds` |
 | **Events** (6) | Publications, handlers, invalidations | Event bus health | `skuel_events_published_total`, `skuel_event_handler_duration_seconds` |
 | **Domains** (2) | Creation, completion | Business activity | `skuel_entities_created_total`, `skuel_entities_completed_total` |
-| **Relationships** (10) | Graph density, layers, dependencies | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count` |
+| **Relationships** (16) | Graph density, layers, dependencies, knowledge-subgraph health | Graph health | `skuel_graph_density`, `skuel_blocking_relationships_count`, `skuel_knowledge_orphan_kus_count` |
 | **Queries** (3) | Operations, duration, errors | Granular performance | `skuel_operation_calls_total`, `skuel_operation_duration_seconds` |
 | **AI Services** (6) | AI API calls, embeddings | AI cost & performance | `skuel_ai_requests_total`, `skuel_embedding_queue_size` |
 
@@ -202,7 +202,7 @@ prometheus_metrics.domains.entities_completed.labels(
 
 **See**: `core/infrastructure/monitoring/metrics_event_handler.py` for event subscriptions
 
-### 5. Relationship Metrics (10 metrics)
+### 5. Relationship Metrics (16 metrics — 10 base + 6 knowledge-scoped, ADR-080 H1)
 
 **Class**: `RelationshipMetrics`
 
@@ -229,6 +229,29 @@ Tracks SKUEL's four relationship layers:
 **Category Values**: `structural`, `dependency`, `semantic`, `associative`
 
 **Updated By**: Background task (every 5 minutes) running Neo4j queries
+
+#### Knowledge-subgraph structural health (6 gauges, ADR-080 Horizon 1)
+
+Added in #770. A **knowledge-scoped** view of graph health — the raw structural signals the
+`KnowledgeHealthService` (`core/services/analytics/knowledge_health_service.py`) interprets into a
+composite GDS-readiness score. Scoped to the knowledge subgraph (Ku / PathStep / LearningPath /
+Exercise) matched by `entity_type`, with learner-state telemetry edges excluded so user activity
+never inflates connectivity. Same `RelationshipMetrics` class, same 5-min poller (a 4th query added
+to the existing `update_graph_health_metrics()` in `scripts/dev/bootstrap.py` — **no new worker**,
+preserving the CORE "no background workers" guarantee).
+
+| Metric | Type | Labels | Purpose |
+|--------|------|--------|---------|
+| `skuel_knowledge_kus_total` | Gauge | None | Total Ku nodes in the knowledge subgraph |
+| `skuel_knowledge_orphan_kus_count` | Gauge | None | Kus with zero incident relationships (isolated knowledge) |
+| `skuel_knowledge_avg_ku_degree` | Gauge | None | Average incident relationships per Ku (connectivity) |
+| `skuel_knowledge_composed_kus_count` | Gauge | None | Kus composed into ≥1 PathStep (USES_KU/CONTAINS_KNOWLEDGE/TRAINS_KU) |
+| `skuel_knowledge_prerequisite_edges_count` | Gauge | None | Prerequisite-DAG edges among knowledge nodes |
+| `skuel_knowledge_organizes_edges_count` | Gauge | None | ORGANIZES/MOC edges among knowledge nodes |
+
+These pair with the admin `/admin/knowledge-health` report and `./dev knowledge-health [--json]`
+(the on-demand full report with orphan lists + authoring flags); the gauges are the continuously-polled
+subset for the Graph Health dashboard. **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`, base-analytics-service skill.
 
 ### 6. Query Metrics (3 metrics)
 

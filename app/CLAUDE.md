@@ -277,7 +277,9 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Server tuning (memory, JVM, Vector API):** all server config is `NEO4J_*` env vars on the `neo4j` service in the base compose `../infrastructure/docker-compose.yml` (repo root; the app `docker-compose.yml` extends it, overriding only deltas). The Java Vector API (SIMD) is enabled via `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` — required for optimal performance of the 7 vector indexes (Entity/ContentChunk/ReferenceChunk/Goal/Task/Ku/PathStep embeddings); `2026.x` warns without it.
 
-**See:** `/docs/patterns/NEO4J_SERVER_TUNING.md`, `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md`
+**AuraDB three-horizon strategy (ADR-080):** committed to AuraDB Free soon; Neo4j Graph Data Science (GDS/AuraDS) deliberately deferred (density-gated; a Digital-layer enhancer, not part of the $0 core — GDS = pre-built graph algorithms, don't hand-roll). **Horizon 0 (shipped):** telemetry retention — `./dev telemetry-retention [--days N] [--dry-run]`, one-shot batched prune of unbounded-growth system telemetry (AuthEvent/SearchEvent/Interaction/stale VIEWED; saved `:ConversationSession` discussions EXCLUDED) keeps the graph under the Free node cap; startup connect-retry — `connect_with_retry` chokepoint in `Neo4jAdapter.connect` tolerates a paused/waking instance. `AURA-TEMPORARY:` marks self-host-only knobs that drop on migration. **Horizon 1:** author edge-first + the knowledge-health gauge (see Analytics below). Retention/connect-retry preserve the CORE "no background workers" guarantee (one-shot, not a loop).
+
+**See:** `/docs/patterns/NEO4J_SERVER_TUNING.md`, `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`, `/docs/decisions/ADR-064-neo4j-per-query-timeout.md`, `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`, `/docs/deployment/DO_MIGRATION_GUIDE.md`, `/docs/deployment/AURADB_MIGRATION_GUIDE.md`, `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md`
 
 ### Data Flow Architecture
 
@@ -371,7 +373,9 @@ One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intel
 
 Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONLY queries across all domains.
 
-**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
+**Knowledge-health gauge (ADR-080 H1):** `KnowledgeHealthService` (`core/services/analytics/knowledge_health_service.py`) — a corpus-level `BaseAnalyticsService` (no AI, CORE-safe) over the knowledge subgraph (Ku/PathStep/LP/Exercise): degree distribution, orphan Kus, prerequisite-DAG depth/coverage, ORGANIZES/MOC coverage, a composite GDS-readiness score, authoring-guidance flags. Exposed via the `AnalyticsService` facade (`analyze_knowledge_subgraph_health`), admin `/admin/knowledge-health`, `./dev knowledge-health [--json]`, and 6 knowledge-scoped Prometheus gauges (fed by the existing 5-min graph-health poller). **A corpus/authoring gauge excludes user-generated data** (learner-state telemetry, PERSONAL/ASSIGNED exercises) and matches knowledge nodes by `entity_type`, not domain label.
+
+**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`
 
 ### Intelligence Services Architecture
 
@@ -683,6 +687,8 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 | Base service | `/core/services/base_service.py` |
 | Base analytics | `/core/services/base_analytics_service.py` |
 | Knowledge intelligence | `/core/services/knowledge/` |
+| Knowledge-health gauge (ADR-080 H1) | `/core/services/analytics/knowledge_health_service.py` + backend in `/adapters/persistence/neo4j/backends/curriculum_backends.py`; `scripts/knowledge_health_report.py` (`./dev knowledge-health`) |
+| Telemetry retention (ADR-080 H0) | `/adapters/persistence/neo4j/telemetry_retention_backend.py`; `scripts/telemetry_retention.py` (`./dev telemetry-retention`); startup connect-retry in `/adapters/persistence/neo4j/neo4j_connection.py` (`connect_with_retry`) |
 | Domain enums | `/core/models/enums/` |
 | Graph contract view | `/docs/reference/GRAPH_CONTRACT.yaml` — generated; after enum/registry changes run `uv run python scripts/generate_graph_contract.py` (drift-tested) |
 | Protocols | `/core/ports/` |

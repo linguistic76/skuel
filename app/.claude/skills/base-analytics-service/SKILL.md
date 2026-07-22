@@ -53,6 +53,30 @@ Services >~350 lines are decomposed into mixin files in the same package directo
 
 **Key pattern:** The second type parameter is the domain's own model — `Task` for tasks, `Habit` for habits, `Ku` for knowledge units, `PathStep` for path steps, `LearningPath` for learning paths. PS, LP, and KU inherit `_CoreIntelligenceMixin[T]` directly (no per-domain mixin wrapper) and get a typed `get_with_context() -> Result[tuple[T, GraphContext]]` for free.
 
+### Beyond the 9 domains: corpus-level analytics
+
+`BaseAnalyticsService` is not only for per-entity domain services. **`KnowledgeHealthService`**
+(`core/services/analytics/knowledge_health_service.py`, ADR-080 Horizon 1) is a *corpus-level*
+subclass — same base (no AI, CORE-tier safe), but it reports on the **whole knowledge subgraph**
+(Ku / PathStep / LearningPath / Exercise) instead of one entity type, and takes **no `user_uid`**.
+It's wired into the `AnalyticsService` facade (not a domain facade) as
+`analyze_knowledge_subgraph_health()`, and it takes only a backend — no `graph_intel` /
+`relationships` (it needs neither the per-entity context loader nor the relationship service):
+
+```python
+class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]):
+    # backend measures raw structural facts; the service derives coverage ratios,
+    # a composite GDS-readiness score, and authoring-guidance flags. Sync helpers
+    # (_ratio, score composition) are pure-Python computation — analytics aggregate,
+    # they don't create.
+```
+
+Two durable rules this example illustrates (hard-won on #770): **a corpus/authoring gauge excludes
+user-generated data** (learner-state telemetry edges, PERSONAL/ASSIGNED/ASSESSMENT exercises), and
+it **matches knowledge nodes by `entity_type`, not domain label** — API create paths persist
+`:Entity {entity_type:'path_step'}` without the `:PathStep` label, so label-only queries silently
+drop them.
+
 ---
 
 ## Class Attributes
