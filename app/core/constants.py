@@ -876,3 +876,46 @@ class LpKnowledgeScopeComplexity:
     # Blend weights (sum to 1.0) — breadth leads, depth refines.
     BREADTH_WEIGHT: Final = 0.6
     DEPTH_WEIGHT: Final = 0.4
+
+
+class KnowledgeHealth:
+    """Thresholds and weights for the knowledge-subgraph structural-health gauge.
+
+    The Horizon-1 GDS-readiness instrument (ADR-080). Five structural signals are
+    each normalized to 0.0-1.0 and blended by the weights below (which sum to 1.0)
+    into a composite ``gds_readiness_score``. A graph is deemed GDS-ready once the
+    score crosses ``GDS_READY_THRESHOLD`` — the point at which centrality /
+    shortest-path / community detection would compute something meaningful.
+
+    Every number here is a deliberate first cut against the 2026-07-22 dev graph
+    (121 Kus, avg degree 2.17, 17 orphans, a 9-edge prerequisite DAG, no ORGANIZES
+    → score well below the threshold, as intended). Measure a denser corpus before
+    treating any of them as settled — the gauge exists precisely to tell us when
+    that day arrives.
+    """
+
+    # A knowledge subgraph at or above this composite score is treated as dense
+    # enough for GDS to say something (the Horizon-2 activation gate, ADR-080).
+    GDS_READY_THRESHOLD: Final = 0.6
+
+    # Saturation targets — the value of each raw signal that counts as "fully
+    # healthy" (normalized contribution saturates at 1.0 there).
+    TARGET_AVG_DEGREE: Final = 6.0  # mean incident edges per Ku
+    TARGET_LATERAL_DENSITY: Final = 1.0  # lateral edges per Ku
+
+    # Composite blend weights (sum to 1.0). Connectivity and a real prerequisite
+    # DAG lead; ORGANIZES/MOC and lateral refine; orphans penalize.
+    WEIGHT_CONNECTIVITY: Final = 0.25  # avg degree vs TARGET_AVG_DEGREE
+    WEIGHT_NON_ORPHAN: Final = 0.20  # 1 - orphan_fraction
+    WEIGHT_DAG_COVERAGE: Final = 0.25  # fraction of Kus in the prerequisite DAG
+    WEIGHT_ORGANIZES_COVERAGE: Final = 0.15  # fraction of Kus under an ORGANIZES edge
+    WEIGHT_LATERAL_DENSITY: Final = 0.15  # lateral edges/Ku vs TARGET_LATERAL_DENSITY
+
+    # Authoring-flag trigger thresholds (surface a content-gap flag below these).
+    ORPHAN_FLAG_FRACTION: Final = 0.05  # flag when >5% of Kus are orphaned
+    MIN_HEALTHY_DAG_COVERAGE: Final = 0.25  # flag a near-empty prerequisite DAG below this
+    MIN_HEALTHY_COMPOSITION_COVERAGE: Final = 0.5  # flag under-composed Kus below this
+    MIN_HEALTHY_PRACTICE_COVERAGE: Final = 0.5  # flag PathSteps missing exercises below this
+
+    # Safety bound on the prerequisite-DAG depth walk (matches the LP mixin cap).
+    PREREQUISITE_DEPTH_CAP: Final = 15

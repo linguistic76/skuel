@@ -22,6 +22,7 @@ This package enables:
 from core.services.analytics.analytics_aggregation_service import AnalyticsAggregationService
 from core.services.analytics.analytics_life_path_service import AnalyticsLifePathService
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
+from core.services.analytics.knowledge_health_service import KnowledgeHealthService
 from core.services.analytics.visualization_aggregation_service import (
     VisualizationAggregationService,
 )
@@ -30,5 +31,6 @@ __all__ = [
     "AnalyticsAggregationService",
     "AnalyticsLifePathService",
     "AnalyticsMetricsService",
+    "KnowledgeHealthService",
     "VisualizationAggregationService",
 ]

@@ -5,9 +5,9 @@ routes-in-adapters / rendering-in-``ui/`` convention: routes gate ADMIN,
 call the orchestrator, and wrap these trees in ``create_admin_page``.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import A, Div, Li, P, Span, Ul
 
 from core.models.type_hints import UserUID
 from ui.admin.prereq_views import AdminPrereqComponents
@@ -22,7 +22,11 @@ from ui.journals.components import render_batch_transcription_panel
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
+from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import ButtonLink
+
+if TYPE_CHECKING:
+    from core.ports.query_types import KnowledgeCoverageMetric, KnowledgeHealthReport
 
 _QUICK_LINK_CLS = (
     ButtonT.ghost,
@@ -268,6 +272,177 @@ def analytics_page(analytics_data: dict[str, Any]) -> Any:
     return Div(
         PageHeader("Analytics", subtitle="Platform usage and user statistics"),
         AdminAnalyticsComponents.render_analytics_dashboard(analytics_data),
+    )
+
+
+def _pct(fraction: float) -> str:
+    """Render a 0.0-1.0 fraction as a whole-number percentage."""
+    return f"{round(fraction * 100)}%"
+
+
+def _coverage_stat(label: str, metric: "KnowledgeCoverageMetric", total_kus: int) -> StatItem:
+    """A coverage slice as a StatItem: `edges · participating/total Kus`."""
+    coverage = metric["coverage"]
+    color = "success" if coverage >= 0.5 else ("warning" if coverage > 0 else "error")
+    return StatItem(
+        label=label,
+        value=_pct(coverage),
+        change=f"{metric['edge_count']} edges · {metric['participating_kus']}/{total_kus} Kus",
+        color=color,
+    )
+
+
+def _readiness_banner(report: "KnowledgeHealthReport") -> Any:
+    """The headline GDS-readiness score, badge, and progress bar (ADR-080)."""
+    score_pct = round(report["gds_readiness_score"] * 100)
+    ready = report["gds_ready"]
+    badge_text = "GDS-ready" if ready else "Building density"
+    badge_cls = (
+        "bg-success/15 text-success" if ready else "bg-warning/15 text-warning"
+    ) + " text-sm font-medium px-3 py-1 rounded-full"
+    bar_cls = ("bg-success" if ready else "bg-warning") + " h-3 rounded-full"
+
+    return Card(
+        CardBody(
+            Div(
+                Div(
+                    Span("GDS-Readiness Score", cls="text-sm text-muted-foreground uppercase"),
+                    Div(
+                        Span(f"{score_pct}%", cls="text-4xl font-bold text-foreground"),
+                        Span(badge_text, cls=badge_cls),
+                        cls="flex items-center gap-3 mt-1",
+                    ),
+                    cls="flex-1",
+                ),
+                cls="flex items-center justify-between",
+            ),
+            # Inline-style width keeps the bar prod-safe (no Tailwind JIT for
+            # arbitrary widths). See reference_tailwind_prod_layout_verification.
+            Div(
+                Div(cls=bar_cls, style=f"width: {score_pct}%;"),
+                cls="w-full bg-muted rounded-full h-3 mt-4",
+            ),
+            P(
+                "Composite of connectivity, orphan health, prerequisite-DAG coverage, "
+                "ORGANIZES/MOC coverage, and lateral density. GDS (centrality / "
+                "shortest-path / community detection) becomes meaningful once this "
+                "crosses the threshold — ADR-080 Horizon-2.",
+                cls="text-sm text-muted-foreground mt-3",
+            ),
+        ),
+    )
+
+
+def _flags_card(flags: list[str]) -> Any:
+    """Authoring-guidance flags — content gaps to fill (or a healthy note)."""
+    return Card(
+        CardHeader(CardTitle("Authoring guidance")),
+        CardBody(
+            Ul(
+                *[Li(flag, cls="text-sm py-1") for flag in flags],
+                cls="list-disc list-inside space-y-1",
+            )
+        ),
+    )
+
+
+def _orphan_card(orphan_kus: list[Any], orphan_count: int) -> Any:
+    """The orphan-Ku list — the strongest authoring signal (isolated concepts)."""
+    if not orphan_kus:
+        body: Any = P("No orphan Kus — every concept is connected. 🎉", cls="text-sm text-success")
+    else:
+        body = Ul(
+            *[
+                Li(
+                    A(
+                        ku["title"],
+                        href=f"/explore/ku/{ku['uid']}",
+                        cls="text-primary hover:underline",
+                    ),
+                    Span(f"  ({ku['uid']})", cls="text-xs text-muted-foreground"),
+                    cls="text-sm py-0.5",
+                )
+                for ku in orphan_kus
+            ],
+            cls="space-y-0.5 max-h-96 overflow-y-auto",
+        )
+    return Card(
+        CardHeader(CardTitle(f"Orphan Kus ({orphan_count})")),
+        CardBody(body),
+    )
+
+
+def knowledge_health_page(report: "KnowledgeHealthReport") -> Any:
+    """/admin/knowledge-health — ADR-080 Horizon-1 structural-health gauge.
+
+    One consolidated corpus-level report over the knowledge subgraph
+    (Ku / PathStep / LearningPath / Exercise): node counts, Ku degree
+    distribution, the orphan-Ku list, prerequisite-DAG depth/coverage,
+    ORGANIZES/MOC coverage, lateral density, practice coverage, a composite
+    GDS-readiness score, and authoring-guidance flags.
+    """
+    total_kus = report["total_kus"]
+    orphan_color = "error" if report["orphan_fraction"] > 0.05 else "success"
+
+    node_stats = [
+        StatItem(label="Kus", value=total_kus, color="info"),
+        StatItem(label="Path Steps", value=report["total_path_steps"], color="info"),
+        StatItem(label="Learning Paths", value=report["total_learning_paths"], color="info"),
+        StatItem(label="Exercises", value=report["total_exercises"], color="info"),
+    ]
+
+    structural_stats = [
+        StatItem(
+            label="Avg Ku Degree",
+            value=f"{report['avg_ku_degree']:.2f}",
+            change=f"max {report['max_ku_degree']}",
+            color="info",
+        ),
+        StatItem(
+            label="Orphan Kus",
+            value=report["orphan_ku_count"],
+            change=_pct(report["orphan_fraction"]),
+            color=orphan_color,
+        ),
+        _coverage_stat("Composition", report["composition"], total_kus),
+        _coverage_stat("Prerequisite DAG", report["prerequisite_dag"], total_kus),
+        StatItem(
+            label="DAG Depth",
+            value=report["dag_max_depth"],
+            change="longest prereq chain",
+            color="info",
+        ),
+        _coverage_stat("ORGANIZES / MOC", report["organizes"], total_kus),
+        StatItem(
+            label="Lateral Edges",
+            value=report["lateral_edge_count"],
+            change=f"{report['lateral_density']:.2f}/Ku · {report['enablement_edge_count']} enables",
+            color="info",
+        ),
+        StatItem(
+            label="Practice Coverage",
+            value=_pct(report["practice_coverage"]),
+            change=f"{report['path_steps_with_exercise']}/{report['total_path_steps']} steps",
+            color="success" if report["practice_coverage"] >= 0.5 else "warning",
+        ),
+    ]
+
+    return Div(
+        PageHeader(
+            "Knowledge Health",
+            subtitle="Structural health of the knowledge subgraph — GDS-readiness gauge (ADR-080)",
+        ),
+        _readiness_banner(report),
+        Div(cls="mt-6"),
+        SectionHeader("Corpus"),
+        StatsGrid(node_stats, cols=4),
+        Div(cls="mt-6"),
+        SectionHeader("Structural coverage"),
+        StatsGrid(structural_stats, cols=4),
+        Div(cls="mt-6"),
+        _flags_card(report["flags"]),
+        Div(cls="mt-6"),
+        _orphan_card(report["orphan_kus"], report["orphan_ku_count"]),
     )
 
 

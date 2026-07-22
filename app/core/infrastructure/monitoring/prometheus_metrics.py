@@ -191,6 +191,41 @@ class RelationshipMetrics:
             "ORGANIZES relationships (MOC → KU)",
         )
 
+        # Knowledge-subgraph structural health (ADR-080 Horizon-1). A
+        # knowledge-scoped view of graph health — the raw signals the
+        # KnowledgeHealthService interprets into a GDS-readiness score. Updated by
+        # the same 5-min graph-health poller (no new worker → CORE-safe).
+        self.knowledge_kus_total = Gauge(
+            "skuel_knowledge_kus_total",
+            "Total Ku nodes in the knowledge subgraph",
+        )
+
+        self.knowledge_orphan_kus = Gauge(
+            "skuel_knowledge_orphan_kus_count",
+            "Kus with zero incident relationships (isolated knowledge)",
+        )
+
+        self.knowledge_avg_ku_degree = Gauge(
+            "skuel_knowledge_avg_ku_degree",
+            "Average incident relationships per Ku (knowledge connectivity)",
+        )
+
+        self.knowledge_composed_kus = Gauge(
+            "skuel_knowledge_composed_kus_count",
+            "Kus composed into >=1 PathStep (USES_KU/CONTAINS_KNOWLEDGE/TRAINS_KU)",
+        )
+
+        self.knowledge_prerequisite_edges = Gauge(
+            "skuel_knowledge_prerequisite_edges_count",
+            "Prerequisite-DAG edges among knowledge nodes "
+            "(PREREQUISITE_FOR/DEPENDS_ON/REQUIRES_PREREQUISITE)",
+        )
+
+        self.knowledge_organizes_edges = Gauge(
+            "skuel_knowledge_organizes_edges_count",
+            "ORGANIZES/MOC edges among knowledge nodes",
+        )
+
 
 class QueryMetrics:
     """

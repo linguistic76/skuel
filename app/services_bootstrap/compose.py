@@ -454,6 +454,13 @@ async def compose_services(
         cross_domain_backend = CrossDomainBackend(query_executor)
         logger.info("✅ CrossDomainBackend created")
 
+        # Knowledge-subgraph structural-health gauge (ADR-080 Horizon-1). Executor-
+        # based corpus reader, tier-independent (pure graph analytics, CORE-safe).
+        from adapters.persistence.neo4j.backends.curriculum_backends import KnowledgeHealthBackend
+
+        knowledge_health_backend = KnowledgeHealthBackend(query_executor)
+        logger.info("✅ KnowledgeHealthBackend created")
+
         # Wire cross-domain backend to UserService (post-construction — UserService created first)
         user_service.wire_cross_domain_backend(cross_domain_backend)
         logger.info("✅ UserService wired with CrossDomainBackend (stats aggregation)")
@@ -1513,6 +1520,7 @@ async def compose_services(
             lifepath_service=lifepath_service,  # alignment snapshot history
             event_bus=event_bus,  # Event-driven report generation
             cross_domain_backend=cross_domain_backend,  # Cross-domain analytics queries
+            knowledge_health_backend=knowledge_health_backend,  # ADR-080 Horizon-1 gauge
         )
         logger.info("✅ Analytics service created")
 
@@ -1609,6 +1617,7 @@ async def compose_services(
             user_service=user_service,
             admin_stats=admin_stats_service,
             system_service=system_service,
+            analytics_service=analytics_service,  # ADR-080 knowledge-health gauge
         )
         logger.info("✅ Admin Orchestrator created")
 
