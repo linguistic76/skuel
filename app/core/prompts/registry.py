@@ -44,10 +44,30 @@ Available templates (core/prompts/templates/):
     entry_ku_grounding_judge      — Entry→Ku engagement filter (EntryGroundingService)
 """
 
+import string
 from pathlib import Path
 
 from core.prompts.prompt_template import PromptTemplate
 from core.utils.instruction_files import INSTRUCTIONS_DIR, load_optional_override
+from core.utils.logging import get_logger
+
+_logger = get_logger("skuel.prompts.registry")
+
+
+def _format_fields(content: str) -> set[str] | None:
+    """Root placeholder names ``str.format`` would look up in ``content``.
+
+    ``None`` when the content is not a valid format string (stray unmatched
+    brace) — rendering it would raise, so callers treat it as unusable.
+    """
+    try:
+        return {
+            field_name.split(".")[0].split("[")[0]
+            for _, field_name, _, _ in string.Formatter().parse(content)
+            if field_name is not None
+        }
+    except ValueError:
+        return None
 
 
 class PromptRegistry:
@@ -62,7 +82,11 @@ class PromptRegistry:
     committed template; absent or blank falls through to the committed floor.
     Overrides are read fresh on every access (never cached) so founder edits
     land without a restart. An override must preserve the template's
-    ``{placeholder}`` keys — it replaces the words, not the render contract.
+    ``{placeholder}`` keys — it replaces the words, not the render contract:
+    one whose placeholder set differs from the committed floor's (or that is
+    not a valid format string) degrades to the floor with a warning, because
+    ``str.format`` ignores extra kwargs and a missing placeholder would
+    silently drop the context the caller computed.
     """
 
     def __init__(self, templates_dir: Path, overrides_dir: Path | None = None) -> None:
@@ -78,16 +102,22 @@ class PromptRegistry:
                 dir, then the templates dir)
 
         Returns:
-            PromptTemplate — a fresh object when an override serves (never
-            cached), the cached committed template otherwise
+            PromptTemplate — a fresh object when a contract-preserving override
+            serves (never cached), the cached committed template otherwise
 
         Raises:
-            FileNotFoundError: When no override exists and the committed
-                template file does not exist
+            FileNotFoundError: When the committed template file does not exist
+                (the floor is guaranteed; an override never substitutes for it)
         """
+        committed = self._get_committed(template_id)
         override = load_optional_override(self._overrides_dir, f"{template_id}.md")
-        if override is not None:
+        if override is not None and self._preserves_render_contract(
+            template_id, committed.content, override
+        ):
             return PromptTemplate(template_id=template_id, content=override)
+        return committed
+
+    def _get_committed(self, template_id: str) -> PromptTemplate:
         if template_id not in self._cache:
             path = self._templates_dir / f"{template_id}.md"
             if not path.exists():
@@ -95,6 +125,28 @@ class PromptRegistry:
             content = path.read_text(encoding="utf-8")
             self._cache[template_id] = PromptTemplate(template_id=template_id, content=content)
         return self._cache[template_id]
+
+    @staticmethod
+    def _preserves_render_contract(template_id: str, committed: str, override: str) -> bool:
+        """True when the override keeps the committed floor's placeholder set."""
+        override_fields = _format_fields(override)
+        if override_fields is None:
+            _logger.warning(
+                "Override for %r is not a valid format string — serving the committed floor",
+                template_id,
+            )
+            return False
+        committed_fields = _format_fields(committed)
+        if override_fields != committed_fields:
+            _logger.warning(
+                "Override for %r changes the placeholder set (%s vs committed %s) — "
+                "serving the committed floor",
+                template_id,
+                sorted(override_fields),
+                sorted(committed_fields or ()),
+            )
+            return False
+        return True
 
     def render(self, template_id: str, **kwargs: str) -> str:
         """Render a template with the given placeholder values.

@@ -83,7 +83,9 @@ directly with two verifications — existence (file deleted/renamed → stale)
 and render-site liveness (a constant-string `.render()`/`.get()` reference
 appeared → stale, wiring complete). Render sites that pass a variable
 template id are invisible to the liveness check, so such an entry stays
-listed until removed by hand.
+listed until removed by hand. The template backlog appears on full runs
+only — the scoped `--events-only` / `--methods-only` modes isolate their
+own analysis.
 
 ## Event analysis (pure AST)
 

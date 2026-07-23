@@ -2313,12 +2313,13 @@ def main() -> int:
         if not args.as_json:
             print_method_report(methods, args.verbose)
 
-    # Prompt-template backlog rides every run — a third, cheap analysis over
-    # the already-parsed codebase, independent of the two scoping flags.
-    template_findings = analyze_planned_templates(codebase)
-    findings.extend(template_findings)
-    if not args.as_json:
-        print_template_report(template_findings)
+    # Prompt-template backlog rides the FULL report only — the scoped
+    # --events-only / --methods-only modes isolate their own analysis.
+    if check_events and check_methods:
+        template_findings = analyze_planned_templates(codebase)
+        findings.extend(template_findings)
+        if not args.as_json:
+            print_template_report(template_findings)
 
     if args.as_json:
         print(json.dumps([f.to_json() for f in findings], indent=2))

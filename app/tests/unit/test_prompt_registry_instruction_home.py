@@ -72,6 +72,53 @@ class TestOverrideResolution:
         assert PROMPT_REGISTRY._overrides_dir == INSTRUCTIONS_DIR
 
 
+class TestRenderContractGuard:
+    """An override replaces the words, not the render contract.
+
+    ``str.format`` ignores extra kwargs, so an override that drops a committed
+    placeholder would silently lose the context the caller computed — such an
+    override degrades to the committed floor (with a warning), as does one
+    that adds unknown placeholders (KeyError at render) or is not a valid
+    format string at all.
+    """
+
+    def test_override_missing_a_placeholder_degrades_to_floor(
+        self, home: tuple[PromptRegistry, Path]
+    ) -> None:
+        registry, overrides = home
+        (overrides / "greeting.md").write_text("Authored words, no slot.", encoding="utf-8")
+        assert registry.render("greeting", name="Mike") == "Committed floor for Mike."
+
+    def test_override_adding_a_placeholder_degrades_to_floor(
+        self, home: tuple[PromptRegistry, Path]
+    ) -> None:
+        registry, overrides = home
+        (overrides / "greeting.md").write_text("Words for {name} and {extra}.", encoding="utf-8")
+        assert registry.render("greeting", name="Mike") == "Committed floor for Mike."
+
+    def test_malformed_override_degrades_to_floor(self, home: tuple[PromptRegistry, Path]) -> None:
+        registry, overrides = home
+        (overrides / "greeting.md").write_text("Stray { brace for {name}.", encoding="utf-8")
+        assert registry.render("greeting", name="Mike") == "Committed floor for Mike."
+
+    def test_override_reordering_and_repeating_placeholders_serves(
+        self, home: tuple[PromptRegistry, Path]
+    ) -> None:
+        registry, overrides = home
+        (overrides / "greeting.md").write_text("{name}, yes {name}.", encoding="utf-8")
+        assert registry.render("greeting", name="Mike") == "Mike, yes Mike."
+
+    def test_placeholder_free_floor_rejects_placeholder_override(self, tmp_path: Path) -> None:
+        templates = tmp_path / "templates"
+        templates.mkdir()
+        (templates / "stance.md").write_text("Plain committed stance.", encoding="utf-8")
+        overrides = tmp_path / "instructions"
+        overrides.mkdir()
+        (overrides / "stance.md").write_text("Authored {surprise}.", encoding="utf-8")
+        registry = PromptRegistry(templates, overrides_dir=overrides)
+        assert registry.render("stance") == "Plain committed stance."
+
+
 class TestTraversalContainment:
     def test_traversal_id_cannot_escape_overrides_dir(self, tmp_path: Path) -> None:
         """A traversal template id never reads outside the overrides dir."""
