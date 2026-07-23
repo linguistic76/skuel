@@ -393,9 +393,9 @@ class UserContext:
     # FEEDBACK DOMAIN - Latest activity report reference
     # =========================================================================
     # Pointer to the most recent ActivityReport for this user.
-    # Populated by build_rich_user_context() only — None in standard build().
-    # Intelligence services use these fields to reason about recent patterns
-    # without an extra round-trip.
+    # Populated at BOTH depths — the consolidated (standard) and MEGA (rich)
+    # queries each carry the latest report. Intelligence services use these
+    # fields to reason about recent patterns without an extra round-trip.
     latest_activity_report_uid: str | None = None
     latest_activity_report_period: str | None = None  # "7d" | "14d" | "30d" | "90d"
     latest_activity_report_generated_at: datetime | None = None  # period_end datetime

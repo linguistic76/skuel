@@ -23,6 +23,7 @@ from core.models.type_hints import UserUID
 from core.services.chat import available_chat_models, resolve_chat_model
 from core.services.dsl.grounding import active_goal_titles as fetch_active_goal_titles
 from core.services.dsl.grounding import goals_as_context
+from core.services.journal.grounding_projection import render_journal_grounding
 from core.services.journal.instruction_loader import (
     discussion_system_prompt,
     follow_up_system_prompt,
@@ -36,6 +37,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.goal.goal import Goal
+    from core.models.habit.habit import Habit
+    from core.models.task.task import Task
     from core.ports.query_types import ShelvedBook
     from core.services.canon import CanonContext, CanonRetrievalService, CanonSource
     from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
@@ -43,6 +47,8 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
     from core.services.journal.suggestion import SuggestedActivity
     from core.services.tasks_service import TasksService
+    from core.services.user.unified_user_context import UserContext
+    from core.services.user.user_context_builder import UserContextBuilder
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger("skuel.services.journal")
@@ -75,9 +81,10 @@ class JournalService:
     Typed door: run_discussion() opens a user-led conversation, run_follow_up()
     continues it. File/audio door: run_stage1/2/3() + run_compiled() (DNWF).
 
-    Backend: UserEntryService (persistence); GoalsService/TasksService/HabitsService
-    (user-context summaries); CanonRetrievalService (shelf + vault grounding);
-    LLMCaller (all AI responses).
+    Backend: UserEntryService (persistence); UserContextBuilder (grounding
+    projection); GoalsService/TasksService/HabitsService (titles for the
+    projection / fallback digest); CanonRetrievalService (shelf + vault
+    grounding); LLMCaller (all AI responses).
     """
 
     def __init__(
@@ -89,6 +96,7 @@ class JournalService:
         habits_service: HabitsService | None = None,
         dsl_bridge: LLMDSLBridgeService | None = None,
         canon_retrieval_service: CanonRetrievalService | None = None,
+        context_builder: UserContextBuilder | None = None,
     ) -> None:
         self._llm = llm_caller
         self._user_entry = user_entry_service
@@ -103,6 +111,10 @@ class JournalService:
         # service carries the vault side (retrieve_vault, canon P3) behind the
         # second dial.
         self._canon = canon_retrieval_service
+        # Optional UserContext seam (ADR-081 D2): grounds every turn on the
+        # canonical UnifiedUserContext.build() via the curated projection.
+        # None (partial wiring / tests) degrades to the plain title digest.
+        self._context_builder = context_builder
 
     def _resolve_model(self, requested: str | None = None) -> str:
         """Gate a per-conversation model choice to one the caller can serve.
@@ -140,7 +152,15 @@ class JournalService:
     async def _build_context_summary(
         self, user_uid: UserUID, include_vault_notes: bool = True
     ) -> str:
-        """Return a short text digest of the user's active goals/tasks/habits/vault notes.
+        """Return the grounding digest: the UserContext projection + vault notes.
+
+        The structural half is the curated projection over
+        ``UnifiedUserContext.build()`` (ADR-081 D2) — identity, active
+        goals/tasks/habits with light relevance, and learning-journey framing,
+        rendered by ``render_journal_grounding`` from its explicit field list.
+        When no context is available (unwired builder or a failed build) it
+        degrades to the plain title digest, so grounding never falls below the
+        pre-ADR-081 floor.
 
         ``include_vault_notes=False`` drops the shallow recency-ordered note
         snippets — the vault dial's grounded retrieval block replaces them
@@ -150,25 +170,7 @@ class JournalService:
         retrieval miss keeps the snippets, so grounding never drops below the
         dial-off state. Dial off → byte-identical digest.
         """
-        lines: list[str] = []
-
-        if self._goals:
-            result = await self._goals.get_user_goals(user_uid)
-            if not result.is_error and result.value:
-                titles = [g.title for g in result.value[:6]]
-                lines.append("Active goals: " + ", ".join(titles))
-
-        if self._tasks:
-            tasks_result = await self._tasks.get_user_tasks(user_uid)
-            if not tasks_result.is_error and tasks_result.value:
-                titles = [t.title for t in tasks_result.value[:6]]
-                lines.append("Current tasks: " + ", ".join(titles))
-
-        if self._habits:
-            habits_result = await self._habits.get_user_habits(user_uid)
-            if not habits_result.is_error and habits_result.value:
-                titles = [h.title for h in habits_result.value[:6]]
-                lines.append("Active habits: " + ", ".join(titles))
+        lines = await self._grounding_lines(user_uid)
 
         if include_vault_notes:
             notes_result = await self._user_entry.get_vault_notes_for_context(user_uid)
@@ -182,6 +184,66 @@ class JournalService:
                 lines.append("Personal project notes:\n" + "\n".join(note_lines))
 
         return "\n".join(lines)
+
+    async def _grounding_lines(self, user_uid: UserUID) -> list[str]:
+        """The structural grounding lines — projection when context builds, digest floor otherwise."""
+        goals = await self._fetch_grounding_goals(user_uid)
+        tasks = await self._fetch_grounding_tasks(user_uid)
+        habits = await self._fetch_grounding_habits(user_uid)
+
+        context = await self._build_user_context(user_uid)
+        if context is not None:
+            return render_journal_grounding(context, goals=goals, tasks=tasks, habits=habits)
+
+        # Fail-soft floor: the pre-ADR-081 six-titles digest.
+        lines: list[str] = []
+        if goals:
+            lines.append("Active goals: " + ", ".join(g.title for g in goals[:6]))
+        if tasks:
+            lines.append("Current tasks: " + ", ".join(t.title for t in tasks[:6]))
+        if habits:
+            lines.append("Active habits: " + ", ".join(h.title for h in habits[:6]))
+        return lines
+
+    async def _build_user_context(self, user_uid: UserUID) -> UserContext | None:
+        """Build the canonical UserContext for grounding — ``None`` degrades to the digest.
+
+        Standard ``build()`` depth (~150 fields), never ``build_rich()``/ZPD —
+        that mega-query is Askesis's gravity well, not a per-turn journal cost
+        (ADR-081 D2). Absent builder (partial wiring) or a failed build both
+        fall back soft; a journal turn must never crash on grounding.
+        """
+        if self._context_builder is None:
+            return None
+        result = await self._context_builder.build(user_uid)
+        if result.is_error:
+            logger.warning(
+                "Journal grounding: UserContext build failed for %s — using title digest",
+                user_uid,
+            )
+            return None
+        return result.value
+
+    async def _fetch_grounding_goals(self, user_uid: UserUID) -> list[Goal]:
+        """The user's goals for grounding — soft: any failure means no goal line."""
+        if self._goals is None:
+            return []
+        result = await self._goals.get_user_goals(user_uid)
+        return result.value if result.is_ok and result.value else []
+
+    async def _fetch_grounding_tasks(self, user_uid: UserUID) -> list[Task]:
+        """The user's tasks for grounding — soft: any failure means no task line."""
+        if self._tasks is None:
+            return []
+        result = await self._tasks.get_user_tasks(user_uid)
+        return result.value if result.is_ok and result.value else []
+
+    async def _fetch_grounding_habits(self, user_uid: UserUID) -> list[Habit]:
+        """The user's habits for grounding — soft: any failure means no habit line."""
+        if self._habits is None:
+            return []
+        result = await self._habits.get_user_habits(user_uid)
+        return result.value if result.is_ok and result.value else []
 
     # ------------------------------------------------------------------
     # Suggested activities (prose → paste-ready @context() lines)
@@ -473,8 +535,9 @@ class JournalService:
         vault notes). Fail-soft: no grounding → empty ``sources``, and a vault
         miss keeps the shallow note digest.
 
-        Backend: GoalsService, TasksService, HabitsService (context summary);
-                 CanonRetrievalService (shelf + vault); LLMCaller (response).
+        Backend: UserContextBuilder + GoalsService/TasksService/HabitsService
+                 (grounding projection); CanonRetrievalService (shelf + vault);
+                 LLMCaller (response).
         """
         canon = await self._maybe_summon_canon(raw_entry, summon_canon, canon_book_uids)
         vault = await self._maybe_summon_vault(raw_entry, user_uid, summon_vault)
@@ -598,9 +661,9 @@ class JournalService:
         literally). Fail-soft: no grounding → empty ``sources`` — and a vault
         retrieval that misses keeps the shallow note digest.
 
-        Backend: GoalsService, TasksService, HabitsService (context summary);
-                 CanonRetrievalService (shelf + vault); LLMCaller (response
-                 generation).
+        Backend: UserContextBuilder + GoalsService/TasksService/HabitsService
+                 (grounding projection); CanonRetrievalService (shelf + vault);
+                 LLMCaller (response generation).
         """
         canon = await self._maybe_summon_canon(user_reply, summon_canon, canon_book_uids)
         vault = await self._maybe_summon_vault(user_reply, user_uid, summon_vault)
