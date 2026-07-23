@@ -429,7 +429,7 @@ class TestSearchPanelTagChips:
 
 class TestLibrarySearchRequest:
     def test_all_types_browse_defaults(self) -> None:
-        request = _library_search_request("", "", "", "created_at", 0)
+        request = _library_search_request("", "", "", SearchSortOrder.CREATED_DESC.value, 0)
         assert request.query_text is None
         assert len(request.entity_types) == 2
         assert request.tags_contain is None
@@ -438,11 +438,13 @@ class TestLibrarySearchRequest:
         assert request.offset == 0
 
     def test_ps_alias_resolves_at_boundary(self) -> None:
-        request = _library_search_request("", "ps", "", "created_at", 0)
+        request = _library_search_request("", "ps", "", SearchSortOrder.CREATED_DESC.value, 0)
         assert request.entity_types == [EntityType.PATH_STEP.value]
 
     def test_tag_and_title_sort_and_offset(self) -> None:
-        request = _library_search_request("breath", "ku", "yoga", "title", 24)
+        # The library speaks canonical SearchSortOrder values (title_asc), not
+        # the former "title" shorthand.
+        request = _library_search_request("breath", "ku", "yoga", SearchSortOrder.TITLE_ASC.value, 24)
         assert request.query_text == "breath"
         assert request.tags_contain == ["yoga"]
         assert request.get_sort_order() is SearchSortOrder.TITLE_ASC
@@ -450,6 +452,14 @@ class TestLibrarySearchRequest:
 
     def test_unknown_sort_falls_back_to_newest(self) -> None:
         request = _library_search_request("", "", "", "bogus", 0)
+        assert request.get_sort_order() is SearchSortOrder.CREATED_DESC
+
+    def test_relevance_sort_clamped_to_newest(self) -> None:
+        # RELEVANCE parses cleanly but is NOT a catalog sort: for an All-Types
+        # text query it drops into SearchRouter's non-pageable scored sweep and
+        # starves the grid. The route clamps it back to the browse default so a
+        # crafted ?sort=relevance can't reopen that hole (Codex #778).
+        request = _library_search_request("breath", "", "", SearchSortOrder.RELEVANCE.value, 0)
         assert request.get_sort_order() is SearchSortOrder.CREATED_DESC
 
 
