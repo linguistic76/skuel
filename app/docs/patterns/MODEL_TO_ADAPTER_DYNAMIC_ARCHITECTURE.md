@@ -92,7 +92,7 @@ adapters/external/
 
 **Ports** (`core/ports/`): `llm_protocols.py` (`ChatCompletionPort.complete(messages, *, system_prompt, model, ...) -> Result[LLMCompletion]`) and `embeddings_protocols.py` (`EmbeddingClientOperations.embed(text) -> Result[list[float]]`, plus the Neo4j-storage `EmbeddingsBackendOperations`).
 
-**Consumers stay in `core/`, SDK-free:** `LLMService`, `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `EmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port — they never construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/unit/test_llm_sdk_boundary.py`.
+**Consumers stay in `core/`, SDK-free:** `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `EmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port; `LLMService` (Askesis's RAG root) is instead injected the multi-provider `UnifiedLLMCaller` so it reaches whichever provider a call's model names (gpt* → OpenAI, claude* → Anthropic). None construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/unit/test_llm_sdk_boundary.py`.
 
 **See:** `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`.
 

@@ -4,8 +4,10 @@ LLM Service for Natural Language Generation
 
 Provides LLM integration for Askesis and other services: prompt building,
 RAG context formatting, and the Askesis system prompts. The actual provider
-call is delegated to an injected ``ChatCompletionPort`` (W1 / ADR-044) — the
-vendor SDKs live in ``adapters/external/llm/``. When no port is wired
+call is delegated to an injected ``UnifiedLLMCaller`` (W1 / ADR-044) — the
+multi-provider caller that routes by model prefix (gpt* → OpenAI, claude* →
+Anthropic), so Askesis reaches whichever provider the requested model names.
+The vendor SDKs live in ``adapters/external/llm/``. When no caller is wired
 (MOCK/LOCAL provider, or tests), ``generate`` returns canned mock responses.
 """
 
@@ -18,7 +20,8 @@ from enum import StrEnum
 from typing import Any
 
 from core.ports.base_protocols import EnumLike
-from core.ports.llm_protocols import ChatCompletionPort, ChatMessage
+from core.ports.llm_protocols import ChatMessage
+from core.services.llm_caller import LLMCallerProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,20 @@ class LLMProvider(StrEnum):
     LOCAL = "local"
     MOCK = "mock"
 
+    @classmethod
+    def from_model(cls, model: str) -> "LLMProvider":
+        """Infer the provider that serves ``model`` from its name prefix.
+
+        Mirrors ``UnifiedLLMCaller``'s prefix routing (claude* → Anthropic,
+        otherwise OpenAI) so a per-call model override labels the response with
+        the provider it actually routed to — not the service's configured
+        default. Unrecognized names fall back to OpenAI; the caller rejects them
+        before any provider is reached, so the label only rides an error path.
+        """
+        if model.startswith("claude"):
+            return cls.ANTHROPIC
+        return cls.OPENAI
+
 
 @dataclass
 class LLMConfig:
@@ -42,7 +59,7 @@ class LLMConfig:
     """
 
     provider: LLMProvider = LLMProvider.MOCK
-    model_name: str = "gpt-3.5-turbo"
+    model_name: str = "gpt-4o-mini"
     temperature: float = 0.7
     max_tokens: int = 500
     system_prompt: str | None = None
@@ -65,34 +82,36 @@ class LLMService:
     """
 
     def __init__(
-        self, config: LLMConfig | None = None, chat_port: ChatCompletionPort | None = None
+        self, config: LLMConfig | None = None, caller: LLMCallerProtocol | None = None
     ) -> None:
         """
-        Initialize LLM service with configuration and an optional chat port.
+        Initialize LLM service with configuration and an optional multi-provider caller.
 
         Args:
-            config: LLM configuration
-            chat_port: Provider-agnostic chat-completion adapter. Required for
-                real providers (OPENAI/ANTHROPIC). When ``None`` with a
-                MOCK/LOCAL provider, ``generate`` returns canned mock responses
-                with no external calls.
+            config: LLM configuration. ``model_name`` is the default model,
+                overridable per call — its prefix selects the provider.
+            caller: The multi-provider ``UnifiedLLMCaller`` that routes by model
+                prefix (gpt* → OpenAI, claude* → Anthropic). Required for real
+                providers (OPENAI/ANTHROPIC). When ``None`` with a MOCK/LOCAL
+                provider, ``generate`` returns canned mock responses with no
+                external calls.
 
         Raises:
             ValueError: If a real provider (OPENAI/ANTHROPIC) is configured
-                without a ``chat_port`` — fail-fast so a miswired service
-                surfaces at bootstrap instead of silently returning mock text.
+                without a ``caller`` — fail-fast so a miswired service surfaces
+                at bootstrap instead of silently returning mock text.
         """
         self.config = config or LLMConfig()
-        if chat_port is None and self.config.provider in (
+        if caller is None and self.config.provider in (
             LLMProvider.OPENAI,
             LLMProvider.ANTHROPIC,
         ):
             raise ValueError(
                 f"LLMService configured for provider '{self.config.provider}' requires a "
-                "chat_port (the composition root wires one). Use LLMProvider.MOCK or "
-                "LLMProvider.LOCAL for mock responses without an adapter."
+                "caller (the composition root wires chat_clients.caller). Use LLMProvider.MOCK "
+                "or LLMProvider.LOCAL for mock responses without a caller."
             )
-        self.chat_port = chat_port
+        self.caller = caller
 
     async def generate(  # skuel-lint: disable=SKUEL005 -- always answers: port errors fold into a degraded LLMResponse, never a propagated failure
         self,
@@ -102,6 +121,7 @@ class LLMService:
         temperature: float | None = None,
         max_tokens: int | None = None,
         conversation_history: list[dict[str, str]] | None = None,
+        model: str | None = None,
     ) -> LLMResponse:
         """
         Generate text using the LLM.
@@ -111,7 +131,10 @@ class LLMService:
             context: Additional context,
             system_prompt: System instructions,
             temperature: Sampling temperature,
-            max_tokens: Maximum tokens to generate
+            max_tokens: Maximum tokens to generate,
+            conversation_history: Prior turns for multi-turn RAG,
+            model: Per-call model override (its prefix selects the provider);
+                defaults to ``config.model_name``.
 
         Returns:
             LLM response
@@ -120,15 +143,16 @@ class LLMService:
         system_prompt = system_prompt or self.config.system_prompt
         temperature = temperature or self.config.temperature
         max_tokens = max_tokens or self.config.max_tokens
+        model = model or self.config.model_name
 
         # Combine context with prompt if provided
         full_prompt = prompt
         if context:
             full_prompt = f"Context: {context}\n\nQuery: {prompt}"
 
-        # No chat port ⇒ MOCK/LOCAL provider (the constructor enforces that real
-        # providers are wired with a port) → canned mock response, no external call.
-        if self.chat_port is None:
+        # No caller ⇒ MOCK/LOCAL provider (the constructor enforces that real
+        # providers are wired with a caller) → canned mock response, no external call.
+        if self.caller is None:
             return self._generate_mock(full_prompt, system_prompt)
 
         # Build the conversation (system prompt is passed separately so each
@@ -138,27 +162,30 @@ class LLMService:
         ]
         messages.append({"role": "user", "content": full_prompt})
 
-        result = await self.chat_port.complete(
+        # The caller routes by model prefix (gpt* → OpenAI, claude* → Anthropic).
+        result = await self.caller.complete(
             messages,
             system_prompt=system_prompt,
-            model=self.config.model_name,
+            model=model,
             temperature=temperature,
             max_tokens=max_tokens,
         )
 
+        # Label the response with the provider the model actually routes to
+        # (a per-call override may cross providers), not the configured default.
         if result.is_error:
             return LLMResponse(
                 content="",
-                provider=self.config.provider,
-                model=self.config.model_name,
+                provider=LLMProvider.from_model(model),
+                model=model,
                 error=str(result.expect_error()),
             )
 
         completion = result.value
         return LLMResponse(
             content=completion.text,
-            provider=self.config.provider,
-            model=completion.model or self.config.model_name,
+            provider=LLMProvider.from_model(completion.model or model),
+            model=completion.model or model,
             usage=completion.usage,
         )
 
