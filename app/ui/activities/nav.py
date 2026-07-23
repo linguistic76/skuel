@@ -29,7 +29,6 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Weekly", "/cal/week", "weekly", icon="calendar-range"),
     SidebarItem("Monthly", "/cal/month", "monthly", icon="calendar-days"),
     SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
-    SidebarItem("Events", "/cal", "events", icon="calendar"),
     SidebarItem("Goals", "/goals", "goals", icon="target"),
     SidebarItem("Habits", "/habits", "habits", icon="repeat"),
     SidebarItem("Principles", "/principles", "principles", icon="compass"),
