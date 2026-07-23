@@ -346,7 +346,7 @@ Both CONSOLIDATED_QUERY (standard) and MEGA-QUERY (rich) fetch the latest `Activ
 | `latest_activity_report_content` | The AI synthesis or human text |
 | `latest_activity_report_user_annotation` | User's own annotation (feeds next LLM prompt) |
 
-`latest_activity_report_user_annotation` is included in `Askesis.build_llm_context()` when the query mentions feedback/patterns/reflection keywords.
+`latest_activity_report_user_annotation` feeds the next report's LLM prompt via `_fetch_previous_annotation()`. (Its pre-ADR-082 keyword-triggered inclusion in Askesis's `build_llm_context()` was removed with the intent-selected dump — the Askesis prompt now grounds through the `ASKESIS_GROUNDING_FIELDS` projection.)
 
 ### Submission & Feedback Stats — Rich Path Only
 

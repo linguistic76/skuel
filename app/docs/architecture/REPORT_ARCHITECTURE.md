@@ -468,7 +468,7 @@ When `openai_service` is available, the generator:
 
 **Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ReportSource.AUTOMATIC` and logs `processing_error`. If no prior annotation exists, the prompt is unchanged.
 
-**Annotation feedback loop:** User annotations flow back into the next report's LLM prompt via `_fetch_previous_annotation()`. The field is also surfaced in `UserContext.latest_activity_report_user_annotation` and included in Askesis's `build_llm_context()` when the query mentions feedback/patterns/reflection keywords.
+**Annotation feedback loop:** User annotations flow back into the next report's LLM prompt via `_fetch_previous_annotation()`. The field is also surfaced in `UserContext.latest_activity_report_user_annotation` for API consumers. (Its pre-ADR-082 keyword-triggered inclusion in Askesis's `build_llm_context()` was removed with the intent-selected dump.)
 
 **Prompt template:** `core/prompts/templates/activity_feedback.md`
 

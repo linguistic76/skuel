@@ -142,7 +142,7 @@ The decision tree always tutors to the **weakest** KU's evidence level. If the u
 
 ### Step 8: Build System Prompt
 
-`ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context, canon_context=None)` composes stance + pedagogy leaf + canon block (ADR-082 D1): the authored `askesis_stance` fragment heads the prompt, a mode-specific builder supplies the leaf, then the PS-scoped canon readings block is appended when passages were drawn (ADR-077 — mode-aware: DIRECT gets answer-grounding framing, the other modes keep the Socratic method paragraph). The facet/context-aware branch (`LLMService._build_context_aware_system_prompt`) heads with the same stance (ADR-082 D3). Each mode has its own builder:
+`ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context, canon_context=None)` composes stance + grounding + pedagogy leaf + canon block (ADR-082 D1/D2): the authored `askesis_stance` fragment heads the prompt, the `render_askesis_grounding` projection supplies the learner block (skeleton contexts render nothing and the block is skipped), a mode-specific builder supplies the leaf, then the PS-scoped canon readings block is appended when passages were drawn (ADR-077 — mode-aware: DIRECT gets answer-grounding framing, the other modes keep the Socratic method paragraph). The facet/context-aware branch heads with the same stance (`LLMService._build_context_aware_system_prompt`, ADR-082 D3) and carries the same grounding projection via `build_llm_context` (ADR-082 D2). Each mode has its own builder:
 
 - **DIRECT:** Three sub-cases: redirect to unread curriculum (`askesis_guided_redirect`), out-of-scope warm redirect (`askesis_guided_out_of_scope`), or user-overridden in-scope direct answer (`askesis_guided_direct`).
 - **SOCRATIC:** "Ask the learner to explain. Do NOT give answers. Test understanding."
@@ -203,7 +203,7 @@ These functions have **zero side effects** and **zero service dependencies**. Th
 
 Reads UserContext and produces an `AskesisAnalysis` — a frozen dataclass containing:
 
-**Context summary** — per-domain structured dict exposed in the API response. Mirrors the same data points that `ResponseGenerator.build_llm_context()` renders as natural language for the LLM, but in structured form for API consumers:
+**Context summary** — per-domain structured dict exposed in the API response, read directly from UserContext for API consumers (the LLM prompt text reads UserContext through the `ASKESIS_GROUNDING_FIELDS` projection instead — ADR-082 D2):
 
 | Section | Fields |
 |---------|--------|
@@ -215,7 +215,7 @@ Reads UserContext and produces an `AskesisAnalysis` — a frozen dataclass conta
 | `capacity` | workload, is_blocked, is_overwhelmed, has_overdue |
 | `life_path` | alignment_score, is_aligned (only when life_path_uid set) |
 
-Both `_summarize_context` (structured dict) and `build_llm_context` (natural language string) read directly from UserContext — incidental duplication, not structural. UserContext is the shared data source; each consumer picks the fields it needs in the format its audience requires.
+UserContext is the shared data source; `_summarize_context` picks its fields freely for the structured API response, while the prompt-facing render is constrained to the explicit `ASKESIS_GROUNDING_FIELDS` list (ADR-082 D2 scope-creep mitigation).
 
 **Health metrics** (each 0.0-1.0, combined into weighted `overall`):
 - `consistency` — habit streak average / 30-day benchmark (weight: 30%)

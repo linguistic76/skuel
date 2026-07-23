@@ -206,7 +206,7 @@ if result.is_ok:
 - `identify_patterns()` - Behavioral pattern detection
 - `calculate_system_health()` - Per-domain health metrics
 
-**`AskesisAnalysis.context_summary`** — per-domain structured dict (tasks, goals, habits, events, knowledge, capacity, life_path) exposed in the API response. Mirrors the data points that `ResponseGenerator.build_llm_context()` renders as natural language — same source (UserContext), different format (structured dict for API consumers vs. text for LLM).
+**`AskesisAnalysis.context_summary`** — per-domain structured dict (tasks, goals, habits, events, knowledge, capacity, life_path) exposed in the API response, read directly from UserContext. (The LLM prompt text reads UserContext through the `ASKESIS_GROUNDING_FIELDS` projection instead — ADR-082 D2.)
 
 **January 2026:** Uses pure functions from `state_scoring.py` (no circular dependency)
 
@@ -278,7 +278,7 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 **Purpose:** Generate actions, LLM-friendly context, and GuidanceMode-aware system prompts
 
 **Key Methods:**
-- `build_llm_context()` - Convert UserContext to natural language for LLM
+- `build_llm_context()` - Render the user-state block (ADR-082 grounding projection + workload/curriculum) for the LLM
 - `build_guided_system_prompt()` - Build mode-specific system prompt from GuidanceDetermination (4 builders: DIRECT, SOCRATIC, EXPLORATORY, ENCOURAGING)
 - `generate_actions()` - Generate suggested actions from user context
 - `generate_suggested_actions()` - Generate actions from query context
