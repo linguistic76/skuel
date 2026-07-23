@@ -178,11 +178,27 @@ def _tag_chip(tag: str, active_tag: str, in_overflow: bool) -> Span:
     )
 
 
+# The catalog's sort vocabulary — the SINGLE source for both the dropdown
+# options and the route's clamp. RELEVANCE is deliberately absent: for a
+# cross-domain (All Types) text query it is the one sort that bypasses the
+# pageable faceted sweep for SearchRouter._cross_domain_search's scored text
+# sweep (capped at ~limit//6 minimal records, no offset), starving the card grid
+# (the hole PR #669 closed). The route clamps any non-catalog sort — including
+# the RELEVANCE that SearchSortOrder.from_string yields for empty/unknown values
+# — back to LIBRARY_DEFAULT_SORT, so a crafted ?sort=relevance can't reopen it.
+LIBRARY_SORT_CHOICES: list[tuple[str, str]] = [
+    (SearchSortOrder.CREATED_DESC.value, "Newest First"),
+    (SearchSortOrder.CREATED_ASC.value, "Oldest First"),
+    (SearchSortOrder.UPDATED_DESC.value, "Recently Updated"),
+    (SearchSortOrder.TITLE_ASC.value, "Title A–Z"),
+]
+LIBRARY_SORT_VALUES = frozenset(value for value, _ in LIBRARY_SORT_CHOICES)
+
 # The library's browse default when no explicit sort is chosen. Shared with the
-# route (adapters.inbound.explore_ui) so the pre-selected <option> and the route
-# param default can't drift — otherwise the rendered control would say one thing
-# while blank-browse requests sent another (a NOUS/tag/Load-more interaction
-# would serialize the browser's first <option> and override newest-first order).
+# route so the pre-selected <option> and the route param default can't drift —
+# otherwise the rendered control would say one thing while blank-browse requests
+# sent another (a NOUS/tag/Load-more interaction would serialize the browser's
+# first <option>). Must be one of LIBRARY_SORT_CHOICES.
 LIBRARY_DEFAULT_SORT = SearchSortOrder.CREATED_DESC.value
 
 # Shared select styling for the library facet bar (search box keeps its own,
@@ -276,25 +292,13 @@ def render_explore_search_panel(
         Option("Path Step", value="ps"),
     ]
 
-    # SORT \u2014 canonical SearchSortOrder members, parsed back via
-    # SearchSortOrder.from_string in the route. The catalog default
+    # SORT options from the shared catalog vocabulary; the default
     # (LIBRARY_DEFAULT_SORT) is pre-selected so blank-browse interactions serialize
-    # it rather than the browser's first <option>. RELEVANCE is deliberately
-    # EXCLUDED: for a cross-domain (All Types) text query it is the one sort that
-    # bypasses the pageable faceted sweep for the scored text sweep \u2014 capped at
-    # ~limit//6 minimal records with no offset, which would starve the card grid
-    # and drop the Load-more sentinel (SearchRouter._cross_domain_search; the hole
-    # PR #669 closed by keeping the library off relevance). The catalog browses by
-    # facet + created/title order; /search owns relevance-ranked querying.
-    sort_choices = [
-        (SearchSortOrder.CREATED_DESC.value, "Newest First"),
-        (SearchSortOrder.CREATED_ASC.value, "Oldest First"),
-        (SearchSortOrder.UPDATED_DESC.value, "Recently Updated"),
-        (SearchSortOrder.TITLE_ASC.value, "Title A\u2013Z"),
-    ]
+    # it rather than the browser's first <option>. RELEVANCE is excluded by
+    # construction (see LIBRARY_SORT_CHOICES); the route clamps it defensively.
     sort_options = [
         Option(label, value=value, **({"selected": True} if value == LIBRARY_DEFAULT_SORT else {}))
-        for value, label in sort_choices
+        for value, label in LIBRARY_SORT_CHOICES
     ]
 
     nous_options = [Option("All Nous", value="")] + [

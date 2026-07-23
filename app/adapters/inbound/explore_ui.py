@@ -19,6 +19,7 @@ fragments (/learning-loop/ps/*) are in learning_loop_routes.py.
 from typing import Any
 
 from fasthtml.common import (
+    FT,
     A,
     Div,
     P,
@@ -36,6 +37,7 @@ from core.utils.logging import get_logger
 from ui.explore.cards import (
     LIBRARY_DEFAULT_SORT,
     LIBRARY_PAGE_SIZE,
+    LIBRARY_SORT_VALUES,
     render_explore_card,
     render_explore_search_panel,
     render_explore_subtopic_inner,
@@ -69,6 +71,20 @@ def _parse_learning_level(value: str) -> LearningLevel | None:
         return None
 
 
+def _library_sort_order(sort: str) -> SearchSortOrder:
+    """Parse a sort value, clamped to the catalog vocabulary.
+
+    SearchSortOrder.from_string maps empty/unknown values to RELEVANCE, which for
+    a cross-domain (All Types) text query drops into SearchRouter's non-pageable
+    scored sweep and starves the card grid. The panel never offers RELEVANCE, so
+    enforce that invariant at the data layer too: any sort outside
+    LIBRARY_SORT_VALUES (including a crafted ?sort=relevance) falls back to the
+    browse default.
+    """
+    parsed = SearchSortOrder.from_string(sort)
+    return parsed if parsed.value in LIBRARY_SORT_VALUES else SearchSortOrder(LIBRARY_DEFAULT_SORT)
+
+
 def _library_search_request(
     q: str,
     type_filter: str,
@@ -85,8 +101,8 @@ def _library_search_request(
     EntityType.from_string (aliases are input-only). An active tag chip becomes
     an exact-match tags facet. NOUS topic / sub-topic and learning level are
     graph-derived curriculum facets that filter Ku/PathStep via array-membership
-    (SearchRequest.to_property_filters). Unknown sort values fall back to
-    RELEVANCE via SearchSortOrder.from_string.
+    (SearchRequest.to_property_filters). Sort is clamped to the catalog
+    vocabulary (_library_sort_order) — no relevance path.
     """
     entity_type = EntityType.from_string(type_filter) if type_filter else None
     entity_types: list[Any] = (
@@ -99,7 +115,7 @@ def _library_search_request(
         nous=nous or None,
         nous_subtopic=nous_subtopic or None,
         learning_level=_parse_learning_level(learning_level),
-        sort_order=SearchSortOrder.from_string(sort),
+        sort_order=_library_sort_order(sort),
         limit=LIBRARY_PAGE_SIZE,
         offset=max(offset, 0),
     )
@@ -185,7 +201,7 @@ def create_explore_api_routes(
         return tuple(_library_cards(records, pinned_uids, learning_states, offset))
 
     @rt("/api/explore/subtopics")
-    async def explore_subtopics(request: Request, nous: str = "") -> Any:
+    async def explore_subtopics(request: Request, nous: str = "") -> FT:
         """Sub-topic column scoped to the chosen NOUS topic (anonymous cascade).
 
         The library's public counterpart to the auth-gated /search/subtopics —
