@@ -39,7 +39,9 @@ def _rich_goal(uid: str, title: str) -> dict:
 def _rich_path(title: str, completed: int = 0, total: int = 0) -> dict:
     return {
         "path": {"title": title},
-        "graph_context": {"completed_steps": completed, "total_steps": total},
+        "graph_context": {
+            "steps": [{"uid": f"ps.step-{i}", "completed": i < completed} for i in range(total)]
+        },
     }
 
 
@@ -83,6 +85,26 @@ class TestRenderAskesisGrounding:
     def test_untitled_path_is_skipped_not_rendered_blank(self):
         context = _context(enrolled_paths_rich=[{"path": {}, "graph_context": {}}])
         assert "Enrolled learning paths" not in render_askesis_grounding(context)
+
+    def test_placeholder_null_step_is_not_counted_as_progress(self):
+        # A path with no HAS_STEP edges arrives with ONE all-null step map
+        # (the MEGA-QUERY's OPTIONAL MATCH placeholder — Codex #786 P2):
+        # an empty skeleton renders its title alone, never "(0/1 steps)".
+        context = _context(
+            enrolled_paths_rich=[
+                {
+                    "path": {"title": "Empty Skeleton"},
+                    "graph_context": {
+                        "steps": [{"uid": None, "title": None, "completed": None}],
+                        "total_steps": 1,
+                        "completed_steps": 0,
+                    },
+                }
+            ]
+        )
+        text = render_askesis_grounding(context)
+        assert "Enrolled learning paths: Empty Skeleton." in text
+        assert "steps" not in text
 
     def test_now_studying_from_current_path_steps(self):
         context = _context(
