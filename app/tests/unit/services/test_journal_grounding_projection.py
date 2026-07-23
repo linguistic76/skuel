@@ -109,12 +109,33 @@ class TestRenderJournalGrounding:
         lines = render_journal_grounding(context, goals=goals, tasks=[], habits=[])
         assert "Active goals: The live one" in lines
 
-    def test_empty_uid_join_falls_back_to_fetch_order(self):
-        # A sparse context must never ground below the plain title digest.
+    def test_join_skew_falls_back_to_fetch_order(self):
+        # Relevant UIDs exist but none matched the fetch (skew) — never ground
+        # below the plain title digest.
         context = _context(active_goal_uids=["g_gone"])
         goals = [_goal("g1", "Still visible")]
         lines = render_journal_grounding(context, goals=goals, tasks=[], habits=[])
         assert "Active goals: Still visible" in lines
+
+    def test_genuinely_empty_active_list_omits_the_section(self):
+        # No active goals is real signal — completed/archived fetches must not
+        # be revived under an "Active goals" label (Codex #784 P2).
+        context = _context(active_goal_uids=[])
+        goals = [_goal("g1", "Completed long ago")]
+        lines = render_journal_grounding(context, goals=goals, tasks=[], habits=[])
+        assert not any(line.startswith("Active goals:") for line in lines)
+
+    def test_completed_task_due_today_is_not_revived(self):
+        # today_task_uids is collected by due date alone (no status predicate);
+        # the projection intersects it with the open set (Codex #784 P2).
+        context = _context(
+            active_task_uids=["t1"],
+            today_task_uids=["t1", "t_done"],
+        )
+        tasks = [_task("t1", "Write PR"), _task("t_done", "Old chore")]
+        lines = render_journal_grounding(context, goals=[], tasks=tasks, habits=[])
+        assert "Current tasks: Write PR (due today)" in lines
+        assert not any("Old chore" in line for line in lines)
 
 
 class _RecordingContext(UserContext):

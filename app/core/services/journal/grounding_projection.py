@@ -112,21 +112,32 @@ def render_journal_grounding(
 def _select[E: DomainModelProtocol](entities: list[E], relevant_uids: list[str]) -> list[E]:
     """Pick the entities the context deems relevant, in the context's order.
 
-    Falls back to fetch order when the UID join lands nothing (a sparse or
-    just-built context) — the projection never grounds below the plain title
-    digest it replaced.
+    Falls back to fetch order ONLY on join skew — relevant UIDs exist but none
+    matched the title fetch (a stale fetch or just-built context), where
+    dropping the section would ground below the digest floor. A genuinely
+    empty relevance list is real signal (the user has no active items): the
+    section is omitted rather than reviving completed/archived entities under
+    an "Active …" label (Codex #784 P2).
     """
     by_uid = {entity.uid: entity for entity in entities}
     picked = [by_uid[uid] for uid in relevant_uids if uid in by_uid]
-    if not picked:
+    if not picked and relevant_uids:
         picked = list(entities)
     return picked[:_MAX_ITEMS_PER_DOMAIN]
 
 
 def _ordered_task_uids(context: UserContext) -> list[str]:
-    """Task relevance order: overdue first, then due today, then remaining active."""
+    """Task relevance order: overdue first, then due today, then remaining active.
+
+    ``overdue_task_uids`` is already status-filtered server-side
+    (overdue-eligible ⊂ open — see STATUS_PARAMS in the UserContext queries),
+    but ``today_task_uids`` is collected by due date alone, so it is
+    intersected with the open set here — a completed task due today must not
+    resurface as current work (Codex #784 P2).
+    """
     ordered = list(context.overdue_task_uids)
-    ordered += [uid for uid in context.today_task_uids if uid not in ordered]
+    open_uids = set(context.active_task_uids)
+    ordered += [uid for uid in context.today_task_uids if uid in open_uids and uid not in ordered]
     ordered += [uid for uid in context.active_task_uids if uid not in ordered]
     return ordered
 
