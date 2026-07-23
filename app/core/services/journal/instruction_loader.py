@@ -26,6 +26,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
+from core.utils.instruction_files import INSTRUCTIONS_DIR as _DEFAULT_INSTRUCTIONS_DIR
+from core.utils.instruction_files import load_optional_override, resolve_contained
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -33,8 +35,9 @@ if TYPE_CHECKING:
 
 _logger = get_logger("skuel.services.journal.instruction_loader")
 
-_APP_ROOT: Final = Path(__file__).resolve().parent.parent.parent.parent
-INSTRUCTIONS_DIR: Final = _APP_ROOT / "data" / "instructions"
+# Module-level binding (not Final) so tests can monkeypatch the directory;
+# the canonical definition lives in core/utils/instruction_files.py (ADR-082).
+INSTRUCTIONS_DIR: Path = _DEFAULT_INSTRUCTIONS_DIR
 
 _FILES: Final[dict[str, str]] = {
     "main": "dnwf 1.md",
@@ -62,18 +65,12 @@ def _load(key: str) -> str:
 def _resolve_contained(filename: str) -> Path | None:
     """Resolve ``filename`` inside ``INSTRUCTIONS_DIR`` — or ``None`` on traversal.
 
-    THE single containment guard for every by-name read from the instructions
-    dir (``load_named_instruction`` and the ADR-081 override reader). Traversal
-    out of the dir is always an attack or a bug, so it warns regardless of
-    which caller hit it.
+    Delegates to the shared containment guard in
+    ``core/utils/instruction_files.py`` (lifted there by ADR-082 so the prompt
+    registry can use it too), bound to this module's ``INSTRUCTIONS_DIR`` at
+    call time.
     """
-    candidate = (INSTRUCTIONS_DIR / filename).resolve()
-    try:
-        candidate.relative_to(INSTRUCTIONS_DIR.resolve())
-    except ValueError:
-        _logger.warning("Path traversal attempt blocked: %r", filename)
-        return None
-    return candidate
+    return resolve_contained(INSTRUCTIONS_DIR, filename)
 
 
 def load_named_instruction(filename: str) -> str | None:
@@ -97,16 +94,14 @@ def load_named_instruction(filename: str) -> str | None:
 def _load_optional_override(filename: str) -> str | None:
     """Read an optional founder-local override file — ``None`` when absent or blank.
 
-    The ADR-081 D1 override reader: absence is the NORMAL state (the committed
-    floor serves), so a miss is silent — unlike ``load_named_instruction``,
-    which warns because a *named* file was expected. Blank/whitespace content
-    also degrades to ``None`` so a stray empty file can never blank a floor.
+    The ADR-081 D1 override reader (shared semantics now live in
+    ``core/utils/instruction_files.py``): absence is the NORMAL state (the
+    committed floor serves), so a miss is silent — unlike
+    ``load_named_instruction``, which warns because a *named* file was
+    expected. Blank/whitespace content also degrades to ``None`` so a stray
+    empty file can never blank a floor.
     """
-    candidate = _resolve_contained(filename)
-    if candidate is None or not candidate.is_file():
-        return None
-    content = candidate.read_text(encoding="utf-8")
-    return content if content.strip() else None
+    return load_optional_override(INSTRUCTIONS_DIR, filename)
 
 
 def stage1_system_prompt() -> str:

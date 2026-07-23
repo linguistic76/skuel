@@ -202,8 +202,10 @@ class ResponseGenerator:
     ) -> str:
         """Build a system prompt based on the guidance determination.
 
-        Dispatches to mode-specific builders that construct system prompts
-        tailored to the pedagogical intent. Each mode has fine-grained
+        Composition (ADR-082 D1): authored stance + pedagogy leaf + canon
+        block. The shared ``askesis_stance`` fragment (committed floor,
+        founder-overridable like every registry template) heads the prompt;
+        mode-specific builders supply the pedagogy leaf, with fine-grained
         variation based on guidance.pedagogical_detail.
 
         Args:
@@ -229,7 +231,8 @@ class ResponseGenerator:
             GuidanceMode.ENCOURAGING: self._build_encouraging_prompt,
         }
         builder = builders.get(guidance.mode, self._build_direct_prompt)
-        prompt = builder(guidance, ps_bundle)
+        stance = PROMPT_REGISTRY.render("askesis_stance")
+        prompt = stance + "\n\n" + builder(guidance, ps_bundle)
         if canon_context is not None:
             teaching_block = canon_context.to_teaching_block(  # "" when no passages
                 preserve_method=guidance.mode is not GuidanceMode.DIRECT

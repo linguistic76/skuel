@@ -21,6 +21,7 @@ from typing import Any
 
 from core.ports.base_protocols import EnumLike
 from core.ports.llm_protocols import ChatMessage
+from core.prompts import PROMPT_REGISTRY
 from core.services.chat import resolve_chat_model
 from core.services.llm_caller import LLMCallerProtocol
 
@@ -295,12 +296,15 @@ class LLMService:
     def _build_context_aware_system_prompt(
         self, user_context: str, additional_context: dict | None, intent: Any | None
     ) -> str:
-        """Build rich system prompt that includes user context."""
-        # Base prompt
+        """Build rich system prompt: authored Askesis stance + user context.
+
+        The ``askesis_stance`` fragment (committed floor, founder-overridable —
+        ADR-082 D1/D3) heads the prompt here exactly as it heads the guided
+        branch, so the facet/context-aware path carries the same authored voice
+        and citation discipline.
+        """
         prompt_parts = [
-            "You are Askesis, an intelligent learning assistant with complete awareness",
-            "of the user's current state. Use this context to provide personalized,",
-            "specific answers that reference their actual data.",
+            PROMPT_REGISTRY.render("askesis_stance"),
             "",
             "=== USER'S CURRENT STATE ===",
             user_context,
