@@ -13,6 +13,12 @@ JournalMode nudges the companion's flavour for the conversational prompts
 (discussion_system_prompt / follow_up_system_prompt). The three DNWF stage
 functions (stage1/2/3_system_prompt) are mode-invariant — mode selection
 determines which stage runs, not how it runs.
+
+Conversational bases (ADR-081 D1): the discussion / follow-up base voice is a
+committed default FLOOR (guaranteed present, per mode) with an optional
+founder-local override file in data/instructions/
+(``journals.discussion.{mode}.md`` / ``journals.follow_up.{mode}.md``).
+Override present and non-blank → it replaces the floor; absent → the floor.
 """
 
 from __future__ import annotations
@@ -53,6 +59,23 @@ def _load(key: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _resolve_contained(filename: str) -> Path | None:
+    """Resolve ``filename`` inside ``INSTRUCTIONS_DIR`` — or ``None`` on traversal.
+
+    THE single containment guard for every by-name read from the instructions
+    dir (``load_named_instruction`` and the ADR-081 override reader). Traversal
+    out of the dir is always an attack or a bug, so it warns regardless of
+    which caller hit it.
+    """
+    candidate = (INSTRUCTIONS_DIR / filename).resolve()
+    try:
+        candidate.relative_to(INSTRUCTIONS_DIR.resolve())
+    except ValueError:
+        _logger.warning("Path traversal attempt blocked: %r", filename)
+        return None
+    return candidate
+
+
 def load_named_instruction(filename: str) -> str | None:
     """Read a user-named instruction file from ``INSTRUCTIONS_DIR`` — or ``None``.
 
@@ -62,16 +85,28 @@ def load_named_instruction(filename: str) -> str | None:
     containment guard blocks path traversal out of the instructions dir; a
     missing file degrades to ``None`` (the pipeline runs uninstructed).
     """
-    candidate = (INSTRUCTIONS_DIR / filename).resolve()
-    try:
-        candidate.relative_to(INSTRUCTIONS_DIR.resolve())
-    except ValueError:
-        _logger.warning("Path traversal attempt blocked: %r", filename)
+    candidate = _resolve_contained(filename)
+    if candidate is None:
         return None
     if not candidate.is_file():
         _logger.warning("Instruction file not found: %s", candidate)
         return None
     return candidate.read_text(encoding="utf-8")
+
+
+def _load_optional_override(filename: str) -> str | None:
+    """Read an optional founder-local override file — ``None`` when absent or blank.
+
+    The ADR-081 D1 override reader: absence is the NORMAL state (the committed
+    floor serves), so a miss is silent — unlike ``load_named_instruction``,
+    which warns because a *named* file was expected. Blank/whitespace content
+    also degrades to ``None`` so a stray empty file can never blank a floor.
+    """
+    candidate = _resolve_contained(filename)
+    if candidate is None or not candidate.is_file():
+        return None
+    content = candidate.read_text(encoding="utf-8")
+    return content if content.strip() else None
 
 
 def stage1_system_prompt() -> str:
@@ -158,33 +193,37 @@ def discussion_system_prompt(
     return "\n\n".join(parts)
 
 
-def _discussion_base(mode: "JournalMode") -> str:
-    """Opening-turn discussion base — companion voice, user leads, no headings."""
-    from core.models.enums.user_enums import JournalMode
-
-    if mode is JournalMode.SCRIBE:
-        return (
-            "You are a faithful thinking companion opening a conversation. The user has "
-            "written to you — respond directly and conversationally, staying close to their "
-            "voice and language. Follow their lead: clarify, reflect back, or help them find "
-            "words for what they're reaching toward. No headers, no analysis template, no "
-            "advice they didn't ask for."
-        )
-    if mode is JournalMode.WHAT_IS_RELATED:
-        return (
-            "You are a knowledge companion opening a conversation. The user has written to "
-            "you — respond directly and conversationally. Where it helps *them*, draw a "
-            "connection to what they already know, care about, or are working on. Follow "
-            "their lead rather than mapping everything. No headers, no analysis template."
-        )
-    # THOUGHT_PARTNER (default)
-    return (
+# Committed default FLOOR for the opening-turn discussion base, keyed by
+# JournalMode.value (ADR-081 D1) — guaranteed present so the companion is
+# never uninstructed; a founder-local journals.discussion.{mode}.md overrides.
+_DISCUSSION_BASE_DEFAULTS: Final[dict[str, str]] = {
+    "scribe": (
+        "You are a faithful thinking companion opening a conversation. The user has "
+        "written to you — respond directly and conversationally, staying close to their "
+        "voice and language. Follow their lead: clarify, reflect back, or help them find "
+        "words for what they're reaching toward. No headers, no analysis template, no "
+        "advice they didn't ask for."
+    ),
+    "what_is_related": (
+        "You are a knowledge companion opening a conversation. The user has written to "
+        "you — respond directly and conversationally. Where it helps *them*, draw a "
+        "connection to what they already know, care about, or are working on. Follow "
+        "their lead rather than mapping everything. No headers, no analysis template."
+    ),
+    "thought_partner": (
         "You are a thoughtful journal companion opening a conversation. The user has written "
         "to you — respond directly and conversationally, engaging with what they've actually "
         "raised. Let them lead: expand a point, offer a gentle challenge, draw a connection, "
         "or reflect back what you're noticing. No headers, no fresh analysis structure, no "
         "forced conclusions. Keep an honest, attentive, respectful tone."
-    )
+    ),
+}
+
+
+def _discussion_base(mode: "JournalMode") -> str:
+    """Opening-turn discussion base — committed floor, optional authored override (ADR-081 D1)."""
+    override = _load_optional_override(f"journals.discussion.{mode.value}.md")
+    return override if override is not None else _DISCUSSION_BASE_DEFAULTS[mode.value]
 
 
 def follow_up_system_prompt(
@@ -218,35 +257,38 @@ def follow_up_system_prompt(
     return "\n\n".join(parts)
 
 
-def _follow_up_base(mode: "JournalMode") -> str:
-    """Conversational follow-up base — no structural headings or analysis templates."""
-    from core.models.enums.user_enums import JournalMode
-
-    if mode is JournalMode.SCRIBE:
-        return (
-            "You are a faithful scribe continuing a conversation. The user has reviewed "
-            "your previous record and is following up.\n\n"
-            "Respond directly to their question or correction. If they want a revision, "
-            "make it. If they're asking about a choice you made, explain it briefly. "
-            "Keep the same close, faithful, non-interpretive stance — no headers, no analysis."
-        )
-    if mode is JournalMode.WHAT_IS_RELATED:
-        return (
-            "You are a knowledge connector continuing a conversation. The user has read "
-            "your previous connections and is following up.\n\n"
-            "Respond directly to their question or reaction. Expand a specific connection, "
-            "drop one that doesn't land, or surface a new one they've prompted. "
-            "No new full connection maps — just the thread they've pulled."
-        )
-    # THOUGHT_PARTNER (default)
-    return (
+# Committed default FLOOR for the follow-up base, keyed by JournalMode.value
+# (ADR-081 D1) — a founder-local journals.follow_up.{mode}.md overrides.
+_FOLLOW_UP_BASE_DEFAULTS: Final[dict[str, str]] = {
+    "scribe": (
+        "You are a faithful scribe continuing a conversation. The user has reviewed "
+        "your previous record and is following up.\n\n"
+        "Respond directly to their question or correction. If they want a revision, "
+        "make it. If they're asking about a choice you made, explain it briefly. "
+        "Keep the same close, faithful, non-interpretive stance — no headers, no analysis."
+    ),
+    "what_is_related": (
+        "You are a knowledge connector continuing a conversation. The user has read "
+        "your previous connections and is following up.\n\n"
+        "Respond directly to their question or reaction. Expand a specific connection, "
+        "drop one that doesn't land, or surface a new one they've prompted. "
+        "No new full connection maps — just the thread they've pulled."
+    ),
+    "thought_partner": (
         "You are a thoughtful journal companion continuing a conversation. The user has "
         "read your previous response and is following up.\n\n"
         "Respond directly and conversationally — no headers, no fresh analysis structure. "
         "Engage with what they've raised: expand a point, offer a challenge, draw a "
         "connection, or reflect back what you're noticing. Keep the same honest, "
         "attentive, respectful tone."
-    )
+    ),
+}
+
+
+def _follow_up_base(mode: "JournalMode") -> str:
+    """Follow-up base — committed floor, optional authored override (ADR-081 D1)."""
+    override = _load_optional_override(f"journals.follow_up.{mode.value}.md")
+    return override if override is not None else _FOLLOW_UP_BASE_DEFAULTS[mode.value]
 
 
 def journal_mode_addendum(mode: "JournalMode") -> str:

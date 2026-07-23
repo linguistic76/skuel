@@ -50,7 +50,10 @@ without interactive review, producing a single markdown document with all three 
 
 3. **File-driven FOUNDER prompts** — `instruction_loader.py` loads from `data/instructions/`.
    If `dnwf 1.md` is missing, stages degrade gracefully (warning logged, empty prompt).
-   STANDARD prompts are inline strings — no file dependency.
+   The discussion/follow-up bases are a committed default FLOOR per mode
+   (`_DISCUSSION_BASE_DEFAULTS` / `_FOLLOW_UP_BASE_DEFAULTS`) with an optional founder-local
+   override file (`journals.discussion.{mode}.md` / `journals.follow_up.{mode}.md`, ADR-081 D1)
+   — absent override → floor (silent, no log); blank override → floor.
 
 4. **Context digest, not full UserContext** — `_build_context_summary()` extracts up to 6
    active titles each from Goals, Tasks, and Habits, plus up to 8 vault-synced personal notes
@@ -104,8 +107,10 @@ async def journal_stage1(request: Request) -> FT:
 
 1. Add the value to `JournalMode` in `core/models/enums/user_enums.py`.
 2. Add a `from_string()` alias if needed.
-3. Add a branch in `_discussion_base()` (first message) and/or `_follow_up_base()`
-   (continuation) in `instruction_loader.py`.
+3. Add a floor entry (keyed by `mode.value`) to `_DISCUSSION_BASE_DEFAULTS` (first message)
+   and `_FOLLOW_UP_BASE_DEFAULTS` (continuation) in `instruction_loader.py` — both dicts must
+   cover every mode (unit-tested). A founder-local `journals.discussion.{mode}.md` /
+   `journals.follow_up.{mode}.md` override needs no code change.
 4. Optionally add a `journal_mode_addendum()` branch for upload-pipeline hints.
 
 ### Modifying Stage 2 prompt
@@ -155,7 +160,7 @@ entries in ingestion code.
 | `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md §3` | Journals → Askesis ZPD signal pipeline (Phase 2 deferred) |
 | `docs/user-guides/journal-privacy.md` | Privacy policy and enforcement commitments |
 | `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers; `suggest_activities()` powers the panel |
-| `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER file-driven, STANDARD inline |
+| `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER stages file-driven; discussion/follow-up = committed floor + optional local override (ADR-081 D1) |
 | `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render, preserving the bridge's tags verbatim (deadlines/priorities not normalised, so nothing is lost). Inert; user copies into a Periodic Note / extraction folder, never auto-created |
 | `adapters/inbound/journals_routes.py` | FOUNDER tier enforcement lives here; discussions are **ephemeral by default** (ADR-078 §5) — `/journals/start` persists nothing (the transcript rides the composer client-side), and an explicit `POST /journals/save` folds it into an owner-private `:ConversationSession` + turns (ONE atomic `save_transcript` txn) for revisit/continue but **no UserEntry** (understanding-agnostic — ADR-073's wall holds); `/journals/follow-up` picks session-backed (saved) vs ephemeral-structured (`transcript_json`, every unsaved chat — both doors); the file/audio + DNWF doors share the same substrate (composer opens on the source→output pair); the file-upload path itself is fully zero-persistence (ADR-073), processing to the user's own flat `je_out/` folder via one shared batch engine; `GET /journals/{entry_uid}` is **periodic-notes-only**; `POST /journals/suggest-activities` takes reflection content in the body and returns the lazy-loaded suggestions panel; `GET /journals/je-out/{filename}` serves flat `je_out/` outputs |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
