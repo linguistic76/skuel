@@ -247,9 +247,9 @@ class UserStateAnalyzer:
         """
         Create per-domain summary of user context for API consumers.
 
-        Mirrors the domain stats that build_llm_context() renders as natural
-        language — both read directly from UserContext but serve different
-        consumers (structured API response vs. LLM prompt text).
+        Reads per-domain stats directly from UserContext for structured API
+        consumers. (The LLM prompt text reads UserContext through the
+        ASKESIS_GROUNDING_FIELDS projection instead — ADR-082 D2.)
 
         Args:
             user_context: User context

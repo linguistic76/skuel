@@ -23,14 +23,12 @@ March 2026: Absorbed SocraticEngine prompt builders — single response service.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from core.constants import MasteryLevel
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
-from core.models.enums import EntityType
 from core.models.query_types import QueryIntent
 from core.prompts import PROMPT_REGISTRY
+from core.services.askesis.grounding_projection import render_askesis_grounding
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -40,45 +38,6 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
-
-# Maps QueryIntent -> which context sections to include in the LLM prompt.
-# Sections not listed here ("workload", "alerts") are always included.
-# "activity_report" uses query-text matching (broad keyword set doesn't map to one intent).
-INTENT_CONTEXT_SECTIONS: dict[QueryIntent, frozenset[str]] = {
-    QueryIntent.HIERARCHICAL: frozenset({"knowledge", "goals", "life_path"}),
-    QueryIntent.PREREQUISITE: frozenset({"knowledge"}),
-    QueryIntent.PRACTICE: frozenset({"tasks", "knowledge"}),
-    QueryIntent.EXPLORATORY: frozenset(
-        {"tasks", "knowledge", "goals", "habits", "events", "life_path"}
-    ),
-    QueryIntent.RELATIONSHIP: frozenset({"knowledge"}),
-    QueryIntent.AGGREGATION: frozenset(
-        {"tasks", "knowledge", "goals", "habits", "events", "life_path"}
-    ),
-    QueryIntent.SPECIFIC: frozenset(
-        {"tasks", "knowledge", "goals", "habits", "events", "life_path"}
-    ),
-}
-
-# Keywords that trigger including the activity report section.
-# This set is broad and doesn't map to a single QueryIntent.
-_ACTIVITY_REPORT_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "feedback",
-        "pattern",
-        "review",
-        "reflect",
-        "report",
-        "progress",
-        "trend",
-        "doing",
-        "going",
-        "focus",
-        "week",
-        "lately",
-        "recently",
-    }
-)
 
 
 class ResponseGenerator:
@@ -105,52 +64,30 @@ class ResponseGenerator:
     def build_llm_context(
         self,
         user_context: UserContext,
-        query: str,
-        intent: QueryIntent,
         ps_bundle: PsBundle | None = None,
     ) -> str:
         """
-        Convert UserContext into LLM-friendly natural language.
+        Render the facet/context-aware user-state block for the LLM prompt.
 
-        Uses the classified QueryIntent to select which context sections to include,
-        rather than re-detecting intent via keyword heuristics. When an PsBundle is
-        available, appends curriculum content for grounded responses.
+        The learner grounding is the ASKESIS_GROUNDING_FIELDS projection
+        (ADR-082 D2) — the same curated block the guided branch carries, in
+        place of the pre-ADR-082 intent-selected UserContext dump. Workload
+        and alert mechanics stay as they were, and when a PsBundle is
+        available its curriculum content is appended for grounded responses.
 
         Args:
-            user_context: Complete user context with 240+ fields
-            query: User's question (used only for activity report keyword matching)
-            intent: Classified query intent from IntentClassifier
+            user_context: Rich user context — rendered through the projection
             ps_bundle: Optional PS bundle with curriculum content
 
         Returns:
             Natural language context string for LLM consumption
         """
-        sections = INTENT_CONTEXT_SECTIONS.get(
-            intent, INTENT_CONTEXT_SECTIONS[QueryIntent.SPECIFIC]
-        )
         context_parts: list[str] = []
 
-        # Always include user identity
-        context_parts.append(f"User: {user_context.username}")
+        if grounding := render_askesis_grounding(user_context):
+            context_parts.append(grounding)
 
-        # --- Domain sections driven by intent ---
-
-        if "tasks" in sections:
-            self._append_tasks_section(context_parts, user_context)
-
-        if "knowledge" in sections:
-            self._append_knowledge_section(context_parts, user_context)
-
-        if "goals" in sections:
-            self._append_goals_section(context_parts, user_context)
-
-        if "habits" in sections:
-            self._append_habits_section(context_parts, user_context)
-
-        if "events" in sections:
-            self._append_events_section(context_parts, user_context)
-
-        # --- Always-included sections ---
+        # --- Workload & alert mechanics (kept as-is, ADR-082 D2) ---
 
         context_parts.append("\n--- Workload & Capacity ---")
         context_parts.append(f"Current Workload: {user_context.current_workload_score:.0%}")
@@ -163,19 +100,6 @@ class ResponseGenerator:
                 context_parts.append("Blocked by prerequisites")
             if user_context.is_overwhelmed:
                 context_parts.append("Workload overwhelming")
-
-        # --- Conditionally-included sections ---
-
-        if EntityType.LIFE_PATH.value in sections and user_context.life_path_uid:
-            self._append_life_path_section(context_parts, user_context)
-
-        # Activity report: uses query-text matching (broad keyword set doesn't map to one intent)
-        query_lower = query.lower()
-        if (
-            any(word in query_lower for word in _ACTIVITY_REPORT_KEYWORDS)
-            and user_context.latest_activity_report_uid
-        ):
-            self._append_activity_report_section(context_parts, user_context)
 
         # --- PS Bundle curriculum content ---
         if ps_bundle and ps_bundle.curriculum_context_text:
@@ -202,16 +126,19 @@ class ResponseGenerator:
     ) -> str:
         """Build a system prompt based on the guidance determination.
 
-        Composition (ADR-082 D1): authored stance + pedagogy leaf + canon
-        block. The shared ``askesis_stance`` fragment (committed floor,
-        founder-overridable like every registry template) heads the prompt;
+        Composition (ADR-082 D1/D2): authored stance + grounding projection +
+        pedagogy leaf + canon block. The shared ``askesis_stance`` fragment
+        (committed floor, founder-overridable like every registry template)
+        heads the prompt; ``render_askesis_grounding`` supplies the learner
+        block (skeleton contexts render nothing and the block is skipped);
         mode-specific builders supply the pedagogy leaf, with fine-grained
         variation based on guidance.pedagogical_detail.
 
         Args:
             guidance: GuidanceDetermination with mode and pedagogical detail
             ps_bundle: Complete PS bundle (scoped context)
-            user_context: User context for personalization
+            user_context: Rich user context — rendered through the explicit
+                ASKESIS_GROUNDING_FIELDS projection, never dumped
             canon_context: PS-scoped canon readings (ADR-077) — its teaching
                 block is appended to ground guidance in the step's cited
                 readings; None or empty passages append nothing. Mode-aware
@@ -231,8 +158,11 @@ class ResponseGenerator:
             GuidanceMode.ENCOURAGING: self._build_encouraging_prompt,
         }
         builder = builders.get(guidance.mode, self._build_direct_prompt)
-        stance = PROMPT_REGISTRY.render("askesis_stance")
-        prompt = stance + "\n\n" + builder(guidance, ps_bundle)
+        parts = [PROMPT_REGISTRY.render("askesis_stance")]
+        if grounding := render_askesis_grounding(user_context):
+            parts.append(grounding)
+        parts.append(builder(guidance, ps_bundle))
+        prompt = "\n\n".join(parts)
         if canon_context is not None:
             teaching_block = canon_context.to_teaching_block(  # "" when no passages
                 preserve_method=guidance.mode is not GuidanceMode.DIRECT
@@ -398,97 +328,6 @@ class ResponseGenerator:
             return ""
         refs = [r.explain_existence() for r in ps_bundle.resources]
         return "\nReferenced resources: " + "; ".join(refs)
-
-    # ========================================================================
-    # PRIVATE - CONTEXT SECTION RENDERERS
-    # ========================================================================
-
-    @staticmethod
-    def _append_tasks_section(parts: list[str], ctx: UserContext) -> None:
-        parts.append("\n--- Tasks ---")
-        parts.append(f"Active Tasks: {len(ctx.active_task_uids)}")
-        if ctx.overdue_task_uids:
-            parts.append(f"Overdue: {len(ctx.overdue_task_uids)} tasks")
-        # blocked_task_uids is rich-context only; omit section at standard depth
-        if blocked := ctx.blocked_task_uids_or_empty():
-            parts.append(f"Blocked: {len(blocked)} tasks")
-        if ctx.today_task_uids:
-            parts.append(f"Due Today: {len(ctx.today_task_uids)} tasks")
-
-    @staticmethod
-    def _append_knowledge_section(parts: list[str], ctx: UserContext) -> None:
-        parts.append("\n--- Knowledge & Learning ---")
-        parts.append(f"Average Mastery: {ctx.mastery_average:.0%}")
-        parts.append(f"Mastered: {len(ctx.mastered_knowledge_uids)} knowledge units")
-        parts.append(f"In Progress: {len(ctx.in_progress_knowledge_uids)} knowledge units")
-        if ctx.current_learning_path_uid:
-            parts.append(f"Current Learning Path: {ctx.current_learning_path_uid}")
-        if ctx.next_recommended_knowledge:
-            parts.append(f"Ready to Learn: {len(ctx.next_recommended_knowledge)} topics")
-
-    @staticmethod
-    def _append_goals_section(parts: list[str], ctx: UserContext) -> None:
-        parts.append("\n--- Goals ---")
-        parts.append(f"Active Goals: {len(ctx.active_goal_uids)}")
-        if ctx.goal_progress:
-            avg_progress = sum(ctx.goal_progress.values()) / len(ctx.goal_progress)
-            parts.append(f"Average Progress: {avg_progress:.0%}")
-        near_deadline = ctx.get_goals_nearing_deadline(days=30)
-        if near_deadline:
-            parts.append(f"Goals with deadlines in 30 days: {len(near_deadline)}")
-
-    @staticmethod
-    def _append_habits_section(parts: list[str], ctx: UserContext) -> None:
-        parts.append("\n--- Habits ---")
-        parts.append(f"Active Habits: {len(ctx.active_habit_uids)}")
-        if ctx.habit_streaks:
-            max_streak = max(ctx.habit_streaks.values())
-            avg_streak = sum(ctx.habit_streaks.values()) / len(ctx.habit_streaks)
-            parts.append(f"Longest Streak: {max_streak} days")
-            parts.append(f"Average Streak: {avg_streak:.1f} days")
-        # at_risk_habits is rich-context only; omit at standard depth
-        if at_risk := ctx.at_risk_habits_or_empty():
-            parts.append(f"At Risk: {len(at_risk)} habits need attention")
-
-    @staticmethod
-    def _append_events_section(parts: list[str], ctx: UserContext) -> None:
-        parts.append("\n--- Events ---")
-        parts.append(f"Upcoming Events: {len(ctx.upcoming_event_uids)}")
-        if ctx.today_event_uids:
-            parts.append(f"Today: {len(ctx.today_event_uids)} events")
-
-    @staticmethod
-    def _append_life_path_section(parts: list[str], ctx: UserContext) -> None:
-        parts.append("\n--- Life Path ---")
-        parts.append(f"Life Path Alignment: {ctx.life_path_alignment_score:.0%}")
-        aligned = ctx.is_life_aligned(MasteryLevel.DEFAULT)
-        parts.append(f"Status: {'Aligned' if aligned else 'Needs attention'}")
-
-    @staticmethod
-    def _append_activity_report_section(parts: list[str], ctx: UserContext) -> None:
-        report_age_days: int | None = None
-        generated_at = ctx.latest_activity_report_generated_at
-        if generated_at is not None:
-            now = datetime.now(tz=UTC)
-            aware_generated_at = (
-                generated_at.replace(tzinfo=UTC) if generated_at.tzinfo is None else generated_at
-            )
-            report_age_days = (now - aware_generated_at).days
-        age_label = (
-            f" (from {report_age_days} days ago — may not reflect current activity)"
-            if report_age_days is not None and report_age_days > 30
-            else ""
-        )
-        parts.append(f"\n--- Recent Activity Analysis{age_label} ---")
-        if ctx.latest_activity_report_period:
-            parts.append(f"Period: last {ctx.latest_activity_report_period}")
-        if ctx.latest_activity_report_content:
-            from core.utils.text_truncation import truncate_to_budget
-
-            snippet = truncate_to_budget(ctx.latest_activity_report_content, 500)
-            parts.append(f"AI synthesis: {snippet}")
-        if ctx.latest_activity_report_user_annotation:
-            parts.append(f"Your reflection: {ctx.latest_activity_report_user_annotation}")
 
     def generate_actions(
         self,
