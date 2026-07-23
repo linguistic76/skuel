@@ -11,7 +11,7 @@ your life path most."
 Produced by ZPDService.assess_zone() and consumed by:
 - UserContext.zpd_assessment — computed as final step of build_rich()
 - UserContextIntelligence.get_optimal_next_path_steps() — primary ranking signal
-- AskesisService — populates askesis_scaffold_entry and askesis_ku_bridge prompt slots
+- AskesisService — guided pipeline consumes per-KU ZoneEvidence (ZPDService.assess_ku_readiness) for guidance-mode selection
 - DailyPlanningMixin.get_ready_to_work_on_today() — P5 learning priority
 
 See: core/services/zpd/zpd_service.py

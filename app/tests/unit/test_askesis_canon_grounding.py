@@ -239,9 +239,11 @@ def test_guided_prompt_appends_teaching_block_when_passages_exist() -> None:
         _guidance(), MagicMock(), MagicMock(), canon_context=_canon_context()
     )
 
-    assert prompt.startswith("BASE PROMPT")
+    # The authored stance heads the prompt (ADR-082 D1); the leaf follows it.
+    assert "BASE PROMPT" in prompt
     assert "## Readings for This Step" in prompt
     assert "Hypermedia Systems" in prompt
+    assert prompt.index("BASE PROMPT") < prompt.index("## Readings for This Step")
 
 
 def test_guided_prompt_direct_mode_gets_answer_framing_not_socratic() -> None:
@@ -256,7 +258,7 @@ def test_guided_prompt_direct_mode_gets_answer_framing_not_socratic() -> None:
         guidance, MagicMock(), MagicMock(), canon_context=_canon_context()
     )
 
-    assert prompt.startswith("DIRECT BASE")
+    assert "DIRECT BASE" in prompt
     assert "## Readings for This Step" in prompt
     assert "Do not surrender the method" not in prompt
     assert "Answer directly" in prompt
@@ -281,7 +283,9 @@ def test_guided_prompt_unchanged_when_canon_context_empty() -> None:
         _guidance(), MagicMock(), MagicMock(), canon_context=CanonContext.empty()
     )
 
-    assert prompt == "BASE PROMPT"
+    # Stance + leaf only — no canon block appended.
+    assert prompt.endswith("BASE PROMPT")
+    assert "## Readings for This Step" not in prompt
 
 
 def test_guided_prompt_unchanged_when_canon_context_none() -> None:
@@ -289,7 +293,8 @@ def test_guided_prompt_unchanged_when_canon_context_none() -> None:
 
     prompt = generator.build_guided_system_prompt(_guidance(), MagicMock(), MagicMock())
 
-    assert prompt == "BASE PROMPT"
+    assert prompt.endswith("BASE PROMPT")
+    assert "## Readings for This Step" not in prompt
 
 
 # ============================================================================

@@ -780,6 +780,35 @@ PLANNED_METHODS: dict[str, str] = {
     ),
 }
 
+# Prompt templates staged with no render site (ADR-082 D4): committed .md
+# floors in core/prompts/templates/ registered in PROMPT_REGISTRY but not yet
+# rendered by any production code. Keyed by template id (filename stem). Same
+# PLANNED semantics as events/methods: printed as backlog, never fails
+# --check, stale markings (file gone, or a render site appeared) reported.
+PLANNED_TEMPLATES: dict[str, str] = {
+    "askesis_ku_bridge": (
+        "Ku-bridge turn staged — first wiring candidate: aligns with "
+        "citation-as-core (referencing a Ku from Askesis chat); wire when the "
+        "Ku-bridge turn lands (ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+    ),
+    "askesis_journal_reflection": (
+        "journal-reflection turn staged — only ever wired via the je_pro/"
+        "UserEntry shared-entry doorway (deliberately shared entries, never "
+        "discussions — the ADR-073 wall is absolute); wire there or delete "
+        "(ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+    ),
+    "askesis_scaffold_entry": (
+        "scaffolded-entry turn staged — re-evaluate at the Askesis "
+        "alternative-modes discussion (ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+    ),
+    "askesis_socratic_turn": (
+        "Socratic-turn template staged — re-evaluate at the Askesis "
+        "alternative-modes discussion (ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+    ),
+}
+
+TEMPLATES_DIR_REL = "core/prompts/templates"
+
 # Method findings are scoped to the service layer; the rest of the tree is
 # covered by the standalone vulture run at --min-confidence 90.
 METHOD_SCOPE = "core/services/"
@@ -1903,6 +1932,89 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
 
 
 # ============================================================================
+# Prompt templates — PLANNED backlog (ADR-082 D4)
+# ============================================================================
+
+
+def _collect_rendered_template_ids(codebase: ParsedCodebase) -> set[str]:
+    """String-constant first args to any ``.render(...)`` / ``.get(...)`` call.
+
+    Receiver-blind by design: any string handed to a render/get attribute call
+    in production counts as a template reference — over-approximation in the
+    safe direction (may suppress a became-live report, never fabricate one).
+    Render sites that pass a variable template id are invisible here, so a
+    PLANNED entry wired that way stays listed until removed by hand.
+    """
+    ids: set[str] = set()
+    for tree in codebase.production.values():
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in ("render", "get")
+            ):
+                arg = _call_arg(node, 0, "template_id")
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    ids.add(arg.value)
+    return ids
+
+
+def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
+    """PLANNED_TEMPLATES backlog: prompt templates staged with no render site.
+
+    Templates are .md files, invisible to the event/method scanners, so
+    entries are emitted directly (the _out_of_scope_planned_findings pattern).
+    Two verifications are possible: existence (file deleted or renamed →
+    stale) and render-site liveness (a constant-string ``.render()``/``.get()``
+    reference in production → stale, wiring complete).
+    """
+    rendered = _collect_rendered_template_ids(codebase)
+    results: list[Finding] = []
+    for template_id, note in sorted(PLANNED_TEMPLATES.items()):
+        rel = f"{TEMPLATES_DIR_REL}/{template_id}.md"
+        if not (codebase.root / rel).is_file():
+            results.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.INFO,
+                    subject=template_id,
+                    file=rel,
+                    line=0,
+                    detail=(
+                        "marked planned but the template file no longer exists — "
+                        "deleted or renamed; remove from PLANNED_TEMPLATES"
+                    ),
+                )
+            )
+        elif template_id in rendered:
+            results.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.INFO,
+                    subject=template_id,
+                    file=rel,
+                    line=0,
+                    detail=(
+                        "marked planned but a production render site now references "
+                        "it — wiring complete; remove from PLANNED_TEMPLATES"
+                    ),
+                )
+            )
+        else:
+            results.append(
+                Finding(
+                    kind="template-awaiting-wiring",
+                    severity=BloatSeverity.PLANNED,
+                    subject=template_id,
+                    file=rel,
+                    line=1,
+                    detail=f"unwired by intent — {note}",
+                )
+            )
+    return results
+
+
+# ============================================================================
 # Reporting
 # ============================================================================
 
@@ -2079,6 +2191,28 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
             print(f"  {Colors.DIM}{site}{Colors.RESET}")
 
 
+def print_template_report(findings: list[Finding]) -> None:
+    if not findings:
+        return
+    print(f"\n{Colors.BOLD}📄 Prompt Templates (PLANNED backlog){Colors.RESET}")
+    planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
+    stale = [f for f in findings if f.kind == "planned-marking-stale"]
+    if planned:
+        print(
+            f"\n{Colors.YELLOW}Planned — unwired by intent, awaiting completion "
+            f"({len(planned)}):{Colors.RESET}\n"
+        )
+        for finding in planned:
+            _print_finding(finding)
+    if stale:
+        print(
+            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_TEMPLATES "
+            f"({len(stale)}):{Colors.RESET}\n"
+        )
+        for finding in stale:
+            _print_finding(finding)
+
+
 def print_limitations(
     codebase: ParsedCodebase,
     usage: EventUsage | None,
@@ -2178,6 +2312,14 @@ def main() -> int:
         findings.extend(methods.findings)
         if not args.as_json:
             print_method_report(methods, args.verbose)
+
+    # Prompt-template backlog rides the FULL report only — the scoped
+    # --events-only / --methods-only modes isolate their own analysis.
+    if check_events and check_methods:
+        template_findings = analyze_planned_templates(codebase)
+        findings.extend(template_findings)
+        if not args.as_json:
+            print_template_report(template_findings)
 
     if args.as_json:
         print(json.dumps([f.to_json() for f in findings], indent=2))
