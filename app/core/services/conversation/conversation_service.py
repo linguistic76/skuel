@@ -57,6 +57,7 @@ def _session_from_props(props: Neo4jProperties) -> ConversationSession:
         last_activity=_required_datetime(props["last_activity"]),
         title=str(props["title"]),
         source_selection=str(props["source_selection"]),
+        model=str(props["model"]),
     )
 
 
@@ -81,12 +82,12 @@ class ConversationService:
         self.backend = backend
 
     async def create_session(
-        self, user_uid: UserUID, kind: str, title: str, source_selection: str
+        self, user_uid: UserUID, kind: str, title: str, source_selection: str, model: str
     ) -> Result[ConversationSession]:
         """Create a new owner-private session (started_at = last_activity = now)."""
         now_iso = datetime.now(UTC).isoformat()
         created = await self.backend.create_session(
-            generate_session_id(), user_uid, kind, title, source_selection, now_iso
+            generate_session_id(), user_uid, kind, title, source_selection, model, now_iso
         )
         if created.is_error:
             return Result.fail(created)
@@ -128,6 +129,7 @@ class ConversationService:
         kind: str,
         title: str,
         source_selection: str,
+        model: str,
         pairs: list[tuple[str, str]],
     ) -> Result[ConversationSession]:
         """Promote an ephemeral transcript into a saved owner-private session (ADR-078 §5).
@@ -167,7 +169,7 @@ class ConversationService:
                 }
             )
         saved = await self.backend.save_transcript(
-            generate_session_id(), user_uid, kind, title, source_selection, turns, now_iso
+            generate_session_id(), user_uid, kind, title, source_selection, model, turns, now_iso
         )
         if saved.is_error:
             return Result.fail(saved)
@@ -188,10 +190,22 @@ class ConversationService:
         return await self.backend.update_session_meta(session_id, user_uid, title, None)
 
     async def update_source_selection(
-        self, session_id: str, user_uid: UserUID, source_selection: str
+        self,
+        session_id: str,
+        user_uid: UserUID,
+        source_selection: str,
+        model: str | None = None,
     ) -> Result[bool]:
-        """Persist the latest source selection on an owned session (last-write-wins)."""
-        return await self.backend.update_session_meta(session_id, user_uid, None, source_selection)
+        """Persist the latest source selection (and model) on an owned session (last-write-wins).
+
+        The per-turn state write for a session-backed follow-up: the grounding
+        dials and the per-conversation model choice co-persist in one update so a
+        *continued* session restores both. ``model=None`` leaves the stored model
+        unchanged (coalesce).
+        """
+        return await self.backend.update_session_meta(
+            session_id, user_uid, None, source_selection, model
+        )
 
     async def get_session(
         self, session_id: str, user_uid: UserUID

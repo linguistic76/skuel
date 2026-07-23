@@ -148,8 +148,12 @@ policy. They carry the domain label alone.
     last_activity: datetime,   // touched on each appended turn; the revisit list orders by it
     title:         string,     // user-facing label for the revisit list (user-set or
                                //   first-message-derived — NOT an LLM understanding summary)
-    source_selection: string   // JSON: the canon shelf checkboxes + vault toggle used, so a
+    source_selection: string,  // JSON: the canon shelf checkboxes + vault toggle used, so a
                                //   continued session restores its own last selection (C3)
+    model:         string      // the per-conversation LLM choice (the switcher), so a continued
+                               //   session resumes on the model it last used (last-write-wins).
+                               //   A pre-switcher session with no stored model reads back as the
+                               //   app-safe default (normalized in the backend, not stored null)
 })
 
 (:ConversationTurn {

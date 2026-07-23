@@ -121,17 +121,17 @@ class TestConversationStoreGuards:
         # Owner creates two sessions; the other user creates one of their own.
         owned_a = (
             await conversation_service.create_session(
-                owner, CONVERSATION_KIND_DISCUSSION, "Owned A", "{}"
+                owner, CONVERSATION_KIND_DISCUSSION, "Owned A", "{}", "gpt-4o"
             )
         ).value
         owned_b = (
             await conversation_service.create_session(
-                owner, CONVERSATION_KIND_DISCUSSION, "Owned B", "{}"
+                owner, CONVERSATION_KIND_DISCUSSION, "Owned B", "{}", "gpt-4o"
             )
         ).value
         foreign = (
             await conversation_service.create_session(
-                other, CONVERSATION_KIND_DISCUSSION, "Foreign", "{}"
+                other, CONVERSATION_KIND_DISCUSSION, "Foreign", "{}", "gpt-4o"
             )
         ).value
 
@@ -168,7 +168,7 @@ class TestConversationStoreGuards:
         owner = owners["owner"]
         session = (
             await conversation_service.create_session(
-                owner, CONVERSATION_KIND_DISCUSSION, "To delete", "{}"
+                owner, CONVERSATION_KIND_DISCUSSION, "To delete", "{}", "gpt-4o"
             )
         ).value
         sid = session.session_id
@@ -234,7 +234,7 @@ class TestConversationStoreGuards:
 
         created = (
             await conversation_service.create_session(
-                owner, CONVERSATION_KIND_DISCUSSION, "Discuss the probe", "{}"
+                owner, CONVERSATION_KIND_DISCUSSION, "Discuss the probe", "{}", "gpt-4o"
             )
         ).value
         # A create + one follow-up exchange — the full write path guard 6 covers.
@@ -283,6 +283,29 @@ class TestConversationStoreGuards:
         # turns exist) and carries the expected roles.
         turns = (await conversation_service.get_turns(created.session_id, owner)).value
         assert [t.role for t in turns] == [ROLE_USER, ROLE_ASSISTANT]
+
+    # -- Switcher: the per-conversation model round-trips through real Cypher ----
+
+    async def test_model_persists_and_updates(self, conversation_service, owners) -> None:
+        # A Cypher property-name typo would silently store nothing and read back as
+        # the default, so assert the VALUE round-trips through create → get → update.
+        owner = owners["owner"]
+        created = (
+            await conversation_service.create_session(
+                owner, CONVERSATION_KIND_DISCUSSION, "On models", "{}", "claude-sonnet-4-6"
+            )
+        ).value
+        assert created.model == "claude-sonnet-4-6"
+
+        fetched = (await conversation_service.get_session(created.session_id, owner)).value
+        assert fetched is not None and fetched.model == "claude-sonnet-4-6"
+
+        # A mid-thread switch (session-backed follow-up) co-persists the new model.
+        await conversation_service.update_source_selection(
+            created.session_id, owner, "{}", model="gpt-4o-mini"
+        )
+        reread = (await conversation_service.get_session(created.session_id, owner)).value
+        assert reread is not None and reread.model == "gpt-4o-mini"
 
 
 @pytest.mark.asyncio

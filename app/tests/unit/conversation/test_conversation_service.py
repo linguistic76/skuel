@@ -29,6 +29,7 @@ def _session_row(session_id: str = "cs_abc123abc123", user_uid: str = "user_mike
         "last_activity": now,
         "title": "On the nature of practice",
         "source_selection": '{"canon": [], "vault": false}',
+        "model": "gpt-4o",
     }
 
 
@@ -67,7 +68,7 @@ class TestCreateSession:
         service = ConversationService(backend)
 
         result = await service.create_session(
-            "user_mike", CONVERSATION_KIND_DISCUSSION, "On practice", "{}"
+            "user_mike", CONVERSATION_KIND_DISCUSSION, "On practice", "{}", "gpt-4o"
         )
 
         assert result.is_ok
@@ -83,7 +84,7 @@ class TestCreateSession:
         backend = _backend(create_session=AsyncMock(return_value=Result.ok(None)))
         service = ConversationService(backend)
 
-        result = await service.create_session("user_ghost", "discussion", "t", "{}")
+        result = await service.create_session("user_ghost", "discussion", "t", "{}", "gpt-4o")
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND
@@ -127,6 +128,7 @@ class TestSaveTranscript:
             CONVERSATION_KIND_DISCUSSION,
             "Saved chat",
             "{}",
+            "gpt-4o",
             [("u1", "a1"), ("u2", "a2")],
         )
 
@@ -137,7 +139,7 @@ class TestSaveTranscript:
         backend.create_session.assert_not_awaited()
         backend.append_exchange.assert_not_awaited()
         # Ordered, id- and ordinal-stamped turn payload: 2 pairs → 4 turns.
-        sid, uid, _kind, _title, _sel, turns, _now = backend.save_transcript.await_args.args
+        sid, uid, _kind, _title, _sel, _model, turns, _now = backend.save_transcript.await_args.args
         assert sid.startswith("cs_") and uid == "user_mike"
         assert [t["role"] for t in turns] == ["user", "assistant", "user", "assistant"]
         assert [t["turn_number"] for t in turns] == [1, 2, 3, 4]
@@ -148,7 +150,7 @@ class TestSaveTranscript:
         backend = _backend()
         service = ConversationService(backend)
 
-        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [])
+        result = await service.save_transcript("user_mike", "discussion", "t", "{}", "gpt-4o", [])
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.VALIDATION
@@ -158,7 +160,9 @@ class TestSaveTranscript:
         backend = _backend(save_transcript=AsyncMock(return_value=Result.ok(None)))
         service = ConversationService(backend)
 
-        result = await service.save_transcript("user_ghost", "discussion", "t", "{}", [("u", "a")])
+        result = await service.save_transcript(
+            "user_ghost", "discussion", "t", "{}", "gpt-4o", [("u", "a")]
+        )
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND
@@ -171,7 +175,9 @@ class TestSaveTranscript:
         )
         service = ConversationService(backend)
 
-        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [("u", "a")])
+        result = await service.save_transcript(
+            "user_mike", "discussion", "t", "{}", "gpt-4o", [("u", "a")]
+        )
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.DATABASE
@@ -239,8 +245,22 @@ class TestUpdateMeta:
         )
 
         assert result.is_ok
-        _sid, _uid, title, source = backend.update_session_meta.await_args.args
-        assert (title, source) == (None, '{"vault": true}')
+        _sid, _uid, title, source, model = backend.update_session_meta.await_args.args
+        assert (title, source, model) == (None, '{"vault": true}', None)
+
+    async def test_update_source_selection_co_persists_model(self) -> None:
+        # A session-backed follow-up co-persists the per-conversation model so a
+        # mid-thread switch survives a later continue (last-write-wins).
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.update_source_selection(
+            "cs_abc123abc123", "user_mike", '{"vault": true}', model="claude-sonnet-4-6"
+        )
+
+        assert result.is_ok
+        _sid, _uid, title, source, model = backend.update_session_meta.await_args.args
+        assert (title, source, model) == (None, '{"vault": true}', "claude-sonnet-4-6")
 
 
 class TestDelete:

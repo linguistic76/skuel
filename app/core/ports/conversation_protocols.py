@@ -47,12 +47,13 @@ class ConversationBackendOperations(Protocol):
         kind: str,
         title: str,
         source_selection: str,
+        model: str,
         now_iso: str,
     ) -> Result[Neo4jProperties | None]:
         """Create the ConversationSession node + HAS_SESSION edge from its owner.
 
-        ``started_at`` and ``last_activity`` both stamp ``now_iso``. None when
-        the owner user does not exist.
+        ``started_at`` and ``last_activity`` both stamp ``now_iso``. ``model`` is
+        the per-conversation LLM choice. None when the owner user does not exist.
         """
         ...
 
@@ -82,6 +83,7 @@ class ConversationBackendOperations(Protocol):
         kind: str,
         title: str,
         source_selection: str,
+        model: str,
         turns: list[Neo4jProperties],
         now_iso: str,
     ) -> Result[Neo4jProperties | None]:
@@ -99,11 +101,13 @@ class ConversationBackendOperations(Protocol):
         user_uid: UserUID,
         title: str | None,
         source_selection: str | None,
+        model: str | None = None,
     ) -> Result[bool]:
-        """Update an OWNED session's title and/or source selection (coalesce).
+        """Update an OWNED session's title, source selection, and/or model (coalesce).
 
-        Leaves ``last_activity`` untouched (a rename is not activity). True when
-        an owned session was updated, False when absent / not owned.
+        Leaves ``last_activity`` untouched (a rename / source re-pick / model
+        switch is not activity). True when an owned session was updated, False
+        when absent / not owned.
         """
         ...
 
@@ -137,7 +141,7 @@ class ConversationOperations(Protocol):
     """Route-facing owner-private API exposed by ConversationService."""
 
     async def create_session(
-        self, user_uid: UserUID, kind: str, title: str, source_selection: str
+        self, user_uid: UserUID, kind: str, title: str, source_selection: str, model: str
     ) -> Result[ConversationSession]:
         """Create a new owner-private session."""
         ...
@@ -154,6 +158,7 @@ class ConversationOperations(Protocol):
         kind: str,
         title: str,
         source_selection: str,
+        model: str,
         pairs: list[tuple[str, str]],
     ) -> Result[ConversationSession]:
         """Promote an ephemeral transcript into a saved session (ADR-078 §5 opt-in Save)."""
@@ -164,9 +169,13 @@ class ConversationOperations(Protocol):
         ...
 
     async def update_source_selection(
-        self, session_id: str, user_uid: UserUID, source_selection: str
+        self,
+        session_id: str,
+        user_uid: UserUID,
+        source_selection: str,
+        model: str | None = None,
     ) -> Result[bool]:
-        """Persist the latest source selection on an owned session (last-write-wins)."""
+        """Persist the latest source selection (and model) on an owned session (last-write-wins)."""
         ...
 
     async def get_session(

@@ -9,14 +9,46 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
+    Option,
     P,
+    Select,
     Span,
     Textarea,
 )
 
+from core.services.chat import DEFAULT_CHAT_MODEL
 from ui.canon import CanonSourcesBlock
 from ui.components import Button as StyledButton
 from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
+
+
+def ModelControl(model: str, model_options: "list[tuple[str, str]] | None") -> Any:
+    """The per-conversation model control for a discussion form/composer.
+
+    A visible ``<select name="model">`` when options are available (the typed
+    discussion surfaces — start form + composer); a hidden field carrying the
+    resolved model otherwise (the DNWF file/audio door, which has no picker per
+    the switcher contract). Either way ``model`` rides the submit, so
+    ``/journals/start``, ``/journals/follow-up`` and ``/journals/save`` all receive
+    the choice. Switching is free — because the composer form is never reset
+    between turns, the select keeps its value and the next turn uses it.
+    """
+    current = model or DEFAULT_CHAT_MODEL
+    if not model_options:
+        return Input(type="hidden", name="model", value=current)
+    return Select(
+        *[
+            Option(label, value=value, selected=(value == current))
+            for value, label in model_options
+        ],
+        name="model",
+        aria_label="Model",
+        cls=(
+            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            " rounded-[8px] px-2 py-1 outline-none cursor-pointer"
+        ),
+    )
+
 
 if TYPE_CHECKING:
     from core.models.conversation import ConversationTurn
@@ -126,11 +158,14 @@ def SessionBackedComposer(
     canon_book_uids: "tuple[str, ...]" = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
+    model: str = DEFAULT_CHAT_MODEL,
+    model_options: "list[tuple[str, str]] | None" = None,
 ) -> Any:
     """Just the session-backed composer (``id=journal-composer``) — the *Save* swap.
 
     ``POST /journals/save`` swaps this in for the ephemeral composer once a chat
-    is saved, so further turns append to the stored session (ADR-078 §5).
+    is saved, so further turns append to the stored session (ADR-078 §5). ``model``
+    is the saved per-conversation choice the picker restores.
     """
     return _Composer(
         title,
@@ -140,6 +175,8 @@ def SessionBackedComposer(
         canon_book_uids=canon_book_uids,
         summon_canon=summon_canon,
         summon_vault=summon_vault,
+        model=model,
+        model_options=model_options,
     )
 
 
@@ -201,6 +238,8 @@ def _Composer(
     canon_book_uids: "tuple[str, ...]" = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
+    model: str = DEFAULT_CHAT_MODEL,
+    model_options: "list[tuple[str, str]] | None" = None,
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
@@ -250,6 +289,9 @@ def _Composer(
         Input(type="hidden", name="title", value=title),
         Input(type="hidden", name="journal_mode", value=mode_value),
         Input(type="hidden", name="canon_book_uids", value=",".join(canon_book_uids)),
+        # The per-conversation model rides every follow-up / Save. A hidden field on
+        # the DNWF door (no picker); a visible <select> on the typed discussion.
+        *((ModelControl(model, model_options),) if not model_options else ()),
         Div(
             Textarea(
                 placeholder="Follow up on this response…",
@@ -263,12 +305,15 @@ def _Composer(
                 ),
             ),
             Div(
-                # Left cluster: FOUNDER grounding dials (canon ADR-076 → quote +
-                # cite the shelf; vault → the user's own non-private notes) and
-                # the Save affordance (ADR-078 §5). Unchecked/absent dials →
-                # FastHTML binds the flag False. A plain Span placeholder when not
-                # FOUNDER keeps the cluster (and the Save link) left-aligned.
+                # Left cluster: the model switcher (typed discussion only — the
+                # DNWF door renders a hidden field above instead), FOUNDER
+                # grounding dials (canon ADR-076 → quote + cite the shelf; vault →
+                # the user's own non-private notes) and the Save affordance
+                # (ADR-078 §5). Unchecked/absent dials → FastHTML binds the flag
+                # False. A plain Span placeholder when not FOUNDER keeps the cluster
+                # (and the Save link) left-aligned.
                 Div(
+                    *((ModelControl(model, model_options),) if model_options else ()),
                     (
                         Div(
                             Label(
@@ -536,6 +581,8 @@ def StandardResponseFragment(
     canon_book_uids: "tuple[str, ...]" = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
+    model: str = DEFAULT_CHAT_MODEL,
+    model_options: "list[tuple[str, str]] | None" = None,
 ) -> Any:
     """Growing chat thread — opening discussion response with sticky composer.
 
@@ -579,6 +626,8 @@ def StandardResponseFragment(
             canon_book_uids=canon_book_uids,
             summon_canon=summon_canon,
             summon_vault=summon_vault,
+            model=model,
+            model_options=model_options,
         ),
         id="journal-workspace",
         cls="flex flex-col h-full",
@@ -593,6 +642,8 @@ def DiscussionThreadFragment(
     canon_book_uids: "tuple[str, ...]" = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
+    model: str = DEFAULT_CHAT_MODEL,
+    model_options: "list[tuple[str, str]] | None" = None,
 ) -> Any:
     """Rehydrated discussion workspace for *continue* (ADR-078 revisit/continue).
 
@@ -627,6 +678,8 @@ def DiscussionThreadFragment(
             canon_book_uids=canon_book_uids,
             summon_canon=summon_canon,
             summon_vault=summon_vault,
+            model=model,
+            model_options=model_options,
         ),
         id="journal-workspace",
         cls="flex flex-col h-full",

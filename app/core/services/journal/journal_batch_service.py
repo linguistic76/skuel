@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, Any
 from core.config import get_settings
 from core.models.enums.pipeline import JeUse
 from core.models.type_hints import UserUID
+from core.services.chat import resolve_chat_model
 from core.services.journal.instruction_loader import load_named_instruction
 from core.utils.frontmatter import parse_frontmatter, split_frontmatter
 from core.utils.logging import get_logger
@@ -56,8 +57,6 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.services.journal.batch")
 
 TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
-_LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
-_LLM_MODEL_GPT = "gpt-4o-mini"
 _LLM_MAX_TOKENS = 4000
 # Bound token cost of injected exemplars: at most N pairs, each side truncated.
 EXEMPLAR_MAX_PAIRS = 3
@@ -255,11 +254,9 @@ class JournalBatchService:
                     message="LLM processing requires INTELLIGENCE_TIER=full",
                 )
             )
-        model = (
-            _LLM_MODEL_CLAUDE
-            if self.llm_caller.is_model_supported(_LLM_MODEL_CLAUDE)
-            else _LLM_MODEL_GPT
-        )
+        # DNWF batch compile has no picker → the app-safe default via the shared
+        # switcher seam (converges with JournalService; no implicit Claude default).
+        model = resolve_chat_model(None, self.llm_caller)
         preamble = _build_exemplar_preamble(self._load_exemplars())
         header = "\n\n".join(part for part in (instructions, preamble) if part)
         prompt = f"{header}\n\n---\n\n{text}" if header else text

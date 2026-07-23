@@ -47,7 +47,7 @@ def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
-def _session(session_id: str = "cs_abc123abc123") -> ConversationSession:
+def _session(session_id: str = "cs_abc123abc123", model: str = "gpt-4o") -> ConversationSession:
     now = datetime.now(UTC)
     return ConversationSession(
         session_id=session_id,
@@ -57,6 +57,7 @@ def _session(session_id: str = "cs_abc123abc123") -> ConversationSession:
         last_activity=now,
         title="t",
         source_selection="{}",
+        model=model,
     )
 
 
@@ -157,7 +158,7 @@ class TestSaveOptIn:
 
         assert response.status_code == 200
         conv.save_transcript.assert_awaited_once()
-        _uid, _kind, title, _sel, pairs = conv.save_transcript.await_args.args
+        _uid, _kind, title, _sel, _model, pairs = conv.save_transcript.await_args.args
         assert title == "My chat"
         assert pairs == [
             ("Opening thought.", "A reply."),

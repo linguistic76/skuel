@@ -136,6 +136,7 @@ def mock_services() -> Any:
                 last_activity=_now,
                 title="t",
                 source_selection="{}",
+                model="gpt-4o",
             )
         )
     )
@@ -168,6 +169,7 @@ def mock_services() -> Any:
         last_activity=_now,
         title="Saved chat",
         source_selection="{}",
+        model="gpt-4o",
     )
     services.conversation.save_transcript = AsyncMock(return_value=Result.ok(_saved_session))
     services.conversation.list_sessions = AsyncMock(return_value=Result.ok([_saved_session]))
@@ -418,9 +420,11 @@ class TestJournalsSaveOptIn:
         # (user, assistant) pairs; no LLM call, no understanding write.
         mock_services.conversation.save_transcript.assert_awaited_once()
         args, _ = mock_services.conversation.save_transcript.call_args
-        # positional: (user_uid, kind, title, source_selection, pairs)
+        # positional: (user_uid, kind, title, source_selection, model, pairs)
         assert args[2] == "My chat"
-        assert args[4] == [
+        # No model field posted → the app-safe default is stored on the session.
+        assert args[4] == "gpt-4o"
+        assert args[5] == [
             ("Opening thought.", "A reply."),
             ("Follow up.", "Another reply."),
         ]
