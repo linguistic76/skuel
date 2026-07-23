@@ -70,7 +70,11 @@ from core.ports.domain_protocols import (
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
+from core.utils.neo4j_temporal import (
+    convert_neo4j_date,
+    convert_neo4j_datetime,
+    convert_neo4j_time,
+)
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -599,6 +603,18 @@ class CalendarService:
 
         self.logger.debug(f"Generating occurrences for habit {habit.uid} with pattern: {pattern}")
 
+        # Never project a habit before it existed. Now that habits are fetched by
+        # status (not by created_at range), the "don't show before creation" bound
+        # that the old range-fetch implied has to be enforced here — otherwise an
+        # active habit would backfill days/weeks/months preceding its inception
+        # (e.g. a habit created mid-month appearing on the month's earlier days, or
+        # a habit created next month bleeding into current views). Clamp the lower
+        # bound to the habit's inception; a habit created after the whole range
+        # yields nothing (start > end → the pattern loops below never run).
+        inception = self._habit_inception_date(habit)
+        if inception and inception > start_date:
+            start_date = inception
+
         # Calculate occurrences based on pattern
         current_date = start_date
 
@@ -748,6 +764,25 @@ class CalendarService:
 
         self.logger.debug(f"Generated {len(occurrences)} occurrences for habit {habit.uid}")
         return occurrences
+
+    def _habit_inception_date(self, habit: Habit) -> date | None:
+        """The calendar day a habit began — its ``started_at``, else its ``created_at``.
+
+        Occurrences are projected forward from here so an active, ongoing habit is
+        never rendered on days before it existed. Tolerates the created_at native/
+        string temporal split (some writers persist an ISO string, others a native
+        Neo4j DateTime); returns None only if neither anchor is parseable.
+        """
+        anchor = habit.started_at or habit.created_at
+        converted = convert_neo4j_datetime(anchor)
+        if converted is not None:
+            return converted.date()
+        if isinstance(anchor, str):
+            try:
+                return datetime.fromisoformat(anchor).date()
+            except ValueError:
+                return None
+        return None
 
     def _create_occurrence(self, habit: Habit, occurrence_date: date) -> CalendarOccurrence:
         """Create a calendar occurrence for a habit."""
