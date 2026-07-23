@@ -89,3 +89,28 @@ Each PR: `ruff format` + `ruff check` + `mypy` (0) + `lint_skuel.py`; targeted u
 2. **Decision 2 → B** — inject `UserContextService`, `build()` + curated projection.
 3. **Decision 3 → author discernment** — bank the three foundations as written; no over-reach flagged.
 4. **PR split → sequential** — PR1 instruction-home first, *then* PR2 grounding.
+
+## Shipped
+
+- **PR1 — instruction home (D1): merged #783** (2026-07-23). Committed default floors
+  (`_DISCUSSION_BASE_DEFAULTS` / `_FOLLOW_UP_BASE_DEFAULTS`, keyed by mode) + silent
+  founder-local overrides (`data/instructions/journals.discussion.{mode}.md` /
+  `journals.follow_up.{mode}.md`) with one shared containment guard. Floor coverage
+  per mode is unit-enforced.
+- **PR2 — grounding projection (D2)** (2026-07-23, this PR). `JournalService` gains an
+  optional `context_builder` and grounds every typed turn on the canonical
+  `UnifiedUserContext.build()`; the six-titles digest body is replaced by the **named
+  projection** `render_journal_grounding` (`core/services/journal/grounding_projection.py`),
+  whose `JOURNAL_GROUNDING_FIELDS` is the explicit field list — identity, active
+  goals·tasks·habits with light relevance (progress %, overdue/due-today, streaks),
+  and learning-journey framing (current path steps, mastery counts). Domain services
+  keep supplying titles (standard `build()` is UID-depth); UserContext supplies the
+  relevance lens. Fail-soft: unwired builder or failed build degrades to the
+  pre-ADR-081 title digest; the canon-P3 vault-notes half and its de-dup rules are
+  untouched. Privacy wall: a recording-context test pins renders to the explicit
+  field list, and the ADR-078 wall guard now covers the whole grounding path
+  (journal service + projection + the UserContext query module).
+  *Implementation precision on D2's wording:* the injected seam is
+  **`UserContextBuilder`** — the object that actually owns `build()` and the one every
+  existing consumer injects (`UserContextService` is Context-Aware-API view-shaping
+  and exposes no raw context).

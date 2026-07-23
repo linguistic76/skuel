@@ -75,16 +75,21 @@ Pipeline.JOURNAL.allows_sharing()  # → False; Pipeline.JOURNAL still enforces 
 
 ## UserContext Digest
 
-`JournalService._build_context_summary(user_uid, include_vault_notes=True)` builds a
-lightweight text block:
+`JournalService._build_context_summary(user_uid, include_vault_notes=True)` grounds on
+`UnifiedUserContext.build()` (standard depth, never `build_rich()`/ZPD) rendered by the
+named projection `render_journal_grounding` (`grounding_projection.py`, ADR-081 D2 —
+explicit `JOURNAL_GROUNDING_FIELDS` list, test-enforced):
 
-- Up to 6 active **Goal** titles
-- Up to 6 active **Task** titles
-- Up to 6 active **Habit** titles
+- Identity line ("You are speaking with {display_name}.")
+- Up to 6 active **Goals** (progress-% annotated), **Tasks** (overdue-first ordering,
+  overdue/due-today annotated), **Habits** (streak annotated) — UserContext selects and
+  annotates; the optional domain services supply titles
+- Learning journey: current path steps (titles) + mastered/in-progress counts
 - Up to 8 **Personal project notes** (vault-synced, title + 300-char snippet, newest-first;
   `private: true` notes excluded)
 
-Goals/Tasks/Habits services are optional — those sections degrade to empty if `None`.
+`context_builder` unwired or build failure → plain six-titles digest (the pre-ADR-081
+floor). Goals/Tasks/Habits services are optional — those sections degrade to empty if `None`.
 Vault notes come from `self._user_entry` (always present) via `get_vault_notes_for_context()`.
 Discriminator: `pipeline IN [journal, knowledge]` + `"vault_file_path"` in metadata (stamps set at ingestion). `knowledge` = developed files in the `knowledge/` doorway, shared to teach SKUEL.
 Injected into Stage 2 + Stage 3 system prompts and STANDARD prompts.

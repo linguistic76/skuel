@@ -55,14 +55,22 @@ without interactive review, producing a single markdown document with all three 
    override file (`journals.discussion.{mode}.md` / `journals.follow_up.{mode}.md`, ADR-081 D1)
    — absent override → floor (silent, no log); blank override → floor.
 
-4. **Context digest, not full UserContext** — `_build_context_summary()` extracts up to 6
-   active titles each from Goals, Tasks, and Habits, plus up to 8 vault-synced personal notes
-   (title + 300-char snippet via `UserEntryService.get_vault_notes_for_context()`; notes
-   marked `private: true` are excluded). Stage 1 receives no context (sparse by design —
-   fidelity requires restraint). Stages 2 and 3 receive the digest. **Vault-dial de-dup
-   (canon P3):** when the vault dial's semantic block actually lands (`vault.has_passages`),
-   the digest drops the shallow note snippets — never both reads of one corpus; a retrieval
-   miss keeps them (fail-soft floor: dial-on never grounds below dial-off).
+4. **Curated projection, not a UserContext dump (ADR-081 D2)** — `_build_context_summary()`
+   grounds on the canonical `UnifiedUserContext.build()` (standard ~150-field depth, never
+   `build_rich()`/ZPD per turn) rendered through the named projection
+   `render_journal_grounding` (`grounding_projection.py`). `JOURNAL_GROUNDING_FIELDS` is the
+   EXPLICIT field list — identity, active goals/tasks/habits with light relevance (progress %,
+   overdue/due-today, streaks), current path steps + mastery counts — enforced by a
+   recording-context unit test. UserContext supplies the relevance lens; the optional
+   Goals/Tasks/Habits services supply titles. Unwired `context_builder` or a failed build
+   degrades to the plain six-titles digest (the pre-ADR-081 floor). The digest ends with up
+   to 8 vault-synced personal notes (title + 300-char snippet via
+   `UserEntryService.get_vault_notes_for_context()`; notes marked `private: true` are
+   excluded). Stage 1 receives no context (sparse by design — fidelity requires restraint).
+   Stages 2 and 3 receive the digest. **Vault-dial de-dup (canon P3):** when the vault dial's
+   semantic block actually lands (`vault.has_passages`), the digest drops the shallow note
+   snippets — never both reads of one corpus; a retrieval miss keeps them (fail-soft floor:
+   dial-on never grounds below dial-off).
 
 4a. **Two grounding dials (FOUNDER, both off by default)** — `summon_canon` (curated shelf,
    ADR-076) and `summon_vault` (the user's own vault-minus-private, canon P3 / ADR-077) are
@@ -120,14 +128,19 @@ Stage 2 composes four files via `stage2_system_prompt(context_summary)` in
 `stage2_system_prompt`. To add a new file, add an entry to `_FILES` and populate
 `data/instructions/` with the file.
 
-### Wiring a new context domain into `_build_context_summary()`
+### Enriching the grounding projection
 
-`_build_context_summary()` lives in `JournalService` (`core/services/journal/journal_service.py`).
-It accepts optional `GoalsService`, `TasksService`, and `HabitsService`. To add a fourth:
+Grounding lives in `core/services/journal/grounding_projection.py` (ADR-081 D2). To surface
+a new UserContext signal in the journal prompt:
 
-1. Add the service as an optional constructor parameter.
-2. Add a `search()` call with `limit=6` inside `_build_context_summary()`.
-3. Inject the service from `services_bootstrap/compose.py` when constructing `JournalService`.
+1. Add the field name to `JOURNAL_GROUNDING_FIELDS` — the explicit list is the scope-creep
+   mitigation; the recording-context test fails on any undeclared read.
+2. Render it inside `render_journal_grounding()` (pure function — no I/O).
+3. Extend `tests/unit/services/test_journal_grounding_projection.py` for the new line.
+
+Only if the signal needs titles the standard `build()` doesn't carry (UID-depth) does a new
+domain service become a `JournalService` ctor dep, fetched in `_grounding_lines()` and wired
+in `services_bootstrap/compose.py`.
 
 ---
 
@@ -136,9 +149,10 @@ It accepts optional `GoalsService`, `TasksService`, and `HabitsService`. To add 
 **Don't hardcode prompts in routes.** All prompt logic belongs in `instruction_loader.py`.
 Routes pass raw entry text and user UID to the service, nothing else.
 
-**Don't pass full UserContext.** `_build_context_summary()` distills a focused digest.
-Passing a 250-field `UserContext` object into the journal prompt would dilute focus and
-expose data the journal companion doesn't need.
+**Don't dump UserContext into the prompt.** Grounding rides `build()` but renders ONLY the
+`JOURNAL_GROUNDING_FIELDS` projection (ADR-081 D2). Serialising the whole ~150-field object
+— or reading fields outside the explicit list — dilutes focus, exposes data the companion
+doesn't need, and fails the recording-context guard test. Never `build_rich()`/ZPD per turn.
 
 **Don't share journal entries.** `Pipeline.JOURNAL.allows_sharing()` is `False` by design.
 Never add a sharing picker to journal UI; never pass a non-private audience for journal
@@ -161,6 +175,7 @@ entries in ingestion code.
 | `docs/user-guides/journal-privacy.md` | Privacy policy and enforcement commitments |
 | `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers; `suggest_activities()` powers the panel |
 | `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER stages file-driven; discussion/follow-up = committed floor + optional local override (ADR-081 D1) |
+| `core/services/journal/grounding_projection.py` | The named curated rendering of `UnifiedUserContext.build()` (ADR-081 D2) — `JOURNAL_GROUNDING_FIELDS` explicit list + pure `render_journal_grounding()` |
 | `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render, preserving the bridge's tags verbatim (deadlines/priorities not normalised, so nothing is lost). Inert; user copies into a Periodic Note / extraction folder, never auto-created |
 | `adapters/inbound/journals_routes.py` | FOUNDER tier enforcement lives here; discussions are **ephemeral by default** (ADR-078 §5) — `/journals/start` persists nothing (the transcript rides the composer client-side), and an explicit `POST /journals/save` folds it into an owner-private `:ConversationSession` + turns (ONE atomic `save_transcript` txn) for revisit/continue but **no UserEntry** (understanding-agnostic — ADR-073's wall holds); `/journals/follow-up` picks session-backed (saved) vs ephemeral-structured (`transcript_json`, every unsaved chat — both doors); the file/audio + DNWF doors share the same substrate (composer opens on the source→output pair); the file-upload path itself is fully zero-persistence (ADR-073), processing to the user's own flat `je_out/` folder via one shared batch engine; `GET /journals/{entry_uid}` is **periodic-notes-only**; `POST /journals/suggest-activities` takes reflection content in the body and returns the lazy-loaded suggestions panel; `GET /journals/je-out/{filename}` serves flat `je_out/` outputs |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |

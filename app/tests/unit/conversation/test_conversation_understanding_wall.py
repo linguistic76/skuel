@@ -79,14 +79,17 @@ def test_conversation_labels_are_not_searchable_domains() -> None:
 # Guard 3 (unit, source-inspection) — the context builder never reads them.
 # ---------------------------------------------------------------------------
 def test_context_builder_does_not_reference_conversation_labels() -> None:
-    from core.services.journal.journal_service import JournalService
+    # The whole grounding path (ADR-081 D2): the journal service, the curated
+    # projection module, and the UserContext query module that build() rides.
+    from adapters.persistence.neo4j import user_context_queries
+    from core.services.journal import grounding_projection, journal_service
 
-    source = inspect.getsource(JournalService._build_context_summary)
-    assert _SESSION not in source, (
-        "_build_context_summary references ConversationSession — the journal "
-        "context builder must never read the discussion store (ADR-078 §2)."
-    )
-    assert _TURN not in source
+    for module in (journal_service, grounding_projection, user_context_queries):
+        source = inspect.getsource(module)
+        assert _SESSION not in source and _TURN not in source, (
+            f"{module.__name__} references a conversation label — the journal "
+            "grounding path must never read the discussion store (ADR-078 §2)."
+        )
 
 
 def test_vault_context_read_does_not_reference_conversation_labels() -> None:
