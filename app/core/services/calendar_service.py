@@ -169,7 +169,7 @@ class CalendarService:
 
         # Fetch habits (ongoing practices — status-filtered, never date-filtered)
         habit_occurrences = {}
-        habits = await self._fetch_habits(user_uid)
+        habits = await self._fetch_habits(user_uid, include_completed)
         for habit in habits:
             # Add habit as calendar item
             items.append(self._habit_to_calendar_item(habit))
@@ -440,14 +440,17 @@ class CalendarService:
 
         return items
 
-    async def _fetch_habits(self, user_uid: UserUID) -> list[Habit]:
+    async def _fetch_habits(self, user_uid: UserUID, include_completed: bool = False) -> list[Habit]:
         """
-        Fetch the user's active habits — status-filtered, NEVER date-filtered.
+        Fetch the user's habits — status-filtered, NEVER date-filtered.
 
         Habits are ongoing practices with no scheduled date; the calendar projects
         each one across the view range via ``_generate_habit_occurrences``. So we
-        need every "alive" habit (active or paused), independent of when it was
-        created — hence ``get_active`` (status-only) rather than a dated range query.
+        need them by status, independent of when they were created — not via a dated
+        range query. By default only "alive" habits (active or paused) are returned
+        (``get_active``); ``include_completed`` widens to every status (archived /
+        completed / cancelled too, via ``get_user_habits``), honouring the same flag
+        the task/event fetches already respect for audit/timeline callers.
 
         History: this previously called ``get_user_items_in_range``, which silently
         filters by ``created_at``. That made habits vanish from any view window that
@@ -458,7 +461,11 @@ class CalendarService:
         habits: list[Habit] = []
 
         try:
-            result = await self.habits_service.get_active(user_uid)
+            result = (
+                await self.habits_service.get_user_habits(user_uid)
+                if include_completed
+                else await self.habits_service.get_active(user_uid)
+            )
             if result.is_ok:
                 habits = result.value
 

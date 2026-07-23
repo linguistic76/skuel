@@ -15,7 +15,7 @@ domain services, so we build the service with mocks and call it directly.
 from __future__ import annotations
 
 from datetime import date, datetime
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -23,6 +23,7 @@ from core.models.enums import RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.habit.habit import Habit
 from core.services.calendar_service import CalendarService
+from core.utils.result_simplified import Result
 
 
 def _service() -> CalendarService:
@@ -173,3 +174,34 @@ def test_weekday_weekend_filters(pattern: RecurrencePattern, expected: list[date
     lo = date(2026, 7, 20) if pattern is RecurrencePattern.WEEKDAYS else date(2026, 7, 25)
     hi = date(2026, 7, 21) if pattern is RecurrencePattern.WEEKDAYS else date(2026, 7, 26)
     assert _dates(svc, habit, lo, hi) == expected
+
+
+# ---------------------------------------------------------------------------
+# _fetch_habits honours include_completed (symmetry with tasks/events)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_habits_default_returns_only_alive() -> None:
+    """The default path fetches alive habits (active/paused) via get_active."""
+    svc = _service()
+    alive = [_habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))]
+    svc.habits_service.get_active = AsyncMock(return_value=Result.ok(alive))
+    svc.habits_service.get_user_habits = AsyncMock(return_value=Result.ok([]))
+
+    assert await svc._fetch_habits("user_x") is alive
+    svc.habits_service.get_active.assert_awaited_once_with("user_x")
+    svc.habits_service.get_user_habits.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fetch_habits_include_completed_returns_all_statuses() -> None:
+    """include_completed=True widens to every status via get_user_habits."""
+    svc = _service()
+    every = [_habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))]
+    svc.habits_service.get_active = AsyncMock(return_value=Result.ok([]))
+    svc.habits_service.get_user_habits = AsyncMock(return_value=Result.ok(every))
+
+    assert await svc._fetch_habits("user_x", include_completed=True) is every
+    svc.habits_service.get_user_habits.assert_awaited_once_with("user_x")
+    svc.habits_service.get_active.assert_not_awaited()
