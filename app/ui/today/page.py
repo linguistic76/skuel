@@ -108,6 +108,20 @@ def _seed_script(seed_json: str) -> FT:
 # ============================================================================
 
 
+def _step_day(view_date: date, days: int) -> date:
+    """``view_date`` shifted by ``days``, clamped to the representable range.
+
+    ``date`` overflows below ``0001-01-01`` / above ``9999-12-31``; the day lens
+    accepts arbitrary ISO dates, so a naive ``±1`` would crash render at those
+    extremes. Clamping makes the boundary arrow a no-op self-link instead.
+    """
+    if days < 0 and view_date == date.min:
+        return date.min
+    if days > 0 and view_date == date.max:
+        return date.max
+    return view_date + timedelta(days=days)
+
+
 def _header(view_date: date, heading: str) -> FT:
     return Header(
         Div(
@@ -136,8 +150,11 @@ def _header(view_date: date, heading: str) -> FT:
         # calendar toolbar) sits top-right, the stats row below it.
         Div(
             calendar_nav_cluster(
-                prev_href=f"/today/{(view_date - timedelta(days=1)).isoformat()}",
-                next_href=f"/today/{(view_date + timedelta(days=1)).isoformat()}",
+                # Clamp at date.min/date.max: the route accepts any ISO date, and
+                # ±1 day past the boundaries raises OverflowError. At an extreme the
+                # arrow self-links (a harmless no-op) instead of crashing render.
+                prev_href=f"/today/{_step_day(view_date, -1).isoformat()}",
+                next_href=f"/today/{_step_day(view_date, +1).isoformat()}",
                 today_href="/today",
                 note_href=f"/journals/daily/{view_date.isoformat()}",
                 note_label="Daily note",

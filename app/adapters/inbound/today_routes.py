@@ -33,6 +33,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from services_bootstrap._container import Services
+    from ui.page_contexts import TodayPageContext
 
 
 logger = get_logger("skuel.routes.today")
@@ -58,7 +59,7 @@ def create_today_routes(
     assert tasks is not None, "TasksService not wired in Services container"
     assert rels is not None, "UserRelationshipBackend not wired in Services container"
 
-    def _render_today(request: Request, ctx_result: Result[Any]) -> Any:
+    def _render_today(request: Request, ctx_result: Result[TodayPageContext]) -> Any:
         """Render a built Today context, or a 500 shell on build failure."""
         if ctx_result.is_error:
             logger.warning(
