@@ -21,6 +21,7 @@ from core.models.query_types import QueryIntent
 from core.services.askesis.query_processor import QueryProcessor
 from core.services.askesis.response_generator import ResponseGenerator
 from core.services.canon import CanonContext, CanonPassage, CanonSource
+from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Errors, Result
 from ui.askesis.chat import render_assistant_message
 
@@ -232,11 +233,17 @@ def _guidance() -> MagicMock:
     return guidance
 
 
+def _skeleton_context() -> UserContext:
+    # Real skeleton context: its ADR-082 grounding renders "" so the canon
+    # append seam is observed without a learner block in the composition.
+    return UserContext(user_uid="user_test")
+
+
 def test_guided_prompt_appends_teaching_block_when_passages_exist() -> None:
     generator = _make_response_generator()
 
     prompt = generator.build_guided_system_prompt(
-        _guidance(), MagicMock(), MagicMock(), canon_context=_canon_context()
+        _guidance(), MagicMock(), _skeleton_context(), canon_context=_canon_context()
     )
 
     # The authored stance heads the prompt (ADR-082 D1); the leaf follows it.
@@ -255,7 +262,7 @@ def test_guided_prompt_direct_mode_gets_answer_framing_not_socratic() -> None:
     guidance.mode = GuidanceMode.DIRECT
 
     prompt = generator.build_guided_system_prompt(
-        guidance, MagicMock(), MagicMock(), canon_context=_canon_context()
+        guidance, MagicMock(), _skeleton_context(), canon_context=_canon_context()
     )
 
     assert "DIRECT BASE" in prompt
@@ -270,7 +277,7 @@ def test_guided_prompt_socratic_mode_keeps_the_method() -> None:
     generator = _make_response_generator()
 
     prompt = generator.build_guided_system_prompt(
-        _guidance(), MagicMock(), MagicMock(), canon_context=_canon_context()
+        _guidance(), MagicMock(), _skeleton_context(), canon_context=_canon_context()
     )
 
     assert "Do not surrender the method" in prompt
@@ -280,7 +287,7 @@ def test_guided_prompt_unchanged_when_canon_context_empty() -> None:
     generator = _make_response_generator()
 
     prompt = generator.build_guided_system_prompt(
-        _guidance(), MagicMock(), MagicMock(), canon_context=CanonContext.empty()
+        _guidance(), MagicMock(), _skeleton_context(), canon_context=CanonContext.empty()
     )
 
     # Stance + leaf only — no canon block appended.
@@ -291,7 +298,7 @@ def test_guided_prompt_unchanged_when_canon_context_empty() -> None:
 def test_guided_prompt_unchanged_when_canon_context_none() -> None:
     generator = _make_response_generator()
 
-    prompt = generator.build_guided_system_prompt(_guidance(), MagicMock(), MagicMock())
+    prompt = generator.build_guided_system_prompt(_guidance(), MagicMock(), _skeleton_context())
 
     assert prompt.endswith("BASE PROMPT")
     assert "## Readings for This Step" not in prompt

@@ -92,6 +92,21 @@ def test_context_builder_does_not_reference_conversation_labels() -> None:
         )
 
 
+def test_askesis_grounding_path_does_not_reference_conversation_labels() -> None:
+    # ADR-082 D2 extends the wall to the Askesis grounding path: the
+    # projection module and the response generator that injects it on both
+    # answer branches read structural UserContext only — never the discussion
+    # store. (user_context_queries, which build_rich() rides, is covered above.)
+    from core.services.askesis import grounding_projection, response_generator
+
+    for module in (grounding_projection, response_generator):
+        source = inspect.getsource(module)
+        assert _SESSION not in source and _TURN not in source, (
+            f"{module.__name__} references a conversation label — the Askesis "
+            "grounding path must never read the discussion store (ADR-078 §2)."
+        )
+
+
 def test_vault_context_read_does_not_reference_conversation_labels() -> None:
     from adapters.persistence.neo4j._user_entry_content_mixin import _UserEntryContentMixin
 

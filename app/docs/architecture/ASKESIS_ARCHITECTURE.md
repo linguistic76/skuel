@@ -508,12 +508,12 @@ async def _find_similar_chunks(
 
 ```python
 async def _generate_context_aware_response(...) -> str:
-    # Build context for LLM
-    context = self._build_llm_context(current_knowledge, active_learning, ...)
-    response = await self.llm_service.generate_context_aware_answer(
-        query=query_message, context=context, intent=intent.value
+    # Compact inline summary of the retrieved learning context
+    context = "\n".join([f"Knowledge units: {len(current_knowledge)}", ...])
+    return await self.llm_service.generate_context_aware_answer(
+        query=query_message, user_context=context,
+        additional_context=additional_context, intent=intent
     )
-    return response
 ```
 
 ### Prerequisite Ordering (Kahn's Algorithm)
@@ -546,7 +546,7 @@ Askesis uses PROMPT_REGISTRY for two distinct prompt layers:
 
 1. **Guided system prompts (template-driven):** `ResponseGenerator.build_guided_system_prompt()` renders one of 7 `askesis_guided_*` templates via `PROMPT_REGISTRY.render()`. Each template encodes one `PedagogicalIntent`. The Python method computes dynamic context (PathStep refs, KU names, resource refs, edge text) and passes it as template placeholders. Prompt text is editable in `core/prompts/templates/` without touching Python.
 
-2. **LLM context assembly (programmatic):** `ResponseGenerator.build_llm_context()` converts UserContext into natural language for the LLM call. `QueryProcessor._generate_context_aware_response()` calls `LLMService.generate_context_aware_answer()` with this assembled context. This layer remains programmatic — the context is data-driven, not pedagogical prose.
+2. **LLM context assembly (programmatic):** `ResponseGenerator.build_llm_context()` renders the user-state block for the context-aware LLM call: the `render_askesis_grounding` projection (explicit `ASKESIS_GROUNDING_FIELDS` list — ADR-082 D2) plus workload/alert mechanics and the PsBundle curriculum text. This layer remains programmatic — the context is data-driven, not pedagogical prose.
 
 ### Guided System Prompt Templates
 

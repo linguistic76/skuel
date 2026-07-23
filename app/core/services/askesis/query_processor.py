@@ -342,7 +342,7 @@ class QueryProcessor:
             )
         else:
             llm_context = self.response_generator.build_llm_context(
-                user_context, question, intent, ps_bundle=ps_bundle
+                user_context, ps_bundle=ps_bundle
             )
             answer = await self.llm_service.generate_context_aware_answer(
                 query=question,

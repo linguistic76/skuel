@@ -296,16 +296,18 @@ curriculum of the conversation — it constrains what Askesis can do.
 
 ### Guided System Prompts (Active — March 2026)
 
-`ResponseGenerator.build_guided_system_prompt()` composes **stance + pedagogy leaf +
-canon block** (ADR-082 D1): the shared `askesis_stance` fragment (study-buddy voice,
-expert-in-content posture, citation discipline) heads the prompt, then one of 4
-mode-specific builders renders the pedagogy leaf via `PROMPT_REGISTRY.render()`. Dynamic
-context (PathStep refs, KU names, resource refs, edge text, practice items) is computed
-in Python and passed as template placeholders. Prompt text lives in
-`core/prompts/templates/`; every template id accepts an optional founder-local override
-in `data/instructions/` (registry chokepoint, ADR-082 D1). The facet/context-aware
-branch heads with the same stance — authoring parity across both answer branches
-(ADR-082 D3).
+`ResponseGenerator.build_guided_system_prompt()` composes **stance + grounding +
+pedagogy leaf + canon block** (ADR-082 D1/D2): the shared `askesis_stance` fragment
+(study-buddy voice, expert-in-content posture, citation discipline) heads the prompt,
+the `render_askesis_grounding` projection supplies the learner block (explicit
+`ASKESIS_GROUNDING_FIELDS` list, skeleton-tolerant — renders nothing on a thin
+context), then one of 4 mode-specific builders renders the pedagogy leaf via
+`PROMPT_REGISTRY.render()`. Dynamic context (PathStep refs, KU names, resource refs,
+edge text, practice items) is computed in Python and passed as template placeholders.
+Prompt text lives in `core/prompts/templates/`; every template id accepts an optional
+founder-local override in `data/instructions/` (registry chokepoint, ADR-082 D1). The
+facet/context-aware branch heads with the same stance and carries the same grounding
+projection — parity across both answer branches (ADR-082 D2/D3).
 
 | Template | GuidanceMode | PedagogicalIntent |
 |----------|-------------|-------------------|

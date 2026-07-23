@@ -16,10 +16,17 @@ from core.prompts import PROMPT_REGISTRY
 from core.services.askesis.response_generator import ResponseGenerator
 from core.services.canon import CanonContext, CanonPassage
 from core.services.llm_service import LLMProvider, LLMResponse, LLMService
+from core.services.user.unified_user_context import UserContext
 
 
 def _stance() -> str:
     return PROMPT_REGISTRY.render("askesis_stance")
+
+
+def _user_context() -> UserContext:
+    # A real skeleton context — its ADR-082 grounding projection renders ""
+    # so stance composition is observed without a learner block in between.
+    return UserContext(user_uid="user_test")
 
 
 def _guidance(mode: GuidanceMode = GuidanceMode.SOCRATIC) -> MagicMock:
@@ -58,7 +65,9 @@ class TestGuidedBranch:
         return generator
 
     def test_stance_heads_the_guided_prompt(self) -> None:
-        prompt = self._generator().build_guided_system_prompt(_guidance(), MagicMock(), MagicMock())
+        prompt = self._generator().build_guided_system_prompt(
+            _guidance(), MagicMock(), _user_context()
+        )
 
         assert prompt.startswith(_stance())
         assert prompt.endswith("PEDAGOGY LEAF")
@@ -66,7 +75,7 @@ class TestGuidedBranch:
     def test_composition_order_stance_leaf_canon(self) -> None:
         """ADR-082 D1: stance + pedagogy leaf + canon block, in that order."""
         prompt = self._generator().build_guided_system_prompt(
-            _guidance(), MagicMock(), MagicMock(), canon_context=_canon_context()
+            _guidance(), MagicMock(), _user_context(), canon_context=_canon_context()
         )
 
         assert (
@@ -84,7 +93,9 @@ class TestGuidedBranch:
             generator._build_exploratory_prompt = builder  # type: ignore[method-assign]
             generator._build_encouraging_prompt = builder  # type: ignore[method-assign]
 
-            prompt = generator.build_guided_system_prompt(_guidance(mode), MagicMock(), MagicMock())
+            prompt = generator.build_guided_system_prompt(
+                _guidance(mode), MagicMock(), _user_context()
+            )
 
             assert prompt.startswith(_stance()), mode
 

@@ -286,22 +286,19 @@ All intents also include: MOC navigation context, at-risk habits, overdue tasks,
 **Service:** `ResponseGenerator` (`core/services/askesis/response_generator.py`)
 
 ```python
-llm_context = response_generator.build_llm_context(user_context, question, intent)
+llm_context = response_generator.build_llm_context(user_context, ps_bundle=ps_bundle)
 ```
 
-Converts the UserContext into a natural-language summary for the LLM. Sections are included based on intent:
+Renders the user-state block for the LLM. The learner grounding is the
+`ASKESIS_GROUNDING_FIELDS` projection (`render_askesis_grounding`,
+`core/services/askesis/grounding_projection.py` — ADR-082 D2): identity,
+skeleton-tolerant LifePath framing, learning-journey position (enrolled paths
+with step progress, current steps, mastery counts), and light study-serving
+goals. The explicit field list is enforced by a recording-context test — the
+projection replaced the pre-ADR-082 intent-selected UserContext dump.
 
-```python
-INTENT_CONTEXT_SECTIONS = {
-    QueryIntent.HIERARCHICAL: {"knowledge", "goals", "life_path"},
-    QueryIntent.PREREQUISITE: {"knowledge"},
-    QueryIntent.PRACTICE:     {"tasks", "knowledge"},
-    QueryIntent.EXPLORATORY:  {"tasks", "knowledge", "goals", "habits", "events", "life_path"},
-    # ...
-}
-```
-
-Always includes: user identity, workload/capacity, and alerts.
+Always includes: workload/capacity and alerts (mechanics unchanged); appends the
+PsBundle's `curriculum_context_text` when a bundle is present.
 
 **Token truncation:** The output of `build_llm_context()` is truncated to `AskesisTokenBudget.MAX_LLM_CONTEXT_CHARS` (~3000 tokens). When an PsBundle is present, its `curriculum_context_text` is separately truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens). Constants in `core/constants.py`.
 
@@ -316,7 +313,7 @@ answer = await llm_service.generate_context_aware_answer(
 )
 ```
 
-The LLM receives the question, the retrieved context, and the user's state. Context is assembled programmatically in `ResponseGenerator.build_llm_context()` — prompt templates in `PROMPT_REGISTRY` are planned but not yet used for Q&A.
+The LLM receives the question, the retrieved context, and the user's state. The system prompt heads with the authored `askesis_stance` fragment (ADR-082 D1/D3); the user-state block is the ADR-082 grounding projection rendered by `ResponseGenerator.build_llm_context()`.
 
 ### Step 5g: Generate Suggested Actions
 
