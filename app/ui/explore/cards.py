@@ -178,6 +178,13 @@ def _tag_chip(tag: str, active_tag: str, in_overflow: bool) -> Span:
     )
 
 
+# The library's browse default when no explicit sort is chosen. Shared with the
+# route (adapters.inbound.explore_ui) so the pre-selected <option> and the route
+# param default can't drift — otherwise the rendered control would say one thing
+# while blank-browse requests sent another (a NOUS/tag/Load-more interaction
+# would serialize the browser's first <option> and override newest-first order).
+LIBRARY_DEFAULT_SORT = SearchSortOrder.CREATED_DESC.value
+
 # Shared select styling for the library facet bar (search box keeps its own,
 # fuller styling in Row 1).
 DROPDOWN_CLS = (
@@ -270,14 +277,20 @@ def render_explore_search_panel(
     ]
 
     # SORT mirrors /search \u2014 values are canonical SearchSortOrder members, parsed
-    # back via SearchSortOrder.from_string in the route. "Relevance" is only
-    # meaningful alongside a query; it falls back to newest-first when browsing.
+    # back via SearchSortOrder.from_string in the route. The catalog default
+    # (LIBRARY_DEFAULT_SORT) is pre-selected so blank-browse interactions serialize
+    # it rather than the browser's first <option>. "Relevance" is only meaningful
+    # alongside a query.
+    sort_choices = [
+        (SearchSortOrder.RELEVANCE.value, "Relevance"),
+        (SearchSortOrder.CREATED_DESC.value, "Newest First"),
+        (SearchSortOrder.CREATED_ASC.value, "Oldest First"),
+        (SearchSortOrder.UPDATED_DESC.value, "Recently Updated"),
+        (SearchSortOrder.TITLE_ASC.value, "Title A\u2013Z"),
+    ]
     sort_options = [
-        Option("Relevance", value=SearchSortOrder.RELEVANCE.value),
-        Option("Newest First", value=SearchSortOrder.CREATED_DESC.value),
-        Option("Oldest First", value=SearchSortOrder.CREATED_ASC.value),
-        Option("Recently Updated", value=SearchSortOrder.UPDATED_DESC.value),
-        Option("Title A\u2013Z", value=SearchSortOrder.TITLE_ASC.value),
+        Option(label, value=value, **({"selected": True} if value == LIBRARY_DEFAULT_SORT else {}))
+        for value, label in sort_choices
     ]
 
     nous_options = [Option("All Nous", value="")] + [

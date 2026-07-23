@@ -34,6 +34,7 @@ from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import SearchRequest
 from core.utils.logging import get_logger
 from ui.explore.cards import (
+    LIBRARY_DEFAULT_SORT,
     LIBRARY_PAGE_SIZE,
     render_explore_card,
     render_explore_search_panel,
@@ -51,9 +52,11 @@ from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.explore")
 
-# The library's browse default when no explicit sort is chosen. SearchSortOrder
-# fails soft to RELEVANCE, but a query-less catalog wants newest-first.
-_LIBRARY_DEFAULT_SORT = SearchSortOrder.CREATED_DESC.value
+# LIBRARY_DEFAULT_SORT (imported from the panel) is the browse default: the
+# route param default AND the pre-selected <option> must be the same value, or a
+# blank-browse interaction would serialize the control's shown value and quietly
+# override newest-first. SearchSortOrder.from_string still fails soft to
+# RELEVANCE for any unrecognized value.
 
 
 def _parse_learning_level(value: str) -> LearningLevel | None:
@@ -150,7 +153,7 @@ def create_explore_api_routes(
         q: str = "",
         type: str = "",
         tag: str = "",
-        sort: str = _LIBRARY_DEFAULT_SORT,
+        sort: str = LIBRARY_DEFAULT_SORT,
         nous: str = "",
         nous_subtopic: str = "",
         learning_level: str = "",
@@ -358,7 +361,7 @@ def create_explore_ui_routes(
         """
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
 
-        search_request = _library_search_request("", "", tag, _LIBRARY_DEFAULT_SORT, 0)
+        search_request = _library_search_request("", "", tag, LIBRARY_DEFAULT_SORT, 0)
         result = await search_router.faceted_search(search_request, user_uid)
         if result.is_error:
             logger.error(f"Library content load failed: {result.error}")
