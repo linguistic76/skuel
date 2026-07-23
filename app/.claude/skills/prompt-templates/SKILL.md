@@ -85,8 +85,10 @@ authoring approach (committed floor + founder-local override) at the registry
 chokepoint, for every template id. Absence is the normal state (silent miss);
 blank/whitespace degrades to the committed floor; the shared containment guard
 (`core/utils/instruction_files.py`) blocks traversal. Overrides are read fresh on
-every access (never cached) so founder edits land without a restart — an override
-must preserve the template's `{placeholder}` keys.
+every access (never cached) so founder edits land without a restart. The render
+contract is ENFORCED: an override whose `{placeholder}` set differs from the
+committed floor's (or that isn't a valid format string) degrades to the floor
+with a warning — it replaces the words, never the placeholders.
 
 ---
 
