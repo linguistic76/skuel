@@ -332,15 +332,32 @@ class AskesisService:
         session_id: str | None = None,
         preferred_mode: "GuidanceMode | None" = None,
         scope: "SearchRequest | None" = None,
+        model: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Answer user question via RAG pipeline. Delegated to query_processor.
 
         ``scope`` carries an optional facet (e.g. a ``nous`` topic from the
         Askesis composer) that narrows the retrieved passages to that topic.
+        ``model`` is the per-conversation switcher choice, gated OpenAI-safe
+        downstream.
         """
         return await self.query_processor.answer_user_question(
-            user_uid, question, session_id, preferred_mode, scope
+            user_uid, question, session_id, preferred_mode, scope, model
         )
+
+    def available_chat_models(self) -> list[tuple[str, str]]:
+        """Headline chat models the wired caller can serve — the switcher's options.
+
+        Availability comes from the multi-provider caller (see
+        ``core.services.chat.available_chat_models``): a dev env with no Anthropic
+        adapter offers only the OpenAI models. Empty when no caller is wired
+        (MOCK/CORE) so the surface renders no picker.
+        """
+        from core.services.chat import available_chat_models
+
+        if self.llm_service is None or self.llm_service.caller is None:
+            return []
+        return available_chat_models(self.llm_service.caller)
 
     async def process_query_with_context(
         self, user_uid: UserUID, query_message: str, depth: int = 2

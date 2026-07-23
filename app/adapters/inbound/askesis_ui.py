@@ -99,6 +99,11 @@ def create_askesis_ui_routes(
         nous_subtopic = request.query_params.get("nous_subtopic", "")
         if nous_subtopic not in nous_subtopic_map.get(nous, []):
             nous_subtopic = ""
+        # Model-switcher options come from the wired caller (dev with no Anthropic
+        # adapter offers only OpenAI models); empty → no picker rendered.
+        model_options = (
+            _askesis_service.available_chat_models() if _askesis_service is not None else []
+        )
         return render_askesis_page(
             request,
             nous_topics=nous_topics,
@@ -106,6 +111,7 @@ def create_askesis_ui_routes(
             initial_question=question,
             initial_nous=nous,
             initial_nous_subtopic=nous_subtopic,
+            model_options=model_options,
         )
 
     routes.append(askesis_home)
@@ -196,11 +202,16 @@ def create_askesis_ui_routes(
             else None
         )
 
+        # Per-conversation model choice from the composer's switcher (composer-state
+        # only — Askesis has no durable session). Gated OpenAI-safe downstream, so a
+        # forged/unavailable model degrades to the app default rather than erroring.
+        model = safe_form_string(form_data.get("model", ""))
+
         ai_response: str
         canon_sources: tuple[Any, ...] = ()
         try:
             result = await _askesis_service.answer_user_question(
-                user_uid, message, preferred_mode=preferred_mode, scope=scope
+                user_uid, message, preferred_mode=preferred_mode, scope=scope, model=model or None
             )
             if result.is_error:
                 logger.error(f"Askesis service error: {result.error}")

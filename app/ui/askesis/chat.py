@@ -30,15 +30,24 @@ def render_askesis_shell(
     initial_question: str = "",
     initial_nous: str = "",
     initial_nous_subtopic: str = "",
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     """
     Full-height 3-column chat surface for /askesis.
 
     Height calc(100vh - 3.5rem) aligns with the SKUEL top navbar (h-14 = 3.5rem).
-    Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedNous,
-    selectedNousSubtopic, nousSubtopicMap }. The ``selected*`` scope fields live
-    on the root so they persist across composer submits (the composer isn't
-    re-rendered on send) — each submit carries the scope.
+    Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedModel,
+    selectedNous, selectedNousSubtopic, nousSubtopicMap }. The ``selected*`` /
+    ``responseMode`` / ``selectedModel`` fields live on the root so they persist
+    across composer submits (the composer isn't re-rendered on send) — each submit
+    carries the scope AND the per-conversation model choice.
+
+    ``selectedModel`` is the LLM switcher (claude.ai pattern): a fresh chat opens on
+    the app-safe default (``gpt-4o``, restored from localStorage), switching is free
+    (the next turn routes to the new model), and reload = fresh chat (Askesis has no
+    durable session). ``model_options`` are the ``(value, label)`` models the wired
+    caller can serve — an ``x-init`` guard resets a stale/unavailable stored value to
+    the default so the hidden field never submits an option the picker can't show.
 
     ``nous_subtopic_map`` is the graph-derived nous→sub-topics dependency
     (`SearchRouter.nous_subtopic_map`), inlined into x-data so the sub-topic
@@ -55,18 +64,30 @@ def render_askesis_shell(
     so the scope chip shows. It prefills only — never auto-submits (see
     ``_composer_form``, Kody #545).
     """
+    model_ids = [value for value, _ in (model_options or [])]
     return Div(
         _sidebar(username, learning_scope_label),
-        _center_panel(nous_topics or [], nous_subtopic_map or {}, initial_question),
+        _center_panel(
+            nous_topics or [], nous_subtopic_map or {}, initial_question, model_options or []
+        ),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
         **{
             "x-data": (
                 "{ sidebarOpen: true, settingsOpen: false,"
                 " responseMode: localStorage.getItem('askesis_mode') || 'direct',"
+                " selectedModel: localStorage.getItem('askesis_model') || 'gpt-4o',"
                 " selectedNous: " + json.dumps(initial_nous) + ","
                 " selectedNousSubtopic: " + json.dumps(initial_nous_subtopic) + ","
                 " nousSubtopicMap: " + json.dumps(nous_subtopic_map or {}) + " }"
+            ),
+            # Reset a stale/unavailable stored model to the safe default (the picker
+            # only offers models the caller can serve), then persist every change so
+            # the choice survives a reload (per-conversation, claude.ai pattern).
+            "x-init": (
+                "if (!" + json.dumps(model_ids) + ".includes(selectedModel))"
+                " selectedModel = 'gpt-4o';"
+                " $watch('selectedModel', v => localStorage.setItem('askesis_model', v))"
             ),
             # Sub-topics go deeper into ONE topic: whenever the selected topic
             # changes (select or chip x-button), drop a sub-topic that isn't authored
@@ -348,10 +369,13 @@ def _mode_row(value: str, label: str, desc: str) -> Any:
 
 
 def _center_panel(
-    nous_topics: list[str], nous_subtopic_map: dict[str, list[str]], initial_question: str = ""
+    nous_topics: list[str],
+    nous_subtopic_map: dict[str, list[str]],
+    initial_question: str = "",
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     return Div(
-        _top_bar(),
+        _top_bar(model_options or []),
         Div(
             Div(
                 id="thread-messages",
@@ -365,12 +389,18 @@ def _center_panel(
     )
 
 
-def _top_bar() -> Any:
-    # Plain product label — the old "Sonnet 4.5" model-picker button was
-    # prototype chrome: wrong model, wrong provider (Askesis runs on the
-    # OpenAI-backed LLMService), and its dropdown chevron opened nothing.
+def _top_bar(model_options: list[tuple[str, str]]) -> Any:
+    # claude.ai-style model switcher beside the product label. Phase 1 made the
+    # OpenAI-backed LLMService multi-provider, so this choice actually routes now —
+    # options come from the wired caller (dev with no Anthropic key shows only OpenAI
+    # models). The earlier "Sonnet 4.5" button was prototype chrome (wrong model,
+    # wrong provider, dead chevron); this is its real replacement.
     return Div(
-        Span("Askesis", cls="text-[15.5px] font-semibold text-foreground px-3 py-1.5"),
+        Div(
+            Span("Askesis", cls="text-[15.5px] font-semibold text-foreground px-3 py-1.5"),
+            _model_select(model_options),
+            cls="flex items-center gap-1",
+        ),
         Div(
             _icon_ghost_btn("share", "Share"),
             _icon_ghost_btn("more-horizontal", "More options"),
@@ -378,6 +408,26 @@ def _top_bar() -> Any:
         ),
         cls="flex items-center justify-between px-5 flex-shrink-0 border-b border-border",
         style="height:56px;",
+    )
+
+
+def _model_select(model_options: list[tuple[str, str]]) -> Any:
+    """Model switcher bound to root ``selectedModel`` — the per-conversation choice.
+
+    Options come from the wired caller (``available_chat_models``), so a surface
+    with no Anthropic adapter (dev) offers only OpenAI models. Rendered only when the
+    list is non-empty — fails soft to no control, exactly like the NOUS scope select.
+    """
+    if not model_options:
+        return None
+    return Select(
+        *[Option(label, value=value) for value, label in model_options],
+        aria_label="Model",
+        cls=(
+            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            " rounded-[8px] px-2 py-1 outline-none cursor-pointer"
+        ),
+        **{"x-model": "selectedModel"},
     )
 
 
@@ -534,6 +584,9 @@ def _composer_form(
 
     return Form(
         Input(type="hidden", name="mode", **{":value": "responseMode"}),
+        # The per-conversation model choice rides every submit (bound to root state);
+        # switching the top-bar picker changes only the NEXT turn.
+        Input(type="hidden", name="model", **{":value": "selectedModel"}),
         # Hidden fields carry the active scope with every submit (bound to root state).
         Input(type="hidden", name="nous", **nous_attrs),
         Input(type="hidden", name="nous_subtopic", **{":value": "selectedNousSubtopic"}),

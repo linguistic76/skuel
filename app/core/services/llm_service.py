@@ -21,6 +21,7 @@ from typing import Any
 
 from core.ports.base_protocols import EnumLike
 from core.ports.llm_protocols import ChatMessage
+from core.services.chat import resolve_chat_model
 from core.services.llm_caller import LLMCallerProtocol
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,19 @@ class LLMService:
                 "or LLMProvider.LOCAL for mock responses without a caller."
             )
         self.caller = caller
+
+    def resolve_model(self, requested: str | None) -> str:
+        """Gate a per-conversation model request to one this service can serve.
+
+        The Askesis half of the LLM switcher seam: a per-turn model choice is
+        checked against the wired caller and degrades OpenAI-safe (see
+        ``core.services.chat.resolve_chat_model``). With no caller (MOCK/LOCAL)
+        resolution is moot — the mock path ignores the model — so the request (or
+        the configured default) passes through untouched.
+        """
+        if self.caller is None:
+            return requested or self.config.model_name
+        return resolve_chat_model(requested, self.caller, default=self.config.model_name)
 
     async def generate(  # skuel-lint: disable=SKUEL005 -- always answers: port errors fold into a degraded LLMResponse, never a propagated failure
         self,
@@ -234,6 +248,7 @@ class LLMService:
         additional_context: dict | None = None,
         intent: Any | None = None,
         conversation_history: list[dict[str, str]] | None = None,
+        model: str | None = None,
     ) -> str:
         """
         Generate context-aware answer using full user state.
@@ -245,7 +260,9 @@ class LLMService:
             query: User's question,
             user_context: Rich natural language context from _build_llm_context_from_user_context(),
             additional_context: Optional additional entities/metadata,
-            intent: Query intent (from QueryIntent enum)
+            intent: Query intent (from QueryIntent enum),
+            model: Per-call model override (the per-conversation switcher choice);
+                its prefix selects the provider. Defaults to ``config.model_name``.
 
         Returns:
             Natural language answer leveraging user's actual data
@@ -262,6 +279,7 @@ class LLMService:
             temperature=0.7,
             max_tokens=500,
             conversation_history=conversation_history,
+            model=model,
         )
 
         if response.error:

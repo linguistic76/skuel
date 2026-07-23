@@ -20,13 +20,15 @@ def render_askesis_page(
     initial_question: str = "",
     initial_nous: str = "",
     initial_nous_subtopic: str = "",
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     """Render the Askesis chat surface within the SKUEL BasePage shell.
 
     ``initial_question`` / ``initial_nous`` / ``initial_nous_subtopic`` carry the
     /search "Ask" handoff — they prefill the composer and seed the scope (chip
     shown); the user clicks Send (no auto-submit — a crafted GET must not run a
-    prompt in the session).
+    prompt in the session). ``model_options`` are the ``(value, label)`` models
+    the wired caller can serve — the top-bar switcher's options (empty → no picker).
     """
     return BasePage(
         content=render_askesis_shell(
@@ -37,6 +39,7 @@ def render_askesis_page(
             initial_question=initial_question,
             initial_nous=initial_nous,
             initial_nous_subtopic=initial_nous_subtopic,
+            model_options=model_options,
         ),
         title="Askesis",
         page_type=PageType.CUSTOM,
