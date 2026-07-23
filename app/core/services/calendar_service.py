@@ -70,7 +70,11 @@ from core.ports.domain_protocols import (
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
+from core.utils.neo4j_temporal import (
+    convert_neo4j_date,
+    convert_neo4j_datetime,
+    convert_neo4j_time,
+)
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -163,9 +167,9 @@ class CalendarService:
         event_items = await self._fetch_events(user_uid, start_date, end_date, include_completed)
         items.extend(event_items)
 
-        # Fetch habits using unified API (status filtering only)
+        # Fetch habits (ongoing practices — status-filtered, never date-filtered)
         habit_occurrences = {}
-        habits = await self._fetch_habits(user_uid, start_date, end_date, include_completed)
+        habits = await self._fetch_habits(user_uid, include_completed)
         for habit in habits:
             # Add habit as calendar item
             items.append(self._habit_to_calendar_item(habit))
@@ -437,32 +441,35 @@ class CalendarService:
         return items
 
     async def _fetch_habits(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
+        self, user_uid: UserUID, include_completed: bool = False
     ) -> list[Habit]:
         """
-        Fetch active habits.
+        Fetch the user's habits — status-filtered, NEVER date-filtered.
 
-        Refactoring:
-        Uses unified query pattern with Cypher-level status filtering.
-        BEFORE: Fetched 100 habits, filtered by is_active() in Python
-        AFTER: Cypher filters by status (excludes ARCHIVED) at database level
+        Habits are ongoing practices with no scheduled date; the calendar projects
+        each one across the view range via ``_generate_habit_occurrences``. So we
+        need them by status, independent of when they were created — not via a dated
+        range query. By default only "alive" habits (active or paused) are returned
+        (``get_active``); ``include_completed`` widens to every status (archived /
+        completed / cancelled too, via ``get_user_habits``), honouring the same flag
+        the task/event fetches already respect for audit/timeline callers.
 
-        Note: Habits don't use date filtering (ongoing practices), but we maintain
-        the unified interface signature for consistency.
+        History: this previously called ``get_user_items_in_range``, which silently
+        filters by ``created_at``. That made habits vanish from any view window that
+        didn't span their creation date — e.g. a habit created July 1 showed on every
+        day of the July month view but on *no* day of a late-July week view. Fetching
+        by status keeps month and week consistent.
         """
         habits: list[Habit] = []
 
         try:
-            # Use unified API for Cypher-level status filtering
-            result = await self.habits_service.get_user_items_in_range(
-                user_uid=user_uid,
-                start_date=start_date,  # Ignored for habits
-                end_date=end_date,  # Ignored for habits
-                include_completed=include_completed,
+            result = (
+                await self.habits_service.get_user_habits(user_uid)
+                if include_completed
+                else await self.habits_service.get_active(user_uid)
             )
-
             if result.is_ok:
-                habits = result.value  # List[Habit] - already filtered by Cypher
+                habits = result.value
 
         except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch habits: {e}")
@@ -605,155 +612,182 @@ class CalendarService:
 
         self.logger.debug(f"Generating occurrences for habit {habit.uid} with pattern: {pattern}")
 
-        # Calculate occurrences based on pattern
+        # Anchor recurrence to the habit's inception (started_at, else created_at),
+        # NEVER the view window. Habit has no `start_date` field, so the old
+        # getattr(habit, "start_date", start_date) silently anchored every pattern
+        # to the view's start_date: a weekly habit begun on a Wednesday rendered on
+        # the view's first weekday, and biweekly parity reset per view. The habit
+        # scheduler (habit_event_scheduler) already anchors to started_at — match it.
+        inception = self._habit_inception_date(habit)
+        anchor = inception or start_date
+
+        # Never project a habit before it existed. Now that habits are fetched by
+        # status (not by a created_at range), the "don't show before creation" bound
+        # the old range-fetch implied has to be enforced here — otherwise an active
+        # habit would backfill days/weeks/months preceding its inception. Clamp the
+        # window's lower bound to the inception; a habit whose inception is after the
+        # whole range yields nothing (start > end → the loops below never run).
+        if inception and inception > start_date:
+            start_date = inception
+
+        # Nor after it stops. A finite habit (recurrence_end_date set, e.g. a
+        # PS-spawned habit) that is still ACTIVE now reaches this generator via the
+        # status-only fetch, so clamp the upper bound too — else pending occurrences
+        # keep rendering past the habit's end. A habit that ended before the window
+        # yields nothing (end < start → the loops below never run).
+        recurrence_end = self._habit_recurrence_end(habit)
+        if recurrence_end is not None and recurrence_end < end_date:
+            end_date = recurrence_end
+
         current_date = start_date
 
         if pattern == "none":
-            # One-time only - check if it falls in our range
-            habit_start = getattr(habit, "start_date", start_date)
-            if isinstance(habit_start, str):
-                habit_start = date.fromisoformat(habit_start)
-            if start_date <= habit_start <= end_date:
-                occurrences.append(self._create_occurrence(habit, habit_start))
+            # One-time practice — a single occurrence on its inception day.
+            if start_date <= anchor <= end_date:
+                occurrences.append(self._create_occurrence(habit, anchor))
 
         elif pattern == "daily":
-            # Every day
             while current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
                 current_date += timedelta(days=1)
 
         elif pattern == "weekdays":
-            # Monday-Friday (0-4)
             while current_date <= end_date:
-                if current_date.weekday() < 5:  # Monday=0, Friday=4
+                if current_date.weekday() < 5:  # Monday=0 … Friday=4
                     occurrences.append(self._create_occurrence(habit, current_date))
                 current_date += timedelta(days=1)
 
         elif pattern == "weekends":
-            # Saturday-Sunday (5-6)
             while current_date <= end_date:
                 if current_date.weekday() >= 5:  # Saturday=5, Sunday=6
                     occurrences.append(self._create_occurrence(habit, current_date))
                 current_date += timedelta(days=1)
 
         elif pattern == "weekly":
-            # Once a week - use the start date's weekday
-            habit_start = getattr(habit, "start_date", start_date)
-            if isinstance(habit_start, str):
-                habit_start = date.fromisoformat(habit_start)
-
-            target_weekday = habit_start.weekday()
-
-            # Find first occurrence in range
-            while current_date <= end_date:
-                if current_date.weekday() == target_weekday:
-                    break
-                current_date += timedelta(days=1)
-
-            # Generate weekly occurrences
+            # Same weekday as the anchor, every week.
+            current_date = self._advance_to_weekday(current_date, anchor.weekday(), end_date)
             while current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
                 current_date += timedelta(weeks=1)
 
         elif pattern == "biweekly":
-            # Every two weeks
-            habit_start = getattr(habit, "start_date", start_date)
-            if isinstance(habit_start, str):
-                habit_start = date.fromisoformat(habit_start)
-
-            target_weekday = habit_start.weekday()
-
-            # Find first occurrence in range
-            while current_date <= end_date:
-                if current_date.weekday() == target_weekday:
-                    break
-                current_date += timedelta(days=1)
-
-            # Generate biweekly occurrences
+            # Same weekday as the anchor, on the anchor's fixed 14-day parity.
+            current_date = self._advance_to_weekday(current_date, anchor.weekday(), end_date)
+            if current_date <= end_date and ((current_date - anchor).days // 7) % 2:
+                current_date += timedelta(weeks=1)  # shift onto the anchor's cycle
             while current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
                 current_date += timedelta(weeks=2)
 
         elif pattern == "monthly":
-            # Once a month - use the start date's day
-            habit_start = getattr(habit, "start_date", start_date)
-            if isinstance(habit_start, str):
-                habit_start = date.fromisoformat(habit_start)
-
-            target_day = habit_start.day
-
-            # Generate monthly occurrences
-            current_month = current_date.replace(day=1)
-            while (
-                current_month.year * 12 + current_month.month <= end_date.year * 12 + end_date.month
-            ):
-                try:
-                    occurrence_date = current_month.replace(
-                        day=min(target_day, self._days_in_month(current_month))
-                    )
-                    if start_date <= occurrence_date <= end_date:
-                        occurrences.append(self._create_occurrence(habit, occurrence_date))
-                except ValueError:
-                    # Handle edge cases (e.g., February 30th)
-                    pass
-
-                # Move to next month
-                if current_month.month == 12:
-                    current_month = current_month.replace(year=current_month.year + 1, month=1)
-                else:
-                    current_month = current_month.replace(month=current_month.month + 1)
+            # Anchor day-of-month, every month (clamped to each month's length).
+            occurrences.extend(
+                self._monthly_occurrences(habit, anchor.day, start_date, end_date, step_months=1)
+            )
 
         elif pattern == "quarterly":
-            # Every three months
-            habit_start = getattr(habit, "start_date", start_date)
-            if isinstance(habit_start, str):
-                habit_start = date.fromisoformat(habit_start)
-
-            target_day = habit_start.day
-
-            # Start from the quarter containing start_date
-            current_month = current_date.replace(day=1)
-            while (
-                current_month.year * 12 + current_month.month <= end_date.year * 12 + end_date.month
-            ):
-                try:
-                    occurrence_date = current_month.replace(
-                        day=min(target_day, self._days_in_month(current_month))
-                    )
-                    if start_date <= occurrence_date <= end_date:
-                        occurrences.append(self._create_occurrence(habit, occurrence_date))
-                except ValueError:
-                    pass
-
-                # Move to next quarter (3 months)
-                new_month = current_month.month + 3
-                new_year = current_month.year
-                if new_month > 12:
-                    new_year += 1
-                    new_month -= 12
-                current_month = date(new_year, new_month, 1)
+            # Anchor day-of-month, every third month on the anchor's phase.
+            occurrences.extend(
+                self._monthly_occurrences(
+                    habit, anchor.day, start_date, end_date, step_months=3, phase_month=anchor
+                )
+            )
 
         elif pattern == "yearly":
-            # Once a year
-            habit_start = getattr(habit, "start_date", start_date)
-            if isinstance(habit_start, str):
-                habit_start = date.fromisoformat(habit_start)
-
-            target_month = habit_start.month
-            target_day = habit_start.day
-
-            # Generate yearly occurrences
+            # Anchor month + day, once a year.
             for year in range(start_date.year, end_date.year + 1):
                 try:
-                    occurrence_date = date(year, target_month, target_day)
-                    if start_date <= occurrence_date <= end_date:
-                        occurrences.append(self._create_occurrence(habit, occurrence_date))
+                    occurrence_date = date(year, anchor.month, anchor.day)
                 except ValueError:
-                    # Handle leap year edge cases
-                    pass
+                    continue  # Feb 29 in a non-leap year — no occurrence that year
+                if start_date <= occurrence_date <= end_date:
+                    occurrences.append(self._create_occurrence(habit, occurrence_date))
 
         self.logger.debug(f"Generated {len(occurrences)} occurrences for habit {habit.uid}")
         return occurrences
+
+    def _advance_to_weekday(self, start: date, weekday: int, limit: date) -> date:
+        """First date on ``weekday`` (0=Mon) at or after ``start``.
+
+        Returns a date past ``limit`` if the weekday never occurs in range, so the
+        caller's ``while d <= limit`` loop simply produces no occurrences.
+        """
+        d = start
+        while d <= limit and d.weekday() != weekday:
+            d += timedelta(days=1)
+        return d
+
+    def _monthly_occurrences(
+        self,
+        habit: Habit,
+        target_day: int,
+        start_date: date,
+        end_date: date,
+        *,
+        step_months: int,
+        phase_month: date | None = None,
+    ) -> list[CalendarOccurrence]:
+        """Occurrences on ``target_day`` of each qualifying month in the range.
+
+        ``step_months`` is the cadence (1 = monthly, 3 = quarterly). ``phase_month``
+        anchors that cadence so quarterly stays on the habit's own quarter regardless
+        of the view window; None (monthly) accepts every month. ``target_day`` is
+        clamped to each month's length (e.g. day 31 → 30 in April, 28/29 in February).
+        """
+        result: list[CalendarOccurrence] = []
+        anchor_index = (
+            phase_month.year * 12 + (phase_month.month - 1) if phase_month is not None else 0
+        )
+        month = start_date.replace(day=1)
+        while month.year * 12 + month.month <= end_date.year * 12 + end_date.month:
+            month_index = month.year * 12 + (month.month - 1)
+            if step_months == 1 or (month_index - anchor_index) % step_months == 0:
+                occurrence_date = month.replace(day=min(target_day, self._days_in_month(month)))
+                if start_date <= occurrence_date <= end_date:
+                    result.append(self._create_occurrence(habit, occurrence_date))
+            month = (
+                month.replace(year=month.year + 1, month=1)
+                if month.month == 12
+                else month.replace(month=month.month + 1)
+            )
+        return result
+
+    def _habit_inception_date(self, habit: Habit) -> date | None:
+        """The calendar day a habit began — its ``started_at``, else its ``created_at``.
+
+        Occurrences are projected forward from here so an active, ongoing habit is
+        never rendered on days before it existed. Tolerates the created_at native/
+        string temporal split (some writers persist an ISO string, others a native
+        Neo4j DateTime); returns None only if neither anchor is parseable.
+        """
+        anchor = habit.started_at or habit.created_at
+        converted = convert_neo4j_datetime(anchor)
+        if converted is not None:
+            return converted.date()
+        if isinstance(anchor, str):
+            try:
+                return datetime.fromisoformat(anchor).date()
+            except ValueError:
+                return None
+        return None
+
+    def _habit_recurrence_end(self, habit: Habit) -> date | None:
+        """The last day a finite habit recurs (``recurrence_end_date``), or None.
+
+        Occurrences are not projected past this day. None means the habit recurs
+        indefinitely (the common case). Tolerates the date native/string temporal
+        split — an ISO date, or an ISO datetime whose date half is taken.
+        """
+        end = habit.recurrence_end_date
+        converted = convert_neo4j_date(end)
+        if converted is not None:
+            return converted
+        if isinstance(end, str):
+            try:
+                return date.fromisoformat(end[:10])
+            except ValueError:
+                return None
+        return None
 
     def _create_occurrence(self, habit: Habit, occurrence_date: date) -> CalendarOccurrence:
         """Create a calendar occurrence for a habit."""
