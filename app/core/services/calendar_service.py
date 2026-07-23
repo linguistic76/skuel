@@ -163,9 +163,9 @@ class CalendarService:
         event_items = await self._fetch_events(user_uid, start_date, end_date, include_completed)
         items.extend(event_items)
 
-        # Fetch habits using unified API (status filtering only)
+        # Fetch habits (ongoing practices — status-filtered, never date-filtered)
         habit_occurrences = {}
-        habits = await self._fetch_habits(user_uid, start_date, end_date, include_completed)
+        habits = await self._fetch_habits(user_uid)
         for habit in habits:
             # Add habit as calendar item
             items.append(self._habit_to_calendar_item(habit))
@@ -436,33 +436,27 @@ class CalendarService:
 
         return items
 
-    async def _fetch_habits(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
-    ) -> list[Habit]:
+    async def _fetch_habits(self, user_uid: UserUID) -> list[Habit]:
         """
-        Fetch active habits.
+        Fetch the user's active habits — status-filtered, NEVER date-filtered.
 
-        Refactoring:
-        Uses unified query pattern with Cypher-level status filtering.
-        BEFORE: Fetched 100 habits, filtered by is_active() in Python
-        AFTER: Cypher filters by status (excludes ARCHIVED) at database level
+        Habits are ongoing practices with no scheduled date; the calendar projects
+        each one across the view range via ``_generate_habit_occurrences``. So we
+        need every "alive" habit (active or paused), independent of when it was
+        created — hence ``get_active`` (status-only) rather than a dated range query.
 
-        Note: Habits don't use date filtering (ongoing practices), but we maintain
-        the unified interface signature for consistency.
+        History: this previously called ``get_user_items_in_range``, which silently
+        filters by ``created_at``. That made habits vanish from any view window that
+        didn't span their creation date — e.g. a habit created July 1 showed on every
+        day of the July month view but on *no* day of a late-July week view. Fetching
+        by status keeps month and week consistent.
         """
         habits: list[Habit] = []
 
         try:
-            # Use unified API for Cypher-level status filtering
-            result = await self.habits_service.get_user_items_in_range(
-                user_uid=user_uid,
-                start_date=start_date,  # Ignored for habits
-                end_date=end_date,  # Ignored for habits
-                include_completed=include_completed,
-            )
-
+            result = await self.habits_service.get_active(user_uid)
             if result.is_ok:
-                habits = result.value  # List[Habit] - already filtered by Cypher
+                habits = result.value
 
         except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to fetch habits: {e}")
