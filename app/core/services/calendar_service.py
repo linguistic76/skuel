@@ -628,6 +628,15 @@ class CalendarService:
         if inception and inception > start_date:
             start_date = inception
 
+        # Nor after it stops. A finite habit (recurrence_end_date set, e.g. a
+        # PS-spawned habit) that is still ACTIVE now reaches this generator via the
+        # status-only fetch, so clamp the upper bound too — else pending occurrences
+        # keep rendering past the habit's end. A habit that ended before the window
+        # yields nothing (end < start → the loops below never run).
+        recurrence_end = self._habit_recurrence_end(habit)
+        if recurrence_end is not None and recurrence_end < end_date:
+            end_date = recurrence_end
+
         current_date = start_date
 
         if pattern == "none":
@@ -756,6 +765,24 @@ class CalendarService:
         if isinstance(anchor, str):
             try:
                 return datetime.fromisoformat(anchor).date()
+            except ValueError:
+                return None
+        return None
+
+    def _habit_recurrence_end(self, habit: Habit) -> date | None:
+        """The last day a finite habit recurs (``recurrence_end_date``), or None.
+
+        Occurrences are not projected past this day. None means the habit recurs
+        indefinitely (the common case). Tolerates the date native/string temporal
+        split — an ISO date, or an ISO datetime whose date half is taken.
+        """
+        end = habit.recurrence_end_date
+        converted = convert_neo4j_date(end)
+        if converted is not None:
+            return converted
+        if isinstance(end, str):
+            try:
+                return date.fromisoformat(end[:10])
             except ValueError:
                 return None
         return None

@@ -35,6 +35,7 @@ def _habit(
     *,
     created: datetime,
     started: datetime | None = None,
+    recurrence_end: date | None = None,
 ) -> Habit:
     return Habit(
         uid="habit.test",
@@ -46,6 +47,7 @@ def _habit(
         created_at=created,
         updated_at=created,
         started_at=started,
+        recurrence_end_date=recurrence_end,
     )
 
 
@@ -98,6 +100,33 @@ def test_started_at_takes_precedence_over_created_at() -> None:
         date(2026, 7, 25),
         date(2026, 7, 26),
     ]
+
+
+def test_recurrence_end_date_clamps_upper_bound() -> None:
+    """A finite habit stops projecting after its recurrence_end_date, mid-view."""
+    svc = _service()
+    habit = _habit(
+        RecurrencePattern.DAILY,
+        created=datetime(2026, 7, 1),
+        recurrence_end=date(2026, 7, 23),
+    )
+    assert _dates(svc, habit, date(2026, 7, 20), date(2026, 7, 26)) == [
+        date(2026, 7, 20),
+        date(2026, 7, 21),
+        date(2026, 7, 22),
+        date(2026, 7, 23),
+    ]
+
+
+def test_recurrence_ended_before_view_yields_nothing() -> None:
+    """A habit whose recurrence ended before the window produces no occurrences."""
+    svc = _service()
+    habit = _habit(
+        RecurrencePattern.DAILY,
+        created=datetime(2026, 6, 1),
+        recurrence_end=date(2026, 7, 10),
+    )
+    assert _dates(svc, habit, date(2026, 7, 20), date(2026, 7, 26)) == []
 
 
 # ---------------------------------------------------------------------------
