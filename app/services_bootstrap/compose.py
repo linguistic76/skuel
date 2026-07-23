@@ -665,41 +665,36 @@ async def compose_services(
             "✅ Content services created (includes UnifiedIngestionService with automatic chunking)"
         )
 
-        # Create LLM service BEFORE learning services.
+        # Create the chat clients BEFORE learning services, from the single
+        # chat-provider chokepoint (mirror of create_embedding_client, ADR-068):
+        # one credential read, one place providers are decided.
         # Gated by intelligence tier (ADR-043): CORE skips entirely; FULL requires it.
+        chat_clients = None
         llm_service = None
         if not tier.ai_enabled:
-            logger.info("⏭️  LLM service skipped (intelligence tier: CORE)")
+            logger.info("⏭️  Chat clients + LLM service skipped (intelligence tier: CORE)")
         else:
-            from adapters.external.llm import OpenAIChatAdapter
-            from core.config.credential_store import get_credential
+            from adapters.external.llm import create_chat_client
             from core.services.llm_service import LLMConfig, LLMProvider, LLMService
 
-            openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-            if not openai_api_key or openai_api_key in ("your-openai-api-key-here", "sk-"):
-                raise RuntimeError(
-                    "FULL-tier bootstrap requires OPENAI_API_KEY. "
-                    "Set INTELLIGENCE_TIER=core to run without LLM features, or "
-                    "set OPENAI_API_KEY in the credential store / environment."
-                )
-
             try:
-                # Chat completions go through the port; the vendor SDK lives in
-                # the adapter (W1). The API key is read here at the root and
-                # injected — LLMService holds no SDK or credential.
-                chat_port = OpenAIChatAdapter(api_key=openai_api_key, default_model="gpt-4")
+                # Askesis's RAG LLMService takes the OpenAI adapter directly (until
+                # re-rooted); the multi-provider caller (chat_clients.caller) feeds
+                # the rest. LLMService holds no SDK or credential (W1).
+                chat_clients = create_chat_client()
                 llm_config = LLMConfig(
                     provider=LLMProvider.OPENAI,
                     model_name="gpt-4",  # GPT-4 for high-quality RAG and intelligence insights
                 )
-                llm_service = LLMService(config=llm_config, chat_port=chat_port)
+                llm_service = LLMService(config=llm_config, chat_port=chat_clients.openai)
                 logger.info(
-                    "✅ LLM service created (GPT-4 for RAG generation and intelligence services)"
+                    "✅ Chat clients created (OpenAI required, Anthropic optional); "
+                    "LLM service created (GPT-4 for RAG generation and intelligence services)"
                 )
             except Exception as e:  # safety-net: surface FULL-tier LLM init failure loudly
-                logger.error(f"FULL-tier LLM service failed to initialize: {e}")
+                logger.error(f"FULL-tier chat clients / LLM service failed to initialize: {e}")
                 raise RuntimeError(
-                    "FULL-tier bootstrap requires the LLM service. "
+                    "FULL-tier bootstrap requires the chat clients / LLM service. "
                     "Set INTELLIGENCE_TIER=core to run without LLM features, or fix the "
                     f"underlying init error: {e}"
                 ) from e
@@ -849,28 +844,12 @@ async def compose_services(
         )
         logger.info("✅ Visualization service created (Chart.js/Vis.js adapters)")
 
-        # Create OpenAI service + content enrichment (gated by intelligence tier - ADR-043)
+        # Content enrichment shares the OpenAI adapter from the chat chokepoint
+        # (one adapter serves ContentEnrichment, the caller and reports).
+        # None on CORE — ContentEnrichmentService handles that gracefully.
         from core.services.content_enrichment_service import ContentEnrichmentService
 
-        openai_chat = None
-        if tier.ai_enabled:
-            from adapters.external.llm import OpenAIChatAdapter
-            from core.config.credential_store import get_credential
-
-            openai_api_key = get_credential("OPENAI_API_KEY", fallback_to_env=True)
-            if not openai_api_key or openai_api_key in ("your-openai-api-key-here", "sk-"):
-                raise RuntimeError(
-                    "FULL-tier bootstrap requires OPENAI_API_KEY for content enrichment. "
-                    "Set INTELLIGENCE_TIER=core to run without LLM features, or "
-                    "set OPENAI_API_KEY in the credential store / environment."
-                )
-            # Chat completions for content enrichment / reports go through the
-            # port; the vendor SDK lives in the adapter (W1). One adapter serves
-            # ContentEnrichment, UnifiedLLMCaller and ProgressReportGenerator.
-            openai_chat = OpenAIChatAdapter(api_key=openai_api_key)
-            logger.info("✅ OpenAI chat adapter created")
-        else:
-            logger.info("⏭️  OpenAI chat adapter skipped (intelligence tier: CORE)")
+        openai_chat = chat_clients.openai if chat_clients else None
 
         content_enrichment = ContentEnrichmentService(
             backend=user_entry_backend,
@@ -896,30 +875,11 @@ async def compose_services(
         )
         logger.info("✅ ReportMasteryService created")
 
-        # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix.
-        # Anthropic is optional — present only when ANTHROPIC_API_KEY is set.
-        from core.services.llm_caller import UnifiedLLMCaller
+        # UnifiedLLMCaller: the multi-provider chat path (gpt* → OpenAI,
+        # claude* → Anthropic), assembled at the chat chokepoint. None on CORE.
         from core.services.report import EntryReportService
 
-        anthropic_chat = None
-        if tier.ai_enabled:
-            from adapters.external.llm import AnthropicChatAdapter
-            from core.config.credential_store import get_credential
-
-            anthropic_api_key = get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
-            if anthropic_api_key:
-                anthropic_chat = AnthropicChatAdapter(api_key=anthropic_api_key)
-                logger.info("✅ Anthropic chat adapter created")
-            else:
-                logger.info("⏭️  Anthropic chat adapter skipped (no ANTHROPIC_API_KEY)")
-
-        llm_caller = None
-        if openai_chat or anthropic_chat:
-            llm_caller = UnifiedLLMCaller(
-                openai=openai_chat,
-                anthropic=anthropic_chat,
-            )
-            logger.info("✅ UnifiedLLMCaller created")
+        llm_caller = chat_clients.caller if chat_clients else None
 
         entry_report_backend = EntryReportBackend(
             driver=driver,
