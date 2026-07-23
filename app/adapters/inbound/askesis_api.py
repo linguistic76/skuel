@@ -101,6 +101,8 @@ def create_askesis_api_routes(
 
         question = request.query_params.get("question")
         session_id = request.query_params.get("session_id")
+        # Per-conversation model choice (switcher), gated OpenAI-safe downstream.
+        model = request.query_params.get("model")
 
         if not question:
             return Result.fail(
@@ -113,7 +115,7 @@ def create_askesis_api_routes(
 
         logger.info(f"RAG question from {user_uid}: {question}")
         result = await askesis_service.answer_user_question(
-            user_uid, question, session_id=session_id
+            user_uid, question, session_id=session_id, model=model or None
         )
         if result.is_ok:
             logger.info(f"RAG answer generated for {user_uid}")

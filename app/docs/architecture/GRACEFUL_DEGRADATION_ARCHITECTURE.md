@@ -153,7 +153,7 @@ All in `services_bootstrap/compose.py`:
 |------|-----------------|---------------|
 | Deepgram block | `DeepgramAdapter`, `TranscriptionService`, `BatchTranscriptionService` | Skipped; `DEEPGRAM_API_KEY` not read |
 | Embeddings block | `EmbeddingsService`, `Neo4jVectorSearchService` (embedding client adapter not built) | Skipped |
-| LLM block | `LLMService` (built with an injected `OpenAIChatAdapter` chat port at FULL) | Skipped |
+| LLM block | `LLMService` (built on the multi-provider `UnifiedLLMCaller` — `chat_clients.caller` — at FULL; routes per call by model prefix: gpt*→OpenAI, claude*→Anthropic) | Skipped |
 | Chat-adapter block | `OpenAIChatAdapter` (`ChatCompletionPort`, `adapters/external/llm/`) → `ContentEnrichmentService`, `UnifiedLLMCaller`, `ProgressReportGenerator` | Adapter not built; consumers receive `chat_port=None` and degrade |
 | Ingestion event-bus gate | `UnifiedIngestionService` + `BatchChunkingService` get `event_bus=event_bus if tier.ai_enabled else None` (ADR-074) | Ingestion publishes no embedding events — no queue-with-no-listener; chunks still persist |
 

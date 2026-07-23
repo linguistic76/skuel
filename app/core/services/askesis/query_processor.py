@@ -179,6 +179,7 @@ class QueryProcessor:
         session_id: str | None = None,
         preferred_mode: GuidanceMode | None = None,
         scope: SearchRequest | None = None,
+        model: str | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Complete RAG pipeline - retrieval + generation.
@@ -195,6 +196,9 @@ class QueryProcessor:
         Args:
             user_uid: User's unique identifier
             question: Natural language question from user
+            model: Per-conversation model choice from the switcher; gated
+                OpenAI-safe before use (see ``LLMService.resolve_model``). None
+                rides the app-safe default.
 
         Returns:
             Result containing:
@@ -207,7 +211,7 @@ class QueryProcessor:
         try:
             return await asyncio.wait_for(
                 self._answer_user_question_pipeline(
-                    user_uid, question, session_id, preferred_mode, scope
+                    user_uid, question, session_id, preferred_mode, scope, model
                 ),
                 timeout=AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS,
             )
@@ -232,8 +236,12 @@ class QueryProcessor:
         session_id: str | None = None,
         preferred_mode: GuidanceMode | None = None,
         scope: SearchRequest | None = None,
+        model: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Inner pipeline for answer_user_question, wrapped with timeout."""
+        # Per-conversation model choice, gated OpenAI-safe once for both answer
+        # branches (a forged/unavailable model degrades to the safe default).
+        resolved_model = self.llm_service.resolve_model(model)
         # Step 1: Get full user context
         user_context_result = await self.user_service.get_rich_unified_context(user_uid)
         if user_context_result.is_error:
@@ -326,7 +334,11 @@ class QueryProcessor:
         # Step 8: Generate answer (guided or context-aware)
         if guided_system_prompt:
             answer = await self._generate_guided_answer(
-                question, guided_system_prompt, ps_bundle, conversation_history
+                question,
+                guided_system_prompt,
+                ps_bundle,
+                conversation_history,
+                model=resolved_model,
             )
         else:
             llm_context = self.response_generator.build_llm_context(
@@ -338,6 +350,7 @@ class QueryProcessor:
                 additional_context=relevant_context,
                 intent=intent,
                 conversation_history=conversation_history,
+                model=resolved_model,
             )
 
         # Step 9: Record conversation turns — in-memory context window + durable Neo4j history.
@@ -612,12 +625,14 @@ class QueryProcessor:
         guided_system_prompt: str,
         ps_bundle: Any,
         conversation_history: list[dict[str, str]] | None = None,
+        model: str | None = None,
     ) -> str:
         """
         Generate an LLM answer using the guided (Socratic) pipeline.
 
         Prepends curriculum context to the user prompt when available,
-        then calls LLM with the guided system prompt.
+        then calls LLM with the guided system prompt. ``model`` is the
+        already-resolved per-conversation choice (None rides the config default).
         """
         user_prompt = question
         if ps_bundle and ps_bundle.curriculum_context_text:
@@ -637,6 +652,7 @@ class QueryProcessor:
             temperature=0.7,
             max_tokens=500,
             conversation_history=conversation_history,
+            model=model,
         )
         return llm_response.content or (
             "I'd like to explore this with you, but I'm having trouble "

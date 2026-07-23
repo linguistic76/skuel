@@ -203,7 +203,12 @@ class AskesisQueryOperations(Protocol):
     """
 
     async def answer_user_question(
-        self, user_uid: UserUID, question: str, session_id: str | None = None
+        self,
+        user_uid: UserUID,
+        question: str,
+        session_id: str | None = None,
+        *,
+        model: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Answer a natural language question about user's state.
 
@@ -216,6 +221,8 @@ class AskesisQueryOperations(Protocol):
         Args:
             user_uid: User's unique identifier
             question: Natural language question
+            model: Per-conversation model choice (switcher); gated OpenAI-safe
+                downstream. None rides the app-safe default.
 
         Returns:
             Result[dict]: Answer with entities, sources, and confidence
