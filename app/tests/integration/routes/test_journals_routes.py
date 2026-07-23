@@ -136,6 +136,7 @@ def mock_services() -> Any:
                 last_activity=_now,
                 title="t",
                 source_selection="{}",
+                model="gpt-4o",
             )
         )
     )
@@ -168,6 +169,7 @@ def mock_services() -> Any:
         last_activity=_now,
         title="Saved chat",
         source_selection="{}",
+        model="gpt-4o",
     )
     services.conversation.save_transcript = AsyncMock(return_value=Result.ok(_saved_session))
     services.conversation.list_sessions = AsyncMock(return_value=Result.ok([_saved_session]))

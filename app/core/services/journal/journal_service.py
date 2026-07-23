@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from core.models.enums.user_enums import JournalMode
 from core.models.type_hints import UserUID
+from core.services.chat import available_chat_models, resolve_chat_model
 from core.services.dsl.grounding import active_goal_titles as fetch_active_goal_titles
 from core.services.dsl.grounding import goals_as_context
 from core.services.journal.instruction_loader import (
@@ -64,8 +65,6 @@ class JournalFollowUp:
     sources: tuple[CanonSource, ...]
 
 
-_MODEL_CLAUDE = "claude-sonnet-4-6"
-_MODEL_GPT = "gpt-4o-mini"
 _MAX_TOKENS = 4000
 _STAGE3_MAX_TOKENS = 3000
 
@@ -105,9 +104,23 @@ class JournalService:
         # second dial.
         self._canon = canon_retrieval_service
 
-    def _resolve_model(self) -> str:
-        """Return the best available LLM model based on configured adapters."""
-        return _MODEL_CLAUDE if self._llm.is_model_supported(_MODEL_CLAUDE) else _MODEL_GPT
+    def _resolve_model(self, requested: str | None = None) -> str:
+        """Gate a per-conversation model choice to one the caller can serve.
+
+        The Journals half of the LLM switcher seam: the discussion's chosen model
+        (from the composer picker) wins when supported, else it degrades
+        OpenAI-safe to the app default (see ``core.services.chat``). ``None`` — the
+        DNWF file/audio stages, which carry no picker — rides the safe default.
+        """
+        return resolve_chat_model(requested, self._llm)
+
+    def available_chat_models(self) -> list[tuple[str, str]]:
+        """Headline chat models the caller can serve — the discussion picker's options.
+
+        Options come from the wired caller, so a dev env with no Anthropic adapter
+        offers only OpenAI models. Empty renders no picker (fails soft).
+        """
+        return available_chat_models(self._llm)
 
     @property
     def suggestions_available(self) -> bool:
@@ -441,6 +454,7 @@ class JournalService:
         summon_canon: bool = False,
         summon_vault: bool = False,
         canon_book_uids: list[str] | None = None,
+        model: str | None = None,
     ) -> Result[JournalFollowUp]:
         """Open a journal discussion on the user's first typed message.
 
@@ -474,7 +488,7 @@ class JournalService:
         try:
             result = await self._llm.generate(
                 prompt=user_message,
-                model=self._resolve_model(),
+                model=self._resolve_model(model),
                 system_prompt=system_prompt,
                 max_tokens=_MAX_TOKENS,
             )
@@ -561,6 +575,7 @@ class JournalService:
         summon_canon: bool = False,
         summon_vault: bool = False,
         canon_book_uids: list[str] | None = None,
+        model: str | None = None,
     ) -> Result[JournalFollowUp]:
         """Respond to the user's follow-up without re-running the full analysis template.
 
@@ -603,7 +618,7 @@ class JournalService:
         try:
             result = await self._llm.generate(
                 prompt=user_message,
-                model=self._resolve_model(),
+                model=self._resolve_model(model),
                 system_prompt=system_prompt,
                 max_tokens=_MAX_TOKENS,
             )

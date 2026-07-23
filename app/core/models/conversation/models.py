@@ -48,6 +48,9 @@ class ConversationSession:
     it (404-not-403 on a non-owner). ``kind`` is the companion discriminator
     (journals writes ``"discussion"``). ``source_selection`` is the JSON canon-
     shelf + vault selection so a *continued* session restores its own sources.
+    ``model`` is the per-conversation LLM choice (the switcher) so a *continued*
+    session resumes on the model it was last using (last-write-wins); the backend
+    defaults a pre-switcher session with no stored model to the app-safe default.
     """
 
     session_id: str
@@ -57,6 +60,7 @@ class ConversationSession:
     last_activity: datetime
     title: str
     source_selection: str
+    model: str
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

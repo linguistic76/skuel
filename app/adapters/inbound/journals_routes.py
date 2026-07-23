@@ -25,6 +25,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import rate_limited
+from core.services.chat import DEFAULT_CHAT_MODEL
 from core.services.conversation import (
     build_source_selection,
     history_to_follow_up_context,
@@ -302,7 +303,13 @@ def create_journals_routes(
         sessions_result = await conversation_service.list_sessions(user_uid)
         sessions = sessions_result.value if sessions_result.is_ok else []
 
-        page_content = JournalsLandingPage(user=user, shelf_books=shelf_books, sessions=sessions)
+        # LLM-switcher options for the start-form picker (from the wired caller;
+        # empty on CORE / no journal_service → no picker, safe default).
+        model_options = journal_service.available_chat_models() if journal_service else []
+
+        page_content = JournalsLandingPage(
+            user=user, shelf_books=shelf_books, sessions=sessions, model_options=model_options
+        )
 
         if request.headers.get("HX-Request"):
             return page_content
@@ -380,6 +387,10 @@ def create_journals_routes(
         summon_vault = is_founder and str(form.get("summon_vault", "")).strip().lower() == "true"
         summon_canon = bool(canon_book_uids)
 
+        # Per-conversation model choice from the start-form picker (gated
+        # OpenAI-safe in the service; the picker only offers serveable models).
+        model = str(form.get("model", "")).strip()
+
         ai_result = await journal_service.run_discussion(
             raw_entry,
             user_uid,
@@ -387,6 +398,7 @@ def create_journals_routes(
             summon_canon=summon_canon,
             summon_vault=summon_vault,
             canon_book_uids=canon_book_uids or None,
+            model=model or None,
         )
 
         if ai_result.is_error:
@@ -423,6 +435,10 @@ def create_journals_routes(
             # off-by-default one (Codex #638 P2).
             summon_canon=summon_canon,
             summon_vault=summon_vault,
+            # Carry the chosen model into the composer so follow-ups keep it and a
+            # later Save records it.
+            model=model,
+            model_options=journal_service.available_chat_models(),
         )
 
         return HTMLResponse(
@@ -827,6 +843,9 @@ def create_journals_routes(
         # Restore the session's last source selection (C3) — FOUNDER-gated, since
         # the composer dials are a FOUNDER entitlement.
         canon_books, canon_on, vault_on = parse_source_selection(session.source_selection)
+        # LLM-switcher options + the session's restored model, so a continued
+        # discussion resumes on the model it was last using (ADR-078 + switcher).
+        model_options = journal_service.available_chat_models() if journal_service else []
         workspace = DiscussionThreadFragment(
             session_id=session_id,
             title=session.title,
@@ -837,6 +856,8 @@ def create_journals_routes(
             canon_book_uids=tuple(canon_books),
             summon_canon=canon_on and is_founder,
             summon_vault=vault_on and is_founder,
+            model=session.model,
+            model_options=model_options,
         )
 
         sessions_result = await conversation_service.list_sessions(user_uid)
@@ -985,6 +1006,7 @@ def create_journals_routes(
         summon_canon: bool = False,
         summon_vault: bool = False,
         canon_book_uids: str = "",
+        model: str = "",
     ) -> Any:
         """Continue a journal conversation.
 
@@ -1061,6 +1083,7 @@ def create_journals_routes(
                 summon_canon=summon_canon,
                 summon_vault=summon_vault,
                 canon_book_uids=book_uids,
+                model=model or None,
             )
             if result.is_error:
                 logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
@@ -1084,7 +1107,12 @@ def create_journals_routes(
             # Best-effort: a write miss must not fail the reply already shown.
             scope_books = [book for book in canon_book_uids.split(",") if book.strip()]
             selection = build_source_selection(scope_books, summon_canon, summon_vault)
-            await conversation_service.update_source_selection(session_id, user_uid, selection)
+            # Co-persist the per-conversation model (last-write-wins) so a mid-thread
+            # switch on a saved discussion survives a later *continue* — model=None
+            # (no picker sent) leaves the stored model unchanged.
+            await conversation_service.update_source_selection(
+                session_id, user_uid, selection, model=model or None
+            )
             # transcript_json omitted → session-backed fragment (no OOB accumulator).
             return FollowUpFragment(
                 user_reply=reply,
@@ -1111,6 +1139,7 @@ def create_journals_routes(
             summon_canon=summon_canon,
             summon_vault=summon_vault,
             canon_book_uids=book_uids,
+            model=model or None,
         )
         if result.is_error:
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
@@ -1140,6 +1169,7 @@ def create_journals_routes(
         summon_canon: bool = False,
         summon_vault: bool = False,
         canon_book_uids: str = "",
+        model: str = "",
     ) -> Any:
         """Save this chat — the single explicit persistence gesture (ADR-078 §5).
 
@@ -1188,9 +1218,17 @@ def create_journals_routes(
         clean_title = (
             title.strip()[:120] or pairs[0][0].split("\n")[0].strip()[:60] or "Journal Entry"
         )
+        # The per-conversation model chosen for this discussion (the picker only
+        # offers serveable models; empty → the app-safe default).
+        chosen_model = model.strip() or DEFAULT_CHAT_MODEL
 
         saved = await conversation_service.save_transcript(
-            user_uid, CONVERSATION_KIND_DISCUSSION, clean_title, source_selection, pairs
+            user_uid,
+            CONVERSATION_KIND_DISCUSSION,
+            clean_title,
+            source_selection,
+            chosen_model,
+            pairs,
         )
         if saved.is_error:
             logger.error("Could not save discussion for %s: %s", user_uid, saved.expect_error())
@@ -1211,6 +1249,8 @@ def create_journals_routes(
                 canon_book_uids=tuple(scope_books),
                 summon_canon=summon_canon,
                 summon_vault=summon_vault,
+                model=chosen_model,
+                model_options=journal_service.available_chat_models() if journal_service else [],
             ),
             discussions_revisit_panel(sessions, oob=True),
         )

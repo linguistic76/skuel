@@ -25,6 +25,7 @@ def JournalsLandingPage(
     shelf_books: "list[dict[str, str]] | None" = None,
     sessions: "list[ConversationSession] | None" = None,
     workspace: Any = None,
+    model_options: "list[tuple[str, str]] | None" = None,
 ) -> Any:
     """3-column journal landing page — Claude.ai project-view style.
 
@@ -39,13 +40,17 @@ def JournalsLandingPage(
     the route passes it only for FOUNDERs; empty/omitted renders no picker.
     ``sessions`` are the user's owned discussion sessions (revisit list, ADR-078);
     ``workspace`` pre-fills ``#journal-workspace`` for a continued session.
+    ``model_options`` are the ``(value, label)`` models the caller can serve — the
+    LLM switcher's options on the start form (empty → no picker, safe default).
     """
     is_founder = user.journal_tier.is_founder()
     from ui.journals.forms import render_right_panel, upload_form_script
 
     return Div(
         journal_sidebar(user, sessions or []),
-        _landing_center_column(shelf_books or [], is_founder, workspace=workspace),
+        _landing_center_column(
+            shelf_books or [], is_founder, workspace=workspace, model_options=model_options or []
+        ),
         Div(
             render_right_panel(is_founder=is_founder),
             upload_form_script(),
@@ -501,7 +506,10 @@ def _DiscussionRowActions(sid: str, title: str) -> Any:
 
 
 def _landing_center_column(
-    shelf_books: "list[dict[str, str]]", is_founder: bool, workspace: Any = None
+    shelf_books: "list[dict[str, str]]",
+    is_founder: bool,
+    workspace: Any = None,
+    model_options: "list[tuple[str, str]] | None" = None,
 ) -> Any:
     # A flex-1 flex-col wrapper whose direct child carries id="journal-workspace".
     # /journals/start retargets here (HX-Retarget) and replaces the child in place
@@ -521,7 +529,7 @@ def _landing_center_column(
                     ),
                     cls="mb-6",
                 ),
-                _landing_text_form(shelf_books, is_founder),
+                _landing_text_form(shelf_books, is_founder, model_options or []),
                 cls="max-w-[640px] mx-auto pt-10 px-6",
             ),
             id="journal-workspace",
@@ -602,8 +610,14 @@ def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
     )
 
 
-def _landing_text_form(shelf_books: "list[dict[str, str]]", is_founder: bool) -> Any:
+def _landing_text_form(
+    shelf_books: "list[dict[str, str]]",
+    is_founder: bool,
+    model_options: "list[tuple[str, str]] | None" = None,
+) -> Any:
     from fasthtml.common import Form, Textarea
+
+    from ui.journals import ModelControl
 
     return Div(
         Form(
@@ -620,6 +634,9 @@ def _landing_text_form(shelf_books: "list[dict[str, str]]", is_founder: bool) ->
                     ),
                 ),
                 Div(
+                    # Per-conversation model switcher for the NEW discussion (empty
+                    # options → a hidden field with the safe default).
+                    ModelControl("", model_options),
                     Button(
                         Icon("arrow-up", size=16, cls="text-white"),
                         type="submit",
@@ -629,7 +646,7 @@ def _landing_text_form(shelf_books: "list[dict[str, str]]", is_founder: bool) ->
                             " bg-foreground hover:bg-foreground/80 transition-colors"
                         ),
                     ),
-                    cls="flex justify-end mt-2",
+                    cls="flex justify-between items-center mt-2",
                 ),
                 # Discussion sources live from message one (FOUNDER dials).
                 _landing_source_panel(shelf_books) if is_founder else None,

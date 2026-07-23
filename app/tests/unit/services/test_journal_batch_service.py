@@ -35,6 +35,11 @@ from core.utils.result_simplified import Errors, Result
 def _llm(response: str = "COMPILED", *, claude_supported: bool = True) -> MagicMock:
     llm = MagicMock()
     llm.is_model_supported = MagicMock(return_value=claude_supported)
+    # The shared switcher seam gates against the concrete supported-model lists.
+    models = {"openai": ["gpt-4o", "gpt-4o-mini"]}
+    if claude_supported:
+        models["anthropic"] = ["claude-sonnet-4-6"]
+    llm.get_supported_models = MagicMock(return_value=models)
     llm.generate = AsyncMock(return_value=Result.ok(response))
     return llm
 
@@ -259,13 +264,17 @@ class TestCompileText:
         assert "socket closed" in str(result.expect_error())
 
     @pytest.mark.asyncio
-    async def test_model_falls_back_when_claude_unsupported(self, tmp_path: Path) -> None:
-        llm = _llm(claude_supported=False)
-        service = _make_service(tmp_path, llm_caller=llm)
+    async def test_uses_app_safe_default_model(self, tmp_path: Path) -> None:
+        # The DNWF batch compile has no model picker → the app-safe default
+        # (gpt-4o) via the shared switcher seam, regardless of which providers are
+        # wired (no implicit Claude default — converges with JournalService).
+        for claude_supported in (True, False):
+            llm = _llm(claude_supported=claude_supported)
+            service = _make_service(tmp_path, llm_caller=llm)
 
-        await service.compile_text("text", None, user_uid="user_1", is_founder=False)
+            await service.compile_text("text", None, user_uid="user_1", is_founder=False)
 
-        assert llm.generate.await_args.kwargs["model"] == "gpt-4o-mini"
+            assert llm.generate.await_args.kwargs["model"] == "gpt-4o"
 
     @pytest.mark.asyncio
     async def test_exemplar_pairs_are_injected_after_instructions(self, tmp_path: Path) -> None:

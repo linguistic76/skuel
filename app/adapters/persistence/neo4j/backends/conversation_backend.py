@@ -39,6 +39,7 @@ from core.models.conversation import ROLE_ASSISTANT as _ROLE_ASSISTANT
 from core.models.conversation import ROLE_USER as _ROLE_USER
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
+from core.services.chat import DEFAULT_CHAT_MODEL
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -56,10 +57,13 @@ _HAS_SESSION = RelationshipName.HAS_SESSION.value
 _HAS_TURN = RelationshipName.HAS_TURN.value
 
 # Shared RETURN shape for a session's properties (native datetimes downstream).
+# ``s.model`` is null for pre-switcher sessions (written before the property
+# existed); ``_session_record`` normalizes that to the app-safe default.
 _SESSION_RETURN = """
         RETURN s.session_id AS session_id, s.user_uid AS user_uid, s.kind AS kind,
                s.started_at AS started_at, s.last_activity AS last_activity,
-               s.title AS title, s.source_selection AS source_selection
+               s.title AS title, s.source_selection AS source_selection,
+               s.model AS model
 """
 
 # The turn RETURN shape is a map projection inlined at each call site
@@ -77,6 +81,8 @@ def _session_record(data: dict[str, object]) -> Neo4jProperties:
         "last_activity": to_native_datetime(data.get("last_activity")),
         "title": str(data["title"]),
         "source_selection": str(data["source_selection"]),
+        # Pre-switcher sessions have no stored model → app-safe default.
+        "model": str(data.get("model") or DEFAULT_CHAT_MODEL),
     }
 
 
@@ -106,6 +112,7 @@ class ConversationBackend(Neo4jSessionRunner):
         kind: str,
         title: str,
         source_selection: str,
+        model: str,
         now_iso: str,
     ) -> Result[Neo4jProperties | None]:
         """Create the ConversationSession node + HAS_SESSION edge from its owner."""
@@ -117,6 +124,7 @@ class ConversationBackend(Neo4jSessionRunner):
             kind: $kind,
             title: $title,
             source_selection: $source_selection,
+            model: $model,
             started_at: datetime($now),
             last_activity: datetime($now)
         }})
@@ -131,6 +139,7 @@ class ConversationBackend(Neo4jSessionRunner):
                     "kind": kind,
                     "title": title,
                     "source_selection": source_selection,
+                    "model": model,
                     "now": now_iso,
                 },
             )
@@ -221,6 +230,7 @@ class ConversationBackend(Neo4jSessionRunner):
         kind: str,
         title: str,
         source_selection: str,
+        model: str,
         turns: list[Neo4jProperties],
         now_iso: str,
     ) -> Result[Neo4jProperties | None]:
@@ -247,6 +257,7 @@ class ConversationBackend(Neo4jSessionRunner):
             kind: $kind,
             title: $title,
             source_selection: $source_selection,
+            model: $model,
             started_at: datetime($now),
             last_activity: datetime($now)
         }})
@@ -272,6 +283,7 @@ class ConversationBackend(Neo4jSessionRunner):
                     "kind": kind,
                     "title": title,
                     "source_selection": source_selection,
+                    "model": model,
                     "turns": turns,
                     "now": now_iso,
                 },
@@ -287,18 +299,20 @@ class ConversationBackend(Neo4jSessionRunner):
         user_uid: UserUID,
         title: str | None,
         source_selection: str | None,
+        model: str | None = None,
     ) -> Result[bool]:
-        """Update an OWNED session's title and/or source selection (last-write-wins).
+        """Update an OWNED session's title, source selection, and/or model (last-write-wins).
 
         A ``None`` argument leaves that field unchanged (``coalesce``). Returns
         True when an owned session was updated, False when absent / not owned.
-        Does NOT touch ``last_activity`` — a rename or a source re-pick is not
-        conversational activity and must not reorder the revisit list.
+        Does NOT touch ``last_activity`` — a rename, source re-pick, or model
+        switch is not conversational activity and must not reorder the revisit list.
         """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL} {{session_id: $session_id}})
         SET s.title = coalesce($title, s.title),
-            s.source_selection = coalesce($source_selection, s.source_selection)
+            s.source_selection = coalesce($source_selection, s.source_selection),
+            s.model = coalesce($model, s.model)
         RETURN s.session_id AS session_id
         """
         try:
@@ -309,6 +323,7 @@ class ConversationBackend(Neo4jSessionRunner):
                     "session_id": session_id,
                     "title": title,
                     "source_selection": source_selection,
+                    "model": model,
                 },
             )
             return Result.ok(record is not None)

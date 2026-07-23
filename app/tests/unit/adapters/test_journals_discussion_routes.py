@@ -38,7 +38,7 @@ def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
-def _session(source_selection: str = "{}") -> ConversationSession:
+def _session(source_selection: str = "{}", model: str = "gpt-4o") -> ConversationSession:
     now = datetime.now(UTC)
     return ConversationSession(
         session_id=_SID,
@@ -48,6 +48,7 @@ def _session(source_selection: str = "{}") -> ConversationSession:
         last_activity=now,
         title="On deliberate practice",
         source_selection=source_selection,
+        model=model,
     )
 
 
