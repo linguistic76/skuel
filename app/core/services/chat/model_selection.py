@@ -44,6 +44,19 @@ HEADLINE_CHAT_MODELS: tuple[tuple[str, str], ...] = (
 )
 
 
+def _supported_models(caller: LLMCallerProtocol) -> set[str]:
+    """Flatten the caller's concrete per-provider model lists into a lookup set.
+
+    Uses the explicit ``get_supported_models`` lists, NOT the prefix-based
+    ``is_model_supported`` — a bare prefix check treats any ``gpt*`` string (e.g.
+    ``gpt-not-real``) as valid whenever the OpenAI adapter is wired, and would forward
+    that forged/stale name to the provider, turning the answer into an error instead of
+    the advertised OpenAI-safe degrade (Codex #781 P2). Validating against the concrete
+    allowlist closes that gap.
+    """
+    return {model for models in caller.get_supported_models().values() for model in models}
+
+
 def resolve_chat_model(
     requested: str | None,
     caller: LLMCallerProtocol,
@@ -52,17 +65,20 @@ def resolve_chat_model(
 ) -> str:
     """Resolve a per-conversation model choice to a model the caller can serve.
 
-    The per-conversation selection wins when the caller supports it; otherwise it
-    degrades OpenAI-safe to ``default`` (and, only if even the default is unsupported —
-    an unusual OpenAI-less wiring — to the first model the caller does support). A
-    forged or stale Claude request in a no-Anthropic-key env therefore answers via the
-    safe default instead of erroring at the provider port.
+    The per-conversation selection wins when it is in the caller's concrete
+    supported-model allowlist; otherwise it degrades OpenAI-safe to ``default`` (and,
+    only if even the default is absent — an unusual OpenAI-less wiring — to the first
+    model the caller does support). A forged or stale request (an unlisted ``gpt-*``
+    name, or a Claude model in a no-Anthropic-key env) therefore answers via the safe
+    default instead of erroring at the provider port.
     """
-    if requested and caller.is_model_supported(requested):
+    provider_models = caller.get_supported_models()
+    supported = {model for models in provider_models.values() for model in models}
+    if requested and requested in supported:
         return requested
-    if caller.is_model_supported(default):
+    if default in supported:
         return default
-    for models in caller.get_supported_models().values():
+    for models in provider_models.values():
         if models:
             return models[0]
     return default
@@ -71,14 +87,13 @@ def resolve_chat_model(
 def available_chat_models(caller: LLMCallerProtocol) -> list[tuple[str, str]]:
     """Headline ``(value, label)`` pairs the caller can actually serve — a picker's options.
 
-    Availability comes from the caller, so a surface with no Anthropic adapter (dev)
-    offers only the OpenAI models and never a Claude option that would silently fall
-    back. Empty only when no adapter is wired (CORE tier) — the picker fails soft to no
-    control.
+    Availability comes from the caller's concrete allowlist (``get_supported_models``),
+    so a surface with no Anthropic adapter (dev) offers only the OpenAI models and never
+    a Claude option that would silently fall back. Empty only when no adapter is wired
+    (CORE tier) — the picker fails soft to no control.
     """
-    return [
-        (value, label) for value, label in HEADLINE_CHAT_MODELS if caller.is_model_supported(value)
-    ]
+    supported = _supported_models(caller)
+    return [(value, label) for value, label in HEADLINE_CHAT_MODELS if value in supported]
 
 
 __all__ = [

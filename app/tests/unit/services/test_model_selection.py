@@ -54,17 +54,25 @@ def test_unavailable_claude_degrades_openai_safe():
     assert resolve_chat_model("claude-opus-4-6", _openai_only()) == DEFAULT_CHAT_MODEL
 
 
+def test_forged_gpt_name_degrades_to_default():
+    # Codex #781 P2: a prefix check would accept any gpt* string; the concrete
+    # allowlist rejects an unlisted gpt-* name so it degrades OpenAI-safe, not errors.
+    assert resolve_chat_model("gpt-not-real", _openai_only()) == DEFAULT_CHAT_MODEL
+    assert resolve_chat_model("gpt-not-real", _both()) == DEFAULT_CHAT_MODEL
+
+
 def test_unknown_model_degrades_to_default():
     assert resolve_chat_model("llama-3", _both()) == DEFAULT_CHAT_MODEL
 
 
 def test_falls_back_to_first_supported_when_default_unsupported():
     # Unusual OpenAI-less wiring: the default gpt-4o isn't serveable, so resolution
-    # picks the first model the caller does support rather than an unroutable default.
+    # picks the first model the caller does support (deterministic — first provider's
+    # first listed model) rather than an unroutable default.
     anthropic_only = UnifiedLLMCaller(openai=None, anthropic=_port())
     resolved = resolve_chat_model("gpt-4o", anthropic_only, default="gpt-4o")
     assert resolved.startswith("claude")
-    assert anthropic_only.is_model_supported(resolved)
+    assert resolved in anthropic_only.get_supported_models()["anthropic"]
 
 
 # ---------------------------------------------------------------------------
