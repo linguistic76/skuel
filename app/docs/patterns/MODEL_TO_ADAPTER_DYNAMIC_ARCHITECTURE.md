@@ -83,6 +83,7 @@ adapters/external/
         openai_adapter.py        # OpenAIChatAdapter — implements ChatCompletionPort
         anthropic_adapter.py     # AnthropicChatAdapter — implements ChatCompletionPort
         dsl_bridge_factory.py    # create_llm_dsl_bridge() — reads credential, builds OpenAIChatAdapter
+        factory.py               # create_chat_client() — reads credentials, builds the chat adapters + UnifiedLLMCaller (the chat provider chokepoint, ADR-068 parallel)
     embeddings/
         huggingface_adapter.py   # HuggingFace inference client — implements EmbeddingClientOperations
     deepgram/
