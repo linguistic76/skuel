@@ -1,8 +1,9 @@
 """Route tests for the Today surface.
 
-Covers the six endpoints registered by ``create_today_routes``:
+Covers the endpoints registered by ``create_today_routes``:
 
 - GET  /today                              — authed vs. 401, 500-on-context-error
+- GET  /today/{date_str}                    — day-lens nav, bad date → today
 - GET  /today/tasks/{uid}/drawer           — ownership, fragment shape
 - POST /today/tasks/{uid}/complete         — ownership, 204 on success
 - POST /today/tasks/{uid}/defer            — span=1d|1w, invalid span → 400
@@ -101,6 +102,8 @@ def mock_services() -> Any:
             {
                 "today_iso": "2027-04-23",
                 "date_label": "Saturday · April 23",
+                "heading": "Today",
+                "is_today": True,
                 "now_hhmm": "09:00",
                 "stats": {"nodes": 0, "committed_min": 0, "done": 0},
                 "triage": [],
@@ -175,6 +178,40 @@ class TestTodayPage:
         request = _make_request()
         response = await handlers["/today"](request=request)
         assert response.status_code == 500
+
+
+class TestTodayDatedPage:
+    async def test_valid_date_builds_context_for_that_day(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from datetime import date
+
+        request = _make_request()
+        response = await handlers["/today/{date_str}"](request=request, date_str="2026-07-21")
+        assert response["__base_page__"] is True
+        assert response["active_page"] == "today"
+        mock_services.today_orchestrator.build_context.assert_awaited_once_with(
+            "user_mike", date(2026, 7, 21)
+        )
+
+    async def test_bad_date_degrades_to_today(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from datetime import date
+
+        request = _make_request()
+        response = await handlers["/today/{date_str}"](request=request, date_str="not-a-date")
+        assert response["__base_page__"] is True
+        # Unparseable → current day rather than 404.
+        mock_services.today_orchestrator.build_context.assert_awaited_once_with(
+            "user_mike", date.today()
+        )
+
+    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
+        request = _make_request(user_uid=None)
+        with pytest.raises(HTTPException) as exc:
+            await handlers["/today/{date_str}"](request=request, date_str="2026-07-21")
+        assert exc.value.status_code == 401
 
 
 # ============================================================================

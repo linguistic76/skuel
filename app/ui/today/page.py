@@ -13,13 +13,12 @@ extra_css=["/static/css/today.css"])``.
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from fasthtml.common import (
     H1,
     H2,
-    A,
     Aside,
     Button,
     Div,
@@ -35,9 +34,10 @@ from fasthtml.common import (
     Ul,
 )
 
+from ui.calendar.components import calendar_nav_cluster
 from ui.components import Icon
 from ui.patterns.keyboard_hints import keyboard_hint, keyboard_hints_bar
-from ui.primitives import section_label, view_switcher
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -46,10 +46,6 @@ if TYPE_CHECKING:
 
 
 _CONTAINER_CLS = "mx-auto max-w-[1280px] py-8 pb-24"
-
-# Force a full browser navigation on the Daily-note link — /journals/daily/*
-# answers with a 302 redirect that HTMX boost would otherwise swap in place.
-_NO_BOOST = {"hx-boost": "false"}
 
 
 def TodayPage(ctx: TodayPageContext) -> FT:
@@ -60,16 +56,16 @@ def TodayPage(ctx: TodayPageContext) -> FT:
     """
     seed_json = json.dumps(dict(ctx), default=str)
 
-    # The lens switcher + Daily-note link are static server HTML (not Alpine-seeded)
-    # so their active/href state is correct without JS. Anchor them to the SAME
-    # date the orchestrator built the context from (ctx["today_iso"]) — a second
-    # date.today() here could disagree across a midnight boundary and send the
-    # user to a different day's daily note than the page's data reflects.
-    today = date.fromisoformat(ctx["today_iso"])
+    # The Prev/Now/Next cluster + Daily-note link are static server HTML (not
+    # Alpine-seeded) so their href state is correct without JS. Anchor them to the
+    # SAME date the orchestrator built the context from (ctx["today_iso"]) — a
+    # second date.today() here could disagree across a midnight boundary and send
+    # the user to a different day's daily note than the page's data reflects.
+    view_date = date.fromisoformat(ctx["today_iso"])
 
     return Main(
         _seed_script(seed_json),
-        _header(today),
+        _header(view_date, ctx["heading"]),
         _two_column(),
         _flash_toast(),
         _drawer(),
@@ -112,14 +108,17 @@ def _seed_script(seed_json: str) -> FT:
 # ============================================================================
 
 
-def _header(today: date) -> FT:
+def _header(view_date: date, heading: str) -> FT:
     return Header(
         Div(
             Div(
                 cls="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground",
                 **{"x-text": "seed.date_label"},
             ),
-            H1("Today", cls="mt-1.5 text-[44px] font-bold leading-none tracking-tight"),
+            # Server-rendered (not x-text) so the relative word — "Today" /
+            # "Yesterday" / "Tomorrow" / a date — is correct without JS and needs
+            # the real ``today`` the orchestrator resolved, which the client lacks.
+            H1(heading, cls="mt-1.5 text-[44px] font-bold leading-none tracking-tight"),
             P(
                 cls="mt-2.5 text-sm text-muted-foreground max-w-lg leading-relaxed",
                 **{
@@ -133,38 +132,20 @@ def _header(today: date) -> FT:
             ),
             cls="min-w-[280px] flex-1",
         ),
-        # Right column: the Today | Week | Month lens switcher + Daily-note link
-        # sit top-right (Today active), the stats row below them.
+        # Right column: the Prev/Now/Next day-nav cluster (matching the Week/Month
+        # calendar toolbar) sits top-right, the stats row below it.
         Div(
-            Div(
-                view_switcher("today", today),
-                _daily_note_button(today),
-                cls="flex items-center gap-2",
+            calendar_nav_cluster(
+                prev_href=f"/today/{(view_date - timedelta(days=1)).isoformat()}",
+                next_href=f"/today/{(view_date + timedelta(days=1)).isoformat()}",
+                today_href="/today",
+                note_href=f"/journals/daily/{view_date.isoformat()}",
+                note_label="Daily note",
             ),
             _stats_row(),
             cls="flex flex-col items-end gap-4",
         ),
         cls="flex flex-wrap items-end justify-between gap-5 mb-8",
-    )
-
-
-def _daily_note_button(today: date) -> FT:
-    """Daily-note link — the Today rung of the periodic-notes ladder.
-
-    Styled like the calendar's Monthly-note button (square-pen icon); the
-    ``_NO_BOOST`` splat forces a full navigation through the journal redirect.
-    """
-    return A(
-        Icon("square-pen", cls="w-[15px] h-[15px]"),
-        Span("Daily note"),
-        href=f"/journals/daily/{today.isoformat()}",
-        title="Open daily note",
-        **_NO_BOOST,
-        cls=(
-            "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
-            " bg-card rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
-            " whitespace-nowrap"
-        ),
     )
 
 
@@ -612,7 +593,11 @@ def _now_marker() -> FT:
             ),
         ),
         cls="absolute left-2.5 right-3 h-px bg-destructive",
-        **{":style": "`top: calc(52px + ${(nowPct / 100) * (640 - 70)}px)`"},
+        # NOW is a present-moment marker — hide it while browsing another day.
+        **{
+            "x-show": "seed.is_today",
+            ":style": "`top: calc(52px + ${(nowPct / 100) * (640 - 70)}px)`",
+        },
     )
 
 

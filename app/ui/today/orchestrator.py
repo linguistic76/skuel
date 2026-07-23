@@ -135,6 +135,23 @@ def _date_label(today: date) -> str:
     return today.strftime("%A · %B ") + str(today.day)
 
 
+def _heading_label(view_date: date, today: date) -> str:
+    """The big H1 for the day lens: relative words near today, else a date.
+
+    ``Today`` / ``Yesterday`` / ``Tomorrow`` for the three days the user reaches
+    most; anything further out falls back to ``"Jul 19"`` (month + day), which
+    the uppercase eyebrow (``_date_label``) disambiguates with the weekday.
+    """
+    delta = (view_date - today).days
+    if delta == 0:
+        return "Today"
+    if delta == -1:
+        return "Yesterday"
+    if delta == 1:
+        return "Tomorrow"
+    return view_date.strftime("%b ") + str(view_date.day)
+
+
 class TodayOrchestrator:
     """Facade for the Today page.
 
@@ -175,11 +192,25 @@ class TodayOrchestrator:
         self._lifepath = lifepath_service
         self._rels = user_relationship_service
 
-    async def build_context(self, user_uid: UserUID) -> Result[TodayPageContext]:
-        """Assemble the full Today page context for this user."""
+    async def build_context(
+        self, user_uid: UserUID, view_date: date | None = None
+    ) -> Result[TodayPageContext]:
+        """Assemble the full Today page context for this user.
+
+        ``view_date`` is the day the day-lens is pointed at (``None`` → today).
+        The surface stays anchored to the real ``now`` for the Day-spine NOW
+        marker and ritual "past" state — those only render when ``is_today``
+        (see ``static/js/today.js`` and the ``_now_marker`` ``x-show`` gate).
+        Task/ritual/completion filtering keys off ``view_date``; due-date labels
+        stay relative to the real ``today`` so "Tomorrow" reads correctly while
+        browsing ahead. Triage (overdue-now) shows only on today — browsing other
+        days should not surface a growing overdue pile.
+        """
 
         now = datetime.now()
         today = now.date()
+        view_date = view_date or today
+        is_today = view_date == today
 
         # Seven concurrent facade fetches with no data dependency between
         # them. The pin fetch is launched as a background task so the main
@@ -221,13 +252,21 @@ class TodayOrchestrator:
         )
 
         today_tasks_full = [
-            t for t in all_tasks if t.due_date == today and t.status != EntityStatus.COMPLETED
+            t for t in all_tasks if t.due_date == view_date and t.status != EntityStatus.COMPLETED
         ]
-        triage_tasks_full = [
-            t
-            for t in all_tasks
-            if t.due_date is not None and t.due_date < today and t.status != EntityStatus.COMPLETED
-        ]
+        # Triage is a present-tense "needs attention now" bar — only surface it on
+        # the current day, never while browsing yesterday/tomorrow.
+        triage_tasks_full = (
+            [
+                t
+                for t in all_tasks
+                if t.due_date is not None
+                and t.due_date < today
+                and t.status != EntityStatus.COMPLETED
+            ]
+            if is_today
+            else []
+        )
 
         active_goals = [g for g in all_goals if g.status == EntityStatus.ACTIVE]
         rituable_habits = [h for h in all_habits if _parse_hhmm(h.preferred_time) is not None]
@@ -294,7 +333,7 @@ class TodayOrchestrator:
         rituals: list[RitualView] = _build_rituals(
             habits=all_habits,
             events=all_events,
-            today=today,
+            today=view_date,
             habit_principle_map=habit_principle_map,
         )
 
@@ -304,13 +343,15 @@ class TodayOrchestrator:
             "done": sum(
                 1
                 for t in all_tasks
-                if t.status == EntityStatus.COMPLETED and t.completion_date == today
+                if t.status == EntityStatus.COMPLETED and t.completion_date == view_date
             ),
         }
 
         ctx: TodayPageContext = {
-            "today_iso": today.isoformat(),
-            "date_label": _date_label(today),
+            "today_iso": view_date.isoformat(),
+            "date_label": _date_label(view_date),
+            "heading": _heading_label(view_date, today),
+            "is_today": is_today,
             "now_hhmm": now.strftime("%H:%M"),
             "stats": stats,
             "triage": triage_views,
