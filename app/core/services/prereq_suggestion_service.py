@@ -296,8 +296,8 @@ class PrereqSuggestionService:
 
     @property
     def judge_available(self) -> bool:
-        """True when an LLM chat port is wired (FULL tier) — the queue says which mode it's in."""
-        return self._llm is not None and self._llm.chat_port is not None
+        """True when the multi-provider caller is wired (FULL tier) — the queue says which mode."""
+        return self._llm is not None and self._llm.caller is not None
 
     # ------------------------------------------------------------------
     # Candidate stage
@@ -427,7 +427,7 @@ class PrereqSuggestionService:
     async def generate_suggestions(self) -> Result[PrereqSuggestionRun]:
         """The full on-demand pipeline: candidates, then the LLM judge when available.
 
-        CORE degrade: without a chat port every candidate passes through
+        CORE degrade: without a caller every candidate passes through
         unjudged (``verdict=None``) — the admin queue serves undirected pairs
         and Mike chooses relation + direction himself.
         """
@@ -436,8 +436,8 @@ class PrereqSuggestionService:
             return Result.fail(candidates_result)
         candidates = candidates_result.value
 
-        chat_port = self._llm.chat_port if self._llm is not None else None
-        if chat_port is None or not candidates:
+        caller = self._llm.caller if self._llm is not None else None
+        if caller is None or not candidates:
             suggestions = tuple(
                 PrereqSuggestion(
                     a_uid=c.a_uid,
@@ -523,12 +523,12 @@ class PrereqSuggestionService:
         )
         prompt = PROMPT_REGISTRY.render("prereq_edge_judge", pairs_block=pairs_block)
 
-        chat_port = self._llm.chat_port if self._llm is not None else None
-        if chat_port is None:  # pragma: no cover — guarded by the caller
+        caller = self._llm.caller if self._llm is not None else None
+        if caller is None:  # pragma: no cover — guarded by the caller
             return [], 0, len(batch)
 
         messages: list[ChatMessage] = [{"role": "user", "content": prompt}]
-        completion_result = await chat_port.complete(
+        completion_result = await caller.complete(
             messages,
             model=self._config.judge_model,
             temperature=0.1,

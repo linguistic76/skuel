@@ -678,18 +678,19 @@ async def compose_services(
             from core.services.llm_service import LLMConfig, LLMProvider, LLMService
 
             try:
-                # Askesis's RAG LLMService takes the OpenAI adapter directly (until
-                # re-rooted); the multi-provider caller (chat_clients.caller) feeds
-                # the rest. LLMService holds no SDK or credential (W1).
+                # Askesis's RAG LLMService routes through the multi-provider caller
+                # (chat_clients.caller): modern gpt-4o default, overridable per call —
+                # Claude becomes reachable the moment ANTHROPIC_API_KEY is wired, no
+                # code change. LLMService holds no SDK or credential (W1).
                 chat_clients = create_chat_client()
                 llm_config = LLMConfig(
                     provider=LLMProvider.OPENAI,
-                    model_name="gpt-4",  # GPT-4 for high-quality RAG and intelligence insights
+                    model_name="gpt-4o",  # modern default for RAG / intelligence; per-call overridable
                 )
-                llm_service = LLMService(config=llm_config, chat_port=chat_clients.openai)
+                llm_service = LLMService(config=llm_config, caller=chat_clients.caller)
                 logger.info(
                     "✅ Chat clients created (OpenAI required, Anthropic optional); "
-                    "LLM service created (GPT-4 for RAG generation and intelligence services)"
+                    "LLM service created (gpt-4o default for RAG generation, per-call overridable)"
                 )
             except Exception as e:  # safety-net: surface FULL-tier LLM init failure loudly
                 logger.error(f"FULL-tier chat clients / LLM service failed to initialize: {e}")

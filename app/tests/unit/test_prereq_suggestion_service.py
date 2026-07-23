@@ -69,7 +69,7 @@ def _llm_with_response(text: str) -> MagicMock:
     llm = MagicMock()
     completion = MagicMock()
     completion.text = text
-    llm.chat_port.complete = AsyncMock(return_value=Result.ok(completion))
+    llm.caller.complete = AsyncMock(return_value=Result.ok(completion))
     return llm
 
 
@@ -282,7 +282,7 @@ async def test_judge_one_bad_batch_does_not_sink_the_other() -> None:
     llm = MagicMock()
     good = MagicMock()
     good.text = '[{"index": 1, "verdict": "related", "rationale": "linked"}]'
-    llm.chat_port.complete = AsyncMock(
+    llm.caller.complete = AsyncMock(
         side_effect=[Result.ok(good), Result.ok(MagicMock(text="not json"))]
     )
     config = PrereqSuggestionConfig(judge_batch_size=1, judge_concurrency=1)

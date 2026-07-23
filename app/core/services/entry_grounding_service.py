@@ -165,8 +165,8 @@ class EntryGroundingService:
 
     @property
     def judge_available(self) -> bool:
-        """True when an LLM chat port is wired (FULL tier)."""
-        return self._llm is not None and self._llm.chat_port is not None
+        """True when the multi-provider caller is wired (FULL tier)."""
+        return self._llm is not None and self._llm.caller is not None
 
     # ------------------------------------------------------------------
     # The pass
@@ -381,12 +381,12 @@ class EntryGroundingService:
             candidates_block=candidates_block,
         )
 
-        chat_port = self._llm.chat_port if self._llm is not None else None
-        if chat_port is None:  # pragma: no cover — guarded by the caller
+        caller = self._llm.caller if self._llm is not None else None
+        if caller is None:  # pragma: no cover — guarded by the caller
             return Result.ok(candidates)
 
         messages: list[ChatMessage] = [{"role": "user", "content": prompt}]
-        completion_result = await chat_port.complete(
+        completion_result = await caller.complete(
             messages,
             model=cfg.judge_model,
             temperature=0.1,

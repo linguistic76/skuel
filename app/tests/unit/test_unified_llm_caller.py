@@ -100,3 +100,54 @@ def test_supported_models_and_is_supported():
     assert "openai" in models and "anthropic" not in models
     assert caller.is_model_supported("gpt-4o-mini")
     assert not caller.is_model_supported("claude-sonnet-4-6")
+
+
+@pytest.mark.asyncio
+async def test_complete_routes_by_prefix_and_forwards_history():
+    openai, anthropic = _port("from openai"), _port("from anthropic")
+    caller = UnifiedLLMCaller(openai=openai, anthropic=anthropic)
+    history = [
+        {"role": "user", "content": "earlier"},
+        {"role": "assistant", "content": "prior"},
+        {"role": "user", "content": "now"},
+    ]
+
+    result = await caller.complete(history, system_prompt="sys", model="gpt-4o")
+
+    assert result.is_ok
+    # complete returns the full LLMCompletion, not just text
+    assert result.value.text == "from openai"
+    anthropic.complete.assert_not_awaited()
+    args, kwargs = openai.complete.call_args
+    assert args[0] == history  # full message history forwarded
+    assert kwargs["model"] == "gpt-4o"
+    assert kwargs["system_prompt"] == "sys"
+
+
+@pytest.mark.asyncio
+async def test_complete_routes_claude_to_anthropic():
+    openai, anthropic = _port("from openai"), _port("from anthropic")
+    caller = UnifiedLLMCaller(openai=openai, anthropic=anthropic)
+
+    result = await caller.complete([{"role": "user", "content": "hi"}], model="claude-sonnet-4-6")
+
+    assert result.is_ok
+    assert result.value.text == "from anthropic"
+    anthropic.complete.assert_awaited_once()
+    openai.complete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_complete_unknown_model_fails():
+    caller = UnifiedLLMCaller(openai=_port())
+    result = await caller.complete([{"role": "user", "content": "hi"}], model="llama-3")
+    assert result.is_error
+    assert "unknown model" in str(result.expect_error()).lower()
+
+
+@pytest.mark.asyncio
+async def test_complete_missing_provider_fails():
+    caller = UnifiedLLMCaller(openai=_port())
+    result = await caller.complete([{"role": "user", "content": "hi"}], model="claude-sonnet-4-6")
+    assert result.is_error
+    assert "anthropic" in str(result.expect_error()).lower()

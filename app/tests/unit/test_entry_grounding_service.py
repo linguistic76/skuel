@@ -76,7 +76,7 @@ def _llm_with_response(text: str) -> MagicMock:
     llm = MagicMock()
     completion = MagicMock()
     completion.text = text
-    llm.chat_port.complete = AsyncMock(return_value=Result.ok(completion))
+    llm.caller.complete = AsyncMock(return_value=Result.ok(completion))
     return llm
 
 
@@ -256,7 +256,7 @@ async def test_judge_malformed_json_skips_entry_unstamped() -> None:
     bad.text = "I think candidate 1 is great!"
     # First entry gets the malformed response, second the valid one —
     # per-entry fail-soft, not per-pass.
-    llm.chat_port.complete = AsyncMock(side_effect=[Result.ok(bad), Result.ok(good)])
+    llm.caller.complete = AsyncMock(side_effect=[Result.ok(bad), Result.ok(good)])
     backend = _backend([_row(), _row(uid="ue_good99")])
     service = _service(backend, _vector([_hit("ku.a.one", 0.8)]), llm=llm)
 
