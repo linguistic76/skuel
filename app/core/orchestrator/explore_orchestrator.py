@@ -112,6 +112,16 @@ class ExploreOrchestrator:
         """Get UIDs of entities pinned by the user."""
         return await self._user_relationships.get_pinned_entities(user_uid)
 
+    async def list_nous_topics(self) -> Result[list[str]]:
+        """Curriculum-wide NOUS topic vocabulary (graph-derived, anonymous-safe).
+
+        Feeds the library facet bar's NOUS dropdown. Unscoped — no user_uid —
+        so non-registered viewers get the same public taxonomy.
+
+        Backend: KuService.list_nous_topics → KuSearchService.list_all_categories.
+        """
+        return await self._ku.list_nous_topics()
+
     # ------------------------------------------------------------------
     # PathStep operations
     # ------------------------------------------------------------------

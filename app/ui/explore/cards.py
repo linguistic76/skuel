@@ -13,6 +13,8 @@ from fasthtml.common import FT, Button, Div, Form, Input, NotStr, Option, P, Sel
 from fasthtml.common import A as Anchor
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.learning_enums import LearningLevel
+from core.models.search.filter_enums import SearchSortOrder
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
@@ -176,27 +178,114 @@ def _tag_chip(tag: str, active_tag: str, in_overflow: bool) -> Span:
     )
 
 
-def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Div:
+# Shared select styling for the library facet bar (search box keeps its own,
+# fuller styling in Row 1).
+DROPDOWN_CLS = (
+    "text-sm border border-border rounded-md px-2 py-1.5 bg-background "
+    "text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+)
+
+# Every named control in the library facet bar. Used to build the NOUS
+# dropdown's hx-include: HTMX auto-serializes the triggering control, so NOUS
+# carries every OTHER filter EXCEPT its stale dependent (nous_subtopic), which a
+# fresh NOUS topic invalidates. Mirrors /search's _get_hx_include contract.
+_LIBRARY_FILTER_NAMES = ("q", "type", "nous", "nous_subtopic", "sort", "learning_level", "tag")
+
+
+def _explore_hx_include(*exclude: str) -> str:
+    """CSV of ``[name='…']`` selectors for every library filter minus ``exclude``."""
+    excluded = set(exclude)
+    return ", ".join(f"[name='{n}']" for n in _LIBRARY_FILTER_NAMES if n not in excluded)
+
+
+NOUS_SUBTOPIC_COLUMN_ID = "explore-nous-subtopic-column"
+
+
+def render_explore_subtopic_inner(subtopics: list[str], *, nous_selected: bool = True) -> Select:
+    """Inner sub-topic ``<select>`` for the library cascade (HTMX-swapped fragment).
+
+    Mirrors the /search cascade contract (ui.search.components.render_nous_subtopic_inner)
+    but styled for the library panel and wired to the anonymous /api/explore/*
+    endpoints. Sub-topics narrow WITHIN a chosen NOUS topic, so:
+      * ``nous_selected=False`` (initial render, or the "All Nous" option) → a
+        disabled "Choose a Nous first" placeholder, never the flat cross-topic list.
+      * a chosen topic with no co-occurring sub-topics → a disabled "All Sub-topics"
+        (fail-soft: the column stays present so the HTMX target never vanishes).
+    Both non-selected states carry only the empty value, so no stale sub-topic
+    ever rides a search request. Changing it re-runs /api/explore/search.
+    """
+    if not nous_selected:
+        options = [Option("Choose a Nous first", value="")]
+    else:
+        options = [Option("All Sub-topics", value="")] + [
+            Option(sub.replace("-", " ").title(), value=sub) for sub in subtopics
+        ]
+    return Select(
+        *options,
+        name="nous_subtopic",
+        cls=DROPDOWN_CLS,
+        disabled=not nous_selected or not subtopics,
+        hx_get="/api/explore/search",
+        hx_target="#explore-grid",
+        hx_trigger="change",
+        hx_include="closest form",
+    )
+
+
+def render_explore_search_panel(
+    all_tags: list[str],
+    nous_topics: list[str] | None = None,
+    nous_subtopics: list[str] | None = None,
+    active_tag: str = "",
+) -> Div:
     """Search + filter panel for the explore index.
+
+    Adapts the /search facet bar to the public curriculum catalog: TYPE (Ku /
+    Path Step), NOUS topic + the dependent SUB-TOPIC cascade, a full SORT, and a
+    "More filters" disclosure (learning level). Every facet is anonymous-safe —
+    the NOUS/sub-topic vocabularies are graph-derived and unscoped, and the
+    cascade fetches the anonymous /api/explore/subtopics endpoint (never the
+    auth-gated /search/subtopics). Tags stay the primary discovery UX as chips.
 
     Args:
         all_tags: Available tag strings (without leading #), pre-ranked by the
             caller (most-used first via SearchRouter.tag_frequencies). The
             first VISIBLE_TAG_CHIPS render immediately; the rest sit behind a
             "+N more" expander so the full vocabulary stays reachable.
+        nous_topics: NOUS topic vocabulary (graph-derived). Empty → the NOUS
+            dropdown offers only "All Nous" (facet fails soft to no filtering).
+        nous_subtopics: Flat sub-topic vocabulary — a RENDER GATE only. Empty →
+            the SUB-TOPIC column is omitted entirely (mechanism ships ahead of
+            vault content); the actual per-topic options come from the cascade.
         active_tag: Pre-selected tag from the URL (e.g. from ?tag=attention).
             Threaded into the Alpine factory so sort/search HTMX requests
             preserve the filter rather than resetting to tag=''.
     """
+    nous_topics = nous_topics or []
+    nous_subtopics = nous_subtopics or []
     type_options = [
         Option("All Types", value=""),
         Option("Ku", value="ku"),
         Option("Path Step", value="ps"),
     ]
 
+    # SORT mirrors /search \u2014 values are canonical SearchSortOrder members, parsed
+    # back via SearchSortOrder.from_string in the route. "Relevance" is only
+    # meaningful alongside a query; it falls back to newest-first when browsing.
     sort_options = [
-        Option("Newest First", value="created_at"),
-        Option("Title A\u2013Z", value="title"),
+        Option("Relevance", value=SearchSortOrder.RELEVANCE.value),
+        Option("Newest First", value=SearchSortOrder.CREATED_DESC.value),
+        Option("Oldest First", value=SearchSortOrder.CREATED_ASC.value),
+        Option("Recently Updated", value=SearchSortOrder.UPDATED_DESC.value),
+        Option("Title A\u2013Z", value=SearchSortOrder.TITLE_ASC.value),
+    ]
+
+    nous_options = [Option("All Nous", value="")] + [
+        Option(topic.title(), value=topic) for topic in nous_topics
+    ]
+
+    learning_level_options = [Option("All Levels", value="")] + [
+        Option(level.value.title(), value=level.value) for level in LearningLevel
     ]
 
     visible_tags = all_tags[:VISIBLE_TAG_CHIPS]
@@ -220,9 +309,59 @@ def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Di
             )
         )
 
-    dropdown_cls = (
-        "text-sm border border-border rounded-md px-2 py-1.5 bg-background "
-        "text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+    # NOUS: changing the topic invalidates the old sub-topic, so this request
+    # carries every OTHER filter EXCEPT nous_subtopic (HTMX auto-includes NOUS
+    # itself). The sub-topic column resets independently via its own trigger.
+    nous_select = Select(
+        *nous_options,
+        name="nous",
+        cls=DROPDOWN_CLS,
+        hx_get="/api/explore/search",
+        hx_target="#explore-grid",
+        hx_trigger="change",
+        hx_include=_explore_hx_include("nous", "nous_subtopic"),
+    )
+
+    # SUB-TOPIC cascade column — render GATE: only appears once the vault carries
+    # any nous_subtopic data. Stable container re-fetches the anonymous
+    # /api/explore/subtopics fragment when NOUS changes (pure HTMX, no Alpine).
+    subtopic_column = (
+        Div(
+            render_explore_subtopic_inner([], nous_selected=False),
+            id=NOUS_SUBTOPIC_COLUMN_ID,
+            hx_get="/api/explore/subtopics",
+            hx_trigger="change from:[name='nous']",
+            hx_target=f"#{NOUS_SUBTOPIC_COLUMN_ID}",
+            hx_swap="innerHTML",
+            hx_include="[name='nous']",
+        )
+        if nous_subtopics
+        else None
+    )
+
+    learning_level_select = Select(
+        *learning_level_options,
+        name="learning_level",
+        cls=DROPDOWN_CLS,
+        hx_get="/api/explore/search",
+        hx_target="#explore-grid",
+        hx_trigger="change",
+        hx_include="closest form",
+    )
+
+    # Desktop/mobile-agnostic disclosure — mirrors /search's "More filters".
+    more_filters_toggle = Button(
+        "More filters",
+        type="button",
+        cls=(
+            "text-sm px-2 py-1.5 rounded-md border border-dashed border-border "
+            "text-muted-foreground hover:border-foreground hover:text-foreground "
+            "transition-colors cursor-pointer shrink-0"
+        ),
+        **{
+            "x-on:click": "moreFilters = !moreFilters",
+            "x-text": "moreFilters ? 'Fewer filters' : 'More filters'",
+        },
     )
 
     return Div(
@@ -250,27 +389,38 @@ def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Di
                 ),
                 cls="relative",
             ),
-            # Row 2: dropdowns
+            # Row 2: facet dropdowns — TYPE · NOUS · SUB-TOPIC · SORT + More filters
             Div(
                 Select(
                     *type_options,
                     name="type",
-                    cls=dropdown_cls,
+                    cls=DROPDOWN_CLS,
                     hx_get="/api/explore/search",
                     hx_target="#explore-grid",
                     hx_trigger="change",
                     hx_include="closest form",
                 ),
+                nous_select,
+                subtopic_column,
                 Select(
                     *sort_options,
                     name="sort",
-                    cls=dropdown_cls,
+                    cls=DROPDOWN_CLS,
                     hx_get="/api/explore/search",
                     hx_target="#explore-grid",
                     hx_trigger="change",
                     hx_include="closest form",
                 ),
-                cls="flex flex-wrap gap-2",
+                more_filters_toggle,
+                cls="flex flex-wrap items-center gap-2",
+            ),
+            # Row 2b: "More filters" advanced disclosure (learning level).
+            # style=display:none avoids a flash before Alpine resolves x-show.
+            Div(
+                learning_level_select,
+                cls="flex flex-wrap items-center gap-2 pt-1",
+                style="display:none",
+                x_show="moreFilters",
             ),
             # Row 3: tags — nested Alpine scope for the expander; setTag stays
             # reachable from the parent exploreSearch scope. Starts expanded

@@ -29,6 +29,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.learning_enums import LearningLevel
 from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import SearchRequest
 from core.utils.logging import get_logger
@@ -36,6 +37,7 @@ from ui.explore.cards import (
     LIBRARY_PAGE_SIZE,
     render_explore_card,
     render_explore_search_panel,
+    render_explore_subtopic_inner,
     render_load_more,
 )
 from ui.explore.graph import ExploreGraphView
@@ -49,11 +51,19 @@ from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.explore")
 
-# The library's sort dropdown values → SearchSortOrder (boundary mapping).
-_LIBRARY_SORT_MAP = {
-    "created_at": SearchSortOrder.CREATED_DESC,
-    "title": SearchSortOrder.TITLE_ASC,
-}
+# The library's browse default when no explicit sort is chosen. SearchSortOrder
+# fails soft to RELEVANCE, but a query-less catalog wants newest-first.
+_LIBRARY_DEFAULT_SORT = SearchSortOrder.CREATED_DESC.value
+
+
+def _parse_learning_level(value: str) -> LearningLevel | None:
+    """Parse a learning-level facet value; unknown/empty → no filter (fail-soft)."""
+    if not value:
+        return None
+    try:
+        return LearningLevel(value)
+    except ValueError:
+        return None
 
 
 def _library_search_request(
@@ -62,12 +72,18 @@ def _library_search_request(
     tag: str,
     sort: str,
     offset: int,
+    nous: str = "",
+    nous_subtopic: str = "",
+    learning_level: str = "",
 ) -> SearchRequest:
     """Map the library panel's form params onto THE canonical SearchRequest.
 
     Empty type = the whole catalog (Ku + PathStep); "ku"/"ps" resolve through
     EntityType.from_string (aliases are input-only). An active tag chip becomes
-    an exact-match tags facet. Unknown sort values fall back to newest-first.
+    an exact-match tags facet. NOUS topic / sub-topic and learning level are
+    graph-derived curriculum facets that filter Ku/PathStep via array-membership
+    (SearchRequest.to_property_filters). Unknown sort values fall back to
+    RELEVANCE via SearchSortOrder.from_string.
     """
     entity_type = EntityType.from_string(type_filter) if type_filter else None
     entity_types: list[Any] = (
@@ -77,7 +93,10 @@ def _library_search_request(
         query_text=q.strip() or None,
         entity_types=entity_types,
         tags_contain=[tag] if tag else None,
-        sort_order=_LIBRARY_SORT_MAP.get(sort, SearchSortOrder.CREATED_DESC),
+        nous=nous or None,
+        nous_subtopic=nous_subtopic or None,
+        learning_level=_parse_learning_level(learning_level),
+        sort_order=SearchSortOrder.from_string(sort),
         limit=LIBRARY_PAGE_SIZE,
         offset=max(offset, 0),
     )
@@ -131,18 +150,24 @@ def create_explore_api_routes(
         q: str = "",
         type: str = "",
         tag: str = "",
-        sort: str = "created_at",
+        sort: str = _LIBRARY_DEFAULT_SORT,
+        nous: str = "",
+        nous_subtopic: str = "",
+        learning_level: str = "",
         offset: int = 0,
     ) -> Any:
         """One library page of bare cards (+ Load-more sentinel) for HTMX swap.
 
         The catalog query runs through SearchRouter.faceted_search (One Path
-        Forward) — Neo4j-side text/tag/type filtering, sort, and pagination.
-        Anonymous browse is supported (Ku/PS are PUBLIC-visibility domains).
+        Forward) — Neo4j-side text/tag/type/nous/level filtering, sort, and
+        pagination. Anonymous browse is supported (Ku/PS are PUBLIC-visibility
+        domains), so the richer facets work for non-registered viewers too.
         """
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
 
-        search_request = _library_search_request(q, type, tag, sort, offset)
+        search_request = _library_search_request(
+            q, type, tag, sort, offset, nous, nous_subtopic, learning_level
+        )
         result = await search_router.faceted_search(search_request, user_uid)
         if result.is_error:
             logger.error(f"Library search failed: {result.error}")
@@ -156,6 +181,26 @@ def create_explore_api_routes(
         pinned_uids, learning_states = await orchestrator.load_card_decorations(user_uid)
         return tuple(_library_cards(records, pinned_uids, learning_states, offset))
 
+    @rt("/api/explore/subtopics")
+    async def explore_subtopics(request: Request, nous: str = "") -> Any:
+        """Sub-topic column scoped to the chosen NOUS topic (anonymous cascade).
+
+        The library's public counterpart to the auth-gated /search/subtopics —
+        no authentication, because the co-occurrence vocabulary is curriculum-
+        wide (SearchRouter.nous_subtopic_map is unscoped). With no NOUS the
+        control resets to its disabled "Choose a Nous first" state; a chosen
+        topic yields only the sub-topics that CO-OCCUR with it on ≥1 entity.
+        """
+        if not nous:
+            return render_explore_subtopic_inner([], nous_selected=False)
+
+        subtopics: list[str] = []
+        map_result = await search_router.nous_subtopic_map()
+        if map_result.is_ok and map_result.value:
+            subtopics = map_result.value.get(nous, [])
+
+        return render_explore_subtopic_inner(subtopics)
+
     @rt("/api/explore/graph")
     async def explore_graph(request: Request) -> Any:
         """Return the user's learning universe as Vis.js {nodes, edges} JSON."""
@@ -168,7 +213,10 @@ def create_explore_api_routes(
         graph_data = await orchestrator.generate_learning_graph(user_uid)
         return JSONResponse(graph_data)
 
-    logger.info("Explore API routes registered: /api/explore/search, /api/explore/graph")
+    logger.info(
+        "Explore API routes registered: /api/explore/search, "
+        "/api/explore/subtopics, /api/explore/graph"
+    )
     return []
 
 
@@ -302,14 +350,15 @@ def create_explore_ui_routes(
         """HTMX fragment: bento card grid with search panel.
 
         First page via SearchRouter.faceted_search (same path as
-        /api/explore/search); the tag-chip vocabulary comes from the graph
-        via SearchRouter.tag_frequencies — never derived from the loaded
-        page — ranked most-used first so the visible chip row surfaces the
-        densest facets instead of an alphabetical A-C slice.
+        /api/explore/search); the facet vocabularies (tags, NOUS topics,
+        NOUS sub-topics) all come from the graph — never derived from the
+        loaded page — and are unscoped, so anonymous viewers get the same
+        facet bar. Tags are ranked most-used first so the visible chip row
+        surfaces the densest facets instead of an alphabetical A-C slice.
         """
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
 
-        search_request = _library_search_request("", "", tag, "created_at", 0)
+        search_request = _library_search_request("", "", tag, _LIBRARY_DEFAULT_SORT, 0)
         result = await search_router.faceted_search(search_request, user_uid)
         if result.is_error:
             logger.error(f"Library content load failed: {result.error}")
@@ -322,6 +371,15 @@ def create_explore_ui_routes(
             [item["tag"] for item in tags_result.value]
             if tags_result.is_ok and tags_result.value
             else []
+        )
+
+        # NOUS topic vocabulary (graph-derived, unscoped) feeds the dropdown;
+        # the sub-topic list is a render GATE only (empty → no cascade column).
+        topics_result = await orchestrator.list_nous_topics()
+        nous_topics = topics_result.value if topics_result.is_ok and topics_result.value else []
+        subtopics_result = await search_router.list_nous_subtopics()
+        nous_subtopics = (
+            subtopics_result.value if subtopics_result.is_ok and subtopics_result.value else []
         )
 
         pinned_uids, learning_states = await orchestrator.load_card_decorations(user_uid)
@@ -342,7 +400,12 @@ def create_explore_ui_routes(
         )
 
         return Div(
-            render_explore_search_panel(all_tags, active_tag=tag),
+            render_explore_search_panel(
+                all_tags,
+                nous_topics=nous_topics,
+                nous_subtopics=nous_subtopics,
+                active_tag=tag,
+            ),
             grid,
             id="explore-library-content",
         )
