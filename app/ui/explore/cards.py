@@ -276,13 +276,17 @@ def render_explore_search_panel(
         Option("Path Step", value="ps"),
     ]
 
-    # SORT mirrors /search \u2014 values are canonical SearchSortOrder members, parsed
-    # back via SearchSortOrder.from_string in the route. The catalog default
+    # SORT \u2014 canonical SearchSortOrder members, parsed back via
+    # SearchSortOrder.from_string in the route. The catalog default
     # (LIBRARY_DEFAULT_SORT) is pre-selected so blank-browse interactions serialize
-    # it rather than the browser's first <option>. "Relevance" is only meaningful
-    # alongside a query.
+    # it rather than the browser's first <option>. RELEVANCE is deliberately
+    # EXCLUDED: for a cross-domain (All Types) text query it is the one sort that
+    # bypasses the pageable faceted sweep for the scored text sweep \u2014 capped at
+    # ~limit//6 minimal records with no offset, which would starve the card grid
+    # and drop the Load-more sentinel (SearchRouter._cross_domain_search; the hole
+    # PR #669 closed by keeping the library off relevance). The catalog browses by
+    # facet + created/title order; /search owns relevance-ranked querying.
     sort_choices = [
-        (SearchSortOrder.RELEVANCE.value, "Relevance"),
         (SearchSortOrder.CREATED_DESC.value, "Newest First"),
         (SearchSortOrder.CREATED_ASC.value, "Oldest First"),
         (SearchSortOrder.UPDATED_DESC.value, "Recently Updated"),
