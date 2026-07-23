@@ -268,9 +268,12 @@ class TodayPageContext(TypedDict):
     flag on ``LifePathRibbonView``, not a sort order.
     """
 
-    today_iso: str  # ISO date the context was built from — the single source
-    #                 for every "today"-anchored href (lens switcher, daily note)
-    date_label: str  # "Saturday · March 22"
+    today_iso: str  # ISO date the day-lens is pointed at — the single source
+    #                 for every date-anchored href (Prev/Now/Next, daily note)
+    date_label: str  # "Saturday · March 22" (eyebrow, for ``view_date``)
+    heading: str  # H1 word: "Today" / "Yesterday" / "Tomorrow" / "Jul 19"
+    is_today: bool  # False while browsing another day — hides the NOW marker
+    #                 and disables ritual "past" strikethrough (day is not "now")
     now_hhmm: str  # server clock, user tz
     stats: TodayStats
     triage: list[TriageItemView]

@@ -19,7 +19,8 @@
   function todayFactory() {
     return {
       seed: window.SEED || {
-        date_label: '', now_hhmm: '00:00', stats: {nodes: 0, committed_min: 0, done: 0},
+        date_label: '', heading: 'Today', is_today: true, now_hhmm: '00:00',
+        stats: {nodes: 0, committed_min: 0, done: 0},
         triage: [], lifepaths: [], principles: [], goals: [], tasks: [], rituals: [], kinds: {},
       },
       selectedId: null,
@@ -98,7 +99,9 @@
         const frac = h + m/60;
         return Math.max(0, Math.min(1, (frac - 6) / 16));
       },
-      ritualPast(hhmm) { return hhmm < this.seed.now_hhmm; },
+      // "Past" (dimmed + checked) only applies to the live day — while browsing
+      // another date there is no "now" to be before, so rituals stay upcoming.
+      ritualPast(hhmm) { return this.seed.is_today && hhmm < this.seed.now_hhmm; },
 
       get openTask() {
         if (!this.openTaskId) return null;

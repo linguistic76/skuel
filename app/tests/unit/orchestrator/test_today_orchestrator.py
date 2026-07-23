@@ -17,6 +17,7 @@ from ui.today.orchestrator import (
     TodayOrchestrator,
     _date_label,
     _due_label,
+    _heading_label,
     _parse_hhmm,
     _priority_label,
     _task_to_triage,
@@ -55,6 +56,15 @@ def test_date_label_shape() -> None:
     label = _date_label(date(2026, 4, 22))
     assert " · " in label
     assert "22" in label
+
+
+def test_heading_label_uses_relative_words_near_today() -> None:
+    today = date(2026, 4, 22)
+    assert _heading_label(today, today) == "Today"
+    assert _heading_label(today - timedelta(days=1), today) == "Yesterday"
+    assert _heading_label(today + timedelta(days=1), today) == "Tomorrow"
+    # Further out falls back to a compact month + day (no relative word).
+    assert _heading_label(date(2026, 4, 19), today) == "Apr 19"
 
 
 def _fake_task(
@@ -180,6 +190,8 @@ async def test_build_context_empty_day_returns_valid_shape() -> None:
     for key in (
         "today_iso",
         "date_label",
+        "heading",
+        "is_today",
         "now_hhmm",
         "stats",
         "triage",
@@ -233,6 +245,38 @@ async def test_build_context_splits_today_tasks_and_triage() -> None:
     assert [t["id"] for t in ctx["triage"]] == ["t-late"]
     assert ctx["triage"][0]["severity"] == "overdue"
     assert ctx["triage"][0]["priority"] == "high"  # CRITICAL collapses to high
+    # Bare build → the live day: is_today True, today_iso anchored to today.
+    assert ctx["is_today"] is True
+    assert ctx["today_iso"] == today.isoformat()
+    assert ctx["heading"] == "Today"
+
+
+@pytest.mark.asyncio
+async def test_build_context_day_lens_targets_other_day() -> None:
+    """A ``view_date`` other than today is a pure day lens: tasks filter to that
+    day, triage (overdue-now) is suppressed, and the NOW marker is disabled."""
+    orch, services = _build()
+    today = date.today()
+    tomorrow = today + timedelta(days=1)
+    services["tasks_service"].get_user_tasks = AsyncMock(
+        return_value=_ok(
+            [
+                _fake_task(uid="t-today", due_date=today),
+                _fake_task(uid="t-tomorrow", due_date=tomorrow),
+                _fake_task(uid="t-late", due_date=today - timedelta(days=2)),
+            ]
+        )
+    )
+    result = await orch.build_context("u-mike", tomorrow)
+    assert not result.is_error
+    ctx = result.value
+    # Only tomorrow's task; today's + the overdue one are not on this day.
+    assert [t["id"] for t in ctx["tasks"]] == ["t-tomorrow"]
+    # Triage is a present-tense bar — never shown while browsing another day.
+    assert ctx["triage"] == []
+    assert ctx["is_today"] is False
+    assert ctx["today_iso"] == tomorrow.isoformat()
+    assert ctx["heading"] == "Tomorrow"
 
 
 @pytest.mark.asyncio

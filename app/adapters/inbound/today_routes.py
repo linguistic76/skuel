@@ -28,10 +28,14 @@ from adapters.inbound.route_factories.route_helpers import verify_entity_ownersh
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from services_bootstrap._container import Services
+    from ui.page_contexts import TodayPageContext
 
 
 logger = get_logger("skuel.routes.today")
@@ -57,21 +61,17 @@ def create_today_routes(
     assert tasks is not None, "TasksService not wired in Services container"
     assert rels is not None, "UserRelationshipBackend not wired in Services container"
 
-    @rt("/today")
-    async def today_page(request: Request) -> Any:
-        """Render the Today landing page."""
-        user_uid = require_authenticated_user(request)
-        from ui.activities.nav import render_activity_sidebar_page
-        from ui.today import TodayPage
-
-        ctx_result = await orchestrator.build_context(user_uid)
+    def _render_today(request: Request, ctx_result: Result[TodayPageContext]) -> Response | FT:
+        """Render a built Today context, or a 500 shell on build failure."""
         if ctx_result.is_error:
             logger.warning(
-                "today.build_context failed for user=%s: %s",
-                user_uid,
+                "today.build_context failed: %s",
                 ctx_result.expect_error().message,
             )
             return Response("Could not build Today context", status_code=500)
+
+        from ui.activities.nav import render_activity_sidebar_page
+        from ui.today import TodayPage
 
         return render_activity_sidebar_page(
             content=TodayPage(ctx_result.value),
@@ -81,6 +81,32 @@ def create_today_routes(
             title="Today",
             active_page="today",
         )
+
+    # boundary: fasthtml-app — registered route; FastHTML resolves the handler's
+    # annotations at registration, so the FT/Response return stays Any here (the
+    # concrete Response | FT shape lives on the _render_today helper above). This
+    # matches the repo-wide full-page-handler convention (e.g. calendar_week).
+    @rt("/today")
+    async def today_page(request: Request) -> Any:
+        """Render the Today landing page (the live current day)."""
+        user_uid = require_authenticated_user(request)
+        ctx_result = await orchestrator.build_context(user_uid)
+        return _render_today(request, ctx_result)
+
+    @rt("/today/{date_str}")
+    async def today_page_dated(request: Request, date_str: str) -> Any:  # boundary: fasthtml-app
+        """Render the day lens for an arbitrary date (Prev/Next navigation).
+
+        An unparseable ``date_str`` degrades to the current day rather than 404 —
+        the surface is always meaningful for *some* day.
+        """
+        user_uid = require_authenticated_user(request)
+        try:
+            view_date = date.fromisoformat(date_str)
+        except ValueError:
+            view_date = date.today()
+        ctx_result = await orchestrator.build_context(user_uid, view_date)
+        return _render_today(request, ctx_result)
 
     @rt("/today/tasks/{uid}/drawer")
     async def today_task_drawer(request: Request, uid: str) -> Any:

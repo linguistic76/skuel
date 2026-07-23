@@ -127,7 +127,7 @@ usage data shows `/home` traffic has fallen off.
 ## Implementation Details
 
 ### Files
-- `adapters/inbound/today_routes.py` — 6 endpoints (page + drawer + 4 mutations)
+- `adapters/inbound/today_routes.py` — 7 endpoints (page + dated day-lens + drawer + 4 mutations)
 - `adapters/inbound/auth_ui.py` — redirect targets `/today` for non-admins
 - `adapters/inbound/home_routes.py` — `/home` retained as regression guard
 - `ui/today/page.py`, `ui/today/drawer.py` — FastHTML translation of the handoff
@@ -138,7 +138,8 @@ usage data shows `/home` traffic has fallen off.
 - `ui/page_contexts.py` — `TodayPageContext`, `TodayStats`, `LifePathRibbonView`, `TriageItemView`, `RitualView`, `KindMeta`, `TaskView`, `GoalView`, `PrincipleView` TypedDicts (page contexts are UI concerns; not in `core/ports/`)
 
 ### Endpoints (see `today.md` §5 for full signatures)
-- `GET  /today` — full page via `BasePage(active_page="today")`
+- `GET  /today` — full page via `BasePage(active_page="today")` (the live current day)
+- `GET  /today/{date_str}` — day lens for an arbitrary date (Prev/Now/Next navigation, parallel to Week/Month); unparseable dates degrade to today
 - `GET  /today/tasks/{id}/drawer` — detail drawer fragment
 - `POST /today/tasks/{id}/complete` — optimistic complete, 204
 - `POST /today/tasks/{id}/defer` — accepts `span=1d|1w`, 204

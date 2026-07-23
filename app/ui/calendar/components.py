@@ -130,20 +130,23 @@ def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False
     )
 
 
-def create_calendar_toolbar(
+def calendar_nav_cluster(
     prev_href: str,
     next_href: str,
     today_href: str,
     note_href: str,
     note_label: str,
 ) -> Div:
-    """Prev/Now/Next and periodic-note cluster, right-aligned.
+    """Prev/Now/Next pills + the periodic-note button, right-aligned (no margin).
 
     The recenter pill is labelled "Now" — the word "Today" belongs solely to the
     Today surface (sidebar link), keeping the two meanings distinct. ``note_label``
-    names the view's periodic note ("Weekly note" / "Monthly note").
+    names the view's periodic note ("Weekly note" / "Monthly note" / "Daily note").
+
+    Shared by the calendar toolbar (Week/Month) and the Today day-lens header, so
+    all three temporal lenses carry an identical navigation cluster (#665).
     """
-    nav = Div(
+    return Div(
         _nav_button("Prev", prev_href, "chevron-left"),
         A(
             "Now",
@@ -172,8 +175,22 @@ def create_calendar_toolbar(
         # the note button drops to a second row instead.
         cls="flex items-center justify-end gap-2 flex-wrap",
     )
+
+
+def create_calendar_toolbar(
+    prev_href: str,
+    next_href: str,
+    today_href: str,
+    note_href: str,
+    note_label: str,
+) -> Div:
+    """Right-aligned Prev/Now/Next + periodic-note toolbar row (Week/Month views).
+
+    Thin margin wrapper around :func:`calendar_nav_cluster`; the Today surface
+    embeds the bare cluster in its header column instead.
+    """
     return Div(
-        nav,
+        calendar_nav_cluster(prev_href, next_href, today_href, note_href, note_label),
         cls="flex items-center justify-end gap-4 flex-wrap mb-5",
     )
 
