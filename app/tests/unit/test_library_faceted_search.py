@@ -444,7 +444,9 @@ class TestLibrarySearchRequest:
     def test_tag_and_title_sort_and_offset(self) -> None:
         # The library speaks canonical SearchSortOrder values (title_asc), not
         # the former "title" shorthand.
-        request = _library_search_request("breath", "ku", "yoga", SearchSortOrder.TITLE_ASC.value, 24)
+        request = _library_search_request(
+            "breath", "ku", "yoga", SearchSortOrder.TITLE_ASC.value, 24
+        )
         assert request.query_text == "breath"
         assert request.tags_contain == ["yoga"]
         assert request.get_sort_order() is SearchSortOrder.TITLE_ASC
