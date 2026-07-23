@@ -31,6 +31,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from services_bootstrap._container import Services
     from ui.page_contexts import TodayPageContext
@@ -59,7 +61,7 @@ def create_today_routes(
     assert tasks is not None, "TasksService not wired in Services container"
     assert rels is not None, "UserRelationshipBackend not wired in Services container"
 
-    def _render_today(request: Request, ctx_result: Result[TodayPageContext]) -> Any:
+    def _render_today(request: Request, ctx_result: Result[TodayPageContext]) -> Response | FT:
         """Render a built Today context, or a 500 shell on build failure."""
         if ctx_result.is_error:
             logger.warning(
@@ -80,6 +82,10 @@ def create_today_routes(
             active_page="today",
         )
 
+    # boundary: fasthtml-app — registered route; FastHTML resolves the handler's
+    # annotations at registration, so the FT/Response return stays Any here (the
+    # concrete Response | FT shape lives on the _render_today helper above). This
+    # matches the repo-wide full-page-handler convention (e.g. calendar_week).
     @rt("/today")
     async def today_page(request: Request) -> Any:
         """Render the Today landing page (the live current day)."""
@@ -88,7 +94,7 @@ def create_today_routes(
         return _render_today(request, ctx_result)
 
     @rt("/today/{date_str}")
-    async def today_page_dated(request: Request, date_str: str) -> Any:
+    async def today_page_dated(request: Request, date_str: str) -> Any:  # boundary: fasthtml-app
         """Render the day lens for an arbitrary date (Prev/Next navigation).
 
         An unparseable ``date_str`` degrades to the current day rather than 404 —
