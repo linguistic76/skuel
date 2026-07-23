@@ -125,7 +125,7 @@ class TestHappyPath:
         assert response.status_code == 200
         assert response.json()["answer"] == "Practice."
         harness.askesis.answer_user_question.assert_awaited_once_with(
-            _USER_UID, "What should I learn next?", session_id="sess_1"
+            _USER_UID, "What should I learn next?", session_id="sess_1", model=None
         )
 
     def test_session_id_defaults_to_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -135,5 +135,15 @@ class TestHappyPath:
 
         assert response.status_code == 200
         harness.askesis.answer_user_question.assert_awaited_once_with(
-            _USER_UID, "hello", session_id=None
+            _USER_UID, "hello", session_id=None, model=None
+        )
+
+    def test_model_query_param_forwarded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.get("/api/askesis/ask?question=hello&model=gpt-4o-mini")
+
+        assert response.status_code == 200
+        harness.askesis.answer_user_question.assert_awaited_once_with(
+            _USER_UID, "hello", session_id=None, model="gpt-4o-mini"
         )
