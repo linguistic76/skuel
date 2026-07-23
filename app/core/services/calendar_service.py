@@ -440,7 +440,9 @@ class CalendarService:
 
         return items
 
-    async def _fetch_habits(self, user_uid: UserUID, include_completed: bool = False) -> list[Habit]:
+    async def _fetch_habits(
+        self, user_uid: UserUID, include_completed: bool = False
+    ) -> list[Habit]:
         """
         Fetch the user's habits — status-filtered, NEVER date-filtered.
 
