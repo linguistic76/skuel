@@ -2325,6 +2325,7 @@
             return {
                 query: '',
                 activeTag: initialTag || '',
+                moreFilters: false,  // "More filters" disclosure (learning-level facet)
 
                 init: function() {
                     // reactive state — query tracked via x-model, activeTag via hidden input
