@@ -561,16 +561,16 @@ Askesis uses PROMPT_REGISTRY for two distinct prompt layers:
 | `askesis_guided_connection` | EXPLORATORY | SURFACE_CONNECTION | `{edges_text}` |
 | `askesis_guided_practice` | ENCOURAGING | ENCOURAGE_PRACTICE | `{practice_text}`, `{resource_refs}` |
 
-### Interaction Pattern Templates (Phase 2)
+### Interaction Pattern Templates (Staged — PLANNED, ADR-082 D4)
 
-Four additional templates define future interaction patterns — session opener, mid-turn Socratic, KU bridge, journal reflection. These are defined as pedagogical design artifacts in `core/prompts/templates/` but not yet wired to the pipeline:
+Four additional templates define future interaction patterns — session opener, mid-turn Socratic, KU bridge, journal reflection. These are defined as pedagogical design artifacts in `core/prompts/templates/`, not yet wired to the pipeline, and registered in the bloat detector's `PLANNED_TEMPLATES` tier (ADR-082 D4):
 
 | Template ID | Interaction Pattern | Wired |
 |-------------|-------------------|-------|
-| `askesis_scaffold_entry` | Session opener — invite, don't lecture | Phase 2 |
-| `askesis_socratic_turn` | Mid-conversation Socratic turn | Phase 2 |
-| `askesis_ku_bridge` | Introduce adjacent KU as natural next step | Phase 2 |
-| `askesis_journal_reflection` | Respond to journal open questions | Phase 2 |
+| `askesis_scaffold_entry` | Session opener — invite, don't lecture | Staged (PLANNED) |
+| `askesis_socratic_turn` | Mid-conversation Socratic turn | Staged (PLANNED) |
+| `askesis_ku_bridge` | Introduce adjacent KU as natural next step | Staged (PLANNED; first wiring candidate) |
+| `askesis_journal_reflection` | Respond to journal open questions | Staged (PLANNED; je_pro shared-entry doorway only) |
 
 ### Remaining Migration
 

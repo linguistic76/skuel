@@ -19,7 +19,7 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **SKUEL does NOT maintain backward compatibility.** When a better pattern emerges, the old pattern is removed entirely. No legacy wrappers, no deprecation periods, no alternative paths. Update all call sites immediately. Dead code is deleted, not archived.
 
-**Abandoned ≠ staged:** deliberately staged-but-unwired work is NOT dead code — register it in the bloat detector's PLANNED tier (`PLANNED_EVENTS`/`PLANNED_METHODS` in `scripts/detect_bloat.py`) as a visible completion backlog. One Path Forward deletes the abandoned, never the staged.
+**Abandoned ≠ staged:** deliberately staged-but-unwired work is NOT dead code — register it in the bloat detector's PLANNED tier (`PLANNED_EVENTS`/`PLANNED_METHODS`/`PLANNED_TEMPLATES` in `scripts/detect_bloat.py`) as a visible completion backlog. One Path Forward deletes the abandoned, never the staged.
 
 **Design Philosophy:** Type errors are teachers, showing us where components don't flow together properly. When errors appear, investigate the fundamental design first rather than working around with quick fixes.
 
@@ -555,7 +555,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 **Formatting:** Ruff. `./dev format` to format, `./dev quality` for full checks (Ruff + MyPy + audit scripts).
 
-**Dead-code detection (advisory):** `./dev bloat` — staged-but-unwired work belongs in `PLANNED_EVENTS`/`PLANNED_METHODS` in `scripts/detect_bloat.py`, not the trash. **See:** `/docs/tools/BLOAT_DETECTION.md`
+**Dead-code detection (advisory):** `./dev bloat` — staged-but-unwired work belongs in `PLANNED_EVENTS`/`PLANNED_METHODS`/`PLANNED_TEMPLATES` in `scripts/detect_bloat.py`, not the trash. **See:** `/docs/tools/BLOAT_DETECTION.md`
 
 **Docs-staleness check (automatic):** `.claude/hooks/post-commit-docs.sh` fires after `git commit` and flags docs/skills that reference changed files for semantic staleness review. **See:** `/docs/tools/AUTOMATIC_DOCS_CHECK.md`
 

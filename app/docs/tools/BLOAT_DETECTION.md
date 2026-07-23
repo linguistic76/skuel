@@ -60,7 +60,7 @@ The detector follows the SKUEL linter's structural-soundness discipline
 |------|---------|------------------|
 | `WARNING` | Structurally dead — verified absence of liveness | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
-| `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS`, awaiting its wiring | No |
+| `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring | No |
 | `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events) | No |
 
 Act on `WARNING` findings after a manual grep-verify; treat `UNVERIFIED` as a
@@ -75,6 +75,15 @@ code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
 PLANNED section then functions as the visible wiring backlog. Integrity is
 self-policing: a planned subject that becomes live (or disappears from the
 candidates) is reported as a **stale planned marking** demanding removal.
+
+**Prompt templates ride the same tier** (`PLANNED_TEMPLATES`, keyed by
+template id — ADR-082 D4): registry `.md` files with no production render
+site are invisible to the event/method scanners, so entries are emitted
+directly with two verifications — existence (file deleted/renamed → stale)
+and render-site liveness (a constant-string `.render()`/`.get()` reference
+appeared → stale, wiring complete). Render sites that pass a variable
+template id are invisible to the liveness check, so such an entry stays
+listed until removed by hand.
 
 ## Event analysis (pure AST)
 

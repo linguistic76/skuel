@@ -142,7 +142,7 @@ The decision tree always tutors to the **weakest** KU's evidence level. If the u
 
 ### Step 8: Build System Prompt
 
-`ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context, canon_context=None)` constructs a mode-specific system prompt, then appends the PS-scoped canon readings block when passages were drawn (ADR-077 — mode-aware: DIRECT gets answer-grounding framing, the other modes keep the Socratic method paragraph). Each mode has its own builder:
+`ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context, canon_context=None)` composes stance + pedagogy leaf + canon block (ADR-082 D1): the authored `askesis_stance` fragment heads the prompt, a mode-specific builder supplies the leaf, then the PS-scoped canon readings block is appended when passages were drawn (ADR-077 — mode-aware: DIRECT gets answer-grounding framing, the other modes keep the Socratic method paragraph). The facet/context-aware branch (`LLMService._build_context_aware_system_prompt`) heads with the same stance (ADR-082 D3). Each mode has its own builder:
 
 - **DIRECT:** Three sub-cases: redirect to unread curriculum (`askesis_guided_redirect`), out-of-scope warm redirect (`askesis_guided_out_of_scope`), or user-overridden in-scope direct answer (`askesis_guided_direct`).
 - **SOCRATIC:** "Ask the learner to explain. Do NOT give answers. Test understanding."
@@ -354,7 +354,7 @@ Three things distinguish Askesis from a generic AI assistant:
 | Journal signal extraction | Phase 2 — `JournalInsight` shape defined | Journals reveal what the user actually understands vs. what they've merely encountered |
 | Neo4j conversation persistence | Deferred | Cross-session continuity ("last week we discussed X") |
 | Teacher interface | Deferred | Teachers shaping what Askesis says to their students |
-| Prompt template migration | **Partial** — guided system prompts (7 templates) migrated; LLM context assembly + Q&A/planning prompts remain programmatic | Editable pedagogical prompts without touching Python |
+| Prompt template migration | **Partial** — guided system prompts (8 templates) + the `askesis_stance` head on both branches migrated (ADR-082 D1, founder-overridable via `data/instructions/`); LLM context assembly + the rest of the Q&A/planning prompt remain programmatic | Editable pedagogical prompts without touching Python |
 | Events + Principles in PS bundle | Planned | Currently empty tuples — will populate from graph_context |
 | Resource access expansion | Planned | Broader resource discovery beyond CITES_RESOURCE — semantic search across all Resources |
 | Fine-tuned model | Deferred | Training on conversation data once volume exists |
@@ -386,5 +386,6 @@ Three things distinguish Askesis from a generic AI assistant:
 | Protocols (17 methods) | `core/ports/askesis_protocols.py` |
 | API routes (20 endpoints) | `adapters/inbound/askesis_api.py` |
 | UI routes | `adapters/inbound/askesis_ui.py` |
+| Stance template (heads both branches, ADR-082) | `core/prompts/templates/askesis_stance.md` |
 | Guided prompt templates (8) | `core/prompts/templates/askesis_guided_*.md` |
-| Interaction pattern templates (4) | `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` |
+| Interaction pattern templates (4, staged — PLANNED, ADR-082 D4) | `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` |

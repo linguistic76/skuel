@@ -60,6 +60,7 @@ core/prompts/
     ├── dsl_domain_recognition_compact.md
     ├── prereq_edge_judge.md
     ├── entry_ku_grounding_judge.md
+    ├── askesis_stance.md
     ├── askesis_guided_redirect.md
     ├── askesis_guided_direct.md
     ├── askesis_guided_out_of_scope.md
@@ -78,6 +79,15 @@ core/prompts/
 Missing template → `FileNotFoundError` (not `Result.fail`) — a missing template is a
 programming error, not a domain failure.
 
+**Founder-local override (ADR-082 D1):** `get()` resolves an optional
+`data/instructions/{template_id}.md` BEFORE the committed template — the ADR-081
+authoring approach (committed floor + founder-local override) at the registry
+chokepoint, for every template id. Absence is the normal state (silent miss);
+blank/whitespace degrades to the committed floor; the shared containment guard
+(`core/utils/instruction_files.py`) blocks traversal. Overrides are read fresh on
+every access (never cached) so founder edits land without a restart — an override
+must preserve the template's `{placeholder}` keys.
+
 ---
 
 ## Template Catalog
@@ -93,6 +103,7 @@ programming error, not a domain failure.
 | `entry_ku_grounding_judge` | `EntryGroundingService._judge_entry()` (entry→Ku grounding engagement filter) | `{entry_title}`, `{entry_excerpt}`, `{candidates_block}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}`, `{user_context}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}`, `{user_context}` |
+| `askesis_stance` | `ResponseGenerator.build_guided_system_prompt()` + `LLMService._build_context_aware_system_prompt()` — heads BOTH Askesis answer branches (ADR-082 D1/D3) | none |
 | `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |
 | `askesis_guided_out_of_scope` | `ResponseGenerator._build_direct_prompt()` | `{ls_title}`, `{ls_intent}` |
 | `askesis_guided_assess` | `ResponseGenerator._build_socratic_prompt()` | `{concepts}` |
@@ -100,10 +111,10 @@ programming error, not a domain failure.
 | `askesis_guided_scaffold` | `ResponseGenerator._build_exploratory_prompt()` | `{concepts}`, `{resource_refs}` |
 | `askesis_guided_connection` | `ResponseGenerator._build_exploratory_prompt()` | `{edges_text}` |
 | `askesis_guided_practice` | `ResponseGenerator._build_encouraging_prompt()` | `{practice_text}`, `{resource_refs}` |
-| `askesis_scaffold_entry` | Phase 2 — session opener | `{ku_title}`, `{ku_description}`, `{user_current_zone}`, `{journal_open_questions}`, `{journal_concepts}`, `{user_momentum}`, `{guidance_mode}`, `{conversation_history}` |
-| `askesis_socratic_turn` | Phase 2 — mid-conversation | `{ku_title}`, `{conversation_history}`, `{user_message}`, `{user_understanding_estimate}`, `{awaiting_response_to}` |
-| `askesis_ku_bridge` | Phase 2 — ZPD traversal | `{current_ku_title}`, `{current_ku_engagement}`, `{target_ku_title}`, `{target_ku_description}`, `{bridge_connection}` |
-| `askesis_journal_reflection` | Phase 2 — journal-triggered | `{user_name}`, `{journal_open_questions}`, `{journal_struggles}`, `{related_ku_title}`, `{related_ku_description}` |
+| `askesis_scaffold_entry` | Staged — no render site (PLANNED, ADR-082 D4) — session opener | `{ku_title}`, `{ku_description}`, `{user_current_zone}`, `{journal_open_questions}`, `{journal_concepts}`, `{user_momentum}`, `{guidance_mode}`, `{conversation_history}` |
+| `askesis_socratic_turn` | Staged — no render site (PLANNED, ADR-082 D4) — mid-conversation | `{ku_title}`, `{conversation_history}`, `{user_message}`, `{user_understanding_estimate}`, `{awaiting_response_to}` |
+| `askesis_ku_bridge` | Staged — no render site (PLANNED, ADR-082 D4; first wiring candidate) — ZPD traversal | `{current_ku_title}`, `{current_ku_engagement}`, `{target_ku_title}`, `{target_ku_description}`, `{bridge_connection}` |
+| `askesis_journal_reflection` | Staged — no render site (PLANNED, ADR-082 D4; je_pro shared-entry doorway only) — journal-triggered | `{user_name}`, `{journal_open_questions}`, `{journal_struggles}`, `{related_ku_title}`, `{related_ku_description}` |
 
 ---
 
@@ -162,10 +173,13 @@ Two template layers define its pedagogical vocabulary:
 
 ### Layer 1: Guided System Prompts (Active)
 
-`ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders,
-each rendering templates via `PROMPT_REGISTRY.render()`. Dynamic context (lesson refs, KU
-names, resource refs, edge text, practice items) is computed in Python and passed as
-template placeholders.
+`ResponseGenerator.build_guided_system_prompt()` composes **stance + pedagogy leaf +
+canon block** (ADR-082 D1): the shared `askesis_stance` fragment heads the prompt, then
+one of 4 mode-specific builders renders the pedagogy leaf via `PROMPT_REGISTRY.render()`.
+Dynamic context (lesson refs, KU names, resource refs, edge text, practice items) is
+computed in Python and passed as template placeholders. The facet/context-aware branch
+(`LLMService._build_context_aware_system_prompt`) heads with the same stance — authoring
+parity across both answer branches is ADR-082 D3.
 
 | GuidanceMode | PedagogicalIntent | Template |
 |-------------|-------------------|---------|
@@ -177,10 +191,13 @@ template placeholders.
 | `EXPLORATORY` | SURFACE_CONNECTION | `askesis_guided_connection` |
 | `ENCOURAGING` | ENCOURAGE_PRACTICE | `askesis_guided_practice` |
 
-### Layer 2: Interaction Pattern Templates (Phase 2 — Defined, Not Yet Wired)
+### Layer 2: Interaction Pattern Templates (Staged — PLANNED, ADR-082 D4)
 
-Four templates define future interaction patterns. These become valuable when journal
-signals provide variables like `{journal_open_questions}` and `{user_momentum}`.
+Four templates define future interaction patterns — registered in the bloat detector's
+`PLANNED_TEMPLATES` tier (`scripts/detect_bloat.py`) as a visible completion backlog.
+`askesis_ku_bridge` is the first wiring candidate (citation-as-core);
+`askesis_journal_reflection` may only ever wire via the je_pro/UserEntry shared-entry
+doorway (the ADR-073 wall is absolute).
 
 | Template | Interaction Pattern |
 |----------|-------------------|

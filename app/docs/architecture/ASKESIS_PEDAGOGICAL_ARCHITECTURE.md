@@ -296,10 +296,16 @@ curriculum of the conversation — it constrains what Askesis can do.
 
 ### Guided System Prompts (Active — March 2026)
 
-`ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders,
-each rendering one or two templates via `PROMPT_REGISTRY.render()`. Dynamic context
-(PathStep refs, KU names, resource refs, edge text, practice items) is computed in Python
-and passed as template placeholders. Prompt text lives in `core/prompts/templates/`.
+`ResponseGenerator.build_guided_system_prompt()` composes **stance + pedagogy leaf +
+canon block** (ADR-082 D1): the shared `askesis_stance` fragment (study-buddy voice,
+expert-in-content posture, citation discipline) heads the prompt, then one of 4
+mode-specific builders renders the pedagogy leaf via `PROMPT_REGISTRY.render()`. Dynamic
+context (PathStep refs, KU names, resource refs, edge text, practice items) is computed
+in Python and passed as template placeholders. Prompt text lives in
+`core/prompts/templates/`; every template id accepts an optional founder-local override
+in `data/instructions/` (registry chokepoint, ADR-082 D1). The facet/context-aware
+branch heads with the same stance — authoring parity across both answer branches
+(ADR-082 D3).
 
 | Template | GuidanceMode | PedagogicalIntent |
 |----------|-------------|-------------------|
@@ -311,11 +317,13 @@ and passed as template placeholders. Prompt text lives in `core/prompts/template
 | `askesis_guided_connection` | EXPLORATORY | SURFACE_CONNECTION |
 | `askesis_guided_practice` | ENCOURAGING | ENCOURAGE_PRACTICE |
 
-### Interaction Pattern Templates (Phase 2 — Defined, Not Yet Wired)
+### Interaction Pattern Templates (Staged — PLANNED, ADR-082 D4)
 
-Four additional templates define future interaction patterns. These become valuable when
-journal signals (Phase 2) provide template variables like `{journal_open_questions}` and
-`{user_momentum}` that the current pipeline doesn't yet populate.
+Four additional templates define future interaction patterns — registered in the bloat
+detector's `PLANNED_TEMPLATES` tier as a visible completion backlog (ADR-082 D4;
+`askesis_ku_bridge` is the first wiring candidate). They become valuable when journal
+signals provide template variables like `{journal_open_questions}` and `{user_momentum}`
+that the current pipeline doesn't yet populate.
 
 | Template | Intent | When Used |
 |----------|--------|-----------|
@@ -363,6 +371,7 @@ assistant cannot do this. Askesis can.
 - `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema
 - `docs/roadmap/teacher-askesis-interface-deferred.md` — teacher interface design
 - `core/models/submissions/journal_insight.py` — JournalInsight dataclass stub
-- `core/prompts/templates/askesis_guided_*.md` — 7 guided system prompt templates (active)
-- `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` — 4 interaction pattern templates (Phase 2)
+- `core/prompts/templates/askesis_stance.md` — shared stance fragment heading BOTH answer branches (ADR-082 D1/D3)
+- `core/prompts/templates/askesis_guided_*.md` — 8 guided system prompt templates (active)
+- `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` — 4 interaction pattern templates (staged — PLANNED, ADR-082 D4)
 - `.claude/skills/prompt-templates/SKILL.md` — template catalog
