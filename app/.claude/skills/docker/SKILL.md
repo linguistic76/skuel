@@ -89,7 +89,7 @@ docker compose -f docker-compose.production.yml up -d
 
 Config layering on the droplet: `.env.production` (non-secret, survives deploys) + `/opt/skuel/secrets.env` (0600 — `NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `SESSION_SECRET_KEY`, optional per-feature keys), both loaded via compose `env_file`. Caddy reads `SKUEL_DOMAIN`/`ACME_EMAIL` from `.env.production` via its own `env_file` — no shell exports needed.
 
-Deploying is `./dev deploy` (`--content`, `--dry-run`): rsync via `.deployignore` → chown writable bind mounts to UID 10001 → build + up → poll `/health/ready` (~2 min, covers AuraDB wake-from-pause) → only past a green gate, tag `skuel-app:latest` as `skuel-app:rollback`. No auto-rollback. See `/docs/deployment/DO_MIGRATION_GUIDE.md` for the runbook.
+Deploying is `./dev deploy` (`--content`, `--dry-run`): rsync via `.deployignore` → chown writable bind mounts to UID 10001 → build + up → poll `/health/ready` (~2 min default, `SKUEL_DEPLOY_HEALTH_ATTEMPTS` widens; covers AuraDB wake-from-pause) → only past a green gate, an ID-based idempotent promote tags `skuel-app:latest` as `skuel-app:rollback`, keeping the previous gate-passed image as `skuel-app:rollback-prev`. No auto-rollback; a failed gate auto-prints app logs. See `/docs/deployment/DO_MIGRATION_GUIDE.md` for the runbook.
 
 ---
 

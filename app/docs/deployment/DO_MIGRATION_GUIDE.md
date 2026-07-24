@@ -125,11 +125,11 @@ With `SKUEL_DOMAIN=localhost` Caddy issues a certificate from its internal CA an
 2. **chown the writable bind mounts** (`/opt/skuel/personal-vault`, `app/logs`) to UID 10001. A bind mount hides the image's chowned directory, so ownership is a host-side concern; the content vault stays root-owned (mounted `:ro`).
 3. `--content`: rsync the content vault → `/opt/skuel/content-vault/` (excluding `Resources/` — binary attachments, not ingestible curriculum).
 4. **`compose build && up -d`** on the droplet.
-5. **Health gate**: poll `http://127.0.0.1:5001/health/ready` over SSH, up to 24 × 5 s ≈ 2 min. `/health/ready` returns 503 until Neo4j answers, so passing means the app booted **and** AuraDB responded — including wake-from-pause on a Free instance.
-6. **Only after a green gate**, tag `skuel-app:latest` as `skuel-app:rollback`. The rollback tag is written nowhere else, so it always names the newest image that passed a gate — a failed deploy (or a rerun of one) can never move it.
+5. **Health gate**: poll `http://127.0.0.1:5001/health/ready` over SSH, up to 24 × 5 s ≈ 2 min by default (`SKUEL_DEPLOY_HEALTH_ATTEMPTS` widens the window — a cold Aura wake plus first boot can flirt with 2 min). `/health/ready` returns 503 until Neo4j answers, so passing means the app booted **and** AuraDB responded — including wake-from-pause on a Free instance.
+6. **Only after a green gate**, promote: tag `skuel-app:latest` as `skuel-app:rollback`, preserving the previous rollback as `skuel-app:rollback-prev` (the N−1 gate-passed image — runbook Case 2 below relies on it). The promote is **ID-based and idempotent**: both tags are resolved to image IDs first, and when `latest` already *is* `rollback` (same-tree redeploy, or a re-run after an interrupted promote) the shuffle is skipped entirely so the real N−1 is never evicted. When the IDs differ, `rollback-prev` is written from the old rollback ID *before* `rollback` moves — that order never leaves an image untagged, and a deploy killed between the two tag commands is healed by simply re-running `./dev deploy`. The rollback tags are written nowhere else, so `rollback` always names the newest image that passed a gate — a failed deploy (or a rerun of one) can never move it.
 7. `--content`: run the one-shot in-container content-vault sync (`vault_bridge_sync.py --vault content`).
 
-A failed gate exits non-zero and prints rollback instructions. **No auto-rollback** — rolling back is a deliberate human call (see the runbook below).
+A failed gate auto-prints the last 60 lines of app logs, prints rollback instructions, and exits non-zero. **No auto-rollback** — rolling back is a deliberate human call (see the runbook below).
 
 ---
 
@@ -191,28 +191,33 @@ Both containers use json-file logging capped at 10 MB × 3 files — bounded by 
 
 ### Rollback
 
-`skuel-app:rollback` always holds the newest image that **passed a health gate** (absent on a first deploy). That makes the recovery path depend on *how* the deploy went bad:
+`skuel-app:rollback` always holds the newest image that **passed a health gate** (absent on a first deploy); `skuel-app:rollback-prev` holds the gate-passed image before that (absent until the second distinct green deploy). Gate-passed means *booted and reached Neo4j* — not *functionally good* — which is why the chain keeps two images. The recovery path depends on *how* the deploy went bad:
 
-**Case 1 — the deploy failed the health gate** (app never came up). The rollback tag was not advanced, so it still names the previously-serving green image:
+**Case 1 — the deploy failed the health gate** (app never came up; the deploy already printed the last 60 log lines). The rollback tags were not advanced, so `:rollback` still names the previously-serving green image:
 
 ```bash
 ssh skuel-droplet
 cd /opt/skuel/app
-docker compose -f docker-compose.production.yml logs --tail 200 skuel-app   # inspect first
+docker compose -f docker-compose.production.yml logs --tail 200 skuel-app   # more context
 docker tag skuel-app:rollback skuel-app:latest
 docker compose -f docker-compose.production.yml up -d
 ```
 
 Note the code on disk is still the new tree (rsync already ran) — this restores the running **image**, buying time to fix forward. `./dev deploy` again when fixed.
 
-**Case 2 — the deploy passed the gate but turns out to be bad** (a regression that readiness can't see). The green gate already advanced `:rollback` to this same image, so **retagging restores nothing** — do not use the Case 1 commands. Recovery is redeploying the last good tree: deploys ship your local working tree, so check out the last good commit locally and push it as a fresh deploy:
+**Case 2 — the deploy passed the gate but turns out to be bad** (a regression that readiness can't see). The green gate already advanced `:rollback` to this same bad image — the last *good* image is `:rollback-prev`. Restore it, then **expel the bad image from the chain** by pointing `:rollback` at the good image too:
 
 ```bash
-git checkout <last-good-ref>
-./dev deploy          # rebuilds and health-gates the previous good version
+ssh skuel-droplet
+cd /opt/skuel/app
+docker tag skuel-app:rollback-prev skuel-app:latest
+docker compose -f docker-compose.production.yml up -d
+docker tag skuel-app:rollback-prev skuel-app:rollback    # expel the bad image
 ```
 
-(If keeping an N−1 image tag on the droplet would be preferable to a rebuild, that is a `deploy.sh` change — noted as a fast-follow, not something this runbook can offer today.)
+The expel step matters: `:rollback` means gate-passed, not good. Without it the next deploy would copy the known-bad image into `:rollback-prev`, and a second bad deploy would hand this very runbook a known-bad "recovery" image. With it, the bad image loses its last tag and drops out of the chain entirely. When fixed forward, `git checkout <fixed-ref> && ./dev deploy` as usual — the promote sees latest ≠ rollback and shuffles the good image into `:rollback-prev`.
+
+**Interrupted promote** (deploy killed between the two post-gate tag commands): both `:rollback` and `:rollback-prev` end up on the same green N−1 image — nothing is lost but N−2 depth. Just re-run `./dev deploy`; the ID-based promote is idempotent and finishes the shuffle.
 
 ### Hardening checklist (what ships, and the knobs)
 
