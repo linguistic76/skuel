@@ -891,8 +891,8 @@ git push
 ## Additional Resources
 
 **SKUEL-Specific Documentation:**
-- [CLAUDE.md](/home/mike/skuel/app/CLAUDE.md) - Project conventions
-- [Git Commit Instructions](/home/mike/skuel/app/CLAUDE.md#committing-changes-with-git) - Detailed commit workflow
+- [CLAUDE.md](/CLAUDE.md) - Project conventions
+- [Git Commit Instructions](/CLAUDE.md#committing-changes-with-git) - Detailed commit workflow
 
 **External Resources:**
 - [Git Documentation](https://git-scm.com/doc)

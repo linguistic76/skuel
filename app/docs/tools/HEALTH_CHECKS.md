@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-03-04
+updated: 2026-07-24
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -90,19 +90,25 @@ Broken References — 1360 dead links:
     L  14  [link]      docs/decisions/ADR-030-analytics-vs-ai.md
 
   docs/patterns/three_tier_type_system.md
-    L 500  [backtick]  /core/models/task/task_converters.py
+    L 500  [backtick]  /core/services/base_service.py
 ```
 
-**Three reference kinds detected:**
+**Three reference kinds detected** (examples cite real files — the checker scans
+this doc too, so a made-up example path would self-report as broken):
 
 | Kind | Example | Detection Method |
 |------|---------|-----------------|
-| `[link]` | `[text](path/to/file.md)` | Markdown link syntax |
-| `[backtick]` | `` `core/services/tasks.py` `` | Inline code spans that look like paths |
-| `[bare]` | `/docs/patterns/foo.md` in prose | Bare absolute paths with project prefixes |
+| `[link]` | `[text](/docs/INDEX.md)` | Markdown link syntax |
+| `[backtick]` | `` `core/services/base_service.py` `` | Inline code spans that look like paths |
+| `[bare]` | `/docs/patterns/linter_rules.md` in prose | Bare absolute paths with project prefixes |
 
-**Absolute paths** (starting with `/`) are resolved relative to the repo root.
-**Relative paths** are resolved relative to the source file's directory.
+**Absolute paths** (starting with `/`) are resolved relative to the repo root — the ONE
+canonical citation style. Machine-absolute paths (`/home/.../app/...`) are deliberately
+not rescued: they resolve under the repo root and report broken identically in every
+checkout, so the doc gets fixed rather than the alternative style preserved.
+**Relative paths** are resolved relative to the source file's directory; if that misses,
+they are retried relative to the repo root (docs routinely cite root-relative paths like
+`docs/patterns/linter_rules.md` without a leading slash).
 **External URLs** (`http://`, `https://`, etc.) and anchor-only links (`#section`) are skipped.
 
 **Special callout:** When `docs/INDEX.md` has broken links, the output highlights it:

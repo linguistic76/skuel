@@ -454,9 +454,7 @@ Prometheus + Grafana (monitoring) and Firefly III + MariaDB (finance, ADR-052) l
 file runs Redis, Ollama, or nginx: the former "pre-wired future services" blocks in
 `docker-compose.production.yml` were deleted when that file was rewritten to the real droplet
 stack (app + Caddy, 2026-07-24). Per One Path Forward, a service enters a compose file when it
-is actually adopted, not speculatively. (The unused `app/k8s-manifests.yml` example still
-sketches Redis/nginx resources — a stale artifact from the same era, not something any
-deployment path uses.)
+is actually adopted, not speculatively.
 
 #### Active Infrastructure Plugins
 

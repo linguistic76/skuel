@@ -95,11 +95,22 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
         return None
 
     if raw.startswith("/"):
-        # Absolute path relative to repo root
+        # Absolute path relative to repo root — the ONE canonical citation
+        # style for repo files. Machine-absolute citations
+        # (`/home/<user>/skuel/app/…`) are deliberately NOT rescued via an
+        # `/app/` landmark: that would legitimize a second, non-portable link
+        # style (Codex, PR #796). They resolve under ROOT and report broken
+        # identically in every checkout — fix the doc, not the resolver.
         return ROOT / raw.lstrip("/")
     else:
         # Relative path from source file's directory
-        return (source_file.parent / raw).resolve()
+        candidate = (source_file.parent / raw).resolve()
+        if candidate.exists():
+            return candidate
+        # Docs routinely cite paths root-relative without a leading slash
+        # (`docs/patterns/foo.md`, `core/services/bar.py`) — try the repo
+        # root before declaring the reference broken.
+        return ROOT / raw
 
 
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:

@@ -9,7 +9,7 @@ related: []
 
 # SKUEL Documentation Index
 
-> **⚠️ SINGLE SOURCE OF TRUTH:** All technical documentation lives in `/home/mike/skuel/app/docs/`
+> **⚠️ SINGLE SOURCE OF TRUTH:** All technical documentation lives in `/docs/`
 >
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
@@ -80,8 +80,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
 | [PS (Path Step)](domains/ps.md) | THE curriculum content entity — composes Kus (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
-| [Submissions + Reports](domains/submissions.md) | Exercise→UserEntry→EntryReport→RevisedExercise (4-phase learning loop, anchored to PathStep via HAS_EXERCISE) |
-| [Journals](domains/journals.md) | Standalone journal domain (JE_INPUT → JE_OUTPUT, AI-processed) |
+| [Submissions + Reports](architecture/LEARNING_LOOP_ARCHITECTURE.md) | Exercise→UserEntry→EntryReport→RevisedExercise (4-phase learning loop, anchored to PathStep via HAS_EXERCISE) |
+| [Journals](architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) | Journal workflows on the UserEntry domain (JE_INPUT → JE_OUTPUT, AI-processed; ADR-054) |
 | Groups | Teacher-student class management (ADR-040) — doc pending |
 | [MOC (Map of Content)](domains/moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
 | [LifePath](domains/lifepath.md) | "Am I living my life path?" |
@@ -329,8 +329,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Intelligence Route Factory - Usage Guide](guides/INTELLIGENCE_ROUTE_FACTORY_USAGE.md) | 2025-11-27 | 555 |
 | [HTMX Version Standardization Guide](guides/HTMX_VERSION_STANDARDIZATION.md) | 2026-01-15 | 280 |
 | [Protocol Implementation Guide](guides/PROTOCOL_IMPLEMENTATION_GUIDE.md) | 2026-01-03 | 475 |
-| [Shared UI Components - Quick Reference Card](guides/SHARED_UI_QUICK_REFERENCE.md) | 2025-11-27 | 264 |
-| [Shared UI Components Guide](guides/SHARED_UI_COMPONENTS_GUIDE.md) | 2026-01-15 | 674 |
 | **[Curriculum Developer Guide](guides/CURRICULUM_DEVELOPER_GUIDE.md)** | **2026-03-17** | **290** |
 | **[YAML Authoring Guide](guides/YAML_AUTHORING_GUIDE.md)** | **2026-03-21** | **220** |
 | **[Tasks User Guide](guides/TASKS_USER_GUIDE.md)** | **2026-06-25** | — |
