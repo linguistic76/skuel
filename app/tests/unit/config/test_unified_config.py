@@ -89,14 +89,14 @@ class TestAPIConfig:
         assert config.rate_limit_period == 60
 
     def test_from_env_reads_environment(self):
-        """Test from_env reads environment variables."""
+        """Test from_env reads the APP_* environment variables."""
         with patch.dict(
             os.environ,
             {
-                "API_HOST": "192.168.1.1",
-                "API_PORT": "9000",
-                "API_DEBUG": "true",
-                "API_RELOAD": "true",
+                "APP_HOST": "192.168.1.1",
+                "APP_PORT": "9000",
+                "APP_DEBUG": "true",
+                "APP_RELOAD": "true",
             },
         ):
             config = APIConfig.from_env()
@@ -109,7 +109,7 @@ class TestAPIConfig:
         """Test from_env uses defaults when env vars not set."""
         with patch.dict(os.environ, {}, clear=True):
             # Remove potentially set env vars
-            for key in ["API_HOST", "API_PORT", "API_DEBUG", "API_RELOAD"]:
+            for key in ["APP_HOST", "APP_PORT", "APP_DEBUG", "APP_RELOAD"]:
                 os.environ.pop(key, None)
 
             config = APIConfig.from_env()
@@ -288,7 +288,7 @@ class TestUnifiedConfigFromEnvironment:
         # Note: _load_from_env() applies after environment settings
         # Test that environment is correctly set and log_level is applied
         # Clear LOG_LEVEL to prevent .env from overriding local settings
-        with patch.dict(os.environ, {"API_DEBUG": "true", "API_RELOAD": "true", "LOG_LEVEL": ""}):
+        with patch.dict(os.environ, {"APP_DEBUG": "true", "APP_RELOAD": "true", "LOG_LEVEL": ""}):
             config = UnifiedConfig.from_environment(Environment.LOCAL)
             assert config.environment == Environment.LOCAL
             assert config.application.log_level == "DEBUG"
@@ -307,7 +307,7 @@ class TestUnifiedConfigFromEnvironment:
     def test_from_environment_development(self):
         """Test development environment settings are applied."""
         with patch("core.config.unified_config._get_neo4j_password", return_value=""):
-            with patch.dict(os.environ, {"API_DEBUG": "true", "API_RELOAD": "true"}):
+            with patch.dict(os.environ, {"APP_DEBUG": "true", "APP_RELOAD": "true"}):
                 config = UnifiedConfig.from_environment(Environment.DEVELOPMENT)
                 assert config.environment == Environment.DEVELOPMENT
                 assert config.application.debug is True

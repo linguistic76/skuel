@@ -98,10 +98,14 @@ class APIConfig:
     def from_env(cls) -> "APIConfig":
         """Create config from environment variables"""
         return cls(
-            host=os.getenv("API_HOST", "0.0.0.0"),
-            port=int(os.getenv("API_PORT", "8000")),
-            debug=os.getenv("API_DEBUG", "false").lower() == "true",
-            reload=os.getenv("API_RELOAD", "false").lower() == "true",
+            # APP_* is THE env naming for these (matches .env.example and both
+            # compose files). The former API_* reads were a dead-knob split:
+            # every env file in the repo said APP_PORT while the code read
+            # API_PORT, so containers silently listened on the 8000 default.
+            host=os.getenv("APP_HOST", "0.0.0.0"),
+            port=int(os.getenv("APP_PORT", "8000")),
+            debug=os.getenv("APP_DEBUG", "false").lower() == "true",
+            reload=os.getenv("APP_RELOAD", "false").lower() == "true",
         )
 
 

@@ -20,14 +20,18 @@ ENV UV_LINK_MODE=copy
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
-# Install production dependencies only
-RUN uv sync --no-dev --no-root
+# Install production dependencies only. --frozen: uv.lock is authoritative —
+# a stale lock fails the build rather than silently re-resolving.
+# --no-install-project: deps only; the app ships as source, not a package.
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Production stage
 FROM python:3.14-slim AS production
 
-# Create non-root user for security
-RUN groupadd -r skuel && useradd -r -g skuel skuel
+# Create non-root user for security. -m: CredentialStore initializes
+# ~/.skuel at import even when secrets come from the environment (headless
+# env-file shape), so the user needs a real home directory.
+RUN groupadd -r skuel && useradd -r -m -g skuel skuel
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -44,12 +48,20 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Copy application code
 COPY --chown=skuel:skuel . .
 
-# Create required directories
-RUN mkdir -p /app/logs /app/vault && \
+# Pre-create writable dirs and every compose mount point owned by skuel —
+# a mount point absent from the image gets auto-created root-owned by the
+# daemon, and the app then can't write siblings (e.g. /app/data/reports).
+RUN mkdir -p /app/logs /app/data/user_vaults /app/content-vault /app/personal-vault && \
     chown -R skuel:skuel /app
 
 # Switch to non-root user
 USER skuel
+
+# The container contract is port 5001 (HEALTHCHECK + EXPOSE below, Caddy's
+# reverse_proxy target, the deploy health gate). Bake it into the image so a
+# bare `docker run` honors it too — compose restates it as documentation.
+ENV APP_HOST=0.0.0.0 \
+    APP_PORT=5001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
