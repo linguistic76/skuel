@@ -173,15 +173,21 @@ Then smoke by hand: log in, run a search, open an entity detail page, create + c
 
 ## 9. Rollback
 
-The local database is untouched by this entire procedure — the dump is a copy. To back out at any point:
+The local database is untouched by this entire procedure — the dump is a copy. What "backing out" means depends on which app was pointed at Aura. In both cases the app reads its env **at startup**: editing an env file does nothing until the app is restarted.
+
+**Local app (step 7's quick check went wrong):** edit local `.env` back to the local instance and restart:
 
 ```bash
-# Point the env back at local and restart the app
-NEO4J_URI=bolt://localhost:7687   # (or neo4j://localhost:7687)
-cd /home/mike/skuel/infrastructure && docker compose up -d
+# in app/.env:  NEO4J_URI=bolt://localhost:7687   (or neo4j://localhost:7687)
+cd /home/mike/skuel/infrastructure && docker compose up -d   # ensure local Neo4j is running
+cd /home/mike/skuel/app && uv run python main.py             # restart — env is read at boot
 ```
 
-If Aura data gets corrupted *after* cutover, restore the post-migration snapshot from the console (Snapshots tab), or re-run this guide from the latest local dump.
+**Droplet:** there is no local-Neo4j fallback for production — by design. The droplet app reads `/opt/skuel/app/.env.production` + `/opt/skuel/secrets.env`, and the production boot guard refuses plaintext URI schemes, so it can only ever talk to an encrypted (Aura) endpoint. If Aura data is bad *after* cutover:
+
+- restore the post-migration **snapshot** from the console (Snapshots tab) — no config change, but restart the stack afterwards so connections re-establish cleanly (`docker compose -f docker-compose.production.yml restart skuel-app`), or
+- re-run this guide from the latest local dump, or
+- if the instance is unusable entirely, stop the stack (`docker compose -f docker-compose.production.yml down`) until it's resolved — a droplet pointed at nothing is honest downtime, not a silent wrong-database.
 
 ---
 
