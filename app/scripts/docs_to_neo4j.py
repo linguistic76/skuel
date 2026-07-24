@@ -246,7 +246,7 @@ def main():
     try:
         from neo4j import GraphDatabase
     except ImportError:
-        print("Error: neo4j package not installed. Run: pip install neo4j", file=sys.stderr)
+        print("Error: neo4j package not installed. Run: uv sync", file=sys.stderr)
         sys.exit(1)
 
     # Get connection info — credential store with env fallback handled internally
