@@ -463,27 +463,30 @@ class UserService:
             return Result.fail(target_result)
         if not target_result.value:
             return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
-        role_unchanged = target_result.value.role == new_role
+        if target_result.value.role == new_role:
+            return await self.core.update_user_role(target_user_uid, new_role)
 
-        # Delegate to core service
-        result = await self.core.update_user_role(target_user_uid, new_role)
-        if result.is_error or role_unchanged:
-            return result
+        # Revoke BEFORE persisting the new role. Revoke-after is not
+        # retryable: the retry would see the role already updated, take the
+        # no-op branch above, and never re-attempt the revocation — leaving
+        # stale-privilege sessions alive for their full lifetime. Failing
+        # here leaves the role untouched, so the admin's retry re-runs both
+        # steps. Worst case (revocation succeeds, update below fails): the
+        # target re-logs-in with the old role — annoying, never insecure.
+        revocation = await self._revoke_all_sessions(target_user_uid, change="role change")
+        if revocation.is_error:
+            return Result.fail(revocation)
 
-        return await self._revoke_sessions_after_privilege_change(
-            result, target_user_uid, change="role change"
-        )
+        return await self.core.update_user_role(target_user_uid, new_role)
 
-    async def _revoke_sessions_after_privilege_change(
-        self, result: Result[User], target_user_uid: UserUID, change: str
-    ) -> Result[User]:
-        """Revoke all live sessions after a persisted privilege change.
+    async def _revoke_all_sessions(self, target_user_uid: UserUID, change: str) -> Result[int]:
+        """Revoke all live sessions for a privilege change (forced re-login).
 
-        Forces re-login so no cookie outlives its privileges (revocation is
-        enforced per-request by AuthContextMiddleware). The change itself is
-        already saved when this runs; a failed revocation is surfaced as an
-        error so the admin retries the idempotent operation instead of
-        leaving live sessions with stale privileges.
+        Revocation is enforced per-request by AuthContextMiddleware. Retry
+        semantics are the caller's contract: update_role revokes BEFORE
+        persisting (a failure leaves the role untouched, so the retry
+        re-runs both steps); deactivate_user revokes after (deactivation is
+        idempotent, so the retry re-attempts the revocation).
         """
         if self.session_invalidator is None:
             return Result.fail(
@@ -496,21 +499,21 @@ class UserService:
         invalidation = await self.session_invalidator.invalidate_all_user_sessions(target_user_uid)
         if invalidation.is_error:
             logger.error(
-                f"Session revocation after {change} failed for {target_user_uid}: "
+                f"Session revocation for {change} failed for {target_user_uid}: "
                 f"{invalidation.expect_error().message}"
             )
             return Result.fail(
                 Errors.database(
                     operation="revoke_sessions",
-                    message=f"The {change} was saved, but revoking the user's live sessions "
-                    f"failed — retry the operation to force re-login",
+                    message=f"Revoking the user's live sessions failed — retry the {change} "
+                    f"so no session outlives its privileges",
                 )
             )
 
         logger.info(
-            f"Revoked {invalidation.value} live session(s) for {target_user_uid} after {change}"
+            f"Revoked {invalidation.value} live session(s) for {target_user_uid} ({change})"
         )
-        return result
+        return invalidation
 
     async def list_users(
         self,
@@ -600,10 +603,14 @@ class UserService:
             return result
 
         # Session nodes cache user_is_active at creation, so deactivation
-        # alone leaves live sessions valid — revoke them explicitly
-        return await self._revoke_sessions_after_privilege_change(
-            result, target_user_uid, change="deactivation"
-        )
+        # alone leaves live sessions valid — revoke them explicitly. Revoking
+        # AFTER the persist is retry-safe here (unlike update_role) because
+        # deactivating an already-inactive user is an idempotent success, so
+        # a retry always reaches this revocation again.
+        revocation = await self._revoke_all_sessions(target_user_uid, change="deactivation")
+        if revocation.is_error:
+            return Result.fail(revocation)
+        return result
 
     async def activate_user(
         self,

@@ -85,22 +85,12 @@ class TestUpdateRoleRevokesSessions:
         invalidator.invalidate_all_user_sessions.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_failed_role_update_keeps_sessions(self):
-        invalidator = _invalidator()
-        service = _make_service(invalidator=invalidator)
-        service.core.update_user_role = AsyncMock(  # type: ignore[method-assign]
-            return_value=Result.fail(Errors.database(operation="update", message="boom"))
-        )
-
-        result = await service.update_role(TARGET_UID, UserRole.MEMBER, ADMIN_UID)
-
-        assert result.is_error
-        invalidator.invalidate_all_user_sessions.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_failed_revocation_surfaces_error(self):
-        # The role update is already saved when revocation runs — the error
-        # tells the admin to retry the idempotent operation.
+    async def test_revocation_failure_leaves_role_unchanged(self):
+        # THE retryability pin (Codex P1 on #798): revocation runs BEFORE the
+        # role persists. Revoke-after was not retryable — the retry would see
+        # the role already updated, take the no-op branch, and never
+        # re-attempt the revocation. Failing here must leave the role
+        # untouched so the admin's retry re-runs both steps.
         invalidator = _invalidator(
             Result.fail(Errors.database(operation="invalidate", message="neo4j down"))
         )
@@ -110,6 +100,22 @@ class TestUpdateRoleRevokesSessions:
 
         assert result.is_error
         assert "session" in result.expect_error().message.lower()
+        service.core.update_user_role.assert_not_awaited()  # type: ignore[attr-defined]
+
+    @pytest.mark.asyncio
+    async def test_failed_role_update_after_revocation_errors(self):
+        # Revocation succeeded but the role persist failed: surface the error.
+        # The target re-logs-in with the old role — annoying, never insecure.
+        invalidator = _invalidator()
+        service = _make_service(invalidator=invalidator)
+        service.core.update_user_role = AsyncMock(  # type: ignore[method-assign]
+            return_value=Result.fail(Errors.database(operation="update", message="boom"))
+        )
+
+        result = await service.update_role(TARGET_UID, UserRole.MEMBER, ADMIN_UID)
+
+        assert result.is_error
+        invalidator.invalidate_all_user_sessions.assert_awaited_once_with(TARGET_UID)
 
     @pytest.mark.asyncio
     async def test_unwired_invalidator_fails_fast(self):
@@ -119,6 +125,7 @@ class TestUpdateRoleRevokesSessions:
 
         assert result.is_error
         assert "not wired" in result.expect_error().message
+        service.core.update_user_role.assert_not_awaited()  # type: ignore[attr-defined]
 
 
 # ============================================================================

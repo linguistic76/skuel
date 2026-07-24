@@ -194,6 +194,38 @@ async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
     assert after.value is None, "revoked session must not validate"
 
 
+async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
+    """Pin create_session's atomic active-user guard (Codex P1 on #798).
+
+    sign_in checks ``user.is_active`` early, then spends ~100ms hashing the
+    password — a deactivation landing in that window must not mint a live
+    session (its cached ``user_is_active`` would be stale-True and
+    validate_session_uid trusts it). The direct backend call below bypasses
+    sign_in's early check, exactly like a sign-in that loaded the user before
+    the deactivation committed.
+    """
+    from core.models.auth.session import create_session
+
+    auth, track = auth_env
+    username, email = track(*_credentials("inactive"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (u:User {uid: $uid}) SET u.is_active = false", uid=user_uid)
+
+    stale_session = create_session(user_uid=user_uid, ip_address="test", user_agent="test")
+    created = await auth.session_backend.create_session(stale_session)
+    assert created.is_error, "Session creation must refuse a deactivated user"
+    assert await _count_sessions(neo4j_driver, user_uid) == 0
+
+    # The ordinary path fails too (early is_active check)
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_error, "Deactivated accounts must not sign in"
+
+
 async def test_role_stored_lowercase_on_signup(neo4j_driver, auth_env):
     """Pin F8: the persisted role property is lowercase.
 

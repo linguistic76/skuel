@@ -80,14 +80,25 @@ class SessionBackend(Neo4jSessionRunner):
 
         Creates both the Session node and HAS_SESSION relationship to User.
 
+        The WHERE clause atomically requires the user to still be active at
+        creation time — sign_in checks ``user.is_active`` early, then spends
+        ~100ms verifying the password, and a deactivation landing in that
+        window must not mint a live session (validate_session_uid trusts the
+        session's cached ``user_is_active``, so a stale-cached session would
+        keep a deactivated account authenticated). ``coalesce(_, true)``
+        mirrors the User model's ``is_active`` default for nodes that predate
+        the property.
+
         Args:
             session: Session domain model
 
         Returns:
-            Result[Session]: Created session or error
+            Result[Session]: Created session, or error if the user doesn't
+            exist or has been deactivated
         """
         query = """
         MATCH (u:User {uid: $user_uid})
+        WHERE coalesce(u.is_active, true) = true
         CREATE (s:Session {
             uid: $uid,
             token_hash: $token_hash,
@@ -98,7 +109,7 @@ class SessionBackend(Neo4jSessionRunner):
             ip_address: $ip_address,
             user_agent: $user_agent,
             is_valid: $is_valid,
-            user_is_active: $user_is_active
+            user_is_active: true
         })
         CREATE (u)-[:HAS_SESSION]->(s)
         RETURN s
@@ -116,7 +127,6 @@ class SessionBackend(Neo4jSessionRunner):
                 "ip_address": session.ip_address,
                 "user_agent": session.user_agent,
                 "is_valid": session.is_valid,
-                "user_is_active": session.user_is_active,
             },
         )
 
@@ -124,7 +134,7 @@ class SessionBackend(Neo4jSessionRunner):
             return Result.fail(
                 Errors.database(
                     operation="create_session",
-                    message="Failed to create session - user may not exist",
+                    message="Failed to create session - user may not exist or is deactivated",
                 )
             )
 

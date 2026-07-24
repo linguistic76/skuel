@@ -35,6 +35,7 @@ from adapters.inbound.middleware import (
 )
 from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import DrainableEventBusOperations, EventBusOperations
+from core.ports.service_protocols import GraphAuthOperations
 from core.utils.logging import get_logger
 from services_bootstrap import Services, compose_services
 from ui.theme import chartjs_headers, skuel_headers
@@ -105,7 +106,7 @@ async def bootstrap_skuel() -> AppContainer:
             # Fail-fast: AuthContextMiddleware enforces graph sessions per
             # request — an app without graph_auth cannot revoke sessions
             raise RuntimeError("Service composition produced no graph_auth service")
-        app, rt = _create_web_app(config, static_dir, services.graph_auth)
+        app, rt = _create_web_app(config, services.graph_auth, static_dir)
 
         await _wire_routes(app, rt, services, config, prometheus_metrics)
 
@@ -443,17 +444,17 @@ async def _wire_routes(
 
 def _create_web_app(
     _config: UnifiedConfig,
+    graph_auth: GraphAuthOperations,
     static_directory: str | None = None,
-    graph_auth: Any = None,
 ) -> tuple[Any, Any]:
     """
     Create FastHTML app with headers but no routes yet.
 
     Args:
         config: Application configuration
-        static_directory: Override static files directory (defaults to ./static relative to current working directory)
         graph_auth: GraphAuthService for per-request session enforcement
             (AuthContextMiddleware fail-fasts on None)
+        static_directory: Override static files directory (defaults to ./static relative to current working directory)
 
     Returns:
         Tuple of (FastHTML app, router)
