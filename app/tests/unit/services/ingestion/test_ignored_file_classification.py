@@ -23,10 +23,11 @@ from pathlib import Path
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.services.ingestion.batch import parse_file_sync
+from core.services.ingestion.batch import classify_user_entry_failure, parse_file_sync
 from core.services.ingestion.detector import detect_entity_type, is_edge_type
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.vault.vault_reconciler import _CONTENT_FAULT_STAGES
+from core.utils.result_simplified import Errors
 
 _MD = Path("note.md")
 
@@ -120,3 +121,51 @@ class TestParseFileSyncStageTagging:
     def test_broken_yaml_tags_parsing(self, tmp_path: Path):
         error = self._parse(tmp_path, "---\ntype: ku\n  bad: [unclosed\n---\nbody\n")
         assert error["stage"] in _CONTENT_FAULT_STAGES
+
+    def test_unreadable_file_tags_file_io_not_parsing(self, tmp_path: Path):
+        """Codex #788 P2: the parsers catch IO exceptions internally and
+        return SYSTEM-category Results — an unreadable file is not the
+        file's content and must never classify as ignored."""
+        file_path = tmp_path / "locked.md"
+        file_path.write_text("---\ntype: ku\n---\nbody\n")
+        file_path.chmod(0o000)
+        try:
+            _, _, error = parse_file_sync(file_path)
+        finally:
+            file_path.chmod(0o644)
+        assert error is not None
+        assert error["stage"] == "file_io"
+        assert error["stage"] not in _CONTENT_FAULT_STAGES
+
+
+class TestUserEntryFailureClassification:
+    """Codex #788 P1: VALIDATION category alone is too broad — the
+    unreachable-reviewer compensation is Errors.validation too, and a
+    dropped turn-in must stay a sync error, never an ignorable note."""
+
+    def test_frontmatter_field_faults_are_content(self):
+        for field in ("pipeline", "status", "je_use", "private", "audience", "metadata"):
+            stage, error_type = classify_user_entry_failure(
+                Errors.validation(f"bad {field}", field=field)
+            )
+            assert (stage, error_type) == ("validation", "validation")
+
+    def test_unreachable_reviewer_stays_pipeline_error(self):
+        # The exact shape _file_submission_copy returns when a submitted
+        # copy reaches no teacher/group (compensated + must be retried).
+        error = Errors.validation(
+            "Submission for exercise ex_1 reached no teacher or group",
+            field="fulfills_exercise_uid",
+        )
+        assert classify_user_entry_failure(error) == ("user_entry_pipeline", "service")
+
+    def test_fieldless_validation_stays_pipeline_error(self):
+        error = Errors.validation("pipeline=TEACHER_REVIEW requires an audience")
+        assert classify_user_entry_failure(error) == ("user_entry_pipeline", "service")
+
+    def test_non_validation_categories_stay_pipeline_errors(self):
+        for error in (
+            Errors.forbidden(action="ingest", reason="ownership mismatch"),
+            Errors.database(operation="create_entry", message="neo4j down"),
+        ):
+            assert classify_user_entry_failure(error) == ("user_entry_pipeline", "service")
