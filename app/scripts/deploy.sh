@@ -55,6 +55,16 @@ CONTENT_SRC="${INGESTION_PATH:-$HOME/0bsidian/0vault}"
 COMPOSE="docker compose -f docker-compose.production.yml"
 HEALTH_URL="http://127.0.0.1:5001/health/ready"
 HEALTH_ATTEMPTS="${SKUEL_DEPLOY_HEALTH_ATTEMPTS:-24}" # x 5s = ~2 min (covers AuraDB Free wake-from-pause)
+# Reject a malformed override BEFORE any remote side effect: the first
+# arithmetic use of this value sits after build+up, so a late abort would
+# leave the new image serving with no gate, no promote, and no instructions.
+# (Leading zeros are rejected too — bash arithmetic reads them as octal.)
+case "$HEALTH_ATTEMPTS" in
+  '' | 0* | *[!0-9]*)
+    echo -e "${RED}SKUEL_DEPLOY_HEALTH_ATTEMPTS must be a positive integer with no leading zero, got: '$HEALTH_ATTEMPTS'${NC}" >&2
+    exit 2
+    ;;
+esac
 SKUEL_UID=10001    # container user — pinned in Dockerfile.production
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
