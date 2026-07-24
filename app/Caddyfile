@@ -1,0 +1,30 @@
+# Caddyfile — TLS termination + reverse proxy for the SKUEL droplet stack.
+# =========================================================================
+# SKUEL_DOMAIN / ACME_EMAIL come from the caddy container environment
+# (docker-compose.production.yml ← .env.production).
+#
+# Production: SKUEL_DOMAIN=skuel.app → Caddy provisions/renews Let's Encrypt
+# certificates automatically (ports 80+443 must be reachable, DNS A records
+# for apex + www pointed at the droplet).
+#
+# Local rehearsal: SKUEL_DOMAIN=localhost → Caddy issues a certificate from
+# its internal CA, so the full stack runs at https://localhost (browser
+# trust warning expected).
+#
+# NOTE: no HSTS header yet — it is a proxy concern (belongs here, not in the
+# app's middleware), but hardcoding it would poison the browser HSTS cache
+# for plain-HTTP local dev whenever SKUEL_DOMAIN=localhost. Add it scoped to
+# the real domain at launch.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$SKUEL_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy skuel-app:5001
+}
+
+www.{$SKUEL_DOMAIN} {
+	redir https://{$SKUEL_DOMAIN}{uri} permanent
+}

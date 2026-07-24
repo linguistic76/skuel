@@ -1,0 +1,12 @@
+# rsync exclude list for scripts/deploy.sh (--exclude-from).
+# Excluded paths are neither uploaded nor deleted on the droplet, so the
+# droplet-side .env.production and logs/ survive every deploy.
+.venv/
+node_modules/
+logs/
+data/
+.env*
+.git/
+htmlcov/
+__pycache__/
+neo4j/

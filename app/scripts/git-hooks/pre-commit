@@ -5,7 +5,7 @@
 #
 #   1. Secret-leak scan
 #      - .env / .env.local / .env.<anything> files staged
-#        (.env.example and .env.sample are allowed)
+#        (.env.example, .env.sample, and .env.<anything>.example are allowed)
 #      - high-confidence credential patterns in added lines
 #
 #   2. Doc cross-reference validation
@@ -60,7 +60,7 @@ else
   while IFS= read -r path; do
     [[ -z "$path" ]] && continue
     case "$(basename "$path")" in
-      .env.example|.env.sample) ;;
+      .env.example|.env.sample|.env.*.example) ;;
       .env|.env.*)
         red "✗ Refusing to commit env file: $path"
         fail=1

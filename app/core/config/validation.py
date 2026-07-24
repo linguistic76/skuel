@@ -27,6 +27,11 @@ from core.utils.logging import get_logger
 
 logger = get_logger("skuel.config.validation")
 
+# Encrypted Bolt/Neo4j URI schemes. TLS comes solely from the URI scheme —
+# neo4j_connection.py passes no encryption kwarg to the driver — so production
+# must use one of these or credentials would cross the network in plaintext.
+ENCRYPTED_NEO4J_URI_SCHEMES = ("neo4j+s", "bolt+s", "neo4j+ssc", "bolt+ssc")
+
 
 class ConfigValidator:
     """Validates configuration objects"""
@@ -120,7 +125,9 @@ def validate_database_config(config: DatabaseConfig) -> list[str]:
     # Validate Neo4j URI
     if not config.neo4j_uri:
         errors.append("Neo4j URI is required")
-    elif not config.neo4j_uri.startswith(("neo4j://", "neo4j+s://", "bolt://", "bolt+s://")):
+    elif not config.neo4j_uri.startswith(
+        ("neo4j://", "neo4j+s://", "neo4j+ssc://", "bolt://", "bolt+s://", "bolt+ssc://")
+    ):
         errors.append(f"Invalid Neo4j URI scheme: {config.neo4j_uri}")
 
     # Validate credentials
@@ -218,6 +225,19 @@ def validate_config(config: UnifiedConfig) -> list[str]:
     # Basic database validation
     if not config.database.neo4j_uri:
         errors.append("Neo4j URI is required")
+
+    # Production URI guard: encryption comes solely from the URI scheme (no
+    # driver kwarg exists for it), so a plaintext scheme in production would
+    # silently send credentials and user data unencrypted. Fails boot via
+    # get_settings() (settings.py raises on any validation error).
+    if config.environment == Environment.PRODUCTION and config.database.neo4j_uri:
+        scheme = urlparse(config.database.neo4j_uri).scheme
+        if scheme not in ENCRYPTED_NEO4J_URI_SCHEMES:
+            allowed = " | ".join(f"{s}://" for s in ENCRYPTED_NEO4J_URI_SCHEMES)
+            errors.append(
+                f"SKUEL_ENVIRONMENT=production requires an encrypted Neo4j URI "
+                f"scheme ({allowed}); got '{scheme}://'"
+            )
 
     if not config.database.neo4j_username:
         errors.append("Neo4j username is required")

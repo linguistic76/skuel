@@ -282,6 +282,9 @@ class DatabaseConfig:
     """Database adapter configuration"""
 
     # Neo4j settings
+    # TLS comes solely from the URI scheme (neo4j+s:// / bolt+s://) — the driver
+    # call passes no encryption kwarg. Production boot refuses plaintext schemes
+    # (see core/config/validation.py production URI guard).
     neo4j_uri: str = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
     neo4j_username: str = os.getenv("NEO4J_USERNAME", "neo4j")
     neo4j_password: str = field(default_factory=_get_neo4j_password)
@@ -299,7 +302,6 @@ class DatabaseConfig:
     connection_timeout: float = 30.0
     connection_acquisition_timeout: float = 60.0
     max_retry_time: float = 30.0  # -> driver max_transaction_retry_time
-    encrypted: bool = False
 
     # Query settings
     # transaction_timeout: server-side per-query / per-tx ceiling in seconds. Wired
@@ -346,7 +348,6 @@ class DatabaseConfig:
                 os.getenv("NEO4J_CONNECTION_ACQUISITION_TIMEOUT", "60")
             ),
             max_retry_time=float(os.getenv("NEO4J_MAX_TRANSACTION_RETRY_TIME", "30")),
-            encrypted=os.getenv("NEO4J_ENCRYPTED", "false").lower() == "true",
             transaction_timeout=float(os.getenv("NEO4J_TRANSACTION_TIMEOUT", "120")),
             schema_monitoring_enabled=os.getenv("NEO4J_SCHEMA_MONITORING", "false").lower()
             == "true",
@@ -359,10 +360,9 @@ class CacheConfig:
     """
     Cache adapter configuration
 
-    FUTURE SERVICE: Redis support is PRE-WIRED but currently DISABLED
-    Status: Ready to enable when needed (see FUTURE_SERVICES.md)
-    Current: Uses in-memory cache (provider="memory")
-    Enable when: Production deployment or multi-instance scaling needed
+    In-memory cache (provider="memory") is THE path — no Redis adapter/client
+    exists in the repo. The redis_* fields below are config-only placeholders
+    for a future adapter; nothing reads them at runtime.
     """
 
     enabled: bool = True
@@ -793,10 +793,10 @@ class UnifiedConfig:
         self.api.rate_limit_enabled = True
 
         self.database.enable_query_logging = False
-        self.database.encrypted = True
 
+        # Memory cache is THE path until a Redis adapter exists — no Redis
+        # client exists anywhere in the repo, so provider stays "memory".
         self.cache.enabled = True
-        self.cache.provider = "redis"
 
         self.application.log_level = "WARNING"
 
@@ -850,7 +850,16 @@ class UnifiedConfig:
         self.features.enable_experimental_features = True
 
     def _load_from_env(self) -> None:
-        """Load configuration from environment variables"""
+        """Load configuration from environment variables.
+
+        KNOWN DEBT: this runs AFTER _apply_{environment}_settings() and
+        wholesale-REPLACES self.database / self.api via from_env(), discarding
+        any environment-split values on those two sub-configs (e.g. the
+        production debug=False / rate_limit_enabled=True split). Sub-configs
+        not rebuilt here keep their split values. Precedence redesign
+        (defaults < environment split < explicit env vars) is tracked in
+        TECHNICAL_DEBT.md and is its own PR — do not band-aid it here.
+        """
         # Database from env
         self.database = DatabaseConfig.from_env()
 

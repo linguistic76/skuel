@@ -149,6 +149,10 @@ case "$1" in
     uv run python scripts/telemetry_retention.py "${@:2}"
     ;;
 
+  deploy)
+    bash scripts/deploy.sh "${@:2}"
+    ;;
+
   css)
     echo -e "${GREEN}Watching CSS changes...${NC}"
     npm run css:watch
@@ -288,6 +292,9 @@ case "$1" in
     echo "  ./dev up-monitoring  - Start Neo4j + App + Prometheus + Grafana"
     echo "  ./dev up-neo4j       - Start Neo4j only (then: uv run python main.py)"
     echo "  ./dev down           - Stop all Docker services"
+    echo ""
+    echo "Deployment:"
+    echo "  ./dev deploy         - rsync + rebuild + health-gate the droplet stack (--content | --dry-run)"
     echo ""
     echo "Setup:"
     echo "  ./dev install-hooks  - Install git pre-commit hook (secret-leak guard)"
