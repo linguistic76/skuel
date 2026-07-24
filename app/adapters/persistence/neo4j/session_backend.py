@@ -277,6 +277,48 @@ class SessionBackend(Neo4jSessionRunner):
         self.logger.info(f"Invalidated {count} sessions for user: {user_uid}")
         return Result.ok(count)
 
+    @safe_backend_operation("deactivate_user_and_revoke_sessions")
+    async def deactivate_user_and_revoke_sessions(self, user_uid: UserUID) -> Result[int]:
+        """Atomically set the user inactive AND revoke every live session.
+
+        One statement (= one transaction) on purpose: persisting
+        ``is_active=false`` first and revoking after leaves a failure mode
+        where the account LOOKS deactivated but its live sessions — cached
+        ``user_is_active=true`` — keep validating, and nothing prompts the
+        admin to retry an operation that already appears applied. Committing
+        both writes together removes that state entirely. The write lock on
+        the User node also serializes against create_session's active-user
+        guard: a concurrent sign-in either lands first (and is swept here)
+        or matches an inactive user (and is refused).
+
+        Args:
+            user_uid: User to deactivate
+
+        Returns:
+            Result[int]: Number of live sessions revoked (idempotent — an
+            already-inactive user yields 0), or not-found error
+        """
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        SET u.is_active = false
+        WITH u
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
+        WHERE s.is_valid = true
+        SET s.is_valid = false
+        RETURN count(s) as revoked_count
+        """
+
+        record = await self._run_single(query, {"user_uid": user_uid})
+
+        if not record:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+
+        count = record["revoked_count"]
+        self.logger.info(
+            f"Deactivated user {user_uid} and revoked {count} live session(s) atomically"
+        )
+        return Result.ok(count)
+
     @safe_backend_operation("cleanup_expired_sessions")
     async def cleanup_expired_sessions(self) -> Result[int]:
         """

@@ -72,7 +72,10 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.auth.context_middleware")
 
 # Subresource + liveness paths where validating adds cost but no enforcement
-# (mirrors the CSRF mint exemptions in adapters/inbound/csrf.py)
+# (mirrors the CSRF mint exemptions in adapters/inbound/csrf.py). /logout is
+# exempt for a different reason: its whole job is clearing the cookie session,
+# which must stay possible during a graph outage — enforcement would 503 the
+# one request that needs no validation to be safe.
 _ENFORCE_EXEMPT_PREFIXES: tuple[str, ...] = ("/static/",)
 _ENFORCE_EXEMPT_PATHS: frozenset[str] = frozenset(
     {
@@ -83,6 +86,7 @@ _ENFORCE_EXEMPT_PATHS: frozenset[str] = frozenset(
         "/service-worker.js",
         "/favicon.ico",
         "/robots.txt",
+        "/logout",
     }
 )
 

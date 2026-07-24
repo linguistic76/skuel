@@ -166,9 +166,9 @@ async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
     """Server-side revocation must flip a live token to invalid.
 
     This is the graph half of forced re-login on privilege change (roadmap
-    item 4): UserService.update_role / deactivate_user call
-    invalidate_all_user_sessions, and AuthContextMiddleware clears any cookie
-    whose token no longer validates (middleware half pinned in
+    item 4): UserService.update_role calls invalidate_all_user_sessions
+    before persisting the new role, and AuthContextMiddleware clears any
+    cookie whose token no longer validates (middleware half pinned in
     tests/unit/adapters/test_auth_context.py).
     """
     auth, track = auth_env
@@ -192,6 +192,44 @@ async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
     after = await auth.validate_session_uid(token)
     assert after.is_ok, f"post-revocation validation errored: {after.error}"
     assert after.value is None, "revoked session must not validate"
+
+
+async def test_deactivation_atomically_revokes_live_sessions(neo4j_driver, auth_env):
+    """Pin the one-transaction deactivate+revoke (Codex P1 on #798 round 2).
+
+    A two-step sequence (persist is_active=false, then revoke) could leave
+    the account looking deactivated while its live sessions — cached
+    user_is_active=true — kept validating. The atomic backend op must flip
+    the flag AND kill the token in one commit.
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("atomic"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    valid = await auth.validate_session_uid(token)
+    assert valid.is_ok and valid.value == user_uid, "live session must validate before deactivation"
+
+    atomic = await auth.session_backend.deactivate_user_and_revoke_sessions(user_uid)
+    assert atomic.is_ok, f"atomic deactivate+revoke failed: {atomic.error}"
+    assert atomic.value == 1, "exactly the one live session should be revoked"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-deactivation validation errored: {after.error}"
+    assert after.value is None, "a deactivated user's session must not validate"
+
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (u:User {uid: $uid}) RETURN u.is_active AS active", uid=user_uid
+        )
+        record = await result.single()
+    assert record is not None and record["active"] is False, "the flag flip must have committed"
 
 
 async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):

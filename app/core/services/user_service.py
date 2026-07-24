@@ -482,11 +482,11 @@ class UserService:
     async def _revoke_all_sessions(self, target_user_uid: UserUID, change: str) -> Result[int]:
         """Revoke all live sessions for a privilege change (forced re-login).
 
-        Revocation is enforced per-request by AuthContextMiddleware. Retry
-        semantics are the caller's contract: update_role revokes BEFORE
-        persisting (a failure leaves the role untouched, so the retry
-        re-runs both steps); deactivate_user revokes after (deactivation is
-        idempotent, so the retry re-attempts the revocation).
+        Revocation is enforced per-request by AuthContextMiddleware. The
+        caller revokes BEFORE persisting the change — a failure here leaves
+        the change unapplied, so the admin's retry re-runs both steps.
+        (Deactivation doesn't use this two-step path at all: it commits the
+        flag flip and the revocation in one transaction on SessionBackend.)
         """
         if self.session_invalidator is None:
             return Result.fail(
@@ -562,8 +562,9 @@ class UserService:
         """
         Deactivate a user account (ADMIN only).
 
-        Also revokes all of the target's live sessions — deactivation must
-        take effect immediately, not at next login.
+        Deactivation and session revocation commit atomically (one Cypher
+        transaction on SessionBackend) — deactivation must take effect
+        immediately, not at next login, and must not be able to half-apply.
 
         Args:
             target_user_uid: User to deactivate
@@ -597,20 +598,34 @@ class UserService:
                 )
             )
 
-        # Delegate to core service
-        result = await self.core.deactivate_user(target_user_uid, reason)
-        if result.is_error:
-            return result
+        if self.session_invalidator is None:
+            return Result.fail(
+                Errors.system(
+                    "Session invalidator not wired — pass session_invalidator to UserService",
+                    operation="deactivate_user",
+                )
+            )
 
-        # Session nodes cache user_is_active at creation, so deactivation
-        # alone leaves live sessions valid — revoke them explicitly. Revoking
-        # AFTER the persist is retry-safe here (unlike update_role) because
-        # deactivating an already-inactive user is an idempotent success, so
-        # a retry always reaches this revocation again.
-        revocation = await self._revoke_all_sessions(target_user_uid, change="deactivation")
-        if revocation.is_error:
-            return Result.fail(revocation)
-        return result
+        # Deactivation and session revocation commit in ONE transaction.
+        # Session nodes cache user_is_active at creation, and a two-step
+        # sequence (persist is_active=false, then revoke) has a failure mode
+        # where the account LOOKS deactivated but its live sessions keep
+        # validating — and nothing prompts the admin to retry an operation
+        # that already appears applied.
+        atomic = await self.session_invalidator.deactivate_user_and_revoke_sessions(target_user_uid)
+        if atomic.is_error:
+            return Result.fail(atomic)
+        logger.info(
+            f"Deactivated {target_user_uid}, revoked {atomic.value} live session(s). "
+            f"Reason: {reason or 'not specified'}"
+        )
+
+        refreshed = await self.get_user(target_user_uid)
+        if refreshed.is_error:
+            return Result.fail(refreshed)
+        if not refreshed.value:
+            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
+        return Result.ok(refreshed.value)
 
     async def activate_user(
         self,

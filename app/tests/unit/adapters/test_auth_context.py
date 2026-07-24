@@ -235,12 +235,20 @@ class TestGraphSessionEnforcement:
 
     @pytest.mark.asyncio
     async def test_exempt_paths_skip_validation(self):
+        # /logout is in the list so users can always clear their cookie —
+        # even during a graph outage, when enforcement would 503 them.
         stub = _StubGraphAuth()
 
         async def call_next(_req):
             return "response"
 
-        for path in ("/static/css/output.css", "/health", "/health/ready", "/favicon.ico"):
+        for path in (
+            "/static/css/output.css",
+            "/health",
+            "/health/ready",
+            "/favicon.ico",
+            "/logout",
+        ):
             await _middleware(stub).dispatch(_make_request(_valid_session(), path=path), call_next)
         assert stub.calls == []
 

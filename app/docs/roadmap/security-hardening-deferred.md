@@ -149,12 +149,16 @@ Sharpened by the droplet prep: admin role promotion IS the AI-access grant
 
 **What shipped** (variant A below, plus the enforcement that makes it real):
 
-1. **Revocation on privilege change** — `UserService.update_role` and
-   `UserService.deactivate_user` call `invalidate_all_user_sessions(user_uid)` (already on
-   `SessionBackend`; also used by password change/reset) after a *persisted, actual* change —
-   a no-op role set doesn't log anyone out, and an ADMIN→ADMIN self-update can't self-logout.
-   A failed revocation surfaces as an error (the change is saved; the admin retries the
-   idempotent operation). Wired via the `SessionInvalidationOperations` protocol
+1. **Revocation on privilege change** — `UserService.update_role` calls
+   `invalidate_all_user_sessions(user_uid)` (already on `SessionBackend`; also used by
+   password change/reset) BEFORE persisting an *actual* role change — a no-op role set
+   doesn't log anyone out, an ADMIN→ADMIN self-update can't self-logout, and a failed
+   revocation leaves the role untouched so the admin's retry re-runs both steps
+   (revoke-after was not retryable: the retry hit the no-op branch and skipped revocation).
+   `UserService.deactivate_user` goes further: the `is_active=false` flip and the session
+   sweep commit in ONE Cypher transaction (`deactivate_user_and_revoke_sessions`) — a
+   two-step sequence could leave the account looking deactivated while its live sessions
+   kept validating. Both wired via the `SessionInvalidationOperations` protocol
    (`/core/ports/service_protocols.py`).
 2. **Per-request enforcement** — the finding that reshaped the item: *nothing* validated the
    graph session per request, so server-side invalidation (including the existing password
@@ -163,9 +167,12 @@ Sharpened by the droplet prep: admin role promotion IS the AI-access grant
    `session_token` against the `:Session` node once per authenticated request
    (`validate_session_uid`: is_valid + expiry + user_is_active) and clears the cookie session
    when the graph says revoked/expired — forced re-login on the very next request. Anonymous
-   requests and static/health/PWA paths skip validation; a validation *error* (Neo4j
-   unreachable) denies with 503 WITHOUT clearing the cookie. The now-redundant, never-called
-   `get_current_user_validated()` helper was deleted (One Path Forward).
+   requests, static/health/PWA paths, and `/logout` skip validation (logout must stay
+   possible during a graph outage — its whole job is clearing the cookie); a validation
+   *error* (Neo4j unreachable) denies with 503 WITHOUT clearing the cookie. Additionally,
+   `create_session` atomically refuses inactive users, closing the deactivate-vs-concurrent
+   sign-in race. The now-redundant, never-called `get_current_user_validated()` helper was
+   deleted (One Path Forward).
 3. **Index fix** — the Session lookup index targeted the nonexistent `session_token` property
    (raw tokens never persist; nodes store `token_hash`), so every token lookup was a label
    scan. Now indexed on `token_hash`; the stale index is dropped at schema sync.

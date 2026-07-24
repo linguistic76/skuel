@@ -449,6 +449,14 @@ class SessionInvalidationOperations(Protocol):
         """Invalidate every live session for a user. Returns count invalidated."""
         ...
 
+    async def deactivate_user_and_revoke_sessions(self, user_uid: UserUID) -> Result[int]:
+        """Atomically set the user inactive AND revoke every live session.
+
+        One transaction — a two-step sequence has a failure mode where the
+        account looks deactivated but its sessions keep validating.
+        """
+        ...
+
 
 # ============================================================================
 # ORCHESTRATION — Goal→Task, Habit→Event

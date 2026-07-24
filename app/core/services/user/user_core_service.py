@@ -584,48 +584,10 @@ class UserCoreService:
 
         return Result.ok(paginated)
 
-    @with_error_handling("deactivate_user", error_type="database", uid_param="user_uid")
-    async def deactivate_user(self, user_uid: UserUID, reason: str = "") -> Result[User]:
-        """
-        Deactivate a user account.
-
-        Args:
-            user_uid: User to deactivate
-            reason: Reason for deactivation (for logging)
-
-        Returns:
-            Result[User]: Updated user or error
-
-        Note:
-            This is an internal method. Authorization checks
-            should be performed by the caller.
-        """
-        # Get current user
-        user_result = await self.get_user(user_uid)
-        if user_result.is_error:
-            return Result.fail(user_result)
-
-        if not user_result.value:
-            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-
-        user = user_result.value
-
-        if not user.is_active:
-            # Already deactivated - return current state
-            return Result.ok(user)
-
-        # Deactivate using dataclass replace
-        updated_user = dataclasses.replace(user, is_active=False)
-
-        # Save to database
-        result = await self.update_user(updated_user)
-
-        if result.is_ok:
-            logger.info(f"Deactivated user {user_uid}. Reason: {reason or 'not specified'}")
-        else:
-            logger.error(f"Failed to deactivate user {user_uid}: {result.error}")
-
-        return result
+    # deactivate_user lived here until 2026-07-24: deactivation now commits
+    # the is_active flip and the session revocation in ONE transaction via
+    # SessionBackend.deactivate_user_and_revoke_sessions (One Path Forward —
+    # the two-step load/replace/save path could half-apply).
 
     @with_error_handling("activate_user", error_type="database", uid_param="user_uid")
     async def activate_user(self, user_uid: UserUID) -> Result[User]:

@@ -34,6 +34,9 @@ def _invalidator(result: Result | None = None) -> MagicMock:
     invalidator.invalidate_all_user_sessions = AsyncMock(
         return_value=result if result is not None else Result.ok(2)
     )
+    invalidator.deactivate_user_and_revoke_sessions = AsyncMock(
+        return_value=result if result is not None else Result.ok(2)
+    )
     return invalidator
 
 
@@ -52,7 +55,6 @@ def _make_service(
 
     service.get_user = get_user  # type: ignore[method-assign, assignment]
     service.core.update_user_role = AsyncMock(return_value=Result.ok(target))  # type: ignore[method-assign]
-    service.core.deactivate_user = AsyncMock(return_value=Result.ok(target))  # type: ignore[method-assign]
     return service
 
 
@@ -135,26 +137,37 @@ class TestUpdateRoleRevokesSessions:
 
 class TestDeactivateUserRevokesSessions:
     @pytest.mark.asyncio
-    async def test_deactivation_revokes_all_target_sessions(self):
-        # Session nodes cache user_is_active at creation — without explicit
-        # revocation a deactivated user's live sessions would stay valid.
+    async def test_deactivation_uses_the_atomic_seam(self):
+        # Deactivation + revocation commit in ONE transaction (Codex P1 on
+        # #798 round 2): a two-step sequence could leave the account looking
+        # deactivated while its live sessions kept validating — with nothing
+        # prompting a retry of an operation that already appears applied.
         invalidator = _invalidator()
         service = _make_service(invalidator=invalidator)
 
         result = await service.deactivate_user(TARGET_UID, ADMIN_UID, reason="test")
 
         assert result.is_ok
-        invalidator.invalidate_all_user_sessions.assert_awaited_once_with(TARGET_UID)
+        invalidator.deactivate_user_and_revoke_sessions.assert_awaited_once_with(TARGET_UID)
+        invalidator.invalidate_all_user_sessions.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_failed_deactivation_keeps_sessions(self):
+    async def test_failed_atomic_deactivation_surfaces_error(self):
         invalidator = _invalidator()
         service = _make_service(invalidator=invalidator)
-        service.core.deactivate_user = AsyncMock(  # type: ignore[method-assign]
+        invalidator.deactivate_user_and_revoke_sessions = AsyncMock(
             return_value=Result.fail(Errors.database(operation="deactivate", message="boom"))
         )
 
         result = await service.deactivate_user(TARGET_UID, ADMIN_UID, reason="test")
 
         assert result.is_error
-        invalidator.invalidate_all_user_sessions.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_unwired_invalidator_fails_fast(self):
+        service = _make_service(invalidator=None)
+
+        result = await service.deactivate_user(TARGET_UID, ADMIN_UID, reason="test")
+
+        assert result.is_error
+        assert "not wired" in result.expect_error().message
