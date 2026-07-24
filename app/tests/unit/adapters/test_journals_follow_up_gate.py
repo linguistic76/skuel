@@ -19,6 +19,8 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.journals_routes import create_journals_routes
+from core.config.intelligence_tier import IntelligenceTier
+from core.models.enums.user_enums import UserRole
 from core.services.journal.journal_service import JournalFollowUp
 from core.utils.result_simplified import Result
 
@@ -41,6 +43,9 @@ def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def _user_service(is_founder: bool) -> MagicMock:
     user = MagicMock()
     user.journal_tier.is_founder = MagicMock(return_value=is_founder)
+    # Real role so the per-user AI gate (ADR-043) resolves for real — MEMBER
+    # passes the gate; the founder axis under test is orthogonal to it.
+    user.role = UserRole.MEMBER
     svc = MagicMock()
     svc.get_user = AsyncMock(return_value=Result.ok(user))
     return svc
@@ -56,6 +61,7 @@ def _client_for(*, is_founder: bool) -> tuple[TestClient, MagicMock, MagicMock]:
     services = MagicMock()
     services.user = user_service
     services.journal = journal
+    services.intelligence_tier = IntelligenceTier.FULL
     create_journals_routes(app, rt, services)
     return TestClient(app), journal, user_service
 
@@ -101,7 +107,7 @@ class TestFollowUpSummonGate:
         kwargs = journal.run_follow_up.await_args.kwargs
         assert kwargs["summon_canon"] is True
         assert kwargs["summon_vault"] is True
-        # ONE user resolve covers both dials.
+        # ONE user resolve covers the AI tier gate AND both dials.
         user_service.get_user.assert_awaited_once()
 
     def test_founder_vault_only_dial(self) -> None:
@@ -113,7 +119,7 @@ class TestFollowUpSummonGate:
         assert kwargs["summon_canon"] is False
         assert kwargs["summon_vault"] is True
 
-    def test_absent_flags_default_off_without_a_user_lookup(self) -> None:
+    def test_absent_flags_default_off_with_single_gate_lookup(self) -> None:
         client, journal, user_service = _client_for(is_founder=True)
 
         response = _post_follow_up(client, {})
@@ -122,8 +128,10 @@ class TestFollowUpSummonGate:
         kwargs = journal.run_follow_up.await_args.kwargs
         assert kwargs["summon_canon"] is False
         assert kwargs["summon_vault"] is False
-        # No summon requested → no user lookup spent on the common path.
-        user_service.get_user.assert_not_awaited()
+        # Every follow-up spends LLM money, so the per-user AI gate (ADR-043)
+        # must resolve the role — exactly ONE lookup, with no second load for
+        # the dials. (Supersedes the pre-gate zero-lookup optimization.)
+        user_service.get_user.assert_awaited_once()
 
 
 class TestFollowUpCanonBookScope:

@@ -44,6 +44,7 @@ from ui.journals.components import render_upload_status as render_journal_upload
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.type_hints import UserUID
+    from core.models.user.user import User
     from core.services.journal import BatchRunReport, JournalBatchService
     from services_bootstrap._container import Services
 
@@ -262,22 +263,29 @@ def create_journals_routes(
     )
     conversation_service = services.conversation
 
-    async def _ai_tier_blocked(user_uid: UserUID) -> bool:
-        """Per-user AI tier gate (ADR-043) for every LLM/Deepgram-spending route.
+    async def _load_ai_gated_user(user_uid: UserUID) -> User | None:
+        """Load the user behind the per-user AI gate (ADR-043) — ``None`` = denied.
 
         REGISTERED signups resolve to effective CORE even on a FULL system, so
         they must never reach ``run_discussion``/``run_follow_up``/the upload
         pipeline — each call spends OpenAI/Deepgram money. Fail-secure: a
         missing tier or a failed user lookup means the gate cannot be
         evaluated, so deny rather than allow (mirrors ``askesis_ui.py``).
+
+        Returns the loaded ``User`` so ONE lookup serves both this gate and any
+        FOUNDER entitlement check on the same request — callers read
+        ``user.journal_tier.is_founder()`` off the returned object instead of a
+        second ``_resolve_founder`` load (pinned by
+        ``test_journals_follow_up_gate.py``).
         """
         if intelligence_tier is None:
-            return True
+            return None
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error or user_result.value is None:
-            return True
-        effective = get_user_intelligence_tier(intelligence_tier, user_result.value.role)
-        return not effective.ai_enabled
+            return None
+        if not get_user_intelligence_tier(intelligence_tier, user_result.value.role).ai_enabled:
+            return None
+        return user_result.value
 
     async def _resolve_founder(user_uid: UserUID) -> bool:
         """THE FOUNDER-tier gate for journals entitlements (fail-closed).
@@ -386,7 +394,8 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        if await _ai_tier_blocked(user_uid):
+        gated_user = await _load_ai_gated_user(user_uid)
+        if gated_user is None:
             return _err(AI_SUBSCRIPTION_MESSAGE)
 
         form = await request.form()
@@ -398,7 +407,7 @@ def create_journals_routes(
         if journal_service is None:
             return _err("Journal AI features are not available.")
 
-        is_founder = await _resolve_founder(user_uid)
+        is_founder = gated_user.journal_tier.is_founder()
         # Title = first ~60 chars of the opening message, no LLM (ADR-078 refinement
         # 2) — a deterministic label, inline-editable in the revisit list.
         title = raw_entry.split("\n")[0].strip()[:60] or "Journal Entry"
@@ -509,7 +518,8 @@ def create_journals_routes(
 
             # Every upload mode spends external-API money (Deepgram and/or LLM),
             # so the whole route sits behind the per-user AI gate.
-            if await _ai_tier_blocked(user_uid):
+            gated_user = await _load_ai_gated_user(user_uid)
+            if gated_user is None:
                 return render_journal_upload_status(
                     "error", AI_SUBSCRIPTION_MESSAGE, is_error=True, status_id=status_id
                 )
@@ -540,7 +550,7 @@ def create_journals_routes(
                 processing_mode=processing_mode,
             )
 
-            is_founder = await _resolve_founder(user_uid)
+            is_founder = gated_user.journal_tier.is_founder()
 
             # Only the /journals landing form carries a #journal-workspace to
             # retarget into; the /submissions/journal form omits this flag and
@@ -638,7 +648,7 @@ def create_journals_routes(
             user_uid = require_authenticated_user(request)
 
             # Same cost surface as /journals/upload (Deepgram and/or LLM per file).
-            if await _ai_tier_blocked(user_uid):
+            if await _load_ai_gated_user(user_uid) is None:
                 return render_journal_upload_status("error", AI_SUBSCRIPTION_MESSAGE, is_error=True)
 
             form = await request.form()
@@ -831,7 +841,7 @@ def create_journals_routes(
         # the caller.
         if journal_service is None or not journal_service.suggestions_available:
             return SuggestedActivitiesPanel(unavailable=True)
-        if await _ai_tier_blocked(user_uid):
+        if await _load_ai_gated_user(user_uid) is None:
             return SuggestedActivitiesPanel(unavailable=True)
 
         form = await request.form()
@@ -1078,7 +1088,8 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        if await _ai_tier_blocked(user_uid):
+        gated_user = await _load_ai_gated_user(user_uid)
+        if gated_user is None:
             return FollowUpErrorFragment(AI_SUBSCRIPTION_MESSAGE)
 
         if not user_reply or not user_reply.strip():
@@ -1089,11 +1100,11 @@ def create_journals_routes(
 
         # Both dials are FOUNDER entitlements — the composer dials are hidden
         # for other tiers, but a POST flag is forgeable, so gate them
-        # server-side (Codex #572 P1). One tier resolve covers both; only load
-        # the user when a summon is actually requested (no cost on the common
-        # ungrounded follow-up).
+        # server-side (Codex #572 P1). The AI gate above already loaded the
+        # user, so the dials resolve off that object — still ONE lookup per
+        # follow-up (pinned by test_journals_follow_up_gate.py).
         if summon_canon or summon_vault:
-            is_founder = await _resolve_founder(user_uid)
+            is_founder = gated_user.journal_tier.is_founder()
             summon_canon = summon_canon and is_founder
             summon_vault = summon_vault and is_founder
 
