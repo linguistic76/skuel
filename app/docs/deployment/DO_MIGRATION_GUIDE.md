@@ -1,470 +1,261 @@
 ---
-title: DigitalOcean Migration Guide
+title: Droplet Deployment Guide
+updated: 2026-07-24
+category: deployment
+tags: [deployment, droplet, caddy, auradb, operations]
 related_skills:
+  - docker
   - neo4j-cypher-patterns
 ---
-# DigitalOcean Migration Guide
+# Droplet Deployment Guide
 
-**Last Updated:** 2026-02-05
-**Migration Type:** Infrastructure Change (Local Docker → DigitalOcean)
-**Position in deployment roadmap:** Intermediate step between local development and AuraDB production
+**Last Updated:** 2026-07-24
+**Scope:** Running skuel.app publicly from a DigitalOcean droplet (app + Caddy in Docker) against Neo4j AuraDB Free
+**Filename note:** kept as `DO_MIGRATION_GUIDE.md` for link stability; the App Platform + Neo4j-droplet plan it used to describe was skipped (see [NEO4J_SETUP_MIGRATION_SUMMARY.md](./NEO4J_SETUP_MIGRATION_SUMMARY.md)).
 
 ---
 
-## Where This Fits in the Deployment Roadmap
-
-SKUEL's infrastructure evolves in three stages. This guide covers Stage 2.
+## The One Path
 
 ```
-Stage 1 (Current)          Stage 2 (This Guide)           Stage 3 (End Goal)
-─────────────────          ────────────────────           ──────────────────
-Local Docker Neo4j    →    DO Droplet Neo4j          →    AuraDB
-Local app (uv)         DO App Platform (app)          DO App Platform (app)
-                                                          See: AURADB_MIGRATION_GUIDE.md
+┌──────────────────────────────────────────┐
+│  DigitalOcean droplet                    │      ┌──────────────────────┐
+│                                          │      │  Neo4j AuraDB Free   │
+│  ┌───────────┐        ┌──────────────┐   │      │  (managed)           │
+│  │  caddy    │──5001──│  skuel-app   │───┼──────│  neo4j+s://…         │
+│  │  :80/:443 │        │  (loopback)  │   │      │  neo4j.io            │
+│  └───────────┘        └──────────────┘   │      └──────────────────────┘
+│  auto-TLS (Let's Encrypt)                │
+└──────────────────────────────────────────┘
 ```
 
-Stage 2 is the production-validation step. It proves the app works in a cloud environment, establishes operational habits (backups, monitoring, networking security), and reduces risk when Stage 3 swaps Neo4j for AuraDB — which is a single `.env` change at that point.
+Two containers on one droplet, defined in `app/docker-compose.production.yml`:
+
+- **`skuel-app`** — the FastHTML app built from `Dockerfile.production` (Python 3.14-slim, non-root user `skuel` pinned to UID/GID 10001, `APP_PORT=5001` baked into the image). Published on **loopback only** (`127.0.0.1:5001`) — Caddy fronts the world; the deploy health gate curls it directly.
+- **`caddy`** — `caddy:2-alpine` terminating TLS on 80/443 (+443/udp for HTTP/3), auto-provisioning Let's Encrypt certificates for `SKUEL_DOMAIN`, redirecting `www.` → apex, and reverse-proxying to `skuel-app:5001`. Config in `app/Caddyfile`.
+
+Neo4j is **not** on the droplet. Production talks to AuraDB Free over `neo4j+s://`; boot refuses plaintext URI schemes (`/core/config/validation.py` — `SKUEL_ENVIRONMENT=production` requires `neo4j+s | bolt+s | neo4j+ssc | bolt+ssc`). Startup tolerates a paused/waking Free instance via bounded connect retry (`connect_with_retry`, ADR-080 H0). Getting data INTO AuraDB is [AURADB_MIGRATION_GUIDE.md](./AURADB_MIGRATION_GUIDE.md).
+
+Local development is untouched by all of this: `infrastructure/docker-compose.yml` Neo4j + `uv run python main.py` (or `app/docker-compose.yml` for the full local stack).
+
+### Config layering on the droplet
+
+| File | Contains | Managed how |
+|------|----------|-------------|
+| `/opt/skuel/app/` | the rsync'd working tree | `./dev deploy` (mirrors your local checkout) |
+| `/opt/skuel/app/.env.production` | non-secret config (copy of `.env.production.example`, filled in) | created once by hand; **survives deploys** (`.deployignore` excludes `.env*` from transfer AND deletion) |
+| `/opt/skuel/secrets.env` | secrets, mode **0600** | created once by hand; loaded via compose `env_file` |
+
+The droplet is **headless** — no keychain. `get_credential()` falls back to the process environment, so env-file injection is the secrets path. Required in `secrets.env`: `NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `SESSION_SECRET_KEY`. Optional per-feature: `RESEND_API_KEY` (when `EMAIL_ENABLED=true`), `ANTHROPIC_API_KEY`, `STRIPE_WEBHOOK_SECRET`, and `SIGNUP_INVITE_CODE` if you prefer keeping the invite code out of `.env.production` (it resolves through `get_credential()` either way).
+
+`INTELLIGENCE_TIER=full` **boot-fails without `OPENAI_API_KEY` and `DEEPGRAM_API_KEY`** — that is correct fail-fast behavior, not a bug: FULL-tier dependencies are required, never silently degraded.
 
 ---
 
-## Architecture Decision: Why Two Services, Not One
+## Prerequisites (first deploy only)
 
-Neo4j on App Platform is not viable. App Platform is built for stateless workloads: it provides no guarantees on local disk persistence, no fine-grained memory tuning controls, and no stable network identity between restarts. Neo4j is a stateful database that requires all three.
+On your machine:
 
-The architecture for Stage 2 is therefore:
+- [ ] An ssh_config `Host` alias for the droplet (default name `skuel-droplet`; override with `SKUEL_DROPLET_SSH`) carrying user/IP/key.
+- [ ] The content vault at `INGESTION_PATH` (defaults to `~/0bsidian/0vault`) if deploying content.
 
-```
-┌─────────────────────────────────────────────────────┐
-│  DigitalOcean                                       │
-│                                                     │
-│  App Platform                   Droplet             │
-│  ┌─────────────┐               ┌───────────────┐   │
-│  │  SKUEL App  │───Bolt:7687──►│  Neo4j Docker │   │
-│  │  (FastHTML) │               │  (stateful)   │   │
-│  │  Port 5001  │               │  Port 7687    │   │
-│  └─────────────┘               └───────────────┘   │
-│  Managed PaaS                  Self-managed VM      │
-│  Auto-deploy from git          Persistent volumes   │
-│  Built-in secrets              Memory-tunable       │
-│  Health checks                 Firewall control     │
-└─────────────────────────────────────────────────────┘
-```
+On the droplet (Ubuntu LTS assumed):
 
-**App Platform** is the right home for SKUEL: it's a stateless web server, `Dockerfile.production` already exists, and App Platform handles deploys, health checks, and secrets natively.
+- [ ] Docker Engine + the compose plugin (`curl -fsSL https://get.docker.com | sh`).
+- [ ] `/opt/skuel/` layout — `deploy.sh` creates `app/`, `content-vault/`, `personal-vault/` itself; you create the two env files **before the first `./dev deploy`** (compose refuses to start without them — both are `env_file` entries):
+  ```bash
+  # On the droplet:
+  mkdir -p /opt/skuel/app
+  # secrets — 0600, owned by the user that runs docker compose (deploy.sh's SSH
+  # user): compose itself reads env_file on the host, so it must be able to
+  # open the file. root-owned is right only when that user is root.
+  touch /opt/skuel/secrets.env && chmod 0600 /opt/skuel/secrets.env
 
-**Droplet** is the right home for Neo4j: identical Docker setup to local development, full volume and memory control, and a stable network identity that App Platform can reach.
+  # From your machine — the template never lands via deploy (rsync excludes
+  # .env* from transfer AND deletion, which is also why your filled-in copy
+  # survives every subsequent deploy):
+  scp app/.env.production.example skuel-droplet:/opt/skuel/app/.env.production
+  ssh skuel-droplet   # then edit /opt/skuel/app/.env.production with real values
+  ```
+- [ ] Firewall: inbound TCP 22 (your IP), 80, 443 (+ UDP 443 for HTTP/3). Nothing else — the app port is loopback-only.
 
----
+DNS:
 
-## Networking: How App Platform Reaches the Droplet
+- [ ] A records for the apex (`skuel.app`) **and** `www` pointing at the droplet. Caddy needs both resolvable to provision certificates (the `www` site block issues its own cert for the redirect).
 
-App Platform services do not attach to user-managed VPCs, so private networking between App Platform and a Droplet is not available. The connection goes over the public network. This means:
+`.env.production` values that trip people up:
 
-1. Neo4j Bolt (port 7687) must be exposed on the Droplet's public IP.
-2. The Droplet firewall must restrict port 7687 to known source IPs only.
-3. The connection string uses the Droplet's public IP: `bolt://<droplet-ip>:7687`.
+- **`FORWARDED_ALLOW_IPS`** — uvicorn trusts `X-Forwarded-For` only from these sources. Caddy is the only other container on the compose network; Docker's default address pools live under `172.16.0.0/12`, so that CIDR is the shipped default. Without it, every visitor shares Caddy's container IP — rate-limit buckets and the AuthEvent audit trail need the real client IP.
+- **`APP_URL=https://skuel.app`** — absolute origin used in outbound links (password-reset emails).
+- **`SKUEL_DOMAIN` / `ACME_EMAIL`** — read by the caddy container from `.env.production` via compose `env_file` (the `{$VAR}` placeholders in the Caddyfile are resolved by Caddy from its container environment, not by compose interpolation — no shell exports needed).
+- **`SIGNUP_INVITE_CODE`** — set it. It is the real throttle on AuraDB Free node-cap growth and LLM-cost abuse. Registration then requires the code (constant-time check **before** any account is created); unset = open signup.
 
-DigitalOcean App Platform publishes its outbound IP ranges in the [App Platform documentation](https://docs.digitalocean.com/products/app-platform/). Add those CIDRs to the Droplet's firewall inbound rule for TCP 7687. No other port (7474 HTTP browser) needs to be open in production — Bolt is sufficient.
+### Local rehearsal
 
-If the outbound IPs change or are not stable, an alternative is to place both the app and Neo4j on a single Droplet behind Docker Compose. This trades App Platform's managed deploys for simpler networking. See the "Single-Droplet Alternative" section at the end of this guide.
-
----
-
-## Prerequisites
-
-- [ ] DigitalOcean account created
-- [ ] SSH key added to your DO account
-- [ ] Current Neo4j data backed up (see Phase 1)
-- [ ] `Dockerfile.production` reviewed (note: currently targets Python 3.11; align with `pyproject.toml` if it requires 3.12+)
-- [ ] HuggingFace API key available (for embeddings, Python-side)
-- [ ] Domain name (optional for this stage, required for TLS in production)
-
----
-
-## Phase 1: Backup Local Neo4j
-
-Back up before touching anything. This is the same procedure used in the AuraDB guide.
+The full stack runs locally without a droplet, but the compose file's two `env_file` entries are mandatory — create both first:
 
 ```bash
-cd ~/skuel/infrastructure
+cd ~/skuel/app
+cp .env.production.example .env.production   # set SKUEL_DOMAIN=localhost; point
+                                             # NEO4J_URI at a scratch AuraDB Free instance
+sudo mkdir -p /opt/skuel                     # same secrets path the droplet uses
+sudo touch /opt/skuel/secrets.env
+sudo chown "$USER" /opt/skuel/secrets.env    # compose reads env_file as YOU —
+sudo chmod 0600 /opt/skuel/secrets.env       # it must be readable by the compose user
+# fill secrets.env: NEO4J_PASSWORD, OPENAI_API_KEY, DEEPGRAM_API_KEY, SESSION_SECRET_KEY
 
-# Stop the container cleanly
-docker compose stop neo4j
-
-# Dump the database
-docker compose run --rm neo4j \
-  neo4j-admin database dump neo4j \
-  --to-path=/backups/backup_$(date +%Y%m%d_%H%M%S).dump
-
-# Copy to host
-docker cp skuel-neo4j:/backups/backup_*.dump ./neo4j/backups/
-
-# Restart
-docker compose start neo4j
+docker compose -f docker-compose.production.yml up --build
 ```
 
-Verify the backup file exists and has non-zero size before proceeding.
+With `SKUEL_DOMAIN=localhost` Caddy issues a certificate from its internal CA and serves `https://localhost` (browser trust warning expected). The scratch Aura instance rehearses the real `neo4j+s://` path end to end — schema auto-creation, FULL-tier fail-fast, wake-from-pause. Keep the local `.env.production` out of git (already `.gitignore`d).
 
 ---
 
-## Phase 2: Provision the Neo4j Droplet
-
-### 2.1 Create the Droplet
-
-Neo4j's memory config in `infrastructure/.env` is:
-- Heap: 1G init / 1.5G max
-- Page cache: 2G
-
-That totals ~3.5G for Neo4j alone. The OS and Docker runtime need headroom on top. **Choose the 8GB RAM Droplet** ($48/month, 2 vCPU). A 4GB Droplet will work under light load but will pressure the page cache.
-
-| Setting | Value |
-|---------|-------|
-| Image | Ubuntu 24.04 LTS |
-| Size | 2 vCPU, 8 GB RAM ($48/mo) |
-| Region | Closest to your users |
-| Hostname | `skuel-neo4j` |
-| SSH Key | Your DO SSH key |
-| Firewall | See 2.2 |
-
-### 2.2 Configure the Firewall
-
-Create a firewall rule set for the Droplet. Start locked down, then open only what is needed:
-
-| Type | Protocol | Port | Source | Purpose |
-|------|----------|------|--------|---------|
-| Inbound | TCP | 22 | Your IP only | SSH management |
-| Inbound | TCP | 7687 | App Platform outbound CIDRs | Bolt (application traffic) |
-| Outbound | TCP | All | All | Standard outbound (Docker pulls, etc.) |
-
-Do **not** open port 7474 (Neo4j Browser HTTP). If you need to inspect the database during setup, SSH-tunnel it locally:
+## Deploying
 
 ```bash
-ssh -L 7474:localhost:7474 -L 7687:localhost:7687 root@<droplet-ip>
-# Then open http://localhost:7474 on your machine
+./dev deploy              # rsync → build → up → health gate
+./dev deploy --content    # + sync content vault and run the in-container vault sync
+./dev deploy --dry-run    # print every command, execute nothing
 ```
 
-### 2.3 Install Docker
+`/scripts/deploy.sh` is a one-shot push deploy — no CI/CD dependency; what you have locally is what ships:
 
-```bash
-ssh root@<droplet-ip>
+1. **rsync the working tree** to `/opt/skuel/app` with `--delete` (exact mirror), excluding `.deployignore` paths from both transfer and deletion — the droplet-side `.env.production` and `logs/` survive every deploy.
+2. **chown the writable bind mounts** (`/opt/skuel/personal-vault`, `app/logs`) to UID 10001. A bind mount hides the image's chowned directory, so ownership is a host-side concern; the content vault stays root-owned (mounted `:ro`).
+3. `--content`: rsync the content vault → `/opt/skuel/content-vault/` (excluding `Resources/` — binary attachments, not ingestible curriculum).
+4. **`compose build && up -d`** on the droplet.
+5. **Health gate**: poll `http://127.0.0.1:5001/health/ready` over SSH, up to 24 × 5 s ≈ 2 min. `/health/ready` returns 503 until Neo4j answers, so passing means the app booted **and** AuraDB responded — including wake-from-pause on a Free instance.
+6. **Only after a green gate**, tag `skuel-app:latest` as `skuel-app:rollback`. The rollback tag is written nowhere else, so it always names the newest image that passed a gate — a failed deploy (or a rerun of one) can never move it.
+7. `--content`: run the one-shot in-container content-vault sync (`vault_bridge_sync.py --vault content`).
 
-# Standard Docker install for Ubuntu 24.04
-curl -fsSL https://get.docker.com | sh
-
-# Verify
-docker --version
-docker compose version
-```
-
-### 2.4 Deploy the Neo4j Container
-
-The Droplet's Neo4j setup is a direct lift of `infrastructure/docker-compose.yml`. The only change is that port bindings move from `127.0.0.1:` (localhost-only) to `0.0.0.0:` for Bolt, because App Platform needs to reach it from outside the machine. HTTP stays on localhost since only the SSH tunnel uses it.
-
-```bash
-mkdir -p /opt/skuel-neo4j
-cd /opt/skuel-neo4j
-
-# Create docker-compose.yml
-cat > docker-compose.yml << 'EOF'
-services:
-  neo4j:
-    image: neo4j:2026.06.0
-    container_name: skuel-neo4j
-    restart: unless-stopped
-    ports:
-      - "0.0.0.0:7687:7687"       # Bolt — open for App Platform
-      - "127.0.0.1:7474:7474"     # HTTP — localhost only (SSH tunnel)
-    environment:
-      NEO4J_PLUGINS: '["apoc"]'
-      NEO4J_AUTH: "${NEO4J_AUTH}"
-      NEO4J_server_memory_heap_initial__size: "${NEO4J_HEAP_INIT}"
-      NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP_MAX}"
-      NEO4J_server_memory_pagecache_size: "${NEO4J_PAGECACHE}"
-      # Server-side fallback ceiling (defense in depth). Day-to-day, the app
-      # sets a per-query timeout client-side via TimedDriver (env
-      # NEO4J_TRANSACTION_TIMEOUT, default 120s; bulk ingestion wraps to 600s).
-      # When the client passes a Query(timeout=…), the server enforces THAT
-      # value, not this default. See: docs/patterns/NEO4J_QUERY_TIMEOUT.md, ADR-064.
-      NEO4J_db_transaction_timeout: 600s
-      NEO4J_server_memory_query__cache_per__db__cache__num__entries: "2000"
-      NEO4J_dbms_cypher_planner: COST
-      # Keep query semantics on CYPHER_5 (the vendor conf pins CYPHER_25 for
-      # new installs; see docs/patterns/NEO4J_SERVER_TUNING.md)
-      NEO4J_db_query_default__language: "CYPHER_5"
-      # Vector API (SIMD) — appends to the vendor JVM flag set
-      NEO4J_server_jvm_additional: "--add-modules jdk.incubator.vector"
-      NEO4J_db_logs_query_enabled: INFO
-      NEO4J_db_logs_query_threshold: 1s
-      NEO4J_db_logs_query_parameter__logging__enabled: "true"
-      NEO4J_dbms_security_procedures_unrestricted: "apoc.meta.*"
-      NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
-      NEO4J_server_bolt_enabled: "true"
-      NEO4J_server_bolt_listen__address: 0.0.0.0:7687
-      NEO4J_server_http_enabled: "true"
-      NEO4J_server_http_listen__address: 0.0.0.0:7474
-    volumes:
-      # Deliberately NO /conf mount — it makes the entrypoint wipe the image's
-      # default neo4j.conf (~22 vendor JVM flags); config via NEO4J_* env only
-      - ./data:/data
-      - ./logs:/logs
-      - ./plugins:/plugins
-      - ./import:/import
-      - ./backups:/backups
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7474"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-EOF
-
-# Create .env with your actual values
-cat > .env << 'EOF'
-NEO4J_AUTH=neo4j/<your-password>
-NEO4J_HEAP_INIT=1G
-NEO4J_HEAP_MAX=1500M
-NEO4J_PAGECACHE=2G
-EOF
-```
-
-**Do not commit the `.env` file.** It contains credentials.
-
-```bash
-docker compose up -d
-docker compose logs -f neo4j   # Wait for "Neo4j started" message
-```
-
-### 2.5 Restore Data
-
-Copy the backup from Phase 1 to the Droplet, then restore:
-
-```bash
-# From your local machine:
-scp ./neo4j/backups/backup_*.dump root@<droplet-ip>:/opt/skuel-neo4j/backups/
-
-# On the Droplet:
-cd /opt/skuel-neo4j
-docker compose stop neo4j
-
-docker compose run --rm neo4j \
-  neo4j-admin database load neo4j \
-  --from-path=/backups/backup_YYYYMMDD_HHMMSS.dump \
-  --force
-
-docker compose start neo4j
-```
-
-### 2.6 Verify the Droplet Neo4j
-
-SSH into the Droplet and test via the Bolt driver:
-
-```bash
-docker exec skuel-neo4j cypher-shell -u neo4j -p <your-password> \
-  "RETURN count(*) AS nodes"
-```
-
-Compare the node count to the pre-backup count from Phase 1.
+A failed gate exits non-zero and prints rollback instructions. **No auto-rollback** — rolling back is a deliberate human call (see the runbook below).
 
 ---
 
-## Phase 3: Deploy the App on App Platform
+## Operations Runbook
 
-### 3.1 Review Dockerfile.production
+### Weekly: telemetry retention (keeps the Free node cap safe)
 
-`Dockerfile.production` exists at the repo root. Before deploying, verify:
+AuraDB Free caps the graph at **200k nodes / 400k relationships** (Aura FAQ, verified 2026-07-24 — the 50k/175k figures still on the product page are the stale 2021 launch limits). System telemetry (AuthEvent/SearchEvent/Interaction/stale VIEWED) grows without bound and dwarfs the curriculum; prune it weekly with a **host-side cron** running the one-shot retention command in-container:
 
-- The Python version matches `pyproject.toml` (`python:3.12-slim`). If `pyproject.toml` is updated to require a newer version, bump the base image in both builder and production stages.
-- The `CMD` runs `main.py` on port 5001. Do not change the entry point or port — health checks and port mappings depend on both.
-- The health check hits `/health` (liveness) and `/health/ready` (readiness — checks Neo4j) on port 5001. Both endpoints are unauthenticated and registered in `adapters/inbound/system_api.py`.
+```cron
+# /etc/cron.d/skuel-telemetry — weekly, Sunday 04:00
+0 4 * * 0  root  cd /opt/skuel/app && docker compose -f docker-compose.production.yml exec -T skuel-app python scripts/telemetry_retention.py >> /opt/skuel/telemetry-cron.log 2>&1
+```
 
-### 3.2 Create the App Platform App
+One-shot, not a daemon — this preserves the "no background workers" guarantee (ADR-080 H0).
 
-In the DigitalOcean console:
+On auto-pause: Aura Free pauses after ~72 hours **without connections** — a weekly cron alone would not prevent that. In practice the question doesn't arise while the app is up: the app's graph-health metrics poller queries Neo4j every 5 minutes for as long as the container runs, so an active deployment never goes idle. Pausing only happens if the app itself is down past the pause window, and that wake-up is exactly what `connect_with_retry` and the deploy health gate absorb.
 
-1. **Apps** → **Create App**
-2. Source: Connect your Git repository (GitHub, GitLab, etc.)
-3. App Platform will auto-detect `Dockerfile.production`. If not, specify `dockerfile_path: Dockerfile.production` in the app spec.
-4. Component type: **Web Service**
-5. Name: `skuel-app`
-6. Instance size: Start with **Basic** ($5/month, 512MB). Scale up if the app needs more.
+Saved discussions (`:ConversationSession`) are **never** pruned — explicitly-saved user content, not telemetry. Windows/batch size: `/core/constants.py` `TelemetryRetention`. Dry-run first from any shell: `docker compose … exec -T skuel-app python scripts/telemetry_retention.py --dry-run`.
 
-### 3.3 Configure Environment Variables
+If the Prometheus alerts `AuraNodeCapApproaching` / `AuraRelationshipCapApproaching` fire (80% of cap on the `skuel_total_entities` / `skuel_total_relationships` gauges, `/monitoring/prometheus/alerts.yml`): run retention, review growth with `./dev knowledge-health`, and consider tightening the invite gate or moving to a paid tier.
 
-These are the secrets and config the app needs. Set them in the App Platform UI under **Environment Variables**, marked as **Secret** where indicated.
+### Backups: Aura snapshots + count exports
 
-| Variable | Value | Secret? |
-|----------|-------|---------|
-| `NEO4J_URI` | `bolt://<droplet-ip>:7687` | Yes |
-| `NEO4J_USERNAME` | `neo4j` | No |
-| `NEO4J_PASSWORD` | `<your-neo4j-password>` | Yes |
-| `OPENAI_API_KEY` | `sk-proj-...` | Yes |
-| `HUGGINGFACE_API_KEY` | `hf-...` | Yes |
-| `DEEPGRAM_API_KEY` | `<your-key>` | Yes |
-| `APP_HOST` | `0.0.0.0` | No |
-| `APP_PORT` | `5001` | No |
-| `INTELLIGENCE_TIER` | `full` | No |
-| `LOG_LEVEL` | `INFO` | No |
+AuraDB Free has **no automatic backups** — only **on-demand snapshots** (one at a time), triggered manually from the instance's Snapshots tab in the [Aura console](https://console.neo4j.io/), exportable/downloadable as a `.backup` file. Verified 2026-07-24; re-check the [Aura backup docs](https://neo4j.com/docs/aura/managing-instances/backup-restore-export/) before relying on this.
 
-App Platform encrypts Secret-typed variables. They are not visible in plaintext after initial entry.
-
-### 3.4 Deploy and Verify
-
-App Platform auto-deploys on push to the configured branch. After the first deploy:
-
-1. Check the deploy logs in the App Platform UI for startup errors.
-2. The app should log successful Neo4j connection within the first few seconds.
-3. Hit the App Platform-assigned URL (e.g., `https://skuel-app-xxxxx.ondigitalocean.app`) and confirm the UI loads.
-4. Run a search or create an entity to confirm the full read/write path works end-to-end.
-
----
-
-## Phase 4: Verify Embeddings
-
-Embeddings are computed Python-side via the HuggingFace Inference API — no Neo4j GenAI plugin required. The app connects to the Droplet Neo4j for storage/retrieval only. Verify the embedding service is reachable from the deployed app:
+Cheap integrity record to pair with a snapshot — archive a count export:
 
 ```bash
-# Test that the app's embedding service can reach HuggingFace
-# Check the App Platform deploy logs for embedding service initialization:
-# "Embedding service initialized" or similar startup message
-
-# From the App Platform console, confirm the HUGGINGFACE_API_KEY env var is set.
-# The app will log a warning on startup if embeddings are unavailable.
+# Run against Aura (NEO4J_* env pointing at the instance)
+uv run python scripts/export_entity_counts.py > counts_$(date +%Y%m%d).json
 ```
 
-If embeddings fail, the app falls back to keyword search (INTELLIGENCE_TIER=core behavior). Check `INTELLIGENCE_TIER` is set to `full` in App Platform environment variables to enable the full embedding pipeline.
+Pure Cypher, JSON to stdout; `--compare earlier.json` diffs live counts and exits 1 on any mismatch. Take a snapshot + count export before anything risky (bulk ingest, retention with a new window, tier change).
 
----
-
-## Phase 5: Operational Checklist
-
-Once Stage 2 is running, these are the operational responsibilities that did not exist in local development. Getting comfortable with them before moving to AuraDB is the point of this stage.
-
-### Backups
-
-Neo4j on the Droplet has no automatic backups. Set up a cron job:
+Vault data lives only on the droplet, in **two different places**: the personal vault is a bind mount under `/opt/skuel/personal-vault`, but the per-user vaults (`user_vaults`) are a **named Docker volume** — under Docker's data root (`/var/lib/docker/volumes/`), *not* `/opt/skuel`. A whole-droplet DO snapshot covers both and is the low-effort answer. If you run file-level backups instead, backing up `/opt/skuel` alone silently omits every per-user vault — archive the volume too:
 
 ```bash
-# On the Droplet, add to crontab (crontab -e):
-0 3 * * * cd /opt/skuel-neo4j && docker compose run --rm neo4j \
-  neo4j-admin database dump neo4j \
-  --to-path=/backups/backup_$(date +%Y%m%d_%H%M%S).dump
-
-# Rotate old backups (keep 7 days):
-0 4 * * * find /opt/skuel-neo4j/backups -name "backup_*.dump" -mtime +7 -delete
+# tar the user_vaults volume via the running container's mounts
+docker run --rm --volumes-from skuel-app -v /opt/skuel/backups:/out alpine \
+  tar czf "/out/user_vaults_$(date +%Y%m%d).tar.gz" -C /app/data/user_vaults .
 ```
 
-Consider pushing backups to DigitalOcean Spaces for off-Droplet durability.
+### Uptime
 
-### Monitoring
+Point an external pinger (UptimeRobot or similar) at **`https://skuel.app/health`** — liveness, unauthenticated, cheap. Don't ping `/health/ready` for uptime: it exercises Neo4j on every probe, and a paused-instance wake would read as flapping.
 
-SKUEL already ships Prometheus + Grafana (see `docker-compose.yml` in the app). On the Droplet, you can run a lightweight Neo4j metrics exporter or simply monitor via the health check endpoint. At minimum, set up a simple uptime monitor (e.g., UptimeRobot, or DO's built-in health checks) on the Droplet.
-
-### Security
-
-- Rotate the Neo4j password and OpenAI API key on a regular cadence.
-- Keep the Droplet's OS and Docker updated: `apt update && apt upgrade -y` monthly.
-- The firewall rule for port 7687 should be the only inbound rule besides SSH.
-
-### Updates
-
-When `infrastructure/docker-compose.yml` changes Neo4j version or configuration locally, apply the same change on the Droplet:
+### Logs
 
 ```bash
-cd /opt/skuel-neo4j
-# Update docker-compose.yml to match infrastructure/docker-compose.yml
-# (only the port binding difference: 0.0.0.0 vs 127.0.0.1 for Bolt)
-docker compose pull
-docker compose up -d
+ssh skuel-droplet
+cd /opt/skuel/app
+docker compose -f docker-compose.production.yml logs -f skuel-app     # app
+docker compose -f docker-compose.production.yml logs -f caddy         # TLS/proxy
+docker compose -f docker-compose.production.yml logs --tail 200 skuel-app
 ```
 
----
+Both containers use json-file logging capped at 10 MB × 3 files — bounded by construction, no logrotate needed. The app also writes `logs/` under the repo dir (bind-mounted, survives deploys).
 
-## Phase 6: Preparing for AuraDB (Stage 3)
+### Rollback
 
-Stage 2 is explicitly a stepping stone. When you are ready to move to AuraDB, the transition is minimal:
+`skuel-app:rollback` always holds the newest image that **passed a health gate** (absent on a first deploy). That makes the recovery path depend on *how* the deploy went bad:
 
-1. **App Platform stays.** No changes to the app deployment.
-2. **Neo4j connection string changes.** In App Platform environment variables, update `NEO4J_URI` from `bolt://<droplet-ip>:7687` to `neo4j+s://<auradb-host>`. Update `NEO4J_PASSWORD` to the AuraDB credential.
-3. **GenAI token passing changes.** AuraDB configures the OpenAI API key at the database level. The app code handles this automatically — the `token` parameter is simply not needed when it is not present in the environment.
-4. **Droplet is decommissioned** after data is migrated and verified in AuraDB.
+**Case 1 — the deploy failed the health gate** (app never came up). The rollback tag was not advanced, so it still names the previously-serving green image:
 
-Follow `AURADB_MIGRATION_GUIDE.md` for the full procedure. The data backup and restore steps in that guide are identical to what you already practiced in Phases 1 and 2.5 here.
-
----
-
-## Cost Summary
-
-| Component | Service | Monthly Cost | Notes |
-|-----------|---------|--------------|-------|
-| SKUEL App | App Platform (Basic) | $5 | Scale to $12 (Pro) if needed |
-| Neo4j | Droplet (8GB) | $48 | Includes 160GB SSD |
-| **Total** | | **$53** | Before OpenAI/Deepgram API costs |
-
-For comparison: AuraDB Professional alone is ~$65/month. Stage 2 is slightly cheaper and provides hands-on operational experience before committing to the managed service.
-
----
-
-## Single-Droplet Alternative
-
-If the App Platform → Droplet networking proves problematic (e.g., outbound IPs are not stable, firewall rules are difficult to maintain), everything can run on a single Droplet:
-
-```
-┌───────────────────────────┐
-│  Droplet (8GB)            │
-│                           │
-│  ┌─────────┐ ┌─────────┐  │
-│  │ SKUEL   │ │ Neo4j   │  │
-│  │ App     │ │ Docker  │  │
-│  │ :5001   │ │ :7687   │  │
-│  └─────────┘ └─────────┘  │
-│  localhost networking      │
-└───────────────────────────┘
+```bash
+ssh skuel-droplet
+cd /opt/skuel/app
+docker compose -f docker-compose.production.yml logs --tail 200 skuel-app   # inspect first
+docker tag skuel-app:rollback skuel-app:latest
+docker compose -f docker-compose.production.yml up -d
 ```
 
-In this layout:
-- `NEO4J_URI=bolt://localhost:7687` (same as local development)
-- Both services run via a single `docker-compose.yml` that merges the app and Neo4j definitions
-- A reverse proxy (nginx or Caddy) handles TLS termination for the app
-- The tradeoff: you lose App Platform's auto-deploy and managed secrets, but networking is trivial
+Note the code on disk is still the new tree (rsync already ran) — this restores the running **image**, buying time to fix forward. `./dev deploy` again when fixed.
 
-This layout still validates cloud deployment and prepares for AuraDB. The AuraDB migration from here is identical: swap the connection string, decommission Neo4j.
+**Case 2 — the deploy passed the gate but turns out to be bad** (a regression that readiness can't see). The green gate already advanced `:rollback` to this same image, so **retagging restores nothing** — do not use the Case 1 commands. Recovery is redeploying the last good tree: deploys ship your local working tree, so check out the last good commit locally and push it as a fresh deploy:
+
+```bash
+git checkout <last-good-ref>
+./dev deploy          # rebuilds and health-gates the previous good version
+```
+
+(If keeping an N−1 image tag on the droplet would be preferable to a rebuild, that is a `deploy.sh` change — noted as a fast-follow, not something this runbook can offer today.)
+
+### Hardening checklist (what ships, and the knobs)
+
+| Concern | Mechanism | Knob |
+|---------|-----------|------|
+| Signup abuse | invite code, constant-time check before account creation | `SIGNUP_INVITE_CODE` (via `get_credential()`, env fallback) |
+| LLM/transcription cost abuse | per-user AI tier gate (ADR-043) on every AI surface incl. all five journals routes + `/api/journals/folder-transcribe`; REGISTERED resolves to effective CORE | admin grants MEMBER |
+| Brute force | 3-layer login protection + per-IP register/reset throttles (`/adapters/inbound/rate_limit.py`, in-memory) | — |
+| Transport | Caddy auto-TLS; production boot refuses plaintext `NEO4J_URI` schemes | `SKUEL_DOMAIN`, `ACME_EMAIL` |
+| Browser headers | `SecurityHeadersMiddleware` as the **outermost ASGI wrapper** in `main.py` (500s are stamped too): X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, CSP **Report-Only** | promote CSP to enforcing once the console stays clean |
+| HSTS | deliberately absent for now — a proxy concern (Caddyfile note); hardcoding it would poison local `SKUEL_DOMAIN=localhost` rehearsal | add scoped to the real domain at launch |
+| Client IPs behind proxy | `proxy_headers=True` + `FORWARDED_ALLOW_IPS` in `main.py` | `FORWARDED_ALLOW_IPS` |
+| Session cookies | `https_only` + `SameSite=Strict` in production; boot fails without `SESSION_SECRET_KEY` | `SESSION_SECRET_KEY` in secrets.env |
+| Password reset email | Resend; boot fails fast when enabled without the key | `EMAIL_ENABLED`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_URL` |
+| Node cap | weekly retention cron + 80%-of-cap Prometheus alerts | see above |
+
+Deferred (tracked in [security-hardening-deferred.md](../roadmap/security-hardening-deferred.md) and ADR-080): per-user daily LLM quotas, session invalidation on role change, CSP enforcement, email verification/CAPTCHA, `pip-audit` in CI, mid-request Aura-pause resilience.
 
 ---
 
 ## Troubleshooting
 
-### "Connection refused" from App Platform to Droplet
+**Health gate times out** — `docker compose … logs skuel-app`. Usual suspects: missing FULL-tier key in `secrets.env` (boot fails fast, by design), wrong `NEO4J_PASSWORD`, or a plaintext `NEO4J_URI` scheme (production refuses it at boot with the got-scheme named).
 
-1. Confirm the Droplet firewall allows TCP 7687 from the App Platform outbound CIDRs.
-2. Confirm Neo4j is running: `docker ps` on the Droplet shows the container as `Up`.
-3. Confirm Bolt is bound to `0.0.0.0:7687`, not `127.0.0.1:7687`.
-4. Test from outside: `nc -zv <droplet-ip> 7687` from any machine that is not the Droplet.
+**Caddy serves no certificate** — both DNS A records (apex + www) must point at the droplet and ports 80/443 must be reachable from the internet; check `docker compose … logs caddy` for the ACME error.
 
-### Embeddings not working on the Droplet deployment
+**Writes fail with EACCES in personal-vault or logs** — the bind mounts must be owned by UID 10001. `./dev deploy` chowns them every run; if you created directories by hand, re-run a deploy or `chown -R 10001:10001` them.
 
-Embeddings are generated Python-side via HuggingFace — no Neo4j plugin is involved. If embeddings fail, check that `HUGGINGFACE_API_KEY` is set correctly in App Platform environment variables and that `INTELLIGENCE_TIER=full`. The app falls back to keyword search automatically when embeddings are unavailable.
+**Every visitor shares one IP in AuthEvents/rate limits** — `FORWARDED_ALLOW_IPS` unset or not matching the compose network; see Prerequisites.
 
-### App Platform deploy fails
-
-Check the deploy logs. Common causes:
-- `Dockerfile.production` Python version mismatch with `pyproject.toml`
-- Missing `uv.lock` in the build context (ensure it is committed to git)
-- Health check failing: `/health` endpoint must return 200 within the configured timeout
-
-### Data loss after Droplet restart
-
-The volumes in `docker-compose.yml` map to `/opt/skuel-neo4j/data` on the host. As long as the Droplet's block storage is not destroyed, data survives restarts. Verify with `docker compose logs neo4j | grep "Neo4j started"` — it should not log a fresh database message.
+**App container healthy but `https://skuel.app` 502s** — Caddy and the app must share the compose default network (they do unless you changed it); `docker compose … exec caddy wget -qO- http://skuel-app:5001/health`.
 
 ---
 
 ## Related Documentation
 
-- [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) — Stage 3: the end goal
-- [Neo4j Setup Migration Summary](./NEO4J_SETUP_MIGRATION_SUMMARY.md) — history of the Docker ↔ AuraDB doc split
-- [GenAI Setup](../development/GENAI_SETUP.md) — local Docker GenAI configuration (reference for Droplet setup)
-- [Query Architecture](../patterns/query_architecture.md) — query patterns and schema
+- [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) — getting the local graph into AuraDB Free
+- [Neo4j Setup Migration Summary](./NEO4J_SETUP_MIGRATION_SUMMARY.md) — how the deployment path evolved (and what was skipped)
+- [ADR-080](../decisions/ADR-080-auradb-three-horizon-strategy.md) — AuraDB three-horizon strategy
+- `/.claude/skills/docker/SKILL.md` — compose-file inventory and container conventions
+- [security-hardening-deferred.md](../roadmap/security-hardening-deferred.md) — deferred hardening items
 
 ---
 
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-07-24
 **Maintained By:** SKUEL Core Team

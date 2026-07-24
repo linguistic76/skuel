@@ -4,7 +4,7 @@
 
 **Location**: `/home/mike/skuel/infrastructure`
 **Application**: `/home/mike/skuel/app`
-**Last Updated**: 2026-01-02
+**Last Updated**: 2026-07-24
 
 ---
 
@@ -14,6 +14,12 @@ This directory contains **all infrastructure services** that SKUEL depends on, c
 
 **What runs here:** Neo4j 2026.06.0 (graph database)
 **What connects here:** SKUEL application (`/home/mike/skuel/app`)
+
+> **This directory is LOCAL DEVELOPMENT only.** Production does not use anything in here:
+> skuel.app runs from a droplet (`app/docker-compose.production.yml` — app + Caddy) against
+> **Neo4j AuraDB Free** over `neo4j+s://`. Nothing in `infrastructure/` deploys anywhere.
+> See `app/docs/deployment/DO_MIGRATION_GUIDE.md` (droplet stack + runbook) and
+> `app/docs/deployment/AURADB_MIGRATION_GUIDE.md` (data migration).
 
 **Quick Start:**
 ```bash
@@ -64,25 +70,13 @@ cd ~/skuel/app && uv run python main.py
 - ✅ **Easy debugging** - Direct Python debugger access
 - ✅ **Quick testing** - Spin up/down app while data persists
 
-### Production Benefits
+### Production
 
-**Infrastructure can be managed separately:**
-
-- ✅ **Independent updates** - Update infrastructure without redeploying app
-- ✅ **Horizontal scaling** - Multiple app instances, single infrastructure
-- ✅ **Clear ownership** - Different teams can own infrastructure vs. application
-- ✅ **Backup strategy** - All data in one location (`~/skuel/infrastructure/neo4j/`)
-- ✅ **Resource allocation** - Infrastructure and app can scale independently
-- ✅ **Zero-downtime deploys** - Update app while infrastructure runs
-
-**Example Production Workflow:**
-```bash
-# Infrastructure team manages Neo4j, Redis, etc.
-cd ~/skuel/infrastructure && docker compose up -d
-
-# Application team deploys multiple instances
-cd ~/skuel/app && docker compose -f docker-compose.production.yml scale skuel-app=3
-```
+Production does **not** run this directory's Neo4j — the database side of this separation is
+handled by a managed service (AuraDB Free), and the app side by the droplet stack
+(`app/docker-compose.production.yml`, deployed via `./dev deploy`). The same lifecycle
+principle applies there, just with Neo4j's half owned by Neo4j the company instead of this
+compose file.
 
 ## Architecture Pattern
 
@@ -253,13 +247,10 @@ cd ~/skuel/app && docker compose up -d
 # App connects via host.docker.internal:7687 (Docker → host network)
 ```
 
-**Scenario 3: Production with External Infrastructure**
+**Scenario 3: Production (does not involve this directory)**
 ```bash
-# Infrastructure on dedicated server
-NEO4J_URI=bolt://db-server.internal:7687
-
-# Application on app servers (can scale horizontally)
-docker compose -f docker-compose.production.yml up -d --scale skuel-app=3
+# Droplet app + Caddy against AuraDB Free — see app/docs/deployment/DO_MIGRATION_GUIDE.md
+NEO4J_URI=neo4j+s://<dbid>.databases.neo4j.io
 ```
 
 ### Verifying Connection
@@ -351,19 +342,29 @@ DEEPGRAM_API_KEY=<your-key>
 **Manual backup**:
 ```bash
 cd ~/skuel/infrastructure
-docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
+# The database must be offline for neo4j-admin dump; --to-path is a directory.
+# --overwrite-destination replaces a leftover neo4j.dump from a previous run.
+docker compose stop neo4j
+docker compose run --rm neo4j neo4j-admin database dump neo4j \
+    --to-path=/backups --overwrite-destination=true
+docker compose start neo4j
 ```
 
-Backup file will be in `./neo4j/backups/`
+Backup file will be in `./neo4j/backups/neo4j.dump` — rename it (date-stamp) if you keep more than one.
 
 **Automated backup** (recommended - create script):
 ```bash
 #!/bin/bash
 # ~/skuel/infrastructure/scripts/backup-neo4j.sh
+# NOTE: the database must be offline for neo4j-admin dump, and --to-path is a
+# DIRECTORY — the tool writes <database>.dump into it.
 DATE=$(date +%Y%m%d_%H%M%S)
 cd ~/skuel/infrastructure
-docker compose exec neo4j neo4j-admin database dump neo4j \
-    --to-path=/backups/neo4j_${DATE}.dump
+docker compose stop neo4j
+docker compose run --rm neo4j neo4j-admin database dump neo4j \
+    --to-path=/backups --overwrite-destination=true
+docker compose start neo4j
+mv neo4j/backups/neo4j.dump "neo4j/backups/neo4j_${DATE}.dump"
 echo "Backup created: neo4j_${DATE}.dump"
 ```
 
@@ -371,12 +372,14 @@ echo "Backup created: neo4j_${DATE}.dump"
 
 ```bash
 cd ~/skuel/infrastructure
-# Stop neo4j
+# Stop neo4j (exec won't work on a stopped container — use `run --rm` below)
 docker compose stop neo4j
 
-# Restore from backup
-docker compose exec neo4j neo4j-admin database load neo4j \
-    --from-path=/backups/neo4j_20260102_120000.dump --overwrite-destination=true
+# --from-path is a directory; the loader expects <database>.dump inside it
+cp neo4j/backups/neo4j_20260102_120000.dump neo4j/backups/neo4j.dump
+docker compose run --rm neo4j neo4j-admin database load neo4j \
+    --from-path=/backups --overwrite-destination=true
+rm neo4j/backups/neo4j.dump
 
 # Start neo4j
 docker compose start neo4j
@@ -444,30 +447,25 @@ docker stats skuel-neo4j
 **Total Active Services:** 1
 **Total Data Volume:** All in `./neo4j/data/`
 
-### Future Infrastructure Services
+### Other Services
 
-This directory is designed to hold additional infrastructure services as SKUEL grows. All services below are **pre-wired in code** but **intentionally disabled** until needed.
-
-#### Ready to Enable (Pre-Wired)
-
-| Service | Status | Enable When | Config Location |
-|---------|--------|-------------|-----------------|
-| **Redis** | 🟡 Ready | Multi-instance deployment | `docker-compose.production.yml` |
-| **Ollama** | 🟡 Ready | Local LLM needed (cost reduction) | `docker-compose.production.yml` |
-| **Prometheus** | 🟡 Ready | Production monitoring required | `docker-compose.production.yml` |
-| **Grafana** | 🟡 Ready | Operational dashboards needed | `docker-compose.production.yml` |
-| **Nginx** | 🟡 Ready | SSL/load balancing required | `docker-compose.production.yml` |
-
-**To enable:** See `/home/mike/skuel/app/FUTURE_SERVICES.md` for detailed activation instructions and decision criteria.
+Prometheus + Grafana (monitoring) and Firefly III + MariaDB (finance, ADR-052) live in
+`app/docker-compose.yml` behind the `monitoring` / `finance` profiles — not here. No compose
+file runs Redis, Ollama, or nginx: the former "pre-wired future services" blocks in
+`docker-compose.production.yml` were deleted when that file was rewritten to the real droplet
+stack (app + Caddy, 2026-07-24). Per One Path Forward, a service enters a compose file when it
+is actually adopted, not speculatively. (The unused `app/k8s-manifests.yml` example still
+sketches Redis/nginx resources — a stale artifact from the same era, not something any
+deployment path uses.)
 
 #### Active Infrastructure Plugins
 
 | Plugin | Status | Scope | Purpose |
 |--------|--------|-------|---------|
-| **GenAI** | ✅ Active (infrastructure only) | `genai.*` | Embeddings + vector search (standalone Neo4j) |
 | **APOC (core)** | ✅ Active | `apoc.meta.*` only | Schema introspection (`apoc.meta.schema`) |
 
-**Note:** When Neo4j is started via `app/docker-compose.yml` (which extends this file), the GenAI plugin is overridden to APOC-only. SKUEL uses HuggingFace Inference API for embeddings (Python-side, per ADR-049). The GenAI plugin is available only when running this compose file directly.
+**Note:** Embeddings are generated Python-side via the OpenAI Embeddings API (ADR-068) and
+written into Neo4j vector indexes — no Neo4j GenAI plugin is loaded in any environment.
 
 **APOC Scope Policy:**
 - Only `apoc-core.jar` is loaded (not `apoc-all`) — dangerous procedures (`cypher.run`, `export.*`, `load.*`) are not in the JAR at all
@@ -641,22 +639,17 @@ Example: `server.memory.query_cache.per_db_cache_num_entries` → `NEO4J_server_
 - Password in `.env` file - ✅ Acceptable for local dev
 - No SSL/TLS - ✅ Acceptable for local dev
 
-### Production Deployment (Future)
+### Production
 
-When deploying to production:
-
-- [ ] Use strong passwords (not default)
-- [ ] Enable SSL/TLS for Neo4j
-- [ ] Use Docker secrets instead of .env files
-- [ ] Bind to specific IPs or use firewall rules
-- [ ] Enable Neo4j auth plugins (LDAP, etc.)
-- [ ] Regular automated backups
-- [ ] Monitor access logs
+Production Neo4j is AuraDB Free — TLS, auth, and infrastructure hardening are the managed
+service's job; SKUEL's side (encrypted-URI boot guard, secrets handling, headers, rate
+limits) is covered in `app/docs/deployment/DO_MIGRATION_GUIDE.md` § Hardening checklist.
 
 ## Related Documentation
 
 - **Application Code**: `/home/mike/skuel/app/`
-- **Future Services**: `/home/mike/skuel/app/FUTURE_SERVICES.md`
+- **Droplet Deployment Guide**: `/home/mike/skuel/app/docs/deployment/DO_MIGRATION_GUIDE.md`
+- **AuraDB Migration Guide**: `/home/mike/skuel/app/docs/deployment/AURADB_MIGRATION_GUIDE.md`
 - **Application Config**: `/home/mike/skuel/app/core/config/unified_config.py`
 - **Neo4j Documentation**: https://neo4j.com/docs/
 
@@ -678,8 +671,16 @@ docker compose restart neo4j
 # Stop infrastructure
 docker compose down
 
-# Backup database
-docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
+# Backup database (stop first — dump requires the database offline).
+# The subshell restarts Neo4j even if the dump fails (full volume, perms…)
+# while still reporting the dump's exit status.
+docker compose stop neo4j && (
+  docker compose run --rm neo4j neo4j-admin database dump neo4j \
+    --to-path=/backups --overwrite-destination=true
+  rc=$?
+  docker compose start neo4j
+  exit $rc
+)
 
 # Access Neo4j browser
 open http://localhost:7474
