@@ -165,11 +165,10 @@ async def test_wrong_password_rejected_and_no_session(neo4j_driver, auth_env):
 async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
     """Server-side revocation must flip a live token to invalid.
 
-    This is the graph half of forced re-login on privilege change (roadmap
-    item 4): UserService.update_role calls invalidate_all_user_sessions
-    before persisting the new role, and AuthContextMiddleware clears any
-    cookie whose token no longer validates (middleware half pinned in
-    tests/unit/adapters/test_auth_context.py).
+    invalidate_all_user_sessions is the sweep used by password change/reset;
+    AuthContextMiddleware clears any cookie whose token no longer validates
+    (middleware half pinned in tests/unit/adapters/test_auth_context.py).
+    Privilege changes use the atomic variants pinned below.
     """
     auth, track = auth_env
     username, email = track(*_credentials("revoke"))
@@ -192,6 +191,47 @@ async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
     after = await auth.validate_session_uid(token)
     assert after.is_ok, f"post-revocation validation errored: {after.error}"
     assert after.value is None, "revoked session must not validate"
+
+
+async def test_role_change_atomically_revokes_live_sessions(neo4j_driver, auth_env):
+    """Pin the one-transaction role-change+revoke (Codex P1 on #798 round 3).
+
+    Any two-step sequence has a hole: revoke-then-update lets the target
+    sign in against the old user record inside the window (the fresh session
+    dodges the completed sweep); update-then-revoke isn't retryable. The
+    atomic backend op must persist the role (lowercase — the F8 regression
+    class) AND kill the token in one commit.
+    """
+    from core.models.enums import UserRole
+
+    auth, track = auth_env
+    username, email = track(*_credentials("rolerev"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    valid = await auth.validate_session_uid(token)
+    assert valid.is_ok and valid.value == user_uid, "live session must validate before role change"
+
+    atomic = await auth.session_backend.update_role_and_revoke_sessions(user_uid, UserRole.MEMBER)
+    assert atomic.is_ok, f"atomic role-change+revoke failed: {atomic.error}"
+    assert atomic.value == 1, "exactly the one live session should be revoked"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-role-change validation errored: {after.error}"
+    assert after.value is None, "a pre-change session must not validate after the role change"
+
+    async with neo4j_driver.session() as session:
+        result = await session.run("MATCH (u:User {uid: $uid}) RETURN u.role AS role", uid=user_uid)
+        record = await result.single()
+    assert record is not None and record["role"] == "member", (
+        "the role must persist as the lowercase enum value (F8)"
+    )
 
 
 async def test_deactivation_atomically_revokes_live_sessions(neo4j_driver, auth_env):

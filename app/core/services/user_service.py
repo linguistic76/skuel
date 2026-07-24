@@ -464,56 +464,39 @@ class UserService:
         if not target_result.value:
             return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
         if target_result.value.role == new_role:
-            return await self.core.update_user_role(target_user_uid, new_role)
+            return Result.ok(target_result.value)
 
-        # Revoke BEFORE persisting the new role. Revoke-after is not
-        # retryable: the retry would see the role already updated, take the
-        # no-op branch above, and never re-attempt the revocation — leaving
-        # stale-privilege sessions alive for their full lifetime. Failing
-        # here leaves the role untouched, so the admin's retry re-runs both
-        # steps. Worst case (revocation succeeds, update below fails): the
-        # target re-logs-in with the old role — annoying, never insecure.
-        revocation = await self._revoke_all_sessions(target_user_uid, change="role change")
-        if revocation.is_error:
-            return Result.fail(revocation)
-
-        return await self.core.update_user_role(target_user_uid, new_role)
-
-    async def _revoke_all_sessions(self, target_user_uid: UserUID, change: str) -> Result[int]:
-        """Revoke all live sessions for a privilege change (forced re-login).
-
-        Revocation is enforced per-request by AuthContextMiddleware. The
-        caller revokes BEFORE persisting the change — a failure here leaves
-        the change unapplied, so the admin's retry re-runs both steps.
-        (Deactivation doesn't use this two-step path at all: it commits the
-        flag flip and the revocation in one transaction on SessionBackend.)
-        """
         if self.session_invalidator is None:
             return Result.fail(
                 Errors.system(
                     "Session invalidator not wired — pass session_invalidator to UserService",
-                    operation="revoke_sessions",
+                    operation="update_role",
                 )
             )
 
-        invalidation = await self.session_invalidator.invalidate_all_user_sessions(target_user_uid)
-        if invalidation.is_error:
-            logger.error(
-                f"Session revocation for {change} failed for {target_user_uid}: "
-                f"{invalidation.expect_error().message}"
-            )
-            return Result.fail(
-                Errors.database(
-                    operation="revoke_sessions",
-                    message=f"Revoking the user's live sessions failed — retry the {change} "
-                    f"so no session outlives its privileges",
-                )
-            )
-
-        logger.info(
-            f"Revoked {invalidation.value} live session(s) for {target_user_uid} ({change})"
+        # Role change and session revocation commit in ONE transaction. Any
+        # two-step sequence has a hole: revoke-then-update lets the target
+        # sign in against the old user record inside the window (that fresh
+        # session dodges the completed sweep — exploitable by a user being
+        # demoted); update-then-revoke isn't retryable (the retry sees the
+        # role already changed, takes the no-op branch above, and never
+        # re-attempts the revocation).
+        atomic = await self.session_invalidator.update_role_and_revoke_sessions(
+            target_user_uid, new_role
         )
-        return invalidation
+        if atomic.is_error:
+            return Result.fail(atomic)
+        logger.info(
+            f"Updated role for {target_user_uid}: {target_result.value.role.value} → "
+            f"{new_role.value}; revoked {atomic.value} live session(s)"
+        )
+
+        refreshed = await self.get_user(target_user_uid)
+        if refreshed.is_error:
+            return Result.fail(refreshed)
+        if not refreshed.value:
+            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
+        return Result.ok(refreshed.value)
 
     async def list_users(
         self,

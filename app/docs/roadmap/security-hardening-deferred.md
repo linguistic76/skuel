@@ -149,23 +149,27 @@ Sharpened by the droplet prep: admin role promotion IS the AI-access grant
 
 **What shipped** (variant A below, plus the enforcement that makes it real):
 
-1. **Revocation on privilege change** — `UserService.update_role` calls
-   `invalidate_all_user_sessions(user_uid)` (already on `SessionBackend`; also used by
-   password change/reset) BEFORE persisting an *actual* role change — a no-op role set
-   doesn't log anyone out, an ADMIN→ADMIN self-update can't self-logout, and a failed
-   revocation leaves the role untouched so the admin's retry re-runs both steps
-   (revoke-after was not retryable: the retry hit the no-op branch and skipped revocation).
-   `UserService.deactivate_user` goes further: the `is_active=false` flip and the session
-   sweep commit in ONE Cypher transaction (`deactivate_user_and_revoke_sessions`) — a
-   two-step sequence could leave the account looking deactivated while its live sessions
-   kept validating. Both wired via the `SessionInvalidationOperations` protocol
-   (`/core/ports/service_protocols.py`).
+1. **Revocation on privilege change** — both `UserService.update_role` and
+   `UserService.deactivate_user` commit the privilege change AND the session sweep in ONE
+   Cypher transaction (`update_role_and_revoke_sessions` /
+   `deactivate_user_and_revoke_sessions` on `SessionBackend`, behind the
+   `SessionInvalidationOperations` protocol). Atomicity is load-bearing — three rounds of
+   Codex review killed every two-step ordering: update-then-revoke isn't retryable (the
+   retry sees the change applied and skips the sweep), revoke-then-update leaves a sign-in
+   window whose fresh session dodges the completed sweep, and split deactivation could
+   leave an account looking deactivated while its sessions kept validating. The User-node
+   write lock serializes against `create_session`, so a concurrent sign-in lands either
+   before the transaction (swept) or after it (a legitimate post-change re-login). A no-op
+   role set doesn't log anyone out, and an ADMIN→ADMIN self-update can't self-logout.
+   Password change/reset keep using the plain `invalidate_all_user_sessions` sweep.
 2. **Per-request enforcement** — the finding that reshaped the item: *nothing* validated the
    graph session per request, so server-side invalidation (including the existing password
    change/reset flows) never actually logged out a live cookie for its whole 30-day max_age.
    `AuthContextMiddleware` (`/adapters/inbound/auth/context_middleware.py`) now validates
-   `session_token` against the `:Session` node once per authenticated request
-   (`validate_session_uid`: is_valid + expiry + user_is_active) and clears the cookie session
+   `session_token` against the `:Session` node once per authenticated request — ONE indexed
+   round trip (`SessionBackend.validate_session_token`: is_valid + expiry + user_is_active,
+   with the 5-min-batched last-active touch folded into the same statement) — and clears
+   the cookie session
    when the graph says revoked/expired — forced re-login on the very next request. Anonymous
    requests, static/health/PWA paths, and `/logout` skip validation (logout must stay
    possible during a graph outage — its whole job is clearing the cookie); a validation

@@ -44,6 +44,7 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.enums import UserRole
     from core.models.event.calendar_models import CalendarData, CalendarItem
     from core.models.event.event_dto import EventDTO
     from core.models.habit.completion import HabitCompletion
@@ -441,20 +442,21 @@ class SessionInvalidationOperations(Protocol):
     Service consumer: UserService (role change, deactivation)
     Implementation: SessionBackend
 
+    Both operations commit the privilege change AND the session sweep in one
+    Cypher transaction — any two-step sequence leaves a window where a
+    concurrent sign-in against the old user record dodges the sweep.
     Revocation only bites because AuthContextMiddleware validates the graph
     session once per request; see adapters/inbound/auth/context_middleware.py.
     """
 
-    async def invalidate_all_user_sessions(self, user_uid: UserUID) -> Result[int]:
-        """Invalidate every live session for a user. Returns count invalidated."""
+    async def update_role_and_revoke_sessions(
+        self, user_uid: UserUID, new_role: "UserRole"
+    ) -> Result[int]:
+        """Atomically persist a role change AND revoke every live session."""
         ...
 
     async def deactivate_user_and_revoke_sessions(self, user_uid: UserUID) -> Result[int]:
-        """Atomically set the user inactive AND revoke every live session.
-
-        One transaction — a two-step sequence has a failure mode where the
-        account looks deactivated but its sessions keep validating.
-        """
+        """Atomically set the user inactive AND revoke every live session."""
         ...
 
 

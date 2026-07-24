@@ -492,45 +492,10 @@ class UserCoreService:
     # ROLE MANAGEMENT (December 2025)
     # ========================================================================
 
-    @with_error_handling("update_user_role", error_type="database", uid_param="user_uid")
-    async def update_user_role(self, user_uid: UserUID, new_role: "UserRole") -> Result[User]:
-        """
-        Update a user's role.
-
-        Args:
-            user_uid: User to update
-            new_role: New role to assign
-
-        Returns:
-            Result[User]: Updated user or error
-
-        Note:
-            This is an internal method. Role authorization checks
-            should be performed by the caller (UserService.update_role).
-        """
-
-        # Get current user
-        user_result = await self.get_user(user_uid)
-        if user_result.is_error:
-            return Result.fail(user_result)
-
-        if not user_result.value:
-            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-
-        user = user_result.value
-
-        # Update role using dataclass replace (frozen dataclass)
-        updated_user = dataclasses.replace(user, role=new_role)
-
-        # Save to database
-        result = await self.update_user(updated_user)
-
-        if result.is_ok:
-            logger.info(f"Updated role for {user_uid}: {user.role.value} → {new_role.value}")
-        else:
-            logger.error(f"Failed to update role for {user_uid}: {result.error}")
-
-        return result
+    # update_user_role lived here until 2026-07-24: role changes now commit
+    # the role write and the session revocation in ONE transaction via
+    # SessionBackend.update_role_and_revoke_sessions (One Path Forward — any
+    # two-step sequence leaves a sign-in window that dodges the sweep).
 
     @with_error_handling("list_users", error_type="database")
     async def list_users(
