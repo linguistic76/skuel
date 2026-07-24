@@ -17,10 +17,13 @@
 PYSEC-2026-2447
 
 # fastmcp 2.13.3 — fixes land in 2.14.0 / 2.14.2 / 3.2.0
+# (PYSEC-2026-338 is OSV-only — invisible to the PyPI feed; surfaced when the
+#  audit switched to --vulnerability-service osv)
 GHSA-rcfx-77hg-w2wv
 PYSEC-2026-2474
 PYSEC-2026-2475
 PYSEC-2026-2476
+PYSEC-2026-338
 
 # mcp 1.22.0 — fixes land in 1.23.0 / 1.27.2 / 1.28.1
 PYSEC-2026-1617

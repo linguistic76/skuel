@@ -28,4 +28,8 @@ if [[ -f .pip-audit-ignore ]]; then
 fi
 
 # --strict: unauditable deps (e.g. not on PyPI) fail instead of warn.
-uv run pip-audit --strict --disable-pip -r "$REQ" ${IGNORE_ARGS[@]+"${IGNORE_ARGS[@]}"}
+# --vulnerability-service osv: pip-audit defaults to PyPI's advisory feed;
+# OSV is the aggregate upstream (PYSEC + GHSA + more), so select it
+# explicitly — the documented coverage, not the default (Codex, PR #797).
+uv run pip-audit --strict --disable-pip --vulnerability-service osv \
+  -r "$REQ" ${IGNORE_ARGS[@]+"${IGNORE_ARGS[@]}"}
