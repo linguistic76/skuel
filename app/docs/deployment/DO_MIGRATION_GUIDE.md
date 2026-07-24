@@ -185,7 +185,9 @@ Both containers use json-file logging capped at 10 MB × 3 files — bounded by 
 
 ### Rollback
 
-`skuel-app:rollback` always holds the last image that **passed a health gate** (absent on a first deploy). To roll back after a bad deploy:
+`skuel-app:rollback` always holds the newest image that **passed a health gate** (absent on a first deploy). That makes the recovery path depend on *how* the deploy went bad:
+
+**Case 1 — the deploy failed the health gate** (app never came up). The rollback tag was not advanced, so it still names the previously-serving green image:
 
 ```bash
 ssh skuel-droplet
@@ -195,7 +197,16 @@ docker tag skuel-app:rollback skuel-app:latest
 docker compose -f docker-compose.production.yml up -d
 ```
 
-Note the code on disk is still the new tree (rsync already ran) — rollback restores the running **image**, buying time to fix forward. `./dev deploy` again when fixed.
+Note the code on disk is still the new tree (rsync already ran) — this restores the running **image**, buying time to fix forward. `./dev deploy` again when fixed.
+
+**Case 2 — the deploy passed the gate but turns out to be bad** (a regression that readiness can't see). The green gate already advanced `:rollback` to this same image, so **retagging restores nothing** — do not use the Case 1 commands. Recovery is redeploying the last good tree: deploys ship your local working tree, so check out the last good commit locally and push it as a fresh deploy:
+
+```bash
+git checkout <last-good-ref>
+./dev deploy          # rebuilds and health-gates the previous good version
+```
+
+(If keeping an N−1 image tag on the droplet would be preferable to a rebuild, that is a `deploy.sh` change — noted as a fast-follow, not something this runbook can offer today.)
 
 ### Hardening checklist (what ships, and the knobs)
 
