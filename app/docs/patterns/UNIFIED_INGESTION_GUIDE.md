@@ -16,6 +16,20 @@ The "hips" of SKUEL - stability through clarity. Connects content (MD/YAML) to t
 
 ---
 
+## Minimum frontmatter to be ingested
+
+The vault is a mixed authoring space — a file **opts in** to ingestion; anything without the opt-in is a plain note. For a `.md`/`.yaml`/`.yml` file to become a graph entity, its YAML frontmatter (markdown) or YAML body needs:
+
+1. **`type:` — non-empty, an accepted entity type.** One of: `ku`, `ps`, `lp`, `exercise`, `resource`, `user_entry`, `task`, `goal`, `habit`, `event`, `choice`, `principle`, `group`, `lifepath`, `interaction` (aliases like `lesson`/`pathstep`/`learningpath` also resolve — `TYPE_MAPPING` in `core/services/ingestion/detector.py`). No `type:` (or an empty one) → non-entity note, skipped. Two exceptions/rejections: `moc: true` ingests without a type (as a PathStep — see § MOC files), and the retired strings `je_input`/`je_output`/`exercise_submission` (ADR-054) and `expense`/`finance` (ADR-052) are rejected with a pointer, never aliased.
+2. **The type's required fields** — see § Entity Configuration for the full table. Most types need only `title`, which auto-falls back to the filename (`name:` is accepted as an alias). Notable extras: `exercise` → `instructions`, `principle` → `statement`, `lifepath` → `user_uid`, `group` → `name`, `interaction` → `interaction_type` + `target_uid`; `user_entry` files additionally need an explicit `pipeline:` (door-level rule, § UserEntry YAMLs).
+3. **`uid:` is optional.** Omit it to auto-generate `{prefix}.{filename}`. If declared, it must be non-empty and start with the type's prefix (`ku:`/`ku.` for a Ku, etc. — § UID Format Validation). An empty `uid:` line is never silently replaced with a generated one — the file is ignored with that reason. **`user_entry` differs on both halves** (its branch bypasses the preparer): a declared uid is an opaque join key with no prefix check (ADR-013 never-sniff), and an omitted `uid:` resolves to a derived periodic uid (`ue:daily:{user}:{date}`), the tracker's prior path-keyed uid, or a service-minted random `ue_` uid — never `{prefix}.{filename}` (§ Optional field: `uid`, § Path-keyed identity). A vault sync still ignores a `user_entry` file whose `uid:` line is present but empty (the batch parse stage runs the preparer's guard).
+
+Standalone edge files use `type: edge` + `from`/`to`/`relationship` instead (§ Edge Ingestion).
+
+Files that fall short are **ignored and reported with a per-file reason** on every sync — never treated as sync errors. See § Ignored files vs sync errors.
+
+---
+
 ## Default Vault
 
 The default ingestion folder is `/home/mike/0bsidian/0vault/` (the Obsidian vault). This is where Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown content files live. Configurable via `INGESTION_PATH` env var.
@@ -948,8 +962,8 @@ connections:
 
 ## Entity Configuration
 
-15 entity configs — 13 of the 25 EntityTypes plus the two NonKuDomain types
-(FINANCE, GROUP). Configuration in `config.py`. A `name:` field satisfies a
+15 entity configs — 14 of the 25 EntityTypes plus one NonKuDomain type
+(GROUP). Configuration in `config.py`. A `name:` field satisfies a
 `title` requirement (the preparer renames `name` → `title`); `title`/`name`
 also auto-fall back to the filename.
 
@@ -959,19 +973,21 @@ also auto-fall back to the filename.
 | `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
 | `ps` | `ps.` | `:Entity:PathStep` | title | `ps.learn-variables.md` |
 | `lp` | `lp.` | `:Entity:LearningPath` | title | `lp.python-journey.yaml` |
+| `resource` | `resource.` | `:Entity:Resource` | title | `resource.atomic-habits.yaml` |
 | `task` | `task.` | `:Entity:Task` | title | `task.complete-exercise.yaml` |
 | `goal` | `goal.` | `:Entity:Goal` | title | `goal.learn-python.yaml` |
 | `habit` | `habit.` | `:Entity:Habit` | title | `habit.daily-practice.yaml` |
 | `event` | `event.` | `:Entity:Event` | title | `event.workshop.yaml` |
 | `choice` | `choice.` | `:Entity:Choice` | title | `choice.career-path.yaml` |
 | `principle` | `principle.` | `:Entity:Principle` | title, statement | `principle.consistency.yaml` |
-| `user_entry` | `ue.` | `:Entity:UserEntry` | title | `ue.journal-2026-06-12.yaml` |
+| `user_entry` | `ue.` | `:Entity:UserEntry` | title (+ `pipeline:`, door-level) | `ue.journal-2026-06-12.yaml` |
 | `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia.viewed-ps.yaml` |
-| `expense` | `expense.` | `:Expense` | description, amount | `expense.books.yaml` |
 | `group` | `group.` | `:Group` | name | `group.class-of-2026.yaml` |
 | `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath.vision.yaml` |
 
-**Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Finance (`Expense`) is the exception — no `:Entity` base label.
+**Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Group is the exception — `:Group` only, no `:Entity` base label (it lives in `NonKuDomain`, ADR-053).
+
+**Retired:** `type: expense` / `type: finance` are rejected by the detector with an ADR pointer — ADR-052 Phase 5 demolished the native expense module (finance is a Firefly III sidecar, not vault-ingestible).
 
 **Indexes:** Domain indexes (UID, user_uid, status, date, composite) are created automatically at bootstrap via `Neo4jSchemaManager.sync_domain_indexes()`. See `scripts/indexes.cypher` for the reference list.
 
