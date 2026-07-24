@@ -343,12 +343,14 @@ DEEPGRAM_API_KEY=<your-key>
 ```bash
 cd ~/skuel/infrastructure
 # The database must be offline for neo4j-admin dump; --to-path is a directory.
+# --overwrite-destination replaces a leftover neo4j.dump from a previous run.
 docker compose stop neo4j
-docker compose run --rm neo4j neo4j-admin database dump neo4j --to-path=/backups
+docker compose run --rm neo4j neo4j-admin database dump neo4j \
+    --to-path=/backups --overwrite-destination=true
 docker compose start neo4j
 ```
 
-Backup file will be in `./neo4j/backups/neo4j.dump`
+Backup file will be in `./neo4j/backups/neo4j.dump` — rename it (date-stamp) if you keep more than one.
 
 **Automated backup** (recommended - create script):
 ```bash
@@ -359,7 +361,8 @@ Backup file will be in `./neo4j/backups/neo4j.dump`
 DATE=$(date +%Y%m%d_%H%M%S)
 cd ~/skuel/infrastructure
 docker compose stop neo4j
-docker compose run --rm neo4j neo4j-admin database dump neo4j --to-path=/backups
+docker compose run --rm neo4j neo4j-admin database dump neo4j \
+    --to-path=/backups --overwrite-destination=true
 docker compose start neo4j
 mv neo4j/backups/neo4j.dump "neo4j/backups/neo4j_${DATE}.dump"
 echo "Backup created: neo4j_${DATE}.dump"
@@ -668,9 +671,12 @@ docker compose restart neo4j
 # Stop infrastructure
 docker compose down
 
-# Backup database (stop first — dump requires the database offline)
+# Backup database (stop first — dump requires the database offline;
+# --overwrite-destination so a leftover neo4j.dump can't fail the chain
+# and leave the database stopped)
 docker compose stop neo4j && docker compose run --rm neo4j \
-  neo4j-admin database dump neo4j --to-path=/backups && docker compose start neo4j
+  neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true \
+  && docker compose start neo4j
 
 # Access Neo4j browser
 open http://localhost:7474

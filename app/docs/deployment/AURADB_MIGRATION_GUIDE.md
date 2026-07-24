@@ -75,9 +75,10 @@ uv run python scripts/export_entity_counts.py > before.json
 cd /home/mike/skuel/infrastructure
 
 docker compose stop neo4j
-# --to-path is a DIRECTORY — the tool writes <database>.dump (here: neo4j.dump) into it
+# --to-path is a DIRECTORY — the tool writes <database>.dump (here: neo4j.dump)
+# into it; --overwrite-destination replaces a leftover from an earlier attempt
 docker compose run --rm neo4j \
-  neo4j-admin database dump neo4j --to-path=/backups
+  neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true
 docker compose start neo4j
 
 # /backups is volume-mapped to ./neo4j/backups on the host; stamp it with a date

@@ -90,7 +90,20 @@ DNS:
 
 ### Local rehearsal
 
-The full stack runs locally without a droplet: set `SKUEL_DOMAIN=localhost` and Caddy issues a certificate from its internal CA — `docker compose -f docker-compose.production.yml up --build` serves `https://localhost` (browser trust warning expected). Point `NEO4J_URI` at a scratch AuraDB Free instance to rehearse the real `neo4j+s://` path end to end.
+The full stack runs locally without a droplet, but the compose file's two `env_file` entries are mandatory — create both first:
+
+```bash
+cd ~/skuel/app
+cp .env.production.example .env.production   # set SKUEL_DOMAIN=localhost; point
+                                             # NEO4J_URI at a scratch AuraDB Free instance
+sudo mkdir -p /opt/skuel                     # same secrets path the droplet uses
+sudo touch /opt/skuel/secrets.env && sudo chmod 0600 /opt/skuel/secrets.env
+# fill secrets.env: NEO4J_PASSWORD, OPENAI_API_KEY, DEEPGRAM_API_KEY, SESSION_SECRET_KEY
+
+docker compose -f docker-compose.production.yml up --build
+```
+
+With `SKUEL_DOMAIN=localhost` Caddy issues a certificate from its internal CA and serves `https://localhost` (browser trust warning expected). The scratch Aura instance rehearses the real `neo4j+s://` path end to end — schema auto-creation, FULL-tier fail-fast, wake-from-pause. Keep the local `.env.production` out of git (already `.gitignore`d).
 
 ---
 
