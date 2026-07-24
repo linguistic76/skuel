@@ -539,6 +539,12 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
     # project_lucide_mutationobserver_infinite_loop.
     app.add_middleware(StaticCacheHeadersMiddleware)
 
+    # Browser security headers (SecurityHeadersMiddleware) are NOT registered
+    # here: add_middleware would place them inside Starlette's
+    # ServerErrorMiddleware, leaving unhandled-exception 500s unstamped
+    # (Codex #794). main.py wraps the served app as the outermost ASGI layer
+    # instead, covering every response including 500s.
+
     # CSRF defense-in-depth — mints csrf_token cookie on first response so the
     # HTMX layer can echo it back on state-changing requests. SameSite=Strict
     # on the session cookie is still the primary defense; this is the revert

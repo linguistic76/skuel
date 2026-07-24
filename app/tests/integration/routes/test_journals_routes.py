@@ -78,15 +78,25 @@ def _make_request(
     )
 
 
-def _make_user(is_founder: bool) -> Any:
+def _make_user(is_founder: bool, role: Any = None) -> Any:
+    from core.models.enums.user_enums import UserRole
+
     user = MagicMock()
     user.journal_tier.is_founder.return_value = is_founder
+    # Real role so the per-user AI tier gate resolves for real (MEMBER = AI on).
+    user.role = role if role is not None else UserRole.MEMBER
     return user
 
 
 @pytest.fixture
 def mock_services() -> Any:
+    from core.config.intelligence_tier import IntelligenceTier
+
     services = MagicMock()
+
+    # Real system tier so the per-user AI gate evaluates for real (not a
+    # truthy MagicMock): FULL system + MEMBER user (fixture default) = AI on.
+    services.intelligence_tier = IntelligenceTier.FULL
 
     services.user = MagicMock()
     services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=False)))
@@ -96,6 +106,9 @@ def mock_services() -> Any:
     services.journal = MagicMock()
     services.journal.run_discussion = AsyncMock(
         return_value=Result.ok(JournalFollowUp(text="A discussion response.", sources=()))
+    )
+    services.journal.run_follow_up = AsyncMock(
+        return_value=Result.ok(JournalFollowUp(text="A follow-up response.", sources=()))
     )
     services.journal.run_stage1 = AsyncMock(return_value=Result.ok("A scribe record."))
     services.journal.run_compiled = AsyncMock(return_value=Result.ok("# Compiled output"))
@@ -882,3 +895,111 @@ class TestSuggestActivitiesZeroPersistence:
 
         assert response is not None
         _assert_understanding_channel_untouched(mock_services)
+
+
+class TestJournalsAITierGate:
+    """Per-user AI gate (ADR-043) on every LLM/Deepgram-spending journal route.
+
+    REGISTERED signups resolve to effective CORE even on a FULL system — they
+    must never reach ``run_discussion``/``run_follow_up``/the upload pipeline
+    (each call spends OpenAI/Deepgram money). MEMBER+ passes; the pass-through
+    side is also exercised by every other class here (the fixture user is
+    MEMBER on a FULL system tier).
+    """
+
+    @staticmethod
+    def _as_registered(mock_services: Any) -> None:
+        from core.models.enums.user_enums import UserRole
+
+        mock_services.user.get_user = AsyncMock(
+            return_value=Result.ok(_make_user(is_founder=False, role=UserRole.REGISTERED))
+        )
+
+    async def test_registered_blocked_on_start(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        self._as_registered(mock_services)
+        request = _make_request(form={"raw_entry": "Costs money."})
+        response = await handlers["/journals/start"](request=request)
+
+        assert "paid subscription" in to_xml(response)
+        mock_services.journal.run_discussion.assert_not_awaited()
+        _assert_no_discussion_persisted(mock_services)
+
+    async def test_registered_blocked_on_follow_up(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        self._as_registered(mock_services)
+        response = await handlers["/journals/follow-up"](
+            request=_make_request(form={}), user_reply="More please."
+        )
+
+        assert "paid subscription" in to_xml(response)
+        mock_services.journal.run_follow_up.assert_not_awaited()
+
+    async def test_registered_blocked_on_upload(
+        self, handlers: dict[str, Any], mock_services: Any, tmp_path: Any
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        self._as_registered(mock_services)
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("reflection.txt", b"Notes.")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        response = await handlers["/journals/upload"](request=request)
+
+        assert "paid subscription" in to_xml(response)
+        mock_services.journal.run_compiled.assert_not_awaited()
+        assert not (tmp_path / "je_out" / "reflection_out.md").exists()
+
+    async def test_registered_blocked_on_folder_process(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        self._as_registered(mock_services)
+        request = _make_request(form={"processing_mode": "transcribe_only"})
+        response = await handlers["/journals/folder-process"](request=request)
+
+        assert "paid subscription" in to_xml(response)
+
+    async def test_registered_gets_inert_suggestions_panel(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        self._as_registered(mock_services)
+        request = _make_request(form={"content": "Ship the site."})
+        response = await handlers["/journals/suggest-activities"](request=request)
+
+        assert response is not None
+        mock_services.journal.suggest_activities.assert_not_awaited()
+
+    async def test_failed_user_lookup_fails_secure(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        # The gate cannot be evaluated → deny rather than allow.
+        from fasthtml.common import to_xml
+
+        mock_services.user.get_user = AsyncMock(
+            return_value=Result.fail(Errors.database("get_user", "down"))
+        )
+        request = _make_request(form={"raw_entry": "Costs money."})
+        response = await handlers["/journals/start"](request=request)
+
+        assert "paid subscription" in to_xml(response)
+        mock_services.journal.run_discussion.assert_not_awaited()
+
+    async def test_member_passes_the_gate(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        # Fixture default: MEMBER on a FULL system — the AI call goes through.
+        request = _make_request(form={"raw_entry": "A paid member writes."})
+        await handlers["/journals/start"](request=request)
+
+        mock_services.journal.run_discussion.assert_awaited_once()

@@ -21,9 +21,12 @@ from adapters.inbound.auth import make_service_getter, require_admin, require_au
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.result_helpers import require_found
+from core.config.intelligence_tier import IntelligenceTier
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.services.journal import JournalBatchService
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.routes.batch_transcription.api")
 
@@ -38,6 +41,7 @@ def create_batch_transcription_api_routes(
     batch_transcription_service: Any,
     journal_batch: JournalBatchService,
     user_service: Any = None,
+    intelligence_tier: IntelligenceTier | None = None,
 ) -> list[Any]:
     """
     Create batch transcription API routes.
@@ -49,7 +53,8 @@ def create_batch_transcription_api_routes(
         journal_batch: canonical home of the je_in/je_out staging-folder layout —
             folder-transcribe reads/writes ``journal_batch.je_in_dir/je_out_dir``
             so this surface writes where download/folder-process reads
-        user_service: UserService for admin role checks
+        user_service: UserService for admin role checks + the per-user tier gate
+        intelligence_tier: System intelligence tier for the per-user gate (ADR-043)
     """
     get_user_service = make_service_getter(user_service)
 
@@ -144,6 +149,32 @@ def create_batch_transcription_api_routes(
             Transcribe: {total_files, succeeded, failed, skipped, results, errors}
         """
         user_uid = require_authenticated_user(request)
+
+        # Per-user tier gate (ADR-043): every transcription spends Deepgram
+        # money, so effective-CORE (REGISTERED) users are denied. Fail-secure —
+        # missing dependencies mean the gate cannot be evaluated, so deny
+        # rather than allow (mirrors askesis_api.py).
+        if intelligence_tier is None or user_service is None:
+            return Result.fail(
+                Errors.forbidden(
+                    action="batch transcription",
+                    reason="AI features require a paid subscription",
+                    required_role="MEMBER",
+                )
+            )
+        user = require_found(await user_service.get_user(user_uid), "User", user_uid)
+        if user.is_error:
+            return Result.fail(Errors.database("get_user", "Could not verify user access tier"))
+        effective_tier = get_user_intelligence_tier(intelligence_tier, user.value.role)
+        if not effective_tier.ai_enabled:
+            return Result.fail(
+                Errors.forbidden(
+                    action="batch transcription",
+                    reason="AI features require a paid subscription",
+                    required_role="MEMBER",
+                )
+            )
+
         body = await request.json()
         # Paths are fixed server-side — never sourced from the request body.
         # Accepting client-supplied paths would let any authenticated user

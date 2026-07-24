@@ -20,6 +20,7 @@ import traceback
 import uvicorn
 from dotenv import load_dotenv
 
+from adapters.inbound.middleware import SecurityHeadersMiddleware
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from scripts.dev.bootstrap import bootstrap_skuel
@@ -55,7 +56,12 @@ async def main() -> None:
     # but we pass an already-bootstrapped app instance. For hot-reload, use:
     #   uv run uvicorn main:app --reload
     uvicorn_config = uvicorn.Config(
-        container.app,
+        # Outermost ASGI wrapper — deliberately OUTSIDE the app's middleware
+        # stack. Anything registered via add_middleware sits inside Starlette's
+        # ServerErrorMiddleware, so unhandled-exception 500s would go out
+        # without the security headers (Codex #794). Wrapping here covers
+        # every response the server emits.
+        SecurityHeadersMiddleware(container.app),
         host=args.host,
         port=args.port,
         reload=False,

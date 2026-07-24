@@ -126,6 +126,32 @@ groups:
           description: "Entities with no relationships (isolated nodes)"
           runbook: "Review entity creation logic, check relationship service"
 
+      # AuraDB Free caps: 200k nodes / 400k relationships (Neo4j Aura FAQ,
+      # verified 2026-07-24; the 50k/175k figures still on the product page are
+      # the stale 2021 launch limits). Thresholds fire at 80% of cap — writes
+      # start failing AT the cap, so 80% is the act-now line: prune telemetry
+      # (./dev telemetry-retention) or trim the graph before growth resumes.
+      # Gauges are set by the 5-min graph-health poller (scripts/dev/bootstrap.py).
+      - alert: AuraNodeCapApproaching
+        expr: skuel_total_entities > 160000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Graph at {{ $value }} nodes — >80% of the AuraDB Free 200k cap"
+          description: "AuraDB Free rejects writes at the cap; headroom is running out"
+          runbook: "Run ./dev telemetry-retention, review growth with ./dev knowledge-health, consider the invite gate / paid tier"
+
+      - alert: AuraRelationshipCapApproaching
+        expr: skuel_total_relationships > 320000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Graph at {{ $value }} relationships — >80% of the AuraDB Free 400k cap"
+          description: "AuraDB Free rejects writes at the cap; headroom is running out"
+          runbook: "Run ./dev telemetry-retention, review growth with ./dev knowledge-health, consider the invite gate / paid tier"
+
       # ==================================================================
       # AI Services
       # ==================================================================
