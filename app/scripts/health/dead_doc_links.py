@@ -94,12 +94,20 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
     if not raw:
         return None
 
-    if raw.startswith(f"{ROOT}/"):
-        # Machine-absolute citation of the app dir itself
-        return Path(raw)
     if raw.startswith("/"):
-        # Absolute path relative to repo root
-        return ROOT / raw.lstrip("/")
+        # Absolute path relative to repo root (the documented convention)
+        candidate = ROOT / raw.lstrip("/")
+        if candidate.exists():
+            return candidate
+        # Machine-absolute citation of the app dir (`/home/<user>/skuel/app/…`):
+        # resolve via the `/app/` landmark instead of comparing against the
+        # current checkout path, so the same doc passes or fails identically
+        # in any clone location (Codex, PR #796). Last occurrence = the
+        # boundary closest to the repo-relative suffix.
+        marker = "/app/"
+        if marker in raw:
+            return ROOT / raw.rsplit(marker, 1)[1]
+        return candidate
     else:
         # Relative path from source file's directory
         candidate = (source_file.parent / raw).resolve()
