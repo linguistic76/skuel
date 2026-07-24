@@ -36,6 +36,7 @@ from core.config.unified_config import (
     create_production_config,
     create_test_config,
 )
+from core.config.validation import validate_config
 
 
 class TestEnvironmentEnum:
@@ -88,14 +89,14 @@ class TestAPIConfig:
         assert config.rate_limit_period == 60
 
     def test_from_env_reads_environment(self):
-        """Test from_env reads environment variables."""
+        """Test from_env reads the APP_* environment variables."""
         with patch.dict(
             os.environ,
             {
-                "API_HOST": "192.168.1.1",
-                "API_PORT": "9000",
-                "API_DEBUG": "true",
-                "API_RELOAD": "true",
+                "APP_HOST": "192.168.1.1",
+                "APP_PORT": "9000",
+                "APP_DEBUG": "true",
+                "APP_RELOAD": "true",
             },
         ):
             config = APIConfig.from_env()
@@ -108,7 +109,7 @@ class TestAPIConfig:
         """Test from_env uses defaults when env vars not set."""
         with patch.dict(os.environ, {}, clear=True):
             # Remove potentially set env vars
-            for key in ["API_HOST", "API_PORT", "API_DEBUG", "API_RELOAD"]:
+            for key in ["APP_HOST", "APP_PORT", "APP_DEBUG", "APP_RELOAD"]:
                 os.environ.pop(key, None)
 
             config = APIConfig.from_env()
@@ -125,7 +126,6 @@ class TestDatabaseConfig:
         assert config.neo4j_database == "neo4j"
         assert config.max_connection_pool_size == 50
         assert config.connection_timeout == 30.0
-        assert config.encrypted is False
         # Schema monitoring is opt-in (off by default).
         assert config.schema_monitoring_enabled is False
         assert config.schema_monitoring_interval == 900
@@ -178,7 +178,6 @@ class TestDatabaseConfig:
                     "NEO4J_USERNAME": "test_user",
                     "NEO4J_DATABASE": "test_db",
                     "NEO4J_MAX_CONNECTION_POOL_SIZE": "100",
-                    "NEO4J_ENCRYPTED": "true",
                 },
             ),
             patch("core.config.unified_config._get_neo4j_password", return_value="test_pass"),
@@ -188,7 +187,6 @@ class TestDatabaseConfig:
             assert config.neo4j_username == "test_user"
             assert config.neo4j_database == "test_db"
             assert config.max_connection_pool_size == 100
-            assert config.encrypted is True
 
 
 class TestCacheConfig:
@@ -290,7 +288,7 @@ class TestUnifiedConfigFromEnvironment:
         # Note: _load_from_env() applies after environment settings
         # Test that environment is correctly set and log_level is applied
         # Clear LOG_LEVEL to prevent .env from overriding local settings
-        with patch.dict(os.environ, {"API_DEBUG": "true", "API_RELOAD": "true", "LOG_LEVEL": ""}):
+        with patch.dict(os.environ, {"APP_DEBUG": "true", "APP_RELOAD": "true", "LOG_LEVEL": ""}):
             config = UnifiedConfig.from_environment(Environment.LOCAL)
             assert config.environment == Environment.LOCAL
             assert config.application.log_level == "DEBUG"
@@ -301,14 +299,15 @@ class TestUnifiedConfigFromEnvironment:
         with patch("core.config.unified_config._get_neo4j_password", return_value=""):
             config = UnifiedConfig.from_environment(Environment.PRODUCTION)
             assert config.environment == Environment.PRODUCTION
-            # Production settings that survive _load_from_env
-            assert config.cache.provider == "redis"
+            # Production settings that survive _load_from_env. Memory cache is
+            # THE path — production no longer overrides cache.provider.
+            assert config.cache.provider == "memory"
             assert config.features.enable_experimental_features is False
 
     def test_from_environment_development(self):
         """Test development environment settings are applied."""
         with patch("core.config.unified_config._get_neo4j_password", return_value=""):
-            with patch.dict(os.environ, {"API_DEBUG": "true", "API_RELOAD": "true"}):
+            with patch.dict(os.environ, {"APP_DEBUG": "true", "APP_RELOAD": "true"}):
                 config = UnifiedConfig.from_environment(Environment.DEVELOPMENT)
                 assert config.environment == Environment.DEVELOPMENT
                 assert config.application.debug is True
@@ -370,6 +369,58 @@ class TestUnifiedConfigValidation:
         config.search.max_limit = 50
         errors = config.validate()
         assert any("max_limit must be >= default_limit" in e for e in errors)
+
+
+class TestProductionUriGuard:
+    """validate_config() production Neo4j URI guard.
+
+    TLS comes solely from the URI scheme (the driver receives no encryption
+    kwarg), so SKUEL_ENVIRONMENT=production must refuse plaintext schemes.
+    Fail-fast at boot: get_settings() raises on any validation error.
+    """
+
+    def _config(self, env: Environment, uri: str) -> UnifiedConfig:
+        with patch("core.config.unified_config._get_neo4j_password", return_value=""):
+            config = UnifiedConfig(environment=env)
+        config.database.neo4j_uri = uri
+        config.database.neo4j_username = "neo4j"
+        config.database.neo4j_password = "test-password"
+        return config
+
+    def _uri_errors(self, env: Environment, uri: str) -> list[str]:
+        errors = validate_config(self._config(env, uri))
+        return [e for e in errors if "Neo4j URI" in e]
+
+    def test_production_plaintext_bolt_fails(self):
+        """Production + bolt:// fails, naming the got-scheme."""
+        errors = self._uri_errors(Environment.PRODUCTION, "bolt://localhost:7687")
+        assert len(errors) == 1
+        assert "got 'bolt://'" in errors[0]
+
+    def test_production_plaintext_neo4j_fails(self):
+        """Production + neo4j:// (plaintext routing scheme) fails."""
+        errors = self._uri_errors(Environment.PRODUCTION, "neo4j://localhost:7687")
+        assert len(errors) == 1
+        assert "got 'neo4j://'" in errors[0]
+
+    def test_production_neo4j_s_passes(self):
+        """Production + neo4j+s:// (AuraDB) passes."""
+        uri = "neo4j+s://abcd1234.databases.neo4j.io"
+        assert self._uri_errors(Environment.PRODUCTION, uri) == []
+
+    def test_production_self_signed_schemes_pass(self):
+        """Production + +ssc schemes (self-signed cert) pass."""
+        assert self._uri_errors(Environment.PRODUCTION, "neo4j+ssc://host:7687") == []
+        assert self._uri_errors(Environment.PRODUCTION, "bolt+ssc://host:7687") == []
+        assert self._uri_errors(Environment.PRODUCTION, "bolt+s://host:7687") == []
+
+    def test_local_plaintext_bolt_passes(self):
+        """Local + bolt:// stays valid — the guard is production-only."""
+        assert self._uri_errors(Environment.LOCAL, "bolt://localhost:7687") == []
+
+    def test_staging_plaintext_bolt_passes(self):
+        """Staging + bolt:// stays valid (documented rehearsal fallback)."""
+        assert self._uri_errors(Environment.STAGING, "bolt://localhost:7687") == []
 
 
 class TestUnifiedConfigToDict:

@@ -1,6 +1,6 @@
 # Technical Debt & Development Roadmap
 
-**Last Updated:** July 4, 2026
+**Last Updated:** July 24, 2026
 **Total Production Ruff Errors:** 0
 **Active TODOs:** 4
 
@@ -20,7 +20,7 @@ Development follows a calculated approach: features are built when they serve re
 |------|-------|------|-------|
 | **1 — Foundation Fixes** | Strengthen what exists | ✅ Done | 0 |
 | **2 — MVP Completions** | Working product gaps | ✅ Done | 0 |
-| **3 — Data-Dependent** | Require usage data to justify | After real usage | 5 |
+| **3 — Data-Dependent** | Require usage data to justify | After real usage | 6 |
 | **Shelved** | Prerequisite-gated | When thresholds met | 3 |
 | **Decision Points** | Billing/architecture choices | When business model clarifies | 0 |
 
@@ -49,6 +49,7 @@ These only make sense once there are real users generating real data. Building t
 | 9 | `core/services/user/user_context_service.py` | 526 | [ENHANCEMENT] | After task completion, record knowledge application tracking, time investment, learning progress. Needs clear UX for what users see from this data. | UX design decided + **10+ daily active users** generating completion data |
 | 10 | `adapters/persistence/neo4j/query_builders/faceted_query_builder.py` | 210 | [ENHANCEMENT] | Replace string-split query parsing with `analyze_query_intent()` (already exists in `SearchIntelligenceService`). Current string split works for well-formed queries. | User-reported poor search results OR observed query mis-parse patterns in usage logs |
 | 11 | `adapters/inbound/middleware.py` + `static/service-worker.js` | `StaticCacheHeadersMiddleware` / cache strategy | [PERFORMANCE] | **Static caching needs a deliberate design pass.** (a) Static assets use a blunt `Cache-Control: no-cache` (always-correct: forces revalidation so a stale broken asset can never be served — the fix for the infinite-loop `skuel.js` cache trap), but FastHTML's static route ignores `If-None-Match`, so every load re-downloads (~1MB) instead of returning 304. (b) The service worker caches `/static/*` **cache-first**, so app-asset updates are invisible to returning clients between `CACHE_VERSION` bumps. *(Resolved 2026-07-04, care arc: the SW-never-registers 404 is fixed — `scripts/dev/bootstrap.py` strips FastHTML's `{fname:path}` extension catch-all before mounting /static, so `/service-worker.js` and `/offline.html` now serve via `pwa_routes.py` and the SW registers; this also closed an exposure where any static-ext repo file, e.g. `/tailwind.config.js`, was publicly served.)* **Plan**: cache version-stamped vendor assets (lucide/alpine/htmx/chart.js/vis-network) as `immutable`+long-lived, content-hash app assets (skuel.js, output.css) for URL cache-busting, and make app assets SW network-first (or hashed). | Before production deploy / when serving real traffic |
+| 12 | `core/config/unified_config.py` | `_load_from_env` | [CLEANUP] | **Config precedence is inverted for `database`/`api`.** `_load_from_env()` runs after `_apply_{environment}_settings()` and wholesale-replaces `self.database`/`self.api` via `from_env()`, so the environment split (production `debug=False`, `rate_limit_enabled=True`, …) only reliably controls sub-configs that aren't rebuilt from env. Redesign precedence as defaults < environment split < explicit env vars — its own PR, not a drive-by. | Next PR that touches the config system, or first observed prod misconfiguration traced to the clobber |
 
 ---
 

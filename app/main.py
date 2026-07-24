@@ -13,6 +13,7 @@ This demonstrates the evolution from:
 
 import argparse
 import asyncio
+import os
 import sys
 import traceback
 
@@ -61,6 +62,13 @@ async def main() -> None:
         log_level=(config.application.log_level or "info").lower(),
         access_log=config.application.debug,  # Enable in dev for route debugging
         lifespan="on",  # Enable lifespan for proper startup/shutdown
+        # Behind a reverse proxy (Caddy on the droplet) every request arrives
+        # from one source IP — rate-limit buckets and the AuthEvent audit trail
+        # need the real client IP from X-Forwarded-For. Headers are trusted only
+        # from FORWARDED_ALLOW_IPS (unset → uvicorn's 127.0.0.1 default), so
+        # this is inert locally where no proxy sends them.
+        proxy_headers=True,
+        forwarded_allow_ips=os.getenv("FORWARDED_ALLOW_IPS"),
     )
 
     server = uvicorn.Server(uvicorn_config)

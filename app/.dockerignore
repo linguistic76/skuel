@@ -1,0 +1,17 @@
+# Build-context excludes for Dockerfile.production.
+# Keeps the image lean and keeps env files OUT of image layers — runtime env
+# comes from compose env_file (.env.production + /opt/skuel/secrets.env).
+.venv/
+node_modules/
+logs/
+data/
+.env*
+.git/
+htmlcov/
+coverage.xml
+**/__pycache__
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+neo4j/
