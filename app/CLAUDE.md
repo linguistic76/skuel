@@ -261,15 +261,13 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 ### Neo4j Infrastructure
 
-**Core Principle:** "One Path Forward - Docker → DigitalOcean → AuraDB"
+**Core Principle:** "One Path Forward - local Docker for dev, droplet + AuraDB Free for production"
 
-**Stage 1 (Current):** Docker-based Neo4j (`bolt://localhost:7687`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068, BGE staged long-term).
+**Local (dev):** Docker-based Neo4j (`bolt://localhost:7687`, `infrastructure/docker-compose.yml`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068, BGE staged long-term).
 
-**Stage 2:** Droplet (Neo4j) + App Platform (app). Same config as local Docker.
+**Production:** one droplet running `skuel-app` + Caddy (auto-TLS) via `docker-compose.production.yml`, talking to **Neo4j AuraDB Free** over `neo4j+s://` (boot refuses plaintext schemes in production). Deploy via `./dev deploy` (rsync + build + `/health/ready` gate). The former intermediate stage (App Platform + Neo4j droplet) was skipped — see `NEO4J_SETUP_MIGRATION_SUMMARY.md`.
 
-**Stage 3:** AuraDB. Database-level API keys, `neo4j+s://` connection, automated backups.
-
-**Code is environment-agnostic** — only `.env` configuration changes across stages.
+**Code is environment-agnostic** — only `.env` configuration changes between local and production.
 
 **Per-query server-side timeout:** every query through the shared driver carries a server-side per-tx ceiling (`NEO4J_TRANSACTION_TIMEOUT`, default 120s; `0`=unbounded). Wired at compose via `TimedDriver` — single chokepoint, no call-site edits. Bulk ingestion wraps to 600s; startup DDL stays untimed (`Neo4jSchemaManager(raw_driver)` carve-out). Override per op with `neo4j_query_timeout(s)` / `unbounded_neo4j_query_timeout()`.
 

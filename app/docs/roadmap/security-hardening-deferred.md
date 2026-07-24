@@ -1,8 +1,19 @@
+---
+title: Security Hardening — Deferred Items
+updated: 2026-07-24
+category: roadmap
+tags: [roadmap, security, hardening]
+---
 # Security Hardening — Deferred Items
 
 **Context**: These items were identified during the security review committed in `14c622c`
 (2026-03-04) and intentionally deferred. They are real, valuable improvements — not rejected,
 just not urgent before public deployment.
+
+**Status sweep 2026-07-24** (public-launch hardening, PR #794): item 7 (security headers) is
+**done**; items 2, 3, and 5 are partially overtaken by shipped work — each carries a dated
+status note below. Items 1 and 4 remain deferred as written; CAPTCHA (row 6 of the priority
+table) is the still-open remainder of item 2.
 
 **See**: `/home/mike/.claude/plans/snazzy-gliding-shore.md` — the original review that produced
 the implemented fixes (Phases 1–3) and surfaced these deferrals.
@@ -10,6 +21,13 @@ the implemented fixes (Phases 1–3) and surfaced these deferrals.
 ---
 
 ## 1. Dependency Version Pinning (Langchain)
+
+> **Status 2026-07-24 — partially overtaken by ADR-067.** The "wildcard `*`" claim below is
+> stale: `pyproject.toml` now carries `>=` floors tracking the locked latest, `uv.lock` pins
+> exact resolutions (and `Dockerfile.production` builds with `uv sync --frozen`), and Renovate
+> opens update PRs gated by CI. What remains of this item is the *judgment call* — whether
+> `langchain-*` deserves a deliberate cap like `neo4j` / `deepgram-sdk` (the two documented
+> intentional pins) rather than riding the latest-stable default. See ADR-067 for the policy.
 
 **Why deferred**: Requires careful testing across the embedding and AI service layers. Current
 wildcard `*` pinning has not caused breakage; the risk is low until we approach production.
@@ -41,49 +59,34 @@ vector search, or AI feedback — failures that are hard to detect without a ful
 
 ## 2. Rate Limiting and CAPTCHA on Sign-Up
 
-**Why deferred**: SKUEL is not publicly deployed yet. Rate limiting adds operational complexity
-(Redis dependency, bypass edge cases) that has zero user impact in the current single-developer
-phase.
+> **Status 2026-07-24 — rate limiting SHIPPED, by a different mechanism than prescribed
+> below; CAPTCHA still deferred.** The slowapi/Redis prescription was superseded by the
+> in-memory `/adapters/inbound/rate_limit.py` (`@rate_limited` / `@rate_limited_ip`
+> decorators — no Redis anywhere in the repo; the "pre-wired Redis" this item referenced
+> was a dead knob, deleted in PR #793). What runs today: `/register/submit` has CSRF +
+> `@rate_limited_ip(bucket="register", per_ip=5, window_s=300)`; login has 3-layer
+> brute-force protection (`/core/auth/graph_auth.py`); password reset is throttled.
+> On top of the throttles, PR #794 added the `SIGNUP_INVITE_CODE` gate (constant-time
+> check before any account is created; resolves through `get_credential()`) — the real
+> control on throwaway-account growth. Remaining from this item: CAPTCHA only, on its
+> original trigger below.
 
-**The problem**: `/api/auth/register` is currently unthrottled. An attacker can:
-- Enumerate valid emails via response timing differences (partially mitigated by generic
-  error messages in Phase 3, but timing side-channels remain)
-- Flood the registration endpoint to exhaust Neo4j write capacity
-- Create large numbers of throwaway accounts
-
-**What to do**:
-
-### A. Rate limiting on auth endpoints
-
-Redis is pre-wired in `docker-compose.production.yml` and `core/config/unified_config.py`. Once Redis is enabled,
-add `slowapi` (or equivalent) to throttle:
-
-```python
-# Suggested limits
-POST /api/auth/register  →  5 requests / 10 minutes per IP
-POST /api/auth/login     →  10 requests / 5 minutes per IP
-POST /api/auth/reset-password  →  3 requests / hour per IP
-```
-
-Apply limits at the FastHTML route level using a decorator pattern consistent with
-`@require_admin` / `@boundary_handler` ordering conventions (SKUEL012: no lambdas).
-
-### B. CAPTCHA on sign-up (optional, higher friction)
-
-Consider hCaptcha (privacy-preserving) or Cloudflare Turnstile. CAPTCHA makes sense only
-if bot-driven sign-up becomes a real problem — don't add it preemptively.
-
-**Prerequisites**:
-- Redis enabled (rate limiting store)
-- Public deployment with a domain name
-- `SKUEL_ENVIRONMENT=production` enforced at startup
-
-**Enable when**: Going to public production. Rate limiting is the higher priority; CAPTCHA only
-if automated abuse actually occurs.
+**CAPTCHA (the still-deferred part)**: hCaptcha (privacy-preserving) or Cloudflare
+Turnstile. CAPTCHA makes sense only if bot-driven sign-up becomes a real problem — don't
+add it preemptively, and revisit only if the invite gate is removed or abuse is observed.
+Email verification sits in the same bucket (see the fast-follow list in the droplet
+deployment plan).
 
 ---
 
 ## 3. Pre-commit Hooks for Secret Scanning
+
+> **Status 2026-07-24 — largely shipped, home-grown.** `scripts/git-hooks/pre-commit` (installed
+> via `/scripts/install_git_hooks.sh`) blocks staged `.env*` files (`.env.*.example` templates
+> allowed) and scans added lines for high-confidence credential patterns
+> (`SKUEL_ALLOW_SECRETS=1` to bypass). The detect-secrets/baseline approach below remains an
+> option if the home-grown patterns prove too narrow; the CI-side history scan (trufflehog/
+> gitleaks) is still open — see item 5.
 
 **Why deferred**: The current `.gitignore` covers the obvious secrets (`.env` files, Neo4j logs).
 Pre-commit hooks add developer workflow friction with marginal benefit while only one developer
@@ -185,8 +188,12 @@ role management to non-admin users.
 
 ## 5. CI CVE Scanning
 
-**Why deferred**: No CI pipeline exists yet. Adding security scanning to a non-existent
-pipeline is not actionable.
+> **Status 2026-07-24 — now actionable, still not done.** The original blocker is gone: CI
+> exists (`.github/workflows/ci.yml` — tests, lint, MyPy, docs jobs). `pip-audit` has not been
+> added; it is on the post-launch fast-follow list. The instructions below are current.
+
+**Why deferred**: (historical) No CI pipeline existed when this was written. Adding security
+scanning to a non-existent pipeline was not actionable.
 
 **The problem**: Python dependencies accumulate CVEs over time. Without automated scanning,
 vulnerabilities in transitive dependencies go undetected until a developer happens to run
@@ -237,75 +244,52 @@ uv run cyclonedx-py environment > sbom.json
 
 ---
 
-## 7. HTTP Security Headers Middleware
+## 7. HTTP Security Headers Middleware — ✅ DONE (PR #794, 2026-07-24)
 
-**Why deferred**: SKUEL is not publicly deployed. Security headers protect browser-based users
-from clickjacking, MIME-sniffing, and XSS — risks that only apply once real users access the
-app over the internet.
+Shipped as `SecurityHeadersMiddleware` in `/adapters/inbound/middleware.py`, registered in
+`main.py` as the **outermost ASGI wrapper** (not `add_middleware` — that sits inside
+Starlette's ServerErrorMiddleware and would leave unhandled-exception 500s unstamped). Every
+response carries:
 
-**The problem**: No HTTP security headers are set on responses. Missing headers:
+| Header | Shipped value |
+|--------|---------------|
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `microphone=(self), camera=(), geolocation=()` (journals records audio) |
+| `Content-Security-Policy-Report-Only` | self-hosted assets; `unsafe-eval` (Alpine `x-data`) + `unsafe-inline` (FastHTML inline scripts/styles); `frame-ancestors 'none'` |
 
-| Header | Purpose |
-|--------|---------|
-| `X-Frame-Options: DENY` | Prevents clickjacking via iframes |
-| `X-Content-Type-Options: nosniff` | Prevents MIME-type sniffing |
-| `Strict-Transport-Security` (HSTS) | Forces HTTPS after first visit |
-| `Referrer-Policy: strict-origin-when-cross-origin` | Limits referrer leakage |
-| `Permissions-Policy` | Disables unused browser APIs (camera, microphone, etc.) |
-| `Content-Security-Policy` (CSP) | Controls allowed script/style/font sources |
+Two pieces deliberately remain:
 
-**What to do**:
-
-### A. ASGI middleware (all headers except CSP)
-
-Follow the `RequestIDMiddleware` pattern in `adapters/inbound/middleware.py`. Create
-`SecurityHeadersMiddleware` as an ASGI middleware that injects headers on every response.
-
-Register in `scripts/dev/bootstrap.py:424` alongside existing middleware.
-
-### B. Content Security Policy (complex — separate step)
-
-CSP is the most impactful header but requires careful configuration for SKUEL's frontend:
-
-| Dependency | CSP Impact |
-|------------|-----------|
-| Alpine.js 3.14.8 (standard build) | Requires `'unsafe-eval'` |
-| Inline `<script>` tags | Requires `'unsafe-inline'` or nonce-based |
-| CDN origins (unpkg, jsdelivr, tailwindcss, googleapis, gstatic) | Must be whitelisted |
-
-**CSP tightening path** (incremental, each step removes a `'unsafe-*'` directive):
-
-1. Self-host CDN dependencies (removes external origin whitelist)
-2. Pre-build Tailwind CSS (removes CDN CSS dependency)
-3. Switch to Alpine.js CSP build (`alpine.csp.min.js` — removes `'unsafe-eval'`)
-4. Move inline scripts to external files with nonce-based CSP (removes `'unsafe-inline'`)
-
-Start with a permissive CSP in report-only mode (`Content-Security-Policy-Report-Only`) to
-identify violations without breaking the app, then tighten incrementally.
-
-**Enable when**: Before public deployment. Non-CSP headers are straightforward and can ship
-first; CSP requires the tightening path above.
+1. **CSP promotion to enforcing** — the policy ships **Report-Only**; promote once the browser
+   console stays clean in real use. The original tightening path still applies for removing the
+   `unsafe-*` directives (assets are already self-hosted and Tailwind pre-built — the remaining
+   steps are the Alpine CSP build and nonce-based inline scripts).
+2. **HSTS** — deliberately absent from the middleware; TLS termination (and therefore HSTS) is
+   Caddy's job at the edge. Not yet in the `Caddyfile` either: hardcoding it would poison the
+   browser HSTS cache for `SKUEL_DOMAIN=localhost` rehearsal. Add it scoped to the real domain
+   at launch.
 
 ---
 
 ## Priority Order
 
-When production deployment approaches, implement in this order:
+Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
 
-| # | Item | Trigger |
-|---|------|---------|
-| 1 | **Dependency pinning** | Before any langchain upgrade; before production |
-| 2 | **CI CVE scanning** | When CI pipeline is created |
-| 3 | **Rate limiting** | When `SKUEL_ENVIRONMENT=production` is first set |
-| 4 | **Pre-commit secret scanning** | When second developer joins |
-| 5 | **Session rotation** | When multi-device sessions are tracked |
-| 6 | **CAPTCHA** | Only if automated sign-up abuse occurs |
-| 7 | **Security headers** | Before public deployment (non-CSP headers first) |
+| # | Item | Status / trigger |
+|---|------|------------------|
+| 1 | **Dependency pinning** | Open — before any langchain upgrade (see the item's status note) |
+| 2 | **CI CVE scanning** | Open, now actionable — add `pip-audit` to `ci.yml` (fast-follow) |
+| 3 | **Rate limiting** | ✅ Done — `/adapters/inbound/rate_limit.py` + invite gate |
+| 4 | **Pre-commit secret scanning** | ✅ Done — `scripts/git-hooks/pre-commit` |
+| 5 | **Session rotation** | Open — more relevant now that admin role promotion is the AI-access grant |
+| 6 | **CAPTCHA** | Open — only if automated sign-up abuse occurs despite the invite gate |
+| 7 | **Security headers** | ✅ Done (PR #794) — CSP promotion + Caddy HSTS remain |
 
 ---
 
 **Related**:
 - `/docs/roadmap/deferred-work.md` — intelligence features, decision points, and other deferred items
-- `docs/patterns/AUTH_PATTERNS.md` — current auth implementation
-- `adapters/inbound/auth/session.py` — session management (Phases 1–2 already hardened)
-- `core/auth/graph_auth.py` — sign-up logic (Phase 3 generic errors already applied)
+- `/docs/patterns/AUTH_PATTERNS.md` — current auth implementation
+- `/adapters/inbound/auth/session.py` — session management (Phases 1–2 already hardened)
+- `/core/auth/graph_auth.py` — sign-up logic (Phase 3 generic errors already applied)

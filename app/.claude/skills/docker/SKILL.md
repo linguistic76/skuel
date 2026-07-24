@@ -1,12 +1,12 @@
 ---
 name: docker
-description: Expert guide for SKUEL's Docker setup — the two-directory compose split, Dockerfile.production conventions, correct startup sequences, and the differences between local, Droplet, and App Platform Docker usage. Use when running the app in Docker, modifying Dockerfile.production, debugging container networking, or deploying to DigitalOcean.
+description: Expert guide for SKUEL's Docker setup — the two-directory compose split, the production droplet stack (app + Caddy → AuraDB), Dockerfile.production conventions, correct startup sequences, and ./dev deploy. Use when running the app in Docker, modifying Dockerfile.production or the compose files, debugging container networking, or deploying to the droplet.
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Docker in SKUEL
 
-SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Neo4j), and App Platform (app). The setup is deliberately split across two directories. Getting this wrong is the most common source of "it works locally but not in Docker" confusion.
+SKUEL uses Docker in two contexts: **local development** (Neo4j always; optionally the full stack) and the **production droplet** (app + Caddy containers talking to Neo4j AuraDB Free — no Neo4j container in production). Getting the file split wrong is the most common source of "it works locally but not in Docker" confusion.
 
 ---
 
@@ -14,25 +14,25 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 
 ```
 ~/skuel/
-├── infrastructure/          ← Neo4j only. Independent lifecycle.
+├── infrastructure/          ← LOCAL Neo4j only. Independent lifecycle. Deploys nowhere.
 │   ├── docker-compose.yml   ← THE canonical Neo4j definition (single source of truth)
 │   ├── .env                 ← Neo4j credentials + memory config
 │   └── neo4j/               ← Persistent data, logs, plugins (host-side volumes)
-│       ├── data/
-│       ├── logs/
-│       └── plugins/
 │
-└── app/                     ← SKUEL application + monitoring
-    ├── docker-compose.yml           ← Neo4j (via extends) + App + Monitoring (profile-gated)
-    ├── docker-compose.production.yml ← Production app + pre-wired future services
-    ├── Dockerfile.production        ← The image App Platform deploys
-    ├── .env                         ← App config (Neo4j URI, API keys, ports)
-    └── main.py                      ← Entry point
+└── app/                     ← SKUEL application
+    ├── docker-compose.yml            ← DEV: Neo4j (via extends) + App; monitoring/finance profiles
+    ├── docker-compose.production.yml ← DROPLET: skuel-app + caddy (no Neo4j — AuraDB)
+    ├── Caddyfile                     ← TLS termination + reverse proxy for the droplet stack
+    ├── Dockerfile                    ← dev image (app/docker-compose.yml builds this)
+    ├── Dockerfile.production         ← droplet image (python:3.14-slim, non-root, port 5001)
+    ├── .deployignore                 ← rsync exclude list for scripts/deploy.sh
+    ├── .env.production.example       ← every droplet env var + the secrets.env shape
+    └── scripts/deploy.sh             ← ./dev deploy — rsync + build + health gate
 ```
 
-**Why two directories?** Neo4j's lifecycle is independent of the app. You restart the app during development dozens of times; you almost never restart Neo4j. Putting them in the same compose file couples those lifecycles. It also makes Neo4j backup and data management cleaner — the `infrastructure/` directory is the single place where all graph data lives.
+**Why two directories?** Neo4j's lifecycle is independent of the app. You restart the app dozens of times a day; you almost never restart Neo4j. The `infrastructure/` directory is also the single place all local graph data lives.
 
-**Compose `extends` pattern:** `app/docker-compose.yml` inherits the Neo4j service from `infrastructure/docker-compose.yml` using `extends`, overriding only what differs (no GenAI plugin, memory defaults, network). This eliminates duplication and prevents configuration drift. Volume paths resolve relative to the base file, so data still lives in `infrastructure/neo4j/`.
+**Compose `extends` pattern:** `app/docker-compose.yml` inherits the Neo4j service from `infrastructure/docker-compose.yml`, overriding only deltas (APOC-only plugins, dev memory defaults). Volume paths resolve relative to the base file, so data still lives in `infrastructure/neo4j/`.
 
 ---
 
@@ -40,136 +40,113 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 
 | File | What it runs | When to use it |
 |------|--------------|----------------|
-| `infrastructure/docker-compose.yml` | Neo4j (canonical definition, with GenAI + APOC plugins) | Standalone Neo4j (e.g., on a Droplet). Also the base that `app/docker-compose.yml` extends. |
-| `app/docker-compose.yml` | Neo4j (via `extends`) + App. Prometheus + Grafana behind `monitoring` profile. Firefly III + MariaDB behind `finance` profile. | Default dev workflow. `docker compose up` starts Neo4j + App only. |
-| `app/docker-compose.production.yml` | SKUEL app + pre-wired future services (Redis, Ollama, nginx, etc.) | Production deployment reference. Most services are disabled. See `FUTURE_SERVICES.md`. |
+| `infrastructure/docker-compose.yml` | Neo4j only (canonical definition) | Local dev database. `./dev up-neo4j` starts it. |
+| `app/docker-compose.yml` | Neo4j (via `extends`) + App. Prometheus + Grafana behind the `monitoring` profile; Firefly III + MariaDB behind `finance` (ADR-052). | Full local Docker stack. |
+| `app/docker-compose.production.yml` | `skuel-app` + `caddy` — nothing else. Neo4j is AuraDB, reached over `neo4j+s://`. | The droplet. Also local rehearsal with `SKUEL_DOMAIN=localhost`. |
 
-**The Neo4j definition inside `docker-compose.production.yml` is commented out.** It exists as a fallback reference only. Always use `infrastructure/docker-compose.yml` for Neo4j.
+There are no commented-out "future services" anywhere — Redis/Ollama/nginx blocks were deleted when the production compose was rewritten (2026-07-24). One Path Forward: a service enters compose when adopted, not speculatively.
 
-**Monitoring is profile-gated.** Prometheus and Grafana are behind the `monitoring` profile — they do not start by default. To include them:
-
-```bash
-docker compose --profile monitoring up       # All services including monitoring
-docker compose --profile monitoring up -d    # Detached
-```
-
-**Finance is profile-gated.** Firefly III and its MariaDB are behind the `finance` profile (ADR-052). They do not start by default. Bring them up with:
+**Profile-gated extras (dev compose):**
 
 ```bash
-docker compose --profile finance up -d firefly firefly-db
-# Firefly web UI: http://localhost:8081
+docker compose --profile monitoring up -d              # + Prometheus + Grafana
+docker compose --profile finance up -d firefly firefly-db   # Firefly III (web UI :8081)
 ```
 
-Firefly requires `FIREFLY_APP_KEY` in `.env` with the `base64:` prefix — generate via `printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"`. Keep all comments on their own lines in `.env`: Docker Compose's parser absorbs inline `# ...` into the value. After editing `.env`, use `up -d` (not `restart`) to recreate the container with the new env. See `docs/domains/finance.md`.
+Firefly requires `FIREFLY_APP_KEY` in `.env` with the `base64:` prefix — generate via `printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"`. Keep `.env` comments on their own lines (compose absorbs inline `#` into values); after editing `.env`, use `up -d` (not `restart`) so the container is recreated with the new env.
 
 ---
 
-## Correct Startup Sequence
-
-Order matters. Neo4j must be healthy before the app starts, because the app connects and probes the database on boot.
+## Correct Startup Sequences
 
 **Recommended local workflow (fastest iteration):**
 
 ```bash
 ./dev up-neo4j        # Start Neo4j only (Docker, detached)
-./dev serve           # Start app locally (uv run python main.py)
+./dev serve           # Run the app locally (uv run python main.py)
 ```
 
-**Full Docker stack (Neo4j + App):**
+**Full local Docker stack:**
 
 ```bash
 cd ~/skuel/app
-docker compose up -d                          # Neo4j + App (no monitoring)
-docker compose --profile monitoring up -d     # Neo4j + App + Prometheus + Grafana
+docker compose up -d                          # Neo4j + App
+docker compose --profile monitoring up -d     # + Prometheus + Grafana
 ```
 
-The `depends_on` with `condition: service_healthy` in the compose file ensures the app waits for Neo4j automatically.
-
-**Standalone Neo4j (infrastructure directory):**
+**Production stack (droplet — or local rehearsal):**
 
 ```bash
-cd ~/skuel/infrastructure
-docker compose up -d     # Runs the canonical Neo4j definition directly
+# On the droplet this is what ./dev deploy runs remotely:
+cd /opt/skuel/app
+docker compose -f docker-compose.production.yml build
+docker compose -f docker-compose.production.yml up -d
+
+# Local rehearsal: SKUEL_DOMAIN=localhost in .env.production → https://localhost
+# via Caddy's internal CA (browser warning expected). Point NEO4J_URI at a
+# scratch AuraDB Free instance to rehearse the real neo4j+s:// path.
 ```
 
-Use this when running Neo4j independently (e.g., on a Droplet) without the app compose layer.
+Config layering on the droplet: `.env.production` (non-secret, survives deploys) + `/opt/skuel/secrets.env` (0600 — `NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `SESSION_SECRET_KEY`, optional per-feature keys), both loaded via compose `env_file`. Caddy reads `SKUEL_DOMAIN`/`ACME_EMAIL` from `.env.production` via its own `env_file` — no shell exports needed.
+
+Deploying is `./dev deploy` (`--content`, `--dry-run`): rsync via `.deployignore` → chown writable bind mounts to UID 10001 → build + up → poll `/health/ready` (~2 min, covers AuraDB wake-from-pause) → only past a green gate, tag `skuel-app:latest` as `skuel-app:rollback`. No auto-rollback. See `/docs/deployment/DO_MIGRATION_GUIDE.md` for the runbook.
 
 ---
 
 ## Dockerfile.production Conventions
 
 ```dockerfile
-FROM python:3.12-slim as builder   # Must match pyproject.toml python = ">=3.12"
-# ... installs uv, runs `uv sync --only=main`
+FROM python:3.14-slim AS builder      # matches .python-version / pyproject.toml
+# uv from ghcr.io/astral-sh/uv; RUN uv sync --frozen --no-dev --no-install-project
 
-FROM python:3.12-slim as production
-# Non-root user (skuel:skuel) for security
-# Copies .venv from builder stage — no uv in the final image
-# Health check: curl http://localhost:5001/health
-# EXPOSE 5001
-# CMD ["python", "main.py"]        # Entry point is main.py
+FROM python:3.14-slim AS production
+# useradd -r -m -u 10001 -g skuel     ← UID/GID pinned; -m matters (see below)
+# copies .venv from builder — no uv in the final image
+# pre-creates /app/logs /app/data/user_vaults + vault mount points, chowned
+# ENV APP_HOST=0.0.0.0 APP_PORT=5001  ← container contract baked into the image
+# HEALTHCHECK: curl -f http://localhost:5001/health
+# CMD ["python", "main.py"]
 ```
 
-Key rules when modifying this file:
-- **Python version must match `pyproject.toml`.** `pyproject.toml` declares `python = ">=3.12,<4.0"`. The Dockerfile base image must be `3.12` or later.
-- **The entry point is `main.py`.** Not `skuel.py`. There is no `skuel.py`.
-- **The container always listens on port 5001.** The `APP_PORT` in `.env` (currently 8000) is for `uv run` local dev. Inside the container, the port is 5001. See TROUBLESHOOTING.md if you get confused here.
-- **uv is a build-time dependency only.** The production stage copies the `.venv` directory. Do not add uv to the production stage.
-- **`uv.lock` must be committed.** The builder stage copies `pyproject.toml` and `uv.lock` before installing. If `uv.lock` is missing or stale, the build will fail or produce an unpredictable environment.
+Rules learned the hard way (each broke a real rehearsal or deploy):
+
+- **`uv sync --frozen --no-dev --no-install-project`** — exactly these flags. `--no-root` is a Poetry-ism uv rejects (the image never built); `--frozen` makes a stale `uv.lock` fail the build instead of silently re-resolving; `--no-install-project` because the app ships as source, not a package. `uv.lock` must be committed.
+- **`useradd -m`** — CredentialStore initializes `~/.skuel` at import even in the headless env-file shape; a system user without a home directory crashes boot.
+- **UID/GID pinned to 10001** — host-side writable bind mounts (droplet personal-vault, `logs/`) must be chowned to the container user by `deploy.sh`, which needs a UID it can rely on. A bind mount hides the image's chowned directory, so ownership is a host-side concern.
+- **Pre-create every compose mount point in the image** — a mount point absent from the image is auto-created root-owned by the daemon, and the app then can't write siblings (e.g. `/app/data/reports`).
+- **The container contract is port 5001** — baked as `ENV APP_PORT=5001` so a bare `docker run` honors it; Caddy proxies to `skuel-app:5001`, the healthcheck and deploy gate hit it. Do not change it.
+- **`.dockerignore` matters** — without it the build context ships the entire worktree (`.venv`, `node_modules`, `htmlcov`, `.env*`) into image layers.
+- **The env vars are `APP_HOST` / `APP_PORT` / `APP_DEBUG`** — the config reads `APP_*` (the former `API_*` split was a dead knob that made containers silently listen on 8000; killed 2026-07-24).
 
 ---
 
-## Port Map: Local vs Docker
+## Port Map
 
-| Context | APP_PORT | Where it listens | How to reach it |
-|---------|----------|------------------|-----------------|
-| `uv run python main.py` | 8000 (from `.env`) | Host port 8000 | `http://localhost:8000` |
-| `docker compose up` (app/) | 5001 (container) mapped to host | Host port 5001 | `http://localhost:5001` |
-| App Platform deploy | 5001 (container) | Managed URL | `https://skuel-app-xxx.ondigitalocean.app` |
+| Context | Port | How to reach it |
+|---------|------|-----------------|
+| `uv run python main.py` (local) | 8000 (`APP_PORT` in `.env`) | `http://localhost:8000` |
+| `docker compose up` (dev stack) | `APP_PORT` (default 8000), mapped to host | `http://localhost:8000` |
+| Droplet `skuel-app` container | 5001, published **loopback-only** (`127.0.0.1:5001`) | droplet-side only: health gate, curl |
+| Droplet Caddy | 80/443 (+443/udp HTTP/3) | `https://skuel.app` |
 
-The `APP_PORT` variable in `.env` is read by `uv run` for local development. Docker compose sets the container's `APP_PORT` independently. Do not change the container port in `Dockerfile.production` — downstream health checks and port mappings depend on 5001.
-
----
-
-## Neo4j Port Binding: Local vs Droplet
-
-The single difference between the local `infrastructure/docker-compose.yml` and the Droplet version is the Bolt binding:
-
-| Environment | Bolt listen address | Why |
-|-------------|--------------------|----|
-| Local | `127.0.0.1:7687` | Nothing outside the machine needs to reach it |
-| Droplet | `0.0.0.0:7687` | App Platform connects over the network |
-
-HTTP (7474) stays on `127.0.0.1` in both cases. If you need Neo4j Browser on a Droplet, SSH-tunnel it:
-
-```bash
-ssh -L 7474:localhost:7474 root@<droplet-ip>
-# Then open http://localhost:7474 locally
-```
-
-See `docs/deployment/DO_MIGRATION_GUIDE.md` for the full Droplet setup.
+The app port is never exposed to the internet — Caddy fronts the world.
 
 ---
 
-## Cross-Platform Gotcha: Reaching the Host from a Container
+## Networking Notes
 
-When the app container needs to reach Neo4j running on the same machine (but outside its network namespace), the address depends on the OS:
-
-| Host OS | Address to use | Notes |
-|---------|---------------|-------|
-| macOS / Windows | `host.docker.internal` | Built into Docker Desktop |
-| Linux | `172.17.0.1` | Default Docker bridge gateway |
-
-`app/docker-compose.yml` documents this in its comments. If you are on Linux and Neo4j is unreachable from the app container, this is the first thing to check.
-
-On a Droplet or App Platform, this is not relevant — Neo4j is on a different machine entirely, reached by its IP address.
+- **Dev stack:** the app container reaches Neo4j by service name (`NEO4J_URI: bolt://neo4j:7687` — set in the compose file, overriding the `.env` localhost value).
+- **Production:** there is no Neo4j container to reach — `NEO4J_URI=neo4j+s://<dbid>.databases.neo4j.io`. Production boot **refuses plaintext schemes** (`/core/config/validation.py`). Startup tolerates a paused/waking Free instance (`connect_with_retry`).
+- **Caddy → app:** by service name over the compose default network (`reverse_proxy skuel-app:5001`).
+- **Real client IPs behind Caddy:** `main.py` passes `proxy_headers=True` + `FORWARDED_ALLOW_IPS` to uvicorn; the droplet sets `FORWARDED_ALLOW_IPS=172.16.0.0/12` (Docker's default address pools). Unset locally → inert.
+- **Reaching the host from a container** (dev, Linux): `172.17.0.1` (default bridge gateway); macOS/Windows: `host.docker.internal`.
 
 ---
 
 ## Deep Dive Resources
 
-- `docs/deployment/DO_MIGRATION_GUIDE.md` — Droplet Neo4j + App Platform app deployment
-- `docs/deployment/AURADB_MIGRATION_GUIDE.md` — Stage 3: replacing Droplet Neo4j with AuraDB
-- `docs/development/GENAI_SETUP.md` — GenAI/embeddings setup (HuggingFace Inference API, Python-side)
-- `.claude/skills/prometheus-grafana/` — Monitoring stack (runs in app compose)
-- See TROUBLESHOOTING.md in this directory for container-specific failure modes
+- `/docs/deployment/DO_MIGRATION_GUIDE.md` — droplet deployment guide + operations runbook
+- `/docs/deployment/AURADB_MIGRATION_GUIDE.md` — moving the graph data to AuraDB Free
+- `/docs/patterns/NEO4J_SERVER_TUNING.md` — every `NEO4J_*` server knob (and which are `AURA-TEMPORARY`)
+- `.claude/skills/prometheus-grafana/` — monitoring stack (dev compose, `monitoring` profile)
+- `/docs/TROUBLESHOOTING.md` — container-specific failure modes

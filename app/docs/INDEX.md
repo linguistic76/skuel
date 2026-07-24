@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-03-03
+updated: 2026-07-24
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -14,7 +14,7 @@ related: []
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 
 *Generated: 2025-12-07*
-*Updated: 2026-03-20*
+*Updated: 2026-07-24*
 *Total: ~200 documents*
 
 > **New here? Read [START_HERE.md](START_HERE.md) first.** It covers what SKUEL is, the 20 entity types, how a request flows, and the key patterns — in 5 minutes.
@@ -342,13 +342,13 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Deployment
 
-*Infrastructure migration guides — local → DigitalOcean → AuraDB*
+*The one production path — droplet (app + Caddy) → AuraDB Free*
 
 | Document | Updated | Description |
 |----------|---------|-------------|
-| [Neo4j Setup Migration Summary](deployment/NEO4J_SETUP_MIGRATION_SUMMARY.md) | 2026-02-05 | History and rationale of the three-stage deployment roadmap |
-| [DigitalOcean Migration Guide](deployment/DO_MIGRATION_GUIDE.md) | 2026-02-05 | Stage 2: Droplet (Neo4j) + App Platform (app) |
-| [AuraDB Migration Guide](deployment/AURADB_MIGRATION_GUIDE.md) | 2026-02-01 | Stage 3: Neo4j AuraDB production deployment |
+| [Neo4j Setup Migration Summary](deployment/NEO4J_SETUP_MIGRATION_SUMMARY.md) | 2026-07-24 | History of the deployment docs + the decision that collapsed three stages to one path |
+| [Droplet Deployment Guide](deployment/DO_MIGRATION_GUIDE.md) | 2026-07-24 | Deploying skuel.app: droplet stack, `./dev deploy`, operations runbook |
+| [AuraDB Migration Guide](deployment/AURADB_MIGRATION_GUIDE.md) | 2026-07-24 | Moving the graph data: local Docker Neo4j → AuraDB Free |
 
 ---
 

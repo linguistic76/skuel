@@ -1,6 +1,12 @@
+---
+title: Neo4j Setup Migration Summary
+updated: 2026-07-24
+category: deployment
+tags: [deployment, neo4j, auradb, history]
+---
 # Neo4j Setup Migration Summary
 
-**Date:** 2026-02-01
+**Date:** 2026-02-01 (decision change appended 2026-07-24 — see the final section)
 **Status:** ✅ Complete
 **Approach:** One Path Forward - Docker (Development) vs AuraDB (Production)
 
@@ -139,30 +145,21 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
 
 ## Production Deployment Path
 
-The path from local development to production is now a three-stage roadmap:
+> **Superseded 2026-07-24** — the three-stage roadmap below was the plan when this summary was
+> written. The intermediate stage was skipped; see
+> [Decision Change (2026-07-24)](#decision-change-2026-07-24-stage-2-skipped-path-collapsed)
+> at the end of this document for the path that actually shipped.
+
+The path from local development to production was originally a three-stage roadmap:
 
 ```
-Stage 1 (Current)          Stage 2 (Intermediate)         Stage 3 (End Goal)
+Stage 1                    Stage 2 (SKIPPED)              Stage 3 (as planned then)
 ─────────────────          ──────────────────────         ──────────────────
 Local Docker Neo4j    →    DO Droplet Neo4j          →    AuraDB
 Local app (uv)         DO App Platform (app)          DO App Platform (app)
 ```
 
-- **Stage 2** validates cloud deployment, establishes backup/monitoring habits, and reduces risk for Stage 3. See [DO Migration Guide](./DO_MIGRATION_GUIDE.md).
-- **Stage 3** replaces the self-managed Droplet Neo4j with AuraDB. The app deployment does not change — only the `NEO4J_URI` and credential env vars. See [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md).
-
-### When to Move to Stage 2
-
-- App is feature-complete enough to warrant cloud validation
-- You want to test networking, secrets management, and deployment automation before committing to AuraDB costs
-
-### When to Move to Stage 3 (AuraDB)
-
-- Stage 2 is stable and you want to eliminate Neo4j infrastructure maintenance
-- Need 99.95% uptime SLA
-- Want automated backups and built-in monitoring
-
-**Recommendation:** Stage 1 for active development. Stage 2 before Stage 3.
+Stage 2 was meant to validate cloud deployment before committing to AuraDB costs; Stage 3 would then swap the self-managed Neo4j for AuraDB with an env change.
 
 ---
 
@@ -194,8 +191,8 @@ This migration demonstrates SKUEL's "One Path Forward" principle:
 ## Related Documentation
 
 - [Docker GenAI Setup](../development/GENAI_SETUP.md) - Current development setup
-- [DigitalOcean Migration Guide](./DO_MIGRATION_GUIDE.md) - Stage 2: Droplet + App Platform
-- [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) - Stage 3: production
+- [Droplet Deployment Guide](./DO_MIGRATION_GUIDE.md) - production stack: droplet app + Caddy → AuraDB Free
+- [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) - moving the data to AuraDB Free
 - [Neo4j Infrastructure](../../CLAUDE.md#neo4j-infrastructure) - Quick reference
 
 ---
@@ -220,6 +217,44 @@ Follow "One Path Forward" principle:
 
 ---
 
-**Last Updated:** 2026-02-01
+## Decision Change (2026-07-24): Stage 2 skipped, path collapsed
+
+The three-stage roadmap above did not survive contact with the actual launch decision. When
+public deployment became concrete (2026-07), the intermediate App Platform + Neo4j-droplet stage
+was **skipped entirely** and the path collapsed to a single production shape:
+
+```
+Local development                    Production (shipped)
+─────────────────                    ────────────────────────────────────
+infrastructure/ Docker Neo4j    →    One droplet: skuel-app + Caddy (Docker)
+app via uv (or app compose)          Neo4j AuraDB Free over neo4j+s://
+```
+
+Why the collapse:
+
+- **Cost/complexity** — Stage 2 priced at ~$53/mo (8 GB Neo4j droplet + App Platform) to
+  self-manage a database that AuraDB Free runs for $0 at SKUEL's current scale. Its stated
+  purpose — operational rehearsal before AuraDB — was instead served by rehearsing the full
+  stack locally against a scratch Free instance (`SKUEL_DOMAIN=localhost` + Caddy internal CA).
+- **App Platform lost its reason to exist** — with Neo4j managed by Aura, the only piece left
+  is a stateless app container; one $6–12/mo droplet with Caddy auto-TLS carries it, and the
+  App Platform ↔ droplet public-network Bolt exposure problem disappears entirely.
+- **One Path Forward** — two deployment guides describing three stages with conditional
+  branches is exactly the "alternative paths" confusion this summary was written to eliminate.
+
+What shipped instead (PRs #793/#794, 2026-07-24): `docker-compose.production.yml` rewritten to
+app + Caddy only; `Caddyfile`; `.env.production.example`; `./dev deploy` (rsync + build +
+health gate + post-gate rollback tag); `scripts/export_entity_counts.py`; a production
+encrypted-URI boot guard; per-user AI tier gates on the journals/transcription surfaces;
+`SIGNUP_INVITE_CODE`; `SecurityHeadersMiddleware`; AuraDB Free node-cap alerts.
+
+Both guide **filenames** were kept (16 files reference them) but their contents were rewritten
+to the single path: [DO_MIGRATION_GUIDE.md](./DO_MIGRATION_GUIDE.md) is now the droplet
+deployment guide + operations runbook; [AURADB_MIGRATION_GUIDE.md](./AURADB_MIGRATION_GUIDE.md)
+is the pure Free-tier data migration.
+
+---
+
+**Last Updated:** 2026-07-24
 **Maintained By:** SKUEL Core Team
-**Status:** Complete
+**Status:** Complete (historical record + decision change)
