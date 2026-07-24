@@ -39,8 +39,8 @@ from core.utils.neo4j_props import coerce_float, coerce_int
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
+    from core.services.insight.insight_generation_service import InsightGenerationService
     from core.services.insight.insight_store import InsightStore
-    from core.services.insight_generation_service import InsightGenerationService
     from core.services.relationships import UnifiedRelationshipService
 
 

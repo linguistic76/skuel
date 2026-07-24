@@ -101,6 +101,11 @@ A full class with its own backend access, injected as `self.progress`, `self.sch
 | Choices | ✅ 3 mixins | `_option_management_mixin`, `_enrichment_mixin` |
 | Principles | ✅ 3 mixins | `_embodiment_mixin`, `_gravity_mixin`, `_enrichment_mixin` |
 
+Beyond the six domains: `insight_generation_service.py` (1120 lines, four separable
+concerns) was decomposed July 2026 into `core/services/insight/` — shell +
+`_pattern_analysis_mixin` / `_insight_synthesis_mixin` / `_quality_curation_mixin`,
+with its transient models moved to `core/models/insight/generated_insight.py`.
+
 ## Deliberately Long (judged 2026-07-23 — do not re-flag)
 
 Surveyed with line counts + AST thin-method analysis ("thin" = ≤2 non-docstring statements,

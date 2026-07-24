@@ -14,8 +14,9 @@ from types import SimpleNamespace
 import pytest
 
 from core.models.enums import EntityStatus, Priority
+from core.models.insight import PatternType
 from core.models.task.task import Task
-from core.services.insight_generation_service import InsightGenerationService, PatternType
+from core.services.insight.insight_generation_service import InsightGenerationService
 from core.utils.result_simplified import Result
 
 
