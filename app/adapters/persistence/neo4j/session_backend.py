@@ -25,6 +25,7 @@ from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetToken
 from core.models.auth.session import Session, hash_session_token
+from core.models.enums import UserRole
 from core.models.type_hints import UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
@@ -80,14 +81,26 @@ class SessionBackend(Neo4jSessionRunner):
 
         Creates both the Session node and HAS_SESSION relationship to User.
 
+        The WHERE clause atomically requires the user to still be active at
+        creation time — sign_in checks ``user.is_active`` early, then spends
+        ~100ms verifying the password, and a deactivation landing in that
+        window must not mint a session at all (validate_session_token also
+        checks the live User on every request, so such a session would be
+        dead on arrival — this guard keeps it from existing). The stored
+        ``user_is_active`` is an informational snapshot; validation never
+        trusts it. ``coalesce(_, true)`` mirrors the User model's
+        ``is_active`` default for nodes that predate the property.
+
         Args:
             session: Session domain model
 
         Returns:
-            Result[Session]: Created session or error
+            Result[Session]: Created session, or error if the user doesn't
+            exist or has been deactivated
         """
         query = """
         MATCH (u:User {uid: $user_uid})
+        WHERE coalesce(u.is_active, true) = true
         CREATE (s:Session {
             uid: $uid,
             token_hash: $token_hash,
@@ -98,7 +111,7 @@ class SessionBackend(Neo4jSessionRunner):
             ip_address: $ip_address,
             user_agent: $user_agent,
             is_valid: $is_valid,
-            user_is_active: $user_is_active
+            user_is_active: true
         })
         CREATE (u)-[:HAS_SESSION]->(s)
         RETURN s
@@ -116,7 +129,6 @@ class SessionBackend(Neo4jSessionRunner):
                 "ip_address": session.ip_address,
                 "user_agent": session.user_agent,
                 "is_valid": session.is_valid,
-                "user_is_active": session.user_is_active,
             },
         )
 
@@ -124,7 +136,7 @@ class SessionBackend(Neo4jSessionRunner):
             return Result.fail(
                 Errors.database(
                     operation="create_session",
-                    message="Failed to create session - user may not exist",
+                    message="Failed to create session - user may not exist or is deactivated",
                 )
             )
 
@@ -181,38 +193,53 @@ class SessionBackend(Neo4jSessionRunner):
 
         return Result.ok(self._node_to_session(dict(record["s"])))
 
-    @safe_backend_operation("update_last_active")
-    async def update_last_active(
+    @safe_backend_operation("validate_session_token")
+    async def validate_session_token(
         self, session_token: str, batch_interval_seconds: int = 300
-    ) -> Result[bool]:
-        """
-        Update session's last_active_at timestamp with batching.
+    ) -> Result[str | None]:
+        """Validate a session token and touch last_active in ONE round trip.
 
-        Only updates if the session's last_active_at is older than the batch interval.
-        This reduces write load by ~80% by avoiding updates on every single request.
+        THE per-request auth query (AuthContextMiddleware runs it for every
+        authenticated request), deliberately a single indexed statement on
+        ``token_hash`` — a separate get + touch pair would double the graph
+        round trips for all signed-in traffic. The WHERE clause is the
+        session-validity contract: not revoked, not expired, and the LIVE
+        User node still active. Anchoring on the User (one hop from the
+        indexed Session) rather than the session's cached ``user_is_active``
+        snapshot means every account-death path fails validation immediately:
+        soft delete (``is_active=false``), hard delete (no User node / no
+        HAS_SESSION edge left), and deactivation — regardless of what the
+        session cached at creation. The FOREACH bumps ``last_active_at`` only
+        when it is older than the batch interval, so most validations stay
+        read-only.
 
         Args:
-            session_token: Session token to update
-            batch_interval_seconds: Minimum seconds between updates (default: 300 = 5 minutes)
+            session_token: Raw session token from the cookie (hashed here)
+            batch_interval_seconds: Minimum seconds between last-active
+                touches (default: 300 = 5 minutes)
 
         Returns:
-            Result[bool]: True if updated, False if session not found or update skipped
+            Result[str | None]: user_uid if the session is live, None otherwise
         """
-        # Only update if last_active_at is older than batch interval
-        # This dramatically reduces DB writes while still tracking activity
         token_hash = hash_session_token(session_token)
         query = """
-        MATCH (s:Session {token_hash: $token_hash, is_valid: true})
-        WHERE s.last_active_at < datetime() - duration({seconds: $interval})
-        SET s.last_active_at = datetime()
-        RETURN s
+        MATCH (u:User)-[:HAS_SESSION]->(s:Session {token_hash: $token_hash})
+        WHERE s.is_valid = true
+          AND s.expires_at > datetime()
+          AND coalesce(u.is_active, true) = true
+        FOREACH (_ IN CASE
+            WHEN s.last_active_at < datetime() - duration({seconds: $interval})
+            THEN [1] ELSE [] END |
+            SET s.last_active_at = datetime()
+        )
+        RETURN s.user_uid as user_uid
         """
 
         record = await self._run_single(
             query, {"token_hash": token_hash, "interval": batch_interval_seconds}
         )
 
-        return Result.ok(record is not None)
+        return Result.ok(record["user_uid"] if record else None)
 
     @safe_backend_operation("invalidate_session")
     async def invalidate_session(self, session_token: str) -> Result[bool]:
@@ -265,6 +292,93 @@ class SessionBackend(Neo4jSessionRunner):
 
         count = record["invalidated_count"] if record else 0
         self.logger.info(f"Invalidated {count} sessions for user: {user_uid}")
+        return Result.ok(count)
+
+    @safe_backend_operation("update_role_and_revoke_sessions")
+    async def update_role_and_revoke_sessions(
+        self, user_uid: UserUID, new_role: "UserRole"
+    ) -> Result[int]:
+        """Atomically persist a role change AND revoke every live session.
+
+        Same shape as deactivate_user_and_revoke_sessions, same reason: a
+        two-step revoke-then-update leaves a window where the target can
+        sign in against the old user record — that fresh session dodges the
+        completed revocation, so the promised forced re-login never happens
+        (a user being demoted could exploit it by spamming logins). One
+        statement = one transaction; the write lock on the User node
+        serializes against create_session, so a concurrent sign-in commits
+        either before this transaction (and is swept here) or after it (a
+        legitimate post-change re-login).
+
+        Args:
+            user_uid: User whose role changes
+            new_role: Role to persist (stored as the lowercase enum value)
+
+        Returns:
+            Result[int]: Number of live sessions revoked, or not-found error
+        """
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        SET u.role = $new_role, u.updated_at = datetime()
+        WITH u
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
+        WHERE s.is_valid = true
+        SET s.is_valid = false
+        RETURN count(s) as revoked_count
+        """
+
+        record = await self._run_single(query, {"user_uid": user_uid, "new_role": new_role.value})
+
+        if not record:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+
+        count = record["revoked_count"]
+        self.logger.info(
+            f"Updated role for {user_uid} to {new_role.value} and revoked "
+            f"{count} live session(s) atomically"
+        )
+        return Result.ok(count)
+
+    @safe_backend_operation("deactivate_user_and_revoke_sessions")
+    async def deactivate_user_and_revoke_sessions(self, user_uid: UserUID) -> Result[int]:
+        """Atomically set the user inactive AND revoke every live session.
+
+        One statement (= one transaction) on purpose: persisting
+        ``is_active=false`` first and revoking after leaves a failure mode
+        where the account LOOKS deactivated but its live sessions — cached
+        ``user_is_active=true`` — keep validating, and nothing prompts the
+        admin to retry an operation that already appears applied. Committing
+        both writes together removes that state entirely. The write lock on
+        the User node also serializes against create_session's active-user
+        guard: a concurrent sign-in either lands first (and is swept here)
+        or matches an inactive user (and is refused).
+
+        Args:
+            user_uid: User to deactivate
+
+        Returns:
+            Result[int]: Number of live sessions revoked (idempotent — an
+            already-inactive user yields 0), or not-found error
+        """
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        SET u.is_active = false
+        WITH u
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
+        WHERE s.is_valid = true
+        SET s.is_valid = false
+        RETURN count(s) as revoked_count
+        """
+
+        record = await self._run_single(query, {"user_uid": user_uid})
+
+        if not record:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+
+        count = record["revoked_count"]
+        self.logger.info(
+            f"Deactivated user {user_uid} and revoked {count} live session(s) atomically"
+        )
         return Result.ok(count)
 
     @safe_backend_operation("cleanup_expired_sessions")

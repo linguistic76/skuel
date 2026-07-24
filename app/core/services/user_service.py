@@ -32,6 +32,7 @@ from core.ports.infrastructure_protocols import (
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
+    from core.ports.service_protocols import SessionInvalidationOperations
 from core.models.auth.device import Device, PairingCodeIssued
 from core.models.context_types import DailyWorkPlan
 from core.services.user import UserContext
@@ -77,6 +78,7 @@ class UserService:
         intelligence_factory: UserContextIntelligenceFactory | None = None,
         metrics_cache=None,
         device_service: DeviceService | None = None,
+        session_invalidator: "SessionInvalidationOperations | None" = None,
     ) -> None:
         """
         Initialize facade with all sub-services.
@@ -93,6 +95,11 @@ class UserService:
             device_service: Vault-agent device enrollment/revocation (ADR-075).
                 Built at the composition root (needs the driver-backed
                 DeviceBackend); None only in tests that never touch devices.
+            session_invalidator: Server-side session revocation on privilege
+                change (role update, deactivation) — forces re-login so no live
+                cookie outlives its privileges. Built at the composition root
+                (driver-backed SessionBackend); None only in tests that never
+                change privileges.
 
         Raises:
             ValueError: If user_repo is None
@@ -131,6 +138,10 @@ class UserService:
 
         # Vault-agent devices (ADR-075) — auth infrastructure behind this facade
         self.devices: DeviceService | None = device_service
+
+        # Session revocation on privilege change — auth infrastructure behind
+        # this facade, like devices above
+        self.session_invalidator: "SessionInvalidationOperations | None" = session_invalidator
 
         # Intelligence factory (wired with 13 domain relationship services)
         # Note: Factory is wired post-construction via services_bootstrap.py
@@ -418,6 +429,8 @@ class UserService:
             - Only ADMIN can change user roles
             - Admins cannot demote themselves
             - Prevents escalation beyond ADMIN
+            - An actual role change revokes all of the target's live sessions
+              (forced re-login — see security-hardening roadmap item 4)
         """
         # Verify admin has permission
         admin_result = await self.get_user(admin_user_uid)
@@ -443,8 +456,47 @@ class UserService:
                 Errors.business(rule="self_demotion", message="Admins cannot demote themselves")
             )
 
-        # Delegate to core service
-        return await self.core.update_user_role(target_user_uid, new_role)
+        # Fetch target first: a no-op role set must not revoke live sessions
+        # (also keeps an ADMIN→ADMIN self-update from logging the admin out)
+        target_result = await self.get_user(target_user_uid)
+        if target_result.is_error:
+            return Result.fail(target_result)
+        if not target_result.value:
+            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
+        if target_result.value.role == new_role:
+            return Result.ok(target_result.value)
+
+        if self.session_invalidator is None:
+            return Result.fail(
+                Errors.system(
+                    "Session invalidator not wired — pass session_invalidator to UserService",
+                    operation="update_role",
+                )
+            )
+
+        # Role change and session revocation commit in ONE transaction. Any
+        # two-step sequence has a hole: revoke-then-update lets the target
+        # sign in against the old user record inside the window (that fresh
+        # session dodges the completed sweep — exploitable by a user being
+        # demoted); update-then-revoke isn't retryable (the retry sees the
+        # role already changed, takes the no-op branch above, and never
+        # re-attempts the revocation).
+        atomic = await self.session_invalidator.update_role_and_revoke_sessions(
+            target_user_uid, new_role
+        )
+        if atomic.is_error:
+            return Result.fail(atomic)
+        logger.info(
+            f"Updated role for {target_user_uid}: {target_result.value.role.value} → "
+            f"{new_role.value}; revoked {atomic.value} live session(s)"
+        )
+
+        refreshed = await self.get_user(target_user_uid)
+        if refreshed.is_error:
+            return Result.fail(refreshed)
+        if not refreshed.value:
+            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
+        return Result.ok(refreshed.value)
 
     async def list_users(
         self,
@@ -493,6 +545,10 @@ class UserService:
         """
         Deactivate a user account (ADMIN only).
 
+        Deactivation and session revocation commit atomically (one Cypher
+        transaction on SessionBackend) — deactivation must take effect
+        immediately, not at next login, and must not be able to half-apply.
+
         Args:
             target_user_uid: User to deactivate
             admin_user_uid: Admin making the request
@@ -525,8 +581,34 @@ class UserService:
                 )
             )
 
-        # Delegate to core service
-        return await self.core.deactivate_user(target_user_uid, reason)
+        if self.session_invalidator is None:
+            return Result.fail(
+                Errors.system(
+                    "Session invalidator not wired — pass session_invalidator to UserService",
+                    operation="deactivate_user",
+                )
+            )
+
+        # Deactivation and session revocation commit in ONE transaction.
+        # Session nodes cache user_is_active at creation, and a two-step
+        # sequence (persist is_active=false, then revoke) has a failure mode
+        # where the account LOOKS deactivated but its live sessions keep
+        # validating — and nothing prompts the admin to retry an operation
+        # that already appears applied.
+        atomic = await self.session_invalidator.deactivate_user_and_revoke_sessions(target_user_uid)
+        if atomic.is_error:
+            return Result.fail(atomic)
+        logger.info(
+            f"Deactivated {target_user_uid}, revoked {atomic.value} live session(s). "
+            f"Reason: {reason or 'not specified'}"
+        )
+
+        refreshed = await self.get_user(target_user_uid)
+        if refreshed.is_error:
+            return Result.fail(refreshed)
+        if not refreshed.value:
+            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
+        return Result.ok(refreshed.value)
 
     async def activate_user(
         self,
@@ -924,6 +1006,7 @@ def create_user_service(
     intelligence_factory: UserContextIntelligenceFactory | None = None,
     metrics_cache=None,
     device_service: DeviceService | None = None,
+    session_invalidator: "SessionInvalidationOperations | None" = None,
 ) -> UserService:
     """
     Factory function to create a UserService instance.
@@ -937,6 +1020,7 @@ def create_user_service(
                               (wired with all 9 domain relationship services)
         metrics_cache: MetricsCache for performance tracking (optional)
         device_service: Vault-agent device enrollment/revocation (ADR-075)
+        session_invalidator: Session revocation on privilege change (SessionBackend)
 
     Returns:
         UserService: Configured user service instance (facade pattern)
@@ -948,4 +1032,5 @@ def create_user_service(
         intelligence_factory,
         metrics_cache,
         device_service=device_service,
+        session_invalidator=session_invalidator,
     )

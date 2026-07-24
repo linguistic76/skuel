@@ -440,7 +440,9 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
 
         Creates:
         - Composite index on AuthEvent(email, event_type, timestamp) for rate limiting
-        - Index on Session(session_token) for session lookup
+        - Index on Session(token_hash) for session lookup (raw tokens are never
+          stored — every lookup hashes the cookie token first, and the
+          per-request validation in AuthContextMiddleware makes this hot)
         - Unique constraint on User(email) for email uniqueness
         - Unique constraint on Device(pubkey) — WS handshake auth lookup (ADR-075)
         - Index on User(pairing_code_hash) — enrollment redemption lookup (ADR-075)
@@ -462,12 +464,16 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         else:
             results["failed"].append("auth_events_rate_limit")
 
-        # Session token index (single field)
-        session_result = await self._create_index(NeoLabel.SESSION, "session_token")
+        # Session token index — on token_hash, the property actually stored on
+        # the node (session_token never leaves the cookie). The original index
+        # targeted the nonexistent session_token property, leaving every
+        # get_session_by_token a label scan; drop it where it still exists.
+        session_result = await self._create_index(NeoLabel.SESSION, "token_hash")
         if session_result.is_ok:
-            results["created"].append("Session_session_token_idx")
+            results["created"].append("Session_token_hash_idx")
         else:
-            results["failed"].append("Session_session_token_idx")
+            results["failed"].append("Session_token_hash_idx")
+        await self.drop_index("Session_session_token_idx")
 
         # User email uniqueness constraint
         email_result = await self._create_unique_constraint(NeoLabel.USER, "email")

@@ -376,8 +376,11 @@ class GraphAuthService:
         """
         Validate session token and return user UID (optimized - no user fetch).
 
-        This is the fast path for session validation. Uses cached user_is_active
-        from the session to avoid database lookup for the User entity.
+        THE per-request auth check (AuthContextMiddleware): ONE indexed
+        Neo4j round trip that validates (not revoked, not expired, user
+        active) and batch-touches last_active in the same statement.
+
+        Backend: SessionBackend.validate_session_token
 
         Args:
             session_token: Session token from cookie
@@ -385,36 +388,10 @@ class GraphAuthService:
         Returns:
             Result containing user_uid if valid, None if invalid/expired
         """
-        try:
-            # Get session (single DB call)
-            session_result = await self.session_backend.get_session_by_token(session_token)
-            if session_result.is_error:
-                return Result.fail(session_result)
-
-            session = session_result.value
-
-            if not session:
-                return Result.ok(None)
-
-            # Check if session is active (expiry + is_valid)
-            if not session.is_active():
-                return Result.ok(None)
-
-            # Check cached user active status (no DB call needed)
-            if not session.user_is_active:
-                return Result.ok(None)
-
-            # Update last active time
-            await self.session_backend.update_last_active(session_token)
-
-            return Result.ok(session.user_uid)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Session validation database error: {e}")
-            return Result.fail(Errors.database(operation="validate_session_uid", message=str(e)))
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Session validation error: {e}")
-            return Result.fail(Errors.system(operation="validate_session_uid", message=str(e)))
+        result: Result[str | None] = await self.session_backend.validate_session_token(
+            session_token
+        )
+        return result
 
     async def validate_session(self, session_token: str) -> Result[User | None]:
         """

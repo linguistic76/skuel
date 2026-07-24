@@ -363,7 +363,10 @@ class UserBackend(Neo4jSessionRunner):
         The node + every OWNS-linked entity (UserEntry, Task, Goal, Habit, ...)
         are kept so teachers can still render historical submissions and
         analytics stay intact. Login is blocked via ``is_active=false`` which
-        ``UserCoreService.authenticate`` already rejects.
+        ``UserCoreService.authenticate`` already rejects, and every live
+        session is revoked in the SAME statement — per-request validation
+        anchors on the live User's ``is_active``, but sweeping ``is_valid``
+        here keeps deletion+logout one commit with no interleaving window.
 
         For GDPR right-to-erasure (wipe the node + cascade over OWNS), use
         ``hard_delete_user`` instead — admin-gated separate path.
@@ -384,7 +387,11 @@ class UserBackend(Neo4jSessionRunner):
             u.email = null,
             u.display_name = 'Deleted User',
             u.password_hash = ''
-        RETURN count(u) as deleted_count
+        WITH u
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
+        WHERE s.is_valid = true
+        SET s.is_valid = false
+        RETURN count(DISTINCT u) as deleted_count
         """
 
         record = await self._run_single(
@@ -411,9 +418,11 @@ class UserBackend(Neo4jSessionRunner):
         GDPR right-to-erasure: DETACH DELETE the user + every OWNS-linked entity.
 
         Destroys the User node and cascades through every :OWNS edge, removing
-        the user's UserEntry / Task / Goal / Habit / ... nodes as well. Use
-        only when compliance requires full erasure — the default account
-        closure path is ``delete_user`` (soft-delete, keeps history).
+        the user's UserEntry / Task / Goal / Habit / ... nodes as well — plus
+        every :Session node, in the same transaction (an orphaned session
+        carrying the erased uid must not outlive the account). Use only when
+        compliance requires full erasure — the default account closure path
+        is ``delete_user`` (soft-delete, keeps history).
 
         The service layer MUST gate this on ``UserRole.ADMIN`` before calling;
         the backend does not re-check role (it has no user context).
@@ -425,13 +434,19 @@ class UserBackend(Neo4jSessionRunner):
             Result[int]: Total nodes deleted (user + every OWNS-linked entity).
             0 when the UID does not match an existing user.
         """
+        # Session nodes ride along: DETACH DELETE u alone would orphan them
+        # with their user_uid property intact — and a validation query that
+        # didn't anchor on the User would keep resolving those tokens after
+        # the account is erased. Erasure means the sessions go too.
         query = f"""
         MATCH (u:{self.label} {{uid: $uid}})
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(sess:Session)
         OPTIONAL MATCH (u)-[:OWNS]->(owned)
-        WITH u, collect(owned) AS owned_nodes
-        WITH u, owned_nodes, size(owned_nodes) AS owned_count
+        WITH u, collect(DISTINCT sess) AS session_nodes, collect(DISTINCT owned) AS owned_nodes
+        WITH u, session_nodes, owned_nodes, size(owned_nodes) AS owned_count
         DETACH DELETE u
         FOREACH (n IN owned_nodes | DETACH DELETE n)
+        FOREACH (n IN session_nodes | DETACH DELETE n)
         RETURN owned_count + 1 AS deleted_count
         """
 

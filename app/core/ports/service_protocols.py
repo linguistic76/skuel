@@ -44,6 +44,7 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.enums import UserRole
     from core.models.event.calendar_models import CalendarData, CalendarItem
     from core.models.event.event_dto import EventDTO
     from core.models.habit.completion import HabitCompletion
@@ -431,6 +432,31 @@ class GraphAuthOperations(Protocol):
 
     async def validate_session_uid(self, session_token: str) -> Result[str | None]:
         """Validate session token and return user UID (fast path, no user fetch)."""
+        ...
+
+
+@runtime_checkable
+class SessionInvalidationOperations(Protocol):
+    """Server-side session revocation — the kill switch for live cookies.
+
+    Service consumer: UserService (role change, deactivation)
+    Implementation: SessionBackend
+
+    Both operations commit the privilege change AND the session sweep in one
+    Cypher transaction — any two-step sequence leaves a window where a
+    concurrent sign-in against the old user record dodges the sweep.
+    Revocation only bites because AuthContextMiddleware validates the graph
+    session once per request; see adapters/inbound/auth/context_middleware.py.
+    """
+
+    async def update_role_and_revoke_sessions(
+        self, user_uid: UserUID, new_role: "UserRole"
+    ) -> Result[int]:
+        """Atomically persist a role change AND revoke every live session."""
+        ...
+
+    async def deactivate_user_and_revoke_sessions(self, user_uid: UserUID) -> Result[int]:
+        """Atomically set the user inactive AND revoke every live session."""
         ...
 
 

@@ -162,6 +162,205 @@ async def test_wrong_password_rejected_and_no_session(neo4j_driver, auth_env):
     )
 
 
+async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
+    """Server-side revocation must flip a live token to invalid.
+
+    invalidate_all_user_sessions is the sweep used by password change/reset;
+    AuthContextMiddleware clears any cookie whose token no longer validates
+    (middleware half pinned in tests/unit/adapters/test_auth_context.py).
+    Privilege changes use the atomic variants pinned below.
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("revoke"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    valid = await auth.validate_session_uid(token)
+    assert valid.is_ok and valid.value == user_uid, "live session must validate before revocation"
+
+    revoked = await auth.session_backend.invalidate_all_user_sessions(user_uid)
+    assert revoked.is_ok, f"revocation failed: {revoked.error}"
+    assert revoked.value == 1, "exactly the one live session should be revoked"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-revocation validation errored: {after.error}"
+    assert after.value is None, "revoked session must not validate"
+
+
+async def test_role_change_atomically_revokes_live_sessions(neo4j_driver, auth_env):
+    """Pin the one-transaction role-change+revoke (Codex P1 on #798 round 3).
+
+    Any two-step sequence has a hole: revoke-then-update lets the target
+    sign in against the old user record inside the window (the fresh session
+    dodges the completed sweep); update-then-revoke isn't retryable. The
+    atomic backend op must persist the role (lowercase — the F8 regression
+    class) AND kill the token in one commit.
+    """
+    from core.models.enums import UserRole
+
+    auth, track = auth_env
+    username, email = track(*_credentials("rolerev"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    valid = await auth.validate_session_uid(token)
+    assert valid.is_ok and valid.value == user_uid, "live session must validate before role change"
+
+    atomic = await auth.session_backend.update_role_and_revoke_sessions(user_uid, UserRole.MEMBER)
+    assert atomic.is_ok, f"atomic role-change+revoke failed: {atomic.error}"
+    assert atomic.value == 1, "exactly the one live session should be revoked"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-role-change validation errored: {after.error}"
+    assert after.value is None, "a pre-change session must not validate after the role change"
+
+    async with neo4j_driver.session() as session:
+        result = await session.run("MATCH (u:User {uid: $uid}) RETURN u.role AS role", uid=user_uid)
+        record = await result.single()
+    assert record is not None and record["role"] == "member", (
+        "the role must persist as the lowercase enum value (F8)"
+    )
+
+
+async def test_deactivation_atomically_revokes_live_sessions(neo4j_driver, auth_env):
+    """Pin the one-transaction deactivate+revoke (Codex P1 on #798 round 2).
+
+    A two-step sequence (persist is_active=false, then revoke) could leave
+    the account looking deactivated while its live sessions — cached
+    user_is_active=true — kept validating. The atomic backend op must flip
+    the flag AND kill the token in one commit.
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("atomic"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    valid = await auth.validate_session_uid(token)
+    assert valid.is_ok and valid.value == user_uid, "live session must validate before deactivation"
+
+    atomic = await auth.session_backend.deactivate_user_and_revoke_sessions(user_uid)
+    assert atomic.is_ok, f"atomic deactivate+revoke failed: {atomic.error}"
+    assert atomic.value == 1, "exactly the one live session should be revoked"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-deactivation validation errored: {after.error}"
+    assert after.value is None, "a deactivated user's session must not validate"
+
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (u:User {uid: $uid}) RETURN u.is_active AS active", uid=user_uid
+        )
+        record = await result.single()
+    assert record is not None and record["active"] is False, "the flag flip must have committed"
+
+
+async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
+    """Pin create_session's atomic active-user guard (Codex P1 on #798).
+
+    sign_in checks ``user.is_active`` early, then spends ~100ms hashing the
+    password — a deactivation landing in that window must not mint a live
+    session (its cached ``user_is_active`` would be stale-True and
+    validate_session_uid trusts it). The direct backend call below bypasses
+    sign_in's early check, exactly like a sign-in that loaded the user before
+    the deactivation committed.
+    """
+    from core.models.auth.session import create_session
+
+    auth, track = auth_env
+    username, email = track(*_credentials("inactive"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (u:User {uid: $uid}) SET u.is_active = false", uid=user_uid)
+
+    stale_session = create_session(user_uid=user_uid, ip_address="test", user_agent="test")
+    created = await auth.session_backend.create_session(stale_session)
+    assert created.is_error, "Session creation must refuse a deactivated user"
+    assert await _count_sessions(neo4j_driver, user_uid) == 0
+
+    # The ordinary path fails too (early is_active check)
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_error, "Deactivated accounts must not sign in"
+
+
+async def test_soft_deleted_user_sessions_stop_validating(neo4j_driver, auth_env):
+    """Pin the deletion kill switch (Codex P1 on #798 round 4).
+
+    Soft delete flips is_active and PII-scrubs but keeps the graph — its
+    sessions must die in the same commit, and validation must anchor on the
+    LIVE User (not the session's cached user_is_active snapshot).
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("softdel"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    deleted = await UserBackend(neo4j_driver).delete_user(user_uid)
+    assert deleted.is_ok and deleted.value is True, f"soft delete failed: {deleted.error}"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-delete validation errored: {after.error}"
+    assert after.value is None, "a soft-deleted user's session must not validate"
+
+
+async def test_hard_deleted_user_sessions_are_erased(neo4j_driver, auth_env):
+    """Hard delete (GDPR erasure) must take the Session nodes with it.
+
+    DETACH DELETE on the User alone would orphan sessions still carrying the
+    erased uid; validation anchored on the User already refuses them (no node,
+    no HAS_SESSION edge), and the cascade removes the litter itself.
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("harddel"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    erased = await UserBackend(neo4j_driver).hard_delete_user(user_uid)
+    assert erased.is_ok and erased.value >= 1, f"hard delete failed: {erased.error}"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-erasure validation errored: {after.error}"
+    assert after.value is None, "an erased user's session must not validate"
+
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (s:Session {user_uid: $uid}) RETURN count(s) AS c", uid=user_uid
+        )
+        record = await result.single()
+    assert record is not None and record["c"] == 0, "erasure must not orphan Session nodes"
+
+
 async def test_role_stored_lowercase_on_signup(neo4j_driver, auth_env):
     """Pin F8: the persisted role property is lowercase.
 
