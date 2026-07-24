@@ -191,8 +191,9 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
-# 16 configs: 14 of the 25 EntityTypes are file-ingestible, plus the two
-# NonKuDomain types (FINANCE, GROUP). Not file-ingestible:
+# 15 configs: 14 of the 25 EntityTypes are file-ingestible, plus one
+# NonKuDomain type (GROUP — FINANCE was demolished by ADR-052 Phase 5; the
+# detector rejects ``type: expense``/``finance``). Not file-ingestible:
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
 #   - FORM_TEMPLATE/FORM_SUBMISSION: Created via API
 #   - ENTRY_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
@@ -210,7 +211,7 @@ class EntityIngestionConfig:
 # set in the registry generate ingestion relationships.
 #
 # Note: generate_ingestion_relationship_config() takes EntityType.
-# NonKuDomain entries (FINANCE, GROUP) have no relationship configs.
+# The NonKuDomain entry (GROUP) has no relationship config.
 #
 # See: core/models/relationship_registry.py (single source of truth)
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
