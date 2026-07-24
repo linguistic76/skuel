@@ -109,7 +109,7 @@ The PsBundle is a frozen dataclass containing the complete context for a Path St
 - `kus: tuple[Ku, ...]` — atomic knowledge units trained by this step
 - `resources: tuple[Resource, ...]` — reference material cited by PathSteps/KUs via CITES_RESOURCE
 - `habits, tasks, events, principles` — practice activities linked to the step
-- `edges: tuple[dict, ...]` — semantic relationships between bundle entities
+- `edges: tuple[dict, ...]` — real Ku↔Ku lateral edges touching bundle KUs (either endpoint), shaped `{source_uid, source_title, target_uid, target_title, relationship_type, evidence}`; fetched via `PsBackend.get_ku_lateral_edges`, same-fact duplicates collapsed. SURFACE_CONNECTION prompts render each as a titled pair with its authored Edge-file evidence
 - `learning_objectives: tuple[str, ...]` — from the PathStep in the bundle
 
 **Immutability:** Built once per question, passed through the pipeline, never mutated.
