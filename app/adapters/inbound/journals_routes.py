@@ -37,6 +37,7 @@ from core.services.conversation import (
     serialize_transcript,
     transcript_to_pairs,
 )
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
@@ -48,6 +49,12 @@ if TYPE_CHECKING:
 
 
 logger = get_logger("skuel.routes.journals")
+
+# Shown to effective-CORE users on every gated fragment — mirrors the
+# Errors.forbidden reason used across the AI surfaces (askesis, exercises…).
+AI_SUBSCRIPTION_MESSAGE = (
+    "AI features require a paid subscription. Upgrade to MEMBER to unlock AI journals."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +246,7 @@ def create_journals_routes(
 
     assert services.user is not None, "UserService must be wired before journals routes"
     user_service = services.user
+    intelligence_tier = services.intelligence_tier  # system ceiling for the per-user AI gate
     journal_service = services.journal  # None when INTELLIGENCE_TIER=core
     user_entry_service = services.user_entry
     # The je_in/upload → je_out pipeline engine — tier-independent (present in
@@ -253,6 +261,23 @@ def create_journals_routes(
         "ConversationService must be wired before journals routes"
     )
     conversation_service = services.conversation
+
+    async def _ai_tier_blocked(user_uid: UserUID) -> bool:
+        """Per-user AI tier gate (ADR-043) for every LLM/Deepgram-spending route.
+
+        REGISTERED signups resolve to effective CORE even on a FULL system, so
+        they must never reach ``run_discussion``/``run_follow_up``/the upload
+        pipeline — each call spends OpenAI/Deepgram money. Fail-secure: a
+        missing tier or a failed user lookup means the gate cannot be
+        evaluated, so deny rather than allow (mirrors ``askesis_ui.py``).
+        """
+        if intelligence_tier is None:
+            return True
+        user_result = await user_service.get_user(user_uid)
+        if user_result.is_error or user_result.value is None:
+            return True
+        effective = get_user_intelligence_tier(intelligence_tier, user_result.value.role)
+        return not effective.ai_enabled
 
     async def _resolve_founder(user_uid: UserUID) -> bool:
         """THE FOUNDER-tier gate for journals entitlements (fail-closed).
@@ -360,6 +385,9 @@ def create_journals_routes(
             return _Div(_P(msg, cls="text-sm text-destructive"), id="start-status")
 
         user_uid = require_authenticated_user(request)
+
+        if await _ai_tier_blocked(user_uid):
+            return _err(AI_SUBSCRIPTION_MESSAGE)
 
         form = await request.form()
         raw_entry = str(form.get("raw_entry", "")).strip()
@@ -478,6 +506,13 @@ def create_journals_routes(
 
             upload_source = str(form.get("upload_source", "file"))
             status_id = "folder-upload-status" if upload_source == "folder" else "upload-status"
+
+            # Every upload mode spends external-API money (Deepgram and/or LLM),
+            # so the whole route sits behind the per-user AI gate.
+            if await _ai_tier_blocked(user_uid):
+                return render_journal_upload_status(
+                    "error", AI_SUBSCRIPTION_MESSAGE, is_error=True, status_id=status_id
+                )
 
             raw_files = form.getlist("file")
             uploaded_files = [f for f in raw_files if isinstance(f, UploadFile)]
@@ -600,7 +635,12 @@ def create_journals_routes(
         times — the same file-based cycle as multi-file upload.
         """
         try:
-            require_authenticated_user(request)
+            user_uid = require_authenticated_user(request)
+
+            # Same cost surface as /journals/upload (Deepgram and/or LLM per file).
+            if await _ai_tier_blocked(user_uid):
+                return render_journal_upload_status("error", AI_SUBSCRIPTION_MESSAGE, is_error=True)
+
             form = await request.form()
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
             instruction_filename = str(form.get("instruction_filename", "")).strip()
@@ -784,10 +824,14 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        # CORE tier (no journal_service) or FULL-tier-without-OpenAI-key → inert
-        # cheat-sheet pointer. No stored entry exists, so there is no ownership /
-        # allowlist invariant to protect: the content is supplied by the caller.
+        # CORE tier (no journal_service), FULL-tier-without-OpenAI-key, or an
+        # effective-CORE user (per-user AI gate — the bridge is an LLM call) →
+        # inert cheat-sheet pointer. No stored entry exists, so there is no
+        # ownership / allowlist invariant to protect: the content is supplied by
+        # the caller.
         if journal_service is None or not journal_service.suggestions_available:
+            return SuggestedActivitiesPanel(unavailable=True)
+        if await _ai_tier_blocked(user_uid):
             return SuggestedActivitiesPanel(unavailable=True)
 
         form = await request.form()
@@ -1033,6 +1077,9 @@ def create_journals_routes(
         from ui.journals import FollowUpErrorFragment, FollowUpFragment
 
         user_uid = require_authenticated_user(request)
+
+        if await _ai_tier_blocked(user_uid):
+            return FollowUpErrorFragment(AI_SUBSCRIPTION_MESSAGE)
 
         if not user_reply or not user_reply.strip():
             return FollowUpErrorFragment("Please write something before sending.")

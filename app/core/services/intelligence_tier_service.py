@@ -5,8 +5,9 @@ Per-User Intelligence Tier Resolution
 Pure function that resolves the effective intelligence tier for a user.
 System tier is the ceiling; user role determines entitlement within that ceiling.
 
-Not wired into routes yet — exists as a documented decision point for
-future billing integration.
+Enforced at every AI-spending route boundary (askesis, ai_routes, exercises,
+user_entry, search, journals, batch transcription) — the documented decision
+point for future billing integration.
 
 Usage:
     from core.services.intelligence_tier_service import get_user_intelligence_tier

@@ -452,3 +452,144 @@ class TestFormValidation:
 
         for pwd in valid_passwords:
             assert len(pwd) >= min_length
+
+
+class TestInviteCodeGate:
+    """SIGNUP_INVITE_CODE gates /register/submit (public-facing hardening).
+
+    Real-handler tests (collector ``rt`` harness, mirroring
+    ``test_journals_routes.py``): the gate runs BEFORE ``sign_up`` so a bad
+    code never creates an account; unset env = open signup (passthrough).
+    """
+
+    @staticmethod
+    def _handlers(graph_auth: MagicMock) -> dict:
+        from adapters.inbound.auth_ui import create_auth_ui_routes
+
+        registered: dict = {}
+
+        def rt_collector(path: str, *_a, **_kw):
+            def decorator(fn):
+                registered[path] = fn
+                return fn
+
+            return decorator
+
+        create_auth_ui_routes(MagicMock(), rt_collector, graph_auth)
+        return registered
+
+    @staticmethod
+    def _graph_auth() -> MagicMock:
+        graph_auth = MagicMock()
+        graph_auth.sign_up = AsyncMock(
+            return_value=Result.ok({"user_uid": "user_new", "email": "new@example.com"})
+        )
+        # Auto-login fails → the route redirects to /login?registered=true,
+        # a clean success signal without exercising session mechanics here.
+        graph_auth.sign_in = AsyncMock(
+            return_value=Result.fail(Errors.system("no session in tests", operation="sign_in"))
+        )
+        return graph_auth
+
+    @staticmethod
+    def _submit_request(invite_code: str | None = None):
+        from types import SimpleNamespace
+
+        from starlette.datastructures import FormData
+
+        fields = [
+            ("username", "newuser"),
+            ("email", "new@example.com"),
+            ("display_name", "New User"),
+            ("password", "password123"),
+            ("confirm_password", "password123"),
+            ("accept_terms", "1"),
+        ]
+        if invite_code is not None:
+            fields.append(("invite_code", invite_code))
+        form_data = FormData(fields)
+
+        async def _form() -> FormData:
+            return form_data
+
+        return SimpleNamespace(
+            method="POST",
+            session={},
+            form=_form,
+            client=SimpleNamespace(host="10.0.0.9"),
+            headers={},
+            cookies={},
+            url=SimpleNamespace(path="/register/submit"),
+        )
+
+    @pytest.fixture(autouse=True)
+    def _route_test_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.delenv("SIGNUP_INVITE_CODE", raising=False)
+        from adapters.inbound.rate_limit import reset_buckets_for_testing
+
+        reset_buckets_for_testing()
+
+    async def test_unset_env_is_open_signup(self) -> None:
+        graph_auth = self._graph_auth()
+        handlers = self._handlers(graph_auth)
+
+        response = await handlers["/register/submit"](request=self._submit_request())
+
+        graph_auth.sign_up.assert_awaited_once()
+        assert response.status_code == 303  # → /login?registered=true
+
+    async def test_wrong_code_rejected_before_signup(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fasthtml.common import to_xml
+
+        monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
+        graph_auth = self._graph_auth()
+        handlers = self._handlers(graph_auth)
+
+        response = await handlers["/register/submit"](
+            request=self._submit_request(invite_code="wrong")
+        )
+
+        graph_auth.sign_up.assert_not_awaited()
+        assert "Invalid invite code" in to_xml(response)
+
+    async def test_absent_code_rejected_before_signup(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
+        graph_auth = self._graph_auth()
+        handlers = self._handlers(graph_auth)
+
+        response = await handlers["/register/submit"](request=self._submit_request())
+
+        graph_auth.sign_up.assert_not_awaited()
+        assert "Invalid invite code" in to_xml(response)
+
+    async def test_correct_code_registers(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
+        graph_auth = self._graph_auth()
+        handlers = self._handlers(graph_auth)
+
+        response = await handlers["/register/submit"](
+            request=self._submit_request(invite_code="sekrit")
+        )
+
+        graph_auth.sign_up.assert_awaited_once()
+        assert response.status_code == 303
+
+    def test_register_page_shows_invite_input_only_when_gated(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from types import SimpleNamespace
+
+        from fasthtml.common import to_xml
+
+        handlers = self._handlers(self._graph_auth())
+        request = SimpleNamespace(method="GET", session={}, headers={}, cookies={})
+
+        assert 'name="invite_code"' not in to_xml(handlers["/register"](request=request))
+
+        monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
+        assert 'name="invite_code"' in to_xml(handlers["/register"](request=request))

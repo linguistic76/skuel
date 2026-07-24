@@ -128,8 +128,15 @@ class AuthComponents:
         )
 
     @staticmethod
-    def render_registration_page(error_message: str | None = None) -> Any:
-        """Render registration page content (wrap with AuthPage in route handler)."""
+    def render_registration_page(
+        error_message: str | None = None,
+        require_invite_code: bool = False,
+    ) -> Any:
+        """Render registration page content (wrap with AuthPage in route handler).
+
+        ``require_invite_code`` renders the invite-code input — set by the route
+        when the deployment gates signup behind ``SIGNUP_INVITE_CODE``.
+        """
         return Div(
             Div(
                 # Header
@@ -192,6 +199,20 @@ class AuthComponents:
                     required=True,
                     minlength="6",
                     autocomplete="new-password",
+                ),
+                (
+                    LabelInput(
+                        "Invite code",
+                        id="invite_code",
+                        name="invite_code",
+                        placeholder="Enter your invite code",
+                        required=True,
+                        maxlength="200",
+                        autocomplete="off",
+                        help_text="Signup currently requires an invite code",
+                    )
+                    if require_invite_code
+                    else None
                 ),
                 # Terms acceptance
                 Div(

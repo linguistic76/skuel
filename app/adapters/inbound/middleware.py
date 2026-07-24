@@ -142,6 +142,69 @@ class StaticCacheHeadersMiddleware:
         await self.app(scope, receive, send_wrapper)
 
 
+class SecurityHeadersMiddleware:
+    """ASGI middleware that stamps browser security headers on every response.
+
+    Public-facing hardening (security-hardening-deferred roadmap item 7):
+
+    - ``X-Frame-Options: DENY`` — SKUEL is never embedded in a frame.
+    - ``X-Content-Type-Options: nosniff`` — no MIME sniffing.
+    - ``Referrer-Policy: strict-origin-when-cross-origin`` — no path leakage
+      to external origins.
+    - ``Permissions-Policy`` — journals records audio, so ``microphone=(self)``;
+      camera/geolocation are never used and are denied outright.
+    - ``Content-Security-Policy-Report-Only`` — observe-first CSP. All assets
+      are self-hosted (vendored Alpine/HTMX/Lucide under /static), but Alpine
+      evaluates ``x-data`` expressions (``unsafe-eval``) and FastHTML pages
+      carry inline scripts/styles (``unsafe-inline``), so the policy starts in
+      report-only mode; promote to enforcing only after the console stays clean.
+
+    HSTS is deliberately absent — TLS termination (and therefore HSTS) is
+    Caddy's job at the edge, not the app's.
+
+    Existing headers are never overwritten (mirrors StaticCacheHeadersMiddleware).
+    """
+
+    _HEADERS: tuple[tuple[bytes, bytes], ...] = (
+        (b"x-frame-options", b"DENY"),
+        (b"x-content-type-options", b"nosniff"),
+        (b"referrer-policy", b"strict-origin-when-cross-origin"),
+        (b"permissions-policy", b"microphone=(self), camera=(), geolocation=()"),
+        (
+            b"content-security-policy-report-only",
+            b"default-src 'self'; "
+            b"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            b"style-src 'self' 'unsafe-inline'; "
+            b"img-src 'self' data: blob:; "
+            b"font-src 'self' data:; "
+            b"connect-src 'self'; "
+            b"frame-ancestors 'none'; "
+            b"base-uri 'self'; "
+            b"form-action 'self'",
+        ),
+    )
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                present = {key.lower() for key, _ in headers}
+                for key, value in self._HEADERS:
+                    if key not in present:
+                        headers.append((key, value))
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
 def log_middleware_factory(app: Any) -> Any:
     """Create logging middleware for ASGI applications"""
     return RequestIDMiddleware(app)

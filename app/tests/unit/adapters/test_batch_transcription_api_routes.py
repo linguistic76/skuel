@@ -20,6 +20,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.batch_transcription_api import create_batch_transcription_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
+from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import UserRole
 from core.utils.result_simplified import Result
 
@@ -69,6 +70,7 @@ def _make_harness(
     *,
     authenticated: bool = True,
     role: UserRole = UserRole.ADMIN,
+    intelligence_tier: IntelligenceTier | None = IntelligenceTier.FULL,
 ) -> _Harness:
     app, rt = fast_app(pico=False, default_hdrs=False)
 
@@ -94,7 +96,12 @@ def _make_harness(
         monkeypatch.setattr("adapters.inbound.auth.roles.require_authenticated_user", _fake_auth)
 
     create_batch_transcription_api_routes(
-        None, rt, batch_service, journal_batch, user_service=user_service
+        None,
+        rt,
+        batch_service,
+        journal_batch,
+        user_service=user_service,
+        intelligence_tier=intelligence_tier,
     )
     return _Harness(client=TestClient(app), batch=batch_service)
 
@@ -131,6 +138,37 @@ class TestCsrfEnforcement:
 
         assert response.status_code == 403
         harness.batch.transcribe_batch.assert_not_awaited()
+
+
+class TestFolderTranscribeTierGate:
+    """Per-user AI gate (ADR-043): transcription spends Deepgram money, so
+    effective-CORE (REGISTERED) users are denied before any work happens."""
+
+    def test_registered_user_is_403(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.REGISTERED)
+
+        response = _post_json(harness.client, "/api/journals/folder-transcribe", {})
+
+        assert response.status_code == 403
+        harness.batch.transcribe_batch.assert_not_awaited()
+        harness.batch.preview.assert_not_called()
+
+    def test_missing_tier_fails_secure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # No system tier wired → the gate cannot be evaluated → deny, not allow.
+        harness = _make_harness(monkeypatch, role=UserRole.MEMBER, intelligence_tier=None)
+
+        response = _post_json(harness.client, "/api/journals/folder-transcribe", {})
+
+        assert response.status_code == 403
+        harness.batch.transcribe_batch.assert_not_awaited()
+
+    def test_member_passes(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.MEMBER)
+
+        response = _post_json(harness.client, "/api/journals/folder-transcribe", {})
+
+        assert response.status_code == 200
+        harness.batch.transcribe_batch.assert_awaited_once()
 
 
 class TestFolderTranscribePathPinning:

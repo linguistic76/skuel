@@ -31,6 +31,7 @@ from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import (
     RequestIDMiddleware,
     RequestTimingMiddleware,
+    SecurityHeadersMiddleware,
     StaticCacheHeadersMiddleware,
 )
 from core.config import UnifiedConfig
@@ -538,6 +539,11 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
     # understand cache semantics before changing. See memory:
     # project_lucide_mutationobserver_infinite_loop.
     app.add_middleware(StaticCacheHeadersMiddleware)
+
+    # Browser security headers on every response (X-Frame-Options, nosniff,
+    # Referrer-Policy, Permissions-Policy, report-only CSP). HSTS stays with
+    # Caddy at the TLS edge.
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # CSRF defense-in-depth — mints csrf_token cookie on first response so the
     # HTMX layer can echo it back on state-changing requests. SameSite=Strict

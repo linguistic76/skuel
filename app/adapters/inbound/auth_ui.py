@@ -23,6 +23,8 @@ Version: 2.1.0
 Date: 2026-01-21
 """
 
+import os
+import secrets
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import to_xml
@@ -56,6 +58,16 @@ if TYPE_CHECKING:
     from core.ports import GraphAuthOperations
 
 logger = get_logger("skuel.routes.auth_ui")
+
+
+def _signup_invite_code() -> str | None:
+    """The invite code signup requires, or None for open signup.
+
+    A route-boundary env read (not ``get_credential()``): the code is a soft
+    abuse gate shared with invitees, not a catalogued secret. Read per-request
+    (cheap) so tests can flip the flag with a plain env monkeypatch.
+    """
+    return os.getenv("SIGNUP_INVITE_CODE") or None
 
 
 def _first_validation_error(e: ValidationError) -> str:
@@ -110,6 +122,16 @@ def create_auth_ui_routes(
     # REGISTRATION
     # ========================================================================
 
+    def _registration_page(error_message: str | None = None) -> Any:
+        """The registration page with the invite-code input when the gate is on."""
+        return AuthPage(
+            AuthComponents.render_registration_page(
+                error_message=error_message,
+                require_invite_code=_signup_invite_code() is not None,
+            ),
+            title="Create Account",
+        )
+
     @rt("/register")
     def register_page(
         request: Request,
@@ -119,7 +141,7 @@ def create_auth_ui_routes(
         if is_authenticated(request):
             return RedirectResponse("/" if get_is_admin(request) else "/today", status_code=303)
 
-        return AuthPage(AuthComponents.render_registration_page(), title="Create Account")
+        return _registration_page()
 
     @rt("/register/submit")
     @csrf_protected
@@ -139,25 +161,30 @@ def create_auth_ui_routes(
                     password=safe_form_string(form_data.get("password")),
                     confirm_password=safe_form_string(form_data.get("confirm_password")),
                     accept_terms=safe_form_bool(form_data.get("accept_terms")),
+                    invite_code=safe_form_string(form_data.get("invite_code")),
                 )
             except ValidationError as e:
                 error_msg = _first_validation_error(e)
                 logger.warning(f"Validation failed: {error_msg}")
-                return AuthPage(
-                    AuthComponents.render_registration_page(error_message=error_msg),
-                    title="Create Account",
-                )
+                return _registration_page(error_message=error_msg)
+
+            # Invite gate (SIGNUP_INVITE_CODE): checked BEFORE sign_up so a bad
+            # code never creates an account. Unset env = open signup.
+            # compare_digest keeps the check constant-time.
+            required_code = _signup_invite_code()
+            if required_code is not None and not secrets.compare_digest(
+                reg.invite_code.encode(), required_code.encode()
+            ):
+                logger.warning(f"Registration rejected — invalid invite code for {reg.email}")
+                return _registration_page(error_message="Invalid invite code")
 
             logger.info("All validation checks passed")
 
             # Check if graph_auth service is available
             if not graph_auth:
                 logger.error("Graph auth service not available")
-                return AuthPage(
-                    AuthComponents.render_registration_page(
-                        error_message="Authentication service unavailable - please try again later"
-                    ),
-                    title="Create Account",
+                return _registration_page(
+                    error_message="Authentication service unavailable - please try again later"
                 )
 
             # Register with graph-native auth
@@ -174,10 +201,7 @@ def create_auth_ui_routes(
                     auth_result.error.message if auth_result.error else "Registration failed"
                 )
                 logger.warning(f"Registration failed for {reg.email}: {error_msg}")
-                return AuthPage(
-                    AuthComponents.render_registration_page(error_message=error_msg),
-                    title="Create Account",
-                )
+                return _registration_page(error_message=error_msg)
 
             user_data = auth_result.value
             logger.info(f"New user registered: {reg.username} ({user_data['user_uid']})")
@@ -223,12 +247,7 @@ def create_auth_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Registration error: {e}")
-            return AuthPage(
-                AuthComponents.render_registration_page(
-                    error_message="Registration failed, please try again."
-                ),
-                title="Create Account",
-            )
+            return _registration_page(error_message="Registration failed, please try again.")
 
     # ========================================================================
     # LOGIN

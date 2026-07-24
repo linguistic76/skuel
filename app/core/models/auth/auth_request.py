@@ -22,6 +22,9 @@ class RegistrationRequest(RequestBase):
     password: str = Field(min_length=1)
     confirm_password: str = Field(min_length=1)
     accept_terms: bool = False
+    # Checked against SIGNUP_INVITE_CODE at the route boundary (auth_ui.py) —
+    # env reads stay out of core/. Empty when the deployment runs open signup.
+    invite_code: str = Field(default="", max_length=200)
 
     @model_validator(mode="after")
     def validate_registration(self) -> "RegistrationRequest":
