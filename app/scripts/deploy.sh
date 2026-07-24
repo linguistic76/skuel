@@ -10,15 +10,14 @@
 #      excluded paths are also protected from deletion, so the droplet-side
 #      .env.production and logs/ survive)
 #   2. [--content] rsync the content vault -> /opt/skuel/content-vault/
-#   3. remote: stash current skuel-app:latest as skuel-app:predeploy, then
-#      compose build && up -d
+#   3. remote: compose build && up -d
 #   4. health gate: poll http://127.0.0.1:5001/health/ready over SSH for up to
 #      ~2 min (readiness covers an AuraDB Free instance waking from pause).
-#      PASS promotes predeploy -> skuel-app:rollback (the rollback tag only
-#      ever advances past a green gate, so re-running a failed deploy can
-#      never clobber the last known-good image). Failure exits non-zero and
-#      prints rollback instructions — NO auto-rollback; rolling back is a
-#      deliberate human call.
+#      PASS promotes the now-proven skuel-app:latest to skuel-app:rollback —
+#      the rollback tag is written ONLY here, so it always names the newest
+#      image that passed a gate and a failed deploy (or its rerun) can never
+#      move it. Failure exits non-zero and prints rollback instructions — NO
+#      auto-rollback; rolling back is a deliberate human call.
 #   5. [--content] after the gate: content-vault sync inside the container
 #
 # Config (env vars):
@@ -29,7 +28,7 @@
 #
 # Flags:
 #   --content   also sync the content vault + run in-container vault sync
-#   --dry-run   print every command instead of executing (rsync runs with -n)
+#   --dry-run   print every command instead of executing anything
 #
 # First-deploy prerequisites (droplet side): Docker + compose plugin,
 # /opt/skuel/secrets.env (0600), $REMOTE_DIR/.env.production — see
@@ -128,16 +127,12 @@ if [ "$SYNC_CONTENT" -eq 1 ]; then
     "$CONTENT_SRC/" "$DROPLET_SSH:/opt/skuel/content-vault/"
 fi
 
-# --- 3. Stash previous image + build + up ------------------------------------
+# --- 3. Build + up ------------------------------------------------------------
 echo -e "${YELLOW}Building and starting containers...${NC}"
-# Stash the currently-running image as :predeploy BEFORE build replaces
-# :latest. It is promoted to :rollback only after the health gate passes —
-# never here — so re-running a failed deploy cannot overwrite the last
-# known-good rollback image with a broken one.
+# No pre-build tagging: skuel-app:rollback is written only after a PASSED
+# health gate (step 4), so it always names the newest gate-passed image and
+# a failed deploy — or a rerun of one — can never move it.
 remote "cd $REMOTE_DIR \
-  && { docker image inspect skuel-app:latest >/dev/null 2>&1 \
-       && docker tag skuel-app:latest skuel-app:predeploy \
-       || echo 'No existing skuel-app:latest — nothing to stash (first deploy?)'; } \
   && $COMPOSE build \
   && $COMPOSE up -d"
 
@@ -164,12 +159,11 @@ else
   echo -e "${GREEN}✓ /health/ready is 200 — app is serving${NC}"
 fi
 
-# Gate passed: the image that was serving before this deploy is proven
-# replaceable — promote it to :rollback and drop the stash tag.
-remote "docker image inspect skuel-app:predeploy >/dev/null 2>&1 \
-  && docker tag skuel-app:predeploy skuel-app:rollback \
-  && docker rmi skuel-app:predeploy >/dev/null \
-  || true"
+# Gate passed: this image is proven — it becomes the rollback target for the
+# NEXT deploy. Promoting latest (not a pre-build stash) keeps rollback exactly
+# one green deploy behind, so a failed deploy restores the image that was
+# serving immediately before it.
+remote "docker tag skuel-app:latest skuel-app:rollback"
 
 # --- 5. In-container content-vault sync (--content, after the gate) ----------
 if [ "$SYNC_CONTENT" -eq 1 ]; then
