@@ -2,13 +2,13 @@
 Insight Service Package
 =======================
 
-Provides persistence and retrieval for event-driven insights.
-
-The InsightStore service stores insights in Neo4j and provides
-APIs for listing, dismissing, and acting on insights.
+Both sides of the insight domain: persistence/retrieval for event-driven
+insights (InsightStore) and task-to-knowledge generation
+(InsightGenerationService — shell + pattern-analysis / insight-synthesis /
+quality-curation mixins, July 2026 decomposition).
 
 Usage:
-    from core.services.insight import InsightStore
+    from core.services.insight import InsightGenerationService, InsightStore
 
     store = InsightStore(driver)
     await store.create_insight(insight)
@@ -16,6 +16,7 @@ Usage:
 """
 
 from core.services.insight.alignment_insight import persist_principle_alignment_insight
+from core.services.insight.insight_generation_service import InsightGenerationService
 from core.services.insight.insight_store import InsightStore
 
-__all__ = ["InsightStore", "persist_principle_alignment_insight"]
+__all__ = ["InsightGenerationService", "InsightStore", "persist_principle_alignment_insight"]

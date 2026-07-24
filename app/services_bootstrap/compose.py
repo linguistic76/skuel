@@ -473,7 +473,7 @@ async def compose_services(
 
         # Create inference services (passed through to TasksService)
         from core.services.entity_inference_service import EntityInferenceService
-        from core.services.insight_generation_service import InsightGenerationService
+        from core.services.insight.insight_generation_service import InsightGenerationService
 
         ku_inference_service = EntityInferenceService()
         ku_generation_service = InsightGenerationService()

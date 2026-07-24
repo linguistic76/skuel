@@ -492,7 +492,7 @@ Eliminated optional-dep fallback patterns across 7 files, enforcing One Path For
 | `ps/ps_search_service.py` (then `lesson/lesson_search_service.py`) | Semantic search fail → silent keyword fallback | Error propagates when FULL tier; keyword used only when CORE tier |
 | `visualization_service.py` | Optional deps + demo/mock data | All 4 service deps required, demo data deleted |
 | `calendar_service.py` | Optional deps + `if self.X_service:` guards + demo data | All 3 deps required, null guards + demo methods deleted |
-| `insight_generation_service.py` | `if not self.tasks_service: return []` | `RuntimeError` if tasks_service missing |
+| `insight_generation_service.py` (now `insight/_pattern_analysis_mixin.py`) | `if not self.tasks_service: return []` | `RuntimeError` if tasks_service missing |
 | `llm_service.py` | `ImportError → mock provider` fallback | `ImportError` propagates — if provider selected, library must be installed |
 | `instruction_resolver.py` | Unknown mode → silent default | `Errors.validation()` on unknown enrichment mode |
 

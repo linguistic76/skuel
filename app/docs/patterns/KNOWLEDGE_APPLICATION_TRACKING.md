@@ -111,6 +111,6 @@ can apply knowledge (Goal, Habit, Event, Choice, Principle). The YAML ingestion 
 2. Reading via that domain's `*Relationships` container or `get_related_uids("knowledge", uid)`.
 
 **See:** `core/services/tasks/task_relationships.py`,
-`core/services/insight_generation_service.py`,
+`core/services/insight/_pattern_analysis_mixin.py`,
 [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md),
 `@activity-domains`, `@learning-loop`.

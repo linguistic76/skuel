@@ -31,8 +31,8 @@ if TYPE_CHECKING:
     from core.services.cross_domain import CrossDomainQueryService
     from core.services.entity_inference_service import EntityInferenceService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+    from core.services.insight.insight_generation_service import InsightGenerationService
     from core.services.insight.insight_store import InsightStore
-    from core.services.insight_generation_service import InsightGenerationService
     from core.services.tasks.tasks_ai_service import TasksAIService
 
 # Domain models
