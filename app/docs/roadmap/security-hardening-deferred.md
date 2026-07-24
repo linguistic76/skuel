@@ -13,7 +13,8 @@ just not urgent before public deployment.
 **Status sweep 2026-07-24** (public-launch hardening, PR #794): item 7 (security headers) is
 **done**; items 2, 3, and 5 are partially overtaken by shipped work — each carries a dated
 status note below. Items 1 and 4 remain deferred as written; CAPTCHA (row 6 of the priority
-table) is the still-open remainder of item 2.
+table) is the still-open remainder of item 2. Later the same day, PR #797 shipped item 5's
+dependency CVE audit (the `pip_audit` CI job) — its parts B/C remain open.
 
 **See**: `/home/mike/.claude/plans/snazzy-gliding-shore.md` — the original review that produced
 the implemented fixes (Phases 1–3) and surfaced these deferrals.
@@ -186,36 +187,35 @@ role management to non-admin users.
 
 ---
 
-## 5. CI CVE Scanning
+## 5. CI CVE Scanning — ✅ dependency audit DONE (PR #797, 2026-07-24); history scan + SBOM open
 
-> **Status 2026-07-24 — now actionable, still not done.** The original blocker is gone: CI
-> exists (`.github/workflows/ci.yml` — tests, lint, MyPy, docs jobs). `pip-audit` has not been
-> added; it is on the post-launch fast-follow list. The instructions below are current.
-
-**Why deferred**: (historical) No CI pipeline existed when this was written. Adding security
-scanning to a non-existent pipeline was not actionable.
+> **Status 2026-07-24 — part A shipped (PR #797).** Parts B (secret scanning in history)
+> and C (SBOM) below remain open, on their original triggers.
 
 **The problem**: Python dependencies accumulate CVEs over time. Without automated scanning,
 vulnerabilities in transitive dependencies go undetected until a developer happens to run
 `pip audit` manually.
 
-**What to do**:
+### A. Dependency CVE scan — ✅ DONE (PR #797)
 
-When a CI pipeline (GitHub Actions, GitLab CI, etc.) is created, add these jobs:
+Shipped as the `pip_audit` job in `.github/workflows/ci.yml`, required (via the CI Gate) on
+every Python-file PR — `pyproject.toml` / `uv.lock` changes are what move the resolution, and
+running on ordinary Python PRs also catches CVEs published since the last dependency change.
+One audit path for CI and local (`./dev audit-deps`): `/scripts/audit_dependencies.sh` exports
+the full locked resolution (`uv export`, all groups, with hashes) and runs
+`pip-audit --strict --disable-pip` against the OSV database — the lock is audited, not the
+live venv, and no resolver runs.
 
-### A. Dependency CVE scan (fast, runs on every PR)
+Accepted findings live in `/.pip-audit-ignore`, one vulnerability ID per line, **each with a
+documented reason and an unblock condition**. Currently: the dev-only `mcp-neo4j-cypher`
+cluster (fastmcp / mcp / diskcache — upstream 0.6.0 is the latest release and pins the
+vulnerable versions; the dev group never reaches the production image, which syncs
+`--no-dev`). Delete entries the moment an upgrade path exists.
 
-```yaml
-# .github/workflows/security.yml
-- name: Audit Python dependencies
-  run: uv run pip-audit --requirement <(uv export -f requirements.txt)
-```
-
-`pip-audit` queries the OSV database (Google's open-source vulnerability database) and fails
-if any dependency has a known CVE. Add `pip-audit` to dev dependencies:
-```bash
-uv add --group dev pip-audit
-```
+The first run also surfaced 15 fixable packages; 13 were upgraded in the lock in the same PR
+(aiohttp, cryptography, jupyter-server, jupyterlab, langsmith, mistune, pillow,
+pydantic-settings, pymdown-extensions, pypdf, starlette, tornado + notebook as a follower)
+and setuptools fell out of the resolution entirely.
 
 ### B. Secret scanning in history (runs on PR targeting main)
 
@@ -239,8 +239,10 @@ Generate a Software Bill of Materials for supply chain visibility:
 uv run cyclonedx-py environment > sbom.json
 ```
 
-**Enable when**: First CI pipeline is created. The dependency audit job is the highest priority
-— it's fast, cheap, and catches the most impactful class of vulnerabilities.
+**Enable when** (B and C): B before any public repository exposure (same trigger as item 3's
+CI-side remainder — trufflehog/gitleaks would replace the home-grown pre-commit patterns'
+blind spot for history); C when supply-chain visibility is asked for (compliance, or a second
+deployment target).
 
 ---
 
@@ -279,7 +281,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
 | # | Item | Status / trigger |
 |---|------|------------------|
 | 1 | **Dependency pinning** | Open — before any langchain upgrade (see the item's status note) |
-| 2 | **CI CVE scanning** | Open, now actionable — add `pip-audit` to `ci.yml` (fast-follow) |
+| 2 | **CI CVE scanning** | ✅ Done (PR #797) — `pip_audit` CI job + `./dev audit-deps`; history scan (B) + SBOM (C) remain on their own triggers |
 | 3 | **Rate limiting** | ✅ Done — `/adapters/inbound/rate_limit.py` + invite gate |
 | 4 | **Pre-commit secret scanning** | ✅ Done — `scripts/git-hooks/pre-commit` |
 | 5 | **Session rotation** | Open — more relevant now that admin role promotion is the AI-access grant |

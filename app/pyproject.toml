@@ -96,6 +96,7 @@ dev = [
     "types-requests>=2.33.0.20260712",
     "types-markdown>=3.10.2.20260712",
     "vulture>=2.16",
+    "pip-audit>=2.10.1",
 ]
 
 [build-system]

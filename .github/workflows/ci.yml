@@ -259,6 +259,46 @@ jobs:
         working-directory: app
         run: uv run python scripts/audit_route_security.py
 
+  # Dependency CVE audit (security-hardening-deferred.md item 5A): pip-audit
+  # over the full locked resolution (uv export with hashes, all groups) via
+  # the same script as ./dev audit-deps. Gated on the py filter — pyproject /
+  # uv.lock changes are what move the resolution, and a REQUIRED-on-py-changes
+  # job also catches newly published CVEs on every ordinary Python PR.
+  # Accepted findings live in app/.pip-audit-ignore, each with a documented
+  # reason (currently the dev-only mcp-neo4j-cypher cluster).
+  pip_audit:
+    name: Dependency CVE Audit
+    needs: changes
+    if: needs.changes.outputs.py == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v4
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
+        run: uv sync --no-install-project
+
+      - name: Audit locked dependencies
+        working-directory: app
+        run: bash scripts/audit_dependencies.sh
+
   validate_documentation:
     name: Validate Documentation
     needs: changes
@@ -647,7 +687,7 @@ jobs:
   # (path not touched); fails only on a real failure/cancellation.
   gate:
     name: CI Gate
-    needs: [changes, mypy, lint, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests]
+    needs: [changes, mypy, lint, pip_audit, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -656,15 +696,16 @@ jobs:
           changes_result="${{ needs.changes.result }}"
           mypy_result="${{ needs.mypy.result }}"
           lint_result="${{ needs.lint.result }}"
+          pip_audit_result="${{ needs.pip_audit.result }}"
           docs_result="${{ needs.validate_documentation.result }}"
           unit_tests_result="${{ needs.unit_tests.result }}"
           integration_tests_result="${{ needs.integration_tests.result }}"
           smoke_result="${{ needs.smoke.result }}"
           content_boundary_result="${{ needs.content_boundary.result }}"
           js_tests_result="${{ needs.js_tests.result }}"
-          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  docs=$docs_result  unit_tests=$unit_tests_result  integration_tests=$integration_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result  js_tests=$js_tests_result"
+          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  pip_audit=$pip_audit_result  docs=$docs_result  unit_tests=$unit_tests_result  integration_tests=$integration_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result  js_tests=$js_tests_result"
           # 'success' and 'skipped' pass; 'failure' and 'cancelled' fail the gate.
-          for r in "$changes_result" "$mypy_result" "$lint_result" "$docs_result" "$unit_tests_result" "$integration_tests_result" "$smoke_result" "$content_boundary_result" "$js_tests_result"; do
+          for r in "$changes_result" "$mypy_result" "$lint_result" "$pip_audit_result" "$docs_result" "$unit_tests_result" "$integration_tests_result" "$smoke_result" "$content_boundary_result" "$js_tests_result"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::A required CI job did not pass (result=$r)"
               exit 1
