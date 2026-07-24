@@ -84,7 +84,7 @@ class Neo4jAdapter:
     async def connect(self) -> None:
         """Establish connection to Neo4j using Neo4jConnection"""
         if not NEO4J_AVAILABLE:
-            raise RuntimeError("Neo4j driver not installed. Please install with: pip install neo4j")
+            raise RuntimeError("Neo4j driver not installed. Run: uv sync")
 
         if self._uri or self._user or self._password:
             # Explicit credentials provided — create a dedicated connection

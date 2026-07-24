@@ -85,6 +85,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL019** | Credential reads bypassing `get_credential()` | ERROR for catalog keys, WARNING for credential-shape names |
 | **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment — see "Suppression audit" below |
 | **SKUEL030** | Unregistered label / relationship type in persistence Cypher | Register it in `NeoLabel` / `RelationshipName`, or fix the name (AST rule, docstring-aware) |
+| **SKUEL031** | Stale pip references (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) | SKUEL is lockfile-managed by uv — `uv add` / `uv sync` / `uv remove` / `uv export`; the `pip-audit` tool name is not caught |
 
 ## Inline Suppression
 

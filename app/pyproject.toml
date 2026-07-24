@@ -29,7 +29,7 @@ dependencies = [
     # Configuration & Environment
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.4",
-    "pydantic-settings>=2.14.1",
+    "pydantic-settings>=2.14.2",
     # Content Processing
     "pyyaml>=6.0.3",
     "python-frontmatter>=1.3.0",
@@ -47,7 +47,7 @@ dependencies = [
     # until a deliberate migration. See ADR-067 § Pins.
     "deepgram-sdk>=4.8.1,<5.0.0",
     # Security Dependencies
-    "cryptography>=48.0.0",
+    "cryptography>=49.0.0",
     # Vault-agent WS client (ADR-075 B3) — direct dep, not a transitive ride on
     # deepgram/fastmcp; agent/skuel_vault_agent.py + its unit tests import it.
     "websockets>=16.1.1",
@@ -96,6 +96,7 @@ dev = [
     "types-requests>=2.33.0.20260712",
     "types-markdown>=3.10.2.20260712",
     "vulture>=2.16",
+    "pip-audit>=2.10.1",
 ]
 
 [build-system]

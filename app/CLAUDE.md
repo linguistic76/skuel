@@ -582,6 +582,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 | SKUEL028 | `Result.fail(result)` to propagate — never `Result.fail(...expect_error())` | ERROR |
 | SKUEL029 | No `async def` without `await` — async for I/O, sync for computation (suppress protocol/lifecycle-required async) | ERROR |
 | SKUEL030 | Every label / edge in `adapters/persistence/` Cypher must be a `NeoLabel` / `RelationshipName` member — Neo4j matches zero rows on an unknown name instead of erroring (`.cypher` half is CYP011) | WARNING |
+| SKUEL031 | No stale pip refs (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) — uv is the one path (`uv add`/`uv sync`); SKUEL016's pip sibling | WARNING |
 
 **MyPy:** `./dev quality` enforces **0 errors**. Key strictness:
 - `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt

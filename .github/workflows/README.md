@@ -10,6 +10,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **CI Gate** | Aggregator job in `ci.yml` | This repo | ✅ status check (**required**) | Every PR/push to `main` |
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
 | **Lint** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — Ruff format + check, SKUEL architecture linter (strict), Cypher linter (errors), route-security audit |
+| **Dependency CVE Audit** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, `uv.lock`, or the audit tooling itself (`audit_dependencies.sh`, `.pip-audit-ignore`) change — `pip-audit` over the full locked resolution (`scripts/audit_dependencies.sh`, same as `./dev audit-deps`); accepted findings documented in `app/.pip-audit-ignore` |
 | **Integration Tests** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — `tests/integration/` against a Neo4j testcontainer (the runner's Docker daemon); the only tier that executes real Cypher |
 | **Render Smoke Test** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/**`, `app/ui/**`, `app/**/*.py`, or deps change — renders unauthenticated pages in headless Chrome and fails if any never reaches idle (infinite JS loop / render hang) |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
@@ -46,6 +47,7 @@ One workflow, path-guarded jobs, one always-on gate.
 ```
 changes ──┬─▶ mypy (if app py changed) ─────────────┐
           ├─▶ lint (if app py changed) ──────────────┤
+          ├─▶ pip_audit (if app py changed) ─────────┤
           ├─▶ unit_tests (if app py changed) ────────┤
           ├─▶ integration_tests (if app py changed) ─┤
           ├─▶ smoke (if py OR ui/static changed) ────┤
@@ -55,7 +57,7 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 ```
 
 - **`changes`** uses `dorny/paths-filter` to decide what ran.
-- **`mypy` / `lint` / `unit_tests` / `integration_tests` / `smoke` /
+- **`mypy` / `lint` / `pip_audit` / `unit_tests` / `integration_tests` / `smoke` /
   `validate_documentation` / `js_tests`** run only
   when their paths changed, so they're skipped (not failed) on unrelated PRs.
 - **`lint`** runs the mechanical rule set `./dev quality` runs locally, minus
@@ -63,6 +65,11 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
   `lint_skuel.py --strict`, `cypher_linter.py --errors-only --strict`, and
   `audit_route_security.py`. Steps keep running after one fails so a single CI
   run surfaces every violation category.
+- **`pip_audit`** audits the full locked resolution (all groups) against the OSV
+  database via `scripts/audit_dependencies.sh` — the same path as
+  `./dev audit-deps`. Accepted findings live in `app/.pip-audit-ignore`, one ID
+  per line, each with a documented reason (see
+  `app/docs/roadmap/security-hardening-deferred.md` item 5).
 - **`integration_tests`** runs `tests/integration/` — testcontainers boots the
   pinned Neo4j image on the runner's Docker daemon, same as `./dev test-integration`
   locally. This is the only tier that executes real Cypher (unit tests mock the
@@ -84,6 +91,7 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 cd app
 uv run mypy .                                  # MyPy check
 ./dev lint                                     # Ruff + SKUEL linter (the CI Lint job's core)
+./dev audit-deps                               # Dependency CVE audit (the CI pip_audit job)
 uv run python scripts/docs_freshness.py --critical-only
 uv run python scripts/skills_validator.py
 ./dev quality                                  # full suite (ruff + SKUEL linter + cypher + route audit + mypy)

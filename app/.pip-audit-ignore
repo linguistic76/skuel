@@ -1,0 +1,31 @@
+# Known, accepted pip-audit findings — one vulnerability ID per line.
+#
+# Rules (see docs/roadmap/security-hardening-deferred.md item 5):
+#   - Every entry documents WHY it is unfixable today and what unblocks it.
+#   - Re-check entries whenever `uv lock` moves the offending package; delete
+#     the entry the moment an upgrade path exists (One Path Forward).
+#   - scripts/audit_dependencies.sh feeds these to `pip-audit --ignore-vuln`.
+#
+# ── mcp-neo4j-cypher cluster (dev group only — never in the production image,
+#    Dockerfile.production syncs --no-dev). mcp-neo4j-cypher 0.6.0 is the
+#    LATEST release and pins fastmcp 2.13.x, which pins mcp 1.22.0 and pulls
+#    diskcache via py-key-value-aio[disk]. Nothing to upgrade until upstream
+#    (github.com/neo4j-contrib/mcp-neo4j) cuts a release on fastmcp >= 3.2.
+#    Re-check: `uv lock --upgrade-package mcp-neo4j-cypher` then ./dev audit-deps.
+
+# diskcache 5.6.3 — no fixed release published at all (2026-07-24)
+PYSEC-2026-2447
+
+# fastmcp 2.13.3 — fixes land in 2.14.0 / 2.14.2 / 3.2.0
+# (PYSEC-2026-338 is OSV-only — invisible to the PyPI feed; surfaced when the
+#  audit switched to --vulnerability-service osv)
+GHSA-rcfx-77hg-w2wv
+PYSEC-2026-2474
+PYSEC-2026-2475
+PYSEC-2026-2476
+PYSEC-2026-338
+
+# mcp 1.22.0 — fixes land in 1.23.0 / 1.27.2 / 1.28.1
+PYSEC-2026-1617
+PYSEC-2026-3482
+PYSEC-2026-3483
