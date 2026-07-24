@@ -330,7 +330,7 @@ class Neo4jVectorSearchService:
             return Result.fail(
                 Errors.unavailable(
                     feature="semantic_chunk_search",
-                    reason="Embeddings service required. Configure HF_API_TOKEN.",
+                    reason="Embeddings service required. Configure OPENAI_API_KEY.",
                     operation="find_similar_chunks_by_text",
                 )
             )

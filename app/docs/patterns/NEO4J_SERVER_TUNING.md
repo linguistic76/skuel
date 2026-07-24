@@ -15,7 +15,7 @@ driver side, see [NEO4J_QUERY_TIMEOUT.md](NEO4J_QUERY_TIMEOUT.md) / ADR-064.
 > **Self-host-only (AURA-TEMPORARY):** the memory sizing (heap/page-cache) and the Vector API
 > (SIMD) flag below exist **only because SKUEL self-hosts Neo4j**. AuraDB provides both by default
 > (memory by instance tier; Vector API on), so they are temporary scaffolding — marked
-> `# AURA-TEMPORARY:` in the compose/k8s files and dropped on migration. Don't over-invest in
+> `# AURA-TEMPORARY:` in the compose files and dropped on migration. Don't over-invest in
 > tuning them. Checklist: [AURADB_MIGRATION_GUIDE.md § 6.2](../deployment/AURADB_MIGRATION_GUIDE.md).
 > The driver-side knobs (per-query timeout, schema monitoring, APOC scoping) port cleanly and are
 > **not** temporary.
@@ -46,7 +46,7 @@ sysprop missing). `NEO4J_server_jvm_additional` is append-not-replace
 APPENDS: live JVM = 22 vendor flags + `--add-modules jdk.incubator.vector` + `-Xms`/`-Xmx`. One
 vendor-conf setting is deliberately overridden: the vendor pins
 `db.query.default_language=CYPHER_25` for new installs, while SKUEL's query corpus runs CYPHER_5 —
-pinned explicitly in compose and the k8s manifest so a CYPHER_25 migration happens as its own
+pinned explicitly in compose so a CYPHER_25 migration happens as its own
 deliberate arc, never as a config side effect. The setting applies to **newly created** databases
 only — an existing database keeps the language it was created with. Verify with
 `SHOW DATABASES YIELD name, defaultLanguage`; migrate a pre-pin database with

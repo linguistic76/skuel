@@ -115,7 +115,7 @@ NEO4J_DATABASE=neo4j
 
 ### 6.2 Remove Docker-Specific Configuration (self-host-only knobs)
 
-These knobs exist **only because SKUEL self-hosts Neo4j** — AuraDB provides each by default, so they disappear on migration and are not worth further investment. They are marked in the compose/k8s files with a grep-able `# AURA-TEMPORARY:` comment; run `grep -rn "AURA-TEMPORARY" infrastructure/ app/` to find every one.
+These knobs exist **only because SKUEL self-hosts Neo4j** — AuraDB provides each by default, so they disappear on migration and are not worth further investment. They are marked in the compose files with a grep-able `# AURA-TEMPORARY:` comment; run `grep -rn "AURA-TEMPORARY" infrastructure/ app/` to find every one.
 
 **Remove or comment out (env / `.env`):**
 
@@ -126,7 +126,7 @@ These knobs exist **only because SKUEL self-hosts Neo4j** — AuraDB provides ea
 # NEO4J_PAGECACHE=1G
 ```
 
-**Drop from the compose/k8s Neo4j service (each managed by AuraDB):**
+**Drop from the compose Neo4j service (each managed by AuraDB):**
 
 | Knob | Why it disappears on Aura |
 |------|---------------------------|

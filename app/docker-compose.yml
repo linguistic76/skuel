@@ -13,7 +13,7 @@
 #
 # Neo4j config extends infrastructure/docker-compose.yml (single source
 # of truth). This file overrides only what differs for the app stack:
-#   - No GenAI plugin (SKUEL uses HuggingFace Python-side per ADR-049)
+#   - No GenAI plugin (embeddings are OpenAI Python-side per ADR-068)
 #   - Memory defaults for dev environments
 #   - skuel-network for inter-container communication
 #
@@ -32,7 +32,7 @@ services:
       file: ../infrastructure/docker-compose.yml
       service: neo4j
     environment:
-      # Override: APOC only — no GenAI plugin (SKUEL uses HuggingFace Python-side)
+      # Override: APOC only — no GenAI plugin (embeddings are OpenAI Python-side)
       NEO4J_PLUGINS: '["apoc"]'
       # Override: dev-friendly memory defaults
       # AURA-TEMPORARY: self-host-only — AuraDB sizes memory by instance tier.
@@ -63,9 +63,10 @@ services:
       APP_PORT: ${APP_PORT:-8000}
       APP_DEBUG: ${APP_DEBUG:-false}
 
-      # AI Services
+      # AI Services — no HF_API_TOKEN passthrough: the BGE/HuggingFace
+      # provider is staged, not selectable via create_embedding_client()
+      # (ADR-068 — OpenAI now, BGE later)
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      HF_API_TOKEN: ${HF_API_TOKEN:-}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
 
       # Paths

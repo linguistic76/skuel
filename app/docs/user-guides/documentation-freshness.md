@@ -1,6 +1,6 @@
 ---
 title: Documentation Freshness Guide
-updated: 2026-03-04
+updated: 2026-07-24
 status: current
 category: user-guides
 tags: [documentation, freshness, health-checks, hooks, cross-references, staleness]

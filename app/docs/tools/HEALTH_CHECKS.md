@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-03-04
+updated: 2026-07-24
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -101,8 +101,11 @@ Broken References — 1360 dead links:
 | `[backtick]` | `` `core/services/tasks.py` `` | Inline code spans that look like paths |
 | `[bare]` | `/docs/patterns/foo.md` in prose | Bare absolute paths with project prefixes |
 
-**Absolute paths** (starting with `/`) are resolved relative to the repo root.
-**Relative paths** are resolved relative to the source file's directory.
+**Absolute paths** (starting with `/`) are resolved relative to the repo root; a
+machine-absolute citation of the app dir itself (`/home/.../app/...`) is checked as-is.
+**Relative paths** are resolved relative to the source file's directory; if that misses,
+they are retried relative to the repo root (docs routinely cite root-relative paths like
+`docs/patterns/foo.md` without a leading slash).
 **External URLs** (`http://`, `https://`, etc.) and anchor-only links (`#section`) are skipped.
 
 **Special callout:** When `docs/INDEX.md` has broken links, the output highlights it:

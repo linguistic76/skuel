@@ -97,9 +97,9 @@ line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`
   later monthly is: back up → swap the tag everywhere it is pinned → restart → run integration.
 - **Downgrades are not supported** — a store written by a newer server will not open on an older one.
   Rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.
-- **Where the tag lives:** primary source `infrastructure/docker-compose.yml`; mirrors in
-  `k8s-manifests.yml`, `docker-compose.production.yml` (template), and the integration testcontainer
-  in `tests/integration/conftest.py`. Bump them together; the `test_apoc_canary` version canary fails
+- **Where the tag lives:** primary source `infrastructure/docker-compose.yml`; mirrored only by
+  the integration testcontainer in `tests/integration/conftest.py` (production runs no Neo4j
+  service — it talks to AuraDB). Bump them together; the `test_apoc_canary` version canary fails
   loudly when they drift from the running server.
 - **Driver ↔ server:** kept decoupled on purpose (see § 3). The `5.26.0` driver is Bolt-forward-
   compatible with the `2026.x` server; they need not share a version.

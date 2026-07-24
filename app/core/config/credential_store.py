@@ -41,8 +41,8 @@ logger = get_logger(__name__)
 
 
 # Values that auto-migration should *not* copy into the backend. Captures the
-# common placeholder patterns from `.env.example` and k8s-secrets.yml.example
-# so a half-filled template doesn't end up persisting into the keychain.
+# common placeholder patterns from the `.env.example`-style templates so a
+# half-filled template doesn't end up persisting into the keychain.
 _PLACEHOLDER_VALUES: frozenset[str] = frozenset(
     {
         "",

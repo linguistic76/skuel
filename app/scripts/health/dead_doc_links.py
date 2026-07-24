@@ -94,12 +94,21 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
     if not raw:
         return None
 
+    if raw.startswith(f"{ROOT}/"):
+        # Machine-absolute citation of the app dir itself
+        return Path(raw)
     if raw.startswith("/"):
         # Absolute path relative to repo root
         return ROOT / raw.lstrip("/")
     else:
         # Relative path from source file's directory
-        return (source_file.parent / raw).resolve()
+        candidate = (source_file.parent / raw).resolve()
+        if candidate.exists():
+            return candidate
+        # Docs routinely cite paths root-relative without a leading slash
+        # (`docs/patterns/foo.md`, `core/services/bar.py`) — try the repo
+        # root before declaring the reference broken.
+        return ROOT / raw
 
 
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
