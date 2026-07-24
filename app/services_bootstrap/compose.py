@@ -259,10 +259,13 @@ async def compose_services(
         else:
             logger.info("⏭️  Schema-change monitoring disabled (NEO4J_SCHEMA_MONITORING off)")
 
-        # Cleanup expired sessions and reset tokens (daily maintenance at startup)
+        # THE app-wide SessionBackend: startup cleanup here, session revocation
+        # on privilege change (UserService below), and GraphAuthService
         from adapters.persistence.neo4j.session_backend import SessionBackend
 
         session_backend = SessionBackend(driver)
+
+        # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         cleanup_sessions = await session_backend.cleanup_expired_sessions()
         cleanup_tokens = await session_backend.cleanup_expired_tokens()
 
@@ -348,6 +351,7 @@ async def compose_services(
             event_bus=event_bus,
             metrics_cache=metrics_cache,
             device_service=device_service,
+            session_invalidator=session_backend,
         )
         logger.info("✅ UserService created (foundation service)")
 
@@ -377,11 +381,9 @@ async def compose_services(
         logger.info("✅ UserRelationshipBackend created (pinning, following)")
 
         # Create graph-native authentication service (January 2026)
-        # Sessions stored in Neo4j with bcrypt password hashing
-        from adapters.persistence.neo4j.session_backend import SessionBackend
+        # Sessions stored in Neo4j with bcrypt password hashing; reuses the
+        # app-wide SessionBackend created above the startup cleanup
         from core.auth.graph_auth import GraphAuthService
-
-        session_backend = SessionBackend(driver)
 
         # Email service for password reset (March 2026, tier-gated May 2026)
         # Gated by EMAIL_ENABLED to match the embeddings pattern: opt-in via flag,

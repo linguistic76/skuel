@@ -12,9 +12,11 @@ just not urgent before public deployment.
 
 **Status sweep 2026-07-24** (public-launch hardening, PR #794): item 7 (security headers) is
 **done**; items 2, 3, and 5 are partially overtaken by shipped work — each carries a dated
-status note below. Items 1 and 4 remain deferred as written; CAPTCHA (row 6 of the priority
+status note below. Item 1 remains deferred as written; CAPTCHA (row 6 of the priority
 table) is the still-open remainder of item 2. Later the same day, PR #797 shipped item 5's
-dependency CVE audit (the `pip_audit` CI job) — its parts B/C remain open.
+dependency CVE audit (the `pip_audit` CI job) — its parts B/C remain open — and item 4
+(session rotation) shipped as session revocation on privilege change plus per-request
+graph-session enforcement.
 
 **See**: `/home/mike/.claude/plans/snazzy-gliding-shore.md` — the original review that produced
 the implemented fixes (Phases 1–3) and surfaced these deferrals.
@@ -140,50 +142,38 @@ slips through.
 
 ---
 
-## 4. Session Rotation on Privilege Change
+## 4. Session Rotation on Privilege Change — ✅ DONE (2026-07-24)
 
-**Why deferred**: Privilege changes (role upgrades/downgrades) are rare admin operations.
-Implementing correct multi-device session rotation requires tracking which sessions exist across
-devices — a capability SKUEL doesn't yet need.
+Sharpened by the droplet prep: admin role promotion IS the AI-access grant
+(REGISTERED→MEMBER), so stale sessions became a launch concern rather than a theoretical one.
 
-**The problem**: If a user's role is elevated (e.g., REGISTERED → TEACHER), their existing
-session cookie still carries the old role until it naturally expires or the user logs out and
-back in. An attacker who compromised an old session could retain stale elevated access if role
-was later downgraded.
+**What shipped** (variant A below, plus the enforcement that makes it real):
 
-**What to do**:
+1. **Revocation on privilege change** — `UserService.update_role` and
+   `UserService.deactivate_user` call `invalidate_all_user_sessions(user_uid)` (already on
+   `SessionBackend`; also used by password change/reset) after a *persisted, actual* change —
+   a no-op role set doesn't log anyone out, and an ADMIN→ADMIN self-update can't self-logout.
+   A failed revocation surfaces as an error (the change is saved; the admin retries the
+   idempotent operation). Wired via the `SessionInvalidationOperations` protocol
+   (`/core/ports/service_protocols.py`).
+2. **Per-request enforcement** — the finding that reshaped the item: *nothing* validated the
+   graph session per request, so server-side invalidation (including the existing password
+   change/reset flows) never actually logged out a live cookie for its whole 30-day max_age.
+   `AuthContextMiddleware` (`/adapters/inbound/auth/context_middleware.py`) now validates
+   `session_token` against the `:Session` node once per authenticated request
+   (`validate_session_uid`: is_valid + expiry + user_is_active) and clears the cookie session
+   when the graph says revoked/expired — forced re-login on the very next request. Anonymous
+   requests and static/health/PWA paths skip validation; a validation *error* (Neo4j
+   unreachable) denies with 503 WITHOUT clearing the cookie. The now-redundant, never-called
+   `get_current_user_validated()` helper was deleted (One Path Forward).
+3. **Index fix** — the Session lookup index targeted the nonexistent `session_token` property
+   (raw tokens never persist; nodes store `token_hash`), so every token lookup was a label
+   scan. Now indexed on `token_hash`; the stale index is dropped at schema sync.
 
-### A. Session invalidation on role change
-
-The minimal safe implementation: invalidate ALL of a user's active sessions when their role
-changes. The user is forced to log in again with their new role.
-
-```python
-# In user management service, after updating role:
-await session_backend.invalidate_all_sessions_for_user(user_uid)
-```
-
-This requires `invalidate_all_sessions_for_user(user_uid: UserUID)` on `SessionBackend`:
-```cypher
-MATCH (u:User {uid: $user_uid})-[:HAS_SESSION]->(s:Session)
-WHERE s.expires_at > datetime()
-SET s.expires_at = datetime()   -- expire immediately
-```
-
-### B. Session regeneration on privilege escalation (stronger)
-
-Instead of invalidating, issue a fresh session token on login after a role change. This
-prevents session fixation attacks. Requires:
-- Tracking `role_version` or `role_changed_at` on the User node
-- Comparing it to the session's `created_at` on each request
-- Triggering re-authentication if `role_changed_at > session.created_at`
-
-**Prerequisites**:
-- Multi-device session tracking (know which sessions belong to which user)
-- `HAS_SESSION` relationship already exists; verify it's indexed on `user_uid`
-
-**Enable when**: Multiple concurrent sessions per user become a use case, or before exposing
-role management to non-admin users.
+**Deliberately not done** — variant B (session *regeneration* via `role_changed_at`
+comparison): revocation + per-request enforcement covers the threat; regeneration only adds
+session-fixation protection for the re-login flow, which `sign_in` already handles by minting
+a fresh token. Revisit only if role management is exposed to non-admin users.
 
 ---
 
@@ -287,7 +277,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
 | 2 | **CI CVE scanning** | ✅ Done (PR #797) — `pip_audit` CI job + `./dev audit-deps`; history scan (B) + SBOM (C) remain on their own triggers |
 | 3 | **Rate limiting** | ✅ Done — `/adapters/inbound/rate_limit.py` + invite gate |
 | 4 | **Pre-commit secret scanning** | ✅ Done — `scripts/git-hooks/pre-commit` |
-| 5 | **Session rotation** | Open — more relevant now that admin role promotion is the AI-access grant |
+| 5 | **Session rotation** | ✅ Done (2026-07-24) — revocation on role change/deactivation + per-request graph-session enforcement |
 | 6 | **CAPTCHA** | Open — only if automated sign-up abuse occurs despite the invite gate |
 | 7 | **Security headers** | ✅ Done (PR #794) — CSP promotion + Caddy HSTS remain |
 

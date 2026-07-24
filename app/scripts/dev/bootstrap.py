@@ -101,7 +101,11 @@ async def bootstrap_skuel() -> AppContainer:
 
         # Step 4: Wire routes
         static_dir = getattr(config.application, "static_directory", None)
-        app, rt = _create_web_app(config, static_dir)
+        if services.graph_auth is None:
+            # Fail-fast: AuthContextMiddleware enforces graph sessions per
+            # request — an app without graph_auth cannot revoke sessions
+            raise RuntimeError("Service composition produced no graph_auth service")
+        app, rt = _create_web_app(config, static_dir, services.graph_auth)
 
         await _wire_routes(app, rt, services, config, prometheus_metrics)
 
@@ -437,13 +441,19 @@ async def _wire_routes(
     logger.info("✅ Routes wired with explicit dependencies")
 
 
-def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None) -> tuple[Any, Any]:
+def _create_web_app(
+    _config: UnifiedConfig,
+    static_directory: str | None = None,
+    graph_auth: Any = None,
+) -> tuple[Any, Any]:
     """
     Create FastHTML app with headers but no routes yet.
 
     Args:
         config: Application configuration
         static_directory: Override static files directory (defaults to ./static relative to current working directory)
+        graph_auth: GraphAuthService for per-request session enforcement
+            (AuthContextMiddleware fail-fasts on None)
 
     Returns:
         Tuple of (FastHTML app, router)
@@ -481,13 +491,14 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
     # they surface as 500s instead of a validation 400.
     install_malformed_json_guard(app)
 
-    # Auth context — mirrors session auth flags into a ContextVar so page
+    # Auth context — enforces the graph session per request (revoked sessions
+    # force re-login) and mirrors session auth flags into a ContextVar so page
     # chrome (BasePage/navbar in ui/) reads auth state without importing
     # adapters. MUST run INSIDE SessionMiddleware to see request.session:
     # FastHTML appends the session middleware last (innermost), and
     # add_middleware() prepends (outermost) — so append directly instead of
     # using add_middleware(), which would place this outside the session.
-    app.user_middleware.append(Middleware(AuthContextMiddleware))
+    app.user_middleware.append(Middleware(AuthContextMiddleware, graph_auth=graph_auth))
 
     # Configure static files path (idempotent and path-safe)
     # Default: ./static relative to current working directory (not source file)

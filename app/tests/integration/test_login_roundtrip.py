@@ -162,6 +162,38 @@ async def test_wrong_password_rejected_and_no_session(neo4j_driver, auth_env):
     )
 
 
+async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
+    """Server-side revocation must flip a live token to invalid.
+
+    This is the graph half of forced re-login on privilege change (roadmap
+    item 4): UserService.update_role / deactivate_user call
+    invalidate_all_user_sessions, and AuthContextMiddleware clears any cookie
+    whose token no longer validates (middleware half pinned in
+    tests/unit/adapters/test_auth_context.py).
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("revoke"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    valid = await auth.validate_session_uid(token)
+    assert valid.is_ok and valid.value == user_uid, "live session must validate before revocation"
+
+    revoked = await auth.session_backend.invalidate_all_user_sessions(user_uid)
+    assert revoked.is_ok, f"revocation failed: {revoked.error}"
+    assert revoked.value == 1, "exactly the one live session should be revoked"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-revocation validation errored: {after.error}"
+    assert after.value is None, "revoked session must not validate"
+
+
 async def test_role_stored_lowercase_on_signup(neo4j_driver, auth_env):
     """Pin F8: the persisted role property is lowercase.
 

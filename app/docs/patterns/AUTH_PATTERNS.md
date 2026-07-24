@@ -1,12 +1,12 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-04-01'
+updated: '2026-07-24'
 category: patterns
 related_skills: [security]
 related_docs: []
 ---
 # Authentication Patterns in SKUEL
-*Last updated: 2026-01-24*
+*Last updated: 2026-07-24*
 
 This document describes the authentication and authorization patterns used throughout SKUEL, including when to use each pattern and why.
 
@@ -400,13 +400,20 @@ async def library_page(request: Request) -> Any:
 3. set_current_user() stores user_uid + session_token in cookie
    ↓
 4. On each request:
-   - Fast path: get_current_user() reads user_uid from cookie
-   - Secure path: get_current_user_validated() validates in Neo4j
+   - AuthContextMiddleware validates session_token against the :Session node
+     (revoked/expired → cookie session cleared → forced re-login)
+   - Route helpers (get_current_user() etc.) then read the cookie — the graph
+     round-trip already happened once, upstream
    ↓
 5. User logs out via /logout
    ↓
 6. clear_current_user() removes cookie, Session node invalidated
 ```
+
+Server-side revocation — `invalidate_all_user_sessions(user_uid)` on password change,
+password reset, admin role change, and deactivation — takes effect on the target's very
+next request because of step 4. See `/adapters/inbound/auth/context_middleware.py` for
+the enforcement semantics (exempt paths, 503-without-clearing on validation errors).
 
 ## Security Principles
 
@@ -421,9 +428,10 @@ async def library_page(request: Request) -> Any:
 | File | Purpose |
 |------|---------|
 | `/adapters/inbound/auth/session.py` | Session helpers, `UserUID` type, decorators, WebSocket auth |
+| `/adapters/inbound/auth/context_middleware.py` | Per-request graph-session enforcement + auth ContextVar mirror |
 | `/adapters/inbound/auth_ui.py` | Auth UI routes (register, login, password reset) |
 | `/adapters/inbound/rate_limit.py` | `rate_limited` (per-user) + `rate_limited_ip` (per-IP) sliding-window decorators |
-| `/core/auth/roles.py` | Role-based decorators, permission checking |
+| `/adapters/inbound/auth/roles.py` | Role-based decorators, permission checking |
 | `/core/auth/graph_auth.py` | `GraphAuthService` for sign_in/sign_up |
 | `/core/auth/__init__.py` | Public API exports |
 | `/core/models/auth/auth_request.py` | Pydantic request models for auth forms |
@@ -477,14 +485,17 @@ if result.is_ok:
 
 ### Session Validation
 
+Graph validation happens ONCE per request in `AuthContextMiddleware` (revoked/expired
+sessions are cleared before any route runs). Route code just reads the cookie:
+
 ```python
-# Fast path: Read from cookie (no DB call)
+# Optional auth: read from cookie (no DB call — middleware already validated)
 user_uid = get_current_user(request)  # Returns None if not logged in
 
-# Strict path: Validate in Neo4j (DB call)
-user_uid = require_authenticated_user(request)  # Raises 401 if invalid
+# Required auth: same read, raises instead of returning None
+user_uid = require_authenticated_user(request)  # Raises 401 if not logged in
 
-# Full validation with session refresh
+# Explicit re-validation with full User fetch (rare — e.g. WebSocket handshakes)
 result = await graph_auth.validate_session(session_token)
 ```
 
@@ -661,7 +672,7 @@ The per-IP query reuses the existing `AuthEvent.ip_address` field — no schema 
 ---
 
 ## Route Factory Auth Matrix
-*Last updated: 2026-01-24*
+*Last updated: 2026-07-24*
 
 **Core Principle:** "Authentication patterns are explicit per factory type"
 

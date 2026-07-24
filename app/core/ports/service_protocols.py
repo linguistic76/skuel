@@ -434,6 +434,22 @@ class GraphAuthOperations(Protocol):
         ...
 
 
+@runtime_checkable
+class SessionInvalidationOperations(Protocol):
+    """Server-side session revocation — the kill switch for live cookies.
+
+    Service consumer: UserService (role change, deactivation)
+    Implementation: SessionBackend
+
+    Revocation only bites because AuthContextMiddleware validates the graph
+    session once per request; see adapters/inbound/auth/context_middleware.py.
+    """
+
+    async def invalidate_all_user_sessions(self, user_uid: UserUID) -> Result[int]:
+        """Invalidate every live session for a user. Returns count invalidated."""
+        ...
+
+
 # ============================================================================
 # ORCHESTRATION — Goal→Task, Habit→Event
 # ============================================================================

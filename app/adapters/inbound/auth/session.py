@@ -2,43 +2,43 @@
 Session Management for SKUEL
 =============================
 
-Cookie-based session management with optional graph-native validation.
+Cookie-based session management with graph-native validation.
 
 Design Principles:
 - Cookie stores session_token (signed, tamper-proof)
 - Neo4j stores token_hash (SHA-256) — raw tokens never persisted
-- Fast path: Read user_uid from cookie (no DB call)
-- Secure path: Hash cookie token, match against token_hash in Neo4j
 - Fail-fast: Invalid sessions return None (no user)
 - Production guard: Dev fallback auth raises 401 in production/staging
 
 Graph-Native Authentication:
 - Sessions are stored in Neo4j as Session nodes (token_hash, not raw token)
 - Cookie contains raw session_token for lookup (hashed before query)
-- Session can be invalidated server-side
+- Sessions can be revoked server-side — AuthContextMiddleware validates the
+  graph session ONCE per request and clears the cookie session when the graph
+  says revoked/expired, so revocation (password change, role change,
+  deactivation) forces re-login on the very next request
 - Audit trail via AuthEvent nodes
 
 Architecture:
 1. SessionMiddleware handles cookie signing/verification
-2. Cookie stores: session_token, user_uid, logged_in_at
-3. Fast reads: get_current_user() reads user_uid from cookie
-4. Secure reads: get_current_user_validated() validates token in Neo4j
+2. AuthContextMiddleware enforces the graph session per request
+   (adapters/inbound/auth/context_middleware.py)
+3. Cookie stores: session_token, user_uid, logged_in_at
+4. Readers here (get_current_user() etc.) stay cookie-only — enforcement
+   already happened upstream in the middleware
 """
 
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import wraps
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-
-if TYPE_CHECKING:
-    from core.ports.service_protocols import GraphAuthOperations
 
 logger = get_logger("skuel.auth.session")
 
@@ -145,63 +145,6 @@ def get_current_user_or_default(request: Request, default: str = DEFAULT_DEV_USE
 
     logger.debug(f"No session - using default user: {default}")
     return UserUID(default)
-
-
-async def get_current_user_validated(
-    request: Request, graph_auth: "GraphAuthOperations"
-) -> UserUID | None:
-    """
-    Get current user with graph-native session validation.
-
-    This validates the session_token against Neo4j, ensuring:
-    - Session exists and is not expired
-    - Session has not been invalidated (e.g., after logout elsewhere)
-    - User is still active
-
-    Use this for sensitive operations where server-side session
-    validation is required.
-
-    Args:
-        request: Starlette/FastHTML request object
-        graph_auth: GraphAuthService instance for validation
-
-    Returns:
-        user_uid if session is valid, None otherwise
-
-    Usage:
-        ```python
-        @rt("/api/account/delete", methods=["POST"])
-        async def delete_account(request):
-            # Validate session before destructive operation
-            user_uid = await get_current_user_validated(request, graph_auth)
-            if not user_uid:
-                return RedirectResponse("/login")
-            ...
-        ```
-    """
-    try:
-        session = getattr(request, "session", None)
-        if session is None:
-            return None
-
-        session_token = session.get("session_token")
-        if not session_token:
-            # FAIL-FAST: No backward compat. Graph-native auth requires session_token.
-            logger.warning("No session_token - graph-native auth required (no fallback)")
-            return None
-
-        # Validate session in Neo4j (optimized - no user fetch)
-        result = await graph_auth.validate_session_uid(session_token)
-        if result.is_error or not result.value:
-            logger.warning("Session validation failed - session may have been invalidated")
-            return None
-
-        user_uid = result.value
-        return UserUID(user_uid) if user_uid else None  # Returns user_uid directly
-
-    except Exception as e:  # safety-net: session validation must not crash the request
-        logger.error(f"Error validating session: {e}")
-        return None
 
 
 def get_session_token(request: Request) -> str | None:
@@ -774,7 +717,6 @@ __all__ = [
     # Core session functions
     "get_current_user",
     "get_current_user_or_default",
-    "get_current_user_validated",  # Graph-native session validation
     "get_is_admin",  # Admin role check from session (January 2026)
     "get_is_teacher",  # Teacher role check from session (February 2026)
     # Session data
