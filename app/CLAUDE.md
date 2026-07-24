@@ -215,7 +215,7 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 
 **Harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. Domain-specific sub-services (Habits `completions`, Events `habit_integration`, Principles `alignment`) preserve uniqueness inside it.
 
-**Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins. **Floor:** inline back when a mixin is <250 lines, single-consumer, and mostly delegates to one dependency — don't extract just to satisfy a line count. **See:** `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`
+**Decomposition rule:** line counts guide, coherence determines. >350 lines (intelligence) / >700 lines (facade) are advisory signals that trigger a merit check — extract only on 4+ coherent methods whose extraction genuinely improves the host; "over the threshold but coherent" is a valid, documented end state (see the doc's Deliberately Long registry). **Floor:** inline back when a mixin is <250 lines, single-consumer, and mostly delegates to one dependency — don't extract just to satisfy a line count. **See:** `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`
 
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
 

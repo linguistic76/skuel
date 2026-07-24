@@ -1,10 +1,21 @@
 # Service Decomposition Rule
 
+**Line counts guide and suggest; coherence determines.** The two thresholds in this document
+(~350 intelligence / ~700 facade) are **advisory signals**, never extraction mandates:
+tripping one triggers a merit check (thin-method ratio, coherent clusters), not automatic
+extraction. The determining test is always: **4+ coherent extractable methods whose
+extraction genuinely improves the host**. *"Over the threshold but coherent" is a valid,
+documented end state* — prefer raising a threshold over forcing a split. Files that tripped
+a signal, were merit-checked, and were judged coherent as-is are recorded in
+[Deliberately Long](#deliberately-long-judged-2026-07-23--do-not-re-flag) below so future
+surveys don't re-flag them.
+
 ## Mixin vs Sub-Service Rule
 
 ### When to create an Intelligence Mixin
 
-Extract intelligence methods into mixins when the intelligence service **file exceeds ~350 lines**. Group by analytical concern:
+An intelligence service **file exceeding ~350 lines** is the signal to run the merit check;
+extract into mixins only when the methods group into coherent analytical concerns:
 
 | Mixin | Contents |
 |-------|----------|
@@ -30,10 +41,13 @@ class TasksIntelligenceService(
 
 ### When to create a Facade Mixin
 
-Extract facade methods into mixins when ALL are true:
-1. The facade **file exceeds ~700 lines**, AND
-2. **4+ methods share a coherent domain theme**, AND
-3. The extracted unit is either **reused across domains**, **independently testable**, or **prevents the host file from becoming unreadable**
+A facade **file exceeding ~700 lines** is the signal to run the merit check. Extract only
+when BOTH also hold:
+1. **4+ methods share a coherent domain theme**, AND
+2. The extracted unit is either **reused across domains**, **independently testable**, or **prevents the host file from becoming unreadable**
+
+A facade over the signal that fails this test stays whole and gets a row in
+[Deliberately Long](#deliberately-long-judged-2026-07-23--do-not-re-flag) instead.
 
 **Floor rule — prefer inlining when most are true:**
 - The file is under ~250 lines
@@ -66,7 +80,8 @@ class EventsService(
 
 - Thin 1-3 line pass-throughs to a single sub-service
 - Methods that don't cluster into a domain-coherent group of 4+
-- Any method in a facade that is < 700 lines
+- Any method in a facade below the ~700-line signal
+- Any facade over the signal whose methods are mostly thin delegation (see Deliberately Long)
 
 ### Sub-service (not a mixin)
 
@@ -75,7 +90,7 @@ A full class with its own backend access, injected as `self.progress`, `self.sch
 - Logic exceeds ~200 lines (not just delegation)
 - Testable in isolation
 
-## Current State (June 2026)
+## Current State (July 2026)
 
 | Domain | Intelligence Decomposed | Facade Decomposed |
 |--------|------------------------|-------------------|
@@ -85,6 +100,20 @@ A full class with its own backend access, injected as `self.progress`, `self.sch
 | Events | ✅ `_core_intelligence_mixin`, `_analytics_mixin`, `_behavioral_signals_mixin` | `_orchestration_mixin`, `_scheduling_mixin` |
 | Choices | ✅ 3 mixins | `_option_management_mixin`, `_enrichment_mixin` |
 | Principles | ✅ 3 mixins | `_embodiment_mixin`, `_gravity_mixin`, `_enrichment_mixin` |
+
+## Deliberately Long (judged 2026-07-23 — do not re-flag)
+
+Surveyed with line counts + AST thin-method analysis ("thin" = ≤2 non-docstring statements,
+pure delegation). Each file tripped a threshold, was merit-checked, and was judged coherent
+as-is — the amended rule working as intended. Do not re-flag these in future bloat surveys;
+re-open a row only if the file itself starts causing pain.
+
+| File | Lines | Evidence |
+|------|-------|----------|
+| `core/services/ps_service.py` | 1085 | 91 methods, 78 thin (86%) + 101-line `__init__` — canonical pure-delegation facade |
+| `core/services/tasks_service.py` | 1087 | 49/61 methods thin; already has `_OrchestrationMixin`; only 2 fat methods — fails the 4+ coherence test |
+| `core/services/intelligence/query_intelligence_service.py` | 666 | Already internally decomposed: `IntentScorer` / `FacetDetector` / `ResultRanker` + thin orchestrator |
+| `core/services/ps/ps_intelligence_service.py` | 621 | Pattern-conformant (`_CoreIntelligenceMixin` + `BaseAnalyticsService`); single coherent readiness/practice theme |
 
 ## Mixin Class Template
 
