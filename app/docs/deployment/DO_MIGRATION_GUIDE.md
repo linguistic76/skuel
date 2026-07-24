@@ -66,7 +66,9 @@ On the droplet (Ubuntu LTS assumed):
   ```bash
   # On the droplet:
   mkdir -p /opt/skuel/app
-  # secrets — 0600, root-owned is fine (compose reads it, the app never does)
+  # secrets — 0600, owned by the user that runs docker compose (deploy.sh's SSH
+  # user): compose itself reads env_file on the host, so it must be able to
+  # open the file. root-owned is right only when that user is root.
   touch /opt/skuel/secrets.env && chmod 0600 /opt/skuel/secrets.env
 
   # From your machine — the template never lands via deploy (rsync excludes
@@ -97,7 +99,9 @@ cd ~/skuel/app
 cp .env.production.example .env.production   # set SKUEL_DOMAIN=localhost; point
                                              # NEO4J_URI at a scratch AuraDB Free instance
 sudo mkdir -p /opt/skuel                     # same secrets path the droplet uses
-sudo touch /opt/skuel/secrets.env && sudo chmod 0600 /opt/skuel/secrets.env
+sudo touch /opt/skuel/secrets.env
+sudo chown "$USER" /opt/skuel/secrets.env    # compose reads env_file as YOU —
+sudo chmod 0600 /opt/skuel/secrets.env       # it must be readable by the compose user
 # fill secrets.env: NEO4J_PASSWORD, OPENAI_API_KEY, DEEPGRAM_API_KEY, SESSION_SECRET_KEY
 
 docker compose -f docker-compose.production.yml up --build
