@@ -165,7 +165,13 @@ uv run python scripts/export_entity_counts.py > counts_$(date +%Y%m%d).json
 
 Pure Cypher, JSON to stdout; `--compare earlier.json` diffs live counts and exits 1 on any mismatch. Take a snapshot + count export before anything risky (bulk ingest, retention with a new window, tier change).
 
-The personal vault (`/opt/skuel/personal-vault`) and per-user vaults (`user_vaults` volume) live only on the droplet — include `/opt/skuel` in whatever host backup you run (DO droplet snapshots are the low-effort answer).
+Vault data lives only on the droplet, in **two different places**: the personal vault is a bind mount under `/opt/skuel/personal-vault`, but the per-user vaults (`user_vaults`) are a **named Docker volume** — under Docker's data root (`/var/lib/docker/volumes/`), *not* `/opt/skuel`. A whole-droplet DO snapshot covers both and is the low-effort answer. If you run file-level backups instead, backing up `/opt/skuel` alone silently omits every per-user vault — archive the volume too:
+
+```bash
+# tar the user_vaults volume via the running container's mounts
+docker run --rm --volumes-from skuel-app -v /opt/skuel/backups:/out alpine \
+  tar czf "/out/user_vaults_$(date +%Y%m%d).tar.gz" -C /app/data/user_vaults .
+```
 
 ### Uptime
 
