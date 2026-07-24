@@ -451,7 +451,7 @@ class PsBackend(
     - ``_LearningStateMixin`` — user progress tracking: VIEWED, IN_PROGRESS,
       MASTERED, BOOKMARKED, MARKED_AS_READ (13 methods)
     - ``_SemanticMixin`` — semantic relationships + graph analysis (11 methods)
-    - ``_KnowledgeContextMixin`` — context, discovery, readiness (13 methods)
+    - ``_KnowledgeContextMixin`` — context, discovery, readiness (17 methods)
     - ``_AdaptiveMixin`` — practice, search, adaptive mastery tracking (10 methods)
     """
 

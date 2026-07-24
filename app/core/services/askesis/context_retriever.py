@@ -42,7 +42,7 @@ from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -435,7 +435,8 @@ class ContextRetriever:
         2. Extract graph_context (habits, tasks, knowledge UIDs)
         3. Fetch full PathStep content for primary + supporting knowledge UIDs
         4. Fetch full Ku objects composed by the PS (knowledge edges)
-        5. Fetch full activity entities from graph_context UIDs
+        5. Fetch full activity entities from graph_context UIDs, cited
+           Resources, and Ku↔Ku lateral edges (with authored evidence)
         6. Assemble into frozen PsBundle
 
         Args:
@@ -498,36 +499,35 @@ class ContextRetriever:
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
 
-        # Step 3b: Fetch Resources cited by bundle PathSteps/KUs (Ring 2 context)
-        # Done after path_steps/kus resolve so we know which UIDs to traverse from.
-        # The anchor PS leads the list — its own citations are the most relevant
-        # resources in the bundle (first live data: Arc D, 2026-07-03).
+        # Step 3b: Fetch Ring 2 context — Resources cited by bundle PathSteps/KUs
+        # and real Ku↔Ku lateral edges touching the bundle's KUs. Done after
+        # path_steps/kus resolve so we know which UIDs to traverse from.
+        # The anchor PS leads the resource list — its own citations are the most
+        # relevant resources in the bundle (first live data: Arc D, 2026-07-03).
         related_ps_uids = [a.uid for a in related_ps]
         ku_uids_list = [k.uid for k in kus]
-        try:
-            resources = await self._fetch_cited_resources(
-                [path_step.uid, *related_ps_uids, *ku_uids_list]
-            )
-        except NEO4J_EXCEPTIONS as exc:
-            logger.warning("PS bundle fetch failed for resources (user %s): %s", user_uid, exc)
-            resources = []
-        except Exception as exc:  # safety-net: catch unexpected errors
-            logger.warning(
-                "PS bundle fetch failed for resources (user %s, %s): %s",
-                user_uid,
-                type(exc).__name__,
-                exc,
-            )
-            resources = []
+        ring2_raw = await asyncio.gather(
+            self._fetch_cited_resources([path_step.uid, *related_ps_uids, *ku_uids_list]),
+            self._fetch_ku_lateral_edges(ku_uids_list),
+            return_exceptions=True,
+        )
+
+        ring2_labels = ("resources", "lateral_edges")
+        ring2_defaults: tuple[Any, ...] = ([], [])
+        ring2_resolved: list[Any] = []
+        for label, raw, default in zip(ring2_labels, ring2_raw, ring2_defaults, strict=True):
+            if isinstance(raw, BaseException):
+                logger.warning("PS bundle fetch failed for %s (user %s): %s", label, user_uid, raw)
+                ring2_resolved.append(default)
+            else:
+                ring2_resolved.append(raw)
+        resources, edges = ring2_resolved
 
         # Step 4: Collect learning objectives from related path steps
         learning_objectives: list[str] = []
         for ps in related_ps:
             if ps.learning_objectives:
                 learning_objectives.extend(ps.learning_objectives)
-
-        # Step 5: Collect edges between bundle entities
-        edges = self._extract_edges(graph_context)
 
         bundle = PsBundle(
             path_step=path_step,
@@ -810,23 +810,72 @@ class ContextRetriever:
 
         return resources
 
-    def _extract_edges(self, graph_context: dict[str, Any]) -> list[dict[str, Any]]:
-        """Extract semantic relationship edges from graph_context.
+    async def _fetch_ku_lateral_edges(self, ku_uids: list[str]) -> list[dict[str, Any]]:
+        """Fetch real Ku↔Ku lateral edges touching the bundle's KUs.
 
-        The knowledge_relationships list contains UIDs of related entities.
-        We convert these to edge dicts for the pipeline to surface.
+        These are authored curriculum connections (RELATED_TO, PREREQUISITE_FOR,
+        COMPLEMENTARY_TO, ...) with the Edge-file ``evidence`` text — the
+        material SURFACE_CONNECTION prompts surface. This replaced the former
+        pseudo-edges derived from graph_context.knowledge_relationships, which
+        carried no source, no relationship type, and no evidence (the step→KU
+        composition list still drives ``_fetch_kus``/``_fetch_related_path_steps``).
+
+        Backend: _KnowledgeContextMixin.get_ku_lateral_edges — either endpoint
+        in ``ku_uids``; an authored connection can point INTO the bundle.
+
+        Returns:
+            Edge dicts with source_uid, source_title, target_uid, target_title,
+            relationship_type, evidence ("" when the edge was authored without
+            evidence). Same-fact duplicates (symmetric edges stored both ways,
+            asymmetric inverse pairs) are collapsed, preferring the copy that
+            carries evidence.
         """
+        if not ku_uids or not self.ps_backend:
+            return []
+
+        result = await self.ps_backend.get_ku_lateral_edges(ku_uids)
+        if result.is_error or not result.value:
+            return []
+
         edges: list[dict[str, Any]] = []
-        for kr in graph_context.get("knowledge_relationships", []):
-            if isinstance(kr, dict) and kr.get("uid"):
-                edges.append(
-                    {
-                        "target_uid": kr["uid"],
-                        "target_title": kr.get("title", ""),
-                        "domain": kr.get("domain", ""),
-                    }
-                )
+        seen: dict[tuple[str, str, str], int] = {}
+        for record in result.value:
+            source_uid = record.get("source_uid")
+            target_uid = record.get("target_uid")
+            rel_type = record.get("relationship_type")
+            if not source_uid or not target_uid or not rel_type:
+                continue
+            edge = {
+                "source_uid": source_uid,
+                "source_title": record.get("source_title") or "",
+                "target_uid": target_uid,
+                "target_title": record.get("target_title") or "",
+                "relationship_type": rel_type,
+                "evidence": record.get("evidence") or "",
+            }
+            key = self._lateral_edge_key(source_uid, target_uid, rel_type)
+            if key in seen:
+                if edge["evidence"] and not edges[seen[key]]["evidence"]:
+                    edges[seen[key]] = edge
+                continue
+            seen[key] = len(edges)
+            edges.append(edge)
         return edges
+
+    @staticmethod
+    def _lateral_edge_key(source_uid: str, target_uid: str, rel_type: str) -> tuple[str, str, str]:
+        """Canonical dedupe key for a lateral edge.
+
+        A symmetric edge stored in both directions, or an asymmetric pair
+        stored as both the primary and its inverse (BLOCKS + BLOCKED_BY), is
+        ONE fact — canonicalize on the unordered endpoint pair plus the
+        lexicographically smaller of {type, inverse type}.
+        """
+        rel = RelationshipName.from_string(rel_type)
+        inverse = rel.get_lateral_inverse() if rel else None
+        canonical_rel = min(rel_type, inverse.value) if inverse else rel_type
+        lo, hi = sorted((source_uid, target_uid))
+        return (lo, hi, canonical_rel)
 
     # ========================================================================
     # PRIVATE - HELPER METHODS
