@@ -95,19 +95,13 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
         return None
 
     if raw.startswith("/"):
-        # Absolute path relative to repo root (the documented convention)
-        candidate = ROOT / raw.lstrip("/")
-        if candidate.exists():
-            return candidate
-        # Machine-absolute citation of the app dir (`/home/<user>/skuel/app/…`):
-        # resolve via the `/app/` landmark instead of comparing against the
-        # current checkout path, so the same doc passes or fails identically
-        # in any clone location (Codex, PR #796). Last occurrence = the
-        # boundary closest to the repo-relative suffix.
-        marker = "/app/"
-        if marker in raw:
-            return ROOT / raw.rsplit(marker, 1)[1]
-        return candidate
+        # Absolute path relative to repo root — the ONE canonical citation
+        # style for repo files. Machine-absolute citations
+        # (`/home/<user>/skuel/app/…`) are deliberately NOT rescued via an
+        # `/app/` landmark: that would legitimize a second, non-portable link
+        # style (Codex, PR #796). They resolve under ROOT and report broken
+        # identically in every checkout — fix the doc, not the resolver.
+        return ROOT / raw.lstrip("/")
     else:
         # Relative path from source file's directory
         candidate = (source_file.parent / raw).resolve()

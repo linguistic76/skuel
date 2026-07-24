@@ -11,7 +11,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 > **⚠️ SINGLE SOURCE OF TRUTH FOR TECHNICAL DOCUMENTATION**
 >
-> This directory (`/home/mike/skuel/app/docs/`) is the **ONLY** location for technical, architectural, and developer documentation. Do NOT reference or create technical docs elsewhere.
+> This directory (`/docs/`) is the **ONLY** location for technical, architectural, and developer documentation. Do NOT reference or create technical docs elsewhere.
 >
 > **Note:** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit (KU) **content** for the knowledge graph - learning materials about topics like investment, life, environment, etc. It is NOT technical documentation.
 
@@ -24,7 +24,7 @@ tags: [documentation, index, hub, architecture, patterns]
 
 **Start here:**
 - **[INDEX.md](INDEX.md)** - Complete document index with tables by category
-- **[CLAUDE.md](/home/mike/skuel/app/CLAUDE.md)** - Main instructions for Claude/AI assistants
+- **[CLAUDE.md](/CLAUDE.md)** - Main instructions for Claude/AI assistants
 
 **By role:**
 - **New to SKUEL?** → [Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)
@@ -173,10 +173,10 @@ related: [other_doc.md]
 
 - **Main Codebase:** `/home/mike/skuel/app/`
 - **Infrastructure:** `/home/mike/skuel/infrastructure/` (Neo4j and future services)
-- **CLAUDE.md:** `/home/mike/skuel/app/CLAUDE.md`
-- **FastHTML Docs:** `/home/mike/skuel/app/docs/llms.txt/fasthtml-llms.txt` (359KB)
-- **MonsterUI Docs:** `/home/mike/skuel/app/docs/llms.txt/monsterui_4_llms.txt`
-- **DaisyUI Docs (legacy reference):** `/home/mike/skuel/app/docs/Daisyui_llms.txt` (62KB)
+- **CLAUDE.md:** `/CLAUDE.md`
+- **FastHTML Docs:** `/docs/llms.txt/fasthtml-llms.txt` (359KB)
+- **MonsterUI Docs:** `/docs/llms.txt/monsterui_4_llms.txt`
+- **DaisyUI Docs (legacy reference):** `/docs/Daisyui_llms.txt` (62KB)
 
 ---
 

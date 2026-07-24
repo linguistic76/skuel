@@ -9,7 +9,7 @@ related: []
 
 # SKUEL Documentation Index
 
-> **⚠️ SINGLE SOURCE OF TRUTH:** All technical documentation lives in `/home/mike/skuel/app/docs/`
+> **⚠️ SINGLE SOURCE OF TRUTH:** All technical documentation lives in `/docs/`
 >
 > `/home/mike/0bsidian/skuel/docs/` contains **content** (KU docs), NOT technical documentation.
 

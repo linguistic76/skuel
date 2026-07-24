@@ -18,7 +18,7 @@ related: [README.md, INDEX.md]
 
 ## TL;DR - The Essentials
 
-1. **Read CLAUDE.md first** - `/home/mike/skuel/app/CLAUDE.md` (~1000 lines of project rules)
+1. **Read CLAUDE.md first** - `/CLAUDE.md` (~1000 lines of project rules)
 2. **20 entity types + 5 systems** - All flow toward LifePath
 3. **6 Activity Domains** use `UnifiedRelationshipService` - Tasks, Goals, Habits, Events, Choices, Principles
 4. **Result[T] everywhere** - Use `.is_error` not `.is_err`
@@ -44,7 +44,7 @@ Activity (6)             Curriculum (4)      Content/Processing    Other
 
 | What | Where |
 |------|-------|
-| Project rules | `/home/mike/skuel/app/CLAUDE.md` |
+| Project rules | `/CLAUDE.md` |
 | Domain enums | `/core/models/enums/` (EntityType, NonKuDomain, EntityStatus, Priority) |
 | Relationship configs | `/core/models/relationship_registry.py` |
 | MEGA-QUERY | `/core/services/user/user_context_queries.py` |
@@ -106,7 +106,7 @@ if result.is_error:
 
 ### Must Read (Before Any Work)
 
-1. `/home/mike/skuel/app/CLAUDE.md` - Project rules and patterns
+1. `/CLAUDE.md` - Project rules and patterns
 2. This file - Quick orientation
 
 ### Read When Relevant
