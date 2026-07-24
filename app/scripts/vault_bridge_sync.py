@@ -134,7 +134,13 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         stats = result.value
         print("\n=== VaultSyncStats ===")
         for key, value in asdict(stats).items():
+            if key == "ignored":
+                continue  # rendered line-by-line below (9 reasons in one list is unreadable)
             print(f"  {key}: {value}")
+        if stats.ignored:
+            print(f"\nIgnored files ({len(stats.ignored)}) — content not ingestible; fix or leave:")
+            for line in stats.ignored:
+                print(f"  - {line}")
         if stats.first_run_notice:
             print("\nNOTE: first_run_notice — the vault owner has not granted")
             print("      vault_write_consent; nothing was ingested or written.")

@@ -38,7 +38,7 @@ from core.utils.exception_types import (
 )
 from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
@@ -1050,12 +1050,21 @@ async def ingest_directory(
                     continue
                 ue_result = await ingest_file_fn(ue_path)
                 if ue_result.is_error:
+                    ue_error = ue_result.expect_error()
+                    # A VALIDATION-category failure is the file's own content
+                    # (unrecognized status:, bad audience:, missing pipeline:)
+                    # — tag it with the content stage so the sync report
+                    # classifies it as ignored-with-reason, not a system
+                    # error. Everything else (forbidden, database, an
+                    # unreachable reviewer) stays a pipeline error the owner
+                    # must see as a failure.
+                    is_content_fault = ue_error.category == ErrorCategory.VALIDATION
                     errors.append(
                         IngestionError(
                             file=str(ue_path),
-                            error=str(ue_result.expect_error()),
-                            stage="user_entry_pipeline",
-                            error_type="service",
+                            error=ue_error.display_message if is_content_fault else str(ue_error),
+                            stage="validation" if is_content_fault else "user_entry_pipeline",
+                            error_type="validation" if is_content_fault else "service",
                             entity_type=EntityType.USER_ENTRY.value,
                         ).to_dict()
                     )

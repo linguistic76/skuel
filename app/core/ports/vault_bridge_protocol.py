@@ -153,6 +153,14 @@ class VaultSyncStats:
     Honest by construction (G10): ingestion failures, dangling-target
     warnings, and skip reasons all survive into this object — a sync door
     may only say "complete" when ``is_clean`` is True.
+
+    ``errors``/``files_failed`` are reserved for SYSTEM faults (IO, Neo4j,
+    real bugs). Files whose CONTENT can't be ingested — missing/improper
+    YAML frontmatter, a malformed field — land in ``ignored`` with a
+    per-file reason instead (2026-07-23 ruling): they are not sync failures,
+    and a sync whose only findings are ignored files is clean. Ignored files
+    carry no ingestion stamp, so they re-report on every sync — standing
+    visibility by design, not noise.
     """
 
     entries_ingested: int = 0
@@ -168,13 +176,23 @@ class VaultSyncStats:
     # (tracker row rewritten in place — not a delete + a create).
     moves_detected: int = 0
     moves: list[str] = field(default_factory=list)  # vault-relative "old → new" lines
+    # Content-caused non-ingestion: files skipped over their own frontmatter
+    # (no type, empty uid, invalid enum value, broken YAML) — reported, never
+    # counted as failures.
+    files_ignored: int = 0
+    ignored: list[str] = field(default_factory=list)  # vault-relative "path — reason" lines
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     first_run_notice: bool = False
 
     @property
     def is_clean(self) -> bool:
-        """No failures and no surfaced warnings — the only 'Sync complete' state."""
+        """No system failures and no surfaced warnings — the only 'Sync complete' state.
+
+        Ignored files (content-caused, listed in ``ignored``) do NOT flip
+        cleanliness: the sync did its job; those files opted out or need
+        author attention, which the ignored list reports on every run.
+        """
         return not self.errors and not self.warnings and self.files_failed == 0
 
 

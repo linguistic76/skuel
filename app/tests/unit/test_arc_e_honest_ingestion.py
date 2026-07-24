@@ -62,16 +62,17 @@ class TestMergeIngestStats:
         _merge_ingest_stats(stats, ingest, Path("/vault"))
 
         assert stats.entries_ingested == 4
-        assert stats.files_failed == 2
+        # The parsing-stage failure is content-caused → ignored, leaving one
+        # genuine (system) failure.
+        assert stats.files_failed == 1
+        assert stats.files_ignored == 1
+        assert stats.ignored == ["bad.md — boom"]
         assert stats.files_walled == 5
         assert stats.files_unsupported == 7
         assert stats.entities_deleted == 1
         assert stats.edges_deleted == 2
         assert stats.warnings == ingest.warnings
-        assert stats.errors == [
-            "bad.md: boom [parsing]",
-            "reconcile: Deletion reconciliation failed: x",
-        ]
+        assert stats.errors == ["reconcile: Deletion reconciliation failed: x"]
         assert not stats.is_clean
 
     def test_clean_run_is_clean(self):
@@ -99,21 +100,98 @@ class TestMergeIngestStats:
 
     def test_absolute_vault_paths_relativized(self, tmp_path: Path):
         """Ingest errors/warnings carry absolute host paths — the merge must
-        strip the vault root before they reach the user-facing stats."""
+        strip the vault root before they reach the user-facing stats
+        (system-stage errors and content-stage ignored lines alike)."""
         stats = VaultSyncStats()
         ingest = IncrementalStats(
             nodes_created=0,
             warnings=[f"deletion skipped for {tmp_path}/notes/gone.md: entity mismatch"],
             errors=[
-                {"file": str(tmp_path / "notes" / "bad.md"), "error": "boom", "stage": "parsing"}
+                {"file": str(tmp_path / "notes" / "bad.md"), "error": "boom", "stage": "parsing"},
+                {"file": str(tmp_path / "notes" / "db.md"), "error": "down", "stage": "ingestion"},
             ],
         )
         _merge_ingest_stats(stats, ingest, tmp_path)
 
-        assert stats.errors == ["notes/bad.md: boom [parsing]"]
+        assert stats.ignored == ["notes/bad.md — boom"]
+        assert stats.errors == ["notes/db.md: down [ingestion]"]
         assert stats.warnings == ["deletion skipped for notes/gone.md: entity mismatch"]
-        for line in stats.errors + stats.warnings:
+        for line in stats.errors + stats.warnings + stats.ignored:
             assert str(tmp_path.resolve()) not in line
+
+
+class TestIgnoredClassification:
+    """2026-07-23 ruling: content-caused failures are ignored-with-reason,
+    never sync errors; ``errors``/``files_failed`` keep only system faults."""
+
+    def _merge(self, errors: list[dict[str, Any]], failed: int) -> VaultSyncStats:
+        stats = VaultSyncStats()
+        _merge_ingest_stats(
+            stats,
+            IncrementalStats(files_failed=failed, errors=errors),
+            Path("/vault"),
+        )
+        return stats
+
+    def test_all_content_stages_classify_as_ignored(self):
+        errors = [
+            {"file": f"{stage}.md", "error": "reason", "stage": stage}
+            for stage in ("parsing", "type_detection", "validation", "preparation")
+        ]
+        stats = self._merge(errors, failed=4)
+        assert stats.files_ignored == 4
+        assert stats.files_failed == 0
+        assert stats.errors == []
+        assert stats.is_clean  # ignored-only sync IS clean
+
+    def test_system_stages_stay_errors(self):
+        errors = [
+            {"file": "batch.md", "error": "neo4j down", "stage": "ingestion"},
+            {"file": "note.md", "error": "denied", "stage": "file_io"},
+            {"file": "ue.md", "error": "unreviewable", "stage": "user_entry_pipeline"},
+            {"file": "weird.md", "error": "boom", "stage": "unknown"},
+        ]
+        stats = self._merge(errors, failed=4)
+        assert stats.files_ignored == 0
+        assert stats.files_failed == 4
+        assert len(stats.errors) == 4
+        assert not stats.is_clean
+
+    def test_declared_type_flavor_names_the_type(self):
+        """A file that opted in (declared a type) but has a malformed field is
+        called out with the type up front, so it's easy to spot for fixing."""
+        stats = self._merge(
+            [
+                {
+                    "file": "/vault/Ku/ku_sel.md",
+                    "error": "'uid:' field is present but empty",
+                    "stage": "validation",
+                    "entity_type": "ku",
+                }
+            ],
+            failed=1,
+        )
+        assert stats.ignored == [
+            "Ku/ku_sel.md — declared 'type: ku' but not ingested: 'uid:' field is present but empty"
+        ]
+
+    def test_missing_type_flavor_is_plain_reason(self):
+        stats = self._merge(
+            [{"file": "Research.md", "error": "no 'type:' field", "stage": "type_detection"}],
+            failed=1,
+        )
+        assert stats.ignored == ["Research.md — no 'type:' field"]
+
+    def test_stageless_error_dicts_stay_errors(self):
+        """Ad-hoc ``{"message": ...}`` dicts (deletion reconciliation) carry
+        no stage — they are system reports and must never be ignored."""
+        stats = self._merge([{"message": "Deletion reconciliation failed: x"}], failed=0)
+        assert stats.files_ignored == 0
+        assert len(stats.errors) == 1
+
+    def test_ignored_files_do_not_flip_is_clean(self):
+        stats = VaultSyncStats(files_ignored=3, ignored=["a — r", "b — r", "c — r"])
+        assert stats.is_clean
 
 
 # ============================================================================

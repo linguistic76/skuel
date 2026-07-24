@@ -72,6 +72,14 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "lifepath": EntityType.LIFE_PATH,
 }
 
+# Shown in the missing-type reason. TYPE_MAPPING accepts more spellings
+# (aliases like lesson/pathstep/learningpath); this lists one canonical name
+# per ingestible kind so the hint stays readable.
+_ACCEPTED_TYPES_HINT = (
+    "e.g. ku, ps, lp, exercise, resource, user_entry, "
+    "task, goal, habit, event, choice, principle, group, lifepath"
+)
+
 
 def detect_format(file_path: Path) -> str:
     """
@@ -95,7 +103,7 @@ def detect_format(file_path: Path) -> str:
         raise ValueError(f"Unsupported file format: {suffix}")
 
 
-def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | NonKuDomain:
+def detect_entity_type(data: dict[str, Any], _file_path: Path) -> EntityType | NonKuDomain:
     """
     Detect domain type from file content.
 
@@ -104,30 +112,35 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
 
     Args:
         data: Parsed file data (frontmatter for MD, full content for YAML)
-        file_path: Path to file (for logging)
+        _file_path: Source file path (unused; error carriers add the path —
+            keeping it out of the message avoids "path: filename has no type"
+            duplication in per-file reports)
 
     Returns:
         EntityType or NonKuDomain enum value (type-safe!)
 
     Raises:
-        ValueError: If domain type cannot be determined
+        ValueError: If domain type cannot be determined (missing/empty 'type:')
     """
-    # Check for explicit type field
-    explicit_type = data.get("type", "").lower().strip()
+    # Check for explicit type field. An empty ``type:`` line parses to None
+    # (PyYAML), so ``data.get("type", "")`` returns None, not the default —
+    # coerce before string ops. Non-string values (``type: 5``) get the same
+    # treatment; ``str()`` keeps the raised message showing what was authored.
+    raw_type = data.get("type")
+    explicit_type = str(raw_type).lower().strip() if raw_type is not None else ""
     if explicit_type:
         if explicit_type in _LEGACY_USER_ENTRY_ALIASES:
             raise ValueError(
                 f"Type '{explicit_type}' was retired by ADR-054. "
                 "Use 'type: user_entry' with an explicit 'pipeline:' field "
-                "(none | teacher_review | llm_summary). "
-                f"File: {file_path.name}"
+                "(none | teacher_review | llm_summary)."
             )
         if explicit_type in _RETIRED_FINANCE_ALIASES:
             raise ValueError(
                 f"Type '{explicit_type}' was retired by ADR-052 Phase 5 — the native "
                 "expense module was demolished and :Expense is no longer a writable "
                 "label. Finance lives in the Firefly III sidecar (admin-only), which "
-                f"is not vault-ingestible. File: {file_path.name}"
+                "is not vault-ingestible."
             )
         if explicit_type in TYPE_MAPPING:
             return TYPE_MAPPING[explicit_type]
@@ -146,19 +159,29 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
     if data.get("moc") is True:
         return EntityType.PATH_STEP
 
-    # Require explicit type — no silent defaults (One Path Forward)
-    if file_path.suffix.lower() == ".md":
+    # A declared-but-unrecognized type is a typo to fix, not a non-entity
+    # note — say so instead of the misleading "no 'type:' field" it used to
+    # fall through to.
+    if explicit_type:
         raise ValueError(
-            f"Markdown file {file_path.name} has no 'type' field in frontmatter. "
-            f"Add 'type: PathStep' or 'type: Ku' to the YAML frontmatter."
+            f"unknown type '{explicit_type}' — not an ingestible entity type. "
+            f"Use an accepted type ({_ACCEPTED_TYPES_HINT})."
         )
 
-    raise ValueError(f"Cannot determine entity type for {file_path}")
+    # Require explicit type — no silent defaults (One Path Forward). A file
+    # without one is a deliberate non-entity note; an empty ``type:`` line is
+    # called out separately so the author sees the half-finished opt-in.
+    field_state = "'type:' field is present but empty" if "type" in data else "no 'type:' field"
+    raise ValueError(
+        f"{field_state} in frontmatter — treated as a non-entity note. "
+        f"To ingest it, add a type ({_ACCEPTED_TYPES_HINT})."
+    )
 
 
 def is_edge_type(data: dict[str, Any]) -> bool:
     """Check if parsed YAML data represents a standalone edge (not an entity)."""
-    return data.get("type", "").lower().strip() == "edge"
+    raw_type = data.get("type")
+    return raw_type is not None and str(raw_type).lower().strip() == "edge"
 
 
 __all__ = [
