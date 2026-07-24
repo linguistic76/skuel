@@ -75,12 +75,14 @@ uv run python scripts/export_entity_counts.py > before.json
 cd /home/mike/skuel/infrastructure
 
 docker compose stop neo4j
+# --to-path is a DIRECTORY — the tool writes <database>.dump (here: neo4j.dump) into it
 docker compose run --rm neo4j \
-  neo4j-admin database dump neo4j \
-  --to-path=/backups/aura_migration_$(date +%Y%m%d).dump
+  neo4j-admin database dump neo4j --to-path=/backups
 docker compose start neo4j
 
-ls -lh neo4j/backups/   # volume-mapped to the container's /backups
+# /backups is volume-mapped to ./neo4j/backups on the host; stamp it with a date
+mv neo4j/backups/neo4j.dump "neo4j/backups/aura_migration_$(date +%Y%m%d).dump"
+ls -lh neo4j/backups/
 ```
 
 Verify the dump file exists with non-zero size before proceeding.

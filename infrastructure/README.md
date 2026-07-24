@@ -342,19 +342,26 @@ DEEPGRAM_API_KEY=<your-key>
 **Manual backup**:
 ```bash
 cd ~/skuel/infrastructure
-docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
+# The database must be offline for neo4j-admin dump; --to-path is a directory.
+docker compose stop neo4j
+docker compose run --rm neo4j neo4j-admin database dump neo4j --to-path=/backups
+docker compose start neo4j
 ```
 
-Backup file will be in `./neo4j/backups/`
+Backup file will be in `./neo4j/backups/neo4j.dump`
 
 **Automated backup** (recommended - create script):
 ```bash
 #!/bin/bash
 # ~/skuel/infrastructure/scripts/backup-neo4j.sh
+# NOTE: the database must be offline for neo4j-admin dump, and --to-path is a
+# DIRECTORY — the tool writes <database>.dump into it.
 DATE=$(date +%Y%m%d_%H%M%S)
 cd ~/skuel/infrastructure
-docker compose exec neo4j neo4j-admin database dump neo4j \
-    --to-path=/backups/neo4j_${DATE}.dump
+docker compose stop neo4j
+docker compose run --rm neo4j neo4j-admin database dump neo4j --to-path=/backups
+docker compose start neo4j
+mv neo4j/backups/neo4j.dump "neo4j/backups/neo4j_${DATE}.dump"
 echo "Backup created: neo4j_${DATE}.dump"
 ```
 
@@ -362,12 +369,14 @@ echo "Backup created: neo4j_${DATE}.dump"
 
 ```bash
 cd ~/skuel/infrastructure
-# Stop neo4j
+# Stop neo4j (exec won't work on a stopped container — use `run --rm` below)
 docker compose stop neo4j
 
-# Restore from backup
-docker compose exec neo4j neo4j-admin database load neo4j \
-    --from-path=/backups/neo4j_20260102_120000.dump --overwrite-destination=true
+# --from-path is a directory; the loader expects <database>.dump inside it
+cp neo4j/backups/neo4j_20260102_120000.dump neo4j/backups/neo4j.dump
+docker compose run --rm neo4j neo4j-admin database load neo4j \
+    --from-path=/backups --overwrite-destination=true
+rm neo4j/backups/neo4j.dump
 
 # Start neo4j
 docker compose start neo4j
@@ -438,11 +447,13 @@ docker stats skuel-neo4j
 ### Other Services
 
 Prometheus + Grafana (monitoring) and Firefly III + MariaDB (finance, ADR-052) live in
-`app/docker-compose.yml` behind the `monitoring` / `finance` profiles — not here. There is no
-Redis, Ollama, or nginx anywhere in the repo: the former "pre-wired future services" blocks in
+`app/docker-compose.yml` behind the `monitoring` / `finance` profiles — not here. No compose
+file runs Redis, Ollama, or nginx: the former "pre-wired future services" blocks in
 `docker-compose.production.yml` were deleted when that file was rewritten to the real droplet
 stack (app + Caddy, 2026-07-24). Per One Path Forward, a service enters a compose file when it
-is actually adopted, not speculatively.
+is actually adopted, not speculatively. (The unused `app/k8s-manifests.yml` example still
+sketches Redis/nginx resources — a stale artifact from the same era, not something any
+deployment path uses.)
 
 #### Active Infrastructure Plugins
 
@@ -657,8 +668,9 @@ docker compose restart neo4j
 # Stop infrastructure
 docker compose down
 
-# Backup database
-docker compose exec neo4j neo4j-admin database dump neo4j --to-path=/backups
+# Backup database (stop first — dump requires the database offline)
+docker compose stop neo4j && docker compose run --rm neo4j \
+  neo4j-admin database dump neo4j --to-path=/backups && docker compose start neo4j
 
 # Access Neo4j browser
 open http://localhost:7474
