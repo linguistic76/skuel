@@ -62,13 +62,18 @@ On your machine:
 On the droplet (Ubuntu LTS assumed):
 
 - [ ] Docker Engine + the compose plugin (`curl -fsSL https://get.docker.com | sh`).
-- [ ] `/opt/skuel/` layout — `deploy.sh` creates `app/`, `content-vault/`, `personal-vault/` itself; you create the two env files:
+- [ ] `/opt/skuel/` layout — `deploy.sh` creates `app/`, `content-vault/`, `personal-vault/` itself; you create the two env files **before the first `./dev deploy`** (compose refuses to start without them — both are `env_file` entries):
   ```bash
-  mkdir -p /opt/skuel
+  # On the droplet:
+  mkdir -p /opt/skuel/app
   # secrets — 0600, root-owned is fine (compose reads it, the app never does)
   touch /opt/skuel/secrets.env && chmod 0600 /opt/skuel/secrets.env
-  # non-secret config — fill in from the template after the first rsync:
-  #   cp /opt/skuel/app/.env.production.example /opt/skuel/app/.env.production
+
+  # From your machine — the template never lands via deploy (rsync excludes
+  # .env* from transfer AND deletion, which is also why your filled-in copy
+  # survives every subsequent deploy):
+  scp app/.env.production.example skuel-droplet:/opt/skuel/app/.env.production
+  ssh skuel-droplet   # then edit /opt/skuel/app/.env.production with real values
   ```
 - [ ] Firewall: inbound TCP 22 (your IP), 80, 443 (+ UDP 443 for HTTP/3). Nothing else — the app port is loopback-only.
 
@@ -122,7 +127,9 @@ AuraDB Free caps the graph at **200k nodes / 400k relationships** (Aura FAQ, ver
 0 4 * * 0  root  cd /opt/skuel/app && docker compose -f docker-compose.production.yml exec -T skuel-app python scripts/telemetry_retention.py >> /opt/skuel/telemetry-cron.log 2>&1
 ```
 
-One-shot, not a daemon — this preserves the "no background workers" guarantee (ADR-080 H0). Useful side effect: the weekly connection counts as activity, which keeps the Free instance from auto-pausing.
+One-shot, not a daemon — this preserves the "no background workers" guarantee (ADR-080 H0).
+
+On auto-pause: Aura Free pauses after ~72 hours **without connections** — a weekly cron alone would not prevent that. In practice the question doesn't arise while the app is up: the app's graph-health metrics poller queries Neo4j every 5 minutes for as long as the container runs, so an active deployment never goes idle. Pausing only happens if the app itself is down past the pause window, and that wake-up is exactly what `connect_with_retry` and the deploy health gate absorb.
 
 Saved discussions (`:ConversationSession`) are **never** pruned — explicitly-saved user content, not telemetry. Windows/batch size: `/core/constants.py` `TelemetryRetention`. Dry-run first from any shell: `docker compose … exec -T skuel-app python scripts/telemetry_retention.py --dry-run`.
 

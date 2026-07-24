@@ -34,7 +34,7 @@ What actually needs doing, in order: **prune → export counts → dump → uplo
 |-----------|--------|-------------|
 | Node cap | **200,000** | prune telemetry BEFORE dumping (step 3) |
 | Relationship cap | **400,000** | same; alerts fire at 80% (`/monitoring/prometheus/alerts.yml`) |
-| Auto-pause | on inactivity | bounded connect retry covers wake-up; weekly retention cron doubles as a keep-alive |
+| Auto-pause | after ~72 h without connections | while the app runs, its 5-min metrics poller keeps the instance active; bounded connect retry covers wake-up after real downtime |
 | Backups | on-demand snapshots only, one at a time | see the runbook in [DO_MIGRATION_GUIDE.md](./DO_MIGRATION_GUIDE.md) |
 
 Caps verified 2026-07-24 against the Neo4j Aura FAQ — the 50k-node/175k-relationship figures still shown on some Neo4j product pages are the stale 2021 launch limits.
