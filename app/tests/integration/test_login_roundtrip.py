@@ -304,6 +304,63 @@ async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
     assert signin.is_error, "Deactivated accounts must not sign in"
 
 
+async def test_soft_deleted_user_sessions_stop_validating(neo4j_driver, auth_env):
+    """Pin the deletion kill switch (Codex P1 on #798 round 4).
+
+    Soft delete flips is_active and PII-scrubs but keeps the graph — its
+    sessions must die in the same commit, and validation must anchor on the
+    LIVE User (not the session's cached user_is_active snapshot).
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("softdel"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    deleted = await UserBackend(neo4j_driver).delete_user(user_uid)
+    assert deleted.is_ok and deleted.value is True, f"soft delete failed: {deleted.error}"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-delete validation errored: {after.error}"
+    assert after.value is None, "a soft-deleted user's session must not validate"
+
+
+async def test_hard_deleted_user_sessions_are_erased(neo4j_driver, auth_env):
+    """Hard delete (GDPR erasure) must take the Session nodes with it.
+
+    DETACH DELETE on the User alone would orphan sessions still carrying the
+    erased uid; validation anchored on the User already refuses them (no node,
+    no HAS_SESSION edge), and the cascade removes the litter itself.
+    """
+    auth, track = auth_env
+    username, email = track(*_credentials("harddel"))
+    user_uid = f"user_{username}"
+
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    token = signin.value["session_token"]
+
+    erased = await UserBackend(neo4j_driver).hard_delete_user(user_uid)
+    assert erased.is_ok and erased.value >= 1, f"hard delete failed: {erased.error}"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-erasure validation errored: {after.error}"
+    assert after.value is None, "an erased user's session must not validate"
+
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (s:Session {user_uid: $uid}) RETURN count(s) AS c", uid=user_uid
+        )
+        record = await result.single()
+    assert record is not None and record["c"] == 0, "erasure must not orphan Session nodes"
+
+
 async def test_role_stored_lowercase_on_signup(neo4j_driver, auth_env):
     """Pin F8: the persisted role property is lowercase.
 

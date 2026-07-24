@@ -184,6 +184,7 @@ def create_ingestion_api_routes(
     rt,
     unified_ingestion: "IngestionOperations",
     user_service=None,
+    graph_auth=None,
     batch_chunking_service: "BatchChunkingService | None" = None,
 ):
     """
@@ -194,6 +195,7 @@ def create_ingestion_api_routes(
         rt: Router instance
         unified_ingestion: The UnifiedIngestionService instance
         user_service: UserService instance for admin role checks
+        graph_auth: GraphAuthService for WebSocket graph-session validation
         batch_chunking_service: Phase 2 admin tool for chunk regeneration.
             When None, the /api/chunks/regenerate route is not registered.
 
@@ -553,11 +555,12 @@ def create_ingestion_api_routes(
             "eta_seconds": 90
         }
         """
-        # Auth check before accepting — ingestion is admin-only.
-        # Re-fetches role from Neo4j (does NOT trust session is_admin flag).
+        # Auth check before accepting — ingestion is admin-only. Validates
+        # the graph session (revoked cookies can't open a socket) and
+        # re-fetches role from Neo4j (does NOT trust session is_admin flag).
         from adapters.inbound.auth import require_websocket_admin
 
-        user_uid = await require_websocket_admin(ws, user_service)
+        user_uid = await require_websocket_admin(ws, user_service, graph_auth)
         if not user_uid:
             return
 

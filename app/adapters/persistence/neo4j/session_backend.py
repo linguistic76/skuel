@@ -84,11 +84,12 @@ class SessionBackend(Neo4jSessionRunner):
         The WHERE clause atomically requires the user to still be active at
         creation time — sign_in checks ``user.is_active`` early, then spends
         ~100ms verifying the password, and a deactivation landing in that
-        window must not mint a live session (validate_session_uid trusts the
-        session's cached ``user_is_active``, so a stale-cached session would
-        keep a deactivated account authenticated). ``coalesce(_, true)``
-        mirrors the User model's ``is_active`` default for nodes that predate
-        the property.
+        window must not mint a session at all (validate_session_token also
+        checks the live User on every request, so such a session would be
+        dead on arrival — this guard keeps it from existing). The stored
+        ``user_is_active`` is an informational snapshot; validation never
+        trusts it. ``coalesce(_, true)`` mirrors the User model's
+        ``is_active`` default for nodes that predate the property.
 
         Args:
             session: Session domain model
@@ -199,13 +200,18 @@ class SessionBackend(Neo4jSessionRunner):
         """Validate a session token and touch last_active in ONE round trip.
 
         THE per-request auth query (AuthContextMiddleware runs it for every
-        authenticated request), deliberately a single indexed read on
+        authenticated request), deliberately a single indexed statement on
         ``token_hash`` — a separate get + touch pair would double the graph
         round trips for all signed-in traffic. The WHERE clause is the
-        session-validity contract: not revoked, not expired, user active
-        (cached at creation behind create_session's active-user guard). The
-        FOREACH bumps ``last_active_at`` only when it is older than the batch
-        interval, so most validations stay read-only.
+        session-validity contract: not revoked, not expired, and the LIVE
+        User node still active. Anchoring on the User (one hop from the
+        indexed Session) rather than the session's cached ``user_is_active``
+        snapshot means every account-death path fails validation immediately:
+        soft delete (``is_active=false``), hard delete (no User node / no
+        HAS_SESSION edge left), and deactivation — regardless of what the
+        session cached at creation. The FOREACH bumps ``last_active_at`` only
+        when it is older than the batch interval, so most validations stay
+        read-only.
 
         Args:
             session_token: Raw session token from the cookie (hashed here)
@@ -217,10 +223,10 @@ class SessionBackend(Neo4jSessionRunner):
         """
         token_hash = hash_session_token(session_token)
         query = """
-        MATCH (s:Session {token_hash: $token_hash})
+        MATCH (u:User)-[:HAS_SESSION]->(s:Session {token_hash: $token_hash})
         WHERE s.is_valid = true
           AND s.expires_at > datetime()
-          AND s.user_is_active = true
+          AND coalesce(u.is_active, true) = true
         FOREACH (_ IN CASE
             WHEN s.last_active_at < datetime() - duration({seconds: $interval})
             THEN [1] ELSE [] END |

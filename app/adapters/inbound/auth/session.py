@@ -334,7 +334,7 @@ def require_authenticated_user(request: Request) -> UserUID:
 # ============================================================================
 
 
-async def require_websocket_admin(ws: Any, user_service: Any) -> UserUID | None:
+async def require_websocket_admin(ws: Any, user_service: Any, graph_auth: Any) -> UserUID | None:
     """
     Require admin authentication for WebSocket connections.
 
@@ -342,14 +342,18 @@ async def require_websocket_admin(ws: Any, user_service: Any) -> UserUID | None:
     because auth must be checked before ws.accept(). This helper encapsulates
     the WebSocket-specific auth pattern.
 
-    Re-fetches the user from Neo4j and checks the role hierarchy — mirrors the
-    HTTP @require_admin path. Does NOT trust the session `is_admin` flag, so a
-    user demoted from ADMIN loses WS access on their next connection rather than
-    only on re-login.
+    AuthContextMiddleware never sees WebSocket scopes (BaseHTTPMiddleware is
+    HTTP-only), so the graph-session validation happens HERE: the cookie's
+    session_token must resolve to a live :Session (not revoked, not expired,
+    user active) before any role check — a cookie revoked by logout, password
+    change, or privilege change cannot open a socket. Then re-fetches the
+    user and checks the role hierarchy, mirroring the HTTP @require_admin
+    path (never trusts the session `is_admin` flag).
 
     Args:
         ws: Starlette WebSocket object (has .session like Request)
         user_service: UserService instance for the Neo4j role re-check
+        graph_auth: GraphAuthService for the graph-session validation
 
     Returns:
         UserUID if authenticated admin, None if unauthorized (WS closed with 4003)
@@ -361,7 +365,7 @@ async def require_websocket_admin(ws: Any, user_service: Any) -> UserUID | None:
 
         @rt("/ws/progress/{operation_id}")
         async def websocket_handler(ws, operation_id: str):
-            user_uid = await require_websocket_admin(ws, user_service)
+            user_uid = await require_websocket_admin(ws, user_service, graph_auth)
             if not user_uid:
                 return
 
@@ -371,10 +375,20 @@ async def require_websocket_admin(ws: Any, user_service: Any) -> UserUID | None:
     """
     from core.models.enums import UserRole
 
-    user_uid = get_current_user(ws)
-    if not user_uid:
+    session_token = get_session_token(ws)
+    if not session_token:
         await ws.close(code=4003, reason="Admin access required")
         return None
+
+    validation = await graph_auth.validate_session_uid(session_token)
+    if validation.is_error or not validation.value:
+        logger.warning("WS admin check failed - session revoked, expired, or unvalidatable")
+        await ws.close(code=4003, reason="Admin access required")
+        return None
+
+    # The validated token is the identity authority, not the cookie's
+    # user_uid claim
+    user_uid = UserUID(validation.value)
 
     result = await user_service.get_user(user_uid)
     if result.is_error or not result.value:
@@ -388,7 +402,7 @@ async def require_websocket_admin(ws: Any, user_service: Any) -> UserUID | None:
         await ws.close(code=4003, reason="Admin access required")
         return None
 
-    return UserUID(user_uid)
+    return user_uid
 
 
 def require_auth(redirect_to: str = "/login"):

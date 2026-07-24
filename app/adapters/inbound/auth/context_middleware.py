@@ -6,14 +6,14 @@ Two jobs, in order, once per request:
 
 1. **Enforce the graph session.** Authenticated requests carry a
    ``session_token`` in the signed cookie; this middleware validates it
-   against the ``:Session`` node in Neo4j (``validate_session_uid``: is_valid
-   + expiry + user_is_active, plus the 5-min-batched last-active touch). A
-   revoked or expired session clears the cookie session, so the request — and
-   every request after it — proceeds as unauthenticated and the user is
-   forced back through login. This is what makes server-side revocation
-   (``invalidate_all_user_sessions`` on password change, role change,
-   deactivation) actually bite; without it a stolen or stale cookie would
-   stay live for its full 30-day max_age.
+   against the graph (``validate_session_uid``: session not revoked, not
+   expired, LIVE User still active — plus the 5-min-batched last-active
+   touch, all one statement). A revoked or expired session clears the cookie
+   session, so the request — and every request after it — proceeds as
+   unauthenticated and the user is forced back through login. This is what
+   makes server-side revocation (password change/reset, role change,
+   deactivation, account deletion) actually bite; without it a stolen or
+   stale cookie would stay live for its full 30-day max_age.
 
 2. **Mirror auth flags into the ContextVar.** The post-enforcement session
    flags (``user_uid``, ``is_admin``, ``is_teacher``) are copied into
@@ -34,9 +34,11 @@ Enforcement semantics:
   subresource fetches, and validating a page's dozen asset requests would
   multiply the per-request read for zero enforcement value.
 
-Cost: one indexed point-read on ``Session.token_hash`` per authenticated
-request. WebSocket scopes pass through ``BaseHTTPMiddleware`` untouched —
-``require_websocket_admin`` does its own Neo4j re-check.
+Cost: one indexed statement on ``Session.token_hash`` per authenticated
+request (validity + live-User check + batched last-active touch, one round
+trip). WebSocket scopes pass through ``BaseHTTPMiddleware`` untouched —
+``require_websocket_admin`` validates the graph session AND re-checks the
+role at the handshake instead.
 
 Ordering constraint: this middleware reads ``request.session``, so it MUST run
 INSIDE Starlette's ``SessionMiddleware``. FastHTML appends the session

@@ -166,17 +166,21 @@ Sharpened by the droplet prep: admin role promotion IS the AI-access grant
    graph session per request, so server-side invalidation (including the existing password
    change/reset flows) never actually logged out a live cookie for its whole 30-day max_age.
    `AuthContextMiddleware` (`/adapters/inbound/auth/context_middleware.py`) now validates
-   `session_token` against the `:Session` node once per authenticated request — ONE indexed
-   round trip (`SessionBackend.validate_session_token`: is_valid + expiry + user_is_active,
-   with the 5-min-batched last-active touch folded into the same statement) — and clears
-   the cookie session
+   `session_token` once per authenticated request — ONE indexed round trip
+   (`SessionBackend.validate_session_token`: session not revoked, not expired, and the
+   LIVE User still active, with the 5-min-batched last-active touch folded into the same
+   statement; anchoring on the live User instead of the session's cached snapshot makes
+   soft/hard account deletion an immediate kill switch too, and both deletion paths sweep
+   their Session nodes in the same transaction) — and clears the cookie session
    when the graph says revoked/expired — forced re-login on the very next request. Anonymous
    requests, static/health/PWA paths, and `/logout` skip validation (logout must stay
    possible during a graph outage — its whole job is clearing the cookie); a validation
    *error* (Neo4j unreachable) denies with 503 WITHOUT clearing the cookie. Additionally,
    `create_session` atomically refuses inactive users, closing the deactivate-vs-concurrent
-   sign-in race. The now-redundant, never-called `get_current_user_validated()` helper was
-   deleted (One Path Forward).
+   sign-in race, and `require_websocket_admin` validates the graph session at the
+   handshake (BaseHTTPMiddleware never sees WebSocket scopes — a revoked cookie must not
+   open a socket). The now-redundant, never-called `get_current_user_validated()` helper
+   was deleted (One Path Forward).
 3. **Index fix** — the Session lookup index targeted the nonexistent `session_token` property
    (raw tokens never persist; nodes store `token_hash`), so every token lookup was a label
    scan. Now indexed on `token_hash`; the stale index is dropped at schema sync.
