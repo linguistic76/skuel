@@ -53,6 +53,7 @@ async def lateral_edge_graph(neo4j_driver):
             CREATE (anchor)-[:RELATED_TO {evidence: 'The breath is the most common anchor.',
                                           confidence: 0.9, source: 'teacher'}]->(breath)
             CREATE (breath)-[:PREREQUISITE_FOR]->(other_a)
+            CREATE (breath)-[:ENABLES {evidence: 'Breath skill enables other-b.'}]->(other_b)
             CREATE (other_a)-[:RELATED_TO {evidence: 'noise'}]->(other_b)
             CREATE (breath)-[:RELATED_TO {evidence: 'wrong endpoint type'}]->(task)
             """
@@ -106,6 +107,19 @@ class TestGetKuLateralEdges:
         assert result.is_ok
         pairs = {(r["source_uid"], r["target_uid"]) for r in result.value}
         assert ("ku.test.other-a", "ku.test.other-b") not in pairs
+
+    async def test_full_lateral_vocabulary_includes_enables(
+        self, ps_backend, lateral_edge_graph
+    ) -> None:
+        """ENABLES edges surface too — the filter is the registry's full lateral
+        set, not a hard-coded subset (Codex #787 P2)."""
+        result = await ps_backend.get_ku_lateral_edges(["ku.test.breath"])
+
+        assert result.is_ok
+        enables = [r for r in result.value if r["relationship_type"] == "ENABLES"]
+        assert len(enables) == 1
+        assert enables[0]["target_uid"] == "ku.test.other-b"
+        assert enables[0]["evidence"] == "Breath skill enables other-b."
 
     async def test_excludes_non_ku_endpoints(self, ps_backend, lateral_edge_graph) -> None:
         """Ku→Task RELATED_TO never surfaces — both endpoints must be KUs."""

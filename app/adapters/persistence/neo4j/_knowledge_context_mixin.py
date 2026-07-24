@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY, _validate_rel_name
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
@@ -28,8 +29,19 @@ if TYPE_CHECKING:
     import logging
 
     from core.models.enums.neo_labels import NeoLabel
-    from core.models.relationship_names import RelationshipName
     from core.models.type_hints import Neo4jProperties
+
+# The registry's full lateral vocabulary (Codex #787 P2 — a hard-coded subset
+# silently drops edges authored with valid lateral types like ENABLES), plus
+# DEPENDS_ON: the RELATIONSHIPS_ARCHITECTURE UI-pair inverse of
+# PREREQUISITE_FOR, which is not in the enum's lateral set. Every name comes
+# from RelationshipName, so interpolating into Cypher stays SKUEL030-safe.
+_KU_LATERAL_REL_TYPES = "|".join(
+    sorted(
+        {rel.value for rel in RelationshipName if rel.is_lateral_relationship()}
+        | {RelationshipName.DEPENDS_ON.value}
+    )
+)
 
 
 class _KnowledgeContextMixin:
@@ -504,13 +516,12 @@ class _KnowledgeContextMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Get Ku↔Ku lateral edges touching any of the given KUs.
 
-        Matches the six lateral relationship families (RELATED_TO,
-        PREREQUISITE_FOR/DEPENDS_ON, ALTERNATIVE_TO, COMPLEMENTARY_TO,
-        SIBLING, BLOCKS/BLOCKED_BY — see RELATIONSHIPS_ARCHITECTURE.md) where
-        EITHER endpoint is in ``ku_uids`` — a bundle KU can be the source or
-        the target of an authored connection. Both endpoints must be KUs,
-        matched by ``entity_type``, never by UID prefix (ADR-013 never-sniff
-        rule).
+        Matches the registry's full lateral vocabulary
+        (``RelationshipName.is_lateral_relationship`` + the DEPENDS_ON
+        UI-inverse — see ``_KU_LATERAL_REL_TYPES``) where EITHER endpoint is
+        in ``ku_uids`` — a bundle KU can be the source or the target of an
+        authored connection. Both endpoints must be KUs, matched by
+        ``entity_type``, never by UID prefix (ADR-013 never-sniff rule).
 
         Edge-file ingestion copies ``evidence`` (plus confidence/source) onto
         any relationship type, so it rides along here (null for edges authored
@@ -525,10 +536,10 @@ class _KnowledgeContextMixin:
             Records with source_uid, source_title, target_uid, target_title,
             relationship_type, evidence.
         """
-        query = """
-        MATCH (a:Entity {entity_type: 'ku'})
-              -[r:RELATED_TO|PREREQUISITE_FOR|DEPENDS_ON|ALTERNATIVE_TO|COMPLEMENTARY_TO|SIBLING|BLOCKS|BLOCKED_BY]->
-              (b:Entity {entity_type: 'ku'})
+        query = f"""
+        MATCH (a:Entity {{entity_type: 'ku'}})
+              -[r:{_KU_LATERAL_REL_TYPES}]->
+              (b:Entity {{entity_type: 'ku'}})
         WHERE a.uid IN $ku_uids OR b.uid IN $ku_uids
         RETURN a.uid AS source_uid, a.title AS source_title,
                b.uid AS target_uid, b.title AS target_title,
