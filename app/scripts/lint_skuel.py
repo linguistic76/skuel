@@ -37,6 +37,7 @@ WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report o
   SKUEL026: Suppression comment that suppresses nothing (rot / typo / unsupported rule)
   SKUEL028: Result.fail(result.expect_error()) - use Result.fail(result) to propagate
   SKUEL030: Unregistered relationship type / node label in persistence Cypher
+  SKUEL031: Stale pip references - SKUEL uses uv
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -863,6 +864,38 @@ query = "MATCH (u:User)-[:OWNS_ENTITY]->(t:Task) RETURN t"
 # 'Taskk' is a typo — not a NeoLabel member, so the query matches zero rows
 query = "MATCH (u:User)-[:OWNS]->(t:Taskk) RETURN t\"""",
     },
+    "SKUEL031": {
+        "title": "No Stale pip References",
+        "severity": "WARNING",
+        "description": """SKUEL's environments are lockfile-managed by uv end to end (uv sync /
+uv add / uv.lock; the production image builds with `uv sync --frozen --no-dev`). A pip
+invocation recommended in an error message, docstring, or script installs OUTSIDE the
+lock — the resulting environment no longer matches uv.lock, which is the same class of
+drift SKUEL016 closed for Poetry.
+
+`uv pip install` is deliberately caught too: uv's pip interface also bypasses uv.lock.
+
+Common replacements:
+  pip install <pkg> → uv add <pkg>  (new dependency)
+  pip install ...   → uv sync       (restoring a broken/missing environment)
+  pip uninstall     → uv remove
+  pip freeze        → uv export --format requirements.txt
+  python -m pip ... → the uv equivalents above
+
+NOT caught (correct as-is): the pip-audit tool (`pip-audit`, `pip_audit`,
+`./dev audit-deps`) — a scanner, not an installer — and read-only `uv pip show/list`
+introspection.""",
+        "good": """# Restore the locked environment
+raise RuntimeError("Neo4j driver not installed. Run: uv sync")
+
+# Add a new dependency
+uv add weasyprint""",
+        "bad": """# Ad-hoc install outside uv.lock — env no longer matches the lockfile
+raise RuntimeError("Neo4j driver not installed. Run: pip install neo4j")
+
+# Same drift through uv's pip interface
+uv pip install weasyprint""",
+    },
 }
 
 
@@ -1532,6 +1565,8 @@ class SkuelLinter:
                 self._check_print_statements(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL016"):
                 self._check_poetry_references(file_path, rel_path, content, lines)
+            if self._should_run_rule("SKUEL031"):
+                self._check_pip_references(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL017") and not is_test:
                 self._check_broad_exception_catches(file_path, rel_path, content, lines, tree)
             if self._should_run_rule("SKUEL018") and not is_test:
@@ -2638,6 +2673,83 @@ class SkuelLinter:
                             severity=Severity.WARNING,
                             rule_id="SKUEL016",
                             message=f"Stale Poetry reference '{match_text}' — SKUEL uses uv",
+                            suggestion=f"Replace with: {replacement}",
+                            line_content=line.strip(),
+                        )
+                    )
+                    break  # Only report once per line
+
+    # SKUEL031: precompiled like SKUEL016 — same every-file scan, same reason.
+    # `pip\s+` (whitespace required) keeps the pip-audit tool name (`pip-audit`,
+    # `pip_audit`) out of scope; `uv pip install` is caught on purpose (it
+    # bypasses uv.lock just like bare pip).
+    PIP_PATTERNS: ClassVar[tuple[tuple[re.Pattern[str], str, str], ...]] = (
+        (
+            re.compile(r"\bpip3?\s+install\b", re.IGNORECASE),
+            "pip install",
+            "uv add <pkg> (new dep) / uv sync (restore env)",
+        ),
+        (re.compile(r"\bpip3?\s+uninstall\b", re.IGNORECASE), "pip uninstall", "uv remove"),
+        (
+            re.compile(r"\bpip3?\s+freeze\b", re.IGNORECASE),
+            "pip freeze",
+            "uv export --format requirements.txt",
+        ),
+        (
+            re.compile(r"\bpython3?\s+-m\s+pip\b", re.IGNORECASE),
+            "python -m pip",
+            "the uv equivalent (uv add / uv sync / uv remove)",
+        ),
+    )
+
+    def _check_pip_references(
+        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    ) -> None:
+        """
+        SKUEL031 [WARNING]: No stale pip references — SKUEL uses uv.
+
+        Catches: pip/pip3 install|uninstall|freeze, python -m pip — including
+        through uv's pip interface (`uv pip install`), which bypasses uv.lock.
+
+        Exceptions: Migration scripts, this linter's rule docs.
+        """
+        file_str = str(file_path)
+
+        # Skip files where pip references are historical/expected
+        if any(
+            skip in file_str
+            for skip in [
+                "/migrations/",
+                "lint_skuel.py",  # This linter documents the pattern
+                "detect_library_changes.py",  # May reference installer tooling
+            ]
+        ):
+            return
+
+        # Cheap pre-filter: every pattern contains the literal "pip".
+        if "pip" not in content.lower():
+            return
+
+        for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+
+            # Skip comments that explain the migration itself
+            if stripped.startswith("#") and (
+                "migrat" in stripped.lower() or "was" in stripped.lower()
+            ):
+                continue
+
+            for pattern, match_text, replacement in self.PIP_PATTERNS:
+                match = pattern.search(line)
+                if match:
+                    self.result.violations.append(
+                        Violation(
+                            file_path=rel_path,
+                            line_number=line_num,
+                            column=match.start(),
+                            severity=Severity.WARNING,
+                            rule_id="SKUEL031",
+                            message=f"Stale pip reference '{match_text}' — SKUEL uses uv",
                             suggestion=f"Replace with: {replacement}",
                             line_content=line.strip(),
                         )

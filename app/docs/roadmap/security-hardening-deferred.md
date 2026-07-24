@@ -201,6 +201,9 @@ vulnerabilities in transitive dependencies go undetected until a developer happe
 Shipped as the `pip_audit` job in `.github/workflows/ci.yml`, required (via the CI Gate) on
 every Python-file PR — `pyproject.toml` / `uv.lock` changes are what move the resolution, and
 running on ordinary Python PRs also catches CVEs published since the last dependency change.
+A dedicated `audit` path filter additionally triggers the job when the audit tooling itself
+(`/scripts/audit_dependencies.sh`, `/.pip-audit-ignore`) changes, so the check can never be
+edited without being exercised.
 One audit path for CI and local (`./dev audit-deps`): `/scripts/audit_dependencies.sh` exports
 the full locked resolution (`uv export`, all groups, with hashes) and runs
 `pip-audit --strict --disable-pip` against the OSV database — the lock is audited, not the

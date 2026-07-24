@@ -34,6 +34,7 @@ jobs:
       ui: ${{ steps.filter.outputs.ui }}
       cypher: ${{ steps.filter.outputs.cypher }}
       js: ${{ steps.filter.outputs.js }}
+      audit: ${{ steps.filter.outputs.audit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -92,6 +93,14 @@ jobs:
               - 'app/package.json'
               - 'app/package-lock.json'
               - 'app/vitest.config.js'
+              - '.github/workflows/ci.yml'
+            audit:
+              # pip_audit's own tooling (Codex, PR #797): a PR that changes
+              # only the audit script or the accepted-findings list must still
+              # run the job it modifies — the gate accepts skips, so without
+              # this filter the security check could be edited unexercised.
+              - 'app/scripts/audit_dependencies.sh'
+              - 'app/.pip-audit-ignore'
               - '.github/workflows/ci.yml'
 
   mypy:
@@ -263,13 +272,14 @@ jobs:
   # over the full locked resolution (uv export with hashes, all groups) via
   # the same script as ./dev audit-deps. Gated on the py filter — pyproject /
   # uv.lock changes are what move the resolution, and a REQUIRED-on-py-changes
-  # job also catches newly published CVEs on every ordinary Python PR.
+  # job also catches newly published CVEs on every ordinary Python PR — plus
+  # the audit filter, so editing the audit tooling itself always exercises it.
   # Accepted findings live in app/.pip-audit-ignore, each with a documented
   # reason (currently the dev-only mcp-neo4j-cypher cluster).
   pip_audit:
     name: Dependency CVE Audit
     needs: changes
-    if: needs.changes.outputs.py == 'true'
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.audit == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
