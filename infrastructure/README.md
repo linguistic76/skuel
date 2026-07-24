@@ -671,12 +671,16 @@ docker compose restart neo4j
 # Stop infrastructure
 docker compose down
 
-# Backup database (stop first — dump requires the database offline;
-# --overwrite-destination so a leftover neo4j.dump can't fail the chain
-# and leave the database stopped)
-docker compose stop neo4j && docker compose run --rm neo4j \
-  neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true \
-  && docker compose start neo4j
+# Backup database (stop first — dump requires the database offline).
+# The subshell restarts Neo4j even if the dump fails (full volume, perms…)
+# while still reporting the dump's exit status.
+docker compose stop neo4j && (
+  docker compose run --rm neo4j neo4j-admin database dump neo4j \
+    --to-path=/backups --overwrite-destination=true
+  rc=$?
+  docker compose start neo4j
+  exit $rc
+)
 
 # Access Neo4j browser
 open http://localhost:7474
