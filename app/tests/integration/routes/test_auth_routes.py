@@ -526,6 +526,20 @@ class TestInviteCodeGate:
     def _route_test_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
         monkeypatch.delenv("SIGNUP_INVITE_CODE", raising=False)
+
+        # Pin the credential funnel to the process env: the route resolves the
+        # invite code via get_credential(), which would otherwise read the dev
+        # machine's real keyring — and auto-migrate monkeypatched test values
+        # INTO it. Env-only keeps these tests hermetic.
+        import os
+
+        import adapters.inbound.auth_ui as auth_ui_module
+
+        def _env_only_credential(key: str, fallback_to_env: bool = True) -> str | None:
+            return os.getenv(key)
+
+        monkeypatch.setattr(auth_ui_module, "get_credential", _env_only_credential)
+
         from adapters.inbound.rate_limit import reset_buckets_for_testing
 
         reset_buckets_for_testing()

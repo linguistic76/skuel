@@ -23,7 +23,6 @@ Version: 2.1.0
 Date: 2026-01-21
 """
 
-import os
 import secrets
 from typing import TYPE_CHECKING, Any
 
@@ -42,6 +41,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
 from adapters.inbound.rate_limit import rate_limited_ip
+from core.config.credential_store import get_credential
 from core.models.auth import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -63,11 +63,12 @@ logger = get_logger("skuel.routes.auth_ui")
 def _signup_invite_code() -> str | None:
     """The invite code signup requires, or None for open signup.
 
-    A route-boundary env read (not ``get_credential()``): the code is a soft
-    abuse gate shared with invitees, not a catalogued secret. Read per-request
-    (cheap) so tests can flip the flag with a plain env monkeypatch.
+    Resolved through the credential funnel (keyring/encrypted store honored,
+    env fallback for headless deployments) — a raw env read would silently
+    run open signup on installs that store the code in the credential backend
+    (Codex #794). Read per-request so the gate follows backend/env state.
     """
-    return os.getenv("SIGNUP_INVITE_CODE") or None
+    return get_credential("SIGNUP_INVITE_CODE") or None
 
 
 def _first_validation_error(e: ValidationError) -> str:

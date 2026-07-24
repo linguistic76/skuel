@@ -58,3 +58,23 @@ class TestSecurityHeaders:
         response = TestClient(_app_with_headers()).get("/")
 
         assert "Strict-Transport-Security" not in response.headers
+
+    def test_headers_stamped_on_unhandled_exception_500(self) -> None:
+        # Codex #794: add_middleware would sit INSIDE Starlette's
+        # ServerErrorMiddleware, so its generated 500s went out unstamped.
+        # The middleware wraps the served app as the OUTERMOST layer
+        # (main.py) — mirror that layering here and pin the 500 coverage.
+        from starlette.applications import Starlette
+        from starlette.routing import Route
+
+        async def _boom(request: Any) -> Any:
+            raise RuntimeError("unhandled")
+
+        inner = Starlette(routes=[Route("/boom", _boom)])  # ServerErrorMiddleware inside
+        client = TestClient(SecurityHeadersMiddleware(inner), raise_server_exceptions=False)
+
+        response = client.get("/boom")
+
+        assert response.status_code == 500
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"

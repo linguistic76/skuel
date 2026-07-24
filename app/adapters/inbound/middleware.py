@@ -162,6 +162,11 @@ class SecurityHeadersMiddleware:
     HSTS is deliberately absent — TLS termination (and therefore HSTS) is
     Caddy's job at the edge, not the app's.
 
+    Registered in ``main.py`` as the OUTERMOST ASGI wrapper, not via
+    ``add_middleware`` — that would sit inside Starlette's
+    ServerErrorMiddleware and leave unhandled-exception 500s unstamped
+    (Codex #794).
+
     Existing headers are never overwritten (mirrors StaticCacheHeadersMiddleware).
     """
 
