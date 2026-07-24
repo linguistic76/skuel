@@ -38,7 +38,7 @@ from core.utils.exception_types import (
 )
 from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
 
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
@@ -79,6 +79,36 @@ logger = get_logger("skuel.services.ingestion.batch")
 
 # Type alias for progress callback
 ProgressCallback = Callable[[int, int, str], None]  # (current, total, current_file)
+
+
+# USER_ENTRY frontmatter fields whose validation failures are the FILE'S OWN
+# CONTENT — the ``user_entry_ingestion`` parsers tag each with the field they
+# validated. Validation failures on anything else are pipeline/state faults
+# the owner must see as sync errors, NOT ignorable content: the
+# unreachable-reviewer compensation (field=fulfills_exercise_uid) means a
+# turn-in was dropped and must be retried, and a TEACHER_REVIEW request with
+# no resolvable audience is a state-of-the-world failure (Codex #788).
+_USER_ENTRY_CONTENT_FIELDS: frozenset[str] = frozenset(
+    {"pipeline", "status", "je_use", "private", "audience", "metadata"}
+)
+
+
+def classify_user_entry_failure(error: ErrorContext) -> tuple[str, str]:
+    """(stage, error_type) for a failed per-file USER_ENTRY ingest.
+
+    Content faults (a frontmatter field the file's author controls failed
+    validation) get the ``validation`` content stage so the vault sync
+    report classifies them as ignored-with-reason; everything else —
+    forbidden, database, and validation failures that encode pipeline state
+    (no reachable reviewer) — stays a ``user_entry_pipeline`` error.
+    """
+    is_content_fault = (
+        error.category == ErrorCategory.VALIDATION
+        and str(error.details.get("field", "")) in _USER_ENTRY_CONTENT_FIELDS
+    )
+    if is_content_fault:
+        return ("validation", "validation")
+    return ("user_entry_pipeline", "service")
 
 
 def create_error(
@@ -177,11 +207,25 @@ def parse_file_sync(
         # Stage 1: Format detection
         file_format = detect_format(file_path)
 
-        # Stage 2: Parsing
+        # Stage 2: Parsing. The parsers catch file-IO exceptions internally
+        # and return them as SYSTEM-category Results — those are read/stat
+        # failures, not the file's content, and must keep a system stage
+        # (``file_io``) so the sync report never files an unreadable file
+        # under ignored (Codex #788). Only VALIDATION-category failures
+        # (broken YAML, oversized file) are the ``parsing`` content stage.
         if file_format == "markdown":
             parse_result = parse_markdown(file_path, max_file_size_bytes)
             if parse_result.is_error:
                 err = parse_result.expect_error()
+                if err.category != ErrorCategory.VALIDATION:
+                    error = create_error(
+                        file_path=file_path,
+                        error=err.display_message,
+                        stage="file_io",
+                        error_type="system",
+                        suggestion="Check file permissions and encoding (UTF-8).",
+                    )
+                    return (None, None, error.to_dict())
                 error = create_error(
                     file_path=file_path,
                     error=err.display_message,
@@ -195,6 +239,15 @@ def parse_file_sync(
             yaml_result = parse_yaml(file_path, max_file_size_bytes)
             if yaml_result.is_error:
                 err = yaml_result.expect_error()
+                if err.category != ErrorCategory.VALIDATION:
+                    error = create_error(
+                        file_path=file_path,
+                        error=err.display_message,
+                        stage="file_io",
+                        error_type="system",
+                        suggestion="Check file permissions and encoding (UTF-8).",
+                    )
+                    return (None, None, error.to_dict())
                 # Line number is now embedded in the error message
                 # Extract it for structured error if present
                 line_num = None
@@ -1050,12 +1103,15 @@ async def ingest_directory(
                     continue
                 ue_result = await ingest_file_fn(ue_path)
                 if ue_result.is_error:
+                    ue_error = ue_result.expect_error()
+                    ue_stage, ue_error_type = classify_user_entry_failure(ue_error)
+                    is_content_fault = ue_stage == "validation"
                     errors.append(
                         IngestionError(
                             file=str(ue_path),
-                            error=str(ue_result.expect_error()),
-                            stage="user_entry_pipeline",
-                            error_type="service",
+                            error=ue_error.display_message if is_content_fault else str(ue_error),
+                            stage=ue_stage,
+                            error_type=ue_error_type,
                             entity_type=EntityType.USER_ENTRY.value,
                         ).to_dict()
                     )

@@ -163,7 +163,10 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
 
     "Sync complete" ONLY when the run was clean (G10) — failed files,
     ingestion errors, and dangling-target warnings flip the header and are
-    listed in full, never hidden behind a success banner.
+    listed in full, never hidden behind a success banner. Ignored files
+    (content-caused: no ``type:``, malformed frontmatter) list with their
+    reasons but do NOT flip the header — a sync whose only findings are
+    ignored files is complete (2026-07-23 ruling).
     """
     ingested = stats_dict.get("entries_ingested", 0)
     injected = stats_dict.get("ids_injected", 0)
@@ -172,6 +175,7 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     walled = stats_dict.get("files_walled", 0)
     unsupported = stats_dict.get("files_unsupported", 0)
     moved = stats_dict.get("moves_detected", 0)
+    ignored: list[str] = stats_dict.get("ignored", [])
     errors: list[str] = stats_dict.get("errors", [])
     warnings: list[str] = stats_dict.get("warnings", [])
 
@@ -189,6 +193,13 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
         )
     if failed:
         items.append(Li(Span(f"{failed}", cls="font-semibold text-error"), " files failed"))
+    if ignored:
+        items.append(
+            Li(
+                Span(f"{len(ignored)}", cls="font-semibold"),
+                " files ignored (not ingestible — see list below)",
+            )
+        )
     if walled:
         items.append(
             Li(Span(f"{walled}", cls="font-semibold"), " files skipped (outside sync folders)")
@@ -214,6 +225,23 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
         if warnings
         else Span()
     )
+    # Neutral styling on purpose: ignored files are information, not a
+    # problem state — the reasons say which are deliberate non-entity notes
+    # and which declared a type the author probably wants to fix.
+    ignored_section = (
+        Div(
+            H3(
+                "Ignored files (not ingested)",
+                cls="text-sm font-semibold text-base-content/70 mt-3 mb-1",
+            ),
+            Ul(
+                *[Li(line, cls="text-xs text-base-content/60") for line in ignored],
+                cls="list-disc pl-4",
+            ),
+        )
+        if ignored
+        else Span()
+    )
 
     clean = not errors and not warnings and not failed
     # Every failed file also appends an error entry, so len(errors) already
@@ -234,6 +262,7 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
             Ul(*items, cls="list-disc pl-4 text-sm text-base-content/80 space-y-1"),
             error_section,
             warning_section,
+            ignored_section,
             cls="bg-base-200 border border-base-300 rounded-lg p-5",
         ),
         sync_button("Sync again"),

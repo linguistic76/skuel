@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-04-18
+updated: 2026-07-23
 category: patterns
 related_skills: []
 related_docs:
@@ -980,7 +980,20 @@ also auto-fall back to the filename.
 The service detects entity type from:
 1. **Explicit `type` field** in YAML or markdown frontmatter (required — no silent defaults)
 
-**No implicit defaults:** Markdown files without an explicit `type` field are rejected. YAML files require an explicit `type` field.
+**No implicit defaults:** Markdown files without an explicit `type` field are not ingested. YAML files require an explicit `type` field. An empty `type:` line (YAML → `None`) is treated the same as a missing one, with a reason that names the half-finished opt-in; a declared-but-unrecognized type gets its own "unknown type" reason (never reported as "no type field").
+
+### Ignored files vs sync errors (2026-07-23 ruling)
+
+Vault-sync doors (`VaultReconciler` → `VaultSyncStats`) classify per-file ingestion failures by the stage the engine tagged (`IngestionError.stage`):
+
+- **Content-fault stages** (`parsing`, `type_detection`, `validation`, `preparation`) → the file is **ignored** and reported in `VaultSyncStats.ignored` as a vault-relative `path — reason` line (`files_ignored` counts them). These are the file's own frontmatter: no/empty `type:`, empty `uid:`, an invalid enum value, broken YAML. USER_ENTRY pipeline failures classify as content only when a *frontmatter field* failed validation (`classify_user_entry_failure` — fields `pipeline`/`status`/`je_use`/`private`/`audience`/`metadata`); validation errors that encode pipeline state (an unreachable reviewer on a turn-in, a TEACHER_REVIEW request with no resolvable audience) stay errors.
+- **Everything else** (`ingestion` = DB write, `edge_ingestion`, `relationships`, `moc_edge_pass`, `file_io`, `user_entry_pipeline`, `unknown`, stage-less reconciliation dicts) → `errors` + `files_failed`. `errors` is **reserved for system faults** (IO, Neo4j, real bugs). Parser-internal IO failures (unreadable/unstat-able file) are re-tagged `file_io` before the `parsing` stage is assigned — an unreadable file is never "ignored".
+
+A sync whose only findings are ignored files **is clean** ("Sync complete" + the ignored list). The reason text keeps two flavors distinct: a file with no `type:` at all (likely a deliberate non-entity note) vs. a file that *declared* a type but has a malformed field — the latter renders as `path — declared 'type: X' but not ingested: reason`, easy to spot for fixing. The default-deny gate is unchanged — nothing is inferred or ingested; only severity and reporting changed.
+
+Ignored files carry no ingestion stamp, so they **re-report on every sync**. That standing visibility is the design (the vault owner always sees what's opted out), not noise.
+
+Classification lives in `_merge_ingest_stats` / `_CONTENT_FAULT_STAGES` (`core/services/vault/vault_reconciler.py`); the raw ingestion API (`/api/ingest/**`) still returns the engine's unclassified `IngestionStats.errors`.
 
 ### UID Format Validation
 

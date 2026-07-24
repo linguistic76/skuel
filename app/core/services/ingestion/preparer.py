@@ -148,9 +148,21 @@ def prepare_entity_data(
     if isinstance(entity_type, EntityType):
         entity_data["entity_type"] = entity_type.value
 
-    # Handle UID
+    # Handle UID. An empty ``uid:`` line (YAML → None or "") must NOT silently
+    # fall back to a generated UID — the author started declaring an identity;
+    # guessing one behind their back invites split identities on the fix-up
+    # sync. Fail with the reason instead (the batch door classifies this as
+    # ignored-with-reason, not a sync error). Non-string values (``uid: 5``)
+    # are stringified rather than crashing normalize_uid.
     if "uid" in entity_data:
-        entity_data["uid"] = normalize_uid(entity_data["uid"])
+        raw_uid = entity_data["uid"]
+        if raw_uid is None or not str(raw_uid).strip():
+            raise ValueError(
+                "'uid:' field is present but empty — fill it in "
+                "(e.g. 'uid: ku:my-concept') or remove the line to auto-generate "
+                "from the filename"
+            )
+        entity_data["uid"] = normalize_uid(str(raw_uid))
     else:
         entity_data["uid"] = generate_uid(entity_type, file_path)
 

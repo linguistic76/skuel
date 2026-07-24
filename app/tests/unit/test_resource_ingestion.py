@@ -55,7 +55,7 @@ def test_explicit_resource_type_detected() -> None:
 def test_markdown_without_type_rejected() -> None:
     """Never-sniff: a raw book .md with no ``type:`` frontmatter is not a
     Resource — the detector requires an explicit type (One Path Forward)."""
-    with pytest.raises(ValueError, match="no 'type' field"):
+    with pytest.raises(ValueError, match="no 'type:' field"):
         detect_entity_type({}, Path("Transcend.md"))
 
 

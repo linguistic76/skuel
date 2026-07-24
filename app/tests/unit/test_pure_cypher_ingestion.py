@@ -334,7 +334,7 @@ def test_entity_type_detection():
         detect_entity_type(data_no_type, Path("/tmp/test.md"))
         raise AssertionError("Expected ValueError for .md without type")
     except ValueError as e:
-        assert "no 'type' field" in str(e), f"Unexpected error message: {e}"
+        assert "no 'type:' field" in str(e), f"Unexpected error message: {e}"
 
     # Test 5: Case insensitivity
     data_uppercase = {"type": "HABIT", "title": "Exercise"}

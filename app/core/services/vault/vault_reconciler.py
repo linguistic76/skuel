@@ -710,6 +710,17 @@ class VaultReconciler:
 # =========================================================================
 
 
+# Ingestion stages caused by the FILE'S OWN CONTENT (broken frontmatter,
+# missing/empty type:, empty uid:, invalid enum value). Failures at these
+# stages are classified as ignored-with-reason — the sync did its job; the
+# file opted out or needs author attention. Every other stage (ingestion =
+# DB write, edge_ingestion, relationships, moc_edge_pass, file_io,
+# user_entry_pipeline, unknown ...) is a system fault and stays an error.
+_CONTENT_FAULT_STAGES: frozenset[str] = frozenset(
+    {"parsing", "type_detection", "validation", "preparation"}
+)
+
+
 def _merge_ingest_stats(
     stats: VaultSyncStats,
     ingest: IngestionStats | IncrementalStats | DryRunPreview | None,
@@ -724,16 +735,28 @@ def _merge_ingest_stats(
     readable strings for the UI/API surface. Ingest errors/warnings carry
     ABSOLUTE host paths; ``vault_root`` relativizes them before they land in
     the user-facing stats (the fragment/JSON render these verbatim).
+
+    Classification (2026-07-23 ruling): errors tagged with a content-fault
+    stage become ``ignored`` per-file reasons; ``errors``/``files_failed``
+    keep only system-caused failures. A sync whose only findings are ignored
+    files reports clean.
     """
     if not isinstance(ingest, (IngestionStats, IncrementalStats)):
         return
     stats.entries_ingested = int(ingest.nodes_created or 0) + int(ingest.nodes_updated or 0)
-    stats.files_failed = int(ingest.failed or 0)
     stats.files_walled = int(ingest.files_walled or 0)
     stats.files_unsupported = int(ingest.files_unsupported or 0)
     stats.warnings.extend(strip_root_prefix(warning, vault_root) for warning in ingest.warnings)
     for error in ingest.errors or []:
-        stats.errors.append(_format_ingest_error(error, vault_root))
+        if error.get("stage") in _CONTENT_FAULT_STAGES:
+            stats.ignored.append(_format_ignored_file(error, vault_root))
+        else:
+            stats.errors.append(_format_ingest_error(error, vault_root))
+    stats.files_ignored = len(stats.ignored)
+    # The engine counts every per-file problem in ``failed``; content-caused
+    # ones just moved to the ignored bucket, so only the remainder are
+    # genuine failures.
+    stats.files_failed = max(0, int(ingest.failed or 0) - stats.files_ignored)
     if isinstance(ingest, IncrementalStats):
         stats.entities_deleted = int(ingest.entities_deleted or 0)
         stats.edges_deleted = int(ingest.edges_deleted or 0)
@@ -754,3 +777,23 @@ def _format_ingest_error(error: dict[str, Any], vault_root: Path) -> str:
     prefix = f"{display_path(str(file), vault_root)}: " if file else ""
     suffix = f" [{stage}]" if stage else ""
     return f"{prefix}{strip_root_prefix(str(message), vault_root)}{suffix}"
+
+
+def _format_ignored_file(error: dict[str, Any], vault_root: Path) -> str:
+    """One vault-relative ``path — reason`` line per ignored file.
+
+    Two flavors the reason text keeps distinct: a file with no ``type:`` at
+    all (likely a deliberate non-entity note — the detector's message says
+    so), and a file that DECLARED a type but has a malformed field — that
+    author opted in and probably wants to fix it, so the declared type is
+    called out up front.
+    """
+    file = error.get("file") or ""
+    message = strip_root_prefix(
+        str(error.get("error") or error.get("message") or str(error)), vault_root
+    )
+    path = display_path(str(file), vault_root) if file else "(unknown file)"
+    entity_type = error.get("entity_type")
+    if entity_type:
+        return f"{path} — declared 'type: {entity_type}' but not ingested: {message}"
+    return f"{path} — {message}"
