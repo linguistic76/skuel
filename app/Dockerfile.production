@@ -28,10 +28,12 @@ RUN uv sync --frozen --no-dev --no-install-project
 # Production stage
 FROM python:3.14-slim AS production
 
-# Create non-root user for security. -m: CredentialStore initializes
-# ~/.skuel at import even when secrets come from the environment (headless
-# env-file shape), so the user needs a real home directory.
-RUN groupadd -r skuel && useradd -r -m -g skuel skuel
+# Create non-root user for security. Fixed UID/GID 10001: host-side bind
+# mounts (droplet /opt/skuel/personal-vault, ./logs) must be chowned to the
+# container user by deploy.sh, which needs a UID it can rely on. -m:
+# CredentialStore initializes ~/.skuel at import even when secrets come from
+# the environment (headless env-file shape), so the user needs a real home.
+RUN groupadd -r -g 10001 skuel && useradd -r -m -u 10001 -g skuel skuel
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \

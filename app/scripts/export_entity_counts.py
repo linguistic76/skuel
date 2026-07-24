@@ -31,10 +31,32 @@ import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TypedDict, cast
+
+# App logging attaches a console handler to sys.stdout on first import
+# (core/utils/logging.py — the right default for containers), which would
+# interleave log lines into `> before.json`. Keep the JSON channel pure:
+# reserve the real stdout for the payload, give the app's logging stderr.
+_PAYLOAD_OUT = sys.stdout
+sys.stdout = sys.stderr
 
 
-async def collect_counts() -> dict[str, Any]:
+class CountTotals(TypedDict):
+    nodes: int
+    relationships: int
+
+
+class EntityCounts(TypedDict):
+    """Shape of one export payload — also what --compare reads back."""
+
+    uri: str
+    timestamp: str
+    labels: dict[str, int]
+    relationships: dict[str, int]
+    totals: CountTotals
+
+
+async def collect_counts() -> EntityCounts:
     """Connect (retry-tolerant) and gather label/reltype counts plus totals."""
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection, connect_with_retry
     from core.constants import Neo4jConnectRetry
@@ -74,37 +96,41 @@ async def collect_counts() -> dict[str, Any]:
     finally:
         await connection.close()
 
-    return {
-        "uri": connection.uri,
-        "timestamp": datetime.now(UTC).isoformat(),
-        "labels": labels,
-        "relationships": relationships,
-        "totals": {"nodes": total_nodes, "relationships": total_relationships},
-    }
+    return EntityCounts(
+        uri=str(connection.uri),
+        timestamp=datetime.now(UTC).isoformat(),
+        labels=labels,
+        relationships=relationships,
+        totals=CountTotals(nodes=total_nodes, relationships=total_relationships),
+    )
 
 
-def diff_counts(before: dict[str, Any], live: dict[str, Any]) -> list[str]:
+def diff_counts(before: EntityCounts, live: EntityCounts) -> list[str]:
     """Return human-readable mismatch lines (empty = identical counts)."""
     mismatches: list[str] = []
-    for section in ("labels", "relationships"):
-        before_section: dict[str, int] = before.get(section, {})
-        live_section: dict[str, int] = live[section]
+    sections: list[tuple[str, dict[str, int], dict[str, int]]] = [
+        ("labels", before["labels"], live["labels"]),
+        ("relationships", before["relationships"], live["relationships"]),
+    ]
+    for section, before_section, live_section in sections:
         for name in sorted(set(before_section) | set(live_section)):
             before_count = before_section.get(name, 0)
             live_count = live_section.get(name, 0)
             if before_count != live_count:
                 mismatches.append(f"{section}.{name}: before={before_count} live={live_count}")
-    for total in ("nodes", "relationships"):
-        before_total = before.get("totals", {}).get(total, 0)
-        live_total = live["totals"][total]
+    totals: list[tuple[str, int, int]] = [
+        ("nodes", before["totals"]["nodes"], live["totals"]["nodes"]),
+        ("relationships", before["totals"]["relationships"], live["totals"]["relationships"]),
+    ]
+    for total, before_total, live_total in totals:
         if before_total != live_total:
             mismatches.append(f"totals.{total}: before={before_total} live={live_total}")
     return mismatches
 
 
-async def run(before: dict[str, Any] | None, compare_path: str | None) -> int:
+async def run(before: EntityCounts | None, compare_path: str | None) -> int:
     live = await collect_counts()
-    print(json.dumps(live, indent=2))
+    print(json.dumps(live, indent=2), file=_PAYLOAD_OUT)
 
     if before is None:
         return 0
@@ -137,9 +163,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    before: dict[str, Any] | None = None
+    before: EntityCounts | None = None
     if args.compare is not None:
-        before = json.loads(Path(args.compare).read_text(encoding="utf-8"))
+        # boundary: JSON from a prior run of this same script — trusted shape.
+        before = cast("EntityCounts", json.loads(Path(args.compare).read_text(encoding="utf-8")))
 
     sys.exit(asyncio.run(run(before, args.compare)))
 
