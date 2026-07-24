@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
 from core.models.query_types import QueryIntent
+from core.models.relationship_names import RelationshipName
 from core.prompts import PROMPT_REGISTRY
 from core.services.askesis.grounding_projection import render_askesis_grounding
 from core.utils.logging import get_logger
@@ -264,15 +265,28 @@ class ResponseGenerator:
                 if source in target_set or target in target_set:
                     relevant_edges.append(edge)
 
-        edges_text = ""
+        # Render each real lateral edge as a titled pair with its authored
+        # evidence: "- Anchor —related to— Breath: <evidence>". An edge
+        # authored without evidence renders the titled pair alone (no
+        # dangling colon); an edge with no nameable endpoints is skipped —
+        # a bare "- related to: " line grounds nothing.
+        edge_lines: list[str] = []
         for edge in relevant_edges:
-            rel_type = edge.get("relationship_type", "related to")
-            evidence = edge.get("evidence", "")
-            edges_text += f"- {rel_type}: {evidence}\n"
+            source_name = edge.get("source_title") or edge.get("source_uid") or ""
+            target_name = edge.get("target_title") or edge.get("target_uid") or ""
+            if not source_name or not target_name:
+                continue
+            rel_type = edge.get("relationship_type") or RelationshipName.RELATED_TO.value
+            rel_text = str(rel_type).replace("_", " ").lower()
+            evidence = edge.get("evidence") or ""
+            line = f"- {source_name} —{rel_text}— {target_name}"
+            if evidence:
+                line += f": {evidence}"
+            edge_lines.append(line)
 
         return PROMPT_REGISTRY.render(
             "askesis_guided_connection",
-            edges_text=edges_text or "No specific evidence available.",
+            edges_text="\n".join(edge_lines) or "No specific evidence available.",
         )
 
     def _build_encouraging_prompt(

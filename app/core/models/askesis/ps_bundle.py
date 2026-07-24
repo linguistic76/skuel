@@ -66,7 +66,9 @@ class PsBundle:
     tasks: tuple[Task, ...] = ()  # via ASSIGNS_TASK
     events: tuple[Event, ...] = ()  # via event templates
 
-    # Semantic relationships between bundle entities
+    # Real Ku↔Ku lateral edges touching bundle KUs (either endpoint), shaped
+    # {source_uid, source_title, target_uid, target_title, relationship_type,
+    #  evidence} — evidence is "" for edges authored without it
     edges: tuple[dict, ...] = ()
 
     # Learning objectives extracted from PathSteps in the bundle

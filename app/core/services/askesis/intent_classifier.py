@@ -239,9 +239,17 @@ class IntentClassifier:
                 return PedagogicalIntent.ENCOURAGE_PRACTICE
             return PedagogicalIntent.OUT_OF_SCOPE
 
-        # Check if question touches edge-connected concepts
+        # Check if question touches edge-connected concepts. Bundle edges are
+        # real Ku↔Ku lateral edges; a bundle KU can sit at either end of an
+        # authored connection, so match both endpoints.
         if len(target_ku_uids) >= 2 and ps_bundle.edges:
-            edge_uids = {e.get("target_uid") for e in ps_bundle.edges if isinstance(e, dict)}
+            edge_uids = {
+                uid
+                for e in ps_bundle.edges
+                if isinstance(e, dict)
+                for uid in (e.get("source_uid"), e.get("target_uid"))
+                if uid
+            }
             if any(uid in edge_uids for uid in target_ku_uids):
                 return PedagogicalIntent.SURFACE_CONNECTION
 

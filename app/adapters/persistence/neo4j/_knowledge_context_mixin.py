@@ -498,3 +498,42 @@ class _KnowledgeContextMixin:
         LIMIT $limit
         """
         return await self.execute_query(query, {"source_uids": source_uids, "limit": limit})
+
+    async def get_ku_lateral_edges(
+        self, ku_uids: list[str], limit: int = 20
+    ) -> Result[list[Neo4jProperties]]:
+        """Get Ku↔Ku lateral edges touching any of the given KUs.
+
+        Matches the six lateral relationship families (RELATED_TO,
+        PREREQUISITE_FOR/DEPENDS_ON, ALTERNATIVE_TO, COMPLEMENTARY_TO,
+        SIBLING, BLOCKS/BLOCKED_BY — see RELATIONSHIPS_ARCHITECTURE.md) where
+        EITHER endpoint is in ``ku_uids`` — a bundle KU can be the source or
+        the target of an authored connection. Both endpoints must be KUs,
+        matched by ``entity_type``, never by UID prefix (ADR-013 never-sniff
+        rule).
+
+        Edge-file ingestion copies ``evidence`` (plus confidence/source) onto
+        any relationship type, so it rides along here (null for edges authored
+        without evidence) — SURFACE_CONNECTION prompts ground the connection
+        in that authored text.
+
+        Args:
+            ku_uids: KU UIDs to anchor the search (typically the bundle's KUs).
+            limit: Maximum number of edges to return.
+
+        Returns:
+            Records with source_uid, source_title, target_uid, target_title,
+            relationship_type, evidence.
+        """
+        query = """
+        MATCH (a:Entity {entity_type: 'ku'})
+              -[r:RELATED_TO|PREREQUISITE_FOR|DEPENDS_ON|ALTERNATIVE_TO|COMPLEMENTARY_TO|SIBLING|BLOCKS|BLOCKED_BY]->
+              (b:Entity {entity_type: 'ku'})
+        WHERE a.uid IN $ku_uids OR b.uid IN $ku_uids
+        RETURN a.uid AS source_uid, a.title AS source_title,
+               b.uid AS target_uid, b.title AS target_title,
+               type(r) AS relationship_type, r.evidence AS evidence
+        ORDER BY relationship_type, source_uid, target_uid
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"ku_uids": ku_uids, "limit": limit})
