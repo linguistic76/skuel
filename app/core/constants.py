@@ -334,6 +334,31 @@ class AskesisPipelineTimeout:
     PROCESS_QUERY_SECONDS: Final = 30
 
 
+class LLMQuota:
+    """
+    Per-user daily quota on money-spending AI requests (MEMBER+).
+
+    Caps runaway LLM/Deepgram spend from a single account. Every AI-gated
+    request records one unit against a per-user sliding 24-hour window at the
+    three cost chokepoints: the AI routes (``_ai_route``), the journals AI gate
+    (``_load_ai_gated_user``), and folder transcription. Coarse by design —
+    a unit is one REQUEST, not one token or one file; the goal is a cost
+    ceiling, not fair metering. REGISTERED users never reach the quota (the
+    subscription gate denies them first), so it only meters MEMBER and above.
+
+    The counter lives in the in-memory rate-limit store
+    (``adapters/inbound/rate_limit.py``): single-process deployment, so one
+    process sees every request; counts reset on deploy/restart — acceptable
+    for a coarse daily cost guard.
+    """
+
+    # Money-spending AI requests allowed per user per rolling day.
+    DAILY_LIMIT: Final = 200
+
+    # Sliding-window width: a rolling 24 hours, not a midnight reset.
+    WINDOW_SECONDS: Final = 86_400
+
+
 class QueryProcessorConfidence:
     """
     Confidence scoring for QueryProcessor RAG pipeline responses.

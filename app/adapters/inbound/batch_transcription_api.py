@@ -21,6 +21,7 @@ from adapters.inbound.auth import make_service_getter, require_admin, require_au
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from adapters.inbound.result_helpers import require_found
 from core.config.intelligence_tier import IntelligenceTier
 from core.services.intelligence_tier_service import get_user_intelligence_tier
@@ -200,6 +201,12 @@ def create_batch_transcription_api_routes(
                     "already_transcribed": preview.already_transcribed,
                 }
             )
+
+        # Per-user daily LLM quota, checked after the preview branch so a
+        # preview (no Deepgram spend) never burns a unit — one unit per real
+        # batch run, recorded immediately before the spend.
+        if not llm_quota_allowed(user_uid):
+            return Result.fail(llm_quota_exceeded_error())
 
         logger.info(
             f"User {user_uid} starting folder transcription: "
