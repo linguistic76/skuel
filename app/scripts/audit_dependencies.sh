@@ -15,7 +15,11 @@ cd "$(dirname "$0")/.."
 REQ="$(mktemp)"
 trap 'rm -f "$REQ"' EXIT
 
-uv export --format requirements.txt --no-emit-project --all-groups \
+# --locked: refuse to run if uv.lock is stale against pyproject.toml — uv
+# would otherwise silently re-lock and audit an uncommitted resolution
+# instead of the reviewed one (Codex, PR #797). Fail-fast: a stale-lock PR
+# must re-lock, not slip past the gate.
+uv export --locked --format requirements.txt --no-emit-project --all-groups \
   --quiet --output-file "$REQ"
 
 IGNORE_ARGS=()
@@ -31,5 +35,5 @@ fi
 # --vulnerability-service osv: pip-audit defaults to PyPI's advisory feed;
 # OSV is the aggregate upstream (PYSEC + GHSA + more), so select it
 # explicitly — the documented coverage, not the default (Codex, PR #797).
-uv run pip-audit --strict --disable-pip --vulnerability-service osv \
+uv run --locked pip-audit --strict --disable-pip --vulnerability-service osv \
   -r "$REQ" ${IGNORE_ARGS[@]+"${IGNORE_ARGS[@]}"}
