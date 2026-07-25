@@ -20,6 +20,8 @@ Neo4j 4.0+ provides complete DDL for:
 - Future-proof (native Neo4j feature)
 """
 
+from core.constants import EmbeddingGeometry
+
 
 def build_create_index_ddl(
     name: str, labels: list[str], properties: list[str], index_type: str = "RANGE"
@@ -71,7 +73,7 @@ FOR (n:{label})
 ON (n.{prop})
 OPTIONS {{
   indexConfig: {{
-    `vector.dimensions`: 1024,
+    `vector.dimensions`: {EmbeddingGeometry.DIMENSION},
     `vector.similarity_function`: 'cosine'
   }}
 }}
