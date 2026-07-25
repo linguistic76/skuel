@@ -634,13 +634,13 @@ class HabitsService(
     # ========================================================================
 
     async def get_subhabits(self, parent_uid: str, depth: int = 1) -> Result[list[Habit]]:
-        return await self.core.get_subhabits(parent_uid, depth)
+        return await self.core.get_subentities(parent_uid, depth)
 
     async def get_parent_habit(self, subhabit_uid: str) -> Result[Habit | None]:
-        return await self.core.get_parent_habit(subhabit_uid)
+        return await self.core.get_parent_entity(subhabit_uid)
 
     async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
-        return await self.core.get_habit_hierarchy(habit_uid)
+        return await self.core.get_entity_hierarchy(habit_uid)
 
     async def create_subhabit_relationship(
         self, parent_uid: str, child_uid: str, progress_weight: float = 1.0

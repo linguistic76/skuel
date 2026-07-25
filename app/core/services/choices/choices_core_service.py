@@ -25,10 +25,11 @@ from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -42,7 +43,10 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import ChoicesOperations
 
 
-class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIntent]):
+class ChoicesCoreService(
+    HierarchyReadMixin["ChoicesOperations", Choice],
+    BaseService["ChoicesOperations", Choice, ChoiceUpdateIntent],
+):
     """
     Core CRUD operations for choices.
 
@@ -980,49 +984,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIn
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Flat UID, Rich Structure)
     # Delegated to ChoicesBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
-
-    @with_error_handling("get_subchoices", error_type="database", uid_param="parent_uid")
-    async def get_subchoices(self, parent_uid: str, depth: int = 1) -> Result[list[Choice]]:
-        """Get all subchoices of a parent choice at the given depth."""
-        result = await self.backend.get_children_raw(parent_uid, depth)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([self._to_domain_model(data, ChoiceDTO, Choice) for data in result.value])
-
-    @with_error_handling("get_parent_choice", error_type="database", uid_param="subchoice_uid")
-    async def get_parent_choice(self, subchoice_uid: str) -> Result[Choice | None]:
-        """Get immediate parent of a subchoice (if any)."""
-        result = await self.backend.get_parent_raw(subchoice_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.ok(None)
-        return Result.ok(self._to_domain_model(result.value, ChoiceDTO, Choice))
-
-    @with_error_handling("get_choice_hierarchy", error_type="database", uid_param="choice_uid")
-    async def get_choice_hierarchy(self, choice_uid: str) -> Result[dict[str, Any]]:
-        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
-        current_result = await self.backend.get(choice_uid)
-        if current_result.is_error:
-            return Result.fail(current_result)
-        current_choice = self._to_domain_model(current_result.value, ChoiceDTO, Choice)
-
-        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(choice_uid))
-        if hierarchy_result.is_error:
-            return Result.fail(hierarchy_result)
-
-        raw = hierarchy_result.value
-        return Result.ok(
-            {
-                "ancestors": [
-                    self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["ancestors"]
-                ],
-                "current": current_choice,
-                "siblings": [self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["siblings"]],
-                "children": [self._to_domain_model(n, ChoiceDTO, Choice) for n in raw["children"]],
-                "depth": len(raw["ancestors"]),
-            }
-        )
 
     async def create_subchoice_relationship(
         self,

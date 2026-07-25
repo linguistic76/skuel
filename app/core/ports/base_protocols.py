@@ -1157,6 +1157,20 @@ class HierarchyOperations(Protocol):
         ...
 
 
+@runtime_checkable
+class HierarchicalBackendOperations[T: "DomainModelProtocol"](
+    BackendOperations[T], HierarchyOperations, Protocol
+):
+    """``BackendOperations`` plus sub-entity ``HierarchyOperations``.
+
+    The type bound for the shared typed-hierarchy service reads (``HierarchyReadMixin``):
+    ``get_entity_hierarchy`` needs both ``get`` (CRUD) and ``get_*_raw`` (hierarchy). The
+    6 activity domain protocols (TasksOperations, GoalsOperations, …) already compose
+    exactly ``BackendOperations`` + ``HierarchyOperations``, so they satisfy this
+    structurally; plain ``BackendOperations`` lacks ``get_*_raw`` and cannot be the bound.
+    """
+
+
 # ============================================================================
 # Capability Check Protocols (for runtime isinstance checks)
 # These are @runtime_checkable for duck-typing capability detection

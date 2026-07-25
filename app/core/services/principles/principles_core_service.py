@@ -14,7 +14,6 @@ Part of the PrinciplesService decomposition.
 """
 
 from datetime import date, datetime
-from typing import Any
 
 from core.events import publish_event
 from core.events.embedding_publisher import publish_embedding_requested
@@ -25,11 +24,12 @@ from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.principle.principle_types import PrincipleExpression
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -37,7 +37,10 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger(__name__)
 
 
-class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, PrincipleUpdateIntent]):
+class PrinciplesCoreService(
+    HierarchyReadMixin[PrinciplesOperations, Principle],
+    BaseService[PrinciplesOperations, Principle, PrincipleUpdateIntent],
+):
     """
     Core service for principle CRUD operations.
 
@@ -479,59 +482,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, Princip
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Flat UID, Rich Structure)
     # Delegated to PrinciplesBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
-
-    @with_error_handling("get_subprinciples", error_type="database", uid_param="parent_uid")
-    async def get_subprinciples(self, parent_uid: str, depth: int = 1) -> Result[list[Principle]]:
-        """Get all subprinciples of a parent principle at the given depth."""
-        result = await self.backend.get_children_raw(parent_uid, depth)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(
-            [self._to_domain_model(data, PrincipleDTO, Principle) for data in result.value]
-        )
-
-    @with_error_handling(
-        "get_parent_principle", error_type="database", uid_param="subprinciple_uid"
-    )
-    async def get_parent_principle(self, subprinciple_uid: str) -> Result[Principle | None]:
-        """Get immediate parent of a subprinciple (if any)."""
-        result = await self.backend.get_parent_raw(subprinciple_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.ok(None)
-        return Result.ok(self._to_domain_model(result.value, PrincipleDTO, Principle))
-
-    @with_error_handling(
-        "get_principle_hierarchy", error_type="database", uid_param="principle_uid"
-    )
-    async def get_principle_hierarchy(self, principle_uid: str) -> Result[dict[str, Any]]:
-        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
-        current_result = await self.backend.get(principle_uid)
-        if current_result.is_error:
-            return Result.fail(current_result)
-        current_principle = self._to_domain_model(current_result.value, PrincipleDTO, Principle)
-
-        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(principle_uid))
-        if hierarchy_result.is_error:
-            return Result.fail(hierarchy_result)
-
-        raw = hierarchy_result.value
-        return Result.ok(
-            {
-                "ancestors": [
-                    self._to_domain_model(n, PrincipleDTO, Principle) for n in raw["ancestors"]
-                ],
-                "current": current_principle,
-                "siblings": [
-                    self._to_domain_model(n, PrincipleDTO, Principle) for n in raw["siblings"]
-                ],
-                "children": [
-                    self._to_domain_model(n, PrincipleDTO, Principle) for n in raw["children"]
-                ],
-                "depth": len(raw["ancestors"]),
-            }
-        )
 
     async def create_subprinciple_relationship(
         self, parent_uid: str, subprinciple_uid: str, order: int = 0, importance: str = "supporting"

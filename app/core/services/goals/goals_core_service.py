@@ -19,9 +19,9 @@ Responsibilities:
 
 import dataclasses
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
@@ -44,13 +44,17 @@ from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
+class GoalsCoreService(
+    HierarchyReadMixin[GoalsOperations, Goal],
+    BaseService[GoalsOperations, Goal, GoalUpdateIntent],
+):
     """
     Core CRUD operations for goals.
 
@@ -581,47 +585,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
     # Delegated to GoalsBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
-
-    @with_error_handling("get_subgoals", error_type="database", uid_param="parent_uid")
-    async def get_subgoals(self, parent_uid: str, depth: int = 1) -> Result[list[Goal]]:
-        """Get all subgoals of a parent goal at the given depth."""
-        result = await self.backend.get_children_raw(parent_uid, depth)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([self._to_domain_model(data, GoalDTO, Goal) for data in result.value])
-
-    @with_error_handling("get_parent_goal", error_type="database", uid_param="subgoal_uid")
-    async def get_parent_goal(self, subgoal_uid: str) -> Result[Goal | None]:
-        """Get immediate parent of a subgoal (if any)."""
-        result = await self.backend.get_parent_raw(subgoal_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.ok(None)
-        return Result.ok(self._to_domain_model(result.value, GoalDTO, Goal))
-
-    @with_error_handling("get_goal_hierarchy", error_type="database", uid_param="goal_uid")
-    async def get_goal_hierarchy(self, goal_uid: str) -> Result[dict[str, Any]]:
-        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
-        current_result = await self.backend.get(goal_uid)
-        if current_result.is_error:
-            return Result.fail(current_result)
-        current_goal = self._to_domain_model(current_result.value, GoalDTO, Goal)
-
-        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(goal_uid))
-        if hierarchy_result.is_error:
-            return Result.fail(hierarchy_result)
-
-        raw = hierarchy_result.value
-        return Result.ok(
-            {
-                "ancestors": [self._to_domain_model(n, GoalDTO, Goal) for n in raw["ancestors"]],
-                "current": current_goal,
-                "siblings": [self._to_domain_model(n, GoalDTO, Goal) for n in raw["siblings"]],
-                "children": [self._to_domain_model(n, GoalDTO, Goal) for n in raw["children"]],
-                "depth": len(raw["ancestors"]),
-            }
-        )
 
     async def create_subgoal_relationship(
         self, parent_uid: str, subgoal_uid: str, progress_weight: float = 1.0

@@ -22,7 +22,7 @@ import dataclasses
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -40,11 +40,15 @@ from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 
-class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
+class TasksCoreService(
+    HierarchyReadMixin["TasksOperations", Task],
+    BaseService["TasksOperations", Task, TaskUpdateIntent],
+):
     """
     Core CRUD operations for tasks.
     """
@@ -561,47 +565,6 @@ class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Flat UID, Rich Structure)
     # Delegated to TasksBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
-
-    @with_error_handling("get_subtasks", error_type="database", uid_param="parent_uid")
-    async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
-        """Get all subtasks of a parent task at the given depth."""
-        result = await self.backend.get_children_raw(parent_uid, depth)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([self._to_domain_model(data, TaskDTO, Task) for data in result.value])
-
-    @with_error_handling("get_parent_task", error_type="database", uid_param="subtask_uid")
-    async def get_parent_task(self, subtask_uid: str) -> Result[Task | None]:
-        """Get immediate parent of a subtask (if any)."""
-        result = await self.backend.get_parent_raw(subtask_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.ok(None)
-        return Result.ok(self._to_domain_model(result.value, TaskDTO, Task))
-
-    @with_error_handling("get_task_hierarchy", error_type="database", uid_param="task_uid")
-    async def get_task_hierarchy(self, task_uid: str) -> Result[dict[str, Any]]:
-        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
-        current_result = await self.backend.get(task_uid)
-        if current_result.is_error:
-            return Result.fail(current_result)
-        current_task = self._to_domain_model(current_result.value, TaskDTO, Task)
-
-        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(task_uid))
-        if hierarchy_result.is_error:
-            return Result.fail(hierarchy_result)
-
-        raw = hierarchy_result.value
-        return Result.ok(
-            {
-                "ancestors": [self._to_domain_model(n, TaskDTO, Task) for n in raw["ancestors"]],
-                "current": current_task,
-                "siblings": [self._to_domain_model(n, TaskDTO, Task) for n in raw["siblings"]],
-                "children": [self._to_domain_model(n, TaskDTO, Task) for n in raw["children"]],
-                "depth": len(raw["ancestors"]),
-            }
-        )
 
     async def create_subtask_relationship(
         self, parent_uid: str, subtask_uid: str, progress_weight: float = 1.0

@@ -582,13 +582,13 @@ class PrinciplesService(
     # ========================================================================
 
     async def get_subprinciples(self, parent_uid: str, depth: int = 1) -> Result[list[Principle]]:
-        return await self.core.get_subprinciples(parent_uid, depth)
+        return await self.core.get_subentities(parent_uid, depth)
 
     async def get_parent_principle(self, subprinciple_uid: str) -> Result[Principle | None]:
-        return await self.core.get_parent_principle(subprinciple_uid)
+        return await self.core.get_parent_entity(subprinciple_uid)
 
     async def get_principle_hierarchy(self, principle_uid: str) -> Result[dict[str, Any]]:
-        return await self.core.get_principle_hierarchy(principle_uid)
+        return await self.core.get_entity_hierarchy(principle_uid)
 
     async def create_subprinciple_relationship(
         self, parent_uid: str, child_uid: str

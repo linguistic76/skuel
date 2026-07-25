@@ -1023,13 +1023,13 @@ class TasksService(
     # ========================================================================
 
     async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
-        return await self.core.get_subtasks(parent_uid, depth)
+        return await self.core.get_subentities(parent_uid, depth)
 
     async def get_parent_task(self, subtask_uid: str) -> Result[Task | None]:
-        return await self.core.get_parent_task(subtask_uid)
+        return await self.core.get_parent_entity(subtask_uid)
 
     async def get_task_hierarchy(self, task_uid: str) -> Result[dict[str, Any]]:
-        return await self.core.get_task_hierarchy(task_uid)
+        return await self.core.get_entity_hierarchy(task_uid)
 
     async def create_subtask_relationship(
         self, parent_uid: str, child_uid: str, progress_weight: float = 1.0
