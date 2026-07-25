@@ -27,6 +27,7 @@ from adapters.external.llm.anthropic_adapter import AnthropicChatAdapter
 from adapters.external.llm.openai_adapter import OpenAIChatAdapter
 from core.config.credential_store import get_credential
 from core.ports.llm_protocols import ChatCompletionPort
+from core.services.chat.model_selection import DEFAULT_CHAT_MODEL
 from core.services.llm_caller import UnifiedLLMCaller
 
 # Bootstrap placeholder values that mean "no key configured" (mirrors the
@@ -70,7 +71,9 @@ def create_chat_client() -> ChatClients:
             "Set INTELLIGENCE_TIER=core to run without LLM features, or "
             "set OPENAI_API_KEY in the credential store / environment."
         )
-    openai_chat = OpenAIChatAdapter(api_key=openai_api_key, default_model="gpt-4")
+    # One fallback model, not two: the adapter's no-model-given default is the
+    # same DEFAULT_CHAT_MODEL that resolve_chat_model() degrades to.
+    openai_chat = OpenAIChatAdapter(api_key=openai_api_key, default_model=DEFAULT_CHAT_MODEL)
 
     anthropic_api_key = get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
     anthropic_chat = AnthropicChatAdapter(api_key=anthropic_api_key) if anthropic_api_key else None

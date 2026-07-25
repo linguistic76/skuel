@@ -21,6 +21,7 @@ from typing import Any, TypeVar
 from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
+from core.constants import EmbeddingGeometry
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -294,30 +295,30 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         self,
         label: NeoLabel,
         field_name: str = "embedding",
-        dimension: int = 1024,
+        dimension: int = EmbeddingGeometry.DIMENSION,
         similarity: str = "cosine",
     ) -> Result[str]:
         """
         Create a vector index for embedding similarity search.
 
-        Used for Neo4j GenAI plugin vector search functionality.
-        Requires Neo4j 5.x+ with GenAI plugin installed.
+        Embeddings are generated Python-side (ADR-068) — vector indexes are
+        native Neo4j 5.x+, no server plugin required.
 
         Args:
             label: Neo4j label (e.g., "Entity", "Task", "Goal", "ContentChunk")
             field_name: Field containing embedding vector (default: "embedding")
-            dimension: Vector dimension (default 1024 for bge-large-en-v1.5)
-            similarity: Similarity function - "cosine" (default), "euclidean", or "dot"
+            dimension: Vector dimension (default EmbeddingGeometry.DIMENSION — frozen, ADR-083)
+            similarity: Similarity function - "cosine" (default) or "euclidean"
 
         Returns:
             Result with 'created' or error
 
         Example:
             # Create vector index for Knowledge Units
-            await schema_manager.create_vector_index("Entity", dimension=1024)
+            await schema_manager.create_vector_index("Entity")
 
             # Create vector index for ContentChunk nodes
-            await schema_manager.create_vector_index("ContentChunk", dimension=1024)
+            await schema_manager.create_vector_index("ContentChunk")
 
             # Creates index: ku_embedding_idx or contentchunk_embedding_idx
             # For query: db.index.vector.queryNodes('ku_embedding_idx', k, embedding)
@@ -545,18 +546,18 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
     async def sync_vector_indexes(
         self,
         entity_labels: list[str],
-        dimension: int = 1024,
+        dimension: int = EmbeddingGeometry.DIMENSION,
         similarity: str = "cosine",
     ) -> Result[dict[str, Any]]:
         """
         Sync vector indexes for all embedding-enabled entities.
 
-        Creates vector indexes for semantic similarity search using Neo4j GenAI plugin.
-        Only run this after enabling GenAI plugin in Neo4j/AuraDB.
+        Creates native Neo4j vector indexes for semantic similarity search;
+        embeddings are generated Python-side (ADR-068), no server plugin.
 
         Args:
             entity_labels: List of Neo4j labels with embedding fields (e.g., ["Entity", "Task", "Goal"])
-            dimension: Vector dimension (default 1024 for bge-large-en-v1.5)
+            dimension: Vector dimension (default EmbeddingGeometry.DIMENSION — frozen, ADR-083)
             similarity: Similarity function (default "cosine")
 
         Returns:
@@ -565,9 +566,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         Example:
             # Create vector indexes for all priority entities
             await schema_manager.sync_vector_indexes(
-                entity_labels=["Entity", "Task", "Goal", "LpStep"],
-                dimension=1024,
-                similarity="cosine"
+                entity_labels=["Entity", "ContentChunk", "Ku", "PathStep"],
             )
         """
         results: dict[str, list[str]] = {"created": [], "failed": []}

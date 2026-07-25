@@ -328,7 +328,7 @@ class PrometheusMetrics:
 
         # In AI services
         prometheus_metrics.ai.ai_requests_total.labels(
-            operation="embeddings", model="BAAI/bge-large-en-v1.5"
+            operation="embeddings", model="text-embedding-3-small"
         ).inc()
     """
 

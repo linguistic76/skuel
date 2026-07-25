@@ -3,7 +3,7 @@ title: Embeddings Setup
 ---
 # Embeddings Setup (OpenAI Embeddings API)
 
-**Last Updated:** 2026-06-10
+**Last Updated:** 2026-07-24
 **Status:** Production Ready
 
 ---
@@ -25,9 +25,12 @@ are generated Python-side — no Neo4j plugin required.
 | **Provider chokepoint** | `create_embedding_client()` in `adapters/external/embeddings/factory.py` | One-line swap point for the BGE long-term direction |
 | **API key** | `OPENAI_API_KEY` (keychain or env) | Same credential as the LLM service |
 
-**BGE long-term:** `HuggingFaceEmbeddingAdapter` (`BAAI/bge-large-en-v1.5`, also 1024 dims,
-ADR-049) stays in the codebase as the staged long-term provider. Swapping = one line in the
-factory + an `EMBEDDING_VERSION` bump + re-embed. Vector indexes stay (same dimension).
+**BGE long-term:** `HuggingFaceEmbeddingAdapter` stays in the codebase as the staged long-term
+provider. The committed target model is **`BAAI/bge-m3`** (8,192-token context, also 1024-dim
+dense — [ADR-083](/docs/decisions/ADR-083-qwen-bge-end-state-commitment.md)); the adapter still
+targets `bge-large-en-v1.5` (ADR-049) until the Arc 1 update lands. Swapping = one line in the
+factory + an `EMBEDDING_VERSION` bump + re-embed. Vector indexes stay (same dimension —
+`EmbeddingGeometry.DIMENSION` in `core/constants.py` is the frozen single source).
 
 ```
 User Query → Python (EmbeddingsService) → OpenAI Embeddings API → Embedding
@@ -79,11 +82,12 @@ The `openai` package is included in project dependencies.
 
 ### 3. Create Vector Indexes
 
-Vector indexes (`Entity`, `ContentChunk` at 1024 dims) are **automatically created at bootstrap**
-when `INTELLIGENCE_TIER=full` (via `Neo4jSchemaManager.sync_vector_indexes()`). Full-text indexes
-for keyword search are always created regardless of tier (via `sync_fulltext_indexes()`).
+Vector indexes (`Entity`, `ContentChunk`, `ReferenceChunk`, `Ku`, `PathStep` — all at 1024 dims)
+are **automatically created at bootstrap** when `INTELLIGENCE_TIER=full` (via
+`Neo4jSchemaManager.sync_vector_indexes()`). Full-text indexes for keyword search are always
+created regardless of tier (via `sync_fulltext_indexes()`).
 
-To create them manually, or to add the per-label `Task`/`Goal` optimization indexes:
+To create them manually, or to add the per-label `Task`/`Goal` optimization indexes (7 total):
 
 ```bash
 uv run python scripts/create_vector_indexes.py
@@ -225,6 +229,7 @@ uv run python scripts/create_vector_indexes.py
 
 ## See Also
 
+- [ADR-083: Qwen + BGE End-State — Committed Destination, Staged Convergence](/docs/decisions/ADR-083-qwen-bge-end-state-commitment.md)
 - [ADR-068: OpenAI Embeddings Now, BGE Long-Term](/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md)
 - [ADR-049: HuggingFace Embeddings Migration](/docs/decisions/ADR-049-huggingface-embeddings-migration.md) (superseded in part)
 - [ADR-063: LLM/Embeddings SDK Ports](/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md)
@@ -234,4 +239,4 @@ uv run python scripts/create_vector_indexes.py
 
 ---
 
-**Last Updated:** 2026-06-10
+**Last Updated:** 2026-07-24

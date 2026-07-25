@@ -137,7 +137,7 @@ def collect_doc_to_skills_mapping(
                 continue
 
             skills = find_skill_references_in_file(file_path, valid_skills)
-            # Store with path relative to base (e.g., /docs/development/GENAI_SETUP.md)
+            # Store with path relative to base (e.g., /docs/development/EMBEDDINGS_SETUP.md)
             rel_path = f"/{file_path.relative_to(base_path)}"
             doc_to_skills[rel_path] = skills
             scanned_files.add(file_path)

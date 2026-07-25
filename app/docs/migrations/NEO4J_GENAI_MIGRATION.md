@@ -968,7 +968,7 @@ async def search_with_cache(query: str):
 
 ### Related Documentation
 
-- [GenAI Setup Guide](../development/GENAI_SETUP.md) - Detailed setup instructions
+- [Embeddings Setup Guide](../development/EMBEDDINGS_SETUP.md) - Detailed setup instructions (then `GENAI_SETUP.md`)
 - [Vector Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) - Technical details
 - [Testing Guide](../development/TESTING.md) - Running tests
 
@@ -1047,6 +1047,6 @@ Your SKUEL instance now has semantic search capabilities powered by `HuggingFace
 
 **Last Updated:** 2026-01-28
 **Maintained By:** SKUEL Core Team
-**Questions?** Contact team lead or check [GenAI Setup Guide](../development/GENAI_SETUP.md)
+**Questions?** Contact team lead or check [Embeddings Setup Guide](../development/EMBEDDINGS_SETUP.md)
 
 > **Note:** Original migration used OpenAI `text-embedding-3-small` (1536d) via Neo4j GenAI plugin. Service is now `HuggingFaceEmbeddingsService` with `BAAI/bge-large-en-v1.5` (1024d) via HuggingFace Inference API.

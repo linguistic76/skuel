@@ -23,7 +23,7 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
 - New developers confused about setup path
 
 ### After (Clean Separation)
-- **Docker-only** documentation for development (`/docs/development/GENAI_SETUP.md`)
+- **Docker-only** documentation for development (`/docs/development/EMBEDDINGS_SETUP.md`)
 - **AuraDB migration guide** for production (`/docs/deployment/AURADB_MIGRATION_GUIDE.md`)
 - Clear path: Use Docker locally, migrate to AuraDB for production
 - Zero confusion about which setup to follow
@@ -46,7 +46,7 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
    - No Docker equivalent needed
 
 ### Rewritten
-1. **`/docs/development/GENAI_SETUP.md`** (784 lines)
+1. **`/docs/development/EMBEDDINGS_SETUP.md`** (then `GENAI_SETUP.md`, 784 lines)
    - **Before:** Mixed Docker/AuraDB instructions (746 lines)
    - **After:** Pure Docker setup with migration guide pointer
    - Removed AuraDB-specific sections
@@ -123,7 +123,7 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
 
 ### Before This Change
 ```bash
-# Developer reads GENAI_SETUP.md
+# Developer reads the setup doc (now EMBEDDINGS_SETUP.md)
 # Sees two paths: "AuraDB (Recommended)" and "Local Neo4j (Alternative)"
 # Gets confused: "Do I need AuraDB for development?"
 # Wastes time reading AuraDB console setup
@@ -132,7 +132,7 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
 
 ### After This Change
 ```bash
-# Developer reads GENAI_SETUP.md
+# Developer reads the setup doc (now EMBEDDINGS_SETUP.md)
 # Sees: "Docker Setup (Development)" - ONE PATH
 # Follows Quick Start (10 minutes)
 # docker compose up -d neo4j
@@ -190,7 +190,7 @@ This migration demonstrates SKUEL's "One Path Forward" principle:
 
 ## Related Documentation
 
-- [Docker GenAI Setup](../development/GENAI_SETUP.md) - Current development setup
+- [Embeddings Setup](../development/EMBEDDINGS_SETUP.md) - Current development setup
 - [Droplet Deployment Guide](./DO_MIGRATION_GUIDE.md) - production stack: droplet app + Caddy → AuraDB Free
 - [AuraDB Migration Guide](./AURADB_MIGRATION_GUIDE.md) - moving the data to AuraDB Free
 - [Neo4j Infrastructure](../../CLAUDE.md#neo4j-infrastructure) - Quick reference
@@ -210,7 +210,7 @@ Update this documentation when:
 ### Maintenance Pattern
 
 Follow "One Path Forward" principle:
-- If Docker setup changes → Update GENAI_SETUP.md
+- If Docker setup changes → Update EMBEDDINGS_SETUP.md
 - If AuraDB setup changes → Update AURADB_MIGRATION_GUIDE.md
 - Never split instructions between multiple files
 - Always delete old content (don't deprecate)

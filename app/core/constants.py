@@ -364,6 +364,26 @@ class LLMQuota:
     WINDOW_SECONDS: Final = 86_400
 
 
+class EmbeddingGeometry:
+    """
+    The frozen embedding/vector-index geometry (ADR-068, frozen by ADR-083).
+
+    1024 dims was chosen so the Neo4j vector indexes are shared by the wired
+    OpenAI provider (`text-embedding-3-small` truncated via the API
+    `dimensions` param) AND the staged BGE end-state — the index migration
+    happens once, not per provider swap. Read by both embedding adapters,
+    the bootstrap vector-index sync, and `scripts/create_vector_indexes.py`.
+
+    Changing this is an ADR-level decision, never a local edit: every vector
+    index must be recreated (`create_vector_indexes.py --recreate` — Neo4j
+    silently ignores wrong-dimension vectors) and the whole corpus re-embedded
+    (`EMBEDDING_VERSION` bump + `generate_embeddings_batch.py --stale`).
+    """
+
+    # Vector dimension shared by all embedding providers and vector indexes.
+    DIMENSION: Final = 1024
+
+
 class QueryProcessorConfidence:
     """
     Confidence scoring for QueryProcessor RAG pipeline responses.

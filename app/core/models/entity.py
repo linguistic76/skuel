@@ -97,7 +97,7 @@ class Entity:
     updated_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    # Embedding fields for Neo4j GenAI vector search
+    # Embedding fields — Python-side generation, Neo4j vector indexes (ADR-068)
     embedding: tuple[float, ...] | None = None
     embedding_model: str | None = None
     embedding_updated_at: datetime | None = None
