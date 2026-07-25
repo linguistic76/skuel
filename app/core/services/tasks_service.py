@@ -255,7 +255,6 @@ class TasksService(
 
     Explicit Methods (custom logic):
     - create_task: Has special user_uid parameter handling
-    - get_tasks_batch: Uses backend directly
     - complete_task_with_cascade: Orchestrates knowledge generation
     - link_task_to_knowledge/goal: Passes specific parameters
     - analyze_task_knowledge_impact: Full orchestration
@@ -765,22 +764,6 @@ class TasksService(
             Result containing created Task
         """
         return await self.core.create_task(task_request, user_uid)
-
-    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Task | None]]:
-        """
-        Get multiple tasks in one batched query.
-
-        Critical for GraphQL DataLoader batching to prevent N+1 queries.
-
-        Args:
-            uids: List of task UIDs to fetch
-
-        Returns:
-            Result containing list of Tasks (None for missing UIDs)
-            Entities returned in same order as input UIDs
-        """
-        # Access backend through BaseService
-        return await self.backend.get_many(uids)
 
     # complete_task_with_cascade is provided by _OrchestrationMixin
 

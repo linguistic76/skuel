@@ -56,8 +56,8 @@ class EventBusOperations(Protocol):
         """
         Unsubscribe a previously-registered handler.
 
-        Required for subscription lifecycles (e.g. GraphQL subscriptions)
-        that need to detach handlers when the subscription ends.
+        Required for handler lifecycles that need to detach when a subscriber
+        (e.g. a background worker or recorder) is torn down.
 
         Args:
             event_type: Event class to unsubscribe from

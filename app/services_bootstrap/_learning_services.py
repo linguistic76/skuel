@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING, Any
 
-from core.constants import MasteryLevel
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 
@@ -157,13 +156,6 @@ def _create_learning_services(
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
     # This allows intelligence_factory to be passed at construction time (not post-wired)
 
-    # Create cross-domain service (circular import resolved via adaptive_lp_models.py)
-    from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
-        AdaptiveLpCrossDomainService,
-    )
-
-    cross_domain_service = AdaptiveLpCrossDomainService(MasteryLevel.BEGINNER)
-
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade
         "atomic_ku_service": atomic_ku_service,
@@ -172,7 +164,6 @@ def _create_learning_services(
         "learning_paths": learning_paths,
         "ps": ps_service,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
-        "cross_domain": cross_domain_service,
         "activity_knowledge_intelligence": activity_knowledge_intelligence,
         "embeddings_service": embeddings_service,  # For intelligence services
         "vector_search_service": vector_search_service,  # For semantic search

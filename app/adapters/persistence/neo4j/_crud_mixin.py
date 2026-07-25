@@ -300,8 +300,6 @@ class _CrudMixin[T: DomainModelProtocol]:
         This method prevents N+1 query problems by fetching all requested
         entities in ONE database roundtrip using Neo4j's WHERE IN clause.
 
-        **Critical for GraphQL DataLoader batching!**
-
         Args:
             uids: List of entity UIDs to fetch
 

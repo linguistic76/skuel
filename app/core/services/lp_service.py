@@ -96,7 +96,7 @@ class LpService:
     - Progress: Progress tracking (event-driven)
 
     Explicit Delegations:
-    - Core: create_path_from_knowledge_units, create_path, get_learning_paths_batch,
+    - Core: create_path_from_knowledge_units, create_path,
             get_learning_path, list_user_paths, list_all_paths, get_path_steps,
             get_current_step, update_path, delete_path
     - Intelligence: validate_path_prerequisites, identify_path_blockers,
@@ -230,10 +230,6 @@ class LpService:
             steps=steps,
             domain=domain,
         )
-
-    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPath | None]]:
-        """Get multiple learning paths in one query."""
-        return await self.core.get_learning_paths_batch(uids)
 
     async def get_learning_path(self, uid: str) -> Result[LearningPath | None]:
         """Get a learning path by UID."""

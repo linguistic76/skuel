@@ -53,8 +53,6 @@ dependencies = [
     "websockets>=16.1.1",
     "python-slugify>=8.0.4",
     "bcrypt>=5.0.0",
-    # GraphQL API - For complex nested queries (read-only)
-    "strawberry-graphql>=0.316.0",
     "weasyprint>=69.0",
     "prometheus-client>=0.25.0",
     "resend>=2.30.1",
@@ -322,8 +320,6 @@ module = [
     "anthropic.*",
     "rdflib.*",
     "psutil.*",
-    "strawberry.*",
-    "graphql.*",
     "huggingface_hub.*",
     "vulture.*",
 ]
@@ -336,13 +332,6 @@ module = ["config"]
 disallow_any_generics = true
 disallow_untyped_defs = true
 warn_return_any = true
-
-[[tool.mypy.overrides]]
-# GraphQL schema files - Strawberry generates __init__ methods dynamically
-# MyPy doesn't understand Strawberry's @strawberry.type decorator
-module = ["adapters.inbound.graphql.*"]
-disable_error_code = ["call-arg", "misc"]  # Disable constructor argument checking for Strawberry types
-warn_return_any = false
 
 [[tool.mypy.overrides]]
 # Tests and scripts — check_untyped_defs enforced (2026-05-17).
@@ -502,11 +491,6 @@ filterwarnings = [
     # Will be fixed when testcontainers migrates to structured wait strategies
     "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning:testcontainers",
     "ignore:The wait_for_logs function with string or callable predicates is deprecated:DeprecationWarning:testcontainers",
-    # Strawberry GraphQL framework internal deprecation (functools.py:995)
-    # Warnings come from Strawberry's internal decorator processing, not SKUEL code
-    # SKUEL code correctly uses Info[GraphQLContext, Any] pattern
-    # Issue: https://github.com/strawberry-graphql/strawberry/issues/2851 (partially fixed in 0.288.1)
-    "ignore:Argument name-based matching of 'info' is deprecated:DeprecationWarning",
     # Suppress AsyncMock internal cleanup warnings (false positives from unittest.mock)
     "ignore::RuntimeWarning:unittest.mock",
 ]
@@ -713,7 +697,6 @@ fixable = ["ALL"]
 "scripts/*.py" = ["E402", "ARG", "RUF001", "RUF002", "RUF003"]  # Scripts: setup imports, CLI emoji
 
 # Infrastructure files - intentional Unicode in documentation
-"test_graphql_complexity.py" = ["RUF001", "RUF003"]  # GraphQL tests use × multiplication symbol
 "core/services/journal_core_service.py" = ["RUF001"]  # Journal service uses Unicode symbols
 "core/services/audio_transcription_service.py" = ["RUF001"]  # Emojis in log messages for readability (✅⚠️ℹ️)
 "adapters/inbound/auth/session.py" = ["RUF001"]  # Session management uses Unicode indicators
@@ -743,9 +726,6 @@ fixable = ["ALL"]
 # Core utilities - various patterns
 "core/utils/api_responses.py" = ["B021", "F822"]  # f-string docstrings + legacy re-exports
 "core/models/relationships/*.py" = ["F822", "ARG003", "PERF401"]  # Re-exports + class methods + performance patterns
-
-# GraphQL schema - Strawberry patterns
-"adapters/inbound/graphql/*.py" = ["RUF001", "ARG", "F811", "F822", "PERF", "SIM105"]  # Framework patterns
 
 # Core models - query models have protocol-based interfaces
 "core/models/query/_query_models.py" = ["ARG001"]  # Query model protocols need consistent signatures

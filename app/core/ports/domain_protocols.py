@@ -188,10 +188,6 @@ class TasksOperations(
         """Complete a task (StatusRouteFactory compatible)."""
         ...
 
-    async def get_tasks_batch(self, uids: list[str]) -> Result[list[Task | None]]:
-        """Batch load multiple tasks by UIDs."""
-        ...
-
     async def get_user_assigned_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get tasks assigned to a user."""
         ...

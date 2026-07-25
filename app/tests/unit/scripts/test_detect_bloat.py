@@ -736,14 +736,6 @@ def test_live_properties_and_handlers_never_flagged(live_methods):
         assert name not in flagged, f"{name} must not be flagged"
 
 
-def test_live_by_reference_usage_never_flagged(live_methods):
-    # get_path_steps_batch is passed by reference to the GraphQL batch loader
-    # (adapters/inbound/graphql/context.py) — a manual call-parens grep called
-    # it dead; vulture's attribute-read semantics know better.
-    flagged = {f.subject for f in live_methods.findings}
-    assert "get_path_steps_batch" not in flagged
-
-
 def test_live_template_dispatched_methods_suppressed_or_absent(live_methods):
     # Names constructed by query_route_factory templates must never surface
     # as findings — either not candidates at all or suppressed with a reason.

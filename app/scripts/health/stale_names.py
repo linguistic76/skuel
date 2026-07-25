@@ -120,9 +120,6 @@ RENAMED: dict[str, str] = {
     "from core.models.journal": "from core.models.user_entry",
     "from core.events.submission_events": "from core.events.learning_loop_events",
     "from core.events.journal_events": "from core.events.learning_loop_events",
-    # GraphQL adapter relocation (2026-05-27, #85): top-level routes/ → adapters/inbound/
-    "routes.graphql": "adapters.inbound.graphql",
-    "routes/graphql": "adapters/inbound/graphql",
 }
 
 # ── Deleted identifiers ──────────────────────────────────────────────────────

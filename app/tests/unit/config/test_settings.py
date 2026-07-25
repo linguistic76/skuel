@@ -31,7 +31,6 @@ def mock_unified_config():
         CacheConfig,
         DatabaseConfig,
         Environment,
-        GraphQLConfig,
         KnowledgeConfig,
         MessageQueueConfig,
         SearchConfig,
@@ -41,7 +40,6 @@ def mock_unified_config():
     mock_config = MagicMock()
     mock_config.environment = Environment.LOCAL
     mock_config.api = APIConfig(host="127.0.0.1", port=8080)
-    mock_config.graphql = GraphQLConfig(enabled=True)
     mock_config.database = DatabaseConfig(
         neo4j_uri="neo4j://localhost:7687",
         neo4j_username="neo4j",

@@ -25,9 +25,6 @@ if TYPE_CHECKING:
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.ports.service_protocols import LateralRelationshipOperations
-    from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
-        AdaptiveLpCrossDomainService,
-    )
     from core.services.admin_stats_service import AdminStatsService
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
@@ -163,7 +160,8 @@ class Services:
         None  # Knowledge intelligence for all 6 activity domains (March 2026)
     )
     # adaptive_sel removed — absorbed into PsService.adaptive (February 2026)
-    cross_domain: "AdaptiveLpCrossDomainService | None" = None
+    # cross_domain (AdaptiveLpCrossDomainService) removed with the GraphQL fold —
+    # its only consumer was the discover_cross_domain resolver.
 
     # Content services
     content_enrichment: "ContentEnrichmentService | None" = None

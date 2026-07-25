@@ -24,7 +24,6 @@ from core.config.unified_config import (
     CacheConfig,
     DatabaseConfig,
     Environment,
-    GraphQLConfig,
     KnowledgeConfig,
     MessageQueueConfig,
     SchemaVersion,
@@ -270,7 +269,6 @@ class TestUnifiedConfig:
         """Test UnifiedConfig contains all sub-configurations."""
         config = UnifiedConfig()
         assert isinstance(config.api, APIConfig)
-        assert isinstance(config.graphql, GraphQLConfig)
         assert isinstance(config.database, DatabaseConfig)
         assert isinstance(config.cache, CacheConfig)
         assert isinstance(config.message_queue, MessageQueueConfig)

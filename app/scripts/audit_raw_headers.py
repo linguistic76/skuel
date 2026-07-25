@@ -44,7 +44,6 @@ ALLOWED_H1: frozenset[str] = frozenset(
         "ui/patterns/section_header.py",  # defines SectionHeader itself
         "ui/system/landing.py",  # hero H1 — intentionally branded (5xl)
         "ui/auth/components.py",  # "SKUEL" brand mark — intentionally styled
-        "adapters/inbound/graphql_routes.py",  # GraphQL Playground — admin debug, not user-facing
         "adapters/inbound/auth_api.py",  # admin debug pages — not user-facing
         "ui/today/page.py",  # 44px planning board headline — intentionally
         # larger than PageHeader for dense layout
@@ -67,7 +66,6 @@ ALLOWED_H2: frozenset[str] = frozenset(
         "ui/explore/ps_detail.py",  # "The idea" / "Tasks from this step" —
         # styled as section_label (text-xs uppercase),
         # not SectionHeader; serves ARIA aria-labelledby
-        "adapters/inbound/graphql_routes.py",
         "adapters/inbound/auth_api.py",
         "ui/calendar/components.py",  # modal dialog title — semantic H2 required
         # for ARIA aria-labelledby on AlpineModal;
