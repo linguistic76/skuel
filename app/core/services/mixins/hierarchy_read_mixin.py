@@ -43,7 +43,10 @@ class HierarchyReadMixin[B: HierarchicalBackendOperations, T: DomainModelProtoco
     _model_class: type[T] | None
 
     if TYPE_CHECKING:
-        # Provided at runtime by ConversionHelpersMixin (via BaseService MRO).
+        # Provided at runtime by ConversionHelpersMixin (via BaseService MRO). The
+        # signature must match that method exactly (an incompatible declaration would
+        # be an MRO override error), so `data` stays Any:
+        # boundary: mirrors ConversionHelpersMixin._to_domain_model — accepts model | DTO | dict.
         def _to_domain_model(
             self, data: Any, dto_class: type[DTOProtocol], model_class: type[T]
         ) -> T: ...
@@ -109,6 +112,14 @@ class HierarchyReadMixin[B: HierarchicalBackendOperations, T: DomainModelProtoco
 
         Backend: ``BackendOperations.get_hierarchy_raw`` (typed models — not to be
         confused with ``RelationshipOperationsMixin.get_hierarchy``).
+
+        Return shape (a genuinely heterogeneous map — ``list[T]`` / ``T`` / ``int``):
+        ``{"ancestors": list[T], "current": T, "siblings": list[T], "children": list[T],
+        "depth": int}``.
+        boundary: dict[str, Any] is the domain-agnostic contract consumed by the shared
+        hierarchy API factory (``Callable[[str], Awaitable[Result[dict[str, Any]]]]``, which
+        JSON-serializes it); a generic TypedDict is not a subtype of that dict (PEP 589) and
+        would only be unwrapped back at the factory boundary.
         """
         classes = self._ensure_conversion_classes()
         if classes.is_error:
