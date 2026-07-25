@@ -1020,3 +1020,54 @@ def build_prerequisite_traversal_query(
     """
 
     return query, {"uid": uid}
+
+
+def build_prerequisite_chain_query(
+    label: NeoLabel,
+    uid: str,
+    relationship_types: list[str],
+    depth: int = 3,
+) -> tuple[str, dict[str, Neo4jValue]]:
+    """
+    Build a flat, distance-annotated prerequisite-chain query.
+
+    Unlike :func:`build_prerequisite_traversal_query` (which drops ``distance`` at
+    ``RETURN n``), this returns each *distinct* prerequisite paired with its
+    **minimum** hop distance from the start node — so a node reachable by several
+    paths (diamond dependency) appears exactly once, at its nearest distance.
+    That min-distance dedup is what makes downstream totals honest: counting the
+    returned rows is a true count of distinct prerequisites, with no double-count.
+
+    Always traverses outgoing (start → prerequisites), nearest-first.
+
+    Args:
+        label: Neo4j node label
+        uid: Starting entity UID
+        relationship_types: Prerequisite relationship type strings (any of them
+            may connect a hop; e.g. ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"])
+        depth: Maximum traversal depth (1-10)
+
+    Returns:
+        Tuple of (cypher_query, parameters). Each record has keys ``uid``,
+        ``title``, ``domain``, ``entity_type`` and ``distance`` (int, ≥1),
+        ordered by distance ascending. Fields are projected directly (not the
+        node) so heterogeneous prerequisite types — Ku *and* PathStep — return
+        uniformly without per-type model construction.
+    """
+    rel_pattern = "|".join(relationship_types)
+    arrow = direction_clause("outgoing", None, f"{rel_pattern}*1..{depth}")
+    # `WHERE n <> start` guards against a prerequisite cycle (A→B→A) binding the
+    # traversal back to the start node — which would otherwise return the requested
+    # entity as its own prerequisite and inflate the totals. (link_prerequisite does
+    # not reject cycles, so the query must.)
+    query = f"""
+    MATCH (start:{label} {{uid: $uid}})
+    MATCH path = (start){arrow}(n:{label})
+    WHERE n <> start
+    WITH n, min(length(path)) AS distance
+    RETURN n.uid AS uid, n.title AS title, n.domain AS domain,
+           n.entity_type AS entity_type, distance
+    ORDER BY distance ASC
+    """
+
+    return query, {"uid": uid}

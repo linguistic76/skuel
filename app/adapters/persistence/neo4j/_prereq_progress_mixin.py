@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
+from core.ports.query_types import PrerequisiteChainRow
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Result
 
@@ -51,6 +52,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
         ) -> list[dict[str, Any]]: ...
 
         label: NeoLabel
+        base_label: NeoLabel | None
         entity_class: type[T]
 
     @safe_backend_operation("prerequisite_traversal")
@@ -89,6 +91,62 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
 
         records = await self._run_records(cypher_query, params)
         return Result.ok([from_neo4j_node(record["n"], self.entity_class) for record in records])
+
+    @safe_backend_operation("prerequisite_chain_with_distance")
+    async def prerequisite_chain_with_distance(
+        self,
+        uid: str,
+        relationship_types: builtins.list[str],
+        depth: int = 3,
+    ) -> Result[builtins.list[PrerequisiteChainRow]]:
+        """
+        Traverse the prerequisite chain and return each node with its hop distance.
+
+        The distance-carrying sibling of :meth:`prerequisite_traversal`: uses a
+        min-distance-deduped query so a node reachable by multiple paths appears
+        once, at its nearest distance.
+
+        Prerequisites are matched on the **base** label (``:Entity``) rather than
+        the domain label, so a REQUIRES_KNOWLEDGE edge terminating at a Ku is
+        included — not just PathStep→PathStep hops. Because the result is
+        heterogeneous (Ku *and* PathStep), it is returned as a projected
+        :class:`PrerequisiteChainRow` (uid/title/domain/entity_type/distance)
+        rather than a single-type domain model — the chain read needs identity +
+        distance, not full models, and mapping a Ku into a PathStep would fail
+        the entity_type guard.
+
+        Args:
+            uid: Entity UID to start from
+            relationship_types: Prerequisite relationship type strings (any may
+                connect a hop — e.g. REQUIRES_STEP and REQUIRES_KNOWLEDGE)
+            depth: Maximum traversal depth (1-10)
+
+        Returns:
+            Result[list[PrerequisiteChainRow]]: projected prerequisite rows,
+            nearest-first.
+        """
+        from adapters.persistence.neo4j.query.cypher import build_prerequisite_chain_query
+
+        cypher_query, params = build_prerequisite_chain_query(
+            label=self.base_label or self.label,
+            uid=uid,
+            relationship_types=relationship_types,
+            depth=depth,
+        )
+
+        records = await self._run_records(cypher_query, params)
+        return Result.ok(
+            [
+                PrerequisiteChainRow(
+                    uid=record["uid"],
+                    title=record["title"] or "",
+                    domain=record["domain"] or "",
+                    entity_type=record["entity_type"] or "",
+                    distance=int(record["distance"]),
+                )
+                for record in records
+            ]
+        )
 
     @safe_backend_operation("hierarchy_query_raw")
     async def hierarchy_query_raw(

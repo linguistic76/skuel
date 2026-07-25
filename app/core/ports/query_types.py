@@ -1000,6 +1000,79 @@ class ProgressResult(TypedDict, total=False):
     milestone_completed: bool
 
 
+class PrerequisiteChainRow(TypedDict):
+    """Backend projection for one node in the prerequisite chain.
+
+    Projected fields (not a full domain model), so heterogeneous prerequisite
+    types — Ku and PathStep alike — return uniformly. Emitted by
+    ``UniversalNeo4jBackend.prerequisite_chain_with_distance``.
+
+    Fields:
+        uid: Prerequisite entity UID
+        title: Display title
+        domain: Stored domain value (empty string if unset)
+        entity_type: Stored entity_type value (e.g. "ku", "path_step")
+        distance: Minimum hop distance from the target (≥1; nearest-first)
+    """
+
+    uid: str
+    title: str
+    domain: str
+    entity_type: str
+    distance: int
+
+
+class PrerequisiteChainNode(TypedDict):
+    """One prerequisite in a flat, distance-annotated chain (API response).
+
+    Emitted by the ``/api/path-steps/prerequisites`` chain read: a
+    :class:`PrerequisiteChainRow` plus the caller's mastery annotation.
+
+    Fields:
+        uid: Prerequisite entity UID
+        title: Display title
+        domain: Domain/category label (empty string if unset)
+        entity_type: Stored entity_type value ("ku" vs "path_step" lets a
+            consumer distinguish a knowledge prerequisite from a step one)
+        distance: Minimum hop distance from the target (≥1; nearest-first)
+        is_mastered: Whether the requesting user has mastered this node
+    """
+
+    uid: str
+    title: str
+    domain: str
+    entity_type: str
+    distance: int
+    is_mastered: bool
+
+
+class PrerequisiteChainData(TypedDict):
+    """Flat, distance-annotated prerequisite chain for a path step.
+
+    The transitive rebuild of the former GraphQL ``prerequisite_chain`` tree:
+    one variable-length traversal (spanning REQUIRES_STEP + REQUIRES_KNOWLEDGE),
+    min-distance deduped so totals never double-count a diamond dependency.
+    Mastery is annotated for the requesting user only.
+
+    Fields:
+        step_uid: The target path step
+        depth: Traversal depth actually used (clamped 1-10)
+        prerequisites: Chain nodes, nearest-first
+        total_prerequisites: Count of distinct prerequisites
+        prerequisites_mastered: How many the user has mastered
+        unmet_count: total_prerequisites - prerequisites_mastered
+        has_prerequisites: Whether any prerequisites exist
+    """
+
+    step_uid: str
+    depth: int
+    prerequisites: list[PrerequisiteChainNode]
+    total_prerequisites: int
+    prerequisites_mastered: int
+    unmet_count: int
+    has_prerequisites: bool
+
+
 class IntelligenceResult(TypedDict, total=False):
     """
     Result structure for intelligence/analytics operations.
@@ -3302,6 +3375,9 @@ __all__ = [
     "OverdueTasksWarning",
     "WorkloadWarning",
     "ProgressResult",
+    "PrerequisiteChainRow",
+    "PrerequisiteChainNode",
+    "PrerequisiteChainData",
     "IntelligenceResult",
     "ListContext",
     # User Context Service Response Types - Nested Structures

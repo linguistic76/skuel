@@ -15,6 +15,7 @@ Infrastructure Functions (January 2026):
 - build_distinct_values_query: Get distinct field values (categories)
 - build_hierarchy_query: Parent/child hierarchy traversal
 - build_prerequisite_traversal_query: Prerequisite chains (both directions)
+- build_prerequisite_chain_query: Flat, distance-annotated prerequisite chain (min-distance deduped)
 
 Usage:
     from adapters.persistence.neo4j.query.cypher import build_search_query, build_text_search_query
@@ -50,6 +51,7 @@ from .crud_queries import (
     build_graph_aware_search_query,
     build_hierarchy_query,
     build_list_query,
+    build_prerequisite_chain_query,
     build_prerequisite_traversal_query,
     build_relationship_traversal_query,
     build_search_query,
@@ -162,6 +164,7 @@ __all__ = [
     "build_habit_with_context",
     "build_hierarchical_context",
     "build_hierarchy_query",
+    "build_prerequisite_chain_query",
     # Intelligence queries - hybrid
     "build_hybrid_knowledge_search",
     "build_impact_chain_query",

@@ -32,6 +32,7 @@ from core.models.enums import Domain, LearningLevel, SELCategory
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
+from core.models.relationship_names import RelationshipName
 
 # ============================================================================
 # FIXTURES
@@ -838,3 +839,140 @@ class TestCurriculumContextBuilder:
         assert len(context.active_goal_uids) == 1
         assert "goal:learn_python" in context.active_goal_uids
         assert context.goal_progress["goal:learn_python"] == 0.7
+
+
+# ============================================================================
+# PREREQUISITE CHAIN (distance-annotated, min-distance deduped)
+# ============================================================================
+
+
+class TestPrerequisiteChainWithDistance:
+    """Real-graph coverage for the distance-carrying prerequisite chain.
+
+    The mock-based route tests can't exercise the Cypher itself: multi-hop
+    distance, the REQUIRES_STEP|REQUIRES_KNOWLEDGE multi-type pattern, and the
+    ``min(length(path))`` diamond dedup that makes the totals honest. This does.
+    """
+
+    @pytest.mark.asyncio
+    async def test_diamond_dedup_min_distance_and_ku_prerequisite(
+        self, ps_backend, neo4j_driver, clean_curriculum
+    ) -> None:
+        """A node reachable by several paths appears once, at its nearest distance —
+        and a REQUIRES_KNOWLEDGE edge terminating at a *Ku* (not a PathStep) is
+        included, because the chain matches on the base :Entity label.
+        """
+        # A, B, C are PathSteps; D is a **Ku** (the shared knowledge prerequisite):
+        #   A -REQUIRES_STEP->      B (PathStep)
+        #   A -REQUIRES_KNOWLEDGE-> C (PathStep)
+        #   B -REQUIRES_KNOWLEDGE-> D (Ku)   (D via B = distance 2)
+        #   C -REQUIRES_KNOWLEDGE-> D (Ku)   (D via C = distance 2)
+        #   A -REQUIRES_KNOWLEDGE-> D (Ku)   (D direct  = distance 1)  ← min wins
+        # D being a Ku is the point: with a PathStep-only target match it would be
+        # silently dropped despite the endpoint promising to unify knowledge prereqs.
+        steps = {"A": "ps:chain_a", "B": "ps:chain_b", "C": "ps:chain_c"}
+        for label, uid in steps.items():
+            create = await ps_backend.create(
+                PathStep(uid=uid, title=f"Step {label}", intent=f"intent {label}")
+            )
+            assert create.is_ok, f"Setup failed: could not create {uid}"
+        ku_d = "ku:chain_d"
+
+        step_rel = RelationshipName.REQUIRES_STEP.value
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
+        async with neo4j_driver.session() as session:
+            # D is created as :Entity:Ku (NOT a PathStep) to prove base-label matching.
+            await session.run(
+                f"""
+                MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}}), (c:Entity {{uid:$c}})
+                CREATE (d:Entity:Ku {{uid:$d, title:'Knowledge D', domain:'knowledge',
+                                      entity_type:'ku'}})
+                CREATE (a)-[:{step_rel}]->(b)
+                CREATE (a)-[:{know_rel}]->(c)
+                CREATE (b)-[:{know_rel}]->(d)
+                CREATE (c)-[:{know_rel}]->(d)
+                CREATE (a)-[:{know_rel}]->(d)
+                """,
+                {"a": steps["A"], "b": steps["B"], "c": steps["C"], "d": ku_d},
+            )
+
+        result = await ps_backend.prerequisite_chain_with_distance(
+            uid=steps["A"],
+            relationship_types=[step_rel, know_rel],
+            depth=3,
+        )
+
+        assert result.is_ok, result.error if result.is_error else "unexpected"
+        by_uid = {row["uid"]: row["distance"] for row in result.value}
+        types_by_uid = {row["uid"]: row["entity_type"] for row in result.value}
+
+        # Exactly three DISTINCT prerequisites — D is not double-counted despite
+        # three inbound paths (proves the min(length(path)) dedup).
+        assert len(result.value) == 3
+        assert set(by_uid) == {steps["B"], steps["C"], ku_d}
+        # REQUIRES_STEP is traversed alongside REQUIRES_KNOWLEDGE (B reached via step edge).
+        assert by_uid[steps["B"]] == 1
+        assert by_uid[steps["C"]] == 1
+        # The Ku prerequisite is included, at its nearest distance (direct edge wins over via-B/C).
+        assert by_uid[ku_d] == 1
+        assert types_by_uid[ku_d] == "ku"
+
+    @pytest.mark.asyncio
+    async def test_depth_bounds_the_chain(self, ps_backend, neo4j_driver, clean_curriculum) -> None:
+        """depth=1 yields only immediate prerequisites; deeper nodes are excluded."""
+        chain = ["ps:linear_a", "ps:linear_b", "ps:linear_c"]
+        for i, uid in enumerate(chain):
+            create = await ps_backend.create(PathStep(uid=uid, title=f"Linear {i}"))
+            assert create.is_ok
+
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
+        async with neo4j_driver.session() as session:
+            await session.run(
+                f"""
+                MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}}), (c:Entity {{uid:$c}})
+                CREATE (a)-[:{know_rel}]->(b)
+                CREATE (b)-[:{know_rel}]->(c)
+                """,
+                {"a": chain[0], "b": chain[1], "c": chain[2]},
+            )
+
+        shallow = await ps_backend.prerequisite_chain_with_distance(
+            uid=chain[0], relationship_types=[know_rel], depth=1
+        )
+        deep = await ps_backend.prerequisite_chain_with_distance(
+            uid=chain[0], relationship_types=[know_rel], depth=3
+        )
+
+        assert shallow.is_ok and deep.is_ok
+        assert {row["uid"] for row in shallow.value} == {chain[1]}
+        assert {row["uid"] for row in deep.value} == {chain[1], chain[2]}
+
+    @pytest.mark.asyncio
+    async def test_cycle_excludes_start_node(
+        self, ps_backend, neo4j_driver, clean_curriculum
+    ) -> None:
+        """A prerequisite cycle (A→B→A) must not return A as its own prerequisite."""
+        cycle = ["ps:cycle_a", "ps:cycle_b"]
+        for i, uid in enumerate(cycle):
+            create = await ps_backend.create(PathStep(uid=uid, title=f"Cycle {i}"))
+            assert create.is_ok
+
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
+        async with neo4j_driver.session() as session:
+            await session.run(
+                f"""
+                MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}})
+                CREATE (a)-[:{know_rel}]->(b)
+                CREATE (b)-[:{know_rel}]->(a)
+                """,
+                {"a": cycle[0], "b": cycle[1]},
+            )
+
+        result = await ps_backend.prerequisite_chain_with_distance(
+            uid=cycle[0], relationship_types=[know_rel], depth=3
+        )
+
+        assert result.is_ok
+        uids = {row["uid"] for row in result.value}
+        # B is a prerequisite; A is NOT returned as its own prerequisite despite the cycle.
+        assert uids == {cycle[1]}
