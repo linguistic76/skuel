@@ -150,7 +150,13 @@ On auto-pause: Aura Free pauses after ~72 hours **without connections** — a we
 
 Saved discussions (`:ConversationSession`) are **never** pruned — explicitly-saved user content, not telemetry. Windows/batch size: `/core/constants.py` `TelemetryRetention`. Dry-run first from any shell: `docker compose … exec -T skuel-app python scripts/telemetry_retention.py --dry-run`.
 
-If the Prometheus alerts `AuraNodeCapApproaching` / `AuraRelationshipCapApproaching` fire (80% of cap on the `skuel_total_entities` / `skuel_total_relationships` gauges, `/monitoring/prometheus/alerts.yml`): run retention, review growth with `./dev knowledge-health`, and consider tightening the invite gate or moving to a paid tier.
+**Cap watch (production evaluator):** the Prometheus cap alerts evaluate only in the dev stack — in production the app itself is the evaluator. The 5-min graph-health poller compares each freshly polled count against the caps (`core/infrastructure/monitoring/aura_cap_check.py`, thresholds in `core/constants.py` `AuraDBCaps`) and logs **WARNING above 80% / ERROR above 95% of cap, every cycle** while over threshold:
+
+```bash
+docker compose -f docker-compose.production.yml logs skuel-app | grep 'AuraDB cap'
+```
+
+When the Sunday cron runs, also verify the totals directly (weekly manual check): `docker compose exec skuel-app curl -s localhost:5001/metrics | grep -E 'skuel_total_(entities|relationships) '`. On either signal: run retention, review growth with `./dev knowledge-health`, and consider tightening the invite gate or moving to a paid tier.
 
 ### Backups: Aura snapshots + count exports
 
@@ -232,7 +238,7 @@ The expel step matters: `:rollback` means gate-passed, not good. Without it the 
 | Client IPs behind proxy | `proxy_headers=True` + `FORWARDED_ALLOW_IPS` in `main.py` | `FORWARDED_ALLOW_IPS` |
 | Session cookies | `https_only` + `SameSite=Strict` in production; boot fails without `SESSION_SECRET_KEY` | `SESSION_SECRET_KEY` in secrets.env |
 | Password reset email | Resend; boot fails fast when enabled without the key | `EMAIL_ENABLED`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_URL` |
-| Node cap | weekly retention cron + 80%-of-cap Prometheus alerts | see above |
+| Node cap | weekly retention cron + in-app 80%/95%-of-cap poller logging (`AuraDBCaps`; the Prometheus cap alerts are dev-only) | see above |
 
 Deferred (tracked in [security-hardening-deferred.md](../roadmap/security-hardening-deferred.md) and ADR-080): per-user daily LLM quotas, session invalidation on role change, CSP enforcement, email verification/CAPTCHA, `pip-audit` in CI, mid-request Aura-pause resilience.
 

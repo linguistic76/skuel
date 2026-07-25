@@ -1008,6 +1008,42 @@ class TelemetryRetention:
 
 
 # ============================================================================
+# AURADB GRAPH-SIZE CAPS (ADR-080 — production cap evaluation, ruled 2026-07-25)
+# ============================================================================
+
+
+class AuraDBCaps:
+    """AuraDB Free graph-size caps and the in-app cap-approach thresholds.
+
+    AuraDB Free rejects writes AT the cap: 200k nodes / 400k relationships
+    (Aura FAQ, verified 2026-07-24 — the 50k/175k figures still on the product
+    page are the stale 2021 launch limits). Production runs no Prometheus
+    (PR #803 posture), so the ``AuraNodeCapApproaching`` /
+    ``AuraRelationshipCapApproaching`` alert rules never observe AuraDB — the
+    in-app check fed by the 5-min graph-health poller
+    (``check_aura_cap_headroom``, ``core/infrastructure/monitoring/``) is the
+    evaluator that guards the caps where they bind. Dev keeps the alert rules;
+    ``tests/unit/test_metric_reference_drift.py`` pins the WARNING thresholds
+    to the alert expressions so the two evaluators never drift.
+
+    Remediation at threshold: ``./dev telemetry-retention``, review growth
+    with ``./dev knowledge-health``, consider the invite gate / paid tier.
+    """
+
+    NODE_CAP: Final = 200_000
+    RELATIONSHIP_CAP: Final = 400_000
+
+    # 80% of cap is the act-now line (same thresholds as the Prometheus alert
+    # rules); 95% escalates to ERROR — writes may start failing before the
+    # next weekly check. Integer arithmetic: float ratios truncate wrong
+    # (int(200_000 * 0.95) == 189_999).
+    WARNING_NODES: Final = NODE_CAP * 80 // 100
+    WARNING_RELATIONSHIPS: Final = RELATIONSHIP_CAP * 80 // 100
+    ERROR_NODES: Final = NODE_CAP * 95 // 100
+    ERROR_RELATIONSHIPS: Final = RELATIONSHIP_CAP * 95 // 100
+
+
+# ============================================================================
 # NEO4J STARTUP CONNECT-RETRY (ADR-080 Horizon 0 — paused/waking AuraDB Free)
 # ============================================================================
 

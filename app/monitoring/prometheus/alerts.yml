@@ -132,6 +132,10 @@ groups:
       # start failing AT the cap, so 80% is the act-now line: prune telemetry
       # (./dev telemetry-retention) or trim the graph before growth resumes.
       # Gauges are set by the 5-min graph-health poller (scripts/dev/bootstrap.py).
+      # These rules evaluate only in dev; the PRODUCTION evaluator is the in-app
+      # check fed by the same poller (core/infrastructure/monitoring/aura_cap_check.py,
+      # thresholds in core/constants.py AuraDBCaps — drift-pinned to these exprs
+      # by tests/unit/test_metric_reference_drift.py).
       - alert: AuraNodeCapApproaching
         expr: skuel_total_entities > 160000
         for: 10m

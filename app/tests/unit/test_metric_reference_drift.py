@@ -165,3 +165,29 @@ def test_allowlisted_group_names_are_excluded() -> None:
     text = "- name: skuel_critical\n  expr: skuel_http_errors_total > 0"
     extracted = extract_references(text, "alerts.yml")
     assert extracted == [("skuel_http_errors_total", "alerts.yml")]
+
+
+def test_cap_alert_thresholds_match_python_constants() -> None:
+    """The two AuraDB cap evaluators must agree on the 80%-of-cap thresholds.
+
+    The alert rules (dev-only Prometheus) and the in-app poller check
+    (``check_aura_cap_headroom`` — the production evaluator, since production
+    runs no Prometheus) read the same counts against the same line. The
+    thresholds live in ``AuraDBCaps`` for Python and as literals in the alert
+    exprs; this pin is what makes editing one without the other a test failure
+    instead of silent drift.
+    """
+    from core.constants import AuraDBCaps
+
+    text = ALERTS_FILE.read_text()
+    expected = {
+        "skuel_total_entities": AuraDBCaps.WARNING_NODES,
+        "skuel_total_relationships": AuraDBCaps.WARNING_RELATIONSHIPS,
+    }
+    for metric, threshold in expected.items():
+        exprs = re.findall(rf"{metric}\s*>\s*(\d+)", text)
+        assert exprs, f"no cap-alert expr for {metric} found in {ALERTS_FILE}"
+        assert [int(e) for e in exprs] == [threshold], (
+            f"{metric} alert threshold {exprs} != AuraDBCaps value {threshold} — "
+            "update core/constants.py and monitoring/prometheus/alerts.yml together"
+        )

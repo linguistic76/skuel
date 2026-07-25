@@ -42,15 +42,31 @@ Alert rules run wherever Prometheus runs — and **Prometheus runs only in the d
 (`./dev up-monitoring`), scraping the dev app backed by **local Docker Neo4j**. The production
 droplet runs no Prometheus (PR #803 posture: app + Caddy only, `/metrics` blocked publicly).
 
-Consequence: the AuraDB cap alerts do **not** currently observe AuraDB. Production cap
-monitoring is a manual cadence until a production evaluation posture is decided — and the
-only surface that reports the values the caps actually constrain is the on-droplet app's
-own gauges (the graph-health poller runs in the production app process too):
+Consequence: the AuraDB cap alert rules do **not** observe AuraDB. The **production
+evaluation posture** (ruled 2026-07-25) is a two-part answer:
 
-```bash
-docker compose exec skuel-app curl -s localhost:5001/metrics \
-  | grep -E 'skuel_total_(entities|relationships) '
-```
+1. **In-app evaluator** — the 5-min graph-health poller feeds each freshly polled count
+   through `check_aura_cap_headroom()` (`core/infrastructure/monitoring/aura_cap_check.py`):
+   WARNING above 80% of cap, ERROR above 95%, logged **every cycle** while over threshold so
+   any log tail surfaces it. Thresholds live in `core/constants.py` `AuraDBCaps` and are
+   drift-pinned to the alert exprs by `tests/unit/test_metric_reference_drift.py`. Grep:
+
+   ```bash
+   docker compose logs skuel-app | grep 'AuraDB cap'
+   ```
+
+2. **Weekly manual verification** — read the gauges when the Sunday telemetry-retention
+   cron runs (same rhythm, see DO_MIGRATION_GUIDE § Operations Runbook):
+
+   ```bash
+   docker compose exec skuel-app curl -s localhost:5001/metrics \
+     | grep -E 'skuel_total_(entities|relationships) '
+   ```
+
+A headless droplet Prometheus was considered and **deferred**: without Alertmanager (see
+§ Alertmanager below) it would evaluate alerts nobody sees — its UI sits on a firewalled
+port — while adding a resident TSDB to a small droplet. Revisit only under the Alertmanager
+trigger (a production Prometheus with unattended alerting genuinely wanted).
 
 **Timing caveat**: the poller runs its first pass at startup (poll-first loop), so the
 gauges populate within seconds of boot. If a reading looks wrong right after a restart,
@@ -157,8 +173,10 @@ skuel_total_entities > 160000
 
 **AuraDB Free cap context**: 200k nodes / 400k relationships; writes start failing AT the cap,
 so 80% is the act-now line. The gauges come from the 5-min graph-health poller
-(`scripts/dev/bootstrap.py`). See § Where Alerts Actually Evaluate — these rules only watch
-AuraDB if Prometheus is pointed at an app connected to it.
+(`scripts/dev/bootstrap.py`). These rules evaluate only in dev — in production the same
+counts are evaluated in-app every poll cycle (`check_aura_cap_headroom`: WARNING above 80%,
+ERROR above 95%; thresholds in `AuraDBCaps`, drift-pinned to these exprs). See § Where
+Alerts Actually Evaluate.
 
 **Runbook**:
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service

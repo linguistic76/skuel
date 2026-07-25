@@ -220,8 +220,12 @@ docker compose exec skuel-app curl -s localhost:5001/metrics
 ```
 
 Consequence: alert rules evaluate only where Prometheus runs — the dev monitoring profile,
-scraping a dev app backed by local Docker Neo4j. See the prometheus-grafana skill's
-ALERTING.md § Where Alerts Actually Evaluate.
+scraping a dev app backed by local Docker Neo4j. The AuraDB cap alerts have an in-app
+production counterpart: the graph-health poller feeds its counts through
+`check_aura_cap_headroom()` (WARNING above 80% of cap, ERROR above 95% — thresholds in
+`core/constants.py` `AuraDBCaps`, drift-pinned to the alert exprs), so the caps are guarded
+where they bind, without Prometheus. See the prometheus-grafana skill's ALERTING.md § Where
+Alerts Actually Evaluate.
 
 ---
 
