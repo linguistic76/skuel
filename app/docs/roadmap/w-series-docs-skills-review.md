@@ -26,7 +26,7 @@ token (`ai_service`) is mostly **NOT** stale.
 - **`base_ai_service.py`** — still exists (base class for domain AI services). Every reference is valid.
 - **`{domain}_ai_service.py`** (`tasks_ai_service.py`, `ps_ai_service.py`, `lp_ai_service.py`, …) — all still exist. Valid.
 - **`ai_service=ps_ai_service`** style (e.g. `curriculum-domains/QUICK_REFERENCE.md`) — this is the `.ai` **facade sub-service** param, unrelated to the deleted `OpenAIService`. Valid.
-- **Historical records**: ADRs describe a decision *at its time*; migration docs (`NEO4J_GENAI_MIGRATION.md`, `DO_MIGRATION_GUIDE.md`, `AURADB_MIGRATION_GUIDE.md`, `GENAI_SETUP.md`, ADR-049) intentionally reference the old GenAI/`text-embedding-3-small` embeddings. Prefer a forward-pointer over a rewrite; don't rewrite history.
+- **Historical records**: ADRs describe a decision *at its time*; migration docs (`NEO4J_GENAI_MIGRATION.md`, `DO_MIGRATION_GUIDE.md`, `AURADB_MIGRATION_GUIDE.md`, ADR-049) intentionally reference the old GenAI/`text-embedding-3-small` embeddings. Prefer a forward-pointer over a rewrite; don't rewrite history. (The former `GENAI_SETUP.md` is no longer historical — rewritten to ADR-068 reality and renamed `EMBEDDINGS_SETUP.md`.)
 
 ### What IS stale (deleted/moved by W1)
 - `OpenAIService` / `AnthropicService` (deleted) → `OpenAIChatAdapter` / `AnthropicChatAdapter` in `adapters/external/llm/`, behind `ChatCompletionPort`.

@@ -136,6 +136,7 @@ nodes.
 ## Related Documentation
 
 - `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md` — provider decision + chokepoint
-- `/docs/development/GENAI_SETUP.md` — setup guide
+- `/docs/decisions/ADR-083-qwen-bge-end-state-commitment.md` — committed end-state + roadmap (v4 = the Arc 3 BGE cutover)
+- `/docs/development/EMBEDDINGS_SETUP.md` — setup guide
 - `/core/services/background/embedding_worker.py` — worker implementation
 - `/scripts/generate_embeddings_batch.py` — backfill (service-mediated, version-aware)

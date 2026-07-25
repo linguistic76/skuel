@@ -46,6 +46,7 @@ from neo4j import AsyncGraphDatabase
 
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 from core.config import create_config
+from core.constants import EmbeddingGeometry
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.scripts.create_vector_indexes")
@@ -69,7 +70,7 @@ PRIORITY_ENTITIES = [
 
 async def create_vector_indexes(
     entity_labels: list[str] | None = None,
-    dimension: int = 1024,
+    dimension: int = EmbeddingGeometry.DIMENSION,
     similarity: str = "cosine",
     recreate: bool = False,
 ) -> None:
@@ -78,7 +79,7 @@ async def create_vector_indexes(
 
     Args:
         entity_labels: List of entity labels (defaults to PRIORITY_ENTITIES)
-        dimension: Vector dimension (default 1024, ADR-068)
+        dimension: Vector dimension (default EmbeddingGeometry.DIMENSION — frozen, ADR-083)
         similarity: Similarity function (default "cosine")
         recreate: Drop each index first (required when dimension changes —
             CREATE ... IF NOT EXISTS never alters an existing index)
@@ -258,9 +259,10 @@ For more information:
     parser.add_argument(
         "--dimension",
         type=int,
-        default=1024,
-        help="Vector dimension (default: 1024 — ADR-068, shared by text-embedding-3-small "
-        "via the API dimensions param and BAAI/bge-large-en-v1.5)",
+        default=EmbeddingGeometry.DIMENSION,
+        help=f"Vector dimension (default: {EmbeddingGeometry.DIMENSION} — "
+        "EmbeddingGeometry.DIMENSION, frozen by ADR-083; shared by "
+        "text-embedding-3-small via the API dimensions param and the staged BGE path)",
     )
 
     parser.add_argument(

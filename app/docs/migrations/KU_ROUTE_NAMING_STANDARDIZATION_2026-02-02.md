@@ -91,7 +91,7 @@ Updated 15+ documentation files:
 - `docs/architecture/knowledge_substance_philosophy.md`
 - `docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md`
 - `docs/architecture/UNIFIED_USER_ARCHITECTURE.md`
-- `docs/development/GENAI_SETUP.md`
+- `docs/development/EMBEDDINGS_SETUP.md` (then `GENAI_SETUP.md`)
 - `PHASE3_TASK3_TYPED_QUERY_PARAMS_COMPLETE.md`
 - `PHASE3_TASK1_UNIVERSAL_VALIDATION_COMPLETE.md`
 

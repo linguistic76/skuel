@@ -33,15 +33,20 @@ import numpy as np
 from huggingface_hub import AsyncInferenceClient
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from core.constants import EmbeddingGeometry
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.adapters.embeddings.huggingface")
 
 # BGE-large-en-v1.5 model facts (single source of truth for this adapter;
-# the consuming service reads them off the port, never from constants).
+# the consuming service reads them off the port, never from constants). The
+# dimension is the exception: it is cross-provider index geometry, frozen in
+# EmbeddingGeometry (ADR-083). Committed target model is BAAI/bge-m3 (also
+# 1024-dim dense, 8192-token context — ADR-083); the model/cap update here
+# lands in Arc 1.
 DEFAULT_MODEL = "BAAI/bge-large-en-v1.5"
-DEFAULT_DIMENSION = 1024
+DEFAULT_DIMENSION = EmbeddingGeometry.DIMENSION
 MAX_INPUT_CHARS = 2000  # ~512 tokens, the BGE model cap (conservative estimate)
 
 

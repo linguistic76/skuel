@@ -263,7 +263,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Core Principle:** "One Path Forward - local Docker for dev, droplet + AuraDB Free for production"
 
-**Local (dev):** Docker-based Neo4j (`bolt://localhost:7687`, `infrastructure/docker-compose.yml`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068, BGE staged long-term).
+**Local (dev):** Docker-based Neo4j (`bolt://localhost:7687`, `infrastructure/docker-compose.yml`). Plugin: APOC (meta only). APOC scoped to `apoc.meta.*` — domain services use pure Cypher (SKUEL001). Embeddings via OpenAI `text-embedding-3-small` @1024 dims (Python-side, no Neo4j plugin; provider chokepoint `create_embedding_client()` — ADR-068). Committed end-state: Qwen chat + BGE-M3 embeddings (ADR-083 — dims frozen at `EmbeddingGeometry.DIMENSION`; no new OpenAI-required assumptions outside the two provider factories).
 
 **Production:** one droplet running `skuel-app` + Caddy (auto-TLS) via `docker-compose.production.yml`, talking to **Neo4j AuraDB Free** over `neo4j+s://` (boot refuses plaintext schemes in production). Deploy via `./dev deploy` (rsync + build + `/health/ready` gate). The former intermediate stage (App Platform + Neo4j droplet) was skipped — see `NEO4J_SETUP_MIGRATION_SUMMARY.md`.
 

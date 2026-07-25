@@ -32,6 +32,7 @@ from __future__ import annotations
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from core.constants import EmbeddingGeometry
 from core.utils.exception_types import OPENAI_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -39,9 +40,11 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.adapters.embeddings.openai")
 
 # text-embedding-3-small model facts (single source of truth for this adapter;
-# the consuming service reads them off the port, never from constants).
+# the consuming service reads them off the port, never from constants). The
+# dimension is the exception: it is cross-provider index geometry, frozen in
+# EmbeddingGeometry (ADR-083).
 DEFAULT_MODEL = "text-embedding-3-small"
-DEFAULT_DIMENSION = 1024  # requested via the API `dimensions` param (native: 1536)
+DEFAULT_DIMENSION = EmbeddingGeometry.DIMENSION  # via the API `dimensions` param (native: 1536)
 MAX_INPUT_CHARS = 24000  # ~6k tokens, well under the 8191-token model cap
 
 

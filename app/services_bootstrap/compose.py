@@ -5,6 +5,7 @@ __version__ = "4.0"  # Entity type + cross-cutting system architecture
 import os
 from typing import TYPE_CHECKING, Any
 
+from core.constants import EmbeddingGeometry
 from core.models.enums.neo_labels import NeoLabel
 from core.ports import EventBusOperations
 from core.utils.logging import get_logger
@@ -190,7 +191,9 @@ async def compose_services(
                 "PathStep",  # PS→PS similarity — "Related concepts" on /explore/ps/{uid}
             ]
             vector_result = await schema_manager.sync_vector_indexes(
-                entity_labels=vector_labels, dimension=1024, similarity="cosine"
+                entity_labels=vector_labels,
+                dimension=EmbeddingGeometry.DIMENSION,
+                similarity="cosine",
             )
             vector_summary = _check_schema_sync(vector_result, "vector indexes")
             created = vector_summary["created"]
