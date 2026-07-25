@@ -225,12 +225,16 @@ if result.is_ok:
         print(f"{uid}: {score:.3f}")
 ```
 
-### `_cosine_similarity(vec1, vec2)` - Vector Similarity
+### Vector Similarity
+
+`_semantic_search` ranks candidates with the shared cosine kernel in
+`core/utils/vector_math.py` — import it, don't reimplement:
 
 ```python
-@staticmethod
-def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
-    """Calculate cosine similarity between two vectors."""
+from core.utils.vector_math import cosine_similarity, dot, l2_normalize
+
+cosine_similarity(vec1, vec2)  # 0.0 for empty / mismatched / zero-norm inputs
+# normalize-once, dot-many:  dot(l2_normalize(a), l2_normalize(b))
 ```
 
 ---
