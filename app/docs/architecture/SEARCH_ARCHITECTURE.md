@@ -574,10 +574,10 @@ node — the behavioral log behind content-gap analysis and the deferred
 discovery-analytics phases.
 
 - **One event per external search.** All three entry points publish —
-  `faceted_search` (entry_point `faceted`; the GraphQL caller stamps
-  `graphql`), `intelligent_search` (`intelligent`), `advanced_search`
-  (`advanced`). `intelligent_search`'s internal per-domain `faceted_search`
-  fan-out passes `log_event=False` and never publishes.
+  `faceted_search` (entry_point `faceted`), `intelligent_search`
+  (`intelligent`), `advanced_search` (`advanced`). `intelligent_search`'s
+  internal per-domain `faceted_search` fan-out passes `log_event=False` and
+  never publishes.
 - **Empty/filter-only queries are never logged** — no query text, no gap signal.
 - **Fail-soft twice over:** the router's `_publish_search_event` helper never
   raises, and the event bus isolates handler errors — logging can never break

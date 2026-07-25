@@ -309,6 +309,39 @@ the lateral-relationships system, not here), so the inverse dependency direction
 
 ---
 
+### 9. Cross-topic "you know X → unlocks Y" signal (graph-derived, nous co-occurrence)
+
+**Why deferred**: The GraphQL `discover_cross_domain` query and its
+`AdaptiveLpCrossDomainService` were removed in the GraphQL fold (2026-07-25). That
+service was the wrong engine for SKUEL: it grouped knowledge by a hardcoded
+tech-synergy table (`programming`×`data` → "build a data pipeline", Netflix/Uber
+examples) and by `ku.domain` — which is **null corpus-wide**. The real curriculum
+axis is `nous` (authored topics: `self-awareness`, `stories`, `body`,
+`intelligence`, …), and the generative tech content never fit a self-development
+curriculum.
+
+**The idea worth keeping**: a cross-topic learning signal — "you've mastered
+topic X, which opens up topic Y" — feeding the daily-planning / ZPD side of
+`UserContextIntelligence` (internal consumer, not an HTTP endpoint). It
+complements the existing grounded `get_cross_domain_synergies` (entity-to-entity)
+at a coarser, topic-to-topic granularity.
+
+**What to do** (when the ZPD/next-steps direction is the focus):
+
+1. Derive the signal from the graph, not a static table — `nous` co-occurrence
+   across mastered knowledge + `REQUIRES_KNOWLEDGE` / `ORGANIZES` structure
+   spanning topics. The `get_enables` traversal (kept PLANNED for exactly this)
+   is the natural "what does mastering X unlock" primitive.
+2. Source mastery from the real `UserContext` knowledge profile (`MASTERED`
+   edges), not client-supplied lists.
+3. Surface via a new `UserContextIntelligence` method into the ZPD assessment /
+   DailyPlanning P5-learning block; gate at the consumer (ZPD is FULL-tier).
+
+**Enable when**: The ZPD/next-steps direction is picked up AND real mastery data
+has begun to accrue (`MATCH (:User)-[:MASTERED]->() RETURN count(*)` > a handful).
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:

@@ -13,7 +13,7 @@ DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80
 **Three wiring patterns exist** — see `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` "Route Wiring Patterns" for when to use each:
 - **A — DomainRouteConfig** (default): entity domains, soft-fail on missing service
 - **B — Orchestrator-driven**: cross-domain coordination (`explore_routes.py`, `lateral_routes.py`, `library_routes.py`)
-- **C — Manual `@rt()`**: structural/infrastructure routes (`home_routes.py`, `settings_routes.py`, `graphql_routes.py`)
+- **C — Manual `@rt()`**: structural/infrastructure routes (`home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`)
 
 ---
 

@@ -158,8 +158,8 @@ and exempted findings print collapsed rather than disappearing (the
 ## Acting on findings
 
 1. Grep-verify the finding (include by-reference usage — a call-parens-only
-   grep once wrongly condemned `get_path_steps_batch`, which is passed by
-   reference to the GraphQL batch loader).
+   grep wrongly condemns a method that is passed by reference, e.g. as a
+   callback or loader, rather than called directly).
 2. Delete per One Path Forward — including the dead wiring (subscribers of a
    dead event are dead too).
 3. Delete any sentinel test in `test_detect_bloat.py` that referenced the dead

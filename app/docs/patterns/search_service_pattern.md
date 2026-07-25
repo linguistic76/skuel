@@ -472,8 +472,7 @@ All external search access now goes through **SearchRouter**. Domain SearchServi
 ```
 External Callers:
 ├── /search routes      → SearchRouter.faceted_search()
-├── /api/search/unified → SearchRouter.advanced_search()
-└── GraphQL queries     → SearchRouter.faceted_search()
+└── /api/search/unified → SearchRouter.advanced_search()
 
 SearchRouter (uses _GRAPH_AWARE_DOMAINS — all 12 searchable domains):
 ├── Activity: tasks, goals, habits, events, choices, principles

@@ -79,7 +79,6 @@ Infrastructure modules with no root-level facade.
 | `groups/` | Group CRUD and membership |
 | `exercises/` | Exercise CRUD and curriculum linking |
 | `lp_intelligence/` | Learning path intelligence |
-| `adaptive_lp/` | Cross-domain opportunity discovery (`AdaptiveLpCrossDomainService`; the unwired facade/core/recommendations/suggestions shell was deleted 2026-06) |
 | `analytics/` | Domain analytics |
 | `background/` | Background task workers |
 | `notifications/` | Notification services |

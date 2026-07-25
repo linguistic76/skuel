@@ -142,7 +142,7 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | Typed protocol returns | ~170 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed to concrete types |
 | Query type coverage | 159 TypedDicts (21 input, 138 output) |
 | Any usage policy | Three categories with enforcement |
-| Security NewTypes | `UserUID` propagated to ~1,930 annotations across 313 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`). All layers enforce `UserUID` — auth, REST, GraphQL, services, backends, ingestion |
+| Security NewTypes | `UserUID` propagated to ~1,930 annotations across 313 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`). All layers enforce `UserUID` — auth, REST, services, backends, ingestion |
 | Enum-enforced boundaries | `UserRole`, `ExerciseScope`, `EntityStatus`, `Pipeline`, `ReportSource`, `Visibility`, `SubmissionModality`, `FeedbackCategory`, `MasteryImpact`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, status checks, pipeline, visibility levels, modalities, feedback categorization, mastery scoring, enrichment modes |
 | Search protocol generics | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, `Choice`, `Principle`, `Task`, `Habit`), not `Entity` |
 

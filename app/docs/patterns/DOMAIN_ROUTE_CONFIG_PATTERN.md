@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** 42 of 46 route files (91%). All 6 Activity Domains use `create_activity_domain_route_config()`. Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator). ai_routes.py uses its own config-driven pattern (AIRouteSpec).
+**Adoption:** 42 of 45 route files (93%). All 6 Activity Domains use `create_activity_domain_route_config()`. Non-adopters: metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator). ai_routes.py uses its own config-driven pattern (AIRouteSpec).
 
 ## The Pattern
 
@@ -407,9 +407,9 @@ Route factory creates or receives an orchestrator object that encapsulates cross
 
 Routes registered directly with `@rt()` decorators inside the factory function. No config object. Service-missing behavior is ad-hoc per file.
 
-**Use when:** The routes are structural (auth flow, PWA shell, GraphQL schema mounting, settings page) and don't map to an entity domain. These are stable and unlikely to grow.
+**Use when:** The routes are structural (auth flow, PWA shell, settings page) and don't map to an entity domain. These are stable and unlikely to grow.
 
-**Current adopters:** `home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`, `graphql_routes.py`.
+**Current adopters:** `home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`.
 
 **Do not use for new entity domains** — reach for DomainRouteConfig instead.
 
