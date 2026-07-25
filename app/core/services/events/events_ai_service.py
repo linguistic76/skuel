@@ -13,6 +13,7 @@ They enhance the user experience but are not required for core functionality.
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
@@ -66,23 +67,17 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
         if not event:
             return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
 
-        search_text = f"{event.title}"
-        if event.description:
-            search_text += f" {event.description}"
-
         all_events_result = await self.backend.find_by(user_uid=event.user_uid)
         if all_events_result.is_error:
             return Result.fail(all_events_result)
 
-        all_events = all_events_result.value or []
-        candidates = [
-            (e.uid, f"{e.title} {e.description or ''}") for e in all_events if e.uid != event_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            event,
+            EntityType.EVENT,
+            all_events_result.value or [],
+            exclude_uid=event_uid,
+            limit=limit,
+        )
 
     async def generate_preparation_checklist(
         self, event_uid: str, max_items: int = 5

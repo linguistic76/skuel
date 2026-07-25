@@ -29,7 +29,6 @@ from core.models.enums.entity_enums import EntityType
 from core.models.task.task import Task
 from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
-from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -116,25 +115,18 @@ class TasksAIService(BaseAIService["TasksOperations", Task]):
         if not task:
             return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
-        search_text = build_embedding_text(EntityType.TASK, task)
-
-        # TODO(blocked:embeddings): Use vector similarity or limit query instead of fetching all tasks
+        # TODO(blocked:embeddings): use a vector/limit query instead of fetching all tasks
         all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
         if all_tasks_result.is_error:
             return Result.fail(all_tasks_result)
 
-        all_tasks = all_tasks_result.value or []
-        candidates = [
-            (t.uid, build_embedding_text(EntityType.TASK, t))
-            for t in all_tasks
-            if t.uid != task_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        # Use base class semantic search
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            task,
+            EntityType.TASK,
+            all_tasks_result.value or [],
+            exclude_uid=task_uid,
+            limit=limit,
+        )
 
     # ========================================================================
     # AI RECOMMENDATIONS (Future AI Feature)

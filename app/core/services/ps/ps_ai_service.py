@@ -15,6 +15,7 @@ NOTE: PS is a Curriculum domain - content is SHARED (no user_uid ownership).
 import json
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID
 from core.ports import PsOperations
@@ -70,28 +71,18 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
         if not ps:
             return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
-        search_text = f"{ps.title}"
-        if ps.intent:
-            search_text += f" {ps.intent}"
-        if ps.description:
-            search_text += f" {ps.description}"
-
         all_steps_result = await self.backend.list(limit=200)
         if all_steps_result.is_error:
             return Result.fail(all_steps_result)
 
         all_steps_data, _count = all_steps_result.value
-        all_steps: list[PathStep] = all_steps_data or []
-        candidates = [
-            (s.uid, f"{s.title} {s.intent or ''} {s.description or ''}")
-            for s in all_steps
-            if s.uid != ps_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            ps,
+            EntityType.PATH_STEP,
+            all_steps_data or [],
+            exclude_uid=ps_uid,
+            limit=limit,
+        )
 
     async def explain_step(self, ps_uid: str, target_level: str = "standard") -> Result[str]:
         """Generate an AI-powered explanation of a path step.

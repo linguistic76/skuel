@@ -27,10 +27,14 @@ Usage:
             ...
 """
 
+from collections.abc import Sequence
 from typing import Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
+from core.models.enums.entity_enums import EntityType
+from core.models.protocols.domain_model_protocol import DomainModelProtocol
 from core.models.type_hints import EntityUID
+from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -266,3 +270,34 @@ class BaseAIService(Generic[B, T]):
                     service="embeddings",
                 )
             )
+
+    async def _rank_similar_entities(
+        self,
+        source: DomainModelProtocol,
+        entity_type: EntityType,
+        candidate_pool: Sequence[DomainModelProtocol],
+        *,
+        exclude_uid: str,
+        limit: int = 5,
+    ) -> Result[list[tuple[EntityUID, float]]]:
+        """Rank ``candidate_pool`` by semantic similarity to ``source``.
+
+        The shared tail of every domain ``find_similar_*`` method: builds canonical
+        embedding text for the source and each candidate via ``build_embedding_text``
+        (uniform across all domains — closes the prior divergence where only Tasks used
+        it while the others hand-rolled ``f"{title} {description}"``), excludes
+        ``exclude_uid``, then delegates ranking to ``_semantic_search``.
+
+        Callers own the (typed) backend I/O — fetching the source and the candidate
+        pool — because the candidate source differs per domain: user-scoped ``find_by``
+        for Activities, global ``list`` for curriculum.
+        """
+        search_text = build_embedding_text(entity_type, source)
+        candidates: list[tuple[EntityUID, str]] = [
+            (EntityUID(entity.uid), build_embedding_text(entity_type, entity))
+            for entity in candidate_pool
+            if entity.uid != exclude_uid
+        ]
+        if not candidates:
+            return Result.ok([])
+        return await self._semantic_search(search_text, candidates, limit)

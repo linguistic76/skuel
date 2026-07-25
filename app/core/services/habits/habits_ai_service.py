@@ -23,6 +23,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.habit.habit import Habit
 from core.models.type_hints import EntityUID
 from core.ports import HabitsOperations
@@ -108,27 +109,17 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
         if not habit:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
-        search_text = f"{habit.title}"
-        if habit.description:
-            search_text += f" {habit.description}"
-        if habit.routine:
-            search_text += f" {habit.routine}"
-
         all_habits_result = await self.backend.find_by(user_uid=habit.user_uid)
         if all_habits_result.is_error:
             return Result.fail(all_habits_result)
 
-        all_habits = all_habits_result.value or []
-        candidates = [
-            (h.uid, f"{h.title} {h.description or ''} {h.routine or ''}")
-            for h in all_habits
-            if h.uid != habit_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            habit,
+            EntityType.HABIT,
+            all_habits_result.value or [],
+            exclude_uid=habit_uid,
+            limit=limit,
+        )
 
     # ========================================================================
     # STREAK INSIGHTS
