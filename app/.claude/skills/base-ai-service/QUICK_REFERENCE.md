@@ -111,9 +111,8 @@ async def _semantic_search(
 ) -> Result[list[tuple[str, float]]]:  # [(uid, score), ...]
     """Perform semantic search using embeddings."""
 
-@staticmethod
-def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
-    """Calculate cosine similarity between vectors."""
+# Vector similarity lives in core/utils/vector_math.py (shared kernel):
+from core.utils.vector_math import cosine_similarity  # -> float, 0.0 on bad input
 ```
 
 ### Event Handling

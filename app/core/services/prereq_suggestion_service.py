@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
 from collections import Counter
 from dataclasses import dataclass
 from enum import StrEnum
@@ -49,6 +48,7 @@ from core.models.relationship_names import RelationshipName
 from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.vector_math import dot, l2_normalize
 
 if TYPE_CHECKING:
     from core.ports.curriculum_protocols import PrereqSuggestionBackendOperations
@@ -249,18 +249,6 @@ def render_edge_yaml(
     return "\n".join(lines)
 
 
-def _cosine_from_normalized(u: list[float], v: list[float]) -> float:
-    """Dot product of pre-normalized vectors (= cosine similarity)."""
-    return sum(a * b for a, b in zip(u, v, strict=True))
-
-
-def _normalize(vector: list[float]) -> list[float]:
-    norm = math.sqrt(sum(a * a for a in vector))
-    if norm <= 0.0:
-        return [0.0] * len(vector)
-    return [a / norm for a in vector]
-
-
 # =============================================================================
 # Service
 # =============================================================================
@@ -376,7 +364,7 @@ class PrereqSuggestionService:
     ) -> list[PrereqCandidate]:
         """Pairwise cosine → band filter → coverage exclusion → per-Ku cap."""
         cfg = self._config
-        normalized = [_normalize(ku["embedding"]) for ku in kus]
+        normalized = [l2_normalize(ku["embedding"]) for ku in kus]
 
         def covered(a_uid: str, b_uid: str) -> bool:
             # Any directed path a→…→b or b→…→a (length 1 = a direct edge,
@@ -387,7 +375,7 @@ class PrereqSuggestionService:
         per_ku: dict[int, list[tuple[float, int]]] = {}
         for i in range(len(kus)):
             for j in range(i + 1, len(kus)):
-                sim = _cosine_from_normalized(normalized[i], normalized[j])
+                sim = dot(normalized[i], normalized[j])
                 if not (cfg.band_low <= sim < cfg.band_high):
                     continue
                 if covered(kus[i]["uid"], kus[j]["uid"]):

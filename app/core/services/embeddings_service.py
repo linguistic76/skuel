@@ -19,7 +19,6 @@ See: /docs/decisions/ADR-068-openai-embeddings-now-bge-later.md
 """
 
 import asyncio
-import math
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -27,6 +26,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.utils.embedding_text_builder import hash_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.vector_math import cosine_similarity, l2_norm
 
 if TYPE_CHECKING:
     from core.ports.embeddings_protocols import (
@@ -197,17 +197,12 @@ class EmbeddingsService:
                 Errors.validation("Embeddings must have same dimension", field="embeddings")
             )
 
-        dot_product = sum(a * b for a, b in zip(embedding1, embedding2, strict=False))
-        norm1 = math.sqrt(sum(a * a for a in embedding1))
-        norm2 = math.sqrt(sum(b * b for b in embedding2))
-
-        if norm1 == 0 or norm2 == 0:
+        if l2_norm(embedding1) == 0.0 or l2_norm(embedding2) == 0.0:
             return Result.fail(
                 Errors.validation("Cannot compute similarity for zero vectors", field="embeddings")
             )
 
-        similarity = dot_product / (norm1 * norm2)
-        return Result.ok(similarity)
+        return Result.ok(cosine_similarity(embedding1, embedding2))
 
     async def store_embedding_with_metadata(
         self,
