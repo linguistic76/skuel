@@ -192,6 +192,22 @@ class TestFollowUpQuotaGate:
         assert LLM_QUOTA_MESSAGE not in response.text
         journal.run_follow_up.assert_not_awaited()
 
+    def test_validation_failure_burns_no_quota(self) -> None:
+        # Codex #800 P2: the quota unit is recorded immediately before the
+        # paid call, AFTER validation — a rejected request must never burn
+        # the user's last unit.
+        client, journal, _ = _client_for(is_founder=False)
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+
+        response = _post_follow_up(client, {"user_reply": "   "})
+
+        assert response.status_code == 200
+        assert "write something" in response.text
+        journal.run_follow_up.assert_not_awaited()
+        # The empty-reply rejection left the final unit untouched.
+        assert llm_quota_allowed(_USER_UID) is True
+
 
 class TestFollowUpCanonBookScope:
     def test_selected_books_thread_through_as_list(self) -> None:

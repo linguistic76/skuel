@@ -1,13 +1,15 @@
 """Per-user daily LLM quota (MEMBER+) — helpers + the AI-route chokepoint.
 
 Droplet-prep fast-follow C2: every money-spending AI request records one unit
-against a per-user sliding 24 h window (``core.constants.LLMQuota``), enforced
-at the three cost chokepoints (``_ai_route``, journals' ``_load_ai_gated_user``,
-folder transcription). This file pins the shared helpers in ``rate_limit.py``
-and the ``_ai_route`` guard order: tier and ownership denials must never burn
+against a per-user sliding 24 h window (``core.constants.LLMQuota``), checked
+immediately before the paid service call on every per-user tier-gated route
+(AI routes, Askesis API + UI, exercises reviewer, journals, folder
+transcription). This file pins the shared helpers in ``rate_limit.py`` and
+the ``_ai_route`` guard order: tier and ownership denials must never burn
 quota, and the quota denial must read as "limit reached", never as the
-subscription upsell. Journals and transcription chokepoints are pinned in
-``test_journals_follow_up_gate.py`` / ``test_batch_transcription_api_routes.py``.
+subscription upsell. The other chokepoints are pinned in their route test
+files (``test_journals_follow_up_gate.py``, ``test_askesis_api_routes.py``,
+``test_exercises_api_routes.py``, ``test_batch_transcription_api_routes.py``).
 
 ``_ai_route`` is exercised directly with fakes (no live Neo4j / FastHTML),
 mirroring ``test_ai_routes_ownership.py``.

@@ -263,12 +263,8 @@ def create_journals_routes(
     )
     conversation_service = services.conversation
 
-    async def _load_ai_gated_user(user_uid: UserUID) -> tuple[User | None, str]:
-        """Load the user behind the per-user AI gate (ADR-043) + daily LLM quota.
-
-        Returns ``(user, "")`` when the gate passes, ``(None, denial_message)``
-        when denied — the message distinguishes the subscription denial from
-        the daily-quota denial, so a MEMBER at quota is never told to upgrade.
+    async def _load_ai_gated_user(user_uid: UserUID) -> User | None:
+        """Load the user behind the per-user AI gate (ADR-043) — ``None`` = denied.
 
         REGISTERED signups resolve to effective CORE even on a FULL system, so
         they must never reach ``run_discussion``/``run_follow_up``/the upload
@@ -276,10 +272,10 @@ def create_journals_routes(
         missing tier or a failed user lookup means the gate cannot be
         evaluated, so deny rather than allow (mirrors ``askesis_ui.py``).
 
-        The daily quota is checked LAST so subscription-denied users never
-        record units (and always see the upgrade message). One unit per gated
-        request, recorded at gate time — coarse but sufficient for a cost
-        ceiling (``core.constants.LLMQuota``).
+        The daily LLM quota is deliberately NOT checked here: this gate runs
+        before request validation, and a rejected request must never burn a
+        unit (Codex #800 P2). Each route checks ``llm_quota_allowed``
+        immediately before its money-spending service call instead.
 
         Returns the loaded ``User`` so ONE lookup serves both this gate and any
         FOUNDER entitlement check on the same request — callers read
@@ -288,15 +284,13 @@ def create_journals_routes(
         ``test_journals_follow_up_gate.py``).
         """
         if intelligence_tier is None:
-            return None, AI_SUBSCRIPTION_MESSAGE
+            return None
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error or user_result.value is None:
-            return None, AI_SUBSCRIPTION_MESSAGE
+            return None
         if not get_user_intelligence_tier(intelligence_tier, user_result.value.role).ai_enabled:
-            return None, AI_SUBSCRIPTION_MESSAGE
-        if not llm_quota_allowed(user_uid):
-            return None, LLM_QUOTA_MESSAGE
-        return user_result.value, ""
+            return None
+        return user_result.value
 
     async def _resolve_founder(user_uid: UserUID) -> bool:
         """THE FOUNDER-tier gate for journals entitlements (fail-closed).
@@ -405,9 +399,9 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        gated_user, gate_denial = await _load_ai_gated_user(user_uid)
+        gated_user = await _load_ai_gated_user(user_uid)
         if gated_user is None:
-            return _err(gate_denial)
+            return _err(AI_SUBSCRIPTION_MESSAGE)
 
         form = await request.form()
         raw_entry = str(form.get("raw_entry", "")).strip()
@@ -438,6 +432,11 @@ def create_journals_routes(
         # Per-conversation model choice from the start-form picker (gated
         # OpenAI-safe in the service; the picker only offers serveable models).
         model = str(form.get("model", "")).strip()
+
+        # Daily LLM quota — checked after every validation, immediately before
+        # the paid call, so a rejected request never burns a unit.
+        if not llm_quota_allowed(user_uid):
+            return _err(LLM_QUOTA_MESSAGE)
 
         ai_result = await journal_service.run_discussion(
             raw_entry,
@@ -529,10 +528,10 @@ def create_journals_routes(
 
             # Every upload mode spends external-API money (Deepgram and/or LLM),
             # so the whole route sits behind the per-user AI gate.
-            gated_user, gate_denial = await _load_ai_gated_user(user_uid)
+            gated_user = await _load_ai_gated_user(user_uid)
             if gated_user is None:
                 return render_journal_upload_status(
-                    "error", gate_denial, is_error=True, status_id=status_id
+                    "error", AI_SUBSCRIPTION_MESSAGE, is_error=True, status_id=status_id
                 )
 
             raw_files = form.getlist("file")
@@ -579,6 +578,12 @@ def create_journals_routes(
                 file_content = await uploaded_file.read()
                 filename = uploaded_file.filename or "unknown"
                 title = custom_title or filename
+                # Daily LLM quota — after every validation, right before the
+                # paid pipeline, so a rejected upload never burns a unit.
+                if not llm_quota_allowed(user_uid):
+                    return render_journal_upload_status(
+                        "error", LLM_QUOTA_MESSAGE, is_error=True, status_id=status_id
+                    )
                 return await _process_single_upload(
                     file_content=file_content,
                     filename=filename,
@@ -627,6 +632,13 @@ def create_journals_routes(
                             )
                         seen_stems.add(file_stem)
                     (tmp_path / name).write_bytes(await uploaded_file.read())
+                # Daily LLM quota — after every validation (incl. the stem
+                # collision check above), right before the paid batch run. One
+                # unit per batch, not per file: a coarse cost ceiling.
+                if not llm_quota_allowed(user_uid):
+                    return render_journal_upload_status(
+                        "error", LLM_QUOTA_MESSAGE, is_error=True, status_id=status_id
+                    )
                 report = await journal_batch.run_batch_over_dir(
                     tmp_path,
                     processing_mode,
@@ -659,9 +671,9 @@ def create_journals_routes(
             user_uid = require_authenticated_user(request)
 
             # Same cost surface as /journals/upload (Deepgram and/or LLM per file).
-            gated_user, gate_denial = await _load_ai_gated_user(user_uid)
+            gated_user = await _load_ai_gated_user(user_uid)
             if gated_user is None:
-                return render_journal_upload_status("error", gate_denial, is_error=True)
+                return render_journal_upload_status("error", AI_SUBSCRIPTION_MESSAGE, is_error=True)
 
             form = await request.form()
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
@@ -672,6 +684,11 @@ def create_journals_routes(
                 instruction_filename=instruction_filename,
                 processing_mode=processing_mode,
             )
+
+            # Daily LLM quota — right before the paid batch run (one unit per
+            # batch, not per file: a coarse cost ceiling).
+            if not llm_quota_allowed(user_uid):
+                return render_journal_upload_status("error", LLM_QUOTA_MESSAGE, is_error=True)
 
             report = await journal_batch.run_batch_over_dir(
                 journal_batch.je_in_dir,
@@ -853,14 +870,19 @@ def create_journals_routes(
         # the caller.
         if journal_service is None or not journal_service.suggestions_available:
             return SuggestedActivitiesPanel(unavailable=True)
-        gated_user, _gate_denial = await _load_ai_gated_user(user_uid)
-        if gated_user is None:
+        if await _load_ai_gated_user(user_uid) is None:
             return SuggestedActivitiesPanel(unavailable=True)
 
         form = await request.form()
         content = str(form.get("content", "")).strip()
         if not content:
             return SuggestedActivitiesPanel(items=[])
+
+        # Daily LLM quota — the bridge is an LLM call. Checked after the
+        # content validation so an empty reflection never burns a unit; the
+        # panel is inert, so denial renders the same unavailable state.
+        if not llm_quota_allowed(user_uid):
+            return SuggestedActivitiesPanel(unavailable=True)
 
         # Ground the bridge in the user's active goals (soft — a goals-query
         # failure degrades to ungrounded). Recomputed per request; the reflection
@@ -1101,9 +1123,9 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        gated_user, gate_denial = await _load_ai_gated_user(user_uid)
+        gated_user = await _load_ai_gated_user(user_uid)
         if gated_user is None:
-            return FollowUpErrorFragment(gate_denial)
+            return FollowUpErrorFragment(AI_SUBSCRIPTION_MESSAGE)
 
         if not user_reply or not user_reply.strip():
             return FollowUpErrorFragment("Please write something before sending.")
@@ -1145,6 +1167,10 @@ def create_journals_routes(
                 )
                 return FollowUpErrorFragment("This discussion could not be found.")
             prior_entry, prior_ai = history_to_follow_up_context(turns_result.value)
+            # Daily LLM quota — after the session ownership check, right
+            # before the paid call, so an inaccessible session burns nothing.
+            if not llm_quota_allowed(user_uid):
+                return FollowUpErrorFragment(LLM_QUOTA_MESSAGE)
             result = await journal_service.run_follow_up(
                 original_entry=prior_entry,
                 ai_response=prior_ai,
@@ -1201,6 +1227,10 @@ def create_journals_routes(
 
         items = parse_transcript(transcript_json)
         prior_entry, prior_ai = render_follow_up_context(items)
+        # Daily LLM quota — right before the paid call (mirrors the
+        # session-backed branch above).
+        if not llm_quota_allowed(user_uid):
+            return FollowUpErrorFragment(LLM_QUOTA_MESSAGE)
         result = await journal_service.run_follow_up(
             original_entry=prior_entry,
             ai_response=prior_ai,

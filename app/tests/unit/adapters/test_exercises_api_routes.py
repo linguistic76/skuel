@@ -22,7 +22,9 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.exercises_api import create_exercises_api_routes
+from adapters.inbound.rate_limit import llm_quota_allowed, reset_buckets_for_testing
 from core.config.intelligence_tier import IntelligenceTier
+from core.constants import LLMQuota
 from core.models.enums import UserRole
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.result_simplified import Result
@@ -38,8 +40,13 @@ def _fake_auth(request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _csrf_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+    # /api/exercises/report records daily-quota units — clean buckets so
+    # tests never accumulate against the shared _USER_UID.
+    reset_buckets_for_testing()
+    yield
+    reset_buckets_for_testing()
 
 
 def _caller(role: UserRole) -> MagicMock:
@@ -134,6 +141,47 @@ def _post_json(client: TestClient, path: str, json: dict[str, object] | None = N
 
 
 _REPORT_BODY = {"submission_uid": _SUBMISSION_UID, "exercise_uid": _EXERCISE_UID}
+
+
+class TestLlmQuotaGate:
+    """Daily LLM quota on the AI reviewer (PR #800 Codex P1)."""
+
+    def _exhaust_quota(self) -> None:
+        for _ in range(LLMQuota.DAILY_LIMIT):
+            assert llm_quota_allowed(_USER_UID)
+
+    def test_member_over_quota_is_403(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        self._exhaust_quota()
+
+        response = _post_json(harness.client, "/api/exercises/report", _REPORT_BODY)
+
+        assert response.status_code == 403
+        harness.reports.generate_report.assert_not_awaited()
+
+    def test_access_denial_burns_no_quota(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The unit is recorded after the owner-or-teacher check — a non-owner's
+        # 404 must not consume the caller's last unit.
+        harness = _make_harness(monkeypatch, entry_owner="user_other")
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+
+        response = _post_json(harness.client, "/api/exercises/report", _REPORT_BODY)
+
+        assert response.status_code == 404
+        harness.reports.generate_report.assert_not_awaited()
+        assert llm_quota_allowed(_USER_UID) is True
+
+    def test_report_records_one_unit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(harness.client, "/api/exercises/report", _REPORT_BODY)
+
+        assert response.status_code == 200
+        harness.reports.generate_report.assert_awaited_once()
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+        assert llm_quota_allowed(_USER_UID) is False
 
 
 class TestAuthGate:

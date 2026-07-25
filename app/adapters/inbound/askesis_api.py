@@ -24,6 +24,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from adapters.inbound.result_helpers import require_found
 from core.config.intelligence_tier import IntelligenceTier
 from core.ports import AskesisOperations
@@ -112,6 +113,11 @@ def create_askesis_api_routes(
                     value=None,
                 )
             )
+
+        # Daily LLM quota — after every validation, immediately before the
+        # paid RAG pipeline, so a rejected request never burns a unit.
+        if not llm_quota_allowed(user_uid):
+            return Result.fail(llm_quota_exceeded_error())
 
         logger.info(f"RAG question from {user_uid}: {question}")
         result = await askesis_service.answer_user_question(

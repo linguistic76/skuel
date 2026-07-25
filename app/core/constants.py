@@ -338,13 +338,18 @@ class LLMQuota:
     """
     Per-user daily quota on money-spending AI requests (MEMBER+).
 
-    Caps runaway LLM/Deepgram spend from a single account. Every AI-gated
-    request records one unit against a per-user sliding 24-hour window at the
-    three cost chokepoints: the AI routes (``_ai_route``), the journals AI gate
-    (``_load_ai_gated_user``), and folder transcription. Coarse by design —
-    a unit is one REQUEST, not one token or one file; the goal is a cost
-    ceiling, not fair metering. REGISTERED users never reach the quota (the
-    subscription gate denies them first), so it only meters MEMBER and above.
+    Caps runaway LLM/Deepgram spend from a single account. Every per-user
+    tier-gated paid route records one unit against a per-user sliding
+    24-hour window, checked immediately BEFORE its money-spending service
+    call (after all validation — a rejected request never burns a unit):
+    the 36 AI routes (``_ai_route``), Askesis ask (API + UI submit), the
+    exercises AI reviewer (``/api/exercises/report``), every journals AI
+    surface, and folder transcription. Affordance-render gates
+    (``_caller_ai_enabled``) and admin-only operational tools spend nothing
+    per user and are deliberately unmetered. Coarse by design — a unit is
+    one REQUEST, not one token or one file; the goal is a cost ceiling, not
+    fair metering. REGISTERED users never reach the quota (the subscription
+    gate denies them first), so it only meters MEMBER and above.
 
     The counter lives in the in-memory rate-limit store
     (``adapters/inbound/rate_limit.py``): single-process deployment, so one
