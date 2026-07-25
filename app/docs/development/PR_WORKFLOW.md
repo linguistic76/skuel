@@ -45,7 +45,30 @@ The trade is deliberate: a few minutes of latency per change buys a reviewer SKU
 4. **CI runs automatically.** `ci.yml` runs path-guarded jobs (MyPy + unit tests when Python changed, a headless render smoke test when UI/static/Python changed, doc validation when docs/skills changed) and aggregates them into the **CI Gate** check. The **Codex Review Gate** (`codex-gate.yml`) also fires: for PRs touching `.py` files it is RED until `codex-considered` is applied — Codex review is mandatory on app-code PRs; for docs/tooling-only PRs it passes unless `@codex review` was posted and not yet considered.
 5. **Summon a reviewer when ready.** Neither AI reviewer runs automatically (since 2026-05-24). Comment **`@kody start-review`** for Kody's gating review. For any PR touching Python files, also run **`scripts/request_codex_review.sh <PR#>`** — the Codex Review Gate is RED until you do. Do this once a PR is substantive, not on every intermediate commit.
 6. **Address feedback.** Push fixes to the same branch — CI re-runs automatically on the new commit; re-comment `@kody start-review` / re-run the script to re-review the updated diff.
-7. **Run `./dev pre-merge <PR#>`** to confirm all gates are green before merging. Then: `gh pr merge <PR#> --squash --admin --delete-branch`.
+7. **Run `./dev pre-merge <PR#>`** to confirm all gates are green before merging. Then: `gh pr merge <PR#> --squash --delete-branch`. (No `--admin` — that flag merges past unmet requirements, including a blocking Kody review; the admin bypass is reserved for genuine emergencies, per [The gate is self-discipline for the admin](#the-gate-is-self-discipline-for-the-admin).)
+
+### Merge policy: gates green + a considered review means merge (standing, 2026-07-25)
+
+An autonomous merge (including by an AI agent running the workflow) requires BOTH:
+
+1. **CI Gate and Codex Review Gate green**, and
+2. **at least one AI review verdict on the final substantive content — Codex
+   (`scripts/request_codex_review.sh`) or Kody (`@kody start-review`) — obtained, read, and
+   considered.** For Python-touching PRs the Codex Review Gate enforces this (it only turns
+   green via `scripts/apply_codex_considered.sh` after a verdict exists). For docs/tooling-only
+   PRs the gate **auto-passes with no verdict**, so condition 2 does not come for free: summon
+   a reviewer explicitly before merging autonomously.
+
+No additional per-merge human sign-off is required or expected. Kody, when summoned, holds the
+merge through its own `CHANGES_REQUESTED` review. Earlier ad-hoc practice ("wait for the
+founder's word at merge time") is superseded; the founder's controls are the gates, this
+review-before-autonomous-merge requirement, and summoning Kody for anything non-trivial.
+
+**Stacked-PR caveat:** merging a base PR with `--delete-branch` auto-**closes** any open PR
+stacked on that branch — GitHub does not retarget it, and a closed PR cannot be reopened after
+its head was force-pushed (observed on #806, which required successor #807). Rebase the child
+onto `main` and retarget it **before** deleting the base branch, or merge without
+`--delete-branch` and delete the branch after the child is safe.
 
 ---
 
