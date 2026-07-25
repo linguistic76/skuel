@@ -65,7 +65,7 @@ only prunable telemetry — neither reports total graph counts against the 200k/
 
 ## Alert Categories
 
-SKUEL has **13 alerting rules** across 5 categories (plus one commented-out SLO rule,
+SKUEL has **14 alerting rules** across 5 categories (plus one commented-out SLO rule,
 `ErrorBudgetDepleted`, staged in `alerts.yml`):
 
 ### 1. HTTP / API Health (2 alerts)
@@ -138,13 +138,14 @@ histogram_quantile(0.95,
 
 ---
 
-### 4. Graph Health (3 alerts)
+### 4. Graph Health (4 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
 | **HighOrphanedEntityCount** | warning | >100 | 10m | Entities with no relationships exceed 100 |
 | **AuraNodeCapApproaching** | critical | >160,000 | 10m | Graph exceeds 80% of AuraDB Free 200k node cap |
 | **AuraRelationshipCapApproaching** | critical | >320,000 | 10m | Graph exceeds 80% of AuraDB Free 400k relationship cap |
+| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 16 relationship/knowledge gauges are frozen |
 
 **Example PromQL**:
 ```promql
@@ -164,6 +165,8 @@ AuraDB if Prometheus is pointed at an app connected to it.
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service
 - **AuraNodeCapApproaching / AuraRelationshipCapApproaching**: Run `./dev telemetry-retention`,
   review growth with `./dev knowledge-health`, consider the invite gate / paid tier
+- **GraphHealthPollerStale**: Check app logs for graph-health errors
+  (`docker logs skuel-app | grep -i 'graph health'`), verify Neo4j via `/health/ready`
 
 ---
 

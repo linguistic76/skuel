@@ -64,8 +64,8 @@ stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`.
 
 ## What's Inside
 
-**Metrics**: 39 across 7 categories (HTTP, DB, Events, Domains, Graph incl. knowledge health, Queries, AI)
-**Alerts**: 13 alerting rules with runbooks (incl. AuraDB Free cap alerts)
+**Metrics**: 40 across 7 categories (HTTP, DB, Events, Domains, Graph incl. knowledge health, Queries, AI)
+**Alerts**: 14 alerting rules with runbooks (incl. AuraDB Free cap alerts)
 **Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus)
 
 **See**: `/.claude/skills/prometheus-grafana/SKILL.md` for complete reference
@@ -76,7 +76,7 @@ stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`.
 
 - `prometheus.yml` - Scrape config (Docker deployment)
 - `prometheus.dev.yml` - Development config (host-run app)
-- `alerts.yml` - 13 alerting rules (+1 commented-out SLO rule)
+- `alerts.yml` - 14 alerting rules (+1 commented-out SLO rule)
 - `grafana/dashboards/` - 4 pre-built dashboards
 
 ---
