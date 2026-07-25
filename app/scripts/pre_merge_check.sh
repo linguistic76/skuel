@@ -71,15 +71,25 @@ else
   failed=1
 fi
 
-# 3. codex-considered label
+# 3. Review considered: codex-considered label OR a Kody verdict. Merge-policy
+#    condition 2 (PR_WORKFLOW.md § Merge policy) accepts either reviewer; the
+#    Codex Review Gate (check 2) still hard-requires Codex on Python-touching
+#    PRs, so the Kody alternative only ever clears docs/tooling-only PRs.
 echo ""
-echo "3. codex-considered label..."
+echo "3. Review considered (codex-considered label or Kody verdict)..."
 LABELS=$(gh pr view "$PR" --json labels -q '[.labels[].name] | join(",")' 2>/dev/null || echo "")
 if echo "$LABELS" | grep -q "codex-considered"; then
   echo -e "   ${GREEN}✓ codex-considered label is set${NC}"
 else
-  echo -e "   ${RED}✗ codex-considered label missing — run: scripts/request_codex_review.sh ${PR}${NC}"
-  failed=1
+  ALT_KODY=$(gh pr view "$PR" --json reviews \
+    -q '[.reviews[] | select(.author.login | test("kody";"i"))] | last | .state // "NOT_SUMMONED"' \
+    2>/dev/null || echo "UNKNOWN")
+  if [[ "$ALT_KODY" != "NOT_SUMMONED" && "$ALT_KODY" != "UNKNOWN" ]]; then
+    echo -e "   ${GREEN}✓ no codex-considered, but a Kody verdict exists (${ALT_KODY}) — accepted per the Codex-or-Kody policy${NC}"
+  else
+    echo -e "   ${RED}✗ neither codex-considered nor a Kody verdict — run scripts/request_codex_review.sh ${PR} or post @kody start-review${NC}"
+    failed=1
+  fi
 fi
 
 # 4. Kody review state (no CHANGES_REQUESTED)
