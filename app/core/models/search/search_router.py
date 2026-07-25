@@ -600,8 +600,8 @@ class SearchRouter:
     ) -> None:
         """Publish search.executed for one EXTERNAL search — discovery-analytics log.
 
-        One event per external entry point call (faceted/intelligent/advanced;
-        the GraphQL caller flows through faceted). Internal fan-out never
+        One event per external entry point call (faceted/intelligent/advanced).
+        Internal fan-out never
         publishes — intelligent_search suppresses its per-domain faceted calls
         via log_event=False. Empty/whitespace queries are skipped (filter-only
         searches carry no gap signal). Fail-soft: never raises, a logging
@@ -1123,8 +1123,8 @@ class SearchRouter:
 
         # Map domain string to EntityType. "knowledge" → KU matches the
         # platform-wide alias (EntityType.from_string, Domain.KNOWLEDGE alias
-        # tuple, GraphQL search_knowledge docstring "knowledge units") — the
-        # old PATH_STEP routing was an exclusion-era workaround (Kody, #536).
+        # tuple) — the old PATH_STEP routing was an exclusion-era workaround
+        # (Kody, #536).
         domain_to_entity = {
             "knowledge": EntityType.KU,
             "ku": EntityType.KU,

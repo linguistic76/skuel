@@ -36,7 +36,6 @@ This document defines the authentication requirements for all SKUEL routes.
 |---------------|------|-------|
 | `/search/**` | `search_routes.py` | User-scoped search |
 | `/api/visualizations/**` | `visualization_routes.py` | User data visualization |
-| `/graphql` | `graphql_routes.py` | GraphQL API |
 | `/profile/**` | Various | User profile management |
 | `/tasks/**`, `/goals/**`, etc. | Domain routes | Activity domain CRUD |
 | `/settings/devices/**`, `/api/devices/pairing-code`, `/api/devices/{uid}/revoke` | `device_routes.py` | Vault-agent device management (ADR-075) |

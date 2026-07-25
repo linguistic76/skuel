@@ -596,7 +596,7 @@ async def _wire_all_routes(
     """Wire all routes with explicit service dependencies.
 
     Organized into 4 sections:
-    1. INFRASTRUCTURE — system health, auth, admin, monitoring, metrics, graphql
+    1. INFRASTRUCTURE — system health, auth, admin, monitoring, metrics
     2. ENTITY DOMAIN ROUTES — all use DomainRouteConfig / register_domain_routes
        (NO guards needed: register_domain_routes returns [] if service is None)
     3. MANUAL ROUTES — custom wiring that doesn't fit DomainRouteConfig
@@ -641,10 +641,6 @@ async def _wire_all_routes(
     from adapters.inbound.metrics_routes import create_metrics_routes
 
     create_metrics_routes(app, rt)
-
-    from adapters.inbound.graphql_routes import create_graphql_routes
-
-    create_graphql_routes(app, rt, services)
 
     # ========================================================================
     # Section 2: ENTITY DOMAIN ROUTES

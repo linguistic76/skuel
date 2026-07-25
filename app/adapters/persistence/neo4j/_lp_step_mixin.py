@@ -227,31 +227,6 @@ class _LpStepMixin:
             )
         )
 
-    async def get_paths_batch_with_steps(self, uids: list[str]) -> Result[list[LearningPath]]:
-        """
-        Batch-fetch multiple learning paths (with steps in ``metadata["steps"]``)
-        as typed models, ordered by uid.
-        """
-        query = """
-        MATCH (p:Entity)
-        WHERE p.uid IN $uids
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
-        WITH p, collect({step: s, sequence: r.sequence}) as steps_data
-        ORDER BY p.uid
-        RETURN p, steps_data
-        """
-        result = await self.execute_query(query, {"uids": uids})
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(
-            [
-                self._record_to_path_with_steps(
-                    record, self._steps_from_steps_data(record["steps_data"])
-                )
-                for record in (result.value or [])
-            ]
-        )
-
     async def list_user_paths_with_steps(
         self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[LearningPath]]:

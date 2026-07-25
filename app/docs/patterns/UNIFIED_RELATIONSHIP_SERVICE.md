@@ -804,9 +804,8 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 ## Future Enhancements
 
 1. **Caching Layer**: Optional caching for frequently accessed relationships
-2. **GraphQL Integration**: Auto-generated resolvers from config
-3. **Event-Driven Updates**: Publish relationship change events
-4. **Performance Optimization**: Batch operations for cross-domain context
+2. **Event-Driven Updates**: Publish relationship change events
+3. **Performance Optimization**: Batch operations for cross-domain context
 
 ---
 

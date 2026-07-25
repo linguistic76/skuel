@@ -87,11 +87,8 @@ def authenticated_client(skuel_app) -> "Generator[TestClient]":
     3. Returns TestClient with authenticated session
 
     Usage:
-        def test_graphql_query(authenticated_client):
-            response = authenticated_client.post(
-                "/graphql",
-                json={"query": "..."}
-            )
+        def test_some_endpoint(authenticated_client):
+            response = authenticated_client.get("/api/tasks")
             assert response.status_code == 200
     """
     from starlette.testclient import TestClient
@@ -197,11 +194,8 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient]":
     which should already exist in the test database.
 
     Usage:
-        def test_graphql_query(authenticated_client_simple):
-            response = authenticated_client_simple.post(
-                "/graphql",
-                json={"query": "..."}
-            )
+        def test_some_endpoint(authenticated_client_simple):
+            response = authenticated_client_simple.get("/api/tasks")
             assert response.status_code == 200
     """
     from starlette.testclient import TestClient

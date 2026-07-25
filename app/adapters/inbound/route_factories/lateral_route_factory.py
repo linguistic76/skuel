@@ -670,10 +670,17 @@ class LateralRouteFactory:
             """
             Get relationship graph in Vis.js Network format.
 
+            The knowledge-dependency view (formerly the GraphQL
+            ``knowledge_dependencies`` query) is this route with
+            ``?types=REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE`` — the traversal is
+            undirected, so it returns both prerequisites and dependents around
+            the center, with node detail-page URLs.
+
             Args:
                 uid: Center entity UID
                 depth: Graph traversal depth (1-3 recommended)
-                types: Comma-separated relationship types to include (optional)
+                types: Comma-separated relationship types to include (optional;
+                    any RelationshipName value, not just the 6 lateral types)
 
             Returns:
                 Vis.js Network format (nodes and edges)

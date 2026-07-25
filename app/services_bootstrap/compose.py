@@ -1752,7 +1752,6 @@ async def compose_services(
             ku=learning_services["atomic_ku_service"],
             resource=resource_service,
             activity_knowledge_intelligence=learning_services["activity_knowledge_intelligence"],
-            cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,
             report_mastery=report_mastery_service,  # Explicit mastery propagation

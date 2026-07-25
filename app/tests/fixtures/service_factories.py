@@ -344,37 +344,6 @@ def create_mock_backend_for_base_service(
     return backend
 
 
-def create_knowledge_state_for_testing(
-    mastered: set[str] | None = None,
-    in_progress: set[str] | None = None,
-    gaps: list[str] | None = None,
-    **kwargs: Any,
-) -> Any:  # Returns KnowledgeState
-    """
-    Create KnowledgeState for adaptive_lp testing.
-
-    Args:
-        mastered: Set of mastered KU UIDs
-        in_progress: Set of in-progress KU UIDs
-        gaps: List of knowledge gap identifiers
-        **kwargs: Additional fields to override
-
-    Returns:
-        KnowledgeState instance
-    """
-    from core.services.adaptive_lp_types import KnowledgeState
-
-    return KnowledgeState(
-        mastered_knowledge=mastered or {"ku.python-basics"},
-        in_progress_knowledge=in_progress or set(),
-        applied_knowledge=kwargs.get("applied", set()),
-        knowledge_strengths=kwargs.get("strengths", {}),
-        knowledge_gaps=gaps or [],
-        mastery_levels=kwargs.get("mastery_levels", {"ku.python-basics": 0.8}),
-        learning_velocity=kwargs.get("learning_velocity", 1.0),
-    )
-
-
 def create_askesis_user_context_for_testing(
     user_uid: str = "test_user",
     **kwargs: Any,

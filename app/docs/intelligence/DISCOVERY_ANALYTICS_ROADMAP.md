@@ -38,8 +38,7 @@ SearchRouter (faceted_search / intelligent_search / advanced_search)
 
 - **One event per external search.** `intelligent_search` fans out through
   per-domain `faceted_search` calls internally — those pass `log_event=False`
-  and never publish. The GraphQL `search_knowledge` caller flows through
-  `faceted_search(entry_point="graphql")`.
+  and never publish.
 - **Empty/filter-only queries are never logged** — no query text means no gap
   signal (`/search/results` short-circuits empty queries anyway).
 - **Fail-soft, twice over:** the router's publish helper never raises, and the
@@ -59,7 +58,7 @@ of the 25 EntityTypes. `NeoLabel.SEARCH_EVENT`.
 | `query_text` | string | as typed |
 | `query_normalized` | string | `lower().strip()` — the gap grouping key |
 | `user_uid` | string/null | who searched |
-| `entry_point` | string | `faceted` \| `intelligent` \| `advanced` \| `graphql` |
+| `entry_point` | string | `faceted` \| `intelligent` \| `advanced` |
 | `domains` | list[string] | requested scope; empty = cross-domain sweep |
 | `filters_json` | string | `json.dumps` of active property filters |
 | `result_count` | int | total results returned |

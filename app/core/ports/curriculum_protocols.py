@@ -1106,19 +1106,6 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
-    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPath | None]]:
-        """
-        Batch load learning paths by UIDs.
-
-        Args:
-            uids: List of LP UIDs to load
-
-        Returns:
-            Result[list[LearningPath | None]]: Learning paths in same order as input UIDs,
-                                     None for UIDs that don't exist
-        """
-        ...
-
     async def list_user_paths(
         self,
         user_uid: UserUID,
@@ -1203,10 +1190,6 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
 
     async def get_path_with_steps(self, path_uid: str) -> Result[LearningPath | None]:
         """Get a single path with its steps in ``metadata["steps"]``, or None."""
-        ...
-
-    async def get_paths_batch_with_steps(self, uids: list[str]) -> Result[list[LearningPath]]:
-        """Batch-fetch paths (steps in ``metadata["steps"]``), ordered by uid."""
         ...
 
     async def list_user_paths_with_steps(

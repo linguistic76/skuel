@@ -1073,7 +1073,6 @@ The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `E
 1. **Telemetry Integration**: Send error metrics to monitoring
 2. **Circuit Breakers**: For integration errors
 3. **Error Aggregation**: Collect multiple validation errors
-4. **GraphQL Integration**: Map Results to GraphQL errors
 
 ## Conclusion
 

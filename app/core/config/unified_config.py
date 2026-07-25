@@ -109,16 +109,6 @@ class APIConfig:
         )
 
 
-@dataclass
-class GraphQLConfig:
-    """GraphQL configuration for inbound port"""
-
-    enabled: bool = False
-    endpoint: str = "/graphql"
-    playground_enabled: bool = True
-    introspection_enabled: bool = True
-
-
 def _default_relationship_type_weights() -> dict[str, float]:
     # Keyed by the namespaced SemanticRelationshipType value (the `semantic_type`
     # edge property), not the coarse RelationshipName edge type. Since Phase 1 of
@@ -725,7 +715,6 @@ class UnifiedConfig:
 
     # Port configurations (Inbound)
     api: APIConfig = field(default_factory=APIConfig)
-    graphql: GraphQLConfig = field(default_factory=GraphQLConfig)
 
     # Adapter configurations (Outbound)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
@@ -976,7 +965,6 @@ def get_config_for_adapter(adapter_type: str, config: UnifiedConfig) -> Any:
         "cache": config.cache,
         "queue": config.message_queue,
         "api": config.api,
-        "graphql": config.graphql,
     }
 
     return adapters.get(adapter_type)

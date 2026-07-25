@@ -6,7 +6,7 @@ Events published by SearchRouter for search behavior logging.
 
 Event Catalog:
 - search.executed - A search ran through one of SearchRouter's external
-  entry points (faceted / intelligent / advanced, incl. the GraphQL caller)
+  entry points (faceted / intelligent / advanced)
 
 Subscribers:
 - SearchEventRecorder (persists :SearchEvent nodes for discovery analytics —
@@ -36,7 +36,7 @@ class SearchExecuted(BaseEvent):
 
     query_text: str
     user_uid: UserUID | None
-    entry_point: str  # "faceted" | "intelligent" | "advanced" | "graphql"
+    entry_point: str  # "faceted" | "intelligent" | "advanced"
     result_count: int
     zero_results: bool
     semantic_boost: bool = False

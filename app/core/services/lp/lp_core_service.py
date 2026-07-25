@@ -210,27 +210,6 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
         logger.info(f"✅ Created path {path_uid}: {title}")
         return Result.ok(path)
 
-    @with_error_handling("get_learning_paths_batch", error_type="database")
-    async def get_learning_paths_batch(self, uids: list[str]) -> Result[list[LearningPath | None]]:
-        """
-        Get multiple learning paths in one batched query.
-
-        Critical for GraphQL DataLoader batching to prevent N+1 queries.
-        """
-        if not uids:
-            return Result.ok([])
-
-        query_result = await self.backend.get_paths_batch_with_steps(uids)
-
-        if query_result.is_error:
-            return Result.fail(query_result)
-
-        paths_map: dict[str, LearningPath] = {path.uid: path for path in query_result.value}
-
-        # Return in same order as input UIDs
-        result_list = [paths_map.get(uid) for uid in uids]
-        return Result.ok(result_list)
-
     @with_error_handling("get_learning_path", error_type="database", uid_param="path_uid")
     async def get_learning_path(self, path_uid: str) -> Result[LearningPath | None]:
         """Get a single learning path by UID (returns None if not found)."""
@@ -280,11 +259,7 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
         return Result.ok(query_result.value or [])
 
     async def get_path_steps(self, path_uid: str) -> Result[list[PathStep]]:
-        """
-        Get steps for a learning path.
-
-        Used by GraphQL types to resolve nested steps field.
-        """
+        """Get the ordered steps for a learning path."""
         path_result = await self.get_learning_path(path_uid)
         if path_result.is_error:
             return Result.fail(path_result)

@@ -62,10 +62,10 @@ From `scripts/audit_route_security.py` `CSRF_EXEMPT` (run `./dev audit-routes
 
 | Endpoint | Current client | After |
 |---|---|---|
-| `graphql_routes.py:graphql_handler` (`POST /graphql`) | programmatic JSON GraphQL API | API clients send a bearer token |
+| `device_routes.py:enroll_device_api` (`POST /api/devices/enroll`) | vault-agent enrollment (sessionless one-time pairing code, ADR-075) | already token-like; kept exempt by design |
 
-(The GraphQL *playground form* `/graphql/execute` stays cookie+CSRF — it's
-browser-driven.)
+(The former `graphql_routes.py:graphql_handler` entry was removed when the
+GraphQL adapter was folded, 2026-07-25.)
 
 `batch_transcription_api.py:batch_transcribe` was removed from `CSRF_EXEMPT`
 when its admin UI (`/admin/batch-transcribe`) made it browser-reachable: the
@@ -91,8 +91,7 @@ bearer token (this scheme) rather than carrying a CSRF token.
 3. Make `csrf_protected` (or the middleware) **skip enforcement for token-
    authenticated requests** and require it for cookie-authenticated ones.
 4. Apply `@csrf_protected` to the three endpoints above and update their clients
-   (`scripts/batch_transcribe.py`, the GraphQL API consumers, the Jupyter
-   workflow) to send a token.
+   (`scripts/batch_transcribe.py`, the Jupyter workflow) to send a token.
 5. Delete the three `CSRF_EXEMPT` entries. `./dev audit-routes` must stay green
    (now with 0 CSRF exemptions), and `test_route_security_audit.py` will enforce
    it.
@@ -102,7 +101,7 @@ bearer token (this scheme) rather than carrying a CSRF token.
 - `./dev audit-routes --list-exempt` shows an **empty** `CSRF_EXEMPT`.
 - The three endpoints reject tokenless **cookie** requests (CSRF enforced) and
   accept valid **bearer-token** requests.
-- CLI/notebook/GraphQL clients work via token; no session-cookie path to them.
+- CLI/notebook clients work via token; no session-cookie path to them.
 
 ## See
 

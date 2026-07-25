@@ -58,8 +58,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_second_item, get_title_lower
 
 if TYPE_CHECKING:
-    import builtins
-
     from core.infrastructure.relationships.semantic_relationships import SemanticTriple
     from core.models.context_types import ContextualKnowledge
     from core.models.enums.learning_enums import SELCategory
@@ -766,12 +764,6 @@ class PsService:
             from_uid=step_uid,
             to_uid=path_uid,
         )
-
-    async def get_path_steps_batch(
-        self, uids: builtins.list[str]
-    ) -> Result[builtins.list[PathStep | None]]:
-        """Get multiple path steps in one batched query."""
-        return await self.core.backend.get_many(uids)
 
     # ============================================================================
     # KU COMPOSITION (PathStep → atomic Ku via USES_KU)

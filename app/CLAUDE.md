@@ -478,7 +478,7 @@ All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (
 
 **Core Principle:** "Configuration over code for route registration"
 
-DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD / Query / Intelligence registration. Three wiring patterns exist — **A) DomainRouteConfig** (default), **B) Orchestrator** (explore/lateral/library), **C) Manual `@rt()`** (home, settings, submissions_hub, graphql). `ai_routes.py` uses its own `AIRouteSpec`.
+DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD / Query / Intelligence registration. Three wiring patterns exist — **A) DomainRouteConfig** (default), **B) Orchestrator** (explore/lateral/library), **C) Manual `@rt()`** (home, settings, submissions_hub). `ai_routes.py` uses its own `AIRouteSpec`.
 
 **See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` (full config fields, wiring decision guide, worked example)
 

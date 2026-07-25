@@ -375,13 +375,22 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
 # three are feature-shaped surfaces with no superseded loser.
 _MIXIN_PREREQUISITE_WRITE = (
     "config-driven prerequisite-write half staged — the write twin of the LIVE "
-    "get_prerequisites/get_enables read pair (PsService + GraphQL curriculum "
-    "traversal, both read via the domain's _prerequisite_relationships config). "
+    "get_prerequisites read (PsService curriculum traversal via the domain's "
+    "_prerequisite_relationships config; its inverse get_enables is PLANNED). "
     "No superseded loser: add_relationship is the primitive it composes, and the "
     "lateral create_lateral_relationship writes a route-chosen RelationshipName, "
     "not via the domain prereq config; live prereq edges currently come only from "
     "ingestion (Edge YAML). Wire a prerequisite-edit control on entity detail "
     "pages (Mike ruled PLANNED 2026-06-13)"
+)
+_MIXIN_ENABLES_TRAVERSAL = (
+    "enables-direction traversal staged — the inverse of the LIVE get_prerequisites "
+    "('what does mastering X unlock next', walking the prerequisite edges inward). "
+    "Its only caller was the GraphQL knowledge_dependencies resolver, removed in the "
+    "GraphQL fold; get_prerequisites survives because it retains real callers. "
+    "Retained as the symmetric other-half of the prerequisite read API for the "
+    "upcoming ZPD/next-steps direction — wire it into the ZPD proximal-zone or a "
+    "'what can I learn next' surface (Mike ruled PLANNED 2026-07-25)"
 )
 # NOTE: RelationshipOperationsMixin.get_hierarchy (the generic parents/children
 # read over backend.hierarchy_query_raw) was PLANNED here. Tier 2 (#721) added
@@ -448,6 +457,11 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE
     ),
+    # --- Enables-direction traversal, orphaned by the GraphQL fold (2026-07-25) ---
+    "core/services/mixins/relationship_operations_mixin.py::get_enables": (
+        _MIXIN_ENABLES_TRAVERSAL
+    ),
+    "core/services/ps_service.py::get_enables": _MIXIN_ENABLES_TRAVERSAL,
     # get_hierarchy removed — name-collision-masked stale marking (see NOTE by
     # _MIXIN_ARRAY_SEARCH); still genuinely unwired, tracked in that comment.
     "core/services/mixins/search_operations_mixin.py::search_array_field": _MIXIN_ARRAY_SEARCH,

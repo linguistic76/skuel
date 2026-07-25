@@ -94,7 +94,6 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | Method | Purpose |
 |--------|---------|
 | `get_path_with_steps(uid)` | Single LP + HAS_STEP steps |
-| `get_paths_batch_with_steps(uids)` | Batch LP fetch (GraphQL DataLoader) |
 | `list_user_paths_with_steps(user_uid, limit)` | User's LPs with steps |
 | `list_all_paths_with_steps(limit, offset, order_by, order_desc)` | All LPs with `_ALLOWED_ORDER_BY` validation |
 | `update_path_properties(set_clauses, params)` | Dynamic SET update |

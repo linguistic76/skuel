@@ -37,7 +37,6 @@ from core.config.unified_config import (
     CacheConfig,
     DatabaseConfig,
     Environment,
-    GraphQLConfig,
     KnowledgeConfig,
     MessageQueueConfig,
     SearchConfig,
@@ -65,7 +64,6 @@ __all__ = [
     "Environment",
     # Environment validation
     "EnvironmentValidator",
-    "GraphQLConfig",
     "IntelligenceTier",
     "KnowledgeConfig",
     "MessageQueueConfig",

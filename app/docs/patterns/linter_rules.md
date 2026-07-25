@@ -305,7 +305,7 @@ so no Cypher-context heuristics are needed.
 
 **Scope:** any `/services/` path **plus the inbound/presentation layers** —
 `adapters/inbound/` and `ui/` (widened 2026-07: raw relationship strings
-crept into routes and renderers too, e.g. GraphQL edge builders). Test files are
+crept into routes and renderers too). Test files are
 skipped. `adapters/persistence/` is below the boundary and stays out of scope —
 Cypher there interpolates `RelationshipName.X.value` by convention, guarded by
 `validate_relationship_type()` at runtime.

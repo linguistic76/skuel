@@ -34,8 +34,8 @@ token) are listed in ``CSRF_EXEMPT`` with a reason.
 ``request.json()``/``parse_json_body``) — the classic-CSRF-exploitable subset.
 
 **Limitations.** Auth detection is intra-procedural: a handler that authenticates
-only via a *helper* it calls (e.g. graphql's ``_build_graphql_context`` →
-``require_authenticated_user``) reads as a gap and must be listed in
+only via a *helper* it calls (rather than a direct ``require_authenticated_user``)
+reads as a gap and must be listed in
 ``AUTH_EXEMPT``. Genuinely anonymous mutations (login, register) and public
 reads-via-POST (curriculum filters) likewise live in the exemption tables with a
 stated reason, so CI stays green without hiding real regressions.
@@ -80,7 +80,6 @@ AUTH_EXEMPT: dict[tuple[str, str], str] = {
     ("auth_ui.py", "forgot_password_submit"): "password-reset request must be anonymous",
     ("auth_ui.py", "reset_password_submit"): "reset is authorized by a token, not a session",
     ("pathways_ui.py", "filter_learning_paths"): "public-curriculum read (LP browse filter)",
-    ("graphql_routes.py", "graphql_execute"): "authenticates via _build_graphql_context() helper",
     ("device_routes.py", "enroll_device_api"): (
         "agent enrollment is sessionless by design — the one-time pairing code "
         "IS the credential (hashed, 10-min TTL, single-use burn; ADR-075)"
@@ -90,9 +89,6 @@ AUTH_EXEMPT: dict[tuple[str, str], str] = {
 # These programmatic clients can't send a CSRF token; migrate them to bearer-token
 # auth and empty this table — see docs/roadmap/programmatic-client-auth-csrf.md.
 CSRF_EXEMPT: dict[tuple[str, str], str] = {
-    ("graphql_routes.py", "graphql_handler"): (
-        "programmatic JSON API; the playground form /graphql/execute is separately protected"
-    ),
     ("device_routes.py", "enroll_device_api"): (
         "programmatic JSON endpoint for the vault agent: no session, no cookies, "
         "so there is nothing for cross-site requests to ride on; authenticated by "
