@@ -207,8 +207,8 @@ await event_bus.publish(TaskCreated(task_uid=uid, user_uid=user_uid))
 **Tracked Events** (ground truth: `core/infrastructure/monitoring/metrics_event_handler.py`):
 - **Creation**: `TaskCreated`, `GoalCreated`, `HabitCreated`, `CalendarEventCreated`, `ChoiceCreated`,
   `PrincipleCreated`, `TranscriptionCreated`, `KnowledgeCreated` (→ `ku`), `PathStepCreated` (→ `ps`),
-  `LearningPathStarted` (→ `lp`), `UserEntryCreated`; journal creation via `SubmissionCreated`
-  with `entity_type="journal"`
+  `LearningPathStarted` (→ `lp`), `UserEntryCreated` (journals are UserEntry per ADR-054 —
+  no separate `journal` series)
 - **Completion**: `TaskCompleted`, `TasksBulkCompleted`, `HabitCompleted`
 
 ### Adding Metrics for New Events
@@ -282,12 +282,14 @@ To add a new periodically-polled gauge, add a query to that existing function:
 # Existing queries 1-3: graph stats, orphans, relationship breakdown ...
 
 # Query 4 (simplified from the real one PR #770 added for the knowledge-health
-# gauges — the actual query also excludes learner-state telemetry edges):
+# gauges — the actual query also excludes learner-state telemetry edges).
+# Match knowledge nodes by entity_type, NOT a :Ku domain label — a corpus gauge
+# must match the graph contract (see CLAUDE.md § Analytics Architecture):
 knowledge_query = """
-MATCH (ku:Ku)
-OPTIONAL MATCH (ku)-[r]-()
-WITH ku, count(r) AS degree
-RETURN count(ku) AS total, sum(CASE WHEN degree = 0 THEN 1 ELSE 0 END) AS orphans
+MATCH (k:Entity {entity_type: 'ku'})
+OPTIONAL MATCH (k)-[r]-()
+WITH k, count(r) AS degree
+RETURN count(k) AS total, sum(CASE WHEN degree = 0 THEN 1 ELSE 0 END) AS orphans
 """
 result = await driver.execute_query(knowledge_query)
 prometheus_metrics.relationships.knowledge_kus_total.set(result[0]["total"])

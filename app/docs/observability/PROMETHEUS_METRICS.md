@@ -397,7 +397,7 @@ open http://localhost:3000/dashboards
 | `skuel_entities_created_total` | Counter | entity_type | Entities created |
 | `skuel_entities_completed_total` | Counter | entity_type | Entities completed |
 
-**Entity Types**: task, goal, habit, event, choice, principle, journal, transcription, ku, ps, lp, user_entry
+**Entity Types**: task, goal, habit, event, choice, principle, transcription, ku, ps, lp, user_entry (journals count as user_entry — ADR-054)
 
 ### Graph Health Metrics (Phase 4 - PRIMARY FOCUS)
 

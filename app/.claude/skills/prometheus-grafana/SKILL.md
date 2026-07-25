@@ -98,8 +98,8 @@ Event/Operation
 Prometheus text exposition is THE metrics surface. The JSON `/api/monitoring/*` trio and the
 admin `/api/metrics` route were deleted in PR #803 — do not reintroduce JSON metrics endpoints.
 
-- **The droplet runs no Prometheus/Grafana.** The monitoring profile exists in
-  `docker-compose.production.yml` but is not started; production = app + Caddy only.
+- **The droplet runs no Prometheus/Grafana.** `docker-compose.production.yml` defines only
+  the app + Caddy; the `monitoring` profile exists only in the dev `docker-compose.yml`.
 - The app binds loopback-only (`127.0.0.1:5001`) and **Caddy returns 403 for public `/metrics`**
   (it is auth-exempt app-side so a local scraper could read it; nothing should scrape it over
   the internet — it leaks internal telemetry).
@@ -209,7 +209,7 @@ prometheus_metrics.events.event_handler_duration_seconds.labels(
 | `skuel_entities_created_total` | Counter | `entity_type` | Creation tracking |
 | `skuel_entities_completed_total` | Counter | `entity_type` | Completion tracking |
 
-**Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`, `journal`, `transcription`, `ku`, `ps`, `lp`, `user_entry`
+**Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`, `transcription`, `ku`, `ps`, `lp`, `user_entry` (journals count as `user_entry` — ADR-054)
 
 **Usage**:
 ```python

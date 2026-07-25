@@ -66,9 +66,10 @@ class MetricsEventHandler:
         self.event_bus.subscribe(ChoiceCreated, self._on_choice_created)
         self.event_bus.subscribe(PrincipleCreated, self._on_principle_created)
 
-        # Content/Processing domains (2)
-        # NOTE: JournalCreated subscription REMOVED (February 2026) - Journal merged into Reports
-        # Journal creation tracked via SubmissionCreated with entity_type="journal"
+        # Content/Processing domains
+        # NOTE: JournalCreated subscription REMOVED (February 2026) - Journal merged into
+        # Reports, then journals became UserEntry (ADR-054, pipeline JOURNAL) — counted
+        # via UserEntryCreated as entity_type="user_entry", no separate journal series.
         from core.events.transcription_events import TranscriptionCreated
 
         self.event_bus.subscribe(TranscriptionCreated, self._on_transcription_created)
@@ -120,8 +121,8 @@ class MetricsEventHandler:
         """Track principle creation."""
         self.prometheus_metrics.domains.entities_created.labels(entity_type="principle").inc()
 
-    # NOTE: _on_journal_created REMOVED (February 2026) - Journal merged into Reports
-    # Journal creation tracked via _on_report_submitted with entity_type="journal"
+    # NOTE: _on_journal_created REMOVED (February 2026) - Journal merged into Reports;
+    # journals are now UserEntry (ADR-054) and count as entity_type="user_entry".
 
     def _on_transcription_created(self, event) -> None:
         """Track transcription creation."""
