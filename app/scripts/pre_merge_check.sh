@@ -83,7 +83,10 @@ if echo "$LABELS" | grep -q "codex-considered"; then
 else
   # Exact bot identity + anchored to the current head: a review from any other
   # account, or from before the latest push, must not clear the alternative.
-  ALT_KODY=$(gh api "repos/${REPO}/pulls/${PR}/reviews" \
+  # per_page=100: the reviews endpoint pages at 30 ascending and has no `since`,
+  # so a fresh verdict on a review-heavy PR can sit beyond page 1 (same
+  # constraint documented in request_codex_review.sh).
+  ALT_KODY=$(gh api "repos/${REPO}/pulls/${PR}/reviews?per_page=100" \
     --jq "[.[] | select(.user.login == \"kody-ai[bot]\") | select(.commit_id == \"${SHA}\")] | last | .state // \"NOT_SUMMONED\"" \
     2>/dev/null || echo "UNKNOWN")
   if [[ "$ALT_KODY" != "NOT_SUMMONED" && "$ALT_KODY" != "UNKNOWN" ]]; then
