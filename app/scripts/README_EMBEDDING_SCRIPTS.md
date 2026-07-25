@@ -56,7 +56,7 @@ uv run python scripts/create_vector_indexes.py --recreate
 |------|-------------|---------|
 | `--labels` | Entity labels to create indexes for | All 7 priority labels |
 | `--dimension` | Vector dimension | `1024` (`EmbeddingGeometry.DIMENSION` — frozen, ADR-083) |
-| `--similarity` | Similarity function (`cosine`/`euclidean`/`dot`) | `cosine` |
+| `--similarity` | Similarity function (`cosine`/`euclidean`) | `cosine` |
 | `--recreate` | Drop each index before creating | `False` |
 | `--verify` | Verify existing indexes instead of creating | `False` |
 

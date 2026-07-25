@@ -267,7 +267,7 @@ For more information:
 
     parser.add_argument(
         "--similarity",
-        choices=["cosine", "euclidean", "dot"],
+        choices=["cosine", "euclidean"],
         default="cosine",
         help="Similarity function (default: cosine)",
     )

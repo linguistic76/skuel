@@ -308,7 +308,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             label: Neo4j label (e.g., "Entity", "Task", "Goal", "ContentChunk")
             field_name: Field containing embedding vector (default: "embedding")
             dimension: Vector dimension (default EmbeddingGeometry.DIMENSION — frozen, ADR-083)
-            similarity: Similarity function - "cosine" (default), "euclidean", or "dot"
+            similarity: Similarity function - "cosine" (default) or "euclidean"
 
         Returns:
             Result with 'created' or error
