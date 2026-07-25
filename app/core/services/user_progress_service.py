@@ -175,6 +175,24 @@ class UserProgressService:
         self.backend = backend
         self.logger = logger
 
+    @with_error_handling("get_mastered_uids", error_type="database")
+    async def get_mastered_uids(self, user_uid: UserUID) -> Result[set[str]]:
+        """Mastered-knowledge UIDs for a user, propagating read failures.
+
+        Unlike :meth:`build_user_knowledge_profile` — which is deliberately
+        resilient, swallowing each constituent query's error to always return a
+        best-effort profile — this preserves the mastery read's ``Result``. Use
+        it where a failed mastery read must fail the caller loudly rather than be
+        silently rendered as "nothing mastered" (e.g. per-item mastery
+        annotations that would otherwise mark everything unmastered).
+
+        Backend: UserProgressBackend.get_mastered_knowledge
+        """
+        result = await self.backend.get_mastered_knowledge(user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({row["knowledge_uid"] for row in result.value if row.get("knowledge_uid")})
+
     # ========================================================================
     # PROFILE BUILDING (Core Functionality)
     # ========================================================================

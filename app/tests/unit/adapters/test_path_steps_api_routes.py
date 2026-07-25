@@ -99,11 +99,9 @@ def _make_harness(
     user_service = MagicMock()
     user_service.get_user = AsyncMock(return_value=Result.ok(_caller(role)))
 
-    # Prerequisite-chain mastery source; default profile = nothing mastered.
+    # Prerequisite-chain mastery source; default = nothing mastered.
     user_progress_service = MagicMock()
-    user_progress_service.build_user_knowledge_profile = AsyncMock(
-        return_value=Result.ok(SimpleNamespace(mastered_uids=set()))
-    )
+    user_progress_service.get_mastered_uids = AsyncMock(return_value=Result.ok(set()))
 
     if authenticated:
         monkeypatch.setattr(
@@ -309,8 +307,8 @@ class TestPrerequisiteChain:
             )
         )
         # Caller has mastered the nearer prerequisite only.
-        harness.user_progress.build_user_knowledge_profile = AsyncMock(
-            return_value=Result.ok(SimpleNamespace(mastered_uids={"ps.functions"}))
+        harness.user_progress.get_mastered_uids = AsyncMock(
+            return_value=Result.ok({"ps.functions"})
         )
 
         response = harness.client.get(
@@ -337,16 +335,16 @@ class TestPrerequisiteChain:
         assert payload["prerequisites"][1]["entity_type"] == "ku"
         assert payload["prerequisites"][1]["is_mastered"] is False
 
-    def test_mastery_profile_error_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_mastery_read_error_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
         harness.ps.get_prerequisite_chain = AsyncMock(
             return_value=Result.ok([_chain_row("ps.functions", "Functions", 1)])
         )
-        # A present-but-failing profile read must fail the request — silently
-        # marking every node unmastered would be valid-looking but wrong.
-        harness.user_progress.build_user_knowledge_profile = AsyncMock(
+        # A failing mastery read must fail the request — silently marking every
+        # node unmastered would be valid-looking but wrong.
+        harness.user_progress.get_mastered_uids = AsyncMock(
             return_value=Result.fail(
-                Errors.database(operation="build_user_knowledge_profile", message="read failed")
+                Errors.database(operation="get_mastered_uids", message="read failed")
             )
         )
 

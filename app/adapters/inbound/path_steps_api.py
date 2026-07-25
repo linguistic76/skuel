@@ -139,13 +139,15 @@ def create_path_steps_api_routes(
             return Result.fail(chain_result)
         chain = chain_result.value
 
-        # Mastery is the caller's only — one profile read, set-membership per node.
-        # A failing profile read is propagated: silently reporting every node as
-        # unmastered would be valid-looking but wrong.
-        profile_result = await user_progress_service.build_user_knowledge_profile(user_uid)
-        if profile_result.is_error:
-            return Result.fail(profile_result)
-        mastered_uids: set[str] = profile_result.value.mastered_uids
+        # Mastery is the caller's only — one read, set-membership per node.
+        # get_mastered_uids preserves the read's Result (unlike the resilient
+        # build_user_knowledge_profile, which swallows sub-query errors), so a
+        # failed mastery read fails the request instead of silently reporting
+        # every node as unmastered.
+        mastered_result = await user_progress_service.get_mastered_uids(user_uid)
+        if mastered_result.is_error:
+            return Result.fail(mastered_result)
+        mastered_uids: set[str] = mastered_result.value
 
         nodes: list[PrerequisiteChainNode] = []
         mastered_count = 0
