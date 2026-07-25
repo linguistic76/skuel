@@ -226,6 +226,14 @@ class RelationshipMetrics:
             "ORGANIZES/MOC edges among knowledge nodes",
         )
 
+        # Poller self-observability — all gauges above freeze at their last
+        # values when the poller can't reach Neo4j; this timestamp makes that
+        # staleness alertable (GraphHealthPollerStale).
+        self.poll_last_success = Gauge(
+            "skuel_graph_health_poll_last_success_timestamp_seconds",
+            "Unix time of the last successful graph-health poll (baseline set at task start)",
+        )
+
 
 class QueryMetrics:
     """

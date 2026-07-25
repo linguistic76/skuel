@@ -59,7 +59,7 @@ def prometheus_metrics() -> PrometheusMetrics:
         collectors_to_remove = [
             c
             for c in list(prometheus_client.REGISTRY._names_to_collectors.values())
-            if hasattr(c, "_name") and getattr(c, "_name", "").startswith("skuel_")
+            if getattr(c, "_name", "").startswith("skuel_")
         ]
         for collector in collectors_to_remove:
             with contextlib.suppress(Exception):

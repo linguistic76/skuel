@@ -152,6 +152,20 @@ groups:
           description: "AuraDB Free rejects writes at the cap; headroom is running out"
           runbook: "Run ./dev telemetry-retention, review growth with ./dev knowledge-health, consider the invite gate / paid tier"
 
+      # The 16 relationship/knowledge gauges freeze at their last values when the
+      # poller can't reach Neo4j — this alert makes that staleness visible.
+      # Baseline is set at task start, so "never succeeded since boot" also fires.
+      # 900s = 3 missed 5-min cycles.
+      - alert: GraphHealthPollerStale
+        expr: time() - skuel_graph_health_poll_last_success_timestamp_seconds > 900
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Graph-health poller last succeeded {{ $value | humanizeDuration }} ago"
+          description: "Relationship/knowledge gauges are frozen at stale values"
+          runbook: "Check app logs for graph-health errors (docker logs skuel-app | grep -i 'graph health'), verify Neo4j via /health/ready"
+
       # ==================================================================
       # AI Services
       # ==================================================================

@@ -52,11 +52,10 @@ docker compose exec skuel-app curl -s localhost:5001/metrics \
   | grep -E 'skuel_total_(entities|relationships) '
 ```
 
-**Timing caveat**: the poller's first pass lands ~5 minutes after boot (the loop sleeps
-before polling), so within 5 minutes of a restart both gauges still read `0` — that means
-"not yet polled", NOT "empty graph". Confirm a real sample before trusting a cap reading
-(re-run after 5 minutes, or check `skuel_graph_health_poll_last_success_timestamp_seconds`
-once that gauge ships).
+**Timing caveat**: the poller runs its first pass at startup (poll-first loop), so the
+gauges populate within seconds of boot. If a reading looks wrong right after a restart,
+check `skuel_graph_health_poll_last_success_timestamp_seconds` — a value of ~boot time
+that never advances means passes are failing and the gauges are frozen.
 
 (`./dev knowledge-health` covers only the knowledge subgraph and `./dev telemetry-retention`
 only prunable telemetry — neither reports total graph counts against the 200k/400k caps.)
@@ -65,7 +64,7 @@ only prunable telemetry — neither reports total graph counts against the 200k/
 
 ## Alert Categories
 
-SKUEL has **13 alerting rules** across 5 categories (plus one commented-out SLO rule,
+SKUEL has **14 alerting rules** across 5 categories (plus one commented-out SLO rule,
 `ErrorBudgetDepleted`, staged in `alerts.yml`):
 
 ### 1. HTTP / API Health (2 alerts)
@@ -138,13 +137,14 @@ histogram_quantile(0.95,
 
 ---
 
-### 4. Graph Health (3 alerts)
+### 4. Graph Health (4 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
 | **HighOrphanedEntityCount** | warning | >100 | 10m | Entities with no relationships exceed 100 |
 | **AuraNodeCapApproaching** | critical | >160,000 | 10m | Graph exceeds 80% of AuraDB Free 200k node cap |
 | **AuraRelationshipCapApproaching** | critical | >320,000 | 10m | Graph exceeds 80% of AuraDB Free 400k relationship cap |
+| **GraphHealthPollerStale** | warning | >900s | 5m | Graph-health poller hasn't succeeded in 15 min (3 missed cycles) — the 16 relationship/knowledge gauges are frozen |
 
 **Example PromQL**:
 ```promql
@@ -164,6 +164,8 @@ AuraDB if Prometheus is pointed at an app connected to it.
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service
 - **AuraNodeCapApproaching / AuraRelationshipCapApproaching**: Run `./dev telemetry-retention`,
   review growth with `./dev knowledge-health`, consider the invite gate / paid tier
+- **GraphHealthPollerStale**: Check app logs for graph-health errors
+  (`docker logs skuel-app | grep -i 'graph health'`), verify Neo4j via `/health/ready`
 
 ---
 

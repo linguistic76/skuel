@@ -194,7 +194,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
         """
         Background task to query Neo4j for graph health statistics.
 
-        Runs every 5 minutes to track:
+        Runs at startup, then every 5 minutes, to track:
         - Graph density (avg relationships per entity)
         - Relationship counts by layer
         - Lateral relationship breakdown
@@ -203,15 +203,17 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
         - Knowledge-subgraph structural health (ADR-080 Horizon-1): Ku count,
           orphan Kus, avg Ku degree, composition/prerequisite/ORGANIZES coverage
         """
+        # Staleness baseline: without it the gauge exports 0 and the alert fires
+        # at boot; refreshed only after an error-free pass (inside the try)
+        # so a failed poll leaves it stale and GraphHealthPollerStale can fire.
+        prometheus_metrics.relationships.poll_last_success.set_to_current_time()
         while True:
             try:
-                await asyncio.sleep(300)  # Update every 5 minutes
-
                 # Query 1: Overall graph stats (entities, relationships, density)
                 query_stats = """
                 MATCH (n)
                 WITH count(n) as total_nodes
-                MATCH ()-[r]->()
+                OPTIONAL MATCH ()-[r]->()
                 WITH total_nodes, count(r) as total_rels
                 RETURN
                     total_nodes,
@@ -385,10 +387,16 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                         krec["organizes_edges"]
                     )
 
+                prometheus_metrics.relationships.poll_last_success.set_to_current_time()
                 logger.debug("✅ Graph health metrics updated")
 
             except Exception as e:
                 logger.error(f"Error updating graph health metrics: {e}")
+
+            # Poll-first: the first pass runs at startup so cap gauges never read
+            # 0-because-unpolled; sleeping outside the try prevents a hot loop
+            # when a pass fails.
+            await asyncio.sleep(300)
 
     # Reference kept so the poller isn't garbage-collected mid-flight (RUF006);
     # module-level lifetime is intentional — it runs until process exit.

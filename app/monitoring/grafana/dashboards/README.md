@@ -6,7 +6,7 @@ This directory contains version-controlled Grafana dashboards for SKUEL observab
 
 - `system_health.json` — HTTP requests, Neo4j queries
 - `domain_activity.json` — Entity creation/completion by domain
-- `graph_health.json` — Graph density, lateral relationships, BLOCKS tracking
+- `graph_health.json` — Graph density, lateral relationships, BLOCKS tracking, Knowledge Subgraph Health row (ADR-080 H1: Ku totals, orphan ratio, composition coverage, degree, prerequisite/ORGANIZES edges)
 - `event_bus.json` — Event publication rate, handler latency, errors
 
 ## Workflow

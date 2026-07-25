@@ -623,7 +623,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 - **Grafana Dashboards**: http://localhost:3000
 - **Metrics Endpoint**: http://localhost:8000/metrics
 
-Metrics across 7 categories (HTTP, Database, Event Bus, Domains, Relationships, Queries, AI), 13 alerting rules, and 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus). The stack is dev-only (`./dev up-monitoring`); production runs no Prometheus/Grafana — one surface (`/metrics`, PR #803), blocked publicly at Caddy, read on-droplet via `docker compose exec`. Emit-first: no metric definition without live emission in the same change.
+Metrics across 7 categories (HTTP, Database, Event Bus, Domains, Relationships, Queries, AI), 14 alerting rules, and 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus). The stack is dev-only (`./dev up-monitoring`); production runs no Prometheus/Grafana — one surface (`/metrics`, PR #803), blocked publicly at Caddy, read on-droplet via `docker compose exec`. Emit-first: no metric definition without live emission in the same change.
 
 **See:** `@prometheus-grafana` skill, `monitoring/README.md`
 
