@@ -140,9 +140,9 @@ def test_unknown_metric_is_flagged() -> None:
     fabricated = "expr: rate(skuel_nonexistent_metric_total[5m]) > 0"
     extracted = extract_references(fabricated, "fabricated.yml")
     assert ("skuel_nonexistent_metric_total", "fabricated.yml") in extracted
-    assert [
-        pair for pair in extracted if not resolves(pair[0], DEFINED, HISTOGRAMS)
-    ] == [("skuel_nonexistent_metric_total", "fabricated.yml")]
+    assert [pair for pair in extracted if not resolves(pair[0], DEFINED, HISTOGRAMS)] == [
+        ("skuel_nonexistent_metric_total", "fabricated.yml")
+    ]
 
 
 def test_derived_suffixes_resolve_only_for_histograms() -> None:
