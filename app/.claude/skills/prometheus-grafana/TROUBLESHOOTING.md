@@ -494,9 +494,11 @@ docker logs skuel-app 2>&1 | grep -i "graph health"
 curl http://localhost:8000/health/ready
 ```
 
-If Neo4j is down for a sustained period, the gauges **freeze at their last values** — there
-is currently no staleness signal. Frozen relationship gauges + a failing readiness probe =
-the poller can't reach Neo4j.
+If Neo4j is down for a sustained period, the gauges **freeze at their last values**. The
+staleness signal is `skuel_graph_health_poll_last_success_timestamp_seconds` — refreshed only
+after a fully-successful pass — and the `GraphHealthPollerStale` alert fires once it lags
+more than 15 minutes (3 missed cycles). Frozen relationship gauges + a failing readiness
+probe = the poller can't reach Neo4j.
 
 ### Histogram Percentiles Look Wrong
 

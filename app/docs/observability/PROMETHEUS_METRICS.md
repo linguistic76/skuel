@@ -198,7 +198,7 @@ SKUEL uses **Prometheus/Grafana** instead of building custom observability infra
 3. Graph Health (relationship patterns) ← PRIMARY FOCUS
 4. Event Bus (publication rate, handler latency, errors)
 
-**39 Metrics** tracked across HTTP, database, events, domains, relationships, queries, AI.
+**40 Metrics** tracked across HTTP, database, events, domains, relationships, queries, AI.
 
 **Zero maintenance burden** - Prometheus/Grafana handle storage, querying, visualization.
 
@@ -451,6 +451,15 @@ Fed by a 4th query on the same 5-min poller — no new worker.
 Pairs with `/admin/knowledge-health` and `./dev knowledge-health [--json]` (the on-demand
 full report). **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`.
 
+#### Poller Freshness
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `skuel_graph_health_poll_last_success_timestamp_seconds` | Gauge | - | Unix time of the last successful graph-health poll (baseline set at task start; refreshed only after a fully-successful pass) |
+
+All graph-health gauges freeze at their last values when the poller can't reach Neo4j;
+this timestamp makes that staleness alertable (`GraphHealthPollerStale`, >900s).
+
 ### Query Metrics
 
 | Metric | Type | Labels | Description |
@@ -563,11 +572,13 @@ full report). **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md
 - Are entities isolated (orphaned)?
 - How is the graph evolving over time?
 
-**Alerts** (live, in `/monitoring/prometheus/alerts.yml`): `HighOrphanedEntityCount` (>100),
-`AuraNodeCapApproaching` (>160k), `AuraRelationshipCapApproaching` (>320k)
+**Row 5: Knowledge Subgraph Health (ADR-080 H1)**
+- Total Kus, Avg Ku Degree, Prerequisite Edges, ORGANIZES Edges (stats)
+- Orphan Ku Ratio and Composition Coverage (percent gauges)
 
-**Gap**: the 6 knowledge-subgraph gauges have no panels on this dashboard yet — adding a
-Knowledge Health row is an open follow-up.
+**Alerts** (live, in `/monitoring/prometheus/alerts.yml`): `HighOrphanedEntityCount` (>100),
+`AuraNodeCapApproaching` (>160k), `AuraRelationshipCapApproaching` (>320k),
+`GraphHealthPollerStale` (poller >900s stale — gauges frozen)
 
 ### 4. Event Bus (Admin/Ops Perspective)
 
@@ -908,6 +919,14 @@ Deleted the JSON `/api/monitoring/*` routes and the admin `/api/metrics` route; 
 blocks public `/metrics` in production. Prometheus text exposition is the only metrics
 surface. Alert rules grew to 13 (incl. the two AuraDB Free cap alerts).
 
+### Review quick wins (July 2026)
+
+From the 2026-07-24 Prometheus review: `skuel_graph_health_poll_last_success_timestamp_seconds`
++ `GraphHealthPollerStale` alert (poller staleness made visible; 39 → 40 metrics, 13 → 14 rules),
+the Knowledge Subgraph Health dashboard row (closing #770's visualization gap), and
+`tests/unit/test_metric_reference_drift.py` — a guard that every `skuel_*` name referenced by
+dashboards or alert rules exists in `prometheus_metrics.py`.
+
 ---
 
 ## Dashboard Version Control
@@ -944,10 +963,10 @@ All dashboards are version-controlled in git:
 | Database | 3 | Per query |
 | Event Bus | 6 | Per event |
 | Domain Activity | 2 | Per event |
-| Graph Health (incl. 6 knowledge gauges) | 16 | Every 5 minutes |
+| Graph Health (incl. 6 knowledge gauges + poller freshness) | 17 | Every 5 minutes |
 | Query | 3 | Per operation |
 | AI | 6 | Per AI call |
-| **TOTAL** | **39 metrics** | **Varies** |
+| **TOTAL** | **40 metrics** | **Varies** |
 
 ---
 
