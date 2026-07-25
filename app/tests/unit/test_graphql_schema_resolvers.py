@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import strawberry
@@ -1299,7 +1299,7 @@ class TestDiscoverCrossDomainResolver:
 
 
 # ============================================================================
-# Mutation & Subscription tests
+# Mutation tests
 # ============================================================================
 
 
@@ -1337,11 +1337,12 @@ class TestCreateGraphqlSchema:
         sdl = schema.as_str()
         assert "type Mutation" in sdl
 
-    def test_schema_has_subscription_type(self) -> None:
+    def test_schema_has_no_subscription_type(self) -> None:
+        # Subscriptions were removed (never reachable — no WebSocket transport);
+        # the schema is deliberately Query + placeholder Mutation only.
         schema = create_graphql_schema()
         sdl = schema.as_str()
-        assert "type Subscription" in sdl
-        assert "learningProgress" in sdl
+        assert "type Subscription" not in sdl
 
 
 # ============================================================================
@@ -1869,284 +1870,3 @@ class TestLearningPathBlockersLaterStepNoKuUid:
         # No circular dependency blocker — later step has no KU to check
         circular = [b for b in result if b.blocker_type == "circular_dependency"]
         assert len(circular) == 0
-
-
-# ============================================================================
-# Subscription tests — lines 1107-1153
-# ============================================================================
-
-
-class TestLearningProgressSubscription:
-    @pytest.mark.asyncio
-    async def test_override_by_non_admin_raises(self) -> None:
-        """An explicit user_uid override requires ADMIN (resolve_target_user).
-
-        A non-admin caller is rejected before any event-bus subscription —
-        fail-closed, so the resolver never leaks another user's progress.
-        """
-        from adapters.inbound.graphql.schema import Subscription
-
-        user_service = AsyncMock()
-        caller_user = MagicMock()
-        caller_user.has_permission.return_value = False
-        user_service.get_user.return_value = FakeResult(value=caller_user)
-
-        event_bus = MagicMock()
-        services = MagicMock()
-        services.user = user_service
-        services.event_bus = event_bus
-
-        ctx = _make_context(services=services, user_uid="user_caller")
-        info = _make_info(ctx)
-
-        sub = Subscription()
-        with pytest.raises(PermissionError, match="Admin role required"):
-            async for _ in sub.learning_progress(info, path_uid="lp_1", user_uid="user_victim"):
-                pass
-
-        # Auth failed before streaming — no subscription side effect leaked.
-        event_bus.subscribe.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_no_event_bus_yields_zero(self) -> None:
-        """Line 1114-1118: no event bus yields 0.0 and returns."""
-        from adapters.inbound.graphql.schema import Subscription
-
-        services = MagicMock()
-        services.event_bus = None
-
-        ctx = _make_context(services=services, user_uid="user_test")
-        info = _make_info(ctx)
-
-        sub = Subscription()
-        values = [v async for v in sub.learning_progress(info, path_uid="lp_1")]
-
-        assert values == [0.0]
-
-    @pytest.mark.asyncio
-    async def test_no_services_yields_zero(self) -> None:
-        """Edge case: services object is falsy (line 1112)."""
-        from adapters.inbound.graphql.schema import Subscription
-
-        # Bypass _make_context default to actually pass None for services
-        ctx = GraphQLContext(
-            services=None,  # type: ignore[arg-type]
-            search_router=None,
-            knowledge_loader=_make_loader(),
-            task_loader=_make_loader(),
-            learning_path_loader=_make_loader(),
-            path_step_loader=_make_loader(),
-            user_uid="user_test",
-        )
-        info = _make_info(ctx)
-
-        sub = Subscription()
-        values = [v async for v in sub.learning_progress(info, path_uid="lp_1")]
-
-        assert values == [0.0]
-
-    @pytest.mark.asyncio
-    async def test_with_event_bus_subscribes_and_yields(self) -> None:
-        """Lines 1120-1142: event bus subscribes, handler filters, generator yields."""
-        import asyncio
-
-        from adapters.inbound.graphql.schema import Subscription
-
-        event_bus = MagicMock()
-        captured_handler: list[Any] = []
-
-        def fake_subscribe(event_type: type, handler: Any) -> None:
-            captured_handler.append(handler)
-
-        event_bus.subscribe = MagicMock(side_effect=fake_subscribe)
-        event_bus.unsubscribe = MagicMock()
-
-        services = MagicMock()
-        services.event_bus = event_bus
-
-        ctx = _make_context(services=services, user_uid="user_test")
-        info = _make_info(ctx)
-
-        sub = Subscription()
-        gen = sub.learning_progress(info, path_uid="lp_1")
-
-        # Pre-patch wait_for so the generator doesn't actually wait 30s.
-        # Strategy: on each call, check if the queue has data. If yes, return it.
-        # If not, raise TimeoutError (simulating the 30s timeout instantly).
-        # After 2 timeouts without data, we'll close the generator.
-
-        original_wait_for = asyncio.wait_for
-        wait_call_count = 0
-
-        async def fast_wait_for(coro: Any, timeout: float) -> float:  # noqa: ASYNC109
-            nonlocal wait_call_count
-            wait_call_count += 1
-            # Use a very short timeout so tests don't hang
-            return await original_wait_for(coro, timeout=0.1)
-
-        values: list[float] = []
-
-        async def consume_one() -> None:
-            """Get exactly one yielded value then stop."""
-            async for v in gen:
-                values.append(v)
-                break
-
-        with patch("asyncio.wait_for", side_effect=fast_wait_for):
-            task = asyncio.create_task(consume_one())
-            # Give generator time to start and subscribe
-            await asyncio.sleep(0.05)
-
-            # Handler should be captured
-            assert len(captured_handler) == 1
-            handler = captured_handler[0]
-
-            # Non-matching event — filtered (line 1126)
-            event_other = MagicMock()
-            event_other.user_uid = "user_other"
-            event_other.path_uid = "lp_1"
-            event_other.new_progress = 0.99
-            handler(event_other)
-
-            # Matching event — queued and yielded (lines 1128-1129, 1141-1142)
-            event_match = MagicMock()
-            event_match.user_uid = "user_test"
-            event_match.path_uid = "lp_1"
-            event_match.new_progress = 0.5
-            handler(event_match)
-
-            await asyncio.wait_for(task, timeout=5.0)
-
-        # Close generator to trigger finally block (lines 1148-1153)
-        await gen.aclose()
-
-        assert values == [0.5]
-        event_bus.unsubscribe.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_timeout_continues_loop(self) -> None:
-        """Line 1143-1146: TimeoutError triggers continue (keepalive), then next value yielded."""
-        import asyncio
-
-        from adapters.inbound.graphql.schema import Subscription
-
-        event_bus = MagicMock()
-        captured_handler: list[Any] = []
-
-        def fake_subscribe(event_type: type, handler: Any) -> None:
-            captured_handler.append(handler)
-
-        event_bus.subscribe = MagicMock(side_effect=fake_subscribe)
-        event_bus.unsubscribe = MagicMock()
-
-        services = MagicMock()
-        services.event_bus = event_bus
-
-        ctx = _make_context(services=services, user_uid="user_test")
-        info = _make_info(ctx)
-
-        sub = Subscription()
-        gen = sub.learning_progress(info, path_uid="lp_1")
-
-        original_wait_for = asyncio.wait_for
-        call_count = 0
-
-        async def mock_wait_for(coro: Any, timeout: float) -> float:  # noqa: ASYNC109
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                # First call: timeout → continue (line 1143-1146)
-                # Must still await the coro to drain the queue.get()
-                try:
-                    return await original_wait_for(coro, timeout=0.01)
-                except TimeoutError:
-                    raise
-            # Subsequent calls: fast timeout
-            return await original_wait_for(coro, timeout=1.0)
-
-        values: list[float] = []
-
-        async def consume_one() -> None:
-            async for v in gen:
-                values.append(v)
-                break
-
-        with patch("asyncio.wait_for", side_effect=mock_wait_for):
-            task = asyncio.create_task(consume_one())
-            await asyncio.sleep(0.05)
-
-            # Push event after the first timeout/continue
-            handler = captured_handler[0]
-            event = MagicMock()
-            event.user_uid = "user_test"
-            event.path_uid = "lp_1"
-            event.new_progress = 0.42
-            handler(event)
-
-            await asyncio.wait_for(task, timeout=5.0)
-
-        await gen.aclose()
-
-        assert values == [0.42]
-        # call_count >= 2 means the first call timed out and we continued
-        assert call_count >= 2
-
-    @pytest.mark.asyncio
-    async def test_unsubscribe_error_suppressed(self) -> None:
-        """Line 1150-1153: exception in unsubscribe is silently caught."""
-        import asyncio
-
-        from adapters.inbound.graphql.schema import Subscription
-
-        event_bus = MagicMock()
-        captured_handler: list[Any] = []
-
-        def fake_subscribe(event_type: type, handler: Any) -> None:
-            captured_handler.append(handler)
-
-        event_bus.subscribe = MagicMock(side_effect=fake_subscribe)
-        # Unsubscribe raises — the finally block should catch and suppress
-        event_bus.unsubscribe = MagicMock(side_effect=RuntimeError("unsubscribe failed"))
-
-        services = MagicMock()
-        services.event_bus = event_bus
-
-        ctx = _make_context(services=services, user_uid="user_test")
-        info = _make_info(ctx)
-
-        sub = Subscription()
-        gen = sub.learning_progress(info, path_uid="lp_1")
-
-        original_wait_for = asyncio.wait_for
-
-        async def fast_wait_for(coro: Any, timeout: float) -> float:  # noqa: ASYNC109
-            return await original_wait_for(coro, timeout=0.1)
-
-        values: list[float] = []
-
-        async def consume_one() -> None:
-            async for v in gen:
-                values.append(v)
-                break
-
-        with patch("asyncio.wait_for", side_effect=fast_wait_for):
-            task = asyncio.create_task(consume_one())
-            await asyncio.sleep(0.05)
-
-            # Push a matching event so the consumer can break
-            handler = captured_handler[0]
-            event = MagicMock()
-            event.user_uid = "user_test"
-            event.path_uid = "lp_1"
-            event.new_progress = 0.7
-            handler(event)
-
-            await asyncio.wait_for(task, timeout=5.0)
-
-        # Close the generator — this triggers the finally block where
-        # unsubscribe raises RuntimeError, which should be suppressed
-        await gen.aclose()
-
-        assert values == [0.7]
-        # Unsubscribe was called (and its error was suppressed)
-        event_bus.unsubscribe.assert_called_once()

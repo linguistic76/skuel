@@ -10,7 +10,6 @@ SKUEL's GraphQL API provides a flexible, type-safe alternative to REST for compl
 
 - **Complex nested queries** - Fetch related data in one request
 - **Flexible field selection** - Request only what you need
-- **Real-time subscriptions** - Future: learning progress updates
 - **Type-safe API** - Python type hints + Strawberry dataclasses
 - **DataLoader batching** - Automatic N+1 prevention
 - **FastHTML integration** - Server-rendered Python components
@@ -85,7 +84,7 @@ See [GUARDRAILS.md](./GUARDRAILS.md) for complete documentation.
 ```
 adapters/inbound/graphql/
 ├── __init__.py          # Package exports
-├── schema.py            # Query, Mutation (disabled), Subscription definitions
+├── schema.py            # Query + Mutation (disabled) definitions
 ├── types.py             # GraphQL type definitions (Strawberry @strawberry.type)
 ├── mappers.py           # Domain model → GraphQL type conversion functions
 ├── query_helpers.py     # unwrap_result/unwrap_list + GraphQLQueryHelpers
@@ -341,22 +340,6 @@ query {
 
 ---
 
-## Subscriptions
-
-### `learningProgress(userUid: String!, pathUid: String!): Float!`
-
-Subscribe to real-time learning progress updates via event bus.
-
-```graphql
-subscription {
-  learningProgress(userUid: "user.001", pathUid: "lp.python.basics")
-}
-```
-
-**Status:** Implemented. Subscribes to `LearningPathProgressUpdated` events, filters by user/path, yields progress values (0.0-1.0). Falls back to yielding 0.0 when no event bus is available. Requires WebSocket transport for production use.
-
----
-
 ## Configuration
 
 All guardrail limits are configured in [config.py:adapters/inbound/graphql/config.py](./config.py):
@@ -392,13 +375,13 @@ config.max_list_size = 50  # Reduce maximum
 
 ## Testing
 
-### Unit Tests (134 tests, 98% schema.py coverage)
+### Unit Tests (129 tests, 98% schema.py coverage)
 
 ```bash
 uv run pytest tests/unit/test_graphql_schema_resolvers.py tests/unit/test_graphql_mappers.py -v
 ```
 
-Tests cover all resolvers, helper functions, auth, config, context, DataLoader batching, type field resolvers, subscription, and schema factory. No Neo4j required — all services mocked.
+Tests cover all resolvers, helper functions, auth, config, context, DataLoader batching, type field resolvers, and schema factory. No Neo4j required — all services mocked.
 
 ### Integration Tests
 
@@ -422,7 +405,6 @@ uv run pytest tests/integration/test_graphql_queries.py tests/integration/test_g
 | **Over-fetching** | Returns all fields | Client selects fields |
 | **Under-fetching** | Multiple endpoints | One query |
 | **Type safety** | OpenAPI schema | Built-in introspection |
-| **Real-time** | Polling or custom WebSocket | Built-in subscriptions |
 | **Developer experience** | Manual testing | GraphiQL playground |
 
 ### When to Use GraphQL
@@ -431,7 +413,6 @@ uv run pytest tests/integration/test_graphql_queries.py tests/integration/test_g
 - Complex nested queries (tasks with knowledge with prerequisites)
 - Dashboard queries (multiple data sources in one request)
 - Frontend flexibility (mobile, web, different field requirements)
-- Real-time updates (subscriptions)
 
 ❌ **Use REST for:**
 - Simple CRUD operations
@@ -446,13 +427,10 @@ uv run pytest tests/integration/test_graphql_queries.py tests/integration/test_g
 GraphQL routes are registered in [bootstrap.py:/home/mike/skuel/app/scripts/dev/bootstrap.py](../../scripts/dev/bootstrap.py):
 
 ```python
-# GraphQL API routes (Complex nested queries + real-time subscriptions)
 from adapters.inbound.graphql_routes import create_graphql_routes
-create_graphql_routes(app, rt, services)
-logger.info("✅ GraphQL API registered at /graphql (via SearchRouter)")
-```
 
-**Graceful fallback:** If GraphQL fails to load, the app continues with REST API only.
+create_graphql_routes(app, rt, services)
+```
 
 ---
 
@@ -465,13 +443,11 @@ logger.info("✅ GraphQL API registered at /graphql (via SearchRouter)")
 4. **Guardrails** - Cypher in repos, apply limits, project fields, Result[T] flow
 5. **Session Authentication** - `require_authenticated_user()` at HTTP layer, defense-in-depth at resolver layer
 6. **Cross-Domain Discovery** - Wired to `AdaptiveLpCrossDomainService` with DataLoader-backed KU nodes
-7. **Subscriptions** - `learning_progress` wired to event bus with filter/cleanup
-8. **Comprehensive Tests** - 134 unit tests (98% schema.py coverage), integration tests, type contract tests
+7. **Comprehensive Tests** - unit tests (98% schema.py coverage), integration tests, type contract tests
 
 **⏳ Optional Enhancements:**
-1. **WebSocket Transport** - Required for subscriptions in production (or use SSE with HTMX)
-2. **Rate Limiting** - Per-user query rate limits
-3. **Audit Logging** - Log sensitive queries for compliance
+1. **Rate Limiting** - Per-user query rate limits
+2. **Audit Logging** - Log sensitive queries for compliance
 
 See [ENHANCEMENTS.md](./ENHANCEMENTS.md) for implementation details.
 

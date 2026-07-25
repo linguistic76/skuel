@@ -2,7 +2,7 @@
 GraphQL API Module for SKUEL
 ============================
 
-Provides GraphQL interface for complex nested queries and real-time updates.
+Provides GraphQL interface for complex nested queries (read-only).
 """
 
 from adapters.inbound.graphql.auth import require_user_uid, resolve_target_user
