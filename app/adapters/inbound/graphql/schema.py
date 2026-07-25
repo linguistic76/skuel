@@ -7,15 +7,11 @@ Clean GraphQL schema integrated with SKUEL service architecture.
 This provides:
 - Complex nested queries (solve N+1 problems)
 - Flexible field selection (avoid over-fetching)
-- Real-time subscriptions (future: learning progress)
 - Type-safe API with code generation support
 """
 
 from __future__ import annotations
 
-from collections.abc import (
-    AsyncIterator,
-)
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
@@ -1075,88 +1071,6 @@ class Mutation:
         return "Use REST API for mutations (POST, PUT, DELETE)"
 
 
-@strawberry.type
-class Subscription:
-    """
-    GraphQL subscriptions for real-time updates.
-
-    Note: Requires WebSocket support in FastHTML integration.
-    """
-
-    @strawberry.subscription
-    async def learning_progress(
-        self, info: Info[GraphQLContext, Any], path_uid: str, user_uid: str | None = None
-    ) -> AsyncIterator[float]:
-        """
-        Subscribe to learning progress updates via event bus.
-
-        Listens to LearningPathProgressUpdated events and yields progress
-        values (0.0-1.0) for ``path_uid``. Defaults to the authenticated
-        caller's own progress; an explicit ``user_uid`` override requires
-        ADMIN role (enforced by ``resolve_target_user`` — fail-closed).
-
-        Args:
-            info: GraphQL context with services
-            path_uid: Learning path identifier to filter events
-            user_uid: Optional target-user override (ADMIN only); defaults
-                to the authenticated caller
-
-        Yields:
-            Progress values (0.0 to 1.0) when updates occur
-        """
-        import asyncio
-
-        from core.events.learning_events import LearningPathProgressUpdated
-
-        # Authorize before streaming: default to the caller; an explicit
-        # user_uid override requires ADMIN role (fail-closed, mirrors queries).
-        target_user_uid = await resolve_target_user(info, user_uid)
-
-        # Get event bus from services
-        event_bus = info.context.services.event_bus if info.context.services else None
-
-        if not event_bus:
-            # Fallback: No event bus available, yield initial progress
-            # This ensures subscription doesn't fail during development
-            yield 0.0
-            return
-
-        # Create queue for this subscription
-        progress_queue: asyncio.Queue[float] = asyncio.Queue()
-
-        # Event handler that filters by the resolved target user + path
-        def handle_progress_update(event: LearningPathProgressUpdated) -> None:
-            """Filter and queue progress updates for this subscription."""
-            if event.user_uid == target_user_uid and event.path_uid == path_uid:
-                # Put new progress value in queue (non-blocking)
-                try:
-                    progress_queue.put_nowait(event.new_progress)
-                except asyncio.QueueFull:
-                    pass  # Skip if queue is full
-
-        # Subscribe to learning progress events
-        event_bus.subscribe(LearningPathProgressUpdated, handle_progress_update)
-
-        try:
-            # Yield progress updates as they arrive
-            while True:
-                # Wait for next progress update (with timeout for keepalive)
-                try:
-                    progress = await asyncio.wait_for(progress_queue.get(), timeout=30.0)
-                    yield progress
-                except TimeoutError:
-                    # No updates in 30 seconds - yield current progress as keepalive
-                    # This prevents connection timeout
-                    continue
-
-        finally:
-            # Cleanup: Unsubscribe when subscription ends
-            try:
-                event_bus.unsubscribe(LearningPathProgressUpdated, handle_progress_update)
-            except Exception:  # safety-net: GraphQL resolver boundary
-                pass  # Ignore cleanup errors
-
-
 def create_graphql_schema() -> strawberry.Schema:
     """
     Create the SKUEL GraphQL schema with its security extensions.
@@ -1182,7 +1096,6 @@ def create_graphql_schema() -> strawberry.Schema:
     return strawberry.Schema(
         query=Query,
         mutation=Mutation,
-        subscription=Subscription,
         extensions=[
             partial(QueryDepthLimiter, max_depth=config.max_query_depth),
             partial(MaxTokensLimiter, max_token_count=config.max_query_tokens),

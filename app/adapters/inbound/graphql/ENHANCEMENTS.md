@@ -9,60 +9,24 @@ SKUEL's GraphQL API is **complete and production-ready** with:
 - ✅ Four production guardrails
 - ✅ Session-based authentication (two-layer: HTTP + resolver)
 - ✅ Cross-domain discovery (wired to `AdaptiveLpCrossDomainService`)
-- ✅ Subscriptions (wired to event bus with `LearningPathProgressUpdated`)
-- ✅ Comprehensive tests (134 unit tests, 98% schema.py coverage)
+- ✅ Comprehensive tests (98% schema.py coverage)
 
 These enhancements are **optional** - implement only if needed.
 
----
-
-## P1: WebSocket Transport for Subscriptions
-
-### Current State
-
-The `learning_progress` subscription is implemented and wired to the event bus. It subscribes to `LearningPathProgressUpdated` events, filters by user/path, yields progress values, and cleans up on disconnect. However, it requires a WebSocket transport layer to function in production.
-
-### Implementation Options
-
-**Option 1: Server-Sent Events (Simpler, FastHTML-native)**
-
-```python
-@rt("/api/learning-progress/{path_uid}")
-async def learning_progress_sse(request, path_uid: str):
-    async def event_stream():
-        async for event in event_bus.subscribe("learning.progress"):
-            if event.path_uid == path_uid:
-                yield f"data: {event.progress_percentage}\n\n"
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-# Client-side (HTMX)
-# <div hx-ext="sse" sse-connect="/api/learning-progress/lp.python" sse-swap="message">
-```
-
-**Option 2: WebSocket with Strawberry (More Complex)**
-
-```python
-from strawberry.asgi import GraphQL
-
-graphql_app = GraphQL(
-    schema,
-    subscription_protocols=["graphql-transport-ws"]
-)
-app.mount("/graphql-ws", graphql_app)
-```
-
-**Recommendation:** Use Server-Sent Events with HTMX - fits FastHTML philosophy better.
+Subscriptions were removed entirely (2026-07): the `learning_progress` subscription
+was never reachable (no WebSocket transport), and real-time progress tracking is
+not wanted. If live updates are ever needed, build an SSE route over the event bus
+directly — not a GraphQL subscription.
 
 ---
 
-## P2: Rate Limiting Per User
+## P1: Rate Limiting Per User
 
 Per-user query rate limits to prevent abuse. Not yet implemented.
 
 ---
 
-## P3: Cross-Domain Discovery Enrichment
+## P2: Cross-Domain Discovery Enrichment
 
 ### Current State
 
@@ -83,7 +47,5 @@ Wired to `AdaptiveLpCrossDomainService`. The `discoverCrossDomain` resolver buil
 - ✅ FastHTML playground (complete)
 - ✅ Authentication (complete — session-based, two-layer)
 - ✅ Cross-domain discovery (complete)
-- ✅ Subscriptions (complete — needs WebSocket transport for production)
-- ✅ Tests (134 unit tests, 98% schema.py coverage)
-- ⏳ WebSocket transport (optional)
+- ✅ Tests (98% schema.py coverage)
 - 📋 Rate limiting (optional)

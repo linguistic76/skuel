@@ -53,7 +53,7 @@ dependencies = [
     "websockets>=16.1.1",
     "python-slugify>=8.0.4",
     "bcrypt>=5.0.0",
-    # GraphQL API - For complex nested queries and real-time subscriptions
+    # GraphQL API - For complex nested queries (read-only)
     "strawberry-graphql>=0.316.0",
     "weasyprint>=69.0",
     "prometheus-client>=0.25.0",
@@ -745,7 +745,7 @@ fixable = ["ALL"]
 "core/models/relationships/*.py" = ["F822", "ARG003", "PERF401"]  # Re-exports + class methods + performance patterns
 
 # GraphQL schema - Strawberry patterns
-"adapters/inbound/graphql/*.py" = ["RUF001", "ARG", "F811", "F822", "PERF", "SIM105"]  # Framework patterns + subscriptions
+"adapters/inbound/graphql/*.py" = ["RUF001", "ARG", "F811", "F822", "PERF", "SIM105"]  # Framework patterns
 
 # Core models - query models have protocol-based interfaces
 "core/models/query/_query_models.py" = ["ARG001"]  # Query model protocols need consistent signatures
