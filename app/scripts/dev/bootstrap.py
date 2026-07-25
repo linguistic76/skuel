@@ -151,7 +151,12 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
     """Step 2: Build core infrastructure (database, event bus, metrics)"""
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
-    from core.infrastructure.monitoring import MetricsCache, PrometheusMetrics, QueryMetricsCache
+    from core.infrastructure.monitoring import (
+        MetricsCache,
+        PrometheusMetrics,
+        QueryMetricsCache,
+        check_aura_cap_headroom,
+    )
 
     # Import MetricsEventHandler here to avoid circular dependency
     from core.infrastructure.monitoring.metrics_event_handler import MetricsEventHandler
@@ -229,6 +234,9 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                     prometheus_metrics.relationships.total_entities.set(record["total_nodes"])
                     prometheus_metrics.relationships.total_relationships.set(record["total_rels"])
                     prometheus_metrics.relationships.graph_density.set(record["density"])
+                    # Production has no Prometheus to evaluate the cap alerts —
+                    # this in-process check guards the AuraDB caps where they bind.
+                    check_aura_cap_headroom(record["total_nodes"], record["total_rels"])
 
                 # Query 2: Orphaned entities (nodes with no relationships)
                 query_orphaned = """

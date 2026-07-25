@@ -148,9 +148,14 @@ def extract_bare_paths(content: str) -> list[tuple[int, str]]:
     Returns list of (line_no, path_string).
     """
     results = []
-    # Match /project-prefix/... paths ending with a file extension
+    # Match /project-prefix/... paths ending with a file extension. The
+    # lookbehind also rejects word chars and slashes: without that, the
+    # `/monitoring/foo.py` TAIL of a longer citation like
+    # `core/infrastructure/monitoring/foo.py` matches as its own bare path and
+    # resolves to a nonexistent ROOT/monitoring/... — a false positive on every
+    # such citation (the full span is already handled by the backtick pass).
     pattern = re.compile(
-        r"(?<![`\[(])"  # not inside link or backtick (already handled above)
+        r"(?<![\w/`\[(])"  # not inside link/backtick, not mid-path
         r"((?:" + "|".join(re.escape(p) for p in PROJECT_PREFIXES) + r")[^\s\)\]`\"'<>,]+)"
     )
     for i, line in enumerate(content.splitlines(), 1):

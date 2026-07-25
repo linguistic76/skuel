@@ -104,8 +104,10 @@ admin `/api/metrics` route were deleted in PR #803 — do not reintroduce JSON m
   (it is auth-exempt app-side so a local scraper could read it; nothing should scrape it over
   the internet — it leaks internal telemetry).
 - On-droplet reads: `docker compose exec skuel-app curl -s localhost:5001/metrics`
-- Consequence: alert rules currently evaluate only in the dev stack (see ALERTING.md § Where
-  alerts actually evaluate).
+- Consequence: alert rules evaluate only in the dev stack. The AuraDB cap alerts have an
+  in-app production counterpart — the graph-health poller runs `check_aura_cap_headroom()`
+  each cycle (WARNING >80% of cap, ERROR >95%; thresholds in `AuraDBCaps`, drift-pinned to
+  the alert exprs) — see ALERTING.md § Where Alerts Actually Evaluate.
 
 ### Emit-First Doctrine
 

@@ -58,7 +58,9 @@ curl -s http://localhost:8000/metrics | grep skuel_embedding
 
 **Production:** the droplet runs no Prometheus/Grafana, and Caddy blocks `/metrics`
 from the public internet (it leaks internal telemetry). Read it from inside the
-stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`.
+stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`. The AuraDB
+cap alerts are evaluated in-app instead (poller check, WARNING 80% / ERROR 95% —
+`grep 'AuraDB cap'` the app logs; see the prometheus-grafana skill's ALERTING.md).
 
 ---
 

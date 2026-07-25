@@ -11,6 +11,7 @@ Key Components:
 - HTTP Instrumentation: Request/response timing and logging
 """
 
+from core.infrastructure.monitoring.aura_cap_check import check_aura_cap_headroom
 from core.infrastructure.monitoring.http_instrumentation import (
     create_instrumented_wrapper,
     instrument_handler,
@@ -27,6 +28,8 @@ __all__ = [
     "PrometheusMetrics",
     "MetricsCache",
     "QueryMetricsCache",
+    # In-app AuraDB cap evaluator (production has no Prometheus)
+    "check_aura_cap_headroom",
     # HTTP instrumentation
     "create_instrumented_wrapper",
     "instrument_handler",
