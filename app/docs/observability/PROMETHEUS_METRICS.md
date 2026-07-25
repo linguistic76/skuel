@@ -128,7 +128,7 @@ skuel_graph_density[7d]
 Graph Health dashboard shows 16 panels with time-series, gauges, pie charts
 ```
 
-✅ **Alerting** (future: Prometheus Alertmanager)
+✅ **Alerting** (live: 13 rules in `/monitoring/prometheus/alerts.yml`; no Alertmanager by choice)
 ```yaml
 # Alert if error rate > 5%
 - alert: HighErrorRate
@@ -198,9 +198,30 @@ SKUEL uses **Prometheus/Grafana** instead of building custom observability infra
 3. Graph Health (relationship patterns) ← PRIMARY FOCUS
 4. Event Bus (publication rate, handler latency, errors)
 
-**33 Metrics** tracked across HTTP, database, events, domains, relationships, queries, AI.
+**39 Metrics** tracked across HTTP, database, events, domains, relationships, queries, AI.
 
 **Zero maintenance burden** - Prometheus/Grafana handle storage, querying, visualization.
+
+---
+
+## One Surface: Prometheus (PR #803)
+
+Prometheus text exposition (`/metrics`) is THE metrics surface. The JSON `/api/monitoring/*`
+routes and the admin `/api/metrics` route were deleted in PR #803 — they duplicated what
+`/health/ready` and the Prometheus series already provide. Do not reintroduce JSON metrics
+endpoints.
+
+**Production posture**: the droplet runs no Prometheus/Grafana — production is app + Caddy
+only, the app binds loopback-only (`127.0.0.1:5001`), and Caddy returns 403 for public
+`/metrics` (auth-exempt app-side; would leak internal telemetry if exposed). On-droplet reads:
+
+```bash
+docker compose exec skuel-app curl -s localhost:5001/metrics
+```
+
+Consequence: alert rules evaluate only where Prometheus runs — the dev monitoring profile,
+scraping a dev app backed by local Docker Neo4j. See the prometheus-grafana skill's
+ALERTING.md § Where Alerts Actually Evaluate.
 
 ---
 
@@ -361,10 +382,11 @@ open http://localhost:3000/dashboards
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
 | `skuel_events_published_total` | Counter | event_type | Total events published |
+| `skuel_event_publish_duration_seconds` | Histogram | event_type | Publication overhead |
 | `skuel_event_handler_calls_total` | Counter | event_type, handler | Handler invocations |
 | `skuel_event_handler_duration_seconds` | Histogram | event_type, handler | Handler execution time |
 | `skuel_event_handler_errors_total` | Counter | event_type, handler | Handler errors |
-| `skuel_context_invalidations_total` | Counter | reason | UserContext invalidations |
+| `skuel_context_invalidations_total` | Counter | - | UserContext invalidations |
 
 **Handler Duration Buckets**: 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0 seconds
 
@@ -375,23 +397,27 @@ open http://localhost:3000/dashboards
 | `skuel_entities_created_total` | Counter | entity_type | Entities created |
 | `skuel_entities_completed_total` | Counter | entity_type | Entities completed |
 
-**Entity Types**: task, goal, habit, event, choice, principle, expense, transcription, ku, ps, lp, user_entry
+**Entity Types**: task, goal, habit, event, choice, principle, transcription, ku, ps, lp, user_entry (journals count as user_entry — ADR-054)
 
 ### Graph Health Metrics (Phase 4 - PRIMARY FOCUS)
 
+All graph-health gauges are **system-wide — no labels beyond those listed** (no `user_uid`;
+per-user data lives in Neo4j). They are updated by the 5-minute graph-health poller in
+`scripts/dev/bootstrap.py`.
+
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `skuel_graph_density` | Gauge | user_uid | Avg relationships per entity |
-| `skuel_total_entities` | Gauge | user_uid | Total nodes in graph |
-| `skuel_total_relationships` | Gauge | user_uid | Total edges in graph |
-| `skuel_orphaned_entities_count` | Gauge | user_uid | Entities with no relationships |
+| `skuel_graph_density` | Gauge | - | Avg relationships per entity |
+| `skuel_total_entities` | Gauge | - | Total nodes in graph |
+| `skuel_total_relationships` | Gauge | - | Total edges in graph |
+| `skuel_orphaned_entities_count` | Gauge | - | Entities with no relationships |
 
 #### Relationship Layer Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `skuel_relationships_count` | Gauge | layer, user_uid | Relationships by layer |
-| `skuel_lateral_relationships_by_category` | Gauge | category, user_uid | Lateral breakdown |
+| `skuel_relationships_count` | Gauge | layer | Relationships by layer |
+| `skuel_lateral_relationships_by_category` | Gauge | category | Lateral breakdown |
 
 **Layers**: hierarchical, lateral, semantic, cross_domain
 
@@ -405,6 +431,25 @@ open http://localhost:3000/dashboards
 | `skuel_enables_relationships_count` | Gauge | - | ENABLES relationships |
 | `skuel_contains_relationships_count` | Gauge | - | CONTAINS relationships |
 | `skuel_organizes_relationships_count` | Gauge | - | ORGANIZES (MOC) relationships |
+
+#### Knowledge-Subgraph Structural Health (ADR-080 Horizon 1, PR #770)
+
+Knowledge-scoped view of graph health — the raw structural signals `KnowledgeHealthService`
+interprets into a composite GDS-readiness score. Scoped to the knowledge subgraph
+(Ku / PathStep / LearningPath / Exercise) with learner-state telemetry edges excluded.
+Fed by a 4th query on the same 5-min poller — no new worker.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `skuel_knowledge_kus_total` | Gauge | - | Total Ku nodes in the knowledge subgraph |
+| `skuel_knowledge_orphan_kus_count` | Gauge | - | Kus with zero incident relationships |
+| `skuel_knowledge_avg_ku_degree` | Gauge | - | Average incident relationships per Ku |
+| `skuel_knowledge_composed_kus_count` | Gauge | - | Kus composed into ≥1 PathStep |
+| `skuel_knowledge_prerequisite_edges_count` | Gauge | - | Prerequisite-DAG edges among knowledge nodes |
+| `skuel_knowledge_organizes_edges_count` | Gauge | - | ORGANIZES/MOC edges among knowledge nodes |
+
+Pairs with `/admin/knowledge-health` and `./dev knowledge-health [--json]` (the on-demand
+full report). **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`.
 
 ### Query Metrics
 
@@ -474,8 +519,6 @@ open http://localhost:3000/dashboards
 - Are users engaging with features? (adoption tracking)
 - Event bus performance monitoring (operational health)
 
-**Variables**: `$user_uid` (filter to specific user for troubleshooting)
-
 **Note**: This dashboard shows **aggregate business metrics** for product decisions. For individual user progress ("How many tasks did I complete?"), users should view their **ProfileHub** (`/profile`) instead.
 
 ### 3. Graph Health (Graph Perspective) ← PRIMARY FOCUS
@@ -520,12 +563,11 @@ open http://localhost:3000/dashboards
 - Are entities isolated (orphaned)?
 - How is the graph evolving over time?
 
-**Variables**: `$user_uid` (filter by user)
+**Alerts** (live, in `/monitoring/prometheus/alerts.yml`): `HighOrphanedEntityCount` (>100),
+`AuraNodeCapApproaching` (>160k), `AuraRelationshipCapApproaching` (>320k)
 
-**Alerts** (Future):
-- Graph density < 1.0 (warn: too sparse)
-- Orphaned entities > 10 (connectivity issue)
-- Blocking relationships > 50 (potential bottleneck)
+**Gap**: the 6 knowledge-subgraph gauges have no panels on this dashboard yet — adding a
+Knowledge Health row is an open follow-up.
 
 ### 4. Event Bus (Admin/Ops Perspective)
 
@@ -604,23 +646,30 @@ histogram_quantile(0.95,
 
 ```promql
 # Current graph density
-skuel_graph_density{user_uid="system"}
+skuel_graph_density
 
 # Total relationships by layer
-skuel_relationships_count{user_uid="system"}
+skuel_relationships_count
 
 # Lateral relationships by category
-skuel_lateral_relationships_by_category{user_uid="system"}
+skuel_lateral_relationships_by_category
 
 # BLOCKS relationship count
-skuel_blocking_relationships_count{user_uid="system"}
+skuel_blocking_relationships_count
 
 # Orphaned entities
-skuel_orphaned_entities_count{user_uid="system"}
+skuel_orphaned_entities_count
 
 # Graph connectivity ratio
-skuel_total_relationships{user_uid="system"}
-  / skuel_total_entities{user_uid="system"}
+skuel_total_relationships / skuel_total_entities
+
+# AuraDB Free cap headroom (alerts fire at 0.8)
+skuel_total_entities / 200000
+skuel_total_relationships / 400000
+
+# Knowledge subgraph: orphan ratio and composition coverage
+skuel_knowledge_orphan_kus_count / skuel_knowledge_kus_total
+skuel_knowledge_composed_kus_count / skuel_knowledge_kus_total
 ```
 
 ---
@@ -687,8 +736,8 @@ docker exec skuel-grafana ls /var/lib/grafana/dashboards
 **Cause**: Unbounded label values (e.g., task titles, user IDs)
 
 **Prevention**:
-- ✅ Use `user_uid` (controlled set)
-- ✅ Use `entity_type` (14 fixed values)
+- ✅ Use `entity_type`, `operation`, `status` (small fixed sets)
+- ❌ Never use `user_uid` — per-user data belongs in Neo4j, not Prometheus
 - ❌ Don't use task titles, descriptions, or arbitrary text
 
 ### Background Tasks Not Running
@@ -699,15 +748,11 @@ docker exec skuel-grafana ls /var/lib/grafana/dashboards
 ```bash
 # Check app logs
 docker logs skuel-app | grep "Graph health metrics"
-docker logs skuel-app | grep "Performance metrics export"
-
-# Verify tasks were started
-grep "background task started" /tmp/skuel_app.log
 ```
 
 **Expected**:
-- "Performance metrics export task started (30s interval)"
 - "Graph health metrics update task started (5 min interval)"
+- Note: the first gauge sample lands ~5 minutes after boot
 
 ---
 
@@ -794,7 +839,7 @@ grep "background task started" /tmp/skuel_app.log
 - ✅ Real-time metrics (no 30s delay)
 - ✅ Maintains debugging access (cache)
 
-**See**: `/docs/decisions/ADR-XXX-prometheus-primary-cache-pattern.md`
+**See**: `/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md`
 
 ### Phase 4: Graph Health & Lateral Relationships (Week 4) ← PRIMARY
 
@@ -848,6 +893,21 @@ Removed 14 unemitted "aspirational" metrics from `prometheus_metrics.py`:
 
 The Search & Events dashboard was rewritten as the Event Bus dashboard (search panels removed; event panels preserved).
 
+**Doctrine established**: emit-first — a metric definition merges only together with its
+emission. Deferred instrumentation stays a plain backlog note (review doc, ADR, TODO), never
+a defined-but-unemitted metric; there is deliberately no planned-metrics registry.
+
+### Knowledge-subgraph gauges (PR #770, July 2026)
+
+Added the 6 `skuel_knowledge_*` gauges (ADR-080 Horizon 1) as a 4th query on the existing
+5-min graph-health poller — no new worker. 33 → 39 metrics.
+
+### One-surface consolidation (PR #803, July 2026)
+
+Deleted the JSON `/api/monitoring/*` routes and the admin `/api/metrics` route; Caddy now
+blocks public `/metrics` in production. Prometheus text exposition is the only metrics
+surface. Alert rules grew to 13 (incl. the two AuraDB Free cap alerts).
+
 ---
 
 ## Dashboard Version Control
@@ -884,10 +944,10 @@ All dashboards are version-controlled in git:
 | Database | 3 | Per query |
 | Event Bus | 6 | Per event |
 | Domain Activity | 2 | Per event |
-| Graph Health | 10 | Every 5 minutes |
+| Graph Health (incl. 6 knowledge gauges) | 16 | Every 5 minutes |
 | Query | 3 | Per operation |
 | AI | 6 | Per AI call |
-| **TOTAL** | **33 metrics** | **Varies** |
+| **TOTAL** | **39 metrics** | **Varies** |
 
 ---
 
@@ -895,22 +955,22 @@ All dashboards are version-controlled in git:
 
 - **Metrics Collection**: < 1ms overhead per operation
 - **Background Tasks**:
-  - Performance export: 30s interval, ~10ms execution
-  - Graph health: 5min interval, ~500ms execution
+  - Graph health: 5min interval, ~500ms execution (the only periodic metrics loop)
 - **Storage**: ~10MB/day for typical usage
-- **Prometheus Retention**: 7 days (configurable)
+- **Prometheus Retention**: 7 days (`--storage.tsdb.retention.time=7d` in docker-compose.yml)
 
 ---
 
 ## Future Enhancements (Optional)
 
-- [ ] Alerting rules (Prometheus Alertmanager)
+- [ ] Knowledge Health panel row on the Graph Health dashboard (the 6 gauges are polled but unvisualized)
 - [ ] Custom recording rules for complex queries
-- [ ] Multi-user graph health tracking (per user_uid)
 - [ ] Dependency chain visualization
-- [ ] Search result quality dashboard (A/B testing)
 - [ ] UserContext build performance tracking
-- [ ] Life path alignment score trends
+
+Non-goals (doctrine): per-user metrics (user behavior lives in Neo4j), Alertmanager
+notification routing (single operator, no notification chain), and any metric defined
+without emission in the same change (emit-first — see the May 2026 cleanup above).
 
 ---
 
@@ -924,6 +984,6 @@ All dashboards are version-controlled in git:
 
 ---
 
-**Last Updated**: 2026-01-31 (Phase 5 completion)
+**Last Updated**: 2026-07-24 (post-PR #803 one-surface consolidation + PR #770 knowledge gauges)
 
 **Status**: ✅ Production-ready observability stack

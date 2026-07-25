@@ -10,7 +10,7 @@
 #   promtool check rules /monitoring/prometheus/alerts.yml
 #   curl http://localhost:9090/api/v1/rules
 #
-# See: .claude/skills/prometheus-grafana/ALERTING.md (to be created)
+# See: .claude/skills/prometheus-grafana/ALERTING.md
 
 groups:
   - name: skuel_critical
@@ -169,7 +169,7 @@ groups:
         annotations:
           summary: "AI API error rate >20%"
           description: "{{ $value | humanizePercentage }} of AI API calls failing"
-          runbook: "Check API keys (HF_API_TOKEN, OPENAI_API_KEY), verify rate limits, check provider status pages"
+          runbook: "Check OPENAI_API_KEY (wired provider for chat + embeddings, ADR-068; BGE/HF adapter staged, not selectable), verify rate limits, check provider status pages"
 
       - alert: EmbeddingQueueBacklog
         expr: skuel_embedding_queue_size > 500

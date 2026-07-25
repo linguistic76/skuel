@@ -158,11 +158,6 @@ rate(skuel_entities_created_total[5m])
 # Creation rate by entity type
 sum by (entity_type) (rate(skuel_entities_created_total[5m]))
 
-# User-specific creation rate
-sum by (user_uid, entity_type) (
-  rate(skuel_entities_created_total[5m])
-)
-
 # Top 5 most-created entity types
 topk(5, sum by (entity_type) (rate(skuel_entities_created_total[5m])))
 ```
@@ -250,11 +245,8 @@ sum by (handler) (rate(skuel_event_handler_errors_total[5m]))
 ### Context Invalidations
 
 ```promql
-# Invalidation rate
+# Invalidation rate (no labels — system-wide counter)
 rate(skuel_context_invalidations_total[5m])
-
-# Invalidations per user
-sum by (user_uid) (rate(skuel_context_invalidations_total[5m]))
 
 # Detect invalidation spikes (>10/sec)
 rate(skuel_context_invalidations_total[5m]) > 10
@@ -314,6 +306,33 @@ skuel_blocking_relationships_count
 
 # Active ENABLES relationships
 skuel_enables_relationships_count
+```
+
+### Knowledge Health Queries (ADR-080 H1)
+
+```promql
+# Orphan Ku ratio (isolated knowledge)
+skuel_knowledge_orphan_kus_count / skuel_knowledge_kus_total
+
+# Composition coverage (Kus composed into ≥1 PathStep)
+skuel_knowledge_composed_kus_count / skuel_knowledge_kus_total
+
+# Average Ku connectivity
+skuel_knowledge_avg_ku_degree
+
+# Prerequisite-DAG and ORGANIZES edge counts
+skuel_knowledge_prerequisite_edges_count
+skuel_knowledge_organizes_edges_count
+```
+
+### AuraDB Cap Headroom
+
+```promql
+# Fraction of the AuraDB Free node cap used (alert fires at 0.8)
+skuel_total_entities / 200000
+
+# Fraction of the relationship cap used
+skuel_total_relationships / 400000
 ```
 
 ---
@@ -379,25 +398,15 @@ rate(skuel_http_requests_total[15m])
 avg_over_time(skuel_graph_density[1h])
 ```
 
-### User Aggregation
+### No Per-User Series
 
-```promql
-# Per-user entity creation
-sum by (user_uid) (rate(skuel_entities_created_total[5m]))
-
-# Per-user graph density
-skuel_graph_density{user_uid="user_mike"}
-
-# All users combined
-sum(skuel_total_entities)
-```
+There are **no `user_uid` labels on any SKUEL metric** — Prometheus tracks system health,
+user behavior lives in Neo4j (UserContext, Interaction records). If a question starts with
+"what did user X…", it's a Cypher query, not PromQL.
 
 ### Multi-Dimensional Aggregation
 
 ```promql
-# By entity type and user
-sum by (entity_type, user_uid) (rate(skuel_entities_created_total[5m]))
-
 # By endpoint and status
 sum by (endpoint, status) (rate(skuel_http_requests_total[5m]))
 
@@ -423,10 +432,10 @@ delta(skuel_graph_density[5m])
 ### Avoid High Cardinality Labels
 
 ```promql
-# WRONG - creates too many time series
-sum by (user_uid, endpoint, method, status) (...)
+# WRONG - keeps every label dimension (endpoint × method × status series)
+sum by (endpoint, method, status) (rate(skuel_http_requests_total[5m]))
 
-# CORRECT - aggregate early
+# CORRECT - aggregate early, keep only the dimension you're charting
 sum by (endpoint) (rate(skuel_http_requests_total[5m]))
 ```
 
@@ -464,10 +473,12 @@ entity_type=~"task|goal|habit"
 
 ### Use Recording Rules for Complex Queries
 
-If a query appears in multiple dashboards, create a recording rule:
+If a query appears in multiple dashboards, create a recording rule. Recording rules live in
+their own file loaded via `rule_files:` in `prometheus.yml` — SKUEL has none today, so this
+is a create-the-file step, not an edit:
 
 ```yaml
-# prometheus.yml
+# monitoring/prometheus/recording_rules.yml (would need adding to rule_files:)
 groups:
   - name: skuel_aggregations
     interval: 30s

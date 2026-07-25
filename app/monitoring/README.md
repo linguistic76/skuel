@@ -35,8 +35,8 @@ docker compose --profile monitoring ps
 ### 3. Verify Metrics
 
 ```bash
-# Check SKUEL metrics
-curl http://localhost:5001/metrics | grep skuel_
+# Check SKUEL metrics (dev app on 8000; 5001 is the production container port)
+curl http://localhost:8000/metrics | grep skuel_
 
 # Validate configuration
 ./scripts/validate_prometheus_config.sh
@@ -53,7 +53,7 @@ checks without Grafana, grep the text exposition directly:
 ```bash
 # Embedding worker queue depth + processed counters (e.g. during a re-embed —
 # see /docs/operations/EMBEDDING_VERSION_UPGRADE.md)
-curl -s http://localhost:5001/metrics | grep skuel_embedding
+curl -s http://localhost:8000/metrics | grep skuel_embedding
 ```
 
 **Production:** the droplet runs no Prometheus/Grafana, and Caddy blocks `/metrics`
@@ -64,9 +64,9 @@ stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`.
 
 ## What's Inside
 
-**Metrics**: 43 across 9 categories (System, HTTP, DB, Events, Domains, Graph, Search, Queries, AI)
-**Alerts**: 14 production alerts with runbooks
-**Dashboards**: 4 Grafana dashboards (System, Domain, Graph, Search & Events)
+**Metrics**: 39 across 7 categories (HTTP, DB, Events, Domains, Graph incl. knowledge health, Queries, AI)
+**Alerts**: 13 alerting rules with runbooks (incl. AuraDB Free cap alerts)
+**Dashboards**: 4 Grafana dashboards (System Health, Domain Activity, Graph Health, Event Bus)
 
 **See**: `/.claude/skills/prometheus-grafana/SKILL.md` for complete reference
 
@@ -74,9 +74,9 @@ stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`.
 
 ## Files
 
-- `prometheus.yml` - Production config (Docker deployment)
-- `prometheus.dev.yml` - Development config (local app)
-- `alerts.yml` - 14 production alerts
+- `prometheus.yml` - Scrape config (Docker deployment)
+- `prometheus.dev.yml` - Development config (host-run app)
+- `alerts.yml` - 13 alerting rules (+1 commented-out SLO rule)
 - `grafana/dashboards/` - 4 pre-built dashboards
 
 ---
@@ -90,5 +90,5 @@ stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`.
 
 ---
 
-**Last Updated**: 2026-01-31 (Phase 1 Complete)
+**Last Updated**: 2026-07-24 (post-PR #803 one-surface consolidation)
 **Status**: Production Ready ✅
