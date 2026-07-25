@@ -56,7 +56,7 @@ scrape_configs:
       - targets: ['host.docker.internal:8000']
 
       # Or use actual IP address
-      # - targets: ['192.168.1.100:5001']
+      # - targets: ['192.168.1.100:8000']
 
       # NOT localhost (Docker container can't reach host's localhost)
       # - targets: ['localhost:8000']  # ❌ WRONG
@@ -64,17 +64,18 @@ scrape_configs:
 
 After changing, restart Prometheus:
 ```bash
-docker-compose restart prometheus
+docker compose --profile monitoring restart prometheus
 ```
 
 #### Cause 2: Firewall Blocking Port
 
-**Problem**: Firewall blocks Prometheus from accessing port 5001
+**Problem**: Firewall blocks Prometheus from accessing port 8000 (the dev app port;
+5001 is the production container port, and production runs no Prometheus)
 
 **Solution** (Linux):
 ```bash
-# Allow port 5001
-sudo ufw allow 5001/tcp
+# Allow port 8000
+sudo ufw allow 8000/tcp
 
 # Or disable firewall temporarily for testing
 sudo ufw disable
@@ -122,7 +123,7 @@ Prometheus targets page shows "skuel-app" as DOWN with error message.
 **Diagnosis**:
 ```bash
 # From Docker container, can you reach the app?
-docker exec -it skuel-prometheus-1 wget -O- http://host.docker.internal:8000/metrics
+docker exec -it skuel-prometheus wget -O- http://host.docker.internal:8000/metrics
 ```
 
 **Solutions**:
@@ -334,24 +335,20 @@ Gaps in time series data on dashboards.
 
 ### Common Causes
 
-#### Cause 1: Scrape Interval vs Retention
+#### Cause 1: Querying Beyond Retention
 
-**Problem**: Querying data older than retention period
-
-```yaml
-# prometheus.yml
-global:
-  retention.time: 15d  # Prometheus only keeps 15 days
-```
-
-**Solution**: Increase retention or export to long-term storage
+**Problem**: Querying data older than the retention period. Retention is a **compose command
+flag**, not a `prometheus.yml` key — SKUEL keeps 7 days:
 
 ```yaml
-# Increase retention to 30 days
+# docker-compose.yml (prometheus service)
 command:
-  - '--retention.time=30d'
-  - '--storage.tsdb.path=/prometheus'
+  - '--storage.tsdb.retention.time=7d'
 ```
+
+**Solution**: 7 days is deliberate — long-horizon truth lives in Neo4j, and the TSDB stays
+tiny. If you genuinely need more, raise the flag in `docker-compose.yml`; don't add it to
+`prometheus.yml` (it isn't read from there).
 
 #### Cause 2: App Downtime
 
@@ -383,8 +380,7 @@ if rare_condition:
 ```python
 # In bootstrap
 prometheus_metrics.domains.entities_created.labels(
-    entity_type="task",
-    user_uid="user_mike"
+    entity_type="task"
 ).inc(0)  # Initialize to 0
 ```
 
@@ -467,12 +463,11 @@ topk(10, sum by (endpoint) (rate(skuel_http_requests_total[5m])))
 ```python
 # Check if code path executes
 prometheus_metrics.domains.entities_created.labels(
-    entity_type="task",
-    user_uid=user_uid
+    entity_type="task"
 ).inc()
 
 # Add logging
-logger.info(f"Incrementing entities_created for {user_uid}")
+logger.info("Incrementing entities_created for task")
 ```
 
 **Common Causes**:
@@ -482,28 +477,26 @@ logger.info(f"Incrementing entities_created for {user_uid}")
 
 ### Gauge Shows Stale Data
 
-**Problem**: Gauge doesn't update in real-time
+**Problem**: The relationship/knowledge gauges (`skuel_graph_density`,
+`skuel_orphaned_entities_count`, `skuel_knowledge_*`) don't update in real-time
 
-**Diagnosis**: Check how gauge is updated
+**Expected behavior**: These gauges are set by the 5-min graph-health poller
+(`update_graph_health_metrics()` in `scripts/dev/bootstrap.py`) — up to 5 minutes of lag
+is by design, and the first sample only lands ~5 minutes after boot.
 
-```python
-# If gauge is only set on events
-prometheus_metrics.domains.active_entities_count.labels(...).set(count)
+**Diagnosis when they stop updating entirely**:
 
-# But events don't fire frequently, gauge stays stale
+```bash
+# Poller failures are logged and the loop continues — check for repeated errors
+docker logs skuel-app 2>&1 | grep -i "graph health"
+
+# Verify Neo4j is reachable (poller queries fail silently gauge-wise if it isn't)
+curl http://localhost:8000/health/ready
 ```
 
-**Solution**: Use background task for periodic updates
-
-```python
-# Update gauge every 5 minutes via scheduler
-async def update_active_count():
-    count = await backend.count_active(user_uid)
-    prometheus_metrics.domains.active_entities_count.labels(
-        entity_type="task",
-        user_uid=user_uid
-    ).set(count)
-```
+If Neo4j is down for a sustained period, the gauges **freeze at their last values** — there
+is currently no staleness signal. Frozen relationship gauges + a failing readiness probe =
+the poller can't reach Neo4j.
 
 ### Histogram Percentiles Look Wrong
 
@@ -584,20 +577,39 @@ providers:
 
 ---
 
+## Production: /metrics Returns 403
+
+### Symptom
+
+`curl https://<production-domain>/metrics` returns 403 Forbidden.
+
+### This Is Expected
+
+Caddy blocks public `/metrics` by design (PR #803) — the endpoint is auth-exempt app-side,
+so exposing it publicly would leak internal telemetry. There is no production Prometheus
+target to check; the droplet runs no Prometheus/Grafana.
+
+**On-droplet read**:
+```bash
+docker compose exec skuel-app curl -s localhost:5001/metrics | grep skuel_
+```
+
+---
+
 ## Prometheus Container Fails to Start
 
 ### Symptom
 
 ```bash
-docker-compose up -d prometheus
-# Error: Container exits immediately
+./dev up-monitoring
+# Error: prometheus container exits immediately
 ```
 
 ### Diagnosis
 
 ```bash
 # Check container logs
-docker logs skuel-prometheus-1
+docker logs skuel-prometheus
 
 # Common errors:
 # - "config file error"

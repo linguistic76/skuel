@@ -23,8 +23,8 @@ What are you measuring?
 | Type | Purpose | Examples | Query Pattern |
 |------|---------|----------|---------------|
 | **Counter** | Monotonic increase | `http_requests_total`, `entities_created_total` | Use `rate()` or `increase()` |
-| **Gauge** | Current value | `active_entities_count`, `graph_density` | Use directly or with `delta()` |
-| **Histogram** | Value distribution | `http_request_duration_seconds`, `search_duration` | Use `histogram_quantile()` for percentiles |
+| **Gauge** | Current value | `embedding_queue_size`, `graph_density` | Use directly or with `delta()` |
+| **Histogram** | Value distribution | `http_request_duration_seconds`, `ai_duration_seconds` | Use `histogram_quantile()` for percentiles |
 
 ---
 
@@ -204,8 +204,11 @@ await event_bus.publish(TaskCreated(task_uid=uid, user_uid=user_uid))
 # skuel_entities_created_total{entity_type="task"} +1
 ```
 
-**Tracked Events** (January 2026):
-- **Creation**: `TaskCreated`, `GoalCreated`, `HabitCreated`, `CalendarEventCreated`, `ChoiceCreated`, `PrincipleCreated`
+**Tracked Events** (ground truth: `core/infrastructure/monitoring/metrics_event_handler.py`):
+- **Creation**: `TaskCreated`, `GoalCreated`, `HabitCreated`, `CalendarEventCreated`, `ChoiceCreated`,
+  `PrincipleCreated`, `TranscriptionCreated`, `KnowledgeCreated` (→ `ku`), `PathStepCreated` (→ `ps`),
+  `LearningPathStarted` (→ `lp`), `UserEntryCreated`; journal creation via `SubmissionCreated`
+  with `entity_type="journal"`
 - **Completion**: `TaskCompleted`, `TasksBulkCompleted`, `HabitCompleted`
 
 ### Adding Metrics for New Events
@@ -257,83 +260,60 @@ async def process_background_task(prometheus_metrics: PrometheusMetrics):
 
 ---
 
-## Instrumentation Approach 4: Background Task Metrics
+## Instrumentation Approach 4: Periodically-Polled Gauges
 
-**Use When**: Tracking periodic graph health checks, cleanup jobs
+**Use When**: A gauge's value comes from querying Neo4j (graph density, orphan counts, subgraph health)
 **Auto-Tracked**: No (manual instrumentation required)
-**Pattern**: Periodic Gauge updates
+**Pattern**: **Piggyback on the existing 5-min poller — do NOT add a new worker**
 
-### Graph Health Metrics Pattern
+### The One Sanctioned Loop
 
-Graph health metrics are updated by background tasks:
+SKUEL has exactly one periodic metrics loop: `update_graph_health_metrics()` inside the
+graph-health background task in `scripts/dev/bootstrap.py` (asyncio loop, 300s sleep,
+module-level task handle held against GC). This preserves the CORE-tier "no background
+workers" guarantee — one loop, not worker sprawl. There is no APScheduler or any other
+scheduler in SKUEL.
 
-```python
-# Example: Graph health background task (runs every 5 minutes)
-
-from core.infrastructure.monitoring import PrometheusMetrics
-
-async def update_graph_health_metrics(
-    driver: Any,
-    prometheus_metrics: PrometheusMetrics,
-) -> None:
-    """
-    Background task to update graph health gauges.
-
-    Runs every 5 minutes via scheduler.
-    """
-    # Query graph density (system-wide)
-    query = """
-    MATCH (n)
-    OPTIONAL MATCH (n)-[r]-()
-    WITH count(DISTINCT n) as entity_count,
-         count(r) as rel_count
-    RETURN CASE
-        WHEN entity_count = 0 THEN 0
-        ELSE toFloat(rel_count) / entity_count
-    END as density
-    """
-    result = await driver.execute_query(query)
-    density = result[0]["density"]
-
-    # Update gauge (no user_uid — system-wide metric)
-    prometheus_metrics.relationships.graph_density.set(density)
-
-    # Query orphaned entities (system-wide)
-    orphan_query = """
-    MATCH (n)
-    WHERE NOT (n)-[]-()
-    RETURN count(n) as orphan_count
-    """
-    orphan_result = await driver.execute_query(orphan_query)
-    orphan_count = orphan_result[0]["orphan_count"]
-
-    prometheus_metrics.relationships.orphaned_entities.set(orphan_count)
-```
-
-### Scheduling Background Metric Updates
+To add a new periodically-polled gauge, add a query to that existing function:
 
 ```python
-# In bootstrap or scheduler
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+# scripts/dev/bootstrap.py — inside update_graph_health_metrics()
 
-scheduler = AsyncIOScheduler()
+# Existing queries 1-3: graph stats, orphans, relationship breakdown ...
 
-# Schedule graph health metrics update every 5 minutes
-scheduler.add_job(
-    func=update_graph_health_metrics,
-    trigger="interval",
-    minutes=5,
-    args=[driver, prometheus_metrics],
-    id="graph_health_metrics",
-    replace_existing=True,
-)
-
-scheduler.start()
+# Query 4 (simplified from the real one PR #770 added for the knowledge-health
+# gauges — the actual query also excludes learner-state telemetry edges):
+knowledge_query = """
+MATCH (ku:Ku)
+OPTIONAL MATCH (ku)-[r]-()
+WITH ku, count(r) AS degree
+RETURN count(ku) AS total, sum(CASE WHEN degree = 0 THEN 1 ELSE 0 END) AS orphans
+"""
+result = await driver.execute_query(knowledge_query)
+prometheus_metrics.relationships.knowledge_kus_total.set(result[0]["total"])
+prometheus_metrics.relationships.knowledge_orphan_kus.set(result[0]["orphans"])
+# All gauges are system-wide — never label with user_uid
 ```
+
+**Why piggyback**: PR #770 added the 6 knowledge gauges exactly this way — a 4th query on the
+existing loop, no new task. Follow the precedent. If a gauge genuinely can't share the 5-min
+cadence, that's a design discussion, not a new scheduler.
 
 ---
 
 ## Adding a New Metric
+
+### Step 0: Emit-First Doctrine
+
+**A metric definition merges only together with its emission and a `/metrics` curl verification
+— in the same change.** Never stage a metric "for later": 14 defined-but-never-emitted metrics
+(the whole SystemMetrics and SearchMetrics classes, `skuel_ai_tokens_total`, transcription
+counters, cpu/memory gauges) accumulated since inception and were deleted wholesale in May 2026
+(commit 5b477a281) under One Path Forward. If instrumentation is genuinely staged work, register
+it in `scripts/detect_bloat.py`'s `PLANNED_*` tier instead of defining a dead metric.
+
+Re-adding a previously-deleted metric is legitimate — but only with the emission wired in the
+same PR.
 
 ### Step 1: Define the Metric
 
@@ -396,8 +376,8 @@ Ensure `PrometheusMetrics` is passed to your service:
 
 prometheus_metrics = PrometheusMetrics()
 
-journaps_service = JournalsService(
-    backend=journaps_backend,
+journals_service = JournalsService(
+    backend=journals_backend,
     prometheus_metrics=prometheus_metrics,  # Pass metrics
 )
 ```
@@ -557,8 +537,8 @@ buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
 # Event handler duration - milliseconds to seconds
 buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0)
 
-# Search similarity scores - 0.0 to 1.0
-buckets=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+# AI API call duration - slow external calls, up to 30s
+buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0)
 ```
 
 **Rule**: Cover 2-3 orders of magnitude, with higher resolution in the expected range.
@@ -635,14 +615,15 @@ async def complete_task(self, uid: str) -> Result[Task]:
 ### Pattern: Gauge for Current State
 
 ```python
-async def recalculate_active_tasks(self):
-    active_count = await self.backend.count_active_tasks()
-
-    if self.prometheus_metrics:
-        self.prometheus_metrics.domains.active_entities.labels(
-            entity_type="task"
-        ).set(active_count)
+# Real example: embedding worker reports its queue depth (AiMetrics)
+def _report_queue_depth(self) -> None:
+    self.prometheus_metrics.ai.embedding_queue_size.labels(
+        queue_type="entity"
+    ).set(len(self._queue))
 ```
+
+For gauges whose value comes from a Neo4j query, use Approach 4 (piggyback on the 5-min
+graph-health poller) — never set them inline on the request path.
 
 ---
 

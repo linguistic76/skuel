@@ -18,9 +18,9 @@ SKUEL uses Prometheus for metrics collection and Grafana for visualization, foll
 **Grafana**: Visualization platform with 4 production dashboards for operational intelligence
 **Architecture**: Direct writes to Prometheus (zero lag), optional in-memory cache for debugging
 
-### The 33 Metrics
+### The 39 Metrics
 
-SKUEL tracks 33 metrics across 7 categories:
+SKUEL tracks 39 metrics across 7 categories:
 
 | Category | Metrics | Purpose | Examples |
 |----------|---------|---------|----------|
@@ -39,13 +39,13 @@ SKUEL tracks 33 metrics across 7 categories:
 | **System Health** | HTTP & API | Request rate, latency (p50/p95/p99), error rates | Monitor API performance, debug slow endpoints |
 | **Domain Activity** | Business metrics | Entity creation/completion by domain | Track user engagement, feature adoption |
 | **Graph Health** | Relationship patterns | Graph density, orphaned entities | Ensure graph integrity, optimize relationships |
-| **Event Bus** | Event publication, handler latency, errors | Detect handler regressions, monitor event bus health |
+| **Event Bus** | Event bus health | Publication rate, handler latency, errors | Detect handler regressions, debug event processing |
 
 ### Start the Stack
 
 ```bash
-# Start Prometheus + Grafana (from project root)
-docker-compose up -d prometheus grafana
+# Start Neo4j + App + Prometheus + Grafana (monitoring is an opt-in compose profile)
+./dev up-monitoring          # alias for: docker compose --profile monitoring up
 
 # Verify Prometheus is scraping
 curl http://localhost:8000/metrics | grep skuel_
@@ -54,6 +54,8 @@ curl http://localhost:8000/metrics | grep skuel_
 open http://localhost:3000
 # Default credentials: admin/admin
 ```
+
+Scrape interval 15s, TSDB retention 7 days, 13 alerting rules (incl. the AuraDB Free cap alerts) — see [ALERTING.md](ALERTING.md).
 
 ---
 
@@ -90,6 +92,27 @@ Event/Operation
 - ✅ Production monitoring unaffected by cache state
 
 **See**: `/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md`
+
+### Production Posture (PR #803): One Surface
+
+Prometheus text exposition is THE metrics surface. The JSON `/api/monitoring/*` trio and the
+admin `/api/metrics` route were deleted in PR #803 — do not reintroduce JSON metrics endpoints.
+
+- **The droplet runs no Prometheus/Grafana.** The monitoring profile exists in
+  `docker-compose.production.yml` but is not started; production = app + Caddy only.
+- The app binds loopback-only (`127.0.0.1:5001`) and **Caddy returns 403 for public `/metrics`**
+  (it is auth-exempt app-side so a local scraper could read it; nothing should scrape it over
+  the internet — it leaks internal telemetry).
+- On-droplet reads: `docker compose exec skuel-app curl -s localhost:5001/metrics`
+- Consequence: alert rules currently evaluate only in the dev stack (see ALERTING.md § Where
+  alerts actually evaluate).
+
+### Emit-First Doctrine
+
+No metric definition without live emission **in the same change** — 14 defined-but-never-emitted
+metrics were deleted in May 2026 (commit 5b477a281: SystemMetrics, SearchMetrics, token/transcription
+counters). Genuinely staged instrumentation belongs in `scripts/detect_bloat.py`'s PLANNED tier,
+not in `prometheus_metrics.py`. **See:** [INSTRUMENTATION.md](INSTRUMENTATION.md) § Emit-First Doctrine.
 
 ---
 
@@ -186,7 +209,7 @@ prometheus_metrics.events.event_handler_duration_seconds.labels(
 | `skuel_entities_created_total` | Counter | `entity_type` | Creation tracking |
 | `skuel_entities_completed_total` | Counter | `entity_type` | Completion tracking |
 
-**Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`, `expense`, `transcription`, `ku`, `ps`, `lp`, `user_entry`
+**Entity Types**: `task`, `goal`, `habit`, `event`, `choice`, `principle`, `journal`, `transcription`, `ku`, `ps`, `lp`, `user_entry`
 
 **Usage**:
 ```python
@@ -228,7 +251,7 @@ Tracks SKUEL's four relationship layers:
 **Layer Values**: `hierarchical`, `lateral`, `semantic`, `cross_domain`
 **Category Values**: `structural`, `dependency`, `semantic`, `associative`
 
-**Updated By**: Background task (every 5 minutes) running Neo4j queries
+**Updated By**: `update_graph_health_metrics()` background loop in `scripts/dev/bootstrap.py` (every 5 minutes, 4 Cypher queries)
 
 #### Knowledge-subgraph structural health (6 gauges, ADR-080 Horizon 1)
 
@@ -251,7 +274,8 @@ preserving the CORE "no background workers" guarantee).
 
 These pair with the admin `/admin/knowledge-health` report and `./dev knowledge-health [--json]`
 (the on-demand full report with orphan lists + authoring flags); the gauges are the continuously-polled
-subset for the Graph Health dashboard. **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`, base-analytics-service skill.
+subset. They have no Grafana panels yet — adding a Knowledge Health row to the Graph Health dashboard
+is an open follow-up. **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md`, base-analytics-service skill.
 
 ### 6. Query Metrics (3 metrics)
 
@@ -478,14 +502,15 @@ rate(skuel_context_invalidations_total[5m]) > 10
 
 | File | Purpose |
 |------|---------|
-| `/core/infrastructure/monitoring/prometheus_metrics.py` | **Canonical metric definitions** (47 metrics, 9 classes) |
+| `/core/infrastructure/monitoring/prometheus_metrics.py` | **Canonical metric definitions** (39 metrics, 7 metric-group classes) |
 | `/core/infrastructure/monitoring/metrics_cache.py` | In-memory cache for debugging (optional, lossy) |
 | `/core/infrastructure/monitoring/metrics_event_handler.py` | Domain event subscriptions for entity tracking |
 | `/core/infrastructure/monitoring/http_instrumentation.py` | HTTP request instrumentation |
 | `/adapters/inbound/metrics_routes.py` | `/metrics` endpoint for Prometheus scraper |
-| `/monitoring/prometheus/prometheus.yml` | Prometheus scrape configuration (15s interval) |
+| `/monitoring/prometheus/prometheus.yml` | Prometheus scrape configuration (15s interval; `prometheus.dev.yml` variant for a host-run app) |
+| `/monitoring/prometheus/alerts.yml` | 13 alerting rules (ground truth for ALERTING.md) |
 | `/monitoring/grafana/dashboards/*.json` | 4 production dashboards |
-| `/docker-compose.yml` | Development stack (Prometheus + Grafana services) |
+| `/docker-compose.yml` | Development stack — Prometheus + Grafana behind the `monitoring` profile |
 
 ---
 
@@ -502,17 +527,16 @@ rate(skuel_context_invalidations_total[5m]) > 10
 
 **Architecture:**
 - [ADR-036](/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md) - Prometheus-primary architecture decision
-- [OBSERVABILITY_PHASE1_COMPLETE.md](/OBSERVABILITY_PHASE1_COMPLETE.md) - Complete implementation guide
 
 **Patterns:**
-- [PROMETHEUS_METRICS.md](/docs/observability/PROMETHEUS_METRICS.md) - Comprehensive 966-line metrics reference
+- [PROMETHEUS_METRICS.md](/docs/observability/PROMETHEUS_METRICS.md) - Comprehensive metrics reference
 
 **Troubleshooting:**
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common observability issues
 
 **Configuration:**
-- [monitoring/prometheus.yml](/monitoring/prometheus.yml) - Prometheus configuration
-- [monitoring/dashboards/](/monitoring/dashboards/) - Grafana dashboard JSON files
+- [monitoring/prometheus/prometheus.yml](/monitoring/prometheus/prometheus.yml) - Prometheus configuration
+- [monitoring/grafana/dashboards/](/monitoring/grafana/dashboards/) - Grafana dashboard JSON files
 
 ---
 
@@ -521,5 +545,5 @@ rate(skuel_context_invalidations_total[5m]) > 10
 - [PROMQL_PATTERNS.md](PROMQL_PATTERNS.md) - PromQL query examples from dashboards
 - [INSTRUMENTATION.md](INSTRUMENTATION.md) - How to add metrics to features
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and debugging
-- `/docs/observability/PROMETHEUS_METRICS.md` - Comprehensive 966-line reference
+- `/docs/observability/PROMETHEUS_METRICS.md` - Comprehensive reference
 - `/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md` - Architecture rationale

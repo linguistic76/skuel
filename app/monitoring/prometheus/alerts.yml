@@ -10,7 +10,7 @@
 #   promtool check rules /monitoring/prometheus/alerts.yml
 #   curl http://localhost:9090/api/v1/rules
 #
-# See: .claude/skills/prometheus-grafana/ALERTING.md (to be created)
+# See: .claude/skills/prometheus-grafana/ALERTING.md
 
 groups:
   - name: skuel_critical

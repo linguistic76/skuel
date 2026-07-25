@@ -36,9 +36,22 @@ watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | 
 
 ---
 
+## Where Alerts Actually Evaluate
+
+Alert rules run wherever Prometheus runs — and **Prometheus runs only in the dev stack**
+(`./dev up-monitoring`), scraping the dev app backed by **local Docker Neo4j**. The production
+droplet runs no Prometheus (PR #803 posture: app + Caddy only, `/metrics` blocked publicly).
+
+Consequence: the AuraDB cap alerts do **not** currently observe AuraDB. Production cap
+monitoring is manual cadence — `./dev knowledge-health` and `./dev telemetry-retention` —
+until a production evaluation posture is decided.
+
+---
+
 ## Alert Categories
 
-SKUEL has **11 production alerts** across 5 categories:
+SKUEL has **13 alerting rules** across 5 categories (plus one commented-out SLO rule,
+`ErrorBudgetDepleted`, staged in `alerts.yml`):
 
 ### 1. HTTP / API Health (2 alerts)
 
@@ -110,24 +123,36 @@ histogram_quantile(0.95,
 
 ---
 
-### 4. Graph Health (1 alert)
+### 4. Graph Health (3 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
 | **HighOrphanedEntityCount** | warning | >100 | 10m | Entities with no relationships exceed 100 |
+| **AuraNodeCapApproaching** | critical | >160,000 | 10m | Graph exceeds 80% of AuraDB Free 200k node cap |
+| **AuraRelationshipCapApproaching** | critical | >320,000 | 10m | Graph exceeds 80% of AuraDB Free 400k relationship cap |
 
 **Example PromQL**:
 ```promql
 # HighOrphanedEntityCount (simple gauge)
 skuel_orphaned_entities_count > 100
+
+# AuraNodeCapApproaching — 80% of the AuraDB Free 200k node cap
+skuel_total_entities > 160000
 ```
+
+**AuraDB Free cap context**: 200k nodes / 400k relationships; writes start failing AT the cap,
+so 80% is the act-now line. The gauges come from the 5-min graph-health poller
+(`scripts/dev/bootstrap.py`). See § Where Alerts Actually Evaluate — these rules only watch
+AuraDB if Prometheus is pointed at an app connected to it.
 
 **Runbook**:
 - **HighOrphanedEntityCount**: Review entity creation logic, check relationship service
+- **AuraNodeCapApproaching / AuraRelationshipCapApproaching**: Run `./dev telemetry-retention`,
+  review growth with `./dev knowledge-health`, consider the invite gate / paid tier
 
 ---
 
-### 5. AI Services (4 alerts) - Phase 1 (January 2026)
+### 5. AI Services (4 alerts)
 
 | Alert | Severity | Threshold | Duration | Trigger Condition |
 |-------|----------|-----------|----------|-------------------|
@@ -147,13 +172,22 @@ skuel_orphaned_entities_count > 100
 
 # EmbeddingQueueBacklog (simple gauge)
 skuel_embedding_queue_size > 500
+
+# HighEmbeddingFailureRate — status="skipped" (content-hash idempotency, ADR-074 §8)
+# is EXCLUDED from the denominator: force syncs/backfills produce large benign skip
+# volumes that would dilute the real failure ratio exactly when it matters most.
+(
+  sum(rate(skuel_embeddings_processed_total{status="failed"}[5m]))
+  /
+  sum(rate(skuel_embeddings_processed_total{status=~"success|failed|dropped"}[5m]))
+) > 0.20
 ```
 
 **Runbook**:
-- **HighAIErrorRate**: Check OPENAI_API_KEY (covers chat + embeddings — ADR-068), verify rate limits, check provider status pages
+- **HighAIErrorRate**: Check API keys (HF_API_TOKEN, OPENAI_API_KEY), verify rate limits, check provider status pages
 - **EmbeddingQueueBacklog**: Check worker logs, verify OpenAI API availability, consider increasing batch size
 - **HighEmbeddingFailureRate**: Check OpenAI status, review error logs, verify text preprocessing
-- **SlowOpenAICalls**: Check OpenAI service status, review batch sizes, verify network latency
+- **SlowAICalls**: Check provider status pages, review batch sizes, verify network latency
 
 ---
 
@@ -163,7 +197,7 @@ SKUEL uses 2 severity levels:
 
 | Severity | Definition | Response Time | Examples |
 |----------|------------|---------------|----------|
-| **critical** | Service down or severely degraded | Immediate (PagerDuty) | Neo4jDown, HighErrorRate |
+| **critical** | Service down, data loss risk, or hard caps approaching | Immediate | HighErrorRate, AuraNodeCapApproaching |
 | **warning** | Degraded performance or approaching limits | Within 1 hour | SlowHttpRequests, EmbeddingQueueBacklog |
 
 **Severity Guidelines**:
@@ -214,7 +248,7 @@ groups:
 ./scripts/validate_prometheus_config.sh
 
 # Restart Prometheus to load new rule
-docker compose restart prometheus
+docker compose --profile monitoring restart prometheus
 
 # Check rule loaded
 curl http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[] | select(.name == "YourAlertName")'
@@ -291,72 +325,12 @@ expr: histogram_quantile(0.95, sum by (le) (rate(skuel_http_request_duration_sec
 
 ---
 
-## Alertmanager Integration (Optional)
+## Alertmanager: Deliberately Not Adopted
 
-Prometheus can route alerts to **Alertmanager** for notifications (email, Slack, PagerDuty).
-
-### Setup Alertmanager
-
-```yaml
-# docker-compose.yml
-services:
-  alertmanager:
-    image: prom/alertmanager:v0.26.0
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
-    networks:
-      - skuel-network
-```
-
-### Configure Routing
-
-```yaml
-# monitoring/alertmanager/alertmanager.yml
-global:
-  slack_api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
-
-route:
-  receiver: 'slack-critical'
-  group_by: ['alertname', 'severity']
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
-
-  routes:
-    - match:
-        severity: critical
-      receiver: 'pagerduty'
-    - match:
-        severity: warning
-      receiver: 'slack-warnings'
-
-receivers:
-  - name: 'slack-critical'
-    slack_configs:
-      - channel: '#alerts-critical'
-        title: 'SKUEL Alert: {{ .GroupLabels.alertname }}'
-        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
-
-  - name: 'pagerduty'
-    pagerduty_configs:
-      - service_key: YOUR_PAGERDUTY_KEY
-
-  - name: 'slack-warnings'
-    slack_configs:
-      - channel: '#alerts-warnings'
-```
-
-### Update Prometheus Config
-
-```yaml
-# monitoring/prometheus/prometheus.yml
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: ['alertmanager:9093']
-```
+SKUEL runs no Alertmanager. Single operator, no notification chain — firing alerts are read in
+the Prometheus UI (`http://localhost:9090/alerts`) when the dev monitoring stack is up. The
+`alerting:` block in `prometheus.yml` stays commented out. Revisit only if a production
+Prometheus with unattended alerting is ever wanted (see § Where Alerts Actually Evaluate).
 
 ---
 
@@ -512,14 +486,13 @@ curl http://localhost:9090/api/v1/alerts | jq '.data.alerts[] | select(.labels.a
 
 Before deploying alerts to production:
 
-- [ ] Validated syntax with `promtool check rules`
-- [ ] Tested alert fires in staging environment
+- [ ] Validated syntax with `./scripts/validate_prometheus_config.sh` (promtool)
+- [ ] Tested alert fires locally (dev monitoring stack)
 - [ ] Confirmed `for` duration appropriate (5-15 minutes)
 - [ ] Severity level matches impact (critical vs warning)
 - [ ] Runbook includes step-by-step resolution
 - [ ] Alert annotations include `{{ $value }}`
 - [ ] Low cardinality labels (no user_uid, task_uid, etc.)
-- [ ] Alertmanager routing configured (if using)
 - [ ] Tested alert resolution (condition returns to normal)
 - [ ] Documented in skill (ALERTING.md)
 
@@ -528,10 +501,10 @@ Before deploying alerts to production:
 ## Next Steps
 
 1. **Review existing alerts**: `curl http://localhost:9090/api/v1/rules`
-2. **Create Grafana alert dashboard**: Import panel showing active alerts
-3. **Set up Alertmanager**: Configure Slack/PagerDuty notifications
-4. **Define SLOs**: Create recording rules for service level objectives
-5. **Alert tuning**: Monitor for false positives, adjust thresholds
+2. **Alert tuning**: Monitor for false positives, adjust thresholds
+
+Non-goals (deliberate): Alertmanager notification routing and SLO recording rules — the
+`ErrorBudgetDepleted` rule stays commented out in `alerts.yml` unless SLOs are ever defined.
 
 **See Also**:
 - `SKILL.md` - Complete metrics reference
