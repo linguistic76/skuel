@@ -91,6 +91,10 @@ def _make_harness(
     ps_service.get_personalized_curriculum = AsyncMock(return_value=Result.ok([]))
     ps_service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
     ps_service.get_prerequisite_chain = AsyncMock(return_value=Result.ok([]))
+    # Existence gate for the prerequisite-chain read; default = step exists.
+    ps_service.get_step = AsyncMock(
+        return_value=Result.ok(SimpleNamespace(uid=_CHILD_UID, title="Child"))
+    )
 
     user_service = MagicMock()
     user_service.get_user = AsyncMock(return_value=Result.ok(_caller(role)))
@@ -281,6 +285,16 @@ class TestPrerequisiteChain:
         response = harness.client.get(f"/api/path-steps/prerequisites?step_uid={_CHILD_UID}")
 
         assert response.status_code == 401
+        harness.ps.get_prerequisite_chain.assert_not_awaited()
+
+    def test_missing_step_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        # Step does not exist → 404, not a valid-looking empty chain.
+        harness.ps.get_step = AsyncMock(return_value=Result.ok(None))
+
+        response = harness.client.get("/api/path-steps/prerequisites?step_uid=ps.missing")
+
+        assert response.status_code == 404
         harness.ps.get_prerequisite_chain.assert_not_awaited()
 
     def test_chain_distance_and_mastery(self, monkeypatch: pytest.MonkeyPatch) -> None:

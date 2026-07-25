@@ -1056,9 +1056,14 @@ def build_prerequisite_chain_query(
     """
     rel_pattern = "|".join(relationship_types)
     arrow = direction_clause("outgoing", None, f"{rel_pattern}*1..{depth}")
+    # `WHERE n <> start` guards against a prerequisite cycle (A→B→A) binding the
+    # traversal back to the start node — which would otherwise return the requested
+    # entity as its own prerequisite and inflate the totals. (link_prerequisite does
+    # not reject cycles, so the query must.)
     query = f"""
     MATCH (start:{label} {{uid: $uid}})
     MATCH path = (start){arrow}(n:{label})
+    WHERE n <> start
     WITH n, min(length(path)) AS distance
     RETURN n.uid AS uid, n.title AS title, n.domain AS domain,
            n.entity_type AS entity_type, distance

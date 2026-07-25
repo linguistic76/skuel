@@ -946,3 +946,33 @@ class TestPrerequisiteChainWithDistance:
         assert shallow.is_ok and deep.is_ok
         assert {row["uid"] for row in shallow.value} == {chain[1]}
         assert {row["uid"] for row in deep.value} == {chain[1], chain[2]}
+
+    @pytest.mark.asyncio
+    async def test_cycle_excludes_start_node(
+        self, ps_backend, neo4j_driver, clean_curriculum
+    ) -> None:
+        """A prerequisite cycle (A→B→A) must not return A as its own prerequisite."""
+        cycle = ["ps:cycle_a", "ps:cycle_b"]
+        for i, uid in enumerate(cycle):
+            create = await ps_backend.create(PathStep(uid=uid, title=f"Cycle {i}"))
+            assert create.is_ok
+
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
+        async with neo4j_driver.session() as session:
+            await session.run(
+                f"""
+                MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}})
+                CREATE (a)-[:{know_rel}]->(b)
+                CREATE (b)-[:{know_rel}]->(a)
+                """,
+                {"a": cycle[0], "b": cycle[1]},
+            )
+
+        result = await ps_backend.prerequisite_chain_with_distance(
+            uid=cycle[0], relationship_types=[know_rel], depth=3
+        )
+
+        assert result.is_ok
+        uids = {row["uid"] for row in result.value}
+        # B is a prerequisite; A is NOT returned as its own prerequisite despite the cycle.
+        assert uids == {cycle[1]}

@@ -16,6 +16,7 @@ from adapters.inbound.auth import make_service_getter, require_admin, require_au
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.constants import GraphDepth
@@ -37,6 +38,7 @@ from core.ports.query_types import (
     RootOrganizerResult,
 )
 from core.services.ps_service import PsService
+from core.services.user_progress_service import UserProgressService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import Alert, AlertT
@@ -48,8 +50,8 @@ def create_path_steps_api_routes(
     app: Any,
     rt: Any,
     ps_service: PsService,
+    user_progress_service: UserProgressService,
     user_service: Any = None,
-    user_progress_service: Any = None,
 ) -> list[Any]:
     """
     Create path steps API routes using factory pattern.
@@ -61,9 +63,10 @@ def create_path_steps_api_routes(
         app: FastHTML application instance
         rt: Route decorator
         ps_service: PsService instance
-        user_service: User service for admin role verification
         user_progress_service: UserProgressService for per-caller mastery annotation
-            on the prerequisite-chain read
+            on the prerequisite-chain read (REQUIRED — a missing progress service
+            would silently mark every prerequisite unmastered; fail-fast instead)
+        user_service: User service for admin role verification
     """
 
     get_user_service = make_service_getter(user_service)
@@ -125,21 +128,24 @@ def create_path_steps_api_routes(
         """
         user_uid = require_authenticated_user(request)
 
+        # Existence gate: a missing/deleted step is 404, not a valid step with an
+        # empty chain (the bare traversal can't tell those apart).
+        found = require_found(await ps_service.get_step(step_uid), "PathStep", step_uid)
+        if found.is_error:
+            return Result.fail(found)
+
         chain_result = await ps_service.get_prerequisite_chain(step_uid, max_depth=depth)
         if chain_result.is_error:
             return Result.fail(chain_result)
         chain = chain_result.value
 
         # Mastery is the caller's only — one profile read, set-membership per node.
-        # A present-but-failing profile read is propagated (silently reporting every
-        # node as unmastered would be valid-looking but wrong); an absent service
-        # (mastery tracking not wired) degrades to no annotation.
-        mastered_uids: set[str] = set()
-        if user_progress_service is not None:
-            profile_result = await user_progress_service.build_user_knowledge_profile(user_uid)
-            if profile_result.is_error:
-                return Result.fail(profile_result)
-            mastered_uids = profile_result.value.mastered_uids
+        # A failing profile read is propagated: silently reporting every node as
+        # unmastered would be valid-looking but wrong.
+        profile_result = await user_progress_service.build_user_knowledge_profile(user_uid)
+        if profile_result.is_error:
+            return Result.fail(profile_result)
+        mastered_uids: set[str] = profile_result.value.mastered_uids
 
         nodes: list[PrerequisiteChainNode] = []
         mastered_count = 0
