@@ -30,6 +30,7 @@ from core.models.enums import GuidanceMode
 from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.vector_math import cosine_similarity
 
 if TYPE_CHECKING:
     from core.models.askesis.ps_bundle import PsBundle
@@ -380,7 +381,7 @@ class IntentClassifier:
         for intent, exemplar_embeddings in self._intent_exemplar_embeddings.items():
             # Calculate average similarity to all exemplars for this intent
             similarities = [
-                self._cosine_similarity(query_embedding, exemplar_emb)
+                cosine_similarity(query_embedding, exemplar_emb)
                 for exemplar_emb in exemplar_embeddings
             ]
             avg_similarity = sum(similarities) / len(similarities) if similarities else 0.0
@@ -454,27 +455,3 @@ class IntentClassifier:
             )
         else:
             logger.info("Intent exemplar embeddings loaded (%d intents)", len(exemplar_embeddings))
-
-    @staticmethod
-    def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
-        """
-        Calculate cosine similarity between two vectors.
-
-        Args:
-            vec1: First vector
-            vec2: Second vector
-
-        Returns:
-            Cosine similarity (0.0 to 1.0)
-        """
-        if not vec1 or not vec2 or len(vec1) != len(vec2):
-            return 0.0
-
-        dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
-        magnitude1 = sum(a * a for a in vec1) ** 0.5
-        magnitude2 = sum(b * b for b in vec2) ** 0.5
-
-        if magnitude1 == 0 or magnitude2 == 0:
-            return 0.0
-
-        return dot_product / (magnitude1 * magnitude2)

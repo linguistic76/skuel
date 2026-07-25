@@ -35,6 +35,7 @@ from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
+from core.utils.vector_math import cosine_similarity
 
 # Generic type vars
 B = TypeVar("B")  # Backend operations protocol
@@ -251,7 +252,7 @@ class BaseAIService(Generic[B, T]):
             results: list[tuple[EntityUID, float]] = []
             for uid, text in candidates:
                 candidate_embedding = await self.embeddings.embed_text(text)
-                similarity = self._cosine_similarity(query_embedding, candidate_embedding)
+                similarity = cosine_similarity(query_embedding, candidate_embedding)
                 results.append((uid, similarity))
 
             # Sort by similarity and return top_k
@@ -265,17 +266,3 @@ class BaseAIService(Generic[B, T]):
                     service="embeddings",
                 )
             )
-
-    @staticmethod
-    def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
-        """Calculate cosine similarity between two vectors."""
-        import math
-
-        dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
-        norm1 = math.sqrt(sum(a * a for a in vec1))
-        norm2 = math.sqrt(sum(b * b for b in vec2))
-
-        if norm1 == 0 or norm2 == 0:
-            return 0.0
-
-        return dot_product / (norm1 * norm2)
