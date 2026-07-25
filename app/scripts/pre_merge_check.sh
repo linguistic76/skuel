@@ -81,11 +81,13 @@ LABELS=$(gh pr view "$PR" --json labels -q '[.labels[].name] | join(",")' 2>/dev
 if echo "$LABELS" | grep -q "codex-considered"; then
   echo -e "   ${GREEN}✓ codex-considered label is set${NC}"
 else
-  ALT_KODY=$(gh pr view "$PR" --json reviews \
-    -q '[.reviews[] | select(.author.login | test("kody";"i"))] | last | .state // "NOT_SUMMONED"' \
+  # Exact bot identity + anchored to the current head: a review from any other
+  # account, or from before the latest push, must not clear the alternative.
+  ALT_KODY=$(gh api "repos/${REPO}/pulls/${PR}/reviews" \
+    --jq "[.[] | select(.user.login == \"kody-ai[bot]\") | select(.commit_id == \"${SHA}\")] | last | .state // \"NOT_SUMMONED\"" \
     2>/dev/null || echo "UNKNOWN")
   if [[ "$ALT_KODY" != "NOT_SUMMONED" && "$ALT_KODY" != "UNKNOWN" ]]; then
-    echo -e "   ${GREEN}✓ no codex-considered, but a Kody verdict exists (${ALT_KODY}) — accepted per the Codex-or-Kody policy${NC}"
+    echo -e "   ${GREEN}✓ no codex-considered, but a Kody verdict on the current head exists (${ALT_KODY}) — accepted per the Codex-or-Kody policy${NC}"
   else
     echo -e "   ${RED}✗ neither codex-considered nor a Kody verdict — run scripts/request_codex_review.sh ${PR} or post @kody start-review${NC}"
     failed=1
