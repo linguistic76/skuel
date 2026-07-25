@@ -108,7 +108,15 @@ and the last plugin-era comment sweep (`entity.py`, `prometheus_metrics.py` docs
 
 ## Follow-ups
 
-- Arc 1 (BGE-M3 adapter + chunk-budget guard) is the next embeddings-side PR.
-- Arc 2 (Qwen adapter + route) requires choosing the hosted serving endpoint — decide at arc
-  start, not before.
-- Arc 3 stays postponed until Arcs 1–2 land and a re-embed window is scheduled.
+- Arc 1 (BGE-M3 adapter + chunk-budget guard) shipped in PR #802 (2026-07-24).
+- Arc 2 (Qwen adapter + route) is **trigger-gated, not next-in-line** (founder-reviewed
+  2026-07-24): it starts when ADR-081 work needs a live Qwen endpoint — fine-tuning
+  experiments, or any other concrete reason to chat with Qwen. Until then hosted vanilla
+  Qwen offers nothing the wired providers don't, at extra cost, and every piece of the arc
+  is perishable (endpoint market, model names, pricing). All four pieces defer together —
+  endpoint choice, adapter, `qwen*` route, headline entry; nothing is pre-staged, since the
+  §3 rules already keep the arc purely additive. The hosted serving endpoint is chosen at
+  arc start, not before.
+- Arc 3 needs only Arc 1 plus a scheduled re-embed window — it does NOT depend on Arc 2.
+  (The original "until Arcs 1–2 land" sequencing was ordering by fiat, not a technical
+  dependency; the embeddings cutover must not wait on a chat feature with no planned usage.)
