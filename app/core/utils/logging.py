@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import structlog
+from structlog.typing import Processor
 
 # ============================================================================
 # CONTEXT VARIABLES
@@ -134,7 +135,7 @@ def setup_logging(level: str = "INFO", json_format: bool = True) -> None:
         # field for JSON; ConsoleRenderer consumes raw exc_info itself (the two
         # must not be combined). colors=False keeps ANSI escapes out of the log
         # files, which share the rendered string with the console (single chain).
-        rendering: list[Any] = (
+        rendering: list[Processor] = (
             [
                 structlog.processors.format_exc_info,
                 structlog.processors.JSONRenderer(ensure_ascii=False),

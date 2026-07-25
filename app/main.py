@@ -36,7 +36,15 @@ logger = get_logger("skuel.main")
 async def main() -> None:
     """Clean main function using composition root pattern."""
     # Same lru_cached instance bootstrap composes with (compose.py get_settings()).
-    config = get_settings()
+    try:
+        config = get_settings()
+    except ValueError:
+        # Config itself is unreadable — configure with safe defaults so the
+        # crash handler below still routes this failure into skuel_errors.log.
+        # Exactly one setup_logging() call executes on either path (idempotent
+        # once-only semantics: the first call wins permanently).
+        setup_logging()
+        raise
 
     # First meaningful statement of the process: everything logged from here
     # on — including bootstrap_skuel()'s lines — lands in console AND files.
