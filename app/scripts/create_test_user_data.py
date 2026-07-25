@@ -19,13 +19,12 @@ Usage:
 
 import argparse
 import asyncio
-import os
 import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from neo4j import AsyncGraphDatabase
 
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.config.credential_store import get_credential
 from core.utils.logging import get_logger
 
@@ -251,10 +250,14 @@ async def main():
     )
     parser.add_argument(
         "--neo4j-uri",
-        default=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
-        help="Neo4j connection URI",
+        default=None,
+        help="Neo4j connection URI (defaults to env/settings via Neo4jConnection)",
     )
-    parser.add_argument("--neo4j-user", default="neo4j", help="Neo4j username")
+    parser.add_argument(
+        "--neo4j-user",
+        default=None,
+        help="Neo4j username (defaults to env/credential store via Neo4jConnection)",
+    )
     parser.add_argument(
         "--neo4j-password",
         default=None,
@@ -274,8 +277,11 @@ async def main():
             logger.error("Run: uv run python -m core.config")
             sys.exit(1)
 
-    # Connect to Neo4j
-    driver = AsyncGraphDatabase.driver(args.neo4j_uri, auth=(args.neo4j_user, neo4j_password))
+    # Neo4jConnection resolves URI/user (None → env/creds) and applies the shared
+    # driver timeout/pool config — a bare AsyncGraphDatabase.driver drops it. The
+    # friendly password resolution above is preserved and passed through explicitly.
+    conn = Neo4jConnection(uri=args.neo4j_uri, username=args.neo4j_user, password=neo4j_password)
+    driver = conn.connect()
 
     try:
         if args.cleanup:
@@ -283,7 +289,7 @@ async def main():
         else:
             await create_test_data(driver)
     finally:
-        await driver.close()
+        await conn.close()
 
 
 if __name__ == "__main__":
