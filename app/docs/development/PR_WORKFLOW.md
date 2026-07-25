@@ -47,15 +47,22 @@ The trade is deliberate: a few minutes of latency per change buys a reviewer SKU
 6. **Address feedback.** Push fixes to the same branch — CI re-runs automatically on the new commit; re-comment `@kody start-review` / re-run the script to re-review the updated diff.
 7. **Run `./dev pre-merge <PR#>`** to confirm all gates are green before merging. Then: `gh pr merge <PR#> --squash --admin --delete-branch`.
 
-### Merge policy: gates green means merge (standing, 2026-07-25)
+### Merge policy: gates green + a considered review means merge (standing, 2026-07-25)
 
-Once the **CI Gate** and the **Codex Review Gate** are both green, the merge proceeds —
-including when an AI agent runs the workflow. No additional per-merge human sign-off is
-required or expected: the Codex Review Gate already encodes "a review verdict was read and
-considered" (it only turns green via `scripts/apply_codex_considered.sh` after the verdict
-exists), and Kody, when summoned, holds the merge through its own `CHANGES_REQUESTED` review.
-Earlier ad-hoc practice ("wait for the founder's word at merge time") is superseded; the
-founder's controls are the gates themselves plus summoning Kody before anything non-trivial.
+An autonomous merge (including by an AI agent running the workflow) requires BOTH:
+
+1. **CI Gate and Codex Review Gate green**, and
+2. **at least one AI review verdict on the final substantive content — Codex
+   (`scripts/request_codex_review.sh`) or Kody (`@kody start-review`) — obtained, read, and
+   considered.** For Python-touching PRs the Codex Review Gate enforces this (it only turns
+   green via `scripts/apply_codex_considered.sh` after a verdict exists). For docs/tooling-only
+   PRs the gate **auto-passes with no verdict**, so condition 2 does not come for free: summon
+   a reviewer explicitly before merging autonomously.
+
+No additional per-merge human sign-off is required or expected. Kody, when summoned, holds the
+merge through its own `CHANGES_REQUESTED` review. Earlier ad-hoc practice ("wait for the
+founder's word at merge time") is superseded; the founder's controls are the gates, this
+review-before-autonomous-merge requirement, and summoning Kody for anything non-trivial.
 
 **Stacked-PR caveat:** merging a base PR with `--delete-branch` auto-**closes** any open PR
 stacked on that branch — GitHub does not retarget it, and a closed PR cannot be reopened after
