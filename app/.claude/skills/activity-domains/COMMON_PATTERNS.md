@@ -160,19 +160,21 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         node_label="Entity", domain_name="subtask",
     )
 
-# 2. Core service (tasks_core_service.py) — model conversion, no Cypher
-async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
-    result = await self.backend.get_children_raw(parent_uid, depth)
-    if result.is_error:
-        return Result.fail(result)
-    return Result.ok([self._to_domain_model(data, TaskDTO, Task) for data in result.value])
+# 2. Core service (tasks_core_service.py) — inherits the typed hierarchy READS from
+#    HierarchyReadMixin (generic get_subentities / get_parent_entity / get_entity_hierarchy,
+#    converting via the DomainConfig dto/model). Only domain-specific WRITES stay per-domain.
+class TasksCoreService(
+    HierarchyReadMixin["TasksOperations", Task],
+    BaseService["TasksOperations", Task, TaskUpdateIntent],
+):
+    # No hand-written get_subtasks/get_task_hierarchy — the mixin provides them.
+    async def remove_subtask_relationship(self, parent_uid: str, subtask_uid: str) -> Result[bool]:
+        return await self.backend.remove_hierarchy_relationship(parent_uid, subtask_uid)
 
-async def remove_subtask_relationship(self, parent_uid: str, subtask_uid: str) -> Result[bool]:
-    return await self.backend.remove_hierarchy_relationship(parent_uid, subtask_uid)
-
-# 3. Facade (tasks_service.py) — thin delegation, no logic
+# 3. Facade (tasks_service.py) — thin delegation; keeps the domain-named method,
+#    points it at the generic mixin read.
 async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
-    return await self.core.get_subtasks(parent_uid, depth)
+    return await self.core.get_subentities(parent_uid, depth)
 
 async def remove_subtask_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
     return await self.core.remove_subtask_relationship(parent_uid, child_uid)
