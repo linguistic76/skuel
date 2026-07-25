@@ -18,7 +18,9 @@ from collections import deque
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+from core.constants import LLMQuota
 from core.utils.logging import get_logger
+from core.utils.result_simplified import ErrorContext, Errors
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -26,6 +28,12 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
 
 logger = get_logger("skuel.adapters.rate_limit")
+
+# Shown to a MEMBER+ user who exhausted their daily AI quota. Deliberately
+# distinct from the subscription denial ("AI features require a paid
+# subscription") — this user HAS the subscription; telling them to upgrade
+# would be wrong and confusing. Sliding window, so it frees up gradually.
+LLM_QUOTA_MESSAGE = "Daily AI limit reached. Your quota frees up over the next 24 hours."
 
 # Process-local store: user_uid → timestamps of recent hits.
 _BUCKETS: dict[str, deque[float]] = {}
@@ -56,6 +64,39 @@ def allow_key(key: str, limit: int, window_s: float) -> bool:
     buckets are shared across the process.
     """
     return _check_and_record(key, limit, window_s)
+
+
+def llm_quota_allowed(user_uid: str) -> bool:
+    """Check-and-record one unit against the user's daily LLM quota (MEMBER+).
+
+    One call = one unit, recorded at the moment of the check — callers place
+    this immediately before the money-spending AI call so denied requests
+    (tier, ownership) never burn quota. In-memory like every bucket in this
+    module: single process, resets on deploy/restart — acceptable for a
+    coarse daily cost ceiling (see ``core.constants.LLMQuota``).
+
+    Namespaced key ("llm-quota:<uid>") so the daily quota never collides with
+    the per-route burst buckets that key on the bare user_uid.
+    """
+    allowed = _check_and_record(
+        f"llm-quota:{user_uid}", LLMQuota.DAILY_LIMIT, float(LLMQuota.WINDOW_SECONDS)
+    )
+    if not allowed:
+        logger.warning(
+            "Daily LLM quota exhausted for user %s (limit=%d/24h)",
+            user_uid,
+            LLMQuota.DAILY_LIMIT,
+        )
+    return allowed
+
+
+def llm_quota_exceeded_error() -> ErrorContext:
+    """The standard quota-exceeded denial — an ``Errors.forbidden`` variant.
+
+    Distinct from the subscription denial: no ``required_role`` (the caller
+    already holds MEMBER+) and a message that says "limit", not "upgrade".
+    """
+    return Errors.forbidden(action="AI request", reason=LLM_QUOTA_MESSAGE)
 
 
 def rate_limited(
@@ -162,4 +203,12 @@ def reset_buckets_for_testing() -> None:
     _BUCKETS.clear()
 
 
-__all__ = ["rate_limited", "rate_limited_ip", "reset_buckets_for_testing"]
+__all__ = [
+    "LLM_QUOTA_MESSAGE",
+    "allow_key",
+    "llm_quota_allowed",
+    "llm_quota_exceeded_error",
+    "rate_limited",
+    "rate_limited_ip",
+    "reset_buckets_for_testing",
+]

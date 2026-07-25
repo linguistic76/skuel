@@ -18,6 +18,7 @@ from adapters.inbound.auth import make_service_getter, require_authenticated_use
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
+from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import (
@@ -177,6 +178,11 @@ def create_exercises_api_routes(
             fulfilled_uid = (fulfilled.value or {}).get("exercise_uid")
             if fulfilled_uid != report_request.exercise_uid:
                 return Result.fail(Errors.not_found("Exercise", report_request.exercise_uid))
+
+        # Daily LLM quota — after every access check, immediately before the
+        # paid reviewer call, so a rejected request never burns a unit.
+        if not llm_quota_allowed(user_uid):
+            return Result.fail(llm_quota_exceeded_error())
 
         # Generate report — creates EntryReport entity + REPORT_FOR relationship
         report_result = await entry_report_service.generate_report(

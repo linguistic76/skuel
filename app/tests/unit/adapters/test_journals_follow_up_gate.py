@@ -18,8 +18,14 @@ from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
-from adapters.inbound.journals_routes import create_journals_routes
+from adapters.inbound.journals_routes import AI_SUBSCRIPTION_MESSAGE, create_journals_routes
+from adapters.inbound.rate_limit import (
+    LLM_QUOTA_MESSAGE,
+    llm_quota_allowed,
+    reset_buckets_for_testing,
+)
 from core.config.intelligence_tier import IntelligenceTier
+from core.constants import LLMQuota
 from core.models.enums.user_enums import UserRole
 from core.services.journal.journal_service import JournalFollowUp
 from core.utils.result_simplified import Result
@@ -32,32 +38,39 @@ def _fake_require_authenticated_user(request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         "adapters.inbound.journals_routes.require_authenticated_user",
         _fake_require_authenticated_user,
     )
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+    # The AI gate records daily-quota units per request — clean buckets so
+    # tests never accumulate against the shared _USER_UID.
+    reset_buckets_for_testing()
+    yield
+    reset_buckets_for_testing()
 
 
-def _user_service(is_founder: bool) -> MagicMock:
+def _user_service(is_founder: bool, role: UserRole = UserRole.MEMBER) -> MagicMock:
     user = MagicMock()
     user.journal_tier.is_founder = MagicMock(return_value=is_founder)
     # Real role so the per-user AI gate (ADR-043) resolves for real — MEMBER
     # passes the gate; the founder axis under test is orthogonal to it.
-    user.role = UserRole.MEMBER
+    user.role = role
     svc = MagicMock()
     svc.get_user = AsyncMock(return_value=Result.ok(user))
     return svc
 
 
-def _client_for(*, is_founder: bool) -> tuple[TestClient, MagicMock, MagicMock]:
+def _client_for(
+    *, is_founder: bool, role: UserRole = UserRole.MEMBER
+) -> tuple[TestClient, MagicMock, MagicMock]:
     app, rt = fast_app(pico=False, default_hdrs=False)
     journal = MagicMock()
     journal.run_follow_up = AsyncMock(
         return_value=Result.ok(JournalFollowUp(text="reply", sources=()))
     )
-    user_service = _user_service(is_founder)
+    user_service = _user_service(is_founder, role)
     services = MagicMock()
     services.user = user_service
     services.journal = journal
@@ -132,6 +145,68 @@ class TestFollowUpSummonGate:
         # must resolve the role — exactly ONE lookup, with no second load for
         # the dials. (Supersedes the pre-gate zero-lookup optimization.)
         user_service.get_user.assert_awaited_once()
+
+
+class TestFollowUpQuotaGate:
+    """Daily LLM quota at the journals ``_load_ai_gated_user`` seam (PR C2).
+
+    A MEMBER at quota is denied with the quota message — never the
+    subscription upsell — and a REGISTERED user still sees the subscription
+    denial regardless of quota state (the tier gate fires first)."""
+
+    def _exhaust_quota(self) -> None:
+        for _ in range(LLMQuota.DAILY_LIMIT):
+            assert llm_quota_allowed(_USER_UID)
+
+    def test_member_over_quota_gets_quota_message_not_upsell(self) -> None:
+        client, journal, _ = _client_for(is_founder=False)
+        self._exhaust_quota()
+
+        response = _post_follow_up(client, {})
+
+        assert response.status_code == 200
+        assert LLM_QUOTA_MESSAGE in response.text
+        assert AI_SUBSCRIPTION_MESSAGE not in response.text
+        journal.run_follow_up.assert_not_awaited()
+
+    def test_member_under_quota_records_one_unit_per_follow_up(self) -> None:
+        client, journal, _ = _client_for(is_founder=False)
+
+        _post_follow_up(client, {})
+
+        journal.run_follow_up.assert_awaited_once()
+        # Exactly one unit recorded at gate time: the rest of the window
+        # drains after DAILY_LIMIT - 1 further units.
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+        assert llm_quota_allowed(_USER_UID) is False
+
+    def test_registered_still_gets_subscription_denial_even_at_quota(self) -> None:
+        client, journal, _ = _client_for(is_founder=False, role=UserRole.REGISTERED)
+        self._exhaust_quota()
+
+        response = _post_follow_up(client, {})
+
+        assert response.status_code == 200
+        assert AI_SUBSCRIPTION_MESSAGE in response.text
+        assert LLM_QUOTA_MESSAGE not in response.text
+        journal.run_follow_up.assert_not_awaited()
+
+    def test_validation_failure_burns_no_quota(self) -> None:
+        # Codex #800 P2: the quota unit is recorded immediately before the
+        # paid call, AFTER validation — a rejected request must never burn
+        # the user's last unit.
+        client, journal, _ = _client_for(is_founder=False)
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+
+        response = _post_follow_up(client, {"user_reply": "   "})
+
+        assert response.status_code == 200
+        assert "write something" in response.text
+        journal.run_follow_up.assert_not_awaited()
+        # The empty-reply rejection left the final unit untouched.
+        assert llm_quota_allowed(_USER_UID) is True
 
 
 class TestFollowUpCanonBookScope:

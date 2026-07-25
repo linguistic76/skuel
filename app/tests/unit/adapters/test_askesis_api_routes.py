@@ -18,7 +18,9 @@ from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.askesis_api import create_askesis_api_routes
+from adapters.inbound.rate_limit import llm_quota_allowed, reset_buckets_for_testing
 from core.config.intelligence_tier import IntelligenceTier
+from core.constants import LLMQuota
 from core.models.enums import UserRole
 from core.utils.result_simplified import Result
 
@@ -27,6 +29,15 @@ _USER_UID = "user_owner"
 
 def _fake_auth(request: object) -> str:
     return _USER_UID
+
+
+@pytest.fixture(autouse=True)
+def _clean_quota_buckets():
+    # /api/askesis/ask records daily-quota units — clean buckets so tests
+    # never accumulate against the shared _USER_UID.
+    reset_buckets_for_testing()
+    yield
+    reset_buckets_for_testing()
 
 
 def _caller(role: UserRole) -> MagicMock:
@@ -112,6 +123,45 @@ class TestInputGuards:
 
         assert response.status_code == 400
         harness.askesis.answer_user_question.assert_not_awaited()
+
+
+class TestLlmQuotaGate:
+    """Daily LLM quota on the Askesis RAG pipeline (PR #800 Codex P1)."""
+
+    def _exhaust_quota(self) -> None:
+        for _ in range(LLMQuota.DAILY_LIMIT):
+            assert llm_quota_allowed(_USER_UID)
+
+    def test_member_over_quota_is_403(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        self._exhaust_quota()
+
+        response = harness.client.get("/api/askesis/ask?question=hello")
+
+        assert response.status_code == 403
+        harness.askesis.answer_user_question.assert_not_awaited()
+
+    def test_validation_failure_burns_no_quota(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The unit is recorded after the question guard — a 400 must not
+        # consume the user's last unit.
+        harness = _make_harness(monkeypatch)
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+
+        response = harness.client.get("/api/askesis/ask")
+
+        assert response.status_code == 400
+        assert llm_quota_allowed(_USER_UID) is True
+
+    def test_ask_records_one_unit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.get("/api/askesis/ask?question=hello")
+
+        assert response.status_code == 200
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+        assert llm_quota_allowed(_USER_UID) is False
 
 
 class TestHappyPath:

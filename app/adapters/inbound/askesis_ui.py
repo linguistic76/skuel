@@ -14,6 +14,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
+from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import GuidanceMode
 from core.models.search_request import SearchRequest
@@ -206,6 +207,11 @@ def create_askesis_ui_routes(
         # only — Askesis has no durable session). Gated OpenAI-safe downstream, so a
         # forged/unavailable model degrades to the app default rather than erroring.
         model = safe_form_string(form_data.get("model", ""))
+
+        # Daily LLM quota — after every validation, immediately before the
+        # paid RAG pipeline, so a rejected request never burns a unit.
+        if not llm_quota_allowed(user_uid):
+            return P(LLM_QUOTA_MESSAGE, cls="text-error text-sm px-7 py-2")
 
         ai_response: str
         canon_sources: tuple[Any, ...] = ()

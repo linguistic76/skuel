@@ -21,6 +21,7 @@ from starlette.responses import JSONResponse
 
 import adapters.inbound.ai_routes as ai_routes
 from adapters.inbound.ai_routes import AI_ROUTE_SPECS, _ai_route
+from adapters.inbound.rate_limit import reset_buckets_for_testing
 from core.models.enums import ContentScope
 from core.utils.result_simplified import Errors, Result
 
@@ -72,10 +73,15 @@ def _fixed_caller(_request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _stub_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+def _stub_auth(monkeypatch: pytest.MonkeyPatch):
     # require_authenticated_user reads the signed session cookie in production;
     # stub it so _ai_route sees an authenticated caller without a live request.
     monkeypatch.setattr(ai_routes, "require_authenticated_user", _fixed_caller)
+    # _ai_route records daily-quota units per successful gate pass — clean
+    # buckets so tests never accumulate against the shared _CALLER.
+    reset_buckets_for_testing()
+    yield
+    reset_buckets_for_testing()
 
 
 async def test_user_owned_route_denies_non_owner() -> None:

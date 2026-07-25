@@ -18,6 +18,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.journals_routes import create_journals_routes
+from adapters.inbound.rate_limit import reset_buckets_for_testing
 from core.models.conversation import ConversationSession, ConversationTurn
 from core.utils.result_simplified import Result
 
@@ -30,12 +31,17 @@ def _fake_require_authenticated_user(request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         "adapters.inbound.journals_routes.require_authenticated_user",
         _fake_require_authenticated_user,
     )
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+    # The journals AI gate records daily-quota units per request — clean
+    # buckets so tests never accumulate against the shared _USER_UID.
+    reset_buckets_for_testing()
+    yield
+    reset_buckets_for_testing()
 
 
 def _session(source_selection: str = "{}", model: str = "gpt-4o") -> ConversationSession:

@@ -24,7 +24,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.rate_limit import rate_limited
+from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed, rate_limited
 from core.services.chat import DEFAULT_CHAT_MODEL
 from core.services.conversation import (
     build_source_selection,
@@ -136,6 +136,10 @@ async def _process_single_upload(
                 "File must be valid UTF-8 text for Instructions only mode",
                 is_error=True,
             )
+        # Daily LLM quota — after the decode validation, immediately before
+        # the paid compile, so a rejected file never burns a unit.
+        if not llm_quota_allowed(user_uid):
+            return render_journal_upload_status("error", LLM_QUOTA_MESSAGE, is_error=True)
         compiled = await journal_batch.compile_text(
             text_content,
             instructions,
@@ -177,6 +181,11 @@ async def _process_single_upload(
         return render_journal_upload_status(
             "error", "LLM service not available (requires INTELLIGENCE_TIER=full)", is_error=True
         )
+
+    # Daily LLM quota — after the availability preflights, immediately before
+    # the paid transcription, so a service-unavailable rejection burns nothing.
+    if not llm_quota_allowed(user_uid):
+        return render_journal_upload_status("error", LLM_QUOTA_MESSAGE, is_error=True)
 
     transcript_result = await journal_batch.transcribe_upload(
         file_content, Path(filename).suffix or ".audio"
@@ -271,6 +280,11 @@ def create_journals_routes(
         pipeline — each call spends OpenAI/Deepgram money. Fail-secure: a
         missing tier or a failed user lookup means the gate cannot be
         evaluated, so deny rather than allow (mirrors ``askesis_ui.py``).
+
+        The daily LLM quota is deliberately NOT checked here: this gate runs
+        before request validation, and a rejected request must never burn a
+        unit (Codex #800 P2). Each route checks ``llm_quota_allowed``
+        immediately before its money-spending service call instead.
 
         Returns the loaded ``User`` so ONE lookup serves both this gate and any
         FOUNDER entitlement check on the same request — callers read
@@ -428,6 +442,11 @@ def create_journals_routes(
         # OpenAI-safe in the service; the picker only offers serveable models).
         model = str(form.get("model", "")).strip()
 
+        # Daily LLM quota — checked after every validation, immediately before
+        # the paid call, so a rejected request never burns a unit.
+        if not llm_quota_allowed(user_uid):
+            return _err(LLM_QUOTA_MESSAGE)
+
         ai_result = await journal_service.run_discussion(
             raw_entry,
             user_uid,
@@ -568,6 +587,9 @@ def create_journals_routes(
                 file_content = await uploaded_file.read()
                 filename = uploaded_file.filename or "unknown"
                 title = custom_title or filename
+                # Daily quota lives inside _process_single_upload, after its
+                # mode-specific validations (UTF-8 decode, service preflights)
+                # — a rejected file must never burn a unit (Codex round 2 P2).
                 return await _process_single_upload(
                     file_content=file_content,
                     filename=filename,
@@ -616,6 +638,13 @@ def create_journals_routes(
                             )
                         seen_stems.add(file_stem)
                     (tmp_path / name).write_bytes(await uploaded_file.read())
+                # Daily LLM quota — after every validation (incl. the stem
+                # collision check above), right before the paid batch run. One
+                # unit per batch, not per file: a coarse cost ceiling.
+                if not llm_quota_allowed(user_uid):
+                    return render_journal_upload_status(
+                        "error", LLM_QUOTA_MESSAGE, is_error=True, status_id=status_id
+                    )
                 report = await journal_batch.run_batch_over_dir(
                     tmp_path,
                     processing_mode,
@@ -648,7 +677,8 @@ def create_journals_routes(
             user_uid = require_authenticated_user(request)
 
             # Same cost surface as /journals/upload (Deepgram and/or LLM per file).
-            if await _load_ai_gated_user(user_uid) is None:
+            gated_user = await _load_ai_gated_user(user_uid)
+            if gated_user is None:
                 return render_journal_upload_status("error", AI_SUBSCRIPTION_MESSAGE, is_error=True)
 
             form = await request.form()
@@ -660,6 +690,11 @@ def create_journals_routes(
                 instruction_filename=instruction_filename,
                 processing_mode=processing_mode,
             )
+
+            # Daily LLM quota — right before the paid batch run (one unit per
+            # batch, not per file: a coarse cost ceiling).
+            if not llm_quota_allowed(user_uid):
+                return render_journal_upload_status("error", LLM_QUOTA_MESSAGE, is_error=True)
 
             report = await journal_batch.run_batch_over_dir(
                 journal_batch.je_in_dir,
@@ -848,6 +883,12 @@ def create_journals_routes(
         content = str(form.get("content", "")).strip()
         if not content:
             return SuggestedActivitiesPanel(items=[])
+
+        # Daily LLM quota — the bridge is an LLM call. Checked after the
+        # content validation so an empty reflection never burns a unit; the
+        # panel is inert, so denial renders the same unavailable state.
+        if not llm_quota_allowed(user_uid):
+            return SuggestedActivitiesPanel(unavailable=True)
 
         # Ground the bridge in the user's active goals (soft — a goals-query
         # failure degrades to ungrounded). Recomputed per request; the reflection
@@ -1132,6 +1173,10 @@ def create_journals_routes(
                 )
                 return FollowUpErrorFragment("This discussion could not be found.")
             prior_entry, prior_ai = history_to_follow_up_context(turns_result.value)
+            # Daily LLM quota — after the session ownership check, right
+            # before the paid call, so an inaccessible session burns nothing.
+            if not llm_quota_allowed(user_uid):
+                return FollowUpErrorFragment(LLM_QUOTA_MESSAGE)
             result = await journal_service.run_follow_up(
                 original_entry=prior_entry,
                 ai_response=prior_ai,
@@ -1188,6 +1233,10 @@ def create_journals_routes(
 
         items = parse_transcript(transcript_json)
         prior_entry, prior_ai = render_follow_up_context(items)
+        # Daily LLM quota — right before the paid call (mirrors the
+        # session-backed branch above).
+        if not llm_quota_allowed(user_uid):
+            return FollowUpErrorFragment(LLM_QUOTA_MESSAGE)
         result = await journal_service.run_follow_up(
             original_entry=prior_entry,
             ai_response=prior_ai,
@@ -1337,6 +1386,11 @@ def create_journals_routes(
         if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
 
+        # Daily LLM quota — after validation + founder gate, immediately
+        # before the paid stage call.
+        if not llm_quota_allowed(user_uid):
+            return ErrorFragment(LLM_QUOTA_MESSAGE)
+
         result = await journal_service.run_stage1(raw_entry.strip(), user_uid)
         if result.is_error:
             logger.error("Stage 1 failed for %s: %s", user_uid, result.expect_error())
@@ -1372,6 +1426,11 @@ def create_journals_routes(
 
         if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
+
+        # Daily LLM quota — after the founder gate, immediately before the
+        # paid stage call.
+        if not llm_quota_allowed(user_uid):
+            return ErrorFragment(LLM_QUOTA_MESSAGE)
 
         result = await journal_service.run_stage2(
             raw_entry=raw_entry,
@@ -1417,6 +1476,11 @@ def create_journals_routes(
 
         if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
+
+        # Daily LLM quota — after the founder gate, immediately before the
+        # paid stage call.
+        if not llm_quota_allowed(user_uid):
+            return ErrorFragment(LLM_QUOTA_MESSAGE)
 
         result = await journal_service.run_stage3(
             raw_entry=raw_entry,

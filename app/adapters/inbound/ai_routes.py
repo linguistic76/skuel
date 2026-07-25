@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
@@ -155,11 +156,14 @@ async def _ai_route(
 
     Handles auth, AI availability check (system-level 503 guard, ADR-043),
     per-user intelligence tier gate (ADR-043: REGISTERED users get CORE →
-    403 if system is FULL), ownership verification (USER_OWNED scope), method
-    call, error propagation, and optional response wrapping.
+    403 if system is FULL), ownership verification (USER_OWNED scope), the
+    per-user daily LLM quota, method call, error propagation, and optional
+    response wrapping.
 
     The guard order is intentional: system-tier 503 fires first (cheapest),
-    per-user 403 second (one DB fetch), ownership 404 last (one DB fetch).
+    per-user 403 second (one DB fetch), ownership 404 third (one DB fetch),
+    quota last — a request denied by any earlier gate never burns a quota
+    unit, and a unit is only recorded when the AI call actually runs.
 
     Args:
         request: Starlette request
@@ -207,6 +211,16 @@ async def _ai_route(
                 status_code=404,
                 content={"error": f"{domain_label} entity not found"},
             )
+    # Per-user daily LLM quota: every call below spends LLM/embeddings money.
+    # Check-and-record here, immediately before the spend. 403 (not 429) to
+    # match the Result error system's FORBIDDEN category used by the other
+    # quota chokepoints — the message, not the status, distinguishes it from
+    # the subscription denial above.
+    if not llm_quota_allowed(user_uid):
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Daily AI quota exceeded", "message": LLM_QUOTA_MESSAGE},
+        )
     result = await getattr(facade.ai, method_name)(*args)
     if result.is_error:
         return JSONResponse(status_code=400, content={"error": str(result.error)})

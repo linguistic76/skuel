@@ -20,7 +20,9 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.batch_transcription_api import create_batch_transcription_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
+from adapters.inbound.rate_limit import llm_quota_allowed, reset_buckets_for_testing
 from core.config.intelligence_tier import IntelligenceTier
+from core.constants import LLMQuota
 from core.models.enums import UserRole
 from core.utils.result_simplified import Result
 
@@ -34,8 +36,13 @@ def _fake_auth(request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _csrf_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+    # folder-transcribe records daily-quota units — clean buckets so tests
+    # never accumulate against the shared _USER_UID.
+    reset_buckets_for_testing()
+    yield
+    reset_buckets_for_testing()
 
 
 def _caller(role: UserRole) -> MagicMock:
@@ -200,6 +207,48 @@ class TestFolderTranscribePathPinning:
         assert response.json()["preview"] is True
         harness.batch.preview.assert_called_once_with(_JE_IN, _JE_OUT)
         harness.batch.transcribe_batch.assert_not_awaited()
+
+
+class TestFolderTranscribeQuotaGate:
+    """Daily LLM quota on the user folder-transcribe door (PR C2)."""
+
+    def _exhaust_quota(self) -> None:
+        for _ in range(LLMQuota.DAILY_LIMIT):
+            assert llm_quota_allowed(_USER_UID)
+
+    def test_member_over_quota_is_403(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.MEMBER)
+        self._exhaust_quota()
+
+        response = _post_json(harness.client, "/api/journals/folder-transcribe", {})
+
+        assert response.status_code == 403
+        harness.batch.transcribe_batch.assert_not_awaited()
+
+    def test_preview_at_quota_still_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Preview spends no Deepgram money, so it neither burns nor requires quota.
+        harness = _make_harness(monkeypatch, role=UserRole.MEMBER)
+        self._exhaust_quota()
+
+        response = _post_json(
+            harness.client, "/api/journals/folder-transcribe", {"preview_only": True}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["preview"] is True
+        harness.batch.transcribe_batch.assert_not_awaited()
+
+    def test_real_run_records_one_unit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.MEMBER)
+
+        response = _post_json(harness.client, "/api/journals/folder-transcribe", {})
+
+        assert response.status_code == 200
+        harness.batch.transcribe_batch.assert_awaited_once()
+        # Exactly one unit recorded: the window drains after LIMIT - 1 more.
+        for _ in range(LLMQuota.DAILY_LIMIT - 1):
+            assert llm_quota_allowed(_USER_UID)
+        assert llm_quota_allowed(_USER_UID) is False
 
 
 class TestAdminBatchTranscribe:
