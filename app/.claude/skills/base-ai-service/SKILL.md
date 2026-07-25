@@ -265,10 +265,12 @@ await self._publish_event(SomeEvent(uid=uid, user_uid=user_uid))
 from typing import Any, ClassVar
 
 from core.events import TaskCompleted
+from core.models.enums.entity_enums import EntityType
 from core.models.task import Task
-from core.services.base_ai_service import BaseAIService
+from core.models.type_hints import EntityUID
 from core.ports import TasksOperations
-from core.utils.result_simplified import Result
+from core.services.base_ai_service import BaseAIService
+from core.utils.result_simplified import Errors, Result
 
 
 class TasksAIService(BaseAIService[TasksOperations, Task]):
