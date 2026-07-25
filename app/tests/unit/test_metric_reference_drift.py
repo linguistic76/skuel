@@ -38,17 +38,25 @@ ALERTS_FILE = APP_ROOT / "monitoring" / "prometheus" / "alerts.yml"
 NON_METRIC_NAMES: frozenset[str] = frozenset({"skuel_critical", "skuel_slo"})
 
 # Prometheus histograms expose derived series the source never names literally.
+# ONLY histograms: a `_count`/`_sum`/`_bucket` reference derived from a Gauge or
+# Counter (e.g. skuel_graph_density_count) is a typo Prometheus never exports.
 HISTOGRAM_SUFFIXES: tuple[str, ...] = ("_bucket", "_sum", "_count")
 
 # All metric names in prometheus_metrics.py appear as double-quoted string
 # literals (the Counter/Gauge/Histogram name argument).
 _DEFINITION_PATTERN = re.compile(r'"(skuel_[a-z0-9_]+)"')
+_HISTOGRAM_DEFINITION_PATTERN = re.compile(r'Histogram\(\s*"(skuel_[a-z0-9_]+)"')
 _REFERENCE_PATTERN = re.compile(r"\bskuel_[a-z0-9_]+")
 
 
 def load_defined_metric_names() -> set[str]:
     """Metric names defined (and, per emit-first, emitted) by the app."""
     return set(_DEFINITION_PATTERN.findall(METRICS_SOURCE.read_text()))
+
+
+def load_histogram_metric_names() -> set[str]:
+    """The subset of definitions constructed as ``Histogram(...)``."""
+    return set(_HISTOGRAM_DEFINITION_PATTERN.findall(METRICS_SOURCE.read_text()))
 
 
 def extract_references(text: str, filename: str) -> list[tuple[str, str]]:
@@ -72,23 +80,28 @@ def collect_monitoring_references() -> list[tuple[str, str]]:
     return references
 
 
-def resolves(name: str, defined: set[str]) -> bool:
+def resolves(name: str, defined: set[str], histograms: set[str]) -> bool:
     """True if ``name`` is a defined metric or a derived histogram series.
 
     Exact match MUST run before suffix stripping: gauges like
     ``skuel_orphaned_entities_count`` end in ``_count`` as part of their LITERAL
     name — stripping first would probe for a nonexistent
     ``skuel_orphaned_entities`` and wrongly flag them.
+
+    Suffix stripping resolves against ``histograms`` only: Prometheus exports
+    ``_bucket``/``_sum``/``_count`` series solely for Histograms, so the same
+    suffix on a Gauge/Counter base is a typo the guard must catch.
     """
     if name in defined:
         return True
     return any(
-        name.endswith(suffix) and name.removesuffix(suffix) in defined
+        name.endswith(suffix) and name.removesuffix(suffix) in histograms
         for suffix in HISTOGRAM_SUFFIXES
     )
 
 
 DEFINED: set[str] = load_defined_metric_names()
+HISTOGRAMS: set[str] = load_histogram_metric_names()
 
 
 def test_metric_definitions_were_found() -> None:
@@ -98,6 +111,8 @@ def test_metric_definitions_were_found() -> None:
     should announce itself as THIS failure, not as 40 confusing offenders.)
     """
     assert DEFINED, f"no skuel_* metric definitions found in {METRICS_SOURCE}"
+    assert HISTOGRAMS, f"no Histogram definitions found in {METRICS_SOURCE}"
+    assert HISTOGRAMS <= DEFINED, "histogram scan found names the definition scan missed"
 
 
 def test_all_referenced_metric_names_are_defined() -> None:
@@ -105,7 +120,7 @@ def test_all_referenced_metric_names_are_defined() -> None:
     unresolved = [
         (name, filename)
         for name, filename in collect_monitoring_references()
-        if not resolves(name, DEFINED)
+        if not resolves(name, DEFINED, HISTOGRAMS)
     ]
     offenders = "\n".join(
         f"  {name}  (in {filename})" for name, filename in sorted(set(unresolved))
@@ -120,14 +135,29 @@ def test_all_referenced_metric_names_are_defined() -> None:
 
 def test_unknown_metric_is_flagged() -> None:
     """Synthetic negative: the guard must actually detect drift, not just pass."""
-    assert resolves("skuel_nonexistent_metric_total", DEFINED) is False
+    assert resolves("skuel_nonexistent_metric_total", DEFINED, HISTOGRAMS) is False
 
     fabricated = "expr: rate(skuel_nonexistent_metric_total[5m]) > 0"
     extracted = extract_references(fabricated, "fabricated.yml")
     assert ("skuel_nonexistent_metric_total", "fabricated.yml") in extracted
-    assert [pair for pair in extracted if not resolves(pair[0], DEFINED)] == [
-        ("skuel_nonexistent_metric_total", "fabricated.yml")
-    ]
+    assert [
+        pair for pair in extracted if not resolves(pair[0], DEFINED, HISTOGRAMS)
+    ] == [("skuel_nonexistent_metric_total", "fabricated.yml")]
+
+
+def test_derived_suffixes_resolve_only_for_histograms() -> None:
+    """``_bucket``/``_sum``/``_count`` on a non-histogram base is a typo.
+
+    skuel_graph_density is a Gauge — Prometheus never exports
+    skuel_graph_density_count, so the guard must reject it even though the
+    base name is defined. A real histogram's derived series must still pass.
+    """
+    assert "skuel_graph_density" in DEFINED
+    assert "skuel_graph_density" not in HISTOGRAMS
+    assert resolves("skuel_graph_density_count", DEFINED, HISTOGRAMS) is False
+
+    assert "skuel_http_request_duration_seconds" in HISTOGRAMS
+    assert resolves("skuel_http_request_duration_seconds_bucket", DEFINED, HISTOGRAMS)
 
 
 def test_allowlisted_group_names_are_excluded() -> None:
