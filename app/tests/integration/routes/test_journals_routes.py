@@ -1003,3 +1003,78 @@ class TestJournalsAITierGate:
         await handlers["/journals/start"](request=request)
 
         mock_services.journal.run_discussion.assert_awaited_once()
+
+
+class TestJournalsDailyLlmQuota:
+    """Daily LLM quota (PR #800): one unit immediately before each paid call.
+
+    Codex round 2 pins: the FOUNDER stage routes spend LLM money and must be
+    metered too, and an upload rejected by mode-specific validation (e.g.
+    invalid UTF-8) must never burn a unit.
+    """
+
+    @staticmethod
+    def _consume_quota_units(n: int) -> None:
+        from adapters.inbound.rate_limit import llm_quota_allowed
+
+        for _ in range(n):
+            assert llm_quota_allowed("user_mike")
+
+    @staticmethod
+    def _as_founder(mock_services: Any) -> None:
+        mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
+
+    async def test_founder_stage1_at_quota_is_denied(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE
+        from core.constants import LLMQuota
+
+        self._as_founder(mock_services)
+        self._consume_quota_units(LLMQuota.DAILY_LIMIT)
+
+        response = await handlers["/journals/stage1"](
+            request=_make_request(), raw_entry="Costs money."
+        )
+
+        assert LLM_QUOTA_MESSAGE in to_xml(response)
+        mock_services.journal.run_stage1.assert_not_awaited()
+
+    async def test_founder_stage1_records_one_unit(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from adapters.inbound.rate_limit import llm_quota_allowed
+        from core.constants import LLMQuota
+
+        self._as_founder(mock_services)
+
+        await handlers["/journals/stage1"](request=_make_request(), raw_entry="Costs money.")
+
+        mock_services.journal.run_stage1.assert_awaited_once()
+        self._consume_quota_units(LLMQuota.DAILY_LIMIT - 1)
+        assert llm_quota_allowed("user_mike") is False
+
+    async def test_upload_invalid_utf8_burns_no_quota(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        from adapters.inbound.rate_limit import llm_quota_allowed
+        from core.constants import LLMQuota
+
+        self._consume_quota_units(LLMQuota.DAILY_LIMIT - 1)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("notes.txt", b"\xff\xfe not utf-8")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        response = await handlers["/journals/upload"](request=request)
+
+        assert "valid UTF-8" in to_xml(response)
+        # The decode rejection fired before the quota check — the final unit
+        # survived (Codex round 2 P2).
+        assert llm_quota_allowed("user_mike") is True

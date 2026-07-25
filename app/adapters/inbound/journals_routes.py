@@ -136,6 +136,10 @@ async def _process_single_upload(
                 "File must be valid UTF-8 text for Instructions only mode",
                 is_error=True,
             )
+        # Daily LLM quota — after the decode validation, immediately before
+        # the paid compile, so a rejected file never burns a unit.
+        if not llm_quota_allowed(user_uid):
+            return render_journal_upload_status("error", LLM_QUOTA_MESSAGE, is_error=True)
         compiled = await journal_batch.compile_text(
             text_content,
             instructions,
@@ -177,6 +181,11 @@ async def _process_single_upload(
         return render_journal_upload_status(
             "error", "LLM service not available (requires INTELLIGENCE_TIER=full)", is_error=True
         )
+
+    # Daily LLM quota — after the availability preflights, immediately before
+    # the paid transcription, so a service-unavailable rejection burns nothing.
+    if not llm_quota_allowed(user_uid):
+        return render_journal_upload_status("error", LLM_QUOTA_MESSAGE, is_error=True)
 
     transcript_result = await journal_batch.transcribe_upload(
         file_content, Path(filename).suffix or ".audio"
@@ -578,12 +587,9 @@ def create_journals_routes(
                 file_content = await uploaded_file.read()
                 filename = uploaded_file.filename or "unknown"
                 title = custom_title or filename
-                # Daily LLM quota — after every validation, right before the
-                # paid pipeline, so a rejected upload never burns a unit.
-                if not llm_quota_allowed(user_uid):
-                    return render_journal_upload_status(
-                        "error", LLM_QUOTA_MESSAGE, is_error=True, status_id=status_id
-                    )
+                # Daily quota lives inside _process_single_upload, after its
+                # mode-specific validations (UTF-8 decode, service preflights)
+                # — a rejected file must never burn a unit (Codex round 2 P2).
                 return await _process_single_upload(
                     file_content=file_content,
                     filename=filename,
@@ -1380,6 +1386,11 @@ def create_journals_routes(
         if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
 
+        # Daily LLM quota — after validation + founder gate, immediately
+        # before the paid stage call.
+        if not llm_quota_allowed(user_uid):
+            return ErrorFragment(LLM_QUOTA_MESSAGE)
+
         result = await journal_service.run_stage1(raw_entry.strip(), user_uid)
         if result.is_error:
             logger.error("Stage 1 failed for %s: %s", user_uid, result.expect_error())
@@ -1415,6 +1426,11 @@ def create_journals_routes(
 
         if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
+
+        # Daily LLM quota — after the founder gate, immediately before the
+        # paid stage call.
+        if not llm_quota_allowed(user_uid):
+            return ErrorFragment(LLM_QUOTA_MESSAGE)
 
         result = await journal_service.run_stage2(
             raw_entry=raw_entry,
@@ -1460,6 +1476,11 @@ def create_journals_routes(
 
         if not await _resolve_founder(user_uid):
             return ErrorFragment("Founder workflow is not available for your account.")
+
+        # Daily LLM quota — after the founder gate, immediately before the
+        # paid stage call.
+        if not llm_quota_allowed(user_uid):
+            return ErrorFragment(LLM_QUOTA_MESSAGE)
 
         result = await journal_service.run_stage3(
             raw_entry=raw_entry,
