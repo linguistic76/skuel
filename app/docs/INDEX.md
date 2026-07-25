@@ -424,6 +424,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Description |
 |----------|---------|-------------|
+| [BGE Embeddings Migration (ADR-083 Arc 3)](roadmap/bge-embeddings-migration.md) | 2026-07-24 | Cutover from OpenAI to BGE-M3 embeddings: factory swap + `EMBEDDINGS_PROVIDER` env var, `EMBEDDING_VERSION` v3→v4, `HF_API_TOKEN`, batch re-embed; no index rebuild (both 1024-dim); independent of Arc 2 |
 | [Journals Discussion-First — Design & Choices](roadmap/journals-discussion-first.md) | 2026-07-12 | Discussion as a fundamental Journals mode: two doors (chat/files) converging into one grounded conversation; sources live from message one; canon shelf checkboxes; real storage reconciled with ADR-073 |
 | [Deferred Work](roadmap/deferred-work.md) | 2026-03-04 | Intelligence features and decision points deferred until data/business prerequisites exist |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | 2026-03-04 | 5 deferred security items: dependency pinning, rate limiting, secret scanning, session rotation, CI CVE scanning |
