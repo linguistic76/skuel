@@ -288,56 +288,36 @@ class TasksAIService(BaseAIService[TasksOperations, Task]):
     async def find_similar_tasks(
         self,
         task_uid: str,
-        user_uid: UserUID,
-        top_k: int = 5,
-    ) -> Result[list[tuple[Task, float]]]:
+        limit: int = 5,
+    ) -> Result[list[tuple[EntityUID, float]]]:
         """
         Find semantically similar tasks.
 
-        Args:
-            task_uid: Reference task UID
-            user_uid: User's UID (for ownership filtering)
-            top_k: Number of results
-
-        Returns:
-            Result containing list of (Task, similarity_score) tuples
+        The caller owns only the (typed) backend I/O — fetch the source and the
+        candidate pool. Ranking is the shared tail: `_rank_similar_entities` builds
+        canonical embedding text (`build_embedding_text`) for the source and every
+        candidate, excludes the source, and delegates to `_semantic_search`. Do NOT
+        hand-roll `f"{title} {description}"` — that drifts from the stored-embedding
+        representation.
         """
-        # Get reference task
         task_result = await self.backend.get(task_uid)
         if task_result.is_error:
-            return task_result
+            return Result.fail(task_result)
+        task = task_result.value
+        if not task:
+            return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
-        reference = task_result.value
-
-        # Get user's tasks
-        all_tasks_result = await self.backend.find_by(created_by=user_uid)
+        all_tasks_result = await self.backend.find_by(user_uid=task.user_uid)
         if all_tasks_result.is_error:
-            return all_tasks_result
+            return Result.fail(all_tasks_result)
 
-        # Prepare candidates (exclude self)
-        candidates = [
-            (t.uid, f"{t.title} {t.description or ''}")
-            for t in all_tasks_result.value
-            if t.uid != task_uid
-        ]
-
-        # Semantic search
-        search_result = await self._semantic_search(
-            query=f"{reference.title} {reference.description or ''}",
-            candidates=candidates,
-            top_k=top_k,
+        return await self._rank_similar_entities(
+            task,
+            EntityType.TASK,
+            all_tasks_result.value or [],
+            exclude_uid=task_uid,
+            limit=limit,
         )
-        if search_result.is_error:
-            return search_result
-
-        # Fetch full task objects
-        results: list[tuple[Task, float]] = []
-        for uid, score in search_result.value:
-            task_result = await self.backend.get(uid)
-            if task_result.is_ok:
-                results.append((task_result.value, score))
-
-        return Result.ok(results)
 
     # ========================================================================
     # AI INSIGHTS
