@@ -95,7 +95,7 @@ Re-run the Step 2 query — old-version counts should drain to zero.
 ### Worker metrics (event-driven embeddings)
 
 ```bash
-curl http://localhost:8000/api/monitoring/embedding-worker
+curl -s http://localhost:8000/metrics | grep skuel_embedding
 ```
 
 ---

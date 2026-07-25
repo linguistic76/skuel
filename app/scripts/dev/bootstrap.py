@@ -618,10 +618,6 @@ async def _wire_all_routes(
 
     create_admin_routes(app, rt, services, None)
 
-    from adapters.inbound.monitoring_routes import create_monitoring_routes
-
-    create_monitoring_routes(app, rt, services)
-
     from adapters.inbound.metrics_routes import create_metrics_routes
 
     create_metrics_routes(app, rt)
