@@ -621,11 +621,15 @@ async def complete_task(self, uid: str) -> Result[Task]:
 ### Pattern: Gauge for Current State
 
 ```python
-# Real example: embedding worker reports its queue depth (AiMetrics)
-def _report_queue_depth(self) -> None:
-    self.prometheus_metrics.ai.embedding_queue_size.labels(
-        queue_type="entity"
-    ).set(len(self._queue))
+# Real example: embedding worker reports both queue depths each batch cycle
+# (core/services/background/embedding_worker.py, _process_batches_loop)
+if self.prometheus_metrics:
+    self.prometheus_metrics.ai.embedding_queue_size.labels(queue_type="entity").set(
+        len(self._pending_requests)
+    )
+    self.prometheus_metrics.ai.embedding_queue_size.labels(queue_type="chunk").set(
+        len(self._pending_chunk_requests)
+    )
 ```
 
 For gauges whose value comes from a Neo4j query, use Approach 4 (piggyback on the 5-min
