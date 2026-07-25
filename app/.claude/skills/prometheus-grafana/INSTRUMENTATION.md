@@ -284,16 +284,20 @@ To add a new periodically-polled gauge, add a query to that existing function:
 # Query 4 (simplified from the real one PR #770 added for the knowledge-health
 # gauges — the actual query also excludes learner-state telemetry edges).
 # Match knowledge nodes by entity_type, NOT a :Ku domain label — a corpus gauge
-# must match the graph contract (see CLAUDE.md § Analytics Architecture):
+# must match the graph contract (see CLAUDE.md § Analytics Architecture).
+# Use the poller's actual driver API: neo4j_adapter.driver.execute_query()
+# returns an EagerResult — guard .records before reading records[0]:
 knowledge_query = """
 MATCH (k:Entity {entity_type: 'ku'})
 OPTIONAL MATCH (k)-[r]-()
 WITH k, count(r) AS degree
 RETURN count(k) AS total, sum(CASE WHEN degree = 0 THEN 1 ELSE 0 END) AS orphans
 """
-result = await driver.execute_query(knowledge_query)
-prometheus_metrics.relationships.knowledge_kus_total.set(result[0]["total"])
-prometheus_metrics.relationships.knowledge_orphan_kus.set(result[0]["orphans"])
+result = await neo4j_adapter.driver.execute_query(knowledge_query)
+if result.records:
+    rec = result.records[0]
+    prometheus_metrics.relationships.knowledge_kus_total.set(rec["total"])
+    prometheus_metrics.relationships.knowledge_orphan_kus.set(rec["orphans"])
 # All gauges are system-wide — never label with user_uid
 ```
 

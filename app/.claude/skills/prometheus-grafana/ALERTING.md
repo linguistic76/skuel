@@ -43,8 +43,17 @@ Alert rules run wherever Prometheus runs — and **Prometheus runs only in the d
 droplet runs no Prometheus (PR #803 posture: app + Caddy only, `/metrics` blocked publicly).
 
 Consequence: the AuraDB cap alerts do **not** currently observe AuraDB. Production cap
-monitoring is manual cadence — `./dev knowledge-health` and `./dev telemetry-retention` —
-until a production evaluation posture is decided.
+monitoring is a manual cadence until a production evaluation posture is decided — and the
+only surface that reports the values the caps actually constrain is the on-droplet app's
+own gauges (the graph-health poller runs in the production app process too):
+
+```bash
+docker compose exec skuel-app curl -s localhost:5001/metrics \
+  | grep -E 'skuel_total_(entities|relationships) '
+```
+
+(`./dev knowledge-health` covers only the knowledge subgraph and `./dev telemetry-retention`
+only prunable telemetry — neither reports total graph counts against the 200k/400k caps.)
 
 ---
 
@@ -184,7 +193,7 @@ skuel_embedding_queue_size > 500
 ```
 
 **Runbook**:
-- **HighAIErrorRate**: Check API keys (HF_API_TOKEN, OPENAI_API_KEY), verify rate limits, check provider status pages
+- **HighAIErrorRate**: Check OPENAI_API_KEY (the wired provider for both chat and embeddings — ADR-068; the BGE/HF adapter is staged but not selectable), verify rate limits, check provider status pages
 - **EmbeddingQueueBacklog**: Check worker logs, verify OpenAI API availability, consider increasing batch size
 - **HighEmbeddingFailureRate**: Check OpenAI status, review error logs, verify text preprocessing
 - **SlowAICalls**: Check provider status pages, review batch sizes, verify network latency
