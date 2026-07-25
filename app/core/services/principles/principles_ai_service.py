@@ -14,6 +14,7 @@ They enhance the user experience but are not required for core functionality.
 from typing import TYPE_CHECKING, Any
 
 from core.models.entity import Entity
+from core.models.enums.entity_enums import EntityType
 from core.models.principle.principle import Principle
 from core.models.type_hints import EntityUID
 from core.ports import PrinciplesOperations
@@ -67,25 +68,17 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
         if not principle:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
-        search_text = f"{principle.title}"
-        if principle.description:
-            search_text += f" {principle.description}"
-
         all_principles_result = await self.backend.find_by(user_uid=principle.user_uid)
         if all_principles_result.is_error:
             return Result.fail(all_principles_result)
 
-        all_principles = all_principles_result.value or []
-        candidates = [
-            (p.uid, f"{p.title} {p.description or ''}")
-            for p in all_principles
-            if p.uid != principle_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            principle,
+            EntityType.PRINCIPLE,
+            all_principles_result.value or [],
+            exclude_uid=principle_uid,
+            limit=limit,
+        )
 
     async def deepen_principle(self, principle_uid: str) -> Result[dict[str, Any]]:
         """Generate deeper understanding of a principle."""

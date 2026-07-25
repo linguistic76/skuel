@@ -15,6 +15,7 @@ NOTE: LP is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import EntityUID
 from core.ports import LpOperations
@@ -69,26 +70,18 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
         if not lp:
             return Result.fail(Errors.not_found(resource="LearningPath", identifier=lp_uid))
 
-        search_text = f"{lp.title}"
-        if lp.description:
-            search_text += f" {lp.description}"
-        if lp.outcomes:
-            search_text += f" {' '.join(lp.outcomes[:3])}"
-
         all_paths_result = await self.backend.list(limit=100)
         if all_paths_result.is_error:
             return Result.fail(all_paths_result)
 
         all_paths_data, _count = all_paths_result.value
-        all_paths: list[LearningPath] = all_paths_data or []
-        candidates = [
-            (p.uid, f"{p.title} {p.description or ''}") for p in all_paths if p.uid != lp_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            lp,
+            EntityType.LEARNING_PATH,
+            all_paths_data or [],
+            exclude_uid=lp_uid,
+            limit=limit,
+        )
 
     async def generate_path_overview(self, lp_uid: str) -> Result[LpPathOverview]:
         """Generate an AI-powered overview of a learning path."""

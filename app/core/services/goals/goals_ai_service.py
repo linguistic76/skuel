@@ -23,6 +23,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.goal.goal import Goal
 from core.models.type_hints import EntityUID
 from core.ports import GoalsOperations
@@ -108,27 +109,17 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
         if not goal:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
-        search_text = f"{goal.title}"
-        if goal.description:
-            search_text += f" {goal.description}"
-        if goal.success_criteria:
-            search_text += f" {goal.success_criteria}"
-
         all_goals_result = await self.backend.find_by(user_uid=goal.user_uid)
         if all_goals_result.is_error:
             return Result.fail(all_goals_result)
 
-        all_goals = all_goals_result.value or []
-        candidates = [
-            (g.uid, f"{g.title} {g.description or ''} {g.success_criteria or ''}")
-            for g in all_goals
-            if g.uid != goal_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            goal,
+            EntityType.GOAL,
+            all_goals_result.value or [],
+            exclude_uid=goal_uid,
+            limit=limit,
+        )
 
     # ========================================================================
     # AI-GENERATED MILESTONES

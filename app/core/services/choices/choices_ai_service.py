@@ -14,6 +14,7 @@ They enhance the user experience but are not required for core functionality.
 from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
+from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import EntityUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
@@ -66,23 +67,17 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
         if not choice:
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
 
-        search_text = f"{choice.title}"
-        if choice.description:
-            search_text += f" {choice.description}"
-
         all_choices_result = await self.backend.find_by(user_uid=choice.user_uid)
         if all_choices_result.is_error:
             return Result.fail(all_choices_result)
 
-        all_choices = all_choices_result.value or []
-        candidates = [
-            (c.uid, f"{c.title} {c.description or ''}") for c in all_choices if c.uid != choice_uid
-        ]
-
-        if not candidates:
-            return Result.ok([])
-
-        return await self._semantic_search(search_text, candidates, limit)
+        return await self._rank_similar_entities(
+            choice,
+            EntityType.CHOICE,
+            all_choices_result.value or [],
+            exclude_uid=choice_uid,
+            limit=limit,
+        )
 
     async def suggest_decision_framework(self, choice_uid: str) -> Result[dict[str, Any]]:
         """Suggest a decision-making framework for this choice."""
