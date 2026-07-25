@@ -108,80 +108,7 @@ See `docs/patterns/UNIFIED_INGESTION_GUIDE.md § Ingestion Modes`.
 
 ---
 
-## 3. WebSocket Real-Time Progress Architecture
-
-> **⚠️ STALE — pending redraw.** This sequence is anchored on `POST /api/ingest/directory`,
-> which was **removed** in ADR-070 Decision 9 (content-vault ingestion now goes through
-> `POST /api/vault/sync/content` → `VaultReconciler`, a synchronous call with no WS progress).
-> It also references MonsterUI (removed in the FrankenUI→Tailwind migration). Retained for the
-> generic batch-progress mechanism only; the trigger/endpoint and UI details are out of date.
-
-Sequence diagram showing how real-time ingestion progress flows from backend to UI.
-
-```mermaid
-sequenceDiagram
-    participant Admin as Admin User
-    participant UI as Browser<br/>(Alpine.js)
-    participant API as ingestion_api.py<br/>(POST endpoint)
-    participant WS as WebSocket<br/>(/ws/ingest/progress/)
-    participant Service as UnifiedIngestionService<br/>(batch.py)
-    participant Tracker as ProgressTracker
-    participant Neo4j as Neo4j Database
-
-    Admin->>UI: Click "Ingest Directory"
-    UI->>API: POST /api/ingest/directory<br/>{directory, pattern, batch_size, ingestion_mode}
-
-    Note over API: Validate path (traversal protection)
-    Note over API: Generate operation_id (UUID)
-
-    API->>Service: ingest_directory(path, progress_callback)
-
-    UI->>WS: Connect to /ws/ingest/progress/{operation_id}
-    Note over WS: Verify admin session<br/>(close 4003 if unauthorized)
-    WS-->>UI: Connection accepted
-
-    Note over UI: Alpine.js ingestionProgress component<br/>initializes WebSocket
-
-    loop For each file in directory
-        Service->>Tracker: tracker.update(file_index, file_path)
-        Tracker->>Tracker: Calculate ETA<br/>(elapsed / processed * remaining)
-        Tracker->>WS: websocket_callback(progress_data)
-        WS-->>UI: JSON: {current, total, percentage,<br/>current_file, eta_seconds}
-        UI-->>Admin: Update progress bar + ETA
-        Service->>Neo4j: Batch UPSERT (per batch_size)
-    end
-
-    Service-->>API: Return IngestionStats/IncrementalStats
-    API-->>UI: HTTP Response with IngestionResultsSummary
-    UI-->>Admin: Display formatted results<br/>(MonsterUI stat cards + tables)
-    WS--xUI: Connection closed
-```
-
-### Progress Data Format
-
-```json
-{
-  "current": 150,
-  "total": 1000,
-  "percentage": 15.0,
-  "current_file": "/vault/docs/ku.machine-learning.md",
-  "eta_seconds": 85
-}
-```
-
-### Key Components
-
-| Component | File | Role |
-|-----------|------|------|
-| `ProgressTracker` | `core/services/ingestion/progress_tracker.py` | Calculates progress + ETA, calls callback |
-| `broadcast_progress()` | `adapters/inbound/ingestion_api.py` | Sends JSON to WebSocket connection |
-| `_active_connections` | `adapters/inbound/ingestion_api.py` | Global dict mapping operation_id to WebSocket |
-| `ingestionProgress` | `static/js/skuel.js` | Alpine.js component, auto-connects WebSocket |
-| `ProgressIndicator` | `ui/patterns/ingestion_results.py` | Server-rendered HTML with Alpine.js bindings |
-
----
-
-## 4. Ingestion History Graph Model
+## 3. Ingestion History Graph Model
 
 How ingestion operations are tracked as Neo4j nodes for audit trail.
 
@@ -223,7 +150,7 @@ entry = await history.get_entry(operation_id)
 
 ---
 
-## 5. Domain-Integrated Ingestion Trigger Flow
+## 4. Domain-Integrated Ingestion Trigger Flow
 
 How admin users trigger ingestion from domain list pages.
 

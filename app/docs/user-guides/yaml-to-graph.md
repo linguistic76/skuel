@@ -575,7 +575,6 @@ await service.ingest_bundle(Path("yaml_templates/domains/mindfulness_101/"))
 POST /api/ingest/file          — Single file
 POST /api/vault/sync/content   — Content-vault sync (reconciler; ADR-070 Decision 9)
 POST /api/ingest/domain/{name} — Named domain bundle
-WS   /ws/ingest/progress/{id}  — WebSocket progress
 ```
 
 ### Dry-Run Mode

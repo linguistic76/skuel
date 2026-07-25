@@ -217,7 +217,6 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 | `entityPicker()` | Entity UID picker with search | query, results |
 | `formValidator()` | Client-side form validation | field errors |
 | `hierarchyTree()` | Tree view: expand/collapse, keyboard nav, drag-drop | node state |
-| `ingestionProgress()` | Vault-ingestion progress (WebSocket) | progress, phase |
 
 Table is non-exhaustive — `skuel.js` also registers `domainFilter`, `bulkInsightManager`, `insightDetailModal`, `intelligenceCache`, `profileFocusHandler`, `insightFiltersDebounced`, `exploreSearch`, `revisionForm`, `batchTranscribe`, `userFolderTranscribe`, `submit`. Grep `Alpine.data('` in `/static/js/skuel.js` for the authoritative list.
 

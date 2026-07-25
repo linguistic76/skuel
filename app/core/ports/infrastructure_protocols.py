@@ -379,7 +379,6 @@ class IngestionOperations(Protocol):
         ingestion_mode: Literal["full", "incremental", "smart"] = "full",
         force: bool = False,
         validate_targets: bool = False,
-        progress_callback: Any | None = None,
         dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,

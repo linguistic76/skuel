@@ -71,7 +71,7 @@ logger = get_logger("skuel.routes.devices")
 HANDSHAKE_TIMEOUT_S = 30.0
 PROTOCOL_VERSION = 1
 
-# Application close code for a failed handshake (mirrors require_websocket_admin's 4003).
+# Application close code for a failed handshake (4003 = unauthorized, app-level convention).
 _CLOSE_UNAUTHORIZED = 4003
 # Policy-violation close code (RFC 6455 private range) for pre-auth throttling.
 _CLOSE_RATE_LIMITED = 4008

@@ -36,9 +36,9 @@ Enforcement semantics:
 
 Cost: one indexed statement on ``Session.token_hash`` per authenticated
 request (validity + live-User check + batched last-active touch, one round
-trip). WebSocket scopes pass through ``BaseHTTPMiddleware`` untouched —
-``require_websocket_admin`` validates the graph session AND re-checks the
-role at the handshake instead.
+trip). WebSocket scopes pass through ``BaseHTTPMiddleware`` untouched — the one
+WebSocket channel (``/ws/agent``) performs its own challenge handshake at
+connect (adapters/inbound/device_routes.py) instead.
 
 Ordering constraint: this middleware reads ``request.session``, so it MUST run
 INSIDE Starlette's ``SessionMiddleware``. FastHTML appends the session

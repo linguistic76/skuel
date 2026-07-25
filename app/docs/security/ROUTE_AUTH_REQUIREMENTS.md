@@ -52,7 +52,6 @@ This document defines the authentication requirements for all SKUEL routes.
 | `/api/services/**` | `system_api.py` | Service registration |
 | `/api/alerts/**` | `system_api.py` | Alert management |
 | `/api/ingest/**` | `ingestion_routes.py` | Content ingestion |
-| `/ws/ingest/progress/**` | `ingestion_api.py` | WebSocket progress (closes 4003 if unauthorized) |
 | `/ingest` | `ingestion_routes.py` | Ingestion dashboard |
 | `/debug-session` | `auth_routes.py` | Session debugging |
 | `/whoami` | `auth_routes.py` | User identity debugging |

@@ -77,9 +77,6 @@ if TYPE_CHECKING:
 
 logger = get_logger("skuel.services.ingestion.batch")
 
-# Type alias for progress callback
-ProgressCallback = Callable[[int, int, str], None]  # (current, total, current_file)
-
 
 # USER_ENTRY frontmatter fields whose validation failures are the FILE'S OWN
 # CONTENT — the ``user_entry_ingestion`` parsers tag each with the field they
@@ -557,7 +554,6 @@ async def ingest_directory(
     ingestion_mode: Literal["full", "incremental", "smart"] = "full",
     force: bool = False,
     validate_targets: bool = False,
-    progress_callback: ProgressCallback | None = None,
     dry_run: bool = False,
     ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
     allowlist: SyncAllowlist | None = None,
@@ -600,7 +596,6 @@ async def ingest_directory(
             is rejected because "re-process unchanged" only has meaning under
             tracking.
         validate_targets: If True, validate relationship targets exist before ingestion
-        progress_callback: Optional callback for progress reporting (current, total, current_file)
         dry_run: If True, validates and previews changes without writing to Neo4j
         ingest_file_fn: Optional per-file ingest callback for entity types that
             require a service pipeline (e.g. ``EntityType.USER_ENTRY``). When
@@ -901,9 +896,6 @@ async def ingest_directory(
     errors: list[dict[str, str]] = []
 
     for i, (entity_type, entity_data, error) in enumerate(parse_results):
-        if progress_callback:
-            progress_callback(i + 1, len(files_to_process), str(files_to_process[i]))
-
         if error is not None:
             errors.append(error)
         elif entity_data is not None and entity_data.get("_is_edge"):
@@ -1688,7 +1680,6 @@ def find_entity_file(
 
 
 __all__ = [
-    "ProgressCallback",
     "collect_files",
     "create_error",
     "find_entity_file",
