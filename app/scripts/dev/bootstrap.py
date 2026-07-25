@@ -203,6 +203,10 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
         - Knowledge-subgraph structural health (ADR-080 Horizon-1): Ku count,
           orphan Kus, avg Ku degree, composition/prerequisite/ORGANIZES coverage
         """
+        # Staleness baseline: without it the gauge exports 0 and the alert fires
+        # at boot; refreshed only after a fully-successful pass (inside the try)
+        # so a failed poll leaves it stale and GraphHealthPollerStale can fire.
+        prometheus_metrics.relationships.poll_last_success.set_to_current_time()
         while True:
             try:
                 await asyncio.sleep(300)  # Update every 5 minutes
@@ -385,6 +389,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                         krec["organizes_edges"]
                     )
 
+                prometheus_metrics.relationships.poll_last_success.set_to_current_time()
                 logger.debug("✅ Graph health metrics updated")
 
             except Exception as e:

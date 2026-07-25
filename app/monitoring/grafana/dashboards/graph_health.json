@@ -413,6 +413,176 @@
       "options": {
         "legend": {"displayMode": "table", "placement": "bottom"}
       }
+    },
+    {
+      "id": 17,
+      "type": "row",
+      "title": "Knowledge Subgraph Health (ADR-080 H1)",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 36},
+      "collapsed": false
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Total Kus",
+      "description": "Total atomic knowledge units (Kus) in the knowledge subgraph",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 37},
+      "targets": [
+        {
+          "expr": "skuel_knowledge_kus_total",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "Avg Ku Degree",
+      "description": "Average relationships per Ku (connectedness of atomic knowledge)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 37},
+      "targets": [
+        {
+          "expr": "skuel_knowledge_avg_ku_degree",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Prerequisite Edges",
+      "description": "Prerequisite-DAG edges between knowledge nodes (learning-order structure)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 37},
+      "targets": [
+        {
+          "expr": "skuel_knowledge_prerequisite_edges_count",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "ORGANIZES Edges",
+      "description": "MOC → KU organization edges (Montessori-style exploration coverage)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 37},
+      "targets": [
+        {
+          "expr": "skuel_knowledge_organizes_edges_count",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 22,
+      "type": "gauge",
+      "title": "Orphan Ku Ratio",
+      "description": "Share of Kus with no relationships — isolated knowledge",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 41},
+      "targets": [
+        {
+          "expr": "skuel_knowledge_orphan_kus_count / skuel_knowledge_kus_total",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "yellow", "value": 0.05},
+              {"color": "red", "value": 0.15}
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 23,
+      "type": "gauge",
+      "title": "Composition Coverage",
+      "description": "Share of Kus composed into at least one PathStep (USES_KU)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 41},
+      "targets": [
+        {
+          "expr": "skuel_knowledge_composed_kus_count / skuel_knowledge_kus_total",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 0.25},
+              {"color": "green", "value": 0.5}
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "orientation": "auto"
+      }
     }
   ]
 }
