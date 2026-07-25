@@ -267,63 +267,6 @@ def create_system_api_routes(
             }
         )
 
-    @rt("/api/metrics")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def system_metrics_route(request: Request, current_user) -> Result[dict[str, Any]]:
-        """
-        System metrics using SystemService data.
-
-        Returns:
-            Result[dict[str, Any]]: Comprehensive system metrics with health and component data
-        """
-        import asyncio
-
-        # Get health and system info in parallel for performance
-        health_result, info_result = await asyncio.gather(
-            system_service.get_health_status(), system_service.get_system_info()
-        )
-
-        metrics: dict[str, Any] = {"timestamp": datetime.now(UTC).isoformat(), "service": "SKUEL"}
-
-        # Add health metrics
-        if health_result.is_ok:
-            health_data = health_result.value
-            components = health_data.get("components", {})
-
-            # Component health summary
-            total_components = len(components)
-            healthy_components = sum(1 for c in components.values() if c.get("healthy", False))
-
-            metrics["health"] = {
-                "overall_status": health_data["status"],
-                "healthy": health_data["healthy"],
-                "components_total": total_components,
-                "components_healthy": healthy_components,
-                "health_ratio": healthy_components / total_components
-                if total_components > 0
-                else 0,
-            }
-
-            # Per-component status
-            metrics["components"] = {
-                name: {
-                    "status": comp.get("status", "unknown"),
-                    "healthy": comp.get("healthy", False),
-                }
-                for name, comp in components.items()
-            }
-
-        # Add system info
-        if info_result.is_ok:
-            info_data = info_result.value
-            metrics["system"] = {
-                "version": info_data.get("version"),
-                "components_registered": info_data.get("components_registered", 0),
-            }
-
-        return Result.ok(metrics)
-
     @rt("/api/diagnostics")
     @require_admin(get_user_service)
     @boundary_handler()
@@ -709,7 +652,6 @@ def create_system_api_routes(
             status_route,
             detailed_health_route,
             version_info_route,
-            system_metrics_route,
             system_diagnostics_route,
             register_service_route,
             unregister_service_route,

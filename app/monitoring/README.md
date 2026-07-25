@@ -46,8 +46,8 @@ curl http://localhost:5001/metrics | grep skuel_
 
 ## One Surface: Prometheus
 
-`/metrics` is THE system-status surface — there is no parallel JSON monitoring API
-(the former `/api/monitoring/*` routes were folded into Prometheus). For ad-hoc
+`/metrics` is THE metrics surface — the former JSON metrics routes
+(`/api/monitoring/*`, `/api/metrics`) were folded into Prometheus. For ad-hoc
 checks without Grafana, grep the text exposition directly:
 
 ```bash
