@@ -384,13 +384,19 @@ _MIXIN_PREREQUISITE_WRITE = (
     "pages (Mike ruled PLANNED 2026-06-13)"
 )
 _MIXIN_ENABLES_TRAVERSAL = (
-    "enables-direction traversal staged — the inverse of the LIVE get_prerequisites "
-    "('what does mastering X unlock next', walking the prerequisite edges inward). "
-    "Its only caller was the GraphQL knowledge_dependencies resolver, removed in the "
-    "GraphQL fold; get_prerequisites survives because it retains real callers. "
-    "Retained as the symmetric other-half of the prerequisite read API for the "
-    "upcoming ZPD/next-steps direction — wire it into the ZPD proximal-zone or a "
-    "'what can I learn next' surface (Mike ruled PLANNED 2026-07-25)"
+    "enables-direction traversal — the symmetric inverse of the LIVE get_prerequisites "
+    "(walks the same _prerequisite_relationships edges inward vs outward), a member of the "
+    "ADR-023 lateral-getter convenience family (get_prerequisites / get_enables / get_related "
+    "/ get_children / get_parent / get_depends_on / get_blocks) inherited by every curriculum "
+    "domain and covered by its own unit test. Its last caller was the GraphQL "
+    "knowledge_dependencies resolver, removed in the GraphQL fold; get_prerequisites survives "
+    "with real callers (ps_service.py::get_prerequisites). Retained as the coherent other-half "
+    "of a live symmetric API — NOT scaffolding toward a specific feature: the cross-topic "
+    "'you know X → unlocks Y' signal it was briefly earmarked for was investigated against the "
+    "live graph and deleted (was deferred-work #9, 2026-07-25 — no separable nous cross-topic "
+    "structure: 6 singleton disjoint bridges, zero MASTERED edges, redundant with the live "
+    "entity-level get_cross_domain_synergies). Complete when any consumer needs the inverse "
+    "'what does X enable' read (Mike ruled KEEP 2026-07-25)"
 )
 # NOTE: RelationshipOperationsMixin.get_hierarchy (the generic parents/children
 # read over backend.hierarchy_query_raw) was PLANNED here. Tier 2 (#721) added
