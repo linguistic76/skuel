@@ -213,7 +213,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                 query_stats = """
                 MATCH (n)
                 WITH count(n) as total_nodes
-                MATCH ()-[r]->()
+                OPTIONAL MATCH ()-[r]->()
                 WITH total_nodes, count(r) as total_rels
                 RETURN
                     total_nodes,
