@@ -53,8 +53,8 @@ sleep 2
 # 1. Check if server started successfully
 grep "Application startup complete" /tmp/server.log
 
-# 2. Check if routes were registered
-grep -E "Tasks routes|Goals routes|Habits routes" /tmp/server.log
+# 2. Check if routes were registered (per-router lines + the wiring summary)
+grep -E "routes registered" /tmp/server.log
 
 # 3. Test the endpoint
 curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:8000/tasks

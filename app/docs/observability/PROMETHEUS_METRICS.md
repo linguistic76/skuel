@@ -768,6 +768,9 @@ docker logs skuel-app | grep "Graph health metrics"
 **Expected**:
 - "Graph health metrics update task started (5 min interval)"
 - Note: the first pass runs at startup (poll-first loop), then every 5 minutes
+- Per-cycle confirmations are DEBUG-only (invisible at the default INFO level) — for
+  liveness use the `skuel_graph_health_poll_last_success_timestamp` gauge or the
+  startup line above; errors surface as `Error updating graph health metrics` lines
 
 ---
 

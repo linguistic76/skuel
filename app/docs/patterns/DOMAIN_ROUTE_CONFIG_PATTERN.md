@@ -562,8 +562,8 @@ route objects to collect. This creates a two-layer return type contract:
 # Start application and verify routes are registered
 uv run python main.py
 
-# Check logs for registration message
-grep "Registered tasks routes" logs/skuel.log
+# Check logs for the wiring summary (single line with total route count — see Step 4)
+grep "Route wiring complete" logs/skuel.log
 ```
 
 ## Examples

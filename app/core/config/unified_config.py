@@ -515,10 +515,6 @@ def _default_data_path() -> Any:
     return Path("data")
 
 
-def _default_logs_path() -> Any:
-    return Path("logs")
-
-
 def _default_features() -> Any:
     return {
         "semantic_search": False,
@@ -541,13 +537,12 @@ class ApplicationConfig:
     # Paths
     base_path: Path = Path(__file__).parent.parent.parent
     data_path: Path = field(default_factory=_default_data_path)
-    logs_path: Path = field(default_factory=_default_logs_path)
 
-    # Logging
+    # Logging — both consumed by setup_logging() at startup (main.py).
+    # log_level also feeds uvicorn; log_format picks the structlog renderer
+    # (json everywhere except the local/development splits, which set text).
     log_level: str = "INFO"
     log_format: str = "json"  # json, text
-    log_to_file: bool = True
-    log_to_console: bool = True
 
     # Monitoring
     metrics_enabled: bool = True
@@ -827,6 +822,7 @@ class UnifiedConfig:
 
         self.application.debug = True
         self.application.log_level = "DEBUG"
+        self.application.log_format = "text"
 
         self.features.enable_experimental_features = True
         self.features.enable_beta_features = True
@@ -850,6 +846,7 @@ class UnifiedConfig:
         self.database.enable_query_logging = True
 
         self.application.log_level = "DEBUG"
+        self.application.log_format = "text"
 
         self.features.enable_experimental_features = True
 

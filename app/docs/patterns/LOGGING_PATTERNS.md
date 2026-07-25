@@ -1,6 +1,6 @@
 ---
 title: Logging Patterns
-updated: 2026-01-21
+updated: 2026-07-25
 category: patterns
 related_skills: []
 related_docs: []
@@ -23,11 +23,43 @@ SKUEL uses structured logging for production diagnostics while preserving `print
 
 **Location:** `core/utils/logging.py`
 
-**Features:**
-- Structured logging with `structlog`
-- Request correlation context
-- Component-specific log levels
-- Three log outputs: console, daily rotating file, error-only file
+**Activation:** `main.py` calls `setup_logging()` once, first thing inside
+`main()` — before `bootstrap_skuel()`, so bootstrap's lines land in the files.
+Never call it from scripts, tests, or import-time code: `logs/` is
+cwd-relative and the configuration is process-global (idempotent second calls
+no-op, so a wrong early call wins permanently).
+
+**Configuration (both fields on `config.application`):**
+
+| Field | Source | Effect |
+|-------|--------|--------|
+| `log_level` | environment split, then `LOG_LEVEL` env override | root + structlog filter level (also feeds uvicorn) |
+| `log_format` | environment split: `json` everywhere except local/development (`text`) | `JSONRenderer(ensure_ascii=False)` vs `ConsoleRenderer(colors=False)` |
+
+**Outputs (single processor chain — console and files get the same rendered string):**
+- Console (stdout) — the `docker logs` surface
+- `logs/skuel.log` — daily rotation, 7 backups
+- `logs/skuel_errors.log` — ERROR/CRITICAL only, daily rotation, 14 backups
+
+**Request correlation:** `RequestIDMiddleware` sets a plain ContextVar per
+request; the `add_request_context` processor copies it into every event as
+`request_id` (and stamps `x-request-id` on responses). `RequestIDMiddleware`
+deliberately wraps `RequestTimingMiddleware` (bootstrap adds Timing first;
+`add_middleware` prepends) so duration/SLOW lines stay correlated.
+
+**Exception rendering:** `exc_info=True` works in both modes — the JSON chain
+carries `structlog.processors.format_exc_info` (traceback → `"exception"`
+field); `ConsoleRenderer` consumes raw `exc_info` itself.
+
+**Component levels:** `SKUELLogConfig.COMPONENT_LOGGERS` quiets third-party
+namespaces only (`fasthtml` WARNING, `neo4j` WARNING, `neo4j.notifications`
+ERROR). First-party `skuel.*` loggers follow the root level — a per-component
+pin would suppress them in DEBUG runs.
+
+**stdlib records** (uvicorn, `neo4j.*`, `logging.getLogger` call sites) never
+pass through the structlog processors — they render plain-text through the
+shared stdlib formatter. uvicorn keeps its own non-propagating handlers, so
+its lines appear on stderr only, not in the files.
 
 ## Usage
 

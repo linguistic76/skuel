@@ -548,12 +548,16 @@ def _create_web_app(
     # Cache headers are applied via StaticCacheHeadersMiddleware below.
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
+    # Add request timing middleware for performance diagnosis.
+    # Added BEFORE RequestIDMiddleware deliberately: add_middleware()
+    # prepends, so RequestID ends up OUTSIDE timing — its contextvar is
+    # still set when timing's finally-block log lines fire, keeping the
+    # duration/SLOW warnings request-correlated.
+    app.add_middleware(RequestTimingMiddleware)
+
     # Add request ID middleware for log correlation
     # Adds X-Request-ID header to responses and sets context var for structured logs
     app.add_middleware(RequestIDMiddleware)
-
-    # Add request timing middleware for performance diagnosis
-    app.add_middleware(RequestTimingMiddleware)
 
     # Force browser revalidation of static assets (Cache-Control: no-cache).
     # Without this, heuristic caching can serve a stale asset without checking the
