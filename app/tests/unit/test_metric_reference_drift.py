@@ -27,6 +27,9 @@ APP_ROOT = Path(__file__).resolve().parents[2]
 METRICS_SOURCE = APP_ROOT / "core" / "infrastructure" / "monitoring" / "prometheus_metrics.py"
 DASHBOARDS_DIR = APP_ROOT / "monitoring" / "grafana" / "dashboards"
 ALERTS_FILE = APP_ROOT / "monitoring" / "prometheus" / "alerts.yml"
+# Scope note: a single hardcoded rules file matches prometheus.yml's rule_files
+# (which loads only /etc/prometheus/alerts.yml). If a second rules file (e.g.
+# recording_rules.yml) is ever added there, extend this guard alongside it.
 
 # Alert GROUP names match the skuel_[a-z0-9_]+ pattern but are rule-group
 # identifiers, not metrics — without this allowlist they would be permanent

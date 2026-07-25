@@ -125,10 +125,10 @@ skuel_graph_density[7d]
 ✅ **Dashboards** (Grafana's visualization)
 ```
 # Beautiful dashboards instead of raw numbers
-Graph Health dashboard shows 16 panels with time-series, gauges, pie charts
+Graph Health dashboard shows 23 panels with time-series, gauges, pie charts
 ```
 
-✅ **Alerting** (live: 13 rules in `/monitoring/prometheus/alerts.yml`; no Alertmanager by choice)
+✅ **Alerting** (live: 14 rules in `/monitoring/prometheus/alerts.yml`; no Alertmanager by choice)
 ```yaml
 # Alert if error rate > 5%
 - alert: HighErrorRate
@@ -455,7 +455,7 @@ full report). **See:** `/docs/decisions/ADR-080-auradb-three-horizon-strategy.md
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `skuel_graph_health_poll_last_success_timestamp_seconds` | Gauge | - | Unix time of the last successful graph-health poll (baseline set at task start; refreshed only after a fully-successful pass) |
+| `skuel_graph_health_poll_last_success_timestamp_seconds` | Gauge | - | Unix time of the last successful graph-health poll (baseline set at task start; refreshed only after an error-free pass) |
 
 All graph-health gauges freeze at their last values when the poller can't reach Neo4j;
 this timestamp makes that staleness alertable (`GraphHealthPollerStale`, >900s).
@@ -715,7 +715,7 @@ docker logs skuel-prometheus
 **Cause**: Metrics are incremented when events occur (tasks completed, searches performed, etc.)
 
 **Solution**:
-- **Graph Health**: Wait 5 minutes for background task to run
+- **Graph Health**: The poller runs at startup, then every 5 minutes — if gauges are missing, check app logs for graph-health errors
 - **Domain Activity**: Create/complete tasks to trigger metrics
 - **Event Bus**: Events are published automatically during operations
 
@@ -763,7 +763,7 @@ docker logs skuel-app | grep "Graph health metrics"
 
 **Expected**:
 - "Graph health metrics update task started (5 min interval)"
-- Note: the first gauge sample lands ~5 minutes after boot
+- Note: the first pass runs at startup (poll-first loop), then every 5 minutes
 
 ---
 

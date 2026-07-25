@@ -52,11 +52,10 @@ docker compose exec skuel-app curl -s localhost:5001/metrics \
   | grep -E 'skuel_total_(entities|relationships) '
 ```
 
-**Timing caveat**: the poller's first pass lands ~5 minutes after boot (the loop sleeps
-before polling), so within 5 minutes of a restart both gauges still read `0` — that means
-"not yet polled", NOT "empty graph". Confirm a real sample before trusting a cap reading
-(re-run after 5 minutes, or check `skuel_graph_health_poll_last_success_timestamp_seconds`
-once that gauge ships).
+**Timing caveat**: the poller runs its first pass at startup (poll-first loop), so the
+gauges populate within seconds of boot. If a reading looks wrong right after a restart,
+check `skuel_graph_health_poll_last_success_timestamp_seconds` — a value of ~boot time
+that never advances means passes are failing and the gauges are frozen.
 
 (`./dev knowledge-health` covers only the knowledge subgraph and `./dev telemetry-retention`
 only prunable telemetry — neither reports total graph counts against the 200k/400k caps.)

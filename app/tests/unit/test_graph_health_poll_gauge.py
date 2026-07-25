@@ -4,7 +4,7 @@ Graph-Health Poller Self-Observability Gauge Tests
 
 Tests for RelationshipMetrics.poll_last_success — the timestamp gauge the
 graph-health background task (scripts/dev/bootstrap.py) baselines at task start
-and refreshes after each fully-successful pass, so GraphHealthPollerStale can
+and refreshes after each error-free pass, so GraphHealthPollerStale can
 fire when the 16 relationship/knowledge gauges freeze at stale values.
 
 The poller itself is a closure inside bootstrap and not importable; these tests
@@ -43,8 +43,13 @@ def prometheus_metrics() -> PrometheusMetrics:
     _unregister_skuel_collectors()
 
 
-def test_poll_last_success_gauge_exists(prometheus_metrics):
-    """RelationshipMetrics exposes the poller self-observability gauge."""
+def test_poll_last_success_gauge_lifecycle(prometheus_metrics):
+    """The poller self-observability gauge exists, exports 0 unset, and carries
+    a real Unix timestamp after set_to_current_time().
+
+    One test, not two: the unset-state and mutated-state assertions share the
+    module-scoped gauge, so splitting them would create a test-order dependency.
+    """
     gauge = prometheus_metrics.relationships.poll_last_success
 
     samples = gauge.collect()[0].samples
@@ -52,11 +57,6 @@ def test_poll_last_success_gauge_exists(prometheus_metrics):
     # Unset gauge exports 0 — exactly the boot false-positive the baseline
     # set_to_current_time() at task start exists to prevent.
     assert samples[0].value == 0.0
-
-
-def test_set_to_current_time_produces_positive_sample(prometheus_metrics):
-    """After a successful pass the gauge carries a real Unix timestamp."""
-    gauge = prometheus_metrics.relationships.poll_last_success
 
     gauge.set_to_current_time()
 
