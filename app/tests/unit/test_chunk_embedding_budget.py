@@ -2,13 +2,24 @@
 ADR-083 §3 chunk-budget guard — chunking grain vs embedding windows.
 
 Embedding-text budgets are judged against the END-STATE model's window, not
-just the wired provider's: the worst-case chunk text must fit within EVERY
-embedding adapter's MAX_INPUT_CHARS — OpenAI (wired, ADR-068) and the staged
-BGE adapter (ADR-083) alike — or ``EmbeddingsService.create_embedding``
-silently truncates chunk tails on swap day. That is exactly the drift ADR-083
-diagnosed (1,000-word reference chunks vs the old 2,000-char staged BGE cap);
-this guard fires at quality-gate time, not swap time, so it can't be
-reintroduced silently.
+just the wired provider's: the params-driven worst-case chunk text must fit
+within EVERY embedding adapter's MAX_INPUT_CHARS — OpenAI (wired, ADR-068)
+and the staged BGE adapter (ADR-083) alike — or
+``EmbeddingsService.create_embedding`` silently truncates the tail of every
+max-grain chunk on swap day. That is exactly the drift ADR-083 diagnosed
+(1,000-word reference chunks vs the old 2,000-char staged BGE cap); this
+guard fires at quality-gate time, not swap time, so it can't be reintroduced
+silently.
+
+Scope: this bounds the SYSTEMATIC grain — chunks produced by the prose split
+paths, where ``ChunkingParams.max_chunk_size`` is enforced. Two chunker paths
+bypass the word cap for content-shaped outliers and can emit chunks past any
+fixed window (see the characterization tests pinning them below): fenced code
+blocks are preserved verbatim, and a single sentence longer than
+``max_chunk_size`` words is never split. Those outliers already exceed the
+wired OpenAI budget today and are handled by the service's logged truncation;
+capping them at the chunker would change chunk boundaries and therefore
+requires a deliberate CHUNKING_ALGORITHM_VERSION bump, not a quiet edit here.
 """
 
 import importlib
@@ -20,6 +31,8 @@ import adapters.external.embeddings as embeddings_pkg
 from core.models.ps_content.content_chunks import (
     DEFAULT_CHUNKING_PARAMS,
     ChunkingParams,
+    ContentChunkingStrategy,
+    ContentChunkType,
 )
 from core.services.ingestion.config import REFERENCE_CHUNKING_PARAMS
 
@@ -39,11 +52,11 @@ CHUNKING_CONFIGS: dict[str, ChunkingParams] = {
 
 
 def worst_case_embedded_chars(params: ChunkingParams) -> int:
-    """Upper bound on the text embedded per chunk.
+    """Params-driven upper bound on the text embedded per chunk.
 
     All three chunk-embedding call sites send ``ContentChunk.context_window``:
-    the chunk text (≤ max_chunk_size words) joined by two newlines to at most
-    min(context_size, 200) chars of context per side.
+    the chunk text (≤ max_chunk_size words on the prose split paths) joined by
+    two newlines to at most min(context_size, 200) chars of context per side.
     """
     context = 2 * min(params.context_size, CONTEXT_WINDOW_SIDE_CAP)
     return params.max_chunk_size * CONSERVATIVE_CHARS_PER_WORD + context + 2
@@ -85,3 +98,32 @@ def test_worst_case_chunk_fits_adapter_window(
         f"adapter's window (end-state included); shrink the chunk grain or "
         f"raise the adapter budget, and record the decision."
     )
+
+
+# ---------------------------------------------------------------------------
+# Characterization: chunker paths that BYPASS the params bound.
+#
+# These pin the two known word-cap bypasses so the guard's scope is explicit
+# and a future chunker hard-cap flips them deliberately (with the required
+# CHUNKING_ALGORITHM_VERSION bump) instead of silently. Content this shape
+# exceeds any fixed embedding window; the consuming service truncates it with
+# a logged warning today (wired OpenAI adapter included).
+# ---------------------------------------------------------------------------
+
+
+def test_known_bypass_code_fence_is_never_split():
+    """A fenced code block is preserved verbatim as one CODE chunk — the
+    word cap does not apply, so it can exceed every adapter budget."""
+    fence = "```python\n" + ("x = 1  # padding line\n" * 1200) + "```"
+    chunks = ContentChunkingStrategy.chunk_markdown(f"# H\n\nintro.\n\n{fence}", "ps.test.fence")
+    code_chunks = [c for c in chunks if c.chunk_type == ContentChunkType.CODE]
+    assert len(code_chunks) == 1
+    assert len(code_chunks[0].context_window) > worst_case_embedded_chars(DEFAULT_CHUNKING_PARAMS)
+
+
+def test_known_bypass_single_long_sentence_is_never_split():
+    """A single sentence beyond max_chunk_size words is emitted whole —
+    _split_large_text only breaks at sentence boundaries."""
+    run_on = " ".join(["word"] * (DEFAULT_CHUNKING_PARAMS.max_chunk_size * 6)) + "."
+    chunks = ContentChunkingStrategy.chunk_markdown(f"# H\n\n{run_on}", "ps.test.runon")
+    assert max(len(c.text.split()) for c in chunks) > DEFAULT_CHUNKING_PARAMS.max_chunk_size
