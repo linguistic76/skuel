@@ -24,18 +24,22 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.habit.habit_update_intent import HabitUpdateIntent
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 
-class HabitsCoreService(BaseService[HabitsOperations, Habit, HabitUpdateIntent]):
+class HabitsCoreService(
+    HierarchyReadMixin[HabitsOperations, Habit],
+    BaseService[HabitsOperations, Habit, HabitUpdateIntent],
+):
     """
     Core CRUD service for habits.
 
@@ -445,47 +449,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit, HabitUpdateIntent])
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Universal Hierarchical Pattern)
     # Delegated to HabitsBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
-
-    @with_error_handling("get_subhabits", error_type="database", uid_param="parent_uid")
-    async def get_subhabits(self, parent_uid: str, depth: int = 1) -> Result[list[Habit]]:
-        """Get all subhabits of a parent habit at the given depth."""
-        result = await self.backend.get_children_raw(parent_uid, depth)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([self._to_domain_model(data, HabitDTO, Habit) for data in result.value])
-
-    @with_error_handling("get_parent_habit", error_type="database", uid_param="subhabit_uid")
-    async def get_parent_habit(self, subhabit_uid: str) -> Result[Habit | None]:
-        """Get immediate parent of a subhabit (if any)."""
-        result = await self.backend.get_parent_raw(subhabit_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.ok(None)
-        return Result.ok(self._to_domain_model(result.value, HabitDTO, Habit))
-
-    @with_error_handling("get_habit_hierarchy", error_type="database", uid_param="habit_uid")
-    async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
-        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
-        current_result = await self.backend.get(habit_uid)
-        if current_result.is_error:
-            return Result.fail(current_result)
-        current_habit = self._to_domain_model(current_result.value, HabitDTO, Habit)
-
-        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(habit_uid))
-        if hierarchy_result.is_error:
-            return Result.fail(hierarchy_result)
-
-        raw = hierarchy_result.value
-        return Result.ok(
-            {
-                "ancestors": [self._to_domain_model(n, HabitDTO, Habit) for n in raw["ancestors"]],
-                "current": current_habit,
-                "siblings": [self._to_domain_model(n, HabitDTO, Habit) for n in raw["siblings"]],
-                "children": [self._to_domain_model(n, HabitDTO, Habit) for n in raw["children"]],
-                "depth": len(raw["ancestors"]),
-            }
-        )
 
     async def create_subhabit_relationship(
         self, parent_uid: str, subhabit_uid: str, progress_weight: float = 1.0

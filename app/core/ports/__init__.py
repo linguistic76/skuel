@@ -93,6 +93,8 @@ from .base_protocols import (
     HasUpdatedAt,
     HasUsage,
     HasValidate,
+    # Hierarchy Backend Protocol (BackendOperations + HierarchyOperations)
+    HierarchicalBackendOperations,
     # Mock/Stub Endpoint Protocols (2)
     IsMockEndpoint,
     IsStubEndpoint,
@@ -361,6 +363,7 @@ __all__ = [
     "GraphRelationshipOperations",
     "GraphTraversalOperations",  # Graph traversal (2 methods)
     "GtConstraint",
+    "HierarchicalBackendOperations",  # BackendOperations + HierarchyOperations
     "HabitsSearchOperations",
     "HabitsOperations",
     "HabitEventSchedulerOperations",

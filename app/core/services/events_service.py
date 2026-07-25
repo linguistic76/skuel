@@ -744,13 +744,13 @@ class EventsService(
     # ========================================================================
 
     async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[Event]]:
-        return await self.core.get_subevents(parent_uid, depth)
+        return await self.core.get_subentities(parent_uid, depth)
 
     async def get_parent_event(self, subevent_uid: str) -> Result[Event | None]:
-        return await self.core.get_parent_event(subevent_uid)
+        return await self.core.get_parent_entity(subevent_uid)
 
     async def get_event_hierarchy(self, event_uid: str) -> Result[dict[str, Any]]:
-        return await self.core.get_event_hierarchy(event_uid)
+        return await self.core.get_entity_hierarchy(event_uid)
 
     async def create_subevent_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.core.create_subevent_relationship(parent_uid, child_uid)

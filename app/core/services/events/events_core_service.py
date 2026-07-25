@@ -34,11 +34,12 @@ from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.event.event_update_intent import EventUpdateIntent
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -46,7 +47,10 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
 
 
-class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent]):
+class EventsCoreService(
+    HierarchyReadMixin["EventsOperations", Event],
+    BaseService["EventsOperations", Event, EventUpdateIntent],
+):
     """
     Core CRUD service for events.
 
@@ -464,47 +468,6 @@ class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent
     # HIERARCHICAL RELATIONSHIPS (2026-01-30 - Flat UID, Rich Structure)
     # Delegated to EventsBackend via _HierarchyMixin (2026-03-24)
     # ========================================================================
-
-    @with_error_handling("get_subevents", error_type="database", uid_param="parent_uid")
-    async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[Event]]:
-        """Get all subevents of a parent event at the given depth."""
-        result = await self.backend.get_children_raw(parent_uid, depth)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([self._to_domain_model(data, EventDTO, Event) for data in result.value])
-
-    @with_error_handling("get_parent_event", error_type="database", uid_param="subevent_uid")
-    async def get_parent_event(self, subevent_uid: str) -> Result[Event | None]:
-        """Get immediate parent of a subevent (if any)."""
-        result = await self.backend.get_parent_raw(subevent_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.ok(None)
-        return Result.ok(self._to_domain_model(result.value, EventDTO, Event))
-
-    @with_error_handling("get_event_hierarchy", error_type="database", uid_param="event_uid")
-    async def get_event_hierarchy(self, event_uid: str) -> Result[dict[str, Any]]:
-        """Get full hierarchy context: ancestors, current, siblings, children, depth."""
-        current_result = await self.backend.get(event_uid)
-        if current_result.is_error:
-            return Result.fail(current_result)
-        current_event = self._to_domain_model(current_result.value, EventDTO, Event)
-
-        hierarchy_result = await self.backend.get_hierarchy_raw(EntityUID(event_uid))
-        if hierarchy_result.is_error:
-            return Result.fail(hierarchy_result)
-
-        raw = hierarchy_result.value
-        return Result.ok(
-            {
-                "ancestors": [self._to_domain_model(n, EventDTO, Event) for n in raw["ancestors"]],
-                "current": current_event,
-                "siblings": [self._to_domain_model(n, EventDTO, Event) for n in raw["siblings"]],
-                "children": [self._to_domain_model(n, EventDTO, Event) for n in raw["children"]],
-                "depth": len(raw["ancestors"]),
-            }
-        )
 
     async def create_subevent_relationship(
         self,
