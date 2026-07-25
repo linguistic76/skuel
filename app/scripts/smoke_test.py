@@ -124,7 +124,6 @@ _REGISTRY_COMPONENTS = (
     "insightDetailModal('i1')",
     "profileFocusHandler('f1')",
     "insightFiltersDebounced({})",
-    "ingestionProgress('op1')",
     "offlineIndicator",
     "exploreSearch('tag')",
     "exploreGraph('mode', 'uid', 'tasks')",

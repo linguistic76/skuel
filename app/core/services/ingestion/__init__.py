@@ -21,7 +21,6 @@ Total: ~2,700 lines across 9 focused modules
 Key Features (2026):
 - Incremental ingestion: Skip unchanged files using content hash/mtime
 - Relationship validation: Verify target UIDs exist before ingestion
-- Progress reporting: Callback-based progress for large operations
 - Configurable user UID: Via SKUEL_DEFAULT_USER_UID env var
 
 Usage:
@@ -65,9 +64,6 @@ from .parser import parse_markdown, parse_yaml
 
 # Preparer functions
 from .preparer import generate_uid, normalize_uid, prepare_edge_data, prepare_entity_data
-
-# Progress tracking
-from .progress_tracker import ProgressTracker
 
 # Reference-book ingest door (canon journaling companion, Phase 2)
 from .reference_ingestion import ReferenceIngestionService, ReferenceIngestReport
@@ -115,8 +111,6 @@ __all__ = [
     "IngestionStats",
     "RelationshipValidationResult",
     "ValidationResult",
-    # Progress tracking
-    "ProgressTracker",
     # Ingestion tracking
     "FileIngestionMetadata",
     "IngestionDecision",

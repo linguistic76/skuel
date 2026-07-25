@@ -24,7 +24,6 @@ INGESTION_CONFIG = DomainRouteConfig(
     ui_factory=create_ingestion_ui_routes,
     api_related_services={
         "user_service": "user",
-        "graph_auth": "graph_auth",
         "batch_chunking_service": "batch_chunking_service",
     },
     ui_related_services={

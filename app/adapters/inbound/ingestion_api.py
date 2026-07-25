@@ -30,12 +30,9 @@ Decision 9); directory ingestion of the content vault runs through the reconcile
 (``POST /api/vault/sync/content``).
 """
 
-import asyncio
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
@@ -49,30 +46,6 @@ if TYPE_CHECKING:
     from core.services.chunks.batch_chunking_service import BatchChunkingService
 
 logger = get_logger("skuel.routes.ingestion")
-
-# Global dictionary to store active WebSocket connections by operation_id
-_active_connections: dict[str, WebSocket] = {}
-
-# Background tasks must be stored to prevent garbage collection (RUF006)
-_background_tasks: set[asyncio.Task[None]] = set()
-
-
-def broadcast_progress(operation_id: str, progress_data: dict[str, Any]) -> None:
-    """
-    Broadcast progress update to WebSocket connection.
-
-    Args:
-        operation_id: UUID of the ingestion operation
-        progress_data: Progress data to send
-    """
-    if operation_id in _active_connections:
-        ws = _active_connections[operation_id]
-        try:
-            task = asyncio.create_task(ws.send_json(progress_data))
-            _background_tasks.add(task)
-            task.add_done_callback(_background_tasks.discard)
-        except Exception as e:  # safety-net: WebSocket send may fail for any reason
-            logger.error(f"Failed to broadcast progress: {e}")
 
 
 def _resolve_allowed_ingestion_roots() -> list[Path]:
@@ -184,7 +157,6 @@ def create_ingestion_api_routes(
     rt,
     unified_ingestion: "IngestionOperations",
     user_service=None,
-    graph_auth=None,
     batch_chunking_service: "BatchChunkingService | None" = None,
 ):
     """
@@ -195,7 +167,6 @@ def create_ingestion_api_routes(
         rt: Router instance
         unified_ingestion: The UnifiedIngestionService instance
         user_service: UserService instance for admin role checks
-        graph_auth: GraphAuthService for WebSocket graph-session validation
         batch_chunking_service: Phase 2 admin tool for chunk regeneration.
             When None, the /api/chunks/regenerate route is not registered.
 
@@ -473,7 +444,7 @@ def create_ingestion_api_routes(
                 from ui.patterns.ingestion_preview import DryRunPreviewComponent
 
                 preview = result.value
-                return Result.ok(DryRunPreviewComponent(preview, operation_id=None))
+                return Result.ok(DryRunPreviewComponent(preview))
             else:
                 from ui.patterns.ingestion_results import IngestionResultsSummary
 
@@ -538,51 +509,6 @@ def create_ingestion_api_routes(
 
         chunk_routes.append(regenerate_chunks_route)
 
-    # WebSocket route for real-time progress
-    @rt("/ws/ingest/progress/{operation_id}")
-    async def ingestion_progress_websocket(ws: WebSocket, operation_id: str):
-        """
-        WebSocket for real-time ingestion progress updates.
-
-        Security: Requires admin session. Closes with 4003 if unauthorized.
-
-        Clients connect with the operation_id and receive JSON progress updates:
-        {
-            "current": 100,
-            "total": 1000,
-            "percentage": 10.0,
-            "current_file": "/path/to/file.md",
-            "eta_seconds": 90
-        }
-        """
-        # Auth check before accepting — ingestion is admin-only. Validates
-        # the graph session (revoked cookies can't open a socket) and
-        # re-fetches role from Neo4j (does NOT trust session is_admin flag).
-        from adapters.inbound.auth import require_websocket_admin
-
-        user_uid = await require_websocket_admin(ws, user_service, graph_auth)
-        if not user_uid:
-            return
-
-        await ws.accept()
-        logger.info(f"WebSocket connected for operation: {operation_id}")
-
-        # Store connection
-        _active_connections[operation_id] = ws
-
-        try:
-            # Keep connection alive
-            while True:
-                await ws.receive_text()
-        except WebSocketDisconnect:
-            logger.info(f"WebSocket disconnected for operation: {operation_id}")
-            # Remove connection
-            _active_connections.pop(operation_id, None)
-        except Exception as e:  # safety-net: WebSocket cleanup on unexpected error
-            logger.error(f"WebSocket error for operation {operation_id}: {e}")
-            # Remove connection
-            _active_connections.pop(operation_id, None)
-
     # Collect all routes
     routes.extend(
         [
@@ -591,7 +517,6 @@ def create_ingestion_api_routes(
             ingest_bundle_route,
             domain_ingest,
             *chunk_routes,
-            ingestion_progress_websocket,
         ]
     )
 

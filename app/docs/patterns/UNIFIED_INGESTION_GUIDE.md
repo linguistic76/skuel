@@ -36,7 +36,7 @@ The default ingestion folder is `/home/mike/0bsidian/0vault/` (the Obsidian vaul
 
 ### Endpoint Path Allowlist (default-deny)
 
-The HTTP/WS ingestion endpoints (`/api/ingest/**`, `WS /ws/ingest/progress/{op_id}`) **do not accept arbitrary host paths**, even from an authenticated admin. `adapters/inbound/ingestion_api.py::_validate_ingestion_path` resolves the request path and rejects it unless it sits under at least one root from `_resolve_allowed_ingestion_roots()`. Precedence chain:
+The HTTP ingestion endpoints (`/api/ingest/**`) **do not accept arbitrary host paths**, even from an authenticated admin. `adapters/inbound/ingestion_api.py::_validate_ingestion_path` resolves the request path and rejects it unless it sits under at least one root from `_resolve_allowed_ingestion_roots()`. Precedence chain:
 
 1. `SKUEL_INGESTION_ALLOWED_PATHS` — colon-separated explicit override (multi-vault / staging setups)
 2. `INGESTION_PATH` — the single configured vault root (also the documented default)
@@ -493,61 +493,6 @@ for entry in entries.value:
 })
 ```
 
-### Real-Time Progress (WebSocket)
-
-Monitor ingestion progress in real-time:
-
-```python
-from core.services.ingestion import ProgressTracker
-
-# Create progress tracker with WebSocket callback
-def broadcast_progress(operation_id, progress_data):
-    # Broadcast to connected WebSocket clients
-    # See /adapters/inbound/ingestion_api.py for implementation
-    pass
-
-# Use progress callback during ingestion
-result = await service.ingest_directory(
-    Path("/vault/docs"),
-    progress_callback=lambda current, total, file: broadcast_progress(
-        operation_id,
-        {
-            "current": current,
-            "total": total,
-            "percentage": round((current / total) * 100, 1),
-            "current_file": str(file),
-        }
-    )
-)
-```
-
-**WebSocket Endpoint:**
-```
-ws://localhost:5001/ws/ingest/progress/{operation_id}
-```
-
-**Security:** Requires admin session. Unauthorized connections are closed with code 4003 before `ws.accept()`.
-
-**Progress Data Format:**
-```json
-{
-  "current": 100,
-  "total": 1000,
-  "percentage": 10.0,
-  "current_file": "/vault/docs/file.md",
-  "eta_seconds": 90
-}
-```
-
-**Client-Side (Alpine.js):**
-```html
-<div x-data="ingestionProgress('operation-uuid')">
-  <div x-text="percentage + '%'"></div>
-  <div x-text="currentFile"></div>
-  <div x-text="formatEta()"></div>
-</div>
-```
-
 ### Domain-Integrated Ingestion (Admin)
 
 Trigger ingestion via the admin panel or API endpoints:
@@ -723,22 +668,6 @@ if not result.value.valid:
 
 ---
 
-## Progress Reporting
-
-Monitor progress during large ingestion operations:
-
-```python
-def on_progress(current: int, total: int, file_path: str):
-    print(f"[{current}/{total}] Processing: {file_path}")
-
-stats = await service.ingest_directory(
-    Path("/vault"),
-    progress_callback=on_progress,
-)
-```
-
----
-
 ## Ownership: descriptor-by-path, not caller identity (ADR-070)
 
 **Access rights are `f(EntityType)`, computed at read time — never materialized on
@@ -848,7 +777,6 @@ stats = await service.ingest_directory(
     pattern="*.md",              # Or "*.yaml" or "*" for all
     ingestion_mode="incremental",     # Skip unchanged files
     validate_targets=True,       # Validate relationship UIDs exist
-    progress_callback=on_progress,
 )
 
 if stats.is_ok:

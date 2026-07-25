@@ -20,7 +20,6 @@ SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cooki
 | **Optional** | `get_current_user(request)` | `UserUID \| None` | SHARED content pages (enrich if authenticated) |
 | **Lenient** | `get_current_user_or_default(request)` | `UserUID` | Dev-only fallback (raises 401 in prod) |
 | **Role-Based** | `@require_admin(service_getter)` | `current_user: User` | Protected admin/teacher routes |
-| **WebSocket** | `await require_websocket_admin(ws, user_service)` | `UserUID \| None` | WebSocket routes (admin-only) — re-fetches role from Neo4j |
 
 ## Page Access Model
 
@@ -199,41 +198,15 @@ async def create_item(request, current_user):
 - `@require_teacher(getter)` - Shortcut for TEACHER
 - `@require_member(getter)` - Shortcut for MEMBER (paid subscription)
 
-## Pattern 4: WebSocket Authentication
-
-**Use for:** WebSocket routes that require admin access. Standard decorators like `@require_admin` can't work because auth must be checked *before* `ws.accept()`.
-
-```python
-from adapters.inbound.auth import require_websocket_admin
-
-@rt("/ws/progress/{operation_id}")
-async def websocket_handler(ws, operation_id: str):
-    user_uid = await require_websocket_admin(ws, user_service)
-    if not user_uid:
-        return  # WS already closed with code 4003
-
-    await ws.accept()
-    # ... handle WebSocket connection
-```
-
-**Behavior:**
-- Reads `user_uid` from the session cookie, then **re-fetches the user from Neo4j and gates on `User.has_permission(UserRole.ADMIN)`** — mirrors the HTTP `@require_admin` path
-- Does NOT trust the session `is_admin` flag (that's navbar-display only); a user demoted from ADMIN loses WS access on their next connection rather than only on re-login
-- If unauthorized, closes the WebSocket with code `4003` and reason `"Admin access required"`
-- Returns `UserUID` on success, `None` on failure (caller should `return` immediately)
-
-**Why a separate helper?**
-WebSocket handlers need auth checked before `ws.accept()`. HTTP decorators like `@require_admin` expect a `Request` and return HTTP responses (401/403), which don't apply to WebSocket connections. The WebSocket pattern instead closes the connection with an application-level error code.
-
 ## Pattern Comparison
 
-| Aspect | `require_authenticated_user` | `get_current_user_or_default` | `@require_admin` | `require_websocket_admin` |
-|--------|------------------------------|-------------------------------|------------------|---------------------------|
-| **Returns** | `UserUID` (string) | `UserUID` (string) | `current_user: User` | `UserUID \| None` |
-| **On no auth** | Raises 401 | Returns default | Raises 401 | Closes WS (code 4003) |
-| **On wrong role** | N/A | N/A | Raises 403 | Closes WS (code 4003) |
-| **DB fetch** | No | No | Yes (required for role check) | Yes (Neo4j role re-check) |
-| **Best for** | API routes | UI development | Protected routes | WebSocket routes |
+| Aspect | `require_authenticated_user` | `get_current_user_or_default` | `@require_admin` |
+|--------|------------------------------|-------------------------------|------------------|
+| **Returns** | `UserUID` (string) | `UserUID` (string) | `current_user: User` |
+| **On no auth** | Raises 401 | Returns default | Raises 401 |
+| **On wrong role** | N/A | N/A | Raises 403 |
+| **DB fetch** | No | No | Yes (required for role check) |
+| **Best for** | API routes | UI development | Protected routes |
 
 ## Common Patterns
 

@@ -24,20 +24,18 @@ from fasthtml.common import (
     Ul,
 )
 
-from ui.components import Button, ButtonT
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.patterns.stats_grid import IconStat
 
 
-def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
+def DryRunPreviewComponent(preview: Any) -> FT:
     """
     Preview of ingestion changes before execution.
 
     Args:
         preview: DryRunPreview object or dict
-        operation_id: Optional operation ID for executing the ingestion
 
     Returns:
         FastHTML component with preview
@@ -82,22 +80,6 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
         FilesToCreateTable(files_to_create) if files_to_create else None,
         # Files to update
         FilesToUpdateTable(files_to_update) if files_to_update else None,
-        # Action buttons (if operation_id provided)
-        (
-            Div(
-                Button(
-                    "Execute Ingestion",
-                    cls=ButtonT.primary,
-                    hx_post="/api/ingest/execute",
-                    hx_vals=f'{{"operation_id": "{operation_id}"}}',
-                    hx_target="#ingestion-results",
-                ),
-                Button("Cancel", cls=ButtonT.ghost, onclick="window.history.back()"),
-                cls="flex gap-2 mt-4",
-            )
-            if operation_id
-            else None
-        ),
         cls="dry-run-preview",
     )
 

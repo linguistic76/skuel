@@ -334,77 +334,6 @@ def require_authenticated_user(request: Request) -> UserUID:
 # ============================================================================
 
 
-async def require_websocket_admin(ws: Any, user_service: Any, graph_auth: Any) -> UserUID | None:
-    """
-    Require admin authentication for WebSocket connections.
-
-    Standard decorators like @require_admin don't work for WebSocket handlers
-    because auth must be checked before ws.accept(). This helper encapsulates
-    the WebSocket-specific auth pattern.
-
-    AuthContextMiddleware never sees WebSocket scopes (BaseHTTPMiddleware is
-    HTTP-only), so the graph-session validation happens HERE: the cookie's
-    session_token must resolve to a live :Session (not revoked, not expired,
-    user active) before any role check — a cookie revoked by logout, password
-    change, or privilege change cannot open a socket. Then re-fetches the
-    user and checks the role hierarchy, mirroring the HTTP @require_admin
-    path (never trusts the session `is_admin` flag).
-
-    Args:
-        ws: Starlette WebSocket object (has .session like Request)
-        user_service: UserService instance for the Neo4j role re-check
-        graph_auth: GraphAuthService for the graph-session validation
-
-    Returns:
-        UserUID if authenticated admin, None if unauthorized (WS closed with 4003)
-
-    Usage:
-        ```python
-        from adapters.inbound.auth import require_websocket_admin
-
-
-        @rt("/ws/progress/{operation_id}")
-        async def websocket_handler(ws, operation_id: str):
-            user_uid = await require_websocket_admin(ws, user_service, graph_auth)
-            if not user_uid:
-                return
-
-            await ws.accept()
-            ...
-        ```
-    """
-    from core.models.enums import UserRole
-
-    session_token = get_session_token(ws)
-    if not session_token:
-        await ws.close(code=4003, reason="Admin access required")
-        return None
-
-    validation = await graph_auth.validate_session_uid(session_token)
-    if validation.is_error or not validation.value:
-        logger.warning("WS admin check failed - session revoked, expired, or unvalidatable")
-        await ws.close(code=4003, reason="Admin access required")
-        return None
-
-    # The validated token is the identity authority, not the cookie's
-    # user_uid claim
-    user_uid = UserUID(validation.value)
-
-    result = await user_service.get_user(user_uid)
-    if result.is_error or not result.value:
-        logger.warning(f"WS admin check failed - user not found: {user_uid}")
-        await ws.close(code=4003, reason="Admin access required")
-        return None
-
-    user = result.value
-    if not user.has_permission(UserRole.ADMIN):
-        logger.warning(f"WS admin check failed for {user_uid}: has {user.role.value}, needs admin")
-        await ws.close(code=4003, reason="Admin access required")
-        return None
-
-    return user_uid
-
-
 def require_auth(redirect_to: str = "/login"):
     """
     Decorator to require authentication for a route.
@@ -743,7 +672,6 @@ __all__ = [
     # Decorators
     "require_auth",
     "require_authenticated_user",
-    "require_websocket_admin",
     "set_current_user",
     "set_session_data",
     # Ownership verification (December 2025)

@@ -13,7 +13,7 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import FT, H3, Div, Span, Strong
+from fasthtml.common import FT, H3, Div
 
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
@@ -167,74 +167,8 @@ def ErrorsTable(errors: list[dict[str, Any]]) -> FT | None:
     )
 
 
-def ProgressIndicator(operation_id: str) -> FT:
-    """
-    Real-time progress bar with Alpine.js WebSocket connection.
-
-    Args:
-        operation_id: UUID of the ingestion operation
-
-    Returns:
-        FastHTML component with Alpine.js data binding
-    """
-    return Div(
-        # Connection status
-        Div(
-            Span(
-                "🟢 Connected",
-                **{"x-show": "connected"},
-                cls="text-success text-sm",
-            ),
-            Span(
-                "🔴 Disconnected",
-                **{"x-show": "!connected"},
-                cls="text-error text-sm",
-            ),
-            cls="mb-2",
-        ),
-        # Progress bar
-        Div(
-            Div(
-                cls="bg-primary h-4 rounded transition-all duration-300",
-                **{"x-bind:style": "{ width: percentage + '%' }"},
-            ),
-            cls="w-full bg-secondary rounded h-4 mb-2 overflow-hidden",
-        ),
-        # Stats
-        Div(
-            Span("Progress: ", cls="font-semibold"),
-            Span(**{"x-text": "`${current} / ${total}`"}),
-            Span(" (", **{"x-text": "percentage + '%'"}),
-            Span(")"),
-            cls="text-sm mb-2",
-        ),
-        # Current file
-        Div(
-            Strong("Current: "),
-            Span(**{"x-text": "currentFile"}, cls="font-mono text-xs"),
-            cls="text-sm text-muted-foreground mb-2 truncate",
-        ),
-        # ETA
-        Div(
-            Strong("ETA: "),
-            Span(**{"x-text": "formatEta()"}),
-            cls="text-sm",
-        ),
-        # Error message (if any)
-        Div(
-            Strong("Error: ", cls="text-error"),
-            Span(**{"x-text": "error"}, cls="text-error"),
-            **{"x-show": "error"},
-            cls="text-sm mt-2",
-        ),
-        **{"x-data": f"ingestionProgress('{operation_id}')"},
-        cls="ingestion-progress-indicator p-4 bg-muted rounded-lg",
-    )
-
-
 __all__ = [
     "IngestionResultsSummary",
     "EntityBreakdownTable",
     "ErrorsTable",
-    "ProgressIndicator",
 ]
