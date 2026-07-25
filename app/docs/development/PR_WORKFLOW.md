@@ -45,7 +45,7 @@ The trade is deliberate: a few minutes of latency per change buys a reviewer SKU
 4. **CI runs automatically.** `ci.yml` runs path-guarded jobs (MyPy + unit tests when Python changed, a headless render smoke test when UI/static/Python changed, doc validation when docs/skills changed) and aggregates them into the **CI Gate** check. The **Codex Review Gate** (`codex-gate.yml`) also fires: for PRs touching `.py` files it is RED until `codex-considered` is applied — Codex review is mandatory on app-code PRs; for docs/tooling-only PRs it passes unless `@codex review` was posted and not yet considered.
 5. **Summon a reviewer when ready.** Neither AI reviewer runs automatically (since 2026-05-24). Comment **`@kody start-review`** for Kody's gating review. For any PR touching Python files, also run **`scripts/request_codex_review.sh <PR#>`** — the Codex Review Gate is RED until you do. Do this once a PR is substantive, not on every intermediate commit.
 6. **Address feedback.** Push fixes to the same branch — CI re-runs automatically on the new commit; re-comment `@kody start-review` / re-run the script to re-review the updated diff.
-7. **Run `./dev pre-merge <PR#>`** to confirm all gates are green before merging. Then: `gh pr merge <PR#> --squash --admin --delete-branch`.
+7. **Run `./dev pre-merge <PR#>`** to confirm all gates are green before merging. Then: `gh pr merge <PR#> --squash --delete-branch`. (No `--admin` — that flag merges past unmet requirements, including a blocking Kody review; the admin bypass is reserved for genuine emergencies, per [The gate is self-discipline for the admin](#the-gate-is-self-discipline-for-the-admin).)
 
 ### Merge policy: gates green + a considered review means merge (standing, 2026-07-25)
 

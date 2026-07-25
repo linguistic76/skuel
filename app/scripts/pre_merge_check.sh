@@ -104,6 +104,6 @@ if [[ $failed -eq 1 ]]; then
   exit 1
 else
   echo -e "${GREEN}✓ Ready to merge:${NC}"
-  echo "  gh pr merge ${PR} --squash --admin --delete-branch"
+  echo "  gh pr merge ${PR} --squash --delete-branch"
   exit 0
 fi
