@@ -111,8 +111,10 @@ admin `/api/metrics` route were deleted in PR #803 — do not reintroduce JSON m
 
 No metric definition without live emission **in the same change** — 14 defined-but-never-emitted
 metrics were deleted in May 2026 (commit 5b477a281: SystemMetrics, SearchMetrics, token/transcription
-counters). Genuinely staged instrumentation belongs in `scripts/detect_bloat.py`'s PLANNED tier,
-not in `prometheus_metrics.py`. **See:** [INSTRUMENTATION.md](INSTRUMENTATION.md) § Emit-First Doctrine.
+counters). Genuinely deferred instrumentation stays a plain backlog note (review doc, ADR, TODO) —
+never a defined-but-unemitted metric. There is deliberately no planned-metrics registry
+(`detect_bloat.py`'s `PLANNED_*` tiers cover events/methods/templates only).
+**See:** [INSTRUMENTATION.md](INSTRUMENTATION.md) § Emit-First Doctrine.
 
 ---
 

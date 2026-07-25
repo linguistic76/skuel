@@ -315,8 +315,11 @@ cadence, that's a design discussion, not a new scheduler.
 — in the same change.** Never stage a metric "for later": 14 defined-but-never-emitted metrics
 (the whole SystemMetrics and SearchMetrics classes, `skuel_ai_tokens_total`, transcription
 counters, cpu/memory gauges) accumulated since inception and were deleted wholesale in May 2026
-(commit 5b477a281) under One Path Forward. If instrumentation is genuinely staged work, register
-it in `scripts/detect_bloat.py`'s `PLANNED_*` tier instead of defining a dead metric.
+(commit 5b477a281) under One Path Forward. If instrumentation is genuinely deferred, keep it as
+a plain backlog note (review doc, ADR, TODO) — under emit-first there is nothing to stage in
+code. `detect_bloat.py`'s `PLANNED_*` tiers cover events/methods/templates only; a
+planned-metrics registry deliberately does not exist, because a metric exists only with its
+emission.
 
 Re-adding a previously-deleted metric is legitimate — but only with the emission wired in the
 same PR.

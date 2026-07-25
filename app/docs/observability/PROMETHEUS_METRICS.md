@@ -894,7 +894,8 @@ Removed 14 unemitted "aspirational" metrics from `prometheus_metrics.py`:
 The Search & Events dashboard was rewritten as the Event Bus dashboard (search panels removed; event panels preserved).
 
 **Doctrine established**: emit-first — a metric definition merges only together with its
-emission. Staged instrumentation goes in `scripts/detect_bloat.py`'s PLANNED tier.
+emission. Deferred instrumentation stays a plain backlog note (review doc, ADR, TODO), never
+a defined-but-unemitted metric; there is deliberately no planned-metrics registry.
 
 ### Knowledge-subgraph gauges (PR #770, July 2026)
 
