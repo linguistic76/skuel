@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 
 from adapters.inbound.middleware import SecurityHeadersMiddleware
 from core.config.settings import get_settings
-from core.utils.logging import get_logger
+from core.utils.logging import get_logger, setup_logging
 from scripts.dev.bootstrap import bootstrap_skuel
 
 __version__ = "1.0"
@@ -35,12 +35,29 @@ logger = get_logger("skuel.main")
 
 async def main() -> None:
     """Clean main function using composition root pattern."""
-    # Get API config for CLI defaults (same cached instance as container.config)
-    api_config = get_settings().api
+    # Same lru_cached instance bootstrap composes with (compose.py get_settings()).
+    try:
+        config = get_settings()
+    except ValueError:
+        # Config itself is unreadable — configure with safe defaults so the
+        # crash handler below still routes this failure into skuel_errors.log.
+        # Exactly one setup_logging() call executes on either path (idempotent
+        # once-only semantics: the first call wins permanently).
+        setup_logging()
+        raise
+
+    # First meaningful statement of the process: everything logged from here
+    # on — including bootstrap_skuel()'s lines — lands in console AND files.
+    # Import time is emission-free (verified), so nothing precedes this except
+    # get_settings()'s own keyring DEBUG chatter via structlog defaults.
+    setup_logging(
+        level=config.application.log_level,
+        json_format=config.application.log_format == "json",
+    )
 
     parser = argparse.ArgumentParser(description="SKUEL Application")
-    parser.add_argument("--port", type=int, default=api_config.port, help="Port to run on")
-    parser.add_argument("--host", type=str, default=api_config.host, help="Host to bind to")
+    parser.add_argument("--port", type=int, default=config.api.port, help="Port to run on")
+    parser.add_argument("--host", type=str, default=config.api.host, help="Host to bind to")
     args = parser.parse_args()
 
     logger.info("🚀 Starting SKUEL with composition root pattern")
@@ -48,9 +65,6 @@ async def main() -> None:
     # Bootstrap the entire application (single composition point)
     container = await bootstrap_skuel()
     logger.info("✅ Application bootstrapped successfully")
-
-    # Configure uvicorn server with lifespan support
-    config = container.config
 
     # reload=False here: Uvicorn requires an import string for reload mode,
     # but we pass an already-bootstrapped app instance. For hot-reload, use:

@@ -208,8 +208,3 @@ class SecurityHeadersMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
-
-
-def log_middleware_factory(app: Any) -> Any:
-    """Create logging middleware for ASGI applications"""
-    return RequestIDMiddleware(app)

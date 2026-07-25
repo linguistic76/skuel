@@ -261,6 +261,11 @@ def validate_config(config: UnifiedConfig) -> list[str]:
     if config.application.log_level not in valid_log_levels:
         errors.append(f"Invalid log level: {config.application.log_level}")
 
+    # Validate log format (setup_logging renderer switch)
+    valid_log_formats = ["json", "text"]
+    if config.application.log_format not in valid_log_formats:
+        errors.append(f"Invalid log format: {config.application.log_format}")
+
     # Validate knowledge configuration
     errors.extend(validate_knowledge_config(config.knowledge))
 

@@ -607,8 +607,8 @@ grep "DB_CONNECTION" logs/*.log
 # Find validation errors for specific field
 grep "VALIDATION_FIELD_EMAIL" logs/*.log
 
-# Find all critical errors
-grep "SEVERITY_CRITICAL" logs/*.log
+# Find all critical errors (severity renders lowercase in "[{severity}]")
+grep '\[critical\]' logs/*.log
 ```
 
 ### Source Location Tracking (Internal Only)

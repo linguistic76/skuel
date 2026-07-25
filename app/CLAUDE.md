@@ -640,6 +640,10 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.services.tasks")
 ```
 
+`main.py` calls `setup_logging()` once at startup: level from `config.application.log_level` (`LOG_LEVEL` env), renderer from `config.application.log_format` (JSON everywhere except the local/development splits, which use text). Output goes to stdout AND rotating files — `logs/skuel.log` (daily, 7 backups) + `logs/skuel_errors.log` (ERROR-only, 14 backups); `logs/` is cwd-relative (`/app/logs` in containers, repo root locally, gitignored). Request-scoped lines carry `request_id` automatically. Never call `setup_logging()` from scripts or tests.
+
+**See:** `/docs/patterns/LOGGING_PATTERNS.md`
+
 ### Graph-Native Comment Standard
 
 Use `# GRAPH-NATIVE:` prefix for comments about relationship data stored as Neo4j edges.

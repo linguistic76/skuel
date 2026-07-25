@@ -156,6 +156,8 @@ Saved discussions (`:ConversationSession`) are **never** pruned — explicitly-s
 docker compose -f docker-compose.production.yml logs skuel-app | grep 'AuraDB cap'
 ```
 
+The same lines persist beyond the ~30 MB docker window in the rotating app logs — `grep 'AuraDB cap' /opt/skuel/app/logs/skuel.log` (7 days), and the ERROR-tier (>95%) ones in `logs/skuel_errors.log` (14 days).
+
 When the Sunday cron runs, also verify the totals directly (weekly manual check): `docker compose exec skuel-app curl -s localhost:5001/metrics | grep -E 'skuel_total_(entities|relationships) '`. On either signal: run retention, review growth with `./dev knowledge-health`, and consider tightening the invite gate or moving to a paid tier.
 
 ### Backups: Aura snapshots + count exports
@@ -193,7 +195,7 @@ docker compose -f docker-compose.production.yml logs -f caddy         # TLS/prox
 docker compose -f docker-compose.production.yml logs --tail 200 skuel-app
 ```
 
-Both containers use json-file logging capped at 10 MB × 3 files — bounded by construction, no logrotate needed. The app also writes `logs/` under the repo dir (bind-mounted, survives deploys).
+Both containers use json-file logging capped at 10 MB × 3 files — bounded by construction, no logrotate needed. The app also writes rotating files under `/opt/skuel/app/logs/` (bind-mounted into the container, survives deploys): `skuel.log` (daily rotation, 7 backups) and `skuel_errors.log` (ERROR-only, 14 backups) — a longer window than the ~30 MB docker json-file cap, and the first place to look for anything that scrolled out of `docker compose logs`.
 
 ### Rollback
 
