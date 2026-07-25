@@ -71,7 +71,7 @@ class CredentialSetup:
             "default": None,
         },
         "HF_API_TOKEN": {
-            "description": "HuggingFace Inference API token (bge-large-en-v1.5)",
+            "description": "HuggingFace Inference API token (BAAI/bge-m3 — staged until Arc 3, ADR-083)",
             "required": False,
             "sensitive": True,
             "default": None,

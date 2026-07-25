@@ -42,7 +42,7 @@ def test_port_properties():
     adapter = OpenAIEmbeddingAdapter(api_key="test-key")
     assert adapter.model == "text-embedding-3-small"
     assert adapter.dimension == DIM
-    assert adapter.max_input_chars > 2000  # roomier than the BGE budget
+    assert adapter.max_input_chars == 24000  # ~6k tokens, under the 8191-token model cap
 
 
 @pytest.mark.asyncio

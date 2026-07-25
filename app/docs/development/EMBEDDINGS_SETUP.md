@@ -26,11 +26,13 @@ are generated Python-side — no Neo4j plugin required.
 | **API key** | `OPENAI_API_KEY` (keychain or env) | Same credential as the LLM service |
 
 **BGE long-term:** `HuggingFaceEmbeddingAdapter` stays in the codebase as the staged long-term
-provider. The committed target model is **`BAAI/bge-m3`** (8,192-token context, also 1024-dim
-dense — [ADR-083](/docs/decisions/ADR-083-qwen-bge-end-state-commitment.md)); the adapter still
-targets `bge-large-en-v1.5` (ADR-049) until the Arc 1 update lands. Swapping = one line in the
-factory + an `EMBEDDING_VERSION` bump + re-embed. Vector indexes stay (same dimension —
-`EmbeddingGeometry.DIMENSION` in `core/constants.py` is the frozen single source).
+provider, targeting the committed end-state model **`BAAI/bge-m3`** (8,192-token context, also
+1024-dim dense — [ADR-083](/docs/decisions/ADR-083-qwen-bge-end-state-commitment.md), Arc 1). A
+CI guard (`tests/unit/test_chunk_embedding_budget.py`) asserts worst-case chunk sizes fit every
+adapter's input budget, so chunking grain can't drift past the staged window again. Swapping =
+one line in the factory + an `EMBEDDING_VERSION` bump + re-embed (Arc 3). Vector indexes stay
+(same dimension — `EmbeddingGeometry.DIMENSION` in `core/constants.py` is the frozen single
+source).
 
 ```
 User Query → Python (EmbeddingsService) → OpenAI Embeddings API → Embedding
