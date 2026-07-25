@@ -72,7 +72,7 @@ async def test_complete_semantic_search_flow(
     embedding_result = await services_with_embeddings["embeddings"].create_embedding(embedding_text)
     assert embedding_result.is_ok
     prepared["embedding"] = embedding_result.value
-    prepared["embedding_model"] = "BAAI/bge-large-en-v1.5"
+    prepared["embedding_model"] = "BAAI/bge-m3"
     prepared["embedding_updated_at"] = prepared["updated_at"]
     assert len(prepared["embedding"]) == 1024
 
@@ -107,7 +107,7 @@ async def test_complete_semantic_search_flow(
     assert record["uid"] == created_uid
     assert record["title"] == "Python List Comprehensions"
     assert record["embedding_dim"] == 1024
-    assert record["model"] == "BAAI/bge-large-en-v1.5"
+    assert record["model"] == "BAAI/bge-m3"
 
     # 4. Search for similar content using mock vector search
     vector_search = services_with_embeddings["vector_search"]

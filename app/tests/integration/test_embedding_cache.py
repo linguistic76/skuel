@@ -22,7 +22,7 @@ from core.services.embeddings_service import (
 from core.utils.embedding_text_builder import hash_embedding_text
 from core.utils.result_simplified import Errors, Result
 
-# Dimension for bge-large-en-v1.5
+# Dimension for bge-m3
 DIM = 1024
 
 
@@ -48,9 +48,9 @@ def embeddings_service(mock_backend):
     there is no HF_API_TOKEN / _client to set up here.
     """
     mock_client = MagicMock()
-    mock_client.model = "BAAI/bge-large-en-v1.5"
+    mock_client.model = "BAAI/bge-m3"
     mock_client.dimension = DIM
-    mock_client.max_input_chars = 2000
+    mock_client.max_input_chars = 20000
     mock_client.embed = AsyncMock()
     return EmbeddingsService(mock_backend, embedding_client=mock_client)
 

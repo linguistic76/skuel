@@ -1004,9 +1004,9 @@ def embeddings_service():
     mock_backend.get_embedding_freshness = AsyncMock(return_value=Result.ok([]))
     mock_backend.touch_embedding_updated_at = AsyncMock(return_value=Result.ok([{"touched": 0}]))
     mock_client = MagicMock()
-    mock_client.model = "BAAI/bge-large-en-v1.5"
+    mock_client.model = "BAAI/bge-m3"
     mock_client.dimension = 1024
-    mock_client.max_input_chars = 2000
+    mock_client.max_input_chars = 20000
     mock_client.embed = AsyncMock()
     return EmbeddingsService(mock_backend, embedding_client=mock_client)
 

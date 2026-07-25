@@ -38,7 +38,7 @@ def mock_embedding_vector():
     Generate consistent mock embedding vector (1024 dimensions).
 
     Uses deterministic values for reproducible tests.
-    Standard dimension for BAAI/bge-large-en-v1.5 model.
+    Standard dimension for BAAI/bge-m3 model.
 
     Returns:
         List of 1024 floats representing an embedding vector
@@ -104,7 +104,7 @@ def mock_embeddings_service(mock_embedding_vector):
     service.calculate_similarity = calculate_similarity
 
     # Service attributes
-    service.model = "BAAI/bge-large-en-v1.5"
+    service.model = "BAAI/bge-m3"
     service.dimension = 1024
     service._client = True  # Simulate client available
 
@@ -247,7 +247,7 @@ def mock_embeddings_unavailable():
 
     service.create_embedding = create_embedding
     service.create_batch_embeddings = create_batch_embeddings
-    service.model = "BAAI/bge-large-en-v1.5"
+    service.model = "BAAI/bge-m3"
     service.dimension = 1024
     service._client = None
 

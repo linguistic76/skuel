@@ -285,7 +285,7 @@ Tracks AI API calls (OpenAI LLM, HuggingFace embeddings). Critical for monitorin
 | `skuel_ai_errors_total` | Counter | `operation`, `error_type` | AI API errors |
 
 **Operations**: `embeddings`, `chat`, `completion`
-**Models**: `BAAI/bge-large-en-v1.5`, `gpt-4`, etc.
+**Models**: `text-embedding-3-small`, `gpt-4o`, etc.
 **Error Types**: `rate_limit`, `timeout`, `auth`, `unknown`
 **Duration Buckets**: `(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0)`
 

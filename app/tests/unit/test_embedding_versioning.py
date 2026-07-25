@@ -19,7 +19,7 @@ from core.services.embeddings_service import (
 from core.utils.embedding_text_builder import hash_embedding_text
 from core.utils.result_simplified import Errors, Result
 
-# Dimension for bge-large-en-v1.5
+# Dimension for BAAI/bge-m3 (dense) — EmbeddingGeometry.DIMENSION
 DIM = 1024
 
 
@@ -44,9 +44,9 @@ def embeddings_service(mock_backend):
     — the injected inference client is never called.
     """
     mock_client = MagicMock()
-    mock_client.model = "BAAI/bge-large-en-v1.5"
+    mock_client.model = "BAAI/bge-m3"
     mock_client.dimension = DIM
-    mock_client.max_input_chars = 2000
+    mock_client.max_input_chars = 20000
     mock_client.embed = AsyncMock()
     return EmbeddingsService(mock_backend, embedding_client=mock_client)
 
@@ -82,7 +82,7 @@ async def test_store_embedding_with_metadata(embeddings_service, mock_backend):
         uid="ku.python",
         embedding=embedding,
         version=EMBEDDING_VERSION,
-        model="BAAI/bge-large-en-v1.5",
+        model="BAAI/bge-m3",
         text_hash=hash_embedding_text("Python programming"),
     )
 
@@ -158,7 +158,7 @@ async def test_check_version_compatibility_current(embeddings_service, mock_back
             {
                 "embedding": [0.1] * DIM,
                 "version": EMBEDDING_VERSION,
-                "model": "BAAI/bge-large-en-v1.5",
+                "model": "text-embedding-3-small",
                 "updated_at": "2026-03-12T12:00:00Z",
             }
         ]

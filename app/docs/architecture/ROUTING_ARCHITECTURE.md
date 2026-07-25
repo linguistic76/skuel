@@ -1058,4 +1058,4 @@ This architecture ensures:
 *Pattern: Protocol-Based Dependency Injection*
 *Security: Content Scope (USER_OWNED / SHARED / ADMIN_ONLY) on All Routes*
 *Philosophy: Clean Architecture, One Path Forward, Graceful Degradation for AI Features*
-*AI Services: HuggingFace Inference API (optional, BAAI/bge-large-en-v1.5), Neo4j Vector Search (optional)*
+*AI Services: OpenAI embeddings via `create_embedding_client()` (ADR-068; BGE-M3 staged — ADR-083), Neo4j Vector Search (optional)*

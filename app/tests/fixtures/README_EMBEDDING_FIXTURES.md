@@ -28,7 +28,7 @@ Mock implementation of `HuggingFaceEmbeddingsService` that returns deterministic
 - `calculate_similarity(embedding1, embedding2)` - Calculate cosine similarity
 
 **Attributes:**
-- `model` - "BAAI/bge-large-en-v1.5"
+- `model` - "BAAI/bge-m3"
 - `dimension` - 1024
 - `_plugin_available` - True
 

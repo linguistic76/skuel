@@ -18,7 +18,7 @@ import pytest
 from core.services.embeddings_service import EmbeddingsService
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
-# Dimension for bge-large-en-v1.5
+# Dimension for bge-m3
 DIM = 1024
 
 
@@ -142,7 +142,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
     async with neo4j_driver.session() as session:
         await session.run(
             update_query,
-            {"uid": uid, "embedding": embedding, "model": "BAAI/bge-large-en-v1.5"},
+            {"uid": uid, "embedding": embedding, "model": "BAAI/bge-m3"},
         )
 
     # Verify stored embedding
@@ -158,7 +158,7 @@ async def test_embedding_generation_and_storage(neo4j_driver, clean_neo4j, mock_
         record = await result.single()
 
     assert record["dimension"] == DIM
-    assert record["model"] == "BAAI/bge-large-en-v1.5"
+    assert record["model"] == "BAAI/bge-m3"
     assert record["embedding"] == embedding
 
 
@@ -212,7 +212,7 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
         async with neo4j_driver.session() as session:
             await session.run(
                 update_query,
-                {"uid": ku["uid"], "embedding": embedding, "model": "BAAI/bge-large-en-v1.5"},
+                {"uid": ku["uid"], "embedding": embedding, "model": "BAAI/bge-m3"},
             )
 
     # Verify all stored
@@ -463,7 +463,7 @@ async def test_embedding_service_initialization(neo4j_driver):
         backend=embeddings_backend, embedding_client=embedding_client
     )
 
-    assert embeddings_service.model == "BAAI/bge-large-en-v1.5"
+    assert embeddings_service.model == "BAAI/bge-m3"
     assert embeddings_service.dimension == DIM
     assert embeddings_service._embedding_client is embedding_client
 
@@ -544,7 +544,7 @@ async def test_embeddings_dimension_validation(mock_embeddings_service):
     assert result.is_ok
     embedding = result.value
 
-    # Should be 1024 dimensions (bge-large-en-v1.5)
+    # Should be 1024 dimensions (bge-m3)
     assert len(embedding) == DIM
     assert len(embedding) == mock_embeddings_service.dimension
 

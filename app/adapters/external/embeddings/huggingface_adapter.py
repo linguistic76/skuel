@@ -16,9 +16,10 @@ Keeps the ``huggingface_hub`` SDK out of ``core/``. The API key is read at
 the composition root and passed in (mirrors DeepgramAdapter); the SDK lives
 here, below the hexagonal boundary.
 
-Model: BAAI/bge-large-en-v1.5 (1024 dims) — see ADR-049. NOT the wired
-provider today: ADR-068 wires OpenAI now and stages this adapter for the
-BGE long-term swap (single swap point: ``create_embedding_client()``).
+Model: BAAI/bge-m3 (1024-dim dense, 8192-token context) — the committed
+end-state model (ADR-083, superseding ADR-049's bge-large-en-v1.5). NOT the
+wired provider today: ADR-068 wires OpenAI now and stages this adapter for
+the BGE swap at Arc 3 (single swap point: ``create_embedding_client()``).
 
 Usage:
     adapter = HuggingFaceEmbeddingAdapter(api_key="hf_...")
@@ -39,15 +40,17 @@ from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.adapters.embeddings.huggingface")
 
-# BGE-large-en-v1.5 model facts (single source of truth for this adapter;
-# the consuming service reads them off the port, never from constants). The
-# dimension is the exception: it is cross-provider index geometry, frozen in
-# EmbeddingGeometry (ADR-083). Committed target model is BAAI/bge-m3 (also
-# 1024-dim dense, 8192-token context — ADR-083); the model/cap update here
-# lands in Arc 1.
-DEFAULT_MODEL = "BAAI/bge-large-en-v1.5"
+# BGE-M3 model facts (single source of truth for this adapter; the consuming
+# service reads them off the port, never from constants). The dimension is the
+# exception: it is cross-provider index geometry, frozen in EmbeddingGeometry
+# (ADR-083). bge-m3's HF Inference API mapping is dual-task (sentence-similarity
+# pipeline_tag + feature-extraction repo tag) — huggingface_hub serves the
+# ``feature_extraction`` call below through the feature-extraction pipeline.
+DEFAULT_MODEL = "BAAI/bge-m3"
 DEFAULT_DIMENSION = EmbeddingGeometry.DIMENSION
-MAX_INPUT_CHARS = 2000  # ~512 tokens, the BGE model cap (conservative estimate)
+# ~6.7k tokens at a conservative 3 chars/token (M3's XLM-R multilingual tokenizer
+# is less char-dense on English than OpenAI's), well under the 8192-token M3 window.
+MAX_INPUT_CHARS = 20000
 
 
 class HuggingFaceEmbeddingAdapter:
