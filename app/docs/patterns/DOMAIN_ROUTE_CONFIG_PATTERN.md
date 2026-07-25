@@ -1051,7 +1051,6 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 26. `/adapters/inbound/groups_routes.py`
 27. `/adapters/inbound/teaching_routes.py`
 28. `/adapters/inbound/transcription_routes.py`
-29. `/adapters/inbound/monitoring_routes.py`
 
 **Infrastructure (3):**
 30. `/adapters/inbound/system_routes.py`

@@ -153,7 +153,8 @@ class EmbeddingBackgroundWorker:
         self.logger = get_logger("skuel.background.embeddings")
         self._queue_lock: asyncio.Lock = asyncio.Lock()
 
-        # Internal metrics (kept for backward compatibility with /api/monitoring endpoint)
+        # Internal counters behind get_metrics() (unit-test introspection);
+        # the external surface is Prometheus (skuel_embedding_* series).
         self._total_processed = 0
         self._total_success = 0
         self._total_failed = 0

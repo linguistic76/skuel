@@ -22,6 +22,15 @@
 
 {$SKUEL_DOMAIN} {
 	encode zstd gzip
+
+	# /metrics is the Prometheus text exposition — app-served and deliberately
+	# auth-exempt so a local scraper can read it. Nothing scrapes it over the
+	# public internet, and it leaks internal telemetry (route latencies, error
+	# counts, queue depths) — block it at the proxy. Read it on the droplet via
+	# `docker compose exec skuel-app curl -s localhost:5001/metrics`.
+	@metrics path /metrics
+	respond @metrics 403
+
 	reverse_proxy skuel-app:5001
 }
 

@@ -44,6 +44,24 @@ curl http://localhost:5001/metrics | grep skuel_
 
 ---
 
+## One Surface: Prometheus
+
+`/metrics` is THE metrics surface — the former JSON metrics routes
+(`/api/monitoring/*`, `/api/metrics`) were folded into Prometheus. For ad-hoc
+checks without Grafana, grep the text exposition directly:
+
+```bash
+# Embedding worker queue depth + processed counters (e.g. during a re-embed —
+# see /docs/operations/EMBEDDING_VERSION_UPGRADE.md)
+curl -s http://localhost:5001/metrics | grep skuel_embedding
+```
+
+**Production:** the droplet runs no Prometheus/Grafana, and Caddy blocks `/metrics`
+from the public internet (it leaks internal telemetry). Read it from inside the
+stack: `docker compose exec skuel-app curl -s localhost:5001/metrics`.
+
+---
+
 ## What's Inside
 
 **Metrics**: 43 across 9 categories (System, HTTP, DB, Events, Domains, Graph, Search, Queries, AI)
