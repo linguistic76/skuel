@@ -855,42 +855,45 @@ class TestPrerequisiteChainWithDistance:
     """
 
     @pytest.mark.asyncio
-    async def test_diamond_dedup_and_min_distance(
+    async def test_diamond_dedup_min_distance_and_ku_prerequisite(
         self, ps_backend, neo4j_driver, clean_curriculum
     ) -> None:
-        """A node reachable by several paths appears once, at its nearest distance."""
-        # Diamond with a shortcut:
-        #   A -REQUIRES_STEP->      B
-        #   A -REQUIRES_KNOWLEDGE-> C
-        #   B -REQUIRES_KNOWLEDGE-> D   (D via B = distance 2)
-        #   C -REQUIRES_KNOWLEDGE-> D   (D via C = distance 2)
-        #   A -REQUIRES_KNOWLEDGE-> D   (D direct  = distance 1)  ← min wins
-        steps = {
-            "A": "ps:chain_a",
-            "B": "ps:chain_b",
-            "C": "ps:chain_c",
-            "D": "ps:chain_d",
-        }
+        """A node reachable by several paths appears once, at its nearest distance —
+        and a REQUIRES_KNOWLEDGE edge terminating at a *Ku* (not a PathStep) is
+        included, because the chain matches on the base :Entity label.
+        """
+        # A, B, C are PathSteps; D is a **Ku** (the shared knowledge prerequisite):
+        #   A -REQUIRES_STEP->      B (PathStep)
+        #   A -REQUIRES_KNOWLEDGE-> C (PathStep)
+        #   B -REQUIRES_KNOWLEDGE-> D (Ku)   (D via B = distance 2)
+        #   C -REQUIRES_KNOWLEDGE-> D (Ku)   (D via C = distance 2)
+        #   A -REQUIRES_KNOWLEDGE-> D (Ku)   (D direct  = distance 1)  ← min wins
+        # D being a Ku is the point: with a PathStep-only target match it would be
+        # silently dropped despite the endpoint promising to unify knowledge prereqs.
+        steps = {"A": "ps:chain_a", "B": "ps:chain_b", "C": "ps:chain_c"}
         for label, uid in steps.items():
             create = await ps_backend.create(
                 PathStep(uid=uid, title=f"Step {label}", intent=f"intent {label}")
             )
             assert create.is_ok, f"Setup failed: could not create {uid}"
+        ku_d = "ku:chain_d"
 
         step_rel = RelationshipName.REQUIRES_STEP.value
         know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
         async with neo4j_driver.session() as session:
+            # D is created as :Entity:Ku (NOT a PathStep) to prove base-label matching.
             await session.run(
                 f"""
-                MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}}),
-                      (c:Entity {{uid:$c}}), (d:Entity {{uid:$d}})
+                MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}}), (c:Entity {{uid:$c}})
+                CREATE (d:Entity:Ku {{uid:$d, title:'Knowledge D', domain:'knowledge',
+                                      entity_type:'ku'}})
                 CREATE (a)-[:{step_rel}]->(b)
                 CREATE (a)-[:{know_rel}]->(c)
                 CREATE (b)-[:{know_rel}]->(d)
                 CREATE (c)-[:{know_rel}]->(d)
                 CREATE (a)-[:{know_rel}]->(d)
                 """,
-                {"a": steps["A"], "b": steps["B"], "c": steps["C"], "d": steps["D"]},
+                {"a": steps["A"], "b": steps["B"], "c": steps["C"], "d": ku_d},
             )
 
         result = await ps_backend.prerequisite_chain_with_distance(
@@ -900,17 +903,19 @@ class TestPrerequisiteChainWithDistance:
         )
 
         assert result.is_ok, result.error if result.is_error else "unexpected"
-        by_uid = {step.uid: distance for step, distance in result.value}
+        by_uid = {row["uid"]: row["distance"] for row in result.value}
+        types_by_uid = {row["uid"]: row["entity_type"] for row in result.value}
 
         # Exactly three DISTINCT prerequisites — D is not double-counted despite
         # three inbound paths (proves the min(length(path)) dedup).
         assert len(result.value) == 3
-        assert set(by_uid) == {steps["B"], steps["C"], steps["D"]}
+        assert set(by_uid) == {steps["B"], steps["C"], ku_d}
         # REQUIRES_STEP is traversed alongside REQUIRES_KNOWLEDGE (B reached via step edge).
         assert by_uid[steps["B"]] == 1
         assert by_uid[steps["C"]] == 1
-        # D's nearest path (direct, distance 1) wins over the via-B/C paths (distance 2).
-        assert by_uid[steps["D"]] == 1
+        # The Ku prerequisite is included, at its nearest distance (direct edge wins over via-B/C).
+        assert by_uid[ku_d] == 1
+        assert types_by_uid[ku_d] == "ku"
 
     @pytest.mark.asyncio
     async def test_depth_bounds_the_chain(self, ps_backend, neo4j_driver, clean_curriculum) -> None:
@@ -939,5 +944,5 @@ class TestPrerequisiteChainWithDistance:
         )
 
         assert shallow.is_ok and deep.is_ok
-        assert {s.uid for s, _ in shallow.value} == {chain[1]}
-        assert {s.uid for s, _ in deep.value} == {chain[1], chain[2]}
+        assert {row["uid"] for row in shallow.value} == {chain[1]}
+        assert {row["uid"] for row in deep.value} == {chain[1], chain[2]}

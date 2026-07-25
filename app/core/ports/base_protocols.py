@@ -51,6 +51,7 @@ if TYPE_CHECKING:
     from core.models.relationship_filters import RelationshipFilters
     from core.models.relationship_names import RelationshipName
     from core.models.type_hints import FilterParams
+    from core.ports.query_types import PrerequisiteChainRow
     from core.utils.result_simplified import Result as ResultType
     # Note: Result protocol defined at line 866 is for duck-typing Result-like objects
     # ResultType is the actual Result[T] class used in type annotations
@@ -760,8 +761,12 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         uid: str,
         relationship_types: builtins.list[str],
         depth: int = 3,
-    ) -> ResultType[builtins.list[tuple[T, int]]]:
-        """Traverse the prerequisite chain, returning (model, min-hop-distance) pairs."""
+    ) -> ResultType[builtins.list[PrerequisiteChainRow]]:
+        """Traverse the prerequisite chain, returning projected distance-annotated rows.
+
+        Heterogeneous by design (Ku and PathStep), so rows are projected fields
+        (uid/title/domain/entity_type/distance), not single-type domain models.
+        """
         ...
 
     async def hierarchy_query_raw(

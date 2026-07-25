@@ -131,24 +131,29 @@ def create_path_steps_api_routes(
         chain = chain_result.value
 
         # Mastery is the caller's only — one profile read, set-membership per node.
+        # A present-but-failing profile read is propagated (silently reporting every
+        # node as unmastered would be valid-looking but wrong); an absent service
+        # (mastery tracking not wired) degrades to no annotation.
         mastered_uids: set[str] = set()
         if user_progress_service is not None:
             profile_result = await user_progress_service.build_user_knowledge_profile(user_uid)
-            if profile_result.is_ok:
-                mastered_uids = profile_result.value.mastered_uids
+            if profile_result.is_error:
+                return Result.fail(profile_result)
+            mastered_uids = profile_result.value.mastered_uids
 
         nodes: list[PrerequisiteChainNode] = []
         mastered_count = 0
-        for step, distance in chain:
-            is_mastered = step.uid in mastered_uids
+        for row in chain:
+            is_mastered = row["uid"] in mastered_uids
             if is_mastered:
                 mastered_count += 1
             nodes.append(
                 PrerequisiteChainNode(
-                    uid=step.uid,
-                    title=step.title,
-                    domain=step.domain.value,
-                    distance=distance,
+                    uid=row["uid"],
+                    title=row["title"],
+                    domain=row["domain"],
+                    entity_type=row["entity_type"],
+                    distance=row["distance"],
                     is_mastered=is_mastered,
                 )
             )

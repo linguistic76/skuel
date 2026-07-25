@@ -37,6 +37,7 @@ from core.ports.query_types import (
     ListContext,
     NousSubtopicPair,
     OrganizerResult,
+    PrerequisiteChainRow,
     RootOrganizerResult,
     StepApplicationsResult,
     StepLearningSequenceResult,
@@ -446,13 +447,14 @@ class PsService:
 
     async def get_prerequisite_chain(
         self, uid: str, max_depth: int = GraphDepth.DEFAULT
-    ) -> Result[list[tuple[PathStep, int]]]:
+    ) -> Result[list[PrerequisiteChainRow]]:
         """Get the transitive prerequisite chain, each node with its hop distance.
 
         One variable-length traversal (nearest-first, min-distance deduped so a
         diamond dependency is counted once). Spans both REQUIRES_STEP (sequential)
         and REQUIRES_KNOWLEDGE (knowledge) prerequisites — the two dimensions the
         1-hop prerequisites read surfaced separately, unified into one chain.
+        Rows are heterogeneous (Ku *and* PathStep prerequisites).
 
         Backend: UniversalNeo4jBackend.prerequisite_chain_with_distance
         """

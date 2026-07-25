@@ -1048,8 +1048,11 @@ def build_prerequisite_chain_query(
         depth: Maximum traversal depth (1-10)
 
     Returns:
-        Tuple of (cypher_query, parameters). Each record has keys ``n`` (node)
-        and ``distance`` (int, ≥1), ordered by distance ascending.
+        Tuple of (cypher_query, parameters). Each record has keys ``uid``,
+        ``title``, ``domain``, ``entity_type`` and ``distance`` (int, ≥1),
+        ordered by distance ascending. Fields are projected directly (not the
+        node) so heterogeneous prerequisite types — Ku *and* PathStep — return
+        uniformly without per-type model construction.
     """
     rel_pattern = "|".join(relationship_types)
     arrow = direction_clause("outgoing", None, f"{rel_pattern}*1..{depth}")
@@ -1057,7 +1060,8 @@ def build_prerequisite_chain_query(
     MATCH (start:{label} {{uid: $uid}})
     MATCH path = (start){arrow}(n:{label})
     WITH n, min(length(path)) AS distance
-    RETURN n, distance
+    RETURN n.uid AS uid, n.title AS title, n.domain AS domain,
+           n.entity_type AS entity_type, distance
     ORDER BY distance ASC
     """
 

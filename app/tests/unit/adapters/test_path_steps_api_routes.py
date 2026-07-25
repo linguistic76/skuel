@@ -22,7 +22,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.path_steps_api import create_path_steps_api_routes
 from core.models.enums import UserRole
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_admin"
 _PARENT_UID = "ps.core.parent"
@@ -56,9 +56,21 @@ class _Harness:
     user_progress: MagicMock
 
 
-def _chain_step(uid: str, title: str, domain: str = "programming") -> SimpleNamespace:
-    """Minimal PathStep stand-in for the prerequisite-chain route (uid/title/domain.value)."""
-    return SimpleNamespace(uid=uid, title=title, domain=SimpleNamespace(value=domain))
+def _chain_row(
+    uid: str,
+    title: str,
+    distance: int,
+    domain: str = "programming",
+    entity_type: str = "path_step",
+) -> dict[str, object]:
+    """A PrerequisiteChainRow stand-in as the service returns (uid/title/domain/type/distance)."""
+    return {
+        "uid": uid,
+        "title": title,
+        "domain": domain,
+        "entity_type": entity_type,
+        "distance": distance,
+    }
 
 
 def _make_harness(
@@ -273,12 +285,12 @@ class TestPrerequisiteChain:
 
     def test_chain_distance_and_mastery(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
-        # Diamond deduped upstream → flat (step, distance) pairs, nearest-first.
+        # Diamond deduped upstream → flat rows, nearest-first.
         harness.ps.get_prerequisite_chain = AsyncMock(
             return_value=Result.ok(
                 [
-                    (_chain_step("ps.functions", "Functions"), 1),
-                    (_chain_step("ps.variables", "Variables"), 2),
+                    _chain_row("ps.functions", "Functions", 1),
+                    _chain_row("ku.variables", "Variables", 2, entity_type="ku"),
                 ]
             )
         )
@@ -303,10 +315,31 @@ class TestPrerequisiteChain:
             "uid": "ps.functions",
             "title": "Functions",
             "domain": "programming",
+            "entity_type": "path_step",
             "distance": 1,
             "is_mastered": True,
         }
+        # A Ku prerequisite is carried with its entity_type and is not mastered.
+        assert payload["prerequisites"][1]["entity_type"] == "ku"
         assert payload["prerequisites"][1]["is_mastered"] is False
+
+    def test_mastery_profile_error_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        harness.ps.get_prerequisite_chain = AsyncMock(
+            return_value=Result.ok([_chain_row("ps.functions", "Functions", 1)])
+        )
+        # A present-but-failing profile read must fail the request — silently
+        # marking every node unmastered would be valid-looking but wrong.
+        harness.user_progress.build_user_knowledge_profile = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(operation="build_user_knowledge_profile", message="read failed")
+            )
+        )
+
+        response = harness.client.get(f"/api/path-steps/prerequisites?step_uid={_CHILD_UID}")
+
+        # Database error propagates (503), not a fake-200 with everything unmastered.
+        assert response.status_code == 503
 
     def test_depth_clamped_to_max(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)

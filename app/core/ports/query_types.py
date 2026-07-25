@@ -1000,15 +1000,40 @@ class ProgressResult(TypedDict, total=False):
     milestone_completed: bool
 
 
-class PrerequisiteChainNode(TypedDict):
-    """One prerequisite in a flat, distance-annotated chain.
+class PrerequisiteChainRow(TypedDict):
+    """Backend projection for one node in the prerequisite chain.
 
-    Emitted by the ``/api/path-steps/prerequisites`` chain read.
+    Projected fields (not a full domain model), so heterogeneous prerequisite
+    types — Ku and PathStep alike — return uniformly. Emitted by
+    ``UniversalNeo4jBackend.prerequisite_chain_with_distance``.
+
+    Fields:
+        uid: Prerequisite entity UID
+        title: Display title
+        domain: Stored domain value (empty string if unset)
+        entity_type: Stored entity_type value (e.g. "ku", "path_step")
+        distance: Minimum hop distance from the target (≥1; nearest-first)
+    """
+
+    uid: str
+    title: str
+    domain: str
+    entity_type: str
+    distance: int
+
+
+class PrerequisiteChainNode(TypedDict):
+    """One prerequisite in a flat, distance-annotated chain (API response).
+
+    Emitted by the ``/api/path-steps/prerequisites`` chain read: a
+    :class:`PrerequisiteChainRow` plus the caller's mastery annotation.
 
     Fields:
         uid: Prerequisite entity UID
         title: Display title
         domain: Domain/category label (empty string if unset)
+        entity_type: Stored entity_type value ("ku" vs "path_step" lets a
+            consumer distinguish a knowledge prerequisite from a step one)
         distance: Minimum hop distance from the target (≥1; nearest-first)
         is_mastered: Whether the requesting user has mastered this node
     """
@@ -1016,6 +1041,7 @@ class PrerequisiteChainNode(TypedDict):
     uid: str
     title: str
     domain: str
+    entity_type: str
     distance: int
     is_mastered: bool
 
@@ -3349,6 +3375,7 @@ __all__ = [
     "OverdueTasksWarning",
     "WorkloadWarning",
     "ProgressResult",
+    "PrerequisiteChainRow",
     "PrerequisiteChainNode",
     "PrerequisiteChainData",
     "IntelligenceResult",
