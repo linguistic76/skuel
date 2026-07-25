@@ -755,6 +755,15 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Traverse prerequisite relationships and return typed domain models."""
         ...
 
+    async def prerequisite_chain_with_distance(
+        self,
+        uid: str,
+        relationship_types: builtins.list[str],
+        depth: int = 3,
+    ) -> ResultType[builtins.list[tuple[T, int]]]:
+        """Traverse the prerequisite chain, returning (model, min-hop-distance) pairs."""
+        ...
+
     async def hierarchy_query_raw(
         self,
         uid: str,

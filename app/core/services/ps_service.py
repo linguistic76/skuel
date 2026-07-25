@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth, QueryLimit
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum_dto import CurriculumDTO
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import HasUID
@@ -413,11 +414,6 @@ class PsService:
     async def link_parent_child(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.graph.link_parent_child(parent_uid, child_uid)
 
-    async def get_prerequisite_chain(
-        self, uid: str, user_uid: UserUID | None = None
-    ) -> Result[dict[str, Any]]:
-        return await self.graph.get_prerequisite_chain(uid, user_uid)
-
     async def analyze_knowledge_gaps(
         self, target_uid: str, user_uid: UserUID
     ) -> Result[dict[str, Any]]:
@@ -447,6 +443,28 @@ class PsService:
     async def get_prerequisites(self, uid: str) -> Result[list[PathStep]]:
         """Get prerequisite entities (alias for find_prerequisites with defaults)."""
         return await self.graph.find_prerequisites(uid=uid, depth=GraphDepth.DEFAULT)
+
+    async def get_prerequisite_chain(
+        self, uid: str, max_depth: int = GraphDepth.DEFAULT
+    ) -> Result[list[tuple[PathStep, int]]]:
+        """Get the transitive prerequisite chain, each node with its hop distance.
+
+        One variable-length traversal (nearest-first, min-distance deduped so a
+        diamond dependency is counted once). Spans both REQUIRES_STEP (sequential)
+        and REQUIRES_KNOWLEDGE (knowledge) prerequisites — the two dimensions the
+        1-hop prerequisites read surfaced separately, unified into one chain.
+
+        Backend: UniversalNeo4jBackend.prerequisite_chain_with_distance
+        """
+        safe_depth = max(1, min(max_depth, GraphDepth.MAXIMUM))
+        return await self.core.backend.prerequisite_chain_with_distance(
+            uid=uid,
+            relationship_types=[
+                RelationshipName.REQUIRES_STEP.value,
+                RelationshipName.REQUIRES_KNOWLEDGE.value,
+            ],
+            depth=safe_depth,
+        )
 
     async def get_enables(self, uid: str) -> Result[list[PathStep]]:
         """Get entities enabled by this one."""

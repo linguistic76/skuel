@@ -22,6 +22,7 @@ PS_CONFIG = DomainRouteConfig(
     ui_factory=create_path_steps_ui_routes,
     api_related_services={
         "user_service": "user",
+        "user_progress_service": "user_progress",
     },
     ui_related_services={
         "ps_engagement_service": "ps_engagement",

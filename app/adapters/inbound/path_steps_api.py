@@ -18,6 +18,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
+from core.constants import GraphDepth
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
 from core.models.pathways.learning_progress import LearningJourney
 from core.models.pathways.path_step import PathStep
@@ -28,8 +29,13 @@ from core.models.pathways.pathways_request import (
     StepRelationshipCreateRequest,
     StepReorderRequest,
 )
-from core.models.type_hints import EntityUID, UserUID
-from core.ports.query_types import OrganizerResult, RootOrganizerResult
+from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    OrganizerResult,
+    PrerequisiteChainData,
+    PrerequisiteChainNode,
+    RootOrganizerResult,
+)
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -39,7 +45,11 @@ logger = get_logger("skuel.routes.path_steps.api")
 
 
 def create_path_steps_api_routes(
-    app: Any, rt: Any, ps_service: PsService, user_service: Any = None
+    app: Any,
+    rt: Any,
+    ps_service: PsService,
+    user_service: Any = None,
+    user_progress_service: Any = None,
 ) -> list[Any]:
     """
     Create path steps API routes using factory pattern.
@@ -52,6 +62,8 @@ def create_path_steps_api_routes(
         rt: Route decorator
         ps_service: PsService instance
         user_service: User service for admin role verification
+        user_progress_service: UserProgressService for per-caller mastery annotation
+            on the prerequisite-chain read
     """
 
     get_user_service = make_service_getter(user_service)
@@ -96,27 +108,62 @@ def create_path_steps_api_routes(
     @rt("/api/path-steps/prerequisites")
     @boundary_handler()
     async def get_step_prerequisites_route(
-        request: Request, step_uid: str
-    ) -> Result[dict[str, Any]]:
-        """Get prerequisites for a path step."""
-        step_uid_typed = EntityUID(step_uid)
-        prereq_steps_result = await ps_service.relationships.get_related_uids(
-            "prerequisite_steps", step_uid_typed
-        )
-        prereq_knowledge_result = await ps_service.relationships.get_related_uids(
-            "prerequisite_knowledge", step_uid_typed
-        )
+        request: Request, step_uid: str, depth: int = GraphDepth.DEFAULT
+    ) -> Result[PrerequisiteChainData]:
+        """Get the transitive prerequisite chain for a path step.
 
-        prereq_steps = prereq_steps_result.value if prereq_steps_result.is_ok else []
-        prereq_knowledge = prereq_knowledge_result.value if prereq_knowledge_result.is_ok else []
+        One variable-length traversal spanning REQUIRES_STEP (sequential) and
+        REQUIRES_KNOWLEDGE (knowledge) prerequisites — the two dimensions this
+        read formerly returned as separate 1-hop UID lists, now unified into one
+        flat, distance-ranked chain (nearest-first, min-distance deduped). Each
+        node is annotated with the requesting user's mastery.
 
+        Args:
+            step_uid: Target path step
+            depth: Traversal depth (1-10, default 3); depth=1 yields only
+                immediate prerequisites.
+        """
+        user_uid = require_authenticated_user(request)
+
+        chain_result = await ps_service.get_prerequisite_chain(step_uid, max_depth=depth)
+        if chain_result.is_error:
+            return Result.fail(chain_result)
+        chain = chain_result.value
+
+        # Mastery is the caller's only — one profile read, set-membership per node.
+        mastered_uids: set[str] = set()
+        if user_progress_service is not None:
+            profile_result = await user_progress_service.build_user_knowledge_profile(user_uid)
+            if profile_result.is_ok:
+                mastered_uids = profile_result.value.mastered_uids
+
+        nodes: list[PrerequisiteChainNode] = []
+        mastered_count = 0
+        for step, distance in chain:
+            is_mastered = step.uid in mastered_uids
+            if is_mastered:
+                mastered_count += 1
+            nodes.append(
+                PrerequisiteChainNode(
+                    uid=step.uid,
+                    title=step.title,
+                    domain=step.domain.value,
+                    distance=distance,
+                    is_mastered=is_mastered,
+                )
+            )
+
+        total = len(nodes)
         return Result.ok(
-            {
-                "step_uid": step_uid,
-                "prerequisite_steps": prereq_steps,
-                "prerequisite_knowledge": prereq_knowledge,
-                "has_prerequisites": len(prereq_steps) > 0 or len(prereq_knowledge) > 0,
-            }
+            PrerequisiteChainData(
+                step_uid=step_uid,
+                depth=max(1, min(depth, GraphDepth.MAXIMUM)),
+                prerequisites=nodes,
+                total_prerequisites=total,
+                prerequisites_mastered=mastered_count,
+                unmet_count=total - mastered_count,
+                has_prerequisites=total > 0,
+            )
         )
 
     # ========================================================================

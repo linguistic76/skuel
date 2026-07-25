@@ -90,6 +90,49 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
         records = await self._run_records(cypher_query, params)
         return Result.ok([from_neo4j_node(record["n"], self.entity_class) for record in records])
 
+    @safe_backend_operation("prerequisite_chain_with_distance")
+    async def prerequisite_chain_with_distance(
+        self,
+        uid: str,
+        relationship_types: builtins.list[str],
+        depth: int = 3,
+    ) -> Result[builtins.list[tuple[T, int]]]:
+        """
+        Traverse the prerequisite chain and return each node with its hop distance.
+
+        The distance-carrying sibling of :meth:`prerequisite_traversal`: uses a
+        min-distance-deduped query so a node reachable by multiple paths appears
+        once, at its nearest distance. Record→model conversion happens here,
+        below the hexagonal boundary.
+
+        Args:
+            uid: Entity UID to start from
+            relationship_types: Prerequisite relationship type strings (any may
+                connect a hop — e.g. REQUIRES_STEP and REQUIRES_KNOWLEDGE)
+            depth: Maximum traversal depth (1-10)
+
+        Returns:
+            Result[list[tuple[T, int]]]: (prerequisite model, distance) pairs,
+            nearest-first.
+        """
+        from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+        from adapters.persistence.neo4j.query.cypher import build_prerequisite_chain_query
+
+        cypher_query, params = build_prerequisite_chain_query(
+            label=self.label,
+            uid=uid,
+            relationship_types=relationship_types,
+            depth=depth,
+        )
+
+        records = await self._run_records(cypher_query, params)
+        return Result.ok(
+            [
+                (from_neo4j_node(record["n"], self.entity_class), int(record["distance"]))
+                for record in records
+            ]
+        )
+
     @safe_backend_operation("hierarchy_query_raw")
     async def hierarchy_query_raw(
         self,
