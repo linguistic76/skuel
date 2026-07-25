@@ -480,9 +480,9 @@ logger.info("Incrementing entities_created for task")
 **Problem**: The relationship/knowledge gauges (`skuel_graph_density`,
 `skuel_orphaned_entities_count`, `skuel_knowledge_*`) don't update in real-time
 
-**Expected behavior**: These gauges are set by the 5-min graph-health poller
-(`update_graph_health_metrics()` in `scripts/dev/bootstrap.py`) — up to 5 minutes of lag
-is by design, and the first sample only lands ~5 minutes after boot.
+**Expected behavior**: These gauges are set by the graph-health poller
+(`update_graph_health_metrics()` in `scripts/dev/bootstrap.py`) — the first pass runs at
+startup, then every 5 minutes, so up to 5 minutes of lag between passes is by design.
 
 **Diagnosis when they stop updating entirely**:
 
@@ -496,9 +496,9 @@ curl http://localhost:8000/health/ready
 
 If Neo4j is down for a sustained period, the gauges **freeze at their last values**. The
 staleness signal is `skuel_graph_health_poll_last_success_timestamp_seconds` — refreshed only
-after a fully-successful pass — and the `GraphHealthPollerStale` alert fires once it lags
-more than 15 minutes (3 missed cycles). Frozen relationship gauges + a failing readiness
-probe = the poller can't reach Neo4j.
+after an error-free pass — and the `GraphHealthPollerStale` alert goes pending once it lags
+15 minutes (3 missed cycles) and fires ~5 minutes later (`for: 5m`). Frozen relationship
+gauges + a failing readiness probe = the poller can't reach Neo4j.
 
 ### Histogram Percentiles Look Wrong
 

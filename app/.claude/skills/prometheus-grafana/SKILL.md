@@ -253,7 +253,7 @@ Tracks SKUEL's four relationship layers:
 **Layer Values**: `hierarchical`, `lateral`, `semantic`, `cross_domain`
 **Category Values**: `structural`, `dependency`, `semantic`, `associative`
 
-**Updated By**: `update_graph_health_metrics()` background loop in `scripts/dev/bootstrap.py` (every 5 minutes, 4 Cypher queries)
+**Updated By**: `update_graph_health_metrics()` background loop in `scripts/dev/bootstrap.py` (at startup, then every 5 minutes; 4 Cypher queries)
 
 #### Knowledge-subgraph structural health (6 gauges, ADR-080 Horizon 1)
 
