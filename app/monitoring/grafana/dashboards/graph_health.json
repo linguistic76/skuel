@@ -526,7 +526,7 @@
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 41},
       "targets": [
         {
-          "expr": "skuel_knowledge_orphan_kus_count / skuel_knowledge_kus_total",
+          "expr": "(skuel_knowledge_orphan_kus_count / (skuel_knowledge_kus_total > 0)) or vector(0)",
           "refId": "A"
         }
       ],
@@ -559,7 +559,7 @@
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 41},
       "targets": [
         {
-          "expr": "skuel_knowledge_composed_kus_count / skuel_knowledge_kus_total",
+          "expr": "(skuel_knowledge_composed_kus_count / (skuel_knowledge_kus_total > 0)) or vector(0)",
           "refId": "A"
         }
       ],

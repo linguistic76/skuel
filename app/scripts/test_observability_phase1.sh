@@ -67,8 +67,12 @@ test_step "Prometheus is running" \
 test_step "Prometheus is scraping SKUEL" \
     "curl -sf 'http://localhost:9090/api/v1/targets' | jq -e '.data.activeTargets[] | select(.job == \"skuel-app\") | select(.health == \"up\")'"
 
-test_step "Alert rules loaded (13 expected)" \
-    "curl -sf http://localhost:9090/api/v1/rules | jq -e '.data.groups[].rules | length' | grep -q 13"
+# Expected count derives from alerts.yml so this assertion can't drift when
+# rules are added; -qx forces an exact line match (plain -q 13 would match 130).
+EXPECTED_ALERT_RULES=$(grep -c '^      - alert:' "$(dirname "$0")/../monitoring/prometheus/alerts.yml")
+
+test_step "Alert rules loaded (${EXPECTED_ALERT_RULES} expected)" \
+    "curl -sf http://localhost:9090/api/v1/rules | jq -e '.data.groups[].rules | length' | grep -qx ${EXPECTED_ALERT_RULES}"
 
 test_step "skuel_critical alert group exists" \
     "curl -sf http://localhost:9090/api/v1/rules | jq -e '.data.groups[] | select(.name == \"skuel_critical\")'"
