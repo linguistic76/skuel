@@ -628,6 +628,37 @@ class TestPatternBodySplitting:
         """Guard — already true before the split; the three separators Cypher has."""
         assert [n.value for n in scan_names(query)] == expected
 
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            # Negation and grouping WRAP a name rather than joining two, so
+            # splitting alone left `!Bogus` / `(Known` as segments that failed
+            # the name regex — a typo'd label went from reported to invisible
+            # (Codex P2 on #833). Live on `ad9afcb76`; a silent-miss rule cannot
+            # lose coverage in a refactor.
+            ("MATCH (n:!Bogus) RETURN n", ["Bogus"]),
+            ("MATCH ()-[r:!BOGUS_EDGE]->() RETURN r", ["BOGUS_EDGE"]),
+            ("MATCH (n:(Known|Bogus)) RETURN n", ["Known", "Bogus"]),
+            # `%` is the wildcard — it names nothing, and must not be read as one.
+            ("MATCH (n:%) RETURN n", []),
+            # Grouping next to a dynamic operand: the static arm is still read,
+            # the dynamic one is still opaque.
+            ("MATCH (n:(Known|$(x))) RETURN n", ["Known"]),
+            ("MATCH (n:!$(x)) RETURN n", []),
+        ],
+    )
+    def test_label_expression_operators_wrap_a_readable_name(
+        self, query: str, expected: list[str]
+    ) -> None:
+        """Cypher's label-expression operators are `& | ! % ( )`.
+
+        Two are the separators, `%` names nothing, and the rest wrap. The set is
+        DERIVED from the grammar rather than grown one report at a time — and
+        the whole-segment full-match is what keeps `$(coalesce(Foo,Bogus` opaque
+        regardless of which characters the atom regex is willing to strip.
+        """
+        assert [n.value for n in scan_names(query)] == expected
+
     @pytest.mark.parametrize("query", ["MATCH (n:A.B) RETURN n", "MATCH (n:A-B) RETURN n"])
     def test_non_separator_joins_yield_no_names(self, query: str) -> None:
         """`.` and `-` do not join labels in Cypher, so `A.B` is ONE bad token.

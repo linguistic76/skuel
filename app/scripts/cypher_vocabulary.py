@@ -414,6 +414,23 @@ _NAME_PART_RE = re.compile(r"[A-Za-z_]\w*")
 # regressions.
 _NAME_SEPARATOR_RE = re.compile(r"[:|&]")
 
+# One segment, once the separators have done their work: an identifier, possibly
+# backtick-escaped, possibly wrapped in the remaining label-expression operators.
+#
+# Cypher's label/type expression grammar has exactly six operators — `&` `|` `!`
+# `%` `(` `)`. Two are the separators above. `%` is the wildcard and names
+# nothing. That leaves negation and grouping, which WRAP a name rather than
+# joining two: `(n:!Bogus)`, `(n:(Known|Bogus))`, `[r:!BOGUS_EDGE]`. Deriving the
+# set from the grammar is the point — a hand-picked strip list is what this
+# module has repeatedly had to grow one report at a time.
+#
+# FULL-match is what keeps the dynamic operands opaque, and it is load-bearing:
+# `$(coalesce(Foo,Bogus` is one segment carrying `$`, a comma and two
+# identifiers, so it matches nothing here no matter which characters get
+# stripped. The rule is "this segment is exactly one wrapped name, or it is not
+# read at all" — not "strip the characters I have seen so far".
+_BODY_ATOM_RE = re.compile(r"[!(]*`?([A-Za-z_]\w*)`?\)*")
+
 # Relationship types are UPPER_SNAKE; labels are PascalCase. Anything else
 # (lowercase alias, digit-led fragment) is not vocabulary and is ignored.
 _REL_NAME_RE = re.compile(r"[A-Z][A-Z0-9_]*")
@@ -761,16 +778,23 @@ def _body_names(body: str) -> Iterator[tuple[str, int]]:
     is a wrong location AND a suppression that cannot be placed beside the name
     it must suppress (Codex P2 on #831).
 
-    Segments are yielded whether or not they look like names; the caller's
-    ``name_re.fullmatch`` is the only filter. That is the whole point: a dynamic
-    operand arrives as one unsplittable segment and fails, instead of being
-    mined for identifier runs and then blanked back out.
+    Each segment must be exactly ONE name — bare, backtick-escaped, or wrapped in
+    the negation/grouping operators — or it yields nothing. A segment that is
+    anything else is not read at all, which is what keeps a dynamic operand
+    opaque: `$(coalesce(Foo,Bogus` fails as a whole instead of being mined for
+    the identifier runs inside it.
 
-    Backticks are stripped from the SEGMENT, not from the body. An escaped label
-    ``(n:`Bogus`)`` is a real label and pattern position has always recovered
-    one — the `scan_names` docstring's claim that no position does was measured
-    false. Stripping here preserves that recovery through the split without
-    letting a backtick disturb any offset but its own.
+    Two recoveries ride on that whole-segment rule rather than on a strip list,
+    because a silent-miss rule cannot lose coverage in a refactor and both were
+    live on `ad9afcb76`:
+
+    - backtick-escaped names — ``(n:`Bogus`)``, ``[r:`BOGUS_EDGE`]``. The
+      `scan_names` docstring's claim that NO position recovers these was
+      measured false;
+    - negated and grouped names — ``(n:!Bogus)``, ``(n:(Known|Bogus))``,
+      ``[r:!BOGUS_EDGE]`` (Codex P2 on #833). Splitting alone left `!Bogus` and
+      `(Known` as segments that failed the name regex, so a typo'd label in
+      either position went from reported to invisible.
     """
     start = 0
     for separator in _NAME_SEPARATOR_RE.finditer(body):
@@ -780,12 +804,12 @@ def _body_names(body: str) -> Iterator[tuple[str, int]]:
 
 
 def _body_name(body: str, start: int, end: int) -> tuple[str, int]:
-    """One segment, trimmed of whitespace and backticks, with its true offset."""
-    segment = body[start:end]
-    name = segment.strip().strip("`")
-    if not name:
-        return name, start
-    return name, start + segment.find(name)
+    """The one name in a segment with its true offset, or ``("", start)``."""
+    segment = body[start:end].strip()
+    atom = _BODY_ATOM_RE.fullmatch(segment)
+    if atom is None:
+        return "", start
+    return atom.group(1), start + body[start:end].index(segment) + atom.start(1)
 
 
 # `CYPHER runtime=slotted ...` / `CYPHER 25 ...` — a PRE-PARSER preamble, not a
