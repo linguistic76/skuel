@@ -83,6 +83,7 @@ from core.utils.terminal_colors import Colors
 # Shared with cypher_linter.py (CYP011) — one registry reader, one name scanner.
 sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
+    INTERPOLATION_SENTINEL,
     Vocabulary,
     bare_alternation_parts,
     fstring_part_ids,
@@ -509,9 +510,13 @@ adapters/persistence/neo4j/. All Cypher lives below that boundary; services orch
 call backend methods — they do not author Cypher. (SKUEL001 only bans APOC procedures; this
 rule covers raw Cypher generally, which was previously unguarded.)
 
-The detector flags high-signal, paren/sigil-anchored Cypher clauses (MATCH (, MERGE (,
-OPTIONAL MATCH (, CREATE (, UNWIND $, CALL db.) so prose/comments are not caught. Comment
-lines are skipped.
+The detector uses two anchors so prose/comments are not caught. Either a paren/sigil-anchored
+clause anywhere in the literal (MATCH (, MERGE (, OPTIONAL MATCH (, CREATE (, UNWIND $,
+CALL db.), or an UPPERCASE clause keyword at the HEAD of the literal followed by an operand
+(RETURN, SHOW, PROFILE, EXPLAIN, DELETE, DETACH DELETE, SET, REMOVE, LOAD CSV, CALL, ...).
+The head anchor covers statement families that have no paren or sigil to match on — a
+`RETURN 1 as ping` health probe is Cypher; "cascade DETACH DELETE (default False)" is prose.
+Comment lines and docstrings are skipped.
 
 Fix: relocate the query into an adapter backend (adapters/persistence/neo4j/) behind a
 core/ports protocol. See the relationship / ps_engagement / ingestion / query backends for
@@ -1726,10 +1731,18 @@ class SkuelLinter:
                 )
             )
 
-    # Paren/sigil-anchored Cypher clause markers that essentially never appear in
-    # prose. (DETACH DELETE is intentionally excluded — real Cypher uses a variable,
-    # `DETACH DELETE n`, which is indistinguishable from docstring prose like
-    # "cascade DETACH DELETE (default False)".)
+    # --- SKUEL021 detection: two anchors, one rule -------------------------
+    #
+    # Anchor 1 (CYPHER_MARKERS) — substring, matched ANYWHERE in the literal.
+    # Because position carries no signal here, each marker must earn its keep
+    # from shape alone: a paren or sigil that essentially never follows the
+    # keyword in prose. That constraint is also this anchor's ceiling — whole
+    # statement families have no paren/sigil to hang a substring on, so for
+    # years the rule was structurally blind to `RETURN`-only queries,
+    # `SHOW INDEXES`, `PROFILE`/`EXPLAIN`, and statements led by `DELETE`,
+    # `DETACH DELETE`, `SET`, `REMOVE` or `LOAD CSV`. A real leak sat inside
+    # that blind spot: `session.run("RETURN 1 as ping")` lived in core/ with no
+    # suppression comment and never once tripped the rule.
     CYPHER_MARKERS: ClassVar[tuple[str, ...]] = (
         "MATCH (",
         "MERGE (",
@@ -1739,6 +1752,212 @@ class SkuelLinter:
         "UNWIND $",
         "CALL db.",
     )
+
+    # Anchor 2 (CYPHER_LEADING_CLAUSES) — clause keywords that may BEGIN a
+    # Cypher statement, matched only at the head of the literal. Position is
+    # the signal, so these need no paren/sigil and the families above stop
+    # being invisible. Three conditions keep prose out, and each is load-bearing:
+    #
+    #   * head position — "cascade DETACH DELETE (default False)" and the 30-odd
+    #     other `DETACH DELETE` docstrings across core/ mention the clause
+    #     mid-sentence; only real Cypher leads with it. (Docstrings are already
+    #     exempt as inert nodes; this keeps the rule honest for prose that is
+    #     assigned or passed rather than hung as a bare statement.)
+    #   * UPPERCASE — the codebase writes Cypher clauses uppercase, so requiring
+    #     it costs nothing and drops the entire lowercase-English surface.
+    #   * followed by whitespace + an operand — rules out the bare HTTP verb
+    #     "DELETE", header names like "SET-COOKIE", and `RETURNS`/`CREATED`/
+    #     `WITHOUT`-style words that merely start with a clause name.
+    #
+    # Known, deliberate limit: lowercase Cypher (`"return 1 as ping"`) is not
+    # detected. Matching case-insensitively here would light up ordinary prose,
+    # and every query in this tree is uppercase.
+    #
+    # Admin/security DDL (GRANT, REVOKE, ALTER) is deliberately absent: core/
+    # has no admin-DDL surface, and those words carry real prose risk in a
+    # codebase with roles and permissions.
+    CYPHER_LEADING_CLAUSES: ClassVar[tuple[str, ...]] = (
+        "CALL",
+        "CREATE",
+        "DELETE",
+        "DETACH DELETE",
+        "DROP",
+        "EXPLAIN",
+        "FOREACH",
+        "LOAD CSV",
+        "MATCH",
+        "MERGE",
+        "OPTIONAL MATCH",
+        "PROFILE",
+        "REMOVE",
+        "RETURN",
+        "SET",
+        "SHOW",
+        "UNWIND",
+        "USE",
+        "WITH",
+    )
+
+    # Longest-first so "DETACH DELETE" wins over "DELETE" and the reported
+    # marker names the clause actually written.
+    _LEADING_CLAUSE_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"^(" + "|".join(sorted(CYPHER_LEADING_CLAUSES, key=len, reverse=True)) + r")(?=\s)"
+    )
+
+    @classmethod
+    def _leading_cypher_clause(cls, text: str) -> str | None:
+        """The Cypher clause keyword ``text`` begins with, or None.
+
+        Skips leading blank and ``//`` comment lines so a query that opens with
+        a planner hint comment still anchors on its first real clause.
+        """
+        for raw in text.split("\n"):
+            head = raw.strip()
+            if not head or head.startswith("//"):
+                continue
+            match = cls._LEADING_CLAUSE_RE.match(head)
+            if match is None or not head[match.end() :].strip():
+                return None
+            return match.group(1)
+        return None
+
+    @staticmethod
+    def _flatten_concat(root: ast.BinOp) -> tuple[list[ast.expr], list[ast.BinOp]]:
+        """Spine operands and nested ``+`` BinOps of a concatenation chain.
+
+        Walks only the ``Add`` spine — never into an operand's own expression —
+        so a string literal buried in an interpolated call argument is not
+        mistaken for part of the query being concatenated.
+        """
+        leaves: list[ast.expr] = []
+        nested: list[ast.BinOp] = []
+
+        def visit(node: ast.expr) -> None:
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+                if node is not root:
+                    nested.append(node)
+                visit(node.left)
+                visit(node.right)
+            else:
+                leaves.append(node)
+
+        visit(root)
+        return leaves, nested
+
+    @staticmethod
+    def _render_parts(leaves: list[ast.expr]) -> str:
+        """Flatten concat operands to text, non-literals replaced by the sentinel."""
+        return "".join(
+            leaf.value
+            if isinstance(leaf, ast.Constant) and isinstance(leaf.value, str)
+            else render_fstring(leaf)
+            if isinstance(leaf, ast.JoinedStr)
+            else INTERPOLATION_SENTINEL
+            for leaf in leaves
+        )
+
+    @staticmethod
+    def _literal_pieces(leaves: list[ast.expr]) -> list[str]:
+        """The literal texts inside ``leaves`` that the per-piece pass will see.
+
+        Exactly the strings a whole-composite report would duplicate — no more.
+        Deliberately does NOT descend into an operand's own expression: a literal
+        passed as a call argument is its own detection, not a piece of the query
+        being assembled around it.
+        """
+        pieces: list[str] = []
+        for leaf in leaves:
+            if isinstance(leaf, ast.Constant) and isinstance(leaf.value, str):
+                pieces.append(leaf.value)
+            elif isinstance(leaf, ast.JoinedStr):
+                pieces.extend(
+                    part.value
+                    for part in leaf.values
+                    if isinstance(part, ast.Constant) and isinstance(part.value, str)
+                )
+        return pieces
+
+    @classmethod
+    def iter_authored_cypher(cls, tree: ast.AST, inert_ids: set[int]) -> list[tuple[ast.expr, str]]:
+        """Every string in ``tree`` that reads as authored Cypher, as (node, marker).
+
+        THE single traversal behind SKUEL021. ``tests/unit/test_core_utils_boundary.py``
+        calls it too, so the boundary guard cannot drift from the rule it derives
+        from — sharing only the predicate was not enough, and the two disagreed
+        on f-strings until they shared the walk as well (Codex, PR #829).
+
+        Composite strings are judged as a WHOLE, never as the fragments
+        ``ast.walk`` hands out. ``f"RETURN {v}"`` and ``"RETURN " + v`` each tear
+        into a leading piece with no operand left to anchor on, while
+        ``f"cascade {mode} DETACH DELETE (...)"`` tears into a trailing piece
+        that FALSELY leads with a clause keyword. Rendering the whole — with
+        interpolations replaced by a sentinel — is right in both directions.
+        """
+        fstring_parts = fstring_part_ids(tree)
+        composite_leaves: set[int] = set()
+        nested_concats: set[int] = set()
+        concat_roots: list[tuple[ast.BinOp, list[ast.expr]]] = []
+
+        # Pass 1: resolve concatenation chains to their outermost root, so a
+        # nested `+` never re-reports the text its root already covers.
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)):
+                continue
+            if id(node) in nested_concats:
+                continue
+            leaves, nested = cls._flatten_concat(node)
+            if not any(
+                (isinstance(leaf, ast.Constant) and isinstance(leaf.value, str))
+                or isinstance(leaf, ast.JoinedStr)
+                for leaf in leaves
+            ):
+                continue
+            nested_concats.update(id(n) for n in nested)
+            composite_leaves.update(
+                id(leaf) for leaf in leaves if isinstance(leaf, ast.Constant | ast.JoinedStr)
+            )
+            concat_roots.append((node, leaves))
+
+        found: list[tuple[ast.expr, str]] = []
+
+        def take_whole(node: ast.expr, leaves: list[ast.expr]) -> None:
+            # Skip only what the per-piece pass ACTUALLY reports — a piece that
+            # matched — never merely "the rendered whole matched". Those differ:
+            # `"MATCH " + "(n) RETURN n"` renders to a marker that no single
+            # piece contains, because two literal operands concatenate with
+            # nothing between them. (An f-string cannot hit this: the parser
+            # never leaves two adjacent Constant parts, so its pieces really are
+            # sentinel-separated. Concatenation broke that invariant when it was
+            # added — Codex, PR #829.)
+            pieces = cls._literal_pieces(leaves)
+            if any(m in piece for piece in pieces for m in cls.CYPHER_MARKERS):
+                return
+            rendered = cls._render_parts(leaves)
+            marker = next(
+                (m for m in cls.CYPHER_MARKERS if m in rendered), None
+            ) or cls._leading_cypher_clause(rendered)
+            if marker is not None:
+                found.append((node, marker))
+
+        for root, leaves in concat_roots:
+            take_whole(root, leaves)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                if id(node) not in composite_leaves:
+                    take_whole(node, [node])
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if id(node) in inert_ids:
+                    continue
+                # Anywhere-markers keep their per-piece granularity (and line
+                # numbers); the head anchor only ever runs on a whole.
+                marker = next((m for m in cls.CYPHER_MARKERS if m in node.value), None)
+                if marker is None and id(node) not in fstring_parts | composite_leaves:
+                    marker = cls._leading_cypher_clause(node.value)
+                if marker is not None:
+                    found.append((node, marker))
+
+        return found
 
     @staticmethod
     def _inert_string_constant_ids(tree: ast.AST) -> set[int]:
@@ -1808,9 +2027,17 @@ class SkuelLinter:
         Cypher). This keeps the rule quiet on the docstring Cypher examples that live
         throughout ``core/utils`` while still catching real leaks anywhere in core/.
 
-        High-signal clause markers only, to avoid flagging prose. Relocate the query
-        into an adapter backend behind a ``core/ports`` protocol (see the
-        connection-fetch / relationship / ingestion backends for the pattern).
+        Two anchors decide whether a literal is Cypher (see ``CYPHER_MARKERS`` /
+        ``CYPHER_LEADING_CLAUSES`` for the full reasoning): a paren/sigil-anchored
+        marker anywhere in the string, OR a clause keyword at its head. The head
+        anchor is what covers the statement families a substring test cannot see —
+        ``RETURN``-only queries, ``SHOW INDEXES``, ``PROFILE``/``EXPLAIN``, and
+        ``DELETE`` / ``DETACH DELETE`` / ``SET`` / ``REMOVE`` / ``LOAD CSV``
+        statements — without lighting up prose that merely names a clause.
+
+        Relocate the query into an adapter backend behind a ``core/ports``
+        protocol (see the connection-fetch / relationship / ingestion backends
+        for the pattern).
 
         Suppress: # skuel-lint: disable=SKUEL021 -- <reason>
         File-level: # skuel-lint: disable-file=SKUEL021 -- <reason>
@@ -1821,18 +2048,9 @@ class SkuelLinter:
         if tree is None:
             return
 
-        inert_ids = self._inert_ids_for(tree)
         reported_lines: set[int] = set()
 
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
-                continue
-            if id(node) in inert_ids:
-                continue
-            marker = next((m for m in self.CYPHER_MARKERS if m in node.value), None)
-            if marker is None:
-                continue
-
+        for node, marker in self.iter_authored_cypher(tree, self._inert_ids_for(tree)):
             line_num = node.lineno
             # One violation per source line (matches the old line-granularity and
             # collapses the several Constant parts an f-string splits into).

@@ -2642,6 +2642,277 @@ class TestSKUEL021:
 
 
 # ============================================================================
+# SKUEL021: statement-head clause anchor
+#
+# CYPHER_MARKERS matches a substring ANYWHERE, so every marker has to be
+# paren/sigil-anchored to stay out of prose — which left whole statement
+# families with nothing to match on. The regression that proved it: for a long
+# time `core/services/system_service_init.py` ran
+# `await session.run("RETURN 1 as ping")` on a raw driver session, fully in
+# SKUEL021's scope, with no suppression comment, and the rule never fired.
+# (That module has since moved to services_bootstrap/_system_health.py, so
+# core/ is clean of the class today — these tests exist so it stays that way.)
+# ============================================================================
+
+
+class TestSKUEL021LeadingClauseAnchor:
+    # --- Families the anywhere-substring anchor could not see ---
+
+    def test_detects_return_only_query(self) -> None:
+        """The historical leak, verbatim: no paren, no sigil, still Cypher."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'await session.run("RETURN 1 as ping")')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+        assert violations[0].severity == Severity.ERROR
+
+    def test_detects_show_indexes(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "SHOW INDEXES YIELD name, state"')
+        assert len(violations) == 1
+
+    def test_detects_show_constraints(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "SHOW CONSTRAINTS YIELD name"')
+        assert len(violations) == 1
+
+    def test_detects_profile_prefixed_query(self) -> None:
+        """`MATCH p=(a)` has no `MATCH (` substring — only the head anchor sees this."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "PROFILE MATCH p=(a)-[:USES_KU]->(b) RETURN p"')
+        assert len(violations) == 1
+
+    def test_detects_explain_prefixed_query(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "EXPLAIN MATCH p=(a)-[:USES_KU]->(b) RETURN p"')
+        assert len(violations) == 1
+
+    def test_detects_detach_delete_statement(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "DETACH DELETE n"')
+        assert len(violations) == 1
+
+    def test_detects_delete_statement(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "DELETE r"')
+        assert len(violations) == 1
+
+    def test_detects_set_statement(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "SET n.updated_at = $now"')
+        assert len(violations) == 1
+
+    def test_detects_remove_statement(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "REMOVE n.legacy_namespace"')
+        assert len(violations) == 1
+
+    def test_detects_load_csv_statement(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "LOAD CSV FROM $url AS row RETURN row"')
+        assert len(violations) == 1
+
+    def test_detects_non_db_call_procedure(self) -> None:
+        """`CALL db.` was the only procedure namespace with a marker."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "CALL gds.graph.project($name, $nodes, $rels)"')
+        assert len(violations) == 1
+
+    def test_reports_the_clause_actually_written(self) -> None:
+        """Longest-first matching: `DETACH DELETE`, not the `DELETE` prefix."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "DETACH DELETE n"')
+        assert "DETACH DELETE" in violations[0].message
+
+    def test_anchors_past_leading_comment_and_blank_lines(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        content = 'q = """\n// planner hint\nRETURN 1 as ping\n"""\nrun(q)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    # --- Prose must stay quiet: each guard, exercised ---
+
+    def test_ignores_detach_delete_named_mid_sentence(self) -> None:
+        """The head anchor, not the docstring carve-out: this string is *used*.
+
+        `DETACH DELETE` is written mid-sentence ~30 times across core/ as a
+        synonym for "delete". Only a statement that LEADS with it is Cypher.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'help_text = "cascade DETACH DELETE (default False)"')
+        assert len(violations) == 0
+
+    def test_ignores_bare_http_verb(self) -> None:
+        """A clause keyword with no operand is not a statement."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'method = "DELETE"')
+        assert len(violations) == 0
+
+    def test_ignores_hyphenated_header_name(self) -> None:
+        """Whitespace after the keyword is required — `SET-COOKIE` is not `SET`."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'header = "SET-COOKIE"')
+        assert len(violations) == 0
+
+    def test_ignores_words_that_merely_start_with_a_clause_name(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        content = (
+            'a = "RETURNS the caller\'s uid"\n'
+            'b = "CREATED at ingestion time"\n'
+            'c = "WITHOUT a parent entity"\n'
+            'd = "USER facing label"\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_ignores_lowercase_prose_leading_with_a_clause_word(self) -> None:
+        """Uppercase-only is the prose defence — and it is what makes it safe."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'msg = "set the value and return the result"')
+        assert len(violations) == 0
+
+    def test_ignores_docstring_leading_with_a_clause_keyword(self) -> None:
+        """`core/ports/` docstrings open with "DETACH DELETE a user ..." — inert."""
+        linter = make_linter(["SKUEL021"])
+        content = (
+            "def delete_user(uid):\n"
+            '    """DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."""\n'
+            "    return None\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    # --- f-strings: the head anchor reads the whole, never a torn part ---
+
+    def test_detects_fstring_whose_operand_is_interpolated(self) -> None:
+        """`f"RETURN {value}"` splits into the Constant "RETURN " — an operand short.
+
+        Anchoring on the rendered whole (interpolation → sentinel) restores it.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'value = 1\nq = f"RETURN {value}"\nrun(q)')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_detects_fstring_delete_with_interpolated_operand(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'uid = 1\nq = f"DELETE {uid}"\nrun(q)')
+        assert len(violations) == 1
+
+    def test_ignores_prose_fstring_whose_fragment_leads_with_a_clause(self) -> None:
+        """`f"cascade {mode} DETACH DELETE (...)"` tears into a fragment that
+        falsely LEADS with the clause. The whole string plainly does not."""
+        linter = make_linter(["SKUEL021"])
+        content = 'mode = "x"\nmsg = f"cascade {mode} DETACH DELETE (default False)"'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_fstring_head_anchor_reports_once(self) -> None:
+        """The JoinedStr and its parts must not both report."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'a = 1\nb = 2\nq = f"RETURN {a} AS x, {b} AS y"\nrun(q)')
+        assert len(violations) == 1
+
+    def test_fstring_anywhere_marker_still_reports_once(self) -> None:
+        """The pre-existing anywhere-marker path keeps its per-part granularity."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter, 'uid = 1\nq = f"MATCH (n) WHERE n.id = {uid} RETURN n"\nrun(q)'
+        )
+        assert len(violations) == 1
+
+    # --- `+` concatenation is a composite too, judged as a whole ---
+
+    def test_detects_concatenated_head_only_query(self) -> None:
+        """`"RETURN " + projection` tears the same way an f-string does."""
+        linter = make_linter(["SKUEL021"])
+        content = 'projection = "n.uid"\nquery = "RETURN " + projection\nrun(query)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_ignores_prose_built_by_concatenation(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        content = 'mode = "x"\nmsg = "cascade " + mode + " DETACH DELETE (default False)"'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_concatenated_query_reports_once(self) -> None:
+        """A nested `+` chain resolves to its outermost root, not once per link."""
+        linter = make_linter(["SKUEL021"])
+        content = 'a = "1"\nb = "2"\nq = "RETURN " + a + " AS x, " + b + " AS y"\nrun(q)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_detects_marker_spanning_two_concatenated_literals(self) -> None:
+        """`"MATCH " + "(n) RETURN n"` — the marker exists only in the whole.
+
+        Two literal operands concatenate with NOTHING between them, so no single
+        piece carries `MATCH (`. Suppressing the whole-report on "the rendered
+        text matched" (rather than "a piece matched") made this invisible.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "MATCH " + "(n) RETURN n"\nrun(q)')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_concatenated_marker_still_reports_once(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "MATCH (n)" + " RETURN n"\nrun(q)')
+        assert len(violations) == 1
+
+    def test_ignores_non_string_concatenation(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, "total = count + offset")
+        assert len(violations) == 0
+
+    def test_flatten_concat_walks_only_the_add_spine(self) -> None:
+        """A `+` inside an operand's own expression is not part of the chain.
+
+        Otherwise a string literal buried in an interpolated call argument would
+        be spliced into the query text being reconstructed.
+        """
+        tree = ast.parse('x = "a " + helper(1 + 2) + " b"')
+        root = tree.body[0].value  # type: ignore[attr-defined]
+        leaves, nested = SkuelLinter._flatten_concat(root)
+        assert [type(leaf).__name__ for leaf in leaves] == ["Constant", "Call", "Constant"]
+        assert len(nested) == 1  # the inner spine link — NOT the `1 + 2` inside the call
+
+    # --- Regression guard bound to the real files, not a hand-written stand-in ---
+
+    def test_core_ports_docstring_prose_stays_clean(self) -> None:
+        """The six `core/ports/` docstrings that name DETACH DELETE, linted for real.
+
+        A synthetic equivalent would only prove the equivalent is clean. This
+        runs the actual rule over the actual files, so a future widening cannot
+        regress them silently.
+        """
+        ports = Path(__file__).resolve().parents[3] / "core" / "ports"
+        prose_files = [
+            "infrastructure_protocols.py",
+            "domain_protocols.py",
+            "conversation_protocols.py",
+            "curriculum_protocols.py",
+        ]
+        checked = 0
+        for name in prose_files:
+            path = ports / name
+            content = path.read_text(encoding="utf-8")
+            assert "DETACH DELETE" in content, f"{name} no longer exercises this guard"
+            checked += 1
+
+            linter = make_linter(["SKUEL021"])
+            tree = ast.parse(content)
+            linter._check_raw_cypher_in_services(
+                path, Path("core/ports") / name, content, content.split("\n"), tree
+            )
+            assert linter.result.violations == [], (
+                f"SKUEL021 fired on docstring prose in core/ports/{name}"
+            )
+        assert checked == len(prose_files)
+
+
+# ============================================================================
 # SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
 # ============================================================================
 
