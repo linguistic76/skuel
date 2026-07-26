@@ -220,6 +220,26 @@ class TestCommentMasking:
         fragment = "MATCH (n:Typo) WHERE n.uri = 'bolt://host' RETURN n"
         assert _labels(fragment) == ["Typo"]
 
+    @pytest.mark.parametrize(
+        "identifier",
+        [
+            "http://key",  # `//` inside an escaped property name
+            "/* odd */",  # a block-comment opener inside one
+            "a``b//c",  # a DOUBLED backtick — escapes, does not close
+        ],
+    )
+    def test_comment_openers_inside_backtick_identifiers_are_not_comments(
+        self, identifier: str
+    ) -> None:
+        """Masking a live clause away would make the rule silent.
+
+        That is the exact failure this rule exists to prevent, so the masker
+        has to track backtick-escaped identifiers as well as quoted strings
+        (Codex P2 on #831).
+        """
+        fragment = f"MATCH (n:Task) WHERE n.`{identifier}` = $x RETURN [(a)-[:BAD_EDGE]->(b)]"
+        assert "BAD_EDGE" in [n.value for n in scan_names(fragment)]
+
     def test_line_offsets_survive_masking(self) -> None:
         """Masking preserves length and newlines, so offsets stay truthful."""
         fragment = "/* header */\nMATCH (n:Typo)\nRETURN n"

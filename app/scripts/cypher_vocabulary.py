@@ -326,9 +326,13 @@ def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
     offset or line number computed on the masked copy still points at the right
     place in the original.
 
-    Quoted strings are tracked, so a ``//`` inside a string literal
-    (``'neo4j://host'``) is not mistaken for a comment. Block comments do not
-    nest, per the Cypher spec.
+    Quoted strings AND backtick-escaped identifiers are tracked, so neither a
+    ``//`` inside a string literal (``'neo4j://host'``) nor one inside an escaped
+    property name (`` n.`http://key` ``) is mistaken for a comment — masking a
+    live clause away would turn this rule silent, which is the exact failure it
+    exists to prevent. The two use different escapes: a backslash inside a
+    quoted string, a DOUBLED backtick inside an identifier. Block comments do
+    not nest, per the Cypher spec.
 
     ``keep_noqa`` leaves ``//`` comments carrying a ``noqa:`` marker intact —
     ``cypher_linter``'s statement splitter needs them to survive so a
@@ -341,13 +345,20 @@ def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
     i = 0
     while i < len(text):
         char = text[i]
-        if in_string is not None:
+        if in_string == "`":
+            # Backtick identifiers escape by DOUBLING, not by backslash.
+            if char == "`":
+                if text[i + 1 : i + 2] == "`":
+                    i += 2  # an escaped backtick — still inside the identifier
+                    continue
+                in_string = None
+        elif in_string is not None:
             if char == "\\":
                 i += 2  # skip escaped character inside string
                 continue
             if char == in_string:
                 in_string = None
-        elif char in ("'", '"'):
+        elif char in ("'", '"', "`"):
             in_string = char
         elif text[i : i + 2] == "//":
             end = text.find("\n", i)
