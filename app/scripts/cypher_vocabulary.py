@@ -182,7 +182,7 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
 # the paren anchor could not see turned up. The anchor's ceiling, not its
 # tuning, is what keeps producing them.
 _CYPHER_CONTEXT_PATTERN = (
-    r"(?:MATCH|MERGE|CREATE)\s*\("
+    r"(?:MATCH|MERGE|CREATE|INSERT)\s*\("
     r"|CREATE\s+(?:\w+\s+){0,2}?(?:INDEX|CONSTRAINT)\b"
     r"|(?:MATCH|MERGE|CREATE)\s+\w+\s*=\s*\("
     r"|UNWIND \$"
@@ -218,6 +218,19 @@ _CYPHER_CONTEXT_PATTERN = (
 # pass `declared_cypher=True` and skip BOTH the uppercase requirement and the
 # gate itself — see `scan_names`.
 #
+# Audited for completeness against modern Cypher rather than grown one report at
+# a time: `INSERT` (the Cypher 25 / GQL create clause, which carries `(n:Label)`
+# exactly as `CREATE` does) and `NODETACH` were the only statement heads missing
+# (Codex P2 on #831 named `INSERT`). Everything else that can open a statement is
+# either here or already caught by anchor 1 — verified for `CYPHER runtime=...`
+# and `USING PERIODIC COMMIT`, both of which reach a paren-anchored marker.
+# `INSERT` is added to anchor 1's paren arm too, for the same reason `CREATE` is
+# there: the form is prose-safe wherever it appears, not only at the head.
+#
+# Admin/security DDL (GRANT, REVOKE, DENY, ALTER) is deliberately absent, as it
+# is from SKUEL021's sibling list: this tree authors no admin DDL, and those
+# words carry real prose risk in a codebase full of roles and permissions.
+#
 # The list is NOT pruned to "clauses that can carry vocabulary". Pruning would
 # invent a second judgement call — and get it wrong: `DROP CONSTRAINT ... FOR
 # (n:Label)` and `LOAD CSV ... MERGE (n:Label)` both carry names. One question,
@@ -237,9 +250,11 @@ CYPHER_LEADING_CLAUSES: tuple[str, ...] = (
     "DROP",
     "EXPLAIN",
     "FOREACH",
+    "INSERT",
     "LOAD CSV",
     "MATCH",
     "MERGE",
+    "NODETACH",
     "OPTIONAL MATCH",
     "PROFILE",
     "REMOVE",

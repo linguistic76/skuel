@@ -63,6 +63,9 @@ class TestLeadingClauseAnchor:
             "DROP INDEX entity_uid_idx IF EXISTS",
             "LOAD CSV FROM $url AS row",
             "RETURN 1 AS ping",
+            # Cypher 25 / GQL create clause — carries `(n:Label)` like CREATE.
+            "INSERT (n:Bogus)",
+            "NODETACH DELETE n",
         ],
     )
     def test_admits_statement_head_clauses(self, fragment: str) -> None:
@@ -124,6 +127,7 @@ class TestLeadingClauseAnchor:
             "MATCH",
             # A word that merely starts with a clause name.
             "RETURNS a mapping of uid to title",
+            "INSERTS a row into the audit table",
             "CREATED at the ingestion boundary",
             "WITHOUT a registered owner",
             "USES_KU is the composition edge",
@@ -182,6 +186,18 @@ class TestLeadingClauseAnchor:
         """Anchor 1 is not replaced — it catches Cypher that does not LEAD."""
         fragment = "some prefix ... MATCH (n:Ku) RETURN n"
         assert looks_like_cypher(fragment) is True
+
+    def test_insert_is_on_the_paren_anchor_too(self) -> None:
+        """Same reason CREATE is: the form is prose-safe wherever it appears."""
+        assert [n.value for n in scan_names("... INSERT (n:Typo) ...")] == ["Typo"]
+
+    @pytest.mark.parametrize(
+        "query",
+        ["CYPHER runtime=slotted MATCH (n:Typo) RETURN n", "USING PERIODIC COMMIT MERGE (n:Typo)"],
+    )
+    def test_query_prefixes_reach_anchor_1(self, query: str) -> None:
+        """Completeness check: these need no clause-list entry of their own."""
+        assert [n.value for n in scan_names(query)] == ["Typo"]
 
 
 # ============================================================================
