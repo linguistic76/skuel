@@ -35,6 +35,8 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
@@ -152,6 +154,97 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
             base / ENUM_SOURCES[NameKind.LABEL][0],
             ENUM_SOURCES[NameKind.LABEL][1],
         ),
+    )
+
+
+# =============================================================================
+# Scan diagnostics — the instrument
+# =============================================================================
+#
+# Every failure mode of the scanner below is SILENT by construction. An item
+# that does not full-match is dropped; a pattern body whose every part fails
+# `name_re` yields nothing; a fragment the gate refuses returns `[]`. Nothing
+# anywhere says "I looked at this and could not read it" — which is the exact
+# fault these rules exist to catch (a name Neo4j cannot match reports nothing),
+# reproduced one layer down.
+#
+# That is why #831 ran 19 review rounds without converging: the only way to
+# discover a gap was for a reviewer to IMAGINE an input, and ~16 of its ~27
+# findings were valid Cypher forms with zero instances in this tree. An
+# unbounded, imagination-driven tail becomes a finite, measured one the moment
+# the scanner can say what it dropped.
+#
+# OPT-IN and OFF by default. `scan_names` behaves identically whether or not
+# anything is listening, and nothing here is wired into `./dev quality` — see
+# `scripts/cypher_scan_diagnostics.py`, the standalone entry point. A drop is
+# NOT a violation: "the scanner could not read this span" and "this code is
+# wrong" are different claims, and most drops are correct (a property-only
+# `SET`, a dynamic `$(...)` operand). Promoting any of these to a violation
+# class is a separate, deliberate decision.
+
+
+class ScanIssue(StrEnum):
+    """A span the scanner admitted but could not read."""
+
+    REJECTED_BY_GATE = "rejected-by-gate"
+    """The gate refused a fragment that carries a name the scanner would have
+    recovered. Anchor coverage, not name coverage."""
+
+    UNREADABLE_PATTERN_BODY = "unreadable-pattern-body"
+    """`(n:...)` / `[r:...]` matched, but no part of the body survived the
+    name regex. Correct for a dynamic operand; a silent miss otherwise."""
+
+    UNPARSED_MUTATION_ITEM = "unparsed-mutation-item"
+    """A `SET`/`REMOVE` item carrying a top-level `:` — so it is label-SHAPED —
+    that `_LABEL_MUTATION_ITEM_RE` did not full-match."""
+
+    MUTATION_CLAUSE_NO_ITEM_MATCHED = "mutation-clause-no-item-matched"
+    """A `SET`/`REMOVE` clause no item of which full-matched, label-shaped or
+    not. Deliberately unfiltered: it is the raw denominator that proves the
+    `UNPARSED_MUTATION_ITEM` shape filter is not hiding a whole class. Expect
+    hundreds — every property-only `SET n.title = $t` lands here, correctly."""
+
+
+@dataclass(frozen=True)
+class ScanDiagnostic:
+    """One span the scanner dropped without a word."""
+
+    issue: ScanIssue
+    text: str
+    """The offending span, verbatim (post-masking, so offsets line up)."""
+    line_offset: int
+    """Newlines between the start of the scanned fragment and this span."""
+
+
+_DIAGNOSTIC_SINK: list[ScanDiagnostic] | None = None
+
+
+@contextmanager
+def recording_scan_diagnostics() -> Iterator[list[ScanDiagnostic]]:
+    """Collect every drop `scan_names` makes inside this block.
+
+    The sink is module-global and restored on exit, so nesting is safe and an
+    exception cannot leave recording switched on. Not thread-safe, and does not
+    need to be: both linters are single-threaded, and the alternative — a
+    parameter threaded through every scanner — would put a diagnostic-only
+    argument in the signature of the production call path.
+    """
+    global _DIAGNOSTIC_SINK
+    previous = _DIAGNOSTIC_SINK
+    sink: list[ScanDiagnostic] = []
+    _DIAGNOSTIC_SINK = sink
+    try:
+        yield sink
+    finally:
+        _DIAGNOSTIC_SINK = previous
+
+
+def _note(issue: ScanIssue, text: str, source: str, pos: int) -> None:
+    """Record a drop, if anyone is listening. One `is not None` otherwise."""
+    if _DIAGNOSTIC_SINK is None:
+        return
+    _DIAGNOSTIC_SINK.append(
+        ScanDiagnostic(issue=issue, text=text, line_offset=source.count("\n", 0, pos))
     )
 
 
@@ -378,6 +471,31 @@ _TERMINATOR_WORD_PATTERN = r"\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b"
 _OPENERS = "([{"
 _CLOSERS = ")]}"
 
+
+def _has_top_level_colon(item: str) -> bool:
+    """True if ``item`` carries a `:` outside any bracket — it is label-SHAPED.
+
+    The diagnostic's shape filter. Cypher spells every label item ``var:Label``,
+    so the colon is always present and always at depth 0 — even for the forms
+    the item regex cannot read (``SET n:`Bogus```, whose backtick body is
+    blanked but whose delimiters and colon remain, and ``SET n:$(map:Key)``,
+    whose nested colon sits at depth 1 behind a top-level one). A `SET` item
+    with no top-level colon assigns a property and carries no label to miss;
+    reporting those would bury the signal under every property write in the
+    tree. ``MUTATION_CLAUSE_NO_ITEM_MATCHED`` is the unfiltered counterpart
+    that proves this filter hides no class.
+    """
+    depth = 0
+    for char in item:
+        if char in _OPENERS:
+            depth += 1
+        elif char in _CLOSERS:
+            depth = max(0, depth - 1)
+        elif char == ":" and depth == 0:
+            return True
+    return False
+
+
 # The variable is case-neutral: Cypher allows `SET N:Ku` just as readily as
 # `SET n:Ku` (Codex P2 on #831). The `SET`/`REMOVE` anchor plus the FULL-match
 # requirement on each item is what keeps this precise — the lowercase-only shape
@@ -534,8 +652,8 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
     return "".join(chars)
 
 
-def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]]:
-    """``(item text, offset)`` for every top-level item of every SET/REMOVE clause.
+def _mutation_clause_items(text: str, dialect: _Dialect) -> list[list[tuple[str, int]]]:
+    """``(item text, offset)`` per top-level item, GROUPED BY SET/REMOVE clause.
 
     Walks from each clause keyword tracking bracket depth, so structure decides
     the boundaries rather than a keyword's mere presence:
@@ -551,9 +669,14 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]
 
     ``text`` must already be comment-masked and string-blanked, so no bracket,
     comma or keyword inside a comment or string literal can move the depth.
+
+    Grouped rather than flat so the caller can ask a question a flat list cannot
+    answer: did THIS clause yield no label item at all? That is one of the
+    scanner's silent drops, and the diagnostic reports it.
     """
-    items: list[tuple[str, int]] = []
+    clauses: list[list[tuple[str, int]]] = []
     for head in dialect.mutation_head.finditer(text):
+        items: list[tuple[str, int]] = []
         start = head.end()
         depth = 0
         item_start = start
@@ -580,7 +703,8 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]
                     break
             i += 1
         items.append((text[item_start:i], item_start))
-    return items
+        clauses.append(items)
+    return clauses
 
 
 # The complete set of characters after which a following word is a NAME
@@ -742,6 +866,46 @@ def leading_cypher_clause(fragment: str) -> str | None:
     return _leading_cypher_clause(mask_cypher_comments(fragment), _STRICT)
 
 
+def _pattern_bodies(masked: str) -> Iterator[tuple[NameKind, re.Pattern[str], str, int]]:
+    """``(kind, name regex, readable body, body offset)`` per pattern match.
+
+    THE one walk over pattern position, shared by ``scan_names`` and the gate's
+    shape test so the diagnostic can never claim a name the scanner would not
+    itself have recovered. Interpolated bodies are dropped here: `[:HAS_{x}]`
+    composes its type at runtime and is a sanctioned below-boundary pattern, not
+    a drop worth reporting.
+    """
+    for kind, pattern, name_re in (
+        (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE),
+        (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE),
+    ):
+        for match in pattern.finditer(masked):
+            # Strip the var-length bound BEFORE the interpolation check, not after.
+            # `[:REQUIRES*1..{depth}]` interpolates only the DEPTH — the type name
+            # is static and must still be validated. Testing the raw body first
+            # saw the sentinel in the bound and skipped the whole relationship,
+            # hiding every `*1..{depth}` traversal in the codebase (Codex P2 on #732).
+            body = _VARLEN_RE.sub("", match.group(1))
+            if INTERPOLATION_SENTINEL in body:
+                continue
+            yield kind, name_re, _blank_dynamic_vocabulary(body), match.start(1)
+
+
+def _carries_vocabulary_shape(masked: str) -> bool:
+    """True if a name is written here that the scanners WOULD have recovered.
+
+    The gate-rejection diagnostic's filter. Without it every non-Cypher string
+    literal in the tree is a "drop", which is true and useless; with it the
+    report says the one thing worth hearing — the anchors refused a fragment
+    that really does carry vocabulary.
+    """
+    return any(
+        name_re.fullmatch(part.group())
+        for _, name_re, body, _ in _pattern_bodies(masked)
+        for part in _NAME_PART_RE.finditer(body)
+    )
+
+
 def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedName]:
     """Recover every statically-known label / relationship type in ``fragment``.
 
@@ -788,6 +952,8 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
     dialect = _dialect(declared_cypher)
     masked = mask_cypher_comments(fragment)
     if not declared_cypher and not _is_cypher(masked, dialect):
+        if _DIAGNOSTIC_SINK is not None and _carries_vocabulary_shape(masked):
+            _note(ScanIssue.REJECTED_BY_GATE, fragment, masked, 0)
         return []
     unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
@@ -797,25 +963,17 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
         found.append(ScannedName(kind=kind, value=name, line_offset=masked.count("\n", 0, pos)))
 
     # Pattern position
-    for kind, pattern, name_re in (
-        (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE),
-        (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE),
-    ):
-        for match in pattern.finditer(masked):
-            # Strip the var-length bound BEFORE the interpolation check, not after.
-            # `[:REQUIRES*1..{depth}]` interpolates only the DEPTH — the type name
-            # is static and must still be validated. Testing the raw body first
-            # saw the sentinel in the bound and skipped the whole relationship,
-            # hiding every `*1..{depth}` traversal in the codebase (Codex P2 on #732).
-            body = _VARLEN_RE.sub("", match.group(1))
-            if INTERPOLATION_SENTINEL in body:
-                continue
-            # Same per-name positioning as the mutation scanner below: a
-            # multi-label `(n:A:B)` recorded both at the group start.
-            for part in _NAME_PART_RE.finditer(_blank_dynamic_vocabulary(body)):
-                name = part.group()
-                if name_re.fullmatch(name):
-                    record(kind, name, match.start(1) + part.start())
+    for kind, name_re, body, body_start in _pattern_bodies(masked):
+        # Same per-name positioning as the mutation scanner below: a
+        # multi-label `(n:A:B)` recorded both at the group start.
+        survived = False
+        for part in _NAME_PART_RE.finditer(body):
+            name = part.group()
+            if name_re.fullmatch(name):
+                survived = True
+                record(kind, name, body_start + part.start())
+        if not survived:
+            _note(ScanIssue.UNREADABLE_PATTERN_BODY, body, masked, body_start)
 
     # Predicate position — type(r) = 'X' / type(r) IN ['A', 'B']
     for match in dialect.type_predicate.finditer(masked):
@@ -838,18 +996,25 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
     # where a clause ENDS, and an uppercase clause word inside a property value
     # would close the region early (Codex P2 on #831). Blanking is offset- and
     # length-preserving, so the positions recorded below stay truthful.
-    for chunk, offset in _mutation_clause_items(unquoted, dialect):
-        item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
-        if item is None:
-            continue
-        # Each label at ITS OWN position, not the start of the colon group —
-        # `SET n:Known:\n  Bogus` reported `Bogus` on `Known`'s line, which is
-        # both a wrong location and a suppression that cannot be placed beside
-        # the name it must suppress (Codex P2 on #831).
-        for part in _NAME_PART_RE.finditer(item.group(1)):
-            name = part.group()
-            if _LABEL_NAME_RE.fullmatch(name):
-                record(NameKind.LABEL, name, offset + item.start(1) + part.start())
+    for items in _mutation_clause_items(unquoted, dialect):
+        matched_any = False
+        for chunk, offset in items:
+            item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
+            if item is None:
+                if _has_top_level_colon(chunk):
+                    _note(ScanIssue.UNPARSED_MUTATION_ITEM, chunk, unquoted, offset)
+                continue
+            matched_any = True
+            # Each label at ITS OWN position, not the start of the colon group —
+            # `SET n:Known:\n  Bogus` reported `Bogus` on `Known`'s line, which is
+            # both a wrong location and a suppression that cannot be placed beside
+            # the name it must suppress (Codex P2 on #831).
+            for part in _NAME_PART_RE.finditer(item.group(1)):
+                name = part.group()
+                if _LABEL_NAME_RE.fullmatch(name):
+                    record(NameKind.LABEL, name, offset + item.start(1) + part.start())
+        if not matched_any and items:
+            _note(ScanIssue.MUTATION_CLAUSE_NO_ITEM_MATCHED, items[0][0], unquoted, items[0][1])
 
     return found
 

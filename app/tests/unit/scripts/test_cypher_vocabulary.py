@@ -23,7 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
     INTERPOLATION_SENTINEL,
     NameKind,
+    ScanIssue,
     looks_like_cypher,
+    recording_scan_diagnostics,
     scan_names,
 )
 
@@ -575,3 +577,76 @@ class TestBacktickEscapedVocabulary:
     )
     def test_escaped_names_are_not_recovered(self, fragment: str) -> None:
         assert [n.value for n in scan_names(fragment) if "Bogus" in n.value.upper()] == []
+
+
+# ============================================================================
+# The instrument — what the scanner admitted but could not read
+# ============================================================================
+
+
+class TestScanDiagnostics:
+    """Every drop `scan_names` makes is silent; the recorder makes it visible.
+
+    The rules exist because Neo4j reports nothing for a name it cannot match.
+    The scanner had the same shape: an item that does not full-match, a body
+    whose parts all fail, a fragment the gate refuses — each vanishes without a
+    word, so the only way to find a gap was for a reviewer to imagine an input.
+    """
+
+    def test_recording_is_off_by_default(self) -> None:
+        """Guard — the production path must not change when nobody is listening."""
+        assert [n.value for n in scan_names("MATCH (n:Ku) RETURN n")] == ["Ku"]
+
+    def test_readable_input_records_nothing(self) -> None:
+        with recording_scan_diagnostics() as sink:
+            scan_names("MATCH (n:Ku)-[:OWNS]->(m:Entity) RETURN n")
+        assert sink == []
+
+    def test_unreadable_pattern_body_is_recorded(self) -> None:
+        """`(n:$(labelExpr))` has no static name — a CORRECT drop, now visible."""
+        with recording_scan_diagnostics() as sink:
+            scan_names("MATCH (n:$(labelExpr)) RETURN n")
+        assert [d.issue for d in sink] == [ScanIssue.UNREADABLE_PATTERN_BODY]
+
+    def test_unparsed_mutation_item_is_recorded(self) -> None:
+        """A label-SHAPED item the item regex cannot read — the real signal."""
+        with recording_scan_diagnostics() as sink:
+            scan_names("MATCH (n) SET n:`Bogus` RETURN n")
+        assert ScanIssue.UNPARSED_MUTATION_ITEM in [d.issue for d in sink]
+
+    def test_property_only_mutation_is_recorded_as_the_raw_denominator(self) -> None:
+        """`SET n.title = $t` carries no label, so it is NOT an unparsed item.
+
+        It still lands in the unfiltered category, which is what proves the
+        label-shape filter above hides no whole class of input.
+        """
+        with recording_scan_diagnostics() as sink:
+            scan_names("MATCH (n) SET n.title = $t RETURN n")
+        assert [d.issue for d in sink] == [ScanIssue.MUTATION_CLAUSE_NO_ITEM_MATCHED]
+
+    def test_gate_rejection_is_recorded_when_a_real_name_is_present(self) -> None:
+        """A bare pattern fragment composed into a query later — anchor blind spot.
+
+        `activity_backends.py:94` assigns exactly this shape to a variable. Both
+        of its names are registered, so no rule fires today; the gate would not
+        have seen a typo'd one either.
+        """
+        with recording_scan_diagnostics() as sink:
+            assert scan_names("(t:Entity)") == []
+        assert [d.issue for d in sink] == [ScanIssue.REJECTED_BY_GATE]
+
+    def test_gate_rejection_of_prose_is_not_recorded(self) -> None:
+        """Without the name filter every non-Cypher string is a 'drop' — true, useless."""
+        with recording_scan_diagnostics() as sink:
+            assert scan_names("just some ordinary prose") == []
+        assert sink == []
+
+    def test_nested_recording_restores_the_outer_sink(self) -> None:
+        """The sink is module-global; a nested block must not steal the outer's."""
+        with recording_scan_diagnostics() as outer:
+            scan_names("MATCH (n:$(a)) RETURN n")
+            with recording_scan_diagnostics() as inner:
+                scan_names("MATCH (n:$(b)) RETURN n")
+            scan_names("MATCH (n:$(c)) RETURN n")
+        assert len(inner) == 1
+        assert len(outer) == 2
