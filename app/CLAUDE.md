@@ -565,7 +565,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 | Rule | Guards | Severity |
 |------|--------|----------|
-| SKUEL001 | No APOC in `core/` (docstring-aware; unsuppressable) | CRITICAL |
+| SKUEL001 | No APOC above the boundary — `core/`, `adapters/inbound/`, `ui/` (docstring-aware; unsuppressable) | CRITICAL |
 | SKUEL003 | `.is_error` not `.is_err` | ERROR |
 | SKUEL007 | `Errors` factory (incl. `str(...)` wraps) — services + `adapters/inbound/`, `ui/` | WARNING |
 | SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |
@@ -577,7 +577,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 | SKUEL017 | No bare `except Exception` — specific types from `exception_types.py` | ERROR |
 | SKUEL019 | `get_credential()` not raw `os.getenv()` on credential names | ERROR |
 | SKUEL020 | `request: Request` not `request: Any` in handlers (causes FastHTML 400) | ERROR |
-| SKUEL021 | No raw Cypher in `core/` — all Cypher in `adapters/persistence/neo4j/` (docstring-aware) | ERROR |
+| SKUEL021 | No raw Cypher above the boundary — `core/`, `adapters/inbound/`, `ui/`; all Cypher in `adapters/persistence/neo4j/` (docstring-aware). Composition root (`services_bootstrap/`) is deliberately out of scope — it may ping the driver it built | ERROR |
 | SKUEL022 | No `adapters/` imports in `core/` — `TYPE_CHECKING`-only imports exempt | ERROR |
 | SKUEL024 | No `cls=` + `**kwargs` collision in FT helpers — fix: `cls=f"...{cls}".strip()` | ERROR |
 | SKUEL025 | No deleted Activity `*UpdatePayload` — use `*UpdateIntent` or `*UpdateRequest.to_intent()` | ERROR |

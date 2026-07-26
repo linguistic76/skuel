@@ -668,39 +668,4 @@ def create_system_api_routes(
     return routes
 
 
-# ============================================================================
-# STANDALONE HEALTH CHECK FUNCTIONS
-# ============================================================================
-
-
-async def check_database_health(adapter):
-    """Check database health independently."""
-    try:
-        start = datetime.now(UTC)
-        await adapter.execute_query("RETURN 1 as ping", {})
-        response_time = int((datetime.now(UTC) - start).total_seconds() * 1000)
-
-        return {"healthy": True, "response_time_ms": response_time}
-    except Exception as e:  # safety-net: health check must never raise
-        return {"healthy": False, "error": str(e)}
-
-
-async def check_service_health(service):
-    """Check individual service health."""
-    try:
-        # Most services should have a health check method
-        if getattr(service, "health_check", None):
-            result = await service.health_check()
-            return {"healthy": result, "service": type(service).__name__}
-        else:
-            # Service exists but no health check
-            return {
-                "healthy": True,
-                "service": type(service).__name__,
-                "note": "No health check available",
-            }
-    except Exception as e:  # safety-net: health check must never raise
-        return {"healthy": False, "error": str(e)}
-
-
 __all__ = ["create_system_api_routes"]
