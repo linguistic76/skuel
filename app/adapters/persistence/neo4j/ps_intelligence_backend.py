@@ -39,14 +39,24 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
 
+# The four ``_to_*_rows`` processors take the neo4j driver's own row shape, straight
+# off ``AsyncResult.data()``. That is a genuine external boundary and cannot be
+# narrowed: ``Neo4jProperties`` (the house alias) does not type-check here, because
+# ``int()`` rejects its value union and the ``collect()`` list is not iterable as a
+# union member. Tier C of the `Any` policy — permanent boundary, marked per site.
+# Narrowing happens *inside* each processor: it returns a typed ``Ps*Row``.
+
+
 def _to_prerequisite_step_uid_rows(
-    records: list[dict[str, Any]],
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
 ) -> list[PsPrerequisiteStepUidsRow]:
     """Project raw rows onto PsPrerequisiteStepUidsRow (KeyError on alias drift)."""
     return [{"prereq_uids": [str(uid) for uid in (row["prereq_uids"] or [])]} for row in records]
 
 
-def _to_practice_counts_rows(records: list[dict[str, Any]]) -> list[PsPracticeCountsRow]:
+def _to_practice_counts_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[PsPracticeCountsRow]:
     """Project raw rows onto PsPracticeCountsRow (KeyError on alias drift)."""
     return [
         {
@@ -61,7 +71,9 @@ def _to_practice_counts_rows(records: list[dict[str, Any]]) -> list[PsPracticeCo
     ]
 
 
-def _to_guidance_counts_rows(records: list[dict[str, Any]]) -> list[PsGuidanceCountsRow]:
+def _to_guidance_counts_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[PsGuidanceCountsRow]:
     """Project raw rows onto PsGuidanceCountsRow (KeyError on alias drift)."""
     return [
         {
@@ -72,7 +84,9 @@ def _to_guidance_counts_rows(records: list[dict[str, Any]]) -> list[PsGuidanceCo
     ]
 
 
-def _to_taught_ku_uid_rows(records: list[dict[str, Any]]) -> list[PsTaughtKuUidRow]:
+def _to_taught_ku_uid_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[PsTaughtKuUidRow]:
     """Project raw rows onto PsTaughtKuUidRow (KeyError on alias drift).
 
     Rows with a null ``ku.uid`` are dropped so the declared ``str`` is truthful
