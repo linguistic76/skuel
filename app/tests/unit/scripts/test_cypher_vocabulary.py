@@ -261,3 +261,29 @@ class TestCommentMasking:
         """Masking preserves length and newlines, so offsets stay truthful."""
         fragment = "/* header */\nMATCH (n:Typo)\nRETURN n"
         assert [(n.value, n.line_offset) for n in scan_names(fragment)] == [("Typo", 1)]
+
+
+class TestBacktickEscapedVocabulary:
+    """Pins a KNOWN LIMIT: escaped names are not scanned, in any position.
+
+    Every name regex requires an identifier character straight after the `:`,
+    so a backtick-escaped label or edge type has never been recovered — not on
+    `main`, not before the string-blanking pass, not now. Verified against all
+    three revisions rather than assumed (Codex P2 on #831 attributed it to
+    `blank_strings`; it predates it and is uniform).
+
+    Closing this means teaching all four positions at once. Patching it in one
+    is exactly the case-by-case habit this module's gate design argues against.
+    """
+
+    @pytest.mark.parametrize(
+        "fragment",
+        [
+            "MATCH (n:`Bogus`) RETURN n",
+            "MATCH ()-[r:`BOGUS_EDGE`]->() RETURN r",
+            "MATCH (n) SET n:`Bogus` RETURN n",
+            "MATCH (n) REMOVE n:`Bogus` RETURN n",
+        ],
+    )
+    def test_escaped_names_are_not_recovered(self, fragment: str) -> None:
+        assert [n.value for n in scan_names(fragment) if "Bogus" in n.value.upper()] == []

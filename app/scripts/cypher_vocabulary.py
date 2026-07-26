@@ -475,6 +475,16 @@ def scan_names(fragment: str) -> list[ScannedName]:
     tested false negative. Zero sites in the tree hit it; the suppression comment
     is the escape hatch if one ever does. The MUTATION scanner is the exception
     and *is* quote-blind, because it alone needs to know where a clause ends.
+
+    **Known limit, uniform: backtick-escaped vocabulary is not scanned.**
+    ``(n:`Bogus`)``, ``[r:`BOGUS_EDGE`]``, ``SET n:`Bogus``` — none of the four
+    position scanners has ever recovered one, because every name regex requires
+    an identifier character right after the ``:``. Pinned by
+    ``TestBacktickEscapedVocabulary`` so it stays a known limit rather than
+    drifting into an assumed capability. Closing it means teaching all four
+    positions at once; doing it for one would be the case-by-case patching this
+    module's gate design argues against. Zero sites in the tree use the form —
+    SKUEL labels and edge names are plain identifiers that never need escaping.
     """
     masked = mask_cypher_comments(fragment)
     if not _is_cypher(masked):
