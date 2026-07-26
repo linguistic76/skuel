@@ -257,6 +257,12 @@ def create_tasks_api_routes(
 
 **Affected services:** `TasksService`, `GoalsService`, `HabitsService`, `EventsService`, `ChoicesService`, `PrinciplesService`, `KuService`, `PsService`, `LpService`
 
+**Scope of "concrete class": the route→service boundary only.** These facades are concrete
+to their *callers*. Inside them, `self.backend` still types against a `core/ports` protocol
+— SKUEL023 enforces that, and a facade is not exempt. `KuService.backend` is `KuOperations`;
+`PsOrganizationService.backend` is `PsOrganizesBackendOperations`. Do not read this section
+as permission to annotate a facade's backend handle with an adapter class.
+
 **Benefits:**
 - **MyPy-native** - No protocol workaround needed
 - **2,422 lines removed** - No mixin, no protocol file
