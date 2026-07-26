@@ -565,12 +565,16 @@ def fetch() -> None:
 
 **AST-based, docstring-aware:** Cypher only matters when it is *used* (assigned, passed, returned, interpolated). The checker walks string `Constant` nodes (including f-string literal parts). String literals that are **inert bare-expression statements** — module/class/function docstrings AND mid-body `USAGE EXAMPLES` blocks — are skipped by node identity. This is why the rule can cover `core/utils`, whose docstrings legitimately quote Cypher (processor_functions.py, neo4j_mapper.py, …), without false-positiving. One violation per source line (collapses the several `Constant` parts an f-string splits into).
 
-**Two anchors decide whether a literal is Cypher** (`CYPHER_MARKERS` / `CYPHER_LEADING_CLAUSES` in `lint_skuel.py`):
+**Two anchors decide whether a literal is Cypher:**
 
-| Anchor | Matches | Examples |
-|--------|---------|----------|
-| **Substring, anywhere** | paren/sigil-anchored clauses that never follow the keyword in prose | `MATCH (`, `MERGE (`, `OPTIONAL MATCH (`, `OPTIONAL MATCH path`, `CREATE (`, `UNWIND $`, `CALL db.` |
-| **Statement head** | an UPPERCASE clause keyword at the head of the literal, followed by whitespace and an operand | `RETURN`, `SHOW`, `PROFILE`, `EXPLAIN`, `DELETE`, `DETACH DELETE`, `SET`, `REMOVE`, `LOAD CSV`, `CALL`, `MATCH`, `MERGE`, `CREATE`, `UNWIND`, `WITH`, `FOREACH`, `DROP`, `USE`, `OPTIONAL MATCH` |
+| Anchor | Owner | Matches | Examples |
+|--------|-------|---------|----------|
+| **Substring, anywhere** | `SkuelLinter.CYPHER_MARKERS` (this rule) | paren/sigil-anchored clauses that never follow the keyword in prose | `MATCH (`, `MERGE (`, `OPTIONAL MATCH (`, `OPTIONAL MATCH path`, `CREATE (`, `UNWIND $`, `CALL db.` |
+| **Statement head** | `cypher_vocabulary.leading_cypher_clause` (shared with SKUEL030 + CYP011) | an UPPERCASE clause keyword at the head of the literal, followed by whitespace and an operand | every entry of `CYPHER_LEADING_CLAUSES` — `RETURN`, `SHOW`, `PROFILE`, `EXPLAIN`, `DELETE`, `DETACH DELETE`, `SET`, `REMOVE`, `LOAD CSV`, `CALL`, `MATCH`, `MERGE`, `CREATE`, `INSERT`, `NODETACH`, `UNWIND`, `WITH`, `FOREACH`, `DROP`, `USE`, `OPTIONAL MATCH` |
+
+**The head anchor is not this rule's own.** SKUEL021 grew one in #829 and SKUEL030/CYP011 grew one in #831; the two copies had drifted in five behaviours before either was a month old, every drift leaving #829's the narrower gate — it required the operand on the clause's own line, skipped only `//` comment lines (so a `/* hint */` hid the statement in either position), did not strip a `CYPHER <options>` preamble, and lacked `INSERT` and `NODETACH`. Both now read `cypher_vocabulary`, which is the module both linters already imported (the reverse direction is circular). There is no SKUEL021-specific clause list to tune: a clause that should open a statement is added there, once, and `::test_every_shared_clause_is_live_in_this_rule` — parametrized over the tuple itself, so it cannot go stale — proves the whole list stays live here.
+
+**The two anchors disagree on comment masking, deliberately.** The head anchor masks comments; the substring anchor does not, so a commented-out `MATCH (` in a *used* literal still reports. Masking both is defensible (a comment cannot execute — the reasoning that exempts docstrings), but the anchors fail in opposite directions: masking only ever moves the head anchor's single match position past a planner hint, while the substring anchor matches anywhere in every string across all three trees, so masking it could only ever *remove* detections. A silent miss is what this rule exists to prevent; an over-report on a commented-out query is one suppression comment. Measured when the anchors were consolidated: masking the substring anchor would have moved **zero** verdicts in any of the three trees (40 non-inert constants there contain `//` or `/*`). `::TestSKUEL021AnchorMaskingAsymmetry` pins the asymmetry so it stays a decision rather than an accident.
 
 The head anchor exists because the substring anchor has a structural ceiling: a marker matched anywhere must be paren/sigil-shaped to stay out of prose, which left whole statement families with nothing to match on. **A real leak lived in that blind spot** — `core/services/system_service_init.py` ran `await session.run("RETURN 1 as ping")` for a long time, fully in scope, with no suppression comment, and the rule never fired. Position supplies the signal a substring cannot: `"DETACH DELETE n"` is Cypher, `"cascade DETACH DELETE (default False)"` is prose (the clause is named mid-sentence in ~30 places across `core/`).
 
@@ -588,7 +592,7 @@ Three conditions keep the head anchor quiet on prose, each load-bearing: head po
 
 **How to fix a violation:** relocate the query into an adapter backend in `adapters/persistence/neo4j/` behind a `core/ports` protocol, and inject it at the composition root. For an "inverted boundary" case (a `core/` model/util that builds a Cypher string handed to a passthrough executor), pass the domain *intent* down and author the Cypher below the boundary — see `ConnectionFetchBackend` / `ConnectionFetchOperations` (PR #75) and `build_relationship_filter_fragments` (PR #78) for the patterns.
 
-**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL021` covers used Cypher in `core/services`/`core/utils`/`core/models`, in `adapters/inbound/` and `ui/`, f-strings, passed/returned strings, docstring + `USAGE EXAMPLES` + comment skips, the English-UI-string corpus, out-of-scope silence for `scripts/` and `adapters/persistence/`, multi-line collapse, and suppression. `::TestSKUEL021LeadingClauseAnchor` covers the head anchor: each newly-visible statement family, each prose guard, and a regression test that lints the real `core/ports/` files whose docstrings name `DETACH DELETE` (a synthetic stand-in would only prove the stand-in is clean). `tests/unit/test_core_utils_boundary.py` additionally bans execution primitives (neo4j driver imports, `.execute_query(` calls) that SKUEL021 does not cover; its Cypher-string sub-check now *derives* from `SkuelLinter` rather than hand-copying the markers, after the copy silently drifted a marker behind. The real tree is held clean by `./dev quality` in CI.
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL021` covers used Cypher in `core/services`/`core/utils`/`core/models`, in `adapters/inbound/` and `ui/`, f-strings, passed/returned strings, docstring + `USAGE EXAMPLES` + comment skips, the English-UI-string corpus, out-of-scope silence for `scripts/` and `adapters/persistence/`, multi-line collapse, and suppression. `::TestSKUEL021LeadingClauseAnchor` covers the head anchor: each newly-visible statement family, each prose guard, each of the five drifts closed by adopting the shared matcher, the derived whole-list check, and a regression test that lints the real `core/ports/` files whose docstrings name `DETACH DELETE` (a synthetic stand-in would only prove the stand-in is clean). `::TestSKUEL021AnchorMaskingAsymmetry` pins the masking asymmetry between the two anchors. `tests/unit/test_core_utils_boundary.py` additionally bans execution primitives (neo4j driver imports, `.execute_query(` calls) that SKUEL021 does not cover; its Cypher-string sub-check now *derives* from `SkuelLinter` rather than hand-copying the markers, after the copy silently drifted a marker behind. The real tree is held clean by `./dev quality` in CI.
 
 **Suppression:**
 - `# skuel-lint: disable=SKUEL021 -- <reason>` (line)
@@ -859,8 +863,11 @@ lowercase-English surface), and whitespace+operand (rules out the bare HTTP verb
 `DELETE`, `SET-COOKIE`, and `RETURNS`/`CREATED`/`WITHOUT`). The clause list is
 deliberately *not* pruned to "clauses that can carry vocabulary" — that is a second
 judgement call, and it gets `DROP CONSTRAINT ... FOR (n:Label)` wrong. One question, one
-answer. SKUEL021 asks the same question of `core/`; the two anchors should end up sharing
-`cypher_vocabulary.CYPHER_LEADING_CLAUSES` rather than each keeping a copy.
+answer. SKUEL021 asks the same question of `core/` + `adapters/inbound/` + `ui/` and now
+reads the same answer: `CYPHER_LEADING_CLAUSES` and its matcher live here, exposed as
+`leading_cypher_clause()`, and all three rules consult one implementation. They did each
+keep a copy for one release, and the copies drifted in five behaviours before either was
+a month old — see SKUEL021's section for the list.
 
 **Python edge lists — the rule's second scanner (since tranche 5).** An alternation is
 as often assembled from a Python literal as written inline:
