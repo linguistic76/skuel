@@ -401,6 +401,20 @@ class TestSKUEL001:
             violations = lint_content(make_linter(["SKUEL001"]), f"logger.warning({prose!r})")
             assert violations == [], prose
 
+    def test_detects_name_assembled_into_query_elsewhere(self) -> None:
+        """`proc = "apoc.path.subgraphAll"` then `f"CALL {proc}(n)"` — the CALL and
+        the paren live in a different AST node than the name, so neither invocation
+        anchor is present on the node carrying it, and SKUEL021 does not cover it
+        either (`CALL apoc.` is not a CYPHER_MARKER). A used string whose ENTIRE
+        value is a dotted apoc path is the third recognised form."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(
+            linter, 'proc = "apoc.path.subgraphAll"\nq = f"CALL {proc}(n)"\nrun(q)'
+        )
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.CRITICAL
+        assert "apoc.path.subgraphAll" in violations[0].message
+
     def test_call_form_survives_interpolated_arguments(self) -> None:
         """Why the CALL branch is kept rather than requiring the paren alone: an
         f-string that interpolates the argument list has no literal `(` after the

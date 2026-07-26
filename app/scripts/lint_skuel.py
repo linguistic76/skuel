@@ -1744,25 +1744,38 @@ class SkuelLinter:
         (``dbms_security_procedures_allowlist``), exercised only by
         ``tests/integration/test_apoc_canary.py``, which this rule skips as a test file.
 
-        **Invocation, not mention.** A namespace match alone would flag prose that
+        **Invocation, not mention.** A bare namespace match would flag prose that
         merely *names* a procedure — ``logger.warning("apoc.convert.fromJsonMap is
         unavailable")`` — and this rule is CRITICAL and unsuppressable, so a false
         positive is unfixable except by rewording the string. Cypher only ever
         *invokes* APOC two ways: ``CALL apoc.x.y(...)`` (procedure) or bare
-        ``apoc.x.y(...)`` in a RETURN/WHERE (function). Both forms are anchored — a
-        preceding ``CALL`` or a following ``(``. Requiring one of those separates
-        invocation from mention, and is the same paren/sigil discipline that keeps
-        SKUEL021's CYPHER_MARKERS off prose. Keeping the ``CALL`` branch (rather than
-        requiring the paren alone) preserves detection of f-strings that interpolate
-        the argument list: ``f"CALL apoc.periodic.iterate{args}"``.
+        ``apoc.x.y(...)`` in a RETURN/WHERE (function). Both are anchored — a
+        preceding ``CALL`` or a following ``(`` — and requiring one of those is the
+        same paren/sigil discipline that keeps SKUEL021's CYPHER_MARKERS off prose.
+
+        Anchoring alone, though, misses a query assembled across constants:
+        ``proc = "apoc.path.subgraphAll"`` then ``q = f"CALL {proc}(n)"``. The
+        ``CALL`` and the ``(`` live in a different AST node than the name, so neither
+        anchor is present on the node that carries it — and SKUEL021 does not cover
+        it either, since ``CALL apoc.`` is not a CYPHER_MARKER. Hence the third form:
+        a used string whose *entire* value is a dotted apoc path. Prose cannot take
+        that shape (it has other words in it), so the discrimination holds in both
+        directions. What remains genuinely undetectable by any string rule is a split
+        that puts no apoc text in any single literal (``"CALL " + proc`` where ``proc``
+        arrives from elsewhere) — out of reach of static string matching, not an
+        oversight.
         """
-        # Alternative 1: `CALL apoc.x.y` — procedure invocation, paren may be
-        # interpolated. Alternative 2: `apoc.x.y(` — function invocation in a
-        # RETURN/WHERE. Each captures the dotted path so the violation message names
-        # what it found rather than the prefix that happened to match.
+        # 1: `CALL apoc.x.y` — procedure invocation; the paren may be interpolated,
+        #    which is why the CALL branch exists rather than requiring a paren alone
+        #    (f"CALL apoc.periodic.iterate{args}").
+        # 2: `apoc.x.y(` — function invocation inside a RETURN/WHERE.
+        # 3: the whole string IS the dotted path — a name assembled into a query
+        #    elsewhere. Prose never fullmatches.
+        # Each branch captures the path so the message names what it found.
         apoc_pattern = re.compile(
             r"CALL\s+(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)"
-            r"|(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\(",
+            r"|(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\("
+            r"|^\s*(apoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*$",
             re.IGNORECASE,
         )
 
@@ -1781,7 +1794,7 @@ class SkuelLinter:
             if apoc_match is None:
                 continue
             # Exactly one branch participates per match.
-            apoc_proc = apoc_match.group(1) or apoc_match.group(2)
+            apoc_proc = apoc_match.group(1) or apoc_match.group(2) or apoc_match.group(3)
 
             line_num = node.lineno
             if line_num in reported_lines:
