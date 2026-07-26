@@ -227,6 +227,44 @@ class TestLabelMutationPosition:
         assert _labels("MATCH (N) SET N:Typo RETURN N") == ["Typo"]
         assert _labels("MATCH (n) REMOVE Node1:Typo RETURN n") == ["Typo"]
 
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n) SET n:Typo;",  # statement terminator
+            "MATCH (n) FOREACH (x IN xs | SET n:Typo)",  # closing paren
+            "CALL { MATCH (n) SET n:Typo }",  # subquery brace
+            "CALL (n) { SET n:Typo }",  # scoped-subquery form
+        ],
+    )
+    def test_clause_closed_by_punctuation_is_scanned(self, query: str) -> None:
+        """A clause can end in punctuation rather than a keyword.
+
+        Each of these failed the item full-match on its trailing character
+        alone — the same root cause as the missing `FINISH` terminator (Codex P2
+        on #831 named the semicolon).
+        """
+        assert _labels(query) == ["Typo"]
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n) SET n = {a:Foo, b:Bar} RETURN n",
+            "MATCH (n) SET n = {a: {b: Foo}} RETURN n",
+            "MATCH (n) SET n = point({x:1, y:2}) RETURN n",
+        ],
+    )
+    def test_map_literals_stay_invisible(self, query: str) -> None:
+        """Tolerating a trailing `}` is only safe because maps are blanked.
+
+        `{a:Foo, b:Bar}` split on its INNER comma into `n = {a:Foo` and
+        ` b:Bar}`, and the second half reads exactly like a label write.
+        """
+        assert _labels(query) == []
+
+    def test_subquery_braces_are_transparent_but_maps_inside_are_not(self) -> None:
+        """`CALL { ... }` is executable Cypher; a map literal in it is not."""
+        assert _labels("CALL { MATCH (n) SET n = {a:Foo} SET n:Typo }") == ["Typo"]
+
 
 # ============================================================================
 # Comment masking

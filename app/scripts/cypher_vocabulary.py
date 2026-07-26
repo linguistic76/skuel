@@ -335,7 +335,20 @@ _LABEL_MUTATION_CLAUSE_RE = re.compile(
 # requirement on each item is what keeps this precise — the lowercase-only shape
 # `_LABEL_PREDICATE_RE` needs is load-bearing there because that regex has no
 # clause anchor to lean on.
-_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?::[A-Za-z_]\w*)+)\s*")
+#
+# A clause can be closed by punctuation rather than by a keyword, so the item
+# tolerates a trailing run of it: `SET n:Ku;`, `FOREACH (x IN xs | SET n:Ku)`,
+# `CALL { ... SET n:Ku }`. Each of those failed the full match on its trailing
+# character alone (Codex P2 on #831 named the semicolon; the other two are the
+# same root cause). Allowing `}` is only safe because map literals are blanked
+# before this runs — see `_blank_map_literals`.
+_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?::[A-Za-z_]\w*)+)\s*[;)}]*\s*")
+
+# A `{` opening a CALL subquery rather than a map literal — `CALL {` or the
+# scoped `CALL (n, m) {`. Matched against a bounded window so the scan stays
+# linear; the variable-scope list is far shorter than the window.
+_CALL_SUBQUERY_TAIL_RE = re.compile(r"\bCALL\s*(?:\([^)]*\)\s*)?$")
+_SUBQUERY_LOOKBEHIND = 200
 
 
 def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
@@ -428,6 +441,38 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
     return "".join(chars)
 
 
+def _blank_map_literals(text: str) -> str:
+    """Blank the contents of ``{...}`` map literals, preserving offsets.
+
+    Run on already string-blanked text, so a brace inside a string cannot open
+    a phantom map. Nesting-aware; an unclosed brace is left alone.
+
+    This is what lets the mutation item tolerate a trailing ``}``. Without it,
+    ``SET n = {a:Foo, b:Bar}`` split on its inner comma into ``n = {a:Foo`` and
+    `` b:Bar}``, and the second half reads exactly like a label write. Blanked,
+    the whole literal collapses to one chunk that matches nothing — the inner
+    comma disappears with it.
+
+    ``CALL { ... }`` (and its scoped ``CALL (n) { ... }`` form) is NOT a map
+    literal — it is a subquery full of executable Cypher, so blanking it would
+    hide every name inside. Its braces are left transparent; map literals nested
+    within it are still blanked.
+    """
+    chars = list(text)
+    stack: list[tuple[int, bool]] = []  # (body start, is a CALL subquery)
+    for i, char in enumerate(text):
+        if char == "{":
+            window = text[max(0, i - _SUBQUERY_LOOKBEHIND) : i]
+            stack.append((i + 1, _CALL_SUBQUERY_TAIL_RE.search(window) is not None))
+        elif char == "}" and stack:
+            start, is_subquery = stack.pop()
+            # Blank only the OUTERMOST non-subquery region — an enclosing map
+            # literal would have covered this one already.
+            if not is_subquery and all(ancestor for _, ancestor in stack):
+                _blank(chars, start, i)
+    return "".join(chars)
+
+
 def _leads_with_cypher_clause(masked: str) -> bool:
     """True if ``masked``'s first real line opens with a Cypher clause + operand.
 
@@ -509,7 +554,7 @@ def scan_names(fragment: str) -> list[ScannedName]:
     masked = mask_cypher_comments(fragment)
     if not _is_cypher(masked):
         return []
-    unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
+    unquoted = _blank_map_literals(_mask_cypher(fragment, keep_noqa=False, blank_strings=True))
 
     found: list[ScannedName] = []
 

@@ -1399,6 +1399,24 @@ class TestSKUEL030:
         assert len(violations) == 1
         assert "Bogus" in violations[0].message
 
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n) SET n:Bogus;",
+            "MATCH (n) FOREACH (x IN xs | SET n:Bogus)",
+            "CALL { MATCH (n) SET n:Bogus }",
+        ],
+    )
+    def test_clause_closed_by_punctuation_is_scanned(self, query: str) -> None:
+        """A clause can end in punctuation, not just a keyword (Codex P2 on #831)."""
+        violations = lint_cypher(f'q = "{query}"')
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert "Bogus" in violations[0].message
+
+    def test_map_literal_is_still_invisible(self) -> None:
+        """Tolerating a trailing `}` is only safe because maps are blanked."""
+        assert lint_cypher('q = "MATCH (n) SET n = {a:Foo, b:Bar} RETURN n"') == []
+
     def test_uppercase_variable_in_a_label_write_is_scanned(self) -> None:
         """Cypher variables are case-neutral (Codex P2 on #831)."""
         violations = lint_cypher('q = "MATCH (N) SET N:Bogus RETURN N"')
