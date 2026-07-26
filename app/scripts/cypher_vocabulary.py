@@ -204,6 +204,13 @@ class ScanIssue(StrEnum):
     `UNPARSED_MUTATION_ITEM` shape filter is not hiding a whole class. Expect
     hundreds — every property-only `SET n.title = $t` lands here, correctly."""
 
+    TRUNCATED_MUTATION_REGION = "truncated-mutation-region"
+    """A `SET`/`REMOVE` region the walk ended EARLY on a clause keyword, losing
+    a readable label item that came after the break. The one failure mode the
+    categories above structurally cannot report: they describe a span that WAS
+    produced and could not be read, and a truncated region never produces the
+    span at all. `detail` names the keyword the walk stopped on."""
+
 
 @dataclass(frozen=True)
 class ScanDiagnostic:
@@ -219,6 +226,11 @@ class ScanDiagnostic:
     starts (``scanning_fragment_at``). ``None`` when it did not — an offset with
     no base is not navigable, and a report of 265 rows reading ``(+2 lines)``
     cannot be acted on (Codex P2 on #833)."""
+    detail: str | None = None
+    """What the issue needs beyond the span itself — for a truncated region, the
+    clause keyword the walk stopped on. Kept out of ``text`` so that field stays
+    the offending span verbatim; a reader who has the span but not the cause has
+    to re-derive the walk by hand to act on the row."""
 
 
 _DIAGNOSTIC_SINK: list[ScanDiagnostic] | None = None
@@ -269,7 +281,7 @@ def scanning_fragment_at(line: int) -> Iterator[None]:
         _DIAGNOSTIC_BASE_LINE = previous
 
 
-def _note(issue: ScanIssue, text: str, source: str, pos: int) -> None:
+def _note(issue: ScanIssue, text: str, source: str, pos: int, *, detail: str | None = None) -> None:
     """Record a drop, if anyone is listening. One `is not None` otherwise."""
     if _DIAGNOSTIC_SINK is None:
         return
@@ -281,6 +293,7 @@ def _note(issue: ScanIssue, text: str, source: str, pos: int) -> None:
             text=text,
             line_offset=offset,
             source_line=None if base is None else base + offset,
+            detail=detail,
         )
     )
 
@@ -726,8 +739,26 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
     return "".join(chars)
 
 
-def _mutation_clause_items(text: str, dialect: _Dialect) -> list[list[tuple[str, int]]]:
-    """``(item text, offset)`` per top-level item, GROUPED BY SET/REMOVE clause.
+@dataclass(frozen=True)
+class _MutationClause:
+    """One `SET`/`REMOVE` operand region, as the walk read it."""
+
+    items: list[tuple[str, int]]
+    """``(item text, offset)`` per top-level item, in source order."""
+    terminator: str | None
+    """The clause keyword the walk stopped on, verbatim. ``None`` when the region
+    ended for a structural reason instead — a depth-negative closer, a `;`, or
+    the end of the fragment. This is what the truncation diagnostic reports as
+    the cause, so it must be the matched text and not merely a flag."""
+    terminator_at: int | None
+    """Offset of that keyword. The truncation diagnostic needs the POSITION, not
+    just the word: only the item straddling it is in dispute."""
+
+
+def _mutation_clause_items(
+    text: str, dialect: _Dialect, *, stop_at_clause_keyword: bool = True
+) -> list[_MutationClause]:
+    """The `SET`/`REMOVE` operand regions of ``text``, one entry per clause head.
 
     Walks from each clause keyword tracking bracket depth, so structure decides
     the boundaries rather than a keyword's mere presence:
@@ -747,10 +778,21 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[list[tuple[str,
     Grouped rather than flat so the caller can ask a question a flat list cannot
     answer: did THIS clause yield no label item at all? That is one of the
     scanner's silent drops, and the diagnostic reports it.
+
+    ``stop_at_clause_keyword=False`` drops the keyword break and nothing else,
+    leaving only the two structural breaks. That policy cannot end a region early
+    for a keyword reason, which is the whole point: it is the second half of the
+    truncation differential, and it is a PARAMETER rather than a second walker
+    because a copy would agree on the day it was written and drift on the first
+    form nobody tested — the defect class that cost #833 four fixes. Both
+    policies visit the same clause heads in the same order, so the two result
+    lists align index for index; ``_note_region_truncation`` relies on that.
     """
-    clauses: list[list[tuple[str, int]]] = []
+    clauses: list[_MutationClause] = []
     for head in dialect.mutation_head.finditer(text):
         items: list[tuple[str, int]] = []
+        terminator: str | None = None
+        terminator_at: int | None = None
         start = head.end()
         depth = 0
         item_start = start
@@ -769,15 +811,17 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[list[tuple[str,
                 if char == ",":
                     items.append((text[item_start:i], item_start))
                     item_start = i + 1
-                elif (
-                    char.isalpha()
-                    and _starts_a_clause(text, i)
-                    and dialect.terminator.match(text, i)
-                ):
-                    break
+                elif stop_at_clause_keyword and char.isalpha() and _starts_a_clause(text, i):
+                    word = dialect.terminator.match(text, i)
+                    if word is not None:
+                        terminator = word.group()
+                        terminator_at = i
+                        break
             i += 1
         items.append((text[item_start:i], item_start))
-        clauses.append(items)
+        clauses.append(
+            _MutationClause(items=items, terminator=terminator, terminator_at=terminator_at)
+        )
     return clauses
 
 
@@ -993,6 +1037,73 @@ def _note_gate_rejection(fragment: str, masked: str, dialect: _Dialect) -> None:
         _note(ScanIssue.REJECTED_BY_GATE, fragment, masked, 0)
 
 
+def _note_region_truncation(
+    unquoted: str, dialect: _Dialect, strict: list[_MutationClause]
+) -> None:
+    """Report label items a keyword break cost, by DISAGREEMENT between two walks.
+
+    Every other category here describes a span the scanner produced and could not
+    read. A region that ends early produces nothing after the break, so there is
+    no span to report and the instrument is structurally blind to it — stated as
+    a limit by #833 rather than closed. It is also the highest-density blind spot
+    left: six of #831's findings were this walk stopping in the wrong place.
+
+    The detector runs the SAME walk twice under different termination policies:
+
+    - **strict** — today's policy, unchanged, already computed by the caller;
+    - **permissive** — the keyword break dropped, so only a depth-negative closer
+      and `;` can end a region.
+
+    The permissive walk cannot end early *for a keyword reason*, which is the
+    entire failure class. **Neither walk has to be correct.** That is what makes
+    this a detector rather than a guess about where a clause really ends: it
+    never asserts a boundary, only that the two policies disagree.
+
+    **Only the item STRADDLING the break is in dispute**, and that is the whole
+    of the rule. The break happened at one position; the question the two walks
+    disagree about is whether the word there begins a clause or continues the
+    item. If the permissive item spanning it reads as a label item, the word was
+    a variable and the region was truncated — ``SET n:Ku&Order`` and
+    ``SET n:Ku, order:Bogus`` both resolve that way.
+
+    Everything AFTER that item is downstream of a question this detector cannot
+    answer, and reporting it is a false positive: `RETURN n, n:Entity` is
+    ordinary Cypher, the region genuinely ended at `RETURN`, and a permissive
+    walk reading `` n:Entity`` as a lost mutation item merely re-describes the
+    comma in a `RETURN` list (Codex P2). Bounding the claim to the disputed item
+    is what keeps "the walks disagree" a statement about the walk rather than
+    about arbitrary syntax the overrun happened to reach.
+
+    One-sided by construction: when the disputed item is glued to a following
+    clause with no comma to bound it — ``SET n:Ku, order:Bogus RETURN n`` — it
+    cannot full-match and is missed. Under-reporting is the acceptable direction
+    for an opt-in diagnostic; it never invents a boundary.
+    """
+    if _DIAGNOSTIC_SINK is None:
+        return
+    permissive = _mutation_clause_items(unquoted, dialect, stop_at_clause_keyword=False)
+    for index, clause in enumerate(permissive):
+        # Same heads in the same order, so the aligned strict clause is the one
+        # whose break is in question. `terminator_at` is None exactly when strict
+        # did NOT stop on a keyword — and then the two policies took the same
+        # break, so there is nothing they can disagree about.
+        break_at = strict[index].terminator_at
+        if break_at is None:
+            continue
+        for chunk, offset in clause.items:
+            if not offset <= break_at < offset + len(chunk):
+                continue
+            if _LABEL_MUTATION_ITEM_RE.fullmatch(chunk):
+                _note(
+                    ScanIssue.TRUNCATED_MUTATION_REGION,
+                    chunk,
+                    unquoted,
+                    offset,
+                    detail=strict[index].terminator,
+                )
+            break
+
+
 def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedName]:
     """Recover every statically-known label / relationship type in ``fragment``.
 
@@ -1099,7 +1210,9 @@ def _scan(fragment: str, masked: str, dialect: _Dialect) -> list[ScannedName]:
     # where a clause ENDS, and an uppercase clause word inside a property value
     # would close the region early (Codex P2 on #831). Blanking is offset- and
     # length-preserving, so the positions recorded below stay truthful.
-    for items in _mutation_clause_items(unquoted, dialect):
+    strict_clauses = _mutation_clause_items(unquoted, dialect)
+    for clause in strict_clauses:
+        items = clause.items
         matched_any = False
         for chunk, offset in items:
             item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
@@ -1118,6 +1231,7 @@ def _scan(fragment: str, masked: str, dialect: _Dialect) -> list[ScannedName]:
                     record(NameKind.LABEL, name, offset + item.start(1) + part.start())
         if not matched_any and items:
             _note(ScanIssue.MUTATION_CLAUSE_NO_ITEM_MATCHED, items[0][0], unquoted, items[0][1])
+    _note_region_truncation(unquoted, dialect, strict_clauses)
 
     return found
 

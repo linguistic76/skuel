@@ -791,3 +791,139 @@ class TestScanDiagnostics:
             scan_names("MATCH (n:$(c)) RETURN n")
         assert len(inner) == 1
         assert len(outer) == 2
+
+
+def _truncations(fragment: str, *, declared_cypher: bool = False) -> list[tuple[str, str | None]]:
+    """``(span, keyword that broke the region)`` for each truncation reported."""
+    with recording_scan_diagnostics() as sink:
+        scan_names(fragment, declared_cypher=declared_cypher)
+    return [
+        (d.text.strip(), d.detail) for d in sink if d.issue is ScanIssue.TRUNCATED_MUTATION_REGION
+    ]
+
+
+class TestMutationRegionTruncation:
+    """The one silent drop the categories above structurally cannot report.
+
+    Every other diagnostic describes a span that WAS produced and could not be
+    read. When the mutation walk ends EARLY, no span is produced for anything
+    after the break, so there is nothing to record — #833 stated this as a limit
+    rather than closing it. It is also the densest blind spot left: six of #831's
+    findings were this walk stopping in the wrong place.
+
+    The detector runs the SAME walk under two termination policies — strict
+    (today's) and permissive (no keyword break) — and diffs the readable label
+    items. Neither walk has to be correct; only their disagreement is read, and
+    disagreement has exactly one cause. That is what makes this a measurement
+    rather than a second guess at where a clause really ends.
+    """
+
+    def test_a_truncated_region_is_detected(self) -> None:
+        """`order` is a legal variable name AND a clause word — the region dies on it.
+
+        In the relaxed dialect a `.cypher` file may spell any clause keyword in
+        lowercase, so a variable named after one is indistinguishable from a
+        clause head to the terminator regex. `Bogus` is never scanned: the walk
+        stops at `order` and every item after the break is lost.
+        """
+        assert [
+            n.value for n in scan_names("MATCH (n) SET n:Ku, order:Bogus", declared_cypher=True)
+        ] == ["Ku"]
+        assert _truncations("MATCH (n) SET n:Ku, order:Bogus", declared_cypher=True) == [
+            ("order:Bogus", "order")
+        ]
+
+    def test_the_report_names_the_keyword_that_broke_the_region(self) -> None:
+        """A span without its cause makes the reader re-derive the walk by hand."""
+        assert _truncations("MATCH (n) SET a:Ku, order:Bogus", declared_cypher=True) == [
+            ("order:Bogus", "order")
+        ]
+
+    def test_a_break_inside_an_item_is_detected_too(self) -> None:
+        """`&` joins labels, and it is not a name-component sigil.
+
+        So `_starts_a_clause` admits the word after it and the walk stops in the
+        MIDDLE of a label expression, losing both names rather than a trailing
+        item. The disputed-item rule covers this without knowing the shape: the
+        break is inside the item, and the item reads as a label item.
+        """
+        assert scan_names("MATCH (n) SET n:Ku&Order", declared_cypher=True) == []
+        assert _truncations("MATCH (n) SET n:Ku&Order", declared_cypher=True) == [
+            ("n:Ku&Order", "Order")
+        ]
+
+    def test_ordinary_syntax_the_overrun_reaches_is_not_a_truncation(self) -> None:
+        """`RETURN n, n:Entity` is a label predicate in a RETURN list, not a loss.
+
+        The region genuinely ended at `RETURN`. A permissive walk running past it
+        splits that list on its comma and can read `` n:Entity`` as a label item —
+        but only the item STRADDLING the break is in dispute, and everything after
+        it is downstream of a question this detector cannot answer. Reporting it
+        described arbitrary Cypher the overrun happened to reach (Codex P2).
+        """
+        assert _truncations("MATCH (n) SET n:Ku RETURN n, n:Entity") == []
+
+    def test_a_tail_past_an_undecidable_break_is_not_claimed(self) -> None:
+        """Same rule, the other direction: we cannot tell, so we do not say.
+
+        If `ORDER` really heads a clause, `m:Entity` was never part of the SET
+        region; if it is a variable, it was. Nothing here can decide it, and the
+        disputed item (`` x ORDER y``) does not read as a label item.
+        """
+        assert _truncations("MATCH (n) SET n:Ku, x ORDER y, m:Entity RETURN n") == []
+
+    def test_the_documented_miss_stays_silent(self) -> None:
+        """Guard on the detector's stated edge, so a change to it is visible.
+
+        When the disputed item has no comma or statement end to bound it, it
+        arrives glued to the following clause, cannot full-match, and is missed.
+        One-sided by construction — under-reporting, never an invented boundary.
+        """
+        assert _truncations("MATCH (n) SET n:Ku, order:Bogus RETURN n", declared_cypher=True) == []
+
+    @pytest.mark.parametrize(
+        ("fragment", "declared_cypher"),
+        [
+            # Every break the walk makes CORRECTLY. A detector that fired on
+            # these would report most of the tree and be read by nobody.
+            ("MATCH (n) SET n:Ku WITH n RETURN n", False),
+            ("MATCH (n) SET n:Ku RETURN n", False),
+            ("MATCH (n) SET n.title = $t RETURN n", False),
+            ("MATCH (n) SET n:Ku, n.x = 1 RETURN n", False),
+            ("MATCH (n) SET n.ok = all(x IN $xs WHERE x > 0), n:Ku RETURN n", False),
+            ("FOREACH (x IN $xs | SET x:Ku) RETURN 1", False),
+            ("CALL { MATCH (n) SET n:Ku } RETURN 1", False),
+            ("MATCH (n) SET n:Ku; MATCH (m) SET m:Entity", False),
+            ("MERGE (n) ON CREATE SET n:Ku ON MATCH SET n:Entity RETURN n", False),
+            ("MATCH (n) SET n.order = 1, n:Ku RETURN n", True),
+            ("MATCH (n) SET n:Ku WITH n MATCH (m) SET m:Entity, k:Entity RETURN m", False),
+            ("MATCH (n) SET n:Ku RETURN n, n:Entity", False),
+            ("MATCH (n) SET n:Ku RETURN n, n:Entity", True),
+        ],
+    )
+    def test_a_correct_boundary_is_never_reported(
+        self, fragment: str, declared_cypher: bool
+    ) -> None:
+        assert _truncations(fragment, declared_cypher=declared_cypher) == []
+
+    def test_an_item_reached_by_two_walks_is_not_a_disagreement(self) -> None:
+        """The FP this cost, and the reason `_item_key` normalises whitespace.
+
+        A permissive region overrunning into a later `SET` re-derives that
+        clause's items — but `mutation_head` ends in a greedy `\\s+`, so a
+        re-headed span starts one character later than the original walk's.
+        Keyed on the raw offset, the same item read twice looked like two, and
+        every correctly-scanned `SET a:X, b:Y RETURN ...` in the tree reported
+        itself as lost.
+        """
+        fragment = "MATCH (n) SET n:Ku WITH n MATCH (m) SET m:Entity, k:Entity RETURN m"
+        assert [n.value for n in scan_names(fragment)] == ["Ku", "Entity", "Entity"]
+        assert _truncations(fragment) == []
+
+    def test_the_permissive_walk_still_stops_at_a_statement_boundary(self) -> None:
+        """Only the KEYWORD break is dropped. `;` and a depth-negative closer stay.
+
+        Were they dropped too, a region would run across statements and mine the
+        next one's items as this one's losses.
+        """
+        assert _truncations("MATCH (n) SET n:Ku; MATCH (m) SET m:Entity, order:Bogus") == []

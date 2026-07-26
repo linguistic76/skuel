@@ -18,6 +18,13 @@ script replaces imagination with measurement. It runs both rules' REAL code
 paths with ``recording_scan_diagnostics`` switched on and reports every span
 the scanner dropped.
 
+One category is not a dropped span but a MISSING one. When the `SET`/`REMOVE`
+region walk ends early on a clause keyword, nothing after the break is ever
+produced, so there is no span to record — the blind spot the categories above
+structurally cannot see. ``truncated-mutation-region`` finds it by running that
+walk under two termination policies and reporting where they disagree; the row
+names the keyword the region stopped on.
+
 **This is a diagnostic, not a rule.** It is not wired into ``./dev quality``,
 it has no baseline, and it never exits nonzero on findings (only on its own
 failure). Most drops are CORRECT — a property-only ``SET n.title = $t`` has no
@@ -160,7 +167,8 @@ def _report(findings: list[Finding], root: Path, *, verbose: bool) -> None:
             where = (
                 f"{rel}:{diag.source_line}" if diag.source_line else f"{rel} (+{diag.line_offset})"
             )
-            print(f"  [{rule}] {where}")
+            cause = f"  (broke on {diag.detail})" if diag.detail else ""
+            print(f"  [{rule}] {where}{cause}")
             print(f"      {_span(diag.text)}")
         if len(rows) > len(shown):
             print(f"  … {len(rows) - len(shown)} more (use --verbose)")
