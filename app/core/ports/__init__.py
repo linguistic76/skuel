@@ -147,8 +147,11 @@ from .curriculum_protocols import (
     ExerciseOperations,
     KuOperations,
     LpOperations,
+    LpProgressBackendOperations,
+    PsIntelligenceBackendOperations,
     PsOperations,
     PsOrganizesBackendOperations,
+    PsProgressBackendOperations,
     RevisedExerciseOperations,
 )
 
@@ -408,8 +411,11 @@ __all__ = [
     "QueryExecutor",  # Standalone Cypher query execution port
     "KuOperations",  # Knowledge Unit operations (atom)
     "LpOperations",  # Learning Path operations (path)
+    "LpProgressBackendOperations",  # KU/PS → LP progress backend slice
+    "PsIntelligenceBackendOperations",  # PathStep readiness/practice/guidance reads
     "PsOperations",  # Learning Step operations (edge)
     "PsOrganizesBackendOperations",  # ORGANIZES backend slice (MOC hierarchy)
+    "PsProgressBackendOperations",  # KU → PathStep progress backend slice
     "LtConstraint",
     "MaxItemsConstraint",
     "MaxLenConstraint",

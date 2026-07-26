@@ -3004,31 +3004,68 @@ class TestSKUEL023:
             "from typing import TYPE_CHECKING\n"
             "\n"
             "if TYPE_CHECKING:\n"
-            "    from adapters.persistence.neo4j.ku_backend import KuBackend\n"
+            "    from adapters.persistence.neo4j.insight_backend import InsightBackend\n"
             "\n"
-            "class KuCoreService:\n"
-            '    def __init__(self, backend: "KuBackend") -> None:\n'
+            "class InsightStore:\n"
+            '    def __init__(self, backend: "InsightBackend") -> None:\n'
             "        self.backend = backend\n"
         )
-        violations = lint_content(linter, content, file_path="core/services/ku/ku_core_service.py")
+        violations = lint_content(
+            linter, content, file_path="core/services/insight/insight_store.py"
+        )
         assert len(violations) == 0
 
     def test_facade_allowlist_explicit_file(self) -> None:
-        """The standalone facade files (ku_service.py, user_service.py) are
-        explicitly allowlisted."""
+        """The standalone facade file (user_service.py) is explicitly
+        allowlisted. The KU/PS/LP entries were removed by SoC arc PR 6 once
+        those sites were retyped against core/ports protocols."""
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import TYPE_CHECKING\n"
             "\n"
             "if TYPE_CHECKING:\n"
-            "    from adapters.persistence.neo4j.ku_backend import KuBackend\n"
+            "    from adapters.persistence.neo4j.user_context_query_executor import (\n"
+            "        UserContextQueryExecutor,\n"
+            "    )\n"
             "\n"
-            "class KuService:\n"
-            '    def __init__(self, backend: "KuBackend") -> None:\n'
+            "class UserService:\n"
+            '    def __init__(self, backend: "UserContextQueryExecutor") -> None:\n'
             "        self.backend = backend\n"
         )
-        violations = lint_content(linter, content, file_path="core/services/ku_service.py")
+        violations = lint_content(linter, content, file_path="core/services/user_service.py")
         assert len(violations) == 0
+
+    @pytest.mark.parametrize(
+        "file_path",
+        [
+            "core/services/ku_service.py",
+            "core/services/ku/ku_core_service.py",
+            "core/services/ps/ps_progress_service.py",
+            "core/services/lp/lp_progress_service.py",
+        ],
+    )
+    def test_ku_ps_lp_no_longer_allowlisted(self, file_path: str) -> None:
+        """SoC arc PR 6 removed the KU / PS / LP allowlist entries.
+
+        Every site they covered now types against a core/ports protocol, so the
+        rule must actually fire on these paths. Pinned because a silent
+        re-addition of the prefix would re-park the debt invisibly — the entries
+        were the only reason SKUEL023 was quiet on 5 real violations.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend\n"
+            "\n"
+            "class SomeService:\n"
+            '    def __init__(self, backend: "PsBackend") -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path=file_path)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL023"
 
     def test_relative_import_not_an_adapter_import(self) -> None:
         """A `from . import x` is not an adapters import — the import map is
@@ -3285,11 +3322,11 @@ class TestSKUEL023:
         """Facade allowlist applies before any tier check — covers Tier 3."""
         linter = make_linter(["SKUEL023"])
         content = (
-            "class KuService:\n"
-            '    def __init__(self, backend: "adapters.persistence.neo4j.backends.curriculum_backends.KuBackend") -> None:\n'
+            "class UserService:\n"
+            '    def __init__(self, backend: "adapters.persistence.neo4j.user_context_query_executor.UserContextQueryExecutor") -> None:\n'
             "        self.backend = backend\n"
         )
-        violations = lint_content(linter, content, file_path="core/services/ku_service.py")
+        violations = lint_content(linter, content, file_path="core/services/user_service.py")
         assert violations == []
 
     # -------------------------------------------------------------------------
@@ -3369,13 +3406,13 @@ class TestSKUEL023:
             "from typing import TYPE_CHECKING\n"
             "\n"
             "if TYPE_CHECKING:\n"
-            "    import adapters.persistence.neo4j.backends.curriculum_backends as cb\n"
+            "    import adapters.persistence.neo4j.user_context_query_executor as uq\n"
             "\n"
-            "class KuService:\n"
+            "class UserService:\n"
             "    def __init__(self, backend: object) -> None:\n"
-            "        self.backend: cb.KuBackend = backend\n"
+            "        self.backend: uq.UserContextQueryExecutor = backend\n"
         )
-        violations = lint_content(linter, content, file_path="core/services/ku_service.py")
+        violations = lint_content(linter, content, file_path="core/services/user_service.py")
         assert violations == []
 
 

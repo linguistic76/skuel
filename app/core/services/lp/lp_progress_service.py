@@ -22,7 +22,7 @@ from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
+    from core.ports.curriculum_protocols import LpProgressBackendOperations
 
 
 class LpProgressService:
@@ -41,14 +41,14 @@ class LpProgressService:
 
     def __init__(
         self,
-        backend: "LpBackend | None" = None,
+        backend: "LpProgressBackendOperations | None" = None,
         event_bus=None,
     ) -> None:
         """
         Initialize learning path progress service.
 
         Args:
-            backend: LpBackend for KU mastery graph queries (REQUIRED)
+            backend: LP progress reads for KU mastery graph queries (REQUIRED)
             event_bus: Optional event bus for publishing events
         """
         self.backend = backend

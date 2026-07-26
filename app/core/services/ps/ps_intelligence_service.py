@@ -37,8 +37,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
-    from core.ports import BackendOperations
+    from core.ports import BackendOperations, PsIntelligenceBackendOperations
     from core.services.user.unified_user_context import UserContext
 
 logger = get_logger(__name__)
@@ -109,7 +108,7 @@ class PsIntelligenceService(
         graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
-        intelligence_backend: PsIntelligenceBackend | None = None,
+        intelligence_backend: PsIntelligenceBackendOperations | None = None,
     ) -> None:
         """
         Initialize PsIntelligenceService.
@@ -236,7 +235,7 @@ class PsIntelligenceService(
             }
         )
 
-    def _require_backend(self) -> Result[PsIntelligenceBackend]:
+    def _require_backend(self) -> Result[PsIntelligenceBackendOperations]:
         """Fail-fast guard for backend (executor) availability."""
         if self._backend is None:
             return Result.fail(

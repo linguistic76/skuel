@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-03-01
+updated: 2026-07-26
 category: patterns
 related_skills: []
 related_docs:
@@ -12,7 +12,7 @@ related_docs:
 
 # BackendOperations Protocol Architecture
 
-*Last updated: 2026-03-22*
+*Last updated: 2026-07-26*
 
 ## Core Principle
 
@@ -228,6 +228,52 @@ the dependency honest, satisfies the type checker with zero suppressions, and ke
 `SchemaOperations` intact for any consumer that needs the full surface. This is the
 mypy `arg-type` enforcement (see [functional-direction.md](../roadmap/functional-direction.md))
 surfacing a design signal, not an annotation chore.
+
+`LpProgressBackendOperations` (July 2026) is the same move in `curriculum_protocols.py`:
+`LpProgressService` consumes three reads out of `LpOperations`' ~90-method surface, so
+the three were extracted and `LpOperations` inherits the slice.
+
+### When the Broad Protocol Must *Not* Inherit the Slice
+
+The inheritance half of the pattern assumes the broad protocol is single-layer. When
+it is **dual-layer** — the same name typing both `self.backend` inside a service *and*
+a facade handed to a collaborator — inheriting a backend slice leaks backend
+signatures to facade holders, and the two layers' signatures can legitimately differ.
+
+`PsOperations` is the live example: it types `PsCoreService.backend` *and*
+`EntityExtractor.knowledge_service` (which receives the `PsService` facade), it is
+satisfied by neither `PsBackend` nor `PsService`, and its ORGANIZES signatures match
+the *service*'s while `_OrganizesMixin`'s match the *backend*'s. So
+`PsOrganizesBackendOperations`, `PsProgressBackendOperations` and
+`PsIntelligenceBackendOperations` each stand alone, with signatures lifted from the
+backend rather than from `PsOperations`. Accept the duplicated declaration and write
+the reason at the seam — it is two contracts, not one repeated.
+
+**Rule of thumb:** before making a broad protocol inherit a new slice, grep its
+consumers. Every consumer typing `backend:`/`self.backend` → single-layer, inherit.
+Any consumer receiving a *facade* → dual-layer, keep the slice separate.
+
+### Verify Satisfiability, Don't Assume It
+
+A protocol annotation that a green `./dev quality` accepts can still be a contract the
+injected object cannot meet: an `Any`-typed factory parameter anywhere upstream
+launders the argument at the injection point, so nothing is ever checked there. Prove
+it directly instead:
+
+```python
+def _probe(b: TheConcreteBackend) -> None:
+    x: TheProtocolYouChose = b   # MyPy must accept this
+```
+
+Two `Any` laundering points are known and deliberate:
+`create_ps_sub_services(backend: Any, ...)` and
+`create_curriculum_sub_services(backend: Any, ...)` in
+`core/services/curriculum_domain_config.py`.
+
+Note also that `UniversalNeo4jBackend` defines `__getattr__` for dynamic CRUD-alias
+compliance, so **typing `self.backend` against a concrete backend subclass gives no
+attribute checking at all** — every misspelled method resolves to `Any`. Typing
+against the protocol is what turns those into `attr-defined` errors.
 
 ## Benefits
 

@@ -22,7 +22,7 @@ from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
+    from core.ports.curriculum_protocols import PsProgressBackendOperations
 
 
 class PsProgressService:
@@ -42,7 +42,7 @@ class PsProgressService:
 
     def __init__(
         self,
-        backend: "PsBackend | None" = None,
+        backend: "PsProgressBackendOperations | None" = None,
         event_bus=None,
     ) -> None:
         self.backend = backend
