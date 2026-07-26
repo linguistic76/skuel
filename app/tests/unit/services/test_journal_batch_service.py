@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.enums.pipeline import ProcessingMode
 from core.services.journal.journal_batch_service import (
     BatchRunReport,
     JournalBatchService,
@@ -124,7 +125,7 @@ class TestResolveInstructions:
         resolved = service.resolve_instructions(
             instruction_content="inline wins",
             instruction_filename="whatever.md",
-            processing_mode="instructions_only",
+            processing_mode=ProcessingMode.INSTRUCTIONS_ONLY,
         )
         assert resolved == "inline wins"
 
@@ -133,7 +134,7 @@ class TestResolveInstructions:
         resolved = service.resolve_instructions(
             instruction_content="",
             instruction_filename="named.md",
-            processing_mode="transcribe_only",
+            processing_mode=ProcessingMode.TRANSCRIBE_ONLY,
         )
         assert resolved is None
 
@@ -142,7 +143,7 @@ class TestResolveInstructions:
         resolved = service.resolve_instructions(
             instruction_content="",
             instruction_filename="",
-            processing_mode="instructions_only",
+            processing_mode=ProcessingMode.INSTRUCTIONS_ONLY,
         )
         assert resolved is None
 
@@ -158,7 +159,7 @@ class TestResolveInstructions:
         resolved = service.resolve_instructions(
             instruction_content="",
             instruction_filename="custom.md",
-            processing_mode="instructions_only",
+            processing_mode=ProcessingMode.INSTRUCTIONS_ONLY,
         )
         assert resolved == "FROM FILE"
 
@@ -176,7 +177,7 @@ class TestResolveInstructions:
         resolved = service.resolve_instructions(
             instruction_content="",
             instruction_filename="../secret.md",
-            processing_mode="instructions_only",
+            processing_mode=ProcessingMode.INSTRUCTIONS_ONLY,
         )
         assert resolved is None
 
@@ -353,7 +354,10 @@ class TestBatchUnknownMode:
     async def test_unknown_mode_reports_error(self, tmp_path: Path) -> None:
         service = _make_service(tmp_path)
 
-        report = await service.run_batch_over_dir(tmp_path, "surprise_mode", None)
+        # Deliberately a raw string, not a ProcessingMode: this pins the
+        # fail-closed FLOOR for an untyped caller. The typed boundary is the
+        # route's ProcessingMode.from_string parse (see test_journals_routes).
+        report = await service.run_batch_over_dir(tmp_path, "surprise_mode", None)  # type: ignore[arg-type]
 
         assert report == BatchRunReport(
             ok=False, message="Unknown processing mode: 'surprise_mode'"
@@ -369,7 +373,7 @@ class TestBatchTranscribeOnly:
     ) -> None:
         service = _make_service(tmp_path, batch_transcription=None)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_only", None)
+        report = await service.run_batch_over_dir(tmp_path, ProcessingMode.TRANSCRIBE_ONLY, None)
 
         assert not report.ok
         assert "FULL tier" in report.message
@@ -383,7 +387,7 @@ class TestBatchTranscribeOnly:
         service = _make_service(tmp_path, batch_transcription=transcription)
 
         report = await service.run_batch_over_dir(
-            tmp_path / "je_in", "transcribe_only", None, skip_existing=True
+            tmp_path / "je_in", ProcessingMode.TRANSCRIBE_ONLY, None, skip_existing=True
         )
 
         assert report.ok
@@ -401,7 +405,7 @@ class TestBatchTranscribeOnly:
         )
         service = _make_service(tmp_path, batch_transcription=transcription)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_only", None)
+        report = await service.run_batch_over_dir(tmp_path, ProcessingMode.TRANSCRIBE_ONLY, None)
 
         assert not report.ok
         assert "2 failed" in report.message
@@ -414,7 +418,7 @@ class TestBatchTranscribeOnly:
         )
         service = _make_service(tmp_path, batch_transcription=transcription)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_only", None)
+        report = await service.run_batch_over_dir(tmp_path, ProcessingMode.TRANSCRIBE_ONLY, None)
 
         assert report.ok  # something succeeded — not a whole-run error
 
@@ -426,7 +430,7 @@ class TestBatchTranscribeOnly:
         )
         service = _make_service(tmp_path, batch_transcription=transcription)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_only", None)
+        report = await service.run_batch_over_dir(tmp_path, ProcessingMode.TRANSCRIBE_ONLY, None)
 
         assert not report.ok
         assert report.message == "No supported audio files found to transcribe"
@@ -439,7 +443,7 @@ class TestBatchTranscribeOnly:
         )
         service = _make_service(tmp_path, batch_transcription=transcription)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_only", None)
+        report = await service.run_batch_over_dir(tmp_path, ProcessingMode.TRANSCRIBE_ONLY, None)
 
         assert not report.ok
         assert "quota" in report.message
@@ -453,7 +457,9 @@ class TestBatchTranscribeAndInstructions:
         transcription.transcribe_batch = AsyncMock()
         service = _make_service(tmp_path, batch_transcription=transcription, llm_caller=None)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_and_instructions", None)
+        report = await service.run_batch_over_dir(
+            tmp_path, ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS, None
+        )
 
         assert not report.ok
         assert "INTELLIGENCE_TIER=full" in report.message
@@ -470,7 +476,7 @@ class TestBatchTranscribeAndInstructions:
         service = _make_service(tmp_path, batch_transcription=transcription, llm_caller=_llm())
 
         await service.run_batch_over_dir(
-            tmp_path, "transcribe_and_instructions", None, skip_existing=True
+            tmp_path, ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS, None, skip_existing=True
         )
 
         # Structured output must reflect the CURRENT audio — never a stale
@@ -491,7 +497,9 @@ class TestBatchTranscribeAndInstructions:
         llm = _llm("STRUCTURED")
         service = _make_service(tmp_path, batch_transcription=transcription, llm_caller=llm)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_and_instructions", "instr")
+        report = await service.run_batch_over_dir(
+            tmp_path, ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS, "instr"
+        )
 
         assert report.ok
         assert report.message == "1 transcribed, 1 structured, 0 failed — results in je_out/"
@@ -519,7 +527,9 @@ class TestBatchTranscribeAndInstructions:
         )
         service = _make_service(tmp_path, batch_transcription=transcription, llm_caller=llm)
 
-        report = await service.run_batch_over_dir(tmp_path, "transcribe_and_instructions", None)
+        report = await service.run_batch_over_dir(
+            tmp_path, ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS, None
+        )
 
         assert not report.ok
         assert report.message == "1 transcribed, 0 structured, 1 failed — results in je_out/"
@@ -532,7 +542,7 @@ class TestBatchInstructionsOnly:
     async def test_missing_llm_fails_tier_rule(self, tmp_path: Path) -> None:
         service = _make_service(tmp_path, llm_caller=None)
 
-        report = await service.run_batch_over_dir(tmp_path, "instructions_only", None)
+        report = await service.run_batch_over_dir(tmp_path, ProcessingMode.INSTRUCTIONS_ONLY, None)
 
         assert not report.ok
         assert "INTELLIGENCE_TIER=full" in report.message
@@ -542,7 +552,7 @@ class TestBatchInstructionsOnly:
         service = _make_service(tmp_path, llm_caller=_llm())
         missing = tmp_path / "nope"
 
-        report = await service.run_batch_over_dir(missing, "instructions_only", None)
+        report = await service.run_batch_over_dir(missing, ProcessingMode.INSTRUCTIONS_ONLY, None)
 
         assert not report.ok
         assert report.message == f"Input folder not found: {missing}"
@@ -554,7 +564,7 @@ class TestBatchInstructionsOnly:
         (input_dir / "photo.png").write_bytes(b"\x89PNG")
         service = _make_service(tmp_path, llm_caller=_llm())
 
-        report = await service.run_batch_over_dir(input_dir, "instructions_only", None)
+        report = await service.run_batch_over_dir(input_dir, ProcessingMode.INSTRUCTIONS_ONLY, None)
 
         assert not report.ok
         assert report.message == "No text files found to process"
@@ -567,7 +577,7 @@ class TestBatchInstructionsOnly:
         (input_dir / "b.md").write_text("beta")
         service = _make_service(tmp_path, llm_caller=_llm("PROCESSED"))
 
-        report = await service.run_batch_over_dir(input_dir, "instructions_only", None)
+        report = await service.run_batch_over_dir(input_dir, ProcessingMode.INSTRUCTIONS_ONLY, None)
 
         assert report.ok
         assert report.message == "2 processed, 0 failed — results in je_out/"
@@ -589,7 +599,7 @@ class TestBatchInstructionsOnly:
         )
         service = _make_service(tmp_path, llm_caller=llm)
 
-        report = await service.run_batch_over_dir(input_dir, "instructions_only", None)
+        report = await service.run_batch_over_dir(input_dir, ProcessingMode.INSTRUCTIONS_ONLY, None)
 
         assert report.ok  # one file made it — partial completion
         assert report.message == "1 processed, 1 failed — results in je_out/"
@@ -605,7 +615,7 @@ class TestBatchInstructionsOnly:
         )
         service = _make_service(tmp_path, llm_caller=llm)
 
-        report = await service.run_batch_over_dir(input_dir, "instructions_only", None)
+        report = await service.run_batch_over_dir(input_dir, ProcessingMode.INSTRUCTIONS_ONLY, None)
 
         assert not report.ok
         assert report.message == "0 processed, 1 failed — results in je_out/"

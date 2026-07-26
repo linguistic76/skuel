@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.config import get_settings
-from core.models.enums.pipeline import JeUse
+from core.models.enums.pipeline import JeUse, ProcessingMode
 from core.models.type_hints import UserUID
 from core.services.chat import resolve_chat_model
 from core.services.journal.instruction_loader import load_named_instruction
@@ -58,6 +58,14 @@ logger = get_logger("skuel.services.journal.batch")
 
 TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
 _LLM_MAX_TOKENS = 4000
+
+# Tier-availability messages. Both upload doors (the single-file route helper and
+# the batch engine below) surface these verbatim, so they live here as the one
+# source rather than being re-typed at each call site.
+TRANSCRIPTION_UNAVAILABLE_MESSAGE = "Transcription service not available (requires FULL tier)"
+LLM_UNAVAILABLE_MESSAGE = "LLM service not available (requires INTELLIGENCE_TIER=full)"
+
+
 # Bound token cost of injected exemplars: at most N pairs, each side truncated.
 EXEMPLAR_MAX_PAIRS = 3
 EXEMPLAR_MAX_CHARS = 2000
@@ -65,6 +73,16 @@ EXEMPLAR_MAX_CHARS = 2000
 # before injection — YAML is consent metadata, not style) doesn't eat into the
 # exemplar's content budget.
 EXEMPLAR_FRONTMATTER_HEADROOM = 2048
+
+
+def unknown_mode_message(value: object) -> str:
+    """The rejection text for an unrecognised ``processing_mode``.
+
+    Shared so both upload doors reject an unknown mode with identical wording —
+    the single-file route rejects it at the form boundary, the batch engine at
+    its fail-closed floor.
+    """
+    return f"Unknown processing mode: {value!r}"
 
 
 @dataclass(frozen=True)
@@ -167,18 +185,18 @@ class JournalBatchService:
         *,
         instruction_content: str,
         instruction_filename: str,
-        processing_mode: str,
+        processing_mode: ProcessingMode,
     ) -> str | None:
         """Resolve the run's instructions: inline content wins over a named file.
 
-        ``transcribe_only`` never carries instructions (there is no compile
+        ``TRANSCRIBE_ONLY`` never carries instructions (there is no compile
         step), and an absent filename resolves to ``None`` — the pipeline runs
         uninstructed. File loading (with path containment) lives in
         ``instruction_loader.load_named_instruction``.
         """
         if instruction_content:
             return instruction_content
-        if processing_mode == "transcribe_only" or not instruction_filename:
+        if processing_mode == ProcessingMode.TRANSCRIBE_ONLY or not instruction_filename:
             return None
         return load_named_instruction(instruction_filename)
 
@@ -205,7 +223,7 @@ class JournalBatchService:
             return Result.fail(
                 Errors.business(
                     rule="transcription_tier_required",
-                    message="Transcription service not available (requires FULL tier)",
+                    message=TRANSCRIPTION_UNAVAILABLE_MESSAGE,
                 )
             )
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -349,7 +367,7 @@ class JournalBatchService:
     async def run_batch_over_dir(  # skuel-lint: disable=SKUEL005 -- total function: every failure is a user-renderable BatchRunReport line, not an error channel
         self,
         input_dir: Path,
-        processing_mode: str,
+        processing_mode: ProcessingMode,
         instructions: str | None,
         *,
         skip_existing: bool = True,
@@ -367,12 +385,18 @@ class JournalBatchService:
         transcription, since an upload is new content that must not be shadowed
         by a stale same-stem transcript.
         """
-        if processing_mode == "instructions_only":
+        if processing_mode == ProcessingMode.INSTRUCTIONS_ONLY:
             return await self._run_instructions_batch(input_dir, instructions)
 
-        if processing_mode not in ("transcribe_only", "transcribe_and_instructions"):
-            # Unknown mode fails before any filesystem effect — no je_out/ mkdir.
-            return BatchRunReport(ok=False, message=f"Unknown processing mode: {processing_mode!r}")
+        if processing_mode not in (
+            ProcessingMode.TRANSCRIBE_ONLY,
+            ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS,
+        ):
+            # Fail-closed floor. Unreachable for a ``ProcessingMode``-typed caller
+            # (the route parses at the boundary), but a raw-string caller or a
+            # future member added without a branch here must still be rejected
+            # before any filesystem effect — no je_out/ mkdir, no Deepgram spend.
+            return BatchRunReport(ok=False, message=unknown_mode_message(processing_mode))
 
         # transcribe_batch writes .txt outputs into je_out/ itself (outside
         # write_output), so the folder must exist before the batch starts.
@@ -384,30 +408,31 @@ class JournalBatchService:
     async def _run_transcription_batch(
         self,
         input_dir: Path,
-        processing_mode: str,
+        processing_mode: ProcessingMode,
         instructions: str | None,
         *,
         skip_existing: bool,
     ) -> BatchRunReport:
         """The two audio modes: transcribe, then (t&i) LLM-structure each transcript."""
         if self.batch_transcription_service is None:
-            return BatchRunReport(
-                ok=False, message="Transcription service not available (requires FULL tier)"
-            )
+            return BatchRunReport(ok=False, message=TRANSCRIPTION_UNAVAILABLE_MESSAGE)
         # Verify the LLM branch BEFORE transcribing: transcription spends Deepgram
         # quota and writes .txt to je_out/, so a missing llm_caller must fail the
         # whole run up front, not after every file is transcribed for nothing.
-        if processing_mode == "transcribe_and_instructions" and self.llm_caller is None:
-            return BatchRunReport(
-                ok=False, message="LLM service not available (requires INTELLIGENCE_TIER=full)"
-            )
+        if (
+            processing_mode == ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS
+            and self.llm_caller is None
+        ):
+            return BatchRunReport(ok=False, message=LLM_UNAVAILABLE_MESSAGE)
         # transcribe_and_instructions structures the transcript into ``_out.md``,
         # so the transcript must reflect the CURRENT audio — never reuse a stale
         # ``je_out/{stem}.txt`` from a prior run whose audio was since replaced
         # under the same basename. Force fresh transcription for that mode;
         # transcribe_only may reuse per the caller's ``skip_existing``
         # (folder-process reruns idempotently, uploads are always fresh).
-        effective_skip = skip_existing if processing_mode == "transcribe_only" else False
+        effective_skip = (
+            skip_existing if processing_mode == ProcessingMode.TRANSCRIBE_ONLY else False
+        )
         transcribe_result = await self.batch_transcription_service.transcribe_batch(
             input_dir, self.je_out_dir, skip_existing=effective_skip
         )
@@ -420,7 +445,7 @@ class JournalBatchService:
         if r.total_files == 0:
             return BatchRunReport(ok=False, message="No supported audio files found to transcribe")
 
-        if processing_mode == "transcribe_only":
+        if processing_mode == ProcessingMode.TRANSCRIBE_ONLY:
             msg = (
                 f"{r.succeeded} transcribed, {r.failed} failed, {r.skipped} skipped"
                 " — results in je_out/"
@@ -462,9 +487,7 @@ class JournalBatchService:
     ) -> BatchRunReport:
         """instructions_only: LLM-compile every text file in ``input_dir``."""
         if self.llm_caller is None:
-            return BatchRunReport(
-                ok=False, message="LLM service not available (requires INTELLIGENCE_TIER=full)"
-            )
+            return BatchRunReport(ok=False, message=LLM_UNAVAILABLE_MESSAGE)
         if not input_dir.is_dir():
             return BatchRunReport(ok=False, message=f"Input folder not found: {input_dir}")
         text_files = sorted(

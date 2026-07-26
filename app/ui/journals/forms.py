@@ -12,21 +12,24 @@ from typing import Any
 from fasthtml.common import Button as RawButton
 from fasthtml.common import Div, Form, Input, Label, P, Script, Span
 
+from core.models.enums.pipeline import ProcessingMode
 from ui.components import Icon
 from ui.primitives import dropdown_menu, primary_btn, section_label
 
-_MODE_CONFIGS: dict[str, dict[str, str]] = {
-    "transcribe_only": {
+# Keyed by the enum so a new ProcessingMode member cannot ship without a card
+# here (enforced by tests/unit/ui/test_journals_form_modes.py).
+_MODE_CONFIGS: dict[ProcessingMode, dict[str, str]] = {
+    ProcessingMode.TRANSCRIBE_ONLY: {
         "icon": "mic",
         "title": "Transcribe only",
         "desc": "Convert audio or media to text",
     },
-    "transcribe_and_instructions": {
+    ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS: {
         "icon": "sparkles",
         "title": "Transcribe + Instructions",
         "desc": "Transcribe audio then apply processing instructions",
     },
-    "instructions_only": {
+    ProcessingMode.INSTRUCTIONS_ONLY: {
         "icon": "file-text",
         "title": "Instructions only",
         "desc": "Apply instructions to an existing text file",
@@ -43,7 +46,7 @@ def _build_processing_section() -> Any:
     """Full-width trigger showing the current processing mode + dropdown."""
     mode_spans = []
     for mode_key, cfg in _MODE_CONFIGS.items():
-        is_default = mode_key == "transcribe_only"
+        is_default = mode_key == ProcessingMode.default()
         mode_spans.append(
             Span(
                 Span(
@@ -58,7 +61,7 @@ def _build_processing_section() -> Any:
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-[18px] flex-1 min-w-0",
-                **{"x-show": f"processingMode === '{mode_key}'"},
+                **{"x-show": f"processingMode === '{mode_key.value}'"},
                 **({} if is_default else {"x-cloak": True}),  # boundary: fasthtml-elements
             )
         )
@@ -93,7 +96,7 @@ def _build_processing_section() -> Any:
                 Span(
                     Icon("check", cls="w-4 h-4 text-primary"),
                     **{
-                        "x-show": f"processingMode === '{mode_key}'",
+                        "x-show": f"processingMode === '{mode_key.value}'",
                         "x-cloak": True,  # boundary: fasthtml-elements
                     },
                 ),
@@ -103,9 +106,9 @@ def _build_processing_section() -> Any:
                     "cursor-pointer border-0 font-[inherit] transition-colors"
                 ),
                 **{
-                    "@click": f"selectMode('{mode_key}')",  # boundary: fasthtml-elements
+                    "@click": f"selectMode('{mode_key.value}')",  # boundary: fasthtml-elements
                     ":class": (
-                        f"processingMode === '{mode_key}' "
+                        f"processingMode === '{mode_key.value}' "
                         "? 'bg-muted' : 'bg-transparent hover:bg-muted/50'"
                     ),
                 },
@@ -252,7 +255,7 @@ def _build_summon_toggle(field_name: str, label: str, *, compact: bool = False) 
     compile is ungrounded (default). Rendered ONLY when the caller is FOUNDER.
     Mirrors the review-gate checkboxes on the interactive stages.
     """
-    supported = "processingMode === 'instructions_only' && fileCount <= 1"
+    supported = f"processingMode === '{ProcessingMode.INSTRUCTIONS_ONLY.value}' && fileCount <= 1"
     return Label(
         Input(
             type="checkbox",
@@ -396,7 +399,7 @@ def _build_compact_processing_section() -> Any:
     """Compact processing mode selector for the 320px right panel."""
     mode_spans = []
     for mode_key, cfg in _MODE_CONFIGS.items():
-        is_default = mode_key == "transcribe_only"
+        is_default = mode_key == ProcessingMode.default()
         mode_spans.append(
             Span(
                 Span(
@@ -409,7 +412,7 @@ def _build_compact_processing_section() -> Any:
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-3 flex-1 min-w-0",
-                **{"x-show": f"processingMode === '{mode_key}'"},
+                **{"x-show": f"processingMode === '{mode_key.value}'"},
                 **({} if is_default else {"x-cloak": True}),  # boundary: fasthtml-elements
             )
         )
@@ -441,7 +444,7 @@ def _build_compact_processing_section() -> Any:
                 Span(
                     Icon("check", cls="w-3.5 h-3.5 text-primary"),
                     **{
-                        "x-show": f"processingMode === '{mode_key}'",
+                        "x-show": f"processingMode === '{mode_key.value}'",
                         "x-cloak": True,  # boundary: fasthtml-elements
                     },
                 ),
@@ -451,9 +454,9 @@ def _build_compact_processing_section() -> Any:
                     "cursor-pointer border-0 font-[inherit] transition-colors"
                 ),
                 **{
-                    "@click": f"selectMode('{mode_key}')",  # boundary: fasthtml-elements
+                    "@click": f"selectMode('{mode_key.value}')",  # boundary: fasthtml-elements
                     ":class": (
-                        f"processingMode === '{mode_key}' "
+                        f"processingMode === '{mode_key.value}' "
                         "? 'bg-muted' : 'bg-transparent hover:bg-muted/50'"
                     ),
                 },
