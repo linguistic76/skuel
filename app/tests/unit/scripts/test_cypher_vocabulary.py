@@ -197,6 +197,10 @@ class TestLeadingClauseAnchor:
             ("MATCH ()-[r:$(REL_TYPE)]->() RETURN r", []),
             ("MATCH (n:$(labelExpr)) RETURN n", []),
             ("MATCH ()-[r:$relParam]->() RETURN r", []),
+            # The WHOLE operand is dynamic, not just the identifier next to the
+            # `$`. Skipping only the adjacent one reported the nested names.
+            ("MATCH (n:$(coalesce(Foo,Bogus))) RETURN n", []),
+            ("MATCH ()-[r:$(coalesce(A_EDGE,B_EDGE))]->() RETURN r", []),
             # A static sibling next to a dynamic one is still checked.
             ("MATCH (n:Typo:$(x)) RETURN n", ["Typo"]),
         ],

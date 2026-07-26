@@ -594,6 +594,50 @@ def _starts_a_clause(text: str, i: int) -> bool:
     return j < 0 or text[j] not in _NAME_COMPONENT_SIGILS
 
 
+def _blank_dynamic_vocabulary(body: str) -> str:
+    """Blank `$(...)` / `$param` spans in a pattern body, preserving offsets.
+
+    A DYNAMIC label or relationship type — `(n:$(labelExpr))`, `[r:$param]` — is
+    an expression evaluated at runtime, so there is no static name to check. The
+    whole operand goes, not just the identifier next to the `$`: skipping only
+    the adjacent one left `(n:$(coalesce(Foo,Bogus)))` reporting `Foo` and
+    `Bogus` as unregistered vocabulary (Codex P2 on #831 — the same finding
+    twice, because the first fix looked at the prefix instead of the span).
+
+    `_LABEL_RE` / `_REL_RE` truncate their body at the first `)` or `]`, so a
+    `$(` here is routinely unbalanced; an unclosed one blanks to the end, which
+    is the correct reading of a dynamic operand that ran past the body.
+
+    The static sibling in `(n:Known:$(x))` is untouched and still checked.
+    """
+    chars = list(body)
+    i = 0
+    while i < len(body):
+        if body[i] != "$":
+            i += 1
+            continue
+        if body[i + 1 : i + 2] == "(":
+            depth = 0
+            j = i + 1
+            while j < len(body):
+                if body[j] == "(":
+                    depth += 1
+                elif body[j] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        j += 1
+                        break
+                j += 1
+        else:
+            j = i + 1
+            while j < len(body) and (body[j].isalnum() or body[j] == "_"):
+                j += 1
+        for k in range(i, j):
+            chars[k] = " "
+        i = j
+    return "".join(chars)
+
+
 def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:
     """True if ``masked`` opens with a Cypher clause keyword and has an operand.
 
@@ -705,15 +749,7 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
                 continue
             # Same per-name positioning as the mutation scanner below: a
             # multi-label `(n:A:B)` recorded both at the group start.
-            for part in _NAME_PART_RE.finditer(body):
-                # A DYNAMIC label / type — `(n:$(labelExpr))`, `[r:$param]` — is
-                # an expression evaluated at runtime, not a static name. Reading
-                # identifier runs out of the body (rather than whole
-                # colon-separated chunks) made `labelExpr` look like vocabulary
-                # and report it unregistered (Codex P2 on #831). The sibling
-                # `Known` in `(n:Known:$(x))` is still static and still checked.
-                if body[: part.start()].endswith(("$", "$(")):
-                    continue
+            for part in _NAME_PART_RE.finditer(_blank_dynamic_vocabulary(body)):
                 name = part.group()
                 if name_re.fullmatch(name):
                     record(kind, name, match.start(1) + part.start())
