@@ -29,6 +29,7 @@ from ui.activities._shared import (
     ConnectionSummary,
     MetadataField,
     PriorityBadgeDropdown,
+    TagsBlock,
     safe_id,
 )
 from ui.components import Button, ButtonT, Card, Icon
@@ -383,14 +384,7 @@ def PrincipleDetailView(
         )
 
     # Tags
-    tags_el = Div()
-    if principle.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in principle.tags]
-        tags_el = Div(
-            Small("Tags", cls="text-muted-foreground block mb-2"),
-            *tag_badges,
-            cls="my-4",
-        )
+    tags_el = TagsBlock(principle.tags)
 
     # Connections — gravity well (incoming relationships)
     conn_section = Div()

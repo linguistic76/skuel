@@ -7,7 +7,7 @@ Usage:
     from ui.activities._shared import safe_id, PRIORITY_ORDER, PriorityBadgeDropdown, ConnectionBadges
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Button, Div, Li, Small, Span, Ul
@@ -67,11 +67,38 @@ def ConnectionsSection(
             )
         )
 
+    return ConnectionsBlock(*sections)
+
+
+def tag_badges(tags: Sequence[str], limit: int | None = None) -> list["FT"]:
+    """Secondary badges for an entity's tags, optionally capped at ``limit``.
+
+    Cards cap at 5; detail pages render the full set.
+    """
+    shown = tags[:limit] if limit is not None else tags
+    return [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in shown]
+
+
+def TagsBlock(tags: Sequence[str]) -> "FT":
+    """Detail-page 'Tags' block. Renders an empty Div when there are no tags."""
+    if not tags:
+        return Div()
     return Div(
-        section_label("Connections"),
-        *sections,
+        Small("Tags", cls="text-muted-foreground block mb-2"),
+        *tag_badges(tags),
         cls="my-4",
     )
+
+
+def ConnectionsBlock(*body: "FT") -> "FT":
+    """Detail-page 'Connections' wrapper: the section label + a caller-supplied body.
+
+    The body varies by lens — flat :func:`ConnectionBadges` for domains that show
+    outgoing links (Tasks, Habits, Events, Choices), domain-grouped lists for the
+    gravity-well domains (see :func:`ConnectionsSection`). Only the label and
+    spacing are shared, so they live here and nowhere else.
+    """
+    return Div(section_label("Connections"), *body, cls="my-4")
 
 
 def MetadataField(label: str, *value: "FT") -> "FT":

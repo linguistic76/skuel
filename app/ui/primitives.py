@@ -62,12 +62,30 @@ def icon_tile(
     )
 
 
-def section_label(text: str) -> Any:  # boundary: fasthtml-elements
-    """Uppercase tracking section divider label."""
-    return P(
-        text,
-        cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-    )
+_SECTION_LABEL_CLS = (
+    "block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]"
+)
+
+
+def section_label(
+    text: str,
+    *,
+    tag: Any = P,  # boundary: fasthtml-elements
+    id: str | None = None,
+    cls: str = "",
+) -> Any:  # boundary: fasthtml-elements
+    """Uppercase tracking section divider label.
+
+    Args:
+        text: Label copy.
+        tag:  Element constructor — ``P`` (default) or ``H2`` for section
+              headings that anchor in-page links.
+        id:   Anchor id, for headings targeted by a ``#fragment`` link.
+        cls:  Extra classes appended to the base style (e.g. ``"mt-[18px]"``).
+    """
+    attrs: dict[str, str] = {"id": id} if id is not None else {}
+    attrs["cls"] = f"{_SECTION_LABEL_CLS} {cls}".strip()
+    return tag(text, **attrs)
 
 
 def primary_btn(

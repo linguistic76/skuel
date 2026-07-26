@@ -34,7 +34,12 @@ from fasthtml.common import (
 from core.models.enums import UserRole
 from ui.components import Icon
 from ui.library.resource_chip import resource_chip
-from ui.patterns.detail_nav import detail_back_link, detail_footer_nav
+from ui.patterns.detail_nav import (
+    detail_back_link,
+    detail_footer_nav,
+    render_entity_not_found,
+)
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -51,25 +56,13 @@ _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
 
 def render_ps_not_found(uid: str) -> Div:
     """Render the not-found state for a PathStep detail fragment."""
-    return Div(
-        A(
-            Icon("arrow-left", cls="w-3.5 h-3.5"),
-            " Explore",
-            href="/explore",
-            cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
-        ),
-        Div(
-            P("Path step not found.", cls="text-[14px] font-semibold text-foreground"),
-            P(f"No path step with ID: {uid}", cls="text-[13px] text-muted-foreground mt-1"),
-            A(
-                "← Back to Explore",
-                href="/explore",
-                cls="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground mt-4",
-            ),
-            cls="p-8 border border-border rounded-[12px] bg-card text-center",
-        ),
-        id="ps-detail-content",
-        cls=_COLUMN_CLS,
+    return render_entity_not_found(
+        entity_label="Path step",
+        uid=uid,
+        back_href="/explore",
+        back_label="Explore",
+        column_cls=_COLUMN_CLS,
+        content_id="ps-detail-content",
     )
 
 
@@ -393,11 +386,7 @@ def _unauthenticated_cta() -> "FT":
 
 def _body_section(content_html: str) -> "FT":
     return Section(
-        H2(
-            "The idea",
-            id="idea-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("The idea", tag=H2, id="idea-h"),
         Div(NotStr(content_html), cls="skuel-prose"),
         cls="mt-[30px]",
         role="region",
@@ -413,11 +402,7 @@ def _body_section(content_html: str) -> "FT":
 def _kus_section(kus: list[dict]) -> "FT":
     """Atomic Kus this PathStep composes (USES_KU edges) as reader links."""
     return Section(
-        H2(
-            "Knowledge in this step",
-            id="ps-kus-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Knowledge in this step", tag=H2, id="ps-kus-h"),
         Div(
             *[
                 A(
@@ -452,11 +437,7 @@ def _resources_section(resources: list[dict]) -> "FT":
     destination); the external source link lives there. See ui/library/resource_chip.
     """
     return Section(
-        H2(
-            "Resources",
-            id="ps-resources-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Resources", tag=H2, id="ps-resources-h"),
         Div(
             *[resource_chip(r) for r in resources if r.get("uid")],
             cls="flex flex-wrap gap-2",
@@ -500,11 +481,7 @@ def render_ps_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
     if not items:
         return Div(id="ps-related-fragment")
     return Section(
-        H2(
-            "Related concepts",
-            id="ps-related-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Related concepts", tag=H2, id="ps-related-h"),
         Div(
             *[
                 A(
@@ -601,11 +578,7 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
         )
 
     return Section(
-        H2(
-            "Related to your next step",
-            id="ps-next-step-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Related to your next step", tag=H2, id="ps-next-step-h"),
         P(
             "Your readiest next concepts (from what you've engaged), each with "
             "unordered related hints — not a prescribed sequence.",
@@ -631,11 +604,7 @@ def _tasks_section(uid: str) -> "FT":
     spawned tasks appear immediately after "Start learning" engages the PS.
     """
     return Section(
-        H2(
-            "Tasks from this step",
-            id="ps-tasks-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Tasks from this step", tag=H2, id="ps-tasks-h"),
         Div(
             id="ps-tasks-fragment",
             **{
@@ -662,11 +631,7 @@ def _learning_loop_section(uid: str) -> "FT":
     submissions show feedback from teacher/AI.
     """
     return Section(
-        H2(
-            "Exercises",
-            id="ps-exercises-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Exercises", tag=H2, id="ps-exercises-h"),
         Div(
             id="ps-exercises-fragment",
             **{
@@ -675,11 +640,7 @@ def _learning_loop_section(uid: str) -> "FT":
                 "hx-swap": "outerHTML",
             },
         ),
-        H2(
-            "Submissions & Feedback",
-            id="ps-submissions-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px] mt-[18px]",
-        ),
+        section_label("Submissions & Feedback", tag=H2, id="ps-submissions-h", cls="mt-[18px]"),
         Div(
             id="ps-submissions-fragment",
             **{

@@ -24,12 +24,15 @@ from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import (
     ActivityList,
     ConnectionBadges,
+    ConnectionsBlock,
     MetadataField,
     PriorityBadgeDropdown,
+    TagsBlock,
     safe_id,
+    tag_badges,
 )
 from ui.components import Button, ButtonT, Card, Icon
-from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.feedback import PriorityBadge, StatusBadge
 from ui.forms import Input
 from ui.layout import Container, DivHStacked
 from ui.patterns.entity_picker import EntityPicker
@@ -128,8 +131,7 @@ def TaskCard(
     # Tags
     tags_el = None
     if task.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in task.tags[:5]]
-        tags_el = Div(*tag_badges, cls="mt-2")
+        tags_el = Div(*tag_badges(task.tags, limit=5), cls="mt-2")
 
     # Cross-domain connection badges
     knowledge_el = _task_connection_badges(task, knowledge_connections or [])
@@ -454,24 +456,13 @@ def TaskDetailView(
         )
 
     # Tags
-    tags_el = Div()
-    if task.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in task.tags]
-        tags_el = Div(
-            Small("Tags", cls="text-muted-foreground block mb-2"),
-            *tag_badges,
-            cls="my-4",
-        )
+    tags_el = TagsBlock(task.tags)
 
     # Connections section
     conn_section = Div()
     conn_badges = _task_connection_badges(task, connections)
     if connections or task.fulfills_goal_uid:
-        conn_section = Div(
-            section_label("Connections"),
-            conn_badges,
-            cls="my-4",
-        )
+        conn_section = ConnectionsBlock(conn_badges)
 
     # Sub-tasks (HTMX-loaded: parent breadcrumb + children + quick-add)
     subtasks = SubtaskSection(task.uid)
