@@ -544,23 +544,30 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]
     return items
 
 
+# The complete set of characters after which a following word is a NAME
+# COMPONENT rather than a new clause. Cypher has exactly three: `.` introduces a
+# property, `:` a label or relationship type, `$` a parameter. Each satisfies the
+# word boundary the terminator regex asserts, which is why that regex cannot make
+# the call alone — and each produced its own report before being covered
+# (Codex P2 on #831, twice). Backtick-escaped identifiers need no entry: their
+# contents are already blanked before the walker runs.
+_NAME_COMPONENT_SIGILS = ".:$"
+
+
 def _starts_a_clause(text: str, i: int) -> bool:
     """False if position ``i`` is INSIDE the current item rather than after it.
 
-    A keyword-shaped word that follows a ``.`` or a ``:`` is a property name or
-    a label, not a new clause: ``SET n.order = 1, n:Bogus`` stopped at the
-    property ``order``, and ``SET n:Return`` stopped inside the label, so every
-    item from there on went unvalidated (Codex P2 on #831). The word-boundary
-    the terminator regex asserts is satisfied by those separators, which is
-    exactly why it cannot make this call on its own.
+    ``SET n.order = 1, n:Bogus`` stopped at the property ``order``,
+    ``SET n:Return`` stopped inside the label, and ``SET n.v = $return, n:Bogus``
+    stopped at the parameter — each time abandoning every item that followed.
 
-    Case is not what saves this: a PascalCase label like ``ORDER`` collides in
-    strict mode too.
+    Case is not what saves this: `$RETURN` and a PascalCase label like ``ORDER``
+    collide in strict mode too.
     """
     j = i - 1
     while j >= 0 and text[j].isspace():
         j -= 1
-    return j < 0 or text[j] not in ".:"
+    return j < 0 or text[j] not in _NAME_COMPONENT_SIGILS
 
 
 def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:

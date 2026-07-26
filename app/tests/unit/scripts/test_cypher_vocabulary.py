@@ -262,6 +262,10 @@ class TestLabelMutationPosition:
             ("set n.order = 1, n:Typo return n", ["Typo"], True),
             # A keyword-shaped LABEL — same problem one separator over.
             ("set n:Return return n", ["Return"], True),
+            # A keyword-shaped PARAMETER — the third and last sigil that binds a
+            # word to the current item.
+            ("MATCH (n) SET n.v = $return, n:Typo RETURN n", ["Typo"], True),
+            ("MATCH (n) SET n.v = $RETURN, n:Typo RETURN n", ["Typo"], False),
             # Case is not what saves this: a PascalCase label collides in strict
             # mode too.
             ("MATCH (n) SET n:ORDER RETURN n", ["ORDER"], False),
