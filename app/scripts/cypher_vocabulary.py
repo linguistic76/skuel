@@ -291,37 +291,103 @@ _LABEL_PREDICATE_RE = re.compile(
     r"\b(?:WHERE|AND|OR|NOT|WITH)\s+(?:NOT\s+)?[a-z_]\w*:([A-Z][A-Za-z0-9]*)"
 )
 
-# Mutation position for labels: `SET n:Ku`, `REMOVE n:Lesson`, `SET n:A:B`. A
-# label attached (or detached) here never appears in pattern position, so
-# `_LABEL_RE` cannot see it — and a typo'd `SET n:Kuu` is worse than a typo'd
-# read: it writes a label nothing will ever match. Anchored on the clause keyword
-# and a lowercase variable so it cannot swallow `SET n.prop = $x` (dot, not
-# colon) or a map literal.
-_LABEL_MUTATION_RE = re.compile(r"\b(?:SET|REMOVE)\s+[a-z_]\w*((?::[A-Za-z_]\w*)+)")
+# Mutation position for labels: `SET n:Ku`, `REMOVE n:Lesson`, `SET n:A:B`, and
+# the comma-separated form `SET a:Ku, b:PathStep`. A label attached (or detached)
+# here never appears in pattern position, so `_LABEL_RE` cannot see it — and a
+# typo'd `SET n:Kuu` is worse than a typo'd read: it writes a label nothing will
+# ever match.
+#
+# The clause's whole operand region is taken, then split on commas and each item
+# judged independently. Anchoring on the FIRST item only would have read
+# `SET a:Ku, b:Typoo` as one item and never validated `b` (Codex P2 on #831), and
+# Cypher freely mixes the two kinds of assignment (`SET n.title = $t, n:Ku`), so
+# a walker that stops at the first non-label item is not enough either.
+#
+# Each item must match `_LABEL_MUTATION_ITEM_RE` in FULL. That is what keeps map
+# literals out: `SET n = {a:Foo, b:Bar}` splits into `n = {a:Foo` and ` b:Bar}`,
+# and neither is a bare `var:Label`.
+_MUTATION_TERMINATORS = (
+    "CALL", "CREATE", "DELETE", "DETACH", "FOREACH", "LIMIT", "MATCH", "MERGE",
+    "ON", "ORDER", "REMOVE", "RETURN", "SET", "SKIP", "UNION", "UNWIND",
+    "USING", "WHERE", "WITH", "YIELD",
+)  # fmt: skip
+_LABEL_MUTATION_CLAUSE_RE = re.compile(
+    r"\b(?:SET|REMOVE)\s+(.*?)(?=\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b|$)",
+    re.DOTALL,
+)
+_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[a-z_]\w*((?::[A-Za-z_]\w*)+)\s*")
 
-# Cypher block comments (non-nesting, per the spec) — stripped before the head
-# anchor looks for a leading clause. See `_leads_with_cypher_clause`.
-_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 
+def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
+    """Blank out ``//`` line and ``/* */`` block comments, preserving offsets.
 
-def _leads_with_cypher_clause(fragment: str) -> bool:
-    """True if ``fragment``'s first real line opens with a Cypher clause + operand.
+    Every masked character is replaced by a space and every newline is kept, so
+    the result has the same length and the same line breaks as ``text`` — any
+    offset or line number computed on the masked copy still points at the right
+    place in the original.
 
-    Leading blank lines and BOTH Cypher comment forms are skipped, so a query
-    that opens with a planner-hint comment still anchors on its first real
-    clause. Block comments have to be handled here rather than left to the
-    caller: ``cypher_linter`` masks them out of ``.cypher`` files before this
-    ever runs, but SKUEL030 hands over an AST string literal verbatim, so a
-    ``/* hint */`` opener would otherwise reopen exactly the blind spot the head
-    anchor exists to close.
+    Quoted strings are tracked, so a ``//`` inside a string literal
+    (``'neo4j://host'``) is not mistaken for a comment. Block comments do not
+    nest, per the Cypher spec.
+
+    ``keep_noqa`` leaves ``//`` comments carrying a ``noqa:`` marker intact —
+    ``cypher_linter``'s statement splitter needs them to survive so a
+    suppression stays attached to the line it suppresses. Vocabulary scanning
+    wants no such carve-out: a comment cannot execute, so a name written in one
+    is not load-bearing, which is the same reasoning that exempts docstrings.
     """
-    for raw in _BLOCK_COMMENT_RE.sub(" ", fragment).split("\n"):
+    chars = list(text)
+    in_string: str | None = None
+    i = 0
+    while i < len(text):
+        char = text[i]
+        if in_string is not None:
+            if char == "\\":
+                i += 2  # skip escaped character inside string
+                continue
+            if char == in_string:
+                in_string = None
+        elif char in ("'", '"'):
+            in_string = char
+        elif text[i : i + 2] == "//":
+            end = text.find("\n", i)
+            if end == -1:
+                end = len(text)
+            if not (keep_noqa and "noqa:" in text[i:end]):
+                chars[i:end] = " " * (end - i)
+            i = end
+            continue
+        elif text[i : i + 2] == "/*":
+            end = text.find("*/", i + 2)
+            end = len(text) if end == -1 else end + 2
+            for j in range(i, end):
+                if chars[j] != "\n":
+                    chars[j] = " "
+            i = end
+            continue
+        i += 1
+    return "".join(chars)
+
+
+def _leads_with_cypher_clause(masked: str) -> bool:
+    """True if ``masked``'s first real line opens with a Cypher clause + operand.
+
+    Takes ALREADY-masked text: a comment line has been blanked to spaces by
+    then, so skipping blank lines is all that is needed to look past a leading
+    planner hint in either comment form.
+    """
+    for raw in masked.split("\n"):
         head = raw.strip()
-        if not head or head.startswith("//"):
+        if not head:
             continue
         match = _LEADING_CLAUSE_RE.match(head)
         return match is not None and bool(head[match.end() :].strip())
     return False
+
+
+def _is_cypher(masked: str) -> bool:
+    """Both anchors, over already-masked text."""
+    return _CYPHER_CONTEXT_RE.search(masked) is not None or _leads_with_cypher_clause(masked)
 
 
 def looks_like_cypher(fragment: str) -> bool:
@@ -330,10 +396,12 @@ def looks_like_cypher(fragment: str) -> bool:
     Anchor 1: a paren/sigil-anchored marker anywhere in the fragment.
     Anchor 2: a clause keyword at the fragment's head, followed by an operand.
 
-    See the ``_CYPHER_CONTEXT_RE`` / ``CYPHER_LEADING_CLAUSES`` block above for
-    why one anchor cannot do both jobs.
+    Comments are masked first, so neither anchor can be satisfied by
+    commented-out Cypher. See the ``_CYPHER_CONTEXT_RE`` /
+    ``CYPHER_LEADING_CLAUSES`` block above for why one anchor cannot do both
+    jobs.
     """
-    return _CYPHER_CONTEXT_RE.search(fragment) is not None or _leads_with_cypher_clause(fragment)
+    return _is_cypher(mask_cypher_comments(fragment))
 
 
 def scan_names(fragment: str) -> list[ScannedName]:
@@ -346,9 +414,14 @@ def scan_names(fragment: str) -> list[ScannedName]:
     - **Predicate** — `type(r) = 'X'`, `type(r) IN ['A','B']`, `WHERE n:Label`.
       A typo here makes the predicate unsatisfiable, which fails exactly as
       silently as a typo'd pattern.
-    - **Mutation** — `SET n:Label`, `REMOVE n:Label`. A label attached here is
-      never written in pattern position, so the pattern regexes cannot see it,
-      and a typo writes a label nothing will ever match.
+    - **Mutation** — `SET n:Label`, `REMOVE n:Label`, incl. the comma-separated
+      form `SET a:Ku, b:PathStep`. A label attached here is never written in
+      pattern position, so the pattern regexes cannot see it, and a typo writes
+      a label nothing will ever match.
+
+    Comments are masked out first (offsets and line numbers preserved), so a
+    name written in a `//` or `/* */` comment is not reported: a comment cannot
+    execute, which is the same reasoning that exempts docstrings.
 
     Names touching an interpolation sentinel are skipped: `[:HAS_{domain}]`
     composes its type at runtime, so there is no static name to validate. That
@@ -358,26 +431,27 @@ def scan_names(fragment: str) -> list[ScannedName]:
     a Cypher string literal (``RETURN 'SET n:Bogus' AS example``) is scanned like
     any other, in every position — this has always been true of the pattern and
     label-predicate regexes and is not specific to the mutation scanner. It is
-    not fixable by masking quotes, because the ``type(r) = 'X'`` scanner reads
-    vocabulary out of quoted operands *on purpose*: masking would trade a
-    hypothetical false positive for a real, tested false negative. Zero sites in
-    the tree hit it; the suppression comment is the escape hatch if one ever
-    does.
+    not fixable by masking quotes the way comments are masked, because the
+    ``type(r) = 'X'`` scanner reads vocabulary out of quoted operands *on
+    purpose*: masking would trade a hypothetical false positive for a real,
+    tested false negative. Zero sites in the tree hit it; the suppression
+    comment is the escape hatch if one ever does.
     """
-    if not looks_like_cypher(fragment):
+    masked = mask_cypher_comments(fragment)
+    if not _is_cypher(masked):
         return []
 
     found: list[ScannedName] = []
 
     def record(kind: NameKind, name: str, pos: int) -> None:
-        found.append(ScannedName(kind=kind, value=name, line_offset=fragment.count("\n", 0, pos)))
+        found.append(ScannedName(kind=kind, value=name, line_offset=masked.count("\n", 0, pos)))
 
     # Pattern position
     for kind, pattern, name_re, splitter in (
         (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE, "|"),
         (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE, ":"),
     ):
-        for match in pattern.finditer(fragment):
+        for match in pattern.finditer(masked):
             # Strip the var-length bound BEFORE the interpolation check, not after.
             # `[:REQUIRES*1..{depth}]` interpolates only the DEPTH — the type name
             # is static and must still be validated. Testing the raw body first
@@ -392,7 +466,7 @@ def scan_names(fragment: str) -> list[ScannedName]:
                     record(kind, name, match.start(1))
 
     # Predicate position — type(r) = 'X' / type(r) IN ['A', 'B']
-    for match in _TYPE_PREDICATE_RE.finditer(fragment):
+    for match in _TYPE_PREDICATE_RE.finditer(masked):
         operand = match.group(1)
         if INTERPOLATION_SENTINEL in operand:
             continue
@@ -402,17 +476,22 @@ def scan_names(fragment: str) -> list[ScannedName]:
                 record(NameKind.RELATIONSHIP, name, match.start(1) + quoted.start(1))
 
     # Predicate position — WHERE n:Label / AND NOT a:Label
-    for match in _LABEL_PREDICATE_RE.finditer(fragment):
+    for match in _LABEL_PREDICATE_RE.finditer(masked):
         name = match.group(1)
         if _LABEL_NAME_RE.fullmatch(name):
             record(NameKind.LABEL, name, match.start(1))
 
-    # Mutation position — SET n:Label / REMOVE n:Label / SET n:A:B
-    for match in _LABEL_MUTATION_RE.finditer(fragment):
-        for raw in match.group(1).split(":"):
-            name = raw.strip()
-            if name and _LABEL_NAME_RE.fullmatch(name):
-                record(NameKind.LABEL, name, match.start(1))
+    # Mutation position — SET n:Label / REMOVE n:A:B / SET a:Ku, b:PathStep
+    for match in _LABEL_MUTATION_CLAUSE_RE.finditer(masked):
+        offset = match.start(1)
+        for chunk in match.group(1).split(","):
+            item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
+            if item is not None:
+                for raw in item.group(1).split(":"):
+                    name = raw.strip()
+                    if name and _LABEL_NAME_RE.fullmatch(name):
+                        record(NameKind.LABEL, name, offset + item.start(1))
+            offset += len(chunk) + 1  # +1 for the consumed comma
 
     return found
 

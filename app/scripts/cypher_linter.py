@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
     VocabularyError,
     load_vocabulary,
+    mask_cypher_comments,
     unregistered_names,
 )
 
@@ -231,44 +232,16 @@ class CypherLinter:
             List of (statement, start_line) tuples, start_line 1-indexed at
             the statement's first token
         """
-        # Pass 1: mask comments in place (same length, so every offset and
-        # line number survives)
-        chars = list(content)
-        in_string: str | None = None
-        i = 0
-        while i < len(content):
-            char = content[i]
-            if in_string is not None:
-                if char == "\\":
-                    i += 2  # skip escaped character inside string
-                    continue
-                if char == in_string:
-                    in_string = None
-            elif char in ("'", '"'):
-                in_string = char
-            elif content[i : i + 2] == "//":
-                end = content.find("\n", i)
-                if end == -1:
-                    end = len(content)
-                if "noqa:" not in content[i:end]:
-                    chars[i:end] = " " * (end - i)
-                i = end
-                continue
-            elif content[i : i + 2] == "/*":
-                end = content.find("*/", i + 2)
-                end = len(content) if end == -1 else end + 2
-                for j in range(i, end):
-                    if chars[j] != "\n":
-                        chars[j] = " "
-                i = end
-                continue
-            i += 1
-        text = "".join(chars)
+        # Pass 1: mask comments in place (same length, so every offset and line
+        # number survives). The masker lives in cypher_vocabulary because the
+        # vocabulary scanner needs the identical treatment on the SKUEL030 side,
+        # where nothing pre-masks an AST string literal — see mask_cypher_comments.
+        text = mask_cypher_comments(content, keep_noqa=True)
 
         # Pass 2: split on statement-terminating semicolons
         raw_statements: list[tuple[str, int]] = []
         start = 0
-        in_string = None
+        in_string: str | None = None
         i = 0
         while i < len(text):
             char = text[i]

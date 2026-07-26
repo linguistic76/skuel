@@ -164,3 +164,63 @@ class TestLabelMutationPosition:
         """A runtime-composed label has no static name to check."""
         fragment = f"MATCH (n) SET n:{INTERPOLATION_SENTINEL} RETURN n"
         assert _labels(fragment) == []
+
+    def test_comma_separated_items_are_each_scanned(self) -> None:
+        """`SET a:X, b:Y` is two label writes.
+
+        Anchoring on the item immediately after the clause keyword validated
+        only the first and let the rest through (Codex P2 on #831).
+        """
+        assert _labels("MATCH (n) SET lp1:LearningPath, lp2:Typo RETURN lp1") == [
+            "LearningPath",
+            "Typo",
+        ]
+        assert _labels("MATCH (n) REMOVE a:Article, b:Lesson RETURN a") == ["Article", "Lesson"]
+
+    def test_label_write_mixed_with_property_write_is_scanned(self) -> None:
+        """Cypher allows `SET n.prop = $x, n:Label` — each item judged alone."""
+        assert _labels("MATCH (n) SET n.title = $t, n:Typo RETURN n") == ["Typo"]
+
+    def test_map_literal_is_not_a_label_list(self) -> None:
+        """`SET n = {a:Foo, b:Bar}` splits into items that are not `var:Label`."""
+        assert _labels("MATCH (n) SET n = {a:Foo, b:Bar} RETURN n") == []
+
+
+# ============================================================================
+# Comment masking
+# ============================================================================
+
+
+class TestCommentMasking:
+    """A comment cannot execute, so vocabulary written in one is not real.
+
+    Same reasoning that exempts docstrings. `cypher_linter` already masked
+    comments out of `.cypher` files; SKUEL030 receives an AST string literal
+    with nothing pre-masked, so the scanner has to do it itself.
+    """
+
+    @pytest.mark.parametrize(
+        "fragment",
+        [
+            "/* retired (:Bogus) */ RETURN 1 AS ping",
+            "MATCH (n:Ku) // retired (:Bogus)\nRETURN n",
+            "MATCH (n:Ku)\n/* was [:BOGUS_EDGE] */\nRETURN n",
+        ],
+    )
+    def test_vocabulary_in_comments_is_not_scanned(self, fragment: str) -> None:
+        assert [n.value for n in scan_names(fragment) if n.value.startswith("Bogus")] == []
+        assert "BOGUS_EDGE" not in [n.value for n in scan_names(fragment)]
+
+    def test_comment_only_fragment_is_not_cypher(self) -> None:
+        assert looks_like_cypher("/* a note about MATCH and RETURN */") is False
+        assert looks_like_cypher("// MATCH (n:Bogus) RETURN n") is False
+
+    def test_double_slash_inside_a_string_is_not_a_comment(self) -> None:
+        """`'bolt://host'` must not blank the rest of the line."""
+        fragment = "MATCH (n:Typo) WHERE n.uri = 'bolt://host' RETURN n"
+        assert _labels(fragment) == ["Typo"]
+
+    def test_line_offsets_survive_masking(self) -> None:
+        """Masking preserves length and newlines, so offsets stay truthful."""
+        fragment = "/* header */\nMATCH (n:Typo)\nRETURN n"
+        assert [(n.value, n.line_offset) for n in scan_names(fragment)] == [("Typo", 1)]

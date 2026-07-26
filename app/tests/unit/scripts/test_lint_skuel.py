@@ -1384,6 +1384,21 @@ class TestSKUEL030:
         """`SET n.prop = $x` is a dot, not a colon — nothing to validate."""
         assert lint_cypher('q = "MATCH (n:Task) SET n.title = $title RETURN n"') == []
 
+    def test_comma_separated_label_writes_are_each_scanned(self) -> None:
+        """`SET a:X, b:Y` is two label writes (Codex P2 on #831)."""
+        violations = lint_cypher('q = "MATCH (n:Task) SET a:Bogus, b:Alsobogus RETURN a"')
+        assert sorted(v.message.split("'")[1] for v in violations) == ["Alsobogus", "Bogus"]
+
+    def test_vocabulary_inside_a_comment_is_not_scanned(self) -> None:
+        """A comment cannot execute — same reasoning that exempts docstrings.
+
+        The head anchor newly admits statements whose only other content is a
+        comment, so masking has to happen for scanning too, not just for
+        admission (Codex P2 on #831).
+        """
+        assert lint_cypher('q = "/* retired (:Bogus) */ RETURN 1 AS ping"') == []
+        assert lint_cypher('q = """MATCH (n:Task) // was [:BOGUS_EDGE]\nRETURN n"""') == []
+
     def test_type_predicate_equality_is_scanned(self) -> None:
         """`type(r) = 'X'` names an edge type as load-bearingly as `[:X]` does."""
         violations = lint_cypher("q = \"MATCH ()-[r]->() WHERE type(r) = 'BAD_EDGE'\"")

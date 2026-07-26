@@ -786,6 +786,9 @@ class TestCYP011:
             # `SET n:Label` never appears in pattern position.
             ("MATCH (n:Task) SET n:Bogus RETURN n;", "Bogus"),
             ("MATCH (n:Task) REMOVE n:Bogus RETURN n;", "Bogus"),
+            # Comma-separated items — anchoring on the first one validated only
+            # it and let the rest through (Codex P2 on #831).
+            ("MATCH (n:Task) SET a:Task, b:Bogus RETURN a;", "Bogus"),
         ],
     )
     def test_statement_head_and_mutation_positions_are_scanned(
