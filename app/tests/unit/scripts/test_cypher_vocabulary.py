@@ -187,6 +187,31 @@ class TestLeadingClauseAnchor:
         fragment = "some prefix ... MATCH (n:Ku) RETURN n"
         assert looks_like_cypher(fragment) is True
 
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            # These two are the ones that actually misfired: an expression
+            # variable SHAPED like vocabulary (PascalCase label, UPPER_SNAKE
+            # type). A lowercase variable never matched the name shape anyway.
+            ("MATCH (n:$(LabelExpr)) RETURN n", []),
+            ("MATCH ()-[r:$(REL_TYPE)]->() RETURN r", []),
+            ("MATCH (n:$(labelExpr)) RETURN n", []),
+            ("MATCH ()-[r:$relParam]->() RETURN r", []),
+            # A static sibling next to a dynamic one is still checked.
+            ("MATCH (n:Typo:$(x)) RETURN n", ["Typo"]),
+        ],
+    )
+    def test_dynamic_label_expressions_are_not_static_names(
+        self, query: str, expected: list[str]
+    ) -> None:
+        """`$(labelExpr)` resolves at runtime — there is no name to validate.
+
+        Reading identifier RUNS out of a pattern body (rather than whole
+        colon-separated chunks) made the expression variable look like
+        vocabulary and reported it unregistered (Codex P2 on #831).
+        """
+        assert [n.value for n in scan_names(query)] == expected
+
     def test_insert_is_on_the_paren_anchor_too(self) -> None:
         """Same reason CREATE is: the form is prose-safe wherever it appears."""
         assert [n.value for n in scan_names("... INSERT (n:Typo) ...")] == ["Typo"]

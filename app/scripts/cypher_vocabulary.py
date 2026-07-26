@@ -706,6 +706,14 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
             # Same per-name positioning as the mutation scanner below: a
             # multi-label `(n:A:B)` recorded both at the group start.
             for part in _NAME_PART_RE.finditer(body):
+                # A DYNAMIC label / type — `(n:$(labelExpr))`, `[r:$param]` — is
+                # an expression evaluated at runtime, not a static name. Reading
+                # identifier runs out of the body (rather than whole
+                # colon-separated chunks) made `labelExpr` look like vocabulary
+                # and report it unregistered (Codex P2 on #831). The sibling
+                # `Known` in `(n:Known:$(x))` is still static and still checked.
+                if body[: part.start()].endswith(("$", "$(")):
+                    continue
                 name = part.group()
                 if name_re.fullmatch(name):
                     record(kind, name, match.start(1) + part.start())
