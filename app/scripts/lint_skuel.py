@@ -108,13 +108,19 @@ RULE_DOCS: dict[str, dict[str, str]] = {
     "SKUEL001": {
         "title": "No APOC Above the Hexagonal Boundary",
         "severity": "CRITICAL",
-        "description": """APOC procedures are banned everywhere above the ADR-044 boundary:
+        "description": """APOC is banned everywhere above the ADR-044 boundary:
 core/, any /services/ path, and the inbound/presentation layers (adapters/inbound/, ui/).
 Use CypherGenerator or pure Cypher instead.
 
 APOC is only allowed in adapter layer (adapters/persistence/*) for complex traversals.
 Shares SKUEL021's gate — a CALL apoc... is Cypher, so the layers that may not author
-Cypher may not author APOC either.""",
+Cypher may not author APOC either.
+
+Matches the `apoc.` NAMESPACE, not a curated procedure list: apoc.convert.*,
+apoc.coll.*, apoc.text.*, apoc.periodic.* and every future APOC addition are covered
+without maintenance. apoc.meta.* is NOT an exception — that allowance is the Neo4j
+server plugin allowlist (dbms_security_procedures_allowlist), exercised only by
+tests/integration/test_apoc_canary.py, which this rule skips as a test file.""",
         "good": """# Use CypherGenerator
 query = CypherGenerator.build_prerequisite_chain(uid)
 result = await backend.execute_query(query)""",
@@ -1712,32 +1718,35 @@ class SkuelLinter:
         tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL001 [CRITICAL]: No banned APOC procedures authored above the boundary.
+        SKUEL001 [CRITICAL]: No APOC authored above the boundary.
 
         APOC is a Neo4j server-side procedure namespace invoked via ``CALL apoc...``
         inside Cypher — it belongs to the adapter, not to anything above the boundary
         (ADR-044); domain code uses pure Cypher / CypherGenerator. Shares SKUEL021's
         gate: core/, any /services/ path, and the inbound/presentation layers
-        (``adapters/inbound/``, ``ui/``). Like SKUEL021, this is AST-based: a banned
-        procedure only matters when it appears in a *used* string literal (the Cypher
-        a service would hand to the driver, incl. f-string parts). Inert bare-string
-        statements — docstrings AND mid-body ``USAGE EXAMPLES`` blocks — are skipped by
-        node identity, and comments (full-line AND inline) are not string nodes at all,
-        so an APOC name in documentation/prose (e.g. explaining *why* APOC is banned)
-        never trips this rule. That keeps it correct across the widened gate.
-        CRITICAL and intentionally unsuppressable.
+        (``adapters/inbound/``, ``ui/``). Like SKUEL021, this is AST-based: APOC only
+        matters when it appears in a *used* string literal (the Cypher a service would
+        hand to the driver, incl. f-string parts). Inert bare-string statements —
+        docstrings AND mid-body ``USAGE EXAMPLES`` blocks — are skipped by node
+        identity, and comments (full-line AND inline) are not string nodes at all, so
+        an APOC name in documentation/prose (e.g. explaining *why* APOC is banned)
+        never trips this rule. CRITICAL and intentionally unsuppressable.
+
+        **Namespace-matched, not a curated procedure list.** This used to enumerate
+        nine prefixes, which meant anything outside them — ``apoc.convert.*``,
+        ``apoc.coll.*``, ``apoc.text.*``, ``apoc.periodic.*``, and every APOC release's
+        new additions — passed silently. The invariant is "no APOC above the boundary",
+        so the matcher is the namespace itself; a selective list can only ever be a
+        lagging approximation of it. Measured before the change: **zero** used string
+        constants containing ``apoc.`` anywhere in scope, so nothing legitimate is
+        caught by widening. Note ``apoc.meta.*`` is NOT an exception here — that
+        allowance is the Neo4j *server* plugin allowlist
+        (``dbms_security_procedures_allowlist``), exercised only by
+        ``tests/integration/test_apoc_canary.py``, which this rule skips as a test file.
         """
-        banned_apoc = (
-            "apoc.path.subgraphNodes",
-            "apoc.path.subgraphAll",
-            "apoc.path.expandConfig",
-            "apoc.path.spanningTree",
-            "apoc.cypher.run",
-            "apoc.cypher.runMany",
-            "apoc.map.",
-            "apoc.schema.",
-            "apoc.meta.",
-        )
+        # `apoc.` plus its dotted procedure path, so the violation message can name
+        # what it found rather than the prefix that happened to match.
+        apoc_pattern = re.compile(r"\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+", re.IGNORECASE)
 
         if tree is None:
             return
@@ -1750,9 +1759,10 @@ class SkuelLinter:
                 continue
             if id(node) in inert_ids:
                 continue
-            apoc_proc = next((p for p in banned_apoc if p in node.value), None)
-            if apoc_proc is None:
+            apoc_match = apoc_pattern.search(node.value)
+            if apoc_match is None:
                 continue
+            apoc_proc = apoc_match.group(0)
 
             line_num = node.lineno
             if line_num in reported_lines:

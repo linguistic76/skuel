@@ -565,7 +565,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 | Rule | Guards | Severity |
 |------|--------|----------|
-| SKUEL001 | No APOC above the boundary — `core/`, `adapters/inbound/`, `ui/` (docstring-aware; unsuppressable) | CRITICAL |
+| SKUEL001 | No `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/`; whole-namespace match, `apoc.meta.*` included (docstring-aware; unsuppressable) | CRITICAL |
 | SKUEL003 | `.is_error` not `.is_err` | ERROR |
 | SKUEL007 | `Errors` factory (incl. `str(...)` wraps) — services + `adapters/inbound/`, `ui/` | WARNING |
 | SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |

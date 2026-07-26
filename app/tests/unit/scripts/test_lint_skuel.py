@@ -357,6 +357,37 @@ class TestSKUEL001:
         violations = lint_content(linter, 'query = "CALL apoc.meta.data()"')
         assert len(violations) == 1
 
+    def test_matches_the_whole_apoc_namespace(self) -> None:
+        """The rule matches `apoc.` + its dotted path, not a curated prefix list.
+        A nine-prefix list silently passed apoc.convert/coll/text/periodic and every
+        new APOC release — a lagging approximation of "no APOC above the boundary"."""
+        for proc in (
+            "apoc.convert.fromJsonMap($json)",
+            "apoc.coll.toSet(items)",
+            "apoc.text.join(parts, ',')",
+            "apoc.periodic.iterate(q1, q2, {})",
+            "apoc.create.node(labels, props)",
+        ):
+            violations = lint_content(make_linter(["SKUEL001"]), f'q = "RETURN {proc} AS x"')
+            assert len(violations) == 1, proc
+            assert violations[0].severity == Severity.CRITICAL
+
+    def test_message_names_the_procedure_found(self) -> None:
+        """Namespace matching must not cost message specificity — the violation
+        reports the procedure it actually matched, not the namespace prefix."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(linter, 'q = "RETURN apoc.convert.fromJsonMap($j) AS d"')
+        assert violations[0].message == (
+            "APOC procedure 'apoc.convert.fromJsonMap' authored above the boundary"
+        )
+
+    def test_bare_apoc_word_is_not_a_procedure(self) -> None:
+        """A used string naming APOC without a dotted procedure path is prose, not a
+        call — the pattern requires at least one `.segment`."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(linter, 'msg = "APOC is banned above the boundary"')
+        assert len(violations) == 0
+
     def test_fires_in_inbound_layer(self) -> None:
         """Shares SKUEL021's gate: a ``CALL apoc...`` is Cypher, so the layers that
         may not author Cypher may not author APOC either. Without this, extending

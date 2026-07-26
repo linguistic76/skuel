@@ -38,7 +38,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 ### CRITICAL (blocks CI)
 | Rule | Pattern | Enforcement |
 |------|---------|-------------|
-| **SKUEL001** | Banned APOC procedures above the boundary — `core/`, `adapters/inbound/`, `ui/` | Use CypherGenerator / pure Cypher below the boundary (ADR-044); docstring-aware |
+| **SKUEL001** | Any `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/` | Use CypherGenerator / pure Cypher below the boundary (ADR-044); namespace-matched, docstring-aware, unsuppressable |
 
 ### ERROR (blocks CI)
 | Rule | Pattern | Enforcement |
@@ -541,7 +541,7 @@ if not api_key:
 
 ## Rule: SKUEL021 - No Raw Cypher Above the Boundary
 
-**Pattern:** ADR-044 puts the hexagonal boundary at `UniversalNeo4jBackend` / `adapters/persistence/neo4j/` — all Cypher lives below it. Code above the boundary — all of `core/` **plus the inbound/presentation layers (`adapters/inbound/`, `ui/`)** — orchestrates and calls backend methods; it does not author Cypher. (SKUEL001 bans only APOC; SKUEL021 covers raw Cypher generally — both share one gate, and both skip APOC/Cypher named in docstrings and comments.)
+**Pattern:** ADR-044 puts the hexagonal boundary at `UniversalNeo4jBackend` / `adapters/persistence/neo4j/` — all Cypher lives below it. Code above the boundary — all of `core/` **plus the inbound/presentation layers (`adapters/inbound/`, `ui/`)** — orchestrates and calls backend methods; it does not author Cypher. (SKUEL001 bans only APOC; SKUEL021 covers raw Cypher generally — both share one gate, and both skip APOC/Cypher named in docstrings and comments. SKUEL001 matches the whole `apoc.` namespace rather than a curated procedure list: `CALL apoc.` is not a `CYPHER_MARKER`, so without it a route could author `RETURN apoc.convert.fromJsonMap($json)` and trip neither rule.)
 
 ```python
 # ❌ VIOLATION (ERROR) — Cypher authored in a core/ module and used
