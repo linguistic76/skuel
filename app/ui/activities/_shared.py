@@ -90,7 +90,7 @@ def TagsBlock(tags: Sequence[str]) -> "FT":
     )
 
 
-def ConnectionsBlock(*body: Any) -> "FT":
+def ConnectionsBlock(*body: "FT") -> "FT":
     """Detail-page 'Connections' wrapper: the section label + a caller-supplied body.
 
     The body varies by lens — flat :func:`ConnectionBadges` for domains that show

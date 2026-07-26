@@ -83,7 +83,7 @@ def section_label(
         id:   Anchor id, for headings targeted by a ``#fragment`` link.
         cls:  Extra classes appended to the base style (e.g. ``"mt-[18px]"``).
     """
-    attrs: dict[str, Any] = {"id": id} if id is not None else {}
+    attrs: dict[str, str] = {"id": id} if id is not None else {}
     attrs["cls"] = f"{_SECTION_LABEL_CLS} {cls}".strip()
     return tag(text, **attrs)
 

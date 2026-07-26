@@ -64,7 +64,7 @@ def render_entity_not_found(
         uid_label: Noun for the "No {x} with ID" line when it differs from a
             lowercased ``entity_label`` (e.g. "KU", not "knowledge unit").
     """
-    attrs: dict[str, Any] = {"id": content_id} if content_id is not None else {}
+    attrs: dict[str, str] = {"id": content_id} if content_id is not None else {}
     attrs["cls"] = column_cls
     return Div(
         detail_back_link(back_label, back_href),
