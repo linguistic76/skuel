@@ -18,6 +18,7 @@ from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import KnowledgeHealth
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
@@ -40,6 +41,37 @@ if TYPE_CHECKING:
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
+
+
+def _nous_subtopic_pairs_query(label: NeoLabel) -> str:
+    """Distinct co-occurring (nous, nous_subtopic) pairs on a single node label.
+
+    Pairing is CO-OCCURRENCE: a (topic, sub-topic) pair exists once ≥1 entity
+    carries both, so the dropdown follows wherever the content actually connects
+    them — every offered pair has at least one matching entity. The two
+    frontmatter lists are fully independent (any lengths, any combination);
+    there is deliberately NO alignment/equal-length authoring contract (Mike's
+    ruling, 2026-07-16: the design goes where whatever there is to share leads —
+    no false restrictions).
+
+    Each caller stays scoped to its OWN label; the cross-domain merge is a
+    service-layer concern (`SearchRouter.nous_subtopic_map`), never a
+    multi-label MATCH here.
+
+    Args:
+        label: The node label to scan. Typed ``NeoLabel`` rather than ``str``
+            because SKUEL030 cannot see through the interpolation — the enum is
+            what keeps an unknown label (which Neo4j answers with zero rows
+            instead of an error) from reaching the graph.
+    """
+    return f"""
+        MATCH (n:{label.value})
+        WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
+        UNWIND n.nous AS nous
+        UNWIND n.nous_subtopic AS subtopic
+        RETURN DISTINCT nous, subtopic
+        ORDER BY nous, subtopic
+        """
 
 
 class KuBackend(UniversalNeo4jBackend[Ku]):
@@ -138,24 +170,10 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         Graph-derived so it can't drift from the vault vocabulary (content
         boundary — the taxonomy lives in the vault, never in the repo).
 
-        Pairing is CO-OCCURRENCE: a (topic, sub-topic) pair exists once ≥1
-        entity carries both, so the dropdown follows wherever the content
-        actually connects them — every offered pair has at least one matching
-        entity. The two frontmatter lists are fully independent (any lengths,
-        any combination); there is deliberately NO alignment/equal-length
-        authoring contract (Mike's ruling, 2026-07-16: the design goes where
-        whatever there is to share leads — no false restrictions). Returns rows
-        with ``nous`` + ``subtopic`` keys.
+        See ``_nous_subtopic_pairs_query`` for the co-occurrence semantics.
+        Returns rows with ``nous`` + ``subtopic`` keys.
         """
-        query = """
-        MATCH (n:Ku)
-        WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
-        UNWIND n.nous AS nous
-        UNWIND n.nous_subtopic AS subtopic
-        RETURN DISTINCT nous, subtopic
-        ORDER BY nous, subtopic
-        """
-        return await self.execute_query(query, {})
+        return await self.execute_query(_nous_subtopic_pairs_query(NeoLabel.KU), {})
 
     # ========================================================================
     # SUBSTANCE METRICS
@@ -460,20 +478,11 @@ class PsBackend(
 
         The PathStep contribution to the dependent nous→sub-topic /search
         dropdown. Scoped to `:PathStep` only — mirror of `KuBackend.nous_subtopic_pairs`
-        (see its docstring for the co-occurrence semantics: the two frontmatter
-        lists are fully independent, no alignment/length contract); the
+        (see ``_nous_subtopic_pairs_query`` for the co-occurrence semantics); the
         cross-domain merge lives in `SearchRouter.nous_subtopic_map`, not here.
         Graph-derived (content boundary).
         """
-        query = """
-        MATCH (n:PathStep)
-        WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
-        UNWIND n.nous AS nous
-        UNWIND n.nous_subtopic AS subtopic
-        RETURN DISTINCT nous, subtopic
-        ORDER BY nous, subtopic
-        """
-        return await self.execute_query(query, {})
+        return await self.execute_query(_nous_subtopic_pairs_query(NeoLabel.PATH_STEP), {})
 
     # ========================================================================
     # STEP SEQUENCE (for attach_step_to_path)

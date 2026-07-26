@@ -31,7 +31,10 @@ from core.utils.logging import get_logger
 from ui.activities.events_form import EventCreateForm, EventEditForm
 from ui.activities.events_views import EventDetailView, EventList, EventStatsBar
 from ui.activities.filter_bar import FILTER_CONFIGS
-from ui.activities.nav import render_activity_sidebar_page
+from ui.activities.nav import (
+    render_activity_sidebar_error,
+    render_activity_sidebar_page,
+)
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -135,16 +138,16 @@ def create_events_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing event UID")),
+            return render_activity_sidebar_error(
+                "Missing event UID",
                 active="events",
                 request=request,
             )
 
         result = await events_service.get_event(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Event not found")),
+            return render_activity_sidebar_error(
+                "Event not found",
                 active="events",
                 request=request,
             )
@@ -176,16 +179,16 @@ def create_events_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing event UID")),
+            return render_activity_sidebar_error(
+                "Missing event UID",
                 active="events",
                 request=request,
             )
 
         existing = await events_service.get_event(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Event not found")),
+            return render_activity_sidebar_error(
+                "Event not found",
                 active="events",
                 request=request,
             )

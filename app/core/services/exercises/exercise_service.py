@@ -51,13 +51,42 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Mapping
     from datetime import date
 
     from core.models.context_types import ContextualExercise
     from core.models.update_contracts import RawChanges
     from core.ports.query_types import ListContext
     from core.services.user.unified_user_context import RichUserContext
+
+
+# boundary: neo4j-record — a raw driver row, genuinely heterogeneous: an
+# ``exercise`` Node under one key plus flat scalar status columns under the
+# rest. No narrower type describes both halves, and coercing here would change
+# what the three callers have always emitted.
+def _to_status_row(record: Mapping[str, Any]) -> ExerciseStatusRow:
+    """Flatten one backend status record into an ``ExerciseStatusRow``.
+
+    The three ``*_with_status`` backend queries all return the same shape — an
+    ``exercise`` node plus flat status columns — so one reader serves them all.
+    Backend: ExerciseBackend's shared ``_exercise_status_tail``.
+    """
+    props = dict(record["exercise"])
+    return {
+        "uid": props.get("uid", ""),
+        "title": props.get("title", ""),
+        "description": props.get("description"),
+        "due_date": props.get("due_date"),
+        "group_name": record.get("group_name") or "",
+        "has_submission": bool(record.get("has_submission", False)),
+        "submission_uid": record.get("submission_uid"),
+        "submission_status": record.get("submission_status"),
+        "has_report": bool(record.get("has_report", False)),
+        "report_uid": record.get("report_uid"),
+        "report_outcome": record.get("report_outcome"),
+        "has_in_progress": bool(record.get("has_in_progress", False)),
+        "in_progress_uid": record.get("in_progress_uid"),
+    }
 
 
 def _compute_exercise_stats(all_exercises: list[Any]) -> dict[str, int | float]:
@@ -473,26 +502,10 @@ class ExerciseService(BaseService):
         exercises: list[ExerciseStatusRow] = []
 
         for record in (assigned_result.value or []) + (ps_result.value or []):
-            props = dict(record["exercise"])
-            uid = props.get("uid", "")
-            if uid in seen_uids:
+            row = _to_status_row(record)
+            if row["uid"] in seen_uids:
                 continue
-            seen_uids.add(uid)
-            row: ExerciseStatusRow = {
-                "uid": uid,
-                "title": props.get("title", ""),
-                "description": props.get("description"),
-                "due_date": props.get("due_date"),
-                "group_name": record.get("group_name") or "",
-                "has_submission": bool(record.get("has_submission", False)),
-                "submission_uid": record.get("submission_uid"),
-                "submission_status": record.get("submission_status"),
-                "has_report": bool(record.get("has_report", False)),
-                "report_uid": record.get("report_uid"),
-                "report_outcome": record.get("report_outcome"),
-                "has_in_progress": bool(record.get("has_in_progress", False)),
-                "in_progress_uid": record.get("in_progress_uid"),
-            }
+            seen_uids.add(row["uid"])
             exercises.append(row)
 
         if limit is not None:
@@ -516,24 +529,7 @@ class ExerciseService(BaseService):
 
         exercises: list[ExerciseStatusRow] = []
         for record in result.value or []:
-            props = dict(record["exercise"])
-            uid = props.get("uid", "")
-            row: ExerciseStatusRow = {
-                "uid": uid,
-                "title": props.get("title", ""),
-                "description": props.get("description"),
-                "due_date": props.get("due_date"),
-                "group_name": record.get("group_name") or "",
-                "has_submission": bool(record.get("has_submission", False)),
-                "submission_uid": record.get("submission_uid"),
-                "submission_status": record.get("submission_status"),
-                "has_report": bool(record.get("has_report", False)),
-                "report_uid": record.get("report_uid"),
-                "report_outcome": record.get("report_outcome"),
-                "has_in_progress": bool(record.get("has_in_progress", False)),
-                "in_progress_uid": record.get("in_progress_uid"),
-            }
-            exercises.append(row)
+            exercises.append(_to_status_row(record))
 
         self.logger.info(f"Found {len(exercises)} exercises with status for PS {ps_uid}")
         return Result.ok(exercises)

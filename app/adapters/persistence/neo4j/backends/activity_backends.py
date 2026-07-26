@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
@@ -488,19 +489,36 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             return Result.fail(result)
         return Result.ok(cast("GoalStats", result.value))
 
+    async def _find_linked_goals(
+        self, target_uid: str, user_uid: UserUID, target_type: EntityType
+    ) -> Result[list[str]]:
+        """UIDs of the user's goals that SUPPORTS_GOAL a given activity entity.
+
+        The target's ``entity_type`` is a guard, not a lookup key — ``uid``
+        already pins the node, so a uid/type mismatch correctly yields no goals.
+        """
+        query = f"""
+        MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(target:Entity {{uid: $target_uid, entity_type: $target_type}})
+        WHERE goal.user_uid = $user_uid
+        RETURN goal.uid as goal_uid
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "target_uid": target_uid,
+                "user_uid": user_uid,
+                "target_type": target_type.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["goal_uid"] for record in (result.value or [])])
+
     async def find_linked_goals_for_task(
         self, task_uid: str, user_uid: UserUID
     ) -> Result[list[str]]:
         """Find goal UIDs linked to a task via SUPPORTS_GOAL."""
-        query = f"""
-        MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(task:Entity {{uid: $task_uid, entity_type: 'task'}})
-        WHERE goal.user_uid = $user_uid
-        RETURN goal.uid as goal_uid
-        """
-        result = await self.execute_query(query, {"task_uid": task_uid, "user_uid": user_uid})
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([record["goal_uid"] for record in (result.value or [])])
+        return await self._find_linked_goals(task_uid, user_uid, EntityType.TASK)
 
     async def count_linked_tasks(self, goal_uid: str, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count total and completed tasks linked to a goal via SUPPORTS_GOAL."""
@@ -528,15 +546,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         self, habit_uid: str, user_uid: UserUID
     ) -> Result[list[str]]:
         """Find goal UIDs linked to a habit via SUPPORTS_GOAL."""
-        query = f"""
-        MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{uid: $habit_uid, entity_type: 'habit'}})
-        WHERE goal.user_uid = $user_uid
-        RETURN goal.uid as goal_uid
-        """
-        result = await self.execute_query(query, {"habit_uid": habit_uid, "user_uid": user_uid})
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok([record["goal_uid"] for record in (result.value or [])])
+        return await self._find_linked_goals(habit_uid, user_uid, EntityType.HABIT)
 
     async def count_linked_habits_avg_streak(
         self, goal_uid: str, user_uid: UserUID

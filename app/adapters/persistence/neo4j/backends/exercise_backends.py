@@ -29,6 +29,86 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise
 
 
+def _link_outcome(
+    result: Result[list[Neo4jProperties]], *, resource: str, identifier: str
+) -> Result[bool]:
+    """Collapse a ``RETURN true as success`` link/unlink query into ``Result[bool]``.
+
+    The five MERGE/DELETE edge writers all guard the same way: propagate a driver
+    error, and treat "no rows" as "one of the endpoints (or the edge) was not
+    there" — a not-found, not a silent success.
+
+    Args:
+        result: Raw query result from the MERGE/DELETE statement.
+        resource: Human-readable name of what was missing (used in the error).
+        identifier: ``"<from> -> <to>"`` pair naming the attempted link.
+    """
+    if result.is_error:
+        return Result.fail(result)
+    if not (result.value or []):
+        return Result.fail(Errors.not_found(resource=resource, identifier=identifier))
+    return Result.ok(True)
+
+
+def _exercise_status_tail(
+    *,
+    carry_group: bool,
+    group_name: str,
+    order_by: str,
+    limit_clause: str = "",
+) -> str:
+    """The shared status tail of the three ExerciseStatusRow queries.
+
+    Every head that binds ``user`` (the learner) and ``exercise`` can append this
+    to produce an ``ExerciseStatusRow``-compatible projection. The tail resolves,
+    per exercise:
+
+    - ``latest_sub`` / ``latest_report`` — the learner's newest frozen turn-in
+      (``FULFILLS_EXERCISE`` edge) and the report on it.
+    - ``latest_living`` — the newest vault living entry: an owned UserEntry whose
+      ``fulfills_exercise_uid`` names the exercise but which carries NO
+      ``FULFILLS_EXERCISE`` edge (the edge is exclusive to frozen turn-in copies,
+      so property-without-edge is exactly the work-in-progress file).
+
+    Args:
+        carry_group: Keep a head-bound ``group`` in scope through the WITH chain.
+            Required whenever *group_name* reads from it.
+        group_name: Cypher expression projected as ``group_name`` (``group.title``
+            for the group-assigned channel, ``''`` for the PathStep channels).
+        order_by: Cypher expression for the final ORDER BY.
+        limit_clause: ``"LIMIT $limit"`` or ``""``.
+    """
+    group_var = "group, " if carry_group else ""
+    return f"""
+            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
+            OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
+            WITH user, exercise, {group_var}sub, report
+            ORDER BY sub.created_at DESC
+            WITH user, exercise, {group_var}
+                 collect(sub)[0] AS latest_sub,
+                 collect(report)[0] AS latest_report
+            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
+            WHERE living.fulfills_exercise_uid = exercise.uid
+              AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
+            WITH exercise, {group_var}latest_sub, latest_report, living
+            ORDER BY living.updated_at DESC
+            WITH exercise, {group_var}latest_sub, latest_report,
+                 collect(living)[0] AS latest_living
+            RETURN exercise,
+                   latest_sub.uid AS submission_uid,
+                   latest_sub.status AS submission_status,
+                   latest_sub IS NOT NULL AS has_submission,
+                   latest_report.uid AS report_uid,
+                   latest_report.assessment_outcome AS report_outcome,
+                   latest_report IS NOT NULL AS has_report,
+                   latest_living.uid AS in_progress_uid,
+                   latest_living IS NOT NULL AS has_in_progress,
+                   {group_name} AS group_name
+            ORDER BY {order_by}
+            {limit_clause}
+            """
+
+
 class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     """
     Domain backend for Exercise entities.
@@ -75,17 +155,11 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             """,
             {"exercise_uid": exercise_uid, "path_step_uid": path_step_uid},
         )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="PathStep or Exercise",
-                    identifier=f"{path_step_uid} -> {exercise_uid}",
-                )
-            )
-        return Result.ok(True)
+        return _link_outcome(
+            result,
+            resource="PathStep or Exercise",
+            identifier=f"{path_step_uid} -> {exercise_uid}",
+        )
 
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """
@@ -109,17 +183,11 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             """,
             {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
         )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="Exercise or Curriculum KU",
-                    identifier=f"{exercise_uid} -> {curriculum_uid}",
-                )
-            )
-        return Result.ok(True)
+        return _link_outcome(
+            result,
+            resource="Exercise or Curriculum KU",
+            identifier=f"{exercise_uid} -> {curriculum_uid}",
+        )
 
     async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """
@@ -142,16 +210,11 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             """,
             {"exercise_uid": exercise_uid, "curriculum_uid": curriculum_uid},
         )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="REQUIRES_KNOWLEDGE relationship",
-                    identifier=f"{exercise_uid} -> {curriculum_uid}",
-                )
-            )
+        return _link_outcome(
+            result,
+            resource="REQUIRES_KNOWLEDGE relationship",
+            identifier=f"{exercise_uid} -> {curriculum_uid}",
+        )
         return Result.ok(True)
 
     async def get_required_knowledge(
@@ -276,38 +339,18 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         Returns:
             Result containing enriched exercise records
         """
-        limit_clause = "LIMIT $limit" if limit is not None else ""
+        tail = _exercise_status_tail(
+            carry_group=True,
+            group_name="group.title",
+            order_by="exercise.due_date ASC, exercise.created_at DESC",
+            limit_clause="LIMIT $limit" if limit is not None else "",
+        )
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
             MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.SHARED_WITH_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
-            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
-            OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
-            WITH user, exercise, group, sub, report
-            ORDER BY sub.created_at DESC
-            WITH user, exercise, group,
-                 collect(sub)[0] AS latest_sub,
-                 collect(report)[0] AS latest_report
-            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
-            WHERE living.fulfills_exercise_uid = exercise.uid
-              AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
-            WITH exercise, group, latest_sub, latest_report, living
-            ORDER BY living.updated_at DESC
-            WITH exercise, group, latest_sub, latest_report,
-                 collect(living)[0] AS latest_living
-            RETURN exercise,
-                   latest_sub.uid AS submission_uid,
-                   latest_sub.status AS submission_status,
-                   latest_sub IS NOT NULL AS has_submission,
-                   latest_report.uid AS report_uid,
-                   latest_report.assessment_outcome AS report_outcome,
-                   latest_report IS NOT NULL AS has_report,
-                   latest_living.uid AS in_progress_uid,
-                   latest_living IS NOT NULL AS has_in_progress,
-                   group.title AS group_name
-            ORDER BY exercise.due_date ASC, exercise.created_at DESC
-            {limit_clause}
+            {tail}
             """,
             {"user_uid": user_uid, "limit": limit},
         )
@@ -330,39 +373,19 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         Returns:
             Result containing enriched exercise records (group_name is empty string)
         """
-        limit_clause = "LIMIT $limit" if limit is not None else ""
+        tail = _exercise_status_tail(
+            carry_group=False,
+            group_name="''",
+            order_by="exercise.created_at DESC",
+            limit_clause="LIMIT $limit" if limit is not None else "",
+        )
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS}]->(ps:Entity)
             MATCH (ps)-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
             WHERE exercise.scope IN ['personal', 'curriculum']
             WITH DISTINCT user, exercise
-            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
-            OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
-            WITH user, exercise, sub, report
-            ORDER BY sub.created_at DESC
-            WITH user, exercise,
-                 collect(sub)[0] AS latest_sub,
-                 collect(report)[0] AS latest_report
-            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
-            WHERE living.fulfills_exercise_uid = exercise.uid
-              AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
-            WITH exercise, latest_sub, latest_report, living
-            ORDER BY living.updated_at DESC
-            WITH exercise, latest_sub, latest_report,
-                 collect(living)[0] AS latest_living
-            RETURN exercise,
-                   latest_sub.uid AS submission_uid,
-                   latest_sub.status AS submission_status,
-                   latest_sub IS NOT NULL AS has_submission,
-                   latest_report.uid AS report_uid,
-                   latest_report.assessment_outcome AS report_outcome,
-                   latest_report IS NOT NULL AS has_report,
-                   latest_living.uid AS in_progress_uid,
-                   latest_living IS NOT NULL AS has_in_progress,
-                   '' AS group_name
-            ORDER BY exercise.created_at DESC
-            {limit_clause}
+            {tail}
             """,
             {"user_uid": user_uid, "limit": limit},
         )
@@ -374,35 +397,22 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
         Scoped version of get_enrolled_ps_exercises_with_status() — returns the same
         shape (compatible with ExerciseStatusRow) but for a single PathStep.
+
+        ``user`` is bound with OPTIONAL MATCH, not MATCH: the PathStep's exercises
+        are listed even when the learner has no User node, exactly as before the
+        shared tail was extracted (an absent ``user`` simply nulls every status
+        field, since OPTIONAL MATCH from a null node yields nulls).
         """
+        tail = _exercise_status_tail(
+            carry_group=False,
+            group_name="''",
+            order_by="exercise.title",
+        )
         return await self.execute_query(
             f"""
             MATCH (ps:Entity {{uid: $ps_uid}})-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
-            OPTIONAL MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
-            OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
-            WITH exercise, sub, report
-            ORDER BY sub.created_at DESC
-            WITH exercise,
-                 collect(sub)[0] AS latest_sub,
-                 collect(report)[0] AS latest_report
-            OPTIONAL MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
-            WHERE living.fulfills_exercise_uid = exercise.uid
-              AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
-            WITH exercise, latest_sub, latest_report, living
-            ORDER BY living.updated_at DESC
-            WITH exercise, latest_sub, latest_report,
-                 collect(living)[0] AS latest_living
-            RETURN exercise,
-                   latest_sub.uid AS submission_uid,
-                   latest_sub.status AS submission_status,
-                   latest_sub IS NOT NULL AS has_submission,
-                   latest_report.uid AS report_uid,
-                   latest_report.assessment_outcome AS report_outcome,
-                   latest_report IS NOT NULL AS has_report,
-                   latest_living.uid AS in_progress_uid,
-                   latest_living IS NOT NULL AS has_in_progress,
-                   '' AS group_name
-            ORDER BY exercise.title
+            OPTIONAL MATCH (user:User {{uid: $user_uid}})
+            {tail}
             """,
             {"ps_uid": ps_uid, "user_uid": user_uid},
         )
@@ -555,17 +565,11 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             """,
             {"re_uid": re_uid, "report_uid": report_uid},
         )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="RESPONDS_TO_REPORT relationship",
-                    identifier=f"{re_uid} -> {report_uid}",
-                )
-            )
-        return Result.ok(True)
+        return _link_outcome(
+            result,
+            resource="RESPONDS_TO_REPORT relationship",
+            identifier=f"{re_uid} -> {report_uid}",
+        )
 
     async def link_to_exercise(self, re_uid: str, exercise_uid: str) -> Result[bool]:
         """Create REVISES_EXERCISE relationship from revised exercise to original exercise."""
@@ -579,17 +583,11 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             """,
             {"re_uid": re_uid, "exercise_uid": exercise_uid},
         )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(
-                Errors.not_found(
-                    resource="REVISES_EXERCISE relationship",
-                    identifier=f"{re_uid} -> {exercise_uid}",
-                )
-            )
-        return Result.ok(True)
+        return _link_outcome(
+            result,
+            resource="REVISES_EXERCISE relationship",
+            identifier=f"{re_uid} -> {exercise_uid}",
+        )
 
     async def verify_teacher_authority(
         self, teacher_uid: str, report_uid: str, student_uid: str
