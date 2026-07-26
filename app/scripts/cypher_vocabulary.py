@@ -267,6 +267,10 @@ _REL_RE = re.compile(r"\[\s*(?:[A-Za-z_]\w*)?\s*:\s*([^\]\s{}]+)")
 # `(n:Label)` / `(:Label)` / `(n:Entity:Ku)`. Same stopping rule.
 _LABEL_RE = re.compile(r"\(\s*(?:[A-Za-z_]\w*)?\s*:\s*([^)\s{}]+)")
 
+# One name inside a multi-name group — `A` and `B` of `(n:A:B)` or `[:A|B]`.
+# Matched with positions so each name is reported where it actually is.
+_NAME_PART_RE = re.compile(r"[A-Za-z_]\w*")
+
 # Relationship types are UPPER_SNAKE; labels are PascalCase. Anything else
 # (lowercase alias, digit-led fragment) is not vocabulary and is ignored.
 _REL_NAME_RE = re.compile(r"[A-Z][A-Z0-9_]*")
@@ -529,11 +533,34 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]
                 if char == ",":
                     items.append((text[item_start:i], item_start))
                     item_start = i + 1
-                elif char.isalpha() and dialect.terminator.match(text, i):
+                elif (
+                    char.isalpha()
+                    and _starts_a_clause(text, i)
+                    and dialect.terminator.match(text, i)
+                ):
                     break
             i += 1
         items.append((text[item_start:i], item_start))
     return items
+
+
+def _starts_a_clause(text: str, i: int) -> bool:
+    """False if position ``i`` is INSIDE the current item rather than after it.
+
+    A keyword-shaped word that follows a ``.`` or a ``:`` is a property name or
+    a label, not a new clause: ``SET n.order = 1, n:Bogus`` stopped at the
+    property ``order``, and ``SET n:Return`` stopped inside the label, so every
+    item from there on went unvalidated (Codex P2 on #831). The word-boundary
+    the terminator regex asserts is satisfied by those separators, which is
+    exactly why it cannot make this call on its own.
+
+    Case is not what saves this: a PascalCase label like ``ORDER`` collides in
+    strict mode too.
+    """
+    j = i - 1
+    while j >= 0 and text[j].isspace():
+        j -= 1
+    return j < 0 or text[j] not in ".:"
 
 
 def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:
@@ -632,9 +659,9 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
         found.append(ScannedName(kind=kind, value=name, line_offset=masked.count("\n", 0, pos)))
 
     # Pattern position
-    for kind, pattern, name_re, splitter in (
-        (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE, "|"),
-        (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE, ":"),
+    for kind, pattern, name_re in (
+        (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE),
+        (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE),
     ):
         for match in pattern.finditer(masked):
             # Strip the var-length bound BEFORE the interpolation check, not after.
@@ -645,10 +672,12 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
             body = _VARLEN_RE.sub("", match.group(1))
             if INTERPOLATION_SENTINEL in body:
                 continue
-            for raw in body.split(splitter):
-                name = raw.strip().strip(":")
-                if name and name_re.fullmatch(name):
-                    record(kind, name, match.start(1))
+            # Same per-name positioning as the mutation scanner below: a
+            # multi-label `(n:A:B)` recorded both at the group start.
+            for part in _NAME_PART_RE.finditer(body):
+                name = part.group()
+                if name_re.fullmatch(name):
+                    record(kind, name, match.start(1) + part.start())
 
     # Predicate position — type(r) = 'X' / type(r) IN ['A', 'B']
     for match in dialect.type_predicate.finditer(masked):
@@ -675,10 +704,14 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
         item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
         if item is None:
             continue
-        for raw in item.group(1).split(":"):
-            name = raw.strip()
-            if name and _LABEL_NAME_RE.fullmatch(name):
-                record(NameKind.LABEL, name, offset + item.start(1))
+        # Each label at ITS OWN position, not the start of the colon group —
+        # `SET n:Known:\n  Bogus` reported `Bogus` on `Known`'s line, which is
+        # both a wrong location and a suppression that cannot be placed beside
+        # the name it must suppress (Codex P2 on #831).
+        for part in _NAME_PART_RE.finditer(item.group(1)):
+            name = part.group()
+            if _LABEL_NAME_RE.fullmatch(name):
+                record(NameKind.LABEL, name, offset + item.start(1) + part.start())
 
     return found
 

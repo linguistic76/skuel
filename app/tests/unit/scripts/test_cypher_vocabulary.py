@@ -253,6 +253,45 @@ class TestLabelMutationPosition:
         """Cypher allows `SET n.prop = $x, n:Label` — each item judged alone."""
         assert _labels("MATCH (n) SET n.title = $t, n:Typo RETURN n") == ["Typo"]
 
+    @pytest.mark.parametrize(
+        ("query", "expected", "declared"),
+        [
+            # A keyword-shaped PROPERTY name — the `.` separator satisfies the
+            # terminator regex's word boundary all by itself.
+            ("MATCH (n) SET n.order = 1, n:Typo RETURN n", ["Typo"], False),
+            ("set n.order = 1, n:Typo return n", ["Typo"], True),
+            # A keyword-shaped LABEL — same problem one separator over.
+            ("set n:Return return n", ["Return"], True),
+            # Case is not what saves this: a PascalCase label collides in strict
+            # mode too.
+            ("MATCH (n) SET n:ORDER RETURN n", ["ORDER"], False),
+        ],
+    )
+    def test_keyword_shaped_names_do_not_end_the_region(
+        self, query: str, expected: list[str], declared: bool
+    ) -> None:
+        """A keyword after `.` or `:` belongs to the item, not to a new clause.
+
+        The region stopped at the property `order` and inside the label
+        `Return`, so every item from there on went unvalidated (Codex P2 on
+        #831).
+        """
+        assert [
+            n.value for n in scan_names(query, declared_cypher=declared) if n.kind is NameKind.LABEL
+        ] == expected
+
+    def test_each_label_is_recorded_at_its_own_position(self) -> None:
+        """A multiline colon group reported every label on the FIRST one's line.
+
+        That is both a wrong location and a suppression comment that cannot be
+        placed beside the name it must suppress (Codex P2 on #831).
+        """
+        fragment = "MATCH (n)\nSET n:Known:\n  Typo\nRETURN n"
+        assert [(n.value, n.line_offset) for n in scan_names(fragment)] == [
+            ("Known", 1),
+            ("Typo", 2),
+        ]
+
     def test_map_literal_is_not_a_label_list(self) -> None:
         """`SET n = {a:Foo, b:Bar}` splits into items that are not `var:Label`."""
         assert _labels("MATCH (n) SET n = {a:Foo, b:Bar} RETURN n") == []
