@@ -2,7 +2,7 @@
 Curriculum Protocols - Consistent Protocol Hierarchy for KU, PS, LP
 ====================================================================
 
-*Last updated: 2026-03-31*
+*Last updated: 2026-07-26*
 
 This module provides a CONSISTENT protocol hierarchy for the three
 curriculum domains (KU, PS, LP) plus Exercise, parallel to BackendOperations
@@ -25,6 +25,20 @@ Protocol Hierarchy:
     - PsOperations: Extends CurriculumOperations[PathStep] with PS-specific methods
     - LpOperations: Extends CurriculumOperations[LearningPath] with LP-specific methods
     - ExerciseOperations: Standalone protocol for Exercise instruction templates
+
+Narrow ``*BackendOperations`` slices (July 2026) — each is what exactly one
+service types ``self.backend`` against, so a wide protocol's unrelated methods
+are not advertised at that seam:
+    - PsOrganizesBackendOperations   → PsOrganizationService
+    - PsProgressBackendOperations    → PsProgressService
+    - PsIntelligenceBackendOperations → PsIntelligenceService
+    - LpProgressBackendOperations    → LpProgressService (LpOperations inherits it)
+``LpOperations`` inherits its slice, keeping one source for those signatures.
+The PS slices deliberately stand alone: ``PsOperations`` is dual-layer (it types
+both ``PsCoreService.backend`` and the ``PsService`` facade via
+``EntityExtractor.knowledge_service``) and its signatures are the *service*'s,
+not the backend's — inheriting would advertise backend signatures to facade
+holders. See PR #826.
 
 Protocol Hierarchy
 ------------------
@@ -86,8 +100,12 @@ from core.ports.query_types import (
     OrganizerResult,
     PrereqMasteryResult,
     PsDeleteStepRow,
+    PsGuidanceCountsRow,
     PsKnowledgeSummaryResult,
+    PsPracticeCountsRow,
     PsPracticeSummaryResult,
+    PsPrerequisiteStepUidsRow,
+    PsTaughtKuUidRow,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
@@ -326,6 +344,16 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         """Get all PathSteps that use this atomic Ku via USES_KU."""
         ...
 
+    async def get_cited_resources(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get the curated Resources this Ku cites via CITES_RESOURCE.
+
+        Rows carry a ``resource`` map plus the edge's ``locator`` anchor; the
+        service flattens them. Implementation: ``KuBackend.get_cited_resources``
+        (the entity-agnostic ``_KnowledgeContextMixin`` variant is PS-oriented
+        and is not mixed into the lightweight Ku backend).
+        """
+        ...
+
     async def get_usage_summary(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Count path steps using, training, and organized children."""
         ...
@@ -502,6 +530,83 @@ class PsOrganizesBackendOperations(Protocol):
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
         """List entities that organize others but are not themselves organized."""
+        ...
+
+
+@runtime_checkable
+class PsProgressBackendOperations(Protocol):
+    """KU → PathStep progress reads — the backend-layer slice.
+
+    ``PsProgressService`` reacts to ``KnowledgeMastered`` and recomputes PathStep
+    progress from these two reads only. Signatures are lifted from ``PsBackend``
+    itself, not from ``PsOperations``.
+
+    Deliberately NOT inherited by ``PsOperations``: that protocol is dual-layer —
+    it types ``PsCoreService.backend`` *and* ``EntityExtractor.knowledge_service``
+    (the ``PsService`` facade) — and is satisfied by neither ``PsBackend`` nor
+    ``PsService``. Making it inherit a backend slice would advertise backend
+    signatures to facade holders; the same reason ``PsOrganizesBackendOperations``
+    above stands alone. See PR #826.
+    """
+
+    async def find_path_steps_for_ku(self, ku_uid: str) -> Result[list[str]]:
+        """Find all PathStep UIDs that contain a given KU."""
+        ...
+
+    async def get_ku_completion_progress(
+        self, ps_uid: str, user_uid: UserUID
+    ) -> Result[Neo4jProperties]:
+        """Return total and mastered KU counts for PathStep progress."""
+        ...
+
+
+@runtime_checkable
+class PsIntelligenceBackendOperations(Protocol):
+    """Persistence port for PathStep readiness / practice / guidance reads.
+
+    ``PsIntelligenceService`` composes these seven reads into readiness
+    assessment and practice-completeness scoring. All the Cypher lives below the
+    boundary in ``adapters/persistence/neo4j/ps_intelligence_backend.py``
+    (ADR-044); the backend is built at the composition root and injected, so the
+    service never imports the adapter (SKUEL022).
+
+    Signatures are a 1:1 mirror of ``PsIntelligenceBackend``'s entire public
+    surface — the class exists solely to serve this one service, so the slice and
+    the class coincide. Each read declares a per-query ``Ps*Row`` TypedDict keyed
+    to its RETURN clause; the service aggregates the rows into the
+    ``*Result``/``*Analytics`` shapes it returns. The row types bind every
+    *consumer* statically, but a Cypher alias rename cannot be caught by typing —
+    the adapter's ``_to_*_rows`` processors enforce that at runtime instead.
+    """
+
+    async def fetch_prerequisite_step_uids(
+        self, ps_uid: str
+    ) -> Result[list[PsPrerequisiteStepUidsRow]]:
+        """Return a single row with ``prereq_uids`` (collected REQUIRES_STEP targets)."""
+        ...
+
+    async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:
+        """Return per-domain practice-opportunity counts for a PathStep."""
+        ...
+
+    async def fetch_guidance_counts(self, ps_uid: str) -> Result[list[PsGuidanceCountsRow]]:
+        """Return principle/choice guidance counts for a PathStep."""
+        ...
+
+    async def has_prerequisites(self, ps_uid: str) -> Result[bool]:
+        """True if the PathStep has REQUIRES_STEP or REQUIRES_KNOWLEDGE edges."""
+        ...
+
+    async def has_guidance(self, ps_uid: str) -> Result[bool]:
+        """True if the PathStep has principle or choice guidance edges."""
+        ...
+
+    async def has_practice_opportunities(self, ps_uid: str) -> Result[bool]:
+        """True if the PathStep has any of the 6 activity-domain practice edges."""
+        ...
+
+    async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[PsTaughtKuUidRow]]:
+        """Return ``ku_uid`` rows for the KUs taught by a PathStep."""
         ...
 
 
@@ -1122,7 +1227,37 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
 
 
 @runtime_checkable
-class LpOperations(CurriculumOperations["LearningPath"], Protocol):
+class LpProgressBackendOperations(Protocol):
+    """KU/PathStep → LearningPath progress reads — the backend-layer slice.
+
+    ``LpProgressService`` reacts to ``KnowledgeMastered`` / ``PathStepCompleted``
+    events and recomputes LP progress. It consumes exactly these three reads out
+    of ``LpOperations``' ~90-method surface, so it types ``self.backend`` against
+    the slice rather than the wide contract (BACKEND_OPERATIONS_ISP.md §
+    "Introduce a Minimal Protocol, Have the Broad One Inherit It").
+
+    Implementation: ``_LpProgressMixin`` (mixed into ``LpBackend``); signatures
+    are lifted from the mixin itself. ``LpOperations`` inherits this slice, so
+    the wide contract is unchanged for every other LP consumer.
+    """
+
+    async def get_paths_containing_ku(self, ku_uid: str) -> Result[list[str]]:
+        """Get UIDs of all learning paths that include the given KU."""
+        ...
+
+    async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:
+        """Get UIDs of all learning paths containing a given path step."""
+        ...
+
+    async def get_ku_mastery_progress(
+        self, lp_uid: str, user_uid: UserUID
+    ) -> Result[Neo4jProperties]:
+        """Return total and mastered KU counts for a user's progress in a path."""
+        ...
+
+
+@runtime_checkable
+class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperations, Protocol):
     """
     Learning Path (LP) specific operations.
 
@@ -1535,9 +1670,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """Get learning paths prioritized by enrollment, goal alignment, and type."""
         ...
 
-    async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:
-        """Get UIDs of all learning paths containing a given path step."""
-        ...
+    # ``get_paths_containing_step`` is inherited from LpProgressBackendOperations.
 
     # =========================================================================
     # INTELLIGENCE QUERIES

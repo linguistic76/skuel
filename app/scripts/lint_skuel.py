@@ -579,11 +579,12 @@ class is design-coupling: it locks the service to a specific adapter instead of 
 ``core/ports`` protocol it should depend on. The protocol is the contract; the adapter
 is one implementation of it.
 
-Facade vs thin: facades (KuService, PsService sub-services, LpService sub-services,
-UserService, UserContextBuilder) are explicitly allowlisted — CLAUDE.md commits to
-"Facade IS the contract": facades aggregate sub-services + a direct backend handle for
-cross-cutting operations the protocol doesn't enumerate. Thin services in core/ that
-take a single backend handle must annotate against the ports protocol.
+Facade vs thin: a shrinking set of facades (UserService, UserContextBuilder,
+InsightStore) is still allowlisted — CLAUDE.md commits to "Facade IS the contract":
+facades aggregate sub-services + a direct backend handle for cross-cutting operations
+the protocol doesn't enumerate. Thin services in core/ that take a single backend
+handle must annotate against the ports protocol. The KU / PS / LP entries were removed
+in July 2026 once every site they covered had a satisfiable core/ports protocol.
 
 AST-based, fail-closed: walks both runtime AND TYPE_CHECKING imports of `adapters.*`,
 then flags annotations (instance attribute, function parameter, class-body attribute)
@@ -1172,7 +1173,7 @@ class SkuelLinter:
     # SKUEL023: facades are allowed to type self.backend against the concrete adapter
     # class — CLAUDE.md commits to "Facade IS the contract" for these. They aggregate
     # sub-services + a direct backend handle for cross-cutting operations the ports
-    # protocol doesn't enumerate (KU/PS/LP/UserService each delegate ~50+ methods).
+    # protocol doesn't enumerate (UserService delegates ~50+ methods).
     # The allowlist is intentionally narrow: directory prefixes for the multi-file
     # sub-service packages, and explicit files for the standalone facade modules.
     #
@@ -1180,17 +1181,21 @@ class SkuelLinter:
     # has grown into a facade with 6+ methods that compose on top of the backend
     # (bulk_dismiss, bulk_mark_actioned, smart_dismiss, filter_insights, chart builders).
     # InsightStore IS the contract; InsightBackend is one implementation of it.
+    #
+    # SHRUNK by SoC arc PR 6 (2026-07-26): the KU / PS / LP halves are gone. Every
+    # site they covered now types against a core/ports protocol — KuOperations
+    # (ku_service), LpProgressBackendOperations, PsProgressBackendOperations,
+    # PsIntelligenceBackendOperations — each proven satisfiable by the injected
+    # backend with an `x: Protocol = concrete` MyPy probe. `core/services/ku/` was
+    # additionally proven inert (it covered zero violations) before removal. The
+    # `core/services/user/`, `core/services/insight/` and `core/services/user_service.py`
+    # entries remain: they cover InsightBackend + UserContextQueryExecutor, which
+    # SoC arc PR 7 owns.
     SKUEL023_FACADE_ALLOWLIST_PREFIXES: ClassVar[tuple[str, ...]] = (
-        "core/services/ku/",
-        "core/services/ps/",
-        "core/services/lp/",
         "core/services/user/",
         "core/services/insight/",
     )
-    SKUEL023_FACADE_ALLOWLIST_FILES: ClassVar[tuple[str, ...]] = (
-        "core/services/ku_service.py",
-        "core/services/user_service.py",
-    )
+    SKUEL023_FACADE_ALLOWLIST_FILES: ClassVar[tuple[str, ...]] = ("core/services/user_service.py",)
 
     # SKUEL023: suffix heuristic — only annotations whose bare type name ends in one
     # of these is treated as a "backend-like" adapter export. Naturally excludes
@@ -3973,9 +3978,11 @@ class SkuelLinter:
           form: ``from adapters.<...> import <Name>`` where ``<Name>`` is what
           gets the suffix check.
 
-        Facade allowlist: KU / PS / LP / UserService and the per-domain sub-service
-        packages are exempt — CLAUDE.md commits to "Facade IS the contract" for
-        these. The thin/ISP services in the rest of core/ are not.
+        Facade allowlist: ``UserService`` plus the ``core/services/user/`` and
+        ``core/services/insight/`` packages are exempt — CLAUDE.md commits to
+        "Facade IS the contract" for these. The thin/ISP services in the rest of
+        core/ are not. The KU / PS / LP entries are gone (July 2026); see the
+        ``SKUEL023_FACADE_ALLOWLIST_*`` comment for what replaced them.
 
         Fix: switch the TYPE_CHECKING import from the adapter to its
         ``core/ports/*Operations`` protocol; switch the annotation to the protocol

@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-03-01
+updated: 2026-07-26
 category: patterns
 related_skills: []
 related_docs:
@@ -12,7 +12,7 @@ related_docs:
 
 # BackendOperations Protocol Architecture
 
-*Last updated: 2026-03-22*
+*Last updated: 2026-07-26*
 
 ## Core Principle
 
@@ -228,6 +228,84 @@ the dependency honest, satisfies the type checker with zero suppressions, and ke
 `SchemaOperations` intact for any consumer that needs the full surface. This is the
 mypy `arg-type` enforcement (see [functional-direction.md](../roadmap/functional-direction.md))
 surfacing a design signal, not an annotation chore.
+
+`LpProgressBackendOperations` (July 2026) is the same move in `curriculum_protocols.py`:
+`LpProgressService` consumes three reads out of `LpOperations`' ~90-method surface, so
+the three were extracted and `LpOperations` inherits the slice.
+
+### When the Broad Protocol Must *Not* Inherit the Slice
+
+The inheritance half of the pattern assumes the broad protocol is single-layer. When
+it is **dual-layer** — the same name typing both `self.backend` inside a service *and*
+a facade handed to a collaborator — inheriting a backend slice leaks backend
+signatures to facade holders, and the two layers' signatures can legitimately differ.
+
+`PsOperations` is the live example: it types `PsCoreService.backend` *and*
+`EntityExtractor.knowledge_service` (which receives the `PsService` facade), it is
+satisfied by neither `PsBackend` nor `PsService`, and its ORGANIZES signatures match
+the *service*'s while `_OrganizesMixin`'s match the *backend*'s. So
+`PsOrganizesBackendOperations`, `PsProgressBackendOperations` and
+`PsIntelligenceBackendOperations` each stand alone, with signatures lifted from the
+backend rather than from `PsOperations`. Accept the duplicated declaration and write
+the reason at the seam — it is two contracts, not one repeated.
+
+**Rule of thumb:** before making a broad protocol inherit a new slice, grep its
+consumers. Every consumer typing `backend:`/`self.backend` → single-layer, inherit.
+Any consumer receiving a *facade* → dual-layer, keep the slice separate.
+
+### Verify Satisfiability, Don't Assume It
+
+A protocol annotation that a green `./dev quality` accepts can still be a contract the
+injected object cannot meet: an `Any`-typed factory parameter anywhere upstream
+launders the argument at the injection point, so nothing is ever checked there. Prove
+it directly instead:
+
+```python
+def _probe(b: TheConcreteBackend) -> None:
+    x: TheProtocolYouChose = b   # MyPy must accept this
+```
+
+Two `Any` laundering points are known and deliberate:
+`create_ps_sub_services(backend: Any, ...)` and
+`create_curriculum_sub_services(backend: Any, ...)` in
+`core/services/curriculum_domain_config.py`.
+
+Note also that `UniversalNeo4jBackend` defines `__getattr__` for dynamic CRUD-alias
+compliance, so **typing `self.backend` against a concrete backend subclass gives no
+attribute checking at all** — every misspelled method resolves to `Any`. Typing
+against the protocol is what turns those into `attr-defined` errors.
+
+### A New Port Declares Typed Rows, Not `dict[str, Any]`
+
+Narrowing the *method set* is only half the job. A slice whose reads return
+`Result[list[dict[str, Any]]]` still leaves the row shape unchecked, so a change to a
+Cypher `RETURN` clause's keys or value types drifts silently across the very boundary
+you just drew. Give each read a per-query `TypedDict` in `core/ports/query_types.py`
+(`*Row` for raw reads, `*Result` / `*Analytics` for what the service returns after
+scoring) — the `_OrganizesMixin` ↔ `PsOrganizesBackendOperations` pair does this with
+`OrganizerResult`, and `PsIntelligenceBackendOperations` follows with four `Ps*Row`
+types.
+
+Two rules make this real rather than decorative:
+
+- **Construct the row at the adapter; never just annotate it.**
+  `Neo4jQueryExecutor.execute[T](...) -> Result[T]` infers `T` **solely from the call
+  site's return annotation** and, given no `processor`, returns the driver's raw
+  `list[dict[str, Any]]` untouched. So a bare annotation is an *unchecked claim*: rename
+  a `RETURN` alias and MyPy stays silent while the service reads the missing key as zero.
+  **Nothing statically links a Cypher alias to a TypedDict key.** Pass a `processor` that
+  builds each row by indexing its alias (`_to_practice_counts_rows` in
+  `ps_intelligence_backend.py`; the explicit comprehension in `_OrganizesMixin`) — drift
+  then raises `KeyError` at the boundary and surfaces as a failed `Result` through
+  `@with_error_handling`. What the `TypedDict` buys *statically* is every consumer site.
+- **Declare the row type on the protocol *and* the implementation, in the same change.**
+  A `TypedDict` on the port with `dict[str, Any]` on the backend makes the port
+  unsatisfiable — that is precisely the shape of several of the return-type conflicts
+  that stop `PsBackend` from satisfying `PsOperations`. Re-run the satisfiability probe
+  after changing either side.
+
+Reserve `dict[str, Any]` for rows that are *genuinely* heterogeneous (variable `RETURN`
+clauses), and mark those with a `# boundary:` comment per the `Any` policy.
 
 ## Benefits
 

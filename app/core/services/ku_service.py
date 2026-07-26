@@ -23,11 +23,11 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
     from core.models.enums import MasteryLevel
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
     from core.models.shared.dual_track import DualTrackResult
+    from core.ports.curriculum_protocols import KuOperations
     from core.ports.query_types import KuUserSubstanceResult, NousSubtopicPair
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
     from core.services.user import UserContext
@@ -47,7 +47,7 @@ class KuService:
 
     def __init__(
         self,
-        backend: Any = None,
+        backend: "KuOperations | None" = None,
         graph_intel: Any = None,
         event_bus: Any = None,
     ) -> None:
@@ -84,7 +84,7 @@ class KuService:
         self.search = common.search
         self.relationships = common.relationships
         self.intelligence: KuIntelligenceService = common.intelligence
-        self.backend: KuBackend = backend  # For get_path_steps() reverse traversal
+        self.backend: KuOperations = backend  # For get_path_steps() reverse traversal
 
         logger.debug("KuService facade initialized with 4 sub-services via factory")
 

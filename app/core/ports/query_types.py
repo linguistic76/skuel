@@ -1899,6 +1899,68 @@ class PsDomainInsights(TypedDict, total=False):
     min_confidence: float
 
 
+# ----------------------------------------------------------------------------
+# PsIntelligenceBackendOperations raw Cypher rows
+# ----------------------------------------------------------------------------
+# One TypedDict per query, keyed to its RETURN clause. The `*Row` types are the
+# raw reads; the `*Result`/`*Analytics` types above are what the service returns
+# after scoring.
+#
+# These types are only as true as the adapter's construction of them: nothing
+# statically links a Cypher RETURN alias to a TypedDict key, so the guarantee
+# comes from the `_to_*_rows` processors in ps_intelligence_backend.py, which
+# index each row by alias and raise KeyError on drift. What the TypedDict buys
+# statically is every *consumer* site — a wrong key or a wrong value-type
+# assumption in Python is a MyPy error.
+
+
+class PsPrerequisiteStepUidsRow(TypedDict):
+    """Row shape for fetch_prerequisite_step_uids().
+
+    ``RETURN collect(prereq.uid) as prereq_uids`` — a single row, always
+    present, whose list is empty when the PathStep declares no REQUIRES_STEP.
+    """
+
+    prereq_uids: list[str]
+
+
+class PsPracticeCountsRow(TypedDict):
+    """Row shape for fetch_practice_counts() — one count per activity domain.
+
+    ``RETURN count(DISTINCT h) as habits, ...`` over the 6 practice edges
+    (BUILDS_HABIT / ASSIGNS_TASK / SCHEDULES_EVENT / SUPPORTS_GOAL /
+    GUIDED_BY_PRINCIPLE / INFORMS_CHOICE).
+    """
+
+    habits: int
+    tasks: int
+    events: int
+    goals: int
+    principles: int
+    choices: int
+
+
+class PsGuidanceCountsRow(TypedDict):
+    """Row shape for fetch_guidance_counts().
+
+    ``RETURN count(DISTINCT p) as principle_count, count(DISTINCT c) as
+    choice_count`` over GUIDED_BY_PRINCIPLE / INFORMS_CHOICE.
+    """
+
+    principle_count: int
+    choice_count: int
+
+
+class PsTaughtKuUidRow(TypedDict):
+    """Row shape for fetch_taught_ku_uids() — one row per taught KU.
+
+    ``RETURN DISTINCT ku.uid AS ku_uid`` over the canonical composition triple
+    USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU.
+    """
+
+    ku_uid: str
+
+
 # ============================================================================
 # LP INTELLIGENCE RESULT TYPES
 # ============================================================================
@@ -3502,6 +3564,11 @@ __all__ = [
     "PsAnalyticsSummary",
     "PsPerformanceAnalytics",
     "PsDomainInsights",
+    # PsIntelligenceBackendOperations raw Cypher rows
+    "PsPrerequisiteStepUidsRow",
+    "PsPracticeCountsRow",
+    "PsGuidanceCountsRow",
+    "PsTaughtKuUidRow",
     # LP Intelligence Result Types
     "LpAnalyticsSummary",
     "LpPerformanceAnalytics",

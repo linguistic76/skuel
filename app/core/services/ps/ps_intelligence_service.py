@@ -29,7 +29,13 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
-from core.ports.query_types import PsDomainInsights, PsPerformanceAnalytics, PsPracticeSummaryResult
+from core.ports.query_types import (
+    PsDomainInsights,
+    PsGuidanceCountsRow,
+    PsPerformanceAnalytics,
+    PsPracticeCountsRow,
+    PsPracticeSummaryResult,
+)
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import _CoreIntelligenceMixin
 from core.utils.decorators import with_error_handling
@@ -37,8 +43,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
-    from core.ports import BackendOperations
+    from core.ports import BackendOperations, PsIntelligenceBackendOperations
     from core.services.user.unified_user_context import UserContext
 
 logger = get_logger(__name__)
@@ -109,7 +114,7 @@ class PsIntelligenceService(
         graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
-        intelligence_backend: PsIntelligenceBackend | None = None,
+        intelligence_backend: PsIntelligenceBackendOperations | None = None,
     ) -> None:
         """
         Initialize PsIntelligenceService.
@@ -236,7 +241,7 @@ class PsIntelligenceService(
             }
         )
 
-    def _require_backend(self) -> Result[PsIntelligenceBackend]:
+    def _require_backend(self) -> Result[PsIntelligenceBackendOperations]:
         """Fail-fast guard for backend (executor) availability."""
         if self._backend is None:
             return Result.fail(
@@ -317,7 +322,7 @@ class PsIntelligenceService(
         if backend_result.is_error:
             return Result.fail(backend_result)
 
-        def _process_summary(records: list[dict]) -> PsPracticeSummaryResult:
+        def _process_summary(records: list[PsPracticeCountsRow]) -> PsPracticeSummaryResult:
             if not records:
                 return PsPracticeSummaryResult(
                     habits=0,
@@ -405,7 +410,7 @@ class PsIntelligenceService(
         if backend_result.is_error:
             return Result.fail(backend_result)
 
-        def _calculate_score(records: list[dict]) -> float:
+        def _calculate_score(records: list[PsGuidanceCountsRow]) -> float:
             if not records:
                 return 0.0
 
