@@ -146,13 +146,16 @@ class TestLeadingClauseAnchor:
         literals, where prose is a real risk. Applying it to a `.cypher` file
         only invented ways to discard real queries: lowercase Cypher, then
         `CYPHER runtime=slotted RETURN ...` (Codex P2 on #831, twice).
+
+        Only the lowercase case is left here. The `CYPHER` preamble is now
+        stripped by the gate itself, because SKUEL030 needed it on the Python
+        side where no declaration exists — so the bypass is no longer what
+        saves that one. `test_query_option_preamble_is_stripped_before_the_anchor`
+        owns it now.
         """
-        for query in (
-            "match (n:Typo) return n",
-            "CYPHER runtime=slotted RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
-        ):
-            assert looks_like_cypher(query) is False, query
-            assert scan_names(query, declared_cypher=True) != [], query
+        query = "match (n:Typo) return n"
+        assert looks_like_cypher(query) is False
+        assert scan_names(query, declared_cypher=True) != []
 
     @pytest.mark.parametrize(
         ("query", "expected"),
@@ -201,6 +204,11 @@ class TestLeadingClauseAnchor:
             # `$`. Skipping only the adjacent one reported the nested names.
             ("MATCH (n:$(coalesce(Foo,Bogus))) RETURN n", []),
             ("MATCH ()-[r:$(coalesce(A_EDGE,B_EDGE))]->() RETURN r", []),
+            # The `$any(...)` / `$all(...)` label-expression functions — same
+            # span, one more shape the `$(`-vs-`$param` branch did not cover.
+            ("MATCH (n:$any(LabelExpr)) RETURN n", []),
+            ("MATCH (n:$all(coalesce(Foo,Bogus))) RETURN n", []),
+            ("MATCH ()-[r:$any(REL_TYPE)]->() RETURN r", []),
             # A static sibling next to a dynamic one is still checked.
             ("MATCH (n:Typo:$(x)) RETURN n", ["Typo"]),
         ],
@@ -215,6 +223,30 @@ class TestLeadingClauseAnchor:
         vocabulary and reported it unregistered (Codex P2 on #831).
         """
         assert [n.value for n in scan_names(query)] == expected
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "CYPHER runtime=slotted RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+            "CYPHER 25 RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+            "CYPHER 5 runtime=pipelined RETURN [(a)-[:TYPO_EDGE]->(b)] AS xs",
+        ],
+    )
+    def test_query_option_preamble_is_stripped_before_the_anchor(self, query: str) -> None:
+        """`CYPHER runtime=...` is a pre-parser preamble, not a clause.
+
+        The `.cypher` side sidesteps this by bypassing the gate; SKUEL030 reads
+        Python string literals and has no such declaration (Codex P2 on #831).
+        """
+        assert [n.value for n in scan_names(query)] == ["TYPO_EDGE"]
+
+    @pytest.mark.parametrize(
+        "fragment",
+        ["CYPHER RETURN the value to the caller", "CYPHER is the query language"],
+    )
+    def test_bare_cypher_word_is_not_a_preamble(self, fragment: str) -> None:
+        """Requiring an option or version is what keeps the strip out of prose."""
+        assert looks_like_cypher(fragment) is False
 
     def test_insert_is_on_the_paren_anchor_too(self) -> None:
         """Same reason CREATE is: the form is prose-safe wherever it appears."""

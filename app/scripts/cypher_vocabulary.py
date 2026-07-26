@@ -597,12 +597,16 @@ def _starts_a_clause(text: str, i: int) -> bool:
 def _blank_dynamic_vocabulary(body: str) -> str:
     """Blank `$(...)` / `$param` spans in a pattern body, preserving offsets.
 
-    A DYNAMIC label or relationship type — `(n:$(labelExpr))`, `[r:$param]` — is
-    an expression evaluated at runtime, so there is no static name to check. The
-    whole operand goes, not just the identifier next to the `$`: skipping only
-    the adjacent one left `(n:$(coalesce(Foo,Bogus)))` reporting `Foo` and
-    `Bogus` as unregistered vocabulary (Codex P2 on #831 — the same finding
-    twice, because the first fix looked at the prefix instead of the span).
+    A DYNAMIC label or relationship type — `(n:$(labelExpr))`, `[r:$param]`,
+    `(n:$any(...))`, `(n:$all(...))` — is an expression evaluated at runtime, so
+    there is no static name to check anywhere in it.
+
+    The whole operand goes. This took three passes, each time because the fix
+    described a SHAPE instead of the span: a prefix check covered `$(x)` and
+    missed `$(coalesce(Foo,Bogus))`; a `$(`-vs-`$param` branch covered both and
+    missed `$any(...)` / `$all(...)` (Codex P2 on #831, three rounds). One walk
+    now handles every form — the identifier run after `$`, then its
+    parenthesised operand if it has one.
 
     `_LABEL_RE` / `_REL_RE` truncate their body at the first `)` or `]`, so a
     `$(` here is routinely unbalanced; an unclosed one blanks to the end, which
@@ -616,9 +620,14 @@ def _blank_dynamic_vocabulary(body: str) -> str:
         if body[i] != "$":
             i += 1
             continue
-        if body[i + 1 : i + 2] == "(":
+        # One walk covers every form: the identifier run after `$` (empty for
+        # `$(`, `any`/`all` for the label-expression functions, a name for
+        # `$param`), then its parenthesised operand if it has one.
+        j = i + 1
+        while j < len(body) and (body[j].isalnum() or body[j] == "_"):
+            j += 1
+        if body[j : j + 1] == "(":
             depth = 0
-            j = i + 1
             while j < len(body):
                 if body[j] == "(":
                     depth += 1
@@ -628,14 +637,20 @@ def _blank_dynamic_vocabulary(body: str) -> str:
                         j += 1
                         break
                 j += 1
-        else:
-            j = i + 1
-            while j < len(body) and (body[j].isalnum() or body[j] == "_"):
-                j += 1
         for k in range(i, j):
             chars[k] = " "
         i = j
     return "".join(chars)
+
+
+# `CYPHER runtime=slotted ...` / `CYPHER 25 ...` — a PRE-PARSER preamble, not a
+# clause, so it belongs nowhere in CYPHER_LEADING_CLAUSES; it is stripped and the
+# real clause head is matched behind it. At least one option assignment or
+# version is REQUIRED: a bare `^CYPHER\s+` would strip the word out of prose and
+# turn "CYPHER RETURN the value to the caller" into an admitted query. The
+# `.cypher` side already sidesteps this by bypassing the gate entirely; SKUEL030
+# reads Python string literals and has no such declaration (Codex P2 on #831).
+_QUERY_PREAMBLE_RE = re.compile(r"^CYPHER\b(?:\s+[\w.]+\s*=\s*\S+|\s+\d[\w.]*)+\s+", re.IGNORECASE)
 
 
 def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:
@@ -651,7 +666,7 @@ def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:
     #831). Head position and uppercase still carry the prose guard; requiring
     the operand on the same line only ever added a wrapping restriction.
     """
-    body = masked.lstrip()
+    body = _QUERY_PREAMBLE_RE.sub("", masked.lstrip())
     match = dialect.leading_clause.match(body)
     return match is not None and bool(body[match.end() :].strip())
 
