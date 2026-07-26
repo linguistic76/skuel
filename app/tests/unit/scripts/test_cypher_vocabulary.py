@@ -185,6 +185,23 @@ class TestLabelMutationPosition:
         """`SET n = {a:Foo, b:Bar}` splits into items that are not `var:Label`."""
         assert _labels("MATCH (n) SET n = {a:Foo, b:Bar} RETURN n") == []
 
+    def test_clause_word_inside_a_property_value_does_not_end_the_region(self) -> None:
+        """The mutation scanner alone must know where the clause ENDS.
+
+        An uppercase clause word inside a quoted property value closed the
+        region early and hid every item after it (Codex P2 on #831).
+        """
+        assert _labels("MATCH (n) SET n.note = 'RETURN later', n:Typo RETURN n") == ["Typo"]
+        assert _labels("MATCH (n) SET n.note = 'a WITH b', n:Typo RETURN n") == ["Typo"]
+
+    def test_a_mutation_written_inside_a_string_is_not_a_mutation(self) -> None:
+        """Falls out of the same quote-blindness — and is the right answer."""
+        assert _labels("RETURN 'SET n:Bogus' AS example") == []
+
+    def test_unterminated_string_swallows_to_the_end(self) -> None:
+        """Fail closed: no clause boundary can be trusted after an open quote."""
+        assert _labels("MATCH (n) SET n.s = 'unterminated") == []
+
 
 # ============================================================================
 # Comment masking

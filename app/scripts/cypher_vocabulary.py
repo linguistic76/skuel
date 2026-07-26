@@ -340,8 +340,30 @@ def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
     wants no such carve-out: a comment cannot execute, so a name written in one
     is not load-bearing, which is the same reasoning that exempts docstrings.
     """
+    return _mask_cypher(text, keep_noqa=keep_noqa, blank_strings=False)
+
+
+def _blank(chars: list[str], start: int, end: int) -> None:
+    """Space out ``chars[start:end]``, leaving newlines so line numbers hold."""
+    for j in range(start, end):
+        if chars[j] != "\n":
+            chars[j] = " "
+
+
+def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
+    """One tokenizer, two masking policies. See ``mask_cypher_comments``.
+
+    ``blank_strings`` additionally blanks the CONTENTS of quoted strings and
+    backtick identifiers (the delimiters stay, so offsets and structure hold).
+    Only the mutation scanner asks for it: it has to find where a `SET` clause
+    ENDS, and an uppercase clause word inside a property value
+    (``SET n.note = 'RETURN later', n:Typo``) would otherwise close the region
+    early and hide every item after it. The other scanners must NOT use it —
+    ``_TYPE_PREDICATE_RE`` reads vocabulary out of quoted operands on purpose.
+    """
     chars = list(text)
     in_string: str | None = None
+    string_body_start = 0
     i = 0
     while i < len(text):
         char = text[i]
@@ -351,15 +373,20 @@ def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
                 if text[i + 1 : i + 2] == "`":
                     i += 2  # an escaped backtick — still inside the identifier
                     continue
+                if blank_strings:
+                    _blank(chars, string_body_start, i)
                 in_string = None
         elif in_string is not None:
             if char == "\\":
                 i += 2  # skip escaped character inside string
                 continue
             if char == in_string:
+                if blank_strings:
+                    _blank(chars, string_body_start, i)
                 in_string = None
         elif char in ("'", '"', "`"):
             in_string = char
+            string_body_start = i + 1
         elif text[i : i + 2] == "//":
             end = text.find("\n", i)
             if end == -1:
@@ -371,12 +398,13 @@ def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
         elif text[i : i + 2] == "/*":
             end = text.find("*/", i + 2)
             end = len(text) if end == -1 else end + 2
-            for j in range(i, end):
-                if chars[j] != "\n":
-                    chars[j] = " "
+            _blank(chars, i, end)
             i = end
             continue
         i += 1
+    # An unterminated string runs to the end of the fragment.
+    if blank_strings and in_string is not None:
+        _blank(chars, string_body_start, len(text))
     return "".join(chars)
 
 
@@ -438,19 +466,20 @@ def scan_names(fragment: str) -> list[ScannedName]:
     composes its type at runtime, so there is no static name to validate. That
     is a sanctioned below-boundary pattern, not a violation.
 
-    **Known limit, deliberate: quoted operands are not excluded.** A name inside
-    a Cypher string literal (``RETURN 'SET n:Bogus' AS example``) is scanned like
-    any other, in every position — this has always been true of the pattern and
-    label-predicate regexes and is not specific to the mutation scanner. It is
-    not fixable by masking quotes the way comments are masked, because the
-    ``type(r) = 'X'`` scanner reads vocabulary out of quoted operands *on
-    purpose*: masking would trade a hypothetical false positive for a real,
-    tested false negative. Zero sites in the tree hit it; the suppression
-    comment is the escape hatch if one ever does.
+    **Known limit, deliberate: the PATTERN and PREDICATE scanners do not exclude
+    quoted operands.** A name inside a Cypher string literal
+    (``RETURN 'edge [:BOGUS] here'``) is scanned like any other. That has always
+    been true of those regexes and is not blanket-fixable, because
+    ``_TYPE_PREDICATE_RE`` reads vocabulary out of quoted operands *on purpose* —
+    masking everywhere would trade a hypothetical false positive for a real,
+    tested false negative. Zero sites in the tree hit it; the suppression comment
+    is the escape hatch if one ever does. The MUTATION scanner is the exception
+    and *is* quote-blind, because it alone needs to know where a clause ends.
     """
     masked = mask_cypher_comments(fragment)
     if not _is_cypher(masked):
         return []
+    unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
     found: list[ScannedName] = []
 
@@ -492,8 +521,12 @@ def scan_names(fragment: str) -> list[ScannedName]:
         if _LABEL_NAME_RE.fullmatch(name):
             record(NameKind.LABEL, name, match.start(1))
 
-    # Mutation position — SET n:Label / REMOVE n:A:B / SET a:Ku, b:PathStep
-    for match in _LABEL_MUTATION_CLAUSE_RE.finditer(masked):
+    # Mutation position — SET n:Label / REMOVE n:A:B / SET a:Ku, b:PathStep.
+    # Scanned over string-blanked text: this is the one scanner that has to know
+    # where a clause ENDS, and an uppercase clause word inside a property value
+    # would close the region early (Codex P2 on #831). Blanking is offset- and
+    # length-preserving, so the positions recorded below stay truthful.
+    for match in _LABEL_MUTATION_CLAUSE_RE.finditer(unquoted):
         offset = match.start(1)
         for chunk in match.group(1).split(","):
             item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)

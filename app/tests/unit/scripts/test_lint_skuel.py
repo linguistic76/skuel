@@ -1389,6 +1389,16 @@ class TestSKUEL030:
         violations = lint_cypher('q = "MATCH (n:Task) SET a:Bogus, b:Alsobogus RETURN a"')
         assert sorted(v.message.split("'")[1] for v in violations) == ["Alsobogus", "Bogus"]
 
+    def test_clause_word_in_a_property_value_does_not_hide_later_label_writes(self) -> None:
+        """An uppercase word inside a quoted value closed the SET region early.
+
+        Every comma-separated item after it went unscanned (Codex P2 on #831).
+        """
+        content = "q = \"MATCH (n) SET n.note = 'RETURN later', n:Bogus RETURN n\""
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
     def test_vocabulary_inside_a_comment_is_not_scanned(self) -> None:
         """A comment cannot execute — same reasoning that exempts docstrings.
 
