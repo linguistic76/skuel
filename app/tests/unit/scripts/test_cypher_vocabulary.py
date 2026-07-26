@@ -135,6 +135,19 @@ class TestLeadingClauseAnchor:
     def test_rejects_prose(self, fragment: str) -> None:
         assert looks_like_cypher(fragment) is False
 
+    def test_ignore_case_drops_the_uppercase_requirement(self) -> None:
+        """Prose risk is a property of the CALLER, not of Cypher.
+
+        A `.cypher` file is Cypher by declaration and has no prose to be
+        confused with, so callers on that side opt out (Codex P2 on #831).
+        Callers reading arbitrary Python string literals must not.
+        """
+        assert looks_like_cypher("match (n:Typo) return n") is False
+        assert looks_like_cypher("match (n:Typo) return n", ignore_case=True) is True
+        assert [n.value for n in scan_names("match (n:Typo) return n", ignore_case=True)] == [
+            "Typo"
+        ]
+
     def test_paren_anchor_still_admits_mid_fragment_cypher(self) -> None:
         """Anchor 1 is not replaced — it catches Cypher that does not LEAD."""
         fragment = "some prefix ... MATCH (n:Ku) RETURN n"
@@ -165,6 +178,18 @@ class TestLabelMutationPosition:
 
     def test_multi_label_set_scans_each_part(self) -> None:
         assert _labels("MATCH (n) SET n:Entity:Ku RETURN n") == ["Entity", "Ku"]
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n) SET n :Typo RETURN n",
+            "MATCH (n) SET n: Typo RETURN n",
+            "MATCH (n) REMOVE n : Typo RETURN n",
+        ],
+    )
+    def test_whitespace_around_the_colon_is_allowed(self, query: str) -> None:
+        """The pattern-position scanners already tolerate it (Codex P2 on #831)."""
+        assert _labels(query) == ["Typo"]
 
     def test_on_create_set_is_scanned(self) -> None:
         """The MERGE upsert form — `SET` is not at the head of the clause."""

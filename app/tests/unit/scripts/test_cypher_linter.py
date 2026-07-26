@@ -336,6 +336,24 @@ class TestExtractCypherStatements:
         for statement, line in statements:
             assert linter._check_vocabulary_registry(statement, probe, line) == []
 
+    def test_lowercase_statements_are_still_admitted(self, tmp_path: Path) -> None:
+        """A `.cypher` file is Cypher by declaration — no prose to guard against.
+
+        The shared gate defaults to requiring uppercase because SKUEL030 reads
+        arbitrary Python strings; adopting it here without `ignore_case` would
+        have narrowed what the old case-insensitive keyword filter admitted
+        (Codex P2 on #831).
+        """
+        linter = make_linter()
+        content = "match (n:Bogus) return n;"
+        probe = tmp_path / "probe.cypher"
+        probe.write_text(content)
+        statements = linter._extract_cypher_statements(content)
+        assert [s for s, _ in statements] == ["match (n:Bogus) return n"]
+        violations = linter._check_vocabulary_registry(statements[0][0], probe, 1)
+        assert [v.rule_code for v in violations] == ["CYP011"]
+        assert "Bogus" in violations[0].message
+
     def test_procedure_call_statement_reaches_the_vocabulary_rule(self, tmp_path: Path) -> None:
         """The family the old keyword filter discarded outright."""
         linter = make_linter()

@@ -295,7 +295,10 @@ class CypherLinter:
             # `CALL db.index.fulltext.queryNodes(...) YIELD node SET node:Bogus`
             # (Codex P2 on #831). Two gates in series, and widening only the
             # inner one would have left CYP011 exactly as silent as before.
-            if not looks_like_cypher(statement):
+            # ignore_case: a `.cypher` file is Cypher by declaration, so the
+            # gate's uppercase prose guard buys nothing and would narrow what
+            # the previous keyword filter admitted (Codex P2 on #831).
+            if not looks_like_cypher(statement, ignore_case=True):
                 continue
             # Anchor start_line at the first real token, not the newline after
             # the previous ';' — rules that report at start_line itself
@@ -638,7 +641,7 @@ class CypherLinter:
             ]
 
         violations: list[Violation] = []
-        for name in unregistered_names(query, vocabulary):
+        for name in unregistered_names(query, vocabulary, ignore_case=True):
             line_num = start_line + name.line_offset
             query_lines = query.splitlines()
             line_content = (

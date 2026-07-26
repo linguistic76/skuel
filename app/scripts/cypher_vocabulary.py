@@ -181,13 +181,14 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
 # Those last three arms are the tell: each was added case-by-case after a form
 # the paren anchor could not see turned up. The anchor's ceiling, not its
 # tuning, is what keeps producing them.
-_CYPHER_CONTEXT_RE = re.compile(
+_CYPHER_CONTEXT_PATTERN = (
     r"(?:MATCH|MERGE|CREATE)\s*\("
     r"|CREATE\s+(?:\w+\s+){0,2}?(?:INDEX|CONSTRAINT)\b"
     r"|(?:MATCH|MERGE|CREATE)\s+\w+\s*=\s*\("
     r"|UNWIND \$"
     r"|CALL\s+db\."
 )
+_CYPHER_CONTEXT_RE = re.compile(_CYPHER_CONTEXT_PATTERN)
 
 # Anchor 2 (CYPHER_LEADING_CLAUSES) — clause keywords that may BEGIN a Cypher
 # statement, matched only at the HEAD of the fragment. Position is the signal, so
@@ -210,8 +211,13 @@ _CYPHER_CONTEXT_RE = re.compile(
 #     "DELETE", header names like "SET-COOKIE", and `RETURNS`/`CREATED`/
 #     `WITHOUT`-style words that merely start with a clause name.
 #
-# Known, deliberate limit: lowercase Cypher (`"return 1 as ping"`) is not
-# admitted. Matching case-insensitively would light up ordinary prose.
+# Uppercase is required by DEFAULT, not always. The requirement is a prose
+# guard, and prose risk is a property of the CALLER, not of Cypher: SKUEL030
+# reads arbitrary Python string literals, where `"return 1 as ping"` really is
+# ambiguous, but a `.cypher` file is Cypher by declaration and has no prose to
+# protect. Callers on that side pass `ignore_case=True` (Codex P2 on #831 — the
+# `.cypher` extractor previously had a case-insensitive filter of its own, and
+# adopting the shared gate would otherwise have narrowed it).
 #
 # The list is NOT pruned to "clauses that can carry vocabulary". Pruning would
 # invent a second judgement call — and get it wrong: `DROP CONSTRAINT ... FOR
@@ -250,9 +256,17 @@ CYPHER_LEADING_CLAUSES: tuple[str, ...] = (
 # two-word clause must be offered before any single word it could be confused
 # with. No such pair exists in the current list, which is exactly why the
 # ordering is applied here rather than left to whoever adds the next clause.
-_LEADING_CLAUSE_RE = re.compile(
+_LEADING_CLAUSE_PATTERN = (
     r"^(?:" + "|".join(sorted(CYPHER_LEADING_CLAUSES, key=len, reverse=True)) + r")(?=\s)"
 )
+_LEADING_CLAUSE_RE = re.compile(_LEADING_CLAUSE_PATTERN)
+
+# Case-insensitive twins for callers with no prose to protect. Safe to compile
+# with a blanket IGNORECASE precisely because both anchors are pure keyword
+# patterns — neither captures a NAME, so the strict PascalCase / UPPER_SNAKE
+# shape the vocabulary regexes enforce is untouched.
+_CYPHER_CONTEXT_RE_I = re.compile(_CYPHER_CONTEXT_PATTERN, re.IGNORECASE)
+_LEADING_CLAUSE_RE_I = re.compile(_LEADING_CLAUSE_PATTERN, re.IGNORECASE)
 
 # `[r:TYPE]` / `[:TYPE]` / `[r:A|B*1..3]`. The body stops at the first `]`,
 # whitespace, or brace — a property map or a var-length bound ends the name.
@@ -338,7 +352,7 @@ _CLOSERS = ")]}"
 # requirement on each item is what keeps this precise — the lowercase-only shape
 # `_LABEL_PREDICATE_RE` needs is load-bearing there because that regex has no
 # clause anchor to lean on.
-_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?::[A-Za-z_]\w*)+)\s*")
+_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?:\s*:\s*[A-Za-z_]\w*)+)\s*")
 
 
 def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
@@ -476,7 +490,7 @@ def _mutation_clause_items(text: str) -> list[tuple[str, int]]:
     return items
 
 
-def _leads_with_cypher_clause(masked: str) -> bool:
+def _leads_with_cypher_clause(masked: str, ignore_case: bool = False) -> bool:
     """True if ``masked`` opens with a Cypher clause keyword and has an operand.
 
     Takes ALREADY-masked text: comments have been blanked to spaces by then, so
@@ -490,30 +504,36 @@ def _leads_with_cypher_clause(masked: str) -> bool:
     the operand on the same line only ever added a wrapping restriction.
     """
     body = masked.lstrip()
-    match = _LEADING_CLAUSE_RE.match(body)
+    match = (_LEADING_CLAUSE_RE_I if ignore_case else _LEADING_CLAUSE_RE).match(body)
     return match is not None and bool(body[match.end() :].strip())
 
 
-def _is_cypher(masked: str) -> bool:
+def _is_cypher(masked: str, ignore_case: bool = False) -> bool:
     """Both anchors, over already-masked text."""
-    return _CYPHER_CONTEXT_RE.search(masked) is not None or _leads_with_cypher_clause(masked)
+    context_re = _CYPHER_CONTEXT_RE_I if ignore_case else _CYPHER_CONTEXT_RE
+    return context_re.search(masked) is not None or _leads_with_cypher_clause(masked, ignore_case)
 
 
-def looks_like_cypher(fragment: str) -> bool:
+def looks_like_cypher(fragment: str, *, ignore_case: bool = False) -> bool:
     """True if ``fragment`` is admitted by either Cypher anchor.
 
     Anchor 1: a paren/sigil-anchored marker anywhere in the fragment.
     Anchor 2: a clause keyword at the fragment's head, followed by an operand.
 
     Comments are masked first, so neither anchor can be satisfied by
-    commented-out Cypher. See the ``_CYPHER_CONTEXT_RE`` /
+    commented-out Cypher. See the ``_CYPHER_CONTEXT_PATTERN`` /
     ``CYPHER_LEADING_CLAUSES`` block above for why one anchor cannot do both
     jobs.
+
+    ``ignore_case`` drops the uppercase requirement. It is for callers whose
+    input is Cypher by declaration — a `.cypher` file — where the requirement
+    buys nothing because there is no prose to be confused with. Callers reading
+    arbitrary Python string literals must leave it off.
     """
-    return _is_cypher(mask_cypher_comments(fragment))
+    return _is_cypher(mask_cypher_comments(fragment), ignore_case)
 
 
-def scan_names(fragment: str) -> list[ScannedName]:
+def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]:
     """Recover every statically-known label / relationship type in ``fragment``.
 
     Covers both positions vocabulary can occupy:
@@ -557,7 +577,7 @@ def scan_names(fragment: str) -> list[ScannedName]:
     SKUEL labels and edge names are plain identifiers that never need escaping.
     """
     masked = mask_cypher_comments(fragment)
-    if not _is_cypher(masked):
+    if not _is_cypher(masked, ignore_case):
         return []
     unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
@@ -618,9 +638,13 @@ def scan_names(fragment: str) -> list[ScannedName]:
     return found
 
 
-def unregistered_names(fragment: str, vocabulary: Vocabulary) -> list[ScannedName]:
+def unregistered_names(
+    fragment: str, vocabulary: Vocabulary, *, ignore_case: bool = False
+) -> list[ScannedName]:
     """Names in ``fragment`` that the enum registry does not know."""
-    return [n for n in scan_names(fragment) if not vocabulary.is_registered(n)]
+    return [
+        n for n in scan_names(fragment, ignore_case=ignore_case) if not vocabulary.is_registered(n)
+    ]
 
 
 # =============================================================================
