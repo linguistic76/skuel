@@ -397,6 +397,11 @@ class TestSKUEL001:
             "apoc.convert.fromJsonMap is unavailable on this server",
             "Schema introspection needs apoc.meta.stats — ask an admin",
             "Migrated off apoc.path.subgraphAll in PR #75",
+            # The CALL branch is case-sensitive and word-boundary anchored — each
+            # condition kills a different English phrasing that otherwise reads as
+            # an invocation.
+            "Please call apoc.convert.fromJsonMap during diagnosis",
+            "Recall apoc.meta.stats before filing a ticket",
         ):
             violations = lint_content(make_linter(["SKUEL001"]), f"logger.warning({prose!r})")
             assert violations == [], prose

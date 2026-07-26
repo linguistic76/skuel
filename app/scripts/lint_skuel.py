@@ -1772,11 +1772,21 @@ class SkuelLinter:
         # 3: the whole string IS the dotted path — a name assembled into a query
         #    elsewhere. Prose never fullmatches.
         # Each branch captures the path so the message names what it found.
+        #
+        # Case-SENSITIVE, and `\b` before CALL. Both are load-bearing against English
+        # prose, and each kills a different case: without the uppercase requirement
+        # "Please call apoc.convert.fromJsonMap during diagnosis" reads as a CALL
+        # invocation, and without the word boundary the "call" inside "Recall
+        # apoc.meta.stats" does. Neither is a false positive this rule can afford —
+        # SKUEL001 is CRITICAL and unsuppressable, so the only remedy would be
+        # rewording the string. Nothing real is lost: Cypher in this tree is written
+        # uppercase (the same assumption CYPHER_LEADING_CLAUSES makes), and Neo4j
+        # procedure names are themselves case-sensitive lowercase — `APOC.meta.data`
+        # does not resolve on the server, so it is not a query worth catching.
         apoc_pattern = re.compile(
-            r"CALL\s+(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)"
+            r"\bCALL\s+(apoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)"
             r"|(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\("
-            r"|^\s*(apoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*$",
-            re.IGNORECASE,
+            r"|^\s*(apoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*$"
         )
 
         if tree is None:
