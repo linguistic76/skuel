@@ -353,7 +353,16 @@ _CLOSERS = ")]}"
 # requirement on each item is what keeps this precise — the lowercase-only shape
 # `_LABEL_PREDICATE_RE` needs is load-bearing there because that regex has no
 # clause anchor to lean on.
-_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?:\s*:\s*[A-Za-z_]\w*)+)\s*")
+# `&` joins labels as well as `:` — the first separator must be `:`, later ones
+# may be either. The PATTERN scanner already reads `(n:A&B)` and `(n:A|B)`
+# correctly (any non-word character separates names there), so a colon-only
+# item regex was an asymmetry inside this module, not just a missing form
+# (Codex P2 on #831). Accepting a shape that turns out not to be valid Cypher
+# costs nothing — it never appears; REJECTING a valid one is a silent miss,
+# which is the whole failure this rule exists to prevent.
+_LABEL_MUTATION_ITEM_RE = re.compile(
+    r"\s*[A-Za-z_]\w*(\s*:\s*[A-Za-z_]\w*(?:\s*[:&]\s*[A-Za-z_]\w*)*)\s*"
+)
 
 
 # --- Dialect table -----------------------------------------------------------

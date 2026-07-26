@@ -212,6 +212,21 @@ class TestLabelMutationPosition:
     @pytest.mark.parametrize(
         "query",
         [
+            "MATCH (n) SET n:Known&Typo RETURN n",
+            "MATCH (n) REMOVE n:Known&Typo RETURN n",
+        ],
+    )
+    def test_ampersand_joins_labels_too(self, query: str) -> None:
+        """The PATTERN scanner already read `(n:A&B)`; the item regex did not.
+
+        A colon-only item regex was an asymmetry inside this module, not just a
+        missing form (Codex P2 on #831).
+        """
+        assert _labels(query) == ["Known", "Typo"]
+
+    @pytest.mark.parametrize(
+        "query",
+        [
             "MATCH (n) SET n :Typo RETURN n",
             "MATCH (n) SET n: Typo RETURN n",
             "MATCH (n) REMOVE n : Typo RETURN n",
