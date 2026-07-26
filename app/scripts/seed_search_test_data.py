@@ -18,11 +18,9 @@ Run with:
 """
 
 import asyncio
-import os
 from datetime import date, datetime, timedelta
 
-from neo4j import AsyncGraphDatabase
-
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.enums import (
@@ -388,17 +386,13 @@ async def main():
     logger.info("SKUEL Search Test Data Seeder")
     logger.info("=" * 60)
 
-    # Neo4j connection
-    from core.config.credential_store import get_credential
-
-    neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password = get_credential("NEO4J_PASSWORD", fallback_to_env=True) or ""
-
-    logger.info(f"\nConnecting to Neo4j at {neo4j_uri}...")
+    # Neo4jConnection resolves the URI/credentials AND applies the shared driver
+    # timeout/pool config — a bare AsyncGraphDatabase.driver silently drops it.
+    conn = Neo4jConnection()
+    logger.info(f"\nConnecting to Neo4j at {conn.uri}...")
 
     try:
-        driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        driver = conn.connect()
 
         # Seed all domains
         await seed_knowledge_units(driver)
@@ -414,7 +408,7 @@ async def main():
         logger.info("=" * 60)
         logger.info("\nTest the search at: http://localhost:8000/simple-search")
 
-        await driver.close()
+        await conn.close()
 
     except Exception as e:
         logger.error(f"\n❌ Seeding failed: {e}")
