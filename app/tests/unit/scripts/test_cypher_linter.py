@@ -10,6 +10,8 @@ scoring, and file discovery.
 import sys
 from pathlib import Path
 
+import pytest
+
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
@@ -311,12 +313,68 @@ class TestExtractCypherStatements:
         assert len(statements) == 1
         assert "/* b */" in statements[0][0]
 
-    def test_keywordless_statements_skipped(self) -> None:
-        # DROP INDEX / SHOW carry no linted keyword — no rule applies
+    def test_ddl_statements_are_admitted_and_simply_produce_nothing(self, tmp_path: Path) -> None:
+        """`DROP INDEX` / `SHOW` used to be filtered out here.
+
+        The justification was "no rule applies to them" — a premise CYP011
+        invalidated, since a vocabulary rule applies to any statement carrying a
+        label or edge name, and the same filter was discarding `CALL ... SET
+        node:Label` with it (Codex P2 on #831). The extractor now uses the
+        shared admission predicate, so these reach the rules and are quiet
+        because they carry nothing to report, not because they were dropped
+        before anyone looked.
+        """
         linter = make_linter()
         content = "DROP INDEX entity_uid_idx IF EXISTS;\nSHOW INDEXES;\n"
+        probe = tmp_path / "probe.cypher"
+        probe.write_text(content)
         statements = linter._extract_cypher_statements(content)
-        assert len(statements) == 0
+        assert [s for s, _ in statements] == [
+            "DROP INDEX entity_uid_idx IF EXISTS",
+            "SHOW INDEXES",
+        ]
+        for statement, line in statements:
+            assert linter._check_vocabulary_registry(statement, probe, line) == []
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "match (n:Bogus) return n;",  # lowercase
+            "CYPHER runtime=slotted RETURN [(a)-[:BOGUS_EDGE]->(b)] AS xs;",  # option prefix
+            "USING PERIODIC COMMIT MATCH (n:Bogus) RETURN n;",
+        ],
+    )
+    def test_no_admission_heuristic_for_declared_cypher(self, tmp_path: Path, content: str) -> None:
+        """A `.cypher` file is Cypher BY DECLARATION — the extension is the answer.
+
+        Every heuristic tried here discarded real queries: a local keyword list
+        dropped `CALL ... SET node:Label`, then the shared gate dropped
+        lowercase Cypher and then the `CYPHER` query-option prefix (three rounds
+        of Codex P2 on #831). Only empty fragments are dropped now.
+        """
+        linter = make_linter()
+        probe = tmp_path / "probe.cypher"
+        probe.write_text(content)
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        violations = linter._check_vocabulary_registry(statements[0][0], probe, 1)
+        assert [v.rule_code for v in violations] == ["CYP011"]
+
+    def test_empty_fragments_are_dropped(self) -> None:
+        linter = make_linter()
+        assert linter._extract_cypher_statements(";\n\n  ;\n// just a comment\n") == []
+
+    def test_procedure_call_statement_reaches_the_vocabulary_rule(self, tmp_path: Path) -> None:
+        """The family the old keyword filter discarded outright."""
+        linter = make_linter()
+        content = "CALL db.index.fulltext.queryNodes($i, $q) YIELD node SET node:Bogus FINISH;\n"
+        probe = tmp_path / "probe.cypher"
+        probe.write_text(content)
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        violations = linter._check_vocabulary_registry(statements[0][0], probe, 1)
+        assert [v.rule_code for v in violations] == ["CYP011"]
+        assert "Bogus" in violations[0].message
 
     def test_create_index_statement_kept(self) -> None:
         linter = make_linter()
@@ -768,6 +826,42 @@ class TestCYP011:
         f = tmp_path / "probe.cypher"
         f.write_text("MATCH (u:User)-[:OWNS]->(t:Task) RETURN t;")
         assert linter._check_vocabulary_registry(f.read_text(), f, 1) == []
+
+    @pytest.mark.parametrize(
+        ("query", "bad_name"),
+        [
+            # RETURN-led pattern comprehension — a real relationship type with no
+            # paren adjacent to the clause keyword for a substring anchor to grip.
+            ("RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs;", "BAD_EDGE"),
+            ("WITH [(a)-[:BAD_EDGE]->(b) | b] AS xs RETURN xs;", "BAD_EDGE"),
+            # A function call between `=` and the pattern defeats the named-path arm.
+            ("MATCH path = shortestPath((a:Task)-[:BAD_EDGE*]-(b:Task)) RETURN path;", "BAD_EDGE"),
+            # `UNWIND $` only anchors on a parameter — a literal list leads a
+            # statement anchor 1 cannot see at all.
+            ("UNWIND [1, 2] AS i RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs;", "BAD_EDGE"),
+            # `SET n:Label` never appears in pattern position.
+            ("MATCH (n:Task) SET n:Bogus RETURN n;", "Bogus"),
+            ("MATCH (n:Task) REMOVE n:Bogus RETURN n;", "Bogus"),
+            # Comma-separated items — anchoring on the first one validated only
+            # it and let the rest through (Codex P2 on #831).
+            ("MATCH (n:Task) SET a:Task, b:Bogus RETURN a;", "Bogus"),
+        ],
+    )
+    def test_statement_head_and_mutation_positions_are_scanned(
+        self, tmp_path: Path, query: str, bad_name: str
+    ) -> None:
+        """`scan_names` returns `[]` for a fragment the gate rejects.
+
+        A rule that silently scans nothing reports clean, so every statement
+        family without a paren/sigil next to its clause keyword was invisible
+        to CYP011 — as was any label attached by `SET` rather than a pattern.
+        """
+        linter = make_linter()
+        f = tmp_path / "probe.cypher"
+        f.write_text(query)
+        violations = linter._check_vocabulary_registry(f.read_text(), f, 1)
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert bad_name in violations[0].message
 
     def test_python_files_are_left_to_skuel030(self, tmp_path: Path) -> None:
         """Running here too would double-report every .py hit."""

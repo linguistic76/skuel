@@ -1308,6 +1308,148 @@ class TestSKUEL030:
         assert len(violations) == 1
         assert "BAD_EDGE" in violations[0].message
 
+    @pytest.mark.parametrize(
+        ("query", "bad_name"),
+        [
+            # RETURN-led pattern comprehension: a real relationship type with no
+            # paren adjacent to the clause keyword for a substring anchor to grip.
+            ("RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs", "BAD_EDGE"),
+            ("WITH [(a)-[:BAD_EDGE]->(b) | b] AS xs RETURN xs", "BAD_EDGE"),
+            # A function call between `=` and the pattern defeats the
+            # `MATCH x = (` arm added for named paths.
+            ("MATCH path = shortestPath((a:Task)-[:BAD_EDGE*]-(b:Task)) RETURN path", "BAD_EDGE"),
+            # `UNWIND $` only anchors on a parameter, `CALL db.` only on the db
+            # namespace — a literal list and a non-db procedure lead statements
+            # that anchor 1 cannot see at all.
+            ("UNWIND [1, 2] AS i RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs", "BAD_EDGE"),
+            ("CALL apoc.meta.stats() YIELD labels RETURN [(a)-[:BAD_EDGE]->(b)] AS xs", "BAD_EDGE"),
+        ],
+    )
+    def test_statement_head_clause_is_scanned(self, query: str, bad_name: str) -> None:
+        """Whole statement families have no paren/sigil to anchor a substring on.
+
+        `looks_like_cypher` returns False for these, and `scan_names` returns
+        `[]` outright for a rejected fragment — so SKUEL030 reported clean on
+        Cypher it never looked at. The head anchor supplies the signal position
+        carries that a substring cannot.
+        """
+        violations = lint_cypher(f'q = "{query}"')
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert bad_name in violations[0].message
+
+    def test_leading_block_comment_does_not_hide_the_clause(self) -> None:
+        """`cypher_linter` masks `/* */` for `.cypher`; SKUEL030 gets it raw.
+
+        An AST string literal arrives verbatim, so a block-comment opener would
+        reopen the head-anchor blind spot on the Python side (Codex P2 on #831).
+        """
+        content = 'q = """/* planner hint */\nRETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs"""'
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "BAD_EDGE" in violations[0].message
+
+    def test_prose_naming_a_clause_is_not_scanned(self) -> None:
+        """The head anchor must not turn ordinary strings into Cypher.
+
+        Head position, uppercase, and whitespace+operand are all load-bearing.
+        """
+        content = (
+            'msg = "cascade DETACH DELETE (default False)"\n'
+            'verb = "DELETE"\n'
+            'header = "SET-COOKIE: session=abc"\n'
+            'doc = "RETURNS a mapping of uid to Bogus titles"\n'
+            'lower = "return 1 as ping"\n'
+        )
+        assert lint_cypher(content) == []
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n:Task) SET n:Bogus RETURN n",
+            "MATCH (n:Task) REMOVE n:Bogus RETURN n",
+            "MERGE (n:Task {uid: $uid}) ON CREATE SET n:Bogus RETURN n",
+        ],
+    )
+    def test_label_mutation_is_scanned(self, query: str) -> None:
+        """`SET n:Label` attaches a label the pattern regexes never see.
+
+        A typo here is worse than a typo'd read — Neo4j writes the label it is
+        given, so the graph ends up carrying a name nothing will ever match.
+        """
+        violations = lint_cypher(f'q = "{query}"')
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert "Bogus" in violations[0].message
+
+    def test_property_set_is_not_a_label_mutation(self) -> None:
+        """`SET n.prop = $x` is a dot, not a colon — nothing to validate."""
+        assert lint_cypher('q = "MATCH (n:Task) SET n.title = $title RETURN n"') == []
+
+    def test_comma_separated_label_writes_are_each_scanned(self) -> None:
+        """`SET a:X, b:Y` is two label writes (Codex P2 on #831)."""
+        violations = lint_cypher('q = "MATCH (n:Task) SET a:Bogus, b:Alsobogus RETURN a"')
+        assert sorted(v.message.split("'")[1] for v in violations) == ["Alsobogus", "Bogus"]
+
+    @pytest.mark.parametrize("tail", ["FINISH", "OPTIONAL MATCH (m) RETURN m"])
+    def test_clause_region_ends_at_any_following_clause(self, tail: str) -> None:
+        """A hand-written terminator list was missing FINISH and OPTIONAL.
+
+        Derived from `CYPHER_LEADING_CLAUSES` now (Codex P2 on #831).
+        """
+        violations = lint_cypher(f'q = "MATCH (n) SET n:Bogus {tail}"')
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n) SET n:Bogus;",
+            "MATCH (n) FOREACH (x IN xs | SET n:Bogus)",
+            "CALL { MATCH (n) SET n:Bogus }",
+        ],
+    )
+    def test_clause_closed_by_punctuation_is_scanned(self, query: str) -> None:
+        """A clause can end in punctuation, not just a keyword (Codex P2 on #831)."""
+        violations = lint_cypher(f'q = "{query}"')
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert "Bogus" in violations[0].message
+
+    def test_keyword_nested_in_an_expression_does_not_end_the_region(self) -> None:
+        """A sub-expression keyword is not a clause boundary (Codex P2 on #831)."""
+        content = 'q = "MATCH (n) SET n.ok = all(x IN $xs WHERE x > 0), n:Bogus RETURN n"'
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
+    def test_map_literal_is_still_invisible(self) -> None:
+        """Tolerating a trailing `}` is only safe because maps are blanked."""
+        assert lint_cypher('q = "MATCH (n) SET n = {a:Foo, b:Bar} RETURN n"') == []
+
+    def test_uppercase_variable_in_a_label_write_is_scanned(self) -> None:
+        """Cypher variables are case-neutral (Codex P2 on #831)."""
+        violations = lint_cypher('q = "MATCH (N) SET N:Bogus RETURN N"')
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
+    def test_clause_word_in_a_property_value_does_not_hide_later_label_writes(self) -> None:
+        """An uppercase word inside a quoted value closed the SET region early.
+
+        Every comma-separated item after it went unscanned (Codex P2 on #831).
+        """
+        content = "q = \"MATCH (n) SET n.note = 'RETURN later', n:Bogus RETURN n\""
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
+    def test_vocabulary_inside_a_comment_is_not_scanned(self) -> None:
+        """A comment cannot execute — same reasoning that exempts docstrings.
+
+        The head anchor newly admits statements whose only other content is a
+        comment, so masking has to happen for scanning too, not just for
+        admission (Codex P2 on #831).
+        """
+        assert lint_cypher('q = "/* retired (:Bogus) */ RETURN 1 AS ping"') == []
+        assert lint_cypher('q = """MATCH (n:Task) // was [:BOGUS_EDGE]\nRETURN n"""') == []
+
     def test_type_predicate_equality_is_scanned(self) -> None:
         """`type(r) = 'X'` names an edge type as load-bearingly as `[:X]` does."""
         violations = lint_cypher("q = \"MATCH ()-[r]->() WHERE type(r) = 'BAD_EDGE'\"")

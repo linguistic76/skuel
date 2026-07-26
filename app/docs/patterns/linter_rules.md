@@ -805,7 +805,7 @@ is fine below the boundary — SKUEL013's `[:{RelationshipName.OWNS}]` form is *
 required here, and no 300-site interpolation rewrite is implied. The rule reads the NAME,
 never the syntax around it.
 
-**Both positions vocabulary can occupy are scanned:**
+**Every position vocabulary can occupy is scanned:**
 
 - **Pattern** — `(n:Label)`, `[r:TYPE]`, multi-label `(n:Entity:Ku)`, alternation
   `[:A|B]`, var-length `[:OWNS*1..3]`, and Neo4j 5 typed DDL
@@ -817,6 +817,50 @@ never the syntax around it.
   exactly as silently as a typo'd pattern; this is what caught `get_siblings`
   filtering on five edge types that do not exist. Parameterized forms
   (`type(r) = $rel_type`) carry no static name and are skipped.
+- **Mutation** — `SET n:Label`, `REMOVE n:Label`, `SET n:A:B`, and the comma-separated
+  form `SET a:Ku, b:PathStep` (each item judged independently, including the mixed
+  `SET n.title = $t, n:Ku`). A label attached here is never written in pattern
+  position, so the pattern regexes cannot see it — and a typo is strictly worse than a
+  typo'd read, because Neo4j writes the label it is given and the graph ends up
+  carrying a name nothing will ever match. `SET n.prop = $x` is a dot, not a colon,
+  and is left alone; so is a map literal (`SET n = {a:Foo}`), which splits into items
+  that are not a bare `var:Label`.
+
+**Comments are masked before both the gate and the scan** (`mask_cypher_comments`,
+shared with `cypher_linter`'s statement splitter — one implementation, not two).
+Masking is length- and newline-preserving, so every offset and line number still
+points at the right place, and it is string-aware, so `'bolt://host'` is not mistaken
+for a comment. A comment cannot execute, so vocabulary written in one is not
+load-bearing — the same reasoning that exempts docstrings. This matters more since the
+head anchor: a statement whose only remaining content is a comment is now admitted, so
+masking for admission but scanning the raw text would have turned every explanatory
+`// was [:OLD_EDGE]` into a violation.
+
+**The gate: two anchors, one predicate.** Nothing above runs unless
+`looks_like_cypher()` first accepts the fragment — `scan_names()` returns `[]` outright
+for a rejected one, and a rule that silently scans nothing reports clean. Two orthogonal
+anchors decide:
+
+1. A **paren/sigil-anchored marker anywhere** in the fragment (`MATCH (`, `MERGE (`,
+   `CREATE ... INDEX|CONSTRAINT`, `MATCH x = (`, `UNWIND $`, `CALL db.`). Position
+   carries no signal here, so each arm must earn its keep from shape alone.
+2. An **UPPERCASE clause keyword at the HEAD** of the fragment, followed by whitespace
+   and an operand. Position is the signal, so no paren is needed.
+
+Anchor 1 alone has a ceiling, and its last three arms are the tell: each was bolted on
+case-by-case after a form the paren anchor could not see turned up. Whole statement
+families have no paren adjacent to their clause keyword —
+`RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs` carries a real relationship type, and
+`MATCH path = shortestPath((a:Entity)-[:X]-(b))` misses the named-path arm because a
+function call sits between the `=` and the pattern. Anchor 2 closes the class rather
+than the next instance of it. Its three conditions are each load-bearing: head position
+(`"cascade DETACH DELETE (default False)"` is prose), uppercase (drops the whole
+lowercase-English surface), and whitespace+operand (rules out the bare HTTP verb
+`DELETE`, `SET-COOKIE`, and `RETURNS`/`CREATED`/`WITHOUT`). The clause list is
+deliberately *not* pruned to "clauses that can carry vocabulary" — that is a second
+judgement call, and it gets `DROP CONSTRAINT ... FOR (n:Label)` wrong. One question, one
+answer. SKUEL021 asks the same question of `core/`; the two anchors should end up sharing
+`cypher_vocabulary.CYPHER_LEADING_CLAUSES` rather than each keeping a copy.
 
 **Python edge lists — the rule's second scanner (since tranche 5).** An alternation is
 as often assembled from a Python literal as written inline:

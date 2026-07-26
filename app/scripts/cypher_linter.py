@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
     VocabularyError,
     load_vocabulary,
+    mask_cypher_comments,
     unregistered_names,
 )
 
@@ -203,9 +204,11 @@ class CypherLinter:
         """
         Extract statements from a standalone .cypher file.
 
-        The whole file is Cypher by declaration, so no _is_actual_cypher
-        heuristics — just split on statement-terminating semicolons and keep
-        anything with a Cypher keyword. Two comment treatments:
+        The whole file is Cypher by declaration, so no admission heuristic at
+        all — not ``_is_actual_cypher``, and not the ``looks_like_cypher`` gate
+        SKUEL030 needs for Python string literals. Just split on
+        statement-terminating semicolons and keep every non-empty fragment.
+        Two comment treatments:
 
         - Comments — ``//`` line and ``/* */`` block (non-nesting, per the
           Cypher spec) — are masked with spaces (positions, newlines, and
@@ -231,44 +234,16 @@ class CypherLinter:
             List of (statement, start_line) tuples, start_line 1-indexed at
             the statement's first token
         """
-        # Pass 1: mask comments in place (same length, so every offset and
-        # line number survives)
-        chars = list(content)
-        in_string: str | None = None
-        i = 0
-        while i < len(content):
-            char = content[i]
-            if in_string is not None:
-                if char == "\\":
-                    i += 2  # skip escaped character inside string
-                    continue
-                if char == in_string:
-                    in_string = None
-            elif char in ("'", '"'):
-                in_string = char
-            elif content[i : i + 2] == "//":
-                end = content.find("\n", i)
-                if end == -1:
-                    end = len(content)
-                if "noqa:" not in content[i:end]:
-                    chars[i:end] = " " * (end - i)
-                i = end
-                continue
-            elif content[i : i + 2] == "/*":
-                end = content.find("*/", i + 2)
-                end = len(content) if end == -1 else end + 2
-                for j in range(i, end):
-                    if chars[j] != "\n":
-                        chars[j] = " "
-                i = end
-                continue
-            i += 1
-        text = "".join(chars)
+        # Pass 1: mask comments in place (same length, so every offset and line
+        # number survives). The masker lives in cypher_vocabulary because the
+        # vocabulary scanner needs the identical treatment on the SKUEL030 side,
+        # where nothing pre-masks an AST string literal — see mask_cypher_comments.
+        text = mask_cypher_comments(content, keep_noqa=True)
 
         # Pass 2: split on statement-terminating semicolons
         raw_statements: list[tuple[str, int]] = []
         start = 0
-        in_string = None
+        in_string: str | None = None
         i = 0
         while i < len(text):
             char = text[i]
@@ -310,9 +285,25 @@ class CypherLinter:
 
         statements: list[tuple[str, int]] = []
         for statement, position in raw_statements:
-            # Keyword filter drops DROP INDEX / SHOW / empty fragments — no
-            # rule applies to them
-            if not self._looks_like_cypher(statement):
+            # THE shared admission predicate, the same one SKUEL030 uses. This
+            # was a local keyword list (MATCH/CREATE/MERGE/DELETE/RETURN/WITH/
+            # WHERE) justified as "drops DROP INDEX / SHOW — no rule applies to
+            # them". CYP011 broke that premise: a vocabulary rule applies to any
+            # statement carrying a label or edge name, and a whole family was
+            # being discarded here before it ever reached the scanner — e.g.
+            # `CALL db.index.fulltext.queryNodes(...) YIELD node SET node:Bogus`
+            # (Codex P2 on #831). Two gates in series, and widening only the
+            # inner one would have left CYP011 exactly as silent as before.
+            # No heuristic gate here. A `.cypher` file is Cypher BY DECLARATION
+            # — the extension already answers the only question `looks_like_cypher`
+            # exists to answer, and that predicate is calibrated for Python string
+            # literals, where prose is a real risk. Applying it here just invented
+            # ways to discard real queries: first a local keyword list that dropped
+            # `CALL ... SET node:Label`, then the shared gate, which dropped
+            # lowercase Cypher and then `CYPHER runtime=slotted RETURN ...` (three
+            # rounds of Codex P2 on #831, each a different clause the list did not
+            # know). Empty fragments are the only thing worth dropping.
+            if not statement.strip():
                 continue
             # Anchor start_line at the first real token, not the newline after
             # the previous ';' — rules that report at start_line itself
@@ -407,12 +398,6 @@ class CypherLinter:
         # single-command queries — exactly the shape of interpolated one-line
         # MERGE upserts CYP003 exists to catch.
         return cypher_count >= 1 and has_cypher_syntax
-
-    def _looks_like_cypher(self, text: str) -> bool:
-        """Check if text looks like a Cypher query."""
-        cypher_keywords = ["MATCH", "CREATE", "MERGE", "DELETE", "RETURN", "WITH", "WHERE"]
-        text_upper = text.upper()
-        return any(keyword in text_upper for keyword in cypher_keywords)
 
     # ========================================================================
     # VALIDATION RULES
@@ -661,7 +646,7 @@ class CypherLinter:
             ]
 
         violations: list[Violation] = []
-        for name in unregistered_names(query, vocabulary):
+        for name in unregistered_names(query, vocabulary, declared_cypher=True):
             line_num = start_line + name.line_offset
             query_lines = query.splitlines()
             line_content = (
