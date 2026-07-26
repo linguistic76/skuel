@@ -115,7 +115,6 @@ if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
-    from core.services.ps.ps_organization_service import StepOrganizationView
     from core.utils.result_simplified import Result
 
 
@@ -461,7 +460,53 @@ class KuOperations(BackendOperations["Ku"], Protocol):
 
 
 @runtime_checkable
-class PsOperations(CurriculumOperations["PathStep"], Protocol):
+class PsOrganizesBackendOperations(Protocol):
+    """ORGANIZES relationship management — the backend-layer slice.
+
+    MOC is emergent identity: any Entity with outgoing ORGANIZES edges is an
+    organizer. This ISP slice is what ``PsOrganizationService`` types
+    ``self.backend`` against — deliberately narrow, and deliberately *backend*
+    layer. The service's own ``get_organization_view`` composes these reads with
+    ``PsCoreService`` lookups and is NOT a backend operation; declaring it on a
+    backend protocol is what made the wider contract unsatisfiable.
+
+    Implementation: ``_OrganizesMixin`` (shared with ``UserEntryBackend`` —
+    see ``UserEntryOrganizesOperations`` for that domain's read-only slice).
+    """
+
+    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
+        """Create ORGANIZES relationship between two entities."""
+        ...
+
+    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        """Remove ORGANIZES relationship between two entities."""
+        ...
+
+    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
+        """Change the order of a child entity within its parent."""
+        ...
+
+    async def is_organizer(self, entity_uid: str) -> Result[bool]:
+        """Check if an entity has organized children."""
+        ...
+
+    async def get_organized_children(
+        self, parent_uid: str, limit: int | None = None
+    ) -> Result[list[OrganizerResult]]:
+        """Direct ORGANIZES children of an entity, ordered by position."""
+        ...
+
+    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
+        """Find all parent entities that organize the given entity."""
+        ...
+
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
+        """List entities that organize others but are not themselves organized."""
+        ...
+
+
+@runtime_checkable
+class PsOperations(CurriculumOperations["PathStep"], PsOrganizesBackendOperations, Protocol):
     """
     PathStep (PS) specific operations.
 
@@ -675,40 +720,9 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # =========================================================================
     # ORGANIZATION (ORGANIZES relationships)
     # =========================================================================
-
-    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two entities."""
-        ...
-
-    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two entities."""
-        ...
-
-    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child entity within its parent."""
-        ...
-
-    async def is_organizer(self, entity_uid: str) -> Result[bool]:
-        """Check if an entity has organized children."""
-        ...
-
-    async def get_organization_view(
-        self, entity_uid: str, max_depth: int = 3
-    ) -> Result[StepOrganizationView]:
-        """Get an entity with its organized children hierarchy."""
-        ...
-
-    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent entities that organize the given entity."""
-        ...
-
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
-        """List entities that organize others but are not themselves organized."""
-        ...
-
-    async def get_organized_children(self, entity_uid: str) -> Result[list[OrganizerResult]]:
-        """Get direct children organized by ORGANIZES relationship."""
-        ...
+    # Inherited verbatim from ``PsOrganizesBackendOperations`` — see that
+    # protocol for the seven backend operations and why the service-layer
+    # ``get_organization_view`` is deliberately not among them.
 
     # =========================================================================
     # PRACTICE + AI    # =========================================================================
