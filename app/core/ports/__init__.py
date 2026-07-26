@@ -148,6 +148,7 @@ from .curriculum_protocols import (
     KuOperations,
     LpOperations,
     PsOperations,
+    PsOrganizesBackendOperations,
     RevisedExerciseOperations,
 )
 
@@ -408,6 +409,7 @@ __all__ = [
     "KuOperations",  # Knowledge Unit operations (atom)
     "LpOperations",  # Learning Path operations (path)
     "PsOperations",  # Learning Step operations (edge)
+    "PsOrganizesBackendOperations",  # ORGANIZES backend slice (MOC hierarchy)
     "LtConstraint",
     "MaxItemsConstraint",
     "MaxLenConstraint",

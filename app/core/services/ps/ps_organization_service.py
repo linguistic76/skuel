@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from core.ports.curriculum_protocols import PsOrganizesBackendOperations
     from core.services.ps.ps_core_service import PsCoreService
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
@@ -93,7 +94,7 @@ class PsOrganizationService:
     def __init__(
         self,
         ps_core: PsCoreService,
-        backend: Any,  # PsBackend — Any to avoid circular import
+        backend: PsOrganizesBackendOperations,
     ) -> None:
         self.ps_core = ps_core
         self.backend = backend
