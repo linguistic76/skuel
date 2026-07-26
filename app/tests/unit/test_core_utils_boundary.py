@@ -19,10 +19,16 @@ by identity, so they cannot trip this check.
 
 SKUEL021 has since been taught the same docstring-aware AST technique and its
 gate widened to all of ``core/`` (it now lint-enforces the raw-Cypher ban here).
-This test is intentionally KEPT: its execution-primitive bans (neo4j driver
-imports, ``.execute_query(`` calls) are NOT covered by SKUEL021, and the
-raw-Cypher-string sub-check is the canonical proof of the AST technique that
-SKUEL021 borrows. The small overlap is deliberate defense-in-depth.
+This test is intentionally KEPT for its execution-primitive bans — neo4j driver
+imports and ``.execute_query(`` calls, which SKUEL021 does not cover.
+
+The direction of the borrowing has since reversed. This file used to hand-copy
+SKUEL021's Cypher markers, and the copy drifted: it sat a marker behind
+(``OPTIONAL MATCH path``) and never learned the statement-head anchor, so the
+sub-check was quietly weaker than the rule it claimed to mirror. It now derives
+detection from ``SkuelLinter`` (``_is_raw_cypher`` below), the same resolution
+the RELATIONSHIP_NAMES mirror got. The execution-primitive bans stay local and
+independent — they are this file's unduplicated value.
 
 Banned in core/utils:
   - neo4j driver imports (``import neo4j`` / ``from neo4j import ...``). The
@@ -35,14 +41,14 @@ Banned in core/utils:
 
 Done (follow-up landed): SKUEL021's checker is now AST-based with the same
 docstring-skip technique, and its gate covers all of ``core/`` — so the
-raw-Cypher ban here is lint-enforced too. This test keeps the raw-Cypher-string
-sub-check as the canonical AST proof and pairs it with the execution-primitive
-bans, which SKUEL021 does not cover.
+raw-Cypher ban here is lint-enforced too. This test pairs that (derived) check
+with the execution-primitive bans, which SKUEL021 does not cover.
 """
 
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
 
 # Anchor on the imported package, not this file's location — the guard must
@@ -53,16 +59,28 @@ import core as _core_pkg
 _CORE = Path(next(iter(_core_pkg.__path__))).resolve()
 UTILS_DIR = _CORE / "utils"
 
-# High-signal Cypher clause markers — mirror SKUEL021; these essentially never
-# appear in prose.
-CYPHER_MARKERS = (
-    "MATCH (",
-    "MERGE (",
-    "OPTIONAL MATCH (",
-    "CREATE (",
-    "UNWIND $",
-    "CALL db.",
-)
+# scripts/ has no __init__.py — add it to sys.path for import
+sys.path.insert(0, str(_CORE.parent / "scripts"))
+
+from lint_skuel import SkuelLinter  # type: ignore[import-not-found]  # noqa: E402
+
+
+def _is_raw_cypher(value: str) -> bool:
+    """True if ``value`` reads as authored Cypher, per SKUEL021's own detection.
+
+    This used to be a hand-copied marker tuple "mirroring SKUEL021". The mirror
+    drifted exactly the way the RELATIONSHIP_NAMES mirror did before it was
+    deleted (see ``TestRelationshipNamesDrift``): it silently fell a marker
+    behind (``OPTIONAL MATCH path``), so this guard was quietly checking less
+    than the rule it claimed to mirror. Deriving from ``SkuelLinter`` keeps the
+    execution-primitive bans below — which are this file's real, unduplicated
+    value — independent, while making the Cypher-string sub-check impossible to
+    drift again.
+    """
+    if any(marker in value for marker in SkuelLinter.CYPHER_MARKERS):
+        return True
+    return SkuelLinter._leading_cypher_clause(value) is not None
+
 
 # Query-execution method names that signal Cypher running from core/utils.
 # ``execute_query`` is Neo4j-specific (the QueryExecutor port) — banning it does
@@ -130,7 +148,7 @@ def _scan_file(py_file: Path) -> list[str]:
             isinstance(node, ast.Constant)
             and isinstance(node.value, str)
             and id(node) not in inert_ids
-            and any(marker in node.value for marker in CYPHER_MARKERS)
+            and _is_raw_cypher(node.value)
         ):
             offenders.append(f"{py_file.name}:{node.lineno}: raw Cypher in a string literal")
 

@@ -509,9 +509,13 @@ adapters/persistence/neo4j/. All Cypher lives below that boundary; services orch
 call backend methods — they do not author Cypher. (SKUEL001 only bans APOC procedures; this
 rule covers raw Cypher generally, which was previously unguarded.)
 
-The detector flags high-signal, paren/sigil-anchored Cypher clauses (MATCH (, MERGE (,
-OPTIONAL MATCH (, CREATE (, UNWIND $, CALL db.) so prose/comments are not caught. Comment
-lines are skipped.
+The detector uses two anchors so prose/comments are not caught. Either a paren/sigil-anchored
+clause anywhere in the literal (MATCH (, MERGE (, OPTIONAL MATCH (, CREATE (, UNWIND $,
+CALL db.), or an UPPERCASE clause keyword at the HEAD of the literal followed by an operand
+(RETURN, SHOW, PROFILE, EXPLAIN, DELETE, DETACH DELETE, SET, REMOVE, LOAD CSV, CALL, ...).
+The head anchor covers statement families that have no paren or sigil to match on — a
+`RETURN 1 as ping` health probe is Cypher; "cascade DETACH DELETE (default False)" is prose.
+Comment lines and docstrings are skipped.
 
 Fix: relocate the query into an adapter backend (adapters/persistence/neo4j/) behind a
 core/ports protocol. See the relationship / ps_engagement / ingestion / query backends for
@@ -1726,10 +1730,18 @@ class SkuelLinter:
                 )
             )
 
-    # Paren/sigil-anchored Cypher clause markers that essentially never appear in
-    # prose. (DETACH DELETE is intentionally excluded — real Cypher uses a variable,
-    # `DETACH DELETE n`, which is indistinguishable from docstring prose like
-    # "cascade DETACH DELETE (default False)".)
+    # --- SKUEL021 detection: two anchors, one rule -------------------------
+    #
+    # Anchor 1 (CYPHER_MARKERS) — substring, matched ANYWHERE in the literal.
+    # Because position carries no signal here, each marker must earn its keep
+    # from shape alone: a paren or sigil that essentially never follows the
+    # keyword in prose. That constraint is also this anchor's ceiling — whole
+    # statement families have no paren/sigil to hang a substring on, so for
+    # years the rule was structurally blind to `RETURN`-only queries,
+    # `SHOW INDEXES`, `PROFILE`/`EXPLAIN`, and statements led by `DELETE`,
+    # `DETACH DELETE`, `SET`, `REMOVE` or `LOAD CSV`. A real leak sat inside
+    # that blind spot: `session.run("RETURN 1 as ping")` lived in core/ with no
+    # suppression comment and never once tripped the rule.
     CYPHER_MARKERS: ClassVar[tuple[str, ...]] = (
         "MATCH (",
         "MERGE (",
@@ -1739,6 +1751,74 @@ class SkuelLinter:
         "UNWIND $",
         "CALL db.",
     )
+
+    # Anchor 2 (CYPHER_LEADING_CLAUSES) — clause keywords that may BEGIN a
+    # Cypher statement, matched only at the head of the literal. Position is
+    # the signal, so these need no paren/sigil and the families above stop
+    # being invisible. Three conditions keep prose out, and each is load-bearing:
+    #
+    #   * head position — "cascade DETACH DELETE (default False)" and the 30-odd
+    #     other `DETACH DELETE` docstrings across core/ mention the clause
+    #     mid-sentence; only real Cypher leads with it. (Docstrings are already
+    #     exempt as inert nodes; this keeps the rule honest for prose that is
+    #     assigned or passed rather than hung as a bare statement.)
+    #   * UPPERCASE — the codebase writes Cypher clauses uppercase, so requiring
+    #     it costs nothing and drops the entire lowercase-English surface.
+    #   * followed by whitespace + an operand — rules out the bare HTTP verb
+    #     "DELETE", header names like "SET-COOKIE", and `RETURNS`/`CREATED`/
+    #     `WITHOUT`-style words that merely start with a clause name.
+    #
+    # Known, deliberate limit: lowercase Cypher (`"return 1 as ping"`) is not
+    # detected. Matching case-insensitively here would light up ordinary prose,
+    # and every query in this tree is uppercase.
+    #
+    # Admin/security DDL (GRANT, REVOKE, ALTER) is deliberately absent: core/
+    # has no admin-DDL surface, and those words carry real prose risk in a
+    # codebase with roles and permissions.
+    CYPHER_LEADING_CLAUSES: ClassVar[tuple[str, ...]] = (
+        "CALL",
+        "CREATE",
+        "DELETE",
+        "DETACH DELETE",
+        "DROP",
+        "EXPLAIN",
+        "FOREACH",
+        "LOAD CSV",
+        "MATCH",
+        "MERGE",
+        "OPTIONAL MATCH",
+        "PROFILE",
+        "REMOVE",
+        "RETURN",
+        "SET",
+        "SHOW",
+        "UNWIND",
+        "USE",
+        "WITH",
+    )
+
+    # Longest-first so "DETACH DELETE" wins over "DELETE" and the reported
+    # marker names the clause actually written.
+    _LEADING_CLAUSE_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"^(" + "|".join(sorted(CYPHER_LEADING_CLAUSES, key=len, reverse=True)) + r")(?=\s)"
+    )
+
+    @classmethod
+    def _leading_cypher_clause(cls, text: str) -> str | None:
+        """The Cypher clause keyword ``text`` begins with, or None.
+
+        Skips leading blank and ``//`` comment lines so a query that opens with
+        a planner hint comment still anchors on its first real clause.
+        """
+        for raw in text.split("\n"):
+            head = raw.strip()
+            if not head or head.startswith("//"):
+                continue
+            match = cls._LEADING_CLAUSE_RE.match(head)
+            if match is None or not head[match.end() :].strip():
+                return None
+            return match.group(1)
+        return None
 
     @staticmethod
     def _inert_string_constant_ids(tree: ast.AST) -> set[int]:
@@ -1808,9 +1888,17 @@ class SkuelLinter:
         Cypher). This keeps the rule quiet on the docstring Cypher examples that live
         throughout ``core/utils`` while still catching real leaks anywhere in core/.
 
-        High-signal clause markers only, to avoid flagging prose. Relocate the query
-        into an adapter backend behind a ``core/ports`` protocol (see the
-        connection-fetch / relationship / ingestion backends for the pattern).
+        Two anchors decide whether a literal is Cypher (see ``CYPHER_MARKERS`` /
+        ``CYPHER_LEADING_CLAUSES`` for the full reasoning): a paren/sigil-anchored
+        marker anywhere in the string, OR a clause keyword at its head. The head
+        anchor is what covers the statement families a substring test cannot see —
+        ``RETURN``-only queries, ``SHOW INDEXES``, ``PROFILE``/``EXPLAIN``, and
+        ``DELETE`` / ``DETACH DELETE`` / ``SET`` / ``REMOVE`` / ``LOAD CSV``
+        statements — without lighting up prose that merely names a clause.
+
+        Relocate the query into an adapter backend behind a ``core/ports``
+        protocol (see the connection-fetch / relationship / ingestion backends
+        for the pattern).
 
         Suppress: # skuel-lint: disable=SKUEL021 -- <reason>
         File-level: # skuel-lint: disable-file=SKUEL021 -- <reason>
@@ -1829,7 +1917,9 @@ class SkuelLinter:
                 continue
             if id(node) in inert_ids:
                 continue
-            marker = next((m for m in self.CYPHER_MARKERS if m in node.value), None)
+            marker = next(
+                (m for m in self.CYPHER_MARKERS if m in node.value), None
+            ) or self._leading_cypher_clause(node.value)
             if marker is None:
                 continue
 
