@@ -27,6 +27,7 @@ from cypher_vocabulary import (  # type: ignore[import-not-found]
     looks_like_cypher,
     recording_scan_diagnostics,
     scan_names,
+    scanning_fragment_at,
 )
 
 # ============================================================================
@@ -728,11 +729,58 @@ class TestScanDiagnostics:
             assert scan_names("(t:Entity)") == []
         assert [d.issue for d in sink] == [ScanIssue.REJECTED_BY_GATE]
 
+    @pytest.mark.parametrize(
+        "fragment",
+        [
+            "WHERE n:Bogus",
+            "type(r) = 'BOGUS_EDGE'",
+            "AND NOT a:Bogus",
+        ],
+    )
+    def test_gate_rejection_covers_every_scanner_position(self, fragment: str) -> None:
+        """The filter asks the scanners, so it cannot lag behind them.
+
+        A hand-written approximation asked about PATTERN position alone, and
+        these three — refused by the gate, carrying names `scan_names` recovers
+        — reported nothing (Codex P2 on #833). The instrument built to expose
+        silent drops had grown its own, one layer further down again.
+        """
+        with recording_scan_diagnostics() as sink:
+            assert scan_names(fragment) == []
+        assert [d.issue for d in sink] == [ScanIssue.REJECTED_BY_GATE]
+
+    def test_gate_rejection_probe_records_only_the_rejection(self) -> None:
+        """The probe re-scans; its OWN drops describe text never admitted.
+
+        Recording them would answer a question nobody asked and bury the single
+        finding that matters under the noise of a fragment that was refused.
+        """
+        with recording_scan_diagnostics() as sink:
+            scan_names("(t:Entity) SET n.title = $t")
+        assert [d.issue for d in sink] == [ScanIssue.REJECTED_BY_GATE]
+
     def test_gate_rejection_of_prose_is_not_recorded(self) -> None:
         """Without the name filter every non-Cypher string is a 'drop' — true, useless."""
         with recording_scan_diagnostics() as sink:
             assert scan_names("just some ordinary prose") == []
         assert sink == []
+
+    def test_source_line_is_absolute_when_the_caller_declares_a_base(self) -> None:
+        """`(+2 lines)` is not navigable; 265 rows of it cannot be acted on.
+
+        The offset is relative to the fragment and the base lives with the
+        caller — `node.lineno` for SKUEL030, the statement's `start_line` for
+        CYP011 (Codex P2 on #833).
+        """
+        with recording_scan_diagnostics() as sink, scanning_fragment_at(300):
+            scan_names("MATCH (n:Ku)\nWITH n\nMATCH (m:$(labelExpr)) RETURN m")
+        assert [(d.line_offset, d.source_line) for d in sink] == [(2, 302)]
+
+    def test_source_line_is_none_when_no_base_is_declared(self) -> None:
+        """An undeclared base must read as absent, never as line 0 or line 2."""
+        with recording_scan_diagnostics() as sink:
+            scan_names("MATCH (n:$(labelExpr)) RETURN n")
+        assert sink[0].source_line is None
 
     def test_nested_recording_restores_the_outer_sink(self) -> None:
         """The sink is module-global; a nested block must not steal the outer's."""

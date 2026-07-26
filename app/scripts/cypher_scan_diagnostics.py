@@ -48,6 +48,7 @@ from cypher_vocabulary import (  # type: ignore[import-not-found]
     app_root,
     recording_scan_diagnostics,
     scan_names,
+    scanning_fragment_at,
 )
 from lint_skuel import SkuelLinter  # type: ignore[import-not-found]
 
@@ -115,8 +116,9 @@ def _migration_findings(root: Path, skipped: list[Path]) -> list[Finding]:
         with recording_scan_diagnostics() as sink:
             # Private on purpose: it is the linter's OWN splitter, and a
             # hand-written equivalent would measure a scanner the rule does not run.
-            for statement, _ in linter._extract_cypher_statements(path.read_text()):
-                scan_names(statement, declared_cypher=True)
+            for statement, start_line in linter._extract_cypher_statements(path.read_text()):
+                with scanning_fragment_at(start_line):
+                    scan_names(statement, declared_cypher=True)
         findings.extend(("CYP011(migration)", path, diag) for diag in sink)
     return findings
 
@@ -153,7 +155,12 @@ def _report(findings: list[Finding], root: Path, *, verbose: bool) -> None:
         shown = rows if verbose else rows[:20]
         for rule, path, diag in shown:
             rel = path.relative_to(root)
-            print(f"  [{rule}] {rel}  (+{diag.line_offset} lines)")
+            # Absolute line where the caller declared a base; the bare offset is
+            # not navigable on its own, which is the whole point of reporting.
+            where = (
+                f"{rel}:{diag.source_line}" if diag.source_line else f"{rel} (+{diag.line_offset})"
+            )
+            print(f"  [{rule}] {where}")
             print(f"      {_span(diag.text)}")
         if len(rows) > len(shown):
             print(f"  … {len(rows) - len(shown)} more (use --verbose)")

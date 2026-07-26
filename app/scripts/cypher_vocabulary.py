@@ -214,9 +214,15 @@ class ScanDiagnostic:
     """The offending span, verbatim (post-masking, so offsets line up)."""
     line_offset: int
     """Newlines between the start of the scanned fragment and this span."""
+    source_line: int | None = None
+    """Absolute 1-indexed file line, when the caller declared where the fragment
+    starts (``scanning_fragment_at``). ``None`` when it did not — an offset with
+    no base is not navigable, and a report of 265 rows reading ``(+2 lines)``
+    cannot be acted on (Codex P2 on #833)."""
 
 
 _DIAGNOSTIC_SINK: list[ScanDiagnostic] | None = None
+_DIAGNOSTIC_BASE_LINE: int | None = None
 
 
 @contextmanager
@@ -239,12 +245,43 @@ def recording_scan_diagnostics() -> Iterator[list[ScanDiagnostic]]:
         _DIAGNOSTIC_SINK = previous
 
 
+@contextmanager
+def scanning_fragment_at(line: int) -> Iterator[None]:
+    """Declare the file line the fragment about to be scanned starts on.
+
+    A `ScanDiagnostic` knows only its offset WITHIN the fragment; the base lives
+    with the caller — `node.lineno` for SKUEL030's AST literals, the statement's
+    `start_line` for CYP011. Callers that declare it get navigable absolute
+    lines; callers that do not are unaffected.
+
+    Costs nothing when nobody is recording: the body is skipped and no state is
+    touched, so the production path pays one `is None` per fragment.
+    """
+    global _DIAGNOSTIC_BASE_LINE
+    if _DIAGNOSTIC_SINK is None:
+        yield
+        return
+    previous = _DIAGNOSTIC_BASE_LINE
+    _DIAGNOSTIC_BASE_LINE = line
+    try:
+        yield
+    finally:
+        _DIAGNOSTIC_BASE_LINE = previous
+
+
 def _note(issue: ScanIssue, text: str, source: str, pos: int) -> None:
     """Record a drop, if anyone is listening. One `is not None` otherwise."""
     if _DIAGNOSTIC_SINK is None:
         return
+    offset = source.count("\n", 0, pos)
+    base = _DIAGNOSTIC_BASE_LINE
     _DIAGNOSTIC_SINK.append(
-        ScanDiagnostic(issue=issue, text=text, line_offset=source.count("\n", 0, pos))
+        ScanDiagnostic(
+            issue=issue,
+            text=text,
+            line_offset=offset,
+            source_line=None if base is None else base + offset,
+        )
     )
 
 
@@ -921,19 +958,39 @@ def _pattern_bodies(masked: str) -> Iterator[tuple[NameKind, re.Pattern[str], st
             yield kind, name_re, body, match.start(1)
 
 
-def _carries_vocabulary_shape(masked: str) -> bool:
-    """True if a name is written here that the scanners WOULD have recovered.
+def _note_gate_rejection(fragment: str, masked: str, dialect: _Dialect) -> None:
+    """Report a refusal only if it COST something — run the scanners and see.
 
-    The gate-rejection diagnostic's filter. Without it every non-Cypher string
-    literal in the tree is a "drop", which is true and useless; with it the
-    report says the one thing worth hearing — the anchors refused a fragment
-    that really does carry vocabulary.
+    Without a filter, every non-Cypher string literal in the tree is a "drop":
+    true, and useless. The filter has to answer one question — would the
+    scanners have recovered a name had the gate admitted this? — and the only
+    answer that cannot drift from the scanners is the scanners themselves.
+
+    A hand-written approximation did drift, immediately: it asked about PATTERN
+    position alone, so `WHERE n:Bogus` and `type(r) = 'BOGUS_EDGE'` were refused
+    by the gate, carried recoverable names, and reported nothing (Codex P2 on
+    #833). The instrument built to expose the scanner's silent drops had grown
+    its own, one layer further down again. Delegating removes the class: teach
+    `_scan` a fifth position tomorrow and this filter knows about it.
+
+    The SAME dialect is used, never the relaxed one. `declared_cypher` exists
+    because a `.cypher` file needs no prose guard; a fragment that reached the
+    gate is a Python string literal, and relaxing case here would report every
+    lowercase sentence containing `where x:y`.
+
+    Diagnostics are suspended for the probe. Its own drops describe a fragment
+    that was never admitted, so recording them would answer a question nobody
+    asked and bury the one finding that matters.
     """
-    return any(
-        name_re.fullmatch(name)
-        for _, name_re, body, _ in _pattern_bodies(masked)
-        for name, _offset in _body_names(body)
-    )
+    global _DIAGNOSTIC_SINK
+    sink = _DIAGNOSTIC_SINK
+    _DIAGNOSTIC_SINK = None
+    try:
+        recovered = _scan(fragment, masked, dialect)
+    finally:
+        _DIAGNOSTIC_SINK = sink
+    if recovered:
+        _note(ScanIssue.REJECTED_BY_GATE, fragment, masked, 0)
 
 
 def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedName]:
@@ -991,9 +1048,19 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
     dialect = _dialect(declared_cypher)
     masked = mask_cypher_comments(fragment)
     if not declared_cypher and not _is_cypher(masked, dialect):
-        if _DIAGNOSTIC_SINK is not None and _carries_vocabulary_shape(masked):
-            _note(ScanIssue.REJECTED_BY_GATE, fragment, masked, 0)
+        if _DIAGNOSTIC_SINK is not None:
+            _note_gate_rejection(fragment, masked, dialect)
         return []
+    return _scan(fragment, masked, dialect)
+
+
+def _scan(fragment: str, masked: str, dialect: _Dialect) -> list[ScannedName]:
+    """Every scanner position, gate already decided.
+
+    Split out from ``scan_names`` so the gate-rejection diagnostic can ask what
+    a refusal cost by running the real scanners rather than approximating them —
+    see ``_note_gate_rejection``.
+    """
     unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
     found: list[ScannedName] = []
