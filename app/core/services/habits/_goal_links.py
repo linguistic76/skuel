@@ -15,19 +15,11 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
+from core.services.goal_links import pick_goal
+
 if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.ports.domain_protocols import HabitsOperations
-
-
-def _pick_goal(goal_uids: list[str], active_goal_uids: list[str] | None) -> str:
-    """Return the best goal UID for scoring: prefer an active goal, else first."""
-    if active_goal_uids:
-        active_set = set(active_goal_uids)
-        for uid in goal_uids:
-            if uid in active_set:
-                return uid
-    return goal_uids[0]
 
 
 async def enrich_habits_with_goal_links(
@@ -52,7 +44,7 @@ async def enrich_habits_with_goal_links(
     return [
         replace(
             habit,
-            supports_goal_uid=_pick_goal(link_map[habit.uid], active_goal_uids),
+            supports_goal_uid=pick_goal(link_map[habit.uid], active_goal_uids),
         )
         if habit.uid in link_map
         else habit
