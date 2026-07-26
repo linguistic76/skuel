@@ -1856,6 +1856,27 @@ class SkuelLinter:
             for leaf in leaves
         )
 
+    @staticmethod
+    def _literal_pieces(leaves: list[ast.expr]) -> list[str]:
+        """The literal texts inside ``leaves`` that the per-piece pass will see.
+
+        Exactly the strings a whole-composite report would duplicate — no more.
+        Deliberately does NOT descend into an operand's own expression: a literal
+        passed as a call argument is its own detection, not a piece of the query
+        being assembled around it.
+        """
+        pieces: list[str] = []
+        for leaf in leaves:
+            if isinstance(leaf, ast.Constant) and isinstance(leaf.value, str):
+                pieces.append(leaf.value)
+            elif isinstance(leaf, ast.JoinedStr):
+                pieces.extend(
+                    part.value
+                    for part in leaf.values
+                    if isinstance(part, ast.Constant) and isinstance(part.value, str)
+                )
+        return pieces
+
     @classmethod
     def iter_authored_cypher(cls, tree: ast.AST, inert_ids: set[int]) -> list[tuple[ast.expr, str]]:
         """Every string in ``tree`` that reads as authored Cypher, as (node, marker).
@@ -1875,7 +1896,7 @@ class SkuelLinter:
         fstring_parts = fstring_part_ids(tree)
         composite_leaves: set[int] = set()
         nested_concats: set[int] = set()
-        concat_roots: list[tuple[ast.BinOp, str]] = []
+        concat_roots: list[tuple[ast.BinOp, list[ast.expr]]] = []
 
         # Pass 1: resolve concatenation chains to their outermost root, so a
         # nested `+` never re-reports the text its root already covers.
@@ -1895,28 +1916,36 @@ class SkuelLinter:
             composite_leaves.update(
                 id(leaf) for leaf in leaves if isinstance(leaf, ast.Constant | ast.JoinedStr)
             )
-            concat_roots.append((node, cls._render_parts(leaves)))
+            concat_roots.append((node, leaves))
 
         found: list[tuple[ast.expr, str]] = []
 
-        def take_whole(node: ast.expr, rendered: str) -> None:
-            # An anywhere-marker inside a rendered whole is always inside one of
-            # its literal pieces too (pieces are separated by a sentinel no
-            # marker spans), so the per-piece pass already reports it. Bailing
-            # here is what stops one composite from reporting twice.
-            if any(m in rendered for m in cls.CYPHER_MARKERS):
+        def take_whole(node: ast.expr, leaves: list[ast.expr]) -> None:
+            # Skip only what the per-piece pass ACTUALLY reports — a piece that
+            # matched — never merely "the rendered whole matched". Those differ:
+            # `"MATCH " + "(n) RETURN n"` renders to a marker that no single
+            # piece contains, because two literal operands concatenate with
+            # nothing between them. (An f-string cannot hit this: the parser
+            # never leaves two adjacent Constant parts, so its pieces really are
+            # sentinel-separated. Concatenation broke that invariant when it was
+            # added — Codex, PR #829.)
+            pieces = cls._literal_pieces(leaves)
+            if any(m in piece for piece in pieces for m in cls.CYPHER_MARKERS):
                 return
-            marker = cls._leading_cypher_clause(rendered)
+            rendered = cls._render_parts(leaves)
+            marker = next(
+                (m for m in cls.CYPHER_MARKERS if m in rendered), None
+            ) or cls._leading_cypher_clause(rendered)
             if marker is not None:
                 found.append((node, marker))
 
-        for root, rendered in concat_roots:
-            take_whole(root, rendered)
+        for root, leaves in concat_roots:
+            take_whole(root, leaves)
 
         for node in ast.walk(tree):
             if isinstance(node, ast.JoinedStr):
                 if id(node) not in composite_leaves:
-                    take_whole(node, render_fstring(node))
+                    take_whole(node, [node])
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                 if id(node) in inert_ids:
                     continue

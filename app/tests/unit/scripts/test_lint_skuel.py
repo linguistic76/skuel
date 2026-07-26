@@ -2844,6 +2844,23 @@ class TestSKUEL021LeadingClauseAnchor:
         violations = lint_content(linter, content)
         assert len(violations) == 1
 
+    def test_detects_marker_spanning_two_concatenated_literals(self) -> None:
+        """`"MATCH " + "(n) RETURN n"` — the marker exists only in the whole.
+
+        Two literal operands concatenate with NOTHING between them, so no single
+        piece carries `MATCH (`. Suppressing the whole-report on "the rendered
+        text matched" (rather than "a piece matched") made this invisible.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "MATCH " + "(n) RETURN n"\nrun(q)')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_concatenated_marker_still_reports_once(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "MATCH (n)" + " RETURN n"\nrun(q)')
+        assert len(violations) == 1
+
     def test_ignores_non_string_concatenation(self) -> None:
         linter = make_linter(["SKUEL021"])
         violations = lint_content(linter, "total = count + offset")
