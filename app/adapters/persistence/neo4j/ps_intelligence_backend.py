@@ -7,16 +7,24 @@ hexagonal boundary. Parameterized queries run via an injected
 ``Neo4jQueryExecutor``; ``PsIntelligenceService`` keeps the scoring/shaping
 (processor) logic above the boundary and delegates the queries here (ADR-044).
 
-Returns raw property-dict rows (or bool existence results); the service applies
-its readiness/score processors to the rows.
+Returns per-query typed rows (``core/ports/query_types.py`` ``Ps*Row``) or bool
+existence results; the service applies its readiness/score processors to the rows.
+The row types are declared on ``PsIntelligenceBackendOperations`` too, so a change
+to a RETURN clause's keys is a MyPy error rather than silent drift.
 
 See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from core.ports.query_types import (
+    PsGuidanceCountsRow,
+    PsPracticeCountsRow,
+    PsPrerequisiteStepUidsRow,
+    PsTaughtKuUidRow,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -29,7 +37,9 @@ class PsIntelligenceBackend:
     def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self._executor = executor
 
-    async def fetch_prerequisite_step_uids(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_prerequisite_step_uids(
+        self, ps_uid: str
+    ) -> Result[list[PsPrerequisiteStepUidsRow]]:
         """Return a single row with ``prereq_uids`` (collected REQUIRES_STEP targets)."""
         return await self._executor.execute(
             query="""
@@ -40,7 +50,7 @@ class PsIntelligenceBackend:
             operation="is_ready",
         )
 
-    async def fetch_practice_counts(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:
         """Return per-domain practice-opportunity counts for a PathStep."""
         return await self._executor.execute(
             query="""
@@ -62,7 +72,7 @@ class PsIntelligenceBackend:
             operation="get_practice_summary",
         )
 
-    async def fetch_guidance_counts(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_guidance_counts(self, ps_uid: str) -> Result[list[PsGuidanceCountsRow]]:
         """Return principle/choice guidance counts for a PathStep."""
         return await self._executor.execute(
             query="""
@@ -118,7 +128,7 @@ class PsIntelligenceBackend:
             operation="has_practice_opportunities",
         )
 
-    async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[PsTaughtKuUidRow]]:
         """Return ``ku_uid`` rows for the KUs taught by a PathStep.
 
         Matches the canonical curriculum-composition triple

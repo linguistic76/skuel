@@ -275,6 +275,30 @@ compliance, so **typing `self.backend` against a concrete backend subclass gives
 attribute checking at all** — every misspelled method resolves to `Any`. Typing
 against the protocol is what turns those into `attr-defined` errors.
 
+### A New Port Declares Typed Rows, Not `dict[str, Any]`
+
+Narrowing the *method set* is only half the job. A slice whose reads return
+`Result[list[dict[str, Any]]]` still leaves the row shape unchecked, so a change to a
+Cypher `RETURN` clause's keys or value types drifts silently across the very boundary
+you just drew. Give each read a per-query `TypedDict` in `core/ports/query_types.py`
+(`*Row` for raw reads, `*Result` / `*Analytics` for what the service returns after
+scoring) — the `_OrganizesMixin` ↔ `PsOrganizesBackendOperations` pair does this with
+`OrganizerResult`, and `PsIntelligenceBackendOperations` follows with four `Ps*Row`
+types.
+
+Two things make this cheap and safe:
+
+- `Neo4jQueryExecutor.execute[T](...) -> Result[T]` is **generic**, so the backend only
+  needs the return annotation — no `cast`, no runtime change.
+- **Declare the row type on the protocol *and* the implementation, in the same change.**
+  A `TypedDict` on the port with `dict[str, Any]` on the backend makes the port
+  unsatisfiable — that is precisely the shape of several of the return-type conflicts
+  that stop `PsBackend` from satisfying `PsOperations`. Re-run the satisfiability probe
+  after changing either side.
+
+Reserve `dict[str, Any]` for rows that are *genuinely* heterogeneous (variable `RETURN`
+clauses), and mark those with a `# boundary:` comment per the `Any` policy.
+
 ## Benefits
 
 1. **One Path Forward** - `BackendOperations` is THE protocol, no legacy alternatives

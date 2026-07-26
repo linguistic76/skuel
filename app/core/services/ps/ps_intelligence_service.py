@@ -29,7 +29,13 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
-from core.ports.query_types import PsDomainInsights, PsPerformanceAnalytics, PsPracticeSummaryResult
+from core.ports.query_types import (
+    PsDomainInsights,
+    PsGuidanceCountsRow,
+    PsPerformanceAnalytics,
+    PsPracticeCountsRow,
+    PsPracticeSummaryResult,
+)
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import _CoreIntelligenceMixin
 from core.utils.decorators import with_error_handling
@@ -316,7 +322,7 @@ class PsIntelligenceService(
         if backend_result.is_error:
             return Result.fail(backend_result)
 
-        def _process_summary(records: list[dict]) -> PsPracticeSummaryResult:
+        def _process_summary(records: list[PsPracticeCountsRow]) -> PsPracticeSummaryResult:
             if not records:
                 return PsPracticeSummaryResult(
                     habits=0,
@@ -404,7 +410,7 @@ class PsIntelligenceService(
         if backend_result.is_error:
             return Result.fail(backend_result)
 
-        def _calculate_score(records: list[dict]) -> float:
+        def _calculate_score(records: list[PsGuidanceCountsRow]) -> float:
             if not records:
                 return 0.0
 

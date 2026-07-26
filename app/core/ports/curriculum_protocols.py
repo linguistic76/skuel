@@ -100,8 +100,12 @@ from core.ports.query_types import (
     OrganizerResult,
     PrereqMasteryResult,
     PsDeleteStepRow,
+    PsGuidanceCountsRow,
     PsKnowledgeSummaryResult,
+    PsPracticeCountsRow,
     PsPracticeSummaryResult,
+    PsPrerequisiteStepUidsRow,
+    PsTaughtKuUidRow,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
@@ -568,18 +572,23 @@ class PsIntelligenceBackendOperations(Protocol):
 
     Signatures are a 1:1 mirror of ``PsIntelligenceBackend``'s entire public
     surface — the class exists solely to serve this one service, so the slice and
-    the class coincide. Raw property-dict rows; the service aggregates them.
+    the class coincide. Each read declares a per-query ``Ps*Row`` TypedDict keyed
+    to its RETURN clause, so a change to the adapter's projected keys or value
+    types is a MyPy error here rather than invisible drift; the service aggregates
+    the rows into the ``*Result``/``*Analytics`` shapes it returns.
     """
 
-    async def fetch_prerequisite_step_uids(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_prerequisite_step_uids(
+        self, ps_uid: str
+    ) -> Result[list[PsPrerequisiteStepUidsRow]]:
         """Return a single row with ``prereq_uids`` (collected REQUIRES_STEP targets)."""
         ...
 
-    async def fetch_practice_counts(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_practice_counts(self, ps_uid: str) -> Result[list[PsPracticeCountsRow]]:
         """Return per-domain practice-opportunity counts for a PathStep."""
         ...
 
-    async def fetch_guidance_counts(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_guidance_counts(self, ps_uid: str) -> Result[list[PsGuidanceCountsRow]]:
         """Return principle/choice guidance counts for a PathStep."""
         ...
 
@@ -595,7 +604,7 @@ class PsIntelligenceBackendOperations(Protocol):
         """True if the PathStep has any of the 6 activity-domain practice edges."""
         ...
 
-    async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[PsTaughtKuUidRow]]:
         """Return ``ku_uid`` rows for the KUs taught by a PathStep."""
         ...
 
