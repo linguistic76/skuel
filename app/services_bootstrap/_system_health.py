@@ -1,9 +1,13 @@
-"""
-System Service Initialization
-==============================
+"""SystemService health-checker wiring — part of the composition root.
 
-Initialize SystemService with component health checkers.
-Part of the phased migration to SystemService adoption.
+Registers the component health checkers on the ``SystemService`` instance that
+``compose_services()`` built. This is bootstrap wiring, not domain logic: it takes
+the ``Services`` container itself and reaches the Neo4j driver directly, so it
+belongs beside the rest of the composition root rather than in ``core/services/``
+(where it authored a raw Cypher probe on a raw session above the ADR-044 boundary).
+
+Called once from ``scripts/dev/bootstrap.py`` during route wiring, after
+``compose_services()`` and before ``create_system_routes()``.
 """
 
 from collections.abc import Callable, Coroutine
@@ -60,7 +64,8 @@ async def initialize_system_service(  # skuel-lint: disable=SKUEL029 -- awaited 
         Returns ``False`` when no driver is configured; a connection error
         propagates and is recorded as an error component by the caller.
         """
-        # Use driver directly for health check
+        # The composition root owns the driver it just built, so it probes it
+        # directly rather than routing a liveness ping through a domain backend.
         if services.neo4j_driver:
             async with services.neo4j_driver.session() as session:
                 await session.run("RETURN 1 as ping")
@@ -88,6 +93,6 @@ async def initialize_system_service(  # skuel-lint: disable=SKUEL029 -- awaited 
         "context", _make_service_checker(services, "context", "Context service")
     )
 
-    logger.info(f"Registered {len(system_service._component_checkers)} health checkers")
+    logger.info(f"Registered {len(system_service.list_registered_components())} health checkers")
 
     return Result.ok(None)

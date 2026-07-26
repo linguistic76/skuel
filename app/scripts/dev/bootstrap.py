@@ -37,7 +37,7 @@ from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import DrainableEventBusOperations, EventBusOperations
 from core.ports.service_protocols import GraphAuthOperations
 from core.utils.logging import get_logger
-from services_bootstrap import Services, compose_services
+from services_bootstrap import Services, compose_services, initialize_system_service
 from ui.theme import chartjs_headers, skuel_headers
 
 try:
@@ -619,8 +619,6 @@ async def _wire_all_routes(
     # object the AdminOrchestrator captured. Creating a fresh instance here would
     # register checkers on a throwaway the orchestrator never sees, leaving
     # /admin/system with empty component health.
-    from core.services.system_service_init import initialize_system_service
-
     assert services.system is not None, "SystemService must be composed before initialization"
     init_result = await initialize_system_service(services.system, services)
     if init_result.is_error:
