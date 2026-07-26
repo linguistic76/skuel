@@ -297,24 +297,27 @@ _LABEL_PREDICATE_RE = re.compile(
 # typo'd `SET n:Kuu` is worse than a typo'd read: it writes a label nothing will
 # ever match.
 #
-# The clause's whole operand region is taken, then split on commas and each item
-# judged independently. Anchoring on the FIRST item only would have read
-# `SET a:Ku, b:Typoo` as one item and never validated `b` (Codex P2 on #831), and
-# Cypher freely mixes the two kinds of assignment (`SET n.title = $t, n:Ku`), so
-# a walker that stops at the first non-label item is not enough either.
+# The clause's operand region is walked with BRACKET DEPTH, then split on its
+# top-level commas, and each item judged independently. Depth is what a regex
+# could not supply, and its absence produced the same finding six times over,
+# each a narrower syntactic form: a comma separating items, a clause word inside
+# a quoted value, `FINISH` and `OPTIONAL` missing from a hand-written terminator
+# list, a trailing `;` / `)` / `}`, and finally a keyword nested in an expression
+# — `SET n.ok = all(x IN $xs WHERE x > 0), n:Typo` ended at the inner `WHERE`
+# (all Codex P2 on #831). A lookahead that matches a keyword ANYWHERE in the
+# operand cannot tell a clause boundary from a word inside a sub-expression;
+# nothing short of tracking structure can.
 #
-# Each item must match `_LABEL_MUTATION_ITEM_RE` in FULL. That is what keeps map
-# literals out: `SET n = {a:Foo, b:Bar}` splits into `n = {a:Foo` and ` b:Bar}`,
-# and neither is a bare `var:Label`.
-# The region ends at the next clause keyword. DERIVED from the clause list above
-# rather than hand-written: a hand-written one was already missing `FINISH` and
-# `OPTIONAL` on its first outing (Codex P2 on #831), and hand-listing here would
-# repeat the case-by-case habit the two-anchor gate exists to end. Multi-word
-# clauses contribute each of their words; a stray `CSV` or `DETACH` terminator
-# costs nothing, since none can appear inside a SET operand.
+# Both halves need it. Anchoring on the FIRST item read `SET a:Ku, b:Typoo` as
+# one item and never validated `b`; and Cypher freely mixes the two kinds of
+# assignment (`SET n.title = $t, n:Ku`), so a walker stopping at the first
+# non-label item is not enough either.
 #
 # `_NON_LEADING_CLAUSES` are the keywords that can END a SET clause without ever
-# BEGINNING a statement, so they have no place in CYPHER_LEADING_CLAUSES.
+# BEGINNING a statement, so they have no place in CYPHER_LEADING_CLAUSES. The
+# rest is DERIVED from that tuple rather than hand-listed — hand-listing is what
+# lost `FINISH` and `OPTIONAL`. Multi-word clauses contribute each of their
+# words; a stray `CSV` or `DETACH` terminator costs nothing at depth 0.
 _NON_LEADING_CLAUSES = (
     "FINISH", "LIMIT", "NEXT", "ON", "OPTIONAL", "ORDER",
     "SKIP", "UNION", "USING", "WHERE", "YIELD",
@@ -325,30 +328,17 @@ _MUTATION_TERMINATORS = tuple(
         | set(_NON_LEADING_CLAUSES)
     )
 )
-_LABEL_MUTATION_CLAUSE_RE = re.compile(
-    r"\b(?:SET|REMOVE)\s+(.*?)(?=\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b|$)",
-    re.DOTALL,
-)
+_MUTATION_HEAD_RE = re.compile(r"\b(?:SET|REMOVE)\s+")
+_TERMINATOR_WORD_RE = re.compile(r"\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b")
+_OPENERS = "([{"
+_CLOSERS = ")]}"
 
 # The variable is case-neutral: Cypher allows `SET N:Ku` just as readily as
 # `SET n:Ku` (Codex P2 on #831). The `SET`/`REMOVE` anchor plus the FULL-match
 # requirement on each item is what keeps this precise — the lowercase-only shape
 # `_LABEL_PREDICATE_RE` needs is load-bearing there because that regex has no
 # clause anchor to lean on.
-#
-# A clause can be closed by punctuation rather than by a keyword, so the item
-# tolerates a trailing run of it: `SET n:Ku;`, `FOREACH (x IN xs | SET n:Ku)`,
-# `CALL { ... SET n:Ku }`. Each of those failed the full match on its trailing
-# character alone (Codex P2 on #831 named the semicolon; the other two are the
-# same root cause). Allowing `}` is only safe because map literals are blanked
-# before this runs — see `_blank_map_literals`.
-_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?::[A-Za-z_]\w*)+)\s*[;)}]*\s*")
-
-# A `{` opening a CALL subquery rather than a map literal — `CALL {` or the
-# scoped `CALL (n, m) {`. Matched against a bounded window so the scan stays
-# linear; the variable-scope list is far shorter than the window.
-_CALL_SUBQUERY_TAIL_RE = re.compile(r"\bCALL\s*(?:\([^)]*\)\s*)?$")
-_SUBQUERY_LOOKBEHIND = 200
+_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?::[A-Za-z_]\w*)+)\s*")
 
 
 def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
@@ -441,36 +431,49 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
     return "".join(chars)
 
 
-def _blank_map_literals(text: str) -> str:
-    """Blank the contents of ``{...}`` map literals, preserving offsets.
+def _mutation_clause_items(text: str) -> list[tuple[str, int]]:
+    """``(item text, offset)`` for every top-level item of every SET/REMOVE clause.
 
-    Run on already string-blanked text, so a brace inside a string cannot open
-    a phantom map. Nesting-aware; an unclosed brace is left alone.
+    Walks from each clause keyword tracking bracket depth, so structure decides
+    the boundaries rather than a keyword's mere presence:
 
-    This is what lets the mutation item tolerate a trailing ``}``. Without it,
-    ``SET n = {a:Foo, b:Bar}`` split on its inner comma into ``n = {a:Foo`` and
-    `` b:Bar}``, and the second half reads exactly like a label write. Blanked,
-    the whole literal collapses to one chunk that matches nothing — the inner
-    comma disappears with it.
+    - a clause keyword ends the region only at depth 0, leaving
+      ``all(x IN $xs WHERE x > 0)`` intact;
+    - a comma separates items only at depth 0, so a map literal's inner commas
+      keep it a single (non-matching) item;
+    - a closer that would take depth negative ends the region, which is what
+      closes ``FOREACH (x IN xs | SET n:Ku)`` and ``CALL { ... SET n:Ku }``
+      without needing to know what opened them;
+    - ``;`` ends the region at depth 0.
 
-    ``CALL { ... }`` (and its scoped ``CALL (n) { ... }`` form) is NOT a map
-    literal — it is a subquery full of executable Cypher, so blanking it would
-    hide every name inside. Its braces are left transparent; map literals nested
-    within it are still blanked.
+    ``text`` must already be comment-masked and string-blanked, so no bracket,
+    comma or keyword inside a comment or string literal can move the depth.
     """
-    chars = list(text)
-    stack: list[tuple[int, bool]] = []  # (body start, is a CALL subquery)
-    for i, char in enumerate(text):
-        if char == "{":
-            window = text[max(0, i - _SUBQUERY_LOOKBEHIND) : i]
-            stack.append((i + 1, _CALL_SUBQUERY_TAIL_RE.search(window) is not None))
-        elif char == "}" and stack:
-            start, is_subquery = stack.pop()
-            # Blank only the OUTERMOST non-subquery region — an enclosing map
-            # literal would have covered this one already.
-            if not is_subquery and all(ancestor for _, ancestor in stack):
-                _blank(chars, start, i)
-    return "".join(chars)
+    items: list[tuple[str, int]] = []
+    for head in _MUTATION_HEAD_RE.finditer(text):
+        start = head.end()
+        depth = 0
+        item_start = start
+        i = start
+        while i < len(text):
+            char = text[i]
+            if char in _OPENERS:
+                depth += 1
+            elif char in _CLOSERS:
+                if depth == 0:
+                    break
+                depth -= 1
+            elif depth == 0:
+                if char == ";":
+                    break
+                if char == ",":
+                    items.append((text[item_start:i], item_start))
+                    item_start = i + 1
+                elif char.isupper() and _TERMINATOR_WORD_RE.match(text, i):
+                    break
+            i += 1
+        items.append((text[item_start:i], item_start))
+    return items
 
 
 def _leads_with_cypher_clause(masked: str) -> bool:
@@ -556,7 +559,7 @@ def scan_names(fragment: str) -> list[ScannedName]:
     masked = mask_cypher_comments(fragment)
     if not _is_cypher(masked):
         return []
-    unquoted = _blank_map_literals(_mask_cypher(fragment, keep_noqa=False, blank_strings=True))
+    unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
     found: list[ScannedName] = []
 
@@ -603,16 +606,14 @@ def scan_names(fragment: str) -> list[ScannedName]:
     # where a clause ENDS, and an uppercase clause word inside a property value
     # would close the region early (Codex P2 on #831). Blanking is offset- and
     # length-preserving, so the positions recorded below stay truthful.
-    for match in _LABEL_MUTATION_CLAUSE_RE.finditer(unquoted):
-        offset = match.start(1)
-        for chunk in match.group(1).split(","):
-            item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
-            if item is not None:
-                for raw in item.group(1).split(":"):
-                    name = raw.strip()
-                    if name and _LABEL_NAME_RE.fullmatch(name):
-                        record(NameKind.LABEL, name, offset + item.start(1))
-            offset += len(chunk) + 1  # +1 for the consumed comma
+    for chunk, offset in _mutation_clause_items(unquoted):
+        item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
+        if item is None:
+            continue
+        for raw in item.group(1).split(":"):
+            name = raw.strip()
+            if name and _LABEL_NAME_RE.fullmatch(name):
+                record(NameKind.LABEL, name, offset + item.start(1))
 
     return found
 

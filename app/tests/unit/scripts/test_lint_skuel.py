@@ -1413,6 +1413,13 @@ class TestSKUEL030:
         assert len(violations) == 1, f"not scanned: {query}"
         assert "Bogus" in violations[0].message
 
+    def test_keyword_nested_in_an_expression_does_not_end_the_region(self) -> None:
+        """A sub-expression keyword is not a clause boundary (Codex P2 on #831)."""
+        content = 'q = "MATCH (n) SET n.ok = all(x IN $xs WHERE x > 0), n:Bogus RETURN n"'
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
     def test_map_literal_is_still_invisible(self) -> None:
         """Tolerating a trailing `}` is only safe because maps are blanked."""
         assert lint_cypher('q = "MATCH (n) SET n = {a:Foo, b:Bar} RETURN n"') == []

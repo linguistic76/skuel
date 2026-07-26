@@ -282,6 +282,24 @@ class TestLabelMutationPosition:
         """`CALL { ... }` is executable Cypher; a map literal in it is not."""
         assert _labels("CALL { MATCH (n) SET n = {a:Foo} SET n:Typo }") == ["Typo"]
 
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n) SET n.ok = all(x IN $xs WHERE x > 0), n:Typo RETURN n",
+            "MATCH (n) SET n.c = size([(a) WHERE a.x | a]), n:Typo RETURN n",
+            "MATCH (n) SET n.p = coalesce(n.a, n.b), n:Typo RETURN n",
+        ],
+    )
+    def test_keyword_nested_in_an_expression_does_not_end_the_region(self, query: str) -> None:
+        """Depth is what a keyword-anywhere lookahead could not supply.
+
+        `all(x IN $xs WHERE x > 0)` is a sub-expression, not a clause boundary,
+        so every item after it went unscanned (Codex P2 on #831 — the sixth
+        finding of this shape, and the reason the region is now walked with
+        bracket depth instead of matched with a lookahead).
+        """
+        assert "Typo" in _labels(query)
+
 
 # ============================================================================
 # Comment masking
