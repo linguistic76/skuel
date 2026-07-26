@@ -474,19 +474,21 @@ def _blank_map_literals(text: str) -> str:
 
 
 def _leads_with_cypher_clause(masked: str) -> bool:
-    """True if ``masked``'s first real line opens with a Cypher clause + operand.
+    """True if ``masked`` opens with a Cypher clause keyword and has an operand.
 
-    Takes ALREADY-masked text: a comment line has been blanked to spaces by
-    then, so skipping blank lines is all that is needed to look past a leading
-    planner hint in either comment form.
+    Takes ALREADY-masked text: comments have been blanked to spaces by then, so
+    stripping leading whitespace is all that is needed to look past a planner
+    hint in either comment form.
+
+    The operand is looked for across the REST of the fragment, not just the rest
+    of the clause's own line. Cypher wraps freely, and a query written as
+    ``RETURN\\n  [(a)-[:X]->(b) | b] AS xs`` is no less real for it (Codex P2 on
+    #831). Head position and uppercase still carry the prose guard; requiring
+    the operand on the same line only ever added a wrapping restriction.
     """
-    for raw in masked.split("\n"):
-        head = raw.strip()
-        if not head:
-            continue
-        match = _LEADING_CLAUSE_RE.match(head)
-        return match is not None and bool(head[match.end() :].strip())
-    return False
+    body = masked.lstrip()
+    match = _LEADING_CLAUSE_RE.match(body)
+    return match is not None and bool(body[match.end() :].strip())
 
 
 def _is_cypher(masked: str) -> bool:

@@ -313,12 +313,40 @@ class TestExtractCypherStatements:
         assert len(statements) == 1
         assert "/* b */" in statements[0][0]
 
-    def test_keywordless_statements_skipped(self) -> None:
-        # DROP INDEX / SHOW carry no linted keyword — no rule applies
+    def test_ddl_statements_are_admitted_and_simply_produce_nothing(self, tmp_path: Path) -> None:
+        """`DROP INDEX` / `SHOW` used to be filtered out here.
+
+        The justification was "no rule applies to them" — a premise CYP011
+        invalidated, since a vocabulary rule applies to any statement carrying a
+        label or edge name, and the same filter was discarding `CALL ... SET
+        node:Label` with it (Codex P2 on #831). The extractor now uses the
+        shared admission predicate, so these reach the rules and are quiet
+        because they carry nothing to report, not because they were dropped
+        before anyone looked.
+        """
         linter = make_linter()
         content = "DROP INDEX entity_uid_idx IF EXISTS;\nSHOW INDEXES;\n"
+        probe = tmp_path / "probe.cypher"
+        probe.write_text(content)
         statements = linter._extract_cypher_statements(content)
-        assert len(statements) == 0
+        assert [s for s, _ in statements] == [
+            "DROP INDEX entity_uid_idx IF EXISTS",
+            "SHOW INDEXES",
+        ]
+        for statement, line in statements:
+            assert linter._check_vocabulary_registry(statement, probe, line) == []
+
+    def test_procedure_call_statement_reaches_the_vocabulary_rule(self, tmp_path: Path) -> None:
+        """The family the old keyword filter discarded outright."""
+        linter = make_linter()
+        content = "CALL db.index.fulltext.queryNodes($i, $q) YIELD node SET node:Bogus FINISH;\n"
+        probe = tmp_path / "probe.cypher"
+        probe.write_text(content)
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        violations = linter._check_vocabulary_registry(statements[0][0], probe, 1)
+        assert [v.rule_code for v in violations] == ["CYP011"]
+        assert "Bogus" in violations[0].message
 
     def test_create_index_statement_kept(self) -> None:
         linter = make_linter()

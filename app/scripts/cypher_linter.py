@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
     VocabularyError,
     load_vocabulary,
+    looks_like_cypher,
     mask_cypher_comments,
     unregistered_names,
 )
@@ -206,7 +207,9 @@ class CypherLinter:
 
         The whole file is Cypher by declaration, so no _is_actual_cypher
         heuristics — just split on statement-terminating semicolons and keep
-        anything with a Cypher keyword. Two comment treatments:
+        anything the shared ``looks_like_cypher`` predicate admits (the same
+        gate SKUEL030 applies to Python string literals, so the two halves of
+        the vocabulary contract cannot drift apart). Two comment treatments:
 
         - Comments — ``//`` line and ``/* */`` block (non-nesting, per the
           Cypher spec) — are masked with spaces (positions, newlines, and
@@ -283,9 +286,16 @@ class CypherLinter:
 
         statements: list[tuple[str, int]] = []
         for statement, position in raw_statements:
-            # Keyword filter drops DROP INDEX / SHOW / empty fragments — no
-            # rule applies to them
-            if not self._looks_like_cypher(statement):
+            # THE shared admission predicate, the same one SKUEL030 uses. This
+            # was a local keyword list (MATCH/CREATE/MERGE/DELETE/RETURN/WITH/
+            # WHERE) justified as "drops DROP INDEX / SHOW — no rule applies to
+            # them". CYP011 broke that premise: a vocabulary rule applies to any
+            # statement carrying a label or edge name, and a whole family was
+            # being discarded here before it ever reached the scanner — e.g.
+            # `CALL db.index.fulltext.queryNodes(...) YIELD node SET node:Bogus`
+            # (Codex P2 on #831). Two gates in series, and widening only the
+            # inner one would have left CYP011 exactly as silent as before.
+            if not looks_like_cypher(statement):
                 continue
             # Anchor start_line at the first real token, not the newline after
             # the previous ';' — rules that report at start_line itself
@@ -380,12 +390,6 @@ class CypherLinter:
         # single-command queries — exactly the shape of interpolated one-line
         # MERGE upserts CYP003 exists to catch.
         return cypher_count >= 1 and has_cypher_syntax
-
-    def _looks_like_cypher(self, text: str) -> bool:
-        """Check if text looks like a Cypher query."""
-        cypher_keywords = ["MATCH", "CREATE", "MERGE", "DELETE", "RETURN", "WITH", "WHERE"]
-        text_upper = text.upper()
-        return any(keyword in text_upper for keyword in cypher_keywords)
 
     # ========================================================================
     # VALIDATION RULES

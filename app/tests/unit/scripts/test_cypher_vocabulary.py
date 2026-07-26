@@ -76,6 +76,23 @@ class TestLeadingClauseAnchor:
     @pytest.mark.parametrize(
         "fragment",
         [
+            "RETURN\n  [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+            "WITH\n  [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+            "MATCH\n  path = shortestPath((a:Entity)-[:X]-(b))",
+        ],
+    )
+    def test_operand_may_wrap_to_the_next_line(self, fragment: str) -> None:
+        """Cypher wraps freely; a clause alone on line one is still Cypher.
+
+        Head position and uppercase carry the prose guard — requiring the
+        operand on the SAME line only ever added a wrapping restriction
+        (Codex P2 on #831).
+        """
+        assert looks_like_cypher(fragment) is True
+
+    @pytest.mark.parametrize(
+        "fragment",
+        [
             "/* hint */\nRETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
             "/* hint */ RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
             "/* multi\n   line\n   hint */\nRETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
