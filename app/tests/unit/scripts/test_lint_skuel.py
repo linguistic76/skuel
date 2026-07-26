@@ -4099,7 +4099,7 @@ class TestSKUEL027:
         linter = make_linter(["SKUEL027"])
         content = "from .adapters import to_chart_config\n"
         violations = lint_content(
-            linter, content, file_path="ui/visualization/formats.py", is_service=False
+            linter, content, file_path="ui/analytics/formats.py", is_service=False
         )
         assert len(violations) == 0
 
