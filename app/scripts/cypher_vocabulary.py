@@ -188,7 +188,7 @@ _CYPHER_CONTEXT_PATTERN = (
     r"|UNWIND \$"
     r"|CALL\s+db\."
 )
-_CYPHER_CONTEXT_RE = re.compile(_CYPHER_CONTEXT_PATTERN)
+
 
 # Anchor 2 (CYPHER_LEADING_CLAUSES) — clause keywords that may BEGIN a Cypher
 # statement, matched only at the HEAD of the fragment. Position is the signal, so
@@ -259,14 +259,7 @@ CYPHER_LEADING_CLAUSES: tuple[str, ...] = (
 _LEADING_CLAUSE_PATTERN = (
     r"^(?:" + "|".join(sorted(CYPHER_LEADING_CLAUSES, key=len, reverse=True)) + r")(?=\s)"
 )
-_LEADING_CLAUSE_RE = re.compile(_LEADING_CLAUSE_PATTERN)
 
-# Case-insensitive twins for callers with no prose to protect. Safe to compile
-# with a blanket IGNORECASE precisely because both anchors are pure keyword
-# patterns — neither captures a NAME, so the strict PascalCase / UPPER_SNAKE
-# shape the vocabulary regexes enforce is untouched.
-_CYPHER_CONTEXT_RE_I = re.compile(_CYPHER_CONTEXT_PATTERN, re.IGNORECASE)
-_LEADING_CLAUSE_RE_I = re.compile(_LEADING_CLAUSE_PATTERN, re.IGNORECASE)
 
 # `[r:TYPE]` / `[:TYPE]` / `[r:A|B*1..3]`. The body stops at the first `]`,
 # whitespace, or brace — a property map or a var-length bound ends the name.
@@ -293,16 +286,21 @@ _VARLEN_RE = re.compile(r"\*.*$")
 # predicate unsatisfiable and the query returns nothing — but it is invisible to
 # the pattern regexes above (Codex P2 on #732). Parameterized forms
 # (`type(r) = $rel_type`) have no static name and simply do not match.
-_TYPE_PREDICATE_RE = re.compile(
-    r"\btype\s*\(\s*\w+\s*\)\s*(?:=|IN)\s*(\[[^\]]*\]|'[^']*'|\"[^\"]*\")"
-)
+_TYPE_PREDICATE_PATTERN = r"\btype\s*\(\s*\w+\s*\)\s*(?:=|IN)\s*(\[[^\]]*\]|'[^']*'|\"[^\"]*\")"
 _QUOTED_RE = re.compile(r"['\"]([^'\"]*)['\"]")
 
 # Predicate position for labels: `WHERE n:Content`, `AND NOT a:Content`. Anchored
 # on a boolean keyword so it cannot swallow Cypher map keys (`{uid: $x}`), the
 # `CASE n:Label WHEN` form, or namespaced string values ("learn:extends_pattern").
-_LABEL_PREDICATE_RE = re.compile(
-    r"\b(?:WHERE|AND|OR|NOT|WITH)\s+(?:NOT\s+)?[a-z_]\w*:([A-Z][A-Za-z0-9]*)"
+_LABEL_PREDICATE_PATTERN = (
+    r"\b(?:WHERE|AND|OR|NOT|WITH)\s+(?:NOT\s+)?[a-z_]\w*\s*:\s*([A-Z][A-Za-z0-9]*)"
+)
+# Under ignore_case the KEYWORDS relax but the NAME must not: a scoped `(?i:...)`
+# group is what keeps `([A-Z][A-Za-z0-9]*)` strict. A blanket IGNORECASE here
+# would make the capture accept lowercase and dissolve the PascalCase shape that
+# distinguishes a label from a map key.
+_LABEL_PREDICATE_PATTERN_I = (
+    r"\b(?i:WHERE|AND|OR|NOT|WITH)\s+(?i:NOT\s+)?[A-Za-z_]\w*\s*:\s*([A-Z][A-Za-z0-9]*)"
 )
 
 # Mutation position for labels: `SET n:Ku`, `REMOVE n:Lesson`, `SET n:A:B`, and
@@ -342,8 +340,8 @@ _MUTATION_TERMINATORS = tuple(
         | set(_NON_LEADING_CLAUSES)
     )
 )
-_MUTATION_HEAD_RE = re.compile(r"\b(?:SET|REMOVE)\s+")
-_TERMINATOR_WORD_RE = re.compile(r"\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b")
+_MUTATION_HEAD_PATTERN = r"\b(?:SET|REMOVE)\s+"
+_TERMINATOR_WORD_PATTERN = r"\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b"
 _OPENERS = "([{"
 _CLOSERS = ")]}"
 
@@ -353,6 +351,55 @@ _CLOSERS = ")]}"
 # `_LABEL_PREDICATE_RE` needs is load-bearing there because that regex has no
 # clause anchor to lean on.
 _LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?:\s*:\s*[A-Za-z_]\w*)+)\s*")
+
+
+# --- Dialect table -----------------------------------------------------------
+#
+# Every regex anchored on a Cypher KEYWORD is compiled twice: once requiring
+# uppercase (the default, for callers reading arbitrary Python strings where the
+# requirement is a prose guard) and once relaxed (for callers whose input is
+# Cypher by declaration). Selecting a whole dialect rather than threading a flag
+# per regex is deliberate: `ignore_case` was first wired into the gate ALONE, and
+# a half-threaded flag is a trap — CYP011 admitted a lowercase statement and then
+# scanned it with case-sensitive scanners, so `set n:Bogus` still reported clean
+# (Codex P2 on #831). A table makes "which regexes honour the mode" un-forgettable.
+#
+# `_LABEL_PREDICATE_PATTERN_I` is spelled out separately instead of compiled with
+# a blanket IGNORECASE: it captures a NAME, and the strict `[A-Z][A-Za-z0-9]*`
+# shape is what tells a label from a map key. The rest capture no name, so a
+# blanket flag is safe for them.
+@dataclass(frozen=True)
+class _Dialect:
+    """The keyword-anchored regexes, in one case mode."""
+
+    context: re.Pattern[str]
+    leading_clause: re.Pattern[str]
+    mutation_head: re.Pattern[str]
+    terminator: re.Pattern[str]
+    type_predicate: re.Pattern[str]
+    label_predicate: re.Pattern[str]
+
+
+_STRICT = _Dialect(
+    context=re.compile(_CYPHER_CONTEXT_PATTERN),
+    leading_clause=re.compile(_LEADING_CLAUSE_PATTERN),
+    mutation_head=re.compile(_MUTATION_HEAD_PATTERN),
+    terminator=re.compile(_TERMINATOR_WORD_PATTERN),
+    type_predicate=re.compile(_TYPE_PREDICATE_PATTERN),
+    label_predicate=re.compile(_LABEL_PREDICATE_PATTERN),
+)
+_RELAXED = _Dialect(
+    context=re.compile(_CYPHER_CONTEXT_PATTERN, re.IGNORECASE),
+    leading_clause=re.compile(_LEADING_CLAUSE_PATTERN, re.IGNORECASE),
+    mutation_head=re.compile(_MUTATION_HEAD_PATTERN, re.IGNORECASE),
+    terminator=re.compile(_TERMINATOR_WORD_PATTERN, re.IGNORECASE),
+    type_predicate=re.compile(_TYPE_PREDICATE_PATTERN, re.IGNORECASE),
+    label_predicate=re.compile(_LABEL_PREDICATE_PATTERN_I),
+)
+
+
+def _dialect(ignore_case: bool) -> _Dialect:
+    return _RELAXED if ignore_case else _STRICT
 
 
 def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
@@ -445,7 +492,7 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
     return "".join(chars)
 
 
-def _mutation_clause_items(text: str) -> list[tuple[str, int]]:
+def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]]:
     """``(item text, offset)`` for every top-level item of every SET/REMOVE clause.
 
     Walks from each clause keyword tracking bracket depth, so structure decides
@@ -464,7 +511,7 @@ def _mutation_clause_items(text: str) -> list[tuple[str, int]]:
     comma or keyword inside a comment or string literal can move the depth.
     """
     items: list[tuple[str, int]] = []
-    for head in _MUTATION_HEAD_RE.finditer(text):
+    for head in dialect.mutation_head.finditer(text):
         start = head.end()
         depth = 0
         item_start = start
@@ -483,14 +530,14 @@ def _mutation_clause_items(text: str) -> list[tuple[str, int]]:
                 if char == ",":
                     items.append((text[item_start:i], item_start))
                     item_start = i + 1
-                elif char.isupper() and _TERMINATOR_WORD_RE.match(text, i):
+                elif char.isalpha() and dialect.terminator.match(text, i):
                     break
             i += 1
         items.append((text[item_start:i], item_start))
     return items
 
 
-def _leads_with_cypher_clause(masked: str, ignore_case: bool = False) -> bool:
+def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:
     """True if ``masked`` opens with a Cypher clause keyword and has an operand.
 
     Takes ALREADY-masked text: comments have been blanked to spaces by then, so
@@ -504,14 +551,13 @@ def _leads_with_cypher_clause(masked: str, ignore_case: bool = False) -> bool:
     the operand on the same line only ever added a wrapping restriction.
     """
     body = masked.lstrip()
-    match = (_LEADING_CLAUSE_RE_I if ignore_case else _LEADING_CLAUSE_RE).match(body)
+    match = dialect.leading_clause.match(body)
     return match is not None and bool(body[match.end() :].strip())
 
 
-def _is_cypher(masked: str, ignore_case: bool = False) -> bool:
+def _is_cypher(masked: str, dialect: _Dialect) -> bool:
     """Both anchors, over already-masked text."""
-    context_re = _CYPHER_CONTEXT_RE_I if ignore_case else _CYPHER_CONTEXT_RE
-    return context_re.search(masked) is not None or _leads_with_cypher_clause(masked, ignore_case)
+    return dialect.context.search(masked) is not None or _leads_with_cypher_clause(masked, dialect)
 
 
 def looks_like_cypher(fragment: str, *, ignore_case: bool = False) -> bool:
@@ -530,7 +576,7 @@ def looks_like_cypher(fragment: str, *, ignore_case: bool = False) -> bool:
     buys nothing because there is no prose to be confused with. Callers reading
     arbitrary Python string literals must leave it off.
     """
-    return _is_cypher(mask_cypher_comments(fragment), ignore_case)
+    return _is_cypher(mask_cypher_comments(fragment), _dialect(ignore_case))
 
 
 def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]:
@@ -576,8 +622,9 @@ def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]
     module's gate design argues against. Zero sites in the tree use the form —
     SKUEL labels and edge names are plain identifiers that never need escaping.
     """
+    dialect = _dialect(ignore_case)
     masked = mask_cypher_comments(fragment)
-    if not _is_cypher(masked, ignore_case):
+    if not _is_cypher(masked, dialect):
         return []
     unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
@@ -606,7 +653,7 @@ def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]
                     record(kind, name, match.start(1))
 
     # Predicate position — type(r) = 'X' / type(r) IN ['A', 'B']
-    for match in _TYPE_PREDICATE_RE.finditer(masked):
+    for match in dialect.type_predicate.finditer(masked):
         operand = match.group(1)
         if INTERPOLATION_SENTINEL in operand:
             continue
@@ -616,7 +663,7 @@ def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]
                 record(NameKind.RELATIONSHIP, name, match.start(1) + quoted.start(1))
 
     # Predicate position — WHERE n:Label / AND NOT a:Label
-    for match in _LABEL_PREDICATE_RE.finditer(masked):
+    for match in dialect.label_predicate.finditer(masked):
         name = match.group(1)
         if _LABEL_NAME_RE.fullmatch(name):
             record(NameKind.LABEL, name, match.start(1))
@@ -626,7 +673,7 @@ def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]
     # where a clause ENDS, and an uppercase clause word inside a property value
     # would close the region early (Codex P2 on #831). Blanking is offset- and
     # length-preserving, so the positions recorded below stay truthful.
-    for chunk, offset in _mutation_clause_items(unquoted):
+    for chunk, offset in _mutation_clause_items(unquoted, dialect):
         item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
         if item is None:
             continue

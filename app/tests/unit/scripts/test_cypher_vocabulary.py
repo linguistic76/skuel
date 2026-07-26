@@ -148,6 +148,34 @@ class TestLeadingClauseAnchor:
             "Typo"
         ]
 
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            # Mutation position — head keyword AND the terminator walk.
+            ("match (n) set n:Typo return n", ["Typo"]),
+            ("MATCH (n) SET n:Typo return n", ["Typo"]),
+            ("match (n) set n.a = 1, n:Typo return n", ["Typo"]),
+            # Label-predicate position.
+            ("match (n) where n:Typo return n", ["Typo"]),
+            # Type-predicate position.
+            ("match ()-[r]->() where type(r) = 'BAD_EDGE' return r", ["BAD_EDGE"]),
+        ],
+    )
+    def test_ignore_case_reaches_every_scanner(self, query: str, expected: list[str]) -> None:
+        """A half-threaded flag is a trap.
+
+        `ignore_case` was first wired into the GATE alone, so CYP011 admitted a
+        lowercase statement and then scanned it with case-sensitive scanners —
+        `set n:Bogus` still reported clean (Codex P2 on #831).
+        """
+        assert [n.value for n in scan_names(query, ignore_case=True)] == expected
+
+    def test_ignore_case_does_not_relax_the_name_shape(self) -> None:
+        """Only the KEYWORDS relax. PascalCase is what tells a label from a map key."""
+        assert [
+            n.value for n in scan_names("match (n) where n:content return n", ignore_case=True)
+        ] == []
+
     def test_paren_anchor_still_admits_mid_fragment_cypher(self) -> None:
         """Anchor 1 is not replaced — it catches Cypher that does not LEAD."""
         fragment = "some prefix ... MATCH (n:Ku) RETURN n"
