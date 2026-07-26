@@ -388,6 +388,30 @@ class TestSKUEL001:
         violations = lint_content(linter, 'msg = "APOC is banned above the boundary"')
         assert len(violations) == 0
 
+    def test_mention_without_invocation_is_not_flagged(self) -> None:
+        """Invocation, not mention. This rule is CRITICAL and unsuppressable, so a
+        false positive on diagnostic/help text would be unfixable except by rewording
+        the string. Cypher invokes APOC only as `CALL apoc.x.y(...)` or bare
+        `apoc.x.y(...)` — prose naming a procedure has neither anchor."""
+        for prose in (
+            "apoc.convert.fromJsonMap is unavailable on this server",
+            "Schema introspection needs apoc.meta.stats — ask an admin",
+            "Migrated off apoc.path.subgraphAll in PR #75",
+        ):
+            violations = lint_content(make_linter(["SKUEL001"]), f"logger.warning({prose!r})")
+            assert violations == [], prose
+
+    def test_call_form_survives_interpolated_arguments(self) -> None:
+        """Why the CALL branch is kept rather than requiring the paren alone: an
+        f-string that interpolates the argument list has no literal `(` after the
+        procedure path, but `CALL apoc...` is still an invocation."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(
+            linter, 'args = "{}"\nq = f"CALL apoc.periodic.iterate{args}"\nrun(q)'
+        )
+        assert len(violations) == 1
+        assert "apoc.periodic.iterate" in violations[0].message
+
     def test_fires_in_inbound_layer(self) -> None:
         """Shares SKUEL021's gate: a ``CALL apoc...`` is Cypher, so the layers that
         may not author Cypher may not author APOC either. Without this, extending

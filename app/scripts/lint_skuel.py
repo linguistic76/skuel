@@ -1743,10 +1743,28 @@ class SkuelLinter:
         allowance is the Neo4j *server* plugin allowlist
         (``dbms_security_procedures_allowlist``), exercised only by
         ``tests/integration/test_apoc_canary.py``, which this rule skips as a test file.
+
+        **Invocation, not mention.** A namespace match alone would flag prose that
+        merely *names* a procedure — ``logger.warning("apoc.convert.fromJsonMap is
+        unavailable")`` — and this rule is CRITICAL and unsuppressable, so a false
+        positive is unfixable except by rewording the string. Cypher only ever
+        *invokes* APOC two ways: ``CALL apoc.x.y(...)`` (procedure) or bare
+        ``apoc.x.y(...)`` in a RETURN/WHERE (function). Both forms are anchored — a
+        preceding ``CALL`` or a following ``(``. Requiring one of those separates
+        invocation from mention, and is the same paren/sigil discipline that keeps
+        SKUEL021's CYPHER_MARKERS off prose. Keeping the ``CALL`` branch (rather than
+        requiring the paren alone) preserves detection of f-strings that interpolate
+        the argument list: ``f"CALL apoc.periodic.iterate{args}"``.
         """
-        # `apoc.` plus its dotted procedure path, so the violation message can name
+        # Alternative 1: `CALL apoc.x.y` — procedure invocation, paren may be
+        # interpolated. Alternative 2: `apoc.x.y(` — function invocation in a
+        # RETURN/WHERE. Each captures the dotted path so the violation message names
         # what it found rather than the prefix that happened to match.
-        apoc_pattern = re.compile(r"\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+", re.IGNORECASE)
+        apoc_pattern = re.compile(
+            r"CALL\s+(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)"
+            r"|(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\(",
+            re.IGNORECASE,
+        )
 
         if tree is None:
             return
@@ -1762,7 +1780,8 @@ class SkuelLinter:
             apoc_match = apoc_pattern.search(node.value)
             if apoc_match is None:
                 continue
-            apoc_proc = apoc_match.group(0)
+            # Exactly one branch participates per match.
+            apoc_proc = apoc_match.group(1) or apoc_match.group(2)
 
             line_num = node.lineno
             if line_num in reported_lines:
