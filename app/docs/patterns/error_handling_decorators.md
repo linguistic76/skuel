@@ -338,7 +338,7 @@ Keep manual try-except for:
 | embeddings_service | ✅ Preserved | OpenAI API calls |
 | transcription_service | ✅ Preserved | Deepgram API calls via DeepgramAdapter |
 | performance_optimization_service | ✅ Preserved | Graceful degradation |
-| system_service_init | ✅ Preserved | Health checks |
+| services_bootstrap/_system_health | ✅ Preserved | Health checks (composition root) |
 | schema_mapping_service | ✅ Preserved | Type introspection |
 | markdown_sync_service | ✅ Preserved | File I/O, enum parsing |
 

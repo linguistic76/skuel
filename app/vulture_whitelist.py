@@ -48,10 +48,6 @@ SupportsRichComparison  # noqa: F821, B018
 # Protocol method parameters — names define keyword-callable contracts
 new_instructions  # noqa: F821, B018
 
-# Called from scripts/dev/bootstrap.py (scripts/ not in FIRST_PARTY_ROOTS, so vulture
-# cannot see the call site — false positive, not dead code)
-initialize_system_service  # noqa: F821, B018
-
 # Called from scripts/vault_bridge_sync.py (scripts/ not in FIRST_PARTY_ROOTS) —
 # the ADR-074 script-mode subscribe-then-drain freshness step
 drain  # noqa: F821, B018
