@@ -22,9 +22,12 @@ import pytest
 
 from core.models.enums.pipeline import ProcessingMode
 from core.services.journal.journal_batch_service import (
+    LLM_UNAVAILABLE_MESSAGE,
+    TEXT_EXTENSIONS,
     BatchRunReport,
     JournalBatchService,
     _build_exemplar_preamble,
+    output_extensions_for,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -117,6 +120,35 @@ class TestWriteOutput:
 # ---------------------------------------------------------------------------
 # Instruction resolution
 # ---------------------------------------------------------------------------
+
+
+class TestOutputExtensions:
+    """The mode → consumed-extension mapping the upload door's collision guard uses.
+
+    The guard rejects two files that would collapse onto one ``je_out/`` output, so
+    it must agree with what the batch engine actually processes: ``_run_instructions_batch``
+    filters ``TEXT_EXTENSIONS``, and the transcription batch filters ``AUDIO_EXTENSIONS``.
+    Pinned against the engine's own sets so the two cannot drift apart silently.
+    """
+
+    def test_instructions_only_consumes_text_files(self) -> None:
+        assert output_extensions_for(ProcessingMode.INSTRUCTIONS_ONLY) == TEXT_EXTENSIONS
+
+    @pytest.mark.parametrize(
+        "mode",
+        [ProcessingMode.TRANSCRIBE_ONLY, ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS],
+    )
+    def test_audio_modes_consume_audio_files(self, mode: ProcessingMode) -> None:
+        from core.services.transcription.batch_transcription_service import AUDIO_EXTENSIONS
+
+        assert output_extensions_for(mode) == AUDIO_EXTENSIONS
+
+    def test_the_two_families_are_disjoint(self) -> None:
+        # ``meeting.txt`` next to ``meeting.mp3`` is not a collision under either
+        # mode — only one of them produces output. The guard depends on that.
+        from core.services.transcription.batch_transcription_service import AUDIO_EXTENSIONS
+
+        assert not (TEXT_EXTENSIONS & AUDIO_EXTENSIONS)
 
 
 class TestResolveInstructions:
@@ -246,12 +278,17 @@ class TestCompileText:
 
     @pytest.mark.asyncio
     async def test_missing_llm_fails_tier_rule(self, tmp_path: Path) -> None:
+        # The single-file door reaches the tier floor through compile_text and the
+        # batch door through _run_instructions_batch; both must surface the SAME
+        # sentence. compile_text used to raise its own near-identical wording, so
+        # a CORE-tier text upload and a CORE-tier folder run disagreed about what
+        # had gone wrong. Assert the shared constant, not just a substring.
         service = _make_service(tmp_path, llm_caller=None)
 
         result = await service.compile_text("text", None, user_uid="user_1", is_founder=False)
 
         assert result.is_error
-        assert "INTELLIGENCE_TIER=full" in str(result.expect_error())
+        assert str(result.expect_error().message) == LLM_UNAVAILABLE_MESSAGE
 
     @pytest.mark.asyncio
     async def test_llm_exception_becomes_integration_error(self, tmp_path: Path) -> None:

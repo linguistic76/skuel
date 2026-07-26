@@ -59,6 +59,14 @@ logger = get_logger("skuel.services.journal.batch")
 TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
 _LLM_MAX_TOKENS = 4000
 
+# The je_out/ doorway rename formula — ``{stem}{suffix}`` (ADR-073 § Residual,
+# flat je_out). Both upload doors and the batch engine write through it, and the
+# ``transcribe_and_instructions`` tail reads the transcript back by the same
+# name, so the two halves live here as one source rather than being re-typed at
+# each write site.
+TRANSCRIPT_SUFFIX = ".txt"
+COMPILED_SUFFIX = "_out.md"
+
 # Tier-availability messages. Both upload doors (the single-file route helper and
 # the batch engine below) surface these verbatim, so they live here as the one
 # source rather than being re-typed at each call site.
@@ -83,6 +91,22 @@ def unknown_mode_message(value: object) -> str:
     its fail-closed floor.
     """
     return f"Unknown processing mode: {value!r}"
+
+
+def output_extensions_for(processing_mode: ProcessingMode) -> set[str]:
+    """The file extensions a mode actually consumes (and so produces output for).
+
+    ``INSTRUCTIONS_ONLY`` compiles text files; the two audio modes transcribe
+    audio. The batch engine applies this split internally (``_run_instructions_batch``
+    filters ``TEXT_EXTENSIONS``, ``transcribe_batch`` filters ``AUDIO_EXTENSIONS``);
+    the multi-file upload door needs the same answer up front for its stem-collision
+    guard, so the mapping lives here rather than being re-decided in the route.
+    """
+    from core.services.transcription.batch_transcription_service import AUDIO_EXTENSIONS
+
+    if processing_mode == ProcessingMode.INSTRUCTIONS_ONLY:
+        return TEXT_EXTENSIONS
+    return AUDIO_EXTENSIONS
 
 
 @dataclass(frozen=True)
@@ -269,7 +293,7 @@ class JournalBatchService:
             return Result.fail(
                 Errors.business(
                     rule="llm_tier_required",
-                    message="LLM processing requires INTELLIGENCE_TIER=full",
+                    message=LLM_UNAVAILABLE_MESSAGE,
                 )
             )
         # DNWF batch compile has no picker → the app-safe default via the shared
@@ -463,7 +487,7 @@ class JournalBatchService:
         llm_ok = 0
         llm_fail = 0
         for stem in structurable_stems:
-            txt_path = self.je_out_dir / f"{stem}.txt"
+            txt_path = self.je_out_dir / f"{stem}{TRANSCRIPT_SUFFIX}"
             if not txt_path.exists():
                 continue
             text = txt_path.read_text(encoding="utf-8")
@@ -472,7 +496,7 @@ class JournalBatchService:
                 self.logger.error(f"LLM failed for {stem}: {llm_result.error}")
                 llm_fail += 1
             else:
-                self.write_output(stem, "_out.md", llm_result.value)
+                self.write_output(stem, COMPILED_SUFFIX, llm_result.value)
                 llm_ok += 1
         msg = (
             f"{r.succeeded} transcribed, {llm_ok} structured, "
@@ -508,7 +532,7 @@ class JournalBatchService:
                 self.logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
                 fail += 1
             else:
-                self.write_output(text_file.stem, "_out.md", llm_result.value)
+                self.write_output(text_file.stem, COMPILED_SUFFIX, llm_result.value)
                 ok += 1
         msg = f"{ok} processed, {fail} failed — results in je_out/"
         return BatchRunReport(ok=ok > 0, message=msg)

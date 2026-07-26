@@ -40,8 +40,11 @@ from core.services.conversation import (
 )
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.services.journal.journal_batch_service import (
+    COMPILED_SUFFIX,
     LLM_UNAVAILABLE_MESSAGE,
+    TRANSCRIPT_SUFFIX,
     TRANSCRIPTION_UNAVAILABLE_MESSAGE,
+    output_extensions_for,
     unknown_mode_message,
 )
 from core.utils.logging import get_logger
@@ -156,7 +159,7 @@ async def _process_single_upload(
         )
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
-        out_name = journal_batch.write_output(stem, "_out.md", compiled.value)
+        out_name = journal_batch.write_output(stem, COMPILED_SUFFIX, compiled.value)
         return _workspace(
             FileOutputFragment(
                 title=title,
@@ -204,7 +207,7 @@ async def _process_single_upload(
     if is_founder:
         # FOUNDER: save the raw transcript to je_out and hand it to the DNWF
         # review→Scribe flow (stateless stage routes take over from here).
-        journal_batch.write_output(stem, ".txt", transcript)
+        journal_batch.write_output(stem, TRANSCRIPT_SUFFIX, transcript)
         return _workspace(TranscriptReviewFragment(transcript=transcript, title=title))
 
     if processing_mode == ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS:
@@ -216,7 +219,7 @@ async def _process_single_upload(
         )
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
-        out_name = journal_batch.write_output(stem, "_out.md", compiled.value)
+        out_name = journal_batch.write_output(stem, COMPILED_SUFFIX, compiled.value)
         return _workspace(
             FileOutputFragment(
                 title=title,
@@ -232,7 +235,7 @@ async def _process_single_upload(
     # transcribe_only (STANDARD) — raw transcript download. source == output, so
     # a synthetic "Transcribe: {title}" user turn avoids duplicating the full
     # transcript in both turns (ADR-078 P3 decision 3, transcribe_only).
-    out_name = journal_batch.write_output(stem, ".txt", transcript)
+    out_name = journal_batch.write_output(stem, TRANSCRIPT_SUFFIX, transcript)
     return _workspace(
         FileOutputFragment(
             title=title,
@@ -625,14 +628,7 @@ def create_journals_routes(
             # (an ignored ``meeting.txt`` next to ``meeting.mp3`` under "Transcribe
             # only" is not a collision). Non-processed files are still written to
             # temp; the batch engine ignores them.
-            from core.services.journal.journal_batch_service import TEXT_EXTENSIONS
-            from core.services.transcription.batch_transcription_service import AUDIO_EXTENSIONS
-
-            output_exts = (
-                TEXT_EXTENSIONS
-                if processing_mode == ProcessingMode.INSTRUCTIONS_ONLY
-                else (AUDIO_EXTENSIONS)
-            )
+            output_exts = output_extensions_for(processing_mode)
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
                 seen_stems: set[str] = set()
