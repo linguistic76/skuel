@@ -236,12 +236,27 @@ _CYPHER_CONTEXT_PATTERN = (
 # (n:Label)` and `LOAD CSV ... MERGE (n:Label)` both carry names. One question,
 # one answer: does this fragment lead with a Cypher clause?
 #
-# SKUEL021 asks the same question of `core/` and is growing the same anchor.
-# Whichever lands second should import this tuple rather than keep a second copy
-# — a hand-mirror in this codebase has drifted twice already (SKUEL013's
-# 170-entry relationship mirror, and the SKUEL021 marker copy in
-# test_core_utils_boundary.py). This module is the one both linters already
-# import, so it is the side that should own it.
+# SKUEL021 asks the same question of `core/` + `adapters/inbound/` + `ui/`, and
+# grew the same anchor independently in #829. Both copies now live here: SKUEL021
+# reads them through `leading_cypher_clause`. The prediction one line above this
+# one held — the two copies had drifted before either was a month old, in FIVE
+# behaviours and all five in the same direction (#829's line-based matcher missed
+# a wrapped operand, both block-comment forms, the `CYPHER <options>` preamble,
+# and lacked INSERT/NODETACH). Not one drift gave #829's copy COVERAGE this one
+# lacks, which is what a silent-miss rule cannot afford. It was broader in
+# exactly one place, and only by being wrong: skipping `//` lines by prefix
+# instead of masking them, it read the comment in `RETURN // fill in later` as
+# the clause's operand and admitted a statement Cypher would refuse to run.
+#
+# The list and the predicate move together for that reason: a shared list read by
+# a weaker matcher would have fixed the visible half — two missing clauses — and
+# left the four behavioural misses in place, looking consolidated.
+#
+# Consolidated in the direction imports already ran (lint_skuel imports this
+# module; the reverse is circular). SKUEL021 keeps its OWN anchor 1 —
+# `SkuelLinter.CYPHER_MARKERS`, a substring scan that predates this module and is
+# deliberately NOT comment-masked; see that tuple for why the two anchors differ
+# on masking.
 CYPHER_LEADING_CLAUSES: tuple[str, ...] = (
     "CALL",
     "CREATE",
@@ -653,8 +668,14 @@ def _blank_dynamic_vocabulary(body: str) -> str:
 _QUERY_PREAMBLE_RE = re.compile(r"^CYPHER\b(?:\s+[\w.]+\s*=\s*\S+|\s+\d[\w.]*)+\s+", re.IGNORECASE)
 
 
-def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:
-    """True if ``masked`` opens with a Cypher clause keyword and has an operand.
+def _leading_cypher_clause(masked: str, dialect: _Dialect) -> str | None:
+    """The Cypher clause keyword ``masked`` opens with, or None.
+
+    THE one implementation of anchor 2. It returns the clause NAME rather than a
+    bool because SKUEL021 names the marker it found in its message
+    (``Raw Cypher ('DETACH DELETE')``); every bool-only caller reads
+    ``is not None``. A second copy that answered only yes/no is what drifted —
+    see the ``CYPHER_LEADING_CLAUSES`` block.
 
     Takes ALREADY-masked text: comments have been blanked to spaces by then, so
     stripping leading whitespace is all that is needed to look past a planner
@@ -668,12 +689,17 @@ def _leads_with_cypher_clause(masked: str, dialect: _Dialect) -> bool:
     """
     body = _QUERY_PREAMBLE_RE.sub("", masked.lstrip())
     match = dialect.leading_clause.match(body)
-    return match is not None and bool(body[match.end() :].strip())
+    if match is None or not body[match.end() :].strip():
+        return None
+    return match.group(0)
 
 
 def _is_cypher(masked: str, dialect: _Dialect) -> bool:
     """Both anchors, over already-masked text."""
-    return dialect.context.search(masked) is not None or _leads_with_cypher_clause(masked, dialect)
+    return (
+        dialect.context.search(masked) is not None
+        or _leading_cypher_clause(masked, dialect) is not None
+    )
 
 
 def looks_like_cypher(fragment: str) -> bool:
@@ -692,6 +718,28 @@ def looks_like_cypher(fragment: str) -> bool:
     ``scan_names(declared_cypher=True)``.
     """
     return _is_cypher(mask_cypher_comments(fragment), _STRICT)
+
+
+def leading_cypher_clause(fragment: str) -> str | None:
+    """Anchor 2 alone: the Cypher clause ``fragment`` leads with, or None.
+
+    ``looks_like_cypher`` answers "is this Cypher at all?" over BOTH anchors.
+    This exposes just the head anchor, and names the clause — SKUEL021 needs the
+    name for its message and pairs it with its own anchor 1
+    (``SkuelLinter.CYPHER_MARKERS``, a substring scan that predates this module),
+    so it cannot use the combined predicate.
+
+    Strict dialect only, no ``declared_cypher`` escape: both callers of anchor 2
+    read arbitrary Python string literals, where the uppercase requirement is the
+    prose guard. A caller holding declared Cypher does not consult the gate at
+    all (see ``scan_names``), so a relaxed variant here would have no user.
+
+    Comments are masked before matching, so a query opening with a planner hint
+    in either comment form still anchors on its first real clause — and a
+    fragment whose only operand is a comment (``"RETURN // later"``) is correctly
+    refused, since that is not a statement Cypher would run.
+    """
+    return _leading_cypher_clause(mask_cypher_comments(fragment), _STRICT)
 
 
 def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedName]:

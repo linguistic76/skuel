@@ -15,6 +15,9 @@ import pytest
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
+from cypher_vocabulary import (  # type: ignore[import-not-found]
+    CYPHER_LEADING_CLAUSES,
+)
 from lint_skuel import (  # type: ignore[import-not-found]
     LintResult,
     Severity,
@@ -3060,6 +3063,109 @@ class TestSKUEL021LeadingClauseAnchor:
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
+    # --- Behaviours gained by reading cypher_vocabulary's matcher ---
+    #
+    # SKUEL021 grew its own head anchor in #829; SKUEL030/CYP011 grew theirs in
+    # #831. The copies had drifted in five behaviours before either was a month
+    # old, and every drift left #829's — this rule's — the NARROWER gate. Each
+    # test below was RED against the pre-consolidation matcher; together they are
+    # the five drifts, closed.
+
+    def test_detects_clause_whose_operand_wraps_to_the_next_line(self) -> None:
+        """Drift 1: the old matcher required the operand on the clause's OWN line.
+
+        Cypher wraps freely and this tree writes it wrapped — both live sites the
+        consolidation newly admits (`hybrid_query_builder`, `vector_search_backend`,
+        below the boundary so SKUEL021 never saw them) are exactly this shape.
+        """
+        linter = make_linter(["SKUEL021"])
+        content = 'q = """RETURN\n    1 AS ping"""\nrun(q)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_detects_clause_behind_a_same_line_block_comment(self) -> None:
+        """Drift 2: the old matcher skipped only lines STARTING with `//`.
+
+        A `/* */` hint on the clause's own line hid the whole statement.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "/* planner hint */ RETURN 1 AS ping"')
+        assert len(violations) == 1
+
+    def test_detects_clause_behind_a_leading_block_comment_line(self) -> None:
+        """Drift 3: same blindness with the hint on its own line."""
+        linter = make_linter(["SKUEL021"])
+        content = 'q = """/* planner hint */\nRETURN 1 AS ping"""\nrun(q)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_detects_query_behind_a_cypher_options_preamble(self) -> None:
+        """Drift 4: `CYPHER runtime=slotted ...` is a pre-parser preamble.
+
+        The real clause head sits behind it; the old matcher anchored on `CYPHER`,
+        found no clause, and passed the statement.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "CYPHER runtime=slotted RETURN 1 AS ping"')
+        assert len(violations) == 1
+
+    @pytest.mark.parametrize(
+        ("query", "clause"),
+        [
+            ("INSERT (n:Ku {uid: $uid})", "INSERT"),
+            ("NODETACH DELETE n", "NODETACH"),
+        ],
+    )
+    def test_detects_clauses_missing_from_the_old_list(self, query: str, clause: str) -> None:
+        """Drift 5: two statement heads the old list lacked.
+
+        `INSERT` is the Cypher 25 / GQL create clause and carries `(n:Label)`
+        exactly as `CREATE` does — and it is absent from CYPHER_MARKERS too, so
+        nothing in this rule could see it.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, f'q = "{query}"')
+        assert len(violations) == 1
+        assert clause in violations[0].message
+
+    def test_ignores_the_word_cypher_in_prose(self) -> None:
+        """GUARD (green before and after): a bare `CYPHER` is not a preamble.
+
+        Stripping `^CYPHER\\s+` unconditionally would turn this sentence into an
+        admitted query. The preamble strip requires an option assignment or a
+        version, which is what keeps the drift-4 fix from costing a false
+        positive.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'msg = "CYPHER RETURN the value to the caller"')
+        assert len(violations) == 0
+
+    # --- One implementation: the list is read, never mirrored ---
+
+    def test_every_shared_clause_is_live_in_this_rule(self) -> None:
+        """Derived from the shared tuple, so a clause added there is covered here.
+
+        A hand-listed version of this test is what let the two copies drift. This
+        one cannot go stale: `CYPHER_LEADING_CLAUSES` is imported, and any entry
+        SKUEL021 stops honouring fails immediately.
+        """
+        for clause in CYPHER_LEADING_CLAUSES:
+            # A fresh linter per clause — violations accumulate on the instance.
+            violations = lint_content(make_linter(["SKUEL021"]), f'q = "{clause} operand"')
+            assert len(violations) == 1, f"{clause} not detected by SKUEL021"
+            assert clause in violations[0].message
+
+    def test_rule_keeps_no_clause_list_of_its_own(self) -> None:
+        """The DRY invariant, asserted structurally.
+
+        `SkuelLinter` owning a `CYPHER_LEADING_CLAUSES` again means a second copy
+        exists again — which is the whole failure this consolidation ended.
+        """
+        assert "CYPHER_LEADING_CLAUSES" not in vars(SkuelLinter)
+        assert "_LEADING_CLAUSE_RE" not in vars(SkuelLinter)
+        assert "_leading_cypher_clause" not in vars(SkuelLinter)
+
     # --- f-strings: the head anchor reads the whole, never a torn part ---
 
     def test_detects_fstring_whose_operand_is_interpolated(self) -> None:
@@ -3188,6 +3294,63 @@ class TestSKUEL021LeadingClauseAnchor:
                 f"SKUEL021 fired on docstring prose in core/ports/{name}"
             )
         assert checked == len(prose_files)
+
+
+# ============================================================================
+# SKUEL021's two anchors disagree on comment masking, on purpose.
+#
+# Anchor 2 (the shared head matcher) masks comments; anchor 1 (CYPHER_MARKERS,
+# a substring scan) does not. The asymmetry was decided when the head anchors
+# were consolidated, not inherited: masking anchor 1 too is defensible on the
+# merits — a comment cannot execute, the reasoning that already exempts
+# docstrings — but anchor 1 matches ANYWHERE in every string across core/ +
+# adapters/inbound/ + ui/, so masking it can only ever remove detections. A
+# silent miss is the failure SKUEL021 exists to prevent; an over-report on a
+# commented-out query is one suppression comment. Measured at consolidation
+# time: masking would have moved zero verdicts in any of the three trees.
+#
+# These tests pin the asymmetry so it stays a decision. If masking anchor 1 is
+# ever wanted, it is its own change with its own measurement — deleting these
+# tests is the deliberate act that says so.
+#
+# Three of the four were already GREEN before the consolidation and are guards on
+# unchanged behaviour, not new detections. Only
+# `test_anchor_2_refuses_a_clause_whose_only_operand_is_a_comment` was red — and
+# it is a false positive removed, the sole behaviour in which the old matcher was
+# broader than this one.
+# ============================================================================
+
+
+class TestSKUEL021AnchorMaskingAsymmetry:
+    def test_anchor_1_still_fires_on_a_commented_out_marker(self) -> None:
+        """UNMASKED: a `//`-commented `MATCH (` in a used literal still reports."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "// MATCH (n:Task) RETURN n"\nrun(q)')
+        assert len(violations) == 1
+        assert "MATCH (" in violations[0].message
+
+    def test_anchor_1_still_fires_on_a_block_commented_marker(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "/* MERGE (n:Task) */ SHOW INDEXES"\nrun(q)')
+        assert len(violations) == 1
+        assert "MERGE (" in violations[0].message
+
+    def test_anchor_2_does_not_fire_on_a_commented_out_clause(self) -> None:
+        """MASKED: the head anchor sees past comments, so a commented-out
+        statement with no live clause behind it is not a statement."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "// RETURN 1 AS ping"\nrun(q)')
+        assert len(violations) == 0
+
+    def test_anchor_2_refuses_a_clause_whose_only_operand_is_a_comment(self) -> None:
+        """`RETURN // later` is not a runnable statement — RETURN needs an operand.
+
+        The pre-consolidation matcher admitted this: it read the comment text as
+        the operand. Masking first is what makes the operand test mean anything.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'q = "RETURN // fill this in later"\nrun(q)')
+        assert len(violations) == 0
 
 
 # ============================================================================
