@@ -1910,16 +1910,34 @@ class SkuelLinter:
             return
 
         inert_ids = self._inert_ids_for(tree)
+        # The head anchor needs the WHOLE f-string, never its torn parts:
+        # `f"RETURN {value}"` splits into the Constant "RETURN " — an operand
+        # short of anchoring — while `f"cascade {mode} DETACH DELETE (...)"`
+        # splits into a fragment that FALSELY leads with a clause keyword. Both
+        # resolve by rendering the f-string whole (Codex, PR #829). The
+        # anywhere-markers keep scanning per part, which preserves their
+        # existing per-line granularity.
+        fstring_parts = fstring_part_ids(tree)
         reported_lines: set[int] = set()
 
         for node in ast.walk(tree):
-            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            if isinstance(node, ast.JoinedStr):
+                rendered = render_fstring(node)
+                # An anywhere-marker in the rendered whole is always inside one
+                # part too (parts are separated by a sentinel no marker spans),
+                # so the per-part pass below already reports it — bail here or
+                # one f-string reports twice.
+                if any(m in rendered for m in self.CYPHER_MARKERS):
+                    continue
+                marker = self._leading_cypher_clause(rendered)
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if id(node) in inert_ids:
+                    continue
+                marker = next((m for m in self.CYPHER_MARKERS if m in node.value), None)
+                if marker is None and id(node) not in fstring_parts:
+                    marker = self._leading_cypher_clause(node.value)
+            else:
                 continue
-            if id(node) in inert_ids:
-                continue
-            marker = next(
-                (m for m in self.CYPHER_MARKERS if m in node.value), None
-            ) or self._leading_cypher_clause(node.value)
             if marker is None:
                 continue
 

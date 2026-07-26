@@ -2782,6 +2782,45 @@ class TestSKUEL021LeadingClauseAnchor:
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
+    # --- f-strings: the head anchor reads the whole, never a torn part ---
+
+    def test_detects_fstring_whose_operand_is_interpolated(self) -> None:
+        """`f"RETURN {value}"` splits into the Constant "RETURN " — an operand short.
+
+        Anchoring on the rendered whole (interpolation → sentinel) restores it.
+        """
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'value = 1\nq = f"RETURN {value}"\nrun(q)')
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_detects_fstring_delete_with_interpolated_operand(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'uid = 1\nq = f"DELETE {uid}"\nrun(q)')
+        assert len(violations) == 1
+
+    def test_ignores_prose_fstring_whose_fragment_leads_with_a_clause(self) -> None:
+        """`f"cascade {mode} DETACH DELETE (...)"` tears into a fragment that
+        falsely LEADS with the clause. The whole string plainly does not."""
+        linter = make_linter(["SKUEL021"])
+        content = 'mode = "x"\nmsg = f"cascade {mode} DETACH DELETE (default False)"'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_fstring_head_anchor_reports_once(self) -> None:
+        """The JoinedStr and its parts must not both report."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, 'a = 1\nb = 2\nq = f"RETURN {a} AS x, {b} AS y"\nrun(q)')
+        assert len(violations) == 1
+
+    def test_fstring_anywhere_marker_still_reports_once(self) -> None:
+        """The pre-existing anywhere-marker path keeps its per-part granularity."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter, 'uid = 1\nq = f"MATCH (n) WHERE n.id = {uid} RETURN n"\nrun(q)'
+        )
+        assert len(violations) == 1
+
     # --- Regression guard bound to the real files, not a hand-written stand-in ---
 
     def test_core_ports_docstring_prose_stays_clean(self) -> None:
