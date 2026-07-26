@@ -1770,7 +1770,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `bg-blue-50`, hover: `hover:bg-slate-100` live here only). `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states.
 - `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout)
 - `/core/utils/palette.py` (centralized hex colors; `ui/palette.py` re-exports)
-- `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; `ui/visualization/` re-exports)
+- `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; import it directly from `core`)
 - `/core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation for visualization endpoints — delegates formatting to `VisualizationService`)
 - `/adapters/inbound/activity_ui_factory.py` — `ActivityUIConfig` + shared 5-route factory for all 6 Activity Domains (each `{domain}_ui.py` is ~50 lines delegating here)
 
