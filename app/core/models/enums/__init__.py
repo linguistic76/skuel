@@ -13,6 +13,7 @@ Module Organization:
 - choice_enums: ChoiceType
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
 - user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth
+- pipeline: Pipeline, JeUse, ProcessingMode, ReportSource
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
@@ -112,8 +113,9 @@ from .metadata_enums import (
 # Neo4j labels - single source of truth for node labels
 from .neo_labels import NeoLabel
 
-# Pipeline + ReportSource (ADR-054) — replaces ProcessorType; JeUse scopes je_pro files
-from .pipeline import JeUse, Pipeline, ReportSource
+# Pipeline + ReportSource (ADR-054) — replaces ProcessorType; JeUse scopes je_pro files;
+# ProcessingMode drives the journals upload doors (ADR-073)
+from .pipeline import JeUse, Pipeline, ProcessingMode, ReportSource
 
 # Principle enums
 from .principle_enums import (
@@ -207,6 +209,7 @@ __all__ = [
     "NonKuDomain",
     "Personality",
     "Pipeline",
+    "ProcessingMode",
     "ReportSource",
     "PrincipleCategory",
     "PrincipleSource",

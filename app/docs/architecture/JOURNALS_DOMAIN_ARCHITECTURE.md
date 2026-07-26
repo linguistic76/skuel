@@ -153,6 +153,8 @@ The flat `je_out/` folder is inherently single-user (one vault per install); `GE
 
 The `_out` suffix convention (`{stem}_out.md`) distinguishes processed output from raw input at a glance. All processing paths (single/multi upload, `transcribe_and_instructions`, `instructions_only`, `folder-process`) share one stateless batch engine and this convention.
 
+The mode itself is `ProcessingMode` (`core/models/enums/pipeline.py`) — deliberately **not** `Pipeline`, whose near-twin members (`TRANSCRIBE`, `TRANSCRIBE_AND_STRUCTURE`, `LLM_SUMMARY`) carry persisted-`UserEntry` audience semantics this zero-persistence door has none of. Both upload doors parse it with `ProcessingMode.from_string`, which returns `None` for an unrecognised value so the request is **rejected before any Deepgram or LLM spend**; an absent field still takes the documented `transcribe_only` default.
+
 The `je_out/` exclusion is the load-bearing one: without it, output files would be ingested as plain-text UserEntries on every vault sync.
 
 ## 8. Privacy Contract

@@ -581,6 +581,68 @@ class TestJournalsUploadZeroPersistence:
         assert "No supported audio files" in to_xml(response)
         _assert_understanding_channel_untouched(mock_services)
 
+    async def test_unknown_processing_mode_spends_nothing(
+        self, mock_services: Any, tmp_path: Any
+    ) -> None:
+        # An unrecognised mode used to miss every branch of _process_single_upload
+        # and fall through to the transcribe_only tail — AFTER spending a Deepgram
+        # transcription. The batch door always rejected it before any spend; the
+        # single-file door now does too (ProcessingMode.from_string → None).
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_one = AsyncMock(
+            return_value=Result.ok("transcript")
+        )
+        registered = _register(mock_services, vault_root=tmp_path)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("memo.mp3", b"audio")),
+                ("processing_mode", "surprise_mode"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "Unknown processing mode: 'surprise_mode'" in to_xml(response)
+        mock_services.batch_transcription.transcribe_one.assert_not_awaited()
+        mock_services.journal.run_compiled.assert_not_awaited()
+        assert not (tmp_path / "je_out").exists()
+        _assert_understanding_channel_untouched(mock_services)
+
+    async def test_unknown_processing_mode_rejected_on_folder_door_too(
+        self, mock_services: Any, tmp_path: Any
+    ) -> None:
+        # Both doors reject with identical wording (shared unknown_mode_message).
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_batch = AsyncMock()
+        registered = _register(mock_services, vault_root=tmp_path)
+
+        request = _make_upload_request([("processing_mode", "surprise_mode")])
+        response = await registered["/journals/folder-process"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "Unknown processing mode: 'surprise_mode'" in to_xml(response)
+        mock_services.batch_transcription.transcribe_batch.assert_not_awaited()
+
+    async def test_absent_processing_mode_still_defaults_to_transcribe_only(
+        self, mock_services: Any, tmp_path: Any
+    ) -> None:
+        # Behaviour preserved: an omitted field is not an unknown mode. It takes
+        # the documented default, which for an audio file is transcribe_only.
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_one = AsyncMock(
+            return_value=Result.ok("a transcript")
+        )
+        registered = _register(mock_services, vault_root=tmp_path)
+
+        request = _make_upload_request([("file", _text_upload("memo.mp3", b"audio"))])
+        await registered["/journals/upload"](request=request)
+
+        mock_services.batch_transcription.transcribe_one.assert_awaited_once()
+        assert (tmp_path / "je_out" / "memo.txt").read_text() == "a transcript"
+
     async def test_single_transcribe_and_instructions_preflights_llm(
         self, mock_services: Any, tmp_path: Any
     ) -> None:
@@ -1077,4 +1139,40 @@ class TestJournalsDailyLlmQuota:
         assert "valid UTF-8" in to_xml(response)
         # The decode rejection fired before the quota check — the final unit
         # survived (Codex round 2 P2).
+        assert llm_quota_allowed("user_mike") is True
+
+    async def test_upload_unknown_mode_burns_no_quota(
+        self, mock_services: Any, tmp_path: Any
+    ) -> None:
+        from fasthtml.common import to_xml
+
+        from adapters.inbound.rate_limit import llm_quota_allowed
+        from core.constants import LLMQuota
+
+        # Transcription must be AVAILABLE for this to prove anything: with it
+        # absent the old code bailed at the availability preflight and spent
+        # nothing anyway. With it present, an unknown mode used to sail past
+        # every branch and hit the quota gate on its way to the transcribe tail.
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_one = AsyncMock(
+            return_value=Result.ok("transcript")
+        )
+        registered = _register(mock_services, vault_root=tmp_path)
+
+        self._consume_quota_units(LLMQuota.DAILY_LIMIT - 1)
+
+        request = _make_upload_request(
+            [
+                (
+                    "file",
+                    _text_upload("memo.mp3", b"audio"),
+                ),
+                ("processing_mode", "surprise_mode"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        assert "Unknown processing mode" in to_xml(response)
+        # Rejected at the form boundary, before the quota gate — the final unit
+        # survived.
         assert llm_quota_allowed("user_mike") is True

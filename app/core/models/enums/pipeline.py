@@ -130,6 +130,58 @@ class JeUse(StrEnum):
             return None
 
 
+class ProcessingMode(StrEnum):
+    """
+    How a journals upload is processed (ADR-073 zero-persistence file/audio door).
+
+    Chosen in the upload composer and carried on the wire as the
+    ``processing_mode`` form field. Drives BOTH upload doors: the single-file
+    path (``_process_single_upload``) and the batch path
+    (``JournalBatchService.run_batch_over_dir``).
+
+    **Deliberately NOT ``Pipeline``.** The near-identical member names are a
+    real trap: ``Pipeline`` is a *persisted* ``UserEntry`` field carrying
+    audience semantics (``Pipeline.allows_sharing()``), while this door
+    persists **nothing** and never creates a ``UserEntry`` (ADR-073). Reusing
+    ``Pipeline`` here would re-couple precisely what ADR-073 separated.
+
+    Values:
+        TRANSCRIBE_ONLY             — audio → raw transcript in ``je_out/`` (default)
+        TRANSCRIBE_AND_INSTRUCTIONS — audio → transcript → LLM-structured ``_out.md``
+        INSTRUCTIONS_ONLY           — text file → LLM-compiled ``_out.md``
+
+    See: /docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md
+    """
+
+    TRANSCRIBE_ONLY = "transcribe_only"
+    TRANSCRIBE_AND_INSTRUCTIONS = "transcribe_and_instructions"
+    INSTRUCTIONS_ONLY = "instructions_only"
+
+    @classmethod
+    def default(cls) -> ProcessingMode:
+        """The composer's default selection — mirrors the Alpine initial state."""
+        return cls.TRANSCRIBE_ONLY
+
+    @classmethod
+    def from_string(cls, value: object) -> ProcessingMode | None:
+        """Parse a ``processing_mode`` form value.
+
+        Absent/empty → ``default()`` (the form's own default, unchanged
+        behaviour). Unrecognized → ``None`` so callers fail **closed**: an
+        unknown mode must be rejected before any Deepgram or LLM spend, on
+        both upload doors. Mirrors ``JeUse.from_string``'s contract rather
+        than ``JournalMode``'s defaulting one — silently coercing a bad value
+        to a default is what let an unknown mode reach the transcribe tail
+        after burning quota.
+        """
+        if value is None or not str(value).strip():
+            return cls.default()
+        try:
+            return cls(str(value).strip().lower())
+        except ValueError:
+            return None
+
+
 class ReportSource(StrEnum):
     """
     Provenance of a report (`EntryReport`, `ActivityReport`).

@@ -25,6 +25,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import LLM_QUOTA_MESSAGE, llm_quota_allowed, rate_limited
+from core.models.enums.pipeline import ProcessingMode
 from core.services.chat import DEFAULT_CHAT_MODEL
 from core.services.conversation import (
     build_source_selection,
@@ -38,6 +39,11 @@ from core.services.conversation import (
     transcript_to_pairs,
 )
 from core.services.intelligence_tier_service import get_user_intelligence_tier
+from core.services.journal.journal_batch_service import (
+    LLM_UNAVAILABLE_MESSAGE,
+    TRANSCRIPTION_UNAVAILABLE_MESSAGE,
+    unknown_mode_message,
+)
 from core.utils.logging import get_logger
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
@@ -83,7 +89,7 @@ async def _process_single_upload(
     file_content: bytes,
     filename: str,
     title: str,
-    processing_mode: str,
+    processing_mode: ProcessingMode,
     instructions: str | None,
     user_uid: UserUID,
     is_founder: bool,
@@ -127,7 +133,7 @@ async def _process_single_upload(
 
     stem = Path(filename).stem
 
-    if processing_mode == "instructions_only":
+    if processing_mode == ProcessingMode.INSTRUCTIONS_ONLY:
         try:
             text_content = file_content.decode("utf-8")
         except UnicodeDecodeError:
@@ -166,7 +172,7 @@ async def _process_single_upload(
     # Transcription modes (audio) — require Deepgram (FULL tier).
     if not journal_batch.transcription_available:
         return render_journal_upload_status(
-            "error", "Transcription service not available (requires FULL tier)", is_error=True
+            "error", TRANSCRIPTION_UNAVAILABLE_MESSAGE, is_error=True
         )
 
     # Preflight the LLM step before spending Deepgram quota: STANDARD
@@ -174,13 +180,11 @@ async def _process_single_upload(
     # missing llm_caller must fail up front. (FOUNDER goes to review→Scribe and
     # does not compile here, so it needs no LLM at this stage.)
     if (
-        processing_mode == "transcribe_and_instructions"
+        processing_mode == ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS
         and not is_founder
         and not journal_batch.llm_available
     ):
-        return render_journal_upload_status(
-            "error", "LLM service not available (requires INTELLIGENCE_TIER=full)", is_error=True
-        )
+        return render_journal_upload_status("error", LLM_UNAVAILABLE_MESSAGE, is_error=True)
 
     # Daily LLM quota — after the availability preflights, immediately before
     # the paid transcription, so a service-unavailable rejection burns nothing.
@@ -203,7 +207,7 @@ async def _process_single_upload(
         journal_batch.write_output(stem, ".txt", transcript)
         return _workspace(TranscriptReviewFragment(transcript=transcript, title=title))
 
-    if processing_mode == "transcribe_and_instructions":
+    if processing_mode == ProcessingMode.TRANSCRIBE_AND_INSTRUCTIONS:
         compiled = await journal_batch.compile_text(
             transcript,
             instructions,
@@ -560,7 +564,16 @@ def create_journals_routes(
                     status_id=status_id,
                 )
 
-            processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
+            # Fail closed on an unrecognised mode BEFORE any Deepgram/LLM spend.
+            # The batch door has always rejected these; the single-file door used
+            # to fall through to the transcribe tail after burning quota.
+            raw_mode = str(form.get("processing_mode", "")).strip()
+            parsed_mode = ProcessingMode.from_string(raw_mode)
+            if parsed_mode is None:
+                return render_journal_upload_status(
+                    "error", unknown_mode_message(raw_mode), is_error=True, status_id=status_id
+                )
+            processing_mode = parsed_mode
             instruction_filename = str(form.get("instruction_filename", "")).strip()
             instruction_content = str(form.get("instruction_content", "")).strip()
             instructions = journal_batch.resolve_instructions(
@@ -616,7 +629,9 @@ def create_journals_routes(
             from core.services.transcription.batch_transcription_service import AUDIO_EXTENSIONS
 
             output_exts = (
-                TEXT_EXTENSIONS if processing_mode == "instructions_only" else (AUDIO_EXTENSIONS)
+                TEXT_EXTENSIONS
+                if processing_mode == ProcessingMode.INSTRUCTIONS_ONLY
+                else (AUDIO_EXTENSIONS)
             )
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
@@ -682,7 +697,15 @@ def create_journals_routes(
                 return render_journal_upload_status("error", AI_SUBSCRIPTION_MESSAGE, is_error=True)
 
             form = await request.form()
-            processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
+            # Same fail-closed parse as /journals/upload — one rejection shape
+            # across both doors.
+            raw_mode = str(form.get("processing_mode", "")).strip()
+            parsed_mode = ProcessingMode.from_string(raw_mode)
+            if parsed_mode is None:
+                return render_journal_upload_status(
+                    "error", unknown_mode_message(raw_mode), is_error=True
+                )
+            processing_mode = parsed_mode
             instruction_filename = str(form.get("instruction_filename", "")).strip()
             instruction_content = str(form.get("instruction_content", "")).strip()
             instructions = journal_batch.resolve_instructions(
