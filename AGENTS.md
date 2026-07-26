@@ -34,8 +34,11 @@ invariants — keep comments focused on real, high-priority risks.
   `app/core/constants.py`.
 
 ### Neo4j / persistence
-- No APOC in domain services except `apoc.meta.*` (SKUEL001). Domain Cypher is
-  pure Cypher.
+- No APOC above the boundary — `core/`, `adapters/inbound/`, `ui/` (SKUEL001,
+  CRITICAL, unsuppressable). `apoc.meta.*` is NOT an exception to this rule: it
+  is banned there too. The `apoc.meta.*` allowance is the Neo4j *server* plugin
+  allowlist (`dbms_security_procedures_allowlist` in the compose file), exercised
+  only by `tests/integration/test_apoc_canary.py`. Domain Cypher is pure Cypher.
 - Domain-specific Cypher belongs on the domain backend; services call
   `self.backend.method_name()` and never inline `execute_query()`.
 - Cross-domain aggregation stays in services, not backends.
