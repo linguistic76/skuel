@@ -306,16 +306,36 @@ _LABEL_PREDICATE_RE = re.compile(
 # Each item must match `_LABEL_MUTATION_ITEM_RE` in FULL. That is what keeps map
 # literals out: `SET n = {a:Foo, b:Bar}` splits into `n = {a:Foo` and ` b:Bar}`,
 # and neither is a bare `var:Label`.
-_MUTATION_TERMINATORS = (
-    "CALL", "CREATE", "DELETE", "DETACH", "FOREACH", "LIMIT", "MATCH", "MERGE",
-    "ON", "ORDER", "REMOVE", "RETURN", "SET", "SKIP", "UNION", "UNWIND",
-    "USING", "WHERE", "WITH", "YIELD",
+# The region ends at the next clause keyword. DERIVED from the clause list above
+# rather than hand-written: a hand-written one was already missing `FINISH` and
+# `OPTIONAL` on its first outing (Codex P2 on #831), and hand-listing here would
+# repeat the case-by-case habit the two-anchor gate exists to end. Multi-word
+# clauses contribute each of their words; a stray `CSV` or `DETACH` terminator
+# costs nothing, since none can appear inside a SET operand.
+#
+# `_NON_LEADING_CLAUSES` are the keywords that can END a SET clause without ever
+# BEGINNING a statement, so they have no place in CYPHER_LEADING_CLAUSES.
+_NON_LEADING_CLAUSES = (
+    "FINISH", "LIMIT", "NEXT", "ON", "OPTIONAL", "ORDER",
+    "SKIP", "UNION", "USING", "WHERE", "YIELD",
 )  # fmt: skip
+_MUTATION_TERMINATORS = tuple(
+    sorted(
+        {word for clause in CYPHER_LEADING_CLAUSES for word in clause.split()}
+        | set(_NON_LEADING_CLAUSES)
+    )
+)
 _LABEL_MUTATION_CLAUSE_RE = re.compile(
     r"\b(?:SET|REMOVE)\s+(.*?)(?=\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b|$)",
     re.DOTALL,
 )
-_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[a-z_]\w*((?::[A-Za-z_]\w*)+)\s*")
+
+# The variable is case-neutral: Cypher allows `SET N:Ku` just as readily as
+# `SET n:Ku` (Codex P2 on #831). The `SET`/`REMOVE` anchor plus the FULL-match
+# requirement on each item is what keeps this precise — the lowercase-only shape
+# `_LABEL_PREDICATE_RE` needs is load-bearing there because that regex has no
+# clause anchor to lean on.
+_LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?::[A-Za-z_]\w*)+)\s*")
 
 
 def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:

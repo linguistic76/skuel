@@ -1389,6 +1389,22 @@ class TestSKUEL030:
         violations = lint_cypher('q = "MATCH (n:Task) SET a:Bogus, b:Alsobogus RETURN a"')
         assert sorted(v.message.split("'")[1] for v in violations) == ["Alsobogus", "Bogus"]
 
+    @pytest.mark.parametrize("tail", ["FINISH", "OPTIONAL MATCH (m) RETURN m"])
+    def test_clause_region_ends_at_any_following_clause(self, tail: str) -> None:
+        """A hand-written terminator list was missing FINISH and OPTIONAL.
+
+        Derived from `CYPHER_LEADING_CLAUSES` now (Codex P2 on #831).
+        """
+        violations = lint_cypher(f'q = "MATCH (n) SET n:Bogus {tail}"')
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
+    def test_uppercase_variable_in_a_label_write_is_scanned(self) -> None:
+        """Cypher variables are case-neutral (Codex P2 on #831)."""
+        violations = lint_cypher('q = "MATCH (N) SET N:Bogus RETURN N"')
+        assert len(violations) == 1
+        assert "Bogus" in violations[0].message
+
     def test_clause_word_in_a_property_value_does_not_hide_later_label_writes(self) -> None:
         """An uppercase word inside a quoted value closed the SET region early.
 

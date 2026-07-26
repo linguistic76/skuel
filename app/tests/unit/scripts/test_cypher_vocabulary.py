@@ -202,6 +202,31 @@ class TestLabelMutationPosition:
         """Fail closed: no clause boundary can be trusted after an open quote."""
         assert _labels("MATCH (n) SET n.s = 'unterminated") == []
 
+    @pytest.mark.parametrize(
+        "tail",
+        [
+            "FINISH",  # Neo4j's row-less query ending
+            "OPTIONAL MATCH (m) RETURN m",
+            "ORDER BY n.x",
+            "UNION MATCH (m) RETURN m",
+            "RETURN n",
+            "",  # clause runs to the end of the fragment
+        ],
+    )
+    def test_clause_region_ends_at_any_following_clause(self, tail: str) -> None:
+        """The terminator set is DERIVED from the clause list, not hand-written.
+
+        A hand-written one was missing both `FINISH` and `OPTIONAL` on its first
+        outing (Codex P2 on #831) — the same case-by-case failure the gate's two
+        anchors exist to end.
+        """
+        assert _labels(f"MATCH (n) SET n:Typo {tail}".strip()) == ["Typo"]
+
+    def test_uppercase_variable_is_accepted(self) -> None:
+        """Cypher variables are case-neutral — `SET N:Ku` is as valid as `n`."""
+        assert _labels("MATCH (N) SET N:Typo RETURN N") == ["Typo"]
+        assert _labels("MATCH (n) REMOVE Node1:Typo RETURN n") == ["Typo"]
+
 
 # ============================================================================
 # Comment masking
