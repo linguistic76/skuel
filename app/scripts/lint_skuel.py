@@ -83,6 +83,7 @@ from core.utils.terminal_colors import Colors
 # Shared with cypher_linter.py (CYP011) — one registry reader, one name scanner.
 sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
+    INTERPOLATION_SENTINEL,
     Vocabulary,
     bare_alternation_parts,
     fstring_part_ids,
@@ -1821,6 +1822,115 @@ class SkuelLinter:
         return None
 
     @staticmethod
+    def _flatten_concat(root: ast.BinOp) -> tuple[list[ast.expr], list[ast.BinOp]]:
+        """Spine operands and nested ``+`` BinOps of a concatenation chain.
+
+        Walks only the ``Add`` spine — never into an operand's own expression —
+        so a string literal buried in an interpolated call argument is not
+        mistaken for part of the query being concatenated.
+        """
+        leaves: list[ast.expr] = []
+        nested: list[ast.BinOp] = []
+
+        def visit(node: ast.expr) -> None:
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+                if node is not root:
+                    nested.append(node)
+                visit(node.left)
+                visit(node.right)
+            else:
+                leaves.append(node)
+
+        visit(root)
+        return leaves, nested
+
+    @staticmethod
+    def _render_parts(leaves: list[ast.expr]) -> str:
+        """Flatten concat operands to text, non-literals replaced by the sentinel."""
+        return "".join(
+            leaf.value
+            if isinstance(leaf, ast.Constant) and isinstance(leaf.value, str)
+            else render_fstring(leaf)
+            if isinstance(leaf, ast.JoinedStr)
+            else INTERPOLATION_SENTINEL
+            for leaf in leaves
+        )
+
+    @classmethod
+    def iter_authored_cypher(cls, tree: ast.AST, inert_ids: set[int]) -> list[tuple[ast.expr, str]]:
+        """Every string in ``tree`` that reads as authored Cypher, as (node, marker).
+
+        THE single traversal behind SKUEL021. ``tests/unit/test_core_utils_boundary.py``
+        calls it too, so the boundary guard cannot drift from the rule it derives
+        from — sharing only the predicate was not enough, and the two disagreed
+        on f-strings until they shared the walk as well (Codex, PR #829).
+
+        Composite strings are judged as a WHOLE, never as the fragments
+        ``ast.walk`` hands out. ``f"RETURN {v}"`` and ``"RETURN " + v`` each tear
+        into a leading piece with no operand left to anchor on, while
+        ``f"cascade {mode} DETACH DELETE (...)"`` tears into a trailing piece
+        that FALSELY leads with a clause keyword. Rendering the whole — with
+        interpolations replaced by a sentinel — is right in both directions.
+        """
+        fstring_parts = fstring_part_ids(tree)
+        composite_leaves: set[int] = set()
+        nested_concats: set[int] = set()
+        concat_roots: list[tuple[ast.BinOp, str]] = []
+
+        # Pass 1: resolve concatenation chains to their outermost root, so a
+        # nested `+` never re-reports the text its root already covers.
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)):
+                continue
+            if id(node) in nested_concats:
+                continue
+            leaves, nested = cls._flatten_concat(node)
+            if not any(
+                (isinstance(leaf, ast.Constant) and isinstance(leaf.value, str))
+                or isinstance(leaf, ast.JoinedStr)
+                for leaf in leaves
+            ):
+                continue
+            nested_concats.update(id(n) for n in nested)
+            composite_leaves.update(
+                id(leaf) for leaf in leaves if isinstance(leaf, ast.Constant | ast.JoinedStr)
+            )
+            concat_roots.append((node, cls._render_parts(leaves)))
+
+        found: list[tuple[ast.expr, str]] = []
+
+        def take_whole(node: ast.expr, rendered: str) -> None:
+            # An anywhere-marker inside a rendered whole is always inside one of
+            # its literal pieces too (pieces are separated by a sentinel no
+            # marker spans), so the per-piece pass already reports it. Bailing
+            # here is what stops one composite from reporting twice.
+            if any(m in rendered for m in cls.CYPHER_MARKERS):
+                return
+            marker = cls._leading_cypher_clause(rendered)
+            if marker is not None:
+                found.append((node, marker))
+
+        for root, rendered in concat_roots:
+            take_whole(root, rendered)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                if id(node) not in composite_leaves:
+                    take_whole(node, render_fstring(node))
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if id(node) in inert_ids:
+                    continue
+                # Anywhere-markers keep their per-piece granularity (and line
+                # numbers); the head anchor only ever runs on a whole.
+                marker = next((m for m in cls.CYPHER_MARKERS if m in node.value), None)
+                if marker is None and id(node) not in fstring_parts | composite_leaves:
+                    marker = cls._leading_cypher_clause(node.value)
+                if marker is not None:
+                    found.append((node, marker))
+
+        return found
+
+    @staticmethod
     def _inert_string_constant_ids(tree: ast.AST) -> set[int]:
         """``id()``s of string Constants that are inert bare-expression statements.
 
@@ -1909,38 +2019,9 @@ class SkuelLinter:
         if tree is None:
             return
 
-        inert_ids = self._inert_ids_for(tree)
-        # The head anchor needs the WHOLE f-string, never its torn parts:
-        # `f"RETURN {value}"` splits into the Constant "RETURN " — an operand
-        # short of anchoring — while `f"cascade {mode} DETACH DELETE (...)"`
-        # splits into a fragment that FALSELY leads with a clause keyword. Both
-        # resolve by rendering the f-string whole (Codex, PR #829). The
-        # anywhere-markers keep scanning per part, which preserves their
-        # existing per-line granularity.
-        fstring_parts = fstring_part_ids(tree)
         reported_lines: set[int] = set()
 
-        for node in ast.walk(tree):
-            if isinstance(node, ast.JoinedStr):
-                rendered = render_fstring(node)
-                # An anywhere-marker in the rendered whole is always inside one
-                # part too (parts are separated by a sentinel no marker spans),
-                # so the per-part pass below already reports it — bail here or
-                # one f-string reports twice.
-                if any(m in rendered for m in self.CYPHER_MARKERS):
-                    continue
-                marker = self._leading_cypher_clause(rendered)
-            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-                if id(node) in inert_ids:
-                    continue
-                marker = next((m for m in self.CYPHER_MARKERS if m in node.value), None)
-                if marker is None and id(node) not in fstring_parts:
-                    marker = self._leading_cypher_clause(node.value)
-            else:
-                continue
-            if marker is None:
-                continue
-
+        for node, marker in self.iter_authored_cypher(tree, self._inert_ids_for(tree)):
             line_num = node.lineno
             # One violation per source line (matches the old line-granularity and
             # collapses the several Constant parts an f-string splits into).

@@ -2821,6 +2821,46 @@ class TestSKUEL021LeadingClauseAnchor:
         )
         assert len(violations) == 1
 
+    # --- `+` concatenation is a composite too, judged as a whole ---
+
+    def test_detects_concatenated_head_only_query(self) -> None:
+        """`"RETURN " + projection` tears the same way an f-string does."""
+        linter = make_linter(["SKUEL021"])
+        content = 'projection = "n.uid"\nquery = "RETURN " + projection\nrun(query)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_ignores_prose_built_by_concatenation(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        content = 'mode = "x"\nmsg = "cascade " + mode + " DETACH DELETE (default False)"'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_concatenated_query_reports_once(self) -> None:
+        """A nested `+` chain resolves to its outermost root, not once per link."""
+        linter = make_linter(["SKUEL021"])
+        content = 'a = "1"\nb = "2"\nq = "RETURN " + a + " AS x, " + b + " AS y"\nrun(q)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_ignores_non_string_concatenation(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(linter, "total = count + offset")
+        assert len(violations) == 0
+
+    def test_flatten_concat_walks_only_the_add_spine(self) -> None:
+        """A `+` inside an operand's own expression is not part of the chain.
+
+        Otherwise a string literal buried in an interpolated call argument would
+        be spliced into the query text being reconstructed.
+        """
+        tree = ast.parse('x = "a " + helper(1 + 2) + " b"')
+        root = tree.body[0].value  # type: ignore[attr-defined]
+        leaves, nested = SkuelLinter._flatten_concat(root)
+        assert [type(leaf).__name__ for leaf in leaves] == ["Constant", "Call", "Constant"]
+        assert len(nested) == 1  # the inner spine link — NOT the `1 + 2` inside the call
+
     # --- Regression guard bound to the real files, not a hand-written stand-in ---
 
     def test_core_ports_docstring_prose_stays_clean(self) -> None:

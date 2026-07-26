@@ -25,10 +25,13 @@ imports and ``.execute_query(`` calls, which SKUEL021 does not cover.
 The direction of the borrowing has since reversed. This file used to hand-copy
 SKUEL021's Cypher markers, and the copy drifted: it sat a marker behind
 (``OPTIONAL MATCH path``) and never learned the statement-head anchor, so the
-sub-check was quietly weaker than the rule it claimed to mirror. It now derives
-detection from ``SkuelLinter`` (``_is_raw_cypher`` below), the same resolution
-the RELATIONSHIP_NAMES mirror got. The execution-primitive bans stay local and
-independent — they are this file's unduplicated value.
+sub-check was quietly weaker than the rule it claimed to mirror. Borrowing only
+the *predicate* then proved insufficient too — the two disagreed on f-strings,
+because judging a torn ``Constant`` is not the same as judging the rendered
+whole. Detection now comes from ``SkuelLinter.iter_authored_cypher``, walk and
+all, so agreement is structural rather than carefully maintained; the
+RELATIONSHIP_NAMES mirror got the same resolution. The execution-primitive bans
+stay local and independent — they are this file's unduplicated value.
 
 Banned in core/utils:
   - neo4j driver imports (``import neo4j`` / ``from neo4j import ...``). The
@@ -59,28 +62,20 @@ import core as _core_pkg
 _CORE = Path(next(iter(_core_pkg.__path__))).resolve()
 UTILS_DIR = _CORE / "utils"
 
-# scripts/ has no __init__.py — add it to sys.path for import
+# scripts/ has no __init__.py — add it to sys.path for import.
+#
+# Raw-Cypher detection is SkuelLinter's, walk and all (`iter_authored_cypher`).
+# This file used to hand-copy the marker tuple, and the copy drifted exactly the
+# way the RELATIONSHIP_NAMES mirror did before it was deleted (see
+# `TestRelationshipNamesDrift`): it fell a marker behind (`OPTIONAL MATCH path`).
+# Borrowing only the predicate was not enough either — the two then disagreed on
+# f-strings, because judging a torn `Constant` is not the same as judging the
+# rendered whole (Codex, PR #829). Sharing the traversal is what makes agreement
+# structural. The execution-primitive bans below stay local; they are this
+# file's real, unduplicated value.
 sys.path.insert(0, str(_CORE.parent / "scripts"))
 
 from lint_skuel import SkuelLinter  # type: ignore[import-not-found]  # noqa: E402
-
-
-def _is_raw_cypher(value: str) -> bool:
-    """True if ``value`` reads as authored Cypher, per SKUEL021's own detection.
-
-    This used to be a hand-copied marker tuple "mirroring SKUEL021". The mirror
-    drifted exactly the way the RELATIONSHIP_NAMES mirror did before it was
-    deleted (see ``TestRelationshipNamesDrift``): it silently fell a marker
-    behind (``OPTIONAL MATCH path``), so this guard was quietly checking less
-    than the rule it claimed to mirror. Deriving from ``SkuelLinter`` keeps the
-    execution-primitive bans below — which are this file's real, unduplicated
-    value — independent, while making the Cypher-string sub-check impossible to
-    drift again.
-    """
-    if any(marker in value for marker in SkuelLinter.CYPHER_MARKERS):
-        return True
-    return SkuelLinter._leading_cypher_clause(value) is not None
-
 
 # Query-execution method names that signal Cypher running from core/utils.
 # ``execute_query`` is Neo4j-specific (the QueryExecutor port) — banning it does
@@ -123,7 +118,10 @@ def _scan_file(py_file: Path) -> list[str]:
     """Return boundary offenders found in a single core/utils module."""
     tree = ast.parse(py_file.read_text(encoding="utf-8"))
     inert_ids = _inert_string_constant_ids(tree)
-    offenders: list[str] = []
+    offenders: list[str] = [
+        f"{py_file.name}:{node.lineno}: raw Cypher in a string literal"
+        for node, _marker in SkuelLinter.iter_authored_cypher(tree, inert_ids)
+    ]
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -144,13 +142,6 @@ def _scan_file(py_file: Path) -> list[str]:
             offenders.append(
                 f"{py_file.name}:{node.lineno}: query-execution call ('.{node.func.attr}(...)')"
             )
-        elif (
-            isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and id(node) not in inert_ids
-            and _is_raw_cypher(node.value)
-        ):
-            offenders.append(f"{py_file.name}:{node.lineno}: raw Cypher in a string literal")
 
     return offenders
 
@@ -170,3 +161,27 @@ def test_core_utils_has_no_raw_cypher_or_query_execution() -> None:
         "ConnectionFetchBackend / ConnectionFetchOperations for the pattern).\n  - "
         + "\n  - ".join(offenders)
     )
+
+
+def test_scan_agrees_with_skuel021_on_composite_strings(tmp_path: Path) -> None:
+    """The guard and the rule must not disagree on f-strings or concatenation.
+
+    Sharing only the predicate was not enough: judging a torn ``Constant`` is
+    not the same as judging the rendered whole, so this guard used to report
+    prose f-strings and miss real ones (Codex, PR #829). Sharing the traversal
+    makes agreement structural — this pins it.
+    """
+    cases = [
+        # (source, expect_offender)
+        ('mode = "x"\nmsg = f"cascade {mode} DETACH DELETE (default False)"\n', False),
+        ('mode = "x"\nmsg = "cascade " + mode + " DETACH DELETE (default False)"\n', False),
+        ('v = 1\nq = f"RETURN {v}"\nrun(q)\n', True),
+        ('p = "n.uid"\nq = "RETURN " + p\nrun(q)\n', True),
+        ('uid = 1\nq = f"MATCH (n) WHERE n.id = {uid} RETURN n"\nrun(q)\n', True),
+        ('method = "DELETE"\n', False),
+    ]
+    for index, (source, expect_offender) in enumerate(cases):
+        module = tmp_path / f"case_{index}.py"
+        module.write_text(source, encoding="utf-8")
+        cypher = [o for o in _scan_file(module) if "raw Cypher" in o]
+        assert bool(cypher) is expect_offender, f"case {index} disagreed: {source!r} -> {cypher}"
