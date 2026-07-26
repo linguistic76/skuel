@@ -390,9 +390,29 @@ _REL_RE = re.compile(r"\[\s*(?:[A-Za-z_]\w*)?\s*:\s*([^\]\s{}]+)")
 # `(n:Label)` / `(:Label)` / `(n:Entity:Ku)`. Same stopping rule.
 _LABEL_RE = re.compile(r"\(\s*(?:[A-Za-z_]\w*)?\s*:\s*([^)\s{}]+)")
 
-# One name inside a multi-name group — `A` and `B` of `(n:A:B)` or `[:A|B]`.
-# Matched with positions so each name is reported where it actually is.
+# One name inside a multi-name group. Used by the MUTATION scanner only, whose
+# items are already known to be `:`/`&`-joined identifiers by the time it runs
+# (`_LABEL_MUTATION_ITEM_RE` full-matched them). Pattern bodies are read by
+# SPLITTING instead — see `_NAME_SEPARATOR_RE`.
 _NAME_PART_RE = re.compile(r"[A-Za-z_]\w*")
+
+# What separates two names inside a pattern body: `(n:A:B)`, `[:A|B]`, `(n:A&B)`.
+#
+# SPLITTING on these, rather than extracting identifier RUNS, is what makes a
+# dynamic operand inert for free. `$(labelExpr)`, `$(coalesce(Foo,Bogus))`,
+# `$any(...)`, `$all(...)` and `$param` each fail the name regex as a WHOLE
+# segment, so there is nothing to blank first. Run-extraction reached INSIDE the
+# parentheses and pulled `Bogus` back out — three rounds of Codex P2 on #831,
+# then 57 lines of blanking walk to undo what the extraction had done.
+#
+# The one form splitting cannot see is a separator INSIDE a dynamic expression:
+# `(n:$(map:Key))` splits into `$(map` and `Key`, and reports `Key`. Measured
+# before accepting: `_blank_dynamic_vocabulary` altered ZERO pattern bodies
+# across `adapters/persistence/**/*.py` and every `.cypher` file, so not only is
+# that sub-case absent — the entire dynamic-operand FAMILY is. The trade is a
+# hypothetical false positive against a mechanism that produced three real
+# regressions.
+_NAME_SEPARATOR_RE = re.compile(r"[:|&]")
 
 # Relationship types are UPPER_SNAKE; labels are PascalCase. Anything else
 # (lowercase alias, digit-led fragment) is not vocabulary and is ignored.
@@ -733,53 +753,39 @@ def _starts_a_clause(text: str, i: int) -> bool:
     return j < 0 or text[j] not in _NAME_COMPONENT_SIGILS
 
 
-def _blank_dynamic_vocabulary(body: str) -> str:
-    """Blank `$(...)` / `$param` spans in a pattern body, preserving offsets.
+def _body_names(body: str) -> Iterator[tuple[str, int]]:
+    """``(candidate name, offset within body)`` per separator-delimited segment.
 
-    A DYNAMIC label or relationship type — `(n:$(labelExpr))`, `[r:$param]`,
-    `(n:$any(...))`, `(n:$all(...))` — is an expression evaluated at runtime, so
-    there is no static name to check anywhere in it.
+    Offsets are tracked across the split rather than recomputed, so each name is
+    reported where it actually is — `(n:A:B)` reporting both at the group start
+    is a wrong location AND a suppression that cannot be placed beside the name
+    it must suppress (Codex P2 on #831).
 
-    The whole operand goes. This took three passes, each time because the fix
-    described a SHAPE instead of the span: a prefix check covered `$(x)` and
-    missed `$(coalesce(Foo,Bogus))`; a `$(`-vs-`$param` branch covered both and
-    missed `$any(...)` / `$all(...)` (Codex P2 on #831, three rounds). One walk
-    now handles every form — the identifier run after `$`, then its
-    parenthesised operand if it has one.
+    Segments are yielded whether or not they look like names; the caller's
+    ``name_re.fullmatch`` is the only filter. That is the whole point: a dynamic
+    operand arrives as one unsplittable segment and fails, instead of being
+    mined for identifier runs and then blanked back out.
 
-    `_LABEL_RE` / `_REL_RE` truncate their body at the first `)` or `]`, so a
-    `$(` here is routinely unbalanced; an unclosed one blanks to the end, which
-    is the correct reading of a dynamic operand that ran past the body.
-
-    The static sibling in `(n:Known:$(x))` is untouched and still checked.
+    Backticks are stripped from the SEGMENT, not from the body. An escaped label
+    ``(n:`Bogus`)`` is a real label and pattern position has always recovered
+    one — the `scan_names` docstring's claim that no position does was measured
+    false. Stripping here preserves that recovery through the split without
+    letting a backtick disturb any offset but its own.
     """
-    chars = list(body)
-    i = 0
-    while i < len(body):
-        if body[i] != "$":
-            i += 1
-            continue
-        # One walk covers every form: the identifier run after `$` (empty for
-        # `$(`, `any`/`all` for the label-expression functions, a name for
-        # `$param`), then its parenthesised operand if it has one.
-        j = i + 1
-        while j < len(body) and (body[j].isalnum() or body[j] == "_"):
-            j += 1
-        if body[j : j + 1] == "(":
-            depth = 0
-            while j < len(body):
-                if body[j] == "(":
-                    depth += 1
-                elif body[j] == ")":
-                    depth -= 1
-                    if depth == 0:
-                        j += 1
-                        break
-                j += 1
-        for k in range(i, j):
-            chars[k] = " "
-        i = j
-    return "".join(chars)
+    start = 0
+    for separator in _NAME_SEPARATOR_RE.finditer(body):
+        yield _body_name(body, start, separator.start())
+        start = separator.end()
+    yield _body_name(body, start, len(body))
+
+
+def _body_name(body: str, start: int, end: int) -> tuple[str, int]:
+    """One segment, trimmed of whitespace and backticks, with its true offset."""
+    segment = body[start:end]
+    name = segment.strip().strip("`")
+    if not name:
+        return name, start
+    return name, start + segment.find(name)
 
 
 # `CYPHER runtime=slotted ...` / `CYPHER 25 ...` — a PRE-PARSER preamble, not a
@@ -888,7 +894,7 @@ def _pattern_bodies(masked: str) -> Iterator[tuple[NameKind, re.Pattern[str], st
             body = _VARLEN_RE.sub("", match.group(1))
             if INTERPOLATION_SENTINEL in body:
                 continue
-            yield kind, name_re, _blank_dynamic_vocabulary(body), match.start(1)
+            yield kind, name_re, body, match.start(1)
 
 
 def _carries_vocabulary_shape(masked: str) -> bool:
@@ -900,9 +906,9 @@ def _carries_vocabulary_shape(masked: str) -> bool:
     that really does carry vocabulary.
     """
     return any(
-        name_re.fullmatch(part.group())
+        name_re.fullmatch(name)
         for _, name_re, body, _ in _pattern_bodies(masked)
-        for part in _NAME_PART_RE.finditer(body)
+        for name, _offset in _body_names(body)
     )
 
 
@@ -939,15 +945,24 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
     is the escape hatch if one ever does. The MUTATION scanner is the exception
     and *is* quote-blind, because it alone needs to know where a clause ends.
 
-    **Known limit, uniform: backtick-escaped vocabulary is not scanned.**
-    ``(n:`Bogus`)``, ``[r:`BOGUS_EDGE`]``, ``SET n:`Bogus``` — none of the four
-    position scanners has ever recovered one, because every name regex requires
-    an identifier character right after the ``:``. Pinned by
-    ``TestBacktickEscapedVocabulary`` so it stays a known limit rather than
-    drifting into an assumed capability. Closing it means teaching all four
-    positions at once; doing it for one would be the case-by-case patching this
-    module's gate design argues against. Zero sites in the tree use the form —
-    SKUEL labels and edge names are plain identifiers that never need escaping.
+    **Known limit, NOT uniform: backtick-escaped vocabulary is scanned in
+    pattern position only.** ``(n:`Bogus`)`` and ``[r:`BOGUS_EDGE`]`` ARE
+    recovered; ``SET n:`Bogus``` and ``REMOVE n:`Bogus``` are not, because
+    ``_LABEL_MUTATION_ITEM_RE`` requires an identifier character right after the
+    ``:``.
+
+    This block previously claimed all four positions missed the form, and
+    ``TestBacktickEscapedVocabulary`` "pinned" it — with an assertion
+    (``"Bogus" in n.value.upper()``) that ``.upper()`` made unsatisfiable, so it
+    passed on any behaviour whatsoever. A vacuous guard under a false claim is
+    this module's own failure mode one more layer down, and it is what let the
+    single DECLINED finding of #831 rest on an unmeasured premise. Both are now
+    corrected against measurement rather than restated.
+
+    Closing the mutation half means teaching that position too; it is a
+    behaviour widening with its own before/after measurement, not a free rider
+    on this change. Zero sites in the tree use the form either way — SKUEL
+    labels and edge names are plain identifiers that never need escaping.
     """
     dialect = _dialect(declared_cypher)
     masked = mask_cypher_comments(fragment)
@@ -964,14 +979,11 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
 
     # Pattern position
     for kind, name_re, body, body_start in _pattern_bodies(masked):
-        # Same per-name positioning as the mutation scanner below: a
-        # multi-label `(n:A:B)` recorded both at the group start.
         survived = False
-        for part in _NAME_PART_RE.finditer(body):
-            name = part.group()
+        for name, offset in _body_names(body):
             if name_re.fullmatch(name):
                 survived = True
-                record(kind, name, body_start + part.start())
+                record(kind, name, body_start + offset)
         if not survived:
             _note(ScanIssue.UNREADABLE_PATTERN_BODY, body, masked, body_start)
 

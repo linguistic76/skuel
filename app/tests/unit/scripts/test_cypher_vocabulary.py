@@ -554,29 +554,90 @@ class TestCommentMasking:
 
 
 class TestBacktickEscapedVocabulary:
-    """Pins a KNOWN LIMIT: escaped names are not scanned, in any position.
+    """Backtick handling is SPLIT, not uniform — measured, not assumed.
 
-    Every name regex requires an identifier character straight after the `:`,
-    so a backtick-escaped label or edge type has never been recovered — not on
-    `main`, not before the string-blanking pass, not now. Verified against all
-    three revisions rather than assumed (Codex P2 on #831 attributed it to
-    `blank_strings`; it predates it and is uniform).
+    This class previously asserted that no position recovers an escaped name,
+    with ``[n for n in scan_names(f) if "Bogus" in n.value.upper()] == []``.
+    ``.upper()`` turns every candidate into ``BOGUS``/``BOGUS_EDGE``, which can
+    never contain the mixed-case needle ``"Bogus"`` — so the comprehension was
+    empty whatever the scanner returned, and the guard passed on any behaviour
+    at all. Running the four fragments showed pattern position recovering both
+    names all along, while the claim on the class said otherwise. That is this
+    module's own failure mode — a check that reports clean without looking —
+    and it is what left #831's single declined finding resting on an unmeasured
+    premise.
 
-    Closing this means teaching all four positions at once. Patching it in one
-    is exactly the case-by-case habit this module's gate design argues against.
+    Now pinned to what the scanner actually does, each direction asserted
+    positively so neither can drift into the other unnoticed.
     """
+
+    @pytest.mark.parametrize(
+        ("fragment", "expected"),
+        [
+            ("MATCH (n:`Bogus`) RETURN n", ["Bogus"]),
+            ("MATCH ()-[r:`BOGUS_EDGE`]->() RETURN r", ["BOGUS_EDGE"]),
+        ],
+    )
+    def test_pattern_position_recovers_escaped_names(
+        self, fragment: str, expected: list[str]
+    ) -> None:
+        """An escaped label IS a label — an unregistered one is a real miss."""
+        assert [n.value for n in scan_names(fragment)] == expected
 
     @pytest.mark.parametrize(
         "fragment",
         [
-            "MATCH (n:`Bogus`) RETURN n",
-            "MATCH ()-[r:`BOGUS_EDGE`]->() RETURN r",
             "MATCH (n) SET n:`Bogus` RETURN n",
             "MATCH (n) REMOVE n:`Bogus` RETURN n",
         ],
     )
-    def test_escaped_names_are_not_recovered(self, fragment: str) -> None:
-        assert [n.value for n in scan_names(fragment) if "Bogus" in n.value.upper()] == []
+    def test_mutation_position_does_not_recover_escaped_names(self, fragment: str) -> None:
+        """The remaining half of the limit, stated accurately.
+
+        ``_LABEL_MUTATION_ITEM_RE`` requires an identifier character straight
+        after the ``:``. Closing this is a behaviour widening with its own
+        before/after measurement, not a free rider on a refactor.
+        """
+        assert [n.value for n in scan_names(fragment)] == []
+
+
+# ============================================================================
+# Pattern bodies are SPLIT on separators, not mined for identifier runs
+# ============================================================================
+
+
+class TestPatternBodySplitting:
+    """`(n:A:B)` is a separator-joined list of names, read by splitting it.
+
+    Extracting identifier RUNS instead reached inside `$( ... )` and reported
+    the expression's internals as vocabulary — three rounds of Codex P2 on #831
+    and a 57-line blanking walk to undo. Splitting makes every dynamic operand
+    one unsplittable segment that simply fails the name regex.
+    """
+
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            ("MATCH (n:A:B) RETURN n", ["A", "B"]),
+            ("MATCH ()-[:A|B]->() RETURN 1", ["A", "B"]),
+            ("MATCH (n:A&B) RETURN n", ["A", "B"]),
+            ("MATCH ()-[r:A|B*1..3]->() RETURN r", ["A", "B"]),
+        ],
+    )
+    def test_separator_joined_names_are_all_read(self, query: str, expected: list[str]) -> None:
+        """Guard — already true before the split; the three separators Cypher has."""
+        assert [n.value for n in scan_names(query)] == expected
+
+    @pytest.mark.parametrize("query", ["MATCH (n:A.B) RETURN n", "MATCH (n:A-B) RETURN n"])
+    def test_non_separator_joins_yield_no_names(self, query: str) -> None:
+        """`.` and `-` do not join labels in Cypher, so `A.B` is ONE bad token.
+
+        Run-extraction invented two names out of it and would have reported both
+        as unregistered. Nothing in the tree writes the form either way; the
+        point is that the reader no longer manufactures names from a token it
+        cannot parse.
+        """
+        assert scan_names(query) == []
 
 
 # ============================================================================
@@ -607,6 +668,7 @@ class TestScanDiagnostics:
         with recording_scan_diagnostics() as sink:
             scan_names("MATCH (n:$(labelExpr)) RETURN n")
         assert [d.issue for d in sink] == [ScanIssue.UNREADABLE_PATTERN_BODY]
+        assert "labelExpr" in sink[0].text
 
     def test_unparsed_mutation_item_is_recorded(self) -> None:
         """A label-SHAPED item the item regex cannot read — the real signal."""

@@ -869,6 +869,30 @@ reads the same answer: `CYPHER_LEADING_CLAUSES` and its matcher live here, expos
 keep a copy for one release, and the copies drifted in five behaviours before either was
 a month old — see SKUEL021's section for the list.
 
+**The scanner reports what it could not read** — `scripts/cypher_scan_diagnostics.py`.
+
+Every failure mode of `scan_names` used to be silent, which is the fault these rules
+exist to catch reproduced one layer down: an item that does not full-match is dropped, a
+pattern body whose parts all fail the name regex yields nothing, a rejected fragment
+returns `[]`. The cost was measured — PR #831 ran 19 review rounds without converging,
+because the only way to find a gap was for a reviewer to *imagine* an input, and roughly
+16 of its ~27 findings were valid Cypher forms with zero instances in this tree.
+
+`recording_scan_diagnostics()` makes each drop visible; the script runs both rules' real
+code paths under it and prints the spans. It is **opt-in, not wired into `./dev quality`,
+and never exits nonzero on findings** — a drop is not a violation. Most are correct: a
+property-only `SET n.title = $t` has no label to miss, a `$(labelExpr)` operand has no
+static name to check. Promoting a category to a violation class is a separate decision.
+
+First full run over `adapters/persistence/**/*.py` + every `.cypher` file:
+
+| Issue | Count | Reading |
+|---|---|---|
+| `unparsed-mutation-item` | **0** | No label-shaped `SET`/`REMOVE` item in the tree defeats the item regex. |
+| `unreadable-pattern-body` | 16 | All template placeholders (`__DAG__`, `zpd_proximal_edges`) substituted from `RelationshipName` constants at runtime. Correct drops. |
+| `rejected-by-gate` | 3 | One prose false positive of the diagnostic's own name filter; **two real** — bare pattern fragments assigned to a variable and composed into a query later (`activity_backends.py:94`). Both name `Entity`, which is registered, so nothing fires today; a typo'd one would be invisible to both anchors. A known, now-measured gap. |
+| `mutation-clause-no-item-matched` | 265 | Property assignments. The unfiltered denominator, kept so the shape filter above cannot hide a class. |
+
 **Python edge lists — the rule's second scanner (since tranche 5).** An alternation is
 as often assembled from a Python literal as written inline:
 `{"practice": ["PRACTICES", "REINFORCES", "APPLIES_KNOWLEDGE"]}`, or a bare
