@@ -286,10 +286,18 @@ scoring) — the `_OrganizesMixin` ↔ `PsOrganizesBackendOperations` pair does 
 `OrganizerResult`, and `PsIntelligenceBackendOperations` follows with four `Ps*Row`
 types.
 
-Two things make this cheap and safe:
+Two rules make this real rather than decorative:
 
-- `Neo4jQueryExecutor.execute[T](...) -> Result[T]` is **generic**, so the backend only
-  needs the return annotation — no `cast`, no runtime change.
+- **Construct the row at the adapter; never just annotate it.**
+  `Neo4jQueryExecutor.execute[T](...) -> Result[T]` infers `T` **solely from the call
+  site's return annotation** and, given no `processor`, returns the driver's raw
+  `list[dict[str, Any]]` untouched. So a bare annotation is an *unchecked claim*: rename
+  a `RETURN` alias and MyPy stays silent while the service reads the missing key as zero.
+  **Nothing statically links a Cypher alias to a TypedDict key.** Pass a `processor` that
+  builds each row by indexing its alias (`_to_practice_counts_rows` in
+  `ps_intelligence_backend.py`; the explicit comprehension in `_OrganizesMixin`) — drift
+  then raises `KeyError` at the boundary and surfaces as a failed `Result` through
+  `@with_error_handling`. What the `TypedDict` buys *statically* is every consumer site.
 - **Declare the row type on the protocol *and* the implementation, in the same change.**
   A `TypedDict` on the port with `dict[str, Any]` on the backend makes the port
   unsatisfiable — that is precisely the shape of several of the return-type conflicts

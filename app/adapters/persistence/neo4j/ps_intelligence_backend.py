@@ -9,15 +9,23 @@ hexagonal boundary. Parameterized queries run via an injected
 
 Returns per-query typed rows (``core/ports/query_types.py`` ``Ps*Row``) or bool
 existence results; the service applies its readiness/score processors to the rows.
-The row types are declared on ``PsIntelligenceBackendOperations`` too, so a change
-to a RETURN clause's keys is a MyPy error rather than silent drift.
+
+**The row types are constructed here, not asserted.** ``Neo4jQueryExecutor.execute``
+returns the driver's raw ``list[dict[str, Any]]`` untouched when given no processor,
+and its generic ``T`` is inferred solely from the call site's return annotation — so a
+bare annotation is an *unchecked claim*, and a renamed RETURN alias would type-check
+while the service silently read the missing key as zero. Nothing statically links a
+Cypher alias to a TypedDict key. The ``_to_*_rows`` processors below are therefore the
+actual check: they index each row by its alias, so drift raises ``KeyError`` at this
+boundary and surfaces as a failed ``Result`` through the service's
+``@with_error_handling`` — loud instead of silent.
 
 See: /docs/decisions/ADR-044-neo4j-committed-architectural-choice.md
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.ports.query_types import (
     PsGuidanceCountsRow,
@@ -29,6 +37,48 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+
+def _to_prerequisite_step_uid_rows(
+    records: list[dict[str, Any]],
+) -> list[PsPrerequisiteStepUidsRow]:
+    """Project raw rows onto PsPrerequisiteStepUidsRow (KeyError on alias drift)."""
+    return [{"prereq_uids": [str(uid) for uid in (row["prereq_uids"] or [])]} for row in records]
+
+
+def _to_practice_counts_rows(records: list[dict[str, Any]]) -> list[PsPracticeCountsRow]:
+    """Project raw rows onto PsPracticeCountsRow (KeyError on alias drift)."""
+    return [
+        {
+            "habits": int(row["habits"]),
+            "tasks": int(row["tasks"]),
+            "events": int(row["events"]),
+            "goals": int(row["goals"]),
+            "principles": int(row["principles"]),
+            "choices": int(row["choices"]),
+        }
+        for row in records
+    ]
+
+
+def _to_guidance_counts_rows(records: list[dict[str, Any]]) -> list[PsGuidanceCountsRow]:
+    """Project raw rows onto PsGuidanceCountsRow (KeyError on alias drift)."""
+    return [
+        {
+            "principle_count": int(row["principle_count"]),
+            "choice_count": int(row["choice_count"]),
+        }
+        for row in records
+    ]
+
+
+def _to_taught_ku_uid_rows(records: list[dict[str, Any]]) -> list[PsTaughtKuUidRow]:
+    """Project raw rows onto PsTaughtKuUidRow (KeyError on alias drift).
+
+    Rows with a null ``ku.uid`` are dropped so the declared ``str`` is truthful
+    rather than a stringified ``None``.
+    """
+    return [{"ku_uid": str(row["ku_uid"])} for row in records if row["ku_uid"]]
 
 
 class PsIntelligenceBackend:
@@ -47,6 +97,7 @@ class PsIntelligenceBackend:
                 RETURN collect(prereq.uid) as prereq_uids
             """,
             params={"ps_uid": ps_uid},
+            processor=_to_prerequisite_step_uid_rows,
             operation="is_ready",
         )
 
@@ -69,6 +120,7 @@ class PsIntelligenceBackend:
                        count(DISTINCT c) as choices
             """,
             params={"ps_uid": ps_uid},
+            processor=_to_practice_counts_rows,
             operation="get_practice_summary",
         )
 
@@ -83,6 +135,7 @@ class PsIntelligenceBackend:
                        count(DISTINCT c) as choice_count
             """,
             params={"ps_uid": ps_uid},
+            processor=_to_guidance_counts_rows,
             operation="calculate_guidance_strength",
         )
 
@@ -144,5 +197,6 @@ class PsIntelligenceBackend:
                 RETURN DISTINCT ku.uid AS ku_uid
             """,
             params={"ps_uid": ps_uid},
+            processor=_to_taught_ku_uid_rows,
             operation="calculate_user_substance",
         )

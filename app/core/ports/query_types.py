@@ -1902,10 +1902,16 @@ class PsDomainInsights(TypedDict, total=False):
 # ----------------------------------------------------------------------------
 # PsIntelligenceBackendOperations raw Cypher rows
 # ----------------------------------------------------------------------------
-# One TypedDict per query, keyed to its RETURN clause, so a change to the
-# adapter's projected keys or value types is a MyPy error at the port boundary
-# rather than an invisible drift. The `*Row` types are the raw reads; the
-# `*Result`/`*Analytics` types above are what the service returns after scoring.
+# One TypedDict per query, keyed to its RETURN clause. The `*Row` types are the
+# raw reads; the `*Result`/`*Analytics` types above are what the service returns
+# after scoring.
+#
+# These types are only as true as the adapter's construction of them: nothing
+# statically links a Cypher RETURN alias to a TypedDict key, so the guarantee
+# comes from the `_to_*_rows` processors in ps_intelligence_backend.py, which
+# index each row by alias and raise KeyError on drift. What the TypedDict buys
+# statically is every *consumer* site — a wrong key or a wrong value-type
+# assumption in Python is a MyPy error.
 
 
 class PsPrerequisiteStepUidsRow(TypedDict):

@@ -573,9 +573,10 @@ class PsIntelligenceBackendOperations(Protocol):
     Signatures are a 1:1 mirror of ``PsIntelligenceBackend``'s entire public
     surface — the class exists solely to serve this one service, so the slice and
     the class coincide. Each read declares a per-query ``Ps*Row`` TypedDict keyed
-    to its RETURN clause, so a change to the adapter's projected keys or value
-    types is a MyPy error here rather than invisible drift; the service aggregates
-    the rows into the ``*Result``/``*Analytics`` shapes it returns.
+    to its RETURN clause; the service aggregates the rows into the
+    ``*Result``/``*Analytics`` shapes it returns. The row types bind every
+    *consumer* statically, but a Cypher alias rename cannot be caught by typing —
+    the adapter's ``_to_*_rows`` processors enforce that at runtime instead.
     """
 
     async def fetch_prerequisite_step_uids(
