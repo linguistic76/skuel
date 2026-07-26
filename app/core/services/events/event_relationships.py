@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from core.ports.knowledge_pattern_protocol import compute_knowledge_intensity
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
@@ -111,4 +112,6 @@ class EventRelationships:
 
     def knowledge_intensity(self) -> float:
         """0-1 score: how knowledge-rich this event is by relationship count."""
-        return min(1.0, len(self.primary_knowledge_uids) * 0.15)
+        return compute_knowledge_intensity(
+            self.primary_knowledge_uids, self.secondary_knowledge_uids
+        )

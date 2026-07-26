@@ -13,24 +13,17 @@ populated at fetch time and never written back.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from core.services.goal_links import pick_goal
 
 if TYPE_CHECKING:
     from core.models.event.event import Event
-
-
-def _pick_goal(goal_uids: list[str], active_goal_uids: list[str] | None) -> str:
-    """Return the best goal UID for scoring: prefer an active goal, else first."""
-    if active_goal_uids:
-        active_set = set(active_goal_uids)
-        for uid in goal_uids:
-            if uid in active_set:
-                return uid
-    return goal_uids[0]
+    from core.ports.domain_protocols import EventsOperations
 
 
 async def enrich_events_with_goal_links(
-    backend: Any,
+    backend: EventsOperations,
     events: list[Event],
     active_goal_uids: list[str] | None = None,
 ) -> list[Event]:
@@ -51,7 +44,7 @@ async def enrich_events_with_goal_links(
     return [
         replace(
             event,
-            contributes_to_goal_uid=_pick_goal(link_map[event.uid], active_goal_uids),
+            contributes_to_goal_uid=pick_goal(link_map[event.uid], active_goal_uids),
         )
         if event.uid in link_map
         else event

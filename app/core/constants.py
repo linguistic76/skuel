@@ -649,6 +649,25 @@ class ExerciseTimeEstimate:
 
 
 # ============================================================================
+# KNOWLEDGE INTENSITY WEIGHTS (core/ports/knowledge_pattern_protocol.py)
+# ============================================================================
+
+
+class KnowledgeIntensityWeight:
+    """
+    Per-edge weights for the 0-1 ``knowledge_intensity()`` score.
+
+    Used by: ``compute_knowledge_intensity()`` — the single implementation
+    behind every ``KnowledgeLinkedRelationships.knowledge_intensity()``.
+
+    The score saturates at 1.0, so PRIMARY alone tops out at 7 edges.
+    """
+
+    PRIMARY: Final = 0.15
+    SECONDARY: Final = 0.05
+
+
+# ============================================================================
 # PRIORITY SCORING WEIGHTS (analytics_engine.py)
 # ============================================================================
 

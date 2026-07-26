@@ -30,6 +30,7 @@ Part of the 4-service Analytics architecture:
 """
 
 import contextlib
+from collections import Counter
 from datetime import date
 from typing import Any, Protocol, runtime_checkable
 
@@ -173,10 +174,7 @@ class AnalyticsMetricsService:
         completion_rate = (completed / total * 100) if total > 0 else 0.0
 
         # Priority distribution
-        priority_dist: dict[str, int] = {}
-        for task in tasks:
-            priority = task.priority or "medium"
-            priority_dist[priority] = priority_dist.get(priority, 0) + 1
+        priority_dist: dict[str, int] = dict(Counter(task.priority or "medium" for task in tasks))
 
         # Average completion time (for completed tasks with dates)
         completion_times = []
@@ -415,10 +413,9 @@ class AnalyticsMetricsService:
             total_hours += event.duration_minutes / 60.0
 
         # Events by type
-        events_by_type: dict[str, int] = {}
-        for event in events:
-            event_type = event.event_type or "unknown"
-            events_by_type[event_type] = events_by_type.get(event_type, 0) + 1
+        events_by_type: dict[str, int] = dict(
+            Counter(event.event_type or "unknown" for event in events)
+        )
 
         return Result.ok(
             {
@@ -564,10 +561,9 @@ class AnalyticsMetricsService:
         avg_strength = sum(strengths) / len(strengths) if strengths else 0.0
 
         # Category distribution
-        by_category: dict[str, int] = {}
-        for principle in principles:
-            category = str(getattr(principle, "category", "Unknown"))
-            by_category[category] = by_category.get(category, 0) + 1
+        by_category: dict[str, int] = dict(
+            Counter(str(getattr(principle, "category", "Unknown")) for principle in principles)
+        )
 
         # Overall alignment (would need goals/habits to calculate properly)
         # For now, use average strength as proxy
@@ -976,9 +972,7 @@ class AnalyticsMetricsService:
             frequency = total_entries / days_in_period if days_in_period > 0 else 0
 
             # Top themes (count frequency)
-            theme_counts: dict[str, int] = {}
-            for theme in all_themes:
-                theme_counts[theme] = theme_counts.get(theme, 0) + 1
+            theme_counts: dict[str, int] = Counter(all_themes)
             top_themes = sorted(theme_counts.items(), key=get_theme_count, reverse=True)[:5]
             top_themes_list = [theme for theme, _ in top_themes]
 
