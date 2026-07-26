@@ -58,7 +58,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
     VocabularyError,
     load_vocabulary,
-    looks_like_cypher,
     mask_cypher_comments,
     unregistered_names,
 )
@@ -205,11 +204,11 @@ class CypherLinter:
         """
         Extract statements from a standalone .cypher file.
 
-        The whole file is Cypher by declaration, so no _is_actual_cypher
-        heuristics — just split on statement-terminating semicolons and keep
-        anything the shared ``looks_like_cypher`` predicate admits (the same
-        gate SKUEL030 applies to Python string literals, so the two halves of
-        the vocabulary contract cannot drift apart). Two comment treatments:
+        The whole file is Cypher by declaration, so no admission heuristic at
+        all — not ``_is_actual_cypher``, and not the ``looks_like_cypher`` gate
+        SKUEL030 needs for Python string literals. Just split on
+        statement-terminating semicolons and keep every non-empty fragment.
+        Two comment treatments:
 
         - Comments — ``//`` line and ``/* */`` block (non-nesting, per the
           Cypher spec) — are masked with spaces (positions, newlines, and
@@ -295,10 +294,16 @@ class CypherLinter:
             # `CALL db.index.fulltext.queryNodes(...) YIELD node SET node:Bogus`
             # (Codex P2 on #831). Two gates in series, and widening only the
             # inner one would have left CYP011 exactly as silent as before.
-            # ignore_case: a `.cypher` file is Cypher by declaration, so the
-            # gate's uppercase prose guard buys nothing and would narrow what
-            # the previous keyword filter admitted (Codex P2 on #831).
-            if not looks_like_cypher(statement, ignore_case=True):
+            # No heuristic gate here. A `.cypher` file is Cypher BY DECLARATION
+            # — the extension already answers the only question `looks_like_cypher`
+            # exists to answer, and that predicate is calibrated for Python string
+            # literals, where prose is a real risk. Applying it here just invented
+            # ways to discard real queries: first a local keyword list that dropped
+            # `CALL ... SET node:Label`, then the shared gate, which dropped
+            # lowercase Cypher and then `CYPHER runtime=slotted RETURN ...` (three
+            # rounds of Codex P2 on #831, each a different clause the list did not
+            # know). Empty fragments are the only thing worth dropping.
+            if not statement.strip():
                 continue
             # Anchor start_line at the first real token, not the newline after
             # the previous ';' — rules that report at start_line itself
@@ -641,7 +646,7 @@ class CypherLinter:
             ]
 
         violations: list[Violation] = []
-        for name in unregistered_names(query, vocabulary, ignore_case=True):
+        for name in unregistered_names(query, vocabulary, declared_cypher=True):
             line_num = start_line + name.line_offset
             query_lines = query.splitlines()
             line_content = (

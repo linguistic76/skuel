@@ -214,10 +214,9 @@ _CYPHER_CONTEXT_PATTERN = (
 # Uppercase is required by DEFAULT, not always. The requirement is a prose
 # guard, and prose risk is a property of the CALLER, not of Cypher: SKUEL030
 # reads arbitrary Python string literals, where `"return 1 as ping"` really is
-# ambiguous, but a `.cypher` file is Cypher by declaration and has no prose to
-# protect. Callers on that side pass `ignore_case=True` (Codex P2 on #831 — the
-# `.cypher` extractor previously had a case-insensitive filter of its own, and
-# adopting the shared gate would otherwise have narrowed it).
+# ambiguous. A `.cypher` file has no prose to protect, so callers on that side
+# pass `declared_cypher=True` and skip BOTH the uppercase requirement and the
+# gate itself — see `scan_names`.
 #
 # The list is NOT pruned to "clauses that can carry vocabulary". Pruning would
 # invent a second judgement call — and get it wrong: `DROP CONSTRAINT ... FOR
@@ -359,8 +358,8 @@ _LABEL_MUTATION_ITEM_RE = re.compile(r"\s*[A-Za-z_]\w*((?:\s*:\s*[A-Za-z_]\w*)+)
 # uppercase (the default, for callers reading arbitrary Python strings where the
 # requirement is a prose guard) and once relaxed (for callers whose input is
 # Cypher by declaration). Selecting a whole dialect rather than threading a flag
-# per regex is deliberate: `ignore_case` was first wired into the gate ALONE, and
-# a half-threaded flag is a trap — CYP011 admitted a lowercase statement and then
+# per regex is deliberate: the flag was first wired into the gate ALONE, and a
+# half-threaded flag is a trap — CYP011 admitted a lowercase statement and then
 # scanned it with case-sensitive scanners, so `set n:Bogus` still reported clean
 # (Codex P2 on #831). A table makes "which regexes honour the mode" un-forgettable.
 #
@@ -398,8 +397,8 @@ _RELAXED = _Dialect(
 )
 
 
-def _dialect(ignore_case: bool) -> _Dialect:
-    return _RELAXED if ignore_case else _STRICT
+def _dialect(declared_cypher: bool) -> _Dialect:
+    return _RELAXED if declared_cypher else _STRICT
 
 
 def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
@@ -560,7 +559,7 @@ def _is_cypher(masked: str, dialect: _Dialect) -> bool:
     return dialect.context.search(masked) is not None or _leads_with_cypher_clause(masked, dialect)
 
 
-def looks_like_cypher(fragment: str, *, ignore_case: bool = False) -> bool:
+def looks_like_cypher(fragment: str) -> bool:
     """True if ``fragment`` is admitted by either Cypher anchor.
 
     Anchor 1: a paren/sigil-anchored marker anywhere in the fragment.
@@ -571,15 +570,14 @@ def looks_like_cypher(fragment: str, *, ignore_case: bool = False) -> bool:
     ``CYPHER_LEADING_CLAUSES`` block above for why one anchor cannot do both
     jobs.
 
-    ``ignore_case`` drops the uppercase requirement. It is for callers whose
-    input is Cypher by declaration — a `.cypher` file — where the requirement
-    buys nothing because there is no prose to be confused with. Callers reading
-    arbitrary Python string literals must leave it off.
+    This is the predicate for text that MIGHT be Cypher. A caller holding text
+    that IS Cypher — a `.cypher` file — should not consult it at all; see
+    ``scan_names(declared_cypher=True)``.
     """
-    return _is_cypher(mask_cypher_comments(fragment), _dialect(ignore_case))
+    return _is_cypher(mask_cypher_comments(fragment), _STRICT)
 
 
-def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]:
+def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedName]:
     """Recover every statically-known label / relationship type in ``fragment``.
 
     Covers both positions vocabulary can occupy:
@@ -622,9 +620,9 @@ def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]
     module's gate design argues against. Zero sites in the tree use the form —
     SKUEL labels and edge names are plain identifiers that never need escaping.
     """
-    dialect = _dialect(ignore_case)
+    dialect = _dialect(declared_cypher)
     masked = mask_cypher_comments(fragment)
-    if not _is_cypher(masked, dialect):
+    if not declared_cypher and not _is_cypher(masked, dialect):
         return []
     unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
@@ -686,11 +684,13 @@ def scan_names(fragment: str, *, ignore_case: bool = False) -> list[ScannedName]
 
 
 def unregistered_names(
-    fragment: str, vocabulary: Vocabulary, *, ignore_case: bool = False
+    fragment: str, vocabulary: Vocabulary, *, declared_cypher: bool = False
 ) -> list[ScannedName]:
     """Names in ``fragment`` that the enum registry does not know."""
     return [
-        n for n in scan_names(fragment, ignore_case=ignore_case) if not vocabulary.is_registered(n)
+        n
+        for n in scan_names(fragment, declared_cypher=declared_cypher)
+        if not vocabulary.is_registered(n)
     ]
 
 

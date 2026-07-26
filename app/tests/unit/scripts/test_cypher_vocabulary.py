@@ -135,18 +135,20 @@ class TestLeadingClauseAnchor:
     def test_rejects_prose(self, fragment: str) -> None:
         assert looks_like_cypher(fragment) is False
 
-    def test_ignore_case_drops_the_uppercase_requirement(self) -> None:
-        """Prose risk is a property of the CALLER, not of Cypher.
+    def test_declared_cypher_bypasses_the_gate_entirely(self) -> None:
+        """A caller holding text that IS Cypher should not consult the gate.
 
-        A `.cypher` file is Cypher by declaration and has no prose to be
-        confused with, so callers on that side opt out (Codex P2 on #831).
-        Callers reading arbitrary Python string literals must not.
+        The gate is calibrated for text that MIGHT be Cypher — Python string
+        literals, where prose is a real risk. Applying it to a `.cypher` file
+        only invented ways to discard real queries: lowercase Cypher, then
+        `CYPHER runtime=slotted RETURN ...` (Codex P2 on #831, twice).
         """
-        assert looks_like_cypher("match (n:Typo) return n") is False
-        assert looks_like_cypher("match (n:Typo) return n", ignore_case=True) is True
-        assert [n.value for n in scan_names("match (n:Typo) return n", ignore_case=True)] == [
-            "Typo"
-        ]
+        for query in (
+            "match (n:Typo) return n",
+            "CYPHER runtime=slotted RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+        ):
+            assert looks_like_cypher(query) is False, query
+            assert scan_names(query, declared_cypher=True) != [], query
 
     @pytest.mark.parametrize(
         ("query", "expected"),
@@ -161,19 +163,19 @@ class TestLeadingClauseAnchor:
             ("match ()-[r]->() where type(r) = 'BAD_EDGE' return r", ["BAD_EDGE"]),
         ],
     )
-    def test_ignore_case_reaches_every_scanner(self, query: str, expected: list[str]) -> None:
+    def test_declared_cypher_reaches_every_scanner(self, query: str, expected: list[str]) -> None:
         """A half-threaded flag is a trap.
 
-        `ignore_case` was first wired into the GATE alone, so CYP011 admitted a
+        The flag was first wired into the GATE alone, so CYP011 admitted a
         lowercase statement and then scanned it with case-sensitive scanners —
         `set n:Bogus` still reported clean (Codex P2 on #831).
         """
-        assert [n.value for n in scan_names(query, ignore_case=True)] == expected
+        assert [n.value for n in scan_names(query, declared_cypher=True)] == expected
 
-    def test_ignore_case_does_not_relax_the_name_shape(self) -> None:
+    def test_declared_cypher_does_not_relax_the_name_shape(self) -> None:
         """Only the KEYWORDS relax. PascalCase is what tells a label from a map key."""
         assert [
-            n.value for n in scan_names("match (n) where n:content return n", ignore_case=True)
+            n.value for n in scan_names("match (n) where n:content return n", declared_cypher=True)
         ] == []
 
     def test_paren_anchor_still_admits_mid_fragment_cypher(self) -> None:

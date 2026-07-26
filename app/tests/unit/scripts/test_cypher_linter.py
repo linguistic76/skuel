@@ -336,23 +336,33 @@ class TestExtractCypherStatements:
         for statement, line in statements:
             assert linter._check_vocabulary_registry(statement, probe, line) == []
 
-    def test_lowercase_statements_are_still_admitted(self, tmp_path: Path) -> None:
-        """A `.cypher` file is Cypher by declaration — no prose to guard against.
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "match (n:Bogus) return n;",  # lowercase
+            "CYPHER runtime=slotted RETURN [(a)-[:BOGUS_EDGE]->(b)] AS xs;",  # option prefix
+            "USING PERIODIC COMMIT MATCH (n:Bogus) RETURN n;",
+        ],
+    )
+    def test_no_admission_heuristic_for_declared_cypher(self, tmp_path: Path, content: str) -> None:
+        """A `.cypher` file is Cypher BY DECLARATION — the extension is the answer.
 
-        The shared gate defaults to requiring uppercase because SKUEL030 reads
-        arbitrary Python strings; adopting it here without `ignore_case` would
-        have narrowed what the old case-insensitive keyword filter admitted
-        (Codex P2 on #831).
+        Every heuristic tried here discarded real queries: a local keyword list
+        dropped `CALL ... SET node:Label`, then the shared gate dropped
+        lowercase Cypher and then the `CYPHER` query-option prefix (three rounds
+        of Codex P2 on #831). Only empty fragments are dropped now.
         """
         linter = make_linter()
-        content = "match (n:Bogus) return n;"
         probe = tmp_path / "probe.cypher"
         probe.write_text(content)
         statements = linter._extract_cypher_statements(content)
-        assert [s for s, _ in statements] == ["match (n:Bogus) return n"]
+        assert len(statements) == 1
         violations = linter._check_vocabulary_registry(statements[0][0], probe, 1)
         assert [v.rule_code for v in violations] == ["CYP011"]
-        assert "Bogus" in violations[0].message
+
+    def test_empty_fragments_are_dropped(self) -> None:
+        linter = make_linter()
+        assert linter._extract_cypher_statements(";\n\n  ;\n// just a comment\n") == []
 
     def test_procedure_call_statement_reaches_the_vocabulary_rule(self, tmp_path: Path) -> None:
         """The family the old keyword filter discarded outright."""
