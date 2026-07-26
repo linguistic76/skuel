@@ -22,9 +22,12 @@ from fasthtml.common import (
 from ui.activities._shared import (
     ActivityList,
     ConnectionBadges,
+    ConnectionsBlock,
     MetadataField,
     PriorityBadgeDropdown,
+    TagsBlock,
     safe_id,
+    tag_badges,
 )
 from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
@@ -156,8 +159,7 @@ def ChoiceCard(
     # Tags
     tags_el = Span()
     if choice.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in choice.tags[:5]]
-        tags_el = Div(*tag_badges, cls="mt-2")
+        tags_el = Div(*tag_badges(choice.tags, limit=5), cls="mt-2")
 
     # Connection badges
     conn_el = ConnectionBadges(connections or [])
@@ -295,23 +297,12 @@ def ChoiceDetailView(
         )
 
     # Tags
-    tags_el = Div()
-    if choice.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in choice.tags]
-        tags_el = Div(
-            Small("Tags", cls="text-muted-foreground block mb-2"),
-            *tag_badges,
-            cls="my-4",
-        )
+    tags_el = TagsBlock(choice.tags)
 
     # Connections
     conn_section = Div()
     if connections:
-        conn_section = Div(
-            section_label("Connections"),
-            ConnectionBadges(connections),
-            cls="my-4",
-        )
+        conn_section = ConnectionsBlock(ConnectionBadges(connections))
 
     # Lateral relationships
     relationships = EntityRelationshipsSection(

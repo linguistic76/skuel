@@ -23,7 +23,6 @@ from fasthtml.common import (
     Div,
     Header,
     NotStr,
-    P,
     Section,
     Span,
 )
@@ -32,7 +31,11 @@ from core.models.type_hints import EntityUID
 from ui.components import Icon
 from ui.explore.ku_mastery import render_ku_mastery_section
 from ui.library.resource_chip import resource_chip
-from ui.patterns.detail_nav import detail_back_link, detail_footer_nav
+from ui.patterns.detail_nav import (
+    detail_back_link,
+    detail_footer_nav,
+    render_entity_not_found,
+)
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 
@@ -50,25 +53,14 @@ _COLUMN_CLS = "mx-auto max-w-[700px] px-4 sm:px-6 pt-6 sm:pt-9 pb-28"
 
 def render_ku_not_found(uid: str) -> Div:
     """Render the not-found state for a Ku detail fragment."""
-    return Div(
-        A(
-            Icon("arrow-left", cls="w-3.5 h-3.5"),
-            " Explore",
-            href="/explore",
-            cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
-        ),
-        Div(
-            P("Knowledge unit not found.", cls="text-[14px] font-semibold text-foreground"),
-            P(f"No KU with ID: {uid}", cls="text-[13px] text-muted-foreground mt-1"),
-            A(
-                "← Back to Explore",
-                href="/explore",
-                cls="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground mt-4",
-            ),
-            cls="p-8 border border-border rounded-xl bg-card text-center",
-        ),
-        id="ku-detail-content",
-        cls=_COLUMN_CLS,
+    return render_entity_not_found(
+        entity_label="Knowledge unit",
+        uid=uid,
+        back_href="/explore",
+        back_label="Explore",
+        column_cls=_COLUMN_CLS,
+        content_id="ku-detail-content",
+        uid_label="KU",
     )
 
 

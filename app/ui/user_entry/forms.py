@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import Button, Div, Form, Input, P, Span
+from fasthtml.common import Button, Div, Form, Input, Span
 
 from ui.components import Icon
 from ui.primitives import (
@@ -33,6 +33,7 @@ from ui.primitives import (
     dropdown_menu,
     dropdown_separator,
     icon_tile,
+    section_label,
 )
 
 
@@ -294,19 +295,13 @@ def render_upload_form(
                 ),
                 # 1. SEND TO
                 Div(
-                    P(
-                        "Send to",
-                        cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-                    ),
+                    section_label("Send to"),
                     destination_dropdown,
                     cls="mb-6",
                 ),
                 # 2. YOUR FILE
                 Div(
-                    P(
-                        "Your file",
-                        cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-                    ),
+                    section_label("Your file"),
                     dropzone,
                     file_card,
                 ),

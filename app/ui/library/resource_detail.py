@@ -22,8 +22,12 @@ from fasthtml.common import H1, H2, A, Div, P, Section, Span
 
 from ui.components import Icon
 from ui.library.media_badge import media_badge
-from ui.patterns.detail_nav import detail_back_link, detail_footer_nav
-from ui.primitives import safe_external_url
+from ui.patterns.detail_nav import (
+    detail_back_link,
+    detail_footer_nav,
+    render_entity_not_found,
+)
+from ui.primitives import safe_external_url, section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -38,19 +42,12 @@ _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
 
 def render_resource_not_found(uid: str) -> Div:
     """Render the not-found state for a Resource detail page."""
-    return Div(
-        detail_back_link("Resources", "/library/resources"),
-        Div(
-            P("Resource not found.", cls="text-[14px] font-semibold text-foreground"),
-            P(f"No resource with ID: {uid}", cls="text-[13px] text-muted-foreground mt-1"),
-            A(
-                "← Back to Resources",
-                href="/library/resources",
-                cls="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground mt-4",
-            ),
-            cls="p-8 border border-border rounded-[12px] bg-card text-center",
-        ),
-        cls=_COLUMN_CLS,
+    return render_entity_not_found(
+        entity_label="Resource",
+        uid=uid,
+        back_href="/library/resources",
+        back_label="Resources",
+        column_cls=_COLUMN_CLS,
     )
 
 
@@ -170,11 +167,7 @@ def _annotation_section(description: str) -> "FT":
     if not description:
         return Div()
     return Section(
-        H2(
-            "About",
-            id="resource-about-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("About", tag=H2, id="resource-about-h"),
         P(description, cls="text-[16px] leading-[1.6] text-foreground/80"),
         cls="mt-[30px]",
         role="region",
@@ -201,11 +194,7 @@ def _cited_by_section(cited_by: tuple | list) -> "FT":
     if not rows:
         return Div()
     return Section(
-        H2(
-            "Cited by",
-            id="resource-cited-by-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Cited by", tag=H2, id="resource-cited-by-h"),
         Div(
             *[_cited_by_row(row) for row in rows],
             cls="flex flex-col gap-2",
@@ -250,11 +239,7 @@ def _tags_section(tags: tuple | list) -> "FT":
     if not tag_list:
         return Div()
     return Section(
-        H2(
-            "Tags",
-            id="resource-tags-h",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        section_label("Tags", tag=H2, id="resource-tags-h"),
         Div(
             *[
                 Span(

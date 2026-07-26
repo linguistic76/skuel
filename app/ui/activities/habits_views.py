@@ -22,9 +22,12 @@ from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import (
     ActivityList,
     ConnectionBadges,
+    ConnectionsBlock,
     MetadataField,
     PriorityBadgeDropdown,
+    TagsBlock,
     safe_id,
+    tag_badges,
 )
 from ui.components import Button, ButtonT, Card, Icon
 from ui.dual_track_card import DualTrackSection
@@ -161,8 +164,7 @@ def HabitCard(
     # Tags
     tags_el = Span()
     if habit.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in habit.tags[:5]]
-        tags_el = Div(*tag_badges, cls="mt-2")
+        tags_el = Div(*tag_badges(habit.tags, limit=5), cls="mt-2")
 
     # Connection badges
     conn_el = ConnectionBadges(connections or [])
@@ -414,23 +416,12 @@ def HabitDetailView(
         )
 
     # Tags
-    tags_el = Div()
-    if habit.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in habit.tags]
-        tags_el = Div(
-            Small("Tags", cls="text-muted-foreground block mb-2"),
-            *tag_badges,
-            cls="my-4",
-        )
+    tags_el = TagsBlock(habit.tags)
 
     # Connections
     conn_section = Div()
     if connections:
-        conn_section = Div(
-            section_label("Connections"),
-            ConnectionBadges(connections),
-            cls="my-4",
-        )
+        conn_section = ConnectionsBlock(ConnectionBadges(connections))
 
     # Habit ↔ Choice lens — HTMX-loaded (graph fetch happens in the fragment route)
     choices_section = content_loading_placeholder(

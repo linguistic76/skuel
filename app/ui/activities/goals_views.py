@@ -27,6 +27,7 @@ from ui.activities._shared import (
     ConnectionSummary,
     MetadataField,
     PriorityBadgeDropdown,
+    TagsBlock,
     safe_id,
 )
 from ui.components import Icon
@@ -272,14 +273,7 @@ def GoalDetailView(
         )
 
     # Tags
-    tags_el = Div()
-    if goal.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in goal.tags]
-        tags_el = Div(
-            Small("Tags", cls="text-muted-foreground block mb-2"),
-            *tag_badges,
-            cls="my-4",
-        )
+    tags_el = TagsBlock(goal.tags)
 
     # Milestones section
     milestones_section = Div()
