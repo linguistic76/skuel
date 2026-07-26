@@ -10,6 +10,8 @@ scoring, and file discovery.
 import sys
 from pathlib import Path
 
+import pytest
+
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
@@ -768,6 +770,39 @@ class TestCYP011:
         f = tmp_path / "probe.cypher"
         f.write_text("MATCH (u:User)-[:OWNS]->(t:Task) RETURN t;")
         assert linter._check_vocabulary_registry(f.read_text(), f, 1) == []
+
+    @pytest.mark.parametrize(
+        ("query", "bad_name"),
+        [
+            # RETURN-led pattern comprehension — a real relationship type with no
+            # paren adjacent to the clause keyword for a substring anchor to grip.
+            ("RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs;", "BAD_EDGE"),
+            ("WITH [(a)-[:BAD_EDGE]->(b) | b] AS xs RETURN xs;", "BAD_EDGE"),
+            # A function call between `=` and the pattern defeats the named-path arm.
+            ("MATCH path = shortestPath((a:Task)-[:BAD_EDGE*]-(b:Task)) RETURN path;", "BAD_EDGE"),
+            # `UNWIND $` only anchors on a parameter — a literal list leads a
+            # statement anchor 1 cannot see at all.
+            ("UNWIND [1, 2] AS i RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs;", "BAD_EDGE"),
+            # `SET n:Label` never appears in pattern position.
+            ("MATCH (n:Task) SET n:Bogus RETURN n;", "Bogus"),
+            ("MATCH (n:Task) REMOVE n:Bogus RETURN n;", "Bogus"),
+        ],
+    )
+    def test_statement_head_and_mutation_positions_are_scanned(
+        self, tmp_path: Path, query: str, bad_name: str
+    ) -> None:
+        """`scan_names` returns `[]` for a fragment the gate rejects.
+
+        A rule that silently scans nothing reports clean, so every statement
+        family without a paren/sigil next to its clause keyword was invisible
+        to CYP011 — as was any label attached by `SET` rather than a pattern.
+        """
+        linter = make_linter()
+        f = tmp_path / "probe.cypher"
+        f.write_text(query)
+        violations = linter._check_vocabulary_registry(f.read_text(), f, 1)
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert bad_name in violations[0].message
 
     def test_python_files_are_left_to_skuel030(self, tmp_path: Path) -> None:
         """Running here too would double-report every .py hit."""

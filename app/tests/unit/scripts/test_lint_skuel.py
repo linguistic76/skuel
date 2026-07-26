@@ -1308,6 +1308,71 @@ class TestSKUEL030:
         assert len(violations) == 1
         assert "BAD_EDGE" in violations[0].message
 
+    @pytest.mark.parametrize(
+        ("query", "bad_name"),
+        [
+            # RETURN-led pattern comprehension: a real relationship type with no
+            # paren adjacent to the clause keyword for a substring anchor to grip.
+            ("RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs", "BAD_EDGE"),
+            ("WITH [(a)-[:BAD_EDGE]->(b) | b] AS xs RETURN xs", "BAD_EDGE"),
+            # A function call between `=` and the pattern defeats the
+            # `MATCH x = (` arm added for named paths.
+            ("MATCH path = shortestPath((a:Task)-[:BAD_EDGE*]-(b:Task)) RETURN path", "BAD_EDGE"),
+            # `UNWIND $` only anchors on a parameter, `CALL db.` only on the db
+            # namespace — a literal list and a non-db procedure lead statements
+            # that anchor 1 cannot see at all.
+            ("UNWIND [1, 2] AS i RETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs", "BAD_EDGE"),
+            ("CALL apoc.meta.stats() YIELD labels RETURN [(a)-[:BAD_EDGE]->(b)] AS xs", "BAD_EDGE"),
+        ],
+    )
+    def test_statement_head_clause_is_scanned(self, query: str, bad_name: str) -> None:
+        """Whole statement families have no paren/sigil to anchor a substring on.
+
+        `looks_like_cypher` returns False for these, and `scan_names` returns
+        `[]` outright for a rejected fragment — so SKUEL030 reported clean on
+        Cypher it never looked at. The head anchor supplies the signal position
+        carries that a substring cannot.
+        """
+        violations = lint_cypher(f'q = "{query}"')
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert bad_name in violations[0].message
+
+    def test_prose_naming_a_clause_is_not_scanned(self) -> None:
+        """The head anchor must not turn ordinary strings into Cypher.
+
+        Head position, uppercase, and whitespace+operand are all load-bearing.
+        """
+        content = (
+            'msg = "cascade DETACH DELETE (default False)"\n'
+            'verb = "DELETE"\n'
+            'header = "SET-COOKIE: session=abc"\n'
+            'doc = "RETURNS a mapping of uid to Bogus titles"\n'
+            'lower = "return 1 as ping"\n'
+        )
+        assert lint_cypher(content) == []
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "MATCH (n:Task) SET n:Bogus RETURN n",
+            "MATCH (n:Task) REMOVE n:Bogus RETURN n",
+            "MERGE (n:Task {uid: $uid}) ON CREATE SET n:Bogus RETURN n",
+        ],
+    )
+    def test_label_mutation_is_scanned(self, query: str) -> None:
+        """`SET n:Label` attaches a label the pattern regexes never see.
+
+        A typo here is worse than a typo'd read — Neo4j writes the label it is
+        given, so the graph ends up carrying a name nothing will ever match.
+        """
+        violations = lint_cypher(f'q = "{query}"')
+        assert len(violations) == 1, f"not scanned: {query}"
+        assert "Bogus" in violations[0].message
+
+    def test_property_set_is_not_a_label_mutation(self) -> None:
+        """`SET n.prop = $x` is a dot, not a colon — nothing to validate."""
+        assert lint_cypher('q = "MATCH (n:Task) SET n.title = $title RETURN n"') == []
+
     def test_type_predicate_equality_is_scanned(self) -> None:
         """`type(r) = 'X'` names an edge type as load-bearingly as `[:X]` does."""
         violations = lint_cypher("q = \"MATCH ()-[r]->() WHERE type(r) = 'BAD_EDGE'\"")

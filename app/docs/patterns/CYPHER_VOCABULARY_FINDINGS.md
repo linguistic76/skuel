@@ -780,6 +780,22 @@ carry no baseline pairs — recorded here so they don't get lost.
   Found while removing its `FUNDS_*` arms (§8): only the protocol declaration in
   `base_protocols.py:961` and the implementation exist. Bloat finding, not a
   vocabulary one — left standing, wants its own One Path Forward ruling.
+- **The scan was also bounded by the GATE, not just by the membership check
+  (2026-07-26).** `scan_names()` returns `[]` outright for any fragment
+  `looks_like_cypher()` rejects, so every finding in this document was drawn only
+  from the fragments that predicate happened to admit — and it admitted on a
+  paren/sigil-anchored substring. Whole statement families have no paren beside
+  their clause keyword: `RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs` carries a real
+  relationship type, and `MATCH path = shortestPath((a:Entity)-[:X]-(b))` slips
+  past the named-path arm because a function call sits between the `=` and the
+  pattern. Labels attached by `SET n:Label` were invisible for the same shape
+  reason — they never appear in pattern position at all. **A rule that silently
+  scans nothing reports clean**, which is indistinguishable from a rule that
+  scanned everything and found nothing. Closed with a second, orthogonal anchor
+  (clause keyword at the HEAD of the fragment) plus a mutation-position scanner;
+  measured delta on the live tree was zero, so this is regression prevention.
+  The general form: when an audit is a lower bound, ask what the *gate* excluded,
+  not only what the *check* permitted.
 - **Registered names can be just as dead as unregistered ones.** `HAS_CHILD`,
   `FUNDS_TASK` and `FUNDS_EVENT` are all `RelationshipName` members with no
   writer anywhere in the repo's history (§8). SKUEL030 checks *membership*, not

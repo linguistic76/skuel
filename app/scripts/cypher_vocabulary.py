@@ -159,8 +159,13 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
 # Cypher name scanning
 # =============================================================================
 
-# A fragment is only scanned if it looks like real Cypher. Paren/sigil-anchored
-# markers essentially never appear in prose (mirrors lint_skuel's CYPHER_MARKERS).
+# --- The gate: two anchors, one predicate ------------------------------------
+#
+# Anchor 1 (_CYPHER_CONTEXT_RE) — paren/sigil-anchored markers, matched ANYWHERE
+# in the fragment. Position carries no signal here, so each arm must earn its
+# keep from shape alone: a paren or sigil that essentially never follows the
+# keyword in prose (mirrors lint_skuel's CYPHER_MARKERS).
+#
 # The `MATCH path = (...)` form needs its own arm: the clause keyword is separated
 # from the first pattern by a path variable, so the bare `MATCH (` anchor misses
 # every named-path query (which is most multi-hop traversal Cypher).
@@ -172,12 +177,81 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
 # procedure call and only then filter (`YIELD node ... WHERE EXISTS((node)-[:X]->())`),
 # so a clause-keyword-only anchor left every search builder unscanned (Codex P2 on
 # #732). `CALL db.` is the same marker lint_skuel's own CYPHER_MARKERS uses.
+#
+# Those last three arms are the tell: each was added case-by-case after a form
+# the paren anchor could not see turned up. The anchor's ceiling, not its
+# tuning, is what keeps producing them.
 _CYPHER_CONTEXT_RE = re.compile(
     r"(?:MATCH|MERGE|CREATE)\s*\("
     r"|CREATE\s+(?:\w+\s+){0,2}?(?:INDEX|CONSTRAINT)\b"
     r"|(?:MATCH|MERGE|CREATE)\s+\w+\s*=\s*\("
     r"|UNWIND \$"
     r"|CALL\s+db\."
+)
+
+# Anchor 2 (CYPHER_LEADING_CLAUSES) — clause keywords that may BEGIN a Cypher
+# statement, matched only at the HEAD of the fragment. Position is the signal, so
+# these need no paren/sigil and the statement families anchor 1 structurally
+# cannot see stop being invisible: `RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs`
+# carries a real relationship type and has no paren adjacent to its clause
+# keyword, and `MATCH path = shortestPath((a:Entity)-[:X]-(b))` misses the
+# `= (` arm because a function call sits between the `=` and the pattern.
+#
+# Three conditions keep prose out, and each is load-bearing:
+#
+#   * head position — a fragment that merely NAMES a clause mid-sentence
+#     ("cascade DETACH DELETE (default False)") is prose; only real Cypher leads
+#     with it. Docstrings are already exempt on the SKUEL030 side as inert
+#     nodes; head position is what keeps the rule honest for the prose that is
+#     assigned or passed rather than hung as a bare statement.
+#   * UPPERCASE — every query in this tree writes clauses uppercase, so
+#     requiring it costs nothing and drops the whole lowercase-English surface.
+#   * followed by whitespace + an operand — rules out the bare HTTP verb
+#     "DELETE", header names like "SET-COOKIE", and `RETURNS`/`CREATED`/
+#     `WITHOUT`-style words that merely start with a clause name.
+#
+# Known, deliberate limit: lowercase Cypher (`"return 1 as ping"`) is not
+# admitted. Matching case-insensitively would light up ordinary prose.
+#
+# The list is NOT pruned to "clauses that can carry vocabulary". Pruning would
+# invent a second judgement call — and get it wrong: `DROP CONSTRAINT ... FOR
+# (n:Label)` and `LOAD CSV ... MERGE (n:Label)` both carry names. One question,
+# one answer: does this fragment lead with a Cypher clause?
+#
+# SKUEL021 asks the same question of `core/` and is growing the same anchor.
+# Whichever lands second should import this tuple rather than keep a second copy
+# — a hand-mirror in this codebase has drifted twice already (SKUEL013's
+# 170-entry relationship mirror, and the SKUEL021 marker copy in
+# test_core_utils_boundary.py). This module is the one both linters already
+# import, so it is the side that should own it.
+CYPHER_LEADING_CLAUSES: tuple[str, ...] = (
+    "CALL",
+    "CREATE",
+    "DELETE",
+    "DETACH DELETE",
+    "DROP",
+    "EXPLAIN",
+    "FOREACH",
+    "LOAD CSV",
+    "MATCH",
+    "MERGE",
+    "OPTIONAL MATCH",
+    "PROFILE",
+    "REMOVE",
+    "RETURN",
+    "SET",
+    "SHOW",
+    "UNWIND",
+    "USE",
+    "WITH",
+)
+
+# Longest-first: a regex alternation is ORDERED, not longest-match, so a
+# two-word clause must be offered before any single word it could be confused
+# with. No such pair exists in the current list, which is exactly why the
+# ordering is applied here rather than left to whoever adds the next clause.
+_LEADING_CLAUSE_RE = re.compile(
+    r"^(?:" + "|".join(sorted(CYPHER_LEADING_CLAUSES, key=len, reverse=True)) + r")(?=\s)"
 )
 
 # `[r:TYPE]` / `[:TYPE]` / `[r:A|B*1..3]`. The body stops at the first `]`,
@@ -217,10 +291,40 @@ _LABEL_PREDICATE_RE = re.compile(
     r"\b(?:WHERE|AND|OR|NOT|WITH)\s+(?:NOT\s+)?[a-z_]\w*:([A-Z][A-Za-z0-9]*)"
 )
 
+# Mutation position for labels: `SET n:Ku`, `REMOVE n:Lesson`, `SET n:A:B`. A
+# label attached (or detached) here never appears in pattern position, so
+# `_LABEL_RE` cannot see it — and a typo'd `SET n:Kuu` is worse than a typo'd
+# read: it writes a label nothing will ever match. Anchored on the clause keyword
+# and a lowercase variable so it cannot swallow `SET n.prop = $x` (dot, not
+# colon) or a map literal.
+_LABEL_MUTATION_RE = re.compile(r"\b(?:SET|REMOVE)\s+[a-z_]\w*((?::[A-Za-z_]\w*)+)")
+
+
+def _leads_with_cypher_clause(fragment: str) -> bool:
+    """True if ``fragment``'s first real line opens with a Cypher clause + operand.
+
+    Leading blank and ``//`` comment lines are skipped, so a query that opens
+    with a planner-hint comment still anchors on its first real clause.
+    """
+    for raw in fragment.split("\n"):
+        head = raw.strip()
+        if not head or head.startswith("//"):
+            continue
+        match = _LEADING_CLAUSE_RE.match(head)
+        return match is not None and bool(head[match.end() :].strip())
+    return False
+
 
 def looks_like_cypher(fragment: str) -> bool:
-    """True if ``fragment`` contains an anchored Cypher clause marker."""
-    return _CYPHER_CONTEXT_RE.search(fragment) is not None
+    """True if ``fragment`` is admitted by either Cypher anchor.
+
+    Anchor 1: a paren/sigil-anchored marker anywhere in the fragment.
+    Anchor 2: a clause keyword at the fragment's head, followed by an operand.
+
+    See the ``_CYPHER_CONTEXT_RE`` / ``CYPHER_LEADING_CLAUSES`` block above for
+    why one anchor cannot do both jobs.
+    """
+    return _CYPHER_CONTEXT_RE.search(fragment) is not None or _leads_with_cypher_clause(fragment)
 
 
 def scan_names(fragment: str) -> list[ScannedName]:
@@ -233,6 +337,9 @@ def scan_names(fragment: str) -> list[ScannedName]:
     - **Predicate** — `type(r) = 'X'`, `type(r) IN ['A','B']`, `WHERE n:Label`.
       A typo here makes the predicate unsatisfiable, which fails exactly as
       silently as a typo'd pattern.
+    - **Mutation** — `SET n:Label`, `REMOVE n:Label`. A label attached here is
+      never written in pattern position, so the pattern regexes cannot see it,
+      and a typo writes a label nothing will ever match.
 
     Names touching an interpolation sentinel are skipped: `[:HAS_{domain}]`
     composes its type at runtime, so there is no static name to validate. That
@@ -280,6 +387,13 @@ def scan_names(fragment: str) -> list[ScannedName]:
         name = match.group(1)
         if _LABEL_NAME_RE.fullmatch(name):
             record(NameKind.LABEL, name, match.start(1))
+
+    # Mutation position — SET n:Label / REMOVE n:Label / SET n:A:B
+    for match in _LABEL_MUTATION_RE.finditer(fragment):
+        for raw in match.group(1).split(":"):
+            name = raw.strip()
+            if name and _LABEL_NAME_RE.fullmatch(name):
+                record(NameKind.LABEL, name, match.start(1))
 
     return found
 
