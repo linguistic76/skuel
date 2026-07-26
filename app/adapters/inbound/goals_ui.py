@@ -32,7 +32,10 @@ from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.goals_form import GoalCreateForm, GoalEditForm
 from ui.activities.goals_views import GoalDetailView, GoalList, GoalStatsBar
-from ui.activities.nav import render_activity_sidebar_page
+from ui.activities.nav import (
+    render_activity_sidebar_error,
+    render_activity_sidebar_page,
+)
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -128,16 +131,16 @@ def create_goals_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing goal UID")),
+            return render_activity_sidebar_error(
+                "Missing goal UID",
                 active="goals",
                 request=request,
             )
 
         result = await goals_service.get_goal(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Goal not found")),
+            return render_activity_sidebar_error(
+                "Goal not found",
                 active="goals",
                 request=request,
             )
@@ -157,16 +160,16 @@ def create_goals_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing goal UID")),
+            return render_activity_sidebar_error(
+                "Missing goal UID",
                 active="goals",
                 request=request,
             )
 
         existing = await goals_service.get_goal(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Goal not found")),
+            return render_activity_sidebar_error(
+                "Goal not found",
                 active="goals",
                 request=request,
             )

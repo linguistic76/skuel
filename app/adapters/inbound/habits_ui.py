@@ -41,7 +41,10 @@ from ui.activities.habits_views import (
     HabitList,
     HabitStatsBar,
 )
-from ui.activities.nav import render_activity_sidebar_page
+from ui.activities.nav import (
+    render_activity_sidebar_error,
+    render_activity_sidebar_page,
+)
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -208,16 +211,16 @@ def create_habits_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing habit UID")),
+            return render_activity_sidebar_error(
+                "Missing habit UID",
                 active="habits",
                 request=request,
             )
 
         result = await habits_service.get_habit(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Habit not found")),
+            return render_activity_sidebar_error(
+                "Habit not found",
                 active="habits",
                 request=request,
             )
@@ -237,16 +240,16 @@ def create_habits_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing habit UID")),
+            return render_activity_sidebar_error(
+                "Missing habit UID",
                 active="habits",
                 request=request,
             )
 
         existing = await habits_service.get_habit(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Habit not found")),
+            return render_activity_sidebar_error(
+                "Habit not found",
                 active="habits",
                 request=request,
             )

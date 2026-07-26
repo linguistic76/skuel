@@ -31,7 +31,10 @@ from core.utils.connection_configs import TASK_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_tasks
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
-from ui.activities.nav import render_activity_sidebar_page
+from ui.activities.nav import (
+    render_activity_sidebar_error,
+    render_activity_sidebar_page,
+)
 from ui.activities.tasks_form import TaskCreateForm, TaskEditForm
 from ui.activities.tasks_views import (
     DependencyListFragment,
@@ -155,16 +158,16 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing task UID")),
+            return render_activity_sidebar_error(
+                "Missing task UID",
                 active="tasks",
                 request=request,
             )
 
         result = await tasks_service.get_task(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Task not found")),
+            return render_activity_sidebar_error(
+                "Task not found",
                 active="tasks",
                 request=request,
             )
@@ -192,16 +195,16 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing task UID")),
+            return render_activity_sidebar_error(
+                "Missing task UID",
                 active="tasks",
                 request=request,
             )
 
         existing = await tasks_service.get_task(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Task not found")),
+            return render_activity_sidebar_error(
+                "Task not found",
                 active="tasks",
                 request=request,
             )

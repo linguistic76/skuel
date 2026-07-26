@@ -15,6 +15,9 @@ Usage:
 
 from typing import TYPE_CHECKING, Any
 
+from fasthtml.common import Div
+
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
@@ -68,4 +71,29 @@ def render_activity_sidebar_page(
         active_page=active_page,
         extra_css=extra_css,
         content_max_width=content_max_width,
+    )
+
+
+def render_activity_sidebar_error(
+    message: str,
+    active: str,
+    request: "Request | None" = None,
+) -> "FT":
+    """A whole Activity sidebar page whose only content is an error banner.
+
+    The terminal state of every activity guard that has nothing left to render —
+    a missing UID, or an entity the user does not own (deliberately reported as
+    "not found", per OWNERSHIP_VERIFICATION). Distinct from
+    ``require_owned_entity``, which answers a bare 404 body: these routes are
+    full page loads, so the learner gets the page chrome back.
+
+    Args:
+        message: The user-facing error text.
+        active: The active sidebar item slug (e.g. "tasks").
+        request: The request object for auth detection.
+    """
+    return render_activity_sidebar_page(
+        Div(render_error_banner(message)),
+        active=active,
+        request=request,
     )

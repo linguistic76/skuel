@@ -32,7 +32,10 @@ from core.utils.connection_configs import PRINCIPLE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_principles
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
-from ui.activities.nav import render_activity_sidebar_page
+from ui.activities.nav import (
+    render_activity_sidebar_error,
+    render_activity_sidebar_page,
+)
 from ui.activities.principles_form import PrincipleCreateForm, PrincipleEditForm
 from ui.activities.principles_views import PrincipleDetailView, PrincipleList, PrincipleStatsBar
 from ui.patterns import PageHeader
@@ -123,16 +126,16 @@ def create_principles_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing principle UID")),
+            return render_activity_sidebar_error(
+                "Missing principle UID",
                 active="principles",
                 request=request,
             )
 
         result = await principles_service.get_principle(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Principle not found")),
+            return render_activity_sidebar_error(
+                "Principle not found",
                 active="principles",
                 request=request,
             )
@@ -152,16 +155,16 @@ def create_principles_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Missing principle UID")),
+            return render_activity_sidebar_error(
+                "Missing principle UID",
                 active="principles",
                 request=request,
             )
 
         existing = await principles_service.get_principle(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_page(
-                Div(render_error_banner("Principle not found")),
+            return render_activity_sidebar_error(
+                "Principle not found",
                 active="principles",
                 request=request,
             )
