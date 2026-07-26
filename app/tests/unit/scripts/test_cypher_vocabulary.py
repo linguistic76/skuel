@@ -76,6 +76,27 @@ class TestLeadingClauseAnchor:
     @pytest.mark.parametrize(
         "fragment",
         [
+            "/* hint */\nRETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+            "/* hint */ RETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+            "/* multi\n   line\n   hint */\nRETURN [(a)-[:TYPO_EDGE]->(b) | b] AS xs",
+        ],
+    )
+    def test_skips_leading_block_comments(self, fragment: str) -> None:
+        """`cypher_linter` masks these for `.cypher`; SKUEL030 does not.
+
+        SKUEL030 hands an AST string literal over verbatim, so a `/* ... */`
+        opener would reopen exactly the blind spot the head anchor closes
+        (Codex P2 on #831).
+        """
+        assert looks_like_cypher(fragment) is True
+
+    def test_block_comment_alone_is_not_cypher(self) -> None:
+        """Stripping the comment must not invent a clause that was never there."""
+        assert looks_like_cypher("/* just a note about MATCH and RETURN */") is False
+
+    @pytest.mark.parametrize(
+        "fragment",
+        [
             # Head position is the signal — naming a clause mid-sentence is prose.
             "cascade DETACH DELETE (default False)",
             "Removes an entity and RETURN s the deleted count",

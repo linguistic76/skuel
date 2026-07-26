@@ -1337,6 +1337,17 @@ class TestSKUEL030:
         assert len(violations) == 1, f"not scanned: {query}"
         assert bad_name in violations[0].message
 
+    def test_leading_block_comment_does_not_hide_the_clause(self) -> None:
+        """`cypher_linter` masks `/* */` for `.cypher`; SKUEL030 gets it raw.
+
+        An AST string literal arrives verbatim, so a block-comment opener would
+        reopen the head-anchor blind spot on the Python side (Codex P2 on #831).
+        """
+        content = 'q = """/* planner hint */\nRETURN [(a)-[:BAD_EDGE]->(b) | b] AS xs"""'
+        violations = lint_cypher(content)
+        assert len(violations) == 1
+        assert "BAD_EDGE" in violations[0].message
+
     def test_prose_naming_a_clause_is_not_scanned(self) -> None:
         """The head anchor must not turn ordinary strings into Cypher.
 

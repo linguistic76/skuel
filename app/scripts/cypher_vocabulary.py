@@ -299,14 +299,23 @@ _LABEL_PREDICATE_RE = re.compile(
 # colon) or a map literal.
 _LABEL_MUTATION_RE = re.compile(r"\b(?:SET|REMOVE)\s+[a-z_]\w*((?::[A-Za-z_]\w*)+)")
 
+# Cypher block comments (non-nesting, per the spec) — stripped before the head
+# anchor looks for a leading clause. See `_leads_with_cypher_clause`.
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+
 
 def _leads_with_cypher_clause(fragment: str) -> bool:
     """True if ``fragment``'s first real line opens with a Cypher clause + operand.
 
-    Leading blank and ``//`` comment lines are skipped, so a query that opens
-    with a planner-hint comment still anchors on its first real clause.
+    Leading blank lines and BOTH Cypher comment forms are skipped, so a query
+    that opens with a planner-hint comment still anchors on its first real
+    clause. Block comments have to be handled here rather than left to the
+    caller: ``cypher_linter`` masks them out of ``.cypher`` files before this
+    ever runs, but SKUEL030 hands over an AST string literal verbatim, so a
+    ``/* hint */`` opener would otherwise reopen exactly the blind spot the head
+    anchor exists to close.
     """
-    for raw in fragment.split("\n"):
+    for raw in _BLOCK_COMMENT_RE.sub(" ", fragment).split("\n"):
         head = raw.strip()
         if not head or head.startswith("//"):
             continue
@@ -344,6 +353,16 @@ def scan_names(fragment: str) -> list[ScannedName]:
     Names touching an interpolation sentinel are skipped: `[:HAS_{domain}]`
     composes its type at runtime, so there is no static name to validate. That
     is a sanctioned below-boundary pattern, not a violation.
+
+    **Known limit, deliberate: quoted operands are not excluded.** A name inside
+    a Cypher string literal (``RETURN 'SET n:Bogus' AS example``) is scanned like
+    any other, in every position — this has always been true of the pattern and
+    label-predicate regexes and is not specific to the mutation scanner. It is
+    not fixable by masking quotes, because the ``type(r) = 'X'`` scanner reads
+    vocabulary out of quoted operands *on purpose*: masking would trade a
+    hypothetical false positive for a real, tested false negative. Zero sites in
+    the tree hit it; the suppression comment is the escape hatch if one ever
+    does.
     """
     if not looks_like_cypher(fragment):
         return []
