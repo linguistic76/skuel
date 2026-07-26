@@ -102,10 +102,15 @@ def lint_content(
     ):
         linter._check_cypher_vocabulary(fp, rel, content, lines, tree)
 
-    # Boundary rules (ADR-044): SKUEL001 (APOC) + SKUEL021 (raw Cypher) run on all
-    # of core/ as well as any /services/ path — mirror _lint_file's is_below_boundary.
-    is_below_boundary = is_core or is_service
-    if is_below_boundary and not is_test:
+    # Inbound/presentation layers — mirror _lint_file, reading the SAME tuple the
+    # production gate reads so the two cannot drift.
+    is_inbound_layer = rel.as_posix().startswith(SkuelLinter.INBOUND_LAYER_PREFIXES)
+
+    # Boundary rules (ADR-044): SKUEL001 (APOC) + SKUEL021 (raw Cypher) run on all of
+    # core/, any /services/ path, AND the inbound/presentation layers — mirror
+    # _lint_file's is_above_boundary.
+    is_above_boundary = is_core or is_service or is_inbound_layer
+    if is_above_boundary and not is_test:
         if linter._should_run_rule("SKUEL001"):
             linter._check_apoc_in_services(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL021"):
@@ -118,8 +123,7 @@ def lint_content(
             linter._check_result_return_types(fp, rel, content, lines, tree)
 
     # SKUEL007 + SKUEL013 + SKUEL014 also cover the inbound/presentation
-    # layers — mirror _lint_file.
-    is_inbound_layer = rel.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
+    # layers — mirror _lint_file (is_inbound_layer computed above).
     if (is_service or is_inbound_layer) and not is_test:
         if linter._should_run_rule("SKUEL007"):
             linter._check_string_result_fail(fp, rel, content, lines)
@@ -352,6 +356,94 @@ class TestSKUEL001:
         linter = make_linter(["SKUEL001"])
         violations = lint_content(linter, 'query = "CALL apoc.meta.data()"')
         assert len(violations) == 1
+
+    def test_matches_the_whole_apoc_namespace(self) -> None:
+        """The rule matches `apoc.` + its dotted path, not a curated prefix list.
+        A nine-prefix list silently passed apoc.convert/coll/text/periodic and every
+        new APOC release — a lagging approximation of "no APOC above the boundary"."""
+        for proc in (
+            "apoc.convert.fromJsonMap($json)",
+            "apoc.coll.toSet(items)",
+            "apoc.text.join(parts, ',')",
+            "apoc.periodic.iterate(q1, q2, {})",
+            "apoc.create.node(labels, props)",
+        ):
+            violations = lint_content(make_linter(["SKUEL001"]), f'q = "RETURN {proc} AS x"')
+            assert len(violations) == 1, proc
+            assert violations[0].severity == Severity.CRITICAL
+
+    def test_message_names_the_procedure_found(self) -> None:
+        """Namespace matching must not cost message specificity — the violation
+        reports the procedure it actually matched, not the namespace prefix."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(linter, 'q = "RETURN apoc.convert.fromJsonMap($j) AS d"')
+        assert violations[0].message == (
+            "APOC procedure 'apoc.convert.fromJsonMap' authored above the boundary"
+        )
+
+    def test_bare_apoc_word_is_not_a_procedure(self) -> None:
+        """A used string naming APOC without a dotted procedure path is prose, not a
+        call — the pattern requires at least one `.segment`."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(linter, 'msg = "APOC is banned above the boundary"')
+        assert len(violations) == 0
+
+    def test_mention_without_invocation_is_not_flagged(self) -> None:
+        """Invocation, not mention. This rule is CRITICAL and unsuppressable, so a
+        false positive on diagnostic/help text would be unfixable except by rewording
+        the string. Cypher invokes APOC only as `CALL apoc.x.y(...)` or bare
+        `apoc.x.y(...)` — prose naming a procedure has neither anchor."""
+        for prose in (
+            "apoc.convert.fromJsonMap is unavailable on this server",
+            "Schema introspection needs apoc.meta.stats — ask an admin",
+            "Migrated off apoc.path.subgraphAll in PR #75",
+            # The CALL branch is case-sensitive and word-boundary anchored — each
+            # condition kills a different English phrasing that otherwise reads as
+            # an invocation.
+            "Please call apoc.convert.fromJsonMap during diagnosis",
+            "Recall apoc.meta.stats before filing a ticket",
+        ):
+            violations = lint_content(make_linter(["SKUEL001"]), f"logger.warning({prose!r})")
+            assert violations == [], prose
+
+    def test_detects_name_assembled_into_query_elsewhere(self) -> None:
+        """`proc = "apoc.path.subgraphAll"` then `f"CALL {proc}(n)"` — the CALL and
+        the paren live in a different AST node than the name, so neither invocation
+        anchor is present on the node carrying it, and SKUEL021 does not cover it
+        either (`CALL apoc.` is not a CYPHER_MARKER). A used string whose ENTIRE
+        value is a dotted apoc path is the third recognised form."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(
+            linter, 'proc = "apoc.path.subgraphAll"\nq = f"CALL {proc}(n)"\nrun(q)'
+        )
+        assert len(violations) == 1
+        assert violations[0].severity == Severity.CRITICAL
+        assert "apoc.path.subgraphAll" in violations[0].message
+
+    def test_call_form_survives_interpolated_arguments(self) -> None:
+        """Why the CALL branch is kept rather than requiring the paren alone: an
+        f-string that interpolates the argument list has no literal `(` after the
+        procedure path, but `CALL apoc...` is still an invocation."""
+        linter = make_linter(["SKUEL001"])
+        violations = lint_content(
+            linter, 'args = "{}"\nq = f"CALL apoc.periodic.iterate{args}"\nrun(q)'
+        )
+        assert len(violations) == 1
+        assert "apoc.periodic.iterate" in violations[0].message
+
+    def test_fires_in_inbound_layer(self) -> None:
+        """Shares SKUEL021's gate: a ``CALL apoc...`` is Cypher, so the layers that
+        may not author Cypher may not author APOC either. Without this, extending
+        only SKUEL021 would leave a hole — ``CALL apoc.`` is not a CYPHER_MARKER."""
+        for path in ("adapters/inbound/system_api.py", "ui/explore/cards.py"):
+            violations = lint_content(
+                make_linter(["SKUEL001"]),
+                'q = "CALL apoc.path.subgraphAll(n, {maxLevel: 3})"',
+                file_path=path,
+                is_service=False,
+            )
+            assert len(violations) == 1, path
+            assert violations[0].rule_id == "SKUEL001"
 
     # --- docstring-aware: APOC mentioned in documentation is not a violation ---
     # (the gate now covers all of core/, so prose mentioning a banned proc — e.g. a
@@ -751,16 +843,6 @@ class TestSKUEL007:
         )
         assert len(violations) == 1
 
-    def test_fires_in_api(self) -> None:
-        linter = make_linter(["SKUEL007"])
-        violations = lint_content(
-            linter,
-            "return Result.fail(str(e))",
-            file_path="api/models.py",
-            is_service=False,
-        )
-        assert len(violations) == 1
-
     def test_silent_outside_scope(self) -> None:
         # scripts/ and non-service core/ modules stay out of SKUEL007's scope.
         linter = make_linter(["SKUEL007"])
@@ -1045,16 +1127,6 @@ class TestSKUEL013:
             linter,
             'badge = rel_badge("SUPPORTS_GOAL")',
             file_path="ui/components/relationship_badge.py",
-            is_service=False,
-        )
-        assert len(violations) == 1
-
-    def test_fires_in_api(self) -> None:
-        linter = make_linter(["SKUEL013"])
-        violations = lint_content(
-            linter,
-            'DEFAULT_RELATIONSHIP = "BLOCKS"',
-            file_path="api/models.py",
             is_service=False,
         )
         assert len(violations) == 1
@@ -1589,16 +1661,6 @@ class TestSKUEL014:
             linter,
             'is_ku = item.get("_domain") == "ku"',
             file_path="ui/explore/cards.py",
-            is_service=False,
-        )
-        assert len(violations) == 1
-
-    def test_fires_in_api(self) -> None:
-        linter = make_linter(["SKUEL014"])
-        violations = lint_content(
-            linter,
-            'if kind == "exercise":\n    pass',
-            file_path="api/models.py",
             is_service=False,
         )
         assert len(violations) == 1
@@ -2639,6 +2701,80 @@ class TestSKUEL021:
         linter = make_linter(["SKUEL021"])
         violations = lint_content(linter, "result = await self.backend.get_tasks(user_uid)")
         assert len(violations) == 0
+
+    # --- Inbound/presentation scope (routes orchestrate, ui/ renders) ---
+
+    def test_fires_in_inbound_adapters(self) -> None:
+        """A route is above the boundary for the same reason core/ is (ADR-044)."""
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter,
+            'rows = await adapter.execute_query("MATCH (u:User) RETURN u", {})',
+            file_path="adapters/inbound/system_api.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+        assert violations[0].severity == Severity.ERROR
+
+    def test_fires_in_ui(self) -> None:
+        linter = make_linter(["SKUEL021"])
+        violations = lint_content(
+            linter,
+            'q = "MERGE (n:Tag {name: $name})"',
+            file_path="ui/explore/cards.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL021"
+
+    def test_skips_inbound_docstring_cypher(self) -> None:
+        """The docstring-aware core still holds on the widened gate — a route may
+        document the query its backend runs without authoring it."""
+        linter = make_linter(["SKUEL021"])
+        content = (
+            "def route():\n"
+            '    """Lists users.\n\n'
+            "    Backend: UserBackend.list_users — MATCH (u:User) RETURN u\n"
+            '    """\n'
+            "    return None\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="adapters/inbound/user_api.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_english_ui_strings_are_not_cypher(self) -> None:
+        """Why CYPHER_MARKERS are clause+paren anchored rather than bare clause
+        heads: the presentation layer is full of button labels and prose that open
+        with a word that is also a Cypher clause. A bare-head matcher flags ~80 of
+        these across adapters/inbound/ + ui/ and zero real queries."""
+        linter = make_linter(["SKUEL021"])
+        content = (
+            'a = Button("Create Invoice")\n'
+            'b = Button("Delete")\n'
+            'c = Span("Show All")\n'
+            'd = Li("Set your goals")\n'
+            'e = dict(hx_confirm="Remove this relationship?")\n'
+            'f = dict(methods=["DELETE"])\n'
+            'g = Div("Use the filters above to refine your results")\n'
+        )
+        violations = lint_content(
+            linter, content, file_path="ui/finance/invoice_views.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_silent_outside_scope(self) -> None:
+        """scripts/ authors Cypher legitimately (audits, migrations, benchmarks) and
+        stays out of the gate — as does adapters/persistence/, which owns it."""
+        for path in ("scripts/audit_graph_hygiene.py", "adapters/persistence/neo4j/backend.py"):
+            violations = lint_content(
+                make_linter(["SKUEL021"]),
+                'q = "MATCH (n:Entity) RETURN n"',
+                file_path=path,
+                is_service=False,
+            )
+            assert violations == [], path
 
 
 # ============================================================================

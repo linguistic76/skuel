@@ -8,13 +8,13 @@ Single linter enforcing all SKUEL architectural and code patterns.
 RULES (by severity):
 
 CRITICAL (blocks CI):
-  SKUEL001: No APOC path procedures in domain services
+  SKUEL001: No APOC path procedures above the boundary (core/, routes, ui/)
 
 ERROR (blocks CI):
   SKUEL002: Semantic type enums (not magic strings)
   SKUEL003: .is_err deprecated - use .is_error
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
-  SKUEL021: No raw Cypher in the service layer (lives below the boundary, ADR-044)
+  SKUEL021: No raw Cypher above the boundary — core/, routes, ui/ (ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
   SKUEL023: core/ thin services must type self.backend against a core/ports protocol
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
@@ -106,16 +106,25 @@ class Severity(Enum):
 # Rule documentation for --explain
 RULE_DOCS: dict[str, dict[str, str]] = {
     "SKUEL001": {
-        "title": "No APOC in Domain Services",
+        "title": "No APOC Above the Hexagonal Boundary",
         "severity": "CRITICAL",
-        "description": """APOC procedures are banned in domain services (core/services/*).
+        "description": """APOC is banned everywhere above the ADR-044 boundary:
+core/, any /services/ path, and the inbound/presentation layers (adapters/inbound/, ui/).
 Use CypherGenerator or pure Cypher instead.
 
-APOC is only allowed in adapter layer (adapters/persistence/*) for complex traversals.""",
+APOC is only allowed in adapter layer (adapters/persistence/*) for complex traversals.
+Shares SKUEL021's gate — a CALL apoc... is Cypher, so the layers that may not author
+Cypher may not author APOC either.
+
+Matches the `apoc.` NAMESPACE, not a curated procedure list: apoc.convert.*,
+apoc.coll.*, apoc.text.*, apoc.periodic.* and every future APOC addition are covered
+without maintenance. apoc.meta.* is NOT an exception — that allowance is the Neo4j
+server plugin allowlist (dbms_security_procedures_allowlist), exercised only by
+tests/integration/test_apoc_canary.py, which this rule skips as a test file.""",
         "good": """# Use CypherGenerator
 query = CypherGenerator.build_prerequisite_chain(uid)
 result = await backend.execute_query(query)""",
-        "bad": """# Don't use APOC in services
+        "bad": """# Don't use APOC above the boundary
 query = "CALL apoc.path.subgraphAll(n, {...})"
 result = await backend.execute_query(query)""",
     },
@@ -503,12 +512,17 @@ async def pwa_manifest(request: Any) -> FileResponse:  # 400s before any gate ru
     ...""",
     },
     "SKUEL021": {
-        "title": "No Raw Cypher in the Service Layer",
+        "title": "No Raw Cypher Above the Hexagonal Boundary",
         "severity": "ERROR",
         "description": """ADR-044 places the hexagonal boundary at UniversalNeo4jBackend /
-adapters/persistence/neo4j/. All Cypher lives below that boundary; services orchestrate and
-call backend methods — they do not author Cypher. (SKUEL001 only bans APOC procedures; this
-rule covers raw Cypher generally, which was previously unguarded.)
+adapters/persistence/neo4j/. All Cypher lives below that boundary; everything above it
+orchestrates and calls backend methods — it does not author Cypher. (SKUEL001 only bans
+APOC procedures; this rule covers raw Cypher generally, which was previously unguarded.)
+
+Scope: core/, any /services/ path, and the inbound/presentation layers
+(adapters/inbound/, ui/). Routes and renderers are above the boundary for exactly the
+reason core/ is — a route composes services, it does not talk to the driver. The inbound
+half mirrors SKUEL027, the ui/ sibling SKUEL022 grew for the import-direction rule.
 
 The detector uses two anchors so prose/comments are not caught. Either a paren/sigil-anchored
 clause anywhere in the literal (MATCH (, MERGE (, OPTIONAL MATCH (, CREATE (, UNWIND $,
@@ -518,9 +532,19 @@ The head anchor covers statement families that have no paren or sigil to match o
 `RETURN 1 as ping` health probe is Cypher; "cascade DETACH DELETE (default False)" is prose.
 Comment lines and docstrings are skipped.
 
+All three of the head anchor's conditions — head position, UPPERCASE, and the
+whitespace+operand requirement — are load-bearing, and the presentation layer is where
+that is easiest to see. Measured across adapters/inbound/ + ui/: relax the anchor to be
+case-insensitive and it yields ~80 hits, every one of them an English string that merely
+opens with a clause word ("Create Invoice", "Delete", "Show All", "Set your goals",
+"Remove this relationship?", methods=["DELETE"]) and not one of them Cypher. Keep all
+three and it yields zero. TestSKUEL021::test_english_ui_strings_are_not_cypher pins that
+corpus so a future relaxation cannot regress it silently.
+
 Fix: relocate the query into an adapter backend (adapters/persistence/neo4j/) behind a
 core/ports protocol. See the relationship / ps_engagement / ingestion / query backends for
-the pattern.
+the pattern. A composition-root liveness probe on a driver the root itself built is the
+one shape that is NOT a port candidate — see services_bootstrap/_system_health.py.
 
 Suppress: # skuel-lint: disable=SKUEL021 -- <reason>
 File-level: # skuel-lint: disable-file=SKUEL021 -- <reason>""",
@@ -1131,6 +1155,19 @@ class SkuelLinter:
     # was promoted to ERROR on 2026-07-18 after the reduction arc hit 0 (#679-#696).
     OPT_IN_RULES: ClassVar[frozenset[str]] = frozenset()
 
+    # The inbound/presentation layers: HTTP routes and the renderers they hand FTs
+    # to. Repo-relative path prefixes, matched against `rel_path.as_posix()`.
+    #
+    # Gates SKUEL007/013/014 (raw error / relationship / entity strings) and, since
+    # the raw-Cypher scope extension, SKUEL001/021 as well — routes orchestrate and
+    # UI renders; neither authors Cypher, exactly as core/ does not (ADR-044).
+    #
+    # A ClassVar rather than an inline literal so `_lint_file` and the scope mirror
+    # in tests/unit/scripts/test_lint_skuel.py read the SAME tuple. They had already
+    # drifted (the mirror carried a phantom "api/" prefix for a directory that does
+    # not exist, so three tests asserted a scope production never had).
+    INBOUND_LAYER_PREFIXES: ClassVar[tuple[str, ...]] = ("adapters/inbound/", "ui/")
+
     # SKUEL019: Credential keys that must route through get_credential().
     #
     # Mirrored from `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
@@ -1530,25 +1567,32 @@ class SkuelLinter:
             is_test = "test_" in file_path.name or "/tests/" in str(file_path)
             is_service = "/services/" in str(file_path) and file_path.suffix == ".py"
             # SKUEL001 (APOC), SKUEL021 (raw Cypher), and SKUEL022 (import direction)
-            # all enforce the ADR-044 hexagonal boundary, and all three now share the
-            # SAME scope: every module under core/. Cypher of any kind is authored only
-            # BELOW the boundary (adapters/persistence/neo4j/); core/ orchestrates and
-            # calls backend methods. The scope grew to all of core/ once the last
-            # Cypher-authoring leaks outside core/services|ingestion|infrastructure were
-            # relocated below the boundary — core/utils (connection_fetcher, PR #75) and
-            # core/models (search_request, PR #78). The SKUEL021 checker is AST-based and
-            # skips docstring / bare-string example blocks, so the legitimate Cypher
-            # examples in core/utils docstrings (processor_functions, neo4j_mapper, ...)
-            # do not trip it; SKUEL001 has no hits in core/ outside the old gate.
-            # Other service-only rules (SKUEL002/004/005/007/014) stay on is_service;
-            # SKUEL013 additionally covers the inbound/presentation layers (see below).
+            # all enforce the ADR-044 hexagonal boundary. Cypher of any kind is authored
+            # only BELOW the boundary (adapters/persistence/neo4j/); everything above it
+            # orchestrates and calls backend methods. For SKUEL001/021 "above" is now the
+            # whole above-boundary surface: core/ (grew here once the last leaks in
+            # core/utils — connection_fetcher, PR #75 — and core/models — search_request,
+            # PR #78 — were relocated) PLUS the inbound/presentation layers, which are
+            # above the boundary for the same reason core/ is: routes orchestrate and UI
+            # renders; neither authors queries. Extending them there mirrors SKUEL027,
+            # the ui/ sibling SKUEL022 grew for the import-direction rule.
+            # Both checkers are AST-based and skip docstring / bare-string example
+            # blocks, so the legitimate Cypher examples in core/utils docstrings
+            # (processor_functions, neo4j_mapper, ...) do not trip them.
+            # SKUEL022 stays core/-only — ui/ has its own sibling rule (SKUEL027), and
+            # adapters/inbound/ importing adapters/ is the composition it exists to do.
+            # Other service-only rules (SKUEL002/004/005) stay on is_service;
+            # SKUEL007/013/014 share the inbound/presentation scope (see below).
             path_str = str(file_path)
             is_core = "/core/" in path_str and file_path.suffix == ".py"
             is_ui = "/ui/" in path_str and file_path.suffix == ".py"
+            # Routes (adapters/inbound/) + renderers (ui/). Single-sourced as a class
+            # constant so the test harness's scope mirror cannot drift from this gate.
+            is_inbound_layer = rel_path.as_posix().startswith(self.INBOUND_LAYER_PREFIXES)
             # is_service is a strict subset of is_core today (no /services/ tree lives
             # outside core/), but keep it in the OR so a future non-core service dir
             # still gets the boundary rules.
-            is_below_boundary = is_core or is_service
+            is_above_boundary = is_core or is_service or is_inbound_layer
 
             # Shared parse: every AST rule reads the SAME tree, parsed once per
             # file (previously each rule re-parsed independently — ~7 parses/file
@@ -1614,8 +1658,9 @@ class SkuelLinter:
             if self._should_run_rule("SKUEL029") and not is_test:
                 self._check_async_without_await(file_path, rel_path, content, lines, tree)
 
-            # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere in core/.
-            if is_below_boundary and not is_test:
+            # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere above the
+            # boundary — core/, any /services/ path, and the inbound/presentation layers.
+            if is_above_boundary and not is_test:
                 if self._should_run_rule("SKUEL001"):
                     self._check_apoc_in_services(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL021"):
@@ -1644,8 +1689,8 @@ class SkuelLinter:
             # Inbound/presentation layers (routes, UI renderers) — raw
             # relationship-type / entity-type / error strings creep in here
             # too, so SKUEL007, SKUEL013, and SKUEL014 run on these layers in
-            # addition to services.
-            is_inbound_layer = rel_path.as_posix().startswith(("adapters/inbound/", "ui/"))
+            # addition to services. (is_inbound_layer is computed above, where the
+            # boundary rules now share it.)
             if (is_service or is_inbound_layer) and not is_test:
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
@@ -1673,29 +1718,75 @@ class SkuelLinter:
         tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL001 [CRITICAL]: No banned APOC procedures authored above the boundary.
+        SKUEL001 [CRITICAL]: No APOC authored above the boundary.
 
         APOC is a Neo4j server-side procedure namespace invoked via ``CALL apoc...``
-        inside Cypher — it belongs to the adapter, not core/ (ADR-044); domain code
-        uses pure Cypher / CypherGenerator. Like SKUEL021, this is AST-based: a banned
-        procedure only matters when it appears in a *used* string literal (the Cypher
-        a service would hand to the driver, incl. f-string parts). Inert bare-string
-        statements — docstrings AND mid-body ``USAGE EXAMPLES`` blocks — are skipped by
-        node identity, and comments (full-line AND inline) are not string nodes at all,
-        so an APOC name in documentation/prose (e.g. explaining *why* APOC is banned)
-        never trips this rule. That keeps it correct now that its gate covers all of
-        core/. CRITICAL and intentionally unsuppressable.
+        inside Cypher — it belongs to the adapter, not to anything above the boundary
+        (ADR-044); domain code uses pure Cypher / CypherGenerator. Shares SKUEL021's
+        gate: core/, any /services/ path, and the inbound/presentation layers
+        (``adapters/inbound/``, ``ui/``). Like SKUEL021, this is AST-based: APOC only
+        matters when it appears in a *used* string literal (the Cypher a service would
+        hand to the driver, incl. f-string parts). Inert bare-string statements —
+        docstrings AND mid-body ``USAGE EXAMPLES`` blocks — are skipped by node
+        identity, and comments (full-line AND inline) are not string nodes at all, so
+        an APOC name in documentation/prose (e.g. explaining *why* APOC is banned)
+        never trips this rule. CRITICAL and intentionally unsuppressable.
+
+        **Namespace-matched, not a curated procedure list.** This used to enumerate
+        nine prefixes, which meant anything outside them — ``apoc.convert.*``,
+        ``apoc.coll.*``, ``apoc.text.*``, ``apoc.periodic.*``, and every APOC release's
+        new additions — passed silently. The invariant is "no APOC above the boundary",
+        so the matcher is the namespace itself; a selective list can only ever be a
+        lagging approximation of it. Measured before the change: **zero** used string
+        constants containing ``apoc.`` anywhere in scope, so nothing legitimate is
+        caught by widening. Note ``apoc.meta.*`` is NOT an exception here — that
+        allowance is the Neo4j *server* plugin allowlist
+        (``dbms_security_procedures_allowlist``), exercised only by
+        ``tests/integration/test_apoc_canary.py``, which this rule skips as a test file.
+
+        **Invocation, not mention.** A bare namespace match would flag prose that
+        merely *names* a procedure — ``logger.warning("apoc.convert.fromJsonMap is
+        unavailable")`` — and this rule is CRITICAL and unsuppressable, so a false
+        positive is unfixable except by rewording the string. Cypher only ever
+        *invokes* APOC two ways: ``CALL apoc.x.y(...)`` (procedure) or bare
+        ``apoc.x.y(...)`` in a RETURN/WHERE (function). Both are anchored — a
+        preceding ``CALL`` or a following ``(`` — and requiring one of those is the
+        same paren/sigil discipline that keeps SKUEL021's CYPHER_MARKERS off prose.
+
+        Anchoring alone, though, misses a query assembled across constants:
+        ``proc = "apoc.path.subgraphAll"`` then ``q = f"CALL {proc}(n)"``. The
+        ``CALL`` and the ``(`` live in a different AST node than the name, so neither
+        anchor is present on the node that carries it — and SKUEL021 does not cover
+        it either, since ``CALL apoc.`` is not a CYPHER_MARKER. Hence the third form:
+        a used string whose *entire* value is a dotted apoc path. Prose cannot take
+        that shape (it has other words in it), so the discrimination holds in both
+        directions. What remains genuinely undetectable by any string rule is a split
+        that puts no apoc text in any single literal (``"CALL " + proc`` where ``proc``
+        arrives from elsewhere) — out of reach of static string matching, not an
+        oversight.
         """
-        banned_apoc = (
-            "apoc.path.subgraphNodes",
-            "apoc.path.subgraphAll",
-            "apoc.path.expandConfig",
-            "apoc.path.spanningTree",
-            "apoc.cypher.run",
-            "apoc.cypher.runMany",
-            "apoc.map.",
-            "apoc.schema.",
-            "apoc.meta.",
+        # 1: `CALL apoc.x.y` — procedure invocation; the paren may be interpolated,
+        #    which is why the CALL branch exists rather than requiring a paren alone
+        #    (f"CALL apoc.periodic.iterate{args}").
+        # 2: `apoc.x.y(` — function invocation inside a RETURN/WHERE.
+        # 3: the whole string IS the dotted path — a name assembled into a query
+        #    elsewhere. Prose never fullmatches.
+        # Each branch captures the path so the message names what it found.
+        #
+        # Case-SENSITIVE, and `\b` before CALL. Both are load-bearing against English
+        # prose, and each kills a different case: without the uppercase requirement
+        # "Please call apoc.convert.fromJsonMap during diagnosis" reads as a CALL
+        # invocation, and without the word boundary the "call" inside "Recall
+        # apoc.meta.stats" does. Neither is a false positive this rule can afford —
+        # SKUEL001 is CRITICAL and unsuppressable, so the only remedy would be
+        # rewording the string. Nothing real is lost: Cypher in this tree is written
+        # uppercase (the same assumption CYPHER_LEADING_CLAUSES makes), and Neo4j
+        # procedure names are themselves case-sensitive lowercase — `APOC.meta.data`
+        # does not resolve on the server, so it is not a query worth catching.
+        apoc_pattern = re.compile(
+            r"\bCALL\s+(apoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)"
+            r"|(\bapoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\("
+            r"|^\s*(apoc(?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*$"
         )
 
         if tree is None:
@@ -1709,9 +1800,11 @@ class SkuelLinter:
                 continue
             if id(node) in inert_ids:
                 continue
-            apoc_proc = next((p for p in banned_apoc if p in node.value), None)
-            if apoc_proc is None:
+            apoc_match = apoc_pattern.search(node.value)
+            if apoc_match is None:
                 continue
+            # Exactly one branch participates per match.
+            apoc_proc = apoc_match.group(1) or apoc_match.group(2) or apoc_match.group(3)
 
             line_num = node.lineno
             if line_num in reported_lines:
@@ -2015,9 +2108,10 @@ class SkuelLinter:
 
         ADR-044 puts the boundary at ``UniversalNeo4jBackend`` /
         ``adapters/persistence/neo4j/``: all Cypher lives below it. Code above the
-        boundary (all of ``core/``) orchestrates and calls backend methods; it does
-        not author Cypher. (Note SKUEL001 only bans APOC — this rule covers raw
-        Cypher generally.)
+        boundary — all of ``core/`` plus the inbound/presentation layers
+        (``adapters/inbound/``, ``ui/``) — orchestrates and calls backend methods;
+        it does not author Cypher. (Note SKUEL001 only bans APOC — this rule covers
+        raw Cypher generally.)
 
         AST-based, not a line scan: Cypher only matters when it is *used* (assigned,
         passed, returned, interpolated). String literals that are inert bare
