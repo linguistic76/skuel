@@ -835,27 +835,51 @@ class TestMutationRegionTruncation:
 
     def test_the_report_names_the_keyword_that_broke_the_region(self) -> None:
         """A span without its cause makes the reader re-derive the walk by hand."""
-        found = _truncations("MATCH (n) SET n:Ku, x ORDER y, m:Entity RETURN n")
-        assert found == [("m:Entity", "ORDER")]
-
-    def test_an_item_glued_to_a_following_clause_is_still_recovered(self) -> None:
-        """The permissive walk's LAST item runs to the end of the fragment.
-
-        So a lost item followed by any further clause arrives as
-        `` m:Entity RETURN n``, which cannot full-match. `_recoverable_items`
-        re-heads it and asks the STRICT policy where it stops — delegation to
-        the break rule rather than a second copy of it.
-        """
-        assert _truncations("MATCH (n) SET n:Ku, x ORDER y, m:Entity RETURN n") == [
-            ("m:Entity", "ORDER")
+        assert _truncations("MATCH (n) SET a:Ku, order:Bogus", declared_cypher=True) == [
+            ("order:Bogus", "order")
         ]
 
-    def test_a_lost_item_is_reported_once_however_many_regions_reach_it(self) -> None:
-        """Permissive regions overrun into each other; one lost item is one finding."""
-        found = _truncations(
-            "MATCH (n) SET n:Ku, x ORDER y, m:Entity WITH n MATCH (p) SET p:Entity",
-        )
-        assert [span for span, _ in found].count("m:Entity") == 1
+    def test_a_break_inside_an_item_is_detected_too(self) -> None:
+        """`&` joins labels, and it is not a name-component sigil.
+
+        So `_starts_a_clause` admits the word after it and the walk stops in the
+        MIDDLE of a label expression, losing both names rather than a trailing
+        item. The disputed-item rule covers this without knowing the shape: the
+        break is inside the item, and the item reads as a label item.
+        """
+        assert scan_names("MATCH (n) SET n:Ku&Order", declared_cypher=True) == []
+        assert _truncations("MATCH (n) SET n:Ku&Order", declared_cypher=True) == [
+            ("n:Ku&Order", "Order")
+        ]
+
+    def test_ordinary_syntax_the_overrun_reaches_is_not_a_truncation(self) -> None:
+        """`RETURN n, n:Entity` is a label predicate in a RETURN list, not a loss.
+
+        The region genuinely ended at `RETURN`. A permissive walk running past it
+        splits that list on its comma and can read `` n:Entity`` as a label item —
+        but only the item STRADDLING the break is in dispute, and everything after
+        it is downstream of a question this detector cannot answer. Reporting it
+        described arbitrary Cypher the overrun happened to reach (Codex P2).
+        """
+        assert _truncations("MATCH (n) SET n:Ku RETURN n, n:Entity") == []
+
+    def test_a_tail_past_an_undecidable_break_is_not_claimed(self) -> None:
+        """Same rule, the other direction: we cannot tell, so we do not say.
+
+        If `ORDER` really heads a clause, `m:Entity` was never part of the SET
+        region; if it is a variable, it was. Nothing here can decide it, and the
+        disputed item (`` x ORDER y``) does not read as a label item.
+        """
+        assert _truncations("MATCH (n) SET n:Ku, x ORDER y, m:Entity RETURN n") == []
+
+    def test_the_documented_miss_stays_silent(self) -> None:
+        """Guard on the detector's stated edge, so a change to it is visible.
+
+        When the disputed item has no comma or statement end to bound it, it
+        arrives glued to the following clause, cannot full-match, and is missed.
+        One-sided by construction — under-reporting, never an invented boundary.
+        """
+        assert _truncations("MATCH (n) SET n:Ku, order:Bogus RETURN n", declared_cypher=True) == []
 
     @pytest.mark.parametrize(
         ("fragment", "declared_cypher"),
@@ -873,6 +897,8 @@ class TestMutationRegionTruncation:
             ("MERGE (n) ON CREATE SET n:Ku ON MATCH SET n:Entity RETURN n", False),
             ("MATCH (n) SET n.order = 1, n:Ku RETURN n", True),
             ("MATCH (n) SET n:Ku WITH n MATCH (m) SET m:Entity, k:Entity RETURN m", False),
+            ("MATCH (n) SET n:Ku RETURN n, n:Entity", False),
+            ("MATCH (n) SET n:Ku RETURN n, n:Entity", True),
         ],
     )
     def test_a_correct_boundary_is_never_reported(

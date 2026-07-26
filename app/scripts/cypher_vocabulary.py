@@ -750,6 +750,9 @@ class _MutationClause:
     ended for a structural reason instead — a depth-negative closer, a `;`, or
     the end of the fragment. This is what the truncation diagnostic reports as
     the cause, so it must be the matched text and not merely a flag."""
+    terminator_at: int | None
+    """Offset of that keyword. The truncation diagnostic needs the POSITION, not
+    just the word: only the item straddling it is in dispute."""
 
 
 def _mutation_clause_items(
@@ -789,6 +792,7 @@ def _mutation_clause_items(
     for head in dialect.mutation_head.finditer(text):
         items: list[tuple[str, int]] = []
         terminator: str | None = None
+        terminator_at: int | None = None
         start = head.end()
         depth = 0
         item_start = start
@@ -811,10 +815,13 @@ def _mutation_clause_items(
                     word = dialect.terminator.match(text, i)
                     if word is not None:
                         terminator = word.group()
+                        terminator_at = i
                         break
             i += 1
         items.append((text[item_start:i], item_start))
-        clauses.append(_MutationClause(items=items, terminator=terminator))
+        clauses.append(
+            _MutationClause(items=items, terminator=terminator, terminator_at=terminator_at)
+        )
     return clauses
 
 
@@ -1030,38 +1037,6 @@ def _note_gate_rejection(fragment: str, masked: str, dialect: _Dialect) -> None:
         _note(ScanIssue.REJECTED_BY_GATE, fragment, masked, 0)
 
 
-def _item_key(chunk: str, offset: int) -> tuple[int, str]:
-    """Identity of one walked item: where its text really starts, and what it is.
-
-    Both walks index the same masked fragment, so an absolute offset is what lets
-    an item recovered twice be recognised as one item. It has to be the offset of
-    the first NON-SPACE character, though, not of the item span: the surrounding
-    whitespace an item carries depends on how it was reached — ``mutation_head``
-    ends in `\\s+` and matches greedily, so re-heading a region eats a leading
-    space the original walk kept. Two spans of the same item then keyed
-    differently and every one of them reported as lost.
-    """
-    return offset + len(chunk) - len(chunk.lstrip()), chunk.strip()
-
-
-def _readable_label_items(clauses: list[_MutationClause]) -> set[tuple[int, str]]:
-    """The key of every item the mutation scanner would actually READ.
-
-    "Readable" is `_LABEL_MUTATION_ITEM_RE`, not `_has_top_level_colon`. The
-    looser shape filter would make the differential fire on nearly every clause
-    in the tree: the permissive walk normally swallows the whole rest of the
-    statement into one item, and that blob carries the original ``n:Ku``'s colon.
-    Requiring a full match is what keeps the signal to "a name was lost", since
-    the blob is precisely what cannot full-match.
-    """
-    return {
-        _item_key(chunk, offset)
-        for clause in clauses
-        for chunk, offset in clause.items
-        if _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
-    }
-
-
 def _note_region_truncation(
     unquoted: str, dialect: _Dialect, strict: list[_MutationClause]
 ) -> None:
@@ -1073,96 +1048,60 @@ def _note_region_truncation(
     a limit by #833 rather than closed. It is also the highest-density blind spot
     left: six of #831's findings were this walk stopping in the wrong place.
 
-    The detector runs the SAME walk twice under different termination policies
-    and diffs:
+    The detector runs the SAME walk twice under different termination policies:
 
     - **strict** — today's policy, unchanged, already computed by the caller;
     - **permissive** — the keyword break dropped, so only a depth-negative closer
       and `;` can end a region.
 
     The permissive walk cannot end early *for a keyword reason*, which is the
-    entire failure class. So any readable label item permissive yields that
-    strict never produced is an item strict lost, and the strict clause at the
-    same index names the keyword that lost it. **Neither walk has to be correct.**
-    That is what makes this a detector rather than a guess about where a clause
-    really ends: it never asserts a boundary, only that the two policies
-    disagree, and disagreement here has exactly one cause.
+    entire failure class. **Neither walk has to be correct.** That is what makes
+    this a detector rather than a guess about where a clause really ends: it
+    never asserts a boundary, only that the two policies disagree.
 
-    What keeps it quiet is that the diff subtracts the strict items of EVERY
-    clause, not the aligned one. A permissive region overruns into whatever
-    follows, so when a LATER `SET` is in that reach it re-derives that clause's
-    items at identical offsets; per-clause subtraction would report every one of
-    them as lost. Offsets are absolute into the same masked fragment under both
-    policies, which is what makes the global subtraction exact rather than
-    approximate.
+    **Only the item STRADDLING the break is in dispute**, and that is the whole
+    of the rule. The break happened at one position; the question the two walks
+    disagree about is whether the word there begins a clause or continues the
+    item. If the permissive item spanning it reads as a label item, the word was
+    a variable and the region was truncated — ``SET n:Ku&Order`` and
+    ``SET n:Ku, order:Bogus`` both resolve that way.
 
-    One-sided by construction. `_recoverable_items` closes the largest gap, but
-    a keyword break that hides a second keyword break still reports only what the
-    strict policy can reach past the first. Under-reporting is the acceptable
-    direction for an opt-in diagnostic: it never invents a boundary.
+    Everything AFTER that item is downstream of a question this detector cannot
+    answer, and reporting it is a false positive: `RETURN n, n:Entity` is
+    ordinary Cypher, the region genuinely ended at `RETURN`, and a permissive
+    walk reading `` n:Entity`` as a lost mutation item merely re-describes the
+    comma in a `RETURN` list (Codex P2). Bounding the claim to the disputed item
+    is what keeps "the walks disagree" a statement about the walk rather than
+    about arbitrary syntax the overrun happened to reach.
+
+    One-sided by construction: when the disputed item is glued to a following
+    clause with no comma to bound it — ``SET n:Ku, order:Bogus RETURN n`` — it
+    cannot full-match and is missed. Under-reporting is the acceptable direction
+    for an opt-in diagnostic; it never invents a boundary.
     """
     if _DIAGNOSTIC_SINK is None:
         return
-    seen = _readable_label_items(strict)
     permissive = _mutation_clause_items(unquoted, dialect, stop_at_clause_keyword=False)
     for index, clause in enumerate(permissive):
-        # Same heads, same order, so the aligned strict clause is the one whose
-        # break lost these items. It always stopped on a keyword: the two other
-        # breaks are shared by both policies, so a region ending on either — or
-        # at end of fragment — produces identical items and cannot disagree.
-        keyword = strict[index].terminator
+        # Same heads in the same order, so the aligned strict clause is the one
+        # whose break is in question. `terminator_at` is None exactly when strict
+        # did NOT stop on a keyword — and then the two policies took the same
+        # break, so there is nothing they can disagree about.
+        break_at = strict[index].terminator_at
+        if break_at is None:
+            continue
         for chunk, offset in clause.items:
-            for candidate, at in _recoverable_items(chunk, offset, dialect):
-                key = _item_key(candidate, at)
-                if key in seen:
-                    continue
-                # Attribute to the EARLIEST break that lost it and record it as
-                # seen: a later clause's permissive region can reach the same
-                # item, and one lost item is one finding, not one per overrun.
-                seen.add(key)
-                _note(ScanIssue.TRUNCATED_MUTATION_REGION, candidate, unquoted, at, detail=keyword)
-
-
-# `_recoverable_items` re-heads an item so the walk will read it. Uppercase so
-# the STRICT dialect's `mutation_head` matches it too; a trailing space so the
-# head pattern's `\s+` is satisfied without consuming any of the item.
-_REHEAD = "SET "
-
-
-def _recoverable_items(chunk: str, offset: int, dialect: _Dialect) -> Iterator[tuple[str, int]]:
-    """Every readable label item inside ONE permissive item, with true offsets.
-
-    The permissive walk's LAST item in a region runs to the end of the fragment,
-    because nothing but a `;` or a depth-negative closer stops it. A lost item
-    followed by any further clause therefore arrives glued to it, and cannot
-    full-match: ``SET n:Ku, x ORDER y, m:Other RETURN n`` loses `` m:Other`` into
-    `` m:Other RETURN n``.
-
-    The repair is to ask the STRICT policy where that item stops — it is exactly
-    the rule for the question — by re-heading the text and handing it back to
-    `_mutation_clause_items`. Delegation, not a trim written by hand: a local
-    "cut at the first keyword" would restate the break rule and drift from it,
-    the defect class that cost #833 four fixes. Offsets map back by subtracting
-    the synthetic head; `_item_key` then normalises the whitespace the greedy
-    head pattern eats.
-
-    The raw item is yielded first, so the repair only ever ADDS. It cannot mask
-    a detection the plain diff would have made.
-
-    **It does not recover the break's OWN item.** When the lost item begins with
-    the offending word — ``SET n:Ku, order:Bogus RETURN n``, the commonest shape
-    — re-heading meets the same word and stops in the same place. That item is
-    seen only when a comma or the end of the statement bounds it, which is the
-    detector's real edge and is stated as such rather than papered over.
-    """
-    if _LABEL_MUTATION_ITEM_RE.fullmatch(chunk):
-        yield chunk, offset
-        return
-    base = offset - len(_REHEAD)
-    for clause in _mutation_clause_items(_REHEAD + chunk, dialect):
-        for item, at in clause.items:
-            if _LABEL_MUTATION_ITEM_RE.fullmatch(item):
-                yield item, base + at
+            if not offset <= break_at < offset + len(chunk):
+                continue
+            if _LABEL_MUTATION_ITEM_RE.fullmatch(chunk):
+                _note(
+                    ScanIssue.TRUNCATED_MUTATION_REGION,
+                    chunk,
+                    unquoted,
+                    offset,
+                    detail=strict[index].terminator,
+                )
+            break
 
 
 def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedName]:
