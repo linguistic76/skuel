@@ -90,6 +90,7 @@ from cypher_vocabulary import (  # type: ignore[import-not-found]
     leading_cypher_clause,
     load_vocabulary,
     render_fstring,
+    scanning_fragment_at,
     unregistered_edge_names,
     unregistered_names,
 )
@@ -4524,7 +4525,12 @@ class SkuelLinter:
             else:
                 continue
 
-            for name in unregistered_names(fragment, vocabulary):
+            # `scanning_fragment_at` is diagnostics-only and a no-op unless
+            # `scripts/cypher_scan_diagnostics.py` is recording; it gives the
+            # scanner's own dropped-span report an absolute file line to point at.
+            with scanning_fragment_at(node.lineno):
+                unregistered = unregistered_names(fragment, vocabulary)
+            for name in unregistered:
                 if (rel_path.as_posix(), name.value) in self.SKUEL030_BASELINE:
                     continue
                 line_num = node.lineno + name.line_offset

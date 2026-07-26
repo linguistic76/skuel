@@ -35,6 +35,8 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
@@ -152,6 +154,134 @@ def load_vocabulary(root: Path | None = None) -> Vocabulary:
             base / ENUM_SOURCES[NameKind.LABEL][0],
             ENUM_SOURCES[NameKind.LABEL][1],
         ),
+    )
+
+
+# =============================================================================
+# Scan diagnostics — the instrument
+# =============================================================================
+#
+# Every failure mode of the scanner below is SILENT by construction. An item
+# that does not full-match is dropped; a pattern body whose every part fails
+# `name_re` yields nothing; a fragment the gate refuses returns `[]`. Nothing
+# anywhere says "I looked at this and could not read it" — which is the exact
+# fault these rules exist to catch (a name Neo4j cannot match reports nothing),
+# reproduced one layer down.
+#
+# That is why #831 ran 19 review rounds without converging: the only way to
+# discover a gap was for a reviewer to IMAGINE an input, and ~16 of its ~27
+# findings were valid Cypher forms with zero instances in this tree. An
+# unbounded, imagination-driven tail becomes a finite, measured one the moment
+# the scanner can say what it dropped.
+#
+# OPT-IN and OFF by default. `scan_names` behaves identically whether or not
+# anything is listening, and nothing here is wired into `./dev quality` — see
+# `scripts/cypher_scan_diagnostics.py`, the standalone entry point. A drop is
+# NOT a violation: "the scanner could not read this span" and "this code is
+# wrong" are different claims, and most drops are correct (a property-only
+# `SET`, a dynamic `$(...)` operand). Promoting any of these to a violation
+# class is a separate, deliberate decision.
+
+
+class ScanIssue(StrEnum):
+    """A span the scanner admitted but could not read."""
+
+    REJECTED_BY_GATE = "rejected-by-gate"
+    """The gate refused a fragment that carries a name the scanner would have
+    recovered. Anchor coverage, not name coverage."""
+
+    UNREADABLE_PATTERN_BODY = "unreadable-pattern-body"
+    """`(n:...)` / `[r:...]` matched, but no part of the body survived the
+    name regex. Correct for a dynamic operand; a silent miss otherwise."""
+
+    UNPARSED_MUTATION_ITEM = "unparsed-mutation-item"
+    """A `SET`/`REMOVE` item carrying a top-level `:` — so it is label-SHAPED —
+    that `_LABEL_MUTATION_ITEM_RE` did not full-match."""
+
+    MUTATION_CLAUSE_NO_ITEM_MATCHED = "mutation-clause-no-item-matched"
+    """A `SET`/`REMOVE` clause no item of which full-matched, label-shaped or
+    not. Deliberately unfiltered: it is the raw denominator that proves the
+    `UNPARSED_MUTATION_ITEM` shape filter is not hiding a whole class. Expect
+    hundreds — every property-only `SET n.title = $t` lands here, correctly."""
+
+
+@dataclass(frozen=True)
+class ScanDiagnostic:
+    """One span the scanner dropped without a word."""
+
+    issue: ScanIssue
+    text: str
+    """The offending span, verbatim (post-masking, so offsets line up)."""
+    line_offset: int
+    """Newlines between the start of the scanned fragment and this span."""
+    source_line: int | None = None
+    """Absolute 1-indexed file line, when the caller declared where the fragment
+    starts (``scanning_fragment_at``). ``None`` when it did not — an offset with
+    no base is not navigable, and a report of 265 rows reading ``(+2 lines)``
+    cannot be acted on (Codex P2 on #833)."""
+
+
+_DIAGNOSTIC_SINK: list[ScanDiagnostic] | None = None
+_DIAGNOSTIC_BASE_LINE: int | None = None
+
+
+@contextmanager
+def recording_scan_diagnostics() -> Iterator[list[ScanDiagnostic]]:
+    """Collect every drop `scan_names` makes inside this block.
+
+    The sink is module-global and restored on exit, so nesting is safe and an
+    exception cannot leave recording switched on. Not thread-safe, and does not
+    need to be: both linters are single-threaded, and the alternative — a
+    parameter threaded through every scanner — would put a diagnostic-only
+    argument in the signature of the production call path.
+    """
+    global _DIAGNOSTIC_SINK
+    previous = _DIAGNOSTIC_SINK
+    sink: list[ScanDiagnostic] = []
+    _DIAGNOSTIC_SINK = sink
+    try:
+        yield sink
+    finally:
+        _DIAGNOSTIC_SINK = previous
+
+
+@contextmanager
+def scanning_fragment_at(line: int) -> Iterator[None]:
+    """Declare the file line the fragment about to be scanned starts on.
+
+    A `ScanDiagnostic` knows only its offset WITHIN the fragment; the base lives
+    with the caller — `node.lineno` for SKUEL030's AST literals, the statement's
+    `start_line` for CYP011. Callers that declare it get navigable absolute
+    lines; callers that do not are unaffected.
+
+    Costs nothing when nobody is recording: the body is skipped and no state is
+    touched, so the production path pays one `is None` per fragment.
+    """
+    global _DIAGNOSTIC_BASE_LINE
+    if _DIAGNOSTIC_SINK is None:
+        yield
+        return
+    previous = _DIAGNOSTIC_BASE_LINE
+    _DIAGNOSTIC_BASE_LINE = line
+    try:
+        yield
+    finally:
+        _DIAGNOSTIC_BASE_LINE = previous
+
+
+def _note(issue: ScanIssue, text: str, source: str, pos: int) -> None:
+    """Record a drop, if anyone is listening. One `is not None` otherwise."""
+    if _DIAGNOSTIC_SINK is None:
+        return
+    offset = source.count("\n", 0, pos)
+    base = _DIAGNOSTIC_BASE_LINE
+    _DIAGNOSTIC_SINK.append(
+        ScanDiagnostic(
+            issue=issue,
+            text=text,
+            line_offset=offset,
+            source_line=None if base is None else base + offset,
+        )
     )
 
 
@@ -297,9 +427,46 @@ _REL_RE = re.compile(r"\[\s*(?:[A-Za-z_]\w*)?\s*:\s*([^\]\s{}]+)")
 # `(n:Label)` / `(:Label)` / `(n:Entity:Ku)`. Same stopping rule.
 _LABEL_RE = re.compile(r"\(\s*(?:[A-Za-z_]\w*)?\s*:\s*([^)\s{}]+)")
 
-# One name inside a multi-name group — `A` and `B` of `(n:A:B)` or `[:A|B]`.
-# Matched with positions so each name is reported where it actually is.
+# One name inside a multi-name group. Used by the MUTATION scanner only, whose
+# items are already known to be `:`/`&`-joined identifiers by the time it runs
+# (`_LABEL_MUTATION_ITEM_RE` full-matched them). Pattern bodies are read by
+# SPLITTING instead — see `_NAME_SEPARATOR_RE`.
 _NAME_PART_RE = re.compile(r"[A-Za-z_]\w*")
+
+# What separates two names inside a pattern body: `(n:A:B)`, `[:A|B]`, `(n:A&B)`.
+#
+# SPLITTING on these, rather than extracting identifier RUNS, is what makes a
+# dynamic operand inert for free. `$(labelExpr)`, `$(coalesce(Foo,Bogus))`,
+# `$any(...)`, `$all(...)` and `$param` each fail the name regex as a WHOLE
+# segment, so there is nothing to blank first. Run-extraction reached INSIDE the
+# parentheses and pulled `Bogus` back out — three rounds of Codex P2 on #831,
+# then 57 lines of blanking walk to undo what the extraction had done.
+#
+# The one form splitting cannot see is a separator INSIDE a dynamic expression:
+# `(n:$(map:Key))` splits into `$(map` and `Key`, and reports `Key`. Measured
+# before accepting: `_blank_dynamic_vocabulary` altered ZERO pattern bodies
+# across `adapters/persistence/**/*.py` and every `.cypher` file, so not only is
+# that sub-case absent — the entire dynamic-operand FAMILY is. The trade is a
+# hypothetical false positive against a mechanism that produced three real
+# regressions.
+_NAME_SEPARATOR_RE = re.compile(r"[:|&]")
+
+# One segment, once the separators have done their work: an identifier, possibly
+# backtick-escaped, possibly wrapped in the remaining label-expression operators.
+#
+# Cypher's label/type expression grammar has exactly six operators — `&` `|` `!`
+# `%` `(` `)`. Two are the separators above. `%` is the wildcard and names
+# nothing. That leaves negation and grouping, which WRAP a name rather than
+# joining two: `(n:!Bogus)`, `(n:(Known|Bogus))`, `[r:!BOGUS_EDGE]`. Deriving the
+# set from the grammar is the point — a hand-picked strip list is what this
+# module has repeatedly had to grow one report at a time.
+#
+# FULL-match is what keeps the dynamic operands opaque, and it is load-bearing:
+# `$(coalesce(Foo,Bogus` is one segment carrying `$`, a comma and two
+# identifiers, so it matches nothing here no matter which characters get
+# stripped. The rule is "this segment is exactly one wrapped name, or it is not
+# read at all" — not "strip the characters I have seen so far".
+_BODY_ATOM_RE = re.compile(r"[!(]*`?([A-Za-z_]\w*)`?\)*")
 
 # Relationship types are UPPER_SNAKE; labels are PascalCase. Anything else
 # (lowercase alias, digit-led fragment) is not vocabulary and is ignored.
@@ -377,6 +544,31 @@ _MUTATION_HEAD_PATTERN = r"\b(?:SET|REMOVE)\s+"
 _TERMINATOR_WORD_PATTERN = r"\b(?:" + "|".join(_MUTATION_TERMINATORS) + r")\b"
 _OPENERS = "([{"
 _CLOSERS = ")]}"
+
+
+def _has_top_level_colon(item: str) -> bool:
+    """True if ``item`` carries a `:` outside any bracket — it is label-SHAPED.
+
+    The diagnostic's shape filter. Cypher spells every label item ``var:Label``,
+    so the colon is always present and always at depth 0 — even for the forms
+    the item regex cannot read (``SET n:`Bogus```, whose backtick body is
+    blanked but whose delimiters and colon remain, and ``SET n:$(map:Key)``,
+    whose nested colon sits at depth 1 behind a top-level one). A `SET` item
+    with no top-level colon assigns a property and carries no label to miss;
+    reporting those would bury the signal under every property write in the
+    tree. ``MUTATION_CLAUSE_NO_ITEM_MATCHED`` is the unfiltered counterpart
+    that proves this filter hides no class.
+    """
+    depth = 0
+    for char in item:
+        if char in _OPENERS:
+            depth += 1
+        elif char in _CLOSERS:
+            depth = max(0, depth - 1)
+        elif char == ":" and depth == 0:
+            return True
+    return False
+
 
 # The variable is case-neutral: Cypher allows `SET N:Ku` just as readily as
 # `SET n:Ku` (Codex P2 on #831). The `SET`/`REMOVE` anchor plus the FULL-match
@@ -534,8 +726,8 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
     return "".join(chars)
 
 
-def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]]:
-    """``(item text, offset)`` for every top-level item of every SET/REMOVE clause.
+def _mutation_clause_items(text: str, dialect: _Dialect) -> list[list[tuple[str, int]]]:
+    """``(item text, offset)`` per top-level item, GROUPED BY SET/REMOVE clause.
 
     Walks from each clause keyword tracking bracket depth, so structure decides
     the boundaries rather than a keyword's mere presence:
@@ -551,9 +743,14 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]
 
     ``text`` must already be comment-masked and string-blanked, so no bracket,
     comma or keyword inside a comment or string literal can move the depth.
+
+    Grouped rather than flat so the caller can ask a question a flat list cannot
+    answer: did THIS clause yield no label item at all? That is one of the
+    scanner's silent drops, and the diagnostic reports it.
     """
-    items: list[tuple[str, int]] = []
+    clauses: list[list[tuple[str, int]]] = []
     for head in dialect.mutation_head.finditer(text):
+        items: list[tuple[str, int]] = []
         start = head.end()
         depth = 0
         item_start = start
@@ -580,7 +777,8 @@ def _mutation_clause_items(text: str, dialect: _Dialect) -> list[tuple[str, int]
                     break
             i += 1
         items.append((text[item_start:i], item_start))
-    return items
+        clauses.append(items)
+    return clauses
 
 
 # The complete set of characters after which a following word is a NAME
@@ -609,53 +807,46 @@ def _starts_a_clause(text: str, i: int) -> bool:
     return j < 0 or text[j] not in _NAME_COMPONENT_SIGILS
 
 
-def _blank_dynamic_vocabulary(body: str) -> str:
-    """Blank `$(...)` / `$param` spans in a pattern body, preserving offsets.
+def _body_names(body: str) -> Iterator[tuple[str, int]]:
+    """``(candidate name, offset within body)`` per separator-delimited segment.
 
-    A DYNAMIC label or relationship type — `(n:$(labelExpr))`, `[r:$param]`,
-    `(n:$any(...))`, `(n:$all(...))` — is an expression evaluated at runtime, so
-    there is no static name to check anywhere in it.
+    Offsets are tracked across the split rather than recomputed, so each name is
+    reported where it actually is — `(n:A:B)` reporting both at the group start
+    is a wrong location AND a suppression that cannot be placed beside the name
+    it must suppress (Codex P2 on #831).
 
-    The whole operand goes. This took three passes, each time because the fix
-    described a SHAPE instead of the span: a prefix check covered `$(x)` and
-    missed `$(coalesce(Foo,Bogus))`; a `$(`-vs-`$param` branch covered both and
-    missed `$any(...)` / `$all(...)` (Codex P2 on #831, three rounds). One walk
-    now handles every form — the identifier run after `$`, then its
-    parenthesised operand if it has one.
+    Each segment must be exactly ONE name — bare, backtick-escaped, or wrapped in
+    the negation/grouping operators — or it yields nothing. A segment that is
+    anything else is not read at all, which is what keeps a dynamic operand
+    opaque: `$(coalesce(Foo,Bogus` fails as a whole instead of being mined for
+    the identifier runs inside it.
 
-    `_LABEL_RE` / `_REL_RE` truncate their body at the first `)` or `]`, so a
-    `$(` here is routinely unbalanced; an unclosed one blanks to the end, which
-    is the correct reading of a dynamic operand that ran past the body.
+    Two recoveries ride on that whole-segment rule rather than on a strip list,
+    because a silent-miss rule cannot lose coverage in a refactor and both were
+    live on `ad9afcb76`:
 
-    The static sibling in `(n:Known:$(x))` is untouched and still checked.
+    - backtick-escaped names — ``(n:`Bogus`)``, ``[r:`BOGUS_EDGE`]``. The
+      `scan_names` docstring's claim that NO position recovers these was
+      measured false;
+    - negated and grouped names — ``(n:!Bogus)``, ``(n:(Known|Bogus))``,
+      ``[r:!BOGUS_EDGE]`` (Codex P2 on #833). Splitting alone left `!Bogus` and
+      `(Known` as segments that failed the name regex, so a typo'd label in
+      either position went from reported to invisible.
     """
-    chars = list(body)
-    i = 0
-    while i < len(body):
-        if body[i] != "$":
-            i += 1
-            continue
-        # One walk covers every form: the identifier run after `$` (empty for
-        # `$(`, `any`/`all` for the label-expression functions, a name for
-        # `$param`), then its parenthesised operand if it has one.
-        j = i + 1
-        while j < len(body) and (body[j].isalnum() or body[j] == "_"):
-            j += 1
-        if body[j : j + 1] == "(":
-            depth = 0
-            while j < len(body):
-                if body[j] == "(":
-                    depth += 1
-                elif body[j] == ")":
-                    depth -= 1
-                    if depth == 0:
-                        j += 1
-                        break
-                j += 1
-        for k in range(i, j):
-            chars[k] = " "
-        i = j
-    return "".join(chars)
+    start = 0
+    for separator in _NAME_SEPARATOR_RE.finditer(body):
+        yield _body_name(body, start, separator.start())
+        start = separator.end()
+    yield _body_name(body, start, len(body))
+
+
+def _body_name(body: str, start: int, end: int) -> tuple[str, int]:
+    """The one name in a segment with its true offset, or ``("", start)``."""
+    segment = body[start:end].strip()
+    atom = _BODY_ATOM_RE.fullmatch(segment)
+    if atom is None:
+        return "", start
+    return atom.group(1), start + body[start:end].index(segment) + atom.start(1)
 
 
 # `CYPHER runtime=slotted ...` / `CYPHER 25 ...` — a PRE-PARSER preamble, not a
@@ -742,6 +933,66 @@ def leading_cypher_clause(fragment: str) -> str | None:
     return _leading_cypher_clause(mask_cypher_comments(fragment), _STRICT)
 
 
+def _pattern_bodies(masked: str) -> Iterator[tuple[NameKind, re.Pattern[str], str, int]]:
+    """``(kind, name regex, readable body, body offset)`` per pattern match.
+
+    THE one walk over pattern position, shared by ``scan_names`` and the gate's
+    shape test so the diagnostic can never claim a name the scanner would not
+    itself have recovered. Interpolated bodies are dropped here: `[:HAS_{x}]`
+    composes its type at runtime and is a sanctioned below-boundary pattern, not
+    a drop worth reporting.
+    """
+    for kind, pattern, name_re in (
+        (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE),
+        (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE),
+    ):
+        for match in pattern.finditer(masked):
+            # Strip the var-length bound BEFORE the interpolation check, not after.
+            # `[:REQUIRES*1..{depth}]` interpolates only the DEPTH — the type name
+            # is static and must still be validated. Testing the raw body first
+            # saw the sentinel in the bound and skipped the whole relationship,
+            # hiding every `*1..{depth}` traversal in the codebase (Codex P2 on #732).
+            body = _VARLEN_RE.sub("", match.group(1))
+            if INTERPOLATION_SENTINEL in body:
+                continue
+            yield kind, name_re, body, match.start(1)
+
+
+def _note_gate_rejection(fragment: str, masked: str, dialect: _Dialect) -> None:
+    """Report a refusal only if it COST something — run the scanners and see.
+
+    Without a filter, every non-Cypher string literal in the tree is a "drop":
+    true, and useless. The filter has to answer one question — would the
+    scanners have recovered a name had the gate admitted this? — and the only
+    answer that cannot drift from the scanners is the scanners themselves.
+
+    A hand-written approximation did drift, immediately: it asked about PATTERN
+    position alone, so `WHERE n:Bogus` and `type(r) = 'BOGUS_EDGE'` were refused
+    by the gate, carried recoverable names, and reported nothing (Codex P2 on
+    #833). The instrument built to expose the scanner's silent drops had grown
+    its own, one layer further down again. Delegating removes the class: teach
+    `_scan` a fifth position tomorrow and this filter knows about it.
+
+    The SAME dialect is used, never the relaxed one. `declared_cypher` exists
+    because a `.cypher` file needs no prose guard; a fragment that reached the
+    gate is a Python string literal, and relaxing case here would report every
+    lowercase sentence containing `where x:y`.
+
+    Diagnostics are suspended for the probe. Its own drops describe a fragment
+    that was never admitted, so recording them would answer a question nobody
+    asked and bury the one finding that matters.
+    """
+    global _DIAGNOSTIC_SINK
+    sink = _DIAGNOSTIC_SINK
+    _DIAGNOSTIC_SINK = None
+    try:
+        recovered = _scan(fragment, masked, dialect)
+    finally:
+        _DIAGNOSTIC_SINK = sink
+    if recovered:
+        _note(ScanIssue.REJECTED_BY_GATE, fragment, masked, 0)
+
+
 def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedName]:
     """Recover every statically-known label / relationship type in ``fragment``.
 
@@ -775,20 +1026,41 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
     is the escape hatch if one ever does. The MUTATION scanner is the exception
     and *is* quote-blind, because it alone needs to know where a clause ends.
 
-    **Known limit, uniform: backtick-escaped vocabulary is not scanned.**
-    ``(n:`Bogus`)``, ``[r:`BOGUS_EDGE`]``, ``SET n:`Bogus``` — none of the four
-    position scanners has ever recovered one, because every name regex requires
-    an identifier character right after the ``:``. Pinned by
-    ``TestBacktickEscapedVocabulary`` so it stays a known limit rather than
-    drifting into an assumed capability. Closing it means teaching all four
-    positions at once; doing it for one would be the case-by-case patching this
-    module's gate design argues against. Zero sites in the tree use the form —
-    SKUEL labels and edge names are plain identifiers that never need escaping.
+    **Known limit, NOT uniform: backtick-escaped vocabulary is scanned in
+    pattern position only.** ``(n:`Bogus`)`` and ``[r:`BOGUS_EDGE`]`` ARE
+    recovered; ``SET n:`Bogus``` and ``REMOVE n:`Bogus``` are not, because
+    ``_LABEL_MUTATION_ITEM_RE`` requires an identifier character right after the
+    ``:``.
+
+    This block previously claimed all four positions missed the form, and
+    ``TestBacktickEscapedVocabulary`` "pinned" it — with an assertion
+    (``"Bogus" in n.value.upper()``) that ``.upper()`` made unsatisfiable, so it
+    passed on any behaviour whatsoever. A vacuous guard under a false claim is
+    this module's own failure mode one more layer down, and it is what let the
+    single DECLINED finding of #831 rest on an unmeasured premise. Both are now
+    corrected against measurement rather than restated.
+
+    Closing the mutation half means teaching that position too; it is a
+    behaviour widening with its own before/after measurement, not a free rider
+    on this change. Zero sites in the tree use the form either way — SKUEL
+    labels and edge names are plain identifiers that never need escaping.
     """
     dialect = _dialect(declared_cypher)
     masked = mask_cypher_comments(fragment)
     if not declared_cypher and not _is_cypher(masked, dialect):
+        if _DIAGNOSTIC_SINK is not None:
+            _note_gate_rejection(fragment, masked, dialect)
         return []
+    return _scan(fragment, masked, dialect)
+
+
+def _scan(fragment: str, masked: str, dialect: _Dialect) -> list[ScannedName]:
+    """Every scanner position, gate already decided.
+
+    Split out from ``scan_names`` so the gate-rejection diagnostic can ask what
+    a refusal cost by running the real scanners rather than approximating them —
+    see ``_note_gate_rejection``.
+    """
     unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
 
     found: list[ScannedName] = []
@@ -797,25 +1069,14 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
         found.append(ScannedName(kind=kind, value=name, line_offset=masked.count("\n", 0, pos)))
 
     # Pattern position
-    for kind, pattern, name_re in (
-        (NameKind.RELATIONSHIP, _REL_RE, _REL_NAME_RE),
-        (NameKind.LABEL, _LABEL_RE, _LABEL_NAME_RE),
-    ):
-        for match in pattern.finditer(masked):
-            # Strip the var-length bound BEFORE the interpolation check, not after.
-            # `[:REQUIRES*1..{depth}]` interpolates only the DEPTH — the type name
-            # is static and must still be validated. Testing the raw body first
-            # saw the sentinel in the bound and skipped the whole relationship,
-            # hiding every `*1..{depth}` traversal in the codebase (Codex P2 on #732).
-            body = _VARLEN_RE.sub("", match.group(1))
-            if INTERPOLATION_SENTINEL in body:
-                continue
-            # Same per-name positioning as the mutation scanner below: a
-            # multi-label `(n:A:B)` recorded both at the group start.
-            for part in _NAME_PART_RE.finditer(_blank_dynamic_vocabulary(body)):
-                name = part.group()
-                if name_re.fullmatch(name):
-                    record(kind, name, match.start(1) + part.start())
+    for kind, name_re, body, body_start in _pattern_bodies(masked):
+        survived = False
+        for name, offset in _body_names(body):
+            if name_re.fullmatch(name):
+                survived = True
+                record(kind, name, body_start + offset)
+        if not survived:
+            _note(ScanIssue.UNREADABLE_PATTERN_BODY, body, masked, body_start)
 
     # Predicate position — type(r) = 'X' / type(r) IN ['A', 'B']
     for match in dialect.type_predicate.finditer(masked):
@@ -838,18 +1099,25 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
     # where a clause ENDS, and an uppercase clause word inside a property value
     # would close the region early (Codex P2 on #831). Blanking is offset- and
     # length-preserving, so the positions recorded below stay truthful.
-    for chunk, offset in _mutation_clause_items(unquoted, dialect):
-        item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
-        if item is None:
-            continue
-        # Each label at ITS OWN position, not the start of the colon group —
-        # `SET n:Known:\n  Bogus` reported `Bogus` on `Known`'s line, which is
-        # both a wrong location and a suppression that cannot be placed beside
-        # the name it must suppress (Codex P2 on #831).
-        for part in _NAME_PART_RE.finditer(item.group(1)):
-            name = part.group()
-            if _LABEL_NAME_RE.fullmatch(name):
-                record(NameKind.LABEL, name, offset + item.start(1) + part.start())
+    for items in _mutation_clause_items(unquoted, dialect):
+        matched_any = False
+        for chunk, offset in items:
+            item = _LABEL_MUTATION_ITEM_RE.fullmatch(chunk)
+            if item is None:
+                if _has_top_level_colon(chunk):
+                    _note(ScanIssue.UNPARSED_MUTATION_ITEM, chunk, unquoted, offset)
+                continue
+            matched_any = True
+            # Each label at ITS OWN position, not the start of the colon group —
+            # `SET n:Known:\n  Bogus` reported `Bogus` on `Known`'s line, which is
+            # both a wrong location and a suppression that cannot be placed beside
+            # the name it must suppress (Codex P2 on #831).
+            for part in _NAME_PART_RE.finditer(item.group(1)):
+                name = part.group()
+                if _LABEL_NAME_RE.fullmatch(name):
+                    record(NameKind.LABEL, name, offset + item.start(1) + part.start())
+        if not matched_any and items:
+            _note(ScanIssue.MUTATION_CLAUSE_NO_ITEM_MATCHED, items[0][0], unquoted, items[0][1])
 
     return found
 

@@ -59,6 +59,7 @@ from cypher_vocabulary import (  # type: ignore[import-not-found]
     VocabularyError,
     load_vocabulary,
     mask_cypher_comments,
+    scanning_fragment_at,
     unregistered_names,
 )
 
@@ -646,7 +647,10 @@ class CypherLinter:
             ]
 
         violations: list[Violation] = []
-        for name in unregistered_names(query, vocabulary, declared_cypher=True):
+        # Diagnostics-only, no-op unless cypher_scan_diagnostics.py is recording.
+        with scanning_fragment_at(start_line):
+            unregistered = unregistered_names(query, vocabulary, declared_cypher=True)
+        for name in unregistered:
             line_num = start_line + name.line_offset
             query_lines = query.splitlines()
             line_content = (
