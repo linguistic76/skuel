@@ -31,7 +31,7 @@ Usage:
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal
 
 from core.models.enums import EntityStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
@@ -608,51 +608,48 @@ class VisualizationService:
     # Serialization Helpers
     # =========================================================================
 
+    # Each helper returns the TypedDict literal directly. A `cast()` here would
+    # be unchecked by construction: a renamed Chart.js/Vis.js/Gantt key is a
+    # breaking wire change (skuel.js hands the payload to `new Chart(ctx, config)`
+    # unmodified) that no Python test observes, and under a cast MyPy reported
+    # nothing. Returning the literal makes ChartJsData/ChartJsDataset the checker.
+
     def _chart_config_to_dict(self, config: ChartConfig) -> ChartJsConfig:
         """Convert ChartConfig to a ChartJsConfig TypedDict for JSON serialization."""
-        return cast(
-            "ChartJsConfig",
-            {
-                "type": config.type,
-                "data": {
-                    "labels": config.data.labels,
-                    "datasets": [
-                        {
-                            "label": ds.label,
-                            "data": ds.data,
-                            "backgroundColor": ds.backgroundColor,
-                            "borderColor": ds.borderColor,
-                            "borderWidth": ds.borderWidth,
-                            "fill": ds.fill,
-                            "tension": ds.tension,
-                        }
-                        for ds in config.data.datasets
-                    ],
-                },
-                "options": config.options,
+        return {
+            "type": config.type,
+            "data": {
+                "labels": config.data.labels,
+                "datasets": [
+                    {
+                        "label": ds.label,
+                        "data": ds.data,
+                        "backgroundColor": ds.backgroundColor,
+                        "borderColor": ds.borderColor,
+                        "borderWidth": ds.borderWidth,
+                        "fill": ds.fill,
+                        "tension": ds.tension,
+                    }
+                    for ds in config.data.datasets
+                ],
             },
-        )
+            "options": config.options,
+        }
 
     def _visjs_data_to_dict(self, data: VisTimelineData) -> VisTimelineConfig:
         """Convert VisTimelineData to a VisTimelineConfig TypedDict for JSON serialization."""
-        return cast(
-            "VisTimelineConfig",
-            {
-                "items": [asdict(item) for item in data.items],
-                "groups": [asdict(group) for group in data.groups],
-                "options": data.options,
-            },
-        )
+        return {
+            "items": [asdict(item) for item in data.items],
+            "groups": [asdict(group) for group in data.groups],
+            "options": data.options,
+        }
 
     def _gantt_data_to_dict(self, data: GanttData) -> GanttConfig:
         """Convert GanttData to a GanttConfig TypedDict for JSON serialization."""
-        return cast(
-            "GanttConfig",
-            {
-                "tasks": [asdict(task) for task in data.tasks],
-                "options": data.options,
-            },
-        )
+        return {
+            "tasks": [asdict(task) for task in data.tasks],
+            "options": data.options,
+        }
 
     # =========================================================================
     # Calendar / Group Conversion Helpers
