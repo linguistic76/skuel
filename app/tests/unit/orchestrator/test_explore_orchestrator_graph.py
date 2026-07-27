@@ -7,19 +7,25 @@ points at (deleted content, a re-ingest that changed a UID), so the batch can
 hand back ``None`` and the node-building comprehension read ``ps.uid`` off it.
 That is an `AttributeError` inside a route handler — a 500 on /api/explore/graph.
 
-MyPy did not report it while the facade method returned ``Result[list[Any]]``.
+MyPy did not report it while the facade method returned ``Result[list[Any]]``,
+which is why the stubs below mirror the real return types exactly: a double that
+widens the contract it stands in for reproduces the very erasure that hid this
+bug.
 """
 
-from typing import Any
+from typing import Any, NoReturn
 
 import pytest
 
+from core.models.pathways.path_step import PathStep
 from core.orchestrator.explore_orchestrator import ExploreOrchestrator
 from core.utils.result_simplified import Result
 
 
 class _KuStub:
-    async def get_user_learning_states(self, user_uid: str) -> Result[list[Any]]:
+    async def get_user_learning_states(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+        # Mirrors KuService.get_user_learning_states — the inner Any is the
+        # production signature's, not a new one.
         return Result.ok([])
 
 
@@ -32,11 +38,11 @@ class _MasteryStub:
 
 
 class _PsStub:
-    def __init__(self, uids: list[str], steps: list[Any]) -> None:
+    def __init__(self, uids: list[str], steps: list[PathStep | None]) -> None:
         self.mastery = _MasteryStub(uids)
         self._steps = steps
 
-    async def get_steps_batch(self, uids: list[str]) -> Result[list[Any]]:
+    async def get_steps_batch(self, uids: list[str]) -> Result[list[PathStep | None]]:
         return Result.ok(self._steps)
 
 
@@ -48,20 +54,21 @@ class _RelationshipsStub:
         return Result.ok([])
 
 
-class _Step:
-    def __init__(self, uid: str, title: str) -> None:
-        self.uid = uid
-        self.title = title
+class _UnusedDependency:
+    """A constructor slot this test never exercises; touching it is a failure."""
+
+    def __getattr__(self, name: str) -> NoReturn:
+        raise AssertionError(f"unexpected call to an unused dependency: .{name}")
 
 
 def _build(ps: _PsStub) -> ExploreOrchestrator:
-    unused: Any = object()
+    unused = _UnusedDependency()
     return ExploreOrchestrator(
-        ku_service=_KuStub(),  # type: ignore[arg-type]  # structural stub
+        ku_service=_KuStub(),  # type: ignore[arg-type]  # structural stubs, see module docstring
         ps_service=ps,  # type: ignore[arg-type]
         user_relationship_service=_RelationshipsStub(),  # type: ignore[arg-type]
-        exercises_service=unused,
-        learning_loop_query_service=unused,
+        exercises_service=unused,  # type: ignore[arg-type]
+        learning_loop_query_service=unused,  # type: ignore[arg-type]
     )
 
 
@@ -69,7 +76,7 @@ def _build(ps: _PsStub) -> ExploreOrchestrator:
 async def test_learning_graph_skips_a_dangling_in_progress_path_step() -> None:
     ps = _PsStub(
         uids=["ps.alive", "ps.deleted"],
-        steps=[_Step("ps.alive", "Alive step"), None],
+        steps=[PathStep(uid="ps.alive", title="Alive step"), None],
     )
 
     graph = await _build(ps).generate_learning_graph("user_1")
@@ -83,7 +90,7 @@ async def test_learning_graph_skips_a_dangling_in_progress_path_step() -> None:
 async def test_learning_graph_still_builds_every_resolvable_step() -> None:
     ps = _PsStub(
         uids=["ps.a", "ps.b"],
-        steps=[_Step("ps.a", "A"), _Step("ps.b", "")],
+        steps=[PathStep(uid="ps.a", title="A"), PathStep(uid="ps.b", title="")],
     )
 
     graph = await _build(ps).generate_learning_graph("user_1")

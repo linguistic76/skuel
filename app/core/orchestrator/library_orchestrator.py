@@ -15,6 +15,8 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.ku.ku import Ku
+    from core.models.pathways.path_step import PathStep
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
@@ -117,7 +119,7 @@ class LibraryOrchestrator:
 
     async def get_bookmarked_kus(
         self, user_uid: UserUID, limit: int | None = None
-    ) -> Result[list[Any]]:
+    ) -> Result[list[Ku]]:
         """Get the KU entities that the user has pinned/bookmarked.
 
         Args:
@@ -126,7 +128,7 @@ class LibraryOrchestrator:
         """
         pins_result = await self._user_relationships.get_pinned_entities(user_uid)
         if pins_result.is_error:
-            return pins_result
+            return Result.fail(pins_result)
 
         pinned_uids = list(pins_result.value or [])
         if not pinned_uids:
@@ -135,7 +137,7 @@ class LibraryOrchestrator:
         fetch_uids = pinned_uids[:limit] if limit is not None else pinned_uids
         result = await self._ku.get_kus_batch(fetch_uids)
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         kus = [ku for ku in (result.value or []) if ku is not None]
         return Result.ok(kus)
@@ -146,7 +148,7 @@ class LibraryOrchestrator:
 
     async def get_enrolled_path_steps(
         self, user_uid: UserUID, limit: int | None = None
-    ) -> Result[list[Any]]:
+    ) -> Result[list[PathStep]]:
         """Get PathStep entities the user is currently enrolled in (IN_PROGRESS).
 
         Args:
@@ -155,7 +157,7 @@ class LibraryOrchestrator:
         """
         uids_result = await self._ps.mastery.get_in_progress_step_uids(user_uid)
         if uids_result.is_error:
-            return uids_result
+            return Result.fail(uids_result)
 
         enrolled_uids = list(uids_result.value or [])
         if not enrolled_uids:
@@ -164,7 +166,7 @@ class LibraryOrchestrator:
         fetch_uids = enrolled_uids[:limit] if limit is not None else enrolled_uids
         result = await self._ps.get_steps_batch(fetch_uids)
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         steps = [s for s in (result.value or []) if s is not None]
         return Result.ok(steps)
