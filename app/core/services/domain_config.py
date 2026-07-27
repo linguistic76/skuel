@@ -63,6 +63,12 @@ from core.models.protocols.domain_model_protocol import (
     DTOProtocol,
 )
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import (
+    LABEL_CONFIGS,
+    generate_enables_relationships,
+    generate_graph_enrichment,
+    generate_prerequisite_relationships,
+)
 from core.models.type_hints import FilterParams
 
 
@@ -353,14 +359,6 @@ def create_activity_domain_config(
     Raises:
         ValueError: If entity not found in required registries
     """
-    # Import here to avoid circular imports
-    from core.models.relationship_registry import (
-        LABEL_CONFIGS,
-        generate_enables_relationships,
-        generate_graph_enrichment,
-        generate_prerequisite_relationships,
-    )
-
     entity_label = entity_label or "Entity"
     config_lookup_label = config_lookup_label or model_class.__name__
 
@@ -437,13 +435,6 @@ def create_curriculum_domain_config(
     Raises:
         ValueError: If entity not found in registries when using defaults
     """
-    from core.models.relationship_registry import (
-        LABEL_CONFIGS,
-        generate_enables_relationships,
-        generate_graph_enrichment,
-        generate_prerequisite_relationships,
-    )
-
     entity_label = entity_label or "Entity"
     config_lookup_label = config_lookup_label or model_class.__name__
 
