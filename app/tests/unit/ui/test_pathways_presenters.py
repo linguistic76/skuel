@@ -14,35 +14,49 @@ six injected faults confirming the comparison can fail.
 
 from __future__ import annotations
 
-from typing import Any
-
 from core.ports.query_types import LpActivePathProgress, LpDashboardSummary
 from ui.pathways.components import difficulty_label, to_active_path_data, to_learning_stats
 
-
-def _row(**overrides: Any) -> LpActivePathProgress:
-    base: dict[str, Any] = {
-        "uid": "lp.demo.path",
-        "title": "Demo Path",
-        "difficulty_rating": 0.5,
-        "estimated_hours": 12.0,
-        "progress_percent": 40.0,
-        "is_complete": False,
-        "next_step_title": "Second Step",
-    }
-    base.update(overrides)
-    return LpActivePathProgress(**base)  # type: ignore[typeddict-item]
+# Explicit keyword parameters rather than `**overrides: Any` + a cast: a `**kwargs: Any`
+# factory lets a misspelled override key type-check AND pass at runtime (a TypedDict is a
+# plain dict, so the typo is simply ignored and the field keeps its default). Measured on
+# this file: `_row(titel="")` was clean under MyPy. Here it is an error in both.
 
 
-def _summary(**overrides: Any) -> LpDashboardSummary:
-    base: dict[str, Any] = {
-        "paths": [],
-        "total_hours": 30.0,
-        "concepts_mastered": 4,
-        "completion_rate": 0.25,
-    }
-    base.update(overrides)
-    return LpDashboardSummary(**base)  # type: ignore[typeddict-item]
+def _row(
+    *,
+    uid: str = "lp.demo.path",
+    title: str = "Demo Path",
+    difficulty_rating: float = 0.5,
+    estimated_hours: float = 12.0,
+    progress_percent: float = 40.0,
+    is_complete: bool = False,
+    next_step_title: str | None = "Second Step",
+) -> LpActivePathProgress:
+    return LpActivePathProgress(
+        uid=uid,
+        title=title,
+        difficulty_rating=difficulty_rating,
+        estimated_hours=estimated_hours,
+        progress_percent=progress_percent,
+        is_complete=is_complete,
+        next_step_title=next_step_title,
+    )
+
+
+def _summary(
+    *,
+    paths: list[LpActivePathProgress] | None = None,
+    total_hours: float = 30.0,
+    concepts_mastered: int = 4,
+    completion_rate: float = 0.25,
+) -> LpDashboardSummary:
+    return LpDashboardSummary(
+        paths=paths if paths is not None else [],
+        total_hours=total_hours,
+        concepts_mastered=concepts_mastered,
+        completion_rate=completion_rate,
+    )
 
 
 class TestCurrentStepText:
