@@ -573,9 +573,13 @@ class TestCommentMasking:
         changes `looks_like_cypher`, `leading_cypher_clause`,
         `mask_cypher_comments` and `scan_names` on NOTHING — no backtick run,
         odd or even. The only difference that escapes the function is which
-        characters `_mask_cypher(blank_strings=True)` blanks inside a backtick
-        identifier, surfacing externally as the verbatim `text` of a
+        characters `_mask_cypher(blank_escaped_names=True)` blanks inside a
+        backtick identifier, surfacing externally as the verbatim `text` of a
         `MUTATION_CLAUSE_NO_ITEM_MATCHED` diagnostic that fires either way.
+        Splitting that flag off from `blank_strings` did not widen the surface:
+        the copy items are now READ from blanks nothing inside backticks, so the
+        two readings of a doubled tick consume the same span and leave the same
+        text either way.
 
         So the escape is unobservable through every surface a rule reads. A
         fixture that "pinned" it could only assert on that diagnostic's span —
@@ -757,20 +761,22 @@ class TestScannedNamePositions:
 
 
 class TestBacktickEscapedVocabulary:
-    """Backtick handling is SPLIT, not uniform — measured, not assumed.
+    """An escaped name is a name, in every position — measured, not assumed.
 
-    This class previously asserted that no position recovers an escaped name,
-    with ``[n for n in scan_names(f) if "Bogus" in n.value.upper()] == []``.
+    The history is why this class is worth its length. It once asserted that NO
+    position recovers an escaped name, with
+    ``[n for n in scan_names(f) if "Bogus" in n.value.upper()] == []``.
     ``.upper()`` turns every candidate into ``BOGUS``/``BOGUS_EDGE``, which can
     never contain the mixed-case needle ``"Bogus"`` — so the comprehension was
     empty whatever the scanner returned, and the guard passed on any behaviour
-    at all. Running the four fragments showed pattern position recovering both
-    names all along, while the claim on the class said otherwise. That is this
-    module's own failure mode — a check that reports clean without looking —
-    and it is what left #831's single declined finding resting on an unmeasured
-    premise.
+    at all. Running the four fragments (#833) showed pattern position recovering
+    both names all along and mutation position dropping them, so the claim was
+    half false and had been for two years.
 
-    Now pinned to what the scanner actually does, each direction asserted
+    That measurement left a real, accurately stated gap: ``SET n:`Bogus``` and
+    ``REMOVE n:`Bogus``` wrote a label the scanner could not see, and a typo'd
+    one — the failure SKUEL030 and CYP011 exist to catch — was invisible. This
+    class now pins it closed, in both positions, each direction asserted
     positively so neither can drift into the other unnoticed.
     """
 
@@ -784,24 +790,161 @@ class TestBacktickEscapedVocabulary:
     def test_pattern_position_recovers_escaped_names(
         self, fragment: str, expected: list[str]
     ) -> None:
-        """An escaped label IS a label — an unregistered one is a real miss."""
+        """Guard — already true on `cc70dafdc`, and the reason the gap was a gap.
+
+        Pattern position is where `_ESCAPABLE_NAME` came from. Keeping this
+        asserted beside the mutation half is what makes the two positions'
+        agreement a tested property rather than a claim in a comment.
+        """
         assert [n.value for n in scan_names(fragment)] == expected
+
+    @pytest.mark.parametrize(
+        ("fragment", "expected"),
+        [
+            ("MATCH (n) SET n:`Bogus` RETURN n", ["Bogus"]),
+            ("MATCH (n) REMOVE n:`Bogus` RETURN n", ["Bogus"]),
+            # The escape may wrap the VARIABLE instead, or as well. Sharing one
+            # name production covers all three the moment it covers one; a
+            # colon-anchored patch would have closed only the middle case.
+            ("MATCH (n) SET `n`:Bogus RETURN n", ["Bogus"]),
+            ("MATCH (n) SET `n`:`Bogus` RETURN n", ["Bogus"]),
+            # Multi-label items, escaped on either side of either separator.
+            ("MATCH (n) SET n:Known:`Bogus` RETURN n", ["Known", "Bogus"]),
+            ("MATCH (n) SET n:`Known`&`Bogus` RETURN n", ["Known", "Bogus"]),
+            # An escaped item beside a plain one: before, `a:`Ku`` was dropped
+            # while `b:PathStep` was read, so the clause looked scanned.
+            ("MATCH (n) SET a:`Ku`, b:PathStep RETURN a", ["Ku", "PathStep"]),
+        ],
+    )
+    def test_mutation_position_recovers_escaped_names(
+        self, fragment: str, expected: list[str]
+    ) -> None:
+        """The half #833 measured open, closed.
+
+        Two mechanisms had to fall, and naming only the first is what made this
+        look like a regex tweak. `_LABEL_MUTATION_ITEM_RE` did require an
+        identifier straight after the ``:`` — but the mutation scanner reads
+        text that had already been through ``_mask_cypher(blank_strings=True)``,
+        which treated a backtick as a string delimiter and BLANKED the name.
+        ``SET n:`Bogus``` reached the item regex as ``SET n:`     ```. Widening
+        the regex alone would have matched nothing, because there was nothing
+        left to match.
+        """
+        assert [n.value for n in scan_names(fragment)] == expected
+
+    def test_an_escaped_name_the_scanner_cannot_read_yields_nothing(self) -> None:
+        """Guard — green on `cc70dafdc` too, for a different reason.
+
+        Before, nothing here was readable at all; now the widening has to fail
+        CLOSED on the one escaped shape it still cannot parse, and the assertion
+        is worth keeping precisely because the reason under it changed.
+
+        `` `A,B` `` is one identifier to Cypher, but the walk sees its comma
+        blanked and the item regex sees a segment that is not one name. Neither
+        half of `A,B` is reported — inventing a name here would be worse than
+        the silence, and the drop is announced through the diagnostic instead
+        (`test_an_unreadable_item_is_reported_with_its_escaped_name_intact`).
+        """
+        assert scan_names("MATCH (n) SET n:`A,B` RETURN n") == []
+
+
+class TestMutationScannerReadsTwoMaskings:
+    """The walk needs escaped spans OPAQUE; reading names needs them LEGIBLE.
+
+    All but the last are GUARDS — green on `cc70dafdc`, where one masking served
+    both jobs by blanking everything. They are here because splitting that flag
+    in two is what let the escaped name through, and each one pins a way the
+    split could have been made wrong: give the WALK the
+    legible copy and a delimiter inside an escaped identifier moves a clause
+    boundary, silently abandoning every item after it. That is the failure mode
+    `blank_strings` was introduced to prevent (Codex P2 on #831); it applies to
+    `` n.`a,b` `` for exactly the reason it applies to ``'a,b'``, and nothing in
+    the escaped-name half of the change may weaken it.
+    """
+
+    @pytest.mark.parametrize(
+        "escaped",
+        [
+            ")",  # a depth-negative closer would end the region
+            "a;b",  # a `;` would end the region
+            "RETURN",  # a clause word would terminate the walk
+            "ORDER BY",  # ... including a multi-word one
+            "(",  # an opener would bury the following comma at depth 1
+        ],
+    )
+    def test_a_delimiter_inside_an_escaped_property_cannot_move_a_boundary(
+        self, escaped: str
+    ) -> None:
+        """`n:Typo` comes AFTER the escaped name — it is only read if the walk survived.
+
+        A bare comma is deliberately NOT in this list. It splits the item in two
+        under a legible walk, but both halves fail the item regex and `n:Typo`
+        is still an item of its own, so nothing observable changes and the case
+        would pin nothing. `test_a_comma_inside_an_escaped_property_cannot_
+        manufacture_an_item` covers the shape where the split IS observable —
+        the same defect, chosen at a fragment that can show it.
+        """
+        fragment = f"MATCH (n) SET n.`{escaped}` = 1, n:Typo RETURN n"
+        assert [n.value for n in scan_names(fragment)] == ["Typo"]
+
+    def test_a_comma_inside_an_escaped_property_cannot_manufacture_an_item(self) -> None:
+        """A split inside an escaped name invents a label that was never written.
+
+        `` n.`a, m:Bogus` `` is ONE property name. Walk it legibly and the comma
+        splits it, leaving `` m:Bogus` `` — which full-matches the item regex,
+        because the escape's opening tick is on the other side of the break.
+        SKUEL030 would report `Bogus` against a name no query ever writes: the
+        silent-miss rule inverted into a false positive, which is the more
+        expensive direction for a WARNING nobody can suppress at a real site.
+        """
+        assert scan_names("MATCH (n) SET n.`a, m:Bogus` RETURN n") == []
 
     @pytest.mark.parametrize(
         "fragment",
         [
-            "MATCH (n) SET n:`Bogus` RETURN n",
-            "MATCH (n) REMOVE n:`Bogus` RETURN n",
+            # A clause word in a property VALUE — why `blank_strings` exists.
+            "MATCH (n) SET n.note = 'RETURN later', n:Typo RETURN n",
+            # ... and the same word behind an escaped property NAME.
+            "MATCH (n) SET n.`RETURN` = 'later', n:Typo RETURN n",
         ],
     )
-    def test_mutation_position_does_not_recover_escaped_names(self, fragment: str) -> None:
-        """The remaining half of the limit, stated accurately.
+    def test_both_maskings_still_blank_what_the_walk_must_not_see(self, fragment: str) -> None:
+        """Guard. Quoted strings stay blanked in BOTH copies; only backticks differ."""
+        assert [n.value for n in scan_names(fragment)] == ["Typo"]
 
-        ``_LABEL_MUTATION_ITEM_RE`` requires an identifier character straight
-        after the ``:``. Closing this is a behaviour widening with its own
-        before/after measurement, not a free rider on a refactor.
+    def test_the_item_copy_still_blanks_quoted_strings(self) -> None:
+        """Guard. Keeping escaped names legible must not leak quoted ones back in.
+
+        The two flags are independent now, so the item copy could have been cut
+        with ``blank_strings=False`` and no recovery test would have noticed.
+        The assertion has to be the diagnostic, and stating why is the point:
+        `_LABEL_MUTATION_ITEM_RE` reads only identifiers, backticks, `:`, `&`
+        and whitespace, so a quoted operand can never become a NAME however it
+        is masked. What it can become is label-SHAPED — `_has_top_level_colon`
+        would see the `:` in `'x:Bogus'` at depth 0 and report an unparsed item
+        against an ordinary property write, on every such line in the tree.
+
+        Asserting `== []` on the names here would look stronger and pin nothing;
+        that gap between a claim and its evidence is what #835 spent three
+        passes closing.
         """
-        assert [n.value for n in scan_names(fragment)] == []
+        with recording_scan_diagnostics() as sink:
+            assert scan_names("MATCH (n) SET n.note = 'x:Bogus' RETURN n") == []
+        assert [d.issue for d in sink] == [ScanIssue.MUTATION_CLAUSE_NO_ITEM_MATCHED]
+
+    def test_positions_survive_the_second_masking(self) -> None:
+        """Two masked copies are interchangeable only while both preserve length.
+
+        RED on `cc70dafdc` — the name it positions is the one this change
+        recovers. What it adds over the plain recovery cases is the POSITION
+        under a preceding blanked string: item offsets come from a walk over one
+        copy and index into the other, so if either masking ever changed a
+        fragment's length or newlines, every reported line would drift. Silently
+        — a linter's line number is not otherwise checked, and #833 had to add
+        `source_line` before the diagnostic could even be acted on.
+        """
+        fragment = "MATCH (n)\nSET n.note = 'RETURN later',\n    n:`Bogus`\nRETURN n"
+        assert [(n.value, n.line_offset) for n in scan_names(fragment)] == [("Bogus", 2)]
 
 
 # ============================================================================
@@ -905,10 +1048,35 @@ class TestScanDiagnostics:
         assert "labelExpr" in sink[0].text
 
     def test_unparsed_mutation_item_is_recorded(self) -> None:
-        """A label-SHAPED item the item regex cannot read — the real signal."""
+        """A label-SHAPED item the item regex cannot read — the real signal.
+
+        The fixture was ``SET n:`Bogus``` until that form became readable. A
+        diagnostic keyed to a gap is only worth the line while the gap is open,
+        and swapping the example is the honest move — asserting the category
+        still fires on an input the scanner now parses would have been a guard
+        that reports on nothing, which is this module's own failure mode.
+
+        ``$(labelExpr)`` replaces it because a dynamic operand is unreadable by
+        CONSTRUCTION rather than by omission: the name does not exist until
+        runtime, so no widening can ever close it and the fixture cannot rot.
+        """
         with recording_scan_diagnostics() as sink:
-            scan_names("MATCH (n) SET n:`Bogus` RETURN n")
+            scan_names("MATCH (n) SET n:$(labelExpr) RETURN n")
         assert ScanIssue.UNPARSED_MUTATION_ITEM in [d.issue for d in sink]
+
+    def test_an_unreadable_item_is_reported_with_its_escaped_name_intact(self) -> None:
+        """The report shows the name, not the husk the boundary walk reads.
+
+        Item text is cut from the copy that keeps escaped names legible, so a
+        span the scanner admits but cannot parse arrives at the instrument as
+        `` n:`A,B` `` rather than the blanked `` n:`   ` `` the walk saw. A
+        diagnostic whose whole purpose is "say what you could not read" must
+        quote the thing itself.
+        """
+        with recording_scan_diagnostics() as sink:
+            scan_names("MATCH (n) SET n:`A,B` RETURN n")
+        unparsed = [d for d in sink if d.issue is ScanIssue.UNPARSED_MUTATION_ITEM]
+        assert [d.text.strip() for d in unparsed] == ["n:`A,B`"]
 
     def test_property_only_mutation_is_recorded_as_the_raw_denominator(self) -> None:
         """`SET n.title = $t` carries no label, so it is NOT an unparsed item.

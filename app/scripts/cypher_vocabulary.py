@@ -440,12 +440,6 @@ _REL_RE = re.compile(r"\[\s*(?:[A-Za-z_]\w*)?\s*:\s*([^\]\s{}]+)")
 # `(n:Label)` / `(:Label)` / `(n:Entity:Ku)`. Same stopping rule.
 _LABEL_RE = re.compile(r"\(\s*(?:[A-Za-z_]\w*)?\s*:\s*([^)\s{}]+)")
 
-# One name inside a multi-name group. Used by the MUTATION scanner only, whose
-# items are already known to be `:`/`&`-joined identifiers by the time it runs
-# (`_LABEL_MUTATION_ITEM_RE` full-matched them). Pattern bodies are read by
-# SPLITTING instead — see `_NAME_SEPARATOR_RE`.
-_NAME_PART_RE = re.compile(r"[A-Za-z_]\w*")
-
 # What separates two names inside a pattern body: `(n:A:B)`, `[:A|B]`, `(n:A&B)`.
 #
 # SPLITTING on these, rather than extracting identifier RUNS, is what makes a
@@ -479,7 +473,26 @@ _NAME_SEPARATOR_RE = re.compile(r"[:|&]")
 # identifiers, so it matches nothing here no matter which characters get
 # stripped. The rule is "this segment is exactly one wrapped name, or it is not
 # read at all" — not "strip the characters I have seen so far".
-_BODY_ATOM_RE = re.compile(r"[!(]*`?([A-Za-z_]\w*)`?\)*")
+#
+# ONE name, as Cypher spells it anywhere a name may appear: a bare identifier, or
+# that identifier wrapped in backticks. The bare form is what gets captured, so a
+# caller never has to strip the escape itself.
+#
+# This is the module's single definition of "a name", and both positions that
+# read one are built from it — `_BODY_ATOM_RE` below (pattern position, which
+# additionally allows the wrapping label-expression operators) and
+# `_LABEL_MUTATION_ITEM_RE` (mutation position, which does not: `!` and `()` are
+# MATCH-only). Mutation position previously spelled the name a SECOND time,
+# without the escape — one of the two mechanisms behind the asymmetry #833
+# measured, `` (n:`Bogus`) `` recovered and ``SET n:`Bogus``` silently dropped.
+# (The other was the masker, which had blanked the name before this regex ever
+# ran; see `_mask_cypher`. Sharing the production alone would have closed
+# nothing, which is why both moved together.) A separate backtick rule per
+# position is the defect class that PR hit four times; the fix is always to share
+# the production, never to widen a copy of it.
+_ESCAPABLE_NAME = r"`?([A-Za-z_]\w*)`?"
+
+_BODY_ATOM_RE = re.compile(r"[!(]*" + _ESCAPABLE_NAME + r"\)*")
 
 # Relationship types are UPPER_SNAKE; labels are PascalCase. Anything else
 # (lowercase alias, digit-led fragment) is not vocabulary and is ignored.
@@ -564,13 +577,20 @@ def _has_top_level_colon(item: str) -> bool:
 
     The diagnostic's shape filter. Cypher spells every label item ``var:Label``,
     so the colon is always present and always at depth 0 — even for the forms
-    the item regex cannot read (``SET n:`Bogus```, whose backtick body is
-    blanked but whose delimiters and colon remain, and ``SET n:$(map:Key)``,
-    whose nested colon sits at depth 1 behind a top-level one). A `SET` item
-    with no top-level colon assigns a property and carries no label to miss;
-    reporting those would bury the signal under every property write in the
-    tree. ``MUTATION_CLAUSE_NO_ITEM_MATCHED`` is the unfiltered counterpart
-    that proves this filter hides no class.
+    the item regex cannot read (``SET n:$(labelExpr)``, whose operand resolves at
+    runtime, and ``SET n:$(map:Key)``, whose nested colon sits at depth 1 behind
+    a top-level one). A `SET` item with no top-level colon assigns a property
+    and carries no label to miss; reporting those would bury the signal under
+    every property write in the tree. ``MUTATION_CLAUSE_NO_ITEM_MATCHED`` is the
+    unfiltered counterpart that proves this filter hides no class.
+
+    ``item`` arrives cut from the escaped-names-legible copy, so a colon inside a
+    backtick-escaped PROPERTY name — `` SET n.`a:b` = 1 `` — now reads as
+    top-level here and gets reported as label-shaped when it is not. That is an
+    over-report into an opt-in instrument, never a violation, and it is the
+    right direction for a filter whose job is to avoid hiding a class. Quoted
+    strings are blanked in both copies, so the far commoner ``SET n.note = 'a:b'``
+    is unaffected; measured tree-wide, the category is unchanged at zero.
     """
     depth = 0
     for char in item:
@@ -595,8 +615,23 @@ def _has_top_level_colon(item: str) -> bool:
 # (Codex P2 on #831). Accepting a shape that turns out not to be valid Cypher
 # costs nothing — it never appears; REJECTING a valid one is a silent miss,
 # which is the whole failure this rule exists to prevent.
+#
+# Every name here — the variable AND each label — is `_ESCAPABLE_NAME`, the one
+# production `_BODY_ATOM_RE` reads pattern bodies with. Spelling the identifier
+# inline instead is what made ``SET n:`Bogus``` a silent drop while
+# `` (n:`Bogus`) `` was recovered, and it would have gone on costing the escaped
+# VARIABLE form (``SET `n`:Bogus``) too. The captured groups the shared
+# production introduces are why the label list is addressed by NAME below: its
+# number moves whenever the production does, and a positional `group(1)` would
+# silently start returning the variable.
 _LABEL_MUTATION_ITEM_RE = re.compile(
-    r"\s*[A-Za-z_]\w*(\s*:\s*[A-Za-z_]\w*(?:\s*[:&]\s*[A-Za-z_]\w*)*)\s*"
+    r"\s*"
+    + _ESCAPABLE_NAME
+    + r"(?P<labels>\s*:\s*"
+    + _ESCAPABLE_NAME
+    + r"(?:\s*[:&]\s*"
+    + _ESCAPABLE_NAME
+    + r")*)\s*"
 )
 
 
@@ -671,7 +706,7 @@ def mask_cypher_comments(text: str, *, keep_noqa: bool = False) -> str:
     wants no such carve-out: a comment cannot execute, so a name written in one
     is not load-bearing, which is the same reasoning that exempts docstrings.
     """
-    return _mask_cypher(text, keep_noqa=keep_noqa, blank_strings=False)
+    return _mask_cypher(text, keep_noqa=keep_noqa, blank_strings=False, blank_escaped_names=False)
 
 
 def _blank(chars: list[str], start: int, end: int) -> None:
@@ -681,15 +716,34 @@ def _blank(chars: list[str], start: int, end: int) -> None:
             chars[j] = " "
 
 
-def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
-    """One tokenizer, two masking policies. See ``mask_cypher_comments``.
+def _mask_cypher(
+    text: str, *, keep_noqa: bool, blank_strings: bool, blank_escaped_names: bool
+) -> str:
+    """One tokenizer, three masking policies. See ``mask_cypher_comments``.
 
-    ``blank_strings`` additionally blanks the CONTENTS of quoted strings and
-    backtick identifiers (the delimiters stay, so offsets and structure hold).
-    Only the mutation scanner asks for it: it has to find where a `SET` clause
-    ENDS, and an uppercase clause word inside a property value
-    (``SET n.note = 'RETURN later', n:Typo``) would otherwise close the region
-    early and hide every item after it. The other scanners must NOT use it —
+    Each flag blanks the CONTENTS of one kind of delimited span, leaving the
+    delimiters in place so offsets and structure hold:
+
+    - ``blank_strings`` — quoted strings, ``'...'`` and ``"..."``;
+    - ``blank_escaped_names`` — backtick-escaped identifiers, `` `...` ``.
+
+    They were ONE flag until the mutation scanner needed them apart, and the
+    coupling was invisible because only one caller set it. The mutation scanner
+    alone has to know where a `SET` clause ENDS, and a clause word inside a
+    delimited span — ``SET n.note = 'RETURN later', n:Typo`` — would otherwise
+    close the region early and hide every item after it. That is a structural
+    need, and it holds for both kinds of span: a comma, bracket or keyword inside
+    `` n.`a,b` `` moves the walk exactly as one inside a string does.
+
+    But the two spans differ in what they CONTAIN. A quoted string holds a value;
+    a backtick-escaped identifier holds a NAME, and blanking it destroys the very
+    thing this module exists to read. So the mutation scanner masks twice — once
+    with both flags, for the walk that finds clause boundaries, and once with
+    ``blank_escaped_names=False``, for reading the items that walk produced. Both
+    passes are length- and newline-preserving, so a single set of offsets
+    addresses either copy; see ``_mutation_clause_items``.
+
+    The pattern and predicate scanners set neither flag —
     ``_TYPE_PREDICATE_RE`` reads vocabulary out of quoted operands on purpose.
     """
     chars = list(text)
@@ -704,7 +758,7 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
                 if text[i + 1 : i + 2] == "`":
                     i += 2  # an escaped backtick — still inside the identifier
                     continue
-                if blank_strings:
+                if blank_escaped_names:
                     _blank(chars, string_body_start, i)
                 in_string = None
         elif in_string is not None:
@@ -733,8 +787,10 @@ def _mask_cypher(text: str, *, keep_noqa: bool, blank_strings: bool) -> str:
             i = end
             continue
         i += 1
-    # An unterminated string runs to the end of the fragment.
-    if blank_strings and in_string is not None:
+    # An unterminated span runs to the end of the fragment — under the policy
+    # for the delimiter that opened it, which is why `in_string` carries the
+    # character rather than a bare flag.
+    if in_string is not None and (blank_escaped_names if in_string == "`" else blank_strings):
         _blank(chars, string_body_start, len(text))
     return "".join(chars)
 
@@ -756,7 +812,7 @@ class _MutationClause:
 
 
 def _mutation_clause_items(
-    text: str, dialect: _Dialect, *, stop_at_clause_keyword: bool = True
+    text: str, dialect: _Dialect, item_source: str, *, stop_at_clause_keyword: bool = True
 ) -> list[_MutationClause]:
     """The `SET`/`REMOVE` operand regions of ``text``, one entry per clause head.
 
@@ -772,8 +828,18 @@ def _mutation_clause_items(
       without needing to know what opened them;
     - ``;`` ends the region at depth 0.
 
-    ``text`` must already be comment-masked and string-blanked, so no bracket,
-    comma or keyword inside a comment or string literal can move the depth.
+    ``text`` must already be comment-masked with every delimited span blanked, so
+    no bracket, comma or keyword inside a comment, string literal or
+    backtick-escaped identifier can move the depth.
+
+    ``item_source`` is the SAME text with escaped names left readable, and it is
+    what the returned item slices are cut from. The split is not a convenience:
+    the walk needs `` n.`a,b` `` opaque or that comma splits an item in two,
+    while a reader needs ``SET n:`Bogus``` legible or the name is gone before any
+    regex sees it — which is why widening the item regex alone closed nothing
+    (#833's stated cause was real but not the operative one). Both maskings are
+    length- and newline-preserving, so one offset addresses both copies and every
+    position reported downstream still points at the original fragment.
 
     Grouped rather than flat so the caller can ask a question a flat list cannot
     answer: did THIS clause yield no label item at all? That is one of the
@@ -809,7 +875,7 @@ def _mutation_clause_items(
                 if char == ";":
                     break
                 if char == ",":
-                    items.append((text[item_start:i], item_start))
+                    items.append((item_source[item_start:i], item_start))
                     item_start = i + 1
                 elif stop_at_clause_keyword and char.isalpha() and _starts_a_clause(text, i):
                     word = dialect.terminator.match(text, i)
@@ -818,7 +884,7 @@ def _mutation_clause_items(
                         terminator_at = i
                         break
             i += 1
-        items.append((text[item_start:i], item_start))
+        items.append((item_source[item_start:i], item_start))
         clauses.append(
             _MutationClause(items=items, terminator=terminator, terminator_at=terminator_at)
         )
@@ -830,8 +896,10 @@ def _mutation_clause_items(
 # property, `:` a label or relationship type, `$` a parameter. Each satisfies the
 # word boundary the terminator regex asserts, which is why that regex cannot make
 # the call alone — and each produced its own report before being covered
-# (Codex P2 on #831, twice). Backtick-escaped identifiers need no entry: their
-# contents are already blanked before the walker runs.
+# (Codex P2 on #831, twice). Backtick-escaped identifiers need no entry: the
+# walker reads the copy where their contents are blanked, which is exactly why
+# `blank_escaped_names` survived the split that made escaped names legible to
+# the item READER — see `_mask_cypher`.
 _NAME_COMPONENT_SIGILS = ".:$"
 
 
@@ -876,6 +944,13 @@ def _body_names(body: str) -> Iterator[tuple[str, int]]:
       ``[r:!BOGUS_EDGE]`` (Codex P2 on #833). Splitting alone left `!Bogus` and
       `(Known` as segments that failed the name regex, so a typo'd label in
       either position went from reported to invisible.
+
+    The MUTATION scanner reads its label lists through here too: ``SET n:A:B``
+    carries the same separator-joined body as ``(n:A:B)``, so one reader serves
+    both. That consolidation is a drift guard rather than a behaviour change —
+    the identifier-run regex it replaced agrees with this on every item the
+    mutation shape gate admits. See the call site in ``_scan`` for what
+    measurement backs that, and what the duplicate would have cost later.
     """
     start = 0
     for separator in _NAME_SEPARATOR_RE.finditer(body):
@@ -1038,7 +1113,7 @@ def _note_gate_rejection(fragment: str, masked: str, dialect: _Dialect) -> None:
 
 
 def _note_region_truncation(
-    unquoted: str, dialect: _Dialect, strict: list[_MutationClause]
+    unquoted: str, unescaped: str, dialect: _Dialect, strict: list[_MutationClause]
 ) -> None:
     """Report label items a keyword break cost, by DISAGREEMENT between two walks.
 
@@ -1081,7 +1156,7 @@ def _note_region_truncation(
     """
     if _DIAGNOSTIC_SINK is None:
         return
-    permissive = _mutation_clause_items(unquoted, dialect, stop_at_clause_keyword=False)
+    permissive = _mutation_clause_items(unquoted, dialect, unescaped, stop_at_clause_keyword=False)
     for index, clause in enumerate(permissive):
         # Same heads in the same order, so the aligned strict clause is the one
         # whose break is in question. `terminator_at` is None exactly when strict
@@ -1137,24 +1212,30 @@ def scan_names(fragment: str, *, declared_cypher: bool = False) -> list[ScannedN
     is the escape hatch if one ever does. The MUTATION scanner is the exception
     and *is* quote-blind, because it alone needs to know where a clause ends.
 
-    **Known limit, NOT uniform: backtick-escaped vocabulary is scanned in
-    pattern position only.** ``(n:`Bogus`)`` and ``[r:`BOGUS_EDGE`]`` ARE
-    recovered; ``SET n:`Bogus``` and ``REMOVE n:`Bogus``` are not, because
-    ``_LABEL_MUTATION_ITEM_RE`` requires an identifier character right after the
-    ``:``.
+    **Backtick-escaped vocabulary is scanned in every position.**
+    ``(n:`Bogus`)``, ``[r:`BOGUS_EDGE`]``, ``SET n:`Bogus``` and
+    ``REMOVE n:`Bogus``` all report their name; so does an escaped VARIABLE,
+    ``SET `n`:Bogus``. Every one of them is `_ESCAPABLE_NAME`, read by one
+    production rather than per position.
 
-    This block previously claimed all four positions missed the form, and
-    ``TestBacktickEscapedVocabulary`` "pinned" it — with an assertion
-    (``"Bogus" in n.value.upper()``) that ``.upper()`` made unsatisfiable, so it
-    passed on any behaviour whatsoever. A vacuous guard under a false claim is
-    this module's own failure mode one more layer down, and it is what let the
-    single DECLINED finding of #831 rest on an unmeasured premise. Both are now
-    corrected against measurement rather than restated.
+    The history is the useful part. This block once claimed all four positions
+    missed the form, and ``TestBacktickEscapedVocabulary`` "pinned" it — with an
+    assertion (``"Bogus" in n.value.upper()``) that ``.upper()`` made
+    unsatisfiable, so it passed on any behaviour whatsoever. Measurement (#833)
+    found the claim half false: pattern position had recovered escaped names all
+    along. That left a real gap in mutation position, and closing it turned out
+    to need TWO changes, not the one the corrected claim named. The item regex
+    did require an identifier straight after the ``:`` — but the mutation
+    scanner reads string-blanked text, and the masker treated a backtick as a
+    string delimiter, so ``SET n:`Bogus``` arrived as ``SET n:`     ```. The
+    name was gone before any regex saw it; widening the regex alone would have
+    closed nothing. See ``_mask_cypher`` for the two masking policies that
+    replaced the one.
 
-    Closing the mutation half means teaching that position too; it is a
-    behaviour widening with its own before/after measurement, not a free rider
-    on this change. Zero sites in the tree use the form either way — SKUEL
-    labels and edge names are plain identifiers that never need escaping.
+    Still zero sites in the tree write the form — SKUEL labels and edge names
+    are plain identifiers that never need escaping — so this cost no violations
+    and gained none. It closes a latent silent miss, which is the only kind this
+    module has.
     """
     dialect = _dialect(declared_cypher)
     masked = mask_cypher_comments(fragment)
@@ -1172,7 +1253,16 @@ def _scan(fragment: str, masked: str, dialect: _Dialect) -> list[ScannedName]:
     a refusal cost by running the real scanners rather than approximating them —
     see ``_note_gate_rejection``.
     """
-    unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True)
+    # Two maskings of the same fragment, for the mutation scanner's two jobs.
+    # `unquoted` blanks every delimited span and is what the clause WALK reads,
+    # so nothing inside a string or an escaped identifier can move a boundary.
+    # `unescaped` keeps escaped names legible and is what the walk's ITEMS are
+    # cut from, so a name written `` SET n:`Bogus` `` survives to be read. Both
+    # are length- and newline-preserving, so the offsets agree.
+    unquoted = _mask_cypher(fragment, keep_noqa=False, blank_strings=True, blank_escaped_names=True)
+    unescaped = _mask_cypher(
+        fragment, keep_noqa=False, blank_strings=True, blank_escaped_names=False
+    )
 
     found: list[ScannedName] = []
 
@@ -1206,11 +1296,12 @@ def _scan(fragment: str, masked: str, dialect: _Dialect) -> list[ScannedName]:
             record(NameKind.LABEL, name, match.start(1))
 
     # Mutation position — SET n:Label / REMOVE n:A:B / SET a:Ku, b:PathStep.
-    # Scanned over string-blanked text: this is the one scanner that has to know
+    # The walk reads `unquoted` because this is the one scanner that has to know
     # where a clause ENDS, and an uppercase clause word inside a property value
-    # would close the region early (Codex P2 on #831). Blanking is offset- and
-    # length-preserving, so the positions recorded below stay truthful.
-    strict_clauses = _mutation_clause_items(unquoted, dialect)
+    # would close the region early (Codex P2 on #831). Its items come back cut
+    # from `unescaped`, so an escaped name is still there to read. Both maskings
+    # are offset- and length-preserving, so the positions recorded stay truthful.
+    strict_clauses = _mutation_clause_items(unquoted, dialect, unescaped)
     for clause in strict_clauses:
         items = clause.items
         matched_any = False
@@ -1221,17 +1312,36 @@ def _scan(fragment: str, masked: str, dialect: _Dialect) -> list[ScannedName]:
                     _note(ScanIssue.UNPARSED_MUTATION_ITEM, chunk, unquoted, offset)
                 continue
             matched_any = True
-            # Each label at ITS OWN position, not the start of the colon group —
-            # `SET n:Known:\n  Bogus` reported `Bogus` on `Known`'s line, which is
-            # both a wrong location and a suppression that cannot be placed beside
-            # the name it must suppress (Codex P2 on #831).
-            for part in _NAME_PART_RE.finditer(item.group(1)):
-                name = part.group()
+            # The label list is a pattern BODY — `A:B`, `A&B` — so it is read by
+            # the body mechanism rather than by the identifier-run regex that
+            # used to live here.
+            #
+            # Stated exactly, because it is tempting to overclaim: this is NOT
+            # what recovers the escaped name. The shape gate above already
+            # full-matched the item through `_ESCAPABLE_NAME`, and by then runs
+            # and segments agree on every input the gate admits — backticks are
+            # not word characters, so a run finds `Bogus` inside `` `Bogus` ``
+            # unaided. Swapping `_body_names` back for `re.finditer` here kills
+            # no test, and none was written to pretend otherwise.
+            #
+            # What it buys is one name-reader instead of two. `_NAME_PART_RE`
+            # was a second, weaker spelling of "a name" that agreed with
+            # `_BODY_ATOM_RE` only by coincidence of the current grammar: the
+            # day the shared production grows a wrapper — as the pattern side
+            # already has with `!` and `()` — a run would mine straight through
+            # it and report the operator's operand as vocabulary. Deleting the
+            # duplicate is the fix that cannot drift.
+            #
+            # Position comes with it: `SET n:Known:\n  Bogus` reported `Bogus`
+            # on `Known`'s line, which is both a wrong location and a
+            # suppression that cannot be placed beside the name it must
+            # suppress (Codex P2 on #831).
+            for name, name_at in _body_names(item.group("labels")):
                 if _LABEL_NAME_RE.fullmatch(name):
-                    record(NameKind.LABEL, name, offset + item.start(1) + part.start())
+                    record(NameKind.LABEL, name, offset + item.start("labels") + name_at)
         if not matched_any and items:
             _note(ScanIssue.MUTATION_CLAUSE_NO_ITEM_MATCHED, items[0][0], unquoted, items[0][1])
-    _note_region_truncation(unquoted, dialect, strict_clauses)
+    _note_region_truncation(unquoted, unescaped, dialect, strict_clauses)
 
     return found
 
