@@ -2472,13 +2472,36 @@ class AIInsightsResult(TypedDict, total=False):
 # ============================================================================
 # VISUALIZATION RESULT TYPES
 # ============================================================================
-# Return shapes for VisualizationService chart methods.
+# Return shapes for the Chart.js / Vis.js-Timeline / Frappe-Gantt payloads
+# produced by VisualizationService (7 formatters), VisualizationAggregationService
+# (8) and InsightStore's 4 hand-built chart configs.
+#
+# NOT the whole vendor surface — Vis.js *Network* is a separate family with its
+# own wire type in this same file: see RelationshipGraphData above, produced by
+# LateralRelationshipService.get_relationship_graph and (untyped) by
+# ExploreOrchestrator.generate_learning_graph, both consumed by `new vis.Network`.
+#
+# These are WIRE contracts, not domain rows. skuel.js's `chartVis` component
+# hands the deserialized payload straight to `new Chart(ctx, config)`, so a
+# renamed key is a breaking change no Python test observes — construct these
+# literals, never `cast()` a dict into them.
+#
 # Inner structures (options, item details) remain dict[str, Any] because
 # they're consumed by Chart.js/Vis.js/Gantt JavaScript libraries.
 
 
 class ChartJsDataset(TypedDict, total=False):
-    """Single dataset in a Chart.js chart configuration."""
+    """Single dataset in a Chart.js chart configuration.
+
+    Named nowhere outside this module — it is reached only through
+    ChartJsConfig["data"]["datasets"], which is what makes it the checker for
+    every dataset key ``core/`` puts on the wire.
+
+    It is NOT exhaustive of the wire itself: adapters/inbound/lifepath_ui.py
+    hand-builds a radar config for the same ``chartVis`` component, typed
+    ``-> Any``, whose dataset carries pointBackgroundColor / pointBorderColor —
+    neither declared here. Add them if that route is ever brought under this type.
+    """
 
     label: str
     data: list[int] | list[float]

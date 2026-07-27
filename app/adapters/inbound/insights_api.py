@@ -19,6 +19,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.entity_requests import SmartDismissRequest
 from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest
+from core.ports.query_types import ChartJsConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.insights.insight_card import DismissedInsightMessage
@@ -241,28 +242,28 @@ def create_insights_api_routes(
 
     @rt("/api/insights/charts/impact-distribution")
     @boundary_handler(success_status=200)
-    async def impact_distribution_chart(request: Request) -> Result[dict[str, Any]]:
+    async def impact_distribution_chart(request: Request) -> Result[ChartJsConfig]:
         """Chart.js doughnut chart config for impact distribution."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_impact_distribution_chart(user_uid)
 
     @rt("/api/insights/charts/domain-distribution")
     @boundary_handler(success_status=200)
-    async def domain_distribution_chart(request: Request) -> Result[dict[str, Any]]:
+    async def domain_distribution_chart(request: Request) -> Result[ChartJsConfig]:
         """Chart.js bar chart config for insights by domain."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_domain_distribution_chart(user_uid)
 
     @rt("/api/insights/charts/type-distribution")
     @boundary_handler(success_status=200)
-    async def type_distribution_chart(request: Request) -> Result[dict[str, Any]]:
+    async def type_distribution_chart(request: Request) -> Result[ChartJsConfig]:
         """Chart.js doughnut chart config for insight type distribution."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_type_distribution_chart(user_uid)
 
     @rt("/api/insights/charts/action-rate")
     @boundary_handler(success_status=200)
-    async def action_rate_chart(request: Request) -> Result[dict[str, Any]]:
+    async def action_rate_chart(request: Request) -> Result[ChartJsConfig]:
         """Chart.js gauge/doughnut chart for insight action rate."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_action_rate_chart(user_uid)

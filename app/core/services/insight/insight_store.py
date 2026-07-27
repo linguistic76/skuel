@@ -33,6 +33,7 @@ from core.models.insight.persisted_insight import (
     PersistedInsight,
 )
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.query_types import ChartJsConfig
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import deserialize_json_fields
@@ -744,7 +745,7 @@ class InsightStore:
     # Chart Data Methods
     # ========================================
 
-    async def get_impact_distribution_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_impact_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
         """Build Chart.js doughnut config for impact distribution.
 
         Counts active insights per impact level and returns a complete
@@ -799,7 +800,7 @@ class InsightStore:
             }
         )
 
-    async def get_domain_distribution_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_domain_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
         """Build Chart.js bar config for insights by domain.
 
         Counts active insights per domain, sorted by count descending.
@@ -849,7 +850,7 @@ class InsightStore:
             }
         )
 
-    async def get_type_distribution_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_type_distribution_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
         """Build Chart.js doughnut config for insight type distribution.
 
         Counts active insights per type, sorted by count descending.
@@ -906,7 +907,7 @@ class InsightStore:
             }
         )
 
-    async def get_action_rate_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_action_rate_chart(self, user_uid: UserUID) -> Result[ChartJsConfig]:
         """Build Chart.js gauge-style doughnut config for action rate.
 
         Uses insight stats to show percentage of actioned vs not actioned.

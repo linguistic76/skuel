@@ -519,7 +519,7 @@ Two-tier protocols for the general-purpose form system.
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `CalendarServiceOperations` | `calendar` | 5 async (get_calendar_view, get_item, quick_create, reschedule_item, record_habit_occurrence) | `calendar_api.py`, `calendar_ui.py` |
-| `VisualizationOperations` | `visualization` | 15 (8 async data-fetching + 7 sync formatters) | `visualization_api.py` |
+| `VisualizationOperations` | `visualization` | 8 async (4 Chart.js + 2 Vis.js timeline + 2 Gantt) | `visualization_api.py` |
 | `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
 | `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 6 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency, get_combined_dashboard) | `analytics_api.py` |
 | `LifePathOperations` | `lifepath` | 3 async + `.alignment` sub-service | `lifepath_api.py` |
@@ -549,21 +549,25 @@ class LifePathOperations(Protocol):
 
 Routes access it as `lifepath_service.get_alignment(user_uid)`. The facade builds UserContext internally and delegates to `alignment.calculate_alignment(context)`.
 
-### Mixed Async/Sync Pattern: VisualizationOperations
+### Vendor-Payload Pattern: VisualizationOperations
 
-Some services have both async (I/O) and sync (computation) methods called from routes. Both are included in the protocol:
+The protocol is **async-only, 8 methods**. The sync `format_*` formatters live on
+`VisualizationService` and are deliberately *not* protocol members — the protocol's own
+docstring says so ("Pure formatting lives in VisualizationService and is not part of this
+protocol"), and calling one through the protocol is a MyPy `attr-defined` error.
+
+Each method returns a **vendor wire type** from `core/ports/query_types.py`, not a bare
+`dict`. `skuel.js`'s `chartVis` hands the deserialized payload straight to
+`new Chart(ctx, config)`, so the TypedDict is the only thing checking the key names —
+build these literals, never `cast()` a dict into them (SoC arc #11).
 
 ```python
 @runtime_checkable
 class VisualizationOperations(Protocol):
-    # Async — data fetching + formatting (service owns domain dependencies)
-    async def get_completion_chart_data(self, user_uid: UserUID, period: str) -> Result[dict]: ...
-    async def get_streak_chart_data(self, user_uid: UserUID) -> Result[dict]: ...
-    async def get_tasks_gantt_data(self, user_uid: UserUID, project: str | None = None) -> Result[dict]: ...
-
-    # Sync — Chart.js formatting (kept public for direct use/testing)
-    def format_completion_chart(self, completed: list[int], total: list[int], labels: list[str], ...) -> Result[dict]: ...
-    def format_for_visjs(self, calendar_data: Any, group_by: str = "type") -> Result[dict]: ...
+    async def get_completion_chart_data(self, user_uid: UserUID, period: str) -> Result[ChartJsConfig]: ...
+    async def get_streak_chart_data(self, user_uid: UserUID) -> Result[ChartJsConfig]: ...
+    async def get_timeline_data(self, user_uid: UserUID, start_date: Any, end_date: Any, group_by: str = "type") -> Result[VisTimelineConfig]: ...
+    async def get_tasks_gantt_data(self, user_uid: UserUID, project: str | None = None) -> Result[GanttConfig]: ...
 ```
 
 ### Usage in Route Files
