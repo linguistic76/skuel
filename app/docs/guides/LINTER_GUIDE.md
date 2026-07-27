@@ -30,7 +30,7 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 | Layer | Tool | Scope | Config |
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
-| **SKUEL Patterns** | `scripts/lint_skuel.py` | 28 architectural rules (SKUEL001-SKUEL029; SKUEL004 deleted, IDs not renumbered) | Inline in script |
+| **SKUEL Patterns** | `scripts/lint_skuel.py` | 31 architectural rules (SKUEL001-SKUEL032; SKUEL004 deleted, IDs not renumbered) | Inline in script |
 | **Cypher Queries** | `scripts/cypher_linter.py` | 10 Neo4j query rules (CYP001-CYP010) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
@@ -88,6 +88,7 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 | **SKUEL024** | `cls=` + `**kwargs` collision in FT helpers | Add explicit `cls: str = ""` and merge |
 | **SKUEL025** | Deleted Activity `*UpdatePayload` names | Use `*UpdateIntent` / `*UpdateRequest.to_intent()` (ADR-066) |
 | **SKUEL027** | Runtime `adapters/` imports in `ui/` | Move shared code inward or pass values in from the route (SKUEL022's ui/ sibling) |
+| **SKUEL032** | Runtime `ui/` imports in `core/` | Return a `core/ports/query_types` row; build the display type in `ui/` (ADR-058; SKUEL022's presentation-side twin) |
 | **SKUEL028** | `Result.fail(...expect_error())` | Propagate with `Result.fail(result)`; `.expect_error()` is for reading only |
 | **SKUEL029** | `async def` without `await` | Sync body in async signature — convert to `def`, or suppress where a protocol/lifecycle contract requires async (promoted from opt-in 2026-07-18 after the 215→0 reduction arc) |
 
@@ -183,7 +184,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL029 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`). Every run audits suppressions and flags unused ones as SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL030, SKUEL032 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift`). Every run audits suppressions and flags unused ones as SKUEL026.
 
 **SKUEL017 additional markers:**
 ```python
@@ -217,11 +218,11 @@ uv run python scripts/lint_skuel.py --strict    # Treat warnings as errors
 
 ## Adding a New SKUEL Rule
 
-1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: SKUEL019)
+1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: **SKUEL032**; SKUEL004 was deleted 2026-07 and must NOT be reused)
 2. **Add a check method** in `scripts/lint_skuel.py` — follow the pattern of existing `_check_skuelXXX()` methods
 3. **Register the rule** in the `RULE_DOCS` dict with severity, description, and good/bad examples (used by `--explain`)
-4. **Wire it into `_lint_file`** with the correct context gate (e.g. `not is_test`, `is_service`)
-5. **Add unit tests** in `tests/unit/scripts/test_lint_skuel.py`
+4. **Wire it into `_lint_file`** with the correct context gate (e.g. `not is_test`, `is_service`), AND add the id to `AST_RULE_IDS` if the rule reads the shared tree — omitting it leaves `tree` as `None`, so `--rule SKUELXXX` silently reports zero while a full sweep works
+5. **Add unit tests** in `tests/unit/scripts/test_lint_skuel.py` — and mirror the `_lint_file` gate in that file's `lint_content()` harness, or every new test passes vacuously. Suppressible rules must also be added to `SUPPRESSIBLE_RULES` (`TestSuppressibleRulesDrift` enforces it by scanning for a **quoted literal** rule id at the suppression call site — which is why the three import-direction checkers are separate functions over one shared scan)
 6. **Document the rule** in `docs/patterns/linter_rules.md` with good/bad examples and rationale
 7. **Update both lists in `CLAUDE.md`** — the "Key SKUEL Linter Rules" line *and* the supported inline-suppression list
 8. **Update this guide** — both the WARNING/ERROR table and the "next available" hint above
@@ -239,7 +240,7 @@ Both custom linters have comprehensive test coverage:
 |------|---------|
 | `dev` | CLI wrapper — `./dev lint`, `./dev quality`, etc. |
 | `pyproject.toml` | Ruff, MyPy, Pyright configuration |
-| `scripts/lint_skuel.py` | SKUEL pattern linter (25 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
+| `scripts/lint_skuel.py` | SKUEL pattern linter (31 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
 | `scripts/cypher_linter.py` | Cypher query linter (10 rules) |
 | `scripts/run_quality_checks.py` | Quality check orchestrator |
 | `docs/patterns/linter_rules.md` | Detailed rule documentation |

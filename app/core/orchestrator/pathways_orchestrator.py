@@ -16,6 +16,7 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
+    from core.ports.query_types import LpDashboardSummary
     from core.services.lp_service import LpService
     from core.services.user_progress_service import UserProgressService
     from core.utils.result_simplified import Result
@@ -39,7 +40,7 @@ class PathwaysOrchestrator:
 
     # --- Dashboard ---
 
-    async def get_dashboard_summary(self, user_uid: UserUID) -> "Result[dict[str, Any]]":
+    async def get_dashboard_summary(self, user_uid: UserUID) -> "Result[LpDashboardSummary]":
         """Build pathways dashboard summary with active paths and learning stats."""
         return await self._lp.get_dashboard_summary(user_uid, self._user_progress)
 

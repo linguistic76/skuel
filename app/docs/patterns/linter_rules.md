@@ -52,6 +52,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL024** | Hardcoded `cls=` + `**kwargs` splat without a `cls` param | Add explicit `cls: str = ""` and merge (AST rule) |
 | **SKUEL025** | A deleted Activity `*UpdatePayload` name (ADR-066) | Use the domain `*UpdateIntent` / `*UpdateRequest.to_intent()` (AST rule) |
 | **SKUEL027** | Runtime `adapters/` imports in `ui/` | Move shared code inward or pass values in from the route (AST rule, SKUEL022's ui/ sibling) |
+| **SKUEL032** | Runtime `ui/` imports in `core/` | Return a `core/ports/query_types` row and build the display type in `ui/` (AST rule, ADR-058; SKUEL022's presentation-side twin) |
 
 ### WARNING (blocks `./dev lint` / `./dev quality` via `--strict`; plain runs report only)
 
@@ -99,7 +100,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL032 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -636,7 +637,7 @@ if TYPE_CHECKING:
 
 ## Rule: SKUEL027 - ui/ Must Not Import adapters/
 
-**Pattern:** `ui/` is pure presentation — it renders what routes hand it. The dependency arrows point inward: `adapters/inbound` (routes) imports `ui/` components, never the reverse at runtime. This is SKUEL022's sibling for the `ui/` layer; both share the same AST scan (`_collect_runtime_adapter_imports`). Before this rule, no lint watched `ui/`, which is how `ui/calendar/converters.py` grew an adapters import (fixed in #653) and CSRF render helpers were consumed from `adapters/inbound/csrf.py` (split inward in #654). The rule replaced the interim unit-test guard `tests/unit/test_ui_layer_boundary.py` (one enforcement point — lint fires in `./dev quality`, not only under pytest; inline suppressions beat a remote sanction list).
+**Pattern:** `ui/` is pure presentation — it renders what routes hand it. The dependency arrows point inward: `adapters/inbound` (routes) imports `ui/` components, never the reverse at runtime. This is SKUEL022's sibling for the `ui/` layer; both share the same AST scan (`_collect_runtime_layer_imports`, parameterised by target package — SKUEL032 is the third caller). Before this rule, no lint watched `ui/`, which is how `ui/calendar/converters.py` grew an adapters import (fixed in #653) and CSRF render helpers were consumed from `adapters/inbound/csrf.py` (split inward in #654). The rule replaced the interim unit-test guard `tests/unit/test_ui_layer_boundary.py` (one enforcement point — lint fires in `./dev quality`, not only under pytest; inline suppressions beat a remote sanction list).
 
 ```python
 # ❌ VIOLATION (ERROR) — module-level adapter import in a ui/ file
@@ -668,6 +669,47 @@ if TYPE_CHECKING:
 **Suppression:**
 - `# skuel-lint: disable=SKUEL027 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL027 -- <reason>` (file)
+
+## Rule: SKUEL032 - core/ Must Not Import ui/
+
+**Pattern:** SKUEL022's presentation-side twin, and the last unguarded edge of the ADR-044 hexagon. `core/` computes; `ui/` renders what a route hands it. A runtime `import ui` inside `core/` inverts that — the domain layer reaching outward to construct a display type. [ADR-058](../decisions/ADR-058-today-surface.md) § Placement already stated the rule in prose ("putting it in `core/` would invert the `core → ui` import direction") and CLAUDE.md repeats it for page contexts, but nothing enforced it — and the class regrew: commit `fe3f7a9c2` relocated `core/ui/` to `ui/` precisely to "remove presentation layer from core domain", yet `core/services/lp_service.py` still reached back into `ui.ui_types` to **construct** `ActivePathData`/`LearningStatsData`, formatting `"12h total"` and a difficulty label inside a core service. Both violations were function-local, so a module-level-only check would have reported zero.
+
+```python
+# ❌ VIOLATION (ERROR) — core service constructing a UI dataclass
+from ui.ui_types import ActivePathData
+
+# ❌ VIOLATION (ERROR) — hidden inside a function; both founding violations
+# (lp_service.py:396 and :437) had exactly this shape
+def calculate_path_progress(self, paths):
+    from ui.ui_types import ActivePathData
+    return [ActivePathData(estimated_completion=f"{int(p.estimated_hours or 0)}h total") ...]
+
+# ✅ CORRECT — service returns domain values; ui/ owns every presentation decision
+from core.ports.query_types import LpActivePathProgress
+
+def _calculate_path_progress(self, paths) -> list[LpActivePathProgress]:
+    return [LpActivePathProgress(uid=p.uid, estimated_hours=p.estimated_hours or 0.0, ...)]
+
+# ui/pathways/components.py
+def to_active_path_data(row: LpActivePathProgress) -> ActivePathData:
+    return ActivePathData(estimated_completion=f"{int(row['estimated_hours'])}h total", ...)
+```
+
+**AST-based, runtime scope:** same mechanics as SKUEL022/SKUEL027 (shared `_collect_runtime_layer_imports`, parameterised by target package) — flags `import ui...` / `from ui... import ...` at module scope **and inside functions**; `TYPE_CHECKING` bodies are exempt, the `else`/`elif` branch is not; `ui` paths in docstrings are prose; `from .ui import x` is a relative sibling, not the package.
+
+**Honest limit:** the rule measures the runtime *import*, not the layering intent. Hoisting an import under `if TYPE_CHECKING:` satisfies it while a `core/` signature still returns a `ui/` type. Green means the runtime edge is gone, not that the inversion was fixed.
+
+**No pre-filter, deliberately:** SKUEL022/027 short-circuit on `if "adapters" not in content`. Measured over 777 `core/*.py` files, `"adapters"` is a substring of 75 (9.7%) but `"ui"` is a substring of **655 (84.3%)** — the same idiom would filter nothing. The AST is parsed once per file and shared, so the scan is already cheap.
+
+**Scope:** all of `core/`. `adapters/inbound/` importing `ui/` is the composition a route exists to do (the same carve-out SKUEL022 makes); `ui/`, `services_bootstrap/`, and test files are not checked.
+
+**How to fix a violation:** return domain values and let `ui/` build the display type. `core/ports/query_types` row TypedDicts are the established carrier — 9 `ui/` modules already import them at runtime (e.g. `ui/learning_loop/exercise_status.py` ← `ExerciseStatusRow`). For a whole page shape, `ui/page_contexts.py` is the documented home (ADR-058).
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL032` — 17 cases covering module-level, plain `import`, function-local, both `TYPE_CHECKING` forms, else-branch/try-except runtime branches, docstring prose, relative-sibling and `uvicorn`-style prefix collisions, layer-scope exemptions (`ui/`, routes, test files), suppression, and a source assertion that all three import-direction rules route through **one** collector.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL032 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL032 -- <reason>` (file)
 
 ## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
 
@@ -1081,7 +1123,7 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (25 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (31 rules)
 - **scripts/cypher_linter.py** - Cypher query static analysis (11 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
@@ -1114,4 +1156,4 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 ---
 
 **Last Updated:** 2026-07-19
-**Status:** Active - 25 rules (SKUEL001–SKUEL026; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.
+**Status:** Active - 31 rules (SKUEL001–SKUEL032; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.

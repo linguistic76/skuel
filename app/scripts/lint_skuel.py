@@ -20,6 +20,7 @@ ERROR (blocks CI):
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
+  SKUEL032: core/ must not import ui/ at runtime (ADR-058; SKUEL022's ui/ twin)
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL005: Result[T] return types on service methods
@@ -927,6 +928,58 @@ raise RuntimeError("Neo4j driver not installed. Run: pip install neo4j")
 # Same drift through uv's pip interface
 uv pip install weasyprint""",
     },
+    "SKUEL032": {
+        "title": "core/ Must Not Import ui/",
+        "severity": "ERROR",
+        "description": """SKUEL022's presentation-side twin, and the last unguarded edge of the
+ADR-044 hexagon. `core/` computes; `ui/` renders what a route hands it. A runtime
+`import ui` inside `core/` inverts that — the domain layer reaching outward to
+construct a display type.
+
+ADR-058 § Placement already stated the rule in prose ("putting it in `core/` would
+invert the `core → ui` import direction"), and CLAUDE.md repeats it for page contexts —
+but nothing enforced it, and the class regrew: `fe3f7a9c2` relocated `core/ui/` to
+`ui/` precisely to "remove presentation layer from core domain", yet
+`core/services/lp_service.py` still reached back into `ui.ui_types` to CONSTRUCT
+`ActivePathData` / `LearningStatsData`, formatting "12h total" and a difficulty label
+inside a core service (fixed alongside this rule, #839).
+
+AST-based, same mechanics as SKUEL022/SKUEL027: flags `import ui...` /
+`from ui... import ...` at module scope OR inside a function. The function-local case
+is the one that matters — BOTH founding violations were function-local, and a
+module-level-only check would have reported zero.
+
+TYPE_CHECKING-only imports are EXEMPT: they never execute. Note the limit that follows
+from that — hoisting an import under `if TYPE_CHECKING:` satisfies this rule while a
+`core/` signature still returns a `ui/` type. Green here means the runtime edge is gone,
+not that the layering was fixed.
+
+Scope is `core/` only. `adapters/inbound/` importing `ui/` is the composition a route
+exists to do (the same carve-out SKUEL022 makes for `adapters/inbound/` → `adapters/`).
+
+Fix: return domain values and let `ui/` build the display type. `core/ports/query_types`
+row TypedDicts are the established carrier — 9 `ui/` modules already import them at
+runtime (e.g. `ui/learning_loop/exercise_status.py` ← `ExerciseStatusRow`).
+
+Suppress: # skuel-lint: disable=SKUEL032 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL032 -- <reason>""",
+        "good": """# Service returns domain values; ui/ owns every presentation decision
+from core.ports.query_types import LpActivePathProgress
+
+def calculate(self, paths) -> list[LpActivePathProgress]:
+    return [LpActivePathProgress(uid=p.uid, estimated_hours=p.estimated_hours or 0.0, ...)]
+
+# ui/pathways/components.py
+def to_active_path_data(row: LpActivePathProgress) -> ActivePathData:
+    return ActivePathData(estimated_completion=f"{int(row['estimated_hours'])}h total", ...)""",
+        "bad": """# Core service constructing a UI dataclass and formatting display strings
+from ui.ui_types import ActivePathData  # even under TYPE_CHECKING this signature is wrong
+
+def calculate(self, paths) -> list[ActivePathData]:
+    # ...or hidden inside a function (still a runtime core→ui dependency):
+    from ui.ui_types import ActivePathData
+    return [ActivePathData(estimated_completion=f"{int(p.estimated_hours or 0)}h total", ...)]""",
+    },
 }
 
 
@@ -1081,6 +1134,7 @@ class SkuelLinter:
             "SKUEL028",
             "SKUEL029",
             "SKUEL030",
+            "SKUEL032",
         }
     )
 
@@ -1146,6 +1200,7 @@ class SkuelLinter:
             "SKUEL028",
             "SKUEL029",
             "SKUEL030",
+            "SKUEL032",
         }
     )
 
@@ -1663,6 +1718,12 @@ class SkuelLinter:
             # runtime adapters imports (SKUEL022's sibling for the ui/ layer).
             if is_ui and not is_test and self._should_run_rule("SKUEL027"):
                 self._check_ui_imports_adapter(file_path, rel_path, content, lines, tree)
+
+            # Import-direction rule (ADR-058): the other end of the same seam — core/
+            # must not reach outward into ui/ either. adapters/inbound/ is deliberately
+            # out of scope: composing UI is what a route is for.
+            if is_core and not is_test and self._should_run_rule("SKUEL032"):
+                self._check_core_imports_ui(file_path, rel_path, content, lines, tree)
 
             # Static type-direction rule (ADR-044): all of core/, not just services.
             # Closes the TYPE_CHECKING exemption gap left open by SKUEL022.
@@ -3728,19 +3789,24 @@ class SkuelLinter:
             )
         return False
 
-    def _collect_runtime_adapter_imports(self, tree: ast.Module) -> list[tuple[ast.stmt, str]]:
-        """``(node, module)`` for every runtime ``adapters`` import in *tree*.
+    def _collect_runtime_layer_imports(
+        self, tree: ast.Module, target: str
+    ) -> list[tuple[ast.stmt, str]]:
+        """``(node, module)`` for every runtime *target*-package import in *tree*.
 
-        Shared scan behind SKUEL022 (core/) and SKUEL027 (ui/) — the layer scope,
-        suppression, and message live in each rule's checker. Flags imports at module
-        scope AND inside functions (a function-local import is the same runtime
-        dependency, deferred past module load — the dodge a module-level-only check
-        would miss).
+        Shared scan behind SKUEL022 (core/→adapters/), SKUEL027 (ui/→adapters/) and
+        SKUEL032 (core/→ui/) — the layer scope, suppression, and message live in each
+        rule's checker. *target* is the imported top-level package; every other
+        behaviour here is layer-agnostic, so a third rule is one more argument, not a
+        second walker. Flags imports at module scope AND inside functions (a
+        function-local import is the same runtime dependency, deferred past module
+        load — the dodge a module-level-only check would miss, and where BOTH of
+        SKUEL032's founding violations hid).
 
         ``TYPE_CHECKING``-only imports are excluded: they never execute, so they cannot
         create a runtime dependency. Only the ``if`` BODY is exempt, never the
         ``else``/``elif`` branch — an import there DOES execute at runtime. Relative
-        imports (``level > 0``) are never top-level ``adapters`` imports — including
+        imports (``level > 0``) are never top-level *target* imports — including
         ``from .adapters import x``, a sibling module that happens to share the name
         (``node.module`` is ``"adapters"`` there but ``level`` is 1).
         """
@@ -3764,15 +3830,15 @@ class SkuelLinter:
             else:
                 continue
 
-            adapter_modules = [
-                m for m in imported_modules if m == "adapters" or m.startswith("adapters.")
+            target_modules = [
+                m for m in imported_modules if m == target or m.startswith(f"{target}.")
             ]
-            if not adapter_modules:
+            if not target_modules:
                 continue
             if node.lineno in type_checking_lines:
                 continue  # TYPE_CHECKING-only — cannot create a runtime dependency
 
-            found.append((node, adapter_modules[0]))
+            found.append((node, target_modules[0]))
         return found
 
     def _check_core_imports_adapter(
@@ -3788,7 +3854,7 @@ class SkuelLinter:
 
         The hexagonal dependency direction is core → adapter (ADR-044). A runtime
         import of an adapter inside ``core/`` inverts it. Scan mechanics (function-local
-        imports flagged, TYPE_CHECKING body exempt): ``_collect_runtime_adapter_imports``.
+        imports flagged, TYPE_CHECKING body exempt): ``_collect_runtime_layer_imports``.
 
         Typing an annotation against a concrete adapter class under
         ``if TYPE_CHECKING:`` is a separate purity concern (SKUEL023), not a layering
@@ -3809,7 +3875,7 @@ class SkuelLinter:
         if tree is None:
             return
 
-        for node, module in self._collect_runtime_adapter_imports(tree):
+        for node, module in self._collect_runtime_layer_imports(tree, "adapters"):
             line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL022"):
                 continue
@@ -3847,7 +3913,7 @@ class SkuelLinter:
 
         ``ui/`` is pure presentation — routes (``adapters/inbound``) compose UI
         components, never the reverse. Scan mechanics (function-local imports flagged,
-        TYPE_CHECKING body exempt): ``_collect_runtime_adapter_imports``. A type-only
+        TYPE_CHECKING body exempt): ``_collect_runtime_layer_imports``. A type-only
         ``adapters.inbound.fasthtml_types.Request`` annotation is fine — the Request
         protocol lives at the FastHTML boundary by design.
 
@@ -3867,7 +3933,7 @@ class SkuelLinter:
         if tree is None:
             return
 
-        for node, module in self._collect_runtime_adapter_imports(tree):
+        for node, module in self._collect_runtime_layer_imports(tree, "adapters"):
             line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL027"):
                 continue
@@ -3887,6 +3953,80 @@ class SkuelLinter:
                     suggestion=(
                         "Move the shared code inward (core/utils/ or ui/) or pass the "
                         "value in from the route; or move a type-only import under "
+                        "`if TYPE_CHECKING:`"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+    def _check_core_imports_ui(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL032 [ERROR]: a ``core/`` module must not import from ``ui/`` at runtime.
+
+        SKUEL022's presentation-side twin. ADR-058 § Placement already states the rule in
+        prose — a view shape "lives under ``ui/`` (not ``core/services/``) because the
+        output is a page context, not a service-layer contract; putting it in ``core/``
+        would invert the ``core → ui`` import direction" — but nothing enforced it, and
+        the class regrew: commit ``fe3f7a9c2`` relocated ``core/ui/`` to ``ui/`` to
+        "remove presentation layer from core domain", and ``core/services/lp_service.py``
+        still reached back into ``ui.ui_types`` to *construct* display DTOs (fixed with
+        this rule, #839). Scan mechanics (function-local imports flagged, TYPE_CHECKING
+        body exempt): ``_collect_runtime_layer_imports``.
+
+        Deliberately NOT extended to ``adapters/inbound/``: a route composing UI
+        components is the job it exists to do (the same carve-out SKUEL022 makes).
+
+        HONEST LIMIT: this measures the runtime *import*, not the layering intent.
+        Hoisting the import under ``if TYPE_CHECKING:`` satisfies the rule while a
+        ``core/`` signature still returns a ``ui/`` type. Green here is not proof the
+        inversion was fixed.
+
+        Note there is no ``if "ui" not in content`` pre-filter, unlike the two adapters
+        rules: measured on 777 ``core/*.py`` files, ``"adapters"`` is a substring of 75
+        (9.7%) but ``"ui"`` is a substring of 655 (84.3%) — it would filter nothing. The
+        AST is parsed once per file and shared, so the scan is already cheap.
+
+        Fix: return domain values from the service and build the display type in ``ui/``
+        (``core/ports/query_types.py`` row TypedDicts are the established carrier — 9
+        ``ui/`` modules already import them); or move a type-only import under
+        ``if TYPE_CHECKING:``.
+
+        Suppress: # skuel-lint: disable=SKUEL032 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL032 -- <reason>
+        """
+        if self._is_file_suppressed(content, "SKUEL032"):
+            return
+
+        if tree is None:
+            return
+
+        for node, module in self._collect_runtime_layer_imports(tree, "ui"):
+            line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL032"):
+                continue
+
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=node.lineno,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL032",
+                    message=(
+                        f"core/ module imports presentation module '{module}' at runtime "
+                        f"— wrong dependency direction (ui/ renders what core/ returns, "
+                        f"never the reverse; ADR-058)"
+                    ),
+                    suggestion=(
+                        "Return domain values (a core/ports/query_types row TypedDict) and "
+                        "build the display type in ui/; or move a type-only import under "
                         "`if TYPE_CHECKING:`"
                     ),
                     line_content=line.strip(),

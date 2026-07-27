@@ -2131,6 +2131,41 @@ class LpRecommendedStep(TypedDict):
     prerequisite_readiness: float
 
 
+class LpActivePathProgress(TypedDict):
+    """Per-path mastery progress for the pathways dashboard.
+
+    Domain values only — no display strings. ``ui/`` turns these into
+    ``ActivePathData`` (``ui/pathways/components.py``): it picks the difficulty
+    label, formats the hours, and resolves the current-step text.
+
+    ``is_complete`` and ``next_step_title`` are BOTH needed: a path with no
+    unmastered step reads "Complete", while an unmastered step whose own title is
+    empty reads "Next step". One nullable field would conflate the two.
+    """
+
+    uid: str
+    title: str
+    difficulty_rating: float
+    estimated_hours: float
+    progress_percent: float
+    is_complete: bool
+    next_step_title: str | None
+
+
+class LpDashboardSummary(TypedDict):
+    """Return shape for LpService.get_dashboard_summary().
+
+    ``completion_rate`` is a 0.0-1.0 ratio; ``progress_percent`` on each path is
+    0-100. Deliberately carries no ``active_streak``: nothing computes one, so
+    ``ui/`` supplies the placeholder it already renders.
+    """
+
+    paths: list[LpActivePathProgress]
+    total_hours: float
+    concepts_mastered: int
+    completion_rate: float
+
+
 class UserProgressResult(TypedDict, total=False):
     """Return shape for CurriculumOperations.get_user_progress().
 
