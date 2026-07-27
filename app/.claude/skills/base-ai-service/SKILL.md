@@ -452,7 +452,7 @@ When AI is not available:
 ```python
 async def get_task_analysis(task_uid: str) -> dict[str, Any]:
     # Always available: graph analytics
-    analytics = await tasks_service.analytics.get_behavioral_insights(user_uid)
+    analytics = await tasks_service.intelligence.get_behavioral_insights(user_uid)
 
     # Optional: AI insights
     ai_insights = None

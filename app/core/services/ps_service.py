@@ -313,8 +313,12 @@ class PsService:
     async def get_with_content(self, uid: str) -> Result[tuple[PathStep, str | None]]:
         return await self.core.get_with_content(uid)
 
-    async def get_steps_batch(self, uids: list[str]) -> Result[list[Any]]:
-        """Get multiple path steps in one batched query."""
+    async def get_steps_batch(self, uids: list[str]) -> Result[list[PathStep | None]]:
+        """Get multiple path steps in one batched query.
+
+        A missing UID yields ``None`` in place, so the list is positional and
+        callers must filter.
+        """
         return await self.core.backend.get_many(uids)
 
     # ============================================================================

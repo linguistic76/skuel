@@ -339,8 +339,10 @@ Route Layer
 │  async def create_task(self, *args, **kwargs):        │
 │      return await self.core.create_task(*args, **kwargs) │
 │                                                         │
-│  async def search(self, *args, **kwargs):             │
-│      return await self.search.search(*args, **kwargs) │
+│  # NOTE: there is deliberately no `async def search`   │
+│  # here — `self.search` is the sub-service instance    │
+│  # and shadows the name. Callers use SearchRouter, or  │
+│  # `tasks_service.search.<domain_method>()`.           │
 │                                                         │
 │  async def complete_task(self, *args, **kwargs):      │
 │      return await self.progress.complete_task(*args, **kwargs) │
@@ -374,6 +376,41 @@ Route Layer
 2. **Sub-Service → Backend** — Direct calls to `UniversalNeo4jBackend`
 3. **Sub-Service ↔ Sub-Service** — Occasional cross-service calls (e.g., progress calls relationships)
 4. **Backend → Neo4j** — Single path to database
+
+### When a caller may reach a sub-service
+
+`facade.<sub>.<method>()` from a route, a UI module, an orchestrator or the composition
+root is **allowed and is the documented API** — it is how the domain guides
+(`docs/domains/*.md`), the curriculum/search/analytics skills and
+`ADR-030` all show these operations being called. Prefer the facade method when one
+exists; reach the sub-service when it does not. There is no facade-only rule, no lint
+rule enforcing one, and none should be added:
+
+- **`search()` cannot be a facade method.** `self.search` is the sub-service instance
+  attribute and shadows the name (`tasks_service.py:343` — *"This shadows
+  `BaseService.search()`, intentionally"*). `SearchRouter._get_search_service` depends on
+  the attribute being non-callable.
+- **Bound-method references are a declared contract, not drift.**
+  `ActivityUIConfig.dual_track_assess` / `.list_categories` document
+  `goals_service.intelligence.assess_progress_dual_track` and
+  `goals_service.search.list_user_categories` **as their field values**
+  (`adapters/inbound/activity_ui_factory.py:75-89`).
+- **The composition root subscribes `handle_*` methods directly.** That is published
+  architecture, not a bypass — see
+  [LEARNING_PROGRESS_EVENT_CHAIN.md](LEARNING_PROGRESS_EVENT_CHAIN.md) § Bootstrap Wiring,
+  and the same carve-out SKUEL021 already makes in prose.
+
+Two things a caller must **not** do, both narrow and both already stated elsewhere:
+
+- **Generic text search must go through `SearchRouter`**, never
+  `domain_service.search.search()` from a route
+  (`.claude/skills/skuel-search-architecture/PATTERNS.md`). Domain-*specific* search
+  methods (`ps_service.search.get_standalone_steps()`) are called on the service directly.
+- **Never reach the persistence backend through a service** —
+  `facade.core.backend.<method>()` puts a caller past the hexagonal boundary
+  (`UniversalNeo4jBackend`, ADR-044) with no service semantics in between. If a caller
+  needs a batch read, the facade owns it: `PsService.get_steps_batch`,
+  `KuService.get_kus_batch`.
 
 ### Cross-Service Dependencies (Tasks Example)
 

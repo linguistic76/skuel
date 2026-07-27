@@ -211,6 +211,12 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
 Access via facade: `principles_service.reflection.save_reflection(...)`
 
+> **The Principles example is illustrative, not live.** `PrinciplesReflectionService` was
+> **shelved on 2026-03-28** (`core/services/principles/__init__.py:21,50`), four days after
+> this doc was last updated — `principles_service.reflection` does not exist today. The
+> shape is still the pattern; `HabitsCompletionService` (`habits_service.completions`) is
+> the live instance of it.
+
 ---
 
 ## Presentation Delegation
