@@ -266,6 +266,108 @@ class TestLeadingClauseAnchor:
 
 
 # ============================================================================
+# Anchor 3 — the fragment IS a pattern
+# ============================================================================
+
+
+class TestBarePatternAnchor:
+    """A pattern fragment composed into a query later carries no clause keyword.
+
+    Anchors 1 and 2 both need one, so neither could see
+
+        target_part = "(t:Entity {entity_type: $target_type})" if t else "(t:Entity)"
+
+    and SKUEL030 never scanned it. This was the first anchor gap in the module
+    found by MEASUREMENT — #833's gate-rejection diagnostic — rather than by a
+    reviewer imagining an input, and it is closed by a new SIGNAL rather than a
+    fourth arm on anchor 1: exhaustiveness. Adding an arm is the habit the
+    `_CYPHER_CONTEXT_PATTERN` block calls out as the anchor's ceiling showing.
+    """
+
+    @pytest.mark.parametrize(
+        ("fragment", "expected"),
+        [
+            # Both arms of the live ternary, `activity_backends.py:94`.
+            ("(t:Entity {entity_type: $target_type})", ["Entity"]),
+            ("(t:Entity)", ["Entity"]),
+            # A relationship chain is a pattern too, and carries a type.
+            ("(a)-[:BOGUS_EDGE]->(b)", ["BOGUS_EDGE"]),
+            ("(a:Bogus)-[r:HAS_THING]->(b:Ku)", ["HAS_THING", "Bogus", "Ku"]),
+        ],
+    )
+    def test_a_bare_pattern_fragment_is_scanned(self, fragment: str, expected: list[str]) -> None:
+        """A typo'd label here was invisible to BOTH anchors — a real silent miss."""
+        assert looks_like_cypher(fragment) is True
+        assert [n.value for n in scan_names(fragment)] == expected
+
+    def test_a_pattern_without_a_name_is_admitted_but_reports_nothing(self) -> None:
+        """`semantic_queries.py:241` — the same ternary shape, no label.
+
+        The class is bigger than the two sites the diagnostic could report: this
+        one carries no recoverable name, so `rejected-by-gate` never listed it.
+        Admitting it is correct and costs nothing — no name, no violation — and
+        the day someone adds a label to it, it is already covered.
+
+        Refusing it instead would prune the anchor to "patterns that carry
+        vocabulary", inventing the second judgement call the
+        `CYPHER_LEADING_CLAUSES` block refuses to make for its own list. One
+        question, one answer: is this fragment a Cypher pattern?
+        """
+        assert looks_like_cypher("(center {uid: $uid})") is True
+        assert scan_names("(center {uid: $uid})") == []
+
+    def test_prose_around_a_parenthesised_span_is_refused(self) -> None:
+        """Guard — green before, because the gate refused everything.
+
+        It earns its place anyway: this is the exact row the widening had to
+        leave alone, and it is the third `rejected-by-gate` row #833 measured.
+
+        The pattern regexes read `MM` and `SS` out of this happily — it is
+        measured evidence that an "admit anything containing `(x:Name)`" anchor
+        fires on English. Exhaustiveness is what refuses it: the parenthesised
+        span is there, and the surrounding sentence breaks the full match.
+        """
+        prose = "Field 'x': Cannot parse 'x' as time. Expected ISO format (HH:MM:SS)"
+        assert looks_like_cypher(prose) is False
+        assert scan_names(prose) == []
+
+    @pytest.mark.parametrize(
+        "fragment",
+        ["(untitled)", "(none)", "(nothing)", " (overdue)", " (selected)", " (optional)"],
+    )
+    def test_a_parenthesised_english_word_is_refused(self, fragment: str) -> None:
+        """Guard — green before. Exhaustiveness ALONE would have broken it.
+
+        Character for character, `(none)` is a Cypher node pattern with a
+        variable and no label. These six are not invented: they are live strings
+        in `core/` and `ui/`, and a bare-pattern anchor keyed on shape alone
+        admits ELEVEN such fragments across the trees SKUEL021 reads.
+
+        Requiring a token a parenthesised word cannot carry — a label/type
+        colon, a `$` parameter, or relationship syntax — takes that eleven to
+        zero while still admitting all three real sites. The set is derived from
+        how a pattern differs from a bare word, not collected from the shapes
+        that happened to turn up.
+        """
+        assert looks_like_cypher(fragment) is False
+
+    def test_the_anchor_needs_no_dialect_entry(self) -> None:
+        """Structural, not an omission — there is no keyword here to relax.
+
+        Every other anchor is compiled twice because a KEYWORD needs a case
+        mode. A pattern has none, so `declared_cypher` has nothing to change,
+        and the half-threaded-flag trap that let CYP011 admit a lowercase
+        statement and then scan it case-sensitively (Codex P2 on #831) cannot
+        arise here. Asserted rather than asserted-in-a-comment.
+        """
+        for declared in (False, True):
+            assert [n.value for n in scan_names("(t:Entity)", declared_cypher=declared)] == [
+                "Entity"
+            ]
+            assert scan_names("(untitled)", declared_cypher=declared) == []
+
+
+# ============================================================================
 # The scanner — labels attached/detached by SET and REMOVE
 # ============================================================================
 
@@ -1089,14 +1191,22 @@ class TestScanDiagnostics:
         assert [d.issue for d in sink] == [ScanIssue.MUTATION_CLAUSE_NO_ITEM_MATCHED]
 
     def test_gate_rejection_is_recorded_when_a_real_name_is_present(self) -> None:
-        """A bare pattern fragment composed into a query later — anchor blind spot.
+        """A bare PREDICATE fragment — the anchor blind spot that is still open.
 
-        `activity_backends.py:94` assigns exactly this shape to a variable. Both
-        of its names are registered, so no rule fires today; the gate would not
-        have seen a typo'd one either.
+        The fixture was `(t:Entity)` until anchor 3 admitted it. Leaving it
+        would have been a category asserted against an input the gate now
+        accepts: the same fixture rot the mutation-item diagnostic hit, and the
+        reason to swap rather than delete is that the blind spot is narrower
+        now, not gone.
+
+        `WHERE`/`AND` fragments compose exactly as pattern fragments do, carry
+        vocabulary the predicate scanners read, and lead with no clause keyword,
+        sit inside no paren-anchored marker, and are not patterns. All three
+        anchors miss them, so the category still has a live subject and this
+        assertion still means something.
         """
         with recording_scan_diagnostics() as sink:
-            assert scan_names("(t:Entity)") == []
+            assert scan_names("n.x = 1 AND n:Bogus") == []
         assert [d.issue for d in sink] == [ScanIssue.REJECTED_BY_GATE]
 
     @pytest.mark.parametrize(
