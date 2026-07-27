@@ -37,10 +37,8 @@ See Also:
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 
 class NeoLabel(StrEnum):
@@ -213,7 +211,6 @@ class NeoLabel(StrEnum):
             label = NeoLabel.from_entity_type(EntityType.TASK)  # Returns NeoLabel.TASK
             label = NeoLabel.from_entity_type(EntityType.KU)  # Returns NeoLabel.KU
         """
-        _ensure_mapping()
         return _ENTITY_TYPE_TO_LABEL[entity_type]
 
     @classmethod
@@ -232,8 +229,6 @@ class NeoLabel(StrEnum):
             NeoLabel.from_domain(NonKuDomain.FINANCE)  # Returns NeoLabel.INVOICE
             NeoLabel.from_domain(NonKuDomain.CALENDAR)  # Returns None
         """
-        from core.models.enums.entity_enums import EntityType, NonKuDomain
-
         if isinstance(domain, EntityType):
             return cls.from_entity_type(domain)
 
@@ -282,47 +277,31 @@ class NeoLabel(StrEnum):
 # =============================================================================
 # EntityType -> NeoLabel mapping (module-level for performance)
 # =============================================================================
-# Lazy-initialized to avoid circular imports (EntityType imports happen at runtime)
 
-_ENTITY_TYPE_TO_LABEL: dict[EntityType, NeoLabel] = {}
-
-
-def _init_entity_type_mapping() -> None:
-    """Initialize the EntityType -> NeoLabel mapping. Called on first use."""
-    from core.models.enums.entity_enums import EntityType
-
-    _ENTITY_TYPE_TO_LABEL.update(
-        {
-            EntityType.TASK: NeoLabel.TASK,
-            EntityType.GOAL: NeoLabel.GOAL,
-            EntityType.HABIT: NeoLabel.HABIT,
-            EntityType.EVENT: NeoLabel.EVENT,
-            EntityType.CHOICE: NeoLabel.CHOICE,
-            EntityType.PRINCIPLE: NeoLabel.PRINCIPLE,
-            EntityType.KU: NeoLabel.KU,
-            EntityType.RESOURCE: NeoLabel.RESOURCE,
-            EntityType.PATH_STEP: NeoLabel.PATH_STEP,
-            EntityType.LEARNING_PATH: NeoLabel.LEARNING_PATH,
-            EntityType.EXERCISE: NeoLabel.EXERCISE,
-            EntityType.REVISED_EXERCISE: NeoLabel.REVISED_EXERCISE,
-            EntityType.FORM_TEMPLATE: NeoLabel.FORM_TEMPLATE,
-            EntityType.FORM_SUBMISSION: NeoLabel.FORM_SUBMISSION,
-            EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
-            EntityType.ENTRY_REPORT: NeoLabel.ENTRY_REPORT,
-            EntityType.INTERACTION: NeoLabel.INTERACTION,
-            EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
-            EntityType.USER_ENTRY: NeoLabel.USER_ENTRY,  # ADR-054
-            EntityType.TASK_TEMPLATE: NeoLabel.TASK_TEMPLATE,
-            EntityType.GOAL_TEMPLATE: NeoLabel.GOAL_TEMPLATE,
-            EntityType.HABIT_TEMPLATE: NeoLabel.HABIT_TEMPLATE,
-            EntityType.EVENT_TEMPLATE: NeoLabel.EVENT_TEMPLATE,
-            EntityType.CHOICE_TEMPLATE: NeoLabel.CHOICE_TEMPLATE,
-            EntityType.PRINCIPLE_TEMPLATE: NeoLabel.PRINCIPLE_TEMPLATE,
-        }
-    )
-
-
-def _ensure_mapping() -> None:
-    """Ensure the mapping is initialized."""
-    if not _ENTITY_TYPE_TO_LABEL:
-        _init_entity_type_mapping()
+_ENTITY_TYPE_TO_LABEL: dict[EntityType, NeoLabel] = {
+    EntityType.TASK: NeoLabel.TASK,
+    EntityType.GOAL: NeoLabel.GOAL,
+    EntityType.HABIT: NeoLabel.HABIT,
+    EntityType.EVENT: NeoLabel.EVENT,
+    EntityType.CHOICE: NeoLabel.CHOICE,
+    EntityType.PRINCIPLE: NeoLabel.PRINCIPLE,
+    EntityType.KU: NeoLabel.KU,
+    EntityType.RESOURCE: NeoLabel.RESOURCE,
+    EntityType.PATH_STEP: NeoLabel.PATH_STEP,
+    EntityType.LEARNING_PATH: NeoLabel.LEARNING_PATH,
+    EntityType.EXERCISE: NeoLabel.EXERCISE,
+    EntityType.REVISED_EXERCISE: NeoLabel.REVISED_EXERCISE,
+    EntityType.FORM_TEMPLATE: NeoLabel.FORM_TEMPLATE,
+    EntityType.FORM_SUBMISSION: NeoLabel.FORM_SUBMISSION,
+    EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
+    EntityType.ENTRY_REPORT: NeoLabel.ENTRY_REPORT,
+    EntityType.INTERACTION: NeoLabel.INTERACTION,
+    EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
+    EntityType.USER_ENTRY: NeoLabel.USER_ENTRY,  # ADR-054
+    EntityType.TASK_TEMPLATE: NeoLabel.TASK_TEMPLATE,
+    EntityType.GOAL_TEMPLATE: NeoLabel.GOAL_TEMPLATE,
+    EntityType.HABIT_TEMPLATE: NeoLabel.HABIT_TEMPLATE,
+    EntityType.EVENT_TEMPLATE: NeoLabel.EVENT_TEMPLATE,
+    EntityType.CHOICE_TEMPLATE: NeoLabel.CHOICE_TEMPLATE,
+    EntityType.PRINCIPLE_TEMPLATE: NeoLabel.PRINCIPLE_TEMPLATE,
+}

@@ -8,10 +8,8 @@ Enums for learning levels, knowledge types, mastery tracking, and SEL framework.
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .entity_enums import EntityStatus
+from .entity_enums import EntityStatus
 
 
 class MasteryImpact(StrEnum):
@@ -439,11 +437,8 @@ class KnowledgeStatus(StrEnum):
     ARCHIVED = "archived"  # Maps to EntityStatus.ARCHIVED
     UNDER_REVIEW = "under_review"  # Knowledge-specific (maps to IN_PROGRESS)
 
-    def to_activity_status(self) -> "EntityStatus":
+    def to_activity_status(self) -> EntityStatus:
         """Convert to base activity status when needed for cross-domain operations"""
-        # Import here to avoid circular dependency
-        from .entity_enums import EntityStatus
-
         mapping = {
             KnowledgeStatus.DRAFT: EntityStatus.DRAFT,
             KnowledgeStatus.PUBLISHED: EntityStatus.COMPLETED,
