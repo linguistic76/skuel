@@ -214,10 +214,8 @@ class KuSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
 ## Service Pattern
 
-KU uses a **hybrid pattern** (January 2026):
-
-`KuService` has exactly **four** sub-services (read them off its `__init__`, not off this
-list — a list drifts, the constructor cannot):
+KU uses a **hybrid pattern** (January 2026): `KuService` has exactly **four** sub-services
+(read them off its `__init__`, not off this list — a list drifts, the constructor cannot):
 
 1. **`self.core`** — `KuCoreService`, CRUD
 2. **`self.search`** — `KuSearchService`

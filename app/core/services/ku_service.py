@@ -124,12 +124,17 @@ class KuService:
         """
         return await self.core.get_with_content(uid)
 
-    async def get_kus_batch(self, uids: list[str]) -> Result[list[Any]]:
+    async def get_kus_batch(self, uids: list[str]) -> Result[list[Ku | None]]:
         """Get multiple Kus in one batched query.
 
         Backend: ``UniversalNeo4jBackend.get_many``. Sibling of
         ``PsService.get_steps_batch`` — the batch read a caller with a list of
         UIDs needs, so it never has to reach the backend through ``.core``.
+
+        A missing UID yields ``None`` in place, so the list is positional and
+        callers must filter. ``KuCoreService`` is
+        ``BaseService[BackendOperations[Ku], Ku]``, so the concrete element type
+        survives the delegation and is worth stating.
         """
         return await self.core.backend.get_many(uids)
 

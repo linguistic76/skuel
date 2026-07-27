@@ -267,7 +267,11 @@ class ExploreOrchestrator:
                             "learning_state": "in_progress",
                             "is_pinned": False,
                         }
+                        # `get_steps_batch` is positional: a UID whose PathStep
+                        # was deleted while the user's in-progress edge survived
+                        # comes back as None, and `ps.uid` would 500 the page.
                         for ps in batch_result.value
+                        if ps is not None
                     )
 
         # Mark pinned entities

@@ -327,7 +327,7 @@ class ProductivityLevel(str, Enum):
 
 **Example:**
 ```python
-result = await tasks_service.productivity.assess_productivity_dual_track(
+result = await tasks_service.intelligence.assess_productivity_dual_track(
     user_uid="user.mike",
     user_productivity_level=ProductivityLevel.HIGHLY_PRODUCTIVE,
     user_evidence="I complete all my tasks on time",
