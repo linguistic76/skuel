@@ -124,6 +124,15 @@ class KuService:
         """
         return await self.core.get_with_content(uid)
 
+    async def get_kus_batch(self, uids: list[str]) -> Result[list[Any]]:
+        """Get multiple Kus in one batched query.
+
+        Backend: ``UniversalNeo4jBackend.get_many``. Sibling of
+        ``PsService.get_steps_batch`` — the batch read a caller with a list of
+        UIDs needs, so it never has to reach the backend through ``.core``.
+        """
+        return await self.core.backend.get_many(uids)
+
     # =========================================================================
     # SEARCH (sub-service at .search; extra delegations below)
     # =========================================================================

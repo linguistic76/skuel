@@ -69,7 +69,7 @@ atomic_ku_service = KuService(
 
 # Access sub-services
 await ku_service.core.create(ku)
-await ku_service.search_service.search(query)
+await ku_service.search.search(query)
 await ku_service.intelligence.get_usage_summary(ku_uid)
 await ku_service.mark_as_studying(user_uid, ku_uid)
 await ku_service.mark_as_understood(user_uid, ku_uid)
@@ -216,20 +216,30 @@ class KuSearchService(BaseService["BackendOperations[Ku]", Ku]):
 
 KU uses a **hybrid pattern** (January 2026):
 
-1. **`self.relationships`** - UnifiedRelationshipService for harmonious relationship access
-2. **KuGraphService** - Specialized intelligence (prerequisite chains, hub scores, learning recommendations)
-3. **KuSemanticService** - Specialized intelligence (RDF-inspired semantics, confidence scoring)
-4. **KuIntelligenceService** - Cross-domain opportunities, knowledge suggestions
+`KuService` has exactly **four** sub-services (read them off its `__init__`, not off this
+list — a list drifts, the constructor cannot):
+
+1. **`self.core`** — `KuCoreService`, CRUD
+2. **`self.search`** — `KuSearchService`
+3. **`self.relationships`** — `UnifiedRelationshipService` for harmonious relationship access
+4. **`self.intelligence`** — `KuIntelligenceService`, cross-domain opportunities and knowledge suggestions
+
+Prerequisite chains, hub scores and RDF-inspired semantics belong to **PathStep**, not Ku:
+`KuGraphService` / `KuSemanticService` were renamed to `PsGraphService` / `PsSemanticService`
+in `2b8176602` (2026-03-06, "rename Ku → Article + create new atomic Ku entity"). Reach them
+through `PsService`.
 
 ```python
 # Via KuService facade - harmonious relationship access
 ku_service = services.ku
 enables = await ku_service.get_enables("ku_advanced-python_a1b2")  # Uses UnifiedRelationshipService
 
-# Via specialized services - intelligence operations
-prereq_chain = await ku_service.graph.get_prerequisite_chain("ku_advanced-python_a1b2")
-semantic_neighborhood = await ku_service.semantic.get_semantic_neighborhood("ku_ml-basics_c3d4")
+# Via sub-services - intelligence operations
 suggestions = await ku_service.intelligence.get_knowledge_suggestions(user_uid, "ku_python_f7g8")
+
+# Prerequisite chains and semantics live on PathStep
+prereq_chain = await services.ps.get_prerequisite_chain("ps.core.advanced-python")
+semantic_neighborhood = await services.ps.get_semantic_neighborhood("ps.core.ml-basics")
 ```
 
 ## Relationship Config

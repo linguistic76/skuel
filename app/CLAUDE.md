@@ -80,7 +80,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 **Not EntityTypes:** MOC is emergent (any Entity with ORGANIZES edges). Group lives in `NonKuDomain` (ADR-053). Finance is a Firefly III sidecar (ADR-052), admin-only.
 
-**Service architecture:** `UniversalNeo4jBackend[T]` → `{Domain}Service` facade → `.core` / `.search` / `.intelligence` / `.ai` sub-services.
+**Service architecture:** `UniversalNeo4jBackend[T]` → `{Domain}Service` facade → sub-services. `.core` / `.search` / `.intelligence` / `.ai` are the *common* slots, not the whole set — `PsService` has 14, `HabitsService` 13, `AnalyticsService` none of the four. Read the facade's `__init__`; calling a sub-service from a caller is the documented API, with two narrow exceptions. **See:** `/docs/architecture/SERVICE_TOPOLOGY.md § When a caller may reach a sub-service`
 
 **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` (full table, traits, UID formats), `/docs/architecture/SEVEN_SUBSYSTEMS.md`, `/docs/architecture/THREE_LAYER_LENS.md`, `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
 

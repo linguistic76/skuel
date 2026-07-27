@@ -133,7 +133,7 @@ class LibraryOrchestrator:
             return Result.ok([])
 
         fetch_uids = pinned_uids[:limit] if limit is not None else pinned_uids
-        result = await self._ku.core.backend.get_many(fetch_uids)
+        result = await self._ku.get_kus_batch(fetch_uids)
         if result.is_error:
             return result
 
@@ -162,7 +162,7 @@ class LibraryOrchestrator:
             return Result.ok([])
 
         fetch_uids = enrolled_uids[:limit] if limit is not None else enrolled_uids
-        result = await self._ps.core.backend.get_many(fetch_uids)
+        result = await self._ps.get_steps_batch(fetch_uids)
         if result.is_error:
             return result
 
