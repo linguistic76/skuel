@@ -300,6 +300,45 @@ class TestBarePatternAnchor:
         assert looks_like_cypher(fragment) is True
         assert [n.value for n in scan_names(fragment)] == expected
 
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            # The label-expression operators `TestPatternBodySplitting` pins.
+            "(n:!Bogus)",
+            "(n:(Known|Bogus))",
+            "(n:(Known|$(x)))",
+            "(n:%)",
+            "(n:A&B)",
+            "(n:A:B)",
+            "(a)-[r:!BOGUS_EDGE]->(b)",
+            "(n:$(labelExpr))",
+            # And the forms the anchor was built for.
+            "(t:Entity)",
+            "(t:Entity {entity_type: $target_type})",
+            "(center {uid: $uid})",
+        ],
+    )
+    def test_a_bare_pattern_reads_the_same_as_one_behind_a_clause(self, pattern: str) -> None:
+        """Whatever `MATCH <p>` reports, `<p>` alone must report — parity, not a list.
+
+        The anchor shipped with its own label grammar ("a name joined by `:`,
+        `&` or `|`") and so refused `(n:!Bogus)` and `(n:(Known|Bogus))` as bare
+        fragments, while anchor 1 admitted the identical pattern behind a
+        `MATCH` and the scanner read the name out of it (Codex P2). A composed
+        fragment carrying a negated or grouped typo stayed invisible — the exact
+        asymmetry this anchor exists to remove, reintroduced one layer down by a
+        hand-written copy of `_BODY_ATOM_RE`.
+
+        Asserting PARITY rather than a list of admitted shapes is what makes
+        this hold for operators nobody has thought of yet: the anchor's label
+        grammar is now built from `_BODY_ATOM_PATTERN`, the same production the
+        scanner splits bodies with, so the two can only agree.
+        """
+        assert looks_like_cypher(pattern) is True
+        assert [n.value for n in scan_names(pattern)] == [
+            n.value for n in scan_names(f"MATCH {pattern} RETURN 1")
+        ]
+
     def test_a_pattern_without_a_name_is_admitted_but_reports_nothing(self) -> None:
         """`semantic_queries.py:241` — the same ternary shape, no label.
 

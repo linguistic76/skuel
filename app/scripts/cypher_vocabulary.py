@@ -492,7 +492,8 @@ _NAME_SEPARATOR_RE = re.compile(r"[:|&]")
 # the production, never to widen a copy of it.
 _ESCAPABLE_NAME = r"`?([A-Za-z_]\w*)`?"
 
-_BODY_ATOM_RE = re.compile(r"[!(]*" + _ESCAPABLE_NAME + r"\)*")
+_BODY_ATOM_PATTERN = r"[!(]*" + _ESCAPABLE_NAME + r"\)*"
+_BODY_ATOM_RE = re.compile(_BODY_ATOM_PATTERN)
 
 # Relationship types are UPPER_SNAKE; labels are PascalCase. Anything else
 # (lowercase alias, digit-led fragment) is not vocabulary and is ignored.
@@ -677,7 +678,28 @@ _LABEL_MUTATION_ITEM_RE = re.compile(
 # Names are `_ESCAPABLE_NAME`, the module's one name production. The capture
 # groups it carries are unused — this regex is only ever asked a yes/no.
 _PATTERN_MAP = r"\{[^{}]*\}"
-_PATTERN_LABELS = rf"(?::\s*{_ESCAPABLE_NAME}(?:\s*[:&|]\s*{_ESCAPABLE_NAME})*)"
+
+# The label expression, segment for segment as `_body_names` splits it: on
+# `_NAME_SEPARATOR_RE`, with each segment full-matched by `_BODY_ATOM_PATTERN`.
+# Sharing that production is the point. Spelling the segment inline instead —
+# "a name joined by `:`, `&` or `|`" — is what this anchor shipped with, and it
+# refused `(n:!Bogus)` and `(n:(Known|Bogus))` as bare fragments while anchor 1
+# admitted the identical pattern behind a `MATCH` and the scanner read the name
+# out of it perfectly well (Codex P2). A composed fragment carrying a negated or
+# grouped typo was invisible: the same asymmetry this anchor exists to remove,
+# reintroduced one layer down by a hand-written copy of `_BODY_ATOM_RE`.
+#
+# Two segment kinds sit alongside it. Neither yields a name, so neither reaches
+# `_BODY_ATOM_RE` in the scanner — but both are valid label-expression content,
+# and the ANCHOR has to admit the fragment that holds them or the rest of the
+# pattern goes unscanned with them:
+#
+#   * `%`, the wildcard — `(n:%)` names nothing and must not be read as a name;
+#   * a dynamic operand — `(n:$(labelExpr))`, `(n:(Known|$(x)))`. Splitting
+#     leaves pieces like `$(x))` and `$(map`, which is exactly why the scanner
+#     finds nothing in them.
+_PATTERN_LABEL_SEGMENT = rf"(?:{_BODY_ATOM_PATTERN}|[!(]*%\)*|[!(]*\$[\w.()]*)"
+_PATTERN_LABELS = rf"(?::\s*{_PATTERN_LABEL_SEGMENT}(?:\s*[:|&]\s*{_PATTERN_LABEL_SEGMENT})*)"
 _PATTERN_NODE = rf"\(\s*(?:{_ESCAPABLE_NAME})?\s*(?:{_PATTERN_LABELS})?\s*(?:{_PATTERN_MAP})?\s*\)"
 _PATTERN_REL = (
     rf"<?-\s*(?:\[\s*(?:{_ESCAPABLE_NAME})?\s*(?:{_PATTERN_LABELS})?"
