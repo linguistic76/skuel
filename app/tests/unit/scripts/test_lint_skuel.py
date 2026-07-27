@@ -3707,62 +3707,30 @@ class TestSKUEL023:
             violations = lint_content(sub_linter, content, file_path="core/services/x_service.py")
             assert len(violations) == 1, f"{name} should be flagged"
 
-    def test_facade_allowlist_directory_prefix(self) -> None:
-        """Files under the facade directory prefixes are exempt entirely —
-        facades may keep concrete backend typing per CLAUDE.md '## Protocol-
-        Based Architecture'."""
-        linter = make_linter(["SKUEL023"])
-        content = (
-            "from typing import TYPE_CHECKING\n"
-            "\n"
-            "if TYPE_CHECKING:\n"
-            "    from adapters.persistence.neo4j.insight_backend import InsightBackend\n"
-            "\n"
-            "class InsightStore:\n"
-            '    def __init__(self, backend: "InsightBackend") -> None:\n'
-            "        self.backend = backend\n"
-        )
-        violations = lint_content(
-            linter, content, file_path="core/services/insight/insight_store.py"
-        )
-        assert len(violations) == 0
-
-    def test_facade_allowlist_explicit_file(self) -> None:
-        """The standalone facade file (user_service.py) is explicitly
-        allowlisted. The KU/PS/LP entries were removed by SoC arc PR 6 once
-        those sites were retyped against core/ports protocols."""
-        linter = make_linter(["SKUEL023"])
-        content = (
-            "from typing import TYPE_CHECKING\n"
-            "\n"
-            "if TYPE_CHECKING:\n"
-            "    from adapters.persistence.neo4j.user_context_query_executor import (\n"
-            "        UserContextQueryExecutor,\n"
-            "    )\n"
-            "\n"
-            "class UserService:\n"
-            '    def __init__(self, backend: "UserContextQueryExecutor") -> None:\n'
-            "        self.backend = backend\n"
-        )
-        violations = lint_content(linter, content, file_path="core/services/user_service.py")
-        assert len(violations) == 0
-
     @pytest.mark.parametrize(
         "file_path",
         [
+            # Removed by SoC arc PR 6 (KU / PS / LP)
             "core/services/ku_service.py",
             "core/services/ku/ku_core_service.py",
             "core/services/ps/ps_progress_service.py",
             "core/services/lp/lp_progress_service.py",
+            # Removed by SoC arc PR 7 — the last three entries, and with them
+            # the allowlist mechanism itself
+            "core/services/user_service.py",
+            "core/services/user/user_context_builder.py",
+            "core/services/insight/insight_store.py",
         ],
     )
-    def test_ku_ps_lp_no_longer_allowlisted(self, file_path: str) -> None:
-        """SoC arc PR 6 removed the KU / PS / LP allowlist entries.
+    def test_no_core_path_is_allowlisted(self, file_path: str) -> None:
+        """SKUEL023 has no facade allowlist — it fires on every core/ path.
 
-        Every site they covered now types against a core/ports protocol, so the
-        rule must actually fire on these paths. Pinned because a silent
-        re-addition of the prefix would re-park the debt invisibly — the entries
-        were the only reason SKUEL023 was quiet on 5 real violations.
+        PR 6 removed the KU / PS / LP entries; PR 7 removed the surviving
+        user / insight entries and deleted the mechanism. Every site they
+        covered now types against a core/ports protocol, so the rule must
+        actually fire on these paths. Pinned because a silent re-introduction
+        of the allowlist would re-park the debt invisibly — the entries were
+        the only reason SKUEL023 was quiet on 8 real violations.
         """
         linter = make_linter(["SKUEL023"])
         content = (
@@ -4030,8 +3998,10 @@ class TestSKUEL023:
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
         assert violations == []
 
-    def test_fully_qualified_in_facade_allowlist_not_flagged(self) -> None:
-        """Facade allowlist applies before any tier check — covers Tier 3."""
+    def test_fully_qualified_flagged_on_former_facade_path(self) -> None:
+        """Tier 3 on a formerly-allowlisted path. Until SoC arc PR 7 the facade
+        allowlist short-circuited before any tier check, so this exact content
+        was silent on this exact path; with the allowlist gone it must fire."""
         linter = make_linter(["SKUEL023"])
         content = (
             "class UserService:\n"
@@ -4039,7 +4009,8 @@ class TestSKUEL023:
             "        self.backend = backend\n"
         )
         violations = lint_content(linter, content, file_path="core/services/user_service.py")
-        assert violations == []
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL023"
 
     # -------------------------------------------------------------------------
     # Tier 4: import-site rule — adapter-import aliasing in core/ is banned.
@@ -4111,8 +4082,10 @@ class TestSKUEL023:
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
         assert violations == []
 
-    def test_module_style_import_in_facade_allowlist_not_flagged(self) -> None:
-        """Facade allowlist short-circuits before the import-site rule too."""
+    def test_module_style_import_flagged_on_former_facade_path(self) -> None:
+        """Tier 4 (import-site rule) on a formerly-allowlisted path. The
+        allowlist used to short-circuit before the import-site rule too, so a
+        facade could alias its way past every tier; PR 7 removed that escape."""
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import TYPE_CHECKING\n"
@@ -4125,7 +4098,8 @@ class TestSKUEL023:
             "        self.backend: uq.UserContextQueryExecutor = backend\n"
         )
         violations = lint_content(linter, content, file_path="core/services/user_service.py")
-        assert violations == []
+        assert len(violations) >= 1
+        assert all(v.rule_id == "SKUEL023" for v in violations)
 
 
 class TestSKUEL024:

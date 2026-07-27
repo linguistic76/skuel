@@ -42,7 +42,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
+    from core.ports.user_context_protocols import UserContextQueryOperations
     from core.services.ps_engagement import PsEngagementService
     from core.services.user_service import UserService
     from core.services.zpd.zpd_service import ZPDService
@@ -76,16 +76,16 @@ class UserContextBuilder:
 
     def __init__(
         self,
-        query_executor: "UserContextQueryExecutor",
+        query_executor: "UserContextQueryOperations",
         user_service: "UserService | None" = None,
     ) -> None:
         """
         Initialize context builder with composed modules.
 
         Args:
-            query_executor: UserContextQueryExecutor (MEGA / CONSOLIDATED Cypher).
-                Built at the composition root and injected so this central module
-                never imports the adapter (ADR-044 / SKUEL022).
+            query_executor: MEGA / CONSOLIDATED query execution. Built at the
+                composition root and injected so this central module never
+                imports the adapter (ADR-044 / SKUEL022 / SKUEL023).
             user_service: UserService for user resolution (enables simplified build() API)
 
         Raises:

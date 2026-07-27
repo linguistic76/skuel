@@ -16,7 +16,7 @@ ERROR (blocks CI):
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
   SKUEL021: No raw Cypher above the boundary — core/, routes, ui/ (ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
-  SKUEL023: core/ thin services must type self.backend against a core/ports protocol
+  SKUEL023: core/ services must type self.backend against a core/ports protocol
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
@@ -610,12 +610,11 @@ class is design-coupling: it locks the service to a specific adapter instead of 
 ``core/ports`` protocol it should depend on. The protocol is the contract; the adapter
 is one implementation of it.
 
-Facade vs thin: a shrinking set of facades (UserService, UserContextBuilder,
-InsightStore) is still allowlisted — CLAUDE.md commits to "Facade IS the contract":
-facades aggregate sub-services + a direct backend handle for cross-cutting operations
-the protocol doesn't enumerate. Thin services in core/ that take a single backend
-handle must annotate against the ports protocol. The KU / PS / LP entries were removed
-in July 2026 once every site they covered had a satisfiable core/ports protocol.
+Unconditional in core/: there is no facade allowlist. The shrinking debt register that
+once parked KU/PS/LP, then UserService / UserContextBuilder / InsightStore, was emptied
+and removed in July 2026 once every site it covered had a satisfiable core/ports
+protocol. CLAUDE.md's "Facade IS the contract" governs the route→service boundary — a
+facade being concrete to its *callers* never licensed a concrete ``self.backend``.
 
 AST-based, fail-closed: walks both runtime AND TYPE_CHECKING imports of `adapters.*`,
 then flags annotations (instance attribute, function parameter, class-body attribute)
@@ -1214,32 +1213,20 @@ class SkuelLinter:
         "scripts/migrate_secrets_to_keychain.py",
     )
 
-    # SKUEL023: facades are allowed to type self.backend against the concrete adapter
-    # class — CLAUDE.md commits to "Facade IS the contract" for these. They aggregate
-    # sub-services + a direct backend handle for cross-cutting operations the ports
-    # protocol doesn't enumerate (UserService delegates ~50+ methods).
-    # The allowlist is intentionally narrow: directory prefixes for the multi-file
-    # sub-service packages, and explicit files for the standalone facade modules.
+    # SKUEL023 used to carry a facade allowlist — a parked-debt register that let
+    # named `core/` paths keep a concrete-adapter annotation. It is GONE (SoC arc
+    # PR 7, 2026-07-27): PR 6 removed the KU / PS / LP entries and PR 7 removed the
+    # last three (`core/services/user/`, `core/services/insight/`,
+    # `core/services/user_service.py` — InsightBackend + UserContextQueryExecutor).
+    # Every site they covered now types against a core/ports protocol, each proven
+    # satisfiable by the injected object with an `x: Protocol = concrete` MyPy probe.
     #
-    # InsightStore is also allowlisted: it originated as a thin delegating service but
-    # has grown into a facade with 6+ methods that compose on top of the backend
-    # (bulk_dismiss, bulk_mark_actioned, smart_dismiss, filter_insights, chart builders).
-    # InsightStore IS the contract; InsightBackend is one implementation of it.
-    #
-    # SHRUNK by SoC arc PR 6 (2026-07-26): the KU / PS / LP halves are gone. Every
-    # site they covered now types against a core/ports protocol — KuOperations
-    # (ku_service), LpProgressBackendOperations, PsProgressBackendOperations,
-    # PsIntelligenceBackendOperations — each proven satisfiable by the injected
-    # backend with an `x: Protocol = concrete` MyPy probe. `core/services/ku/` was
-    # additionally proven inert (it covered zero violations) before removal. The
-    # `core/services/user/`, `core/services/insight/` and `core/services/user_service.py`
-    # entries remain: they cover InsightBackend + UserContextQueryExecutor, which
-    # SoC arc PR 7 owns.
-    SKUEL023_FACADE_ALLOWLIST_PREFIXES: ClassVar[tuple[str, ...]] = (
-        "core/services/user/",
-        "core/services/insight/",
-    )
-    SKUEL023_FACADE_ALLOWLIST_FILES: ClassVar[tuple[str, ...]] = ("core/services/user_service.py",)
+    # The mechanism was deleted with the last entry rather than left as two empty
+    # tuples: an allowlist nobody is on is a branch that can never fire, and this
+    # codebase has repeatedly found such guards to be vacuous. SKUEL023 is now
+    # unconditional in `core/`, and "facade IS the contract" (CLAUDE.md) stays true
+    # of the route→service boundary only — it never licensed a concrete
+    # `self.backend`. Pinned by TestSKUEL023::test_no_core_path_is_allowlisted.
 
     # SKUEL023: suffix heuristic — only annotations whose bare type name ends in one
     # of these is treated as a "backend-like" adapter export. Naturally excludes
@@ -4261,11 +4248,11 @@ class SkuelLinter:
           form: ``from adapters.<...> import <Name>`` where ``<Name>`` is what
           gets the suffix check.
 
-        Facade allowlist: ``UserService`` plus the ``core/services/user/`` and
-        ``core/services/insight/`` packages are exempt — CLAUDE.md commits to
-        "Facade IS the contract" for these. The thin/ISP services in the rest of
-        core/ are not. The KU / PS / LP entries are gone (July 2026); see the
-        ``SKUEL023_FACADE_ALLOWLIST_*`` comment for what replaced them.
+        No allowlist: every ``core/`` path is checked. The facade allowlist that
+        parked KU/PS/LP and then user/insight is gone (SoC arc PRs 6–7, July
+        2026) — CLAUDE.md's "Facade IS the contract" is about the route→service
+        boundary and never licensed a concrete ``self.backend``. Only the
+        ordinary line/file suppression comments can silence this rule now.
 
         Fix: switch the TYPE_CHECKING import from the adapter to its
         ``core/ports/*Operations`` protocol; switch the annotation to the protocol
@@ -4276,13 +4263,6 @@ class SkuelLinter:
         File-level: # skuel-lint: disable-file=SKUEL023 -- <reason>
         """
         if self._is_file_suppressed(content, "SKUEL023"):
-            return
-
-        # Facade allowlist: skip the entire file.
-        rel_str = str(rel_path).replace("\\", "/")
-        if any(rel_str.startswith(p) for p in self.SKUEL023_FACADE_ALLOWLIST_PREFIXES):
-            return
-        if rel_str in self.SKUEL023_FACADE_ALLOWLIST_FILES:
             return
 
         # Cheap pre-filter: nothing to flag if the file doesn't even mention adapters.
@@ -4371,8 +4351,9 @@ class SkuelLinter:
                     suggestion=(
                         f"Switch the TYPE_CHECKING import from '{module}' to the "
                         f"matching core/ports/*Operations protocol; annotate against "
-                        f"the protocol name. Facades may keep the concrete typing "
-                        f"— see CLAUDE.md '## Protocol-Based Architecture'."
+                        f"the protocol name. Facades are NOT exempt — 'Facade IS the "
+                        f"contract' is about the route→service boundary, not "
+                        f"self.backend; see CLAUDE.md '## Protocol-Based Architecture'."
                     ),
                     line_content=line.strip(),
                 )

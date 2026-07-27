@@ -7,6 +7,9 @@ Does NOT extend UniversalNeo4jBackend — takes a Neo4jQueryExecutor directly.
 
 Migrates 10 execute_query calls from InsightStore.
 
+Protocol: core/ports/insight_protocols.py (InsightBackendOperations) — InsightStore
+types its handle against that port, never against this class (SKUEL023 / ADR-044).
+
 See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 """
 
