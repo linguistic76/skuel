@@ -534,7 +534,11 @@ class TestCommentMasking:
         [
             "http://key",  # `//` inside an escaped property name
             "/* odd */",  # a block-comment opener inside one
-            "a``b//c",  # a DOUBLED backtick — escapes, does not close
+            # A doubled backtick. This case pins only that the `//` is not a
+            # comment — it lands inside a backtick region under either reading of
+            # the pair, so it says nothing about the escape itself. See
+            # `test_doubled_backtick_does_not_leak_a_later_comment`.
+            "a``b//c",
         ],
     )
     def test_comment_openers_inside_backtick_identifiers_are_not_comments(
@@ -550,19 +554,32 @@ class TestCommentMasking:
         assert "BAD_EDGE" in [n.value for n in scan_names(fragment)]
 
     def test_doubled_backtick_does_not_leak_a_later_comment(self) -> None:
-        """The doubled-backtick ESCAPE, pinned by a consequence it alone changes.
+        """A doubled backtick must not carry the string state past its identifier.
 
-        The parametrized case above feeds `a``b//c` and asserts only that
-        `BAD_EDGE` survives — which it does either way. Reading `` `` `` as an
-        escape yields one identifier; reading it as close-then-reopen yields
-        two, and both leave the masker in the same string state with the `//`
-        between the ticks. So that assertion holds whether or not the escape
-        works, and every mutation of the escape branch survived it.
+        This pins ONE direction, and the boundary is worth stating exactly,
+        because the parametrized case above already overclaimed one. It catches
+        the doubled-backtick branch firing when it must not — treating a CLOSING
+        tick as the first half of an escape, which skips the tick, leaves the
+        masker inside a string that never ends, swallows the real `//`, and
+        reports `Bogus` out of a comment. That is the silent-miss failure
+        inverted into a false positive, and it is reachable from ordinary Cypher.
 
-        A doubled backtick followed by a REAL `//` comment is where the two
-        readings diverge: mishandling the escape runs the string state past the
-        closing tick, the comment is never masked, and `Bogus` is reported out
-        of a comment — the silent-miss failure inverted into a false positive.
+        It does NOT pin the branch's existence, and no test here can. Replacing
+        the condition with `False` — deleting the escape, so a pair closes and
+        reopens — leaves this assertion and the whole module's suite passing
+        (Codex P2). That is correct, not a gap: the two readings consume the same
+        span and end in the same string state, differing only in which characters
+        count as string BODY. Measured against every entry point, deleting it
+        changes `looks_like_cypher`, `leading_cypher_clause`,
+        `mask_cypher_comments` and `scan_names` on NOTHING — no backtick run,
+        odd or even. The only difference that escapes the function is which
+        characters `_mask_cypher(blank_strings=True)` blanks inside a backtick
+        identifier, surfacing externally as the verbatim `text` of a
+        `MUTATION_CLAUSE_NO_ITEM_MATCHED` diagnostic that fires either way.
+
+        So the escape is unobservable through every surface a rule reads. A
+        fixture that "pinned" it could only assert on that diagnostic's span —
+        buying a passing test for a claim the vocabulary rules cannot make.
         """
         fragment = "MATCH (n:Task) WHERE n.`a``b` = $x RETURN n // (:Bogus)"
         assert [(n.kind, n.value) for n in scan_names(fragment)] == [(NameKind.LABEL, "Task")]
