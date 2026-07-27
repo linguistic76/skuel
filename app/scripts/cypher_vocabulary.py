@@ -492,7 +492,8 @@ _NAME_SEPARATOR_RE = re.compile(r"[:|&]")
 # the production, never to widen a copy of it.
 _ESCAPABLE_NAME = r"`?([A-Za-z_]\w*)`?"
 
-_BODY_ATOM_RE = re.compile(r"[!(]*" + _ESCAPABLE_NAME + r"\)*")
+_BODY_ATOM_PATTERN = r"[!(]*" + _ESCAPABLE_NAME + r"\)*"
+_BODY_ATOM_RE = re.compile(_BODY_ATOM_PATTERN)
 
 # Relationship types are UPPER_SNAKE; labels are PascalCase. Anything else
 # (lowercase alias, digit-led fragment) is not vocabulary and is ignored.
@@ -632,6 +633,84 @@ _LABEL_MUTATION_ITEM_RE = re.compile(
     + r"(?:\s*[:&]\s*"
     + _ESCAPABLE_NAME
     + r")*)\s*"
+)
+
+
+# --- Anchor 3: the fragment IS a pattern --------------------------------------
+#
+# Anchor 1 keys on SHAPE anywhere; anchor 2 keys on POSITION at the head. Both
+# need a clause keyword, and a bare pattern fragment has none:
+#
+#     target_part = "(t:Entity {entity_type: $target_type})" if t else "(t:Entity)"
+#
+# assigned to a variable and composed into a query later. Neither anchor can see
+# it, so SKUEL030 never scanned it — the FIRST anchor gap in this module found by
+# measurement rather than by a reviewer imagining an input (#833's diagnostic).
+#
+# The new signal is EXHAUSTIVENESS: not "a marker appears somewhere" and not "a
+# keyword leads", but "the whole fragment is a pattern and nothing else". That is
+# what refuses the third row #833 measured — ``Expected ISO format (HH:MM:SS)``,
+# prose the pattern regexes happily read `MM` and `SS` out of. The parenthesised
+# span is there; the surrounding English is what breaks the full match.
+#
+# Exhaustiveness ALONE is not enough, and the measurement is why this line exists
+# rather than a comment guessing at it. A parenthesised English word — ``(none)``,
+# ``(untitled)``, ``(overdue)`` — is character-for-character a valid Cypher node
+# pattern with a variable and no label, and `core/` + `adapters/inbound/` + `ui/`
+# hold ELEVEN of them. So the fragment must also carry at least one token a
+# parenthesised word cannot: a label/type colon, a `$` parameter, or relationship
+# syntax. That set is derived from how a pattern differs from a bare word, not
+# collected from the shapes that turned up; requiring it takes those eleven to
+# ZERO while still admitting all three real sites.
+#
+# The residual limit is inherent and worth stating plainly: `(x:Y)` is a node
+# pattern, and prose shaped exactly like one is indistinguishable from it. Anchor
+# 1 accepts the same class of limit ("a paren or sigil that essentially never
+# follows the keyword in prose"). Measured over every fragment either rule looks
+# at — 5768 gate rejections in `adapters/persistence`, 57398 literals in
+# SKUEL021's trees — this admits 3 and 0 respectively, and not one of them yields
+# an unregistered name.
+#
+# NOT in the dialect table, and that is structural rather than an omission: the
+# table exists because a KEYWORD needs a case mode, and this anchor has no
+# keyword. There is nothing here for `declared_cypher` to relax.
+#
+# Names are `_ESCAPABLE_NAME`, the module's one name production. The capture
+# groups it carries are unused — this regex is only ever asked a yes/no.
+_PATTERN_MAP = r"\{[^{}]*\}"
+
+# The label expression, segment for segment as `_body_names` splits it: on
+# `_NAME_SEPARATOR_RE`, with each segment full-matched by `_BODY_ATOM_PATTERN`.
+# Sharing that production is the point. Spelling the segment inline instead —
+# "a name joined by `:`, `&` or `|`" — is what this anchor shipped with, and it
+# refused `(n:!Bogus)` and `(n:(Known|Bogus))` as bare fragments while anchor 1
+# admitted the identical pattern behind a `MATCH` and the scanner read the name
+# out of it perfectly well (Codex P2). A composed fragment carrying a negated or
+# grouped typo was invisible: the same asymmetry this anchor exists to remove,
+# reintroduced one layer down by a hand-written copy of `_BODY_ATOM_RE`.
+#
+# Two segment kinds sit alongside it. Neither yields a name, so neither reaches
+# `_BODY_ATOM_RE` in the scanner — but both are valid label-expression content,
+# and the ANCHOR has to admit the fragment that holds them or the rest of the
+# pattern goes unscanned with them:
+#
+#   * `%`, the wildcard — `(n:%)` names nothing and must not be read as a name;
+#   * a dynamic operand — `(n:$(labelExpr))`, `(n:(Known|$(x)))`. Splitting
+#     leaves pieces like `$(x))` and `$(map`, which is exactly why the scanner
+#     finds nothing in them.
+_PATTERN_LABEL_SEGMENT = rf"(?:{_BODY_ATOM_PATTERN}|[!(]*%\)*|[!(]*\$[\w.()]*)"
+_PATTERN_LABELS = rf"(?::\s*{_PATTERN_LABEL_SEGMENT}(?:\s*[:|&]\s*{_PATTERN_LABEL_SEGMENT})*)"
+_PATTERN_NODE = rf"\(\s*(?:{_ESCAPABLE_NAME})?\s*(?:{_PATTERN_LABELS})?\s*(?:{_PATTERN_MAP})?\s*\)"
+_PATTERN_REL = (
+    rf"<?-\s*(?:\[\s*(?:{_ESCAPABLE_NAME})?\s*(?:{_PATTERN_LABELS})?"
+    rf"\s*(?:\*[\d.]*)?\s*(?:{_PATTERN_MAP})?\s*\])?\s*->?"
+)
+# A token no parenthesised English word carries. Asserted before the shape match
+# so the cheap disqualifier runs first.
+_PATTERN_ONLY_TOKEN = r"(?=.*(?:[:$]|--|->|-\[))"
+_BARE_PATTERN_RE = re.compile(
+    rf"\s*{_PATTERN_ONLY_TOKEN}{_PATTERN_NODE}(?:\s*{_PATTERN_REL}\s*{_PATTERN_NODE})*\s*",
+    re.DOTALL,
 )
 
 
@@ -1005,22 +1084,27 @@ def _leading_cypher_clause(masked: str, dialect: _Dialect) -> str | None:
 
 
 def _is_cypher(masked: str, dialect: _Dialect) -> bool:
-    """Both anchors, over already-masked text."""
+    """All three anchors, over already-masked text."""
     return (
         dialect.context.search(masked) is not None
         or _leading_cypher_clause(masked, dialect) is not None
+        or _BARE_PATTERN_RE.fullmatch(masked) is not None
     )
 
 
 def looks_like_cypher(fragment: str) -> bool:
-    """True if ``fragment`` is admitted by either Cypher anchor.
+    """True if ``fragment`` is admitted by any of the three Cypher anchors.
 
     Anchor 1: a paren/sigil-anchored marker anywhere in the fragment.
     Anchor 2: a clause keyword at the fragment's head, followed by an operand.
+    Anchor 3: the whole fragment is a pattern carrying a pattern-only token.
 
-    Comments are masked first, so neither anchor can be satisfied by
-    commented-out Cypher. See the ``_CYPHER_CONTEXT_PATTERN`` /
-    ``CYPHER_LEADING_CLAUSES`` block above for why one anchor cannot do both
+    Each keys on a different signal — shape, position, exhaustiveness — which is
+    why no one of them subsumes the others.
+
+    Comments are masked first, so no anchor can be satisfied by commented-out
+    Cypher. See the ``_CYPHER_CONTEXT_PATTERN`` / ``CYPHER_LEADING_CLAUSES`` /
+    ``_BARE_PATTERN_RE`` blocks above for why one anchor cannot do all three
     jobs.
 
     This is the predicate for text that MIGHT be Cypher. A caller holding text

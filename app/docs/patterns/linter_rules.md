@@ -840,16 +840,21 @@ head anchor: a statement whose only remaining content is a comment is now admitt
 masking for admission but scanning the raw text would have turned every explanatory
 `// was [:OLD_EDGE]` into a violation.
 
-**The gate: two anchors, one predicate.** Nothing above runs unless
+**The gate: three anchors, one predicate.** Nothing above runs unless
 `looks_like_cypher()` first accepts the fragment — `scan_names()` returns `[]` outright
-for a rejected one, and a rule that silently scans nothing reports clean. Two orthogonal
-anchors decide:
+for a rejected one, and a rule that silently scans nothing reports clean. Three
+orthogonal anchors decide, each keying on a different signal — shape, position,
+exhaustiveness — which is why no one of them subsumes the others:
 
 1. A **paren/sigil-anchored marker anywhere** in the fragment (`MATCH (`, `MERGE (`,
    `CREATE ... INDEX|CONSTRAINT`, `MATCH x = (`, `UNWIND $`, `CALL db.`). Position
    carries no signal here, so each arm must earn its keep from shape alone.
 2. An **UPPERCASE clause keyword at the HEAD** of the fragment, followed by whitespace
    and an operand. Position is the signal, so no paren is needed.
+3. The **whole fragment is a pattern** carrying at least one pattern-only token — a
+   label/type colon, a `$` parameter, or relationship syntax. Neither shape nor position
+   but exhaustiveness: nothing outside the pattern. SKUEL030 only; SKUEL021 keeps its
+   own anchor 1 and does not consult this predicate.
 
 Anchor 1 alone has a ceiling, and its last three arms are the tell: each was bolted on
 case-by-case after a form the paren anchor could not see turned up. Whole statement
@@ -868,6 +873,23 @@ reads the same answer: `CYPHER_LEADING_CLAUSES` and its matcher live here, expos
 `leading_cypher_clause()`, and all three rules consult one implementation. They did each
 keep a copy for one release, and the copies drifted in five behaviours before either was
 a month old — see SKUEL021's section for the list.
+
+Anchor 3 closed the first gap in this gate found by **measurement rather than by a
+reviewer imagining an input**: `#833`'s diagnostic reported two live fragments
+(`activity_backends.py:94`) that a ternary assigns to a variable and composes into a
+query later. With no clause keyword, anchors 1 and 2 structurally cannot see them.
+Closing it as a third *arm* on anchor 1 would have been the habit that block already
+calls out; a third *anchor* closes the class, and promptly found a third site the
+diagnostic could not report (`semantic_queries.py:241`, whose pattern carries no name to
+recover). The pattern-only-token condition is what keeps English out, and it too is
+measured, not reasoned: `(none)`, `(untitled)`, `(overdue)` are character-for-character
+valid node patterns, and SKUEL021's trees hold **eleven** of them. Requiring a token a
+parenthesised word cannot carry takes those eleven to **zero** while still admitting all
+three real sites. Scored over every fragment either rule looks at — 5768 gate rejections
+in `adapters/persistence`, 57398 literals in `core/` + `adapters/inbound/` + `ui/` —
+anchor 3 admits **3** and **0**, and not one yields an unregistered name. The residual
+limit is inherent and stated: `(x:Y)` is a node pattern, and prose shaped exactly like
+one is indistinguishable from it — the same class of limit anchor 1 accepts.
 
 **The scanner reports what it could not read** — `scripts/cypher_scan_diagnostics.py`.
 
@@ -890,7 +912,7 @@ First full run over `adapters/persistence/**/*.py` + every `.cypher` file:
 |---|---|---|
 | `unparsed-mutation-item` | **0** | No label-shaped `SET`/`REMOVE` item in the tree defeats the item regex. |
 | `unreadable-pattern-body` | 16 | All template placeholders (`__DAG__`, `zpd_proximal_edges`) substituted from `RelationshipName` constants at runtime. Correct drops. |
-| `rejected-by-gate` | 3 | One prose false positive of the diagnostic's own name filter; **two real** — bare pattern fragments assigned to a variable and composed into a query later (`activity_backends.py:94`). Both name `Entity`, which is registered, so nothing fires today; a typo'd one would be invisible to both anchors. A known, now-measured gap. |
+| `rejected-by-gate` | 3 → **1** | Was one prose false positive of the diagnostic's own name filter plus **two real** bare pattern fragments (`activity_backends.py:94`). Anchor 3 admits the two; the prose row remains, correctly — its parenthesised span is real but the surrounding English breaks the full match. The category still has live subjects outside pattern position: a bare `WHERE`/`AND` predicate fragment composes the same way and no anchor sees it. |
 | `mutation-clause-no-item-matched` | 265 | Property assignments. The unfiltered denominator, kept so the shape filter above cannot hide a class. |
 
 **Python edge lists — the rule's second scanner (since tranche 5).** An alternation is
