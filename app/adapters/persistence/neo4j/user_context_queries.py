@@ -12,6 +12,11 @@ This module contains:
 Architecture:
 - Pure query logic, no context population
 - Used by UserContextBuilder for orchestration
+
+Protocol: core/ports/user_context_protocols.py (UserContextQueryOperations) —
+UserContextBuilder and the UserService facade type their handles against that
+port, never against this class (SKUEL023 / ADR-044). The port is an ISP slice:
+``fetch_current_ps_uids`` is deliberately absent because nothing calls it.
 """
 
 from datetime import date, datetime, timedelta

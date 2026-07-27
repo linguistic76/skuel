@@ -197,7 +197,7 @@ The table below is about **how a route refers to the service** — not about wha
 | **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP | Concrete class | Facade IS the contract (~50 delegation methods) |
 | **Thin/ISP** | Groups, UserEntry, Sharing, etc. | ISP protocol | Routes use a narrow slice; protocol makes it explicit |
 
-**A facade being concrete to its callers does not license a concrete `self.backend`.** Both tiers type `self.backend` against a `core/ports` protocol; SKUEL023 enforces it, and its allowlist is a shrinking debt register, not a design tier. KU/PS/LP were removed from it in July 2026.
+**A facade being concrete to its callers does not license a concrete `self.backend`.** Both tiers type `self.backend` against a `core/ports` protocol; SKUEL023 enforces it **unconditionally** — the facade allowlist that once parked KU/PS/LP and then UserService/UserContextBuilder/InsightStore was emptied and deleted in July 2026. There is no exempt path in `core/`.
 
 **Trap:** same root word at both layers — verify the layer before retyping `self.backend` against an `*Operations` protocol; if service-layer and backend-layer method names diverge, you need a `*BackendOperations` protocol.
 

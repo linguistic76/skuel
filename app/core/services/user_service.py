@@ -31,8 +31,8 @@ from core.ports.infrastructure_protocols import (
 )
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
     from core.ports.service_protocols import SessionInvalidationOperations
+    from core.ports.user_context_protocols import UserContextQueryOperations
 from core.models.auth.device import Device, PairingCodeIssued
 from core.models.context_types import DailyWorkPlan
 from core.services.user import UserContext
@@ -73,7 +73,7 @@ class UserService:
     def __init__(
         self,
         user_repo: UserOperations,
-        query_executor: "UserContextQueryExecutor | None" = None,
+        query_executor: "UserContextQueryOperations | None" = None,
         event_bus: EventBusOperations | None = None,
         intelligence_factory: UserContextIntelligenceFactory | None = None,
         metrics_cache=None,
@@ -85,9 +85,10 @@ class UserService:
 
         Args:
             user_repo: Repository implementation for user persistence (protocol-based)
-            query_executor: Optional UserContextQueryExecutor for cross-domain context
-                building. Built at the composition root and injected so neither this
-                service nor UserContextBuilder imports the adapter (ADR-044/SKUEL022).
+            query_executor: Optional MEGA / CONSOLIDATED query execution for
+                cross-domain context building. Built at the composition root and
+                injected so neither this service nor UserContextBuilder imports
+                the adapter (ADR-044 / SKUEL022 / SKUEL023).
             event_bus: Event bus for publishing domain events (protocol-based)
             intelligence_factory: Factory for creating UserContextIntelligence instances
                                   (wired with all 9 domain relationship services)
@@ -1001,7 +1002,7 @@ class UserService:
 
 def create_user_service(
     user_repo: UserOperations,
-    query_executor: Any | None = None,
+    query_executor: "UserContextQueryOperations | None" = None,
     event_bus: Any | None = None,
     intelligence_factory: UserContextIntelligenceFactory | None = None,
     metrics_cache=None,
@@ -1013,8 +1014,11 @@ def create_user_service(
 
     Args:
         user_repo: User repository implementation
-        query_executor: Optional UserContextQueryExecutor for cross-domain context
-            building (built at the composition root; ADR-044/SKUEL022)
+        query_executor: Optional MEGA / CONSOLIDATED query execution for cross-domain
+            context building (built at the composition root; ADR-044 / SKUEL022).
+            Typed against the port rather than ``Any`` so the composition root's
+            injection is actually checked — an ``Any`` here launders every
+            downstream annotation (SoC arc PR 4's lesson).
         event_bus: Event bus for publishing domain events (optional)
         intelligence_factory: Factory for creating UserContextIntelligence instances
                               (wired with all 9 domain relationship services)
