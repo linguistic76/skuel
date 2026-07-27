@@ -25,6 +25,7 @@ from cypher_vocabulary import (  # type: ignore[import-not-found]
     NameKind,
     ScanIssue,
     looks_like_cypher,
+    mask_cypher_comments,
     recording_scan_diagnostics,
     scan_names,
     scanning_fragment_at,
@@ -548,10 +549,194 @@ class TestCommentMasking:
         fragment = f"MATCH (n:Task) WHERE n.`{identifier}` = $x RETURN [(a)-[:BAD_EDGE]->(b)]"
         assert "BAD_EDGE" in [n.value for n in scan_names(fragment)]
 
+    def test_doubled_backtick_does_not_leak_a_later_comment(self) -> None:
+        """The doubled-backtick ESCAPE, pinned by a consequence it alone changes.
+
+        The parametrized case above feeds `a``b//c` and asserts only that
+        `BAD_EDGE` survives — which it does either way. Reading `` `` `` as an
+        escape yields one identifier; reading it as close-then-reopen yields
+        two, and both leave the masker in the same string state with the `//`
+        between the ticks. So that assertion holds whether or not the escape
+        works, and every mutation of the escape branch survived it.
+
+        A doubled backtick followed by a REAL `//` comment is where the two
+        readings diverge: mishandling the escape runs the string state past the
+        closing tick, the comment is never masked, and `Bogus` is reported out
+        of a comment — the silent-miss failure inverted into a false positive.
+        """
+        fragment = "MATCH (n:Task) WHERE n.`a``b` = $x RETURN n // (:Bogus)"
+        assert [(n.kind, n.value) for n in scan_names(fragment)] == [(NameKind.LABEL, "Task")]
+
+    @pytest.mark.parametrize(
+        ("fragment", "expected"),
+        [
+            (
+                "MATCH (n:Ku) // trailing (:Bogus)\nRETURN n",
+                "MATCH (n:Ku)                     \nRETURN n",
+            ),
+            (
+                "/* head (:Bogus) */ MATCH (n:Ku) RETURN n",
+                "                    MATCH (n:Ku) RETURN n",
+            ),
+            (
+                "MATCH (n:Ku)\n/* multi\n   line (:Bogus) */\nRETURN n",
+                "MATCH (n:Ku)\n        \n                   \nRETURN n",
+            ),
+            # An unterminated block comment runs to the end of the fragment.
+            (
+                "MATCH (n:Ku) /* unterminated (:Bogus)",
+                "MATCH (n:Ku)                         ",
+            ),
+            # Neither a quoted string nor a backtick identifier is a comment.
+            (
+                "MATCH (n:Ku) WHERE n.uri = 'bolt://host' RETURN n",
+                "MATCH (n:Ku) WHERE n.uri = 'bolt://host' RETURN n",
+            ),
+            (
+                "MATCH (n:Ku) WHERE n.`http://key` = $x RETURN n",
+                "MATCH (n:Ku) WHERE n.`http://key` = $x RETURN n",
+            ),
+            ("RETURN 1 // a\n// b\nRETURN 2", "RETURN 1     \n    \nRETURN 2"),
+        ],
+    )
+    def test_masked_output_is_exact(self, fragment: str, expected: str) -> None:
+        """The masker's own output, asserted directly.
+
+        Every other test here reads the masker THROUGH `scan_names`, asking only
+        whether some name survived. That lens is too coarse to see where a
+        boundary moved: the masker held 89 of the 277 surviving mutants in the
+        2026-07-27 mutation pass, 20 of them changing the reported name set,
+        because no test asserted what it actually returns.
+        """
+        assert mask_cypher_comments(fragment) == expected
+
+    @pytest.mark.parametrize(
+        "fragment",
+        [
+            "MATCH (n:Ku) // trailing\nRETURN n",
+            "MATCH (n:Ku)\n/* multi\n   line */\nRETURN n",
+            "MATCH (n:Ku) /* unterminated",
+            "RETURN 1 // a\n// b\nRETURN 2",
+            "MATCH (n:Ku) WHERE n.`a``b` = $x RETURN n",
+        ],
+    )
+    def test_masking_preserves_length_and_line_breaks(self, fragment: str) -> None:
+        """Offsets computed on the masked copy must point into the original.
+
+        Length and newline count are the two invariants that make that true, and
+        they are what every `line_offset` and `source_line` in a violation
+        message rests on.
+        """
+        masked = mask_cypher_comments(fragment)
+        assert len(masked) == len(fragment)
+        assert masked.count("\n") == fragment.count("\n")
+
+    def test_an_unterminated_string_is_blanked_to_the_end_of_the_fragment(self) -> None:
+        """The mutation scanner reads string-BLANKED text, and the tail counts.
+
+        An unterminated quoted string has no closing delimiter to trigger the
+        blanking, so it is blanked when the walk ends instead. Without that, a
+        label written inside the runaway string is read as a real `SET` item.
+        """
+        assert scan_names("MATCH (n) SET n.note = 'oops, n:Bogus") == []
+
+    def test_noqa_is_masked_by_default_and_kept_only_on_request(self) -> None:
+        """`keep_noqa` defaults to False — the default is the load-bearing half.
+
+        `cypher_linter`'s statement splitter passes True so a suppression stays
+        attached to its line; vocabulary scanning wants no such carve-out. Both
+        callers matter, so both are asserted: flipping the DEFAULT is invisible
+        to any test that always passes the flag explicitly.
+        """
+        fragment = "MATCH (n:Ku) // noqa: CYP011\nRETURN n"
+        assert mask_cypher_comments(fragment) == "MATCH (n:Ku)                \nRETURN n"
+        assert mask_cypher_comments(fragment, keep_noqa=True) == fragment
+
     def test_line_offsets_survive_masking(self) -> None:
         """Masking preserves length and newlines, so offsets stay truthful."""
         fragment = "/* header */\nMATCH (n:Typo)\nRETURN n"
         assert [(n.value, n.line_offset) for n in scan_names(fragment)] == [("Typo", 1)]
+
+
+# ============================================================================
+# Reported position — every scanner, not just pattern
+# ============================================================================
+
+
+class TestScannedNamePositions:
+    """`line_offset` is where the violation gets reported, so a wrong one is a
+    suppression comment that cannot be placed beside the name it must suppress.
+
+    Pattern position had an offset assertion; PREDICATE and MUTATION did not.
+    All 19 of the mutation pass's position-class survivors sat on the four
+    `record(...)` calls, whose offset arithmetic no test constrained — the names
+    came back correct and the lines they were attributed to did not.
+    """
+
+    @pytest.mark.parametrize(
+        ("fragment", "expected"),
+        [
+            # Predicate position — WHERE n:Label
+            (
+                "MATCH (n)\nWHERE n:Typo\nRETURN n",
+                [(NameKind.LABEL, "Typo", 1)],
+            ),
+            # Predicate position — type(r) = 'X'
+            (
+                "MATCH (n)\nWHERE type(r) = 'BOGUS_EDGE'\nRETURN r",
+                [(NameKind.RELATIONSHIP, "BOGUS_EDGE", 1)],
+            ),
+            # Predicate position — a list operand spanning two lines. Each name
+            # belongs on the line it is written on, not on the clause's line.
+            (
+                "MATCH (n)\nWHERE type(r) IN ['GOOD_EDGE',\n  'BOGUS_EDGE']\nRETURN r",
+                [
+                    (NameKind.RELATIONSHIP, "GOOD_EDGE", 1),
+                    (NameKind.RELATIONSHIP, "BOGUS_EDGE", 2),
+                ],
+            ),
+            # Mutation position — comma-separated items on separate lines.
+            (
+                "MATCH (n)\nSET a:Ku,\n    b:Typo\nRETURN n",
+                [(NameKind.LABEL, "Ku", 1), (NameKind.LABEL, "Typo", 2)],
+            ),
+            # Pattern and mutation in one fragment, blank lines between.
+            (
+                "MATCH (n:A)\n\n\nSET n:Bogus",
+                [(NameKind.LABEL, "A", 0), (NameKind.LABEL, "Bogus", 3)],
+            ),
+            # Pattern position, second name in a multi-name body on a wrapped
+            # line. The first name's offset within its body is 0, so a fixture
+            # with one name per pattern cannot constrain the arithmetic at all.
+            (
+                "MATCH (a)\n-[:GOOD_EDGE|BOGUS_EDGE]->(b)\nRETURN a",
+                [
+                    (NameKind.RELATIONSHIP, "GOOD_EDGE", 1),
+                    (NameKind.RELATIONSHIP, "BOGUS_EDGE", 1),
+                ],
+            ),
+            (
+                "MATCH\n  (n:Known:Typo)\nRETURN n",
+                [(NameKind.LABEL, "Known", 1), (NameKind.LABEL, "Typo", 1)],
+            ),
+        ],
+    )
+    def test_each_name_is_reported_on_its_own_line(
+        self, fragment: str, expected: list[tuple[NameKind, str, int]]
+    ) -> None:
+        assert [(n.kind, n.value, n.line_offset) for n in scan_names(fragment)] == expected
+
+    def test_an_interpolated_pattern_is_skipped_without_ending_the_walk(self) -> None:
+        """A runtime-composed type is skipped; the NEXT pattern must still be read.
+
+        `[:HAS_{domain}]` has no static name to validate and is a sanctioned
+        below-boundary form. Skipping it must not abandon the rest of the walk —
+        a typo'd type written after one would go unreported.
+        """
+        fragment = f"MATCH (a)-[:HAS_{INTERPOLATION_SENTINEL}]->(b)-[:BOGUS_EDGE]->(c) RETURN a"
+        assert [(n.kind, n.value) for n in scan_names(fragment)] == [
+            (NameKind.RELATIONSHIP, "BOGUS_EDGE")
+        ]
 
 
 class TestBacktickEscapedVocabulary:
