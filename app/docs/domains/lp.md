@@ -212,8 +212,7 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `calculate_path_progress(paths)` | `tuple[list[ActivePathData], float]` | Pure computation: progress %, current step, hours for each path |
-| `get_dashboard_summary(user_uid, user_progress?)` | `Result[dict]` | Full dashboard: active paths + stats (completion rate, concepts mastered) |
+| `get_dashboard_summary(user_uid, user_progress?)` | `Result[LpDashboardSummary]` | Full dashboard: per-path progress rows + stats (completion rate, concepts mastered). Domain values only — `ui/pathways/components.py` builds the display types (SKUEL032) |
 | `filter_paths(difficulty, domain, duration, limit)` | `Result[list[dict]]` | Fetch + filter paths by difficulty/domain/duration |
 | `get_path_detail_progress(path_uid, user_progress, user_uid)` | `Result[dict]` | Path with mastery info: progress, mastered_uids, is_enrolled |
 | `get_learning_analytics(user_uid, user_progress)` | `Result[dict]` | Knowledge profile stats: mastered, in_progress, needs_review, struggling |

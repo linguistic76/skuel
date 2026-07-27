@@ -446,7 +446,7 @@ Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.a
 - Use `Errors` factory for creating errors
 - Seven error types: Validation, NotFound, Database, Integration, Business, System, Forbidden
 - **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). Convention: persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
-- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL030. Every lint run audits suppressions; one that suppresses nothing is flagged as SKUEL026 — delete it.
+- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL030, SKUEL032. Every lint run audits suppressions; one that suppresses nothing is flagged as SKUEL026 — delete it.
 
 **See:** `/docs/patterns/ERROR_HANDLING.md`
 
@@ -587,6 +587,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 | SKUEL029 | No `async def` without `await` — async for I/O, sync for computation (suppress protocol/lifecycle-required async) | ERROR |
 | SKUEL030 | Every label / edge in `adapters/persistence/` Cypher must be a `NeoLabel` / `RelationshipName` member — Neo4j matches zero rows on an unknown name instead of erroring (`.cypher` half is CYP011) | WARNING |
 | SKUEL031 | No stale pip refs (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) — uv is the one path (`uv add`/`uv sync`); SKUEL016's pip sibling | WARNING |
+| SKUEL032 | No runtime `ui` imports in `core/` — return a `core/ports/query_types` row, build the display type in `ui/` (ADR-058; SKUEL022's presentation-side twin) | ERROR |
 
 **MyPy:** `./dev quality` enforces **0 errors**. Key strictness:
 - `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt

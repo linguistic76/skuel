@@ -15,8 +15,11 @@ from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.pathways import pages
-from ui.pathways.components import path_to_display_dict
-from ui.ui_types import ActivePathData, LearningStatsData
+from ui.pathways.components import (
+    path_to_display_dict,
+    to_active_path_data,
+    to_learning_stats,
+)
 
 logger = get_logger("skuel.ui.pathways")
 
@@ -49,17 +52,9 @@ def create_pathways_ui_routes(
         summary_result = await orchestrator.get_dashboard_summary(user_uid)
         if summary_result.is_error:
             return pages.dashboard_content_error(summary_result.expect_error().message)
-        active_paths: list[ActivePathData] = []
-        stats = LearningStatsData(
-            total_hours=0.0,
-            concepts_mastered=0,
-            active_streak=0,
-            completion_rate=0.0,
-        )
-        if summary_result.value:
-            active_paths = summary_result.value["active_paths"]
-            stats = summary_result.value["stats"]
-        return pages.dashboard_content(active_paths, stats)
+        summary = summary_result.value
+        active_paths = [to_active_path_data(row) for row in summary["paths"]]
+        return pages.dashboard_content(active_paths, to_learning_stats(summary))
 
     routes.append(pathways_dashboard_content)
 

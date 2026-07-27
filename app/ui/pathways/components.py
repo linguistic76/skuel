@@ -12,6 +12,7 @@ from fasthtml.common import (
 )
 
 from core.models.pathways.pathways_request import LearningPathFilterRequest
+from core.ports.query_types import LpActivePathProgress, LpDashboardSummary
 from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT, Progress
 from ui.forms import LabelSelect
@@ -19,7 +20,7 @@ from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.form_generator import FormGenerator
 from ui.primitives import ButtonLink
-from ui.ui_types import ActivePathData
+from ui.ui_types import ActivePathData, LearningStatsData
 
 
 def difficulty_label(rating: float) -> str:
@@ -29,6 +30,41 @@ def difficulty_label(rating: float) -> str:
     if rating <= 0.65:
         return "intermediate"
     return "advanced"
+
+
+def to_active_path_data(row: LpActivePathProgress) -> ActivePathData:
+    """Convert an LpService progress row into the dashboard card's display type.
+
+    Every presentation decision for the dashboard card lives here: the difficulty
+    label, the hours strings, the untitled-path fallback, and the three-way
+    current-step text (complete / next step's title / untitled next step).
+    """
+    hours = f"{int(row['estimated_hours'])}h"
+    current_step = "Complete" if row["is_complete"] else (row["next_step_title"] or "Next step")
+
+    return ActivePathData(
+        uid=row["uid"],
+        title=row["title"] or "Untitled Path",
+        progress=row["progress_percent"],
+        current_step=current_step,
+        estimated_completion=f"{hours} total",
+        difficulty=difficulty_label(row["difficulty_rating"]),
+        time_invested=f"{hours} est.",
+    )
+
+
+def to_learning_stats(summary: LpDashboardSummary) -> LearningStatsData:
+    """Convert an LpService dashboard summary into the stats-grid display type.
+
+    ``active_streak`` has no producer anywhere — the route rendered a hardcoded
+    zero for it before this converter existed, and still does.
+    """
+    return LearningStatsData(
+        total_hours=summary["total_hours"],
+        concepts_mastered=summary["concepts_mastered"],
+        active_streak=0,
+        completion_rate=summary["completion_rate"],
+    )
 
 
 def path_to_display_dict(path: Any) -> dict[str, Any]:

@@ -147,6 +147,9 @@ def lint_content(
     if is_ui and not is_test and linter._should_run_rule("SKUEL027"):
         linter._check_ui_imports_adapter(fp, rel, content, lines, tree)
 
+    if is_core and not is_test and linter._should_run_rule("SKUEL032"):
+        linter._check_core_imports_ui(fp, rel, content, lines, tree)
+
     return linter.result.violations
 
 
@@ -4707,7 +4710,7 @@ class TestSKUEL026:
 class TestSKUEL027:
     """Import-direction enforcement for the ui/ layer: presentation renders what
     routes hand it, so a runtime `adapters` import inside ui/ inverts the layering.
-    SKUEL022's sibling — same scan (shared `_collect_runtime_adapter_imports`),
+    SKUEL022's sibling — same scan (shared `_collect_runtime_layer_imports`),
     different layer scope. Replaced the tests/unit/test_ui_layer_boundary.py guard
     (one enforcement point; lint fires in ./dev quality, not only under pytest)."""
 
@@ -4880,6 +4883,187 @@ class TestSKUEL027:
         violations = lint_content(linter, content, file_path="ui/x.py", is_service=False)
         assert len(violations) == 2
         assert {v.line_number for v in violations} == {2, 4}
+
+
+# ============================================================================
+# SKUEL032 — core/ Must Not Import ui/
+# ============================================================================
+
+
+class TestSKUEL032:
+    """The other end of SKUEL027's seam: core/ computes, ui/ renders. ADR-058 stated
+    the rule in prose ("putting it in core/ would invert the core → ui import
+    direction") but nothing enforced it, so lp_service.py grew two function-local
+    `from ui.ui_types import ...` statements that CONSTRUCTED display dataclasses
+    inside a core service. Shares `_collect_runtime_layer_imports` with
+    SKUEL022/SKUEL027, parameterised by target package."""
+
+    def test_detects_module_level_from_import(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = "from ui.ui_types import ActivePathData\n"
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL032"
+        assert violations[0].severity == Severity.ERROR
+        assert "ui.ui_types" in violations[0].message
+
+    def test_detects_plain_import(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        violations = lint_content(
+            linter, "import ui.ui_types\n", file_path="core/services/lp_service.py"
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL032"
+
+    def test_detects_function_local_import(self) -> None:
+        """The case that decides the rule: BOTH founding violations
+        (lp_service.py:396 and :437) were function-local, so a module-level-only
+        check would have reported zero and shipped as a vacuous ratchet."""
+        linter = make_linter(["SKUEL032"])
+        content = (
+            "def calculate_path_progress(self, paths):\n"
+            "    from ui.ui_types import ActivePathData\n"
+            "    return [ActivePathData(uid=p.uid) for p in paths]\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL032"
+        assert violations[0].line_number == 2
+
+    def test_type_checking_import_exempt(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from ui.ui_types import ActivePathData\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert violations == []
+
+    def test_typing_dot_type_checking_exempt(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = (
+            "import typing\n"
+            "\n"
+            "if typing.TYPE_CHECKING:\n"
+            "    from ui.page_contexts import TodayPageContext\n"
+        )
+        violations = lint_content(linter, content, file_path="core/orchestrator/today.py")
+        assert violations == []
+
+    def test_else_branch_of_type_checking_not_exempt(self) -> None:
+        """Only the `if` BODY never executes; the `else` runs at runtime."""
+        linter = make_linter(["SKUEL032"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from ui.ui_types import ActivePathData\n"
+            "else:\n"
+            "    from ui.ui_types import ActivePathData\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert len(violations) == 1
+        assert violations[0].line_number == 6
+
+    def test_ui_path_in_docstring_not_flagged(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = '"""Service docs.\n\nUsage:\n    from ui.ui_types import ActivePathData\n"""\n'
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert violations == []
+
+    def test_relative_sibling_named_ui_not_flagged(self) -> None:
+        """`from .ui import x` has node.module == "ui" but level == 1 — a sibling
+        module, not the top-level presentation package."""
+        linter = make_linter(["SKUEL032"])
+        violations = lint_content(
+            linter, "from .ui import helper\n", file_path="core/services/lp_service.py"
+        )
+        assert violations == []
+
+    def test_inward_imports_clean(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = (
+            "from core.ports.query_types import LpActivePathProgress\n"
+            "from core.utils.result_simplified import Result\n"
+            "import uuid\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert violations == []
+
+    def test_prefix_collision_not_flagged(self) -> None:
+        """A package merely STARTING with `ui` is not the `ui` package."""
+        linter = make_linter(["SKUEL032"])
+        content = "import uuid\nfrom uvicorn import run\n"
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert violations == []
+
+    def test_ui_file_not_checked_by_this_rule(self) -> None:
+        """SKUEL032 is scoped to core/ — ui/ importing ui/ is just ui/."""
+        linter = make_linter(["SKUEL032"])
+        violations = lint_content(
+            linter,
+            "from ui.ui_types import ActivePathData\n",
+            file_path="ui/pathways/components.py",
+            is_service=False,
+        )
+        assert violations == []
+
+    def test_route_file_not_flagged(self) -> None:
+        """adapters/inbound/ composing UI is the job a route exists to do."""
+        linter = make_linter(["SKUEL032"])
+        violations = lint_content(
+            linter,
+            "from ui.ui_types import ActivePathData\n",
+            file_path="adapters/inbound/pathways_ui.py",
+            is_service=False,
+        )
+        assert violations == []
+
+    def test_skips_test_files(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        violations = lint_content(
+            linter,
+            "from ui.ui_types import ActivePathData\n",
+            file_path="core/services/test_lp_service.py",
+        )
+        assert violations == []
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = "from ui.ui_types import ActivePathData  # skuel-lint: disable=SKUEL032 -- x\n"
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert violations == []
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL032 -- legacy\n"
+            "from ui.ui_types import ActivePathData\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert violations == []
+
+    def test_try_and_except_bodies_both_flagged(self) -> None:
+        linter = make_linter(["SKUEL032"])
+        content = (
+            "try:\n"
+            "    from ui.fast import Fast\n"
+            "except ImportError:\n"
+            "    from ui.slow import Slow\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/lp_service.py")
+        assert len(violations) == 2
+        assert {v.line_number for v in violations} == {2, 4}
+
+    def test_shared_scan_is_parameterised_not_cloned(self) -> None:
+        """SKUEL022/027/032 must all route through one collector. A second walker
+        drifts on first contact — this arc has logged four such instances (#833)."""
+        source = Path(__file__).resolve().parents[3] / "scripts" / "lint_skuel.py"
+        text = source.read_text(encoding="utf-8")
+        assert text.count("def _collect_runtime_layer_imports") == 1
+        assert text.count("self._collect_runtime_layer_imports(tree,") == 3
 
 
 class TestSKUEL028:

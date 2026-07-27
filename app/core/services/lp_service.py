@@ -20,7 +20,9 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
+    LpActivePathProgress,
     LpBlockerAnalysis,
+    LpDashboardSummary,
     LpPathRecommendation,
     LpPracticeGapAnalysis,
     LpPrerequisiteValidation,
@@ -40,7 +42,6 @@ if TYPE_CHECKING:
     from core.ports import EventBusOperations
     from core.ports.query_types import ListContext
     from core.services.ps_service import PsService
-    from ui.ui_types import ActivePathData
 
 logger = get_logger(__name__)
 
@@ -382,20 +383,19 @@ class LpService:
     # AGGREGATION METHODS — extracted from pathways_ui.py route handlers
     # ============================================================================
 
-    def calculate_path_progress(
+    def _calculate_path_progress(
         self,
         paths: list[Any],
-    ) -> tuple[list[ActivePathData], float]:
-        """Calculate progress data for a list of learning paths.
+    ) -> tuple[list[LpActivePathProgress], float]:
+        """Calculate mastery progress for a list of learning paths.
 
-        Pure computation over already-fetched path objects.
+        Pure computation over already-fetched path objects. Emits domain values;
+        the pathways UI turns them into display strings.
 
         Returns:
-            Tuple of (active_path_data_list, total_hours).
+            Tuple of (per-path progress rows, total estimated hours).
         """
-        from ui.ui_types import ActivePathData
-
-        active_paths: list[ActivePathData] = []
+        rows: list[LpActivePathProgress] = []
         total_hours = 0.0
 
         for path in paths:
@@ -404,44 +404,45 @@ class LpService:
             mastered_count = sum(1 for s in steps if s.is_mastered())
             progress = (mastered_count / total_steps * 100.0) if total_steps > 0 else 0.0
 
-            current_step = "Complete"
+            is_complete = True
+            next_step_title: str | None = None
             for s in steps:
                 if not s.is_mastered():
-                    current_step = s.title or "Next step"
+                    is_complete = False
+                    next_step_title = s.title or None
                     break
 
-            total_hours += path.estimated_hours or 0
-            active_paths.append(
-                ActivePathData(
+            estimated_hours = float(path.estimated_hours or 0)
+            total_hours += estimated_hours
+            rows.append(
+                LpActivePathProgress(
                     uid=path.uid,
-                    title=path.title or "Untitled Path",
-                    progress=progress,
-                    current_step=current_step,
-                    estimated_completion=f"{int(path.estimated_hours or 0)}h total",
-                    difficulty=_difficulty_label(path.difficulty_rating),
-                    time_invested=f"{int(path.estimated_hours or 0)}h est.",
+                    title=path.title,
+                    difficulty_rating=path.difficulty_rating,
+                    estimated_hours=estimated_hours,
+                    progress_percent=progress,
+                    is_complete=is_complete,
+                    next_step_title=next_step_title,
                 )
             )
 
-        return active_paths, total_hours
+        return rows, total_hours
 
     async def get_dashboard_summary(
         self,
         user_uid: UserUID,
         user_progress: Any | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LpDashboardSummary]:
         """Build the full pathways dashboard summary for a user.
 
         Fetches user paths, calculates progress, and optionally fetches knowledge profile.
         """
-        from ui.ui_types import LearningStatsData
-
         paths_result = await self.list_user_paths(user_uid)
         if paths_result.is_error:
             return Result.fail(paths_result)
 
         paths = paths_result.value or []
-        active_paths, total_hours = self.calculate_path_progress(paths)
+        rows, total_hours = self._calculate_path_progress(paths)
 
         concepts_mastered = 0
         if user_progress:
@@ -450,22 +451,17 @@ class LpService:
                 concepts_mastered = len(profile_result.value.mastered_knowledge)
 
         completion_rate = 0.0
-        if active_paths:
-            completed = sum(1 for p in active_paths if p.progress >= 100.0)
-            completion_rate = completed / len(active_paths)
-
-        stats = LearningStatsData(
-            total_hours=total_hours,
-            concepts_mastered=concepts_mastered,
-            active_streak=0,
-            completion_rate=completion_rate,
-        )
+        if rows:
+            completed = sum(1 for row in rows if row["progress_percent"] >= 100.0)
+            completion_rate = completed / len(rows)
 
         return Result.ok(
-            {
-                "active_paths": active_paths,
-                "stats": stats,
-            }
+            LpDashboardSummary(
+                paths=rows,
+                total_hours=total_hours,
+                concepts_mastered=concepts_mastered,
+                completion_rate=completion_rate,
+            )
         )
 
     async def filter_paths(
