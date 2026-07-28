@@ -1,6 +1,6 @@
 # Any Usage Policy
 
-*Last updated: 2026-04-11*
+*Last updated: 2026-07-28*
 
 SKUEL treats `Any` as a last resort, not a default. Every use of `Any` must belong to one
 of the three categories below. Unlabelled `Any` annotations are technical debt and should
@@ -248,7 +248,59 @@ _tasks_service: Any = None  # boundary: placeholder — TasksService not yet thr
 
 ## Enforcement
 
-- The ruff linter does not currently flag `Any` usage (too broad to auto-enforce).
+**Ruff enforces this policy in signatures via ANN401, and `core/ports/` is enforced today.**
+
+- ANN401 (`Any` in a parameter, return, `*args` or `**kwargs` annotation) is selected
+  globally through the `"ANN"` entry in `[tool.ruff.lint] select`. It is **not** in the
+  global `ignore` list. Every tree that still carries debt buys out through an explicit,
+  counted entry in the ANN401 debt ledger at the top of
+  `[tool.ruff.lint.per-file-ignores]` (`pyproject.toml`).
+- `core/ports/` has **no** exemption entry, so an `Any` in a protocol signature fails CI.
+  That is where enforcement started deliberately: an `Any` in the protocol layer
+  propagates to every implementer. Trees that are already clean (`core/ingestion/`,
+  `core/prompts/`, `core/constants.py`, `main.py`) likewise have no entry and are
+  therefore enforced too.
+- **The ledger is debt, not policy. Drive an entry's count to 0 and delete the entry** —
+  the same shape as the SKUEL023 facade allowlist, driven to empty twice and then
+  deleted (#828, #838).
+- **ANN401 sees only top-level `Any` in a signature.** A nested `dict[str, Any]`,
+  `list[Any]` or `Result[Any]` is invisible to it (measured). The ledger counts are a
+  floor on the real `Any` debt, and Category B/C judgement below is still human work.
 - Code reviewers should challenge any new `Any` that is not in a `# boundary:` comment.
 - When refactoring, replace `Any` with the most specific type from this policy.
 - If a new boundary is genuinely needed, add it to this document with an explanation.
+
+### Before proposing a new lint rule: run the ones you already have, scoped
+
+This section previously read *"the ruff linter does not currently flag `Any` usage (too
+broad to auto-enforce)"*. Both halves were wrong: ANN401 existed, was already selected,
+and was killed by a single line in `ignore` — and "too broad" was never a property of the
+rule, only of the scope it was run at. That sentence is what let a duplicate `Any`-on-
+handles lint rule get proposed before anyone re-read the config.
+
+Both linters are **directory-scopeable without touching committed config**, so measure
+before concluding a rule cannot be enforced:
+
+```bash
+uv run ruff check --select ANN401 core/ports          # any rule, any subtree
+```
+
+**`--select` enables a rule; it does not override `per-file-ignores`.** Once a tree is
+bought out in the ANN401 ledger, the command above applies that exemption and reports
+`0` — the one answer you must not take at face value. Clear the table to see the debt:
+
+```bash
+# recount one ledger entry (this is how the counts in pyproject.toml were derived)
+uv run ruff check --select ANN401 --config 'lint.per-file-ignores = {}' core/services
+
+# bucket the whole tree by directory
+uv run ruff check --select ANN401 --config 'lint.per-file-ignores = {}' \
+    --output-format json .
+```
+
+Clearing the table also drops the blanket `ANN` exemption on `tests/`, `ui/`,
+`examples/` and `templates/`, so a tree-wide run reports more than the ledger's total.
+
+MyPy has the same escape hatch — a per-module `[[tool.mypy.overrides]]` block with
+`disallow_any_explicit = true` scopes its strictest `Any` check (`[explicit-any]`) to a
+single package, verified against a two-package probe.
