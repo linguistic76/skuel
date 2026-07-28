@@ -22,6 +22,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver, Record
 
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -32,6 +33,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.ps_content.content import CurriculumContent
 from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
 from core.models.query_types import QueryIntent
+from core.ports.query_types import SemanticSearchChunkResult
 from core.services.askesis.context_retriever import _intent_to_chunk_types
 
 _PARENT_UID = "ps.test.chunk_type_retrieval"
@@ -50,12 +52,19 @@ _EMBEDDING = [1.0] + [0.0] * (EmbeddingGeometry.DIMENSION - 1)
 
 
 class _DriverConnection:
-    """Adapts the driver fixture to the Neo4jConnection shape the adapter wants."""
+    """Adapts the driver fixture to the Neo4jConnection shape the adapter wants.
 
-    def __init__(self, driver: Any) -> None:
+    ``params`` stays ``dict[str, Any]`` deliberately: it mirrors the real
+    ``execute_query`` signature this double stands in for, and Cypher parameters
+    are genuinely heterogeneous (str, int, ``list[float]`` embeddings, nested
+    chunk-row lists). Narrowing a double below the interface it substitutes for
+    would make it a worse double, not a safer one.
+    """
+
+    def __init__(self, driver: AsyncDriver) -> None:
         self.driver = driver
 
-    async def execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[Any]:
+    async def execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[Record]:
         async with self.driver.session() as session:
             result = await session.run(query, params or {})
             return [record async for record in result]
@@ -129,7 +138,9 @@ async def seeded_chunks(neo4j_driver):
         )
 
 
-async def _search(neo4j_driver, chunk_types: list[str] | None) -> list[dict[str, Any]]:
+async def _search(
+    neo4j_driver: AsyncDriver, chunk_types: list[str] | None
+) -> list[SemanticSearchChunkResult]:
     backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     result = await backend.semantic_search_chunks(
         query_embedding=_EMBEDDING,

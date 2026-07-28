@@ -40,6 +40,14 @@ class _CapturingConnection:
     Canned per-query responses mirror what the adapter needs to reach its
     create step: a truthy Content upsert, an empty embedding carry-over read,
     and a real ``created`` count.
+
+    The ``dict[str, Any]`` rows and params are deliberate, not unexamined: they
+    mirror the real ``execute_query`` signature this double substitutes for.
+    Cypher parameters and Neo4j rows are genuinely heterogeneous here (str, int,
+    None, ``list[float]`` embeddings), the chunk rows the adapter builds have no
+    TypedDict anywhere in the tree, and ``Neo4jProperties`` (``dict[str,
+    Neo4jValue]``) does not cover the nested row list. Narrowing a double below
+    the interface it stands in for would make it a worse double.
     """
 
     def __init__(self, expected_created: int) -> None:
