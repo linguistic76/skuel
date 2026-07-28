@@ -61,7 +61,6 @@ Create `/home/mike/skuel/app/.env`:
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=<password from ~/skuel/infrastructure/.env>
-NEO4J_DATABASE=neo4j
 
 # AI Service API Keys
 OPENAI_API_KEY=<your-openai-key>
@@ -382,7 +381,6 @@ NEO4J_PAGECACHE=2G
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=<must match ~/skuel/infrastructure/.env>
-NEO4J_DATABASE=neo4j
 
 # AI Services
 OPENAI_API_KEY=<your-key>
