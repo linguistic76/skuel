@@ -137,19 +137,21 @@ Drives the `/search` facet bar: a horizontal filter bar on desktop (with a
 - `askHref()` - Build the scoped `/askesis?...` URL from live facet inputs
 - `clearFilter(name)` / `clearAllFilters()` - Reset one / all facets
 
-### timelineViewer(src)
+### timelineVis(dataUrl)
 
-Markwhen timeline integration with filtering and URL history.
+Vis.js Timeline integration for the `/timelines` page. Data comes from
+`/api/visualizations/timeline`.
 
 **State:**
 - `loading`: boolean - Loading state
-- `source`: string - Timeline source URL
-- `stats`: object - Timeline statistics
-- `timeline`: object - Markwhen instance
+- `error`: string | null - Load/render failure message
+- `timeline`: object - `vis.Timeline` instance
 
 **Methods:**
-- `loadTimeline(sourceUrl)` - Fetch and render timeline
-- `updateTimeline()` - Rebuild source URL from filters
+- `loadTimeline(url)` - Fetch JSON and render the timeline
+- `refresh(newUrl)` - Reload from a different data URL
+- `zoomIn()` / `zoomOut()` / `fit()` - Viewport controls
+- `destroy()` - Tear down the `vis.Timeline` instance
 
 ### swipeHandler(totalCards)
 

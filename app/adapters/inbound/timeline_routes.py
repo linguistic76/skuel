@@ -1,34 +1,29 @@
 """
-Timeline Routes - REST Endpoints and Web Interface
-=================================================
+Timeline Routes - Vis.js Timeline Web Interface
+===============================================
 
-Provides REST API endpoints and web interfaces for timeline visualization.
+Serves the ``/timelines`` page.
 
 Architecture (January 2026 - Vis.js Timeline):
-    - UI Components: /components/timeline_components.py
+    - UI Components: /ui/timeline/components.py
     - CSS: /static/css/timeline.css
     - Alpine.js: timelineVis component in /static/js/skuel.js
     - Vendor: /static/vendor/vis-timeline/
-
-The /timelines web interface now uses Vis.js Timeline instead of Markwhen.
-Legacy Markwhen export API remains for backwards compatibility.
+    - Timeline data: /api/visualizations/timeline (visualization_api.py)
 
 Version: 3.0 - Vis.js Timeline
 """
 
-from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import FT
-from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes, split_csv
-from core.models.enums import EntityStatus
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.timeline.components import (
     render_timeline_error,
     render_timeline_viewer_page,
@@ -40,248 +35,13 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _parse_timeline_dates(
-    start_date: str | None, end_date: str | None
-) -> Result[tuple[date | None, date | None]]:
-    """Parse and validate start/end date parameters for timeline routes."""
-    start_date_parsed = None
-    if start_date:
-        try:
-            start_date_parsed = date.fromisoformat(start_date)
-        except ValueError:
-            return Result.fail(
-                Errors.validation(
-                    message="Invalid start_date format. Use YYYY-MM-DD.",
-                    field="start_date",
-                    value=start_date,
-                )
-            )
+def create_timeline_ui_routes(_app, rt, _tasks_service: object):
+    """Create the timeline viewer page route.
 
-    end_date_parsed = None
-    if end_date:
-        try:
-            end_date_parsed = date.fromisoformat(end_date)
-        except ValueError:
-            return Result.fail(
-                Errors.validation(
-                    message="Invalid end_date format. Use YYYY-MM-DD.",
-                    field="end_date",
-                    value=end_date,
-                )
-            )
-
-    if start_date_parsed and end_date_parsed and start_date_parsed > end_date_parsed:
-        return Result.fail(
-            Errors.validation(
-                message=f"start_date ({start_date}) cannot be after end_date ({end_date})",
-                field="start_date",
-            )
-        )
-
-    return Result.ok((start_date_parsed, end_date_parsed))
-
-
-def create_timeline_api_routes(_app, rt, tasks_service: Any):
-    """Create timeline routes for both REST API and web interface."""
-
-    @rt("/api/tasks/timeline")
-    async def get_tasks_timeline(
-        request,
-        start_date: str | None = None,
-        end_date: str | None = None,
-        project: str | None = None,
-        status: str | None = None,
-        include_completed: bool = True,
-        format: str = "markwhen",
-    ) -> Response:
-        """
-        REST API endpoint for Markwhen timeline export.
-
-        Note: This route does NOT use @boundary_handler because it needs custom
-        Content-Disposition headers for file downloads.
-        """
-        require_authenticated_user(request)
-        try:
-            logger.info(
-                "Timeline API request received",
-                params={
-                    "start_date": start_date,
-                    "end_date": end_date,
-                    "project": project,
-                    "status": status,
-                    "include_completed": include_completed,
-                },
-            )
-
-            # Parse and validate dates
-            dates_result = _parse_timeline_dates(start_date, end_date)
-            if dates_result.is_error:
-                return Response(
-                    content=str(dates_result.error),
-                    status_code=400,
-                    media_type="text/plain",
-                )
-            start_date_parsed, end_date_parsed = dates_result.value
-
-            # Parse status filter
-            status_filter = None
-            if status:
-                status_filter = split_csv(status)
-                valid_statuses = {s.value for s in EntityStatus}
-                invalid_statuses = [s for s in status_filter if s not in valid_statuses]
-                if invalid_statuses:
-                    return Response(
-                        content=f"Invalid status values: {invalid_statuses}. Valid: {sorted(valid_statuses)}",
-                        status_code=400,
-                        media_type="text/plain",
-                    )
-
-            # Validate format
-            if format != "markwhen":
-                return Response(
-                    content=f"Unsupported format: {format}. Only 'markwhen' is supported.",
-                    status_code=400,
-                    media_type="text/plain",
-                )
-
-            # Export timeline
-            if tasks_service is None:
-                raise RuntimeError(
-                    "TasksService must be explicitly injected for timeline functionality"
-                )
-
-            result = await tasks_service.export_to_markwhen(
-                start_date=start_date_parsed,
-                end_date=end_date_parsed,
-                project_filter=project,
-                status_filter=status_filter,
-                include_completed=include_completed,
-            )
-
-            if result.is_success:
-                timeline_content = result.value
-
-                # Generate filename based on filters
-                filename_parts = ["tasks"]
-                if project:
-                    filename_parts.append(f"project-{project}")
-                if start_date or end_date:
-                    date_range = f"{start_date or 'start'}-to-{end_date or 'end'}"
-                    filename_parts.append(date_range)
-                filename = "_".join(filename_parts) + ".mw"
-
-                logger.info(
-                    "Timeline export successful",
-                    content_length=len(timeline_content),
-                    filename=filename,
-                )
-
-                return Response(
-                    content=timeline_content,
-                    media_type="text/plain; charset=utf-8",
-                    headers={
-                        "Content-Disposition": f'attachment; filename="{filename}"',
-                        "Cache-Control": "no-cache, no-store, must-revalidate",
-                        "Pragma": "no-cache",
-                        "Expires": "0",
-                    },
-                )
-            else:
-                logger.error("Timeline export failed", error=str(result.error))
-                return Response(
-                    content=f"Timeline export failed: {result.error}",
-                    status_code=400,
-                    media_type="text/plain",
-                )
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error("Timeline API error", error=str(e))
-            return Response(
-                content=f"Internal server error: {e!s}", status_code=500, media_type="text/plain"
-            )
-
-    @rt("/api/tasks/timeline/preview")
-    @boundary_handler()
-    async def get_timeline_preview(
-        request,
-        start_date: str | None = None,
-        end_date: str | None = None,
-        project: str | None = None,
-        status: str | None = None,
-        include_completed: bool = True,
-    ) -> Result[dict[str, Any]]:
-        """
-        REST API endpoint for timeline preview (first 10 lines + stats).
-
-        Same parameters as full timeline export but returns JSON with preview data.
-        Useful for UI previews before full export.
-        """
-        require_authenticated_user(request)
-        try:
-            # Parse dates using shared helper
-            dates_result = _parse_timeline_dates(start_date, end_date)
-            if dates_result.is_error:
-                return Result.fail(dates_result)
-
-            start_date_parsed, end_date_parsed = dates_result.value
-
-            status_filter = None
-            if status:
-                status_filter = split_csv(status)
-
-            # Get timeline content
-            if tasks_service is None:
-                raise RuntimeError(
-                    "TasksService must be explicitly injected for timeline functionality"
-                )
-            result = await tasks_service.export_to_markwhen(
-                start_date=start_date_parsed,
-                end_date=end_date_parsed,
-                project_filter=project,
-                status_filter=status_filter,
-                include_completed=include_completed,
-            )
-
-            if result.is_success:
-                timeline_content = result.value
-                lines = timeline_content.split("\n")
-
-                # Extract preview (first 10 content lines, skip title/comments)
-                content_lines = [
-                    line for line in lines if line.strip() and not line.strip().startswith("//")
-                ]
-                preview_lines = content_lines[:10]
-
-                # Extract stats from comments
-                stats = {}
-                for line in lines:
-                    if line.strip().startswith("// Total tasks:"):
-                        stats["total_tasks"] = line.split(":")[1].strip()
-                    elif line.strip().startswith("// High Priority:"):
-                        stats["high_priority"] = line.split(":")[1].strip()
-                    elif line.strip().startswith("// In Progress:"):
-                        stats["in_progress"] = line.split(":")[1].strip()
-                    elif line.strip().startswith("// Blocked:"):
-                        stats["blocked"] = line.split(":")[1].strip()
-                    elif line.strip().startswith("// Overdue:"):
-                        stats["overdue"] = line.split(":")[1].strip()
-
-                return Result.ok(
-                    {
-                        "success": True,
-                        "preview": preview_lines,
-                        "stats": stats,
-                        "total_lines": len(content_lines),
-                        "showing_lines": len(preview_lines),
-                    }
-                )
-            else:
-                # Propagate the error from export_to_markwhen
-                return Result.fail(result)
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error("Timeline preview error", error=str(e))
-            return Result.fail(Errors.system(message="Timeline preview failed", exception=e))
+    The page fetches its own data from ``/api/visualizations/timeline``, so the
+    injected tasks service is unused — it is present because
+    ``register_domain_routes`` gates registration on it being composed.
+    """
 
     @rt("/timelines")
     @boundary_handler()
@@ -317,7 +77,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
             logger.error("Timeline viewer error", error=str(e))
             return Result.ok(render_timeline_error(str(e), request=request))
 
-    return [get_tasks_timeline, get_timeline_preview, timeline_viewer]
+    return [timeline_viewer]
 
 
 # ---------------------------------------------------------------------------
@@ -327,12 +87,12 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
 TIMELINE_CONFIG = DomainRouteConfig(
     domain_name="timeline",
     primary_service_attr="tasks",
-    api_factory=create_timeline_api_routes,
+    ui_factory=create_timeline_ui_routes,
 )
 
 
 def create_timeline_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None"
 ) -> None:
     """Wire timeline routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, TIMELINE_CONFIG)
