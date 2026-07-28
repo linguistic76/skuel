@@ -107,11 +107,12 @@ Wherever the app runs (droplet: `/opt/skuel/app/.env.production` + `/opt/skuel/s
 ```bash
 NEO4J_URI=neo4j+s://<dbid>.databases.neo4j.io
 NEO4J_USERNAME=neo4j
-NEO4J_DATABASE=neo4j
 # NEO4J_PASSWORD → secrets.env (droplet) / keychain (local)
 ```
 
 `neo4j+s://` is required in production — `SKUEL_ENVIRONMENT=production` boot-refuses plaintext schemes (`/core/config/validation.py`). TLS comes solely from the URI scheme; there is no separate encryption knob (the dead `NEO4J_ENCRYPTED` flag was deleted).
+
+There is no database-name knob either. Every query opens on the driver's **home database** — no call site passes `database=` / `database_=` — which is `neo4j` on both self-hosted Community (single user database) and AuraDB. The inert `NEO4J_DATABASE` flag was deleted for the same reason as `NEO4J_ENCRYPTED`: it was documented but never reached a query.
 
 ### 6.2 Remove Docker-Specific Configuration (self-host-only knobs)
 

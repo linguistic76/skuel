@@ -282,7 +282,6 @@ class DatabaseConfig:
     neo4j_uri: str = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
     neo4j_username: str = os.getenv("NEO4J_USERNAME", "neo4j")
     neo4j_password: str = field(default_factory=_get_neo4j_password)
-    neo4j_database: str = os.getenv("NEO4J_DATABASE", "neo4j")
 
     # Connection pool / driver-level timeouts (applied at AsyncGraphDatabase.driver).
     # NOTE: these bound connection establishment, pool acquisition, and managed-
@@ -303,7 +302,6 @@ class DatabaseConfig:
     # call site with neo4j_query_timeout(secs) / unbounded_neo4j_query_timeout().
     # 0 is treated as unbounded (compose maps 0 -> None). Env: NEO4J_TRANSACTION_TIMEOUT.
     transaction_timeout: float = 120.0
-    enable_query_logging: bool = False
 
     # Schema-change monitoring: opt-in background loop that polls the Neo4j schema
     # on an interval and invalidates the adapter's query-optimization caches when
@@ -334,7 +332,6 @@ class DatabaseConfig:
             neo4j_uri=os.getenv("NEO4J_URI", "neo4j://localhost:7687"),
             neo4j_username=os.getenv("NEO4J_USERNAME", "neo4j"),
             neo4j_password=_get_neo4j_password(),
-            neo4j_database=os.getenv("NEO4J_DATABASE", "neo4j"),
             max_connection_pool_size=int(os.getenv("NEO4J_MAX_CONNECTION_POOL_SIZE", "50")),
             max_connection_lifetime=int(os.getenv("NEO4J_MAX_CONNECTION_LIFETIME", "3600")),
             connection_timeout=float(os.getenv("NEO4J_CONNECTION_TIMEOUT", "30")),
@@ -780,8 +777,6 @@ class UnifiedConfig:
         self.api.reload = False
         self.api.rate_limit_enabled = True
 
-        self.database.enable_query_logging = False
-
         # Memory cache is THE path until a Redis adapter exists — no Redis
         # client exists anywhere in the repo, so provider stays "memory".
         self.cache.enabled = True
@@ -795,8 +790,6 @@ class UnifiedConfig:
         self.api.debug = False
         self.api.reload = False
 
-        self.database.enable_query_logging = True
-
         self.application.log_level = "INFO"
 
         self.features.enable_beta_features = True
@@ -807,8 +800,6 @@ class UnifiedConfig:
         self.api.reload = True
         self.api.rate_limit_enabled = False
 
-        self.database.enable_query_logging = True
-
         self.application.debug = True
         self.application.log_level = "DEBUG"
         self.application.log_format = "text"
@@ -818,8 +809,6 @@ class UnifiedConfig:
 
     def _apply_test_settings(self) -> None:
         """Apply test-specific settings"""
-        self.database.neo4j_database = "test"
-
         self.cache.enabled = False
 
         self.dependencies.use_mock_services = True
@@ -831,8 +820,6 @@ class UnifiedConfig:
         """Apply local development settings"""
         self.api.debug = True
         self.api.reload = True
-
-        self.database.enable_query_logging = True
 
         self.application.log_level = "DEBUG"
         self.application.log_format = "text"
@@ -897,7 +884,7 @@ class UnifiedConfig:
             "environment": self.environment.value,
             "schema_version": self.schema_version,
             "api": {"host": self.api.host, "port": self.api.port, "debug": self.api.debug},
-            "database": {"uri": self.database.neo4j_uri, "database": self.database.neo4j_database},
+            "database": {"uri": self.database.neo4j_uri},
             "cache": {"enabled": self.cache.enabled, "provider": self.cache.provider},
             "features": {
                 "semantic_search": self.features.enable_semantic_search,

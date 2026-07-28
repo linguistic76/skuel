@@ -122,7 +122,6 @@ class TestDatabaseConfig:
     def test_default_values(self):
         """Test DatabaseConfig has correct defaults."""
         config = DatabaseConfig()
-        assert config.neo4j_database == "neo4j"
         assert config.max_connection_pool_size == 50
         assert config.connection_timeout == 30.0
         # Schema monitoring is opt-in (off by default).
@@ -175,7 +174,6 @@ class TestDatabaseConfig:
                 {
                     "NEO4J_URI": "neo4j://testhost:7688",
                     "NEO4J_USERNAME": "test_user",
-                    "NEO4J_DATABASE": "test_db",
                     "NEO4J_MAX_CONNECTION_POOL_SIZE": "100",
                 },
             ),
@@ -184,7 +182,6 @@ class TestDatabaseConfig:
             config = DatabaseConfig.from_env()
             assert config.neo4j_uri == "neo4j://testhost:7688"
             assert config.neo4j_username == "test_user"
-            assert config.neo4j_database == "test_db"
             assert config.max_connection_pool_size == 100
 
 

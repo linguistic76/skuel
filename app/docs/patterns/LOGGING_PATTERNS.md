@@ -56,6 +56,16 @@ namespaces only (`fasthtml` WARNING, `neo4j` WARNING, `neo4j.notifications`
 ERROR). First-party `skuel.*` loggers follow the root level — a per-component
 pin would suppress them in DEBUG runs.
 
+**Cypher query logging is that `neo4j` WARNING pin, and there is no config
+knob for it.** The driver already logs every query in full — `neo4j.io` emits
+`C: RUN <query> <parameters>` at DEBUG (`neo4j/_async/io/_bolt5.py`) — so the
+pin is the deliberate OFF switch, not a gap. To read queries during a debug
+session, lift that one logger (`logging.getLogger("neo4j.io").setLevel(DEBUG)`)
+rather than adding a flag. Leave it pinned by default: the RUN line carries
+**parameters**, which in SKUEL means `user_uid` and UserEntry content. (The
+never-read `database.enable_query_logging` field was deleted for this reason —
+it duplicated a driver capability and contradicted the pin.)
+
 **stdlib records** (uvicorn, `neo4j.*`, `logging.getLogger` call sites) never
 pass through the structlog processors — they render plain-text through the
 shared stdlib formatter. uvicorn keeps its own non-propagating handlers, so

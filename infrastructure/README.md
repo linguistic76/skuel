@@ -222,7 +222,6 @@ The SKUEL application connects to infrastructure services via **network protocol
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=<must match ~/skuel/infrastructure/.env>
-NEO4J_DATABASE=neo4j
 ```
 
 ### Connection Scenarios
@@ -328,7 +327,6 @@ NEO4J_PAGECACHE=2G
 NEO4J_URI=neo4j://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=<same as infra .env>
-NEO4J_DATABASE=neo4j
 
 # Application credentials
 OPENAI_API_KEY=<your-key>
