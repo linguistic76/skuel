@@ -47,7 +47,6 @@ class TestKuServiceConstruction:
         service = KuService(backend=backend, graph_intel=graph_intel, event_bus=event_bus)
 
         mock_factory.assert_called_once_with(
-            domain="ku",
             backend=backend,
             graph_intel=graph_intel,
             event_bus=event_bus,

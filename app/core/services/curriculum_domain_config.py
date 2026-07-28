@@ -1,24 +1,20 @@
 """
-Curriculum Domain Configuration Registry
-=========================================
+Curriculum Domain Sub-Service Factories
+=======================================
 
-Centralizes configuration and factory functions for the 3 Curriculum Domain facades
-(Ku, Ps, Lp). The generic ``create_curriculum_sub_services`` factory is used only by
-Ku; Ps and Lp have dedicated factories (``create_ps_sub_services``,
-``create_lp_sub_services``) due to non-standard sub-service wiring.
+Factory functions for the 3 Curriculum Domain facades (Ku, Ps, Lp). Each facade has
+its own factory — ``create_curriculum_sub_services`` (Ku), ``create_ps_sub_services``,
+``create_lp_sub_services`` — because their sub-service wiring genuinely differs.
 
-``CURRICULUM_DOMAIN_CONFIGS`` — 1 entry (Ku only):
-Each entry provides core/search/intelligence module strings + relationship config,
-consumed by ``create_curriculum_sub_services`` for dynamic instantiation.
+All three import their service classes directly. There is no module-name registry and
+no dynamic lookup: the classes each factory builds are fixed and statically known, so
+naming them is both shorter and checkable. See ``activity_domain_config`` for the
+registry-driven counterpart, which has six domains to vary over and therefore earns one.
 
 Usage (Ku):
-    from core.services.curriculum_domain_config import (
-        CURRICULUM_DOMAIN_CONFIGS,
-        create_curriculum_sub_services,
-    )
+    from core.services.curriculum_domain_config import create_curriculum_sub_services
 
     common = create_curriculum_sub_services(
-        domain="ku",
         backend=backend,
         graph_intel=graph_intel,
         event_bus=event_bus,
@@ -40,6 +36,9 @@ from core.models.relationship_registry import (
     LP_CONFIG,
     PS_CONFIG,
 )
+from core.services.ku.ku_core_service import KuCoreService
+from core.services.ku.ku_intelligence_service import KuIntelligenceService
+from core.services.ku.ku_search_service import KuSearchService
 from core.services.relationships import UnifiedRelationshipService
 
 if TYPE_CHECKING:
@@ -62,47 +61,7 @@ if TYPE_CHECKING:
     from core.services.ps_service import PsService
 
 # Type vars for generics
-T = TypeVar("T")  # Domain model type
 T_Intelligence = TypeVar("T_Intelligence")  # Intelligence service type
-B = TypeVar("B")  # Backend operations protocol
-
-
-@dataclass(frozen=True)
-class CurriculumDomainConfig:
-    """Configuration for a Curriculum Domain's common sub-services."""
-
-    # Service classes (imported lazily to avoid circular imports)
-    core_module: str
-    core_class: str
-    search_module: str
-    search_class: str
-    intelligence_module: str
-    intelligence_class: str
-
-    # Relationship config (direct from registry)
-    relationship_config: Any
-
-    # Domain metadata
-    domain_name: str
-    entity_label: str
-
-
-# Registry for Curriculum Domains that use the generic create_curriculum_sub_services factory.
-# Only Ku uses the generic factory — Ps and Lp have dedicated factories
-# (create_ps_sub_services, create_lp_sub_services) with non-standard wiring.
-CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
-    "ku": CurriculumDomainConfig(
-        core_module="core.services.ku.ku_core_service",
-        core_class="KuCoreService",
-        search_module="core.services.ku.ku_search_service",
-        search_class="KuSearchService",
-        intelligence_module="core.services.ku.ku_intelligence_service",
-        intelligence_class="KuIntelligenceService",
-        relationship_config=KU_CONFIG,
-        domain_name="ku",
-        entity_label="Ku",
-    ),
-}
 
 
 @dataclass
@@ -111,10 +70,11 @@ class CurriculumCommonSubServices(Generic[T_Intelligence]):
     Container for the 4 common sub-services created by the factory.
 
     Generic over T_Intelligence to preserve the concrete intelligence service type.
-    Facades should annotate the assignment to get proper type checking:
+    The factory returns it already parameterized; facades annotate the assignment to
+    state the contract at the seam:
 
-        common: CurriculumCommonSubServices[LpIntelligenceService] = create_curriculum_sub_services(...)
-        self.intelligence = common.intelligence # MyPy knows this is LpIntelligenceService
+        common: CurriculumCommonSubServices[KuIntelligenceService] = create_curriculum_sub_services(...)
+        self.intelligence = common.intelligence # MyPy knows this is KuIntelligenceService
     """
 
     core: Any
@@ -124,79 +84,44 @@ class CurriculumCommonSubServices(Generic[T_Intelligence]):
 
 
 def create_curriculum_sub_services(
-    domain: str,
     backend: Any,
     graph_intel: Any,
     event_bus: Any = None,
-) -> CurriculumCommonSubServices[Any]:
+) -> CurriculumCommonSubServices[KuIntelligenceService]:
     """
-    Factory function to create the 4 common sub-services for Curriculum Domain facades.
+    Factory function to create Ku's 4 common sub-services.
 
     This mirrors the Activity domain factory pattern (create_common_sub_services).
     It eliminates repetitive initialization code and ensures consistent wiring.
 
     Args:
-        domain: Domain name ("ku", "ps", "lp")
-        backend: Domain backend operations (UniversalNeo4jBackend[T])
+        backend: Ku backend operations (UniversalNeo4jBackend[Ku])
         graph_intel: GraphIntelligenceService for analytics (REQUIRED for consistency)
         event_bus: Event bus for domain events (optional)
 
     Returns:
         CurriculumCommonSubServices dataclass with core, search, relationships, intelligence.
-        Callers should annotate with specific intelligence type for type safety:
-
-            common: CurriculumCommonSubServices[PsIntelligenceService] = create_curriculum_sub_services(...)
-
-    Example:
-        common: CurriculumCommonSubServices[PsIntelligenceService] = create_curriculum_sub_services(
-            "ps", backend, graph_intel, event_bus
-        )
-        self.core = common.core
-        self.search = common.search
-        self.relationships = common.relationships
-        self.intelligence = common.intelligence # Typed as PsIntelligenceService
 
     Note:
-        Only Ku uses this factory. Ps and Lp have dedicated factories
-        (create_ps_sub_services, create_lp_sub_services) due to non-standard wiring.
+        Ku only. Ps and Lp have dedicated factories (create_ps_sub_services,
+        create_lp_sub_services) because their wiring differs.
     """
-    import importlib
-
-    config = CURRICULUM_DOMAIN_CONFIGS[domain]
-
     # Create relationships service FIRST (needed by intelligence)
     relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=backend,
-        config=config.relationship_config,
+        config=KU_CONFIG,
         graph_intel=graph_intel,
     )
 
-    # Dynamically import intelligence class
-    intel_module = importlib.import_module(config.intelligence_module)
-    intel_class = getattr(intel_module, config.intelligence_class)
-
-    # Create intelligence service (backend + graph_intel + relationships)
-    intelligence = intel_class(
+    intelligence = KuIntelligenceService(
         backend=backend,
         graph_intel=graph_intel,
         relationship_service=relationships,
     )
 
-    # Dynamically import core class
-    core_module = importlib.import_module(config.core_module)
-    core_class = getattr(core_module, config.core_class)
+    core = KuCoreService(backend=backend, event_bus=event_bus)
 
-    # Create core service (backend + event_bus)
-    # Note: This assumes standard signature. For non-standard (KU, LP, MOC),
-    # facades create core manually with additional dependencies.
-    core = core_class(backend=backend, event_bus=event_bus)
-
-    # Dynamically import search class
-    search_module = importlib.import_module(config.search_module)
-    search_class = getattr(search_module, config.search_class)
-
-    # Create search service (just backend for BaseService pattern)
-    search = search_class(backend=backend)
+    search = KuSearchService(backend=backend)
 
     return CurriculumCommonSubServices(
         core=core,

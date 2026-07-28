@@ -7,8 +7,19 @@ Centralizes configuration for 6 Activity Domain facades.
 Each domain has:
 - core_class: CoreService class for CRUD operations
 - search_class: SearchService class for discovery
-- intelligence_class: IntelligenceService class for analytics
+- intelligence_class: IntelligenceService class for analytics, or None when the
+  facade builds its own (5 of 6 do — they need domain-specific dependencies)
+- event_handler_class / learning_class: always built
 - relationship_config: UnifiedRelationshipService config
+
+The registry holds **class references, not module-name strings**. It used to hold
+strings resolved through ``importlib.import_module`` at call time, on the stated
+grounds of avoiding circular imports; there is no such cycle (measured — no registry
+target imports this module, directly or transitively), and every one of this
+module's callers already imports both this module and its own domain package at
+module level, so the lazy resolution deferred nothing. Naming the classes lets MyPy
+check that each registered class is constructible the way the factory constructs it —
+which two of them were not.
 
 Usage:
     from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS, create_common_sub_services
@@ -30,7 +41,7 @@ Reason: Consolidate repetitive facade initialization (~480 lines reduction)
 """
 
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 # Domain configs (direct from registry — no intermediate translation)
 from core.models.relationship_registry import (
@@ -41,35 +52,97 @@ from core.models.relationship_registry import (
     PRINCIPLES_CONFIG,
     TASKS_CONFIG,
 )
+from core.services.choices import ChoicesCoreService, ChoicesSearchService
+from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
+from core.services.choices.choices_learning_service import ChoicesLearningService
+from core.services.events import EventsCoreService, EventsSearchService
+from core.services.events.event_event_handler_service import EventEventHandlerService
+from core.services.events.events_learning_service import EventsLearningService
+from core.services.goals import GoalsCoreService, GoalsSearchService
+from core.services.goals.goal_event_handler_service import GoalEventHandlerService
+from core.services.goals.goals_learning_service import GoalsLearningService
+from core.services.habits import HabitsCoreService, HabitsSearchService
+from core.services.habits.habit_event_handler_service import HabitEventHandlerService
+from core.services.habits.habits_learning_service import HabitsLearningService
+from core.services.principles import (
+    PrinciplesCoreService,
+    PrinciplesIntelligenceService,
+    PrinciplesSearchService,
+)
+from core.services.principles.principle_event_handler_service import PrincipleEventHandlerService
+from core.services.principles.principles_learning_service import PrinciplesLearningService
 from core.services.relationships import UnifiedRelationshipService
+from core.services.tasks import TasksCoreService, TasksSearchService
+from core.services.tasks.task_event_handler_service import TaskEventHandlerService
+from core.services.tasks.tasks_learning_service import TasksLearningService
 
 # Type vars for generics
-T = TypeVar("T")  # Domain model type
-B = TypeVar("B")  # Backend operations protocol
 T_Core = TypeVar("T_Core")  # Core service type (domain-specific)
 T_Search = TypeVar("T_Search")  # Search service/protocol type (domain-specific)
 T_Intelligence = TypeVar("T_Intelligence")  # Intelligence service type
+
+
+# Each registry slot is typed against the call ``create_common_sub_services`` actually
+# makes, so registering a class the factory cannot construct is a MyPy error here
+# rather than a TypeError at boot. Two entries did not survive that check.
+#
+# The parameter ``Any``s mirror the factory's own signature; narrowing them is a
+# separate concern and was measured to buy nothing (see the arc contract, D11).
+# The returns are tier C: a narrower ``BaseService[Any, Any]`` was tried first and
+# rejects all 6 core services and both event handlers (8 errors; the same probe with
+# ``-> Any`` is clean), because the slots hold unrelated concrete classes and the
+# event handlers derive from ``object``.
+class _CoreFactory(Protocol):
+    def __call__(self, *, backend: Any, event_bus: Any) -> Any:  # boundary: service-registry
+        ...
+
+
+class _SearchFactory(Protocol):
+    def __call__(self, *, backend: Any) -> Any:  # boundary: service-registry
+        ...
+
+
+class _IntelligenceFactory(Protocol):
+    def __call__(
+        self, *, backend: Any, graph_intel: Any, relationship_service: Any, insight_store: Any
+    ) -> Any:  # boundary: service-registry
+        ...
+
+
+class _EventHandlerFactory(Protocol):
+    def __call__(
+        self, *, backend: Any, relationship_service: Any, insight_store: Any, event_bus: Any
+    ) -> Any:  # boundary: service-registry
+        ...
+
+
+class _LearningFactory(Protocol):
+    def __call__(
+        self, *, backend: Any, event_bus: Any, relationship_service: Any
+    ) -> Any:  # boundary: service-registry
+        ...
 
 
 @dataclass(frozen=True)
 class ActivityDomainConfig:
     """Configuration for an Activity Domain's common sub-services."""
 
-    # Service classes (imported lazily to avoid circular imports)
-    core_module: str
-    core_class: str
-    search_module: str
-    search_class: str
-    intelligence_module: str
-    intelligence_class: str
+    # Service classes, referenced directly — see the module docstring on why these are
+    # not module-name strings resolved through importlib.
+    core_class: _CoreFactory
+    search_class: _SearchFactory
+
+    # None for every domain whose facade builds intelligence itself. Only Principles
+    # is constructible from the four arguments this factory has; the other five need
+    # domain-specific dependencies (Habits and Choices require ``cross_domain_query``,
+    # which this factory has no way to supply).
+    intelligence_class: _IntelligenceFactory | None
 
     # Event handler service (required for all 6 domains)
-    event_handler_module: str
-    event_handler_class: str
+    event_handler_class: _EventHandlerFactory
 
     # Learning service (required for all 6 domains)
-    learning_module: str
-    learning_class: str
+    learning_class: _LearningFactory
 
     # Relationship config
     relationship_config: Any
@@ -82,91 +155,61 @@ class ActivityDomainConfig:
 # Registry of all 6 Activity Domain configurations
 ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
     "tasks": ActivityDomainConfig(
-        core_module="core.services.tasks",
-        core_class="TasksCoreService",
-        search_module="core.services.tasks",
-        search_class="TasksSearchService",
-        intelligence_module="core.services.tasks",
-        intelligence_class="TasksIntelligenceService",
-        event_handler_module="core.services.tasks.task_event_handler_service",
-        event_handler_class="TaskEventHandlerService",
-        learning_module="core.services.tasks.tasks_learning_service",
-        learning_class="TasksLearningService",
+        core_class=TasksCoreService,
+        search_class=TasksSearchService,
+        intelligence_class=None,  # TasksService builds it (needs ku_inference_service)
+        event_handler_class=TaskEventHandlerService,
+        learning_class=TasksLearningService,
         relationship_config=TASKS_CONFIG,
         domain_name="tasks",
         entity_label="Task",
     ),
     "goals": ActivityDomainConfig(
-        core_module="core.services.goals",
-        core_class="GoalsCoreService",
-        search_module="core.services.goals",
-        search_class="GoalsSearchService",
-        intelligence_module="core.services.goals",
-        intelligence_class="GoalsIntelligenceService",
-        event_handler_module="core.services.goals.goal_event_handler_service",
-        event_handler_class="GoalEventHandlerService",
-        learning_module="core.services.goals.goals_learning_service",
-        learning_class="GoalsLearningService",
+        core_class=GoalsCoreService,
+        search_class=GoalsSearchService,
+        intelligence_class=None,  # GoalsService builds it (needs progress_service)
+        event_handler_class=GoalEventHandlerService,
+        learning_class=GoalsLearningService,
         relationship_config=GOAPS_CONFIG,
         domain_name="goals",
         entity_label="Goal",
     ),
     "habits": ActivityDomainConfig(
-        core_module="core.services.habits",
-        core_class="HabitsCoreService",
-        search_module="core.services.habits",
-        search_class="HabitsSearchService",
-        intelligence_module="core.services.habits",
-        intelligence_class="HabitsIntelligenceService",
-        event_handler_module="core.services.habits.habit_event_handler_service",
-        event_handler_class="HabitEventHandlerService",
-        learning_module="core.services.habits.habits_learning_service",
-        learning_class="HabitsLearningService",
+        core_class=HabitsCoreService,
+        search_class=HabitsSearchService,
+        intelligence_class=None,  # HabitsService builds it (needs cross_domain_query)
+        event_handler_class=HabitEventHandlerService,
+        learning_class=HabitsLearningService,
         relationship_config=HABITS_CONFIG,
         domain_name="habits",
         entity_label="Habit",
     ),
     "events": ActivityDomainConfig(
-        core_module="core.services.events",
-        core_class="EventsCoreService",
-        search_module="core.services.events",
-        search_class="EventsSearchService",
-        intelligence_module="core.services.events",
-        intelligence_class="EventsIntelligenceService",
-        event_handler_module="core.services.events.event_event_handler_service",
-        event_handler_class="EventEventHandlerService",
-        learning_module="core.services.events.events_learning_service",
-        learning_class="EventsLearningService",
+        core_class=EventsCoreService,
+        search_class=EventsSearchService,
+        intelligence_class=None,  # EventsService builds it (needs habit_integration)
+        event_handler_class=EventEventHandlerService,
+        learning_class=EventsLearningService,
         relationship_config=EVENTS_CONFIG,
         domain_name="events",
         entity_label="Event",
     ),
     "choices": ActivityDomainConfig(
-        core_module="core.services.choices",
-        core_class="ChoicesCoreService",
-        search_module="core.services.choices",
-        search_class="ChoicesSearchService",
-        intelligence_module="core.services.choices",
-        intelligence_class="ChoicesIntelligenceService",
-        event_handler_module="core.services.choices.choice_event_handler_service",
-        event_handler_class="ChoiceEventHandlerService",
-        learning_module="core.services.choices.choices_learning_service",
-        learning_class="ChoicesLearningService",
+        core_class=ChoicesCoreService,
+        search_class=ChoicesSearchService,
+        intelligence_class=None,  # ChoicesService builds it (needs cross_domain_query)
+        event_handler_class=ChoiceEventHandlerService,
+        learning_class=ChoicesLearningService,
         relationship_config=CHOICES_CONFIG,
         domain_name="choices",
         entity_label="Choice",
     ),
     "principles": ActivityDomainConfig(
-        core_module="core.services.principles",
-        core_class="PrinciplesCoreService",
-        search_module="core.services.principles",
-        search_class="PrinciplesSearchService",
-        intelligence_module="core.services.principles",
-        intelligence_class="PrinciplesIntelligenceService",
-        event_handler_module="core.services.principles.principle_event_handler_service",
-        event_handler_class="PrincipleEventHandlerService",
-        learning_module="core.services.principles.principles_learning_service",
-        learning_class="PrinciplesLearningService",
+        core_class=PrinciplesCoreService,
+        search_class=PrinciplesSearchService,
+        intelligence_class=PrinciplesIntelligenceService,
+        event_handler_class=PrincipleEventHandlerService,
+        learning_class=PrinciplesLearningService,
         relationship_config=PRINCIPLES_CONFIG,
         domain_name="principles",
         entity_label="Principle",
@@ -211,7 +254,9 @@ class CommonSubServices(Generic[T_Core, T_Search, T_Intelligence]):
     knowledge_intelligence: Any  # None unless passed via activity_knowledge_intelligence
 
 
-_VALID_SKIP_NAMES = frozenset({"core", "search", "relationships", "intelligence"})
+# "intelligence" is deliberately absent: whether it is built is a property of the
+# domain (``ActivityDomainConfig.intelligence_class``), not a choice the caller makes.
+_VALID_SKIP_NAMES = frozenset({"core", "search", "relationships"})
 
 
 def create_common_sub_services(
@@ -235,8 +280,10 @@ def create_common_sub_services(
         event_bus: Event bus for domain events (optional)
         insight_store: InsightStore for persisting event-driven insights (optional)
         skip: Sub-service names to skip constructing (set to None in result).
-            Valid names: "core", "search", "relationships", "intelligence".
+            Valid names: "core", "search", "relationships".
             Use when the facade creates these manually with domain-specific parameters.
+            ``intelligence`` is not skippable — it is built only for domains whose
+            config declares an ``intelligence_class``.
         activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional).
             Passed through to CommonSubServices.knowledge_intelligence unchanged.
 
@@ -264,8 +311,6 @@ def create_common_sub_services(
         self.learning = common.learning
         self.knowledge_intelligence = common.knowledge_intelligence
     """
-    import importlib
-
     skip = skip or set()
     invalid = skip - _VALID_SKIP_NAMES
     if invalid:
@@ -274,19 +319,13 @@ def create_common_sub_services(
 
     config = ACTIVITY_DOMAIN_CONFIGS[domain]
 
-    # Dynamically import service classes to avoid circular imports
-    # (only import what we need)
     core = None
     if "core" not in skip:
-        core_module = importlib.import_module(config.core_module)
-        core_class = getattr(core_module, config.core_class)
-        core = core_class(backend=backend, event_bus=event_bus)
+        core = config.core_class(backend=backend, event_bus=event_bus)
 
     search = None
     if "search" not in skip:
-        search_module = importlib.import_module(config.search_module)
-        search_class = getattr(search_module, config.search_class)
-        search = search_class(backend=backend)
+        search = config.search_class(backend=backend)
 
     relationships: UnifiedRelationshipService[Any, Any, Any] | None = None
     if "relationships" not in skip:
@@ -296,11 +335,11 @@ def create_common_sub_services(
             graph_intel=graph_intel,
         )
 
+    # intelligence — built here only for the domains whose service takes exactly these
+    # four arguments. The rest declare ``intelligence_class=None`` and build their own.
     intelligence = None
-    if "intelligence" not in skip:
-        intel_module = importlib.import_module(config.intelligence_module)
-        intel_class = getattr(intel_module, config.intelligence_class)
-        intelligence = intel_class(
+    if config.intelligence_class is not None:
+        intelligence = config.intelligence_class(
             backend=backend,
             graph_intel=graph_intel,
             relationship_service=relationships,
@@ -308,9 +347,7 @@ def create_common_sub_services(
         )
 
     # event_handler — all 6 domains have one; all accept the same keyword args after Step 1
-    eh_module = importlib.import_module(config.event_handler_module)
-    eh_class = getattr(eh_module, config.event_handler_class)
-    event_handler = eh_class(
+    event_handler = config.event_handler_class(
         backend=backend,
         relationship_service=relationships,
         insight_store=insight_store,
@@ -318,9 +355,7 @@ def create_common_sub_services(
     )
 
     # learning — all 6 domains have one
-    learn_module = importlib.import_module(config.learning_module)
-    learn_class = getattr(learn_module, config.learning_class)
-    learning = learn_class(
+    learning = config.learning_class(
         backend=backend,
         event_bus=event_bus,
         relationship_service=relationships,

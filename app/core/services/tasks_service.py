@@ -333,7 +333,7 @@ class TasksService(
             graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
-            skip={"core", "intelligence"},
+            skip={"core"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         assert common.search is not None  # 'search' not in skip
