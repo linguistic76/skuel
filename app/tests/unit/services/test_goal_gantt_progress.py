@@ -121,6 +121,51 @@ class TestGoalBarProgress:
         assert bar["progress"] == 0
 
 
+class TestGoalBarUntypedStoredValue:
+    """Neo4j properties carry no type, and nothing coerces on either leg of the trip.
+
+    Vault ingestion copies goal frontmatter into node properties verbatim
+    (``prepare_entity_data`` is ``dict(data)``), and the DTO -> domain conversion does not
+    narrow scalars, so a quoted ``progress_percentage: "40"`` arrives here as ``str``.
+    Measured: ``to_domain_model({... 'progress_percentage': '40'}, GoalDTO, Goal)
+    .progress_percentage`` is ``'40'``, not ``40.0``.
+    """
+
+    def test_numeric_string_is_narrowed_not_crashed_on(self, service: VisualizationService) -> None:
+        """``round('40')`` raises ``TypeError``; the float() narrowing keeps the route
+        returning a Result, and the bar reads what the author meant."""
+        bar = _goal_bar(service, _goal(progress_percentage="40"))
+
+        assert bar["progress"] == 40
+
+    def test_none_is_treated_as_no_progress_not_as_a_data_defect(
+        self, service: VisualizationService
+    ) -> None:
+        """Scope, stated rather than implied: ``None`` does **not** arrive by this
+        route. ``_CrudMixin.get`` does ``RETURN n`` then ``dict(record["n"])``, and a
+        Neo4j node's property map omits absent properties, so a goal with no stored
+        ``progress_percentage`` reaches the DTO default 0.0 — measured.
+
+        The branch is kept because ``to_domain_model`` passes a present-but-``None``
+        value through unchanged (also measured), which any property-projecting reader
+        would produce; and because ``None`` means "no progress recorded", so 0 is the
+        right answer rather than the validation failure the bare ``float()`` would give.
+        """
+        bar = _goal_bar(service, _goal(progress_percentage=None))
+
+        assert bar["progress"] == 0
+
+    def test_non_numeric_value_fails_the_result_rather_than_raising(
+        self, service: VisualizationService
+    ) -> None:
+        """A value no cast can rescue is a data defect. Surfacing it beats rendering a
+        silent 0 — a silent 0 on this very bar is what hid the original bug."""
+        result = service.format_goal_gantt(_goal(progress_percentage="lots"), [])
+
+        assert result.is_error
+        assert "progress_percentage" in str(result.expect_error().message)
+
+
 class TestGoalBarReaderChoice:
     """``Goal`` offers two progress readers and only one of them is right here.
 

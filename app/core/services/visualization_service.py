@@ -551,12 +551,28 @@ class VisualizationService:
         # just completed reports 0%. That is a defect in the model, not one to work
         # around here.
         #
-        # Nothing validates the stored value: vault ingestion copies goal frontmatter into
-        # node properties unchecked (core/services/ingestion/preparer.py), so both
-        # `progress_percentage: 150` and `-40` reach this line. Hence the clamp, and
-        # round() rather than int() — 2 of 3 milestones stores 66.666…, which truncates
-        # to 66.
-        goal_progress = min(100, max(0, round(goal.progress_percentage)))
+        # Nothing validates the stored value, in range OR in type: vault ingestion copies
+        # goal frontmatter into node properties unchecked
+        # (core/services/ingestion/preparer.py) and nothing coerces on the way back out, so
+        # `progress_percentage: 150`, `-40` and a quoted `"40"` all reach this line as-is.
+        # Hence the float() narrowing before arithmetic, and the clamp after it. round()
+        # rather than int() — 2 of 3 milestones stores 66.666…, which truncates to 66.
+        raw_progress = goal.progress_percentage
+        try:
+            percent = 0.0 if raw_progress is None else float(raw_progress)
+        except TypeError, ValueError:
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        f"Goal {goal.uid} has a non-numeric progress_percentage "
+                        f"({raw_progress!r}); cannot render its Gantt bar"
+                    ),
+                    field="progress_percentage",
+                    value=raw_progress,
+                    user_message="This goal's progress value is invalid and needs correcting.",
+                )
+            )
+        goal_progress = min(100, max(0, round(percent)))
 
         gantt_tasks.append(
             GanttTask(
