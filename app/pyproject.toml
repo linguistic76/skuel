@@ -21,11 +21,12 @@ dependencies = [
     # bump. See docs/decisions/ADR-067-dependency-upgrade-policy.md §§ 3, 3a.
     "neo4j==5.26.0",
     # AI/LLM Integration
+    # No LangChain: SKUEL talks to the provider SDKs directly behind ChatCompletionPort /
+    # EmbeddingClientOperations (ADR-063), and retrieval is hand-written parameterized Cypher
+    # below UniversalNeo4jBackend rather than LLM-generated (text2cypher) — see
+    # docs/roadmap/askesis-tool-selection-queries.md for why. Four declared-but-never-imported
+    # langchain-* packages were removed 2026-07-27.
     "openai>=2.41.0",
-    "langchain-community>=0.4.2",
-    "langchain-core>=1.4.0",
-    "langchain-neo4j>=0.9.0",
-    "langchain-openai>=1.2.2",
     # Configuration & Environment
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.4",
@@ -62,6 +63,13 @@ dependencies = [
     # Stripe webhook signature verification (ADR-051)
     "stripe>=15.2.0",
     "keyring>=25.7.0",
+    # Embeddings-adapter deps — direct, NOT a transitive ride. Both were previously
+    # supplied only by the (unused) langchain-* tree; removing it exposed them as
+    # undeclared. numpy: adapters/external/embeddings/huggingface_adapter.py:33.
+    # tenacity (@retry on the embedding calls): huggingface_adapter.py:35 +
+    # openai_adapter.py:33. Declared 2026-07-27 — do not drop as "unused".
+    "numpy>=2.4.6",
+    "tenacity>=9.1.4",
 ]
 
 [project.scripts]
@@ -93,6 +101,10 @@ dev = [
     "mcp-neo4j-cypher>=0.6.0",
     "types-requests>=2.33.0.20260712",
     "types-markdown>=3.10.2.20260712",
+    # PyYAML ships no inline types; 6 files in MyPy's scope import `yaml`. Previously
+    # supplied transitively by neo4j-graphrag <- langchain-neo4j; declared direct
+    # 2026-07-27 when that tree was removed. Dropping it fails the CI MyPy job.
+    "types-pyyaml>=6.0.12.20260518",
     "vulture>=2.16",
     "pip-audit>=2.10.1",
 ]
@@ -314,7 +326,6 @@ warn_return_any = true
 module = [
     "neo4j.*",
     "fasthtml.*",
-    "langchain.*",
     "openai.*",
     "deepgram.*",
     "anthropic.*",

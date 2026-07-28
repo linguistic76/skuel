@@ -350,23 +350,21 @@ class AskesisAnalysis:
 
 ## Routes
 
-### API Routes (`/adapters/inbound/askesis_api.py`)
+**The `@rt()` decorators are the source of truth** — read them directly rather than trusting a
+table here. A route table in this file drifted into mostly-fiction once already: it listed four
+API endpoints that no longer exist — two (`analyze`, `next-action`) never did, and two
+(`daily-plan`, `synergies`) were real routes dropped in `2b0d7628d`. It is not reproduced.
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/askesis/analyze` | POST | Full state analysis |
-| `/api/askesis/next-action` | GET | Single best action |
-| `/api/askesis/daily-plan` | GET | Daily work plan |
-| `/api/askesis/ask` | POST | Natural language Q&A |
-| `/api/askesis/synergies` | GET | Cross-domain synergies |
+- **API** — `/adapters/inbound/askesis_api.py` registers exactly one route: `/api/askesis/ask`.
+- **UI** — `/adapters/inbound/askesis_ui.py` (thin; delegates to `ui/askesis/`). Six routes under
+  the `/askesis` prefix: the main page (`/askesis`) and the HTMX submit endpoint
+  (`/askesis/api/submit`) do the work; `new-chat`, `history`, `analytics` and `settings` are
+  registered but are bare `302` redirects back to `/askesis`.
 
-### UI Routes (`/adapters/inbound/askesis_ui.py` — thin, delegates to `ui/askesis/`)
-
-| Route | Purpose |
-|-------|---------|
-| `/askesis` | Main dashboard |
-| `/askesis/plan` | Daily plan view |
-| `/askesis/chat` | Conversational interface |
+**The invariant that matters:** both surfaces converge on the same entry method —
+`AskesisService.answer_user_question()` → `QueryProcessor.answer_user_question()`. No HTTP route
+reaches the pipeline any other way. (`process_query_with_context()` is a second entry method on
+the same service and port — `askesis_service.py:362` — but has no route today.)
 
 ---
 
@@ -518,23 +516,21 @@ async def _generate_context_aware_response(...) -> str:
 
 ### Prerequisite Ordering (Kahn's Algorithm)
 
-`AskesisService._order_by_prerequisites()` implements topological sort:
+`ContextRelevanceEngine._order_by_prerequisites()`
+(`core/services/askesis/context_relevance_engine.py:286`) orders KU UIDs from the prerequisite
+edge set using Kahn's algorithm. **No test pins the output ordering, and the direction stated in
+the method's own docstring is not the direction the loop produces — do not rely on either.**
 
-```python
-async def _order_by_prerequisites(self, ku_uids: list[str]) -> list[str]:
-    # Query prerequisite relationships
-    query = """
-    UNWIND $ku_uids AS ku_uid
-    MATCH (ku:Curriculum {uid: ku_uid})
-    OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
-    WHERE prereq.uid IN $ku_uids
-    RETURN ku.uid AS uid, collect(prereq.uid) AS prerequisites
-    """
+**It contains no Cypher.** The graph read is delegated to a backend method —
+`self.graph_intel.backend.get_prerequisite_graph(ku_uids=...)` — and the service does only the
+pure in-memory sort (adjacency map → in-degree counts → Kahn's queue). This is the required
+shape. SKUEL021 fails the build on *executable* Cypher in `core/`, `adapters/inbound/` and
+`ui/`; Cypher quoted in docstrings and inert example blocks is deliberately exempt
+(`CLAUDE.md:667`), so the instruction below is discipline, not lint enforcement.
 
-    # Build adjacency + in-degree for Kahn's algorithm
-    # Process nodes with zero in-degree first
-    # Returns prerequisite-ordered list
-```
+> Earlier revisions of this doc showed an inline `MATCH ... REQUIRES_KNOWLEDGE ...` query inside
+> this method and attributed it to `AskesisService`. Both were wrong — the class name and the
+> pattern. Do not copy Cypher into a `core/services/` example.
 
 ---
 

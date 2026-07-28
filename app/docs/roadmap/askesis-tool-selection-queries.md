@@ -6,10 +6,11 @@ Captures the conclusion of a "should we adopt LangChain `text2cypher`?" review
 
 ## Context
 
-The repo declares four `langchain-*` packages in `pyproject.toml` (`langchain-core`,
-`langchain-community`, `langchain-neo4j`, `langchain-openai`) but **imports none of
-them** — `grep -rni "langchain" --include="*.py"` returns zero hits. They are
-declared-but-dead dependencies. The trigger for this doc was the question: would
+The repo used to declare four `langchain-*` packages in `pyproject.toml` (`langchain-core`,
+`langchain-community`, `langchain-neo4j`, `langchain-openai`) while **importing none of
+them** — `grep -rnE '^\s*(import|from)\s+langchain' --include="*.py"` returned zero hits. They were
+declared-but-dead dependencies, and were removed on 2026-07-27 (see § Open questions
+below). The trigger for this doc was the question: would
 `langchain-neo4j`'s `text2cypher` (`GraphCypherQAChain` — an LLM generates a Cypher
 string from a natural-language question, executes it, then synthesizes an answer)
 add value, or does Askesis already cover it?
@@ -284,9 +285,11 @@ Try it against a live question before deciding whether the pattern earns its kee
   `IntentClassifier`, or does tool-selection subsume them?
 - **Cost.** Adds one LLM round-trip (selection) before generation. Acceptable only
   for intents the pre-baked context genuinely can't serve — keep the gate narrow.
-- **langchain cleanup.** Independent of this work, the four unused `langchain-*`
-  deps should likely be removed from `pyproject.toml` (+ the `langchain.*` mypy
-  override) per One Path Forward — adopting tool-selection does **not** require them.
+- ~~**langchain cleanup.**~~ ✅ **Done 2026-07-27.** The four unused `langchain-*` deps and
+  the `langchain.*` MyPy override were removed from `pyproject.toml` per One Path Forward.
+  This also closed security-backlog item 1 (`docs/roadmap/security-hardening-deferred.md`
+  § 1), which existed only to pin them. Adopting tool-selection does **not** require them —
+  the design above uses the provider SDKs' native function-calling directly.
 
 ## See
 

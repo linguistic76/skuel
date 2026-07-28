@@ -209,7 +209,7 @@ When adding a new route, verify:
 
 The following are tracked in `/docs/roadmap/security-hardening-deferred.md`:
 
-1. Dependency version pinning (Langchain)
+1. ~~Dependency version pinning (Langchain)~~ — ✅ closed 2026-07-27; the packages were never imported and were removed
 2. Rate limiting and CAPTCHA on sign-up
 3. Pre-commit hooks for secret scanning
 4. Session rotation on privilege change

@@ -344,8 +344,8 @@ uv run ruff format .
 - **Pydantic** - Data validation and settings
 - **structlog** - Structured logging
 - **result_simplified** - Custom `Result[T]` type for error handling (`core/utils/result_simplified.py`)
-- **LangChain** - AI/LLM integration
-- **OpenAI** - AI services
+- **OpenAI** / **Anthropic** - LLM + embedding provider SDKs, used directly behind
+  `ChatCompletionPort` / `EmbeddingClientOperations` (ADR-063) — no orchestration framework
 - **uvicorn** - ASGI server
 
 ### Frontend

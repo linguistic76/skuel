@@ -4,8 +4,8 @@
 not rejected — they are waiting for usage data, business decisions, or production prerequisites
 that do not yet exist. Each item has an explicit trigger condition.
 
-**Related**: `/docs/roadmap/security-hardening-deferred.md` — 5 deferred security items
-(dependency pinning, rate limiting, secret scanning, session rotation, CI CVE scanning).
+**Related**: `/docs/roadmap/security-hardening-deferred.md` — the security hardening backlog
+(see its Priority Order table for current status).
 
 ---
 

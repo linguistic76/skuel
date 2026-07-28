@@ -80,7 +80,7 @@ optional_parameters: set[str] = field(default_factory=set)
 from neo4j import AsyncDriver
 ```
 
-**Why:** External libraries (neo4j, langchain, etc.) don't provide type stubs
+**Why:** External libraries (neo4j, fasthtml, etc.) don't provide type stubs
 
 **Count:** ~165 errors
 **Status:** **RESOLVED** — via `follow_imports = "skip"` for external libraries without stubs in `pyproject.toml` overrides.
