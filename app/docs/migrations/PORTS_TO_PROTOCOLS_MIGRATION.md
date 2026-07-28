@@ -322,7 +322,28 @@ Several Phase 1 protocols were never adopted in service signatures and were remo
 - `SupportsRelationships`, `SupportsTraversal`, `SupportsFacets` — superseded by ISP-compliant backend sub-protocols
 
 **Kept (confirmed used):**
-`HasUID`, `HasCreatedAt`, `HasUpdatedAt`, `HasUpdated`, `HasPriority`, `HasSummary`, `HasMetadata`, `HasScore`, `HasRelevanceScore`, `HasValidate`, `HasLogger`, `HasSeverity`, `HasStrategy`, `HasUsage`, `MetricsLike`, `StreaksLike`
+`HasUID`, `HasCreatedAt`, `HasUpdatedAt`, `HasUpdated`, `HasPriority`, `HasSummary`, `HasMetadata`, `HasScore`, `HasRelevanceScore`, ~~`HasValidate`~~, `HasLogger`, `HasSeverity`, `HasStrategy`, `HasUsage`, `MetricsLike`, `StreaksLike`
+
+**Update (2026-07-28):** `HasValidate` was **not** confirmed used — it had zero
+imports, zero annotations and zero `isinstance` checks, and has now been deleted
+along with the generic capability tier (`SupportsPathfinding`, `SupportsSearch`,
+`SupportsCount`, `SupportsHealthCheck`, `SupportsInsights`, `SupportsRelatedSearch`,
+`SupportsSearchWithFilters`) and `Repository` / `EventHandler` / `Service`.
+
+Two things this pass corrected that trace directly back to the entry above:
+
+1. **Deleting a protocol does not delete the docstrings that cite it.**
+   `SupportsRelationships` and `SupportsTraversal` were retired here, but
+   `adapters/persistence/neo4j/_traversal_mixin.py` went on naming them in three
+   `Protocol:` docstring lines — pointing readers at symbols that had not existed
+   for months. Now corrected to `RelationshipCrudOperations` /
+   `GraphTraversalOperations`. *Grep the docstrings, not just the imports.*
+2. **"Confirmed used" needs a stated predicate.** Whatever was run in this
+   migration cleared `HasValidate`, which was already dead. Three predicates were
+   run this time — whole-word grep, import-statement grep, and
+   annotation/`isinstance` grep — and every apparent hit was traced to prose
+   (`user_repo: Repository implementation …` in an `Args:` block is an English
+   sentence, not a reference).
 
 **Update (2026-05-11):** The 11 context awareness protocols listed here were subsequently retired in commit `a82faaba`. They re-declared ~25 UserContext fields and drifted by hand. `UserContext` is now the single source of truth for user-state parameters. See `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` → "UserContext as Single Source of Truth".
 
