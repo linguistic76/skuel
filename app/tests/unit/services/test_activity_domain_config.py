@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import ast
 import inspect
-from typing import Any
 
 import pytest
 
@@ -69,7 +68,11 @@ def test_every_slot_is_constructed_somewhere_in_the_factory() -> None:
 @pytest.mark.parametrize("slot", SLOTS)
 def test_registered_class_accepts_the_factory_kwargs(domain: str, slot: str) -> None:
     """Every registered class is constructible exactly the way the factory builds it."""
-    registered: Any = getattr(ACTIVITY_DOMAIN_CONFIGS[domain], slot)
+    # The slots hold classes, so `type[object]` types the reflection precisely — no `Any`
+    # needed. A union of the `_*Factory` protocols does NOT work here: a callback Protocol
+    # describes callable *instances*, so it has no `__name__` and reading `__init__` off it
+    # is unsound (measured: 3 MyPy errors).
+    registered: type[object] | None = getattr(ACTIVITY_DOMAIN_CONFIGS[domain], slot)
     if registered is None:
         # Only the intelligence slot is optional — see ActivityDomainConfig.
         assert slot == "intelligence_class", f"{domain}.{slot} may not be None"
