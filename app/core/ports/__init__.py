@@ -92,7 +92,6 @@ from .base_protocols import (
     HasUpdated,
     HasUpdatedAt,
     HasUsage,
-    HasValidate,
     # Hierarchy Backend Protocol (BackendOperations + HierarchyOperations)
     HierarchicalBackendOperations,
     # Mock/Stub Endpoint Protocols (2)
@@ -117,13 +116,6 @@ from .base_protocols import (
     Serializable,
     StreaksLike,
     # Backend Capability Protocols (10)
-    SupportsCount,
-    SupportsHealthCheck,
-    SupportsInsights,
-    SupportsPathfinding,
-    SupportsRelatedSearch,
-    SupportsSearch,
-    SupportsSearchWithFilters,
     # Helper Functions (3)
     get_enum_attr_str,
     get_enum_value,
@@ -392,7 +384,6 @@ __all__ = [
     "HasUpdated",
     "HasUpdatedAt",
     "HasUsage",
-    "HasValidate",
     # ========== INTELLIGENCE PROTOCOLS (3) ==========
     "DomainIntelligenceOperations",
     "IntelligenceOperations",
@@ -453,16 +444,9 @@ __all__ = [
     "Serializable",
     "StreaksLike",
     # ========== BACKEND CAPABILITY PROTOCOLS (10) ==========
-    "SupportsCount",
     # Graph-aware search capability protocols (January 2026)
     "SupportsGraphAwareSearch",
     "SupportsGraphTraversalSearch",
-    "SupportsHealthCheck",
-    "SupportsInsights",
-    "SupportsPathfinding",
-    "SupportsRelatedSearch",
-    "SupportsSearch",
-    "SupportsSearchWithFilters",
     "SupportsTagSearch",
     "SystemServiceOperations",
     "TasksSearchOperations",

@@ -53,8 +53,10 @@ if TYPE_CHECKING:
     from core.models.type_hints import FilterParams
     from core.ports.query_types import PrerequisiteChainRow
     from core.utils.result_simplified import Result as ResultType
-    # Note: Result protocol defined at line 866 is for duck-typing Result-like objects
-    # ResultType is the actual Result[T] class used in type annotations
+    # Note: the ``Result`` Protocol in this module is for duck-typing Result-like
+    # objects; ``ResultType`` is the actual Result[T] class used in annotations.
+    # (Was "defined at line 866" — already 420 lines stale before this change;
+    # naming the symbol instead of a line number is what stops it re-rotting.)
 
 
 # ============================================================================
@@ -351,15 +353,6 @@ class HasCreatedAt(Protocol):
     """Protocol for objects with created_at timestamp."""
 
     created_at: datetime | str | None
-
-
-@runtime_checkable
-class HasValidate(Protocol):
-    """Protocol for objects with validate method."""
-
-    def validate(self) -> Any:
-        """Validate this object."""
-        ...
 
 
 @runtime_checkable
@@ -1172,114 +1165,18 @@ class HierarchicalBackendOperations[T: "DomainModelProtocol"](
 
 
 # ============================================================================
-# Capability Check Protocols (for runtime isinstance checks)
-# These are @runtime_checkable for duck-typing capability detection
+# Duck-typing Protocols
+#
+# The generic capability-check tier that once lived here (SupportsPathfinding,
+# SupportsSearch, SupportsCount, SupportsHealthCheck, SupportsInsights,
+# SupportsRelatedSearch, SupportsSearchWithFilters) plus Repository,
+# EventHandler and Service were deleted: zero imports, zero annotations and
+# zero isinstance checks anywhere in the tree. The capability-protocol idiom
+# itself is alive and correct — it is served by the domain-specific tier in
+# core/ports/search_protocols.py (SupportsGraphAwareSearch,
+# SupportsGraphTraversalSearch, SupportsTagSearch), which SearchRouter really
+# does isinstance against. The generic tier was superseded, not needed.
 # ============================================================================
-
-
-@runtime_checkable
-class SupportsPathfinding(Protocol):
-    """Protocol for backends that support pathfinding."""
-
-    async def find_path(
-        self, from_uid: str, to_uid: str, rel_types: list[str], max_depth: int = 5
-    ) -> Any:
-        """Find a path between two entities."""
-        ...
-
-
-@runtime_checkable
-class SupportsSearch(Protocol):
-    """Protocol for backends that support search operations."""
-
-    async def search(self, query: str, **filters: Any) -> Any:
-        """Search for entities."""
-        ...
-
-
-@runtime_checkable
-class SupportsCount(Protocol):
-    """Protocol for backends that support counting."""
-
-    async def count(self, **filters: Any) -> ResultType[int]:
-        """Count entities matching filters."""
-        ...
-
-
-@runtime_checkable
-class SupportsHealthCheck(Protocol):
-    """Protocol for backends that support health checking."""
-
-    async def health_check(self) -> ResultType[bool]:
-        """Check backend health."""
-        ...
-
-
-@runtime_checkable
-class SupportsInsights(Protocol):
-    """Protocol for search backends that support insights generation."""
-
-    async def get_insights(self, query: str, **filters: Any) -> Any:
-        """Get insights for search results."""
-        ...
-
-
-@runtime_checkable
-class SupportsRelatedSearch(Protocol):
-    """Protocol for search backends that support related searches."""
-
-    async def get_related(self, query: str, **filters: Any) -> Any:
-        """Get related searches."""
-        ...
-
-
-@runtime_checkable
-class SupportsSearchWithFilters(Protocol):
-    """Protocol for search backends that support advanced filtering."""
-
-    async def search_with_filters(self, query: str, filters: FilterParams, **options: Any) -> Any:
-        """Search with advanced filters."""
-        ...
-
-
-# ============================================================================
-# Base Service Protocols (USED: service architecture)
-# ============================================================================
-
-
-@runtime_checkable
-class Repository(Protocol):
-    """Protocol for repository objects."""
-
-    def get(self, uid: str) -> Any:
-        """Get entity by UID."""
-        ...
-
-    def save(self, entity: Any) -> Any:
-        """Save entity."""
-        ...
-
-
-@runtime_checkable
-class EventHandler(Protocol):
-    """Protocol for event handlers."""
-
-    async def handle(self, event: Any) -> None:
-        """Handle an event."""
-        ...
-
-
-@runtime_checkable
-class Service(Protocol):
-    """Base protocol for services."""
-
-    async def start(self) -> None:
-        """Start the service."""
-        ...
-
-    async def stop(self) -> None:
-        """Stop the service."""
-        ...
 
 
 @runtime_checkable
@@ -1439,7 +1336,6 @@ __all__ = [
     # Core Conversion Protocols (5)
     "EnumLike",
     # Base Service Protocols (4)
-    "EventHandler",
     # Pydantic Field Constraint Protocols (7)
     "GeConstraint",
     "GraphContextNode",
@@ -1470,7 +1366,6 @@ __all__ = [
     "HasUpdated",
     "HasUpdatedAt",
     "HasUsage",
-    "HasValidate",
     # Mock/Stub Endpoint Protocols (2)
     "IsMockEndpoint",
     "IsStubEndpoint",
@@ -1486,19 +1381,10 @@ __all__ = [
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties
     "RelationshipQueryOperations",  # Relationship queries
-    "Repository",
     "Result",
     "Serializable",
-    "Service",
     "StreaksLike",
     # Backend Capability Protocols (7 - kept used ones)
-    "SupportsCount",
-    "SupportsHealthCheck",
-    "SupportsInsights",
-    "SupportsPathfinding",
-    "SupportsRelatedSearch",
-    "SupportsSearch",
-    "SupportsSearchWithFilters",
     # Helper Functions (3)
     "get_enum_attr_str",
     "get_enum_value",

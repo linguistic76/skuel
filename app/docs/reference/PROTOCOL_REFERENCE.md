@@ -256,42 +256,6 @@ This protocol breaks circular dependencies between services and UserContextServi
 
 ---
 
-### SupportsCount
-```python
-@runtime_checkable
-class SupportsCount(Protocol):
-    async def count(self, **filters) -> Any: ...
-```
-
----
-
-### SupportsSearch
-```python
-@runtime_checkable
-class SupportsSearch(Protocol):
-    async def search(self, query: str, **filters) -> Any: ...
-```
-
----
-
-### SupportsPathfinding
-```python
-@runtime_checkable
-class SupportsPathfinding(Protocol):
-    async def find_path(self, from_uid: str, to_uid: str, rel_types: list, max_depth: int = 5) -> Any: ...
-```
-
----
-
-### SupportsHealthCheck
-```python
-@runtime_checkable
-class SupportsHealthCheck(Protocol):
-    async def health_check(self) -> Any: ...
-```
-
----
-
 ## Domain Operations Protocols
 
 **Location:** `/core/ports/domain_protocols.py`
@@ -675,26 +639,34 @@ priority_str = get_enum_value(task_priority)  # "high"
 
 ---
 
-### Example 2: Backend Capability Checking
+### Example 2: Service Capability Checking
 
 ```python
 # WRONG - using hasattr()
-if hasattr(backend, 'count'):
-    total = await backend.count()
-else:
-    total = 0
+if hasattr(search_service, 'graph_aware_search'):
+    return await search_service.graph_aware_search(request)
 
-# RIGHT - using isinstance() with Protocol
-from core.ports import SupportsCount
+# RIGHT - using isinstance() with a @runtime_checkable Protocol
+from core.ports.search_protocols import SupportsGraphAwareSearch
 
-if isinstance(backend, SupportsCount):
-    total = await backend.count()
-else:
-    raise ValueError("Backend does not support count operations")
+if isinstance(search_service, SupportsGraphAwareSearch):
+    return await search_service.graph_aware_search(request)
+return None
 
-# BETTER - fail-fast (per CLAUDE.md)
-total = await backend.count()  # Let it raise AttributeError if not supported
+# BETTER - fail-fast (per CLAUDE.md) when the capability is required, not optional
+return await search_service.graph_aware_search(request)
 ```
+
+This is the live pattern: `SearchRouter._resolve_graph_aware_service`
+(`core/models/search/search_router.py:1055`) does exactly this.
+
+> **Note.** A generic capability tier (`SupportsCount`, `SupportsSearch`,
+> `SupportsPathfinding`, `SupportsHealthCheck`, `SupportsInsights`,
+> `SupportsRelatedSearch`, `SupportsSearchWithFilters`) once lived in
+> `core/ports/base_protocols.py` and was documented here. It was deleted — zero
+> imports, zero annotations and zero `isinstance` checks tree-wide. Capability
+> protocols are still the right answer to `hasattr`; write them where the
+> capability is domain-specific, as `search_protocols.py` does.
 
 ---
 
@@ -741,8 +713,8 @@ Quick reference for common hasattr() patterns:
 | hasattr() Pattern | Replace With | Location |
 |------------------|--------------|----------|
 | `hasattr(enum, 'value')` | `get_enum_value(enum)` | `core.ports` |
-| `hasattr(backend, 'count')` | `isinstance(backend, SupportsCount)` | `core.ports` |
-| `hasattr(backend, 'search')` | `isinstance(backend, SupportsSearch)` | `core.ports` |
+| `hasattr(svc, 'graph_aware_search')` | `isinstance(svc, SupportsGraphAwareSearch)` | `core.ports.search_protocols` |
+| `hasattr(svc, 'search_by_tags')` | `isinstance(svc, SupportsTagSearch)` | `core.ports.search_protocols` |
 | `hasattr(field_info, 'metadata')` | `isinstance(field_info, PydanticFieldInfo)` | `core.ports` |
 | `hasattr(constraint, 'min_length')` | `isinstance(constraint, MinLenConstraint)` | `core.ports` |
 | `hasattr(pydantic_model, 'field')` | Just access `model.field` (always defined) | N/A |

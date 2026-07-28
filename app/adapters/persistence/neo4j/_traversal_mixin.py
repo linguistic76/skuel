@@ -88,7 +88,7 @@ class _TraversalMixin:
         """
         Add a relationship between entities.
 
-        Protocol: RelationshipCrudOperations, SupportsRelationships
+        Protocol: RelationshipCrudOperations
 
         Delegates to create_relationship() with protocol-compliant signature.
 
@@ -118,7 +118,7 @@ class _TraversalMixin:
         """
         Get relationships for an entity.
 
-        Protocol: SupportsRelationships
+        Protocol: RelationshipCrudOperations
 
         Args:
             uid: Entity UID to get relationships for
@@ -166,7 +166,7 @@ class _TraversalMixin:
         """
         Traverse the graph from a starting point.
 
-        Protocol: SupportsTraversal
+        Protocol: GraphTraversalOperations
 
         Args:
             start_uid: Starting entity UID
@@ -232,7 +232,7 @@ class _TraversalMixin:
         """
         Find a path between two entities.
 
-        Protocol: SupportsPathfinding
+        Protocol: none — backend-only method, declared by no port
 
         Args:
             from_uid: Source entity UID
