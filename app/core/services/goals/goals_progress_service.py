@@ -991,7 +991,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         tally_stale = goal.measurement_type == MeasurementType.TASK_BASED and (
             goal.current_value != completed_tasks or goal.target_value != total_tasks
         )
-        if abs(new_progress - old_progress) < 0.1 and not tally_stale:
+        progress_changed = abs(new_progress - old_progress) >= 0.1
+        if not progress_changed and not tally_stale:
             self.logger.debug(f"Goal {goal_uid} progress unchanged ({new_progress:.1f}%)")
             return
 
@@ -1020,8 +1021,12 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             updates["current_value"] = float(completed_tasks)
             updates["target_value"] = float(total_tasks)
 
-        # Check if goal is achieved
-        if new_progress >= 100:
+        # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
+        # below. `>= 100` alone re-stamps achieved_date on every write once a goal is
+        # complete, which the percentage-only guard used to make unreachable; a
+        # tally-only write (5/5 -> 10/10, both 100%) now reaches it and would move the
+        # recorded achievement to today.
+        if new_progress >= 100 and old_progress < 100:
             updates["status"] = EntityStatus.COMPLETED.value
             updates["achieved_date"] = date.today()
 
@@ -1031,19 +1036,27 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         self.logger.info(
-            f"Updated goal {goal_uid} progress: {old_progress:.1f}% → {new_progress:.1f}% "
+            f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
             f"({completed_tasks}/{total_tasks} tasks)"
         )
 
-        # Publish GoalProgressUpdated event
-        progress_event = GoalProgressUpdated(
-            goal_uid=goal_uid,
-            user_uid=user_uid,
-            old_progress=old_progress,
-            new_progress=new_progress,
-            triggered_by_manual_update=False,  # Triggered by task completion
-        )
-        await publish_event(self.event_bus, progress_event, self.logger)
+        # Publish GoalProgressUpdated only when the percentage actually moved.
+        # GoalEventHandlerService.handle_goal_progress_updated reads a near-zero delta
+        # on a positive goal as a STALL and persists an IMBALANCE_DETECTED insight, so
+        # announcing a tally-only repair would tell a user who just completed a task
+        # that their goal has stalled. Nothing is lost by staying quiet: the context
+        # invalidation this event drives is already done by the TaskCompleted that
+        # triggered this handler — debounced_invalidator's own docstring calls the
+        # second one redundant.
+        if progress_changed:
+            progress_event = GoalProgressUpdated(
+                goal_uid=goal_uid,
+                user_uid=user_uid,
+                old_progress=old_progress,
+                new_progress=new_progress,
+                triggered_by_manual_update=False,  # Triggered by task completion
+            )
+            await publish_event(self.event_bus, progress_event, self.logger)
 
         # If goal was achieved, publish GoalAchieved event
         if new_progress >= 100 and old_progress < 100:

@@ -23,6 +23,16 @@ from core.utils.result_simplified import Result
 _USER = "user_task_measurement"
 
 
+class _RecordingBus:
+    """Captures what the handler publishes — ``publish_event`` calls ``publish_async``."""
+
+    def __init__(self, sink: list[object]) -> None:
+        self._sink = sink
+
+    async def publish_async(self, event: object) -> None:
+        self._sink.append(event)
+
+
 def _goal(measurement_type: MeasurementType, **overrides: object) -> Goal:
     fields: dict[str, object] = {
         "uid": "goal_task_measurement",
@@ -119,6 +129,59 @@ class TestTaskBasedGoalOwnsItsMeasurement:
         await service._update_goal_from_task_completion(goal.uid, _USER)
 
         assert backend.update.await_count == 0
+
+    async def test_a_tally_only_write_publishes_no_progress_event(self):
+        """``handle_goal_progress_updated`` reads a near-zero delta on a positive goal
+        as a stall and persists an IMBALANCE_DETECTED insight, so announcing a
+        tally-only repair would tell a user who just completed a task that their goal
+        has stalled.
+        """
+        goal = _goal(
+            MeasurementType.TASK_BASED,
+            current_value=1.0,
+            target_value=5.0,
+            progress_percentage=20.0,
+        )
+        service, backend = _service(goal, total_tasks=10, completed_tasks=2)
+        published: list[object] = []
+        service.event_bus = _RecordingBus(published)
+
+        await service._update_goal_from_task_completion(goal.uid, _USER)
+
+        assert backend.update.await_count == 1, "the tally repair itself must still happen"
+        assert published == []
+
+    async def test_a_real_progress_change_still_publishes(self):
+        """The mirror — suppressing the event must not silence genuine movement."""
+        goal = _goal(
+            MeasurementType.TASK_BASED,
+            current_value=1.0,
+            target_value=5.0,
+            progress_percentage=20.0,
+        )
+        service, _ = _service(goal, total_tasks=5, completed_tasks=2)
+        published: list[object] = []
+        service.event_bus = _RecordingBus(published)
+
+        await service._update_goal_from_task_completion(goal.uid, _USER)
+
+        assert [type(e).__name__ for e in published] == ["GoalProgressUpdated"]
+
+    async def test_a_tally_only_write_does_not_restamp_achieved_date(self):
+        """5/5 -> 10/10 is 100% either way. ``>= 100`` alone would move the recorded
+        achievement to today; the gate is the transition, as GoalAchieved's already was.
+        """
+        goal = _goal(
+            MeasurementType.TASK_BASED,
+            current_value=5.0,
+            target_value=5.0,
+            progress_percentage=100.0,
+        )
+        updates = await _written(goal, total_tasks=10, completed_tasks=10)
+
+        assert updates["current_value"] == 10.0
+        assert "achieved_date" not in updates
+        assert "status" not in updates
 
     async def test_the_three_fields_agree(self):
         """current/target is the percent, by construction rather than by luck."""
