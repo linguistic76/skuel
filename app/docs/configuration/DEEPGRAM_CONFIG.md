@@ -157,10 +157,13 @@ result = await adapter.transcribe(
 ```
 
 `TranscriptionProcessOptions` is the same model the REST API's
-`/api/transcriptions/{uid}/process` endpoint accepts. Note it defaults every
-field, so passing one field still sends all five — the two calls above also
-apply the model's own `language`/`punctuate`/`paragraphs` defaults, not the
-config's. **Every setting on this page not among those five is config-only:**
+`/api/transcriptions/{uid}/process` endpoint accepts. Overrides apply **field
+by field**: the adapter dumps with `exclude_unset=True`, so the two calls above
+change only `model` and only `diarize` respectively, and everything else on
+this page still comes from `config/deepgram.toml`. (A plain dump would not —
+every field on that model has a default, so it would reassert `nova-2`/`en`
+over whatever the config says.) **Every setting on this page not among those
+five is config-only:**
 `TranscriptionPort` is provider-agnostic (ADR-063), so it deliberately does not
 take `DeepgramConfig` field names per call. Change them in
 `config/deepgram.toml`.

@@ -203,8 +203,15 @@ class DeepgramAdapter:
             async with aiofiles.open(path, "rb") as audio_file:
                 audio_data = await audio_file.read()
 
-            # Build options from config + per-call overrides
-            dg_options = self._build_options(**(options.model_dump() if options else {}))
+            # Build options from config + per-call overrides.
+            # exclude_unset, not a plain model_dump: every field on
+            # TranscriptionProcessOptions has a default, so a bare dump would
+            # reassert those defaults over config and a caller passing only
+            # diarize=True would silently reset the configured model/language.
+            # Overriding means overriding what the caller actually set.
+            dg_options = self._build_options(
+                **(options.model_dump(exclude_unset=True) if options else {})
+            )
 
             # Call Deepgram API (retried via _transcribe_raw)
             file_size_mb = len(audio_data) / (1024 * 1024)

@@ -90,11 +90,15 @@ Options are resolved in three layers (later layers override earlier):
 3. **Conditional inclusion** — intelligence/vocabulary options are only sent to the API when enabled (avoids unnecessary Deepgram credit charges)
 
 Layer 2 covers exactly the five fields on `TranscriptionProcessOptions`
-(`language`, `model`, `punctuate`, `paragraphs`, `diarize`), and covers them as
-a set — the model has a default for each, so passing one field still sends all
-five. Every other Deepgram knob is config-only. That is deliberate: the port is
-provider-agnostic (ADR-063), so it cannot take a bag of `DeepgramConfig` field
-names, which is what the previous `transcribe(**overrides)` did.
+(`language`, `model`, `punctuate`, `paragraphs`, `diarize`), and covers them
+**field by field**: the adapter dumps with `exclude_unset=True`, so only the
+fields the caller actually set override the config. Every field on that model
+has a default, so a plain dump would reassert those defaults over
+`config/deepgram.toml` — passing `diarize=True` would silently reset the
+configured model and language. Every other Deepgram knob is config-only. That
+is deliberate: the port is provider-agnostic (ADR-063), so it cannot take a bag
+of `DeepgramConfig` field names, which is what the previous
+`transcribe(**overrides)` did.
 
 ```python
 # Uses config/deepgram.toml defaults

@@ -272,14 +272,14 @@ class TranscriptionService(EntityTimestampMixin):
         )
         await self.backend.update(uid, {"status": "processing", **self.update_properties()})
 
-        # Use provided options as per-call overrides (config/deepgram.toml has defaults)
-        opts = options or TranscriptionProcessOptions()
-
-        # Call Deepgram
+        # Call Deepgram. `options` passes through as-is — None already means
+        # "no per-call overrides, use config/deepgram.toml", so substituting an
+        # all-defaults TranscriptionProcessOptions() here would say nothing
+        # extra and, under exclude_unset, dump to the same empty override set.
         self.logger.info(f"Processing transcription {uid}")
         result = await self.deepgram.transcribe(
             audio_path=transcription.audio_file_path,
-            options=opts,
+            options=options,
         )
 
         if result.is_error:
