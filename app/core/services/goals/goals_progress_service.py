@@ -992,10 +992,25 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # task-completion provenance (triggered_by_task_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
-        # current_value is untouched: task_contribution is completed/total over the
-        # linked tasks, which target_value does not describe, so writing completed_tasks
-        # here would silently redefine what target_value counts.
         updates: dict[str, Any] = {"progress_percentage": new_progress}
+
+        if goal.measurement_type == MeasurementType.TASK_BASED:
+            # The measurement IS the linked-task tally, so this writer owns both ends of
+            # it. Writing only completed_tasks would pair it with a target_value nothing
+            # relates to it — a user-typed 5 against 20 linked tasks renders "4/5 tasks"
+            # beside a 20% bar — and writing neither leaves the detail page rendering
+            # "0/5 tasks" for a goal that is one task in. total_tasks is the denominator
+            # new_progress was just computed from, so all three fields agree by
+            # construction.
+            #
+            # TASK_BASED only, never MIXED: _update_goal_from_habit_completion divides
+            # avg_streak by target_value for MIXED goals (a desired streak length), so
+            # overwriting it there would corrupt the habit half of a mixed goal. For
+            # TASK_BASED nothing computes on target_value — calculate_combined_progress
+            # returns task_contribution * 100 and discards milestone_completion — which
+            # is what makes it this writer's to own.
+            updates["current_value"] = float(completed_tasks)
+            updates["target_value"] = float(total_tasks)
 
         # Check if goal is achieved
         if new_progress >= 100:
