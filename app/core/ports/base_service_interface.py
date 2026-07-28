@@ -94,14 +94,19 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 from core.models.enums import EntityStatus
+from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges
 from core.ports.base_protocols import Direction
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from datetime import date
+
+    from core.models.search_request import SearchRequest
+    from core.ports.query_types import RelationshipRow, TraversalNodeRow
 
 # Type variables for generics
 T = TypeVar("T")  # Domain model type (invariant - used in both input and output positions)
@@ -124,15 +129,17 @@ class ConversionOperations(Protocol[T]):
 
     def _to_domain_model(
         self,
-        data: Any,
-        dto_class: type[Any],
+        data: Neo4jProperties | DTOProtocol | DomainModelProtocol,
+        dto_class: type[DTOProtocol],
         model_class: type[T],
     ) -> T:
         """
         Convert backend data to domain model through DTO layer.
 
         Args:
-            data: Raw data from backend (dict, DTO, or object)
+            data: Raw data from backend — the three shapes
+                ``core.utils.dto_converters.to_domain_model`` branches on:
+                a property dict, an already-built DTO, or a domain model
             dto_class: DTO class for conversion
             model_class: Target domain model class
 
@@ -448,8 +455,8 @@ class SearchOperations(Protocol[T]):
     async def get_by_relationship(
         self,
         related_uid: str,
-        relationship_type: Any,  # RelationshipName enum
-        direction: str = "outgoing",
+        relationship_type: RelationshipName,
+        direction: Direction = "outgoing",
     ) -> Result[list[T]]:
         """
         Get entities connected via graph relationship.
@@ -468,8 +475,8 @@ class SearchOperations(Protocol[T]):
         self,
         query: str,
         related_uid: str,
-        relationship_type: Any,  # RelationshipName enum
-        direction: str = "outgoing",
+        relationship_type: RelationshipName,
+        direction: Direction = "outgoing",
         limit: int = 50,
         user_uid: UserUID | None = None,
     ) -> Result[list[T]]:
@@ -491,7 +498,7 @@ class SearchOperations(Protocol[T]):
 
     async def graph_aware_faceted_search(
         self,
-        request: Any,  # SearchRequest
+        request: SearchRequest,
         user_uid: UserUID | None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -531,7 +538,7 @@ class RelationshipOperations(Protocol[T]):
     async def add_relationship(
         self,
         from_uid: str,
-        rel_type: str | Any,  # str or RelationshipName enum
+        rel_type: str | RelationshipName,
         to_uid: str,
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
@@ -554,7 +561,7 @@ class RelationshipOperations(Protocol[T]):
         uid: str,
         rel_type: RelationshipName | None = None,
         direction: Direction = "both",
-    ) -> Result[list[Any]]:  # list[Relationship]
+    ) -> Result[list[RelationshipRow]]:
         """
         Get all relationships for an entity.
 
@@ -564,13 +571,13 @@ class RelationshipOperations(Protocol[T]):
             direction: "incoming", "outgoing", or "both"
 
         Returns:
-            Result[list[Relationship]]: Entity relationships
+            Result[list[RelationshipRow]]: raw edge rows, not domain models
         """
         ...
 
     async def traverse(
         self, start_uid: str, rel_pattern: str, max_depth: int = 3, include_properties: bool = False
-    ) -> Result[list[Any]]:  # list[GraphPath]
+    ) -> Result[list[TraversalNodeRow]]:
         """
         Traverse the graph following a relationship pattern.
 
@@ -578,10 +585,11 @@ class RelationshipOperations(Protocol[T]):
             start_uid: Starting entity UID
             rel_pattern: Pattern like "REQUIRES*" or "ENABLES+"
             max_depth: Maximum traversal depth
-            include_properties: Include relationship properties
+            include_properties: Include node properties on each row
 
         Returns:
-            Result[list[GraphPath]]: Traversal paths
+            Result[list[TraversalNodeRow]]: flat node rows reached from
+            ``start_uid`` — ``uid``/``labels``/``depth`` — not paths
         """
         ...
 
@@ -750,8 +758,8 @@ class ContextOperations(Protocol[T]):
         uid: str,
         depth: int = 2,
         min_confidence: float = 0.7,
-        include_relationships: Any | None = None,  # Sequence[str]
-        exclude_relationships: Any | None = None,  # Sequence[str]
+        include_relationships: Sequence[str] | None = None,
+        exclude_relationships: Sequence[str] | None = None,
     ) -> Result[T]:
         """
         Get entity with graph neighborhood context.

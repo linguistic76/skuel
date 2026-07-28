@@ -685,11 +685,11 @@ class ContentAdapter:
 ### After (cast at the boundary)
 
 ```python
-from typing import Any, cast
+from typing import cast
 
 @dataclass
 class ContentAdapter:
-    def __init__(self, content: Any) -> None:
+    def __init__(self, content: object) -> None:  # `object`, not `Any`
         self._content = content
 
     @property
@@ -704,7 +704,7 @@ class ContentAdapter:
 
 | Situation | Use |
 |-----------|-----|
-| Adapter wraps `Any`; runtime guarantees the attribute is `T` | `cast(T, value)` |
+| Adapter wraps an unknown object; runtime guarantees the attribute is `T` | `object` param + `getattr` + `cast(T, value)` |
 | The function genuinely returns `Any` (mixed shapes, dynamic dispatch) | `# boundary: <reason>` comment on `-> Any` |
 | Source value might NOT be `T` (untrusted external input) | `isinstance(value, T)` check |
 | Method exists at runtime but not on the declared protocol | `# type: ignore[attr-defined]` (see Pattern 7) |

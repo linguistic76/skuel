@@ -2237,6 +2237,23 @@ class RelationshipRow(TypedDict):
     properties: Neo4jProperties
 
 
+class TraversalNodeRow(TypedDict, total=False):
+    """Single node row from ``traverse()``.
+
+    Runtime shape produced by ``_TraversalMixin.traverse`` and surfaced by
+    ``RelationshipOperationsMixin.traverse`` — flat nodes reached from the
+    start node, NOT paths. The Cypher RETURNs ``node.uid as uid,
+    node_labels as labels, min(depth) as depth``, plus ``props as properties``
+    only when ``include_properties=True``; ``total=False`` is what carries
+    that last conditional column.
+    """
+
+    uid: str
+    labels: list[str]
+    depth: int
+    properties: Neo4jProperties
+
+
 class ExtractionTwinRow(TypedDict):
     """Single owned-entity row from ``get_user_active_extraction_twins()``.
 

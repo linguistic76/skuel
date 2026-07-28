@@ -26,7 +26,6 @@ from core.constants import ExerciseTimeEstimate
 from core.models.enums import Domain, SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
-from core.models.enums.pipeline import ReportSource
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.exercise_dto import ExerciseDTO
@@ -262,7 +261,6 @@ class ExerciseService(BaseService):
         domain: Domain | None = None,
         scope: ExerciseScope = ExerciseScope.PERSONAL,
         due_date: date | None = None,
-        processor_type: ReportSource = ReportSource.LLM,
         group_uid: str | None = None,
         form_schema: list[dict[str, Any]] | None = None,
         scoring_rubric: list[dict[str, Any]] | None = None,

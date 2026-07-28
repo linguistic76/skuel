@@ -125,7 +125,9 @@ if TYPE_CHECKING:
         SemanticRelationshipType,
         SemanticTriple,
     )
+    from core.models.enums import Domain
     from core.models.enums.neo_labels import NeoLabel
+    from core.models.enums.user_entry_enums import ExerciseScope
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.ku.ku import Ku  # noqa: F401 — used in BackendOperations["Ku"]
@@ -1736,10 +1738,9 @@ class ExerciseOperations(Protocol):
         instructions: str,
         model: str = "claude-sonnet-4-6",
         context_notes: list[str] | None = None,
-        domain: Any | None = None,
-        scope: Any = ...,
+        domain: Domain | None = None,
+        scope: ExerciseScope = ...,
         due_date: date | None = None,
-        processor_type: Any = ...,
         group_uid: str | None = None,
     ) -> Result[Exercise]:
         """Create an Exercise. Returns Result[Exercise]."""

@@ -43,6 +43,7 @@ from core.utils.type_converters import _HasToDict
 
 if TYPE_CHECKING:
     from core.config.deepgram_config import DeepgramConfig
+    from core.models.transcription.transcription import TranscriptionProcessOptions
 
 logger = get_logger(__name__)
 
@@ -171,18 +172,18 @@ class DeepgramAdapter:
     async def transcribe(
         self,
         audio_path: str | Path,
-        **overrides: Any,
+        options: TranscriptionProcessOptions | None = None,
     ) -> Result[TranscriptionResult]:
         """
         Transcribe audio file using Deepgram API.
 
-        Options come from config/deepgram.toml by default. Pass keyword
-        arguments to override any option for this single call.
+        Options come from config/deepgram.toml by default; *options* overrides
+        the fields it carries for this single call.
 
         Args:
             audio_path: Path to audio file
-            **overrides: Per-call option overrides (e.g., model="nova-3", diarize=True).
-                         Keys match DeepgramConfig field names.
+            options: Per-call overrides (language/model/punctuate/paragraphs/
+                diarize). Every other Deepgram knob stays on the config.
 
         Returns:
             Result containing TranscriptionResult or error
@@ -202,15 +203,15 @@ class DeepgramAdapter:
             async with aiofiles.open(path, "rb") as audio_file:
                 audio_data = await audio_file.read()
 
-            # Build options from config + overrides
-            options = self._build_options(**overrides)
+            # Build options from config + per-call overrides
+            dg_options = self._build_options(**(options.model_dump() if options else {}))
 
             # Call Deepgram API (retried via _transcribe_raw)
             file_size_mb = len(audio_data) / (1024 * 1024)
             self.logger.info(
                 f"Sending audio to Deepgram: {path.name} ({file_size_mb:.2f}MB, timeout={self.timeout}s)"
             )
-            response = await self._transcribe_raw(audio_data, path, options)
+            response = await self._transcribe_raw(audio_data, path, dg_options)
 
             # Extract results
             transcript_text = self._extract_transcript(response)

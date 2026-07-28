@@ -49,8 +49,7 @@ if TYPE_CHECKING:
     import builtins
     from logging import Logger
 
-    from core.models.graph_models import GraphPath
-    from core.ports.query_types import RelationshipRow
+    from core.ports.query_types import RelationshipRow, TraversalNodeRow
 
 
 class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
@@ -177,17 +176,20 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     async def traverse(
         self, start_uid: str, rel_pattern: str, max_depth: int = 3, include_properties: bool = False
-    ) -> Result[builtins.list[GraphPath]]:
+    ) -> Result[builtins.list[TraversalNodeRow]]:
         """
         Traverse the graph following a relationship pattern.
 
-        Simple but powerful graph traversal - avoiding over-engineering.
+        Returns the flat set of nodes reached from ``start_uid`` — see
+        ``TraversalNodeRow``. NOT paths: the backend query RETURNs
+        ``uid``/``labels``/``depth`` per node, and this method returns that
+        result unchanged.
 
         Args:
             start_uid: Starting entity UID
             rel_pattern: Pattern like "REQUIRES*" or "ENABLES+"
             max_depth: Maximum traversal depth
-            include_properties: Include relationship properties
+            include_properties: Include node properties on each row
         """
         if not start_uid:
             return Result.fail(

@@ -573,14 +573,16 @@ class EventsHabitIntegrationService:
 
             # Publish CalendarEventCreated event (event-driven architecture)
             from core.events import CalendarEventCreated
-            from core.ports import get_enum_value
 
             event_obj = CalendarEventCreated(
                 event_uid=event.uid,
                 user_uid=user_context.user_uid,
                 title=event.title,
                 event_date=event.event_date or date.today(),
-                calendar_event_type=get_enum_value(event.event_type),
+                # event_data above sets no event_type, so Event.event_type is
+                # None here — fall back the way EventsCoreService.create does
+                # rather than publish None into a str field.
+                calendar_event_type=event.event_type or "RECURRING",
             )
             await publish_event(self.event_bus, event_obj, self.logger)
 

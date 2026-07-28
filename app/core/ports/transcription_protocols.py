@@ -26,6 +26,8 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from core.models.transcription.transcription import TranscriptionProcessOptions
+
 
 @dataclass(frozen=True)
 class TranscriptionResult:
@@ -48,19 +50,24 @@ class TranscriptionResult:
 class TranscriptionPort(Protocol):
     """Provider-agnostic audio-transcription boundary.
 
-    The vendor SDK lives in the adapter; per-call ``overrides`` (whose keys match
-    ``DeepgramConfig`` field names — ``model``, ``language``, ``diarize`` …) tune
-    a single transcription without the core caller knowing the provider.
+    The vendor SDK lives in the adapter; the core-owned
+    ``TranscriptionProcessOptions`` tunes a single transcription without the
+    caller naming a provider. It replaced a ``**overrides: Any`` bag whose
+    documented keys were ``DeepgramConfig`` field names — a provider leak in a
+    port whose whole point is that the caller need not know the provider.
+    Everything not in the options model comes from ``config/deepgram.toml``
+    inside the adapter, which is where the remaining knobs already lived.
     """
 
     async def transcribe(
         self,
         audio_path: str | Path,
-        # boundary: per-call provider option overrides — heterogeneous (str/bool/int/
-        # list), keys match DeepgramConfig fields
-        **overrides: Any,
+        options: TranscriptionProcessOptions | None = None,
     ) -> Result[TranscriptionResult]:
         """Transcribe an audio file.
+
+        ``options`` overrides the provider's configured defaults for this call
+        only; ``None`` uses the configuration as-is.
 
         Returns ``Result.ok(TranscriptionResult)`` or
         ``Result.fail(integration_error)``. File-read and transport errors are

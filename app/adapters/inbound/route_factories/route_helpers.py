@@ -26,7 +26,7 @@ See: /docs/patterns/AUTH_PATTERNS.md, /docs/patterns/OWNERSHIP_VERIFICATION.md,
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, cast
+from typing import Any, cast, overload
 
 from starlette.responses import Response
 
@@ -244,6 +244,12 @@ def parse_bool_query_param(
     return str(raw).lower() in ("true", "1", "yes", "on")
 
 
+@overload
+def parse_date_query_param(params: Mapping[str, Any], key: str, default: date) -> date: ...
+@overload
+def parse_date_query_param(
+    params: Mapping[str, Any], key: str, default: None = None
+) -> date | None: ...
 def parse_date_query_param(
     params: Mapping[str, Any],
     key: str,
@@ -251,7 +257,10 @@ def parse_date_query_param(
 ) -> date | None:
     """Parse an ISO-format date query parameter with safe fallback.
 
-    Invalid or missing values return *default*.
+    Invalid or missing values return *default*. Overloaded on *default*
+    because every return path is either a parsed date or *default* itself:
+    a caller that supplies a real date can never receive None, and saying so
+    is what lets it feed a ``date``-typed parameter without a cast.
     """
     raw = params.get(key)
     if raw is None or raw == "":

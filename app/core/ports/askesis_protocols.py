@@ -46,6 +46,10 @@ from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.models.askesis.askesis import Askesis
+    from core.models.askesis.askesis_request import (
+        AskesisCreateRequest,
+        AskesisUpdateRequest,
+    )
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
@@ -486,11 +490,15 @@ class AskesisCoreOperations(Protocol):
 
     async def get_or_create_for_user(self, user_uid: UserUID) -> Result[Askesis]: ...
 
-    async def create_askesis(self, user_uid: UserUID, create_request: Any) -> Result[Askesis]: ...
+    async def create_askesis(
+        self, user_uid: UserUID, create_request: AskesisCreateRequest
+    ) -> Result[Askesis]: ...
 
     async def get_askesis(self, askesis_uid: str) -> Result[Askesis]: ...
 
-    async def update_askesis(self, askesis_uid: str, update_request: Any) -> Result[Askesis]: ...
+    async def update_askesis(
+        self, askesis_uid: str, update_request: AskesisUpdateRequest
+    ) -> Result[Askesis]: ...
 
     async def record_conversation(self, askesis_uid: str) -> Result[Askesis]: ...
 

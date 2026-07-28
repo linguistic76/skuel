@@ -21,7 +21,6 @@ from core.models.event.event_dto import EventDTO
 from core.models.event.event_request import EventCreateRequest
 from core.models.pathways.lp_position import LpPosition
 from core.models.type_hints import FilterParams, UserUID
-from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
@@ -209,7 +208,8 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             user_uid=user_uid,
             title=event.title,
             event_date=event_date,
-            calendar_event_type=get_enum_value(event.event_type),
+            # Event.event_type is str | None; the request above sets "learning"
+            calendar_event_type=event.event_type or "learning",
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
@@ -356,7 +356,8 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
                 user_uid=user_uid,
                 title=event.title,
                 event_date=event.event_date,
-                calendar_event_type=get_enum_value(event.event_type),
+                # Event.event_type is str | None; the requests above set "learning"
+                calendar_event_type=event.event_type or "learning",
             )
             await publish_event(self.event_bus, event_obj, self.logger)
 

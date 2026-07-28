@@ -135,20 +135,35 @@ Increase `timeout` for very long audio files (> 10 minutes).
 
 ## Per-Call Overrides
 
-The config file sets defaults. Individual transcription calls can override any setting:
+The config file sets defaults. Individual transcription calls can override the
+five fields on `TranscriptionProcessOptions` — `language`, `model`,
+`punctuate`, `paragraphs`, `diarize`:
 
 ```python
+from core.models.transcription.transcription import TranscriptionProcessOptions
+
 # Uses config/deepgram.toml defaults
 result = await adapter.transcribe(audio_path="file.mp3")
 
 # Override model for this one call
-result = await adapter.transcribe(audio_path="file.mp3", model="nova-3")
+result = await adapter.transcribe(
+    audio_path="file.mp3", options=TranscriptionProcessOptions(model="nova-3")
+)
 
 # Enable diarize for this call only
-result = await adapter.transcribe(audio_path="file.mp3", diarize=True)
+result = await adapter.transcribe(
+    audio_path="file.mp3", options=TranscriptionProcessOptions(diarize=True)
+)
 ```
 
-The `TranscriptionProcessOptions` model (used by the REST API's `/api/transcriptions/{uid}/process` endpoint) also passes through as overrides.
+`TranscriptionProcessOptions` is the same model the REST API's
+`/api/transcriptions/{uid}/process` endpoint accepts. Note it defaults every
+field, so passing one field still sends all five — the two calls above also
+apply the model's own `language`/`punctuate`/`paragraphs` defaults, not the
+config's. **Every setting on this page not among those five is config-only:**
+`TranscriptionPort` is provider-agnostic (ADR-063), so it deliberately does not
+take `DeepgramConfig` field names per call. Change them in
+`config/deepgram.toml`.
 
 ## Accessing Intelligence Data
 
