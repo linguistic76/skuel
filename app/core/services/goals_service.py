@@ -159,12 +159,16 @@ def _get_goal_priority_order(goal: Any) -> int:
     return Priority.from_value(_get_goal_priority_str(goal)).sort_order()
 
 
-def _get_goal_progress(goal: Any) -> float:
+def _get_goal_progress(goal: Goal) -> float:
     """Sort key for progress — the 0.0-1.0 scale, not the raw measurement.
 
     Sorting on ``current_value`` would rank goals by their domain-unit magnitude
     (100 miles above 8 books), which is not an ordering. Mirrors
     ``entity_filters._goal_sort_by_progress``, the UI-side sort of the same list.
+
+    Typed ``Goal``, unlike its ``Any`` siblings above: they exist to absorb a value
+    that may be an enum or a string, while this one needs the method, and
+    ``get_for_user_filtered`` returns ``list[Goal]``.
     """
     return goal.calculate_progress()
 

@@ -8,6 +8,8 @@ is what produced the bugs pinned below, so each case names the writer it came fr
 
 from __future__ import annotations
 
+import pytest
+
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
@@ -70,25 +72,61 @@ class TestProgressPercentageIsCanonical:
         assert _goal(progress_percentage=-10.0).calculate_progress() == 0.0
 
 
-class TestDomainUnitSeeding:
-    """The ratio is a seed for goals no writer has touched yet, not a second truth."""
+class TestMeasurementIsNotAProgressSource:
+    """``current_value``/``target_value`` never reach the answer, in either direction.
 
-    def test_authored_measurement_reads_before_any_writer_runs(self):
-        """25 of 100 miles, progress_percentage still at its 0.0 default."""
+    An earlier revision consulted the ratio when ``progress_percentage`` was falsy, to
+    seed a goal no writer had touched. That cannot distinguish "never recorded" from
+    "explicitly reset to 0%" — ``progress_percentage`` has no unset state — so a 5-of-10
+    goal reset to 0 read 0.5. The ratio is gone rather than made conditional.
+    """
+
+    def test_measurement_without_a_percent_reads_zero(self):
+        """25 of 100 miles, no progress_percentage: the measurement is not progress."""
         goal = _goal(
             measurement_type=MeasurementType.NUMERIC,
             target_value=100.0,
             current_value=25.0,
             unit_of_measurement="miles",
         )
-        assert goal.calculate_progress() == 0.25
+        assert goal.calculate_progress() == 0.0
 
-    def test_measurement_beyond_target_clamps(self):
-        goal = _goal(target_value=100.0, current_value=120.0)
-        assert goal.calculate_progress() == 1.0
+    def test_reset_to_zero_is_not_overridden_by_a_stale_measurement(self):
+        """The case that killed the fallback: 5 of 10 miles, progress explicitly 0%."""
+        goal = _goal(
+            measurement_type=MeasurementType.NUMERIC,
+            target_value=10.0,
+            current_value=5.0,
+            progress_percentage=0.0,
+        )
+        assert goal.calculate_progress() == 0.0
 
-    def test_zero_target_does_not_divide(self):
-        assert _goal(target_value=0.0, current_value=5.0).calculate_progress() == 0.0
+    def test_measurement_does_not_cap_a_recorded_percent(self):
+        """current_value far below target must not drag a recorded 80% down."""
+        goal = _goal(target_value=100.0, current_value=1.0, progress_percentage=80.0)
+        assert goal.calculate_progress() == 0.80
 
-    def test_no_target_and_no_percent_is_zero(self):
+    def test_no_fields_at_all_is_zero(self):
         assert _goal().calculate_progress() == 0.0
+
+
+class TestUninterpretableStoredValues:
+    """Neo4j properties are untyped and vault ingestion does not narrow them.
+
+    ``format_goal_gantt`` proved these reach a reader as-is. This method has no
+    ``Result`` channel and runs on every goal card, list and sort, so it answers 0.0
+    rather than raising; the Gantt formatter reads the raw field and still fails loudly.
+    """
+
+    def test_a_quoted_number_is_rescued_rather_than_zeroed(self):
+        """``progress_percentage: "40"`` in vault frontmatter arrives as ``str``; the
+        narrowing converts it, so the goal reads 40% instead of raising or reading 0."""
+        assert _goal(progress_percentage="40").calculate_progress() == 0.40
+
+    @pytest.mark.parametrize(
+        "stored",
+        ["forty", [], float("nan"), float("inf"), float("-inf"), None],
+        ids=["unparseable-str", "list", "nan", "inf", "-inf", "none"],
+    )
+    def test_values_no_cast_can_rescue_read_as_no_progress(self, stored):
+        assert _goal(progress_percentage=stored).calculate_progress() == 0.0

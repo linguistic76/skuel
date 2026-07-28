@@ -33,6 +33,7 @@ Architecture Note:
 """
 
 import dataclasses
+import math
 from typing import Any, Protocol, runtime_checkable
 
 # ============================================================================
@@ -203,6 +204,47 @@ def normalize_enum_str(value: Any, default: str = "") -> str:
     return str(value).lower()
 
 
+def finite_float(value: Any) -> float | None:
+    """Narrow a Neo4j-sourced scalar to a float, or ``None`` if it is not a real number.
+
+    Neo4j properties carry no declared type and nothing coerces on the way in: vault
+    ingestion copies frontmatter into node properties unchecked
+    (``core/services/ingestion/preparer.py``), so a quoted ``progress_percentage: "40"``
+    arrives as ``str`` and YAML's ``.nan`` / ``.inf`` arrive as non-finite floats. Both
+    then blow up in arithmetic — ``TypeError`` for the string, ``ValueError`` /
+    ``OverflowError`` from ``round()`` for the others.
+
+    The predicate is total rather than a list of the failures seen so far: ``float()``
+    either raises or yields a float, and a float is finite, ±inf or nan — so "converts
+    and is finite" admits exactly the values arithmetic cannot fail on. Callers decide
+    the policy for ``None``: a ``Result.fail`` where there is a channel for it, a
+    neutral default where there is not.
+
+    Args:
+        value: Any stored scalar, typically read straight off a domain model field
+
+    Returns:
+        The value as a float, or None if it does not convert or is not finite
+
+    Examples:
+        >>> finite_float(40)
+        40.0
+        >>> finite_float("40")
+        40.0
+        >>> finite_float("forty") is None
+        True
+        >>> finite_float(float("nan")) is None
+        True
+        >>> finite_float(None) is None
+        True
+    """
+    try:
+        narrowed = float(value)
+    except TypeError, ValueError:
+        return None
+    return narrowed if math.isfinite(narrowed) else None
+
+
 def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
     """Extract an attribute as a lowercase string, handling both enum and string values.
 
@@ -241,6 +283,7 @@ def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
 
 
 __all__ = [
+    "finite_float",
     "get_enum_attr_str",
     "get_enum_value",
     "normalize_enum_str",

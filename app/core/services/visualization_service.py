@@ -29,7 +29,6 @@ Usage:
     gantt = service.format_for_gantt(tasks, dependencies)
 """
 
-import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, ClassVar, Literal
@@ -41,6 +40,7 @@ from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
 from core.utils.logging import get_logger
 from core.utils.palette import SemanticColor
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import finite_float
 
 logger = get_logger(__name__)
 
@@ -558,20 +558,20 @@ class VisualizationService:
         # goal frontmatter into node properties unchecked
         # (core/services/ingestion/preparer.py) and nothing coerces on the way back out, so
         # `progress_percentage: 150`, `-40`, a quoted `"40"` and YAML's `.nan` / `.inf` all
-        # reach this line as-is. Hence the guarded narrowing below, then the clamp. round()
-        # rather than int() — 2 of 3 milestones stores 66.666…, which truncates to 66.
+        # reach this line as-is. Hence the narrowing below, then the clamp. round() rather
+        # than int() — 2 of 3 milestones stores 66.666…, which truncates to 66.
         #
-        # The guard is written as a total predicate rather than a list of the failures seen
-        # so far: float() either raises or yields a float, and a float is finite, ±inf or
-        # nan — so "converts and is finite" admits exactly the values round() cannot fail
-        # on. Adding OverflowError to the except clause would have closed `.inf` alone and
-        # left the class open.
+        # finite_float is the shared total predicate (core/utils/type_converters.py):
+        # float() either raises or yields a float, and a float is finite, ±inf or nan, so
+        # "converts and is finite" admits exactly the values round() cannot fail on.
+        # Goal.calculate_progress() narrows through the same predicate and answers None
+        # with 0.0; here there is a Result channel, so None is reported instead. None from
+        # an absent property does not arrive by this route (_CrudMixin.get returns a node
+        # property map, which omits unset keys, so the DTO default 0.0 wins) — it is
+        # handled because to_domain_model passes a present-but-None through unchanged.
         raw_progress = goal.progress_percentage
-        try:
-            percent = 0.0 if raw_progress is None else float(raw_progress)
-        except TypeError, ValueError:
-            percent = math.nan
-        if not math.isfinite(percent):
+        percent = 0.0 if raw_progress is None else finite_float(raw_progress)
+        if percent is None:
             return Result.fail(
                 Errors.validation(
                     message=(
