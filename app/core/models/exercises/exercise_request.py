@@ -83,11 +83,6 @@ class ExerciseCreateRequest(BaseModel):
         description="Due date for assigned exercises",
     )
 
-    processor_type: str = Field(
-        default="llm",
-        description="Processor type: 'llm' (default), 'human', or 'hybrid'",
-    )
-
     group_uid: str | None = Field(
         default=None,
         description="Target group UID (required for scope=assigned)",

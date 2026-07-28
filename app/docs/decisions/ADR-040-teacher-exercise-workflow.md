@@ -44,8 +44,22 @@ Group uses Three-Tier type system (Pattern A): Pydantic request → GroupDTO →
 Exercise provides fields for both personal and teacher-assigned workflows:
 - `scope: ExerciseScope` — PERSONAL (default) or ASSIGNED
 - `due_date: date | None` — only for ASSIGNED scope
-- `processor_type: ProcessorType` — LLM, HUMAN, or HYBRID
+- ~~`processor_type: ProcessorType` — LLM, HUMAN, or HYBRID~~ — **never implemented; withdrawn 2026-07-28**
 - `group_uid: str | None` — target group for ASSIGNED scope
+
+> **Amendment (2026-07-28): the `processor_type` clause is withdrawn.**
+> It was never implemented on `Exercise` — the entity has no such field, and the
+> `ProcessorType` enum it named no longer exists (ADR-054 split it into
+> `Pipeline` + `ReportSource`; `scripts/health/stale_names.py` already flags the
+> name as stale). The only surviving fragment was
+> `ExerciseCreateRequest.processor_type`, a Pydantic field that
+> `ConversionServiceV2.create_to_pure` silently discarded because it filters to
+> the target dataclass's field names before construction — so the API accepted
+> and documented a knob that did nothing. That field is now deleted.
+>
+> Processor/source discrimination is a **Report** concern, not an Exercise one:
+> `EntryReport.processor_type` / `ActivityReport.processor_type` carry
+> `ReportSource` (HUMAN / LLM / AUTOMATIC) and are live. See ADR-054.
 
 A teacher exercise IS an Exercise with `scope=ASSIGNED`.
 
