@@ -210,7 +210,7 @@ async def _find_similar_chunks(
 ) -> list[dict[str, Any]]:
     result = await self.vector_search_service.find_similar_chunks_by_text(
         text=query,
-        chunk_types=chunk_types,  # intent-aware filter (e.g. ["DEFINITION"])
+        chunk_types=chunk_types,  # intent-aware filter (e.g. ["definition"])
         limit=5,
         min_score=0.6,
     )

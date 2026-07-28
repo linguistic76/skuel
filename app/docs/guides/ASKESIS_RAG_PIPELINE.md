@@ -184,7 +184,12 @@ relevant to the question, not just the owning PathStep titles:
    `Neo4jVectorSearchService.find_similar_chunks_by_text()` — top-5 above the
    0.6 cosine threshold.
 3. Optionally filter `chunk_types` based on intent (e.g. `PRACTICE` ⇒
-   `["EXERCISE", "EXAMPLE"]`, `PREREQUISITE` ⇒ `["DEFINITION"]`).
+   `["exercise", "example"]`, `PREREQUISITE` ⇒ `["definition", "explanation"]`).
+   The filter carries persisted **`ContentChunkType` values (lowercase)** — the
+   exact strings `Neo4jContentAdapter` writes to `chunk.chunk_type`. The backend
+   test is a bare `chunk.chunk_type IN $chunk_types`, so a member NAME
+   (`"EXERCISE"`) matches zero rows silently instead of erroring; the intent map
+   holds enum members and emits `.value` for exactly this reason.
 4. Join `chunk → content → entity` so each hit carries the owning PathStep's
    `parent_uid` + `parent_title` for citation.
 

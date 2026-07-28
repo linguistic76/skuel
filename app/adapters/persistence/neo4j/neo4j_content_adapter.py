@@ -15,6 +15,7 @@ __version__ = "1.0"
 from typing import Any
 
 from core.models.ps_content.content import CurriculumContent
+from core.models.ps_content.content_chunks import ContentChunkType
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -249,7 +250,9 @@ class Neo4jContentAdapter:
             logger.error(f"Failed to store content with chunks for {uid}: {e}")
             return False
 
-    async def get_chunks(self, uid: str, chunk_type: str | None = None) -> list[dict[str, Any]]:
+    async def get_chunks(
+        self, uid: str, chunk_type: ContentChunkType | None = None
+    ) -> list[dict[str, Any]]:
         """
         Retrieve chunks for a knowledge unit.
 
@@ -259,6 +262,13 @@ class Neo4jContentAdapter:
         traverses chunks in its own vector query and does not need this.
         Registered here because the bloat detector's PLANNED_METHODS registry
         only scans core/services/.
+
+        Takes a ``ContentChunkType`` MEMBER, not a string: the filter is a bare
+        equality test and Neo4j matches zero rows on a value no chunk carries
+        instead of erroring. A raw ``str`` here is exactly what made the Askesis
+        intent filter a silent zero (fixed 2026-07-27) — a member cannot be
+        misspelled, and the ``.value`` below is the single place this method
+        names the persisted spelling.
 
         Args:
             uid: Knowledge unit UID,
@@ -275,7 +285,7 @@ class Neo4jContentAdapter:
                 RETURN chunk, r.sequence as sequence
                 ORDER BY r.sequence
                 """
-                params = {"uid": uid, "chunk_type": chunk_type}
+                params = {"uid": uid, "chunk_type": chunk_type.value}
             else:
                 query = """
                 MATCH (c:Content {uid: $uid})-[r:HAS_CHUNK]->(chunk:ContentChunk)

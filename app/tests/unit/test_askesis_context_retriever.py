@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.ps_content.content_chunks import ContentChunkType
 from core.services.askesis.context_retriever import ContextRetriever
 from core.utils.result_simplified import Errors, Result
 
@@ -330,23 +331,38 @@ class TestRelationshipNameCitesResource:
 
 
 class TestIntentToChunkTypes:
-    """Intent-aware chunk-type filtering for chunk retrieval."""
+    """Intent-aware chunk-type filtering for chunk retrieval.
+
+    Expectations name ``ContentChunkType`` MEMBERS and compare against their
+    ``.value``. Hand-writing the strings here is what let the live silent-zero
+    bug pass review: the map emitted UPPERCASE member names, the test restated
+    them, and both were wrong about the persisted (lowercase) spelling.
+    """
 
     @pytest.mark.parametrize(
         "intent_name,expected",
         [
-            ("PREREQUISITE", ["DEFINITION", "EXPLANATION"]),
-            ("PRACTICE", ["EXERCISE", "EXAMPLE"]),
-            ("HIERARCHICAL", ["DEFINITION", "EXPLANATION"]),
-            ("EXPLORATORY", ["INTRODUCTION", "SUMMARY", "DEFINITION"]),
-            ("RELATIONSHIP", ["EXPLANATION", "DEFINITION"]),
+            ("PREREQUISITE", [ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION]),
+            ("PRACTICE", [ContentChunkType.EXERCISE, ContentChunkType.EXAMPLE]),
+            ("HIERARCHICAL", [ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION]),
+            (
+                "EXPLORATORY",
+                [
+                    ContentChunkType.INTRODUCTION,
+                    ContentChunkType.SUMMARY,
+                    ContentChunkType.DEFINITION,
+                ],
+            ),
+            ("RELATIONSHIP", [ContentChunkType.EXPLANATION, ContentChunkType.DEFINITION]),
         ],
     )
-    def test_mapped_intents_return_chunk_types(self, intent_name: str, expected: list[str]) -> None:
+    def test_mapped_intents_return_chunk_types(
+        self, intent_name: str, expected: list[ContentChunkType]
+    ) -> None:
         from core.models.query_types import QueryIntent
         from core.services.askesis.context_retriever import _intent_to_chunk_types
 
-        assert _intent_to_chunk_types(QueryIntent[intent_name]) == expected
+        assert _intent_to_chunk_types(QueryIntent[intent_name]) == [t.value for t in expected]
 
     @pytest.mark.parametrize(
         "intent_name",
@@ -519,7 +535,7 @@ class TestFindSimilarChunksRouting:
         hits = [
             {
                 "chunk_uid": "chunk_1",
-                "chunk_type": "DEFINITION",
+                "chunk_type": ContentChunkType.DEFINITION.value,
                 "text": "The body is the seat of awareness.",
                 "context_window": "…context…",
                 "similarity_score": 0.87,

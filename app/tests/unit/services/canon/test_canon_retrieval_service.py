@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.ps_content.content_chunks import ContentChunkType
 from core.ports.query_types import ReferenceChunkHit, SemanticSearchChunkResult
 from core.services.canon import CanonRetrievalService, SourceKind
 from core.utils.result_simplified import Errors, Result
@@ -191,7 +192,8 @@ def _vault_hit(
 ) -> SemanticSearchChunkResult:
     hit = SemanticSearchChunkResult(
         chunk_uid="cc_1",
-        chunk_type="content",
+        # A real persisted value — "content" is not a ContentChunkType member.
+        chunk_type=ContentChunkType.SECTION.value,
         text=text,
         context_window=None,
         similarity_score=score,

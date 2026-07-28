@@ -484,7 +484,7 @@ async def _find_similar_chunks(
     # The join chunk → content → entity surfaces the owning PathStep for citation.
     result = await self.vector_search_service.find_similar_chunks_by_text(
         text=query,
-        chunk_types=chunk_types,  # intent-aware (e.g. PRACTICE → ["EXERCISE","EXAMPLE"])
+        chunk_types=chunk_types,  # intent-aware (e.g. PRACTICE → ["exercise","example"])
         limit=5,
         min_score=0.6,
     )

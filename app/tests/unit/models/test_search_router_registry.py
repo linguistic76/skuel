@@ -17,6 +17,7 @@ from types import SimpleNamespace
 import pytest
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.ps_content.content_chunks import ContentChunkType
 from core.models.search.search_router import SearchRouter, UnifiedSearchResult
 from core.models.search_request import SearchRequest
 from services_bootstrap import Services
@@ -241,7 +242,9 @@ class TestBodyChunkAggregation:
     def _hit(parent_uid: str, parent_type: str, score: float, text: str = "body prose") -> dict:
         return {
             "chunk_uid": f"chunk_{parent_uid}_{score}",
-            "chunk_type": "CONCEPT",
+            # A real persisted value — "CONCEPT" is not a ContentChunkType member
+            # at all, so no writer could ever produce it.
+            "chunk_type": ContentChunkType.EXPLANATION.value,
             "text": text,
             "context_window": None,
             "similarity_score": score,
