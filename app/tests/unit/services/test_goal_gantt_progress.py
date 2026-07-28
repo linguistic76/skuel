@@ -155,14 +155,33 @@ class TestGoalBarUntypedStoredValue:
 
         assert bar["progress"] == 0
 
-    def test_non_numeric_value_fails_the_result_rather_than_raising(
-        self, service: VisualizationService
+    @pytest.mark.parametrize(
+        ("stored", "why"),
+        [
+            ("lots", "a string no cast can rescue -> float() raises ValueError"),
+            ([1, 2], "a list -> float() raises TypeError"),
+            (float("nan"), "YAML `.nan` -> float() succeeds, round() raises ValueError"),
+            (float("inf"), "YAML `.inf` -> float() succeeds, round() raises OverflowError"),
+            (float("-inf"), "YAML `-.inf` -> same, and the clamp would not save it either"),
+        ],
+    )
+    def test_unusable_value_fails_the_result_rather_than_raising(
+        self, service: VisualizationService, stored: object, why: str
     ) -> None:
-        """A value no cast can rescue is a data defect. Surfacing it beats rendering a
-        silent 0 — a silent 0 on this very bar is what hid the original bug."""
-        result = service.format_goal_gantt(_goal(progress_percentage="lots"), [])
+        """Every value that is not a finite number must come back as a ``Result`` failure.
 
-        assert result.is_error
+        These are five *instances* of one class, and the guard is written to close the
+        class: ``float()`` either raises or yields a float, and a float is finite, ±inf or
+        nan. The two non-finite cases matter because they get *past* ``float()`` — and
+        past the clamp too: ``max(0, nan)`` is 0 and ``min(100, nan)`` is 100, so a clamp
+        alone silently invents a plausible-looking bar.
+
+        Failing beats rendering a silent 0 — a silent 0 on this very bar is what hid the
+        original bug.
+        """
+        result = service.format_goal_gantt(_goal(progress_percentage=stored), [])
+
+        assert result.is_error, why
         assert "progress_percentage" in str(result.expect_error().message)
 
 

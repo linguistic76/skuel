@@ -29,6 +29,7 @@ Usage:
     gantt = service.format_for_gantt(tasks, dependencies)
 """
 
+import math
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, ClassVar, Literal
@@ -554,18 +555,26 @@ class VisualizationService:
         # Nothing validates the stored value, in range OR in type: vault ingestion copies
         # goal frontmatter into node properties unchecked
         # (core/services/ingestion/preparer.py) and nothing coerces on the way back out, so
-        # `progress_percentage: 150`, `-40` and a quoted `"40"` all reach this line as-is.
-        # Hence the float() narrowing before arithmetic, and the clamp after it. round()
+        # `progress_percentage: 150`, `-40`, a quoted `"40"` and YAML's `.nan` / `.inf` all
+        # reach this line as-is. Hence the guarded narrowing below, then the clamp. round()
         # rather than int() — 2 of 3 milestones stores 66.666…, which truncates to 66.
+        #
+        # The guard is written as a total predicate rather than a list of the failures seen
+        # so far: float() either raises or yields a float, and a float is finite, ±inf or
+        # nan — so "converts and is finite" admits exactly the values round() cannot fail
+        # on. Adding OverflowError to the except clause would have closed `.inf` alone and
+        # left the class open.
         raw_progress = goal.progress_percentage
         try:
             percent = 0.0 if raw_progress is None else float(raw_progress)
         except TypeError, ValueError:
+            percent = math.nan
+        if not math.isfinite(percent):
             return Result.fail(
                 Errors.validation(
                     message=(
-                        f"Goal {goal.uid} has a non-numeric progress_percentage "
-                        f"({raw_progress!r}); cannot render its Gantt bar"
+                        f"Goal {goal.uid} has a progress_percentage that is not a finite "
+                        f"number ({raw_progress!r}); cannot render its Gantt bar"
                     ),
                     field="progress_percentage",
                     value=raw_progress,
