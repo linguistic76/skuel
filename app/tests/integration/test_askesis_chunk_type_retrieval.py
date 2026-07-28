@@ -64,6 +64,8 @@ class _DriverConnection:
     def __init__(self, driver: AsyncDriver) -> None:
         self.driver = driver
 
+    # boundary: cypher-params — mirrors the real execute_query signature this
+    # double substitutes for; Cypher params are genuinely heterogeneous.
     async def execute_query(self, query: str, params: dict[str, Any] | None = None) -> list[Record]:
         async with self.driver.session() as session:
             result = await session.run(query, params or {})

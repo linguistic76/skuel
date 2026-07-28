@@ -52,8 +52,12 @@ class _CapturingConnection:
 
     def __init__(self, expected_created: int) -> None:
         self._expected_created = expected_created
+        # boundary: chunk-rows — the adapter builds these dicts inline in
+        # store_content_with_chunks; no TypedDict models them anywhere.
         self.created_chunk_rows: list[dict[str, Any]] = []
 
+    # boundary: cypher-params — mirrors the real execute_query signature this
+    # double substitutes for; Cypher params and Neo4j rows are heterogeneous.
     async def execute_query(
         self, query: str, params: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
