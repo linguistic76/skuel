@@ -39,11 +39,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from typing import TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from core.utils.logging import get_logger
+from core.utils.type_converters import finite_float
 
 logger = get_logger(__name__)
 
@@ -77,15 +78,23 @@ RETURN count(g) AS cleared
 
 
 class GoalMeasurementRow(TypedDict):
-    """One audited goal's measurement fields, as stored."""
+    """One audited goal's measurement fields, exactly as stored.
+
+    The three numeric fields are ``Any`` on purpose. Declaring them ``float`` would be
+    the same lie that produced the malformed rows this script exists to find: Neo4j
+    properties are untyped and vault ingestion copies frontmatter through unchecked, so
+    a quoted ``current_value: "20"`` is stored and read back as ``str``. Every numeric
+    use narrows through ``finite_float`` instead of trusting the annotation.
+    """
 
     uid: str
     title: str | None
     measurement_type: str | None
-    current_value: float
-    target_value: float | None
+    # boundary: untyped Neo4j properties — a quoted YAML scalar arrives here as str
+    current_value: Any
+    target_value: Any
+    progress_percentage: Any
     unit_of_measurement: str | None
-    progress_percentage: float | None
 
 
 async def audit_rows(driver: AsyncDriver) -> list[GoalMeasurementRow]:
@@ -103,12 +112,25 @@ async def clear_named(driver: AsyncDriver, uids: list[str]) -> int:
 
 
 def _suspicion(row: GoalMeasurementRow) -> str:
-    """Why this row might be a stale percent. Advisory — the operator decides."""
+    """Why this row might be a stale percent. Advisory — the operator decides.
+
+    Every numeric comparison narrows first. Comparing the stored values directly
+    raised ``TypeError: '>' not supported between instances of 'str' and 'int'`` on a
+    quoted ``current_value: "20"``, which aborted the whole audit — the one row class
+    it most needs to report is the one that killed it.
+    """
     reasons: list[str] = []
-    if row["current_value"] == row["progress_percentage"]:
+    current = finite_float(row["current_value"])
+    target = finite_float(row["target_value"])
+    percent = finite_float(row["progress_percentage"])
+
+    if current is None:
+        reasons.append(f"current_value is not a number ({row['current_value']!r})")
+    if row["target_value"] is not None and target is None:
+        reasons.append(f"target_value is not a number ({row['target_value']!r})")
+    if current is not None and percent is not None and current == percent:
         reasons.append("current_value == progress_percentage")
-    target = row["target_value"]
-    if target is not None and target > 0 and row["current_value"] > target:
+    if current is not None and target is not None and target > 0 and current > target:
         reasons.append("current_value exceeds target_value")
     if (row["measurement_type"] or "") in _LEGACY_WRITER_TYPES:
         reasons.append("measurement_type was reachable by a legacy writer")
