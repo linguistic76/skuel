@@ -43,6 +43,7 @@ from typing import Any, TypedDict, cast
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
+from core.models.enums.goal_enums import MeasurementType
 from core.utils.logging import get_logger
 from core.utils.type_converters import finite_float
 
@@ -54,7 +55,13 @@ logger = get_logger(__name__)
 # update_goal_progress wrote any type but has no route, so it never ran. This is
 # reported as a signal, NOT used to filter — a goal's measurement_type can be edited
 # after the fact, so a row outside the set is less suspicious, never proven clean.
-_LEGACY_WRITER_TYPES = ("task_based", "habit_based", "mixed")
+_LEGACY_WRITER_TYPES = frozenset(
+    {
+        MeasurementType.TASK_BASED.value,
+        MeasurementType.HABIT_BASED.value,
+        MeasurementType.MIXED.value,
+    }
+)
 
 AUDIT_QUERY = """
 MATCH (g:Goal)

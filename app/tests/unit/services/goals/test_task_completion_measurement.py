@@ -1,4 +1,4 @@
-"""What ``_update_goal_from_task_completion`` writes into the measurement fields.
+"""What the task- and habit-completion writers put in the measurement fields.
 
 For a TASK_BASED goal the measurement *is* the linked-task tally, so this writer owns
 both ends of it. That is unusual — every other progress writer leaves ``target_value``
@@ -11,6 +11,7 @@ Overwrite it for MIXED and the habit half of a mixed goal is corrupted.
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -191,6 +192,88 @@ class TestTaskBasedGoalOwnsItsMeasurement:
 
         ratio = updates["current_value"] / updates["target_value"]
         assert ratio * 100 == pytest.approx(updates["progress_percentage"])
+
+
+def _habit_service(goal: Goal, *, total_habits: int, avg_streak: float) -> tuple[Any, Mock]:
+    """The habit sibling of ``_service`` — same writer shape, different tally source."""
+    backend = Mock()
+    backend.get = AsyncMock(return_value=Result.ok(goal))
+    backend.update = AsyncMock(return_value=Result.ok({}))
+    backend.count_linked_habits_avg_streak = AsyncMock(
+        return_value=Result.ok({"total_habits": total_habits, "avg_streak": avg_streak})
+    )
+
+    service = GoalsProgressService.__new__(GoalsProgressService)
+    service.backend = backend
+    service.logger = Mock()
+    service.event_bus = None
+    service.relationships = None
+    return service, backend
+
+
+class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
+    """``new_progress`` is capped at 100, so the percentage stops moving before the
+    streak does. Without measurement staleness in the guard the field tracks a *falling*
+    streak (which moves the percentage) but freezes on a rising one.
+    """
+
+    async def test_a_streak_past_its_target_still_updates_the_measurement(self):
+        """30-day target, streak now 31: "30/30 days" must not be the final answer."""
+        goal = _goal(
+            MeasurementType.HABIT_BASED,
+            target_value=30.0,
+            current_value=30.0,
+            progress_percentage=100.0,
+        )
+        service, backend = _habit_service(goal, total_habits=1, avg_streak=31.0)
+
+        await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
+
+        assert backend.update.await_count == 1
+        assert backend.update.await_args.args[1]["current_value"] == 31.0
+
+    async def test_it_does_not_restamp_achieved_date(self):
+        goal = _goal(
+            MeasurementType.HABIT_BASED,
+            target_value=30.0,
+            current_value=30.0,
+            progress_percentage=100.0,
+        )
+        service, backend = _habit_service(goal, total_habits=1, avg_streak=31.0)
+
+        await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
+
+        updates = backend.update.await_args.args[1]
+        assert "achieved_date" not in updates
+        assert "status" not in updates
+
+    async def test_it_publishes_no_stall_shaped_progress_event(self):
+        goal = _goal(
+            MeasurementType.HABIT_BASED,
+            target_value=30.0,
+            current_value=30.0,
+            progress_percentage=100.0,
+        )
+        service, _ = _habit_service(goal, total_habits=1, avg_streak=31.0)
+        published: list[object] = []
+        service.event_bus = _RecordingBus(published)
+
+        await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
+
+        assert published == []
+
+    async def test_an_unchanged_streak_still_writes_nothing(self):
+        goal = _goal(
+            MeasurementType.HABIT_BASED,
+            target_value=30.0,
+            current_value=30.0,
+            progress_percentage=100.0,
+        )
+        service, backend = _habit_service(goal, total_habits=1, avg_streak=30.0)
+
+        await service._update_goal_from_habit_completion(goal.uid, _USER, 30)
+
+        assert backend.update.await_count == 0
 
 
 class TestMixedGoalMeasurementIsNotTouched:

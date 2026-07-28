@@ -1185,8 +1185,18 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             new_progress = (old_progress * 0.7) + (habit_contribution * 30)
             new_progress = min(new_progress, 100.0)
 
-        # Skip update if progress unchanged
-        if abs(new_progress - old_progress) < 0.01:
+        # Skip update only if nothing changed. `new_progress` is capped at 100, so once
+        # a streak reaches its target the percentage stops moving while avg_streak keeps
+        # climbing — the measurement would freeze at "30/30 days" on a 31-day streak.
+        # Decreases already propagate (a broken streak moves the percentage), so without
+        # this the field would track downwards but not upwards. Same shape as the
+        # task-based guard above.
+        measurement_stale = (
+            goal.measurement_type == MeasurementType.HABIT_BASED
+            and goal.current_value != avg_streak
+        )
+        progress_changed = abs(new_progress - old_progress) >= 0.01
+        if not progress_changed and not measurement_stale:
             self.logger.debug(
                 f"Goal {goal_uid} progress unchanged ({old_progress:.1f}%), skipping update"
             )
@@ -1206,8 +1216,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # target_value does not describe avg_streak there and current_value stays.
             updates["current_value"] = float(avg_streak)
 
-        # Check if goal is achieved
-        if new_progress >= 100:
+        # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
+        # below. `>= 100` alone re-stamps achieved_date on every later write, which a
+        # measurement-only write (streak 30 -> 31, both 100%) now reaches.
+        if new_progress >= 100 and old_progress < 100:
             updates["status"] = EntityStatus.COMPLETED.value
             updates["achieved_date"] = date.today()
 
@@ -1217,20 +1229,23 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         self.logger.info(
-            f"Updated goal {goal_uid} progress: {old_progress:.1f}% → {new_progress:.1f}% "
+            f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
             f"(avg_streak={avg_streak:.1f}, {total_habits} habits)"
         )
 
-        # Publish GoalProgressUpdated event
-        progress_event = GoalProgressUpdated(
-            goal_uid=goal_uid,
-            user_uid=user_uid,
-            old_progress=old_progress,
-            new_progress=new_progress,
-            triggered_by_habit_completion=True,  # Triggered by habit completion
-            triggered_by_manual_update=False,
-        )
-        await publish_event(self.event_bus, progress_event, self.logger)
+        # Publish only when the percentage actually moved — a zero-delta publish on a
+        # positive goal is read as a STALL by GoalEventHandlerService and persists an
+        # IMBALANCE_DETECTED insight. Same reasoning as the task-based path.
+        if progress_changed:
+            progress_event = GoalProgressUpdated(
+                goal_uid=goal_uid,
+                user_uid=user_uid,
+                old_progress=old_progress,
+                new_progress=new_progress,
+                triggered_by_habit_completion=True,  # Triggered by habit completion
+                triggered_by_manual_update=False,
+            )
+            await publish_event(self.event_bus, progress_event, self.logger)
 
         # If goal was achieved, publish GoalAchieved event
         if new_progress >= 100 and old_progress < 100:
