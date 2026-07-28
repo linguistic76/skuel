@@ -538,22 +538,6 @@ def get_title_or_name_lower(item: Any) -> str:
     return getattr(item, "title", getattr(item, "name", "")).lower()
 
 
-def get_current_value(item: Any) -> float:
-    """
-    Get current_value from item for progress sorting.
-
-    Used for sorting goals by progress/current value.
-    Example: goals.sort(key=get_current_value, reverse=True)
-
-    Args:
-        item: Object with current_value attribute
-
-    Returns:
-        The current_value or 0 if not present
-    """
-    return getattr(item, "current_value", 0)
-
-
 def get_current_streak(item: Any) -> int:
     """
     Get current_streak from habit for streak sorting.

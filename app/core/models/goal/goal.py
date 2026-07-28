@@ -82,6 +82,11 @@ class Goal(UserOwnedEntity):
     # =========================================================================
     # MEASUREMENT
     # =========================================================================
+    # DOMAIN UNITS, named by unit_of_measurement — 25 of 100 miles, 3 of 10 books,
+    # a 30-day streak. NOT a percent: progress_percentage below is the percent, and
+    # it is what calculate_progress() reads. A writer that has computed a percent
+    # writes progress_percentage and leaves current_value alone; only a writer
+    # holding a real measurement in target_value's unit may touch current_value.
     target_value: float | None = None
     current_value: float = 0.0
     unit_of_measurement: str | None = None
@@ -142,12 +147,21 @@ class Goal(UserOwnedEntity):
     # =========================================================================
 
     def calculate_progress(self) -> float:
-        """Calculate goal progress (0.0-1.0)."""
-        if self.measurement_type == MeasurementType.PERCENTAGE:
-            return min(1.0, self.progress_percentage / 100.0)
+        """Calculate goal progress (0.0-1.0) from ``progress_percentage``.
+
+        ``progress_percentage`` (0-100) is the canonical progress field — every
+        writer in ``GoalsProgressService`` maintains it, and ``complete_goal``
+        settles it at 100. ``current_value``/``target_value`` are the DOMAIN-UNIT
+        measurement (see the MEASUREMENT block above), not a percent, so they are
+        consulted only to seed a goal whose progress has never been recorded: a
+        goal authored with ``current_value`` set still reads correctly before any
+        writer has run.
+        """
+        if self.progress_percentage:
+            return min(1.0, max(0.0, self.progress_percentage / 100.0))
         if self.target_value and self.target_value > 0:
-            return min(1.0, self.current_value / self.target_value)
-        return self.progress_percentage / 100.0 if self.progress_percentage else 0.0
+            return min(1.0, max(0.0, self.current_value / self.target_value))
+        return 0.0
 
     def get_days_remaining(self) -> int | None:
         """Days until target_date."""

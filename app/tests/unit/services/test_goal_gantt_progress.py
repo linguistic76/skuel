@@ -20,8 +20,8 @@ carrying a ``progress`` attribute would make the buggy code pass and silently re
 regression.
 
 Two tests here also pin the *choice of reader*. ``Goal`` exposes both
-``progress_percentage`` (0-100) and ``calculate_progress()`` (nominally 0.0-1.0), and the
-latter is wrong for this bar — see ``TestGoalBarReaderChoice``.
+``progress_percentage`` (0-100) and ``calculate_progress()`` (0.0-1.0), and the latter is
+wrong for this bar — see ``TestGoalBarReaderChoice``.
 """
 
 from __future__ import annotations
@@ -188,18 +188,22 @@ class TestGoalBarUntypedStoredValue:
 class TestGoalBarReaderChoice:
     """``Goal`` offers two progress readers and only one of them is right here.
 
-    ``Goal.calculate_progress()`` prefers a ``current_value / target_value`` branch, but
-    every live writer stores a *percent* in ``current_value`` while ``target_value`` holds
-    domain units (5 tasks, a 30-day streak, 10 books). Both tests below would fail if this
-    formatter were switched to ``calculate_progress()``; they exist so that switch cannot
-    be made silently.
+    ``calculate_progress()`` returns 0.0-1.0 while this bar wants 0-100, so switching the
+    formatter to it would need back the ``* 100`` that was deleted alongside the reader —
+    and ``round()`` collapses what arrives instead. Both tests below fail on that switch;
+    they exist so it cannot be made silently.
+
+    They no longer turn on the unit mismatch they were written for (``current_value``
+    holding a percent against a ``target_value`` in domain units): that is fixed, and
+    ``calculate_progress()`` now agrees with ``progress_percentage`` on both goals here —
+    on the *0.0-1.0* scale, which is exactly the trap.
     """
 
     def test_completed_value_measured_goal_reads_full(self, service: VisualizationService) -> None:
         """``goals_core_service.complete_goal`` writes ``progress_percentage=100.0`` and
-        never touches ``current_value``, so ``calculate_progress()`` returns
-        ``min(1.0, 0.0 / 10.0)`` = 0.0 — a finished goal with an empty bar, which is the
-        exact symptom this module exists to prevent."""
+        never touches ``current_value``. ``calculate_progress()`` reads that as 1.0, which
+        ``round()`` would put on the bar as 1% — a finished goal all but empty, the same
+        symptom in a smaller size."""
         bar = _goal_bar(
             service,
             _goal(
@@ -215,9 +219,9 @@ class TestGoalBarReaderChoice:
     def test_task_based_goal_one_fifth_in_does_not_read_complete(
         self, service: VisualizationService
     ) -> None:
-        """``goals_progress_service`` writes ``current_value = new_progress`` (a percent)
-        alongside ``progress_percentage``, so for a 5-task goal one task in,
-        ``calculate_progress()`` computes ``min(1.0, 20.0 / 5.0)`` = 1.0."""
+        """A 5-task goal one task in. ``calculate_progress()`` reads 0.2, which ``round()``
+        would put on the bar as 0 — the original empty-bar symptom, restored by a reader
+        swap rather than by a missing field."""
         bar = _goal_bar(
             service,
             _goal(

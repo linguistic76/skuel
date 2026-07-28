@@ -546,11 +546,13 @@ class VisualizationService:
         # normalisation is deleted rather than repaired — against a 0-100 reader it would
         # render a goal 0.5% along as a 50% bar.
         #
-        # Goal.calculate_progress() looks like the natural reader here and is not: its
-        # current_value / target_value branch divides a percent by domain units, so a
-        # TASK_BASED goal 1 of 5 tasks in reports 100%, and a NUMERIC goal the user has
-        # just completed reports 0%. That is a defect in the model, not one to work
-        # around here.
+        # Goal.calculate_progress() looks like the natural reader here and is not. The
+        # unit defect it used to carry — a current_value / target_value branch dividing a
+        # percent by domain units — is fixed, so that is no longer the reason; two others
+        # outlive it. It returns 0.0-1.0, so switching to it would bring back the very
+        # `* 100` deleted above. And it computes on the stored value, so a non-numeric
+        # progress_percentage raises inside the model before the narrowing below can turn
+        # it into a Result — reading raw is what keeps that guard reachable.
         #
         # Nothing validates the stored value, in range OR in type: vault ingestion copies
         # goal frontmatter into node properties unchecked

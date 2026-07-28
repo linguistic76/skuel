@@ -400,10 +400,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if habit_result.habit_count > 0:
             new_progress = habit_result.contribution * 100
 
-            updates: dict[str, Any] = {
-                "progress_percentage": new_progress,
-                "current_value": new_progress,
-            }
+            # current_value is untouched: the contribution is normalized against
+            # STREAK_NORMALIZATION_DAYS, not against this goal's target_value, so
+            # there is no measurement in target_value's unit to record here.
+            updates: dict[str, Any] = {"progress_percentage": new_progress}
 
             # Check if goal is achieved
             if new_progress >= 100:
@@ -686,11 +686,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         goal = to_domain_model(goal_dto, GoalDTO, Goal)
         old_progress = goal.progress_percentage or 0.0
 
-        # Update progress
-        updates: dict[str, Any] = {
-            "progress_percentage": progress_value,
-            "current_value": progress_value,
-        }
+        # Update progress. progress_value is a percent (0-100), so it goes to
+        # progress_percentage only — current_value holds domain units.
+        updates: dict[str, Any] = {"progress_percentage": progress_value}
 
         if notes:
             # Append notes to metadata (access via DTO)
@@ -994,10 +992,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # task-completion provenance (triggered_by_task_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {
-            "progress_percentage": new_progress,
-            "current_value": new_progress,
-        }
+        # current_value is untouched: task_contribution is completed/total over the
+        # linked tasks, which target_value does not describe, so writing completed_tasks
+        # here would silently redefine what target_value counts.
+        updates: dict[str, Any] = {"progress_percentage": new_progress}
 
         # Check if goal is achieved
         if new_progress >= 100:
@@ -1163,10 +1161,14 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # habit-completion provenance (triggered_by_habit_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {
-            "progress_percentage": new_progress,
-            "current_value": new_progress,
-        }
+        updates: dict[str, Any] = {"progress_percentage": new_progress}
+
+        if goal.measurement_type == MeasurementType.HABIT_BASED:
+            # target_value is the desired streak length (see the division above), so
+            # avg_streak is a genuine measurement in its unit — the one domain-unit
+            # value this file computes. MIXED blends habits with other factors, so
+            # target_value does not describe avg_streak there and current_value stays.
+            updates["current_value"] = float(avg_streak)
 
         # Check if goal is achieved
         if new_progress >= 100:
