@@ -10,14 +10,17 @@ That broke four behaviours: the "already complete" short-circuit, the "Over
 halfway to goal" factor and ``progress_factor > 0.7`` could never fire, and
 predicted dates were inflated ~100x. ``_progress_percent`` is now the one
 place progress is read, and it reads ``progress_percentage`` rather than
-``calculate_progress()`` — the latter's ``current_value / target_value``
-branch divides a percent by domain units, which saturates a 20%-complete task
-goal at 1.0 and would trip the very short-circuit this change revived.
+``calculate_progress()`` — a 0.0-1.0 fraction is simply not this module's unit.
+
+The unit *mismatch* that once separated the two readers by value — a
+``current_value / target_value`` branch dividing a percent by domain units — is
+fixed, and ``calculate_progress()`` reads ``progress_percentage`` too. The scale
+gap is what survives, and it is the whole reason this helper exists.
 
 So the tests come in two layers: the **unit** ones use PERCENTAGE goals, where
-both readers agree exactly, and stay valid under either source; the
-**source** ones use states the live writers in ``goals_progress_service``
-actually produce, where the two disagree.
+the two readers differ only by the factor of 100, and stay valid under either
+source; the **source** ones use states the live writers in
+``goals_progress_service`` actually produce.
 
 These helpers are pure functions of a ``Goal`` — no graph, no mocks.
 """
@@ -48,8 +51,9 @@ def _goal(
 ) -> Goal:
     """A percentage-measured goal sitting at ``progress`` percent complete.
 
-    PERCENTAGE measurement deliberately — it keeps these tests off the
-    ``current_value / target_value`` branch, which has its own open defect.
+    PERCENTAGE measurement deliberately — it leaves ``current_value`` and
+    ``target_value`` unset, so these tests turn on the scale of the reading and
+    nothing else.
     """
     today = date.today()
     return Goal(
@@ -74,8 +78,9 @@ def _measured_goal(
 ) -> Goal:
     """A goal in a state the live writers in ``goals_progress_service`` produce.
 
-    These are the states where ``current_value`` and ``progress_percentage``
-    disagree, which is what makes the choice of reader observable.
+    ``current_value`` and ``progress_percentage`` disagree here — historically the
+    percent-in-a-unit-field defect, and still so for legacy rows the audit script
+    surfaces — which keeps the choice of reader observable on real data.
     """
     today = date.today()
     return Goal(
@@ -109,10 +114,13 @@ class TestProgressPercentBoundary:
         assert _progress_percent(goal) == pytest.approx(25.0)
 
     def test_task_goal_partway_through_is_not_read_as_complete(self):
-        """1 of 5 tasks done. ``_update_task_based_progress`` stores the percent
-        in ``current_value`` while ``target_value`` holds the unit count, so
-        ``calculate_progress()`` divides 20 by 5, saturates at 1.0, and reads
-        100% — which would trip the completion short-circuit.
+        """1 of 5 tasks done, on the 0-100 scale this module's arithmetic assumes.
+
+        The guard used to assert ``calculate_progress()`` saturating at 1.0, because
+        ``current_value`` then held a percent against a unit ``target_value``. That
+        defect is fixed, so the two readers now agree on the *value* and differ only
+        on scale — which is the mismatch that killed four behaviours here: 0.2 fed
+        into ``100 - progress`` and a percentage-point sigmoid is still wrong.
         """
         goal = _measured_goal(
             measurement_type=MeasurementType.TASK_BASED,
@@ -121,14 +129,18 @@ class TestProgressPercentBoundary:
             progress_percentage=20.0,
         )
 
-        assert goal.calculate_progress() == pytest.approx(1.0), (
-            "guard: this test is meaningless if calculate_progress() stops saturating here"
+        assert goal.calculate_progress() == pytest.approx(0.2), (
+            "guard: this test is meaningless if the two readers stop differing in scale"
         )
         assert _progress_percent(goal) == pytest.approx(20.0)
 
     def test_completed_numeric_goal_is_not_read_as_stale(self):
         """``complete_goal`` writes only ``progress_percentage``, leaving
         ``current_value`` at whatever the last measurement was.
+
+        The guard used to assert 0.3 — the stale ``3/10`` division. That branch is
+        deleted, so a finished goal now reads 1.0 rather than a third done. The
+        scale gap is what remains: 1.0 into a ``>= 100`` short-circuit never fires.
         """
         goal = _measured_goal(
             measurement_type=MeasurementType.NUMERIC,
@@ -137,8 +149,8 @@ class TestProgressPercentBoundary:
             progress_percentage=100.0,
         )
 
-        assert goal.calculate_progress() == pytest.approx(0.3), (
-            "guard: the stale division is what this reader exists to avoid"
+        assert goal.calculate_progress() == pytest.approx(1.0), (
+            "guard: this test is meaningless if the two readers stop differing in scale"
         )
         assert _progress_percent(goal) == pytest.approx(100.0)
 

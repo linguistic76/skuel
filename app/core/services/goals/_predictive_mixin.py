@@ -25,6 +25,7 @@ from core.services.intelligence import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import finite_float
 
 if TYPE_CHECKING:
     from core.models.habit.habit import Habit
@@ -42,31 +43,33 @@ def _progress_percent(goal: Goal) -> float:
     percentage-point differences, completion is ``100 - progress`` — so the
     unit is read once here rather than converted at each of seven sites.
 
-    Reads ``progress_percentage``, not ``calculate_progress()``: the latter's
-    ``current_value / target_value`` branch divides a percent by domain units,
-    because four of the five ``current_value`` writers in
-    ``goals_progress_service`` store a percent while ``target_value`` holds
-    units. A task goal 1-of-5 done reads 1.0 there and would trip the
-    ``>= 100`` short-circuit below; ``complete_goal`` writes only
-    ``progress_percentage``, so a finished NUMERIC goal reads stale. Same
-    reader ``format_goal_gantt`` settled on (#846).
+    Reads ``progress_percentage``, not ``calculate_progress()``. The unit defect
+    that first motivated this — a ``current_value / target_value`` branch dividing
+    a percent by domain units — is gone, and ``calculate_progress()`` now reads
+    ``progress_percentage`` too, so the two no longer disagree on any value. They
+    still disagree on **scale**: this module's arithmetic is percentage-scaled and
+    ``calculate_progress()`` returns 0.0-1.0, which is precisely the mismatch that
+    left four behaviours here dead. Same reader ``format_goal_gantt`` settled on
+    (#846).
 
-    Known gap: a bare ``current_value`` update (``GoalUpdateIntent`` accepts
-    one and nothing derives a percentage from it) reads 0 here. Under-reporting
-    is the safe direction for a predictor — over-reporting claims a goal done.
+    Known gap: a bare ``current_value`` update (``GoalUpdateIntent`` accepts one
+    and nothing derives a percentage from it) reads 0 here. That is now the whole
+    system's answer rather than this reader's quirk — ``calculate_progress()``
+    reads it as 0 as well, deliberately, because a stored 0 percent cannot be told
+    from an unrecorded one. Under-reporting is the safe direction for a predictor;
+    over-reporting claims a goal done.
 
-    Neo4j properties carry no type and vault frontmatter is copied in
-    unchecked, so the value can arrive as a string or non-finite (#846). The
-    clamp restores the ``min(1.0, ...)`` ceiling ``calculate_progress()``
-    applied; an unusable value predicts from 0 rather than raising into the
-    seven callers, but says so.
+    Neo4j properties carry no type and vault frontmatter is copied in unchecked,
+    so the value can arrive as a string or non-finite (#846). ``finite_float`` is
+    the shared predicate for that — ``format_goal_gantt`` and
+    ``Goal.calculate_progress()`` narrow through the same one — and the callers
+    choose the policy for an unusable value. Here it predicts from 0 rather than
+    raising into the seven call sites, but says so. The clamp is separate: it
+    restores the ceiling ``calculate_progress()``'s ``min(1.0, ...)`` applied.
     """
-    try:
-        percent = float(goal.progress_percentage)
-    except TypeError, ValueError:
-        percent = math.nan
+    percent = finite_float(goal.progress_percentage)
 
-    if not math.isfinite(percent):
+    if percent is None:
         logger.warning(
             f"Goal {goal.uid} has an unusable progress_percentage "
             f"({goal.progress_percentage!r}) — predicting from 0"
