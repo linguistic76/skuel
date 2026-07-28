@@ -27,6 +27,19 @@ Architecture:
 - Delegates response generation to ResponseGenerator
 - All dependencies required — no fallbacks or degraded modes
 
+Why this is hand-rolled and not `neo4j-graphrag` / `langchain-neo4j` text2cypher:
+- Intent is classified by embedding similarity (IntentClassifier, no LLM); the LLM only
+  generates the answer. It NEVER writes a query. Retrieval is fixed, reviewed,
+  parameterized Cypher below UniversalNeo4jBackend.
+- Multi-tenancy is the decisive reason: LLM-generated Cypher carries no enforced
+  ``user_uid`` scoping, which is a data-leak *class*, not a tuning problem.
+- SKUEL001/SKUEL021 enforce the boundary in CI — *executable* Cypher anywhere above the
+  ADR-044 boundary (all of ``core/`` — including this file — plus ``adapters/inbound/``
+  and ``ui/``) fails the Lint job. Cypher quoted in docstrings is exempt by design.
+- To add open-ended querying, use LLM *tool-selection* (model picks a vetted tool and
+  fills typed args; ``user_uid`` is injected server-side), never query generation.
+See: docs/roadmap/askesis-tool-selection-queries.md (a design sketch, not scheduled)
+
 January 2026: Refactored to use IntentClassifier and ResponseGenerator
 for single responsibility and reduced file size (962 -> ~500 lines).
 March 2026: Removed all fallback/template paths — works or fails.

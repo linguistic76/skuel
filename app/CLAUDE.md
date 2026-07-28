@@ -392,7 +392,9 @@ Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONL
 
 **LLM/embedding SDK clients (ADR-063):** `openai`/`anthropic`/`huggingface_hub` clients live in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`. `core/` is SDK-client-free (only `exception_types.py` imports SDK exception classes). Guarded by `tests/unit/test_llm_sdk_boundary.py` (fails closed on any new vendor import).
 
-**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`, `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`
+**No LLM-generated Cypher, and no GraphRAG framework in the product runtime.** SKUEL deliberately does not use `neo4j-graphrag` or `langchain-neo4j`'s `text2cypher` (both left the tree with the `langchain-*` removal, 2026-07-27; `mcp-neo4j-cypher` remains a dev-group tool, and production builds `uv sync --no-dev`). Intent is classified by embedding similarity — the LLM only generates the answer, and never writes a query. Retrieval is deterministic, reviewed, parameterized Cypher below `UniversalNeo4jBackend` (SKUEL001/SKUEL021 gate *where* Cypher may be authored; CYP003 gates parameterization). The decisive reason is multi-tenancy — generated Cypher has no enforced `user_uid` scoping, which is a data-leak *class*, not a tuning problem. The only shape we would consider for open-ended querying is **LLM tool-selection** (model picks a vetted tool + typed args; `user_uid` injected server-side) — a design sketch, not scheduled.
+
+**See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`, `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`, `/docs/roadmap/askesis-tool-selection-queries.md` (why not text2cypher/GraphRAG + the tool-selection alternative)
 
 ### Embedding Text Extraction
 

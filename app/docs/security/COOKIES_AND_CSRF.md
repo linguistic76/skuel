@@ -210,11 +210,11 @@ The through-line: **rely on open, well-maintained primitives; add the smallest c
 
 ### On the roadmap, in priority order
 
-Full detail in [`docs/roadmap/security-hardening-deferred.md`](../roadmap/security-hardening-deferred.md). Each item is **deferred, not rejected** — the current state is safe for pre-public use. Each item has a concrete trigger condition.
+Full detail in [`docs/roadmap/security-hardening-deferred.md`](../roadmap/security-hardening-deferred.md). Items are **deferred, done, or closed** — never rejected; the current state is safe for pre-public use. Each still-deferred item has a concrete trigger condition; closed and done items carry none.
 
 | # | Item | Trigger |
 |---|---|---|
-| 1 | Pin `langchain-*` dependency versions | Before any langchain upgrade; before production |
+| 1 | ~~Pin `langchain-*` dependency versions~~ **Closed (2026-07-27):** the four `langchain-*` packages were never imported and have been removed from `pyproject.toml` | — |
 | 2 | CI CVE scanning (`pip-audit` against OSV) | When a CI pipeline exists |
 | 3 | ~~Rate limiting on auth endpoints~~ **Done (in-process):** `rate_limited_ip` on all four auth POST handlers (login 10/60s, register/forgot-password/reset-password 5/300s). **Remaining:** Redis-backed cluster-wide limiting for multi-worker deployments | Multi-worker deployment |
 | 4 | Pre-commit `detect-secrets` | When a second developer joins |

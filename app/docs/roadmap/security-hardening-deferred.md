@@ -1,6 +1,6 @@
 ---
 title: Security Hardening — Deferred Items
-updated: 2026-07-24
+updated: 2026-07-27
 category: roadmap
 tags: [roadmap, security, hardening]
 ---
@@ -12,8 +12,9 @@ just not urgent before public deployment.
 
 **Status sweep 2026-07-24** (public-launch hardening, PR #794): item 7 (security headers) is
 **done**; items 2, 3, and 5 are partially overtaken by shipped work — each carries a dated
-status note below. Item 1 remains deferred as written; CAPTCHA (row 6 of the priority
-table) is the still-open remainder of item 2. Later the same day, PR #797 shipped item 5's
+status note below. Item 1 was closed on 2026-07-27 (see § 1 — closed by deleting the
+dependencies, not by pinning); CAPTCHA (row 6 of the priority table) is the still-open
+remainder of item 2. Later the same day, PR #797 shipped item 5's
 dependency CVE audit (the `pip_audit` CI job) — its parts B/C remain open — and item 4
 (session rotation) shipped as session revocation on privilege change plus per-request
 graph-session enforcement.
@@ -23,40 +24,29 @@ the implemented fixes (Phases 1–3) and surfaced these deferrals.
 
 ---
 
-## 1. Dependency Version Pinning (Langchain)
+## 1. Dependency Version Pinning (Langchain) — ✅ CLOSED (2026-07-27)
 
-> **Status 2026-07-24 — partially overtaken by ADR-067.** The "wildcard `*`" claim below is
-> stale: `pyproject.toml` now carries `>=` floors tracking the locked latest, `uv.lock` pins
-> exact resolutions (and `Dockerfile.production` builds with `uv sync --frozen`), and Renovate
-> opens update PRs gated by CI. What remains of this item is the *judgment call* — whether
-> `langchain-*` deserves a deliberate cap like `neo4j` / `deepgram-sdk` (the two documented
-> intentional pins) rather than riding the latest-stable default. See ADR-067 for the policy.
+**Closed by deletion, not by pinning.** The four `langchain-*` packages
+(`langchain-community`, `langchain-core`, `langchain-neo4j`, `langchain-openai`) were
+declared in `pyproject.toml` but **imported by zero Python files** — `grep -rnE '^\s*(import|from)\s+langchain'
+--include="*.py"` returned no hits. They were removed from `pyproject.toml`, along with the
+`langchain.*` MyPy override, which was already dead config (the real import names are
+`langchain_core`, `langchain_openai`, … — the dotted pattern never matched anything).
 
-**Why deferred**: Requires careful testing across the embedding and AI service layers. Current
-wildcard `*` pinning has not caused breakage; the risk is low until we approach production.
+**The premise was false.** This item claimed a breaking `langchain-core` or `langchain-openai`
+release "could silently degrade embedding generation, vector search, or AI feedback." None of
+those paths ever touched LangChain: embeddings go through `EmbeddingClientOperations` to the
+provider SDK directly, vector search is hand-written parameterized Cypher in
+`VectorSearchBackend` (below the persistence boundary — it takes a `Neo4jQueryExecutor` directly
+rather than extending `UniversalNeo4jBackend`), and AI feedback goes through `ChatCompletionPort`
+(ADR-063). An unused dependency has no runtime blast radius to pin against. 26 of the 28 packages
+that tree carried are gone; `numpy` and `tenacity` were retained as direct dependencies of the
+embeddings adapters. That is strictly better than pinning the tree.
 
-**The problem**: `pyproject.toml` uses `langchain-*` with unpinned versions. A breaking
-`langchain-core` or `langchain-openai` release could silently degrade embedding generation,
-vector search, or AI feedback — failures that are hard to detect without a full regression suite.
-
-**What to do**:
-
-1. Run `uv pip show --tree | grep langchain` to capture current resolved versions.
-2. Pin each `langchain-*` package to the currently-resolved version:
-   ```toml
-   langchain-core = "^0.3.x"
-   langchain-openai = "^0.2.x"
-   langchain-community = "^0.3.x"
-   ```
-   Use `^` (compatible release) rather than `==` (exact) so patch-level security fixes apply
-   automatically.
-3. Run the full test suite. Pay attention to:
-   - `tests/unit/test_embeddings*.py`
-   - `tests/integration/test_*_intelligence*.py`
-   - Any test that calls `BaseAIService` subclasses
-4. Commit as a standalone dependency PR with the resolved versions documented in the commit message.
-
-**Enable when**: Preparing for production deployment, or after any langchain upgrade breaks CI.
+**Why it lingered:** a declared dependency reads as a used one. The removal was first proposed
+in `docs/roadmap/askesis-tool-selection-queries.md` § Open questions ("langchain cleanup") and
+sat unactioned; it is closed now. If SKUEL ever adopts an orchestration framework, that is a new
+decision requiring an ADR, not a revival of this item.
 
 ---
 
@@ -288,7 +278,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
 
 | # | Item | Status / trigger |
 |---|------|------------------|
-| 1 | **Dependency pinning** | Open — before any langchain upgrade (see the item's status note) |
+| 1 | **Dependency pinning** | ✅ Closed (2026-07-27) — the `langchain-*` packages it targeted were never imported and have been removed; nothing left to pin |
 | 2 | **CI CVE scanning** | ✅ Done (PR #797) — `pip_audit` CI job + `./dev audit-deps`; history scan (B) + SBOM (C) remain on their own triggers |
 | 3 | **Rate limiting** | ✅ Done — `/adapters/inbound/rate_limit.py` + invite gate |
 | 4 | **Pre-commit secret scanning** | ✅ Done — `scripts/git-hooks/pre-commit` |
