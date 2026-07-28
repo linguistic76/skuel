@@ -70,7 +70,6 @@ class KuService:
         )
 
         common: CurriculumCommonSubServices[KuIntelligenceService] = create_curriculum_sub_services(
-            domain="ku",
             backend=backend,
             graph_intel=graph_intel,
             event_bus=event_bus,

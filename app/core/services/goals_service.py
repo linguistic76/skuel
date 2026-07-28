@@ -568,7 +568,6 @@ class GoalsService(
             graph_intel=graph_intel,
             event_bus=event_bus,
             insight_store=insight_store,
-            skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         assert common.core is not None  # 'core' not in skip
