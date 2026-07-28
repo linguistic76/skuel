@@ -89,6 +89,37 @@ class TestTaskBasedGoalOwnsItsMeasurement:
         assert updates["target_value"] == 20.0
         assert updates["progress_percentage"] == pytest.approx(20.0)
 
+    async def test_a_changed_tally_at_the_same_percent_still_writes(self):
+        """1-of-5 and 2-of-10 are both 20%, so the unchanged-progress guard would
+        return before the tally write and leave the page rendering "1/5 tasks" after
+        five more tasks were linked and one completed. The tally is part of "changed".
+        """
+        goal = _goal(
+            MeasurementType.TASK_BASED,
+            current_value=1.0,
+            target_value=5.0,
+            progress_percentage=20.0,
+        )
+        updates = await _written(goal, total_tasks=10, completed_tasks=2)
+
+        assert updates["current_value"] == 2.0
+        assert updates["target_value"] == 10.0
+        assert updates["progress_percentage"] == pytest.approx(20.0)
+
+    async def test_an_unchanged_tally_at_the_same_percent_does_not_write(self):
+        """The guard still does its job — a no-op event must stay a no-op."""
+        goal = _goal(
+            MeasurementType.TASK_BASED,
+            current_value=1.0,
+            target_value=5.0,
+            progress_percentage=20.0,
+        )
+        service, backend = _service(goal, total_tasks=5, completed_tasks=1)
+
+        await service._update_goal_from_task_completion(goal.uid, _USER)
+
+        assert backend.update.await_count == 0
+
     async def test_the_three_fields_agree(self):
         """current/target is the percent, by construction rather than by luck."""
         updates = await _written(

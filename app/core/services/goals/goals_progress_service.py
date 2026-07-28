@@ -982,8 +982,16 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # This is simplified - ideally we'd recalculate all factors
             new_progress = (old_progress * 0.7) + (task_contribution * 30)
 
-        # Only update if progress changed significantly (>0.1%)
-        if abs(new_progress - old_progress) < 0.1:
+        # Only update if something changed. For TASK_BASED goals the stored tally is
+        # part of "something": 1-of-5 and 2-of-10 are both 20%, so a percentage-only
+        # guard would leave the detail page rendering "1/5 tasks" after five more were
+        # linked and one completed. `!=` rather than a narrowed comparison on purpose —
+        # it never raises across types, and a legacy string current_value reads as stale
+        # and gets repaired by the write below.
+        tally_stale = goal.measurement_type == MeasurementType.TASK_BASED and (
+            goal.current_value != completed_tasks or goal.target_value != total_tasks
+        )
+        if abs(new_progress - old_progress) < 0.1 and not tally_stale:
             self.logger.debug(f"Goal {goal_uid} progress unchanged ({new_progress:.1f}%)")
             return
 
