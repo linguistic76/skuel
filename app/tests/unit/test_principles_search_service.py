@@ -274,5 +274,41 @@ async def test_get_prioritized_filters_active(search_service, mock_backend, user
     assert kwargs["is_active"] is True
 
 
+@pytest.mark.asyncio
+async def test_get_related_principles_skips_category_fallback_when_category_is_none(
+    search_service, mock_backend
+):
+    """A principle with no category must not send None into the category query.
+
+    ``Principle.category`` is ``principle_category.value`` falling back to
+    ``domain.value``. None is reachable through the production path: the row
+    below is what a Cypher map projection yields for a node missing both
+    properties, and ``PrincipleDTO.from_dict`` propagates the explicit null
+    rather than substituting the field default. Cypher's ``= null`` then
+    matches zero rows silently, so the old behaviour was an empty result by
+    accident; this asserts it is one on purpose.
+    """
+    row = {
+        "uid": "p:bare",
+        "title": "Bare",
+        "user_uid": "user_demo",
+        "status": EntityStatus.ACTIVE.value,
+        "domain": None,
+        "principle_category": None,
+    }
+    # Precondition this test exists for — asserted through the same
+    # from_dict/from_dto pair the service uses, not by poking the DTO.
+    assert Principle.from_dto(PrincipleDTO.from_dict(row)).category is None
+
+    mock_backend.get_related_principles_by_traversal.return_value = Result.ok([])
+    mock_backend.get.return_value = Result.ok(row)
+
+    result = await search_service.get_related_principles("p:bare")
+
+    assert result.is_ok
+    assert result.value == []
+    mock_backend.get_principles_by_category.assert_not_called()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

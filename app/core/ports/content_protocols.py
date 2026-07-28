@@ -7,7 +7,7 @@ This eliminates the need for hasattr checks by ensuring all content conforms to 
 """
 
 from dataclasses import dataclass
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 
 @runtime_checkable
@@ -36,8 +36,13 @@ class ContentAdapter:
     which is the proper way to check for attributes dynamically.
     """
 
-    def __init__(self, content: Any) -> None:
-        """Wrap any content object with safe access."""
+    def __init__(self, content: object) -> None:
+        """Wrap any content object with safe access.
+
+        ``object`` rather than ``Any``: the wrapped value is only ever reached
+        through ``getattr`` with a default, and ``object`` is what makes an
+        unguarded ``self._content.uid`` an error instead of silence.
+        """
         self._content = content
 
     @property
@@ -127,7 +132,7 @@ class ContentAdapter:
         return self.title
 
 
-def ensure_content_protocol(content: Any) -> ContentAdapter:
+def ensure_content_protocol(content: object) -> ContentAdapter:
     """
     Ensure any content object conforms to ContentItem protocol.
 
@@ -143,7 +148,3 @@ def ensure_content_protocol(content: Any) -> ContentAdapter:
     if isinstance(content, ContentAdapter):
         return content
     return ContentAdapter(content)
-
-
-# Type alias for clarity
-ContentItemLike = ContentItem | ContentAdapter | Any

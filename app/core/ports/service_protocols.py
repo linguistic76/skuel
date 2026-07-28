@@ -45,7 +45,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.enums import UserRole
-    from core.models.event.calendar_models import CalendarData, CalendarItem
+    from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarView
     from core.models.event.event_dto import EventDTO
     from core.models.habit.completion import HabitCompletion
     from core.models.task.task_dto import TaskDTO
@@ -62,6 +62,7 @@ if TYPE_CHECKING:
         SignUpResult,
     )
     from core.services.cross_domain_analytics_service import LearningVelocityMetrics
+    from core.services.performance_types import AlertThresholds
     from core.services.user.unified_user_context import UserContext
 
 # ============================================================================
@@ -82,7 +83,7 @@ class CalendarServiceOperations(Protocol):
         user_uid: UserUID,
         start_date: date,
         end_date: date,
-        view_type: Any = ...,
+        view_type: "CalendarView" = ...,
         include_completed: bool = False,
     ) -> "Result[CalendarData]":
         """Get calendar view for a date range. Returns Result[CalendarData]."""
@@ -98,9 +99,17 @@ class CalendarServiceOperations(Protocol):
         item_type: str,
         title: str,
         start_time: datetime,
-        **kwargs: Any,
+        *,
+        duration: int = ...,
+        description: str = ...,
+        frequency: int = ...,
     ) -> "Result[CalendarItem]":
-        """Quick-create a calendar item owned by user_uid. Returns Result[CalendarItem]."""
+        """Quick-create a calendar item owned by user_uid. Returns Result[CalendarItem].
+
+        The optional fields are the closed set ``CalendarService.quick_create``
+        reads: ``duration`` (task/event minutes), ``description``, and
+        ``frequency`` (habit target days per week).
+        """
         ...
 
     async def reschedule_item(
@@ -176,8 +185,8 @@ class VisualizationOperations(Protocol):
     async def get_timeline_data(
         self,
         user_uid: UserUID,
-        start_date: Any,
-        end_date: Any,
+        start_date: date,
+        end_date: date,
         group_by: str = "type",
     ) -> Result[VisTimelineConfig]:
         """Get calendar timeline data formatted for Vis.js."""
@@ -267,8 +276,8 @@ class SystemServiceOperations(Protocol):
         """Update alert thresholds."""
         ...
 
-    def get_alert_thresholds(self) -> Any:
-        """Get current alert thresholds. Returns AlertThresholds."""
+    def get_alert_thresholds(self) -> "AlertThresholds":
+        """Get current alert thresholds."""
         ...
 
 
@@ -321,8 +330,10 @@ class LifePathAlignmentOperations(Protocol):
     Implementation: LifePathAlignmentService
     """
 
-    async def calculate_alignment(self, context: Any) -> "Result[LifePathAlignmentResult]":
-        """Calculate life path alignment. Accepts pre-built UserContext."""
+    async def calculate_alignment(
+        self, context: "UserContext"
+    ) -> "Result[LifePathAlignmentResult]":
+        """Calculate life path alignment from a pre-built UserContext."""
         ...
 
 

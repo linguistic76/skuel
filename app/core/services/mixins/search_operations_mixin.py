@@ -864,4 +864,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 if TYPE_CHECKING:
     from core.ports.base_service_interface import SearchOperations
 
-    _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-abstract, assignment]
+    # Only `type-abstract` remains: the `assignment` half was masking a real
+    # conformance error — SearchOperations declared `relationship_type: Any`
+    # and `direction: str` where the mixin declares RelationshipName/Direction.
+    # With the protocol tightened to match, the mixin conforms for real.
+    _protocol_check: type[SearchOperations[Any]] = SearchOperationsMixin  # type: ignore[type-abstract]

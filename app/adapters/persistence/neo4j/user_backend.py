@@ -35,7 +35,7 @@ from adapters.persistence.neo4j._dual_track_checkin_store import atomic_append_c
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.enums.user_enums import UserStatus
-from core.models.type_hints import UserUID
+from core.models.type_hints import FilterValue, UserUID
 from core.models.user import User
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
@@ -978,12 +978,13 @@ class UserBackend(Neo4jSessionRunner):
     # ========================================================================
 
     @safe_backend_operation("find_by")
-    async def find_by(self, **filters: Any) -> Result[list[User]]:
+    async def find_by(self, **filters: FilterValue) -> Result[list[User]]:
         """
-        Find users by arbitrary filters.
+        Find users by field filters.
 
         Args:
-            **filters: Field filters (e.g., email="test@example.com")
+            **filters: Field filters (e.g., email="test@example.com") — passed
+                to the driver as query parameters, so driver primitives only
 
         Returns:
             Result[list[User]]: Matching users

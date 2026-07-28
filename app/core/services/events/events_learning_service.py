@@ -18,10 +18,9 @@ from core.events import publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.event.event_request import EventCreateRequest
+from core.models.event.event_request import EventCreateRequest, EventType
 from core.models.pathways.lp_position import LpPosition
 from core.models.type_hints import FilterParams, UserUID
-from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
@@ -169,7 +168,10 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             event_date=event_date,
             start_time=default_start,
             end_time=end_datetime.time(),
-            event_type="learning",
+            # EventType.LEARNING, not "learning": EventAdapter.get_activity_type
+            # and get_icon compare against the canonical UPPERCASE members, so a
+            # lowercase spelling silently falls through to ActivityType.EVENT.
+            event_type=EventType.LEARNING,
         )
 
         # Custom fields for Events domain (user_uid required for ownership)
@@ -209,7 +211,8 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             user_uid=user_uid,
             title=event.title,
             event_date=event_date,
-            calendar_event_type=get_enum_value(event.event_type),
+            # Event.event_type is str | None; the request above sets it
+            calendar_event_type=event.event_type or EventType.LEARNING,
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
@@ -322,7 +325,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
                     event_date=event_date_for_session,
                     start_time=session_start,
                     end_time=end_dt.time(),
-                    event_type="learning",
+                    event_type=EventType.LEARNING,  # canonical member — see create_study_session
                 )
 
                 custom_fields: dict[str, Any] = {"user_uid": user_uid}
@@ -356,7 +359,8 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
                 user_uid=user_uid,
                 title=event.title,
                 event_date=event.event_date,
-                calendar_event_type=get_enum_value(event.event_type),
+                # Event.event_type is str | None; the requests above set it
+                calendar_event_type=event.event_type or EventType.LEARNING,
             )
             await publish_event(self.event_bus, event_obj, self.logger)
 

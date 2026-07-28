@@ -25,6 +25,7 @@ from core.events import publish_event
 from core.models.enums import RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.event.event_request import EventType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties
 from core.services.events._habit_links import enrich_events_with_habit_links
@@ -573,14 +574,18 @@ class EventsHabitIntegrationService:
 
             # Publish CalendarEventCreated event (event-driven architecture)
             from core.events import CalendarEventCreated
-            from core.ports import get_enum_value
 
             event_obj = CalendarEventCreated(
                 event_uid=event.uid,
                 user_uid=user_context.user_uid,
                 title=event.title,
                 event_date=event.event_date or date.today(),
-                calendar_event_type=get_enum_value(event.event_type),
+                # event_data above sets no event_type, so Event.event_type is
+                # None here — publish a canonical EventType member rather than
+                # None (the field is declared str) or a raw literal. PERSONAL
+                # because a habit practice session is the user's own event and
+                # EventType has no RECURRING member.
+                calendar_event_type=event.event_type or EventType.PERSONAL,
             )
             await publish_event(self.event_bus, event_obj, self.logger)
 

@@ -398,9 +398,16 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         principle = self._to_domain_model(principle_result.value, PrincipleDTO, Principle)
         assert isinstance(principle, Principle)
 
-        from core.ports import get_enum_value
-
-        category_value = get_enum_value(principle.category)
+        # Principle.category is already a str property (principle_category.value,
+        # falling back to domain.value), and None is reachable: from_dto passes
+        # dto.domain straight through, so a graph row carrying neither property
+        # yields category None. There is then no category to match on — say so,
+        # instead of sending None into Cypher where `= null` silently matches
+        # zero rows. (The former get_enum_value() wrapper here was a no-op: the
+        # property returns a str, not an enum, and its Any return hid the None.)
+        category_value = principle.category
+        if category_value is None:
+            return Result.ok([])
 
         result = await self.backend.get_principles_by_category(
             category=category_value, exclude_uid=principle_uid, limit=limit

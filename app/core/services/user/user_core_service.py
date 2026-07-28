@@ -29,7 +29,7 @@ from core.events.user_events import UserDeleted
 from core.models.enums import DualTrackDimension
 from core.models.enums.user_enums import UserRole
 from core.models.shared.dual_track import DualTrackResult
-from core.models.type_hints import UserUID
+from core.models.type_hints import FilterParams, UserUID
 from core.models.user import User, create_user
 from core.ports.infrastructure_protocols import EventBusOperations, UserCrudOperations
 from core.utils.decorators import with_error_handling
@@ -521,8 +521,10 @@ class UserCoreService:
             This is an internal method. Authorization checks
             should be performed by the caller (UserService.list_users).
         """
-        # Build filter criteria
-        filters: dict[str, Any] = {}
+        # Build filter criteria — FilterParams, not dict[str, Any]: a
+        # dict[str, Any] splat satisfies any **kwargs annotation, so this
+        # local is what makes UserCrudOperations.find_by's FilterValue bite.
+        filters: FilterParams = {}
 
         if role_filter:
             filters["role"] = role_filter.value

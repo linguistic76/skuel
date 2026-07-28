@@ -8,10 +8,13 @@ Interfaces for infrastructure and system services.
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
-from core.models.type_hints import Metadata, UserUID
+from core.models.type_hints import FilterValue, Metadata, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from core.events.base import BaseEvent
     from core.models.enums.neo_labels import NeoLabel
     from core.models.user import User
     from core.services.ingestion.types import (
@@ -20,6 +23,14 @@ if TYPE_CHECKING:
         IncrementalStats,
         IngestionStats,
     )
+
+
+# A subscriber for events of type ``E``. Sync and async handlers are both
+# registered through the same call — ``InMemoryEventBus.subscribe`` sorts them
+# with ``inspect.iscoroutinefunction`` — so the alias carries both arms.
+# Parameterising by the event type is what makes a cross-event miswiring
+# (subscribing a TaskCompleted handler to GoalCreated) a type error.
+type EventHandler[E: BaseEvent] = Callable[[E], None] | Callable[[E], Awaitable[None]]
 
 
 @runtime_checkable
@@ -33,7 +44,7 @@ class EventBusOperations(Protocol):
     is fire-and-forget. Subscription is synchronous configuration.
     """
 
-    def publish(self, event: Any) -> None:
+    def publish(self, event: "BaseEvent") -> None:
         """
         Publish a typed event to the bus (sync version).
 
@@ -42,17 +53,18 @@ class EventBusOperations(Protocol):
         """
         ...
 
-    def subscribe(self, event_type: type, handler: Any) -> None:
+    def subscribe[E: "BaseEvent"](self, event_type: type[E], handler: "EventHandler[E]") -> None:
         """
         Subscribe to events of a given type.
 
         Args:
             event_type: Event class to subscribe to (e.g., TaskCompleted)
-            handler: Function to call when event is published (sync or async)
+            handler: Function to call when published (sync or async), taking
+                an instance of *event_type*
         """
         ...
 
-    def unsubscribe(self, event_type: type, handler: Any) -> None:
+    def unsubscribe[E: "BaseEvent"](self, event_type: type[E], handler: "EventHandler[E]") -> None:
         """
         Unsubscribe a previously-registered handler.
 
@@ -65,7 +77,7 @@ class EventBusOperations(Protocol):
         """
         ...
 
-    async def publish_async(self, event: Any) -> None:
+    async def publish_async(self, event: "BaseEvent") -> None:
         """
         Publish a typed event asynchronously (preferred for async contexts).
 
@@ -147,8 +159,13 @@ class UserCrudOperations(Protocol):
         """DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."""
         ...
 
-    async def find_by(self, **filters: Any) -> Result[list["User"]]:  # boundary: kwargs
-        """Find users by arbitrary filters."""
+    async def find_by(self, **filters: FilterValue) -> Result[list["User"]]:
+        """Find users by field filters.
+
+        The implementer builds a Cypher WHERE clause and hands the dict
+        straight to ``session.run`` as query parameters, so the values are
+        driver primitives — ``FilterValue``, not a boundary.
+        """
         ...
 
 

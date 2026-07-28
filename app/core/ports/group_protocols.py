@@ -17,7 +17,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 import builtins
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import FilterParams, UserUID
 from core.models.update_contracts import RawChanges
 from core.utils.result_simplified import Result
 
@@ -34,7 +34,7 @@ class GroupOperations(Protocol):
     """
 
     # Standard CRUD (CRUDRouteFactory-compatible)
-    async def create(self, entity: Any) -> "Result[Group]":
+    async def create(self, entity: "Group") -> "Result[Group]":
         """Create a group. Returns Result[Group]."""
         ...
 
@@ -62,7 +62,7 @@ class GroupOperations(Protocol):
         self,
         limit: int = 100,
         offset: int = 0,
-        filters: dict[str, Any] | None = None,
+        filters: FilterParams | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
         user_uid: UserUID | None = None,

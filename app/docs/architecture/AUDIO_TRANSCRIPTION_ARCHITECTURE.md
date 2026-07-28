@@ -86,15 +86,29 @@ Thin adapter — no business logic, no persistence. One method: `transcribe()`.
 Options are resolved in three layers (later layers override earlier):
 
 1. **Config defaults** — `DeepgramConfig` loaded from `config/deepgram.toml`
-2. **Per-call overrides** — keyword arguments to `transcribe(**overrides)`
+2. **Per-call overrides** — a `TranscriptionProcessOptions` passed as `transcribe(audio_path, options=...)`
 3. **Conditional inclusion** — intelligence/vocabulary options are only sent to the API when enabled (avoids unnecessary Deepgram credit charges)
+
+Layer 2 covers exactly the five fields on `TranscriptionProcessOptions`
+(`language`, `model`, `punctuate`, `paragraphs`, `diarize`), and covers them
+**field by field**: the adapter dumps with `exclude_unset=True`, so only the
+fields the caller actually set override the config. Every field on that model
+has a default, so a plain dump would reassert those defaults over
+`config/deepgram.toml` — passing `diarize=True` would silently reset the
+configured model and language. Every other Deepgram knob is config-only. That
+is deliberate: the port is provider-agnostic (ADR-063), so it cannot take a bag
+of `DeepgramConfig` field names, which is what the previous
+`transcribe(**overrides)` did.
 
 ```python
 # Uses config/deepgram.toml defaults
 result = await adapter.transcribe(audio_path="recording.mp3")
 
-# Override for this call only
-result = await adapter.transcribe(audio_path="recording.mp3", model="nova-3", diarize=True)
+# Override the five option fields for this call only
+result = await adapter.transcribe(
+    audio_path="recording.mp3",
+    options=TranscriptionProcessOptions(model="nova-3", diarize=True),
+)
 ```
 
 ### Utterance-Based Paragraph Breaks
@@ -137,7 +151,7 @@ User uploads audio file
 TranscriptionService.process(uid, options)
        |  (options override config defaults)
        v
-DeepgramAdapter.transcribe(audio_path, **overrides)
+DeepgramAdapter.transcribe(audio_path, options=opts)
        |
        v
 TranscriptionResult stored in Neo4j

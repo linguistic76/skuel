@@ -16,7 +16,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.relationship_names import RelationshipName
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
     from core.models.enums.neo_labels import NeoLabel
     from core.ports.base_protocols import Direction
+    from core.ports.query_types import RelationshipRow, TraversalNodeRow
 
 
 class _TraversalMixin:
@@ -114,7 +115,7 @@ class _TraversalMixin:
         uid: str,
         rel_type: RelationshipName | None = None,
         direction: Direction = "both",
-    ) -> Result[builtins.list[dict[str, Any]]]:
+    ) -> Result[builtins.list[RelationshipRow]]:
         """
         Get relationships for an entity.
 
@@ -126,11 +127,8 @@ class _TraversalMixin:
             direction: "outgoing", "incoming", or "both" (default)
 
         Returns:
-            Result[list[dict]]: List of relationship data with:
-                - type: Relationship type
-                - target_uid: Connected entity UID
-                - direction: "outgoing" or "incoming"
-                - properties: Relationship properties
+            Result[list[RelationshipRow]]: type / target_uid / direction /
+            properties — the four columns the RETURN below projects.
         """
         # Build direction-specific query; the WHERE clause is a no-op when
         # rel_type is None (no filter) and narrows to the named type otherwise.
@@ -153,7 +151,9 @@ class _TraversalMixin:
         params = {"uid": uid, "rel_type": str(rel_type) if rel_type is not None else None}
         records = await self._run_records(cypher, params)
 
-        return Result.ok(records)
+        # The driver hands back untyped dicts; the RETURN above is what fixes
+        # the four keys, so the cast is the boundary — not an assumption.
+        return Result.ok(cast("builtins.list[RelationshipRow]", records))
 
     @safe_backend_operation("traverse")
     async def traverse(
@@ -162,7 +162,7 @@ class _TraversalMixin:
         rel_pattern: str,
         max_depth: int = 3,
         include_properties: bool = False,
-    ) -> Result[builtins.list[dict[str, Any]]]:
+    ) -> Result[builtins.list[TraversalNodeRow]]:
         """
         Traverse the graph from a starting point.
 
@@ -175,11 +175,8 @@ class _TraversalMixin:
             include_properties: Whether to include node properties in results
 
         Returns:
-            Result[list[dict]]: List of traversed nodes with:
-                - uid: Node UID
-                - labels: Node labels
-                - depth: Distance from start node
-                - properties: Node properties (if include_properties=True)
+            Result[list[TraversalNodeRow]]: the nodes reached — uid / labels /
+            depth, plus properties when include_properties. Nodes, not paths.
         """
         # Validate rel_pattern segments before Cypher interpolation
         if rel_pattern:
@@ -219,7 +216,10 @@ class _TraversalMixin:
 
         records = await self._run_records(cypher, {"start_uid": start_uid})
 
-        return Result.ok(records)
+        # Same boundary cast as get_relationships: the two RETURNs above are
+        # what fix the keys, and `properties` is the one conditional column
+        # (hence TraversalNodeRow's total=False).
+        return Result.ok(cast("builtins.list[TraversalNodeRow]", records))
 
     @safe_backend_operation("find_path")
     async def find_path(

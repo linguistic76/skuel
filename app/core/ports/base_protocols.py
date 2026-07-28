@@ -36,9 +36,9 @@ See Also
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, overload, runtime_checkable
 
-from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, Neo4jValue, UserUID
 
 if TYPE_CHECKING:
     import builtins
@@ -51,7 +51,11 @@ if TYPE_CHECKING:
     from core.models.relationship_filters import RelationshipFilters
     from core.models.relationship_names import RelationshipName
     from core.models.type_hints import FilterParams
-    from core.ports.query_types import PrerequisiteChainRow
+    from core.ports.query_types import (
+        PrerequisiteChainRow,
+        RelationshipRow,
+        TraversalNodeRow,
+    )
     from core.utils.result_simplified import Result as ResultType
     # Note: the ``Result`` Protocol in this module is for duck-typing Result-like
     # objects; ``ResultType`` is the actual Result[T] class used in annotations.
@@ -207,8 +211,14 @@ class GraphContextNode(TypedDict, total=False):
 class PydanticModel(Protocol):
     """Protocol for Pydantic models with model_dump method."""
 
-    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
-        """Dump model to dictionary."""
+    def model_dump(self, *, exclude_none: bool = False) -> dict[str, Any]:
+        """Dump model to dictionary.
+
+        ``exclude_none`` is the whole keyword surface the two consumers use
+        (``ConversionServiceV2.create_to_pure`` passes it; ``to_dict`` below
+        calls it bare). A real ``pydantic.BaseModel`` still satisfies this —
+        its extra keywords all have defaults.
+        """
         ...
 
 
@@ -240,10 +250,19 @@ class Serializable(Protocol):
 
 
 @runtime_checkable
-class EnumLike(Protocol):
-    """Protocol for enum-like objects with a value attribute."""
+class EnumLike[V = str | int | float](Protocol):
+    """Protocol for enum-like objects with a value attribute.
 
-    value: str | int | float
+    ``value`` is a read-only property, not a mutable attribute: ``Enum.value``
+    is a descriptor, so a settable-attribute protocol does not match an enum
+    statically (it only ever matched at runtime, where ``runtime_checkable``
+    just tests for the name). Parameterising it is what lets
+    ``get_enum_value`` hand the member's value type back to its caller; the
+    ``str | int | float`` default keeps bare ``EnumLike`` narrowing as before.
+    """
+
+    @property
+    def value(self) -> V: ...
 
 
 # ============================================================================
@@ -546,11 +565,18 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Search for entities by text query."""
         ...
 
-    async def find_by(self, limit: int = 100, **filters: Any) -> ResultType[builtins.list[T]]:
-        """Find entities matching dynamic filters."""
+    async def find_by(
+        self, limit: int = 100, **filters: Neo4jValue
+    ) -> ResultType[builtins.list[T]]:
+        """Find entities matching dynamic filters.
+
+        Filter values reach the driver as query parameters, so they are
+        Neo4j scalars — ``Neo4jValue``, not ``FilterValue``: real call sites
+        pass ``date``/``datetime`` (``due_date__gte=date.today()``).
+        """
         ...
 
-    async def count(self, **filters: Any) -> ResultType[int]:
+    async def count(self, **filters: Neo4jValue) -> ResultType[int]:
         """Count entities matching filters."""
         ...
 
@@ -821,8 +847,8 @@ class RelationshipCrudOperations(Protocol):
 
     async def get_relationships(
         self, uid: str, rel_type: RelationshipName | None = None, direction: Direction = "both"
-    ) -> Any:
-        """Get relationships for an entity."""
+    ) -> ResultType[builtins.list[RelationshipRow]]:
+        """Get relationships for an entity — raw edge rows, not domain models."""
         ...
 
     async def has_relationship(
@@ -940,8 +966,12 @@ class GraphTraversalOperations(Protocol):
 
     async def traverse(
         self, start_uid: str, rel_pattern: str, max_depth: int = 3, include_properties: bool = False
-    ) -> Any:
-        """Traverse the graph following a relationship pattern."""
+    ) -> ResultType[builtins.list[TraversalNodeRow]]:
+        """Traverse the graph following a relationship pattern.
+
+        Returns the flat set of nodes reached — ``uid``/``labels``/``depth``
+        (+ ``properties`` when ``include_properties``) — not paths.
+        """
         ...
 
     async def get_domain_context_raw(
@@ -1171,7 +1201,10 @@ class HierarchicalBackendOperations[T: "DomainModelProtocol"](
 # SupportsSearch, SupportsCount, SupportsHealthCheck, SupportsInsights,
 # SupportsRelatedSearch, SupportsSearchWithFilters) plus Repository,
 # EventHandler and Service were deleted: zero imports, zero annotations and
-# zero isinstance checks anywhere in the tree. The capability-protocol idiom
+# zero isinstance checks anywhere in the tree. (``EventHandler`` now names the
+# callable alias in core/ports/infrastructure_protocols.py — real handlers are
+# plain functions, never classes with a ``.handle()`` method, which is why the
+# protocol had no implementers.) The capability-protocol idiom
 # itself is alive and correct — it is served by the domain-specific tier in
 # core/ports/search_protocols.py (SupportsGraphAwareSearch,
 # SupportsGraphTraversalSearch, SupportsTagSearch), which SearchRouter really
@@ -1252,30 +1285,32 @@ class MaxItemsConstraint(Protocol):
 
 
 # ============================================================================
-# Utility Helper Functions (re-exported from core.utils.type_converters)
+# Utility Helper Functions — SECOND IMPLEMENTATION, not a re-export
 # ============================================================================
 #
-# These functions are implemented in core/utils/type_converters.py and
-# re-exported here for backward compatibility. New code should import from:
+# core/utils/type_converters.py carries its own copy of to_dict /
+# get_enum_value / get_enum_attr_str, over its own private protocols
+# (_PydanticModel, _EnumLike, ...). Neither file imports the other:
+# type_converters would cycle back through this module's protocols, so the
+# bodies are duplicated rather than shared. Both copies have live callers
+# (~20 import from core.ports, 2 from core.utils.type_converters).
 #
-#     from core.utils.type_converters import to_dict, get_enum_value
-#
-# Why the separation:
-# - Protocols define contracts (what an object CAN do)
-# - Utilities implement behavior (HOW to convert objects)
-# - This file should focus on Protocol definitions
-#
-# Note: We can't import from type_converters here due to circular imports
-# (type_converters imports protocols from this file). Instead, we define
-# the functions here and type_converters re-implements them.
+# Consequence for anyone editing here: a change to a body or a signature
+# below does NOT propagate — mirror it in core/utils/type_converters.py, or
+# the two copies drift.
 # ============================================================================
 
 
-def to_dict(obj: Any) -> Any:
+def to_dict(obj: object) -> object:
     """
     Universal converter to dictionary format.
 
-    Uses Protocol-based type checking instead of hasattr.
+    Every branch is an isinstance narrow, so ``object`` accepts exactly what
+    ``Any`` did while forbidding unchecked attribute access inside. The return
+    is ``object`` because the arms genuinely differ — ``dict[str, Any]`` from
+    the four protocol branches, a list from the sequence branch, and the input
+    untouched otherwise.
+
     See core.utils.type_converters.to_dict for full documentation.
     """
     if isinstance(obj, PydanticModel):
@@ -1294,9 +1329,18 @@ def to_dict(obj: Any) -> Any:
         return obj
 
 
-def get_enum_value(obj: Any) -> Any:
+@overload
+def get_enum_value[V](obj: EnumLike[V]) -> V: ...
+@overload
+def get_enum_value[T](obj: T) -> T: ...
+def get_enum_value(obj: object) -> object:
     """
     Get the value of an enum-like object.
+
+    Two overloads rather than one signature: callers that pass an enum need
+    the member's value type back (``GoalCreated.domain: str | None`` and
+    ``GraphContext.query_intent: str`` are both fed from here), and callers
+    that pass a plain value need it returned unchanged.
 
     Uses Protocol-based type checking instead of hasattr.
     See core.utils.type_converters.get_enum_value for full documentation.
@@ -1306,7 +1350,7 @@ def get_enum_value(obj: Any) -> Any:
     return obj
 
 
-def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
+def get_enum_attr_str(obj: object, attr: str, default: str = "") -> str:
     """Extract an attribute as a lowercase string, handling both enum and string values.
 
     See core.utils.type_converters.get_enum_attr_str for full documentation.

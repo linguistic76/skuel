@@ -57,9 +57,15 @@ related: [ADR-025, ADR-027]
 from core.ports import EnumLike
 
 @runtime_checkable
-class EnumLike(Protocol):
-    value: Any
+class EnumLike[V = str | int | float](Protocol):
+    @property
+    def value(self) -> V: ...
 ```
+
+`value` is a **read-only property**, not a mutable attribute: `Enum.value` is a
+descriptor, so a settable-attribute protocol never matched an enum statically.
+The type parameter is what lets `get_enum_value` return the member's value type
+rather than `Any`; bare `EnumLike` still narrows to `str | int | float`.
 
 **Usage:**
 ```python
@@ -499,7 +505,7 @@ LifePathService exposes a `.alignment` sub-service. The protocol models this wit
 ```python
 @runtime_checkable
 class LifePathAlignmentOperations(Protocol):
-    async def calculate_alignment(self, context: Any) -> Result[dict[str, Any]]: ...
+    async def calculate_alignment(self, context: UserContext) -> Result[LifePathAlignmentResult]: ...
 
 @runtime_checkable
 class LifePathOperations(Protocol):
@@ -530,7 +536,7 @@ build these literals, never `cast()` a dict into them (SoC arc #11).
 class VisualizationOperations(Protocol):
     async def get_completion_chart_data(self, user_uid: UserUID, period: str) -> Result[ChartJsConfig]: ...
     async def get_streak_chart_data(self, user_uid: UserUID) -> Result[ChartJsConfig]: ...
-    async def get_timeline_data(self, user_uid: UserUID, start_date: Any, end_date: Any, group_by: str = "type") -> Result[VisTimelineConfig]: ...
+    async def get_timeline_data(self, user_uid: UserUID, start_date: date, end_date: date, group_by: str = "type") -> Result[VisTimelineConfig]: ...
     async def get_tasks_gantt_data(self, user_uid: UserUID, project: str | None = None) -> Result[GanttConfig]: ...
 ```
 

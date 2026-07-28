@@ -33,9 +33,9 @@ from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.event.event_request import EventType
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.type_hints import UserUID
-from core.ports import get_enum_value
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -332,9 +332,10 @@ class EventsCoreService(
                 user_uid=event.user_uid,
                 title=event.title,
                 event_date=event.event_date or date.today(),
-                calendar_event_type=get_enum_value(event.event_type)
-                if event.event_type
-                else "meeting",
+                # Canonical member, not the former lowercase "meeting" literal:
+                # EventAdapter compares against EventType's UPPERCASE members.
+                # (get_enum_value was a no-op here — event_type is a str field.)
+                calendar_event_type=event.event_type or EventType.MEETING,
             )
             await publish_event(self.event_bus, domain_event, self.logger)
 
