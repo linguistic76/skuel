@@ -27,12 +27,14 @@ from datetime import datetime
 
 import pytest
 
+from core.models.enums.goal_enums import MeasurementType
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
     CalendarItemType,
     CalendarView,
 )
+from core.models.goal.goal import Goal
 from core.services.visualization_service import VisualizationService
 
 # Chart.js reads these off each entry of config.data.datasets.
@@ -144,3 +146,28 @@ class TestGanttWireShape:
         config = result.value
         assert set(config.keys()) == {"tasks", "options"}
         assert set(config["tasks"][0].keys()) == _GANTT_TASK_KEYS
+
+    def test_goal_gantt_task_keys(self, service: VisualizationService) -> None:
+        """``format_goal_gantt`` is the second producer of Frappe Gantt tasks — the goal
+        bar, its fulfilling tasks and its milestones all go out under these key names.
+        The values behind them are pinned in ``test_goal_gantt_progress.py``."""
+        goal = Goal(
+            uid="goal_1",
+            user_uid="user_1",
+            title="Ship the feature",
+            measurement_type=MeasurementType.PERCENTAGE,
+            progress_percentage=40.0,
+            start_date=datetime(2026, 3, 1).date(),
+            target_date=datetime(2026, 6, 1).date(),
+        )
+
+        result = service.format_goal_gantt(
+            goal, [_Task("task_1")], milestones=[{"id": "ms_1", "name": "Alpha"}]
+        )
+
+        assert result.is_ok
+        config = result.value
+        assert set(config.keys()) == {"tasks", "options"}
+        assert len(config["tasks"]) == 3  # goal bar + task + milestone
+        for task in config["tasks"]:
+            assert set(task.keys()) == _GANTT_TASK_KEYS
