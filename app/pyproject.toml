@@ -710,11 +710,23 @@ fixable = ["ALL"]
 # The first draft of this ledger shipped `"core/*.py"` and enforced nothing; only
 # injecting an `Any` into `core/ports/` and demanding ANN401 fire caught it.
 #
-# Counts measured 2026-07-28 on `15be165c5`, bucketed from:
-#   cd app && uv run ruff check --select ANN401 --output-format json .
-# Total 1564. NOTE: ANN401 sees only *top-level* `Any` in a parameter or return
-# annotation — a nested `dict[str, Any]` is invisible to it (measured), so these
-# counts are a floor on the real `Any` debt, not the whole of it.
+# Counts measured 2026-07-28 on `15be165c5`; total 1564.
+#
+# ⚠ TO RE-COUNT AN ENTRY YOU MUST OVERRIDE THIS TABLE. `--select` enables a rule; it
+# does NOT override `per-file-ignores`, so a bare `ruff check --select ANN401 <tree>`
+# applies the very exemption you are measuring and reports 0:
+#   cd app && uv run ruff check --select ANN401 \
+#       --config 'lint.per-file-ignores = {}' core/services      # -> 380
+# Clearing the table is safe for these counts: no ledger tree carries any other
+# ANN exemption, and both measurement methods agree entry for entry.
+#
+# 1564 is the SUM of the entries below, not the output of one tree-wide command —
+# clearing the table also drops the blanket `ANN` exemption on tests/, ui/, examples/
+# and templates/, which takes a tree-wide run to 2536.
+#
+# NOTE: ANN401 sees only *top-level* `Any` in a parameter or return annotation — a
+# nested `dict[str, Any]` is invisible to it (measured), so these counts are a floor
+# on the real `Any` debt, not the whole of it.
 "adapters/**/*.py" = ["ANN401"]                # 853
 "core/services/**/*.py" = ["ANN401"]           # 380
 "core/utils/**/*.py" = ["ANN401"]              # 110

@@ -283,8 +283,23 @@ before concluding a rule cannot be enforced:
 
 ```bash
 uv run ruff check --select ANN401 core/ports          # any rule, any subtree
-uv run ruff check --select ANN401 --output-format json .   # bucket by tree for counts
 ```
+
+**`--select` enables a rule; it does not override `per-file-ignores`.** Once a tree is
+bought out in the ANN401 ledger, the command above applies that exemption and reports
+`0` — the one answer you must not take at face value. Clear the table to see the debt:
+
+```bash
+# recount one ledger entry (this is how the counts in pyproject.toml were derived)
+uv run ruff check --select ANN401 --config 'lint.per-file-ignores = {}' core/services
+
+# bucket the whole tree by directory
+uv run ruff check --select ANN401 --config 'lint.per-file-ignores = {}' \
+    --output-format json .
+```
+
+Clearing the table also drops the blanket `ANN` exemption on `tests/`, `ui/`,
+`examples/` and `templates/`, so a tree-wide run reports more than the ledger's total.
 
 MyPy has the same escape hatch — a per-module `[[tool.mypy.overrides]]` block with
 `disallow_any_explicit = true` scopes its strictest `Any` check (`[explicit-any]`) to a
