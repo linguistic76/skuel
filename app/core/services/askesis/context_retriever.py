@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from core.constants import GraphDepth
 from core.models.askesis.ps_bundle import PsBundle
 from core.models.enums.entity_enums import EntityType
+from core.models.ps_content.content_chunks import ContentChunkType
 from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -90,26 +91,42 @@ _SENTINEL = object()
 # intents are best answered by different passage types. An absent key means
 # 'no filter' (search all chunk types).
 #
+# Holds ContentChunkType MEMBERS, never hand-written strings. Chunks are
+# persisted as ``chunk.chunk_type = chunk.chunk_type.value`` (lowercase —
+# Neo4jContentAdapter / Neo4jReferenceChunkAdapter), and the retrieval filter is
+# a bare `chunk.chunk_type IN $chunk_types` equality test. A name the writer
+# never emits therefore matches ZERO rows and returns silently — the SKUEL030
+# defect class. Delegating to the enum keeps the two ends spelled by one source.
+#
 # Unmapped on purpose:
 #   AGGREGATION       — pure graph/count query; chunk text doesn't help.
 #   SPECIFIC          — catch-all default; any chunk type may answer.
 #   GOAL_ACHIEVEMENT  — domain query served from user activity data, not curriculum.
-_INTENT_CHUNK_TYPES: dict[QueryIntent, list[str]] = {
-    QueryIntent.PREREQUISITE: ["DEFINITION", "EXPLANATION"],
-    QueryIntent.PRACTICE: ["EXERCISE", "EXAMPLE"],
-    QueryIntent.HIERARCHICAL: ["DEFINITION", "EXPLANATION"],
-    QueryIntent.EXPLORATORY: ["INTRODUCTION", "SUMMARY", "DEFINITION"],
-    QueryIntent.RELATIONSHIP: ["EXPLANATION", "DEFINITION"],
+_INTENT_CHUNK_TYPES: dict[QueryIntent, tuple[ContentChunkType, ...]] = {
+    QueryIntent.PREREQUISITE: (ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION),
+    QueryIntent.PRACTICE: (ContentChunkType.EXERCISE, ContentChunkType.EXAMPLE),
+    QueryIntent.HIERARCHICAL: (ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION),
+    QueryIntent.EXPLORATORY: (
+        ContentChunkType.INTRODUCTION,
+        ContentChunkType.SUMMARY,
+        ContentChunkType.DEFINITION,
+    ),
+    QueryIntent.RELATIONSHIP: (ContentChunkType.EXPLANATION, ContentChunkType.DEFINITION),
 }
 
 
 def _intent_to_chunk_types(intent: QueryIntent) -> list[str] | None:
     """Pick the chunk types most likely to answer a given intent.
 
-    Returning None means 'no filter' — used for catch-all (SPECIFIC),
-    aggregate, or user-data queries where any chunk type is fair game.
+    Returns the persisted ``ContentChunkType`` *values* — the exact strings the
+    content adapters write to ``chunk.chunk_type`` — so the backend's equality
+    filter can match. Returning None means 'no filter' — used for catch-all
+    (SPECIFIC), aggregate, or user-data queries where any chunk type is fair game.
     """
-    return _INTENT_CHUNK_TYPES.get(intent)
+    chunk_types = _INTENT_CHUNK_TYPES.get(intent)
+    if chunk_types is None:
+        return None
+    return [chunk_type.value for chunk_type in chunk_types]
 
 
 class ContextRetriever:
@@ -904,8 +921,9 @@ class ContextRetriever:
             query: User's question
             _user_uid: User identifier (forwarded to the router; reserved for
                 future owner-scoped chunk visibility).
-            chunk_types: Optional filter (e.g. ["DEFINITION", "EXAMPLE"]) derived
-                from the classified intent.
+            chunk_types: Optional filter of persisted ``ContentChunkType`` values
+                (e.g. ``["definition", "example"]``) derived from the classified
+                intent. Lowercase: chunks are written as ``chunk_type.value``.
             scope: Optional facet scope; its facets (e.g. ``nous``) scope the
                 :ContentChunk hits to the owning entities. When None, an
                 unscoped SearchRequest is built from the query alone.

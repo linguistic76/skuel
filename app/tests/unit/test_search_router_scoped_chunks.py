@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.ps_content.content_chunks import ContentChunkType
 from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.utils.result_simplified import Result
@@ -26,14 +27,18 @@ async def test_forwards_query_limit_and_parent_filters() -> None:
     router = _router_with_vector_search(vector_search)
 
     request = SearchRequest(query_text="what is the body?", nous="body", limit=7)
-    result = await router.retrieve_scoped_chunks(request, chunk_types=["DEFINITION"], min_score=0.6)
+    # Persisted ContentChunkType VALUE — the router is a pass-through, but a
+    # hand-written UPPERCASE literal here is what taught the spelling that made
+    # the Askesis chunk filter match zero rows.
+    chunk_types = [ContentChunkType.DEFINITION.value]
+    result = await router.retrieve_scoped_chunks(request, chunk_types=chunk_types, min_score=0.6)
 
     assert result.is_ok
     vector_search.find_similar_chunks_by_text.assert_awaited_once()
     kwargs = vector_search.find_similar_chunks_by_text.await_args.kwargs
     assert kwargs["text"] == "what is the body?"
     assert kwargs["limit"] == 7
-    assert kwargs["chunk_types"] == ["DEFINITION"]
+    assert kwargs["chunk_types"] == chunk_types
     assert kwargs["min_score"] == 0.6
     assert kwargs["parent_filters"].get("nous") == "body"
 

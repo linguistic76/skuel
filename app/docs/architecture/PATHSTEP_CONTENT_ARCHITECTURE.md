@@ -124,6 +124,16 @@ After ingestion, this YAML produces the following graph structure:
 ...
 ```
 
+> **`chunk_type` is stored as the `ContentChunkType` *value* — lowercase.** Both
+> writers persist `chunk.chunk_type = chunk.chunk_type.value`
+> (`Neo4jContentAdapter`, `Neo4jReferenceChunkAdapter`), and every reader that
+> filters on it does a bare equality test (`chunk.chunk_type IN $chunk_types`,
+> `vector_search_backend.py`). Neo4j matches **zero rows** on a value no node
+> carries rather than erroring, so a member NAME (`"DEFINITION"`) is a silent-zero
+> bug, not a crash — this is how Askesis lost chunk retrieval for five of eight
+> query intents until 2026-07-27. Retrieval code holds `ContentChunkType` members
+> and passes `.value`; it never spells the string by hand.
+
 (No metadata node: the write-only `:ContentMetadata` node — fabricated constants,
 zero readers — was deleted 2026-07-02; deletion paths keep a cleanup MATCH for
 stragglers. The staged metadata-aware path finder that would have consumed it

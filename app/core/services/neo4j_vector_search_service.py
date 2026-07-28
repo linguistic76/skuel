@@ -317,7 +317,11 @@ class Neo4jVectorSearchService:
 
         Args:
             text: Query text to embed and search.
-            chunk_types: Optional filter (e.g. ["DEFINITION", "EXAMPLE"]).
+            chunk_types: Optional filter of persisted ``ContentChunkType`` values
+                (e.g. ``["definition", "example"]``) — matched against
+                ``chunk.chunk_type``, which the content adapters write as
+                ``chunk_type.value`` (lowercase). An unknown name matches zero
+                rows silently rather than erroring.
             parent_uid: Optional filter restricting chunks to a single parent.
             limit: Max results (uses config default if None).
             min_score: Similarity threshold (uses ContentChunk threshold if None).
