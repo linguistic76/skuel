@@ -34,6 +34,48 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _progress_percent(goal: Goal) -> float:
+    """Goal progress on the 0-100 scale this module's arithmetic assumes.
+
+    Every comparison here is percentage-scaled — expected progress is
+    ``(elapsed / total) * 100``, the sigmoid steepness is tuned for
+    percentage-point differences, completion is ``100 - progress`` — so the
+    unit is read once here rather than converted at each of seven sites.
+
+    Reads ``progress_percentage``, not ``calculate_progress()``: the latter's
+    ``current_value / target_value`` branch divides a percent by domain units,
+    because four of the five ``current_value`` writers in
+    ``goals_progress_service`` store a percent while ``target_value`` holds
+    units. A task goal 1-of-5 done reads 1.0 there and would trip the
+    ``>= 100`` short-circuit below; ``complete_goal`` writes only
+    ``progress_percentage``, so a finished NUMERIC goal reads stale. Same
+    reader ``format_goal_gantt`` settled on (#846).
+
+    Known gap: a bare ``current_value`` update (``GoalUpdateIntent`` accepts
+    one and nothing derives a percentage from it) reads 0 here. Under-reporting
+    is the safe direction for a predictor — over-reporting claims a goal done.
+
+    Neo4j properties carry no type and vault frontmatter is copied in
+    unchecked, so the value can arrive as a string or non-finite (#846). The
+    clamp restores the ``min(1.0, ...)`` ceiling ``calculate_progress()``
+    applied; an unusable value predicts from 0 rather than raising into the
+    seven callers, but says so.
+    """
+    try:
+        percent = float(goal.progress_percentage)
+    except TypeError, ValueError:
+        percent = math.nan
+
+    if not math.isfinite(percent):
+        logger.warning(
+            f"Goal {goal.uid} has an unusable progress_percentage "
+            f"({goal.progress_percentage!r}) — predicting from 0"
+        )
+        return 0.0
+
+    return min(100.0, max(0.0, percent))
+
+
 class _PredictiveMixin:
     """
     Predictive analytics for GoalsIntelligenceService.
@@ -341,7 +383,7 @@ class _PredictiveMixin:
 
         # Expected progress based on linear progression
         expected_progress = (elapsed_days / total_days) * 100
-        actual_progress = goal.calculate_progress()
+        actual_progress = _progress_percent(goal)
 
         # Calculate factor with sigmoid function for smooth scaling
         diff = actual_progress - expected_progress
@@ -406,7 +448,7 @@ class _PredictiveMixin:
         """Calculate momentum based on recent trends."""
         # Calculate recent progress rate (simplified)
         days_elapsed = (date.today() - goal.start_date).days if goal.start_date else 1
-        recent_progress_rate = goal.calculate_progress() / max(days_elapsed, 1)
+        recent_progress_rate = _progress_percent(goal) / max(days_elapsed, 1)
 
         # Calculate habit streak momentum
         streak_momentum = 0.0
@@ -452,7 +494,7 @@ class _PredictiveMixin:
         self, goal: Goal, success_probability: float, momentum: float
     ) -> date | None:
         """Predict when the goal will be completed."""
-        if goal.calculate_progress() >= 100:
+        if _progress_percent(goal) >= 100:
             return date.today()
 
         if success_probability < 0.3:
@@ -465,7 +507,7 @@ class _PredictiveMixin:
         if days_elapsed <= 0:
             return goal.target_date
 
-        daily_rate = goal.calculate_progress() / days_elapsed
+        daily_rate = _progress_percent(goal) / days_elapsed
 
         # Adjust rate based on momentum
         adjusted_rate = daily_rate * (0.5 + momentum)
@@ -474,7 +516,7 @@ class _PredictiveMixin:
             return None
 
         # Calculate days needed
-        remaining_progress = 100 - goal.calculate_progress()
+        remaining_progress = 100 - _progress_percent(goal)
         days_needed = int(remaining_progress / adjusted_rate)
 
         # Add buffer based on success probability
@@ -566,7 +608,7 @@ class _PredictiveMixin:
         if strong_streaks > 0:
             factors.append(f"{strong_streaks} habits with 2+ week streaks")
 
-        if goal.calculate_progress() > 50:
+        if _progress_percent(goal) > 50:
             factors.append("Over halfway to goal")
 
         days_remaining = goal.get_days_remaining()
@@ -631,7 +673,7 @@ class _PredictiveMixin:
     def _determine_trend(self, goal: Goal, habits: list[Habit], _lookback_days: int) -> str:
         """Determine if goal achievement probability is improving, stable, or declining."""
         # Calculate actual vs expected progress
-        recent_progress = goal.calculate_progress()
+        recent_progress = _progress_percent(goal)
         expected_progress = (
             (date.today() - goal.start_date).days
             / max((goal.target_date - goal.start_date).days, 1)
