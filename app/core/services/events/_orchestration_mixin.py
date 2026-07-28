@@ -18,6 +18,7 @@ from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeR
 from core.models.enums import RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.event.event_request import EventType
 from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
@@ -234,7 +235,7 @@ class _OrchestrationMixin:
             # Event.event_type is str | None. Not a mypy error here only
             # because the ignore above leaves `event` as Any — same defect as
             # the three sibling publish sites, fixed the same way.
-            calendar_event_type=event.event_type or "meeting",
+            calendar_event_type=event.event_type or EventType.MEETING,
         )
         await publish_event(self.event_bus, event_obj, self.logger)
 
