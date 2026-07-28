@@ -1,19 +1,23 @@
-"""Unit-scale guard for the goal prediction helpers.
+"""Unit-and-source guard for the goal prediction helpers.
 
-``Goal.calculate_progress()`` returns a **0.0-1.0 fraction** (pinned by its
-docstring, by ``tests/integration/test_goals_core_operations.py`` asserting
-0.25 for 25/100, and by both UI consumers doing ``int(progress * 100)``).
 Every comparison in ``_predictive_mixin`` is **percentage-scaled**: expected
 progress is ``(elapsed / total) * 100``, the sigmoid steepness is tuned for
 percentage-point differences, remaining work is ``100 - progress``, and the
-momentum rate is divided by 100.
+momentum rate is divided by 100. All seven sites used to read
+``Goal.calculate_progress()``, a **0.0-1.0 fraction**, straight into it.
 
-Feeding the fraction into that arithmetic silently broke four behaviours:
-the "already complete" short-circuit and the "Over halfway to goal" factor
-could never fire, predicted completion dates were inflated ~100x, and the
-progress factor was pinned near zero so every goal read as behind schedule.
-``_progress_percent`` is the one place the fraction is scaled; these tests
-pin each consequence so the units can't drift apart again.
+That broke four behaviours: the "already complete" short-circuit, the "Over
+halfway to goal" factor and ``progress_factor > 0.7`` could never fire, and
+predicted dates were inflated ~100x. ``_progress_percent`` is now the one
+place progress is read, and it reads ``progress_percentage`` rather than
+``calculate_progress()`` — the latter's ``current_value / target_value``
+branch divides a percent by domain units, which saturates a 20%-complete task
+goal at 1.0 and would trip the very short-circuit this change revived.
+
+So the tests come in two layers: the **unit** ones use PERCENTAGE goals, where
+both readers agree exactly, and stay valid under either source; the
+**source** ones use states the live writers in ``goals_progress_service``
+actually produce, where the two disagree.
 
 These helpers are pure functions of a ``Goal`` — no graph, no mocks.
 """
@@ -61,6 +65,32 @@ def _goal(
     )
 
 
+def _measured_goal(
+    *,
+    measurement_type: MeasurementType,
+    current_value: float,
+    target_value: float,
+    progress_percentage: float,
+) -> Goal:
+    """A goal in a state the live writers in ``goals_progress_service`` produce.
+
+    These are the states where ``current_value`` and ``progress_percentage``
+    disagree, which is what makes the choice of reader observable.
+    """
+    today = date.today()
+    return Goal(
+        uid="goal_predictive_units_measured",
+        title="Live-writer state",
+        user_uid=_USER,
+        measurement_type=measurement_type,
+        current_value=current_value,
+        target_value=target_value,
+        progress_percentage=progress_percentage,
+        start_date=today - timedelta(days=25),
+        target_date=today + timedelta(days=25),
+    )
+
+
 def _habit(streak: int) -> Habit:
     return Habit(
         uid=f"habit_predictive_units_{streak}",
@@ -71,15 +101,87 @@ def _habit(streak: int) -> Habit:
 
 
 class TestProgressPercentBoundary:
-    """The one conversion point between the model's unit and this module's."""
+    """The one place this module reads goal progress."""
 
-    def test_scales_the_models_fraction_to_a_percentage(self):
+    def test_reads_the_maintained_percentage(self):
         goal = _goal(progress=25.0, started_days_ago=1)
 
-        assert goal.calculate_progress() == pytest.approx(0.25), (
-            "Goal.calculate_progress() is the 0.0-1.0 contract this module converts from"
-        )
         assert _progress_percent(goal) == pytest.approx(25.0)
+
+    def test_task_goal_partway_through_is_not_read_as_complete(self):
+        """1 of 5 tasks done. ``_update_task_based_progress`` stores the percent
+        in ``current_value`` while ``target_value`` holds the unit count, so
+        ``calculate_progress()`` divides 20 by 5, saturates at 1.0, and reads
+        100% — which would trip the completion short-circuit.
+        """
+        goal = _measured_goal(
+            measurement_type=MeasurementType.TASK_BASED,
+            current_value=20.0,
+            target_value=5.0,
+            progress_percentage=20.0,
+        )
+
+        assert goal.calculate_progress() == pytest.approx(1.0), (
+            "guard: this test is meaningless if calculate_progress() stops saturating here"
+        )
+        assert _progress_percent(goal) == pytest.approx(20.0)
+
+    def test_completed_numeric_goal_is_not_read_as_stale(self):
+        """``complete_goal`` writes only ``progress_percentage``, leaving
+        ``current_value`` at whatever the last measurement was.
+        """
+        goal = _measured_goal(
+            measurement_type=MeasurementType.NUMERIC,
+            current_value=3.0,
+            target_value=10.0,
+            progress_percentage=100.0,
+        )
+
+        assert goal.calculate_progress() == pytest.approx(0.3), (
+            "guard: the stale division is what this reader exists to avoid"
+        )
+        assert _progress_percent(goal) == pytest.approx(100.0)
+
+
+class TestUnusableStoredValues:
+    """Neo4j properties carry no type and vault frontmatter is copied in unchecked."""
+
+    def test_string_percentage_does_not_raise_into_the_callers(self):
+        goal = _measured_goal(
+            measurement_type=MeasurementType.TASK_BASED,
+            current_value=20.0,
+            target_value=5.0,
+            progress_percentage="40",  # type: ignore[arg-type]  # what Neo4j hands back
+        )
+
+        assert _progress_percent(goal) == pytest.approx(40.0)
+
+    @pytest.mark.parametrize("stored", ["not a number", None, float("nan"), float("inf")])
+    def test_unusable_percentage_predicts_from_zero(self, stored):
+        goal = _measured_goal(
+            measurement_type=MeasurementType.TASK_BASED,
+            current_value=20.0,
+            target_value=5.0,
+            progress_percentage=stored,
+        )
+
+        assert _progress_percent(goal) == 0.0
+
+    def test_percentage_above_one_hundred_is_clamped(self):
+        """Restores the ceiling ``calculate_progress()``'s ``min(1.0, ...)`` applied."""
+        goal = _goal(progress=150.0, started_days_ago=25, target_in_days=25)
+
+        assert _progress_percent(goal) == 100.0
+
+    def test_negative_percentage_is_clamped(self):
+        """Unclamped, -40 over 25 days gives ``_calculate_momentum_factor`` a
+        negative rate, and ``min(1.0, ...)`` passes it straight through as a
+        negative momentum weight into the combined probability.
+        """
+        goal = _goal(progress=-40.0, started_days_ago=25, target_in_days=25)
+
+        assert _progress_percent(goal) == 0.0
+        assert _MIXIN._calculate_momentum_factor(goal, [], 30) == 0.0
 
 
 class TestProgressFactor:
@@ -153,6 +255,38 @@ class TestPredictCompletionDate:
         predicted = _MIXIN._predict_completion_date(goal, 0.5, 0.5)
 
         assert predicted == date.today() + timedelta(days=37)
+
+    def test_task_goal_partway_through_does_not_predict_completion_today(self):
+        """The consequence of the reader choice, through the public helpers.
+
+        Reading ``calculate_progress()`` here saturates a 20%-complete goal at
+        1.0, and once the ``>= 100`` guard is live that turns into a confident
+        "finished today" plus "Ahead of schedule" and "Over halfway to goal".
+        """
+        goal = _measured_goal(
+            measurement_type=MeasurementType.TASK_BASED,
+            current_value=20.0,
+            target_value=5.0,
+            progress_percentage=20.0,
+        )
+
+        factor = _MIXIN._calculate_progress_factor(goal)
+
+        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) != date.today()
+        assert _MIXIN._identify_success_factors(goal, [], factor, 0.5) == []
+
+    def test_completed_numeric_goal_predicts_today(self):
+        """The mirror: ``complete_goal`` writes only ``progress_percentage``, so
+        reading the stale division would miss a goal that is actually finished.
+        """
+        goal = _measured_goal(
+            measurement_type=MeasurementType.NUMERIC,
+            current_value=3.0,
+            target_value=10.0,
+            progress_percentage=100.0,
+        )
+
+        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) == date.today()
 
     def test_unlikely_goal_still_predicts_nothing(self):
         """Negative control: the low-probability guard is unaffected."""

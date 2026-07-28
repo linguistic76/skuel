@@ -37,13 +37,43 @@ logger = get_logger(__name__)
 def _progress_percent(goal: Goal) -> float:
     """Goal progress on the 0-100 scale this module's arithmetic assumes.
 
-    ``Goal.calculate_progress()`` returns a 0.0-1.0 fraction, but every
-    comparison and rate here is percentage-scaled: expected progress is
-    ``(elapsed / total) * 100``, the sigmoid's steepness is tuned for
-    percentage-point differences, completion is ``100 - progress``, and the
-    momentum rate is divided by 100. Scale once here rather than at each site.
+    Every comparison here is percentage-scaled — expected progress is
+    ``(elapsed / total) * 100``, the sigmoid steepness is tuned for
+    percentage-point differences, completion is ``100 - progress`` — so the
+    unit is read once here rather than converted at each of seven sites.
+
+    Reads ``progress_percentage``, not ``calculate_progress()``: the latter's
+    ``current_value / target_value`` branch divides a percent by domain units,
+    because four of the five ``current_value`` writers in
+    ``goals_progress_service`` store a percent while ``target_value`` holds
+    units. A task goal 1-of-5 done reads 1.0 there and would trip the
+    ``>= 100`` short-circuit below; ``complete_goal`` writes only
+    ``progress_percentage``, so a finished NUMERIC goal reads stale. Same
+    reader ``format_goal_gantt`` settled on (#846).
+
+    Known gap: a bare ``current_value`` update (``GoalUpdateIntent`` accepts
+    one and nothing derives a percentage from it) reads 0 here. Under-reporting
+    is the safe direction for a predictor — over-reporting claims a goal done.
+
+    Neo4j properties carry no type and vault frontmatter is copied in
+    unchecked, so the value can arrive as a string or non-finite (#846). The
+    clamp restores the ``min(1.0, ...)`` ceiling ``calculate_progress()``
+    applied; an unusable value predicts from 0 rather than raising into the
+    seven callers, but says so.
     """
-    return goal.calculate_progress() * 100
+    try:
+        percent = float(goal.progress_percentage)
+    except TypeError, ValueError:
+        percent = math.nan
+
+    if not math.isfinite(percent):
+        logger.warning(
+            f"Goal {goal.uid} has an unusable progress_percentage "
+            f"({goal.progress_percentage!r}) — predicting from 0"
+        )
+        return 0.0
+
+    return min(100.0, max(0.0, percent))
 
 
 class _PredictiveMixin:
