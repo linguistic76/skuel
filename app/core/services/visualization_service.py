@@ -35,6 +35,7 @@ from typing import Any, ClassVar, Literal
 
 from core.models.enums import EntityStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
+from core.models.goal.goal import Goal
 from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
 from core.utils.logging import get_logger
 from core.utils.palette import SemanticColor
@@ -516,7 +517,7 @@ class VisualizationService:
 
     def format_goal_gantt(
         self,
-        goal: Any,  # Goal domain model
+        goal: Goal,
         tasks: list[Any],  # Related tasks
         milestones: list[dict[str, Any]] | None = None,
     ) -> Result[GanttConfig]:
@@ -535,9 +536,27 @@ class VisualizationService:
 
         gantt_tasks: list[GanttTask] = []
 
-        goal_start = getattr(goal, "start_date", None) or date.today()
-        goal_end = getattr(goal, "target_date", None) or goal_start + timedelta(days=90)
-        goal_progress = getattr(goal, "progress", 0) or 0
+        goal_start = goal.start_date or date.today()
+        goal_end = goal.target_date or goal_start + timedelta(days=90)
+        # progress_percentage is the number every goal writer maintains: all five
+        # current_value writers in goals_progress_service set it in the same update dict,
+        # and goals_core_service.complete_goal sets only it. It is already 0-100, the
+        # scale Frappe Gantt wants. That is why the old `if goal_progress <= 1`
+        # normalisation is deleted rather than repaired — against a 0-100 reader it would
+        # render a goal 0.5% along as a 50% bar.
+        #
+        # Goal.calculate_progress() looks like the natural reader here and is not: its
+        # current_value / target_value branch divides a percent by domain units, so a
+        # TASK_BASED goal 1 of 5 tasks in reports 100%, and a NUMERIC goal the user has
+        # just completed reports 0%. That is a defect in the model, not one to work
+        # around here.
+        #
+        # Nothing validates the stored value: vault ingestion copies goal frontmatter into
+        # node properties unchecked (core/services/ingestion/preparer.py), so both
+        # `progress_percentage: 150` and `-40` reach this line. Hence the clamp, and
+        # round() rather than int() — 2 of 3 milestones stores 66.666…, which truncates
+        # to 66.
+        goal_progress = min(100, max(0, round(goal.progress_percentage)))
 
         gantt_tasks.append(
             GanttTask(
@@ -545,7 +564,7 @@ class VisualizationService:
                 name=f"Goal: {goal.title}",
                 start=goal_start.isoformat(),
                 end=goal_end.isoformat(),
-                progress=int(goal_progress * 100) if goal_progress <= 1 else int(goal_progress),
+                progress=goal_progress,
                 custom_class="goal-bar",
             )
         )
