@@ -204,7 +204,9 @@ def normalize_enum_str(value: Any, default: str = "") -> str:
     return str(value).lower()
 
 
-def finite_float(value: Any) -> float | None:
+def finite_float(
+    value: Any,  # boundary: untyped Neo4j property — str, float, list and None all arrive
+) -> float | None:
     """Narrow a Neo4j-sourced scalar to a float, or ``None`` if it is not a real number.
 
     Neo4j properties carry no declared type and nothing coerces on the way in: vault
@@ -219,6 +221,10 @@ def finite_float(value: Any) -> float | None:
     and is finite" admits exactly the values arithmetic cannot fail on. Callers decide
     the policy for ``None``: a ``Result.fail`` where there is a channel for it, a
     neutral default where there is not.
+
+    ``Any`` is the honest annotation rather than a scalar union: the parameter's whole
+    job is to absorb whatever the property store hands back, and a ``str | float | None``
+    union would reject the ``list`` case this function is tested against.
 
     Args:
         value: Any stored scalar, typically read straight off a domain model field
