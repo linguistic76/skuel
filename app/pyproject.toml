@@ -619,7 +619,9 @@ ignore = [
     # Note: ANN101 and ANN102 were removed from Ruff (deprecated - self/cls annotations not recommended)
     "ANN001",  # Missing type annotation for function argument
     "ANN201",  # Missing return type annotation for public function
-    "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed
+    # ANN401 (`Any` in a signature) is deliberately NOT ignored here. The default is
+    # ENFORCE; trees that still carry debt buy out per-tree in the counted ledger under
+    # [tool.ruff.lint.per-file-ignores]. See docs/patterns/ANY_USAGE_POLICY.md § Enforcement.
 
     # Complexity rules (handled by code review)
     "PLR0913", # Too many arguments to function call
@@ -674,6 +676,61 @@ fixable = ["ALL"]
 # - Type safety and code quality
 
 [tool.ruff.lint.per-file-ignores]
+# ============================================================================
+# ANN401 DEBT LEDGER — `Any` in a signature is ENFORCED, except where bought out
+# ============================================================================
+# ANN401 is selected globally (via "ANN" above) and is NO LONGER in the `ignore`
+# list. The default is now enforce; each tree below buys its way out explicitly.
+# `core/ports/` is the one tree with debt-free enforcement by design: an `Any` in a
+# protocol signature propagates to every implementer, which is the defect class the
+# SoC arc was chasing. It has no entry, and `ruff check --select ANN401 core/ports`
+# is 0 (PR #851 deleted 15 sites, PR #852 tightened the surviving 39).
+#
+# This is a LEDGER, not a policy. Drive an entry to 0 and DELETE it — same shape as
+# the SKUEL023 facade allowlist, driven to empty twice and then deleted (#828, #838).
+# Consequently a tree that is ALREADY clean gets no ANN401 exemption and is enforced
+# too. Probing all 209 directories that hold tracked `.py` files shows ANN401 fires in
+# exactly five places: `core/ports/` (the target, and it is flat — no subdirectories),
+# `core/ingestion/`, `core/prompts/`, loose files directly under `core/` other than
+# `core/errors.py`, and the app root (`main.py`, `vulture_whitelist.py`). Adding an
+# `Any` signature in any of them fails CI, deliberately.
+# `tests/`, `ui/`, `examples/` and `templates/` never reach this ledger — they are
+# exempt from the whole `ANN` linter in their own entries below.
+#
+# `core/` is enumerated one subtree at a time because any pattern rooted at `core/`
+# alone also covers `core/ports/`. `core/services/**/*.py` and friends are safe: the
+# literal prefix anchors them. No companion `core/services/*.py` entry is needed —
+# ruff's `**` matches ZERO path components, so `X/**/*.py` already covers `X/child.py`
+# (measured: `core/**/*.py` suppresses `core/errors.py`).
+#
+# ⚠ MEASURED GLOB TRAP: in ruff 0.15.22 a `*` in a per-file-ignores pattern CROSSES
+# `/`. `"core/*.py"` therefore matches every `.py` anywhere under `core/`, `core/ports/`
+# included, silently exempting the one tree this ledger exists to enforce. That is why
+# the loose files under `core/` are named individually — never widen them to a glob.
+# The first draft of this ledger shipped `"core/*.py"` and enforced nothing; only
+# injecting an `Any` into `core/ports/` and demanding ANN401 fire caught it.
+#
+# Counts measured 2026-07-28 on `15be165c5`, bucketed from:
+#   cd app && uv run ruff check --select ANN401 --output-format json .
+# Total 1564. NOTE: ANN401 sees only *top-level* `Any` in a parameter or return
+# annotation — a nested `dict[str, Any]` is invisible to it (measured), so these
+# counts are a floor on the real `Any` debt, not the whole of it.
+"adapters/**/*.py" = ["ANN401"]                # 853
+"core/services/**/*.py" = ["ANN401"]           # 380
+"core/utils/**/*.py" = ["ANN401"]              # 110
+"services_bootstrap/**/*.py" = ["ANN401"]      # 72
+"core/models/**/*.py" = ["ANN401"]             # 66
+"scripts/**/*.py" = ["ANN401"]                 # 53
+"core/errors.py" = ["ANN401"]                  # 6  (core/constants.py is clean -> enforced)
+"core/auth/**/*.py" = ["ANN401"]               # 3
+"core/config/**/*.py" = ["ANN401"]             # 3
+"core/events/**/*.py" = ["ANN401"]             # 3
+"agent/**/*.py" = ["ANN401"]                   # 3
+"core/orchestrator/**/*.py" = ["ANN401"]       # 1
+# + "core/infrastructure/**/*.py" (11) — that key already exists further down with
+#   six other codes, so its ANN401 is appended there rather than duplicated here
+#   (a repeated key is a TOML error). 853+380+110+72+66+53+11+6+3+3+3+3+1 = 1564.
+
 # Standard test/example ignores
 "tests/**/*.py" = ["ANN", "ARG001", "ARG002", "S101", "E731", "RUF012", "SIM117", "B017", "PTH110"]  # Tests: fixtures, mocking, os.path allowed
 "tests/integration/**/*.py" = ["ANN", "ARG002", "S101", "RUF012", "SIM117", "B017"]  # Integration tests: unused fixtures + broad exceptions
@@ -728,7 +785,7 @@ fixable = ["ALL"]
 "core/services/unified_ingestion_service.py" = ["E402", "F402"]  # Imports after constants + loop var shadowing
 "core/services/*/[!_]*.py" = ["ARG002", "ARG004", "RUF012", "PERF401", "SIM102", "SIM108", "SIM116"]  # Nested service modules + class config
 "core/services/infrastructure/*.py" = ["ARG002"]  # Infrastructure helpers
-"core/infrastructure/**/*.py" = ["ARG001", "ARG002", "PERF401", "SIM116", "RUF002", "B021"]  # Route factories + batch helpers
+"core/infrastructure/**/*.py" = ["ARG001", "ARG002", "PERF401", "SIM116", "RUF002", "B021", "ANN401"]  # Route factories + batch helpers; ANN401 (11) belongs to the debt ledger at the top of this table
 "core/services/relationships/*.py" = ["ARG002", "PERF401", "SIM108"]  # Relationship services + patterns
 "core/services/user/*.py" = ["ARG002", "PERF", "F822"]  # User services implement protocols + complex context ops
 "core/models/search/*.py" = ["ARG001", "ARG002", "RUF012", "E741"]  # Search scoring methods + class config + var names
@@ -741,11 +798,10 @@ fixable = ["ALL"]
 # Core models - query models have protocol-based interfaces
 "core/models/query/_query_models.py" = ["ARG001"]  # Query model protocols need consistent signatures
 
-# Domain services MUST NOT use APOC (Phase 5 compliance - enforced by custom script)
-"core/services/**/*.py" = []
-
-# Adapters CAN use APOC (infrastructure layer)
-"adapters/**/*.py" = []
+# NOTE: "core/services/**/*.py" and "adapters/**/*.py" used to sit here as empty
+# lists carrying APOC comments. They ignored nothing — APOC placement is SKUEL001 in
+# scripts/lint_skuel.py, not a ruff rule — and both keys now live in the ANN401 debt
+# ledger at the top of this table.
 
 # ============================================================================
 # DEFERRED IMPLEMENTATIONS - Tracked in docs/reference/DEFERRED_IMPLEMENTATIONS.md
