@@ -400,10 +400,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         if habit_result.habit_count > 0:
             new_progress = habit_result.contribution * 100
 
-            updates: dict[str, Any] = {
-                "progress_percentage": new_progress,
-                "current_value": new_progress,
-            }
+            # current_value is untouched: the contribution is normalized against
+            # STREAK_NORMALIZATION_DAYS, not against this goal's target_value, so
+            # there is no measurement in target_value's unit to record here.
+            updates: dict[str, Any] = {"progress_percentage": new_progress}
 
             # Check if goal is achieved
             if new_progress >= 100:
@@ -686,11 +686,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         goal = to_domain_model(goal_dto, GoalDTO, Goal)
         old_progress = goal.progress_percentage or 0.0
 
-        # Update progress
-        updates: dict[str, Any] = {
-            "progress_percentage": progress_value,
-            "current_value": progress_value,
-        }
+        # Update progress. progress_value is a percent (0-100), so it goes to
+        # progress_percentage only — current_value holds domain units.
+        updates: dict[str, Any] = {"progress_percentage": progress_value}
 
         if notes:
             # Append notes to metadata (access via DTO)
@@ -984,8 +982,17 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # This is simplified - ideally we'd recalculate all factors
             new_progress = (old_progress * 0.7) + (task_contribution * 30)
 
-        # Only update if progress changed significantly (>0.1%)
-        if abs(new_progress - old_progress) < 0.1:
+        # Only update if something changed. For TASK_BASED goals the stored tally is
+        # part of "something": 1-of-5 and 2-of-10 are both 20%, so a percentage-only
+        # guard would leave the detail page rendering "1/5 tasks" after five more were
+        # linked and one completed. `!=` rather than a narrowed comparison on purpose —
+        # it never raises across types, and a legacy string current_value reads as stale
+        # and gets repaired by the write below.
+        tally_stale = goal.measurement_type == MeasurementType.TASK_BASED and (
+            goal.current_value != completed_tasks or goal.target_value != total_tasks
+        )
+        progress_changed = abs(new_progress - old_progress) >= 0.1
+        if not progress_changed and not tally_stale:
             self.logger.debug(f"Goal {goal_uid} progress unchanged ({new_progress:.1f}%)")
             return
 
@@ -994,13 +1001,32 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # task-completion provenance (triggered_by_task_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {
-            "progress_percentage": new_progress,
-            "current_value": new_progress,
-        }
+        updates: dict[str, Any] = {"progress_percentage": new_progress}
 
-        # Check if goal is achieved
-        if new_progress >= 100:
+        if goal.measurement_type == MeasurementType.TASK_BASED:
+            # The measurement IS the linked-task tally, so this writer owns both ends of
+            # it. Writing only completed_tasks would pair it with a target_value nothing
+            # relates to it — a user-typed 5 against 20 linked tasks renders "4/5 tasks"
+            # beside a 20% bar — and writing neither leaves the detail page rendering
+            # "0/5 tasks" for a goal that is one task in. total_tasks is the denominator
+            # new_progress was just computed from, so all three fields agree by
+            # construction.
+            #
+            # TASK_BASED only, never MIXED: _update_goal_from_habit_completion divides
+            # avg_streak by target_value for MIXED goals (a desired streak length), so
+            # overwriting it there would corrupt the habit half of a mixed goal. For
+            # TASK_BASED nothing computes on target_value — calculate_combined_progress
+            # returns task_contribution * 100 and discards milestone_completion — which
+            # is what makes it this writer's to own.
+            updates["current_value"] = float(completed_tasks)
+            updates["target_value"] = float(total_tasks)
+
+        # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
+        # below. `>= 100` alone re-stamps achieved_date on every write once a goal is
+        # complete, which the percentage-only guard used to make unreachable; a
+        # tally-only write (5/5 -> 10/10, both 100%) now reaches it and would move the
+        # recorded achievement to today.
+        if new_progress >= 100 and old_progress < 100:
             updates["status"] = EntityStatus.COMPLETED.value
             updates["achieved_date"] = date.today()
 
@@ -1010,19 +1036,27 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         self.logger.info(
-            f"Updated goal {goal_uid} progress: {old_progress:.1f}% → {new_progress:.1f}% "
+            f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
             f"({completed_tasks}/{total_tasks} tasks)"
         )
 
-        # Publish GoalProgressUpdated event
-        progress_event = GoalProgressUpdated(
-            goal_uid=goal_uid,
-            user_uid=user_uid,
-            old_progress=old_progress,
-            new_progress=new_progress,
-            triggered_by_manual_update=False,  # Triggered by task completion
-        )
-        await publish_event(self.event_bus, progress_event, self.logger)
+        # Publish GoalProgressUpdated only when the percentage actually moved.
+        # GoalEventHandlerService.handle_goal_progress_updated reads a near-zero delta
+        # on a positive goal as a STALL and persists an IMBALANCE_DETECTED insight, so
+        # announcing a tally-only repair would tell a user who just completed a task
+        # that their goal has stalled. Nothing is lost by staying quiet: the context
+        # invalidation this event drives is already done by the TaskCompleted that
+        # triggered this handler — debounced_invalidator's own docstring calls the
+        # second one redundant.
+        if progress_changed:
+            progress_event = GoalProgressUpdated(
+                goal_uid=goal_uid,
+                user_uid=user_uid,
+                old_progress=old_progress,
+                new_progress=new_progress,
+                triggered_by_manual_update=False,  # Triggered by task completion
+            )
+            await publish_event(self.event_bus, progress_event, self.logger)
 
         # If goal was achieved, publish GoalAchieved event
         if new_progress >= 100 and old_progress < 100:
@@ -1151,8 +1185,18 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             new_progress = (old_progress * 0.7) + (habit_contribution * 30)
             new_progress = min(new_progress, 100.0)
 
-        # Skip update if progress unchanged
-        if abs(new_progress - old_progress) < 0.01:
+        # Skip update only if nothing changed. `new_progress` is capped at 100, so once
+        # a streak reaches its target the percentage stops moving while avg_streak keeps
+        # climbing — the measurement would freeze at "30/30 days" on a 31-day streak.
+        # Decreases already propagate (a broken streak moves the percentage), so without
+        # this the field would track downwards but not upwards. Same shape as the
+        # task-based guard above.
+        measurement_stale = (
+            goal.measurement_type == MeasurementType.HABIT_BASED
+            and goal.current_value != avg_streak
+        )
+        progress_changed = abs(new_progress - old_progress) >= 0.01
+        if not progress_changed and not measurement_stale:
             self.logger.debug(
                 f"Goal {goal_uid} progress unchanged ({old_progress:.1f}%), skipping update"
             )
@@ -1163,13 +1207,19 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # habit-completion provenance (triggered_by_habit_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {
-            "progress_percentage": new_progress,
-            "current_value": new_progress,
-        }
+        updates: dict[str, Any] = {"progress_percentage": new_progress}
 
-        # Check if goal is achieved
-        if new_progress >= 100:
+        if goal.measurement_type == MeasurementType.HABIT_BASED:
+            # target_value is the desired streak length (see the division above), so
+            # avg_streak is a genuine measurement in its unit — the one domain-unit
+            # value this file computes. MIXED blends habits with other factors, so
+            # target_value does not describe avg_streak there and current_value stays.
+            updates["current_value"] = float(avg_streak)
+
+        # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
+        # below. `>= 100` alone re-stamps achieved_date on every later write, which a
+        # measurement-only write (streak 30 -> 31, both 100%) now reaches.
+        if new_progress >= 100 and old_progress < 100:
             updates["status"] = EntityStatus.COMPLETED.value
             updates["achieved_date"] = date.today()
 
@@ -1179,20 +1229,23 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             return
 
         self.logger.info(
-            f"Updated goal {goal_uid} progress: {old_progress:.1f}% → {new_progress:.1f}% "
+            f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
             f"(avg_streak={avg_streak:.1f}, {total_habits} habits)"
         )
 
-        # Publish GoalProgressUpdated event
-        progress_event = GoalProgressUpdated(
-            goal_uid=goal_uid,
-            user_uid=user_uid,
-            old_progress=old_progress,
-            new_progress=new_progress,
-            triggered_by_habit_completion=True,  # Triggered by habit completion
-            triggered_by_manual_update=False,
-        )
-        await publish_event(self.event_bus, progress_event, self.logger)
+        # Publish only when the percentage actually moved — a zero-delta publish on a
+        # positive goal is read as a STALL by GoalEventHandlerService and persists an
+        # IMBALANCE_DETECTED insight. Same reasoning as the task-based path.
+        if progress_changed:
+            progress_event = GoalProgressUpdated(
+                goal_uid=goal_uid,
+                user_uid=user_uid,
+                old_progress=old_progress,
+                new_progress=new_progress,
+                triggered_by_habit_completion=True,  # Triggered by habit completion
+                triggered_by_manual_update=False,
+            )
+            await publish_event(self.event_bus, progress_event, self.logger)
 
         # If goal was achieved, publish GoalAchieved event
         if new_progress >= 100 and old_progress < 100:

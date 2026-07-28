@@ -416,7 +416,9 @@ class TestGoalsCoreOperations:
         assert created.current_value == 25.0
         assert created.unit_of_measurement == "miles"
         assert created.progress_percentage == 25.0
-        assert created.calculate_progress() == 0.25  # 25/100 = 0.25 (0.0-1.0 scale)
+        # From progress_percentage (25.0), not from current_value/target_value: the
+        # measurement pair is what "25/100 miles" renders, never the progress source.
+        assert created.calculate_progress() == 0.25
 
     # ==========================================================================
     # EDGE CASES TESTS (3 tests)

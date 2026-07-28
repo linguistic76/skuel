@@ -196,7 +196,9 @@ def goal_to_calendar_item(goal: Any) -> CalendarItem | None:
         metadata={
             "status": str(getattr(goal, "status", "")).replace("EntityStatus.", ""),
             "timeframe": str(getattr(goal, "timeframe", "")),
-            "progress": getattr(goal, "current_value", 0),
+            # progress_percentage, not current_value — the latter is a domain-unit
+            # measurement (miles, books, streak days), not a progress figure.
+            "progress": getattr(goal, "progress_percentage", 0),
         },
     )
 

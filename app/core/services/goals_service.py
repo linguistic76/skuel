@@ -57,10 +57,7 @@ from core.utils.activity_stats import compute_goal_stats
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import (
-    get_created_at_attr,
-    get_current_value,
-)
+from core.utils.sort_functions import get_created_at_attr
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
@@ -162,10 +159,24 @@ def _get_goal_priority_order(goal: Any) -> int:
     return Priority.from_value(_get_goal_priority_str(goal)).sort_order()
 
 
+def _get_goal_progress(goal: Goal) -> float:
+    """Sort key for progress — the 0.0-1.0 scale, not the raw measurement.
+
+    Sorting on ``current_value`` would rank goals by their domain-unit magnitude
+    (100 miles above 8 books), which is not an ordering. Mirrors
+    ``entity_filters._goal_sort_by_progress``, the UI-side sort of the same list.
+
+    Typed ``Goal``, unlike its ``Any`` siblings above: they exist to absorb a value
+    that may be an enum or a string, while this one needs the method, and
+    ``get_for_user_filtered`` returns ``list[Goal]``.
+    """
+    return goal.calculate_progress()
+
+
 _GOAL_SORT_CONFIG: SortConfig = {
     "target_date": (_get_goal_target_date, False),
     "priority": (_get_goal_priority_order, False),
-    "progress": (get_current_value, True),
+    "progress": (_get_goal_progress, True),
     "created_at": (get_created_at_attr, True),
 }
 

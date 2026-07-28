@@ -35,6 +35,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.goal.milestone import Milestone
 from core.models.user_owned_entity import UserOwnedEntity
+from core.utils.type_converters import finite_float
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -82,6 +83,12 @@ class Goal(UserOwnedEntity):
     # =========================================================================
     # MEASUREMENT
     # =========================================================================
+    # DOMAIN UNITS, named by unit_of_measurement — 25 of 100 miles, 3 of 10 books,
+    # a 30-day streak. NOT a percent, and NOT a progress source: progress_percentage
+    # below is the percent, and it is the only thing calculate_progress() reads. This
+    # pair is the measurement `{current}/{target} {unit}` renders. A writer that has
+    # computed a percent writes progress_percentage and leaves current_value alone;
+    # only a writer holding a real measurement in target_value's unit may touch it.
     target_value: float | None = None
     current_value: float = 0.0
     unit_of_measurement: str | None = None
@@ -142,12 +149,27 @@ class Goal(UserOwnedEntity):
     # =========================================================================
 
     def calculate_progress(self) -> float:
-        """Calculate goal progress (0.0-1.0)."""
-        if self.measurement_type == MeasurementType.PERCENTAGE:
-            return min(1.0, self.progress_percentage / 100.0)
-        if self.target_value and self.target_value > 0:
-            return min(1.0, self.current_value / self.target_value)
-        return self.progress_percentage / 100.0 if self.progress_percentage else 0.0
+        """Calculate goal progress (0.0-1.0) from ``progress_percentage``.
+
+        ``progress_percentage`` (0-100) is the *only* progress field — every writer in
+        ``GoalsProgressService`` maintains it and ``complete_goal`` settles it at 100.
+        ``current_value``/``target_value`` are the domain-unit measurement (see the
+        MEASUREMENT block above) and are deliberately not consulted: reading them when
+        the percent is 0 cannot tell a goal whose progress was never recorded from one
+        explicitly reset to 0%, and ``progress_percentage`` has no unset state to
+        distinguish the two. A goal that wants to show progress carries the percent;
+        the measurement pair is what ``{current}/{target} {unit}`` renders.
+
+        Uninterpretable stored values read as no progress rather than raising. This
+        method has no ``Result`` channel and is called while rendering every goal card,
+        list and sort, so a raise takes down the whole page; the one caller that *can*
+        report — ``VisualizationService.format_goal_gantt`` — reads the raw field and
+        fails loudly, so bad data still surfaces.
+        """
+        percent = finite_float(self.progress_percentage)
+        if percent is None:
+            return 0.0
+        return min(1.0, max(0.0, percent / 100.0))
 
     def get_days_remaining(self) -> int | None:
         """Days until target_date."""

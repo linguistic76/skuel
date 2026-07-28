@@ -159,12 +159,13 @@ class TestGoalToCalendarItem:
             domain=None,
             status="active",
             timeframe="quarterly",
-            current_value=0,
+            progress_percentage=0.0,
         )
         item = goal_to_calendar_item(goal)
         assert item is not None
         assert item.source_uid == "goal_test_1"
         assert item.all_day is True
+        assert item.metadata["progress"] == 0.0
 
     def test_with_string_target_date(self) -> None:
         goal = SimpleNamespace(
@@ -177,10 +178,12 @@ class TestGoalToCalendarItem:
             domain=None,
             status="active",
             timeframe="monthly",
-            current_value=50,
+            progress_percentage=50.0,
         )
         item = goal_to_calendar_item(goal)
         assert item is not None
+        # The percent, not current_value — that field holds domain units.
+        assert item.metadata["progress"] == 50.0
 
     def test_without_target_date_returns_none(self) -> None:
         goal = SimpleNamespace(
