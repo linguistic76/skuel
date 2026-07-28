@@ -643,22 +643,25 @@ priority_str = get_enum_value(task_priority)  # "high"
 
 ```python
 # WRONG - using hasattr()
-if hasattr(search_service, 'graph_aware_search'):
-    return await search_service.graph_aware_search(request)
+if hasattr(search_service, 'graph_aware_faceted_search'):
+    return await search_service.graph_aware_faceted_search(request, user_uid)
 
 # RIGHT - using isinstance() with a @runtime_checkable Protocol
 from core.ports.search_protocols import SupportsGraphAwareSearch
 
 if isinstance(search_service, SupportsGraphAwareSearch):
-    return await search_service.graph_aware_search(request)
+    return await search_service.graph_aware_faceted_search(
+        request=request,
+        user_uid=user_uid,
+    )
 return None
-
-# BETTER - fail-fast (per CLAUDE.md) when the capability is required, not optional
-return await search_service.graph_aware_search(request)
 ```
 
-This is the live pattern: `SearchRouter._resolve_graph_aware_service`
-(`core/models/search/search_router.py:1055`) does exactly this.
+This is the live pattern, not an illustration: `SearchRouter` resolves the service
+with `isinstance` (`core/models/search/search_router.py:1055`) and calls
+`graph_aware_faceted_search(request=..., user_uid=...)` at `:1090`. The protocol's
+own docstring (`core/ports/search_protocols.py:688-691`) carries the same example —
+**diff against it rather than paraphrasing it.**
 
 > **Note.** A generic capability tier (`SupportsCount`, `SupportsSearch`,
 > `SupportsPathfinding`, `SupportsHealthCheck`, `SupportsInsights`,
@@ -713,7 +716,7 @@ Quick reference for common hasattr() patterns:
 | hasattr() Pattern | Replace With | Location |
 |------------------|--------------|----------|
 | `hasattr(enum, 'value')` | `get_enum_value(enum)` | `core.ports` |
-| `hasattr(svc, 'graph_aware_search')` | `isinstance(svc, SupportsGraphAwareSearch)` | `core.ports.search_protocols` |
+| `hasattr(svc, 'graph_aware_faceted_search')` | `isinstance(svc, SupportsGraphAwareSearch)` | `core.ports.search_protocols` |
 | `hasattr(svc, 'search_by_tags')` | `isinstance(svc, SupportsTagSearch)` | `core.ports.search_protocols` |
 | `hasattr(field_info, 'metadata')` | `isinstance(field_info, PydanticFieldInfo)` | `core.ports` |
 | `hasattr(constraint, 'min_length')` | `isinstance(constraint, MinLenConstraint)` | `core.ports` |
