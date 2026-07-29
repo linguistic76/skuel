@@ -121,37 +121,53 @@ already provides.
 These are not underscore parameters but are explicitly marked in comments — `# Placeholder` in the
 table below, `# FUTURE-IMPL-00N:` in the E2 subsection.
 
-⚠⚠ **Read this before touching the three choices rows: they are currently unreachable, and that is
-a live bug, not a placeholder.** Both enclosing methods filter on a `Choice` property that does not
-exist, so they return zero rows and exit through their empty-data guard long before the placeholder
-lines execute.
+The blocking prerequisite recorded here in #857 — that the three choices rows were *unreachable* —
+was **wrong on its mechanism, and the rows were never unreachable**. Corrected and fixed in #859;
+kept below because the correction is the reusable part.
 
-| Step | Evidence |
+| Claim made in #857 | What the code actually did |
 |---|---|
-| Both methods filter on `date` | `find_by(user_uid=..., date__gte=start_date, date__lte=end_date)` — `_analytics_mixin.py:256–257` and `443–444` |
-| `Choice` has no `date` property | Its temporal fields are `decision_deadline` and `decided_at` (`choice.py:75–76`) plus inherited `created_at`/`updated_at`; `ChoiceDTO` matches (`choice_dto.py:64–65`) |
-| The bad key is not rejected | `ModelQueryBuilder.filter()` validates only that a key is a safe identifier — `validate_field_name` is a regex plus a length cap (`core/utils/validation_helpers.py:59–61`), with no model introspection — so `date__gte` is recorded and emitted as Cypher |
-| Neo4j returns nothing | A predicate on an absent property is NULL, so every row is excluded — the repo's recurring silent-zero class, not an error |
-| Execution stops before the placeholders | `if not choices:` returns the empty payload at 265 (`get_decision_patterns`, 192) and 452 (`get_domain_decision_patterns`, 426); the placeholders are at 305/306 and 476 |
+| `find_by(date__gte=…, date__lte=…)` emits a predicate on `n.date` | It does not. `build_search_query` checks the key against the model's dataclass fields first (`crud_queries.py:107–109`) and **skips** any it does not recognise, with a warning |
+| Neo4j returns nothing, so the methods exit through `if not choices:` | The opposite. Both predicates were dropped and the query degraded to `WHERE n.user_uid = $user_uid` — **every choice the user ever made**, unbounded by time and silently capped at `find_by`'s default `limit=100` |
+| The placeholders never execute | They executed for any user with ≥1 choice. `days` was the inert part: `days=7` and `days=365` returned the same set, while `choices_per_week` kept dividing by the *requested* window |
 
-**So the temporal filter must be repointed at a real property first.** Until then, an implementer who
-merely adds the in-memory aggregations below will compute them over a permanently empty list.
+The general lesson is the one worth keeping: **`validate_field_name` is not the only gate on a filter
+key.** It is a regex + length cap (`validation_helpers.py:59–61`) and it does pass `date__gte`, but a
+second, model-aware gate downstream is what actually decided the behaviour. Tracing to the first gate
+and stopping produced a confident, backwards diagnosis — a dropped predicate over-returns, it does
+not silent-zero.
 
-⚠ **Nor do the four rows share a remedy — check where the data lives before writing a query.** Two
+The fix (#859) routes all three period methods through
+`_AnalyticsMixin._find_choices_in_window` (`_analytics_mixin.py:194`), which windows on `created_at`
+via `find_by_date_range`. Two constraints are recorded in that helper's docstring and pinned by
+tests: `decided_at` would have silent-zeroed (its only writer, `ChoicesCoreService.make_decision`,
+has no route), and `created_at` has two storage shapes, so only the coercing
+`find_by_date_range` path matches both.
+
+⚠ **The four rows do not share a remedy — check where the data lives before writing a query.** Two
 need no query at all, one cannot be recovered by any query until persistence is defined, and only
 the fourth is a genuine graph read.
 
 | File | Line | Value | Should Become |
 |------|------|-------|---------------|
-| `core/services/choices/_analytics_mixin.py` | 305 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query |
-| `core/services/choices/_analytics_mixin.py` | 306 | `avg_satisfaction = 0.75` | **No query needed** (once the filter above is fixed). `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 296–297. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
-| `core/services/choices/_analytics_mixin.py` | 476 | `"avg_quality_score": 0.7` | **No query needed** (same prerequisite). `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
-| `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read**, and is not affected by the filter bug above |
+| `core/services/choices/_analytics_mixin.py` | 347 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query. Note the boundary model itself is unreachable — no route constructs a `ChoiceDecisionRequest` |
+| `core/services/choices/_analytics_mixin.py` | 348 | `avg_satisfaction = 0.75` | **No query needed.** `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 338–339. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
+| `core/services/choices/_analytics_mixin.py` | 514 | `"avg_quality_score": 0.7` | **No query needed.** `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
+| `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read** |
 
-Rows 305/306 sit in `get_decision_patterns()` beside a genuinely computed ratio
-(`principle_alignment_score`, 307); row 476 sits in `get_domain_decision_patterns()` beside a real
+Rows 347/348 sit in `get_decision_patterns()` beside a genuinely computed ratio
+(`principle_alignment_score`, 349); row 514 sits in `get_domain_decision_patterns()` beside a real
 `percentage`. In both cases a caller cannot tell which fields of the returned dict were computed and
-which are constants — though today, neither dict is ever built.
+which are constants — and since #859 both dicts are actually built and returned, so the constants
+now reach callers.
+
+⚠ Two neighbours of row 348 look computed but are not. `principle_aligned_count` and
+`goal_oriented_count` (338–339) read `aligned_principles` / `related_goals` off each `Choice` via
+`getattr(..., None)`; **neither is a `Choice` field** — both live as graph edges. So
+`principle_aligned_percentage`, `goal_oriented_percentage`, `principle_alignment_score` and the
+`strategic_vs_tactical` band derived from them are all structurally 0. Same family as the filter bug
+this section used to describe: a name that does not exist on the model, degrading silently instead of
+erroring. Not yet fixed — it needs the relationship read, not a constant.
 
 ### E2 — Goal-achievement recommendations (`FUTURE-IMPL-*`)
 

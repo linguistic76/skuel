@@ -580,6 +580,25 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         """Count entities matching filters."""
         ...
 
+    async def find_by_date_range(
+        self,
+        start_date: "date | str | None",
+        end_date: "date | str | None",
+        date_field: str = "occurred_at",
+        additional_filters: "FilterParams | None" = None,
+        limit: int = 100,
+    ) -> ResultType[builtins.list[T]]:
+        """Find entities whose ``date_field`` falls in [start_date, end_date].
+
+        Distinct from ``find_by(field__gte=...)``, and not interchangeable with it:
+        the stored value is coerced (``date(left(toString(n.field), 10))``) before
+        comparing, so this matches a field held as an ISO string, an ISO datetime
+        string, or a native temporal alike. A bare ``>=`` against a string bound
+        evaluates to null on temporally-stored rows and silently drops them.
+        Prefer this for any window over a mixed-representation field.
+        """
+        ...
+
     async def get_user_entities(
         self,
         user_uid: UserUID,
