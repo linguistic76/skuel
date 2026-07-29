@@ -589,11 +589,19 @@ class LateralRelationshipOperations(Protocol):
     ) -> "Result[list[LateralRelationshipItem]]": ...
 
     async def get_blocking_chain(
-        self, entity_uid: EntityUID, max_depth: int = 10
+        self,
+        entity_uid: EntityUID,
+        max_depth: int = 10,
+        user_uid: UserUID | None = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> "Result[BlockingChainResult]": ...
 
     async def get_alternatives_with_comparison(
-        self, entity_uid: EntityUID, comparison_fields: list[str] | None = None
+        self,
+        entity_uid: EntityUID,
+        comparison_fields: list[str] | None = None,
+        user_uid: UserUID | None = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> "Result[list[AlternativeComparisonItem]]": ...
 
     async def get_relationship_graph(
@@ -601,6 +609,8 @@ class LateralRelationshipOperations(Protocol):
         entity_uid: EntityUID,
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
+        user_uid: UserUID | None = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> "Result[RelationshipGraphData]": ...
 
     async def get_siblings(

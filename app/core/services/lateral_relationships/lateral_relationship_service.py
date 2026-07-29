@@ -102,12 +102,11 @@ class LateralRelationshipService:
         if source_uid == target_uid:
             return Result.fail(Errors.validation("Cannot create lateral relationship with self"))
 
-        # Ownership verification (if domain_service provided)
-        if user_uid and domain_service:
-            for uid in [source_uid, target_uid]:
-                ownership_result = await domain_service.verify_ownership(uid, user_uid)
-                if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Entity {uid} not found or access denied"))
+        # Both endpoints must be reachable by the caller before an edge joins them.
+        for uid in (source_uid, target_uid):
+            access = await self._verify_entity_access(uid, user_uid, domain_service)
+            if access.is_error:
+                return Result.fail(access)
 
         # Validation phase
         if validate:
@@ -183,12 +182,11 @@ class LateralRelationshipService:
         Returns:
             Result[bool]: Success if relationship deleted
         """
-        # Ownership verification
-        if user_uid and domain_service:
-            for uid in [source_uid, target_uid]:
-                ownership_result = await domain_service.verify_ownership(uid, user_uid)
-                if ownership_result.is_error:
-                    return Result.fail(Errors.not_found(f"Entity {uid} not found or access denied"))
+        # Both endpoints must be reachable by the caller before an edge is removed.
+        for uid in (source_uid, target_uid):
+            access = await self._verify_entity_access(uid, user_uid, domain_service)
+            if access.is_error:
+                return Result.fail(access)
 
         result = await self.backend.delete_relationship(
             source_uid=source_uid,
@@ -247,13 +245,9 @@ class LateralRelationshipService:
         Returns:
             Result with list of relationships
         """
-        # Ownership verification
-        if user_uid and domain_service:
-            ownership_result = await domain_service.verify_ownership(entity_uid, user_uid)
-            if ownership_result.is_error:
-                return Result.fail(
-                    Errors.not_found(f"Entity {entity_uid} not found or access denied")
-                )
+        access = await self._verify_entity_access(entity_uid, user_uid, domain_service)
+        if access.is_error:
+            return Result.fail(access)
 
         # Build type filter
         if relationship_types:
@@ -306,13 +300,9 @@ class LateralRelationshipService:
         Returns:
             Result with list of siblings
         """
-        # Ownership verification
-        if user_uid and domain_service:
-            ownership_result = await domain_service.verify_ownership(entity_uid, user_uid)
-            if ownership_result.is_error:
-                return Result.fail(
-                    Errors.not_found(f"Entity {entity_uid} not found or access denied")
-                )
+        access = await self._verify_entity_access(entity_uid, user_uid, domain_service)
+        if access.is_error:
+            return Result.fail(access)
 
         if include_explicit_only:
             # Query explicit SIBLING relationships. get_siblings is a `# boundary`
@@ -389,6 +379,37 @@ class LateralRelationshipService:
     # ========================================================================
     # Private Helper Methods
     # ========================================================================
+
+    async def _verify_entity_access(
+        self,
+        entity_uid: str,
+        user_uid: UserUID | None,
+        domain_service: "OwnershipVerifier | None",
+    ) -> Result[bool]:
+        """Confirm the caller may reach this entity, or refuse it as not-found.
+
+        The single ownership gate for every public method on this service.
+        Verification runs only when the caller supplies BOTH a user and a
+        verifier: ``domain_service=None`` is the deliberate shared-content path
+        (curriculum KU/PS/LP, which every user may read), so callers on a
+        user-owned domain must pass both. An entity the caller does not own is
+        reported as not-found rather than forbidden, so a UID's existence never
+        leaks.
+
+        See: /docs/patterns/OWNERSHIP_VERIFICATION.md
+        """
+        if not (user_uid and domain_service):
+            return Result.ok(True)
+
+        ownership_result = await domain_service.verify_ownership(entity_uid, user_uid)
+        if ownership_result.is_error:
+            # (resource, identifier) — the four inlined copies this replaced passed
+            # the whole sentence as `resource`, yielding a garbled code and
+            # "The requested Entity <uid> not found or access denied could not be
+            # found". The category, and so the 404, is unchanged.
+            return Result.fail(Errors.not_found("Entity", entity_uid))
+
+        return Result.ok(True)
 
     async def _validate_lateral_relationship(
         self,
@@ -564,6 +585,8 @@ class LateralRelationshipService:
         self,
         entity_uid: EntityUID,
         max_depth: int = 10,
+        user_uid: UserUID | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[BlockingChainResult]:
         """
         Get transitive blocking chain with depth levels.
@@ -574,10 +597,16 @@ class LateralRelationshipService:
         Args:
             entity_uid: Entity UID to get blockers for
             max_depth: Maximum depth to traverse (default 10)
+            user_uid: User requesting the chain (for ownership verification)
+            domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result with blocking chain data including levels and critical_path.
         """
+        access = await self._verify_entity_access(entity_uid, user_uid, domain_service)
+        if access.is_error:
+            return Result.fail(access)
+
         result = await self.backend.get_blocking_chain(entity_uid)
 
         if result.is_error:
@@ -645,6 +674,8 @@ class LateralRelationshipService:
         self,
         entity_uid: EntityUID,
         comparison_fields: list[str] | None = None,
+        user_uid: UserUID | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[list[AlternativeComparisonItem]]:
         """
         Get alternative entities with side-by-side comparison data.
@@ -653,10 +684,16 @@ class LateralRelationshipService:
             entity_uid: Entity UID to get alternatives for
             comparison_fields: Specific fields to include in comparison
                               (None = all available fields)
+            user_uid: User requesting the alternatives (for ownership verification)
+            domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result with list of alternatives with comparison data
         """
+        access = await self._verify_entity_access(entity_uid, user_uid, domain_service)
+        if access.is_error:
+            return Result.fail(access)
+
         result = await self.backend.get_alternatives_comparison(entity_uid)
 
         if result.is_error:
@@ -714,21 +751,34 @@ class LateralRelationshipService:
         entity_uid: EntityUID,
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
+        user_uid: UserUID | None = None,
+        domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[RelationshipGraphData]:
         """
         Get relationship graph in Vis.js Network format.
 
         Returns nodes and edges for interactive force-directed graph visualization.
 
+        Ownership is verified on the center entity only — the traversal itself is
+        not owner-filtered, so a neighbour reached from an owned center is
+        returned regardless of who owns it. That is the same reach the
+        ``get_lateral_relationships``-backed reads already have.
+
         Args:
             entity_uid: Center entity UID
             depth: Graph traversal depth (1-3 recommended)
             relationship_types: Filter by specific relationship types
                                (None = all lateral relationships)
+            user_uid: User requesting the graph (for ownership verification)
+            domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result with Vis.js Network format (nodes + edges)
         """
+        access = await self._verify_entity_access(entity_uid, user_uid, domain_service)
+        if access.is_error:
+            return Result.fail(access)
+
         # Build type filter
         if relationship_types:
             type_filter = "|".join([rt.value for rt in relationship_types])
