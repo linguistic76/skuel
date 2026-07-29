@@ -569,17 +569,27 @@ exclude = [
     # directories are absent from a clean checkout by design (Docker volumes, gitignored
     # local archives). Absent-from-disk is NOT evidence an entry is dead — verified by
     # materialising each path with a file ruff must flag and re-running with the entry
-    # removed. `.gitignore` covers the gitignored ones during traversal, but the exclude
-    # is what holds under `--no-respect-gitignore` and for explicitly-passed paths.
+    # removed. `.gitignore` covers the gitignored ones during traversal; the exclude is
+    # what holds under `--no-respect-gitignore`.
+    #
+    # ⚠ SCOPE LIMIT: `force-exclude` is NOT set, and ruff applies `exclude` only to files
+    # it discovers by traversal — NOT to paths passed explicitly on the command line. CI
+    # (`ruff check .`) traverses, so it honours this list; the installed pre-commit hook
+    # (scripts/git-hooks/pre-commit) pipes staged filenames through `xargs uv run ruff
+    # check`, so it does NOT. A new .py added under an excluded tree would therefore block
+    # a commit while passing CI. Latent today: all 12 tracked .py under these trees lint
+    # clean either way. Set `force-exclude = true` if that ever bites.
     ".venv",
-    "backup_archive",  # Local backup dir; mirrored in scripts/lint_skuel.py EXCLUDED_DIRS
+    "backup_archive",  # Local backup dir; mirrored in scripts/lint_skuel.py EXCLUDED_DIR_NAMES
     "neo4j-import",  # Neo4j Docker container data directory (permission denied)
     "docs/archive",  # Archived/deprecated code - not actively maintained (.gitignore: **/archive/)
     "zarchives",     # Archived code - not actively maintained (.gitignore: zarchives/)
     "__pycache__",
-    "migrations",    # LIVE: matches scripts/migrations/ + tests/integration/migrations/ at
-                     # any depth, not a root-level dir. lint_skuel.py excludes the same tree
-                     # ("Migration scripts document old patterns").
+    "migrations",    # LIVE: a bare name matches at any depth, so this covers scripts/migrations/
+                     # (8 tracked .py) and tests/integration/migrations/ (4) — there is no
+                     # root-level migrations/ dir. lint_skuel.py excludes only the FIRST of
+                     # those, via EXCLUDED_PATH_PREFIXES ("Migration scripts document old
+                     # patterns"); the two linters' exclusion sets are not identical here.
     "*.egg-info",
     ".claude/skills",  # Claude Code skills templates (documentation, not production code)
 ]
@@ -767,7 +777,6 @@ fixable = ["ALL"]
 "adapters/inbound/*_api.py" = ["RUF003", "ARG001", "ARG005", "ANN202"]  # API routes + unused params (incl lambda) + no return types
 
 # UI component files - PascalCase function names are intentional (FastHTML convention)
-"adapters/inbound/*_components.py" = ["N802"]       # UI component functions use PascalCase
 "ui/*.py" = ["N802", "RUF001", "RUF002"]              # Shared UI components use PascalCase + Unicode icons
 "ui/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "RUF012", "ARG001", "ARG002", "ANN", "PERF401"]  # UI: PascalCase + Unicode + class defaults
 
@@ -813,21 +822,26 @@ fixable = ["ALL"]
 # ============================================================================
 # DEFERRED IMPLEMENTATIONS — intentionally unused parameters
 # ============================================================================
-# docs/reference/DEFERRED_IMPLEMENTATIONS.md, cited by the previous version of this
-# header, does not exist. Of the four tag families it named, only FUTURE-IMPL-* is
-# still present in the tree (6 sites: goal_event_handler_service, goals_progress_service,
-# lp_progress_service); DEFERRED-ARG-*, STUB-* and API-COMPAT-* are gone from the code,
-# and the three entries that carried them pointed at files that no longer exist.
+# The previous header cited docs/reference/DEFERRED_IMPLEMENTATIONS.md, which does not
+# exist. The LIVE register for this class of debt is docs/reference/PLACEHOLDER_INDEX.md
+# ("Placeholder Parameter Index", Groups A–J) — that is where a deferred parameter gets
+# recorded, not here. Of the four tag families the old header named, only FUTURE-IMPL-*
+# survives in code (6 sites in goal_event_handler_service.py, goals_progress_service.py
+# and lp_progress_service.py, all still citing the dead doc — separate cleanup).
 #
-# Find the surviving tags: rg "FUTURE-IMPL-" --type py
+# ⚠ MOST OF THIS BLOCK WAS DEAD, for a reason worth keeping: SKUEL marks a deferred
+# parameter by UNDERSCORE-PREFIXING it (`_user_uid`), and ruff's ARG rules already skip
+# underscore-prefixed args. A per-file ARG002 exemption is therefore a hand-rolled
+# duplicate of a convention that already handles it. Measured with the whole table
+# cleared, three such entries reported ZERO violations and were deleted
+# (askesis/context_retriever.py, askesis/query_processor.py, lp/lp_progress_service.py —
+# the last also named `newly_mastered_ku`, a parameter absent from the file). Before
+# adding an entry here, check whether underscore-prefixing is the real fix.
 
-# Future personalization (FUTURE-IMPL-008, FUTURE-IMPL-009)
+# Future personalization (FUTURE-IMPL-008) — `current_streak` is genuinely unused and NOT
+# underscore-prefixed, so this is the one entry in the block with a live violation behind
+# it. (Three broader keys also suppress it, so it is documentation more than mechanism.)
 "core/services/goals/goals_progress_service.py" = ["ARG002"]       # FUTURE-IMPL-008: current_streak
-"core/services/lp/lp_progress_service.py" = ["ARG002"]             # FUTURE-IMPL-009: newly_mastered_ku
-
-# Askesis stub/placeholder methods — no tag left in code, params still unused
-"core/services/askesis/context_retriever.py" = ["ARG002"]
-"core/services/askesis/query_processor.py" = ["ARG002"]
 
 # FastHTML route handlers — request/current_user injected by decorators
 "adapters/inbound/_pathstep_template_routes_helpers.py" = ["ARG001"]
