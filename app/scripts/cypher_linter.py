@@ -515,26 +515,33 @@ class CypherLinter:
     def _edge_only_vars(cls, query: str) -> set[str]:
         """Variables bound to a relationship and NEVER to a node in this query.
 
-        Both DETACH rules read this one set, and the subtraction is what gives
-        each of them its fail-safe direction — which is why it belongs here
-        rather than in either rule:
+        **CYP012 only.** CYP002 reads the raw classifier on purpose — see the
+        comment at its call site for why a CI-gating ERROR rule must not depend
+        on these subtractions.
 
-        * CYP002 skips these. Dropping an ambiguous name from the skip-set makes
-          CYP002 *report*, and reporting is its safe direction (a false positive
-          is one review comment; a miss is a delete that fails at runtime).
-        * CYP012 flags only these. Dropping an ambiguous name makes CYP012 stay
-          *silent*, and silence is its safe direction (it removes a redundant
-          keyword, so a miss costs nothing while a wrong suggestion breaks a
-          query).
+        That asymmetry is the whole design. Every subtraction here can only ever
+        make CYP012 *quieter*, and quiet is CYP012's safe direction: it removes a
+        redundant keyword, so a miss costs nothing while a wrong suggestion breaks
+        a query. The same subtraction inside CYP002 pointed the other way and
+        produced a false blocking failure (#868 round 7).
 
-        The classifiers are query-wide, so a name reused across scopes is
-        genuinely ambiguous to them —
-        ``CALL { MATCH ()-[ r:OWNS]->() DELETE r } MATCH (r:Entity) DELETE r``
-        binds ``r`` as an edge inside the subquery and a node outside it. Real
-        scope analysis is a parser's job and a regex approximating a parser is a
-        recorded tail in this tree; declining to guess costs one report either
-        way (Codex P2 ×2, #868 — the second round found the CYP002 half, which
-        widening `_REL_VAR_RE` had newly exposed).
+        The classifiers are query-wide and lexical, so CYP012 declines whenever a
+        name is not plainly an edge. Known cases, all of them misses rather than
+        false alarms:
+
+        * a name reused across scopes —
+          ``CALL { MATCH ()-[ r:OWNS]->() DELETE r } MATCH (r:Entity) DELETE r``
+          binds ``r`` as an edge inside the subquery and a node outside it;
+        * ``count (r)`` and friends, where whitespace before the paren makes an
+          aggregate look like a node pattern. Distinguishing a function name from
+          a clause keyword there is a parser's job, and this rule does not do
+          parser jobs;
+        * names rebound by an ``AS`` alias, below.
+
+        Four review rounds arrived on this surface (#868). That progression is the
+        signature of a regex growing toward a parser, and this tree has already
+        paid 19 rounds for that lesson once (#831), so the mechanism stops here
+        and the CLAIM carries the weight instead.
 
         Names rebound by an ``AS`` alias drop out for the same reason:
         ``MATCH (n:Entity) WITH n AS r DETACH DELETE r`` makes ``r`` a node no
@@ -585,10 +592,24 @@ class CypherLinter:
         """
         violations: list[Violation] = []
 
-        # `_edge_only_vars`, not `_relationship_vars`: an ambiguous name must NOT
-        # be skipped here. See that helper for why the same subtraction is
-        # fail-safe in both this rule and CYP012.
-        relationship_vars = self._edge_only_vars(query)
+        # Deliberately the RAW classifier, not `_edge_only_vars`.
+        #
+        # Round 5 of #868 routed this rule through the node/alias subtractions to
+        # close a cross-scope miss. Round 7 showed the price: `count (r)` — a
+        # function call with a space before its paren, which Cypher allows — reads
+        # as a node pattern, drops `r` from the edge set, and makes this
+        # ERROR-severity rule BLOCK CI on a correct relationship deletion.
+        #
+        # That is the wrong trade for a gating rule. Before this PR CYP002 rested
+        # on one hand-written approximation; the subtractions made it rest on
+        # three, converting a rare miss of a contrived cross-scope query — which
+        # was pre-existing behaviour, not this PR's to fix — into a false failure
+        # on correct code. A gate must not fail closed on my regex being wrong.
+        #
+        # The cross-scope miss is therefore left as it was found, documented in
+        # LINTER_GUIDE.md as a known limit. Fixing it needs scope resolution, which
+        # is a parser's job and its own change with its own measurement.
+        relationship_vars = self._relationship_vars(query)
 
         # Find DELETE statements that aren't DETACH DELETE
         delete_pattern = r"\bDELETE\s+([a-z_][a-z0-9_]*)\b"

@@ -154,9 +154,34 @@ asked. A relationship has no relationships to detach, so `DETACH DELETE r` and
 `DELETE r` leave identical graphs (verified against a live server, not read off
 the docs). CYP012 fires only when **every** target is an edge: `DETACH DELETE r, n`
 is correct and is not flagged, because the DETACH is there for `n`. A target also
-bound as a **node** anywhere in the query is skipped — the classifier is
-query-wide, so a name reused across scopes is ambiguous, and CYP012 fails in the
-harmless direction rather than advising a change that could break a delete.
+bound as a **node** anywhere in the query, or rebound by an `AS` alias, is skipped.
+
+**Only CYP012 reads those subtractions, and that asymmetry is deliberate.** The
+node/alias classifiers are lexical and query-wide, so they are sometimes wrong.
+Every way they can be wrong makes CYP012 *quieter*, which is free — it only ever
+removes a redundant keyword. Pointing the same subtractions at CYP002 makes them
+point the other way, and #868 measured the result: `count (r)` — valid Cypher,
+whitespace before the paren — reads as a node pattern, drops `r` from the edge
+set, and makes an **ERROR-severity, CI-gating rule fail a correct relationship
+deletion**. CYP002 therefore keeps the raw classifier. A gate must not fail closed
+because a regex was wrong.
+
+**Known limits of CYP012 (all misses, never false alarms):** a name reused across
+scopes (`CALL { MATCH ()-[r:OWNS]->() DELETE r } MATCH (r:Entity) DETACH DELETE r`);
+a whitespace-separated aggregate (`count (r)`), where telling a function name from
+a clause keyword is a parser's job; and any name a `WITH … AS r` rebinds. Four
+review rounds landed on this surface in #868. That progression is a regex growing
+toward a parser — a tail this repo already paid 19 rounds for once (#831) — so the
+mechanism stopped and the rule's *claim* narrowed instead: **CYP012 speaks only
+when a name is bound by a relationship pattern, never by a node pattern, and never
+by an alias.**
+
+**Known limit of CYP002 (pre-existing, left as found):** the same cross-scope
+reuse makes CYP002 *skip* a node delete that genuinely needs DETACH. This predates
+#868; a round of that PR "fixed" it via the subtractions above and had to be
+reverted when the fix proved worse than the bug. Closing it properly needs scope
+resolution. Both limits are asserted by tests, so a real fix will announce itself
+by turning those assertions red.
 
 **Coverage boundary (measured, not assumed):** of the four sites repaired when
 CYP012 was added, it guards **three**. `relationship_builders.py` interpolates

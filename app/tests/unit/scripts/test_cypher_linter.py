@@ -689,45 +689,51 @@ class TestCYP012:
         query = "MATCH (a)-[r:OWNS]->(n:Entity)\nDETACH DELETE r // edge first\n, n"
         assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
 
-    def test_cyp002_still_reports_when_a_name_is_ambiguous(self) -> None:
-        """Codex P2 (#868), round 2: widening `_REL_VAR_RE` newly exposed this.
+    def test_cyp002_never_blocks_ci_on_a_spaced_aggregate(self) -> None:
+        """Codex P2 (#868) round 7 — and the reason CYP002 keeps the RAW classifier.
 
-        Here `r` is an edge inside the CALL subquery and a NODE outside it. Before
-        the widening the whitespace binding `-[ r:OWNS]` went unrecognised, so
-        CYP002 reported the outer delete by accident. Recognising it turned that
-        into a silent miss of a delete that genuinely needs DETACH — the ERROR-
-        severity direction. Reporting is CYP002's fail-safe, so an ambiguous name
-        must leave the skip-set.
+        `count (r)` is valid Cypher, and the node regex reads its `(r)` as a node
+        pattern. Round 5 had routed CYP002 through the node/alias subtractions, so
+        that misread dropped `r` from the edge set and made an ERROR-severity,
+        CI-gating rule fail a CORRECT relationship deletion.
 
-        The cost is asserted rather than hidden: declining to guess the scope
-        means BOTH bare deletes of the ambiguous name are reported — line 3's
-        node delete, which is the one that matters, and line 1's edge delete,
-        which is spurious. One extra review comment is the price of not missing a
-        delete that fails at runtime; the other direction pays in broken queries.
+        Reverted deliberately. Before this PR CYP002 rested on one hand-written
+        approximation; the subtractions made it rest on three, trading a rare miss
+        of a contrived cross-scope query — pre-existing behaviour — for a false
+        failure on correct code. A gate must not fail closed on a regex being
+        wrong. This test is the guard on that decision.
+        """
+        linter = make_linter()
+        query = "MATCH ()-[r:OWNS]->() DELETE r RETURN count (r) AS deleted"
+        assert linter._node_vars(query) == {"r"}, "the misread itself is unchanged"
+        assert linter._check_delete_without_detach(query, Path("test.py"), 1) == []
+
+    def test_cyp002_cross_scope_miss_is_a_documented_pre_existing_limit(self) -> None:
+        """The cost of that revert, asserted so it cannot be mistaken for a fix.
+
+        `r` is an edge in the subquery and a node outside it; CYP002 skips the
+        outer delete even though it needs DETACH. This is how CYP002 behaved
+        before this PR and is left as found — closing it needs scope resolution,
+        which is a parser's job and its own change. Asserting the miss keeps it
+        honest: if someone later fixes it properly, this test says so out loud.
         """
         linter = make_linter()
         query = "CALL { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDELETE r"
-        violations = linter._check_delete_without_detach(query, Path("test.py"), 1)
-        assert [v.line_number for v in violations] == [1, 3]
+        assert linter._check_delete_without_detach(query, Path("test.py"), 1) == []
 
-    def test_one_subtraction_gives_both_rules_their_safe_direction(self) -> None:
-        """The two rules read the same set and must disagree about what to do.
+    def test_only_cyp012_reads_the_subtractions(self) -> None:
+        """Pins the asymmetry: every subtraction may quieten CYP012, never CYP002.
 
-        Pins the asymmetry so a future edit cannot "simplify" one rule back onto
-        the raw classifier: on the same ambiguous query CYP012 stays quiet (its
-        miss is free) while CYP002 speaks (its miss is a broken query).
+        A future edit that "unifies" the two rules onto one classifier reopens
+        round 7 — so the divergence is asserted rather than left to a comment.
         """
         linter = make_linter()
         query = "CALL { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDETACH DELETE r"
         assert linter._relationship_vars(query) == {"r"}
         assert linter._node_vars(query) == {"r"}
         assert linter._edge_only_vars(query) == set()
-
+        # CYP012 declines the ambiguous target; CYP002 is untouched by that logic.
         assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
-        # The inner `DELETE r` is bare, so CYP002 has something to say about it.
-        assert [
-            v.rule_code for v in linter._check_delete_without_detach(query, Path("test.py"), 1)
-        ] == ["CYP002"]
 
     def test_node_reaching_the_target_through_an_alias_is_not_flagged(self) -> None:
         """Codex P2 (#868), round 3 on this surface: `WITH n AS r` rebinds `r`.
