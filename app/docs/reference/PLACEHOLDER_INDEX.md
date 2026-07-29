@@ -159,9 +159,13 @@ is not the only thing deferred in it:
   `due_date=today + 3 days` (451) are hardcoded literals that ignore even `Milestone.target_date`,
   and they bypass the class's own `_calculate_priority()` (464, used at 279). The at-risk *gate*
   lives in the caller (243, `goal.days_remaining() < 30`), not here.
-- **One task only** — the `break` at 460 defers multi-milestone generation.
 - `_user_context` is unread, so no cross-goal signal (competing deadlines, capacity) reaches the
   decision.
+
+The `break` at 460 (`# Only one urgent task`) is **not** deferred work — it is the selection
+contract. `generate_next_critical_tasks()` (223) pools tasks across every at-risk goal and then
+applies a global `critical_tasks[:limit]` (250), so emitting every milestone would let one goal
+crowd the others out. Leave it alone unless that contract is being changed deliberately.
 
 Implementing `_user_context` alone would still leave every urgent task at a constant CRITICAL
 priority and a constant today+3 due date.
@@ -222,7 +226,7 @@ not established here — "it has a caller" is the weak question.
 | Marker | File | Line | Placeholder | Notes |
 |--------|------|------|-------------|-------|
 | `FUTURE-IMPL-008` | `core/services/goals/goals_progress_service.py` | 1129 | `current_streak: int` (1131) on `_update_goal_from_habit_completion()` (1130) | ⚠ **One of the two deferred *parameters* in this register that are NOT underscore-prefixed** (the other is `user_uid` on `_generate_recommendations()`, Group E2). ⚠ **Intent unknown — do not assume a remedy.** The value is not lost: the completing habit's streak is persisted (`habits_progress_service.py:242`) *before* the event is published, and `count_linked_habits_avg_streak` averages the persisted `current_streak` of every linked habit, so it is already counted. The parameter is redundant as it stands, and the handler receives no `habit_uid` with which to single that habit out. |
-| `FUTURE-IMPL-009` | `core/services/lp/lp_progress_service.py` | 171 | `old_progress_percentage` synthesised as `((mastered_kus - 1) / total_kus) * 100` (205); `average_mastery_score=1.0` (239) | No `UserLpProgress` entity exists, so prior progress is inferred by assuming exactly one KU was just mastered, and `LearningPathCompleted` reports perfect mastery unconditionally. |
+| `FUTURE-IMPL-009` | `core/services/lp/lp_progress_service.py` | 171 | `old_progress_percentage` synthesised as `((mastered_kus - 1) / total_kus) * 100` (205); `average_mastery_score=1.0` (239) | Nothing reads persisted LP progress, so prior progress is inferred by assuming exactly one KU was just mastered; and whenever the completion branch fires, `LearningPathCompleted` reports mastery of exactly 1.0. |
 
 **What full implementation requires:**
 - `FUTURE-IMPL-008`: **decide, don't implement.** The averaged progress already includes the
@@ -272,7 +276,7 @@ These are FastHTML component functions that accept parameters that are not yet r
 | Medium | E — Hardcoded Scalars | Affects intelligence accuracy; requires graph queries |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | G — Events Intelligence | Depends on GraphContext enrichment work |
-| Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` blocks on a `UserLpProgress` entity that does not exist |
+| Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — extend the existing `UserProgress`, do not add a parallel entity |
 | Low | D — Neo4j Adapter Stubs | Developer tooling; not user-facing |
 | Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread |
 | Low | H — Askesis Private Methods | Internal heuristics refinement |
