@@ -235,14 +235,16 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
   - `validate=True`: checks both entities exist, detects circular dependencies (`BLOCKS`/`PREREQUISITE_FOR`), rejects duplicates
   - `auto_inverse=True`: auto-creates the inverse (`BLOCKS` → also creates `BLOCKED_BY` in the reverse direction)
 - `delete_lateral_relationship(source_uid, target_uid, relationship_type)` → `Result[bool]`
-- `get_lateral_relationships(entity_uid, relationship_types, direction="outgoing", include_metadata=True, user_uid, domain_service)` → `Result[list[LateralRelationshipItem]]` — filtered query with direction control (`"incoming"` / `"outgoing"` / `"both"`)
+- `get_lateral_relationships(entity_uid, relationship_types=None, direction="outgoing", include_metadata=True, user_uid=None, domain_service=None)` → `Result[list[LateralRelationshipItem]]` — filtered query with direction control (`"incoming"` / `"outgoing"` / `"both"`)
 - `get_blocking_chain(entity_uid, max_depth=10)` → `Result[BlockingChainResult]` — transitive blocking dependency chain
 - `get_alternatives_with_comparison(entity_uid, comparison_fields=None)` → `Result[list[AlternativeComparisonItem]]` — side-by-side comparison data
 - `get_relationship_graph(entity_uid, depth=2, relationship_types=None)` → `Result[RelationshipGraphData]` — Vis.js network format (nodes + edges)
 
 Return rows are typed `TypedDict`s from `core/ports/query_types.py`, not raw `dict`s.
 
-Only `get_lateral_relationships` accepts `domain_service: OwnershipVerifier` — the ownership hook that replaced the per-domain wrappers (below). The three enhanced reads (`get_blocking_chain`, `get_alternatives_with_comparison`, `get_relationship_graph`) take **no** verifier and perform **no** ownership check; see § Ownership Coverage.
+Only `get_lateral_relationships` accepts `user_uid` / `domain_service` — the ownership hook that replaced the per-domain wrappers (below). **Both default to `None`, so the check is opt-in and fails open:** a caller that omits them gets no ownership enforcement. Passing them is what produces the required not-found for an entity the user does not own; `None` is the deliberate shared-content path (curriculum KU/PS/LP).
+
+The three enhanced reads (`get_blocking_chain`, `get_alternatives_with_comparison`, `get_relationship_graph`) accept **no** such parameters at all, so they cannot enforce ownership even when a caller wants to — see § Ownership Coverage.
 
 ### Lateral Relationship Type Taxonomy
 

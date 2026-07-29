@@ -333,7 +333,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 ### @ui-css
 
-**Description:** SKUEL CSS layer — MonsterUI (FrankenUI + Tailwind) components
+**Description:** SKUEL CSS layer — Tailwind + ui.components (SKUEL-owned pure-Tailwind layer, ADR-071)
 
 **Patterns (Primary):**
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
@@ -483,7 +483,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Total skills:** 30
 - **Architecture docs:** 10 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
-- **Pattern docs:** 43 docs linked to skills
+- **Pattern docs:** 42 docs linked to skills
 - **ADRs:** 12 ADRs linked to skills
 
 ---
