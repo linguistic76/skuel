@@ -240,7 +240,9 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 - `get_alternatives_with_comparison(entity_uid, comparison_fields=None)` → `Result[list[AlternativeComparisonItem]]` — side-by-side comparison data
 - `get_relationship_graph(entity_uid, depth=2, relationship_types=None)` → `Result[RelationshipGraphData]` — Vis.js network format (nodes + edges)
 
-Return rows are typed `TypedDict`s from `core/ports/query_types.py`, not raw `dict`s. Reads accept an optional `domain_service: OwnershipVerifier` — the ownership hook that replaced the per-domain wrappers (below).
+Return rows are typed `TypedDict`s from `core/ports/query_types.py`, not raw `dict`s.
+
+Only `get_lateral_relationships` accepts `domain_service: OwnershipVerifier` — the ownership hook that replaced the per-domain wrappers (below). The three enhanced reads (`get_blocking_chain`, `get_alternatives_with_comparison`, `get_relationship_graph`) take **no** verifier and perform **no** ownership check; see § Ownership Coverage.
 
 ### Lateral Relationship Type Taxonomy
 
@@ -310,7 +312,26 @@ factory = LateralRouteFactory(
 
 The composition root exposes exactly one lateral field — `services.lateral` — plus `services.lateral_orchestrator`; there are no `services.{domain}_lateral` fields.
 
-**Adding a domain is one entry in `_LATERAL_DOMAINS`.** Never reintroduce a `{domain}_lateral_service.py` wrapper — that is the pattern One Path Forward removed.
+**Never reintroduce a `{domain}_lateral_service.py` wrapper** — that is the pattern One Path Forward removed.
+
+**Adding a domain takes two edits, not one.** The `_LATERAL_DOMAINS` entry registers the routes; the third tuple item is only a *lookup key* into `LateralRelationshipsOrchestrator._domain_services`, which is a fixed map built from explicit constructor parameters:
+
+```python
+# core/orchestrator/lateral_relationships_orchestrator.py
+self._domain_services: dict[str, OwnershipVerifier] = {
+    "tasks": tasks_service, "goals": goals_service, "habits": habits_service,
+    "events": events_service, "choices": choices_service, "principles": principles_service,
+}
+```
+
+`get_domain_service()` is a plain `.get(domain)`, so a slug absent from that map returns `None` **silently** — and `None` means "shared/curriculum, no ownership check". For a **user-owned** domain you must also add the service to the orchestrator's constructor and map, and wire it in the composition root. Registering the route entry alone would expose the new domain's entities to every authenticated user.
+
+### Ownership Coverage
+
+`LateralRouteFactory` threads `domain_service` on **12 of its 15 routes** — all writes, the delete, and every `get_lateral_relationships`-backed read (`blocking`, `blocked`, `prerequisites`, `alternatives`, `complementary`, `siblings`, `manage`).
+
+> [!WARNING]
+> **Three reads perform no ownership check.** `GET .../lateral/chain`, `.../lateral/alternatives/compare`, and `.../lateral/graph` call `require_authenticated_user(request)` and discard the result, then call service methods that accept no verifier. Any authenticated user can read another user's blocking chain, alternatives, or relationship graph by entity UID. This is pre-existing (not introduced by the doc correction that recorded it) and unfixed — closing it means adding the verifier parameter to the three service methods and threading it through, while preserving the `None` case that curriculum KU/PS/LP rely on.
 
 ### Key Cypher Patterns
 
