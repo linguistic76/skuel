@@ -150,8 +150,9 @@ verification against the tree:
   for `goals_intelligence_service.py`. All four line numbers had drifted. Goals no longer belongs
   in the list at all: it takes a non-underscore `period_days` and already filters on it.
 - **Its step-3 remedy is unproven as written.** It passed a bare `date` object to
-  `find_by(updated_at__gte=...)`. The one working implementation passes `cutoff.isoformat()` off a
-  timezone-aware `datetime` (`goals_intelligence_service.py:162–164`). It also offered
+  `find_by(updated_at__gte=...)`. So did the goals implementation it was measured against, in the
+  other direction — `cutoff.isoformat()` off a timezone-aware `datetime` — and that turned out to
+  be the defect, not the model (fixed; see below). It also offered
   `created_at` as the alternative key without the caveat that goes with it: PR #859 **measured**
   that `created_at` has two storage shapes — ISO string for most entities, zoned `datetime` for a
   minority — and that a naive `find_by(created_at__gte=...)` silently drops the datetime-stored
@@ -170,8 +171,12 @@ Group A's remedy is `find_by_date_range` — for **both** candidate keys, not ju
 (`bulk_upsert_backend.py:125`), and all four activity domains are vault-ingestible. A bare
 `find_by(<field>__gte=...)` evaluates to null on the temporally-stored rows and drops them.
 
-**The goals call is not a model to copy** — it uses exactly that bare `__gte`, so its analytics
-silently omit re-ingested goals today. Tracked as a separate defect; Group A carries the details.
+**The goals call now IS the model to copy** — it used exactly that bare `__gte` and has been
+repointed at `find_by_date_range` (`goals_intelligence_service.py:176–182`), with a day-granular
+`date` bound, an explicit `limit`, and owner scoping retained. Group A in
+`docs/reference/PLACEHOLDER_INDEX.md` carries the full call shape and the three non-obvious
+constraints; `tests/unit/services/goals/test_goals_analytics_window.py` fails tree-wide if any
+remaining service is implemented with a bare comparison on either timestamp.
 
 Either way, **not** a Cypher `WHERE` clause, which SKUEL021 forbids in `core/`.
 

@@ -19,7 +19,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
@@ -158,15 +158,41 @@ class GoalsIntelligenceService(
 
         Protocol method: Aggregates goal metrics over time period.
         Used by IntelligenceRouteFactory for GET /api/goals/analytics route.
+
+        The window keys off ``updated_at`` — recent *activity* on a goal, which is what a
+        rolling performance report means — and is fetched with ``find_by_date_range``
+        rather than ``find_by(updated_at__gte=...)``. ``updated_at`` is stored in two
+        shapes: an ISO string on the CRUD write path (``_crud_mixin.py``) and a native
+        temporal on the vault re-ingest path (``bulk_upsert_backend.py``, ``ON MATCH``).
+        ``Goal`` carries an ``EntityIngestionConfig``, so any goal whose last write came
+        from a vault sync holds the temporal shape. Only ``find_by_date_range`` coerces
+        both before comparing; a bare ``>=`` against a string bound evaluates to null on
+        the temporally-stored rows and drops them, under-reporting every metric below
+        without raising. The coercion is day-granular, which is what reconciles this
+        ``date`` bound with the ``datetime`` the field holds.
+
+        Backend: UniversalNeo4jBackend.find_by_date_range
         """
-        cutoff = datetime.now(UTC) - timedelta(days=period_days)
-        goals_result = await self.backend.find_by(
-            user_uid=user_uid, updated_at__gte=cutoff.isoformat()
+        cutoff = date.today() - timedelta(days=period_days)
+        goals_result = await self.backend.find_by_date_range(
+            start_date=cutoff,
+            end_date=None,
+            date_field="updated_at",
+            additional_filters={"user_uid": user_uid},
+            limit=QueryLimit.MAXIMUM,
         )
         if goals_result.is_error:
             return Result.fail(goals_result)
 
         goals = goals_result.value or []
+        # find_by_date_range defaults to limit=100; every metric below is a count or a
+        # mean over this set, so a truncated page would understate all of them silently.
+        if len(goals) >= QueryLimit.MAXIMUM:
+            self.logger.warning(
+                "Goal performance analytics for %s capped at %d goals — metrics may be truncated",
+                user_uid,
+                QueryLimit.MAXIMUM,
+            )
 
         # Calculate analytics
         total_goals = len(goals)

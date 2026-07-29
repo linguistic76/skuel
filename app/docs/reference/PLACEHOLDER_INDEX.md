@@ -62,13 +62,28 @@ everything `find_by(user_uid=...)` returns. The response therefore *claims* a wi
 apply — this is a wrong answer, not just a missing feature.
 
 **Goals is already implemented and is not listed here:** `GoalsIntelligenceService` takes a
-non-underscore `period_days` and filters on it at `goals_intelligence_service.py:162`.
+non-underscore `period_days` and filters on it at `goals_intelligence_service.py:176–182`.
 
-⚠ **Implemented is not the same as correct — do not copy the goals call.** Its filter is
-`find_by(updated_at__gte=cutoff.isoformat())`, a bare `>=` against a string bound, and
-`updated_at` is mixed-representation (see below). Re-ingested goals are silently dropped from
-its analytics today. That is a live defect, tracked separately; this group's remedy is written
-against what is *correct*, not against what goals ships.
+✅ **Goals is now the worked reference for this group.** It previously used
+`find_by(updated_at__gte=cutoff.isoformat())` — a bare `>=` against a string bound, which
+silently dropped every re-ingested goal — and was fixed to route through `find_by_date_range`.
+Copy that call shape. Three things it had to get right beyond naming the helper:
+
+- **Pass a `date`, not a `datetime`.** The helper's coercion is day-granular
+  (`date(left(toString(n.field), 10))`), so a `datetime` bound is the wrong shape for it.
+- **Set `limit` explicitly.** `find_by_date_range` defaults to `limit=100`, and every metric in
+  these responses is a count or a mean over the returned set — the default page size is the
+  same silent-under-return class as the bug being fixed.
+- **Keep `user_uid` in `additional_filters`.** The helper matches on the label first, so
+  dropping the owner filter leaks other users' rows into one user's analytics.
+
+⚠ **A field-name guard cannot catch this defect.** The generic check #859 relied on for Choices —
+"every filtered key must be a real model field" — passes against the bad goals call, because
+`updated_at` *is* a real `Goal` field. A dropped predicate over-returns and is caught by field-name
+membership; an emitted predicate that evaluates to null under-returns and is not. The tree-wide
+guard for the whole family is `tests/unit/services/goals/test_goals_analytics_window.py`
+(`TestNoBareComparisonOnMixedTimestamps`), which fails if any of the three services below is
+implemented with a bare comparison on either timestamp.
 
 **What full implementation requires:** each service must bound its fetch to the period window.
 
@@ -82,13 +97,16 @@ The in-architecture move is `find_by_date_range`, which coerces the stored value
 (`base_protocols.py:583`).
 
 ```python
-cutoff = date.today() - timedelta(days=period_days)
+cutoff = date.today() - timedelta(days=period_days)   # a date: the coercion is day-granular
 result = await self.backend.find_by_date_range(
-    start_date=cutoff, end_date=None,
-    date_field="updated_at",                      # or "created_at"
-    additional_filters={"user_uid": user_uid},
+    start_date=cutoff, end_date=None,                 # "last N days" has a lower bound only
+    date_field="updated_at",                          # or "created_at"
+    additional_filters={"user_uid": user_uid},        # owner scoping is not optional
+    limit=QueryLimit.MAXIMUM,                         # the default 100 truncates silently
 )
 ```
+
+Live as written in `goals_intelligence_service.py:176–182`.
 
 ⚠ **Not `find_by(<field>__gte=...)`, for either key.** Both timestamp fields are
 **mixed-representation**, so a bare `>=` against a string bound evaluates to null on the
