@@ -81,8 +81,10 @@ def test_constraint_execution_helper_is_gone() -> None:
 def test_live_bulk_write_surface_survives() -> None:
     """The deletion must not have taken the ingestion write path with it.
 
-    These four are what ingestion actually calls; they build their Cypher in
-    Python and never touched the template directory.
+    All four build their Cypher in Python and never touched the template
+    directory. Ingestion calls the first three; ``delete_batch`` has no caller
+    — vault deletions run through ``IngestionBackend.delete_entities_with_metadata``,
+    which also deletes the entity's content subtree.
     """
     for name in (
         "upsert_nodes",

@@ -351,10 +351,18 @@ class BulkUpsertBackend:
             )
         )
 
-    async def delete_batch(
-        self, entity_label: str, uids: list[str], cascade: bool = False
-    ) -> Result[IngestionResult]:
-        """Bulk delete entities by uid (``DETACH DELETE`` or cascade)."""
+    async def delete_batch(self, entity_label: str, uids: list[str]) -> Result[IngestionResult]:
+        """Bulk delete entities by uid, each with all of its relationships.
+
+        Always ``DETACH DELETE`` — there is no non-cascading variant. The
+        single-entity sibling ``_CrudMixin.delete`` can offer one because a bare
+        ``DELETE`` makes Neo4j refuse a node that still has relationships, and
+        one node is one outcome. In a batch that refusal aborts the whole
+        transaction, rolling back every other uid, and ``IngestionResult``
+        carries no per-uid channel to report which one held an edge.
+        ``IngestionBackend.delete_entities_with_metadata`` — the delete that
+        vault reconciliation actually runs — also detaches unconditionally.
+        """
         if not uids:
             return Result.ok(
                 IngestionResult(
@@ -366,18 +374,8 @@ class BulkUpsertBackend:
                 )
             )
 
-        if cascade:
-            template_str = f"""
-// Cascade delete
-UNWIND $uids AS uid
-MATCH (n:{entity_label} {{uid: uid}})
-OPTIONAL MATCH (n)-[r]-()
-DELETE r, n
-RETURN count(n) as deleted
-"""
-        else:
-            template_str = f"""
-// Simple delete
+        template_str = f"""
+// Bulk delete
 UNWIND $uids AS uid
 MATCH (n:{entity_label} {{uid: uid}})
 DETACH DELETE n
