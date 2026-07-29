@@ -1024,8 +1024,10 @@ File-level: # skuel-lint: disable-file=SKUEL033 -- <reason>""",
         "good": '''async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
     """Record a user's visit to a KU; repeat visits accumulate count and time spent.
 
-    Idempotent per user/KU pair — the first-viewed timestamp survives later
-    visits, and the running view count comes back on the row.
+    One view record per user/KU pair, but NOT idempotent: every call increments
+    the view count and adds to total time spent, so a retry double-counts
+    engagement. The first-viewed timestamp is set once and survives later
+    visits; the running view count comes back on the row.
     """''',
         "bad": '''async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
     """MERGE a VIEWED edge with timestamp and view-count tracking."""

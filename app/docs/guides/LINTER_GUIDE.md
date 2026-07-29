@@ -153,7 +153,19 @@ classify the variable was already there, the second question was simply never
 asked. A relationship has no relationships to detach, so `DETACH DELETE r` and
 `DELETE r` leave identical graphs (verified against a live server, not read off
 the docs). CYP012 fires only when **every** target is an edge: `DETACH DELETE r, n`
-is correct and is not flagged, because the DETACH is there for `n`.
+is correct and is not flagged, because the DETACH is there for `n`. A target also
+bound as a **node** anywhere in the query is skipped — the classifier is
+query-wide, so a name reused across scopes is ambiguous, and CYP012 fails in the
+harmless direction rather than advising a change that could break a delete.
+
+**Coverage boundary (measured, not assumed):** of the four sites repaired when
+CYP012 was added, it guards **three**. `relationship_builders.py` interpolates
+every structural position (`(from {from_pattern})`, `-[r:{self._relationship_type}]`),
+so `_is_actual_cypher` sees no node pattern, rel pattern, property map or
+`$param` and the extractor never yields the query at all. That blind spot is
+upstream of *every* CYP rule, not CYP012's — handed the text directly, the rule
+fires, and a test pins exactly that so coverage follows if the heuristic is ever
+widened.
 
 **CYP003 (promoted WARNING → ERROR 2026-07, now CI-gated):** flags only
 value-position interpolation — quoted literals (`'{var}'`, including map values

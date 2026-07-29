@@ -485,6 +485,22 @@ class CypherLinter:
     # rule would permit exactly the redundant detach it exists to catch.
     _REL_VAR_RE = re.compile(r"-\[\s*([A-Za-z_]\w*)\s*(?=[:\]{*])")
 
+    # A variable bound by a NODE pattern — `(n)`, `(n:Label)`, `(n {props})`.
+    # Read only by CYP012, as an ambiguity guard; see `_check_detach_on_relationship`.
+    #
+    # The lookbehind is the whole difficulty. Without it, `count(r)` and
+    # `coalesce(r.confidence, 0)` read as node patterns binding `r`, which would
+    # have classified the edge variable in `DELETE r RETURN count(r) AS deleted`
+    # as a node and silently switched CYP012 off on two of the four sites it was
+    # written for. A node pattern's `(` never follows an identifier character;
+    # a function call's always does.
+    _NODE_VAR_RE = re.compile(r"(?<![\w.])\(\s*([A-Za-z_]\w*)\s*(?=[:){])")
+
+    @classmethod
+    def _node_vars(cls, query: str) -> set[str]:
+        """Variables the query binds to a node. CYP012's ambiguity guard."""
+        return {m.group(1).lower() for m in cls._NODE_VAR_RE.finditer(query)}
+
     @classmethod
     def _relationship_vars(cls, query: str) -> set[str]:
         """Variables the query BINDS to a relationship (``-[r:TYPE]``/``-[r]``).
@@ -583,6 +599,16 @@ class CypherLinter:
         is NOT flagged: the DETACH is there for ``n``. Flagging on the first
         target alone would have made that shape a false positive.
 
+        A target also bound as a NODE anywhere in the query is skipped. The
+        classifier is query-wide, so a name reused across scopes —
+        ``CALL { MATCH ()-[n:OWNS]->() DELETE n } MATCH (n:Entity) DETACH DELETE n``
+        — would otherwise read the outer node as an edge and advise dropping a
+        DETACH that a node genuinely needs (Codex P2, #868). Real scope analysis
+        is a parser's job, and a regex approximating a parser is a known tail in
+        this tree; this guard instead fails in the harmless direction. CYP012
+        only ever removes a redundant keyword, so a miss costs nothing, while a
+        wrong suggestion costs a broken delete.
+
         WARNING, not ERROR: nothing misbehaves, so this can never be the reason a
         build fails on its own. The cost is a reader having to work out whether
         the DETACH is load-bearing — which is exactly what CYP002's own
@@ -593,7 +619,7 @@ class CypherLinter:
         """
         violations: list[Violation] = []
 
-        relationship_vars = self._relationship_vars(query)
+        relationship_vars = self._relationship_vars(query) - self._node_vars(query)
         if not relationship_vars:
             return violations
 

@@ -737,10 +737,22 @@ async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
 async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
     """Record a user's visit to a KU; repeat visits accumulate count and time spent.
 
-    Idempotent per user/KU pair — the first-viewed timestamp survives later
-    visits, and the running view count comes back on the row.
+    One view record per user/KU pair, but NOT idempotent: every call increments
+    the view count and adds to total time spent, so a retry double-counts
+    engagement. The first-viewed timestamp is set once and survives later
+    visits; the running view count comes back on the row.
     """
 ```
+
+**Note what the "good" example does *not* say.** An earlier draft of this very
+example called `record_view` idempotent — because `MERGE` upserts one edge per
+pair, which is true of the *edge* and false of the *operation*: the backend's
+`ON MATCH` branch increments `view_count` and adds to `time_spent_seconds`, so a
+retry double-counts engagement. Stating a guarantee is the point of this rule,
+and a **wrong** guarantee is worse than the mechanism-flavoured line it replaced:
+"MERGE a VIEWED edge" at least sent the reader to the backend, whereas
+"idempotent" tells them a retry is safe when it is not. Read the `ON MATCH`
+branch before writing the word.
 
 **How to fix a violation:** say what the caller gets and what holds. Note that `MERGE` carries real upsert semantics — flattening it to "Create" *loses* the contract, so state the idempotency instead. Verify the wording against the implementing backend first: several of the founding 14 had non-obvious semantics ("higher score always wins on conflict", "True iff a NEW edge was created") that a generic rewrite would have silently dropped.
 

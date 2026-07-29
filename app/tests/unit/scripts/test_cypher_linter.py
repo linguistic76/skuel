@@ -626,6 +626,56 @@ class TestCYP012:
         assert make_linter()._relationship_vars("MATCH (a)-[:OWNS]->(b)") == set()
         assert make_linter()._relationship_vars("MATCH (a)-[]->(b)") == set()
 
+    def test_name_reused_as_a_node_in_another_scope_is_not_flagged(self) -> None:
+        """Codex P2 (#868): the classifier is query-wide, so a reused name is ambiguous.
+
+        Here `n` is an edge inside the CALL subquery and a node outside it.
+        Reading the outer `DETACH DELETE n` as an edge would advise dropping a
+        DETACH the node genuinely needs — a suggestion that breaks the query.
+        Real scope analysis is a parser's job; this guard just declines to guess.
+        """
+        linter = make_linter()
+        query = (
+            "CALL { MATCH ()-[n:OWNS]->() DELETE n }\nMATCH (n:Entity {uid: $uid})\nDETACH DELETE n"
+        )
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_aggregate_over_the_edge_does_not_disarm_the_rule(self) -> None:
+        """The ambiguity guard must not read `count(r)` as a node pattern.
+
+        A node pattern's `(` never follows an identifier character; a function
+        call's always does. Without that distinction `DELETE r RETURN count(r)`
+        — the shape of two of the four real sites — would classify `r` as a node
+        and switch CYP012 off exactly where it matters.
+        """
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDETACH DELETE r\nRETURN count(r) AS deleted"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+        assert linter._node_vars(query) == {"a", "b"}
+
+    def test_fully_interpolated_query_is_caught_by_the_rule_but_not_reached(self) -> None:
+        """Coverage boundary, measured: 3 of the 4 repaired sites are guarded, not 4.
+
+        `relationship_builders.py` interpolates EVERY structural position —
+        `(from {from_pattern})`, `-[r:{self._relationship_type}]` — so
+        `_is_actual_cypher` finds no node pattern, no rel pattern, no property
+        map and no `$param`, and the extractor never yields the query. That miss
+        is upstream of every CYP rule, not CYP012's: handed the text directly,
+        the rule fires. Pinned here so the boundary is visible rather than
+        assumed, and so coverage follows automatically if the extraction
+        heuristic is ever widened.
+        """
+        linter = make_linter()
+        query = (
+            "\n            MATCH (from {from_pattern})-[r:{self._relationship_type}]"
+            "->(to {to_pattern})\n            DETACH DELETE r\n"
+            "            RETURN count(r) as deleted\n        "
+        )
+        assert linter._is_actual_cypher(query) is False, "extraction gap closed — retest coverage"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert [v.rule_code for v in violations] == ["CYP012"]
+
     def test_widening_does_not_make_cyp002_miss_a_node_delete(self) -> None:
         """The other direction of the same change: CYP002 must still fire.
 
