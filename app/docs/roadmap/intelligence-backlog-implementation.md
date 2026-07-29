@@ -164,13 +164,14 @@ verification against the tree:
   (`_core_intelligence_mixin.py:54`). "Principles acted on per day" has no source in the method
   it named.
 
-Group A's remedy is the verified one, and it is **field-specific** — the two keys do not share a
-fetch:
+Group A's remedy is `find_by_date_range` — for **both** candidate keys, not just `created_at`.
+`updated_at` is mixed-representation too: `_crud_mixin.py:436` writes an ISO string while
+`BulkUpsertBackend` writes a native `datetime()` on re-ingest
+(`bulk_upsert_backend.py:125`), and all four activity domains are vault-ingestible. A bare
+`find_by(<field>__gte=...)` evaluates to null on the temporally-stored rows and drops them.
 
-- **`updated_at`** — pass a `__gte` filter to `find_by`, the shape goals already proved
-  (`goals_intelligence_service.py:162–164`).
-- **`created_at`** — use `find_by_date_range`, which coerces both storage shapes. A `__gte` kwarg
-  here silently drops the datetime-stored rows, per the measurement above.
+**The goals call is not a model to copy** — it uses exactly that bare `__gte`, so its analytics
+silently omit re-ingested goals today. Tracked as a separate defect; Group A carries the details.
 
 Either way, **not** a Cypher `WHERE` clause, which SKUEL021 forbids in `core/`.
 
