@@ -590,6 +590,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 | SKUEL030 | Every label / edge in `adapters/persistence/` Cypher must be a `NeoLabel` / `RelationshipName` member — Neo4j matches zero rows on an unknown name instead of erroring (`.cypher` half is CYP011) | WARNING |
 | SKUEL031 | No stale pip refs (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) — uv is the one path (`uv add`/`uv sync`); SKUEL016's pip sibling | WARNING |
 | SKUEL032 | No runtime `ui` imports in `core/` — return a `core/ports/query_types` row, build the display type in `ui/` (ADR-058; SKUEL022's presentation-side twin) | ERROR |
+| SKUEL033 | No docstring *opening* with a Cypher clause in `core/services`, `core/orchestrator`, `core/ports`, `core/models` — state intent + the guarantee, not the backend's query. Scope transcribed from SERVICE_DOCSTRING_STYLE.md's table (`core/utils/` excluded — its USAGE EXAMPLES are sanctioned) | WARNING |
 
 **MyPy:** `./dev quality` enforces **0 errors**. Key strictness:
 - `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt
@@ -664,7 +665,7 @@ Use `# GRAPH-NATIVE:` prefix for comments about relationship data stored as Neo4
 - **Always write:** Public APIs, complex functions, service classes, protocols
 - **Skip:** Obvious one-liners, simple private helpers
 - **Cross-reference:** `See: /docs/patterns/PATTERN_NAME.md`
-- **`core/services/` — intent, not mechanism:** describe WHAT the operation means in domain language; reference the backend for HOW (`Backend: KuBackend.get_path_steps_using`). Cypher belongs in backend / `core/utils/` docstrings, not service docstrings. SKUEL021 skips docstrings (correctly — prose can't execute), so this discipline isn't lint-enforced.
+- **Intent, not mechanism — in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/`:** describe WHAT the operation means in domain language; reference the backend for HOW (`Backend: KuBackend.get_path_steps_using`). Cypher belongs in backend / `core/utils/` docstrings. SKUEL021 skips docstrings (correctly — prose can't execute), but **SKUEL033 now enforces the head-position case** across all four trees; the authority on scope is the linked doc's table, not this line. Note `MERGE` is an upsert — state the idempotency rather than flattening it to "Create".
 
 **See:** `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/patterns/SERVICE_DOCSTRING_STYLE.md`
 

@@ -546,7 +546,9 @@ class ReviewQueueBackendOperations(Protocol):
         message: str,
         now: str,
     ) -> Result[list[Neo4jProperties]]:
-        """CREATE a :ReviewRequest node + REQUESTED edge from the user.
+        """Open a new pending review request on the user's behalf.
+
+        Not idempotent — every call opens a distinct request.
 
         Row shape: ``[{"uid": <str>, "status": "pending"}]``.
         """

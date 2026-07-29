@@ -75,10 +75,10 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
 
     async def attach_to_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
-        """MERGE the HAS_*_TEMPLATE edge between ``ps_uid`` and ``template_uid``.
+        """Attach this template to the PathStep ``ps_uid``.
 
         Idempotent: re-attaching is a no-op. Both nodes must already exist;
-        otherwise the MATCH fails and a NotFound is returned.
+        otherwise a NotFound is returned.
         """
         if self._edge_name is None:
             return Result.fail(
@@ -103,7 +103,7 @@ class _BaseTemplateService[T: DomainModelProtocol](BaseService[BackendOperations
         return Result.ok(True)
 
     async def detach_from_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
-        """DELETE the HAS_*_TEMPLATE edge.
+        """Detach this template from the PathStep ``ps_uid``.
 
         Idempotent: detaching an already-detached pair returns ``Result.ok(False)``.
         """

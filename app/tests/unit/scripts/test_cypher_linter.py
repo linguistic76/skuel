@@ -532,6 +532,97 @@ class TestCYP002:
 
 
 # ============================================================================
+# CYP012: DETACH on a relationship delete — CYP002's inverse.
+#
+# CYP002 only ever asks whether a DETACH is MISSING, so it skips relationship
+# deletes outright (`test_relationship_delete_clean` above pins that skip). That
+# is why four tree sites emitted `DETACH DELETE <edge>` unreported: the mechanism
+# to classify the variable was already there, the question was never asked.
+# ============================================================================
+
+
+class TestCYP012:
+    def test_detects_detach_on_relationship(self) -> None:
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDETACH DELETE r"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+        assert violations[0].rule_code == "CYP012"
+        assert violations[0].severity == Severity.WARNING
+
+    def test_plain_delete_on_relationship_clean(self) -> None:
+        """The repaired form — the whole point of the rule is that this is fine."""
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDELETE r"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_detach_on_node_clean(self) -> None:
+        """A node genuinely needs DETACH — CYP002's territory, untouched."""
+        linter = make_linter()
+        query = "MATCH (n:Entity {uid: $uid})\nDETACH DELETE n"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_mixed_targets_are_not_flagged(self) -> None:
+        """`DETACH DELETE r, n` is CORRECT — the DETACH is there for the node.
+
+        Reading only the first target would make this a false positive, and it is
+        a live shape in this tree (`bulk_upsert_backend`'s cascade delete).
+        """
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(n:Entity)\nDETACH DELETE r, n"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_all_relationship_targets_are_flagged(self) -> None:
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)-[q:USES_KU]->(c)\nDETACH DELETE r, q"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+        assert "'r', 'q'" in violations[0].message
+
+    def test_optional_match_binding_still_classifies(self) -> None:
+        """The fourth tree site was bound by OPTIONAL MATCH, not MATCH."""
+        linter = make_linter()
+        query = "MATCH (u:User)\nOPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)\nDETACH DELETE ip"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+
+    def test_noqa_suppresses(self) -> None:
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDETACH DELETE r // noqa: CYP012 - deliberate"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_persistence_tree_is_clean_and_the_check_is_not_vacuous(self) -> None:
+        """Real files report zero — and an INJECTED violation proves that means something.
+
+        A bare "the tree is clean" assertion would pass just as happily if the
+        pattern had stopped matching altogether, which is the failure mode this
+        rule was born from: CYP002 was silent on four real sites for the whole
+        time it shipped. So the same real file that reports clean is re-linted
+        with one `DELETE` turned back into `DETACH DELETE`, and that MUST fire.
+        """
+        linter = make_linter()
+        repo = Path(__file__).resolve().parents[3]
+        target = repo / "adapters/persistence/neo4j/_relationship_crud_mixin.py"
+
+        assert [v for v in linter.lint_file(target) if v.rule_code == "CYP012"] == []
+
+        corrupted = target.read_text(encoding="utf-8").replace(
+            "        DELETE r\n        RETURN count(r) as deleted_count",
+            "        DETACH DELETE r\n        RETURN count(r) as deleted_count",
+        )
+        assert "DETACH DELETE r" in corrupted, "injection missed — the anchor text moved"
+
+        injected = repo / "adapters/persistence/neo4j/_cyp012_probe_tmp.py"
+        try:
+            injected.write_text(corrupted, encoding="utf-8")
+            hits = [v for v in make_linter().lint_file(injected) if v.rule_code == "CYP012"]
+        finally:
+            injected.unlink(missing_ok=True)
+
+        assert len(hits) == 1, "CYP012 no longer catches the shape it was written for"
+
+
+# ============================================================================
 # CYP003: String interpolation
 # ============================================================================
 

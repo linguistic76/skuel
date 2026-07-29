@@ -31,6 +31,10 @@ before they reach runtime. Lints two source shapes:
   RelationshipName (ERROR) — .cypher files only; the .py half is SKUEL030.
   Neo4j never validates a label or edge type, so an unregistered name matches
   zero rows silently. Suppress: // noqa: CYP011 - <reason>
+- CYP012: DETACH on a relationship delete (WARNING) — CYP002's inverse over the
+  same variable set. A relationship has nothing to detach, so `DETACH DELETE r`
+  and `DELETE r` are identical; only flagged when EVERY target is a relationship
+  (`DETACH DELETE r, n` is correct). Suppress: // noqa: CYP012 - <reason>
 
 **Usage:**
     uv run python scripts/cypher_linter.py                    # Lint all files (warnings-only mode)
@@ -146,6 +150,7 @@ class CypherLinter:
             # Run all validation rules
             violations.extend(self._check_nested_aggregates(query, file_path, start_line))
             violations.extend(self._check_delete_without_detach(query, file_path, start_line))
+            violations.extend(self._check_detach_on_relationship(query, file_path, start_line))
             violations.extend(self._check_string_interpolation(query, file_path, start_line))
             violations.extend(self._check_unbounded_traversal(query, file_path, start_line))
             violations.extend(self._check_missing_depth_limit(query, file_path, start_line))
@@ -464,6 +469,18 @@ class CypherLinter:
 
         return violations
 
+    @staticmethod
+    def _relationship_vars(query: str) -> set[str]:
+        """Variables the query BINDS to a relationship (``-[r:TYPE]``/``-[r]``).
+
+        THE one classifier, shared by the two rules that ask opposite questions
+        of it: CYP002 skips these variables (an edge needs no DETACH), CYP012
+        flags only these (an edge cannot BE detached). A second copy answering
+        the same question is how the two directions would drift apart.
+        """
+        rel_pattern = r"-\[([a-z_][a-z0-9_]*)[:\]]"
+        return {m.group(1).lower() for m in re.finditer(rel_pattern, query, re.IGNORECASE)}
+
     def _check_delete_without_detach(
         self, query: str, file_path: Path, start_line: int
     ) -> list[Violation]:
@@ -476,15 +493,14 @@ class CypherLinter:
         This distinguishes between:
         - DELETE n (node) - needs DETACH check
         - DELETE r (relationship) - correct as-is
+
+        Note the direction: this rule only ever asks whether a DETACH is
+        MISSING. The inverse — a DETACH that cannot do anything because the
+        target is an edge — is CYP012, over the same variable set.
         """
         violations: list[Violation] = []
 
-        # First, identify relationship variables from MATCH clauses
-        # Pattern: -[var:TYPE]-> or -[var]->
-        relationship_vars = set()
-        rel_pattern = r"-\[([a-z_][a-z0-9_]*)[:\]]"
-        for match in re.finditer(rel_pattern, query, re.IGNORECASE):
-            relationship_vars.add(match.group(1).lower())
+        relationship_vars = self._relationship_vars(query)
 
         # Find DELETE statements that aren't DETACH DELETE
         delete_pattern = r"\bDELETE\s+([a-z_][a-z0-9_]*)\b"
@@ -521,6 +537,77 @@ class CypherLinter:
                     line_number=line_num,
                     line_content=line_content,
                     suggestion="Use DETACH DELETE for nodes. Note: Relationships don't need DETACH, only nodes do.",
+                )
+            )
+
+        return violations
+
+    def _check_detach_on_relationship(
+        self, query: str, file_path: Path, start_line: int
+    ) -> list[Violation]:
+        """
+        CYP012: DETACH is meaningless when every DELETE target is a relationship.
+
+        ``DETACH DELETE`` means "delete this node AND the relationships attached
+        to it". A relationship has no relationships attached to it, so DETACH has
+        nothing to do. Verified against a live server rather than read off the
+        docs: two identical subgraphs, one deleted with ``DETACH DELETE r`` and
+        one with ``DELETE r``, ended byte-identical — same row deleted, both
+        endpoints and every other edge on them untouched.
+
+        This is CYP002's inverse over the SAME variable set, and it is the
+        direction CYP002 structurally cannot report: CYP002 only ever asks
+        whether a DETACH is MISSING, so it *skips* relationship deletes outright
+        and stayed silent on all three tree sites. Having the classifier already
+        is what makes the second direction nearly free — the blind spot was the
+        question never being asked, not a mechanism that was absent.
+
+        ALL targets must be relationships. ``DETACH DELETE r, n`` is correct and
+        is NOT flagged: the DETACH is there for ``n``. Flagging on the first
+        target alone would have made that shape a false positive.
+
+        WARNING, not ERROR: nothing misbehaves, so this can never be the reason a
+        build fails on its own. The cost is a reader having to work out whether
+        the DETACH is load-bearing — which is exactly what CYP002's own
+        suggestion line already answers ("Relationships don't need DETACH, only
+        nodes do").
+
+        Suppress: // noqa: CYP012 - <reason>
+        """
+        violations: list[Violation] = []
+
+        relationship_vars = self._relationship_vars(query)
+        if not relationship_vars:
+            return violations
+
+        # The whole comma-separated target list, not just the first variable —
+        # see the docstring on why `DETACH DELETE r, n` must survive.
+        detach_pattern = r"\bDETACH\s+DELETE\s+([a-z_][a-z0-9_]*(?:\s*,\s*[a-z_][a-z0-9_]*)*)"
+
+        for match in re.finditer(detach_pattern, query, re.IGNORECASE):
+            targets = [t.strip().lower() for t in match.group(1).split(",")]
+            if not all(target in relationship_vars for target in targets):
+                continue
+
+            line_num = start_line + query[: match.start()].count("\n")
+            line_content = self._get_line_at_position(query, match.start())
+
+            if re.search(r"noqa:\s*CYP012", line_content):
+                continue
+
+            named = ", ".join(f"'{t}'" for t in targets)
+            violations.append(
+                Violation(
+                    rule_code="CYP012",
+                    severity=Severity.WARNING,
+                    message=(
+                        f"DETACH is a no-op deleting relationship {named} — "
+                        "only nodes have relationships to detach"
+                    ),
+                    file_path=file_path,
+                    line_number=line_num,
+                    line_content=line_content,
+                    suggestion=f"Use DELETE {', '.join(targets)} — DETACH changes nothing here",
                 )
             )
 

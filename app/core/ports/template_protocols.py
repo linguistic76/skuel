@@ -36,13 +36,20 @@ class TemplateAttachmentOperations(Protocol):
     async def attach(
         self, ps_uid: str, template_uid: str, edge_name: RelationshipName
     ) -> Result[list[dict[str, Any]]]:
-        """MERGE the ``edge_name`` edge between PS and template; return matched rows."""
+        """Attach a template to a PathStep under ``edge_name``; idempotent.
+
+        One row per attached pair — empty when either endpoint is missing, which
+        is how the caller tells "attached" apart from "no such node".
+        """
         ...
 
     async def detach(
         self, ps_uid: str, template_uid: str, edge_name: RelationshipName
     ) -> Result[list[dict[str, Any]]]:
-        """DELETE the ``edge_name`` edge; return a ``removed`` count row."""
+        """Detach a template from a PathStep; return a ``removed`` count row.
+
+        Idempotent — detaching an unattached pair reports zero removed.
+        """
         ...
 
     async def list_for_pathstep(
@@ -79,11 +86,11 @@ class ActivityTemplateOperations[T: DomainModelProtocol](Protocol):
         ...
 
     async def attach_to_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
-        """MERGE the HAS_*_TEMPLATE edge between PS and template."""
+        """Attach this template to a PathStep; idempotent, NotFound if either is missing."""
         ...
 
     async def detach_from_pathstep(self, ps_uid: str, template_uid: str) -> Result[bool]:
-        """DELETE the HAS_*_TEMPLATE edge."""
+        """Detach this template from a PathStep; False when it was not attached."""
         ...
 
     async def list_for_pathstep(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
