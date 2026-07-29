@@ -1396,6 +1396,7 @@ class SkuelLinter:
         # tree OBJECT (identity compare on a held strong ref, so a recycled
         # id() can never alias two trees).
         self._inert_ids_memo: tuple[ast.AST, set[int]] | None = None
+        self._comment_lines_memo: tuple[str, dict[int, str]] | None = None
 
     @staticmethod
     def _git_changed_files(root_dir: Path, staged_only: bool = False) -> list[Path] | None:
@@ -2170,6 +2171,34 @@ class SkuelLinter:
                 return True
         return False
 
+    def _comment_lines(self, content: str) -> dict[int, str]:
+        """1-based line number -> the REAL `#` comment token text on that line.
+
+        Needed wherever a suppression is honoured over a multi-line span. A raw
+        line scan cannot tell a comment from string content, so a docstring whose
+        own text contains `# skuel-lint: disable=SKUEL033` would suppress the very
+        rule reading it — and SKUEL026 would not report the bypass either, since
+        it correctly audits only real comment tokens (Codex P2, #868). tokenize is
+        the same mechanism `_find_suppression_comments` already trusts for that
+        reason; this variant takes content in hand rather than a path, so
+        synthetic test input goes down the identical route as a real file.
+
+        Empty on untokenizable input: ruff reports the syntax error, and failing
+        open here would resurrect the bypass this exists to close.
+        """
+        if self._comment_lines_memo is not None and self._comment_lines_memo[0] is content:
+            return self._comment_lines_memo[1]
+        found: dict[int, str] = {}
+        if "#" in content:
+            try:
+                for tok in tokenize.generate_tokens(io.StringIO(content).readline):
+                    if tok.type == tokenize.COMMENT:
+                        found[tok.start[0]] = tok.string
+            except tokenize.TokenError, IndentationError, SyntaxError:
+                found = {}
+        self._comment_lines_memo = (content, found)
+        return found
+
     def _inert_ids_for(self, tree: ast.AST) -> set[int]:
         """Memoized `_inert_string_constant_ids` — one walk per file, shared by
         every string-constant rule (SKUEL001/021 today)."""
@@ -2333,9 +2362,14 @@ class SkuelLinter:
             expr = body[0] if body else node
             start = getattr(expr, "lineno", 1)
             end = getattr(expr, "end_lineno", None) or start
+            # Only a REAL comment token suppresses. Every line in the span except
+            # the closing one is string content, so scanning raw lines would let a
+            # docstring suppress itself by quoting the escape.
+            comments = self._comment_lines(content)
             if any(
-                self._is_line_suppressed(lines[i], "SKUEL033")
-                for i in range(start - 1, min(end, len(lines)))
+                self._is_line_suppressed(comments[lineno], "SKUEL033")
+                for lineno in range(start, end + 1)
+                if lineno in comments
             ):
                 continue
 

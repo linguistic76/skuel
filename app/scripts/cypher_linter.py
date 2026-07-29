@@ -498,8 +498,35 @@ class CypherLinter:
 
     @classmethod
     def _node_vars(cls, query: str) -> set[str]:
-        """Variables the query binds to a node. CYP012's ambiguity guard."""
+        """Variables the query binds to a node."""
         return {m.group(1).lower() for m in cls._NODE_VAR_RE.finditer(query)}
+
+    @classmethod
+    def _edge_only_vars(cls, query: str) -> set[str]:
+        """Variables bound to a relationship and NEVER to a node in this query.
+
+        Both DETACH rules read this one set, and the subtraction is what gives
+        each of them its fail-safe direction — which is why it belongs here
+        rather than in either rule:
+
+        * CYP002 skips these. Dropping an ambiguous name from the skip-set makes
+          CYP002 *report*, and reporting is its safe direction (a false positive
+          is one review comment; a miss is a delete that fails at runtime).
+        * CYP012 flags only these. Dropping an ambiguous name makes CYP012 stay
+          *silent*, and silence is its safe direction (it removes a redundant
+          keyword, so a miss costs nothing while a wrong suggestion breaks a
+          query).
+
+        The classifiers are query-wide, so a name reused across scopes is
+        genuinely ambiguous to them —
+        ``CALL { MATCH ()-[ r:OWNS]->() DELETE r } MATCH (r:Entity) DELETE r``
+        binds ``r`` as an edge inside the subquery and a node outside it. Real
+        scope analysis is a parser's job and a regex approximating a parser is a
+        recorded tail in this tree; declining to guess costs one report either
+        way (Codex P2 ×2, #868 — the second round found the CYP002 half, which
+        widening `_REL_VAR_RE` had newly exposed).
+        """
+        return cls._relationship_vars(query) - cls._node_vars(query)
 
     @classmethod
     def _relationship_vars(cls, query: str) -> set[str]:
@@ -533,7 +560,10 @@ class CypherLinter:
         """
         violations: list[Violation] = []
 
-        relationship_vars = self._relationship_vars(query)
+        # `_edge_only_vars`, not `_relationship_vars`: an ambiguous name must NOT
+        # be skipped here. See that helper for why the same subtraction is
+        # fail-safe in both this rule and CYP012.
+        relationship_vars = self._edge_only_vars(query)
 
         # Find DELETE statements that aren't DETACH DELETE
         delete_pattern = r"\bDELETE\s+([a-z_][a-z0-9_]*)\b"
@@ -619,7 +649,7 @@ class CypherLinter:
         """
         violations: list[Violation] = []
 
-        relationship_vars = self._relationship_vars(query) - self._node_vars(query)
+        relationship_vars = self._edge_only_vars(query)
         if not relationship_vars:
             return violations
 
@@ -627,7 +657,15 @@ class CypherLinter:
         # see the docstring on why `DETACH DELETE r, n` must survive.
         detach_pattern = r"\bDETACH\s+DELETE\s+([a-z_][a-z0-9_]*(?:\s*,\s*[a-z_][a-z0-9_]*)*)"
 
-        for match in re.finditer(detach_pattern, query, re.IGNORECASE):
+        # Matched over the comment-MASKED copy, because a comment between targets
+        # truncates the list: `DETACH DELETE r // edge first\n, n` would read as
+        # the all-relationships case and suggest `DELETE r`, silently dropping the
+        # node (Codex P2, #868). `mask_cypher_comments` preserves length and line
+        # breaks, so offsets computed here still address the ORIGINAL text — which
+        # is what the noqa lookup and line numbering below rely on.
+        masked = mask_cypher_comments(query)
+
+        for match in re.finditer(detach_pattern, masked, re.IGNORECASE):
             targets = [t.strip().lower() for t in match.group(1).split(",")]
             if not all(target in relationship_vars for target in targets):
                 continue

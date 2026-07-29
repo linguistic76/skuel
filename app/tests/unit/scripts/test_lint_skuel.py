@@ -5460,6 +5460,25 @@ class TestSKUEL033:
         )
         assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
 
+    def test_docstring_cannot_suppress_itself_by_quoting_the_escape(self) -> None:
+        """Codex P2 (#868): the span scan read raw lines, so string content counted.
+
+        A mechanism-first docstring that happens to QUOTE the escape — rule docs,
+        a linter test fixture, a migration note — would have silenced the rule
+        reading it, and SKUEL026 would not have reported the bypass either, since
+        it correctly audits only real comment tokens. tokenize closes it: inside a
+        docstring there is no comment, only text.
+        """
+        content = (
+            "def f():\n"
+            '    """MERGE a VIEWED edge.\n'
+            "\n"
+            "    Do not write `# skuel-lint: disable=SKUEL033` here expecting it to work.\n"
+            '    """\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+
     def test_multiline_docstring_without_suppression_still_fires(self) -> None:
         """The other half of the pair — the span must not swallow real violations."""
         content = (
