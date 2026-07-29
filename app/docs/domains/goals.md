@@ -34,15 +34,15 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | Request Models | `/core/models/goal/goal_request.py` |
 | Relationships | `/core/services/goals/goal_relationships.py` |
 | **Backend** | `/adapters/persistence/neo4j/backends/activity_backends.py` (`GoalsBackend`) |
-| Core Service | `/core/services/goals/goaps_core_service.py` |
-| Search Service | `/core/services/goals/goaps_search_service.py` |
-| Progress Service | `/core/services/goals/goaps_progress_service.py` |
+| Core Service | `/core/services/goals/goals_core_service.py` |
+| Search Service | `/core/services/goals/goals_search_service.py` |
+| Progress Service | `/core/services/goals/goals_progress_service.py` |
 | Learning Service | `/core/services/goals/goals_learning_service.py` |
 | Planning Service | `/core/services/goals/goals_planning_service.py` |
 | Scheduling Service | `/core/services/goals/goals_scheduling_service.py` |
-| Intelligence Service | `/core/services/goals/goaps_intelligence_service.py` |
+| Intelligence Service | `/core/services/goals/goals_intelligence_service.py` |
 | Event Handler Service | `/core/services/goals/goal_event_handler_service.py` |
-| Facade | `/core/services/goaps_service.py` |
+| Facade | `/core/services/goals_service.py` |
 | Config | `GOAPS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/goal_events.py` |
 | UI Routes | `/adapters/inbound/goals_ui.py` |
@@ -205,7 +205,7 @@ Goals track which habits are essential for achievement:
 
 ## Search Methods
 
-**Service:** `GoalsSearchService` (`/core/services/goals/goaps_search_service.py`)
+**Service:** `GoalsSearchService` (`/core/services/goals/goals_search_service.py`)
 
 ### Inherited from BaseService
 

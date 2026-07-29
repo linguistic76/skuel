@@ -699,7 +699,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.goals.intelligence
 ```python
 # GoalsService creates intelligence internally
 goals_service = GoalsService(
-    backend=goaps_backend,
+    backend=goals_backend,
     graph_intel=graph_intelligence,
     embeddings_service=embeddings_service,
     llm_service=llm_service,
@@ -770,16 +770,17 @@ Uses the single path-aware typed reader
 
 ### Unit Tests
 ```bash
-uv run python -m pytest tests/unit/services/test_goaps_intelligence_service.py -v
+# _PredictiveMixin — forecasting and progress-percent units
+uv run python -m pytest tests/unit/services/goals/test_predictive_progress_units.py -v
 ```
 
 ### Integration Tests
 ```bash
-# Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_goals_intelligence.py -v
+# GoalsIntelligenceService against a real backend
+uv run python -m pytest tests/integration/test_convergence_2b_goals_habits.py -v
 
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_success" -v
+# Analytics pipeline end to end
+uv run python -m pytest tests/integration/test_goals_analytics_pipeline.py -v
 ```
 
 ### Example Test
@@ -814,6 +815,6 @@ assert service.relationships == relationships
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/goals/goaps_service.py` - GoalsService facade
-- `/core/services/goals/goaps_progress_service.py` - Velocity calculations
+- `/core/services/goals_service.py` - GoalsService facade
+- `/core/services/goals/goals_progress_service.py` - Velocity calculations
 - `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval

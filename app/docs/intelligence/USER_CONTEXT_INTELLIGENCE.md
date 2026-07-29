@@ -1226,7 +1226,7 @@ surface; Askesis is the intelligence UI paradigm.)
 
 - **Domain Intelligence Services:**
   - `/docs/intelligence/TASKS_INTELLIGENCE.md`
-  - `/docs/intelligence/GOAPS_INTELLIGENCE.md`
+  - `/docs/intelligence/GOALS_INTELLIGENCE.md`
   - `/docs/intelligence/HABITS_INTELLIGENCE.md`
   - `/docs/intelligence/EVENTS_INTELLIGENCE.md`
   - `/docs/intelligence/CHOICES_INTELLIGENCE.md`

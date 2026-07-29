@@ -314,7 +314,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 - `_validate_create()`: High-priority tasks must have due dates
 - `_validate_update()`: Terminal state protection, overdue task priority protection
 
-**GoalsCoreService** (`/core/services/goals/goaps_core_service.py`)
+**GoalsCoreService** (`/core/services/goals/goals_core_service.py`)
 - `_validate_create()`: Goal timeframe validation
 - `_validate_update()`: Progress bounds checking
 

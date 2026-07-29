@@ -194,7 +194,7 @@ class TasksIntelligenceService(BaseIntelligenceService[TasksOperations, Task]):
 |---------|------|-------------|-------|
 | HabitsIntelligenceService | `habits/habits_intelligence_service.py` | ~20 | `_require_relationships = True` |
 | PrinciplesIntelligenceService | `principles/principles_intelligence_service.py` | ~15 | Standard migration |
-| GoalsIntelligenceService | `goals/goaps_intelligence_service.py` | ~15 | Has domain-specific `progress_service` |
+| GoalsIntelligenceService | `goals/goals_intelligence_service.py` | ~15 | Has domain-specific `progress_service` |
 | EventsIntelligenceService | `events/events_intelligence_service.py` | ~12 | Standard migration |
 | ChoicesIntelligenceService | `choices/choices_intelligence_service.py` | ~10 | Has domain-specific `path_helper` |
 | TasksIntelligenceService | `tasks/tasks_intelligence_service.py` | ~20 | Required attribute rename: `self.graph` → `self.graph_intel` |
@@ -469,10 +469,10 @@ async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task,
 
 | Bug | Location | Fix |
 |-----|----------|-----|
-| SUCCESS_RATE UNIT INCONSISTENCY | `goaps_intelligence_service.py` | Habit.success_rate is 0.0-1.0, not 0-100 (4 fixes) |
+| SUCCESS_RATE UNIT INCONSISTENCY | `goals_intelligence_service.py` | Habit.success_rate is 0.0-1.0, not 0-100 (4 fixes) |
 | Missing `is_on_track()` | `goal.py` | Added method to check progress vs. expected |
-| Unguarded `self.progress` calls | `goaps_intelligence_service.py` | Added fail-fast guard |
-| `period_days` ignored | `goaps_intelligence_service.py` | Added TODO documentation |
+| Unguarded `self.progress` calls | `goals_intelligence_service.py` | Added fail-fast guard |
+| `period_days` ignored | `goals_intelligence_service.py` | Added TODO documentation |
 | Logging emoji | `intelligence_route_factory.py` | Removed for consistency |
 
 ### Rollout Status
