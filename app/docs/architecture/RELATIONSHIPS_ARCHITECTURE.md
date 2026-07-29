@@ -231,10 +231,11 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 ### LateralRelationshipService API
 
 **Key methods:**
-- `create_lateral_relationship(source_uid, target_uid, relationship_type, metadata, validate=True, auto_inverse=True)` → `Result[bool]`
+- `create_lateral_relationship(source_uid, target_uid, relationship_type, metadata=None, validate=True, auto_inverse=True, user_uid=None, domain_service=None)` → `Result[bool]`
   - `validate=True`: checks both entities exist, detects circular dependencies (`BLOCKS`/`PREREQUISITE_FOR`), rejects duplicates
   - `auto_inverse=True`: auto-creates the inverse (`BLOCKS` → also creates `BLOCKED_BY` in the reverse direction)
-- `delete_lateral_relationship(source_uid, target_uid, relationship_type)` → `Result[bool]`
+- `delete_lateral_relationship(source_uid, target_uid, relationship_type, delete_inverse=True, user_uid=None, domain_service=None)` → `Result[bool]`
+  - `delete_inverse=True`: also deletes the inverse edge if the type is asymmetric
 - `get_lateral_relationships(entity_uid, relationship_types=None, direction="outgoing", include_metadata=True, user_uid=None, domain_service=None)` → `Result[list[LateralRelationshipItem]]` — filtered query with direction control (`"incoming"` / `"outgoing"` / `"both"`)
 - `get_blocking_chain(entity_uid, max_depth=10)` → `Result[BlockingChainResult]` — transitive blocking dependency chain
 - `get_alternatives_with_comparison(entity_uid, comparison_fields=None)` → `Result[list[AlternativeComparisonItem]]` — side-by-side comparison data
@@ -242,9 +243,12 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 
 Return rows are typed `TypedDict`s from `core/ports/query_types.py`, not raw `dict`s.
 
-Only `get_lateral_relationships` accepts `user_uid` / `domain_service` — the ownership hook that replaced the per-domain wrappers (below). **Both default to `None`, so the check is opt-in and fails open:** a caller that omits them gets no ownership enforcement. Passing them is what produces the required not-found for an entity the user does not own; `None` is the deliberate shared-content path (curriculum KU/PS/LP).
+Three methods accept the `user_uid` / `domain_service` pair — both **writes** plus `get_lateral_relationships`. That pair is the ownership hook that replaced the per-domain wrappers (below).
 
-The three enhanced reads (`get_blocking_chain`, `get_alternatives_with_comparison`, `get_relationship_graph`) accept **no** such parameters at all, so they cannot enforce ownership even when a caller wants to — see § Ownership Coverage.
+> [!IMPORTANT]
+> **The check is opt-in and fails open.** Both parameters default to `None`, and verification runs only when **both** are supplied. A caller that omits them performs the write or read with no ownership enforcement at all. Passing them is what produces the required not-found for an entity the user does not own; `None` is the deliberate shared-content path (curriculum KU/PS/LP). For a user-owned domain, always pass both.
+
+The three enhanced reads (`get_blocking_chain`, `get_alternatives_with_comparison`, `get_relationship_graph`) accept **neither** parameter, so they cannot enforce ownership even when a caller wants to — see § Ownership Coverage.
 
 ### Lateral Relationship Type Taxonomy
 
