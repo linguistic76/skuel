@@ -34,7 +34,7 @@ been **verified against the tree**; design the wiring when the work is actually 
 | The ordered-step reader it needs lives on the curriculum side | `LpService.get_path_steps(path_uid)` — `lp_service.py:249` → `lp_core_service.py:261` |
 | Activity services are built **before** learning services, so a curriculum reader cannot simply be constructor-injected into the task service | `compose.py:532` (activity) vs `:709` (learning) |
 | `LearningAlignmentBridge` cannot supply the path — its methods take an `LpPosition` from the caller rather than fetching it | `core/services/infrastructure/learning_alignment_bridge.py` |
-| `get_applying_tasks` — the KU-detail-page read — does not exist anywhere in the tree | — |
+| The KU-detail-page reverse lookup **already exists — do not build a new one.** Both surfaces return bare **UIDs**, not hydrated models, so the only genuinely missing work is hydration + presentation | `PsService.find_tasks_applying_knowledge(ku_uid, user_uid, status_filter)` → `ps_service.py:505` → `ps_application_discovery_service.py:161` (**user-scoped**, `Result[list[str]]`); and `KuOperations.get_applying_task_uids(ku_uid)` → `curriculum_protocols.py:431` → `curriculum_backends.py:289` (**not** user-scoped) |
 | `_create_learning_services()` takes no activity services; its four placeholder params were deleted 2026-07-29 | `_learning_services.py`, call site `compose.py:709` |
 
 **The two methods are not one problem.** `create_tasks_from_learning_path()` needs curriculum data

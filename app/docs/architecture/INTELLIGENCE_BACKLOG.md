@@ -12,7 +12,8 @@ Deferred intelligence gaps. Each item has a clear trigger condition and implemen
 **Possible wiring point:** `services_bootstrap/_learning_services.py` (call site: `compose.py:709`)
 
 **Purpose when implemented:**
-- KU detail pages can surface "Tasks that apply this knowledge" (`APPLIES_KNOWLEDGE` traversal)
+- KU detail pages can surface "Tasks that apply this knowledge" — the `APPLIES_KNOWLEDGE`
+  traversal for this **already exists** (see below); only hydration/presentation is missing
 - `create_tasks_from_learning_path()` can turn a LearningPath into a task plan
 - `get_next_learning_task()` can return tasks linked to knowledge the user is ready to learn
 
@@ -34,10 +35,14 @@ passed to the task service's constructor. Moving the traversal onto `TasksBacken
 the escape hatch: that crosses the domain-backend boundary (`CLAUDE.md` § 100% Dynamic Backend
 Pattern).
 
-⚠ **The two methods are not one problem, and the wiring design is undecided.** Only
+⚠ **The three bullets are not one problem, and the wiring design is undecided.** Only
 `create_tasks_from_learning_path()` needs the curriculum route above. `get_next_learning_task()`
-already has its context input (121) and needs an `APPLIES_KNOWLEDGE` query on the *task* side; the
-KU-detail-page read is a third shape again, and `get_applying_tasks` exists nowhere in the tree.
+already has its context input (121) and needs an `APPLIES_KNOWLEDGE` query on the *task* side. And
+the KU-detail-page read is **already implemented — do not build a second one**: use
+`PsService.find_tasks_applying_knowledge(ku_uid, user_uid, status_filter)` (`ps_service.py:505` →
+`ps_application_discovery_service.py:161`, user-scoped) or the unscoped
+`KuOperations.get_applying_task_uids()` (`curriculum_backends.py:289`). Both hand back bare UIDs,
+so what is actually missing there is hydration and presentation, not a query.
 See `docs/roadmap/intelligence-backlog-implementation.md § Item 2A` for the verified-facts table —
 that file deliberately prescribes no wiring steps, because three review rounds each broke a
 different prescriptive version.
