@@ -98,7 +98,7 @@ temporally-stored rows and silently drops them — the protocol docstring says s
 | Field | ISO string written by | Native `datetime()` written by |
 |---|---|---|
 | `created_at` | `_crud_mixin` create path | `BulkUpsertBackend` `ON CREATE` (`bulk_upsert_backend.py:122`) |
-| `updated_at` | `_crud_mixin.py:436` | `BulkUpsertBackend` `ON MATCH` (`bulk_upsert_backend.py:125`) |
+| `updated_at` | `_crud_mixin.py:437` | `BulkUpsertBackend` `ON MATCH` (`bulk_upsert_backend.py:125`) |
 
 Habit, Choice, Principle **and** Goal all carry an `EntityIngestionConfig`
 (`core/services/ingestion/config.py:269–309`), so every one of them can be re-ingested from the

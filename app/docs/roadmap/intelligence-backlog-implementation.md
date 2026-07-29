@@ -165,7 +165,7 @@ verification against the tree:
   it named.
 
 Group A's remedy is `find_by_date_range` — for **both** candidate keys, not just `created_at`.
-`updated_at` is mixed-representation too: `_crud_mixin.py:436` writes an ISO string while
+`updated_at` is mixed-representation too: `_crud_mixin.py:437` writes an ISO string while
 `BulkUpsertBackend` writes a native `datetime()` on re-ingest
 (`bulk_upsert_backend.py:125`), and all four activity domains are vault-ingestible. A bare
 `find_by(<field>__gte=...)` evaluates to null on the temporally-stored rows and drops them.
