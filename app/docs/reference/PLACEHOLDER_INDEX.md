@@ -233,13 +233,20 @@ not established here — "it has a caller" is the weak question.
   completing habit, so there is no missing input to restore — establish whether a per-habit
   emphasis was ever intended (which would need a `habit_uid` this handler is not given), and if
   not, delete the parameter rather than invent a use for it.
-- `FUTURE-IMPL-009`: a persisted record of prior LP progress and its start date. **Extend the
-  existing `UserProgress`** (`core/models/progress/user_progress.py`, already generic over
-  `entity_uid`/`entity_type` with `progress_value`, `started_at` and `mastery_score`, and wired as
-  `UniversalNeo4jBackend[UserProgress]`) — do **not** add the `UserLpProgress` entity that
-  `lp_progress_service.py:204` names in passing, which would stand up a parallel progress model.
-  Two placeholders resolve with it: the inferred `old_progress_percentage`, and the hardcoded
-  `average_mastery_score` (which should average real per-KU mastery scores).
+- `FUTURE-IMPL-009`: a persisted record of prior LP progress and its start date. **Read the live
+  relationship state** — enrollment lifecycle is on `ENROLLED_IN` (`r.status`, written by
+  `UserBackend.enroll_in_learning_path` / `complete_learning_path`), and per-KU progression is the
+  `VIEWED → IN_PROGRESS → MASTERED` edge chain, where mastery is the **edge's existence**, not a
+  score. Two placeholders resolve from it: the inferred `old_progress_percentage`, and the
+  hardcoded `average_mastery_score`.
+
+  ⚠ **Two dead ends to avoid here.** Do not add the `UserLpProgress` entity that
+  `lp_progress_service.py:204` names in passing. And do not reach for `UserProgress`
+  (`core/models/progress/user_progress.py`) either, despite it being a generic dataclass with a
+  wired `UniversalNeo4jBackend[UserProgress]`: **no code writes a `:UserProgress` node**, and
+  ADR-002 records that this vocabulary "was never built" — a reader against it silently returned
+  zero from the day it shipped. Being instantiated is not the same as being written; check for a
+  writer that can actually run before building on a model.
 
 > **Why `FUTURE-IMPL-008` has a named ruff entry — and why that entry is documentation, not
 > mechanism.** SKUEL defers a parameter by underscore-prefixing it, and ruff's `ARG` rules already
@@ -276,7 +283,7 @@ These are FastHTML component functions that accept parameters that are not yet r
 | Medium | E — Hardcoded Scalars | Affects intelligence accuracy; requires graph queries |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | G — Events Intelligence | Depends on GraphContext enrichment work |
-| Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — extend the existing `UserProgress`, do not add a parallel entity |
+| Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
 | Low | D — Neo4j Adapter Stubs | Developer tooling; not user-facing |
 | Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread |
 | Low | H — Askesis Private Methods | Internal heuristics refinement |
