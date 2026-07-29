@@ -447,14 +447,18 @@ def check_file(md_file: Path, verbose: bool) -> list[tuple[Path, int, str, str]]
 
     rel_source = md_file.relative_to(ROOT)
     dead: list[tuple[Path, int, str, str]] = []
-    seen: set[tuple[int, str]] = set()  # deduplicate (lineno, raw) pairs
+    # Deduplicate on (lineno, RESOLVED TARGET), not (lineno, raw). Two spellings of one
+    # dead file on one line are one defect, and since `./core/x.py` became checkable the
+    # backtick pass reports it while the bare pass independently matches its
+    # `/core/x.py` tail — a raw-keyed set lets that same file through twice.
+    seen: set[tuple[int, str]] = set()
 
     def record(lineno: int, raw: str, kind: str) -> None:
-        key = (lineno, raw)
-        if key in seen:
-            return
         target = resolve_path(raw, md_file)
         if target is None:
+            return
+        key = (lineno, str(target))
+        if key in seen:
             return
         if not target.exists():
             seen.add(key)

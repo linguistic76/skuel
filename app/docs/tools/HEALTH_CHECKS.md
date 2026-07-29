@@ -123,7 +123,7 @@ they are retried relative to the repo root (docs routinely cite root-relative pa
 - A skill directory is listed in the index before it's created
 - A test file referenced in a doc is deleted after the test is removed
 
-#### The `[code]` pass and the 807 → 909 step (PR #871)
+#### The `[code]` pass and the 807 → 908 step (PR #872)
 
 The first three kinds are prose-shaped, and how-to guides are mostly *fence*. That
 left a structural blind spot: `DOMAIN_LATERAL_SERVICE_QUICK_START.md` told readers to
@@ -166,8 +166,12 @@ tree-wide delta of **0 dead refs** — they widen *coverage*, not the count:
 - **Blockquoted fences** (`> ` before the delimiter) never opened, so quoted examples were
   skipped whole. One lives at `UNIFIED_RELATIONSHIP_SERVICE.md:318`; 4 previously-invisible
   lines are now scanned, none holding a path token today.
-- **`./`-prefixed paths** (`cp ./core/services/foo.py`) start with neither `/` nor a project
+- **`./`-prefixed paths** (`cp ./core/services/base_service.py`) start with neither `/` nor a project
   directory, so the guard dropped them. 8 such tokens exist tree-wide, all currently live.
+- **Dedup is keyed on the resolved target, not the raw string.** Once the dot-slash form
+  became checkable, the backtick pass reported it while `[bare]` independently matched its
+  leading-slash tail — one defect, two lines. Two spellings of one dead file on one line are
+  now one finding; two different dead files on one line remain two.
 
 Placeholder shapes are rejected by the shared `_looks_like_local_path` guard, not a
 second filter: syntactic markers (`{domain}`, `<name>`, `*`) plus a lexical vocabulary

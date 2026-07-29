@@ -190,6 +190,20 @@ def test_dot_slash_resolves_to_the_same_file_as_the_bare_form(docs_root: Path) -
         assert target is not None and target.exists(), style
 
 
+def test_one_dead_file_two_spellings_one_line_reports_once(docs_root: Path) -> None:
+    """Dedup is keyed on the RESOLVED TARGET, not the raw string.
+
+    Making `./core/x.py` checkable created a double-report: the backtick pass reports the
+    `./` form while the bare pass independently matches its `/core/x.py` tail, so one
+    defect produced two lines. Two spellings of one dead file on one line is one finding;
+    two *different* dead files on one line must still be two (asserted below).
+    """
+    body = "# P\n\nSee `./core/gone.py` and `./core/other_gone.py` here.\n"
+    reported = _report(docs_root, body)
+    assert len(reported) == 2, f"expected one report per distinct dead file, got {reported}"
+    assert {raw for _l, raw, _k in reported} == {"./core/gone.py", "./core/other_gone.py"}
+
+
 def test_all_fence_languages_are_scanned() -> None:
     """Measured choice, not an assumption: dead tokens land in bash, python, yaml,
     cypher, javascript, markdown, html and untagged fences alike, so restricting to
