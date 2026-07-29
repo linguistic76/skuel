@@ -1,7 +1,8 @@
 # Intelligence Backlog: Implementation Guide
 
-Five deferred intelligence gaps. Each item has a concrete starting point, the exact files
-to touch, and the data model and query patterns already in place.
+Four deferred intelligence gaps. Each item has a concrete starting point, the exact files
+to touch, and the data model and query patterns already in place. (Item 2C was retired on
+2026-07-29 — see its section below.)
 
 > The framing here originally referenced a "Context Awareness Protocol adoption" effort that
 > was retired in commit `a82faaba` (2026-05-11). The intelligence gaps below are real and
@@ -134,60 +135,38 @@ returns a list of KU UIDs) but then short-circuits to `Result.ok(None)`.
 
 ---
 
-## Item 2C — Activate `_period_days` filtering in 4 intelligence services
+## Item 2C — Activate `_period_days` filtering — retired, see PLACEHOLDER_INDEX Group A
 
-**Pattern:** Identical in all four services. Implement together.
+**Retired 2026-07-29.** This item duplicated `/docs/reference/PLACEHOLDER_INDEX.md`
+§ "Group A — Period-Based Analytics Filtering", which is the live register and carries verified
+coordinates for the three remaining services.
 
-| File | Method | Line |
-|------|--------|------|
-| `core/services/habits/habits_intelligence_service.py` | `get_performance_analytics()` | 142 |
-| `core/services/goals/goaps_intelligence_service.py` | `get_performance_analytics()` | 173 |
-| `core/services/choices/choices_intelligence_service.py` | `get_decision_velocity()` | 138 |
-| `core/services/principles/principles_intelligence_service.py` | `get_principle_alignment_trends()` | 145 |
+The five-step recipe that stood here is **not** carried over, because none of it survived
+verification against the tree:
 
-**Current state:** Each method fetches ALL entities via `backend.find_by(user_uid=user_uid)`
-and computes aggregate metrics. The `_period_days` param is passed through to the response
-dict but never used for filtering.
+- **Its table was wrong in every row.** `get_decision_velocity()` and
+  `get_principle_alignment_trends()` have never existed in any branch — the real method is
+  `get_performance_analytics()` on both services. `goals/goaps_intelligence_service.py` is a typo
+  for `goals_intelligence_service.py`. All four line numbers had drifted. Goals no longer belongs
+  in the list at all: it takes a non-underscore `period_days` and already filters on it.
+- **Its step-3 remedy is unproven as written.** It passed a bare `date` object to
+  `find_by(updated_at__gte=...)`. The one working implementation passes `cutoff.isoformat()` off a
+  timezone-aware `datetime` (`goals_intelligence_service.py:162–164`). It also offered
+  `created_at` as the alternative key without the caveat that goes with it: PR #859 **measured**
+  that `created_at` has two storage shapes — ISO string for most entities, zoned `datetime` for a
+  minority — and that a naive `find_by(created_at__gte=...)` silently drops the datetime-stored
+  rows. Only `find_by_date_range` coerces both before comparing. Whoever implements Group A on
+  `created_at` needs that helper, not a `__gte` kwarg.
+- **Its steps 4–5 prescribed metrics with no input.** The velocity figure
+  (`count_completed / period_days`) and the 90-day trend baseline were specified for two methods
+  that count no completion events: choices computes a `decided/total` ratio
+  (`choices_intelligence_service.py:110`) and principles counts by strength and `is_active`
+  (`_core_intelligence_mixin.py:54`). "Principles acted on per day" has no source in the method
+  it named.
 
-**What changes:**
-
-1. **Rename the param.** Drop the underscore: `_period_days` → `period_days`. This is the
-   signal that the param is now in use (per CLAUDE.md naming conventions).
-
-2. **Compute the cutoff date** at the start of each method:
-   ```python
-   from datetime import date, timedelta
-   cutoff = date.today() - timedelta(days=period_days)
-   ```
-
-3. **Filter the fetch.** The backends support `created_at__gte` filter syntax via
-   `UniversalNeo4jBackend.find_by()`. Replace:
-   ```python
-   # before
-   await self.backend.find_by(user_uid=user_uid)
-   ```
-   with:
-   ```python
-   # after
-   await self.backend.find_by(user_uid=user_uid, updated_at__gte=cutoff)
-   ```
-   For habits, `updated_at` reflects the last check-in. For goals, filter on
-   `updated_at` for activity (or `target_date__gte` to include currently active goals).
-
-4. **Windowed trend metrics.** For `get_decision_velocity()` (choices) and
-   `get_principle_alignment_trends()` (principles), the windowed metric is:
-   `count_completed / period_days` — decisions resolved per day, principles acted on per day.
-   These services currently count totals; divide by `period_days` to get velocity.
-
-5. **Add trend direction.** Compare the windowed rate against a 90-day baseline:
-   - Fetch a 90-day window count separately
-   - `rate_30d = count_30d / 30`
-   - `rate_90d = count_90d / 90`
-   - `direction = "improving" if rate_30d > rate_90d * 1.1 else "declining" if rate_30d < rate_90d * 0.9 else "stable"`
-
-**Testing pattern:** Each of these services already has unit tests in `tests/unit/`. The
-test pattern is to mock `self.backend.find_by` — just extend the mock to also handle the
-`updated_at__gte` kwarg and return a filtered list.
+Group A's remedy is the verified one: bound the fetch by passing a `__gte` filter to `find_by`,
+following the shape goals already uses — and **not** by writing a Cypher `WHERE` clause, which
+SKUEL021 forbids in `core/`.
 
 ---
 
@@ -302,16 +281,15 @@ The prediction source is `HabitsAIService`, already wired as `self.ai` (line 334
 
 **Note:** `period` param can be activated independently of `include_predictions` —
 it feeds through to `self.intelligence.analyze_habit_performance()` once that service
-supports time-windowing (Item 2C for habits covers the analytics layer; this item covers
-the habit-specific analytics route at the facade level).
+supports time-windowing (the analytics-layer window is registered in
+`/docs/reference/PLACEHOLDER_INDEX.md` § Group A; this item covers the habit-specific analytics
+route at the facade level).
 
 ---
 
 ## Implementation order recommendation
 
 ```
-2C (period_days filtering)      — self-contained, no dependencies, 4 services in parallel
-    ↓
 2D (alignment trends)           — self-contained, uses existing graph data
     ↓
 2B (task stub methods)          — depends on LpBackend step queries (already exist)
@@ -321,5 +299,9 @@ the habit-specific analytics route at the facade level).
 2E (include_predictions)        — requires HabitsAIService method addition (FULL tier only)
 ```
 
-Items 2C and 2D have zero dependencies and can be started immediately.
+Item 2D has zero dependencies and can be started immediately.
 Item 2E is FULL-tier only and blocked on having enough habit data to make predictions meaningful.
+
+The `period_days` filtering formerly sequenced here as 2C is tracked in
+`/docs/reference/PLACEHOLDER_INDEX.md` § Group A — also zero-dependency, also startable
+immediately, and covering three services rather than four.

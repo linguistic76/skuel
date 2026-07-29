@@ -11,7 +11,9 @@ a file, a line, and a symbol that should be on it, so the set is re-checkable me
 ⚠ **That verification does not survive later PRs, and nothing re-runs it.** Group E's four choices
 rows were six lines stale by the time anyone read them again — #859 inserted a helper above them and
 shifted the block — so treat the stamp above as "verified once", not "currently true". Group E's
-choices rows were re-derived in #862; the rest still carry the `77c4d959b` stamp.
+choices rows were re-derived in #862, and **Group A's were re-derived against `1f0d396ce` on
+2026-07-29** — #862 shifted the choices method down 7 lines, staling that row the same way. Every
+other group still carries the `77c4d959b` stamp.
 
 **When a coordinate misses, grep the symbol, not the path.** Whether the file exists is the wrong
 staleness test: the previous revision's rows failed three different ways, and only one of them was
@@ -47,7 +49,7 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 | Service | File | Line | Parameter | Method |
 |---------|------|------|-----------|--------|
 | HabitsIntelligenceService | `core/services/habits/habits_intelligence_service.py` | 112 | `_period_days: int = 30` | `get_performance_analytics()` (111) |
-| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 104 | `_period_days: int = 30` | `get_performance_analytics()` (103) |
+| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 111 | `_period_days: int = 30` | `get_performance_analytics()` (110) |
 | PrinciplesIntelligenceService | `core/services/principles/_core_intelligence_mixin.py` | 55 | `_period_days: int = 30` | `get_performance_analytics()` (54), mixed into `principles_intelligence_service.py:44` |
 
 ⚠ **These three are live, and the placeholder is user-visible.** All six Activity Domains register
@@ -55,7 +57,7 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 `intelligence=IntelligenceRouteConfig()`, `domain_route_factory.py:340`). The handler reads
 `period_days` off the query string and passes it through
 (`intelligence_route_factory.py:286`, `290`). Each of the three services then echoes it back as
-`"period_days"` in the response body (habits 173, choices 142, principles 99) while computing over
+`"period_days"` in the response body (habits 173, choices 149, principles 99) while computing over
 everything `find_by(user_uid=...)` returns. The response therefore *claims* a window it did not
 apply — this is a wrong answer, not just a missing feature.
 
@@ -79,6 +81,18 @@ result = await self.backend.find_by(user_uid=user_uid, updated_at__gte=cutoff.is
 
 — `goals_intelligence_service.py:162–164`. Whether the window should key off `created_at` or
 `updated_at` is a semantic decision the implementer still has to make; goals chose `updated_at`.
+
+⚠ **If you choose `created_at`, the snippet above is the wrong tool.** PR #859 measured that
+`created_at` carries two storage shapes — an ISO string for most entities, a zoned `datetime` for
+a minority — and that a naive `find_by(created_at__gte=...)` silently drops the datetime-stored
+rows. Use `find_by_date_range`, which coerces both before comparing (declared on
+`EntitySearchOperations`). The `__gte` kwarg is only safe on the key goals already proved.
+
+**This group is the only register for the `_period_days` deferral.** A duplicate lived in
+`docs/architecture/INTELLIGENCE_BACKLOG.md` § 2C and `docs/roadmap/intelligence-backlog-implementation.md`
+§ Item 2C until 2026-07-29; both are now redirect stubs. It survived two doc sweeps because its
+rows named four methods that had never existed in any branch, so nothing about it resolved well
+enough to look stale. Add coordinates here, not there.
 
 ---
 
