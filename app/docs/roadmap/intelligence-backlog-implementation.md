@@ -164,9 +164,15 @@ verification against the tree:
   (`_core_intelligence_mixin.py:54`). "Principles acted on per day" has no source in the method
   it named.
 
-Group A's remedy is the verified one: bound the fetch by passing a `__gte` filter to `find_by`,
-following the shape goals already uses — and **not** by writing a Cypher `WHERE` clause, which
-SKUEL021 forbids in `core/`.
+Group A's remedy is the verified one, and it is **field-specific** — the two keys do not share a
+fetch:
+
+- **`updated_at`** — pass a `__gte` filter to `find_by`, the shape goals already proved
+  (`goals_intelligence_service.py:162–164`).
+- **`created_at`** — use `find_by_date_range`, which coerces both storage shapes. A `__gte` kwarg
+  here silently drops the datetime-stored rows, per the measurement above.
+
+Either way, **not** a Cypher `WHERE` clause, which SKUEL021 forbids in `core/`.
 
 ---
 
