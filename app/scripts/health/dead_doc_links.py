@@ -133,13 +133,24 @@ PLACEHOLDER_SUBSTRINGS = (
 # `\bYYYY\b` pattern misses the one shape this rule exists for.
 PLACEHOLDER_METAVAR_RE = re.compile(r"(?<![A-Za-z])(?:X\.Y\.Z|YYYY|MM-DD)(?![A-Za-z])")
 
-# A maximal run of path-plausible characters inside a fenced code block.
+# Template markers the tokenizer deliberately keeps attached to a token so the shape
+# guard can reject the whole thing. Excluding them would split
+# `core/services/{domain}/{domain}_service.py` into clean-looking fragments and hand the
+# guard a false positive it cannot see.
 #
-# Template markers (`{ } < > * $ ~`) are deliberately INSIDE the class so they stay
-# attached to their token and `_looks_like_local_path` can reject the whole thing.
-# Excluding them would split `core/services/{domain}/{domain}_service.py` into
-# clean-looking fragments and hand the guard a false positive it cannot see.
-FENCE_TOKEN_RE = re.compile(r"[A-Za-z0-9_./{}<>*$~-]+")
+# ONE constant feeds both the tokenizer and `_looks_like_local_path`, deliberately: they
+# had drifted, the tokenizer retaining `$ ~ >` while the guard rejected only `{ < *`, so
+# `core/services/$DOMAIN/service.py` was reported as a dead repo file — and the comment
+# here asserted they agreed (Codex, PR #872). A contract stated in prose but not enforced
+# by the code is worse than no contract; keep them structurally tied.
+TEMPLATE_MARKERS = "{}<>*$~"
+
+# A maximal run of path-plausible characters inside a fenced code block.
+FENCE_TOKEN_RE = re.compile(r"[A-Za-z0-9_./" + re.escape(TEMPLATE_MARKERS) + r"-]+")
+
+# Quoted shell arguments, so a path containing spaces survives tokenization — e.g. the
+# live `docs/design-principles/direction w structuring.md`.
+FENCE_QUOTED_RE = re.compile(r"\"([^\"\n]+)\"|'([^'\n]+)'")
 
 # Opening/closing fence: 3+ backticks or tildes, optionally indented (list items).
 FENCE_DELIM_RE = re.compile(r"^(`{3,}|~{3,})(.*)$")
@@ -295,6 +306,15 @@ def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
     quoted = False
 
     for i, raw_line in enumerate(content.splitlines(), 1):
+        # A quoted fence ends with its container. Without this, an unclosed `> ```bash`
+        # swallowed every following unquoted line — an ordinary paragraph's
+        # `core/dead.py` got reported as [code] (Codex, PR #872). CommonMark closes an
+        # open fence when its blockquote ends, so leaving the container does too.
+        if quoted and not raw_line.lstrip().startswith(">"):
+            delim = None
+            lang = ""
+            quoted = False
+
         line = _strip_quote_prefix(raw_line) if delim is None or quoted else raw_line
         match = FENCE_DELIM_RE.match(line.lstrip())
         if delim is None:
@@ -333,7 +353,12 @@ def extract_fenced_paths(content: str) -> list[tuple[int, str]]:
     """
     results = []
     for lineno, _lang, line in iter_code_fence_lines(content):
-        for token in FENCE_TOKEN_RE.findall(line):
+        # Quoted arguments first: FENCE_TOKEN_RE has no space in its class, so a path
+        # with spaces would shatter into fragments that each fail the guard, leaving the
+        # exact dead-path blind spot this pass exists to close for filenames like the
+        # live `docs/design-principles/direction w structuring.md` (Codex, PR #872).
+        quoted_spans = [g for match in FENCE_QUOTED_RE.finditer(line) for g in match.groups() if g]
+        for token in [*quoted_spans, *FENCE_TOKEN_RE.findall(line)]:
             token = token.rstrip(".,;:")
             if not _looks_like_local_path(token):
                 continue
@@ -408,8 +433,8 @@ def _looks_like_local_path(text: str) -> bool:
     text = text.removeprefix("./")
     if len(text) < 5:
         return False
-    if "{" in text or "<" in text or "*" in text:
-        return False  # template / glob patterns
+    if any(marker in text for marker in TEMPLATE_MARKERS):
+        return False  # template / glob / shell-variable patterns — see TEMPLATE_MARKERS
     if _is_placeholder(text):
         return False  # `your_service.py`, `alpine.X.Y.Z.min.js`, `adapters/.../foo.py`
 

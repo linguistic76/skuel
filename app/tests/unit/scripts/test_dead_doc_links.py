@@ -204,6 +204,91 @@ def test_one_dead_file_two_spellings_one_line_reports_once(docs_root: Path) -> N
     assert {raw for _l, raw, _k in reported} == {"./core/gone.py", "./core/other_gone.py"}
 
 
+def test_quoted_fence_ends_with_its_blockquote_container() -> None:
+    """An unclosed `> ```bash` must not swallow the prose after the quote (Codex, #872).
+
+    Without this the quoted branch treated every later unquoted line as fenced content,
+    so an ordinary paragraph's `core/dead.py` was reported as `[code]` — the fix for one
+    false negative had manufactured false positives.
+    """
+    leaky = "> ```bash\n> cp core/a.py x\n\nOrdinary prose naming core/dead.py here.\n"
+    assert ddl.extract_fenced_paths(leaky) == [(2, "core/a.py")]
+    # A properly closed quoted fence still works.
+    assert ddl.extract_fenced_paths("> ```bash\n> cp core/a.py x\n> ```\n") == [(2, "core/a.py")]
+
+
+def test_tokenizer_and_guard_agree_on_every_template_marker() -> None:
+    """Derived from TEMPLATE_MARKERS, so the two cannot drift apart again.
+
+    They had: the tokenizer retained `$ ~ >` while the guard rejected only `{ < *`, so
+    `core/services/$DOMAIN/service.py` was reported as a dead repo file — while the
+    tokenizer's comment asserted they agreed (Codex, #872). Enumerating cases by hand
+    would re-open exactly that gap the next time a marker is added.
+    """
+    for marker in ddl.TEMPLATE_MARKERS:
+        token = f"core/services/x{marker}y/service.py"
+        assert ddl.FENCE_TOKEN_RE.findall(token) == [token], (
+            f"tokenizer splits on {marker!r}, so the guard never sees the whole token"
+        )
+        assert not ddl._looks_like_local_path(token), f"guard accepts template marker {marker!r}"
+
+
+def test_quoted_path_containing_spaces_survives_tokenization() -> None:
+    """`FENCE_TOKEN_RE` has no space in its class, so a spaced path shattered into
+    fragments that each failed the guard — the pass's own blind spot, for a filename
+    shape that already exists here as `docs/design-principles/direction w structuring.md`
+    (Codex, #872)."""
+    live = "docs/design-principles/direction w structuring.md"
+    assert ddl.extract_fenced_paths(f'```bash\ncp "{live}" dest\n```\n') == [(2, live)]
+    assert ddl.extract_fenced_paths("```bash\ncp 'docs/a b.md' dest\n```\n") == [(2, "docs/a b.md")]
+
+
+def test_fence_walker_matches_commonmark_across_the_whole_tree() -> None:
+    """Differential guard against a real CommonMark parser — the mechanism, not cases.
+
+    `iter_code_fence_lines` is a hand-written parser, and review found two bugs in it
+    (blockquote open, blockquote leak). Rather than migrate to markdown-it-py — a
+    transitive dependency, and measured to buy nothing — pin *equivalence* to it over
+    every doc the checker scans. Any future divergence in fence handling fails here
+    instead of arriving as a review finding.
+
+    Compares only path-bearing lines, since that is all the pass acts on.
+
+    Note the `closed` check: an unclosed fence has no closing delimiter to skip, and
+    assuming one is what made the first version of this comparison report a false
+    disagreement — the harness was wrong, not the walker.
+    """
+    markdown_it = pytest.importorskip("markdown_it", reason="transitive via rich")
+    md = markdown_it.MarkdownIt("commonmark")
+
+    def path_tokens(lines: list[str], numbers: set[int]) -> set[tuple[int, str]]:
+        found = set()
+        for n in numbers:
+            for tok in ddl.FENCE_TOKEN_RE.findall(ddl._strip_quote_prefix(lines[n - 1])):
+                if ddl._looks_like_local_path(tok.rstrip(".,;:")):
+                    found.add((n, tok.rstrip(".,;:")))
+        return found
+
+    scanned, disagreements = 0, []
+    for doc in ddl.get_md_files():
+        content = doc.read_text(encoding="utf-8", errors="ignore")
+        lines = content.splitlines()
+        truth: set[int] = set()
+        for token in md.parse(content):
+            if token.type != "fence" or not token.map:
+                continue
+            start, end = token.map
+            closed = end - 1 < len(lines) and lines[end - 1].lstrip().startswith(("```", "~~~"))
+            truth.update(range(start + 2, (end - 1 if closed else end) + 1))
+        mine = {n for n, _lang, _line in ddl.iter_code_fence_lines(content)}
+        if path_tokens(lines, mine) != path_tokens(lines, truth):
+            disagreements.append(str(doc.relative_to(ddl.ROOT)))
+        scanned += 1
+
+    assert scanned > 100, f"only {scanned} docs scanned — the corpus guard is vacuous"
+    assert disagreements == [], f"fence walker diverges from CommonMark in: {disagreements}"
+
+
 def test_all_fence_languages_are_scanned() -> None:
     """Measured choice, not an assumption: dead tokens land in bash, python, yaml,
     cypher, javascript, markdown, html and untagged fences alike, so restricting to
