@@ -9,8 +9,30 @@ For every .md file in docs/ and .claude/skills/:
   - Extract [text](path) markdown links
   - Extract inline paths in backtick code (e.g. `/docs/patterns/foo.md`)
   - Extract bare /absolute/paths that look like file references
+  - Extract path-looking tokens inside ```fenced code blocks``` (see below)
   - Check each exists relative to the repo root
   - Report: dead link, source file, line number
+
+Why the fenced-block pass exists
+--------------------------------
+The first three passes are prose-shaped, and how-to guides are mostly *fence*.
+That left a structural blind spot: `docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md`
+told readers to `cp core/services/goals/goals_lateral_service.py …` for ~6 months
+after that file was deleted (`e8818dc26`), and this checker reported ZERO broken
+references for it across 13 maintenance sweeps (PR #870).
+
+Note the gap was narrower than "fences are never scanned": ``extract_bare_paths``
+is already fence-blind, so a *project-rooted absolute* path inside a fence
+(``cp /core/services/foo.py``) has always been reported. The uncaught class was
+**relative** tokens — ``cp core/services/foo.py`` — which is precisely the shape a
+copy-paste shell instruction uses. ``tests/unit/scripts/test_dead_doc_links.py``
+pins all four cells of that matrix.
+
+Fenced blocks hold shell and Python, so they carry placeholder shapes prose does
+not (``core/services/your_service.py``, ``alpine.X.Y.Z.min.js``, ``/etc/prometheus/…``).
+Those are rejected by ``_looks_like_local_path`` — one shared shape guard, not a
+second filter — plus one fence-local rule: an absolute path inside a fence must be
+project-rooted, mirroring what ``extract_bare_paths`` already requires of prose.
 
 Also confirms that all files referenced in docs/INDEX.md exist.
 
@@ -65,6 +87,63 @@ PROJECT_PREFIXES = (
     "/monitoring/",
 )
 
+# Documentation-convention placeholders. Docs name a file the reader is meant to
+# substitute, and the convention is lexical rather than syntactic — `{domain}` and
+# `<name>` are already rejected by the `{`/`<`/`*` guard, but `your_service.py` and
+# `alpine.X.Y.Z.min.js` are not. Each entry below is measured against the live tree
+# (PR #871), and every one is pinned by a case in test_dead_doc_links.py.
+#
+# This vocabulary only ever SUBTRACTS reports from an advisory report, so a gap here
+# costs one noisy line — never a false failure. That is the fail-safe direction; do
+# not invert it by using this list to decide that something *is* broken.
+#
+# Every entry is boundary-aware, because loose matching here creates exactly the
+# blind spot this pass exists to close. Measured against the live tree: a substring
+# `new_domain` swallows the real `tests/integration/test_new_domain_relationships.py`,
+# and a bare `foo` prefix swallows any `footer.html` / `footnotes.py`.
+
+# The subject the reader substitutes: `your_service.py`, `my_service.py`. A test *for*
+# a placeholder subject is itself one, so `test_` is stripped before this check.
+PLACEHOLDER_SUBJECT_PREFIXES = (
+    "your_",
+    "your-",
+    "my_",
+    "our_",
+    "example_",
+)
+# The topic a scaffolding doc walks you through creating: `new_domain/`,
+# `new_domain_service.py`, `NEW_PATTERN.md`, `test_new_feature.py`. See
+# `_matches_topic_marker` for why this cannot be a plain prefix test.
+PLACEHOLDER_TOPIC_MARKERS = (
+    "new_domain",
+    "new_feature",
+    "new_pattern",
+    "old_pattern",
+)
+# Metasyntactic stand-in. The trailing guard keeps `foo`/`foo.py`/`foo_bar` in and
+# `footer`/`footnotes` out. Only `foo` is listed — bar/baz/qux never appeared in the
+# measured surface, and an unmeasured entry is pure shadow risk.
+PLACEHOLDER_METASYNTACTIC_RE = re.compile(r"^foo(?![a-z])")
+PLACEHOLDER_SUBSTRINGS = (
+    "path/to/",
+    "...",  # elided path segment, e.g. adapters/.../fragments.py
+)
+# Uppercase metavariables standing in for a version or a date. `\b` is wrong here:
+# there is no word boundary in `nodes_YYYY.cypher` between `_` and `Y`, so a
+# `\bYYYY\b` pattern misses the one shape this rule exists for.
+PLACEHOLDER_METAVAR_RE = re.compile(r"(?<![A-Za-z])(?:X\.Y\.Z|YYYY|MM-DD)(?![A-Za-z])")
+
+# A maximal run of path-plausible characters inside a fenced code block.
+#
+# Template markers (`{ } < > * $ ~`) are deliberately INSIDE the class so they stay
+# attached to their token and `_looks_like_local_path` can reject the whole thing.
+# Excluding them would split `core/services/{domain}/{domain}_service.py` into
+# clean-looking fragments and hand the guard a false positive it cannot see.
+FENCE_TOKEN_RE = re.compile(r"[A-Za-z0-9_./{}<>*$~-]+")
+
+# Opening/closing fence: 3+ backticks or tildes, optionally indented (list items).
+FENCE_DELIM_RE = re.compile(r"^(`{3,}|~{3,})(.*)$")
+
 
 def get_md_files() -> list[Path]:
     result: list[Path] = []
@@ -75,6 +154,10 @@ def get_md_files() -> list[Path]:
 
 
 def _is_external(link: str) -> bool:
+    # `//cdn.example.com/lib.js` is a protocol-relative URL, not a repo path — it
+    # otherwise passes the leading-slash test and resolves under ROOT.
+    if link.startswith("//"):
+        return True
     return any(link.startswith(p) for p in EXTERNAL_PREFIXES)
 
 
@@ -167,6 +250,127 @@ def extract_bare_paths(content: str) -> list[tuple[int, str]]:
     return results
 
 
+def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
+    """
+    Walk triple-backtick/tilde fenced blocks.
+
+    Returns list of (line_no, language_tag, line) for lines INSIDE a fence — the
+    delimiter lines themselves are excluded. A fence closes only on the same
+    delimiter character, at least as long, and carrying no info string, so a
+    ```` ```python ```` inside a ```` ````markdown ```` wrapper does not close it.
+
+    Deliberately NOT ``stale_names.extract_code_segments``, which also walks fences
+    in this directory. That one returns whole blocks keyed by their *opening* line,
+    which would degrade this checker's per-line coordinates to "somewhere in the
+    block starting at L400" — a link report is only actionable at a line. It also
+    treats any ``` run as a closer, so it truncates the wrapper case above. Reuse
+    needs the shared walker to yield per-line, and fixing that walker moves
+    ``stale_names``' own totals — a separate change, not this one.
+    """
+    results: list[tuple[int, str, str]] = []
+    delim: str | None = None
+    delim_len = 0
+    lang = ""
+
+    for i, line in enumerate(content.splitlines(), 1):
+        match = FENCE_DELIM_RE.match(line.lstrip())
+        if delim is None:
+            if match:
+                delim = match.group(1)[0]
+                delim_len = len(match.group(1))
+                info = match.group(2).strip()
+                lang = info.split()[0].lower() if info else ""
+            continue
+        if (
+            match
+            and match.group(1)[0] == delim
+            and len(match.group(1)) >= delim_len
+            and not match.group(2).strip()
+        ):
+            delim = None
+            lang = ""
+            continue
+        results.append((i, lang, line))
+    return results
+
+
+def extract_fenced_paths(content: str) -> list[tuple[int, str]]:
+    """
+    Extract path-looking tokens from inside fenced code blocks.
+
+    Every fence language is scanned. That is measured, not assumed: across the live
+    tree the dead tokens land in bash (88), python (35), yaml (8), untagged (5),
+    cypher (3), javascript (3), markdown (2) and html (1), and no language is a
+    pure-noise source once the shape guard runs — so restricting to ```bash/```python
+    would drop genuine findings and buy nothing (PR #871).
+
+    Returns list of (line_no, path_string).
+    """
+    results = []
+    for lineno, _lang, line in iter_code_fence_lines(content):
+        for token in FENCE_TOKEN_RE.findall(line):
+            token = token.rstrip(".,;:")
+            if not _looks_like_local_path(token):
+                continue
+            # Fence-local rule: absolute paths here are usually filesystem- or
+            # URL-absolute (`/etc/prometheus/prometheus.yml`, a service-worker
+            # cache list's `/offline.html`), not repo-relative. Require the same
+            # project rooting extract_bare_paths already requires of prose —
+            # measured on the live tree, this rejects 20 tokens and every one is
+            # a false positive.
+            if token.startswith("/") and not token.startswith(PROJECT_PREFIXES):
+                continue
+            results.append((lineno, token))
+    return results
+
+
+def _matches_topic_marker(segment: str) -> bool:
+    """
+    Is this path segment named after a scaffolding doc's stand-in topic?
+
+    A plain `startswith(marker)` is wrong in one direction and a plain `== marker` is
+    wrong in the other, and both were measured against the live tree:
+
+      new_domain/                            placeholder — the marker IS the segment
+      new_domain_service.py                  placeholder — scaffolded from the marker
+      NEW_DOMAIN_INTELLIGENCE.md             placeholder — likewise
+      test_new_feature.py                    placeholder — a test for the stand-in
+      test_new_domain_relationships.py       REAL FILE — a test *about* new domains
+
+    So: the marker must be the whole stem, or extend it under a non-`test_` segment,
+    or be the whole stem behind a `test_` prefix. The last two rules are what keep the
+    real file visible — a shadowed real file is a permanent blind spot, which is the
+    failure this whole pass exists to fix.
+    """
+    stem = segment.rsplit(".", 1)[0] if "." in segment else segment
+    for marker in PLACEHOLDER_TOPIC_MARKERS:
+        if stem == marker or stem == f"test_{marker}":
+            return True
+        if stem.startswith(f"{marker}_") and not stem.startswith("test_"):
+            return True
+    return False
+
+
+def _is_placeholder(text: str) -> bool:
+    """Does this path use a documentation placeholder the reader is meant to replace?"""
+    lowered = text.lower()
+    if any(marker in lowered for marker in PLACEHOLDER_SUBSTRINGS):
+        return True
+    if PLACEHOLDER_METAVAR_RE.search(text):
+        return True
+    for segment in lowered.split("/"):
+        if _matches_topic_marker(segment):
+            return True
+        # A test *for* a placeholder subject is itself a placeholder, and the marker
+        # sits behind the `test_` prefix: `test_foo.py`, `test_your_service.py`.
+        subject = segment.removeprefix("test_")
+        if subject.startswith(PLACEHOLDER_SUBJECT_PREFIXES):
+            return True
+        if PLACEHOLDER_METASYNTACTIC_RE.match(subject):
+            return True
+    return False
+
+
 def _looks_like_local_path(text: str) -> bool:
     """Heuristic: does this backtick span look like a checkable project file path?"""
     if _is_external(text):
@@ -175,6 +379,8 @@ def _looks_like_local_path(text: str) -> bool:
         return False
     if "{" in text or "<" in text or "*" in text:
         return False  # template / glob patterns
+    if _is_placeholder(text):
+        return False  # `your_service.py`, `alpine.X.Y.Z.min.js`, `adapters/.../foo.py`
 
     # Must start with / or a known project directory
     starts_ok = text.startswith("/") or any(
@@ -233,6 +439,11 @@ def check_file(md_file: Path, verbose: bool) -> list[tuple[Path, int, str, str]]
 
     for lineno, path in extract_bare_paths(content):
         record(lineno, path, "bare")
+
+    # Last, so a fenced absolute path keeps its long-standing "bare" label rather
+    # than being relabelled by the newer pass (the `seen` dedup is per line+token).
+    for lineno, path in extract_fenced_paths(content):
+        record(lineno, path, "code")
 
     return dead
 
