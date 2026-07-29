@@ -761,7 +761,7 @@ async def apply_type_fixes(driver: Any, fixes: list[TypeMismatch]) -> int:
 
 
 async def _delete_entity_checked(driver: Any, uid: str, label: str) -> bool:
-    """DETACH DELETE one entity after the :Content-shadow-uid safety check."""
+    """Delete one entity after the :Content-shadow-uid safety check."""
     shadow = await driver.execute_query(
         "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=uid
     )

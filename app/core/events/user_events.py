@@ -29,7 +29,7 @@ class UserDeleted(BaseEvent):
       DELETED, PII scrubbed. OWNS-linked entities preserved so teachers can
       still render historical submissions.
     - Hard delete: ``hard_delete=True``. Admin-only GDPR erasure. User node +
-      every OWNS-linked entity DETACH DELETEd.
+      every OWNS-linked entity deleted.
 
     Subscribers:
     - AuditLogService (record deletion for compliance trail)

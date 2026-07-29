@@ -167,7 +167,7 @@ class RelationshipBuilder:
 
     async def delete(self) -> Result[int]:
         """
-        DETACH DELETE the relationship (if it exists).
+        Delete the relationship (if it exists).
 
         Returns:
             Result containing count of relationships deleted

@@ -23,7 +23,7 @@ Two-state account lifecycle:
 Soft-delete marks the User node with status=DELETED, scrubs PII, and keeps the
 node + OWNS-linked entities (UserEntry, Task, Goal, ...) intact so teachers can
 still render the owner's historical submissions. Hard-delete (admin-only, GDPR
-right-to-erasure) DETACH DELETEs the User + cascade over every OWNS edge.
+right-to-erasure) deletes the User + cascade over every OWNS edge.
 
 Journal tier — orthogonal to UserRole:
     STANDARD (default) — continuous single-response workflow

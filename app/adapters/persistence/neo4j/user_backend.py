@@ -415,7 +415,7 @@ class UserBackend(Neo4jSessionRunner):
     @safe_backend_operation("hard_delete_user")
     async def hard_delete_user(self, user_uid: UserUID) -> Result[int]:
         """
-        GDPR right-to-erasure: DETACH DELETE the user + every OWNS-linked entity.
+        GDPR right-to-erasure: delete the user + every OWNS-linked entity.
 
         Destroys the User node and cascades through every :OWNS edge, removing
         the user's UserEntry / Task / Goal / Habit / ... nodes as well — plus

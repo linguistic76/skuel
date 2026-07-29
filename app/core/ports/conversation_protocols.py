@@ -132,7 +132,7 @@ class ConversationBackendOperations(Protocol):
         ...
 
     async def delete_session(self, session_id: str, user_uid: UserUID) -> Result[bool]:
-        """DETACH DELETE an OWNED session and all its turns. True if deleted."""
+        """Delete an OWNED session and all its turns. True if deleted."""
         ...
 
 

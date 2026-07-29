@@ -344,7 +344,8 @@ _CYPHER_CONTEXT_PATTERN = (
 # Three conditions keep prose out, and each is load-bearing:
 #
 #   * head position — a fragment that merely NAMES a clause mid-sentence
-#     ("cascade DETACH DELETE (default False)") is prose; only real Cypher leads
+#     ("... via ``DETACH DELETE`` on next failure", _spawn_orchestrator.py) is
+#     prose; only real Cypher leads
 #     with it. Docstrings are already exempt on the SKUEL030 side as inert
 #     nodes; head position is what keeps the rule honest for the prose that is
 #     assigned or passed rather than hung as a bare statement.

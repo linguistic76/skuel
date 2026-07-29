@@ -509,13 +509,13 @@ class _CrudMixin[T: DomainModelProtocol]:
     @safe_backend_operation("delete")
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
-        DETACH DELETE any entity by UID.
+        Delete any entity by UID.
 
         Removes an entity from the Neo4j database. Optionally deletes all relationships
         (cascade=True) or requires manual relationship cleanup (cascade=False).
 
         Args:
-            uid: Unique identifier of the entity to DETACH DELETE
+            uid: Unique identifier of the entity to delete
             cascade: If True, deletes entity and all its relationships (DETACH DELETE).
                     If False, fails if entity has relationships (requires manual cleanup).
 
@@ -527,21 +527,21 @@ class _CrudMixin[T: DomainModelProtocol]:
             ```python
             backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
 
-            # DETACH DELETE with relationships (cascade)
-            result = await backend.DETACH DELETE("task:123", cascade=True)
+            # Delete with relationships (cascade)
+            result = await backend.delete("task:123", cascade=True)
 
             if result.is_ok and result.value:
                 print("Task and all relationships deleted")
 
-            # DETACH DELETE without relationships (fails if relationships exist)
-            result = await backend.DETACH DELETE("task:456", cascade=False)
+            # Delete without relationships (fails if relationships exist)
+            result = await backend.delete("task:456", cascade=False)
             ```
 
         Warning:
             - cascade=True deletes ALL relationships (incoming and outgoing)
             - cascade=False will fail if entity has any relationships
-            - Deletion is permanent - no soft DETACH DELETE or recovery
-            - Consider backing up data before cascade DETACH DELETE operations
+            - Deletion is permanent - no soft delete or recovery
+            - Consider backing up data before cascade delete operations
 
         Note:
             - Returns True even if entity didn't exist (idempotent)

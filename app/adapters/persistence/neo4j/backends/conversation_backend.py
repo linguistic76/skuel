@@ -393,7 +393,7 @@ class ConversationBackend(Neo4jSessionRunner):
             return Result.fail(Errors.database("get_turns", str(e)))
 
     async def delete_session(self, session_id: str, user_uid: UserUID) -> Result[bool]:
-        """DETACH DELETE an OWNED session and all its turns (True if deleted)."""
+        """Delete an OWNED session and all its turns (True if deleted)."""
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL} {{session_id: $session_id}})
         OPTIONAL MATCH (s)-[:{_HAS_TURN}]->(t:{_TURN_LABEL})

@@ -626,7 +626,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> Result[bool]:
         """
-        DETACH DELETE a graph relationship between two entities.
+        Delete a graph relationship between two entities.
 
         Args:
             from_uid: Source entity UID

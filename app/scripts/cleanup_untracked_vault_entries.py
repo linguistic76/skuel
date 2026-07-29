@@ -252,7 +252,7 @@ async def main() -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="DETACH DELETE the provably-superseded orphans (DELETE set only; "
+        help="Delete the provably-superseded orphans (DELETE set only; "
         "REVIEW set is never touched). Run the dry-run and get sign-off first.",
     )
     args = parser.parse_args()
@@ -276,14 +276,12 @@ async def main() -> int:
             return 0
 
         if not args.apply:
-            print(
-                "\n[DRY-RUN] No changes made. Re-run with --apply to DETACH DELETE the DELETE set."
-            )
+            print("\n[DRY-RUN] No changes made. Re-run with --apply to delete the DELETE set.")
             return 0
 
         deleted, subtree_deleted = await _delete_orphans(driver, uids)
         print(
-            f"\n[APPLIED] DETACH DELETEd {deleted} superseded orphan UserEntry node(s) "
+            f"\n[APPLIED] Deleted {deleted} superseded orphan UserEntry node(s) "
             f"+ {subtree_deleted} content subtree node(s). REVIEW set untouched."
         )
         return 0

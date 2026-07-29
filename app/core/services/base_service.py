@@ -154,7 +154,7 @@ class BaseService(
         T: Entity type (must implement DomainModelProtocol - has uid, timestamps, etc.)
 
     Core features (via mixins):
-    1. CRUD operations - everything needs create, read, update, DETACH DELETE
+    1. CRUD operations - everything needs create, read, update, delete
     2. Relationship management - the heart of SKUEL
     3. Content handling - many entities have content
     4. Status/Progress tracking - universal concept
