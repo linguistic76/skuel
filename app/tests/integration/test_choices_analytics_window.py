@@ -28,6 +28,7 @@ See: tests/integration/test_created_at_window_coercion.py (the mixed-shape colum
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -35,7 +36,9 @@ import pytest_asyncio
 from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend
 from core.models.choice.choice import Choice
 from core.models.enums.neo_labels import NeoLabel
+from core.services.activity_domain_config import ACTIVITY_DOMAIN_CONFIGS
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
+from core.services.relationships import UnifiedRelationshipService
 
 USER = "user_choice_window"
 USER_UNKNOWN_DOMAIN = "user_choice_unknown_domain"
@@ -93,10 +96,23 @@ class TestChoicesAnalyticsWindow:
                 c=(now - timedelta(days=200)).isoformat(),
             )
 
-        # Constructed exactly as services_bootstrap/_backends.py builds it, so the test
-        # exercises the production label/base_label pair rather than a lookalike.
+        # Constructed exactly as services_bootstrap/_backends.py and
+        # create_common_sub_services build them, so the test exercises the production
+        # label/base_label pair and the production registry config rather than lookalikes.
+        # The relationship service is not optional here: get_decision_patterns reads
+        # alignment from graph edges and fails without it rather than reporting a 0% that
+        # is really a missing dependency.
         backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
-        return ChoicesIntelligenceService(backend=backend, cross_domain_query=None)
+        relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+            backend=backend,
+            config=ACTIVITY_DOMAIN_CONFIGS["choices"].relationship_config,
+            graph_intel=None,
+        )
+        return ChoicesIntelligenceService(
+            backend=backend,
+            cross_domain_query=None,
+            relationship_service=relationships,
+        )
 
     async def test_decision_patterns_counts_only_the_window(self, intelligence):
         """total_choices excludes the 200-day-old choice. Pre-fix: 3."""
@@ -192,7 +208,18 @@ class TestDomainPatternsTolerateUnknownDomain:
             )
 
         backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
-        return ChoicesIntelligenceService(backend=backend, cross_domain_query=None)
+        # Required since ChoicesIntelligenceService declares _require_relationships = True.
+        # This class does not exercise a graph read, but the constructor refuses without it.
+        relationships: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
+            backend=backend,
+            config=ACTIVITY_DOMAIN_CONFIGS["choices"].relationship_config,
+            graph_intel=None,
+        )
+        return ChoicesIntelligenceService(
+            backend=backend,
+            cross_domain_query=None,
+            relationship_service=relationships,
+        )
 
     async def test_unknown_domain_returns_a_result_instead_of_raising(self, intelligence):
         """The headline guard. Pre-fix this call raised AttributeError."""

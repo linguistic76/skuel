@@ -12,7 +12,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -20,13 +20,15 @@ from core.constants import QueryLimit
 from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.utils.result_simplified import Result
-from core.utils.sort_functions import get_domain_choice_count
+from core.utils.sort_functions import get_domain_choice_count, get_principle_frequency_rank
 
 if TYPE_CHECKING:
     import structlog
 
     from core.models.choice.choice import Choice
     from core.ports.domain_protocols import ChoicesOperations
+    from core.services.choices.choice_relationships import ChoiceRelationships
+    from core.services.relationships import UnifiedRelationshipService
 
 
 class _AnalyticsMixin:
@@ -39,8 +41,26 @@ class _AnalyticsMixin:
 
     # Populated by ChoicesIntelligenceService.__init__
     backend: "ChoicesOperations"
-    relationships: Any
+    # Optional in the type, never None at runtime: ChoicesIntelligenceService declares
+    # _require_relationships = True, so BaseAnalyticsService.__init__ refuses to construct
+    # without one. The annotation stays optional only because the base assigns it from its
+    # own `relationship_service: Any | None` parameter — narrowing it here conflicts with
+    # that base definition. Reads below assert, per `choices_service.py`'s existing idiom.
+    # boundary: service-registry — the three type parameters cannot be narrowed here. The
+    # value is produced by create_common_sub_services (activity_domain_config.py:330), which
+    # returns UnifiedRelationshipService[Any, Any, Any] for all six activity domains, and is
+    # stored via ChoicesIntelligenceService.__init__'s equally-parameterised argument.
+    # Declaring the attribute narrower than what is assigned to it would assert a type
+    # nothing checks; narrowing for real means re-parameterising the shared factory.
+    relationships: "UnifiedRelationshipService[Any, Any, Any] | None"
     logger: "structlog.BoundLogger"
+
+    async def _fetch_choice_relationships(self, choice_uid: str) -> "ChoiceRelationships":
+        """Relationship container for one choice — the callable form the batch paths need."""
+        from core.services.choices.choice_relationships import ChoiceRelationships
+
+        assert self.relationships is not None  # _require_relationships = True
+        return await ChoiceRelationships.fetch(choice_uid, self.relationships)
 
     async def get_quick_decision_metrics(self, choice_uid: str) -> Result[dict[str, Any]]:
         """
@@ -88,10 +108,8 @@ class _AnalyticsMixin:
                 print(f"Simple decision: {metrics['stake_level']} complexity")
             ```
         """
-        from core.services.choices.choice_relationships import ChoiceRelationships
-
         # ✅ Use fetch() for fast parallel UID fetching (~160ms vs ~250ms)
-        rels = await ChoiceRelationships.fetch(choice_uid, self.relationships)
+        rels = await self._fetch_choice_relationships(choice_uid)
 
         # Quick complexity calculation based on relationship counts
         knowledge_count = len(rels.informed_by_knowledge_uids)
@@ -173,11 +191,9 @@ class _AnalyticsMixin:
         """
         import asyncio
 
-        from core.services.choices.choice_relationships import ChoiceRelationships
-
         # ✅ Fetch all relationships in parallel (~4s for 100 choices vs ~8s sequential)
         all_rels = await asyncio.gather(
-            *[ChoiceRelationships.fetch(uid, self.relationships) for uid in choice_uids]
+            *[self._fetch_choice_relationships(uid) for uid in choice_uids]
         )
 
         # Calculate quick complexity for each
@@ -240,6 +256,68 @@ class _AnalyticsMixin:
             )
         return result
 
+    async def _fetch_alignment_links(
+        self, choice_uids: list[str]
+    ) -> Result[tuple[dict[str, list[str]], dict[str, list[str]]]]:
+        """
+        Read the principle- and goal-alignment edges for a whole window of choices.
+
+        Returns ``(principle_uids_by_choice, goal_uids_by_choice)``. Every requested UID
+        is a key; a choice with no such edge maps to an empty list. A failed read propagates
+        as an error rather than degrading to empty links, because an empty result is
+        indistinguishable from a user who links nothing. (The service cannot be constructed
+        without a relationship service — see ``_require_relationships``.)
+
+        Every read is batched — one query each, ``UNWIND`` over the UID list — because the
+        callers work over a whole ``days`` window. The per-choice shape costs 3N queries;
+        the sampled variant in
+        ``_BehavioralSignalsMixin._calculate_system_decision_quality_for_dual_track``
+        caps at 10 choices to stay affordable, which a percentage over the window cannot do.
+
+        "Principle aligned" is the **union of both directions**, matching what
+        ``path_aware_types`` and ``ChoiceCrossContext`` already mean by a choice's
+        principles:
+
+        - ``principles`` — ``INFORMED_BY_PRINCIPLE``, outgoing, written by
+          ``ChoicesService.link_choice_to_principle`` (``POST /api/choices/link-principle``).
+        - ``guided_by_principles`` — ``GUIDES_CHOICE``, incoming, written from the principle
+          side by ``PrinciplesService.create_principle_link`` with ``link_type="choice"``
+          (``POST /api/principles/links``), which resolves the edge through
+          ``_GravityMixin._LINK_TYPE_MAP`` rather than naming it.
+
+        Both are reachable, so reading only one direction understates the percentage and
+        drops candidates from the most-common aggregation. A principle linked both ways to
+        the same choice is counted once.
+
+        ``goals`` is ``AFFECTS_GOAL``, written by the sibling ``link-goal`` route.
+
+        Backend: UniversalNeo4jBackend.batch_get_related_uids
+        """
+        assert self.relationships is not None  # _require_relationships = True
+        informed_by = await self.relationships.batch_get_related_uids("principles", choice_uids)
+        if informed_by.is_error:
+            return Result.fail(informed_by)
+
+        guided_by = await self.relationships.batch_get_related_uids(
+            "guided_by_principles", choice_uids
+        )
+        if guided_by.is_error:
+            return Result.fail(guided_by)
+
+        goals = await self.relationships.batch_get_related_uids("goals", choice_uids)
+        if goals.is_error:
+            return Result.fail(goals)
+
+        # dict.fromkeys dedupes a principle linked in both directions, so a choice that
+        # carries INFORMED_BY_PRINCIPLE and GUIDES_CHOICE to the same principle counts it
+        # once. Order within a list follows Neo4j's collect() and is not guaranteed — the
+        # aggregation below does not rely on it.
+        principles = {
+            uid: list(dict.fromkeys(informed_by.value.get(uid, []) + guided_by.value.get(uid, [])))
+            for uid in choice_uids
+        }
+        return Result.ok((principles, goals.value))
+
     async def get_decision_patterns(
         self, user_uid: UserUID, days: int = 90
     ) -> Result[dict[str, Any]]:
@@ -251,6 +329,10 @@ class _AnalyticsMixin:
         - Principle alignment trends
         - Goal-oriented vs exploratory choices
         - Decision quality metrics
+
+        Alignment is read from the graph (see ``_fetch_alignment_links``), not from the
+        Choice rows: a choice counts as principle-aligned or goal-oriented when it carries
+        the corresponding edge.
 
         Args:
             user_uid: User UID
@@ -277,7 +359,7 @@ class _AnalyticsMixin:
                     "principle_alignment_score": float
                 },
                 "patterns": {
-                    "most_common_principle": str,
+                    "most_common_principle": str | None, # principle UID, not title
                     "decision_making_trend": str, # "improving", "stable", "declining"
                     "strategic_vs_tactical": str # "strategic", "balanced", "tactical"
                 },
@@ -341,9 +423,18 @@ class _AnalyticsMixin:
         weeks = days / 7.0
         choices_per_week = total_choices / weeks
 
-        # Analyze alignment (simplified - would need actual principle/goal links)
-        principle_aligned_count = sum(1 for c in choices if getattr(c, "aligned_principles", None))
-        goal_oriented_count = sum(1 for c in choices if getattr(c, "related_goals", None))
+        # GRAPH-NATIVE: alignment lives on INFORMED_BY_PRINCIPLE / AFFECTS_GOAL edges, not
+        # on Choice. The previous getattr(c, "aligned_principles") / getattr(c, "related_goals")
+        # reads named fields no Choice or ChoiceDTO has ever declared, so both sums — and the
+        # percentages, alignment score and strategic/tactical band derived from them — were
+        # structurally 0 for every input, silently.
+        links_result = await self._fetch_alignment_links([c.uid for c in choices])
+        if links_result.is_error:
+            return Result.fail(links_result)
+        principle_links, goal_links = links_result.value
+
+        principle_aligned_count = sum(1 for c in choices if principle_links.get(c.uid))
+        goal_oriented_count = sum(1 for c in choices if goal_links.get(c.uid))
 
         principle_aligned_percentage = (
             (principle_aligned_count / total_choices) if total_choices > 0 else 0
@@ -367,6 +458,19 @@ class _AnalyticsMixin:
             strategic_vs_tactical = "strategic"
         elif goal_oriented_percentage < 0.3:
             strategic_vs_tactical = "tactical"
+
+        # The principle most often linked across the window. Aggregated from the batch read
+        # above, so it costs no extra query. This is a principle UID, not a title: titles
+        # live on Principle nodes, which this service's backend does not read.
+        # Ties break on the UID rather than on Counter's insertion order, which follows
+        # Neo4j's collect() and can differ between runs — two principles on equal counts
+        # would otherwise make this field non-reproducible for the same graph.
+        principle_frequency = Counter(uid for uids in principle_links.values() for uid in uids)
+        most_common_principle = (
+            min(principle_frequency.items(), key=get_principle_frequency_rank)[0]
+            if principle_frequency
+            else None
+        )
 
         # Recommendations
         recommendations = []
@@ -395,7 +499,7 @@ class _AnalyticsMixin:
                     "principle_alignment_score": principle_alignment_score,
                 },
                 "patterns": {
-                    "most_common_principle": None,  # Would need aggregation
+                    "most_common_principle": most_common_principle,
                     "decision_making_trend": decision_making_trend,
                     "strategic_vs_tactical": strategic_vs_tactical,
                 },

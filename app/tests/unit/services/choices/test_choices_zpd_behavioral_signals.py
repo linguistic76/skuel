@@ -35,9 +35,12 @@ def mock_cross_domain_query() -> AsyncMock:
 def intelligence_service(
     mock_backend: MagicMock, mock_cross_domain_query: AsyncMock
 ) -> ChoicesIntelligenceService:
+    # _require_relationships = True — the constructor refuses a missing relationship
+    # service, so supply a stub even where these tests do not exercise a graph read.
     return ChoicesIntelligenceService(
         backend=mock_backend,
         cross_domain_query=mock_cross_domain_query,
+        relationship_service=MagicMock(),
     )
 
 

@@ -28,7 +28,6 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.choices._core_intelligence_mixin import _CoreIntelligenceMixin
-from core.services.choices.choice_relationships import ChoiceRelationships
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.result_simplified import Result
 
@@ -60,6 +59,14 @@ class ChoicesIntelligenceService(
 
     # Service name for hierarchical logging
     _service_name = "choices.intelligence"
+
+    # Relationships are REQUIRED for this service — principle and goal alignment,
+    # decision complexity and learning patterns are all graph reads, and without the
+    # relationship service each returns an empty result indistinguishable from a real
+    # zero. Failing at construction keeps that a wiring bug rather than a silent 0%
+    # (or a 500 on the live /api/choices learning-patterns route). Matches habits and
+    # goals intelligence, which already declare it.
+    _require_relationships = True
 
     def __init__(
         self,
@@ -183,13 +190,6 @@ class ChoicesIntelligenceService(
         if entities_result.is_error:
             return Result.fail(entities_result)
 
-        service = self.relationships
-
-        async def _fetch_choice_rels(uid: str) -> ChoiceRelationships:
-            if service:
-                return await ChoiceRelationships.fetch(uid, service)
-            return ChoiceRelationships.empty()
-
         return await self._knowledge_analyzer.analyze_learning_patterns(
-            entities_result.value, _fetch_choice_rels, timeframe_days
+            entities_result.value, self._fetch_choice_relationships, timeframe_days
         )

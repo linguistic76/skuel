@@ -8,6 +8,11 @@ computation that has not been written yet.*
 Every coordinate below was re-verified against the tree on 2026-07-28 (`77c4d959b`). Each row names
 a file, a line, and a symbol that should be on it, so the set is re-checkable mechanically.
 
+⚠ **That verification does not survive later PRs, and nothing re-runs it.** Group E's four choices
+rows were six lines stale by the time anyone read them again — #859 inserted a helper above them and
+shifted the block — so treat the stamp above as "verified once", not "currently true". Group E's
+choices rows were re-derived in #862; the rest still carry the `77c4d959b` stamp.
+
 **When a coordinate misses, grep the symbol, not the path.** Whether the file exists is the wrong
 staleness test: the previous revision's rows failed three different ways, and only one of them was
 a simple line drift.
@@ -150,24 +155,48 @@ the fourth is a genuine graph read.
 
 | File | Line | Value | Should Become |
 |------|------|-------|---------------|
-| `core/services/choices/_analytics_mixin.py` | 347 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query. Note the boundary model itself is unreachable — no route constructs a `ChoiceDecisionRequest` |
-| `core/services/choices/_analytics_mixin.py` | 348 | `avg_satisfaction = 0.75` | **No query needed.** `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 338–339. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
-| `core/services/choices/_analytics_mixin.py` | 514 | `"avg_quality_score": 0.7` | **No query needed.** `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
+| `core/services/choices/_analytics_mixin.py` | 430 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query. Note the boundary model itself is unreachable — no route constructs a `ChoiceDecisionRequest` |
+| `core/services/choices/_analytics_mixin.py` | 431 | `avg_satisfaction = 0.75` | **No query needed.** `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 421–422. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
+| `core/services/choices/_analytics_mixin.py` | 604 | `"avg_quality_score": 0.7` | **No query needed.** `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
 | `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read** |
 
-Rows 347/348 sit in `get_decision_patterns()` beside a genuinely computed ratio
-(`principle_alignment_score`, 349); row 514 sits in `get_domain_decision_patterns()` beside a real
+Rows 430/431 sit in `get_decision_patterns()` beside a computed ratio
+(`principle_alignment_score`, 432); row 604 sits in `get_domain_decision_patterns()` beside a real
 `percentage`. In both cases a caller cannot tell which fields of the returned dict were computed and
 which are constants — and since #859 both dicts are actually built and returned, so the constants
 now reach callers.
 
-⚠ Two neighbours of row 348 look computed but are not. `principle_aligned_count` and
-`goal_oriented_count` (338–339) read `aligned_principles` / `related_goals` off each `Choice` via
-`getattr(..., None)`; **neither is a `Choice` field** — both live as graph edges. So
-`principle_aligned_percentage`, `goal_oriented_percentage`, `principle_alignment_score` and the
-`strategic_vs_tactical` band derived from them are all structurally 0. Same family as the filter bug
-this section used to describe: a name that does not exist on the model, degrading silently instead of
-erroring. Not yet fixed — it needs the relationship read, not a constant.
+⚠ **`principle_alignment_score` was described here as "a genuinely computed ratio" while it was
+computing 0.0 for every input** — a reminder that "there is arithmetic on this line" is not evidence
+that the arithmetic has an input. `principle_aligned_count` and `goal_oriented_count` read
+`aligned_principles` / `related_goals` off each `Choice` via `getattr(..., None)`; **neither has ever
+been a `Choice` or `ChoiceDTO` field** — both live as graph edges — so the `None` default pinned both
+sums, both percentages, the alignment score and the `strategic_vs_tactical` band at 0 / "tactical".
+Same family as the filter bug this section used to describe: a name that does not exist on the model,
+degrading silently instead of erroring.
+
+**Fixed (#862).** Both counts now come from a batched relationship read
+(`_AnalyticsMixin._fetch_alignment_links`, 258): one `UNWIND` query per edge type over the whole
+window, `principles` (`INFORMED_BY_PRINCIPLE`) and `goals` (`AFFECTS_GOAL`). The same read also
+retired the hardcoded `most_common_principle` (`None  # Would need aggregation`) — it is now a
+`Counter` over the principle UIDs already fetched, so it costs no extra query, and it returns a
+**UID, not a title**. Pinned by `tests/integration/test_choices_alignment_metrics.py`, where six of
+seven assertions are RED against the old code.
+
+Alignment is the **union of both principle directions** — `INFORMED_BY_PRINCIPLE` outgoing and
+`GUIDES_CHOICE` incoming — matching what `CHOICES_INTELLIGENCE.md` and `path_aware_types` already
+mean by a choice's principles. ⚠ **I first shipped the outgoing direction alone, on a published
+claim that `GUIDES_CHOICE` "has no writer anywhere in the tree".** That claim was false, and the way
+it was reached is the reusable part: I grepped for the *edge name* and for its Choice-side method key.
+The writer names neither. `PrinciplesService.create_principle_link` takes a user-supplied
+`link_type` and resolves the edge through `_GravityMixin._LINK_TYPE_MAP` (`"choice"` →
+`guided_choices`), reachable at `POST /api/principles/links`. **A generic, registry-driven writer is
+invisible to a name grep** — to rule out a writer, search the *dispatch table*, not the identifier.
+
+A failed relationship read propagates as an error `Result` rather than degrading to 0.0, and
+`ChoicesIntelligenceService` now declares `_require_relationships = True` (as habits and goals
+intelligence already did), so the service cannot be constructed without the sub-service that reads
+these edges. A 0% alignment that is really a missing dependency is the defect this row describes.
 
 ### E2 — Goal-achievement recommendations (`FUTURE-IMPL-*`)
 
