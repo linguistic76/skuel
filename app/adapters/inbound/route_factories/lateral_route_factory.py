@@ -603,9 +603,14 @@ class LateralRouteFactory:
                 uid: Entity UID
                 max_depth: Maximum depth to traverse (default 10)
             """
-            require_authenticated_user(request)
+            user_uid = require_authenticated_user(request)
 
-            result = await self.lateral_service.get_blocking_chain(EntityUID(uid), max_depth)
+            result = await self.lateral_service.get_blocking_chain(
+                EntityUID(uid),
+                max_depth,
+                user_uid=user_uid,
+                domain_service=self.domain_service,
+            )
 
             if result.is_error:
                 return cast("Result[FT]", result)
@@ -638,12 +643,15 @@ class LateralRouteFactory:
                 uid: Entity UID
                 fields: Comma-separated list of comparison fields (optional)
             """
-            require_authenticated_user(request)
+            user_uid = require_authenticated_user(request)
 
             comparison_fields = fields.split(",") if fields else None
 
             result = await self.lateral_service.get_alternatives_with_comparison(
-                EntityUID(uid), comparison_fields
+                EntityUID(uid),
+                comparison_fields,
+                user_uid=user_uid,
+                domain_service=self.domain_service,
             )
 
             if result.is_error:
@@ -685,7 +693,7 @@ class LateralRouteFactory:
             Returns:
                 Vis.js Network format (nodes and edges)
             """
-            require_authenticated_user(request)
+            user_uid = require_authenticated_user(request)
 
             # Parse relationship types if provided
             relationship_types = None
@@ -696,7 +704,11 @@ class LateralRouteFactory:
                     return Result.fail(Errors.validation(f"Invalid relationship type: {e!s}"))
 
             result = await self.lateral_service.get_relationship_graph(
-                EntityUID(uid), depth, relationship_types
+                EntityUID(uid),
+                depth,
+                relationship_types,
+                user_uid=user_uid,
+                domain_service=self.domain_service,
             )
 
             if result.is_error:

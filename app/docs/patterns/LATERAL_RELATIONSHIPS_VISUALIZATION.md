@@ -477,19 +477,18 @@ The 3 read methods live on the one domain-agnostic `LateralRelationshipService` 
 
 ```python
 # core/services/lateral_relationships/lateral_relationship_service.py
-await services.lateral.get_blocking_chain(uid, max_depth=10)
-await services.lateral.get_alternatives_with_comparison(uid, comparison_fields=None)
-await services.lateral.get_relationship_graph(uid, depth=2, relationship_types=None)
+await services.lateral.get_blocking_chain(
+    uid, max_depth=10, user_uid=user_uid, domain_service=domain_service
+)
+await services.lateral.get_alternatives_with_comparison(
+    uid, comparison_fields=None, user_uid=user_uid, domain_service=domain_service
+)
+await services.lateral.get_relationship_graph(
+    uid, depth=2, relationship_types=None, user_uid=user_uid, domain_service=domain_service
+)
 ```
 
-> [!WARNING]
-> **These three reads are not ownership-checked.** Unlike the 12 other lateral routes, the
-> service methods above accept no `user_uid` or `domain_service`, so `GET .../lateral/chain`,
-> `.../alternatives/compare`, and `.../graph` authenticate the request and then return data for
-> any entity UID — including another user's. Pre-existing and unfixed; do not describe these
-> endpoints as owner-scoped. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
-
-Where ownership *is* enforced (all writes, the delete, and the `get_lateral_relationships`-backed reads), it comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method.
+Ownership on all 15 lateral routes comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method. Pass **both** `user_uid` and `domain_service`: the check engages only when both are present, so omitting either silently reads without enforcement. `domain_service=None` is the deliberate shared-content path for curriculum KU/PS/LP. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 

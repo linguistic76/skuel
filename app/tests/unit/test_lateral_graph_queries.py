@@ -15,7 +15,7 @@ import pytest
 from core.services.lateral_relationships.lateral_relationship_service import (
     LateralRelationshipService,
 )
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
 @pytest.fixture
@@ -393,3 +393,113 @@ class TestGetRelationshipGraph:
         }
         assert urls["task_a"] == "/tasks/detail?uid=task_a"
         assert urls["ku.pedagogy.zpd"] == "/explore/ku/ku.pedagogy.zpd"  # path-param shape, live
+
+
+class TestOwnershipGate:
+    """The ``user_uid`` / ``domain_service`` pair on the three enhanced-UX reads.
+
+    These three methods once accepted no verifier at all, which made the routes
+    above them unable to enforce ownership even if they wanted to (see
+    RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage). The gate is asserted
+    here at the service level so a future caller that bypasses
+    ``LateralRouteFactory`` is covered too.
+    """
+
+    @pytest.fixture
+    def refusing_service(self):
+        """An OwnershipVerifier that owns nothing."""
+        service = MagicMock()
+        service.verify_ownership = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Goal", "g"))
+        )
+        return service
+
+    @pytest.fixture
+    def accepting_service(self):
+        """An OwnershipVerifier that owns everything."""
+        service = MagicMock()
+        service.verify_ownership = AsyncMock(return_value=Result.ok(MagicMock()))
+        return service
+
+    # --- refused: not-found, and the backend is never reached ---
+
+    @pytest.mark.asyncio
+    async def test_chain_refuses_unowned_entity(
+        self, lateral_service, mock_backend, refusing_service
+    ):
+        result = await lateral_service.get_blocking_chain(
+            "goal_theirs", user_uid="user_intruder", domain_service=refusing_service
+        )
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+        mock_backend.get_blocking_chain.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_alternatives_refuses_unowned_entity(
+        self, lateral_service, mock_backend, refusing_service
+    ):
+        result = await lateral_service.get_alternatives_with_comparison(
+            "goal_theirs", user_uid="user_intruder", domain_service=refusing_service
+        )
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+        mock_backend.get_alternatives_comparison.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_graph_refuses_unowned_entity(
+        self, lateral_service, mock_backend, refusing_service
+    ):
+        result = await lateral_service.get_relationship_graph(
+            "goal_theirs", depth=2, user_uid="user_intruder", domain_service=refusing_service
+        )
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+        mock_backend.get_relationship_graph.assert_not_awaited()
+
+    # --- allowed: the owner reads normally ---
+
+    @pytest.mark.asyncio
+    async def test_owner_reads_chain(self, lateral_service, mock_backend, accepting_service):
+        mock_backend.get_blocking_chain.return_value = Result.ok([])
+
+        result = await lateral_service.get_blocking_chain(
+            "goal_mine", user_uid="user_owner", domain_service=accepting_service
+        )
+
+        assert not result.is_error
+        accepting_service.verify_ownership.assert_awaited_once_with("goal_mine", "user_owner")
+
+    # --- shared content: no verifier means no check (curriculum KU/PS/LP) ---
+
+    @pytest.mark.asyncio
+    async def test_curriculum_read_skips_the_check(self, lateral_service, mock_backend):
+        """``domain_service=None`` is the deliberate public path — not a refusal."""
+        mock_backend.get_blocking_chain.return_value = Result.ok([])
+
+        result = await lateral_service.get_blocking_chain(
+            "ps.math.algebra", user_uid="user_anyone", domain_service=None
+        )
+
+        assert not result.is_error
+        mock_backend.get_blocking_chain.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_verifier_without_user_does_not_gate(
+        self, lateral_service, mock_backend, refusing_service
+    ):
+        """Documented fail-open: the gate needs BOTH halves to engage.
+
+        Asserted so the behaviour is a decision on record, not an accident —
+        RELATIONSHIPS_ARCHITECTURE.md warns callers to always pass both.
+        """
+        mock_backend.get_blocking_chain.return_value = Result.ok([])
+
+        result = await lateral_service.get_blocking_chain(
+            "goal_theirs", user_uid=None, domain_service=refusing_service
+        )
+
+        assert not result.is_error
+        refusing_service.verify_ownership.assert_not_awaited()
