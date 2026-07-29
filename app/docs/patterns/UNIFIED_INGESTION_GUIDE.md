@@ -1001,6 +1001,7 @@ connections:
 | `sub_goals` | SUBGOAL_OF (incoming) | Goal | Goal |
 | `supporting_habits` | SUPPORTS_GOAL (incoming) | Entity | Goal |
 | `informed_by_knowledge` | INFORMED_BY_KNOWLEDGE | Entity | Choice |
+| `requires_knowledge_for_decision` | REQUIRES_KNOWLEDGE_FOR_DECISION | Entity | Choice |
 | `guided_by_principle` | INFORMED_BY_PRINCIPLE | Principle | Choice |
 | `affects_goal` | AFFECTS_GOAL | Goal | Choice |
 | `impacts_habit` | IMPACTS_HABIT | Entity | Choice |

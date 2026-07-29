@@ -61,6 +61,30 @@ class TestIngestionRelationshipConfig:
             == RelationshipName.INFORMED_BY_PRINCIPLE.value
         )
 
+    def test_choice_requires_knowledge_for_decision_is_ingestible(self):
+        """Choice YAML can author the REQUIRES_KNOWLEDGE_FOR_DECISION prerequisite edge.
+
+        The edge was readable (CHOICE_QUERY_SPECS -> "required_knowledge") before it
+        was authorable from frontmatter; #865 gave it a method_key, this gives it a
+        yaml_field_path. The field name is deliberately NOT `requires_knowledge` —
+        that is Goal's field for the different REQUIRES_KNOWLEDGE edge, and one
+        authoring name meaning two edges is the bug shape this module already guards
+        for principles (see test_choice_uses_informed_by_principle).
+        """
+        config = ENTITY_CONFIGS[EntityType.CHOICE].relationship_config
+        assert config is not None
+        required = config["connections.requires_knowledge_for_decision"]
+        assert required["rel_type"] == RelationshipName.REQUIRES_KNOWLEDGE_FOR_DECISION.value
+        assert required["target_label"] == "Entity"
+        assert required["direction"] == "outgoing"
+        # The Goal field of the similar name must still mean the other edge.
+        goal_config = ENTITY_CONFIGS[EntityType.GOAL].relationship_config
+        assert goal_config is not None
+        assert (
+            goal_config["connections.requires_knowledge"]["rel_type"]
+            == RelationshipName.REQUIRES_KNOWLEDGE.value
+        )
+
     def test_ps_uses_requires_knowledge(self):
         """PathStep ingestion uses REQUIRES_KNOWLEDGE for prerequisites."""
         config = ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config
