@@ -704,9 +704,11 @@ fixable = ["ALL"]
 # `tests/`, `ui/` and `examples/` never reach this ledger — they are exempt from the
 # whole `ANN` linter in their own entries below. (A `templates/` entry sat alongside
 # them until it was swept out: no root-level `templates/` tree exists. The pattern was
-# root-anchored, so it never covered the six nested `templates/` directories —
-# `core/models/templates/` and friends are ANN-enforced and reach this ledger through
-# their parent trees.)
+# root-anchored — measured — so it never covered the six nested `templates/`
+# directories either. Three of those six hold tracked `.py`: `core/models/templates/`
+# (23) and `core/services/templates/` (1) are ANN-enforced and reach this ledger via
+# their parent `core/models/**` and `core/services/**` entries; `tests/templates/` (1)
+# is ANN-exempt under `tests/**/*.py`. The other three hold no Python at all.)
 #
 # `core/` is enumerated one subtree at a time because any pattern rooted at `core/`
 # alone also covers `core/ports/`. `core/services/**/*.py` and friends are safe: the
