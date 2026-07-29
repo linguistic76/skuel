@@ -6,15 +6,58 @@ Deferred intelligence gaps. Each item has a clear trigger condition and implemen
 
 ---
 
-## 2A: Placeholder activity service params in `_create_learning_services()`
+## 2A: Connect task generation to curriculum data
 
-**File:** `services_bootstrap/_learning_services.py`
-**Params:** `_tasks_service`, `_habits_service`, `_goals_service`, `_events_service`
+**Consumers:** `core/services/tasks/tasks_learning_service.py`
+**Possible wiring point:** `services_bootstrap/_learning_services.py` (call site: `compose.py:709`)
 
-**Purpose when implemented:** Cross-wire learning services with activity domain facades so that:
-- KU detail pages can surface "Tasks that apply this knowledge" (`APPLIES_KNOWLEDGE` traversal)
-- `LpService` can generate tasks from a learning path (`create_tasks_from_learning_path`)
-- `get_next_learning_task()` can query tasks linked to knowledge units the user is ready to learn
+**Purpose when implemented:**
+- KU detail pages can surface "Tasks that apply this knowledge" — the `APPLIES_KNOWLEDGE`
+  traversal for this **already exists** (see below); only hydration/presentation is missing
+- `create_tasks_from_learning_path()` can turn a LearningPath into a task plan
+- `get_next_learning_task()` can return tasks linked to knowledge the user is ready to learn
+
+⚠⚠ **The dependency runs tasks → curriculum, not curriculum → tasks — and the framing of this item
+is itself unresolved.** An earlier revision described injecting the activity facades into
+`LpService` / `KuService`. That is backwards for both named consumers:
+
+| Claim | Reality |
+|---|---|
+| `LpService` owns `create_tasks_from_learning_path()` | It does not. Both that method (138) and `get_next_learning_task()` (115) are on **`TasksLearningService`** — neither curriculum facade has either |
+| It needs a `tasks_service` injected to create tasks | It already creates them, via `self.backend.create_task` (`tasks_learning_service.py:64`) |
+| `LearningAlignmentBridge` can supply the path | It cannot. Its methods take an `LpPosition` handed in *by the caller*; it does not fetch the LearningPath → PathStep → Ku sequence |
+
+What `TasksLearningService` actually lacks is a route to **read** that curriculum sequence. The
+reader exists — `LpService.get_path_steps(path_uid)` (`lp_service.py:249` →
+`lp_core_service.py:261`) — but reaching it needs deliberate arrangement, because activity services
+are constructed **before** learning services (`compose.py:532` vs `:709`), so it cannot simply be
+passed to the task service's constructor. Moving the traversal onto `TasksBackend` instead is not
+the escape hatch: that crosses the domain-backend boundary (`CLAUDE.md` § 100% Dynamic Backend
+Pattern).
+
+⚠ **The three bullets are not one problem, and the wiring design is undecided.** Only
+`create_tasks_from_learning_path()` needs the curriculum route above. `get_next_learning_task()`
+already has its context input (121) and needs an `APPLIES_KNOWLEDGE` query on the *task* side. And
+the KU-detail-page read is **already implemented — do not build a second one**: use
+`PsService.find_tasks_applying_knowledge(ku_uid, user_uid, status_filter)` (`ps_service.py:505` →
+`ps_application_discovery_service.py:161`, user-scoped) or the unscoped
+`KuOperations.get_applying_task_uids()` (`curriculum_backends.py:289`). Both hand back bare UIDs,
+so what is actually missing there is hydration and presentation, not a query.
+See `docs/roadmap/intelligence-backlog-implementation.md § Item 2A` for the verified-facts table —
+that file deliberately prescribes no wiring steps, because three review rounds each broke a
+different prescriptive version.
+
+⚠ **There is no partial wiring left to activate.** This item was previously anchored on four unread
+placeholder params on `_create_learning_services()` — `_tasks_service`, `_habits_service`,
+`_goals_service`, `_events_service` — which the composition root fed with live activity facades.
+They were **deleted on 2026-07-29** as dead code: nothing read them, and they had been stranded
+since Askesis creation moved out of that function in January 2026. There is no underscore prefix
+left to remove.
+
+**If the settled direction does need services threaded through the composition root**, the shape to
+copy is `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:201`), which passes
+`activity_services` through to `core/services/askesis_factory.py:63–66` as required,
+non-underscore `AskesisDeps` fields.
 
 **Prerequisite:** Item 2B (`create_tasks_from_learning_path`) must be implemented first.
 
@@ -22,23 +65,27 @@ Deferred intelligence gaps. Each item has a clear trigger condition and implemen
 
 ---
 
-## 2B: Stub methods in `tasks_scheduling_service.py`
+## 2B: Stub methods in `tasks_learning_service.py`
 
-**File:** `core/services/tasks/tasks_scheduling_service.py`
+**File:** `core/services/tasks/tasks_learning_service.py` — both methods live here, not in
+`tasks_scheduling_service.py` (which still exists, but no longer holds them). Fronted by
+`TasksService` at `core/services/tasks_service.py:693` and `:698`.
 
-### `create_tasks_from_learning_path(learning_path_uid, _user_context)` (~line 302)
+### `create_tasks_from_learning_path(learning_path_uid, _user_context)` (line 138)
 
-Currently returns `Result.ok([])`. Real implementation needs:
+Logs a debug line and returns `Result.ok([])`; the docstring marks it "stub — pending
+implementation". Real implementation needs:
 - Fetch LearningPath → PathStep sequence (via LP backend)
 - For each step: check user's `mastered_knowledge_uids`, prerequisite readiness
 - Create a Task per unmastered step, linked via `APPLIES_KNOWLEDGE`
 - Respect `user_context.available_minutes_daily` for capacity
 
-### `get_next_learning_task(user_context)` (~line 307)
+### `get_next_learning_task(user_context)` (line 115)
 
-Currently returns `Result.ok(None)`. Real implementation needs:
-- Call `user_context.get_ready_to_learn()` to get ready KU UIDs
-- Query Tasks that `APPLIES_KNOWLEDGE` to those UIDs, filter to incomplete/unblocked
+Returns `Result.ok(None)` on every path. **It already calls `user_context.get_ready_to_learn()`**
+(line 121) and early-returns when that comes back empty — so the remaining work starts at the
+query, not the context read. Real implementation needs:
+- Query Tasks that `APPLIES_KNOWLEDGE` to those ready KU UIDs, filter to incomplete/unblocked
 - Rank by readiness score + task priority
 - Return top candidate
 

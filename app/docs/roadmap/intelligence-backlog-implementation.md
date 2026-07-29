@@ -13,42 +13,55 @@ to touch, and the data model and query patterns already in place.
 
 ---
 
-## Item 2A — Cross-wire learning services with activity facades
+## Item 2A — Connect task generation to curriculum data
 
 **What it unlocks:** KU detail pages that surface related tasks; LP pages that can
 generate a task plan for a user; `get_next_learning_task()` returning real results.
 
-**Current state:**
-`services_bootstrap.py` lines 601–604 accept `_tasks_service`, `_habits_service`,
-`_goals_service`, `_events_service` but discard them. They are passed in at lines 1414–1417.
+⚠⚠ **The wiring design is UNDECIDED, and this file deliberately no longer prescribes one.** Three
+successive review rounds each broke a different prescriptive version of these steps — the ownership
+claim, then the dependency direction, then a blanket assertion that no composition-root wiring was
+needed. Prescriptive prose about unbuilt code does not converge. Everything below is only what has
+been **verified against the tree**; design the wiring when the work is actually scheduled.
 
-**Starting point — `_create_learning_services()` in `services_bootstrap.py`:**
+**Verified facts**
 
-The four facade services are already wired into `activity_services` at bootstrap time and
-already passed as arguments — they just hit dead-end underscore params. To activate:
+| Fact | Coordinate |
+|---|---|
+| Both consumers are on `TasksLearningService` — neither is on `LpService` or `KuService` | `tasks_learning_service.py:138` (`create_tasks_from_learning_path`), `:115` (`get_next_learning_task`) |
+| It already creates tasks, so it does **not** need a `tasks_service` injected | `self.backend.create_task` — `tasks_learning_service.py:64` |
+| Its constructor receives only a tasks backend, event bus and relationship service | `tasks_learning_service.py:50–58` |
+| The ordered-step reader it needs lives on the curriculum side | `LpService.get_path_steps(path_uid)` — `lp_service.py:249` → `lp_core_service.py:261` |
+| Activity services are built **before** learning services, so a curriculum reader cannot simply be constructor-injected into the task service | `compose.py:532` (activity) vs `:709` (learning) |
+| `LearningAlignmentBridge` cannot supply the path — its methods take an `LpPosition` from the caller rather than fetching it | `core/services/infrastructure/learning_alignment_bridge.py` |
+| The KU-detail-page reverse lookup **already exists — do not build a new one.** Both surfaces return bare **UIDs**, not hydrated models, so the only genuinely missing work is hydration + presentation | `PsService.find_tasks_applying_knowledge(ku_uid, user_uid, status_filter)` → `ps_service.py:505` → `ps_application_discovery_service.py:161` (**user-scoped**, `Result[list[str]]`); and `KuOperations.get_applying_task_uids(ku_uid)` → `curriculum_protocols.py:431` → `curriculum_backends.py:289` (**not** user-scoped) |
+| `_create_learning_services()` takes no activity services; its four placeholder params were deleted 2026-07-29 | `_learning_services.py`, call site `compose.py:709` |
 
-1. Remove the underscore prefix from the four params (`_tasks_service` → `tasks_service`).
-2. Store them on the returned dict or pass them directly into the service constructors
-   that need them (`LpService`, `KuService`).
-3. Each receiving service constructor needs a matching `tasks_service` kwarg.
+**The two methods are not one problem.** `create_tasks_from_learning_path()` needs curriculum data
+it currently has no route to, and the construction order above means that route has to be arranged
+deliberately rather than passed at construction. Note also that moving the LearningPath traversal
+onto `TasksBackend` would cross the domain-backend boundary (`CLAUDE.md` § 100% Dynamic Backend
+Pattern). `get_next_learning_task()` is different: it already has its context input via
+`user_context.get_ready_to_learn()` (121), and what it still needs is an `APPLIES_KNOWLEDGE` query
+on the **task** side.
 
-**Where the cross-wiring is consumed:**
-- `LpService` — `create_tasks_from_learning_path()` (see Item 2B) needs `tasks_service`
-  to call `tasks_service.create_task()`.
-- `KuService` (or `KuIntelligenceService`) — a future `get_applying_tasks(ku_uid, user_uid)`
-  method queries `APPLIES_KNOWLEDGE` edges from the task side.
+Note `services_bootstrap` is a **package, not a module** — there is no `services_bootstrap.py`. If
+a design does end up threading services through the composition root, the working shape to copy is
+`create_askesis_service()` (`_intelligence_hub.py:201`) → `core/services/askesis_factory.py:63–66`.
 
-**Prerequisite:** Item 2B must be implemented before activating this wiring, otherwise
-`create_tasks_from_learning_path()` would have the service but still return `[]`.
+**Prerequisite:** Item 2B must be implemented before any of this pays off, otherwise
+`create_tasks_from_learning_path()` would have its inputs and still return `[]`.
 
 ---
 
-## Item 2B — Implement stub methods in `tasks_scheduling_service.py`
+## Item 2B — Implement stub methods in `tasks_learning_service.py`
 
-**File:** `core/services/tasks/tasks_scheduling_service.py`
+**File:** `core/services/tasks/tasks_learning_service.py` — both methods live here, not in
+`tasks_scheduling_service.py` (which still exists, but no longer holds them).
 
-Two adjacent stub methods at lines 283 and 307. Implement them together — they share
-the same dependency pattern.
+Two stub methods, at lines 138 (`create_tasks_from_learning_path`) and 115
+(`get_next_learning_task`), separated by `suggest_learning_aligned_tasks` (130). Implement them
+together — they share the same dependency pattern.
 
 ---
 

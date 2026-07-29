@@ -215,11 +215,15 @@ details: dict[str, Any]  # boundary: error-metadata — error context is heterog
 ### `# boundary: placeholder`
 
 Functions with `_underscored` parameters that are explicitly marked as placeholders for
-future implementation. These use `Any` intentionally until the service type is defined.
+future implementation. These use `Any` intentionally until the real shape is defined.
 
 ```python
-_tasks_service: Any = None  # boundary: placeholder — TasksService not yet threaded here
+# shape to write, e.g. for _knowledge_units on _analyze_blocked_knowledge_prerequisites
+# (core/services/askesis/context_retriever.py:966)
+_knowledge_units: list[Any]  # boundary: placeholder — prerequisite analysis not yet implemented
 ```
+
+Every such placeholder is registered in `docs/reference/PLACEHOLDER_INDEX.md`.
 
 ---
 
