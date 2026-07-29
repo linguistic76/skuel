@@ -513,7 +513,7 @@ network.on("stabilizationIterationsDone", function() {
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md) - Graph traversal and relationship queries
 
 **Documentation:**
-- [LATERAL_RELATIONSHIPS_CORE.md](/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md) - Core relationship architecture
+- [RELATIONSHIPS_ARCHITECTURE.md](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) - Core relationship architecture
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) - UI visualization patterns
 - [PHASE5_COMPLETE.md](/PHASE5_COMPLETE.md) - Complete implementation guide
 
@@ -700,7 +700,7 @@ network.on("stabilizationIterationsDone", function() {
 ### Documentation
 - `/PHASE5_COMPLETE.md` - Complete overview
 - `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md` - Implementation pattern
-- `/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md` - Core graph modeling
+- `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` - Core graph modeling
 - `/PHASE5_MANUAL_QA_CHECKLIST.md` - Testing guide
 
 ### Related ADRs

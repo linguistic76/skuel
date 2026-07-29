@@ -31,7 +31,7 @@ Usage:
     )
     factory.register_routes(app, rt)
 
-See: /docs/patterns/DOMAIN_LATERAL_SERVICES.md
+See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
 from typing import TYPE_CHECKING, Any, cast

@@ -1,7 +1,27 @@
 # Lateral Relationships - Complete Implementation ✅
 
+> [!WARNING]
+> **SUPERSEDED by `e8818dc26` (2026-02-09) — historical record, not a guide.**
+>
+> This document records the 2026-01-31 migration as it shipped. Nine days later, `e8818dc26`
+> ("Unify lateral relationships: delete 10 files, eliminate ~3,400 lines of wrapper
+> boilerplate") **deleted the 9 per-domain `*_lateral_service.py` wrappers** described below,
+> along with the `LateralRelationType` enum. Their metadata moved to `RelationshipName` +
+> the `LateralRelationshipSpec` registry; ownership verification moved to the
+> `OwnershipVerifier` protocol. Only the domain-agnostic
+> `core/services/lateral_relationships/lateral_relationship_service.py` survives.
+>
+> **Do not implement anything from this file.** The file paths, `Services` fields, and
+> code samples below are deliberately left as-written — they are the record of what the
+> migration created, and rewriting them would falsify the history. `./dev health-links`
+> therefore reports ~31 broken references here **by design**.
+>
+> Current reference: [RELATIONSHIPS_ARCHITECTURE.md § Lateral Relationships](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
+> The companion how-to guide (`DOMAIN_LATERAL_SERVICE_QUICK_START.md`) was deleted for
+> teaching the superseded wrapper pattern.
+
 **Date:** 2026-01-31
-**Status:** Phases 1-5 Complete - Full Deployment
+**Status:** ⚠️ Historical — superseded by `e8818dc26` (was: Phases 1-5 Complete - Full Deployment)
 **Total Implementation:** ~8,520 lines across 31 files
 
 ---

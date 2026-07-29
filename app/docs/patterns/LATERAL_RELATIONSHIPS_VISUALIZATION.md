@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-02-02'
+updated: '2026-07-29'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -471,46 +471,40 @@ async def task_detail_page(request: Any, uid: str) -> Any:
 
 ---
 
-### Step 2: Verify Service Methods
+### Step 2: Nothing to Implement — the Methods Are Already Shared
 
-Ensure domain lateral service implements the 3 required methods:
+The 3 read methods live on the one domain-agnostic `LateralRelationshipService` and take an entity uid, so **there is no service to write.** Per-domain wrapper services were deleted in `e8818dc26`; do not recreate one.
 
 ```python
-# In {domain}_lateral_service.py
-class TasksLateralService:
-    def __init__(self, lateral_service: LateralRelationshipService):
-        self.lateral_service = lateral_service
-
-    async def get_blocking_chain(self, uid: str, max_depth: int = 3):
-        """Delegates to core lateral service."""
-        return await self.lateral_service.get_blocking_chain(uid, max_depth)
-
-    async def get_alternatives_with_comparison(self, uid: str):
-        """Delegates to core lateral service."""
-        return await self.lateral_service.get_alternatives_with_comparison(uid)
-
-    async def get_relationship_graph(self, uid: str, depth: int = 1):
-        """Delegates to core lateral service."""
-        return await self.lateral_service.get_relationship_graph(uid, depth)
+# core/services/lateral_relationships/lateral_relationship_service.py
+await services.lateral.get_blocking_chain(uid, max_depth=10)
+await services.lateral.get_alternatives_with_comparison(uid, comparison_fields=None)
+await services.lateral.get_relationship_graph(uid, depth=2, relationship_types=None)
 ```
+
+> [!WARNING]
+> **These three reads are not ownership-checked.** Unlike the 12 other lateral routes, the
+> service methods above accept no `user_uid` or `domain_service`, so `GET .../lateral/chain`,
+> `.../alternatives/compare`, and `.../graph` authenticate the request and then return data for
+> any entity UID — including another user's. Pre-existing and unfixed; do not describe these
+> endpoints as owner-scoped. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
+
+Where ownership *is* enforced (all writes, the delete, and the `get_lateral_relationships`-backed reads), it comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method.
 
 ---
 
 ### Step 3: Register Routes
 
-Ensure domain is registered in `adapters/inbound/lateral_routes.py`:
+Add one entry to `_LATERAL_DOMAINS` in `adapters/inbound/lateral_routes.py` — the loop builds the factory for every domain:
 
 ```python
-# Add factory for new domain
-new_domain_factory = LateralRouteFactory(
-    app=app,
-    rt=rt,
-    domain="new_domain",
-    lateral_service=services.new_domain_lateral,
-    entity_name="NewDomainEntity",
-)
-all_routes.extend(new_domain_factory.create_routes())
+_LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
+    ...
+    ("new_domain", "NewDomainEntity", "new_domain"),  # None = shared/curriculum, no ownership check
+]
 ```
+
+**If the new domain is user-owned, this entry alone is not enough.** The third item is only a lookup key into `LateralRelationshipsOrchestrator._domain_services`, a fixed map built from explicit constructor parameters. An unregistered slug makes `get_domain_service()` return `None` **silently**, which the factory reads as "shared, no ownership check" — exposing the domain's entities to every authenticated user. Also add the service to the orchestrator's constructor and map, and wire it in the composition root. See [RELATIONSHIPS_ARCHITECTURE.md § Per-Domain Wiring](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 
@@ -689,14 +683,13 @@ await lateral_service.get_alternatives_with_comparison(
 
 **Checklist:**
 
-1. ✅ Create `{domain}_lateral_service.py` with 3 methods
-2. ✅ Register in `lateral_routes.py` via `LateralRouteFactory`
+1. ✅ Add one entry to `_LATERAL_DOMAINS` in `lateral_routes.py` (the loop wires `LateralRouteFactory`)
+2. ✅ **If user-owned:** register the service in `LateralRelationshipsOrchestrator._domain_services` + constructor + composition root — otherwise ownership is skipped silently
 3. ✅ Add `EntityRelationshipsSection` to detail page
 4. ✅ Import in UI file: `from ui.patterns.relationships import EntityRelationshipsSection`
-5. ✅ Write unit tests for 3 service methods
-6. ✅ Test in browser (expand sections, test graph)
+5. ✅ Test in browser (expand sections, test graph)
 
-**Time Estimate:** ~30 minutes per domain
+No service to create and no unit tests for wrapper methods — the 3 read methods are shared on `services.lateral` and already covered.
 
 ---
 

@@ -10,7 +10,7 @@ Each domain gets a full set of lateral relationship endpoints via LateralRouteFa
 Domain-specific routes (habit stacking, event conflicts, KU enables) delegate to
 LateralRelationshipsOrchestrator, which holds all required services.
 
-See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
+See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
 from typing import TYPE_CHECKING, Any
