@@ -729,6 +729,54 @@ class TestCYP012:
             v.rule_code for v in linter._check_delete_without_detach(query, Path("test.py"), 1)
         ] == ["CYP002"]
 
+    def test_node_reaching_the_target_through_an_alias_is_not_flagged(self) -> None:
+        """Codex P2 (#868), round 3 on this surface: `WITH n AS r` rebinds `r`.
+
+        No pattern in the query binds the outer `r`, so both pattern classifiers
+        describe something else and CYP012 would advise dropping a DETACH the node
+        needs. Answered by narrowing the claim, not by resolving aliases.
+        """
+        linter = make_linter()
+        query = (
+            "CALL { MATCH ()-[r:OWNS]->() DELETE r }\n"
+            "MATCH (n:Entity)\n"
+            "WITH n AS r\n"
+            "DETACH DELETE r"
+        )
+        assert linter._aliased_names(query) == {"r"}
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # relationship_builders.py — every structural position interpolated
+            "MATCH (from {uid: $from_uid})-[r:OWNS]->(to {uid: $to_uid})\n"
+            "DETACH DELETE r\nRETURN count(r) as deleted",
+            # _relationship_crud_mixin.py
+            "MATCH (a {uid: $from_uid})-[r:APPLIES_KNOWLEDGE]->(b {uid: $to_uid})\n"
+            "WHERE NOT a:Content AND NOT b:Content\n"
+            "DETACH DELETE r\nRETURN count(r) as deleted_count",
+            # jupyter_sync_backend.py
+            "MATCH (ku:Entity {uid: $uid})-[r:REQUIRES_KNOWLEDGE|RELATED_TO]->()\nDETACH DELETE r",
+            # user_progress_backend.py — the site the brief never listed
+            "MATCH (u:User {uid: $user_uid})\nWITH u, k\n"
+            "OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)\nDETACH DELETE ip",
+        ],
+        ids=["relationship_builders", "crud_mixin", "jupyter_sync", "user_progress"],
+    )
+    def test_narrowing_still_catches_all_four_real_sites(self, query: str) -> None:
+        """The claim was narrowed three times; the rule must still do its job.
+
+        These are the four queries as they stood BEFORE this PR fixed them. Each
+        subtraction (node-bound, then alias-bound) could have quietly disarmed the
+        rule — `count(r) AS deleted` in two of them aliases a name, and an earlier
+        draft of the node classifier read `count(r)` itself as a node pattern. If a
+        future subtraction breaks these, the rule has narrowed past its purpose.
+        """
+        linter = make_linter()
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1, "narrowing has disarmed CYP012 on a real site"
+
     def test_widening_does_not_make_cyp002_miss_a_node_delete(self) -> None:
         """The other direction of the same change: CYP002 must still fire.
 

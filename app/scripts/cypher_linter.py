@@ -501,6 +501,16 @@ class CypherLinter:
         """Variables the query binds to a node."""
         return {m.group(1).lower() for m in cls._NODE_VAR_RE.finditer(query)}
 
+    # A name introduced by an `AS` alias. `WITH n AS r` rebinds `r` to whatever
+    # `n` was — a node, an aggregate, anything — so the pattern-based classifiers
+    # no longer describe it.
+    _ALIAS_RE = re.compile(r"\bAS\s+([A-Za-z_]\w*)", re.IGNORECASE)
+
+    @classmethod
+    def _aliased_names(cls, query: str) -> set[str]:
+        """Names an ``AS`` clause (re)binds somewhere in the query."""
+        return {m.group(1).lower() for m in cls._ALIAS_RE.finditer(query)}
+
     @classmethod
     def _edge_only_vars(cls, query: str) -> set[str]:
         """Variables bound to a relationship and NEVER to a node in this query.
@@ -525,8 +535,23 @@ class CypherLinter:
         recorded tail in this tree; declining to guess costs one report either
         way (Codex P2 ×2, #868 — the second round found the CYP002 half, which
         widening `_REL_VAR_RE` had newly exposed).
+
+        Names rebound by an ``AS`` alias drop out for the same reason:
+        ``MATCH (n:Entity) WITH n AS r DETACH DELETE r`` makes ``r`` a node no
+        pattern in the query binds. That is the LIMIT of this classifier, stated
+        rather than papered over — it does not resolve scopes, aliases, or data
+        flow, and it deliberately will not learn to. Three findings in a row
+        arrived on that surface (cross-scope reuse, then the CYP002 direction,
+        then aliasing), which is the signature of a regex growing toward a parser;
+        this tree has already paid 19 review rounds for that lesson once (#831).
+        So the answer is to narrow the CLAIM: CYP012 speaks only when a name is
+        bound by a relationship pattern, never by a node pattern, and never by an
+        alias. Anything subtler, it stays quiet about.
+
+        The real sites keep firing under all three subtractions: they alias only
+        their aggregate (``count(r) AS deleted``), never the deleted variable.
         """
-        return cls._relationship_vars(query) - cls._node_vars(query)
+        return cls._relationship_vars(query) - cls._node_vars(query) - cls._aliased_names(query)
 
     @classmethod
     def _relationship_vars(cls, query: str) -> set[str]:

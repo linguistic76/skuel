@@ -1462,10 +1462,28 @@ class SkuelLinter:
         return f"# skuel-lint: disable={rule_id}" in line
 
     def _is_file_suppressed(self, content: str, rule_id: str) -> bool:
-        """Check for file-level suppression: # skuel-lint: disable-file=SKUEL011"""
+        """Check for file-level suppression: # skuel-lint: disable-file=SKUEL011
+
+        Only a REAL `#` comment suppresses. A raw substring test cannot tell a
+        comment from string content, and that was not hypothetical: this very
+        file documents each rule's escape inside `RULE_DOCS`, which silently
+        file-suppressed **18 rules on `scripts/lint_skuel.py`** — the linter was
+        blind to most of itself. Proven with an injected `hasattr()`: SKUEL011
+        reported nothing before this change and fires after it. Measured cost of
+        closing it: zero new violations tree-wide, because the unmasked rules
+        were already clean here (#868).
+
+        The substring test stays as a cheap pre-filter, so a file that never
+        mentions the escape is never tokenized. Untokenizable files now honour no
+        file-level suppression — ruff reports the syntax error anyway, and for a
+        suppression mechanism, failing closed is the safe direction.
+        """
         if self.ignore_suppressions:
             return False
-        return f"# skuel-lint: disable-file={rule_id}" in content
+        marker = f"# skuel-lint: disable-file={rule_id}"
+        if marker not in content:
+            return False
+        return any(marker in comment for comment in self._comment_lines(content).values())
 
     def _find_suppression_comments(self, file_path: Path) -> list[SuppressionComment]:
         """

@@ -5460,6 +5460,36 @@ class TestSKUEL033:
         )
         assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
 
+    def test_file_level_suppression_must_be_a_real_comment(self) -> None:
+        """Codex P2 (#868): the file-level early return also scanned raw text.
+
+        Not hypothetical — `RULE_DOCS` in `lint_skuel.py` documents every rule's
+        escape, which file-suppressed **18 rules on the linter's own source**.
+        Proven with an injected `hasattr()`: SKUEL011 reported nothing before the
+        fix and fires after it, and closing it unmasked zero pre-existing
+        violations tree-wide.
+        """
+        content = (
+            '"""Module docstring.\n'
+            "\n"
+            "Suppress the whole file with `# skuel-lint: disable-file=SKUEL033`.\n"
+            '"""\n'
+            "\n"
+            "def f():\n"
+            '    """MERGE a VIEWED edge."""\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+
+    def test_file_level_suppression_in_a_real_comment_still_works(self) -> None:
+        """The other half — tightening must not break the documented escape."""
+        content = (
+            "# skuel-lint: disable-file=SKUEL033 -- port mirrors the backend verbatim\n"
+            "def f():\n"
+            '    """MERGE a VIEWED edge."""\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
     def test_docstring_cannot_suppress_itself_by_quoting_the_escape(self) -> None:
         """Codex P2 (#868): the span scan read raw lines, so string content counted.
 
