@@ -57,10 +57,23 @@ apply — this is a wrong answer, not just a missing feature.
 **Goals is already implemented and is not listed here:** `GoalsIntelligenceService` takes a
 non-underscore `period_days` and filters on it at `goals_intelligence_service.py:162`.
 
-**What full implementation requires:** Each service's query must filter nodes to those
-created/updated within the given period window. The `_period_days` parameter maps directly
-to a Cypher `WHERE n.created_at >= datetime() - duration({days: $period_days})` clause — or, more
-directly, to the `updated_at__gte` filter the goals implementation already uses.
+**What full implementation requires:** each service must bound its fetch to the period window.
+
+⚠ **Not by writing Cypher.** The previous revision of this row prescribed a
+`WHERE n.created_at >= datetime() - duration({days: $period_days})` clause. All three sites are in
+`core/`, where **SKUEL021 forbids raw Cypher** (`lint_skuel.py:17`, ADR-044) — and all three
+currently author none. That remedy would not lint.
+
+The in-architecture move is the one goals already uses: pass a bounded filter to `find_by`, which
+supports `__gte`/`__lte` suffixes (`universal_backend.py:228`).
+
+```python
+cutoff = datetime.now(UTC) - timedelta(days=period_days)
+result = await self.backend.find_by(user_uid=user_uid, updated_at__gte=cutoff.isoformat())
+```
+
+— `goals_intelligence_service.py:162–164`. Whether the window should key off `created_at` or
+`updated_at` is a semantic decision the implementer still has to make; goals chose `updated_at`.
 
 ---
 
