@@ -22,7 +22,10 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count
 
 if TYPE_CHECKING:
+    import structlog
+
     from core.models.choice.choice import Choice
+    from core.ports.domain_protocols import ChoicesOperations
 
 
 class _AnalyticsMixin:
@@ -34,9 +37,9 @@ class _AnalyticsMixin:
     """
 
     # Populated by ChoicesIntelligenceService.__init__
-    backend: Any
+    backend: "ChoicesOperations"
     relationships: Any
-    logger: Any
+    logger: "structlog.BoundLogger"
 
     async def get_quick_decision_metrics(self, choice_uid: str) -> Result[dict[str, Any]]:
         """
