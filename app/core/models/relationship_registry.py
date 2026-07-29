@@ -1176,6 +1176,18 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "knowledge",
             yaml_field_path="connections.informed_by_knowledge",
         ),
+        # Knowledge the choice needs before it can be decided, as opposed to the
+        # knowledge that informed it. Declared in prerequisite_relationship_names
+        # below; this definition is what gives it a method_key, without which
+        # CHOICE_QUERY_SPECS' "required_knowledge" resolves to nothing and the
+        # fetch degrades to an empty list instead of erroring.
+        UnifiedRelationshipDefinition(
+            RelationshipName.REQUIRES_KNOWLEDGE_FOR_DECISION,
+            "Entity",
+            "outgoing",
+            "required_knowledge",
+            "required_knowledge",
+        ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_PRINCIPLE,
             "Principle",
