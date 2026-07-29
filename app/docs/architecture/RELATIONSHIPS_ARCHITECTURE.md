@@ -230,25 +230,28 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 
 ### LateralRelationshipService API
 
-**Key methods:**
-- `create_lateral_relationship(source_uid, target_uid, relationship_type, metadata=None, validate=True, auto_inverse=True, user_uid=None, domain_service=None)` → `Result[bool]`
-  - `validate=True`: checks both entities exist, detects circular dependencies (`BLOCKS`/`PREREQUISITE_FOR`), rejects duplicates
-  - `auto_inverse=True`: auto-creates the inverse (`BLOCKS` → also creates `BLOCKED_BY` in the reverse direction)
-- `delete_lateral_relationship(source_uid, target_uid, relationship_type, delete_inverse=True, user_uid=None, domain_service=None)` → `Result[bool]`
-  - `delete_inverse=True`: also deletes the inverse edge if the type is asymmetric
-- `get_lateral_relationships(entity_uid, relationship_types=None, direction="outgoing", include_metadata=True, user_uid=None, domain_service=None)` → `Result[list[LateralRelationshipItem]]` — filtered query with direction control (`"incoming"` / `"outgoing"` / `"both"`)
-- `get_blocking_chain(entity_uid, max_depth=10)` → `Result[BlockingChainResult]` — transitive blocking dependency chain
-- `get_alternatives_with_comparison(entity_uid, comparison_fields=None)` → `Result[list[AlternativeComparisonItem]]` — side-by-side comparison data
-- `get_relationship_graph(entity_uid, depth=2, relationship_types=None)` → `Result[RelationshipGraphData]` — Vis.js network format (nodes + edges)
+**All 8 public methods.** The `own?` column is the `user_uid` / `domain_service` pair — the ownership hook that replaced the per-domain wrappers (below). This list is exhaustive on purpose: a partial enumeration is how a caller ends up on an unverified method.
 
-Return rows are typed `TypedDict`s from `core/ports/query_types.py`, not raw `dict`s.
+| Method (trailing `user_uid=None, domain_service=None` where `own?` is ✅) | own? | Returns |
+|---|:--:|---|
+| `create_lateral_relationship(source_uid, target_uid, relationship_type, metadata=None, validate=True, auto_inverse=True, …)` | ✅ | `Result[bool]` |
+| `delete_lateral_relationship(source_uid, target_uid, relationship_type, delete_inverse=True, …)` | ✅ | `Result[bool]` |
+| `get_lateral_relationships(entity_uid, relationship_types=None, direction="outgoing", include_metadata=True, …)` | ✅ | `Result[list[LateralRelationshipItem]]` |
+| `get_siblings(entity_uid, include_explicit_only=False, …)` | ✅ | `Result[list[dict[str, Any]]]` |
+| `get_cousins(entity_uid, degree=1)` | ❌ | `Result[list[dict[str, Any]]]` |
+| `get_blocking_chain(entity_uid, max_depth=10)` | ❌ | `Result[BlockingChainResult]` |
+| `get_alternatives_with_comparison(entity_uid, comparison_fields=None)` | ❌ | `Result[list[AlternativeComparisonItem]]` |
+| `get_relationship_graph(entity_uid, depth=2, relationship_types=None)` | ❌ | `Result[RelationshipGraphData]` |
 
-Three methods accept the `user_uid` / `domain_service` pair — both **writes** plus `get_lateral_relationships`. That pair is the ownership hook that replaced the per-domain wrappers (below).
+- `validate=True`: checks both entities exist, detects circular dependencies (`BLOCKS`/`PREREQUISITE_FOR`), rejects duplicates
+- `auto_inverse=True` / `delete_inverse=True`: also writes/removes the inverse edge when the type is asymmetric
+- `direction`: `"incoming"` / `"outgoing"` / `"both"`
+- Returns are `TypedDict`s from `core/ports/query_types.py` **except** `get_siblings` / `get_cousins`, which still return raw `dict`s
 
 > [!IMPORTANT]
-> **The check is opt-in and fails open.** Both parameters default to `None`, and verification runs only when **both** are supplied. A caller that omits them performs the write or read with no ownership enforcement at all. Passing them is what produces the required not-found for an entity the user does not own; `None` is the deliberate shared-content path (curriculum KU/PS/LP). For a user-owned domain, always pass both.
-
-The three enhanced reads (`get_blocking_chain`, `get_alternatives_with_comparison`, `get_relationship_graph`) accept **neither** parameter, so they cannot enforce ownership even when a caller wants to — see § Ownership Coverage.
+> **The ownership check is opt-in and fails open.** Both parameters default to `None`, and every ✅ method guards with `if user_uid and domain_service:` — so verification runs only when **both** are supplied, and a caller that omits either performs the write or read with no enforcement at all. Passing both is what produces the required not-found; `None` is the deliberate shared-content path (curriculum KU/PS/LP). For a user-owned domain, always pass both.
+>
+> The four ❌ methods accept neither parameter, so they cannot enforce ownership even when a caller wants to. Three of them are route-exposed and constitute a live gap — see § Ownership Coverage. `get_cousins` has no route and is reachable only by a direct caller.
 
 ### Lateral Relationship Type Taxonomy
 
@@ -338,6 +341,8 @@ self._domain_services: dict[str, OwnershipVerifier] = {
 
 > [!WARNING]
 > **Three reads perform no ownership check.** `GET .../lateral/chain`, `.../lateral/alternatives/compare`, and `.../lateral/graph` call `require_authenticated_user(request)` and discard the result, then call service methods that accept no verifier. Any authenticated user can read another user's blocking chain, alternatives, or relationship graph by entity UID. This is pre-existing (not introduced by the doc correction that recorded it) and unfixed — closing it means adding the verifier parameter to the three service methods and threading it through, while preserving the `None` case that curriculum KU/PS/LP rely on.
+
+The service-level gap is one method wider than the route-level gap: `get_cousins` also accepts no verifier, but no route exposes it, so it is reachable only by a direct caller. `get_siblings` is the counterexample — it takes the pair and its route threads it, which is why `siblings` sits in the verified 12.
 
 ### Key Cypher Patterns
 
