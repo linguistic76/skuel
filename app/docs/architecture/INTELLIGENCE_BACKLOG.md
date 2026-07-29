@@ -26,10 +26,21 @@ is itself unresolved.** An earlier revision described injecting the activity fac
 | It needs a `tasks_service` injected to create tasks | It already creates them, via `self.backend.create_task` (`tasks_learning_service.py:64`) |
 | `LearningAlignmentBridge` can supply the path | It cannot. Its methods take an `LpPosition` handed in *by the caller*; it does not fetch the LearningPath → PathStep → Ku sequence |
 
-What `TasksLearningService` actually lacks is a route to **read** that curriculum sequence. So
-settle the direction before writing any code: of the three bullets above, only the KU-detail-page
-read plausibly wants a learning-side dependency at all, and even that may be a backend edge query
-rather than a facade injection.
+What `TasksLearningService` actually lacks is a route to **read** that curriculum sequence. The
+reader exists — `LpService.get_path_steps(path_uid)` (`lp_service.py:249` →
+`lp_core_service.py:261`) — but reaching it needs deliberate arrangement, because activity services
+are constructed **before** learning services (`compose.py:532` vs `:709`), so it cannot simply be
+passed to the task service's constructor. Moving the traversal onto `TasksBackend` instead is not
+the escape hatch: that crosses the domain-backend boundary (`CLAUDE.md` § 100% Dynamic Backend
+Pattern).
+
+⚠ **The two methods are not one problem, and the wiring design is undecided.** Only
+`create_tasks_from_learning_path()` needs the curriculum route above. `get_next_learning_task()`
+already has its context input (121) and needs an `APPLIES_KNOWLEDGE` query on the *task* side; the
+KU-detail-page read is a third shape again, and `get_applying_tasks` exists nowhere in the tree.
+See `docs/roadmap/intelligence-backlog-implementation.md § Item 2A` for the verified-facts table —
+that file deliberately prescribes no wiring steps, because three review rounds each broke a
+different prescriptive version.
 
 ⚠ **There is no partial wiring left to activate.** This item was previously anchored on four unread
 placeholder params on `_create_learning_services()` — `_tasks_service`, `_habits_service`,

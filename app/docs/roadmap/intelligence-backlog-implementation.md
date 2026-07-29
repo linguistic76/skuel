@@ -18,51 +18,36 @@ to touch, and the data model and query patterns already in place.
 **What it unlocks:** KU detail pages that surface related tasks; LP pages that can
 generate a task plan for a user; `get_next_learning_task()` returning real results.
 
-⚠⚠ **Settle the dependency direction before following any step below.** The consumers are
-`create_tasks_from_learning_path()` (`tasks_learning_service.py:138`) and
-`get_next_learning_task()` (115) — both on **`TasksLearningService`**, not on `LpService` or
-`KuService`. That service already creates tasks (`self.backend.create_task`, wired at
-`tasks_learning_service.py:64`); what it lacks is a way to **read** the LearningPath → PathStep →
-Ku sequence. `LearningAlignmentBridge` does not provide it — its methods take an `LpPosition`
-supplied by the caller. So the dependency runs **tasks → curriculum**, and injecting activity
-facades into the curriculum services would point it the wrong way. See
-`INTELLIGENCE_BACKLOG.md § 2A` for the full table.
+⚠⚠ **The wiring design is UNDECIDED, and this file deliberately no longer prescribes one.** Three
+successive review rounds each broke a different prescriptive version of these steps — the ownership
+claim, then the dependency direction, then a blanket assertion that no composition-root wiring was
+needed. Prescriptive prose about unbuilt code does not converge. Everything below is only what has
+been **verified against the tree**; design the wiring when the work is actually scheduled.
 
-**Current state:**
-**No wiring exists.** `_create_learning_services()` takes no activity services at all. It
-previously accepted four unread placeholder params — `_tasks_service`, `_habits_service`,
-`_goals_service`, `_events_service` — which the composition root fed with live facades; those were
-**deleted on 2026-07-29** because nothing read them. ⚠ Do not go looking for an underscore prefix
-to remove: there is nothing left to activate, and this must be built from scratch.
+**Verified facts**
 
-**Starting point — `_create_learning_services()` in `services_bootstrap/_learning_services.py`:**
+| Fact | Coordinate |
+|---|---|
+| Both consumers are on `TasksLearningService` — neither is on `LpService` or `KuService` | `tasks_learning_service.py:138` (`create_tasks_from_learning_path`), `:115` (`get_next_learning_task`) |
+| It already creates tasks, so it does **not** need a `tasks_service` injected | `self.backend.create_task` — `tasks_learning_service.py:64` |
+| Its constructor receives only a tasks backend, event bus and relationship service | `tasks_learning_service.py:50–58` |
+| The ordered-step reader it needs lives on the curriculum side | `LpService.get_path_steps(path_uid)` — `lp_service.py:249` → `lp_core_service.py:261` |
+| Activity services are built **before** learning services, so a curriculum reader cannot simply be constructor-injected into the task service | `compose.py:532` (activity) vs `:709` (learning) |
+| `LearningAlignmentBridge` cannot supply the path — its methods take an `LpPosition` from the caller rather than fetching it | `core/services/infrastructure/learning_alignment_bridge.py` |
+| `get_applying_tasks` — the KU-detail-page read — does not exist anywhere in the tree | — |
+| `_create_learning_services()` takes no activity services; its four placeholder params were deleted 2026-07-29 | `_learning_services.py`, call site `compose.py:709` |
 
-Note `services_bootstrap` is a **package, not a module** — there is no `services_bootstrap.py`.
-The call site is `compose.py:709`, inside `compose_services()`, where `activity_services` is
-already built and in scope.
+**The two methods are not one problem.** `create_tasks_from_learning_path()` needs curriculum data
+it currently has no route to, and the construction order above means that route has to be arranged
+deliberately rather than passed at construction. Note also that moving the LearningPath traversal
+onto `TasksBackend` would cross the domain-backend boundary (`CLAUDE.md` § 100% Dynamic Backend
+Pattern). `get_next_learning_task()` is different: it already has its context input via
+`user_context.get_ready_to_learn()` (121), and what it still needs is an `APPLIES_KNOWLEDGE` query
+on the **task** side.
 
-**These steps apply only if the settled direction turns out to need composition-root wiring at
-all** (see the warning above — for the two task-side consumers it does not):
-
-1. Add real (non-underscore) params to `_create_learning_services()` — only the ones actually
-   consumed.
-2. Pass them at `compose.py:709` off the existing `activity_services` dict.
-3. Thread them into the constructors that need them; each receiving constructor needs a matching
-   kwarg.
-
-**The shape to copy** is `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:201`),
-which passes `activity_services` through to `core/services/askesis_factory.py:63–66` as required,
-non-underscore `AskesisDeps` fields.
-
-**Where the work actually lands:**
-- `TasksLearningService.create_tasks_from_learning_path()` (`tasks_learning_service.py:138`) —
-  needs to **read** the LP → PathStep → Ku sequence. It already has task creation, so this is a
-  curriculum-read dependency, not a `tasks_service` injection.
-- `TasksLearningService.get_next_learning_task()` (115) — already has its context input via
-  `user_context.get_ready_to_learn()` (121); needs a task-side query over `APPLIES_KNOWLEDGE`.
-- KU detail page — a `get_applying_tasks(ku_uid, user_uid)`-shaped read. **This method does not
-  exist anywhere in the tree**; it is the one bullet that might justify a learning-side dependency,
-  and it may be satisfiable by a backend edge query without any facade injection.
+Note `services_bootstrap` is a **package, not a module** — there is no `services_bootstrap.py`. If
+a design does end up threading services through the composition root, the working shape to copy is
+`create_askesis_service()` (`_intelligence_hub.py:201`) → `core/services/askesis_factory.py:63–66`.
 
 **Prerequisite:** Item 2B must be implemented before any of this pays off, otherwise
 `create_tasks_from_learning_path()` would have its inputs and still return `[]`.
