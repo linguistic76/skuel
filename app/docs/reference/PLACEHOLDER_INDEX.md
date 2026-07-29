@@ -108,11 +108,15 @@ entity whose last write came from a vault sync.
 Whether the window keys off `created_at` or `updated_at` remains a semantic decision — but it no
 longer changes which helper to use.
 
-**This group is the only register for the `_period_days` deferral.** A duplicate lived in
-`docs/architecture/INTELLIGENCE_BACKLOG.md` § 2C and `docs/roadmap/intelligence-backlog-implementation.md`
-§ Item 2C until 2026-07-29; both are now redirect stubs. It survived two doc sweeps because its
-rows named four methods that had never existed in any branch, so nothing about it resolved well
-enough to look stale. Add coordinates here, not there.
+**This group is the register for the `_period_days` deferral; add coordinates here, not elsewhere.**
+Three other copies existed as of 2026-07-29 and are now redirect stubs or links:
+`docs/architecture/INTELLIGENCE_BACKLOG.md` § 2C, `docs/roadmap/intelligence-backlog-implementation.md`
+§ Item 2C, and `docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` § "Placeholder Convention".
+
+Two of them survived repeated doc sweeps for the same structural reason: **a claim that resolves to
+nothing never looks stale.** § 2C named four methods that had never existed in any branch;
+INTELLIGENCE_SERVICES_INDEX said "4 services" and counted Goals, which has been implemented
+throughout. Neither error is visible to a link checker, and neither reads as obviously wrong.
 
 ---
 
@@ -412,7 +416,7 @@ these functions, so their absence from its PLANNED tables is not evidence either
 
 | Priority | Group | Reason |
 |----------|-------|--------|
-| High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, and goals already shows the shape (`goals_intelligence_service.py:162`) |
+| High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, via `find_by_date_range` — **not** the bare `find_by(<field>__gte=...)` goals uses, which drops re-ingested rows (see the group) |
 | High | E — Hardcoded Scalars | The three choices rows are **unreachable** — both enclosing methods filter on a `Choice.date` property that does not exist, so they return empty. Repointing that filter comes before any of the aggregations; `learning_progress_rate` is independent and needs a graph query |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
