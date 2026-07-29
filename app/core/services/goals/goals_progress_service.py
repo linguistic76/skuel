@@ -1126,7 +1126,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # Best-effort: Log error but don't raise (prevent habit completion failure)
             self.logger.error(f"Error handling habit_completed event: {e}")
 
-    # FUTURE-IMPL: FUTURE-IMPL-008 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
+    # FUTURE-IMPL-008: See docs/reference/PLACEHOLDER_INDEX.md § I2
     async def _update_goal_from_habit_completion(
         self, goal_uid: str, user_uid: UserUID, current_streak: int
     ) -> None:
