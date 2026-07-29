@@ -19,18 +19,28 @@ to touch, and the data model and query patterns already in place.
 generate a task plan for a user; `get_next_learning_task()` returning real results.
 
 **Current state:**
-`services_bootstrap.py` lines 601–604 accept `_tasks_service`, `_habits_service`,
-`_goals_service`, `_events_service` but discard them. They are passed in at lines 1414–1417.
+**No wiring exists.** `_create_learning_services()` takes no activity services at all. It
+previously accepted four unread placeholder params — `_tasks_service`, `_habits_service`,
+`_goals_service`, `_events_service` — which the composition root fed with live facades; those were
+**deleted on 2026-07-29** because nothing read them. ⚠ Do not go looking for an underscore prefix
+to remove: there is nothing left to activate, and this must be built from scratch.
 
-**Starting point — `_create_learning_services()` in `services_bootstrap.py`:**
+**Starting point — `_create_learning_services()` in `services_bootstrap/_learning_services.py`:**
 
-The four facade services are already wired into `activity_services` at bootstrap time and
-already passed as arguments — they just hit dead-end underscore params. To activate:
+Note `services_bootstrap` is a **package, not a module** — there is no `services_bootstrap.py`.
+The call site is `compose.py:709`, inside `compose_services()`, where `activity_services` is
+already built and in scope. To wire:
 
-1. Remove the underscore prefix from the four params (`_tasks_service` → `tasks_service`).
-2. Store them on the returned dict or pass them directly into the service constructors
-   that need them (`LpService`, `KuService`).
-3. Each receiving service constructor needs a matching `tasks_service` kwarg.
+1. Add real (non-underscore) `tasks_service` / `goals_service` / etc. params to
+   `_create_learning_services()` — only the ones actually consumed.
+2. Pass them at `compose.py:709` off the existing `activity_services` dict.
+3. Thread them into the service constructors that need them (`LpService`, `KuService`); each
+   receiving constructor needs a matching kwarg.
+
+**Copy the shape that already works.** This exact problem is already solved in the same
+composition root: `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:201`)
+passes `activity_services` through, and `core/services/askesis_factory.py:63–66` wires all four
+domain services as required, non-underscore `AskesisDeps` fields.
 
 **Where the cross-wiring is consumed:**
 - `LpService` — `create_tasks_from_learning_path()` (see Item 2B) needs `tasks_service`
@@ -43,12 +53,14 @@ already passed as arguments — they just hit dead-end underscore params. To act
 
 ---
 
-## Item 2B — Implement stub methods in `tasks_scheduling_service.py`
+## Item 2B — Implement stub methods in `tasks_learning_service.py`
 
-**File:** `core/services/tasks/tasks_scheduling_service.py`
+**File:** `core/services/tasks/tasks_learning_service.py` — both methods live here, not in
+`tasks_scheduling_service.py` (which still exists, but no longer holds them).
 
-Two adjacent stub methods at lines 283 and 307. Implement them together — they share
-the same dependency pattern.
+Two stub methods, at lines 138 (`create_tasks_from_learning_path`) and 115
+(`get_next_learning_task`), separated by `suggest_learning_aligned_tasks` (130). Implement them
+together — they share the same dependency pattern.
 
 ---
 

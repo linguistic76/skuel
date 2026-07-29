@@ -6,15 +6,26 @@ Deferred intelligence gaps. Each item has a clear trigger condition and implemen
 
 ---
 
-## 2A: Placeholder activity service params in `_create_learning_services()`
+## 2A: Cross-wire learning services with activity facades
 
-**File:** `services_bootstrap/_learning_services.py`
-**Params:** `_tasks_service`, `_habits_service`, `_goals_service`, `_events_service`
+**File:** `services_bootstrap/_learning_services.py` (call site: `compose.py:709`)
 
 **Purpose when implemented:** Cross-wire learning services with activity domain facades so that:
 - KU detail pages can surface "Tasks that apply this knowledge" (`APPLIES_KNOWLEDGE` traversal)
 - `LpService` can generate tasks from a learning path (`create_tasks_from_learning_path`)
 - `get_next_learning_task()` can query tasks linked to knowledge units the user is ready to learn
+
+⚠ **There is no partial wiring left to activate.** This item was previously anchored on four unread
+placeholder params on `_create_learning_services()` — `_tasks_service`, `_habits_service`,
+`_goals_service`, `_events_service` — which the composition root fed with live activity facades.
+They were **deleted on 2026-07-29** as dead code: nothing read them, and they had been stranded
+since Askesis creation moved out of that function in January 2026. An implementer must thread the
+services in fresh; there is no underscore prefix left to remove.
+
+**The pattern to copy already exists in the same composition root.** `create_askesis_service()`
+(`services_bootstrap/_intelligence_hub.py:201`) passes `activity_services` through, and
+`core/services/askesis_factory.py:63–66` wires all four domain services as required,
+non-underscore `AskesisDeps` fields.
 
 **Prerequisite:** Item 2B (`create_tasks_from_learning_path`) must be implemented first.
 
@@ -22,23 +33,27 @@ Deferred intelligence gaps. Each item has a clear trigger condition and implemen
 
 ---
 
-## 2B: Stub methods in `tasks_scheduling_service.py`
+## 2B: Stub methods in `tasks_learning_service.py`
 
-**File:** `core/services/tasks/tasks_scheduling_service.py`
+**File:** `core/services/tasks/tasks_learning_service.py` — both methods live here, not in
+`tasks_scheduling_service.py` (which still exists, but no longer holds them). Fronted by
+`TasksService` at `core/services/tasks_service.py:693` and `:698`.
 
-### `create_tasks_from_learning_path(learning_path_uid, _user_context)` (~line 302)
+### `create_tasks_from_learning_path(learning_path_uid, _user_context)` (line 138)
 
-Currently returns `Result.ok([])`. Real implementation needs:
+Logs a debug line and returns `Result.ok([])`; the docstring marks it "stub — pending
+implementation". Real implementation needs:
 - Fetch LearningPath → PathStep sequence (via LP backend)
 - For each step: check user's `mastered_knowledge_uids`, prerequisite readiness
 - Create a Task per unmastered step, linked via `APPLIES_KNOWLEDGE`
 - Respect `user_context.available_minutes_daily` for capacity
 
-### `get_next_learning_task(user_context)` (~line 307)
+### `get_next_learning_task(user_context)` (line 115)
 
-Currently returns `Result.ok(None)`. Real implementation needs:
-- Call `user_context.get_ready_to_learn()` to get ready KU UIDs
-- Query Tasks that `APPLIES_KNOWLEDGE` to those UIDs, filter to incomplete/unblocked
+Returns `Result.ok(None)` on every path. **It already calls `user_context.get_ready_to_learn()`**
+(line 121) and early-returns when that comes back empty — so the remaining work starts at the
+query, not the context read. Real implementation needs:
+- Query Tasks that `APPLIES_KNOWLEDGE` to those ready KU UIDs, filter to incomplete/unblocked
 - Rank by readiness score + task priority
 - Return top candidate
 
