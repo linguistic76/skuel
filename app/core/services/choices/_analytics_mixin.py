@@ -16,6 +16,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any
 
+from core.constants import QueryLimit
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count
@@ -32,6 +33,7 @@ class _AnalyticsMixin:
     # Populated by ChoicesIntelligenceService.__init__
     backend: Any
     relationships: Any
+    logger: Any
 
     async def get_quick_decision_metrics(self, choice_uid: str) -> Result[dict[str, Any]]:
         """
@@ -189,6 +191,48 @@ class _AnalyticsMixin:
 
         return Result.ok(results)
 
+    async def _find_choices_in_window(
+        self, user_uid: UserUID, start_date: date, end_date: date
+    ) -> Result[list[Any]]:
+        """
+        Fetch the user's choices that entered the corpus within [start_date, end_date].
+
+        The window keys off ``created_at``, not ``decided_at``: every method below reports
+        *choice-population* metrics ("choices per week", "choice count by domain"), and the
+        rest of the service already windows choices this way — see
+        ``_BehavioralSignalsMixin._calculate_system_decision_quality_for_dual_track`` and the
+        recorded intent on ``ChoicesIntelligenceService.get_performance_analytics`` ("filter
+        by created_at within period"). ``decided_at`` would window on decision *events*, but its only
+        writer is ``ChoicesCoreService.make_decision``, which no route or UI reaches, so it
+        is null corpus-wide and would return zero rows.
+
+        Routed through ``find_by_date_range`` rather than ``find_by(created_at__gte=...)``
+        because ``created_at`` has two storage shapes (ISO string for most entities, zoned
+        datetime for a minority — see tests/integration/test_created_at_window_coercion.py).
+        Only ``find_by_date_range`` coerces both to a date before comparing; a bare ``>=``
+        against an ISO-string bound evaluates to null on datetime-stored rows and drops
+        them. The coercion is day-granular, which is also what reconciles this ``date``
+        window with the ``datetime`` the field holds.
+
+        Backend: UniversalNeo4jBackend.find_by_date_range
+        """
+        result = await self.backend.find_by_date_range(
+            start_date=start_date,
+            end_date=end_date,
+            date_field="created_at",
+            additional_filters={"user_uid": user_uid},
+            limit=QueryLimit.MAXIMUM,
+        )
+        # find_by_date_range defaults to limit=100; the period metrics below divide by the
+        # requested window, so a truncated page would silently understate every rate.
+        if result.is_ok and len(result.value) >= QueryLimit.MAXIMUM:
+            self.logger.warning(
+                "Choice period analytics for %s capped at %d choices — rates may be truncated",
+                user_uid,
+                QueryLimit.MAXIMUM,
+            )
+        return result
+
     async def get_decision_patterns(
         self, user_uid: UserUID, days: int = 90
     ) -> Result[dict[str, Any]]:
@@ -253,9 +297,7 @@ class _AnalyticsMixin:
         start_date = end_date - timedelta(days=days)
 
         # Get user's choices in period
-        choices_result = await self.backend.find_by(
-            user_uid=user_uid, date__gte=start_date, date__lte=end_date
-        )
+        choices_result = await self._find_choices_in_window(user_uid, start_date, end_date)
 
         if choices_result.is_error:
             return Result.fail(choices_result)
@@ -372,9 +414,7 @@ class _AnalyticsMixin:
         start_date = end_date - timedelta(days=days)
 
         # Get user's choices in period
-        choices_result = await self.backend.find_by(
-            user_uid=user_uid, date__gte=start_date, date__lte=end_date
-        )
+        choices_result = await self._find_choices_in_window(user_uid, start_date, end_date)
 
         if choices_result.is_error:
             return Result.fail(choices_result)
@@ -440,9 +480,7 @@ class _AnalyticsMixin:
         start_date = end_date - timedelta(days=days)
 
         # Get user's choices in period
-        choices_result = await self.backend.find_by(
-            user_uid=user_uid, date__gte=start_date, date__lte=end_date
-        )
+        choices_result = await self._find_choices_in_window(user_uid, start_date, end_date)
 
         if choices_result.is_error:
             return Result.fail(choices_result)
