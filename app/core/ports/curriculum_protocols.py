@@ -1142,8 +1142,10 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {view_count}
         """Record a user's visit to a KU; repeat visits accumulate count and time spent.
 
-        Idempotent per user/KU pair — the first-viewed timestamp survives later
-        visits, and the running view count comes back on the row.
+        One view record per user/KU pair, but NOT idempotent: every call
+        increments the view count and adds to total time spent, so a retry
+        double-counts engagement. The first-viewed timestamp is set once and
+        survives later visits; the running view count comes back on the row.
         """
         ...
 
@@ -1152,7 +1154,9 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
         """Put a KU into the user's in-progress set, refreshing last activity.
 
-        Idempotent — re-marking keeps the original start time and progress score.
+        One record per user/KU pair and safe to repeat — nothing accumulates, and
+        the original start time and progress score survive. Only the
+        last-activity timestamp moves.
         """
         ...
 
