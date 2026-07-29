@@ -715,10 +715,6 @@ async def compose_services(
             user_service=user_service,
             graph_intelligence=graph_intelligence,
             llm_service=llm_service,  # Pass LLM service for askesis RAG
-            _tasks_service=activity_services["tasks"],  # Placeholder - not yet implemented
-            _habits_service=activity_services["habits"],  # Placeholder - not yet implemented
-            _goals_service=activity_services["goals"],  # Placeholder - not yet implemented
-            _events_service=activity_services["events"],  # Placeholder - not yet implemented
             event_bus=event_bus,  # Event-driven architecture
             prometheus_metrics=prometheus_metrics,  # Metrics instrumentation
             query_executor=query_executor,

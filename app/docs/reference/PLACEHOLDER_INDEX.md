@@ -3,7 +3,7 @@
 *Technical debt register for accepted-but-unimplemented features: parameters whose bodies ignore
 them (usually, but not always, underscore-prefixed) and the hardcoded values that stand in for
 computation that has not been written yet.*
-*Last updated: 2026-07-28*
+*Last updated: 2026-07-29*
 
 Every coordinate below was re-verified against the tree on 2026-07-28 (`77c4d959b`). Each row names
 a file, a line, and a symbol that should be on it, so the set is re-checkable mechanically.
@@ -96,32 +96,6 @@ tier (`scripts/detect_bloat.py:504–512`); `get_habit_analytics` itself is not 
 - `_include_predictions`: Calls an AI service to forecast habit continuity. Depends on embedding
   similarity or completion pattern analysis. Should remain `False` by default (expensive).
 - Before either: establish a consumer, or delete the method. It is unreached surface today.
-
----
-
-## Group C — Askesis Bootstrap Entity Services
-
-⚠ **Not deferred — dead parameters.** The work this group was opened for is done, elsewhere.
-
-| Location | Lines | Placeholder |
-|----------|-------|-------------|
-| `services_bootstrap/_learning_services.py` | 23–26 | `_tasks_service`, `_habits_service`, `_goals_service`, `_events_service` on `_create_learning_services()` — each name occurs exactly once in the file, in that signature |
-| `services_bootstrap/compose.py` | 718–721 | the four live activity services, passed into those unread parameters |
-
-Askesis creation moved out of `_create_learning_services()` in January 2026
-(`_learning_services.py:156`). It is now built by `create_askesis_service()`
-(`_intelligence_hub.py:201`, reached from `compose_services()` at `compose.py:1869`), which wires
-all four domain services as **required, non-underscore** `AskesisDeps` fields
-(`askesis_factory.py:63–66` → `askesis_service.py:90–93`).
-
-Entity extraction — the feature this group said was unimplemented — is written and wired:
-`EntityExtractor` stores the four services (`askesis/entity_extractor.py:95–98`) and uses them
-(146, 151, 156, 161); it is constructed at `askesis_service.py:196`, handed to `QueryProcessor`
-(233) and called at `askesis/query_processor.py:307`. (Whether a route reaches that call was not
-established here — it does not affect the remedy below.)
-
-**What full implementation requires:** nothing. Delete the four parameters and the four call-site
-arguments that feed them.
 
 ---
 
@@ -364,7 +338,6 @@ these functions, so their absence from its PLANNED tables is not evidence either
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
 | Low | B — Habits Predictions | No caller in the tree — `get_habit_analytics()` is unreached facade surface. Establish a consumer or delete it before implementing either parameter |
-| Low | C — Askesis Bootstrap | Not deferred: the four services are already wired through `askesis_factory.py`. Mechanical deletion of four parameters and four call-site arguments |
 | Low | D — Neo4j Adapter Stubs | Developer tooling; not user-facing, and `_force`'s intent is not recoverable |
 | Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread in all three generators |
 | Low | H — Askesis Private Methods | Internal heuristics refinement |
@@ -380,8 +353,8 @@ table rotted last time.
 ## Removed rows
 
 Deletions are recorded here so they are not re-added from memory. **Group letters are identifiers,
-not a sequence** — the gap at G is deliberate; do not re-letter, because `§ E2` and `§ I2` are
-cited by name from six `FUTURE-IMPL-*` comments in the code.
+not a sequence** — the gaps at C and G are deliberate; do not re-letter, because `§ E2` and `§ I2`
+are cited by name from six `FUTURE-IMPL-*` comments in the code.
 
 | Removed | When | Why |
 |---------|------|-----|
@@ -390,6 +363,7 @@ cited by name from six `FUTURE-IMPL-*` comments in the code.
 | **Group E — `cross_domain_analytics_service.py` mood/streak row** | 2026-07-28 | `JournalMoodAnalysis` + `get_mood_analysis` were removed in SKUEL030 tranche 3 (`7f9fc3c1c`, #737); the file records this at lines 56–60 and is now 580 lines long, short of the cited 661–665 |
 | **Group I — `Entity.can_view()` and `Entity.substance_score()`** (both rows + their shared priority row) | 2026-07-28 | **Implemented, not deferred — and structurally identical.** Each is a base method whose parameters are unread because the base has nothing to do, with the behaviour fully implemented on a subclass override taking the same parameters *without* underscores: `UserOwnedEntity.can_view(viewer_uid, shared_user_uids)` (`user_owned_entity.py:72`, owner + shared logic at 81–87) and `Curriculum.substance_score(force_recalculate)` (`curriculum.py:267`, cache bypass at 280–287). An ordinary polymorphic signature is not accepted-but-unimplemented work, and listing it here invites a future sweep to "implement" a base that is intentionally inert |
 | **Group I — `user_backend.get_user_context()` row** | 2026-07-28 | Had been struck through since the method's removal in `1373cc419` (2026-03-18). It was never a backend operation and no longer resolves; `UserService.get_user_context()` (`core/services/user_service.py:193`) is the live path |
+| **Group C — Askesis Bootstrap Entity Services** (whole section + its priority row) | 2026-07-29 | **Carried out, not dropped.** The section's own remedy was "delete the four parameters and the four call-site arguments"; that deletion landed, so the group has no coordinates left to register. `_create_learning_services()` no longer declares `_tasks_service` / `_habits_service` / `_goals_service` / `_events_service`, and `compose.py` no longer passes the four activity services into them. Entity extraction is unaffected — it never ran through these parameters, and stays wired via `create_askesis_service()` → `askesis_factory.py` → `EntityExtractor` |
 | **Priority row "K — Conversation System"** | 2026-07-28 (#856) | Its section (added 2026-02-25 in `5ce618ee1`) was deleted on 2026-06-19 by `69be520ca` (#338), which wired Neo4j conversation persistence and removed the `InMemoryConversationRepo` it documented. The groundwork was **built, not deferred** |
 
 ---

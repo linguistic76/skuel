@@ -20,10 +20,6 @@ def _create_learning_services(
     user_service: Any,
     graph_intelligence: Any,
     llm_service: Any,  # LLMService for RAG generation (None when CORE tier)
-    _tasks_service: Any = None,  # Placeholder: TasksService for entity extraction
-    _habits_service: Any = None,  # Placeholder: HabitsService for entity extraction
-    _goals_service: Any = None,  # Placeholder: GoalsService for entity extraction
-    _events_service: Any = None,  # Placeholder: EventsService for entity extraction
     event_bus: Any = None,
     prometheus_metrics: "PrometheusMetrics | None" = None,
     query_executor: Any = None,
