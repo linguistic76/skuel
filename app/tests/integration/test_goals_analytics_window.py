@@ -130,15 +130,24 @@ async def _seed(neo4j_driver) -> None:
     assert reingested.is_ok, f"seed bulk upsert failed: {reingested}"
 
 
-async def _read_raw_updated_at(neo4j_driver, uid: str) -> Any:
-    """The ``updated_at`` property as the driver hands it back, un-coerced."""
+async def _read_raw_updated_at(neo4j_driver, uid: str) -> str | Neo4jDateTime:
+    """The ``updated_at`` property as the driver hands it back, un-coerced.
+
+    The return type is this module's premise stated in the type system: the column holds
+    an ISO ``str`` or a native ``Neo4jDateTime``, and nothing else. A *missing* property
+    comes back as ``None``, which would reach the shape assertions below looking like a
+    third shape — so it is rejected here instead, where the message says what went wrong.
+    """
     async with neo4j_driver.session() as session:
         result = await session.run(
             "MATCH (n:Goal {uid: $uid}) RETURN n.updated_at AS updated_at", uid=uid
         )
         record = await result.single()
     assert record is not None, f"{uid} was not seeded"
-    return record["updated_at"]
+
+    value = record["updated_at"]
+    assert value is not None, f"{uid} carries no updated_at property at all"
+    return value
 
 
 def _intelligence(neo4j_driver) -> GoalsIntelligenceService:
