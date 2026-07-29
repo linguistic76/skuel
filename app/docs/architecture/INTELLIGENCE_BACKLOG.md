@@ -6,25 +6,41 @@ Deferred intelligence gaps. Each item has a clear trigger condition and implemen
 
 ---
 
-## 2A: Cross-wire learning services with activity facades
+## 2A: Connect task generation to curriculum data
 
-**File:** `services_bootstrap/_learning_services.py` (call site: `compose.py:709`)
+**Consumers:** `core/services/tasks/tasks_learning_service.py`
+**Possible wiring point:** `services_bootstrap/_learning_services.py` (call site: `compose.py:709`)
 
-**Purpose when implemented:** Cross-wire learning services with activity domain facades so that:
+**Purpose when implemented:**
 - KU detail pages can surface "Tasks that apply this knowledge" (`APPLIES_KNOWLEDGE` traversal)
-- `LpService` can generate tasks from a learning path (`create_tasks_from_learning_path`)
-- `get_next_learning_task()` can query tasks linked to knowledge units the user is ready to learn
+- `create_tasks_from_learning_path()` can turn a LearningPath into a task plan
+- `get_next_learning_task()` can return tasks linked to knowledge the user is ready to learn
+
+⚠⚠ **The dependency runs tasks → curriculum, not curriculum → tasks — and the framing of this item
+is itself unresolved.** An earlier revision described injecting the activity facades into
+`LpService` / `KuService`. That is backwards for both named consumers:
+
+| Claim | Reality |
+|---|---|
+| `LpService` owns `create_tasks_from_learning_path()` | It does not. Both that method (138) and `get_next_learning_task()` (115) are on **`TasksLearningService`** — neither curriculum facade has either |
+| It needs a `tasks_service` injected to create tasks | It already creates them, via `self.backend.create_task` (`tasks_learning_service.py:64`) |
+| `LearningAlignmentBridge` can supply the path | It cannot. Its methods take an `LpPosition` handed in *by the caller*; it does not fetch the LearningPath → PathStep → Ku sequence |
+
+What `TasksLearningService` actually lacks is a route to **read** that curriculum sequence. So
+settle the direction before writing any code: of the three bullets above, only the KU-detail-page
+read plausibly wants a learning-side dependency at all, and even that may be a backend edge query
+rather than a facade injection.
 
 ⚠ **There is no partial wiring left to activate.** This item was previously anchored on four unread
 placeholder params on `_create_learning_services()` — `_tasks_service`, `_habits_service`,
 `_goals_service`, `_events_service` — which the composition root fed with live activity facades.
 They were **deleted on 2026-07-29** as dead code: nothing read them, and they had been stranded
-since Askesis creation moved out of that function in January 2026. An implementer must thread the
-services in fresh; there is no underscore prefix left to remove.
+since Askesis creation moved out of that function in January 2026. There is no underscore prefix
+left to remove.
 
-**The pattern to copy already exists in the same composition root.** `create_askesis_service()`
-(`services_bootstrap/_intelligence_hub.py:201`) passes `activity_services` through, and
-`core/services/askesis_factory.py:63–66` wires all four domain services as required,
+**If the settled direction does need services threaded through the composition root**, the shape to
+copy is `create_askesis_service()` (`services_bootstrap/_intelligence_hub.py:201`), which passes
+`activity_services` through to `core/services/askesis_factory.py:63–66` as required,
 non-underscore `AskesisDeps` fields.
 
 **Prerequisite:** Item 2B (`create_tasks_from_learning_path`) must be implemented first.
