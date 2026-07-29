@@ -147,21 +147,37 @@ already provides.
 These are not underscore parameters but are explicitly marked in comments — `# Placeholder` in the
 table below, `# FUTURE-IMPL-00N:` in the E2 subsection.
 
-⚠ **The four rows do not share a remedy — check the storage before writing a query.** Two of them
-need no query at all (the data is already in the caller's hands), one cannot be recovered by any
-query until persistence is defined, and only the fourth is a genuine graph read.
+⚠⚠ **Read this before touching the three choices rows: they are currently unreachable, and that is
+a live bug, not a placeholder.** Both enclosing methods filter on a `Choice` property that does not
+exist, so they return zero rows and exit through their empty-data guard long before the placeholder
+lines execute.
+
+| Step | Evidence |
+|---|---|
+| Both methods filter on `date` | `find_by(user_uid=..., date__gte=start_date, date__lte=end_date)` — `_analytics_mixin.py:256–257` and `443–444` |
+| `Choice` has no `date` property | Its temporal fields are `decision_deadline` and `decided_at` (`choice.py:75–76`) plus inherited `created_at`/`updated_at`; `ChoiceDTO` matches (`choice_dto.py:64–65`) |
+| The bad key is not rejected | `ModelQueryBuilder.filter()` validates only that a key is a safe identifier — `validate_field_name` is a regex plus a length cap (`core/utils/validation_helpers.py:59–61`), with no model introspection — so `date__gte` is recorded and emitted as Cypher |
+| Neo4j returns nothing | A predicate on an absent property is NULL, so every row is excluded — the repo's recurring silent-zero class, not an error |
+| Execution stops before the placeholders | `if not choices:` returns the empty payload at 265 (`get_decision_patterns`, 192) and 452 (`get_domain_decision_patterns`, 426); the placeholders are at 305/306 and 476 |
+
+**So the temporal filter must be repointed at a real property first.** Until then, an implementer who
+merely adds the in-memory aggregations below will compute them over a permanently empty list.
+
+⚠ **Nor do the four rows share a remedy — check where the data lives before writing a query.** Two
+need no query at all, one cannot be recovered by any query until persistence is defined, and only
+the fourth is a genuine graph read.
 
 | File | Line | Value | Should Become |
 |------|------|-------|---------------|
 | `core/services/choices/_analytics_mixin.py` | 305 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query |
-| `core/services/choices/_analytics_mixin.py` | 306 | `avg_satisfaction = 0.75` | **No query needed.** `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 296–297. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
-| `core/services/choices/_analytics_mixin.py` | 476 | `"avg_quality_score": 0.7` | **No query needed.** `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
-| `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read** |
+| `core/services/choices/_analytics_mixin.py` | 306 | `avg_satisfaction = 0.75` | **No query needed** (once the filter above is fixed). `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 296–297. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
+| `core/services/choices/_analytics_mixin.py` | 476 | `"avg_quality_score": 0.7` | **No query needed** (same prerequisite). `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
+| `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read**, and is not affected by the filter bug above |
 
-Rows 305/306 sit in `get_decision_patterns()` (192) beside a genuinely computed ratio
-(`principle_alignment_score`, 307); row 476 sits in `get_domain_decision_patterns()` (426) beside a
-real `percentage`. In both cases a caller cannot tell which fields of the returned dict were computed
-and which are constants.
+Rows 305/306 sit in `get_decision_patterns()` beside a genuinely computed ratio
+(`principle_alignment_score`, 307); row 476 sits in `get_domain_decision_patterns()` beside a real
+`percentage`. In both cases a caller cannot tell which fields of the returned dict were computed and
+which are constants — though today, neither dict is ever built.
 
 ### E2 — Goal-achievement recommendations (`FUTURE-IMPL-*`)
 
@@ -256,8 +272,6 @@ not established here — "it has a caller" is the weak question.
 
 | File | Line | Method | Parameter | Notes |
 |------|------|--------|-----------|-------|
-| `core/models/entity.py` | 176 | `can_view()` | `_viewer_uid`, `_shared_user_uids` | Returns `visibility == PUBLIC`; both args unread because owner/sharing logic lives in the `UserOwnedEntity` override. **Not** an always-True stub |
-| `core/models/entity.py` | 224 | `substance_score()` | `_force_recalculate: bool` | Base returns `0.0` — non-curriculum types carry no substance. The flag **is** implemented, on the `Curriculum` override (`core/models/curriculum.py:267`, non-underscore), where it bypasses the 1-hour cache (280–287). Same shape as `can_view()`: unread on the base because there is nothing to recalculate, **not** because recalculation is missing |
 | `adapters/persistence/neo4j/_relationship_crud_mixin.py` | 910 | (inline comment) | `_props` | Property validation not yet implemented |
 | `core/services/calendar_optimization_service.py` | 318 | `_get_user_energy_profile()` | `_user_uid: UserUID` | Returns a static demo profile — the docstring says "for demo"; real profile query deferred |
 | `core/services/schema_change_detector.py` | 537 | `_update_optimizations()` | `_report: SchemaChangeReport` | Clears two optimization caches unconditionally; full re-optimization *from the report* deferred |
@@ -346,8 +360,7 @@ these functions, so their absence from its PLANNED tables is not evidence either
 | Priority | Group | Reason |
 |----------|-------|--------|
 | High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, and goals already shows the shape (`goals_intelligence_service.py:162`) |
-| Low | I — `entity.py` base flags | `can_view()`: base check is correct (`visibility == PUBLIC`), ownership/sharing handled by the `UserOwnedEntity` override. `substance_score()`: force-refresh is implemented on the `Curriculum` override. Both previously ranked on readings the code does not support |
-| Medium | E — Hardcoded Scalars | Affects intelligence accuracy. Two of the four are in-memory aggregations the caller can do today; one is blocked on persisting decision confidence; only `learning_progress_rate` needs a graph query |
+| High | E — Hardcoded Scalars | The three choices rows are **unreachable** — both enclosing methods filter on a `Choice.date` property that does not exist, so they return empty. Repointing that filter comes before any of the aggregations; `learning_progress_rate` is independent and needs a graph query |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
 | Low | B — Habits Predictions | No caller in the tree — `get_habit_analytics()` is unreached facade surface. Establish a consumer or delete it before implementing either parameter |
@@ -375,6 +388,7 @@ cited by name from six `FUTURE-IMPL-*` comments in the code.
 | **Group G — Events Intelligence Private Methods** (2 rows + its priority row) | 2026-07-28 | `_analyze_goal_support` and `_analyze_habit_impact` do not exist anywhere in the tree |
 | **Group A — GoalsIntelligenceService row** | 2026-07-28 | `analyze_goal_performance` is gone tree-wide; the surviving `get_performance_analytics` takes a non-underscore `period_days` and filters on it. Implemented, not deferred |
 | **Group E — `cross_domain_analytics_service.py` mood/streak row** | 2026-07-28 | `JournalMoodAnalysis` + `get_mood_analysis` were removed in SKUEL030 tranche 3 (`7f9fc3c1c`, #737); the file records this at lines 56–60 and is now 580 lines long, short of the cited 661–665 |
+| **Group I — `Entity.can_view()` and `Entity.substance_score()`** (both rows + their shared priority row) | 2026-07-28 | **Implemented, not deferred — and structurally identical.** Each is a base method whose parameters are unread because the base has nothing to do, with the behaviour fully implemented on a subclass override taking the same parameters *without* underscores: `UserOwnedEntity.can_view(viewer_uid, shared_user_uids)` (`user_owned_entity.py:72`, owner + shared logic at 81–87) and `Curriculum.substance_score(force_recalculate)` (`curriculum.py:267`, cache bypass at 280–287). An ordinary polymorphic signature is not accepted-but-unimplemented work, and listing it here invites a future sweep to "implement" a base that is intentionally inert |
 | **Group I — `user_backend.get_user_context()` row** | 2026-07-28 | Had been struck through since the method's removal in `1373cc419` (2026-03-18). It was never a backend operation and no longer resolves; `UserService.get_user_context()` (`core/services/user_service.py:193`) is the live path |
 | **Priority row "K — Conversation System"** | 2026-07-28 (#856) | Its section (added 2026-02-25 in `5ce618ee1`) was deleted on 2026-06-19 by `69be520ca` (#338), which wired Neo4j conversation persistence and removed the `InMemoryConversationRepo` it documented. The groundwork was **built, not deferred** |
 
