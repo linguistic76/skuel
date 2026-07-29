@@ -14,12 +14,15 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count
+
+if TYPE_CHECKING:
+    from core.models.choice.choice import Choice
 
 
 class _AnalyticsMixin:
@@ -193,7 +196,7 @@ class _AnalyticsMixin:
 
     async def _find_choices_in_window(
         self, user_uid: UserUID, start_date: date, end_date: date
-    ) -> Result[list[Any]]:
+    ) -> Result[list["Choice"]]:
         """
         Fetch the user's choices that entered the corpus within [start_date, end_date].
 
