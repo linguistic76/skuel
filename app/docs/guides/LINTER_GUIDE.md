@@ -183,14 +183,15 @@ reverted when the fix proved worse than the bug. Closing it properly needs scope
 resolution. Both limits are asserted by tests, so a real fix will announce itself
 by turning those assertions red.
 
-**Coverage boundary (measured, not assumed):** of the four sites repaired when
-CYP012 was added, it guards **three**. `relationship_builders.py` interpolates
+**Coverage boundary (closed 2026-07-29):** CYP012 once guarded **three** of the
+four sites repaired when it was added. `relationship_builders.py` interpolates
 every structural position (`(from {from_pattern})`, `-[r:{self._relationship_type}]`),
-so `_is_actual_cypher` sees no node pattern, rel pattern, property map or
-`$param` and the extractor never yields the query at all. That blind spot is
-upstream of *every* CYP rule, not CYP012's — handed the text directly, the rule
-fires, and a test pins exactly that so coverage follows if the heuristic is ever
-widened.
+so the extractor's local heuristic saw no node pattern, rel pattern, property map
+or `$param` and never yielded the query at all — a blind spot upstream of *every*
+CYP rule, not CYP012's. Measured tree-wide, **113 queries** were rejected on that
+basis while leading with a Cypher clause. The heuristic was replaced by the shared
+`looks_like_cypher` gate (see *Discovery scope*), and the test that pinned the gap
+now pins the query travelling extractor-to-rule end to end.
 
 **CYP003 (promoted WARNING → ERROR 2026-07, now CI-gated):** flags only
 value-position interpolation — quoted literals (`'{var}'`, including map values
@@ -207,7 +208,35 @@ Suppress a boundary-shaped hit with a Cypher comment on the flagged line:
 `scripts/` (added 2026-07 — migrations and maintenance scripts run raw Cypher
 directly), and `tests/integration/` — both `**/*.py` and `**/*.cypher` in each
 tree (`find_lintable_files`). In Python files, queries are extracted from
-triple-quoted strings that pass the `_is_actual_cypher` heuristic; single-line
+triple-quoted strings, admitted by **`cypher_vocabulary.looks_like_cypher`** —
+the same three-anchor gate SKUEL030 applies to the same kind of text. Two
+conditions travel with that gate:
+
+- **Docstrings are skipped**, by AST position. This is a stated precondition of
+  the gate's head anchor, not a nicety: SKUEL033's intent-only docstrings open
+  with the clause the method performs ("MERGE VIEWED relationship with timestamp
+  and count tracking"), so the anchor reads them as Cypher. 19 such docstrings
+  were admitted without the exemption, and one made CYP002 — ERROR severity,
+  CI-gating — report a node named `the`.
+- **Comments are masked** before the rules run, the same treatment the `.cypher`
+  path has had since #710. Prose in a comment is not Cypher: `// The stale-owner
+  DELETE enforces the single-owner invariant` made CYP002 report a node named
+  `enforces` inside a query that is entirely correct.
+
+The gate replaced a local heuristic (`_is_actual_cypher`) that scored raw text for
+four structural shapes and so was blind to fully-interpolated queries. Deleting it
+cost nothing measurable: the shared gate admits 1047 of the 1049 literals it
+admitted, and the 2 it declines are prose docstrings.
+
+**Known cost of the head anchor:** prose that opens with an uppercase clause and an
+operand (`MATCH the user to the correct task`) is admitted outside a docstring. That
+is the anchor working as designed — it is what admits `RETURN 1 as ping` and `SHOW
+INDEXES`, statement families with no paren to anchor on — and the docstring
+exemption is what keeps it safe. A test pins the trade; if it ever needs to change,
+the fix is a fourth condition on the shared anchor, not a second prose heuristic in
+`cypher_linter.py`.
+
+Single-line
 f-string concatenation (`cypher += f"..."`) is below its resolution —
 parameterize those by convention.
 
@@ -218,7 +247,9 @@ own query (so a `LIMIT` in one audit query can't exempt another, and CYP009
 complexity isn't summed across a whole migration). Comments — `//` line and
 `/* */` block — are masked before rules run, so comment prose ("DELETE the
 stale edges") can't trip prose-shaped rules and a `;` or quote inside a
-comment never splits a statement. The one exception: `noqa:`-carrying `//`
+comment never splits a statement. Masking started here and now applies to both
+source shapes; only the statement splitting is specific to this one. The one
+exception to masking: `noqa:`-carrying `//`
 comments are kept, and the natural placement works —
 `DELETE n; // noqa: CYP002 - reason` suppresses the statement its semicolon
 closes. Block comments are always masked, so noqa must be `//`-style.

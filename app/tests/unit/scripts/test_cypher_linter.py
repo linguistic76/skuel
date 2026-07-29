@@ -2,7 +2,7 @@
 Tests for Cypher Query Linter
 ==============================
 
-Tests _is_actual_cypher, _extract_cypher_queries, _extract_cypher_statements
+Tests extraction admission, _extract_cypher_queries, _extract_cypher_statements
 (.cypher files), CYP001-CYP006, CYP009, _get_line_at_position, complexity
 scoring, and file discovery.
 """
@@ -30,77 +30,238 @@ def make_linter() -> CypherLinter:
     return CypherLinter(errors_only=False)
 
 
+def admits(text: str) -> bool:
+    """Does the real extractor yield ``text`` when it appears as an assignment?
+
+    Through ``_extract_cypher_queries`` rather than a gate call. The gate is
+    ``cypher_vocabulary.looks_like_cypher``, tested on its own terms in
+    test_cypher_vocabulary.py; what THIS file owns is what the extractor
+    admits, which is the gate PLUS the docstring exemption — and the exemption
+    is only observable from here. Assignment position, not a bare expression,
+    so the literal is not itself a module docstring.
+    """
+    return bool(make_linter()._extract_cypher_queries(f'query = """{text}"""\n', Path("test.py")))
+
+
 # ============================================================================
-# _is_actual_cypher
+# EXTRACTION ADMISSION (was: _is_actual_cypher)
 # ============================================================================
 
 
-class TestIsActualCypher:
+class TestExtractionAdmission:
+    """What reaches the rules at all — the layer upstream of every CYP rule.
+
+    These cases were written against ``_is_actual_cypher``, a local heuristic
+    that scored raw text for four structural shapes. It was deleted, not
+    tuned: measured across the scanned trees, ``looks_like_cypher`` admitted
+    1047 of the 1049 literals it admitted, and the 2 it declined were prose
+    docstrings the local one should never have taken. Every case below is
+    rebound to the extractor so it tests the path the rules actually run.
+    """
+
     def test_real_match_query(self) -> None:
-        linter = make_linter()
-        query = "MATCH (n:Entity) WHERE n.uid = $uid RETURN n"
-        assert linter._is_actual_cypher(query) is True
+        assert admits("MATCH (n:Entity) WHERE n.uid = $uid RETURN n") is True
 
     def test_real_create_query(self) -> None:
-        linter = make_linter()
-        query = "CREATE (n:Entity {uid: $uid, title: $title}) RETURN n"
-        assert linter._is_actual_cypher(query) is True
+        assert admits("CREATE (n:Entity {uid: $uid, title: $title}) RETURN n") is True
 
     def test_merge_query(self) -> None:
-        linter = make_linter()
-        query = "MERGE (n:Entity {uid: $uid}) RETURN n"
-        assert linter._is_actual_cypher(query) is True
+        assert admits("MERGE (n:Entity {uid: $uid}) RETURN n") is True
 
     def test_natural_language_rejected(self) -> None:
-        linter = make_linter()
-        text = "This is a description of how MATCH works in Neo4j"
-        assert linter._is_actual_cypher(text) is False
-
-    def test_documentation_rejected(self) -> None:
-        linter = make_linter()
-        text = "MATCH the user to the correct task for optimal learning"
-        assert linter._is_actual_cypher(text) is False
+        assert admits("This is a description of how MATCH works in Neo4j") is False
 
     def test_no_cypher_keywords(self) -> None:
-        linter = make_linter()
-        text = "just some plain text without any cypher"
-        assert linter._is_actual_cypher(text) is False
-
-    def test_only_one_keyword_rejected(self) -> None:
-        linter = make_linter()
-        # Only MATCH, no second keyword, no syntax patterns
-        text = "MATCH something"
-        assert linter._is_actual_cypher(text) is False
+        assert admits("just some plain text without any cypher") is False
 
     def test_relationship_pattern(self) -> None:
-        linter = make_linter()
-        query = "MATCH (a:Entity)-[r:OWNS]->(b:Entity) WHERE a.uid = $uid RETURN b"
-        assert linter._is_actual_cypher(query) is True
+        assert admits("MATCH (a:Entity)-[r:OWNS]->(b:Entity) WHERE a.uid = $uid RETURN b") is True
 
     def test_single_command_merge_accepted(self) -> None:
-        # The >= 2 keyword floor silently skipped one-command upserts — exactly
-        # the interpolated MERGE shape CYP003 exists to catch (docs_to_neo4j.py).
-        linter = make_linter()
-        query = "MERGE (c:DocumentCategory {name: $name})"
-        assert linter._is_actual_cypher(query) is True
+        # The old >= 2 keyword floor silently skipped one-command upserts —
+        # exactly the interpolated MERGE shape CYP003 exists to catch.
+        assert admits("MERGE (c:DocumentCategory {name: $name})") is True
 
     def test_call_procedure_with_params_accepted(self) -> None:
-        # Procedure calls have no (n:Label) pattern — $params are their only
-        # structural signal (query_template_registry fulltext template).
-        linter = make_linter()
-        query = (
-            "CALL db.index.fulltext.queryNodes($index_name, $search_term)\n"
-            "YIELD node, score\n"
-            "RETURN node as n, score ORDER BY score DESC LIMIT $limit"
+        # Procedure calls have no (n:Label) pattern at all; the shared gate
+        # reaches them through its `CALL db.` arm.
+        assert (
+            admits(
+                "CALL db.index.fulltext.queryNodes($index_name, $search_term)\n"
+                "YIELD node, score\n"
+                "RETURN node as n, score ORDER BY score DESC LIMIT $limit"
+            )
+            is True
         )
-        assert linter._is_actual_cypher(query) is True
 
     def test_merge_set_upsert_accepted(self) -> None:
-        # SET was not a counted keyword — MERGE+SET upserts scored 1 and were
-        # skipped before 2026-07.
+        assert admits("MERGE (d:Document {uid: $uid})\nSET d.title = $title") is True
+
+    def test_fully_interpolated_query_is_admitted(self) -> None:
+        """The gap this replacement closed, at the extractor rather than a rule.
+
+        `relationship_builders.py` interpolates EVERY structural position, so
+        the deleted heuristic found no node pattern, no rel pattern, no
+        property map and no `$param` — it scored zero and dropped the query
+        before any of the twelve CYP rules could see it. 113 queries tree-wide
+        were rejected on that basis while leading with a Cypher clause.
+        """
+        assert (
+            admits(
+                "MATCH (from {from_pattern})-[r:{self._relationship_type}]->(to {to_pattern})\n"
+                "DETACH DELETE r\nRETURN count(r) as deleted"
+            )
+            is True
+        )
+
+    def test_prose_leading_with_a_clause_is_admitted_outside_a_docstring(self) -> None:
+        """The head anchor's known cost, stated rather than papered over.
+
+        ``MATCH the user to ...`` is uppercase-at-head with an operand, so the
+        shared gate admits it and the deleted heuristic did not. That is the
+        anchor working as designed — it is what lets `RETURN 1 as ping` and
+        `SHOW INDEXES` through, statement families with no paren to anchor on
+        — and the reason it is safe here is the docstring exemption below,
+        which is a stated PRECONDITION of the anchor, not a nicety.
+
+        Pinned so the trade is visible: if this ever needs to be False, the
+        fix is a fourth anchor condition in cypher_vocabulary, not a second
+        prose heuristic in this file.
+        """
+        assert admits("MATCH the user to the correct task for optimal learning") is True
+        assert admits("MATCH something") is True
+
+
+# ============================================================================
+# DOCSTRING EXEMPTION
+# ============================================================================
+
+
+class TestDocstringExemption:
+    """Docstrings are inert nodes; the same text in a query is not.
+
+    SKUEL030 gets this exemption free from its AST walk. This extractor is a
+    regex over raw source and had none, so every `\"\"\"` in the file reached
+    the rules — including SKUEL033's intent-only docstrings, which open with
+    the clause the method performs and are therefore head-anchor bait by
+    construction.
+    """
+
+    def test_intent_docstring_opening_with_a_clause_is_skipped(self) -> None:
         linter = make_linter()
-        query = "MERGE (d:Document {uid: $uid})\nSET d.title = $title"
-        assert linter._is_actual_cypher(query) is True
+        content = 'async def record_view(self) -> None:\n    """MERGE VIEWED relationship."""\n'
+        assert linter._extract_cypher_queries(content, Path("test.py")) == []
+
+    def test_the_same_text_outside_a_docstring_is_admitted(self) -> None:
+        """The exemption keys on POSITION, which is the whole point of the AST."""
+        assert admits("MERGE VIEWED relationship.") is True
+
+    def test_module_and_class_docstrings_are_skipped(self) -> None:
+        linter = make_linter()
+        content = (
+            '"""MERGE the module-level prose."""\n\n'
+            'class Backend:\n    """DELETE the class-level prose."""\n'
+        )
+        assert linter._extract_cypher_queries(content, Path("test.py")) == []
+
+    def test_a_real_query_beside_a_docstring_still_reaches_the_rules(self) -> None:
+        """The exemption must not swallow the function body it sits above."""
+        linter = make_linter()
+        content = (
+            "async def detach(self) -> None:\n"
+            '    """DELETE the ``edge_name`` edge; returns a ``removed`` count row."""\n'
+            '    query = """MATCH (a:Entity)-[r:OWNS]->(b:Entity) DELETE r RETURN count(r)"""\n'
+        )
+        queries = linter._extract_cypher_queries(content, Path("test.py"))
+        assert len(queries) == 1
+        assert "MATCH (a:Entity)" in queries[0][0]
+
+    def test_docstring_prose_no_longer_reaches_cyp002(self) -> None:
+        """The measured cost of the missing exemption, pinned as a regression.
+
+        ``DELETE the ...`` in a SKUEL033 intent docstring made CYP002 — ERROR
+        severity, and CI-gating under ``--strict`` — report a node named
+        'the'. A gate must not fail closed on prose.
+        """
+        linter = make_linter()
+        content = (
+            "async def detach(self) -> None:\n"
+            '    """DELETE the ``edge_name`` edge; returns a ``removed`` count row."""\n'
+        )
+        violations = [
+            v
+            for query, line in linter._extract_cypher_queries(content, Path("test.py"))
+            for v in linter._check_delete_without_detach(query, Path("test.py"), line)
+        ]
+        assert violations == []
+
+    def test_unparseable_content_exempts_nothing(self) -> None:
+        """Fail OPEN, not closed: a syntax error must not silence the linter.
+
+        Returning [] from the exemption leaves the gate as the only filter —
+        the behaviour that existed before the exemption did.
+        """
+        linter = make_linter()
+        assert linter._docstring_lines("def broken(:\n") == set()
+        content = 'def broken(:\n query = """MATCH (n:Entity) RETURN n"""\n'
+        assert len(linter._extract_cypher_queries(content, Path("test.py"))) == 1
+
+
+# ============================================================================
+# COMMENT MASKING (parity with the .cypher path)
+# ============================================================================
+
+
+class TestCommentMasking:
+    def test_prose_in_a_comment_does_not_reach_cyp002(self) -> None:
+        """The other half of the 'node named the' family, inside a REAL query.
+
+        ``// The stale-owner DELETE enforces the single-owner invariant`` made
+        CYP002 report a node named 'enforces' in a query that is entirely
+        correct. The docstring exemption cannot help here — the query is real
+        and the prose is a Cypher comment inside it. The `.cypher` path has
+        masked comments since #710; this one never did.
+        """
+        linter = make_linter()
+        content = (
+            'query = """\n'
+            "// The stale-owner DELETE enforces the single-owner invariant\n"
+            "MATCH (u:User)-[r:OWNS]->(n:Entity)\n"
+            "DELETE r\n"
+            '"""\n'
+        )
+        queries = linter._extract_cypher_queries(content, Path("test.py"))
+        assert len(queries) == 1
+        violations = [
+            v
+            for query, line in queries
+            for v in linter._check_delete_without_detach(query, Path("test.py"), line)
+        ]
+        assert violations == []
+
+    def test_masking_preserves_line_offsets(self) -> None:
+        """Masking blanks in place, so every rule's line arithmetic survives."""
+        linter = make_linter()
+        content = 'query = """\n// a comment\nMATCH (n:Entity)\nDELETE n\n"""\n'
+        ((query, _),) = linter._extract_cypher_queries(content, Path("test.py"))
+        assert query.count("\n") == 4
+        assert "a comment" not in query
+        assert "MATCH (n:Entity)" in query
+
+    def test_a_noqa_comment_survives_masking(self) -> None:
+        """Suppressions are read off the violation's own line, so they must live."""
+        linter = make_linter()
+        content = (
+            'query = """\nMATCH (n:Entity {uid: $uid})\nDELETE n // noqa: CYP002 - leaf node\n"""\n'
+        )
+        queries = linter._extract_cypher_queries(content, Path("test.py"))
+        assert "noqa: CYP002" in queries[0][0]
+        violations = [
+            v
+            for query, line in queries
+            for v in linter._check_delete_without_detach(query, Path("test.py"), line)
+        ]
+        assert violations == []
 
 
 # ============================================================================
@@ -654,26 +815,38 @@ class TestCYP012:
         assert len(violations) == 1
         assert linter._node_vars(query) == {"a", "b"}
 
-    def test_fully_interpolated_query_is_caught_by_the_rule_but_not_reached(self) -> None:
-        """Coverage boundary, measured: 3 of the 4 repaired sites are guarded, not 4.
+    def test_fully_interpolated_query_is_now_reached_end_to_end(self) -> None:
+        """The boundary this test used to pin, now on the other side of it.
 
-        `relationship_builders.py` interpolates EVERY structural position —
-        `(from {from_pattern})`, `-[r:{self._relationship_type}]` — so
-        `_is_actual_cypher` finds no node pattern, no rel pattern, no property
-        map and no `$param`, and the extractor never yields the query. That miss
-        is upstream of every CYP rule, not CYP012's: handed the text directly,
-        the rule fires. Pinned here so the boundary is visible rather than
-        assumed, and so coverage follows automatically if the extraction
-        heuristic is ever widened.
+        Its previous form asserted ``_is_actual_cypher(...) is False`` with the
+        message "extraction gap closed — retest coverage", recording that all
+        4 repaired `relationship_builders.py` sites were guarded by the rule
+        but only 3 were REACHED by the extractor. The gap is closed, so the
+        assertion is inverted rather than deleted: the same text now travels
+        the whole path — extractor to rule — and CYP012 fires from
+        ``lint_file``'s own pipeline, not from a direct call to the rule.
+
+        Going through the extractor is the point. A direct rule call always
+        passed; that is precisely why the 4th site went unguarded for as long
+        as it did.
         """
         linter = make_linter()
-        query = (
-            "\n            MATCH (from {from_pattern})-[r:{self._relationship_type}]"
-            "->(to {to_pattern})\n            DETACH DELETE r\n"
-            "            RETURN count(r) as deleted\n        "
+        content = (
+            "    def detach(self):\n"
+            '        query = f"""\n'
+            "            MATCH (from {from_pattern})-[r:{self._relationship_type}]"
+            "->(to {to_pattern})\n"
+            "            DETACH DELETE r\n"
+            "            RETURN count(r) as deleted\n"
+            '        """\n'
         )
-        assert linter._is_actual_cypher(query) is False, "extraction gap closed — retest coverage"
-        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        queries = linter._extract_cypher_queries(content, Path("test.py"))
+        assert len(queries) == 1, "extraction gap reopened — the query is invisible again"
+        violations = [
+            v
+            for query, line in queries
+            for v in linter._check_detach_on_relationship(query, Path("test.py"), line)
+        ]
         assert [v.rule_code for v in violations] == ["CYP012"]
 
     def test_comment_between_targets_does_not_truncate_the_list(self) -> None:

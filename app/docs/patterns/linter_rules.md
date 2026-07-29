@@ -29,7 +29,7 @@ For implementation guidance, see:
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
 - `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
-- `tests/unit/scripts/test_cypher_linter.py` — 122 tests covering CYP001–CYP006, CYP009, CYP011, CYP012, Python query extraction, `.cypher` statement extraction, file discovery, helpers
+- `tests/unit/scripts/test_cypher_linter.py` — 131 tests covering CYP001–CYP006, CYP009, CYP011, CYP012, Python query extraction (admission, docstring exemption, comment masking), `.cypher` statement extraction, file discovery, helpers
 
 ## SKUEL-Specific Rules
 

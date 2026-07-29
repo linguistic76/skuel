@@ -337,7 +337,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             OPTIONS {{
                 indexConfig: {{
                     `vector.dimensions`: {dimension},
-                    `vector.similarity_function`: '{similarity}'
+                    `vector.similarity_function`: '{similarity}' // noqa: CYP003 - _validate_similarity() above; OPTIONS takes no parameters
                 }}
             }}
             """
