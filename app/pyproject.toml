@@ -565,16 +565,23 @@ target-version = "py314"
 line-length = 100
 include = ["*.py", "*.pyi"]
 exclude = [
+    # These are DEFENSIVE: a bare name here matches at any depth, and most of these
+    # directories are absent from a clean checkout by design (Docker volumes, gitignored
+    # local archives). Absent-from-disk is NOT evidence an entry is dead — verified by
+    # materialising each path with a file ruff must flag and re-running with the entry
+    # removed. `.gitignore` covers the gitignored ones during traversal, but the exclude
+    # is what holds under `--no-respect-gitignore` and for explicitly-passed paths.
     ".venv",
-    "backup_archive",
+    "backup_archive",  # Local backup dir; mirrored in scripts/lint_skuel.py EXCLUDED_DIRS
     "neo4j-import",  # Neo4j Docker container data directory (permission denied)
-    "docs/archive",  # Archived/deprecated code - not actively maintained
-    "zarchives",     # Archived code - not actively maintained
+    "docs/archive",  # Archived/deprecated code - not actively maintained (.gitignore: **/archive/)
+    "zarchives",     # Archived code - not actively maintained (.gitignore: zarchives/)
     "__pycache__",
-    "migrations",
+    "migrations",    # LIVE: matches scripts/migrations/ + tests/integration/migrations/ at
+                     # any depth, not a root-level dir. lint_skuel.py excludes the same tree
+                     # ("Migration scripts document old patterns").
     "*.egg-info",
     ".claude/skills",  # Claude Code skills templates (documentation, not production code)
-    "scripts/migrate_dsl_error_handling.py",  # Contains regex patterns that confuse ruff's parser
 ]
 
 [tool.ruff.lint]
@@ -694,8 +701,12 @@ fixable = ["ALL"]
 # `core/ingestion/`, `core/prompts/`, loose files directly under `core/` other than
 # `core/errors.py`, and the app root (`main.py`, `vulture_whitelist.py`). Adding an
 # `Any` signature in any of them fails CI, deliberately.
-# `tests/`, `ui/`, `examples/` and `templates/` never reach this ledger — they are
-# exempt from the whole `ANN` linter in their own entries below.
+# `tests/`, `ui/` and `examples/` never reach this ledger — they are exempt from the
+# whole `ANN` linter in their own entries below. (A `templates/` entry sat alongside
+# them until it was swept out: no root-level `templates/` tree exists. The pattern was
+# root-anchored, so it never covered the six nested `templates/` directories —
+# `core/models/templates/` and friends are ANN-enforced and reach this ledger through
+# their parent trees.)
 #
 # `core/` is enumerated one subtree at a time because any pattern rooted at `core/`
 # alone also covers `core/ports/`. `core/services/**/*.py` and friends are safe: the
@@ -758,8 +769,7 @@ fixable = ["ALL"]
 "ui/*.py" = ["N802", "RUF001", "RUF002"]              # Shared UI components use PascalCase + Unicode icons
 "ui/**/*.py" = ["F405", "N802", "RUF001", "RUF002", "RUF012", "ARG001", "ARG002", "ANN", "PERF401"]  # UI: PascalCase + Unicode + class defaults
 
-# Templates and examples are documentation (Phase 8.1)
-"templates/**/*.py" = ["ANN", "ARG"]
+# Examples are documentation (Phase 8.1)
 "examples/**/*.py" = ["ANN", "T201", "ARG", "E731", "RUF001"]  # Examples can use lambdas + Unicode
 
 # Core utilities with special import patterns
@@ -777,24 +787,15 @@ fixable = ["ALL"]
 "scripts/*.py" = ["E402", "ARG", "RUF001", "RUF002", "RUF003"]  # Scripts: setup imports, CLI emoji
 
 # Infrastructure files - intentional Unicode in documentation
-"core/services/journal_core_service.py" = ["RUF001"]  # Journal service uses Unicode symbols
-"core/services/audio_transcription_service.py" = ["RUF001"]  # Emojis in log messages for readability (✅⚠️ℹ️)
 "adapters/inbound/auth/session.py" = ["RUF001"]  # Session management uses Unicode indicators
-"core/infrastructure/routes/intelligence_route_factory.py" = ["RUF002"]  # Math symbols (×) in docstring calculations
-
-# Mock data - unused parameters reserved for future real implementation
-"core/mock_data/**/*.py" = ["ARG001"]           # Mock functions will use user_uid/period when implemented
 
 # Files with intentional unused parameters (protocols, future implementation, or framework requirements)
 "core/models/validation_rules.py" = ["ARG001", "ARG002"]  # Pydantic field_validators require cls but may not use it
 "core/services/dsl/*.py" = ["ARG002", "SIM116"]   # DSL visitor pattern + if/elif chains for mapping
 "core/services/intelligence/*.py" = ["ARG001", "ARG002"]  # Calculator methods reserve params for future
-"core/models/query/_cypher_generator.py" = ["ARG002", "ARG004", "RUF002", "PERF401"]  # Query builder signatures + math symbols in docs
-"core/models/query/cypher/*.py" = ["ARG001", "ARG002", "RUF002", "PERF401"]  # Cypher query modules + math symbols
 "adapters/persistence/neo4j_adapter.py" = ["ARG002"]  # Adapter method signatures
 "adapters/vault/*.py" = ["ARG002"]  # Filesystem adapter implements VaultBridgePort; user_uid unused in single-user local impl
 "core/services/*_service.py" = ["ARG002", "PERF401"]  # Service method signatures implement protocols
-"core/services/unified_ingestion_service.py" = ["E402", "F402"]  # Imports after constants + loop var shadowing
 "core/services/*/[!_]*.py" = ["ARG002", "ARG004", "RUF012", "PERF401", "SIM102", "SIM108", "SIM116"]  # Nested service modules + class config
 "core/services/infrastructure/*.py" = ["ARG002"]  # Infrastructure helpers
 "core/infrastructure/**/*.py" = ["ARG001", "ARG002", "PERF401", "SIM116", "RUF002", "B021", "ANN401"]  # Route factories + batch helpers; ANN401 (11) belongs to the debt ledger at the top of this table
@@ -802,57 +803,41 @@ fixable = ["ALL"]
 "core/services/user/*.py" = ["ARG002", "PERF", "F822"]  # User services implement protocols + complex context ops
 "core/models/search/*.py" = ["ARG001", "ARG002", "RUF012", "E741"]  # Search scoring methods + class config + var names
 
-
-# Core utilities - various patterns
-"core/utils/api_responses.py" = ["B021", "F822"]  # f-string docstrings + legacy re-exports
-"core/models/relationships/*.py" = ["F822", "ARG003", "PERF401"]  # Re-exports + class methods + performance patterns
-
-# Core models - query models have protocol-based interfaces
-"core/models/query/_query_models.py" = ["ARG001"]  # Query model protocols need consistent signatures
-
 # NOTE: "core/services/**/*.py" and "adapters/**/*.py" used to sit here as empty
 # lists carrying APOC comments. They ignored nothing — APOC placement is SKUEL001 in
 # scripts/lint_skuel.py, not a ruff rule — and both keys now live in the ANN401 debt
 # ledger at the top of this table.
 
 # ============================================================================
-# DEFERRED IMPLEMENTATIONS - Tracked in docs/reference/DEFERRED_IMPLEMENTATIONS.md
+# DEFERRED IMPLEMENTATIONS — intentionally unused parameters
 # ============================================================================
-# These files have intentionally unused parameters reserved for future implementation.
-# Each violation is tagged in code (DEFERRED-ARG-*, FUTURE-IMPL-*, STUB-*, API-COMPAT-*)
-# and documented with implementation requirements in DEFERRED_IMPLEMENTATIONS.md
+# docs/reference/DEFERRED_IMPLEMENTATIONS.md, cited by the previous version of this
+# header, does not exist. Of the four tag families it named, only FUTURE-IMPL-* is
+# still present in the tree (6 sites: goal_event_handler_service, goals_progress_service,
+# lp_progress_service); DEFERRED-ARG-*, STUB-* and API-COMPAT-* are gone from the code,
+# and the three entries that carried them pointed at files that no longer exist.
 #
-# Search for implementations: rg "# DEFERRED:" --type py
-# Search for all tags: rg "docs/reference/DEFERRED_IMPLEMENTATIONS.md" --type py
+# Find the surviving tags: rg "FUTURE-IMPL-" --type py
 
-# Deferred to Phase 3B (DEFERRED-ARG-001)
-"core/services/adaptive_lp/adaptive_lp_recommendations_service.py" = ["ARG002"]
-
-# Future personalization (FUTURE-IMPL-001 through FUTURE-IMPL-009)
-"core/services/goals/goal_recommendation_service.py" = ["ARG002"]  # 4 unused: user_uid, domain (multiple methods)
+# Future personalization (FUTURE-IMPL-008, FUTURE-IMPL-009)
 "core/services/goals/goals_progress_service.py" = ["ARG002"]       # FUTURE-IMPL-008: current_streak
 "core/services/lp/lp_progress_service.py" = ["ARG002"]             # FUTURE-IMPL-009: newly_mastered_ku
 
-# Stub/placeholder methods (STUB-001 through STUB-006)
-"core/services/askesis/context_retriever.py" = ["ARG002"]          # STUB-001, STUB-002, STUB-003
-"core/services/askesis/query_processor.py" = ["ARG002"]            # STUB-004, STUB-005
-"core/services/user/user_context_intelligence.py" = ["ARG002"]     # STUB-006
+# Askesis stub/placeholder methods — no tag left in code, params still unused
+"core/services/askesis/context_retriever.py" = ["ARG002"]
+"core/services/askesis/query_processor.py" = ["ARG002"]
 
-# API compatibility (API-COMPAT-001)
-"adapters/inbound/response_helpers.py" = ["ARG001"]                # FastHTML - headers param for API consistency
-"adapters/inbound/_pathstep_template_routes_helpers.py" = ["ARG001"]  # FastHTML route handlers — request/current_user injected by decorators
+# FastHTML route handlers — request/current_user injected by decorators
+"adapters/inbound/_pathstep_template_routes_helpers.py" = ["ARG001"]
 
 # ============================================================================
 # SKUEL PATTERN EXCEPTIONS (January 2025)
 # ============================================================================
 # Lambda exceptions: E731 (Do not assign a lambda expression, use a def)
 "core/utils/sort_functions.py" = ["F811"]     # Named sort functions, duplicate defs for backwards compat
-"core/infrastructure/utils/factory_functions.py" = []  # Named factories, no lambdas
-"core/utils/mock_decorators.py" = ["E731"]    # Mock utilities can use lambdas
 
 # hasattr() exceptions: Checked via custom SKU002 rule
 # Allowed in: core/utils/sort_functions.py (duck typing for generic utilities)
-# Allowed in: core/utils/mock_decorators.py (testing function metadata)
 
 [tool.ruff.lint.isort]
 known-first-party = [
