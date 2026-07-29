@@ -226,7 +226,15 @@ async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Resu
 - **Parameter style consistency**: Routes use FastHTML function parameters with type hints
 
 **Placeholder Convention (`_period_days`):**
-The `period_days` parameter in `get_performance_analytics()` uses underscore prefix (`_period_days`) in 4 services (Goals, Habits, Choices, Principles) to indicate "API contract defined, implementation deferred". **Events** now fully implements period filtering (January 19, 2026). See CLAUDE.md § "Parameter Naming Convention".
+`get_performance_analytics()` carries an unapplied `_period_days` in **3** services — Habits,
+Choices, Principles — where the underscore prefix marks "API contract defined, implementation
+deferred". **Goals is not one of them:** it takes a non-underscore `period_days` and filters on it
+(though its filter has a separate defect — see the register). **Events** implements period
+filtering, in Python, over its `event_date` domain field.
+
+**The register is `docs/reference/PLACEHOLDER_INDEX.md` § "Group A — Period-Based Analytics
+Filtering"** — verified coordinates, the reason the placeholder is a user-visible wrong answer, and
+the correct fetch helper live there. Do not restate the deferral here; link to it.
 
 **Tests:** 19/19 factory tests + 108/108 intelligence tests passing
 

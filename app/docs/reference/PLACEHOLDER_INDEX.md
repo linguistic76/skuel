@@ -11,7 +11,9 @@ a file, a line, and a symbol that should be on it, so the set is re-checkable me
 ⚠ **That verification does not survive later PRs, and nothing re-runs it.** Group E's four choices
 rows were six lines stale by the time anyone read them again — #859 inserted a helper above them and
 shifted the block — so treat the stamp above as "verified once", not "currently true". Group E's
-choices rows were re-derived in #862; the rest still carry the `77c4d959b` stamp.
+choices rows were re-derived in #862, and **Group A's were re-derived against `1f0d396ce` on
+2026-07-29** — #862 shifted the choices method down 7 lines, staling that row the same way. Every
+other group still carries the `77c4d959b` stamp.
 
 **When a coordinate misses, grep the symbol, not the path.** Whether the file exists is the wrong
 staleness test: the previous revision's rows failed three different ways, and only one of them was
@@ -47,7 +49,7 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 | Service | File | Line | Parameter | Method |
 |---------|------|------|-----------|--------|
 | HabitsIntelligenceService | `core/services/habits/habits_intelligence_service.py` | 112 | `_period_days: int = 30` | `get_performance_analytics()` (111) |
-| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 104 | `_period_days: int = 30` | `get_performance_analytics()` (103) |
+| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 111 | `_period_days: int = 30` | `get_performance_analytics()` (110) |
 | PrinciplesIntelligenceService | `core/services/principles/_core_intelligence_mixin.py` | 55 | `_period_days: int = 30` | `get_performance_analytics()` (54), mixed into `principles_intelligence_service.py:44` |
 
 ⚠ **These three are live, and the placeholder is user-visible.** All six Activity Domains register
@@ -55,12 +57,18 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 `intelligence=IntelligenceRouteConfig()`, `domain_route_factory.py:340`). The handler reads
 `period_days` off the query string and passes it through
 (`intelligence_route_factory.py:286`, `290`). Each of the three services then echoes it back as
-`"period_days"` in the response body (habits 173, choices 142, principles 99) while computing over
+`"period_days"` in the response body (habits 173, choices 149, principles 99) while computing over
 everything `find_by(user_uid=...)` returns. The response therefore *claims* a window it did not
 apply — this is a wrong answer, not just a missing feature.
 
 **Goals is already implemented and is not listed here:** `GoalsIntelligenceService` takes a
 non-underscore `period_days` and filters on it at `goals_intelligence_service.py:162`.
+
+⚠ **Implemented is not the same as correct — do not copy the goals call.** Its filter is
+`find_by(updated_at__gte=cutoff.isoformat())`, a bare `>=` against a string bound, and
+`updated_at` is mixed-representation (see below). Re-ingested goals are silently dropped from
+its analytics today. That is a live defect, tracked separately; this group's remedy is written
+against what is *correct*, not against what goals ships.
 
 **What full implementation requires:** each service must bound its fetch to the period window.
 
@@ -69,16 +77,46 @@ non-underscore `period_days` and filters on it at `goals_intelligence_service.py
 `core/`, where **SKUEL021 forbids raw Cypher** (`lint_skuel.py:17`, ADR-044) — and all three
 currently author none. That remedy would not lint.
 
-The in-architecture move is the one goals already uses: pass a bounded filter to `find_by`, which
-supports `__gte`/`__lte` suffixes (`universal_backend.py:228`).
+The in-architecture move is `find_by_date_range`, which coerces the stored value
+(`date(left(toString(n.field), 10))`) before comparing — declared on `EntitySearchOperations`
+(`base_protocols.py:583`).
 
 ```python
-cutoff = datetime.now(UTC) - timedelta(days=period_days)
-result = await self.backend.find_by(user_uid=user_uid, updated_at__gte=cutoff.isoformat())
+cutoff = date.today() - timedelta(days=period_days)
+result = await self.backend.find_by_date_range(
+    start_date=cutoff, end_date=None,
+    date_field="updated_at",                      # or "created_at"
+    additional_filters={"user_uid": user_uid},
+)
 ```
 
-— `goals_intelligence_service.py:162–164`. Whether the window should key off `created_at` or
-`updated_at` is a semantic decision the implementer still has to make; goals chose `updated_at`.
+⚠ **Not `find_by(<field>__gte=...)`, for either key.** Both timestamp fields are
+**mixed-representation**, so a bare `>=` against a string bound evaluates to null on the
+temporally-stored rows and silently drops them — the protocol docstring says so explicitly
+(`base_protocols.py:591–596`):
+
+| Field | ISO string written by | Native `datetime()` written by |
+|---|---|---|
+| `created_at` | `_crud_mixin` create path | `BulkUpsertBackend` `ON CREATE` (`bulk_upsert_backend.py:122`) |
+| `updated_at` | `_crud_mixin.py:437` | `BulkUpsertBackend` `ON MATCH` (`bulk_upsert_backend.py:125`) |
+
+Habit, Choice, Principle **and** Goal all carry an `EntityIngestionConfig`
+(`core/services/ingestion/config.py:269–309`), so every one of them can be re-ingested from the
+vault and pick up the native-datetime shape. This is not a rare edge: it is the shape of any
+entity whose last write came from a vault sync.
+
+Whether the window keys off `created_at` or `updated_at` remains a semantic decision — but it no
+longer changes which helper to use.
+
+**This group is the register for the `_period_days` deferral; add coordinates here, not elsewhere.**
+Three other copies existed as of 2026-07-29 and are now redirect stubs or links:
+`docs/architecture/INTELLIGENCE_BACKLOG.md` § 2C, `docs/roadmap/intelligence-backlog-implementation.md`
+§ Item 2C, and `docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` § "Placeholder Convention".
+
+Two of them survived repeated doc sweeps for the same structural reason: **a claim that resolves to
+nothing never looks stale.** § 2C named four methods that had never existed in any branch;
+INTELLIGENCE_SERVICES_INDEX said "4 services" and counted Goals, which has been implemented
+throughout. Neither error is visible to a link checker, and neither reads as obviously wrong.
 
 ---
 
@@ -378,7 +416,7 @@ these functions, so their absence from its PLANNED tables is not evidence either
 
 | Priority | Group | Reason |
 |----------|-------|--------|
-| High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, and goals already shows the shape (`goals_intelligence_service.py:162`) |
+| High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, via `find_by_date_range` — **not** the bare `find_by(<field>__gte=...)` goals uses, which drops re-ingested rows (see the group) |
 | High | E — Hardcoded Scalars | The three choices rows are **unreachable** — both enclosing methods filter on a `Choice.date` property that does not exist, so they return empty. Repointing that filter comes before any of the aggregations; `learning_progress_rate` is independent and needs a graph query |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |

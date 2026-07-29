@@ -93,26 +93,26 @@ query, not the context read. Real implementation needs:
 
 ---
 
-## 2C: `_period_days` placeholder in 4 intelligence services
+## 2C: `_period_days` placeholder — retired, see PLACEHOLDER_INDEX Group A
 
-All 4 services accept `_period_days: int = 30` but do not apply any date filtering.
+**Retired 2026-07-29 as a stale duplicate.** The live register for this deferral is
+`/docs/reference/PLACEHOLDER_INDEX.md` § "Group A — Period-Based Analytics Filtering" (a High
+priority row). It carries re-verified coordinates, the reason the placeholder is a user-visible
+wrong answer rather than a missing feature — the response echoes a `period_days` it never
+applied — and the in-architecture remedy.
 
-| File | Method |
-|------|--------|
-| `core/services/habits/habits_intelligence_service.py` | `get_habits_strength_metrics()` |
-| `core/services/goals/goaps_intelligence_service.py` | `get_goal_momentum_metrics()` |
-| `core/services/choices/choices_intelligence_service.py` | `get_decision_velocity()` |
-| `core/services/principles/principles_intelligence_service.py` | `get_principle_alignment_trends()` |
+Two errors are recorded here so they are not re-derived from memory:
 
-**What real implementation needs for each:**
-- Build date range: `today - _period_days → today`
-- Filter completion events/relationships within window
-- Compute windowed metrics (streak, rate, trend/velocity)
-- Return time-stamped trend direction
-
-All 4 follow the same pattern and should be implemented together.
-
-**Trigger:** When analytics dashboards need time-window filtering controls.
+- **The four methods this section listed never existed.** `get_habits_strength_metrics()`,
+  `get_goal_momentum_metrics()`, `get_decision_velocity()` and `get_principle_alignment_trends()`
+  each return zero hits for `git log --all -S<name> -- '*.py'` across all branches. They were
+  introduced *here*, by `657483c57`, a refactor whose own message records "Zero logic changes —
+  annotation updates only". They are not renamed successors; the real method is
+  `get_performance_analytics()` on each intelligence service.
+- **The deferral covers three services, not four.** Goals is already implemented: it takes a
+  non-underscore `period_days` and filters on it (`goals_intelligence_service.py:153`). The goals
+  row also cited `goals/goaps_intelligence_service.py`, a path that has never existed in any
+  branch.
 
 ---
 
