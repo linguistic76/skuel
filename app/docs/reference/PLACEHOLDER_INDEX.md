@@ -321,11 +321,18 @@ These are FastHTML component functions that accept parameters that are not yet r
 | `ui/profile/curriculum_views.py` | 18 | `PathStepsDomainView()` | `_context`, `_focus_uid` | Renders a fixed empty state; **neither** parameter is read |
 | `ui/admin/views.py` | 526 | `render_user_reports_list()` | `_user_uid` | `@staticmethod` on `AdminUIComponents` (38); UID passed but not used in query |
 
-⚠ **Like Group B, neither function has a caller** — the only tree-wide occurrence of each name is
-its own definition. `curriculum_views.py` goes further: **nothing imports the module**. Its three
-other functions (`LearningPathsDomainView` 43, `_learning_paths_list` 84, `_ready_to_learn_list` 144)
-are unreached too, and `ui/profile/__init__.py` does not export it — the only mention of the module
-anywhere is a docstring in `ui/profile/_shared.py:3` describing itself as consumed by it.
+⚠ **Like Group B, neither function has a caller** — the only occurrence of each name in the Python
+tree is its own definition. `curriculum_views.py` goes further: **nothing imports the module**, its
+three other functions (`LearningPathsDomainView` 43, `_learning_paths_list` 84,
+`_ready_to_learn_list` 144) are unreached too, and `ui/profile/__init__.py` does not export it.
+
+**But the docs still register it as live**, which cuts the other way and must be weighed:
+`ui/profile/README.md:29` lists it in the package's module table as "KU, LS, LP profile views", and
+the `skuel-ui` skill repeats the entry (`.claude/skills/skuel-ui/SKILL.md:494`, as "KU, PS, LP").
+`ui/profile/_shared.py:3` also describes itself as "consumed by curriculum_views.py". None of that
+makes the module runtime-reachable, but it is evidence of intent, and whichever way the question is
+settled those three references have to move with it. Note the README entry still says **LS**,
+predating the LearningStep→PathStep rename — the register it belongs to is itself stale.
 
 Settle whether that module is abandoned or staged before implementing either parameter — `CLAUDE.md`
 § One Path Forward deletes the first and registers the second. Do not read `./dev bloat` as having
