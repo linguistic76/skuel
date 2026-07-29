@@ -132,20 +132,23 @@ already provides.
 ## Group E — AI Computation Placeholders (Hardcoded Values)
 
 These are not underscore parameters but are explicitly marked in comments — `# Placeholder` in the
-table below, `# FUTURE-IMPL-00N:` in the E2 subsection. They are hardcoded values that should
-eventually be computed from graph data.
+table below, `# FUTURE-IMPL-00N:` in the E2 subsection.
+
+⚠ **The four rows do not share a remedy — check the storage before writing a query.** Two of them
+need no query at all (the data is already in the caller's hands), one cannot be recovered by any
+query until persistence is defined, and only the fourth is a genuine graph read.
 
 | File | Line | Value | Should Become |
 |------|------|-------|---------------|
-| `core/services/choices/_analytics_mixin.py` | 305 | `avg_confidence = 0.7` | Mean of `choice.confidence` across recent choices |
-| `core/services/choices/_analytics_mixin.py` | 306 | `avg_satisfaction = 0.75` | Derived from outcome tracking |
-| `core/services/choices/_analytics_mixin.py` | 476 | `"avg_quality_score": 0.7` | Same as above |
-| `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum |
+| `core/services/choices/_analytics_mixin.py` | 305 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query |
+| `core/services/choices/_analytics_mixin.py` | 306 | `avg_satisfaction = 0.75` | **No query needed.** `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 296–297. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
+| `core/services/choices/_analytics_mixin.py` | 476 | `"avg_quality_score": 0.7` | **No query needed.** `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
+| `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read** |
 
-**What full implementation requires:** Each value needs a dedicated graph query. The first two sit
-in `get_decision_patterns()` (192) beside a genuinely computed ratio (`principle_alignment_score`,
-307); the third sits in `get_domain_decision_patterns()` (426) beside a real `percentage`. In both
-cases a caller cannot tell which fields of the returned dict were computed and which are constants.
+Rows 305/306 sit in `get_decision_patterns()` (192) beside a genuinely computed ratio
+(`principle_alignment_score`, 307); row 476 sits in `get_domain_decision_patterns()` (426) beside a
+real `percentage`. In both cases a caller cannot tell which fields of the returned dict were computed
+and which are constants.
 
 ### E2 — Goal-achievement recommendations (`FUTURE-IMPL-*`)
 
@@ -324,7 +327,7 @@ these functions, so their absence from its PLANNED tables is not evidence either
 |----------|-------|--------|
 | High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, and goals already shows the shape (`goals_intelligence_service.py:162`) |
 | Low | I — `entity.py` base flags | `can_view()`: base check is correct (`visibility == PUBLIC`), ownership/sharing handled by the `UserOwnedEntity` override. `substance_score()`: force-refresh is implemented on the `Curriculum` override. Both previously ranked on readings the code does not support |
-| Medium | E — Hardcoded Scalars | Affects intelligence accuracy; requires graph queries |
+| Medium | E — Hardcoded Scalars | Affects intelligence accuracy. Two of the four are in-memory aggregations the caller can do today; one is blocked on persisting decision confidence; only `learning_progress_rate` needs a graph query |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
 | Low | B — Habits Predictions | No caller in the tree — `get_habit_analytics()` is unreached facade surface. Establish a consumer or delete it before implementing either parameter |
