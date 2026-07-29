@@ -328,7 +328,7 @@ class EventsOperations(
     """Core event management operations.
 
     Inherits base CRUD operations from BackendOperations:
-    - create, get, update, DETACH DELETE, list
+    - create, get, update, delete, list
     - find_by, count, search
     - add_relationship, get_relationships, traverse
     - health_check
@@ -457,7 +457,7 @@ class HabitsOperations(
     """Core habit tracking operations.
 
     Inherits base CRUD operations from BackendOperations:
-    - create, get, update, DETACH DELETE, list
+    - create, get, update, delete, list
     - find_by, count, search
     - add_relationship, get_relationships, traverse
     - health_check
@@ -608,7 +608,7 @@ class GoalsOperations(
     """Core goal management operations.
 
     Inherits base CRUD operations from BackendOperations:
-    - create, get, update, DETACH DELETE, list
+    - create, get, update, delete, list
     - find_by, count, search
     - add_relationship, get_relationships, traverse
     - health_check
@@ -631,7 +631,7 @@ class GoalsOperations(
         ...
 
     async def delete_goal(self, goal_id: str) -> Result[bool]:
-        """DETACH DELETE a goal. Returns Result[bool]."""
+        """Delete a goal. Returns Result[bool]."""
         ...
 
     async def get_goal(self, goal_id: str) -> Result[Goal]:
@@ -711,7 +711,7 @@ class ChoicesOperations(
     """Core choice management operations.
 
     Inherits base CRUD operations from BackendOperations:
-    - create, get, update, DETACH DELETE, list
+    - create, get, update, delete, list
     - find_by, count, search
     - add_relationship, get_relationships, traverse
     - health_check
@@ -734,7 +734,7 @@ class ChoicesOperations(
         ...
 
     async def delete_choice(self, choice_id: str) -> Result[bool]:
-        """DETACH DELETE a choice. Returns Result[bool]."""
+        """Delete a choice. Returns Result[bool]."""
         ...
 
     async def resolve_choice(self, choice_id: str, resolution: Metadata) -> Result[bool]:
@@ -808,7 +808,7 @@ class PrinciplesOperations(
     """Core principle management operations. Uses Principle domain model (EntityType.PRINCIPLE).
 
     Inherits base CRUD operations from BackendOperations:
-    - create, get, update, DETACH DELETE, list
+    - create, get, update, delete, list
     - find_by, count, search
     - add_relationship, get_relationships, traverse
     - health_check
@@ -817,7 +817,7 @@ class PrinciplesOperations(
 
     Deactivation note: Use update_principle(uid, {"is_active": False}) to deactivate
     a principle without removing it from the graph. delete_principle() performs a hard
-    DETACH DELETE — only use for test cleanup or permanent removal.
+    delete — only use for test cleanup or permanent removal.
 
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
@@ -835,7 +835,7 @@ class PrinciplesOperations(
         ...
 
     async def delete_principle(self, principle_uid: EntityUID) -> Result[bool]:
-        """DETACH DELETE a principle. Principles have no soft-delete; use update_principle
+        """Delete a principle. Principles have no soft-delete; use update_principle
         to set is_active=False for deactivation without graph removal."""
         ...
 

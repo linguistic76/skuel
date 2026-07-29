@@ -7,6 +7,7 @@ Uses synthetic string content — no filesystem access needed.
 """
 
 import ast
+import re
 import sys
 from pathlib import Path
 
@@ -3019,8 +3020,12 @@ class TestSKUEL021LeadingClauseAnchor:
     def test_ignores_detach_delete_named_mid_sentence(self) -> None:
         """The head anchor, not the docstring carve-out: this string is *used*.
 
-        `DETACH DELETE` is written mid-sentence ~30 times across core/ as a
-        synonym for "delete". Only a statement that LEADS with it is Cypher.
+        The string below is synthetic. It once mirrored ~30 real core/ docstrings
+        that a stale find/replace had rewritten "delete" -> "DETACH DELETE"; that
+        damage is swept, so this no longer stands in for a live corpus. The shape
+        it pins is still the rule's whole point: only a statement that LEADS with
+        a clause is Cypher. `_spawn_orchestrator.py` carries the surviving live
+        instance — "... via ``DETACH DELETE`` on next failure".
         """
         linter = make_linter(["SKUEL021"])
         violations = lint_content(linter, 'help_text = "cascade DETACH DELETE (default False)"')
@@ -3056,15 +3061,26 @@ class TestSKUEL021LeadingClauseAnchor:
         assert len(violations) == 0
 
     def test_ignores_docstring_leading_with_a_clause_keyword(self) -> None:
-        """`core/ports/` docstrings open with "DETACH DELETE a user ..." — inert."""
-        linter = make_linter(["SKUEL021"])
-        content = (
-            "def delete_user(uid):\n"
-            '    """DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."""\n'
-            "    return None\n"
-        )
-        violations = lint_content(linter, content)
-        assert len(violations) == 0
+        """The docstring carve-out, pinned by a PAIR — a lone quiet assert is vacuous.
+
+        Asserting only that the docstring form is silent would still pass if the
+        head anchor had stopped recognising `DETACH DELETE` altogether. The
+        identical text in an assigned-string position must therefore still fire:
+        that is what identifies the carve-out — rather than some unrelated miss —
+        as the reason for the silence.
+
+        The prose below is the shape `core/ports/` actually carried until the
+        find/replace damage was swept; it is kept here synthetically because no
+        correct docstring above the hexagonal boundary opens with a Cypher clause.
+        """
+        prose = "DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."
+
+        as_docstring = f'def delete_user(uid):\n    """{prose}"""\n    return None\n'
+        assert len(lint_content(make_linter(["SKUEL021"]), as_docstring)) == 0
+
+        as_value = f'msg = "{prose}"\n'
+        violations = lint_content(make_linter(["SKUEL021"]), as_value)
+        assert [v.rule_id for v in violations] == ["SKUEL021"]
 
     # --- Behaviours gained by reading cypher_vocabulary's matcher ---
     #
@@ -3268,24 +3284,56 @@ class TestSKUEL021LeadingClauseAnchor:
     # --- Regression guard bound to the real files, not a hand-written stand-in ---
 
     def test_core_ports_docstring_prose_stays_clean(self) -> None:
-        """The six `core/ports/` docstrings that name DETACH DELETE, linted for real.
+        """Every `core/ports/` docstring that OPENS with a Cypher clause, linted for real.
 
         A synthetic equivalent would only prove the equivalent is clean. This
         runs the actual rule over the actual files, so a future widening cannot
         regress them silently.
+
+        The corpus is DISCOVERED, not hard-coded. The previous version listed
+        four filenames and asserted ``"DETACH DELETE" in content`` — which had
+        quietly made find/replace damage ("DETACH DELETE a goal.") the fixture.
+        Repairing that prose emptied three of those four files, so a hard-coded
+        list would now pin text that no longer exists. Discovery also fails loudly
+        if the corpus ever empties, where a stale list would just keep passing.
+
+        What legitimately carries the shape is ``curriculum_protocols.py``'s
+        ``MERGE a VIEWED edge ...`` family: real prose, naming the edge write the
+        port performs, and structurally identical to Cypher (uppercase clause,
+        head position, whitespace + operand).
         """
         ports = Path(__file__).resolve().parents[3] / "core" / "ports"
-        prose_files = [
-            "infrastructure_protocols.py",
-            "domain_protocols.py",
-            "conversation_protocols.py",
-            "curriculum_protocols.py",
-        ]
+        # A boolean "does any clause lead?" — so the longest-first ordering the
+        # linter needs for match PRECEDENCE has nothing to decide here.
+        leads_with_clause = re.compile(r"^(?:" + "|".join(CYPHER_LEADING_CLAUSES) + r")\s+\S")
+        docstring_owners = (ast.AsyncFunctionDef, ast.ClassDef, ast.FunctionDef, ast.Module)
+
+        corpus: dict[str, list[str]] = {}
+        for path in sorted(ports.glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, docstring_owners):
+                    continue
+                doc = (ast.get_docstring(node) or "").strip()
+                if doc and leads_with_clause.match(doc):
+                    corpus.setdefault(path.name, []).append(doc.split("\n")[0])
+
+        assert corpus, "no core/ports/ docstring opens with a Cypher clause — guard is inert"
+
+        # Non-vacuity: the very same prose, moved out of docstring position, must
+        # fire. Otherwise a head anchor that had stopped matching entirely would
+        # sail through the clean-assertions below.
+        sample = next(iter(corpus.values()))[0]
+        escaped = sample.replace("\\", "\\\\").replace('"', '\\"')
+        probe = lint_content(make_linter(["SKUEL021"]), f'msg = "{escaped}"\n')
+        assert [v.rule_id for v in probe] == ["SKUEL021"], (
+            f"{sample!r} no longer trips the head anchor — this guard proves nothing"
+        )
+
         checked = 0
-        for name in prose_files:
+        for name in sorted(corpus):
             path = ports / name
             content = path.read_text(encoding="utf-8")
-            assert "DETACH DELETE" in content, f"{name} no longer exercises this guard"
             checked += 1
 
             linter = make_linter(["SKUEL021"])
@@ -3296,7 +3344,7 @@ class TestSKUEL021LeadingClauseAnchor:
             assert linter.result.violations == [], (
                 f"SKUEL021 fired on docstring prose in core/ports/{name}"
             )
-        assert checked == len(prose_files)
+        assert checked == len(corpus)
 
 
 # ============================================================================

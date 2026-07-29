@@ -532,7 +532,7 @@ clause anywhere in the literal (MATCH (, MERGE (, OPTIONAL MATCH (, CREATE (, UN
 CALL db.), or an UPPERCASE clause keyword at the HEAD of the literal followed by an operand
 (RETURN, SHOW, PROFILE, EXPLAIN, DELETE, DETACH DELETE, SET, REMOVE, LOAD CSV, CALL, ...).
 The head anchor covers statement families that have no paren or sigil to match on — a
-`RETURN 1 as ping` health probe is Cypher; "cascade DETACH DELETE (default False)" is prose.
+`RETURN 1 as ping` health probe is Cypher; "... via ``DETACH DELETE`` on next failure" is prose.
 Comment lines and docstrings are skipped.
 
 All three of the head anchor's conditions — head position, UPPERCASE, and the

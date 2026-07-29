@@ -432,11 +432,11 @@ class EventsCoreService(
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
-        DETACH DELETE a calendar event and publish CalendarEventDeleted event.
+        Delete a calendar event and publish CalendarEventDeleted event.
 
         Args:
             uid: Event UID
-            cascade: Whether to cascade DETACH DELETE (default False)
+            cascade: Whether to cascade delete (default False)
 
         Returns:
             Result indicating success

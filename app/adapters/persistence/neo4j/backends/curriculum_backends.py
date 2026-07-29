@@ -687,7 +687,7 @@ class PsBackend(
         return Result.ok(self._step_with_knowledge_to_model(records[0]))
 
     async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
-        """DETACH DELETE a step node and return deletion count."""
+        """Delete a step node and return deletion count."""
         query = """
         MATCH (s:Entity {uid: $uid})
         DETACH DELETE s

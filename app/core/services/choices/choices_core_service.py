@@ -51,7 +51,7 @@ class ChoicesCoreService(
     Core CRUD operations for choices.
 
     Responsibilities:
-    - Create, read, update, DETACH DELETE choices
+    - Create, read, update, delete choices
     - List and filter choices
     - Count choices with filters
     """
@@ -418,7 +418,7 @@ class ChoicesCoreService(
 
     async def delete_choice(self, choice_uid: str) -> Result[bool]:
         """
-        DETACH DELETE a choice.
+        Delete a choice.
 
         Args:
             choice_uid: UID of the choice

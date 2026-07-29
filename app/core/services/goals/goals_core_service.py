@@ -6,7 +6,7 @@ Handles basic CRUD operations for goals.
 
 Responsibilities:
 - Basic goal retrieval (get_user_goals)
-- Delegates create/update/DETACH DELETE to backend via BaseService
+- Delegates create/update/delete to backend via BaseService
 - Publishes domain events (GoalCreated, GoalUpdated, GoalAchieved, GoalAbandoned).
   GoalProgressUpdated is owned by GoalsProgressService (progress-propagation provenance).
 
@@ -60,7 +60,7 @@ class GoalsCoreService(
 
     This service provides basic goal operations:
     - get_user_goals: Retrieve all goals for a user
-    - Inherits: create, get, update, DETACH DELETE from BaseService
+    - Inherits: create, get, update, delete from BaseService
     - Publishes domain events for all state changes
 
     Event-Driven Architecture:
@@ -431,11 +431,11 @@ class GoalsCoreService(
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
-        DETACH DELETE (abandon) a goal and publish GoalAbandoned event.
+        Delete (abandon) a goal and publish GoalAbandoned event.
 
         Args:
             uid: Goal UID
-            cascade: Whether to cascade DETACH DELETE (default False)
+            cascade: Whether to cascade delete (default False)
 
         Returns:
             Result indicating success

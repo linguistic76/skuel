@@ -1112,7 +1112,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
-        """DETACH DELETE a step node and return deletion count."""
+        """Delete a step node and return deletion count."""
         ...
 
     async def list_steps_raw(

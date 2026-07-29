@@ -156,7 +156,7 @@ class UserCrudOperations(Protocol):
         ...
 
     async def hard_delete_user(self, user_uid: UserUID) -> Result[int]:
-        """DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."""
+        """Delete a user + every OWNS-linked entity (GDPR erasure)."""
         ...
 
     async def find_by(self, **filters: FilterValue) -> Result[list["User"]]:

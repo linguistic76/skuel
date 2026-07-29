@@ -444,11 +444,11 @@ class PrinciplesCoreService(
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
-        DETACH DELETE a principle and publish PrincipleDeleted event.
+        Delete a principle and publish PrincipleDeleted event.
 
         Args:
             uid: Principle UID
-            cascade: Whether to cascade DETACH DELETE
+            cascade: Whether to cascade delete
 
         Returns:
             Result indicating success

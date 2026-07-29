@@ -430,14 +430,14 @@ class HabitsCoreService(
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """
-        DETACH DELETE (archive) a habit.
+        Delete (archive) a habit.
 
         Note: Habits are typically archived rather than deleted.
         No specific event for habit deletion - archived status is sufficient.
 
         Args:
             uid: Habit UID
-            cascade: Whether to cascade DETACH DELETE (default False)
+            cascade: Whether to cascade delete (default False)
 
         Returns:
             Result indicating success

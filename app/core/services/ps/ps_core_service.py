@@ -286,10 +286,10 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
     @with_error_handling(operation="delete_step", error_type="database", uid_param="step_uid")
     async def delete_step(self, step_uid: str) -> Result[bool]:
         """
-        DETACH DELETE a path step.
+        Delete a path step.
 
         Args:
-            step_uid: Ls UID to DETACH DELETE
+            step_uid: Ls UID to delete
 
         Returns:
             Result[bool] - True if deleted successfully

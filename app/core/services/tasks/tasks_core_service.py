@@ -6,7 +6,7 @@ Clean rewrite following CLAUDE.md patterns.
 Handles basic task lifecycle management.
 
 **Responsibilities:**
-- Create, read, update, DETACH DELETE tasks
+- Create, read, update, delete tasks
 - Basic task listing and retrieval
 - Automatic knowledge inference on creation
 - DTO/Model conversion
@@ -532,7 +532,7 @@ class TasksCoreService(
     @with_error_handling("delete_task", error_type="database", uid_param="task_uid")
     async def delete_task(self, task_uid: str) -> Result[bool]:
         """
-        DETACH DELETE a task.
+        Delete a task.
 
         Args:
             task_uid: Task UID
