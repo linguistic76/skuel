@@ -180,7 +180,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
     Backend" pattern.
 
     Key Features:
-        - **Universal CRUD**: create, get, update, DETACH DELETE, list work for any entity
+        - **Universal CRUD**: create, get, update, delete, list work for any entity
         - **Dynamic Querying**: find_by() auto-generates queries from model fields
         - **Graph-Native Relationships**: Pure Neo4j edges, not serialized UID lists
         - **Path-Aware Intelligence**: Cross-domain context with relationship traversal
@@ -210,10 +210,13 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.entity import Entity
         from core.models.enums import NeoLabel
+        from core.models.relationship_names import RelationshipName
 
         # All domain entities use NeoLabel.ENTITY (universal label)
         tasks_backend = UniversalNeo4jBackend[Entity](
-            driver=neo4j_driver, label=NeoLabel.ENTITY, entity_class=Entity,
+            driver=neo4j_driver,
+            label=NeoLabel.ENTITY,
+            entity_class=Entity,
             default_filters={"entity_type": "task"},
         )
 
@@ -221,7 +224,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         result = await tasks_backend.create(task)
         result = await tasks_backend.get("task:123")
         result = await tasks_backend.update("task:123", {"status": "completed"})
-        result = await tasks_backend.DETACH DELETE("task:123", cascade=True)
+        result = await tasks_backend.delete("task:123", cascade=True)
 
         # Dynamic querying (any field!)
         result = await tasks_backend.find_by(priority="high", status="active")
@@ -230,8 +233,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         # Graph relationships
         await tasks_backend.create_relationship(
             from_uid="task:123",
-            to_uid="ku:python-basics",
-            relationship_type="APPLIES_KNOWLEDGE",
+            to_uid="ku.python-basics",
+            relationship_type=RelationshipName.APPLIES_KNOWLEDGE,
         )
         ```
 
