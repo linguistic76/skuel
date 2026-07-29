@@ -212,7 +212,7 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
   - `core/services/tasks/tasks_analytics_service.py`
   - `core/services/analytics_engine.py`
   - `core/services/goals/goals_learning_service.py`
-  - `core/services/goals/goaps_progress_service.py`
+  - `core/services/goals/goals_progress_service.py`
   - `core/services/events/events_learning_service.py`
 
 **Full API Migration (January 2026 - COMPLETE):**
@@ -224,7 +224,7 @@ All services now use `UnifiedRelationshipService` type hints (no `Any`):
 | `tasks_analytics_service.py` | Already using UnifiedRelationshipService |
 | `events_learning_service.py` | Direct Cypher for reverse queries |
 | `goals_learning_service.py` | Already using UnifiedRelationshipService |
-| `goaps_progress_service.py` | Already using UnifiedRelationshipService |
+| `goals_progress_service.py` | Already using UnifiedRelationshipService |
 
 **Migration Patterns Used:**
 1. **Generic API** (`get_related_uids`): Simple relationship→UIDs queries

@@ -20,7 +20,7 @@
 | Domain | File | Notes |
 |--------|------|-------|
 | Tasks | `/core/services/tasks/tasks_intelligence_service.py` | |
-| Goals | `/core/services/goals/goaps_intelligence_service.py` | |
+| Goals | `/core/services/goals/goals_intelligence_service.py` | |
 | Habits | `/core/services/habits/habits_intelligence_service.py` | |
 | Events | `/core/services/events/events_intelligence_service.py` | |
 | Choices | `/core/services/choices/choices_intelligence_service.py` | |

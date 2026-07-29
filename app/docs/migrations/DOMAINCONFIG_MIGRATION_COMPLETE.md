@@ -178,9 +178,9 @@ GOAPS_CONFIG = create_activity_domain_config(
 - `core/services/tasks/tasks_scheduling_service.py`
 
 **Goals Domain:**
-- `core/services/goals/goaps_core_service.py`
+- `core/services/goals/goals_core_service.py`
 - `core/services/goals/goals_learning_service.py`
-- `core/services/goals/goaps_progress_service.py`
+- `core/services/goals/goals_progress_service.py`
 - `core/services/goals/goals_scheduling_service.py`
 
 **Habits Domain:**

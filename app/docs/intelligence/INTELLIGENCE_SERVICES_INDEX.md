@@ -433,7 +433,7 @@ from core.services.intelligence import (
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
 | **Tasks** | [TASKS_INTELLIGENCE.md](./TASKS_INTELLIGENCE.md) | ~265 shell + 3 mixins | Behavioral insights, performance analytics, cross-domain context |
-| **Goals** | [GOAPS_INTELLIGENCE.md](./GOAPS_INTELLIGENCE.md) | ~1,139 | Progress forecasting, predictive analytics |
+| **Goals** | [GOALS_INTELLIGENCE.md](./GOALS_INTELLIGENCE.md) | ~1,139 | Progress forecasting, predictive analytics |
 | **Habits** | [HABITS_INTELLIGENCE.md](./HABITS_INTELLIGENCE.md) | ~539 | Streak patterns, habit formation insights |
 | **Events** | [EVENTS_INTELLIGENCE.md](./EVENTS_INTELLIGENCE.md) | ~169 shell + 3 mixins | Cross-domain impact, learning practice tracking |
 | **Choices** | [CHOICES_INTELLIGENCE.md](./CHOICES_INTELLIGENCE.md) | ~679 | Decision support, outcome analysis |

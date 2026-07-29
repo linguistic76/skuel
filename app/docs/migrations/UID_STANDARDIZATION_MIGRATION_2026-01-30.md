@@ -176,7 +176,7 @@ Update all docstring examples that reference UIDs:
 - `/core/services/user/debounced_invalidator.py` - Update examples
 - `/core/services/habits/habits_intelligence_service.py` - Update examples
 - `/core/services/tasks/tasks_intelligence_service.py` - Update examples
-- `/core/services/goals/goaps_intelligence_service.py` - Update examples
+- `/core/services/goals/goals_intelligence_service.py` - Update examples
 - `/core/services/principles/principles_core_service.py` - Update examples
 - `/adapters/inbound/route_factories/query_route_factory.py` - Update examples
 

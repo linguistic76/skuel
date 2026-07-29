@@ -382,7 +382,7 @@ async def assess_alignment_dual_track(
 | `core/services/{tasks/_dual_track_mixin,events/_behavioral_signals_mixin,choices/_behavioral_signals_mixin}.py` | v3: optional `store_callback` param on the 3 user-level assess methods |
 | `core/services/user/unified_user_context.py` + `user_context_builder.py` | v3: `UserContext.dual_track_checkins` populated from the `:User` node |
 | `core/services/user/intelligence/perception_intelligence.py` | v3: aggregator folds in user-level dims |
-| `core/services/goals/goaps_intelligence_service.py` | Add `assess_progress_dual_track()` implementation |
+| `core/services/goals/goals_intelligence_service.py` | Add `assess_progress_dual_track()` implementation |
 | `core/services/habits/habits_intelligence_service.py` | Add `assess_consistency_dual_track()` implementation |
 | `core/services/events/events_intelligence_service.py` | Add `assess_engagement_dual_track()` implementation |
 | `core/services/choices/choices_intelligence_service.py` | Add `assess_decision_quality_dual_track()` implementation |

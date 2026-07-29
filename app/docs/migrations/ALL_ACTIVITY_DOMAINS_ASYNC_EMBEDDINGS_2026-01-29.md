@@ -13,7 +13,7 @@
 | Domain | Status | Embedding Text Formula | Files Modified |
 |--------|--------|------------------------|----------------|
 | Tasks | ✅ Complete | `title + description` | tasks_core_service.py |
-| Goals | ✅ Complete | `title + description + vision_statement` | goaps_core_service.py |
+| Goals | ✅ Complete | `title + description + vision_statement` | goals_core_service.py |
 | Habits | ✅ Complete | `name + description + cue + reward` | habits_core_service.py |
 | Events | ✅ Complete | `title + description + location` | events_core_service.py |
 | Choices | ✅ Complete | `title + description + decision_context + outcome` | choices_core_service.py |
@@ -164,7 +164,7 @@ principle.description = "Growth mindset enables adaptation and success"
 ### Core Services (6 files)
 ```
 core/services/tasks/tasks_core_service.py         +32 lines
-core/services/goals/goaps_core_service.py         +32 lines
+core/services/goals/goals_core_service.py         +32 lines
 core/services/habits/habits_core_service.py       +32 lines
 core/services/events/events_core_service.py       +32 lines
 core/services/choices/choices_core_service.py     +32 lines

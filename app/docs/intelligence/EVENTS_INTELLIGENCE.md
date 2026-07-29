@@ -552,7 +552,7 @@ assert service.relationships == relationships
 
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/intelligence/TASKS_INTELLIGENCE.md` - Task knowledge generation patterns
-- `/docs/intelligence/GOAPS_INTELLIGENCE.md` - Goal forecasting patterns
+- `/docs/intelligence/GOALS_INTELLIGENCE.md` - Goal forecasting patterns
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
 - `/core/services/events_service.py` - EventsService facade

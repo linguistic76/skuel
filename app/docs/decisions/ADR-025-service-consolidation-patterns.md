@@ -193,7 +193,7 @@ Implement consolidation in three phases:
 - `/core/models/relationship_registry.py` - NEW - centralized registry
 - `/core/services/ku/ku_graph_service.py` - CypherGenerator adoption
 - `/core/services/tasks/tasks_search_service.py` - registry usage
-- `/core/services/goals/goaps_search_service.py` - registry usage
+- `/core/services/goals/goals_search_service.py` - registry usage
 
 **Phase 2 Files:**
 - `/core/services/domain_config.py` - NEW - DomainConfig dataclass

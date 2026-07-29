@@ -306,11 +306,11 @@ updated_task = replace(task, status=ActivityStatus.COMPLETED)
 async def compose_services(driver: Driver) -> Result[Services]:
     # Create backends
     tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-    goaps_backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
+    goals_backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
 
     # Create services with protocol dependencies
     tasks_service = TasksService(tasks_backend)
-    goals_service = GoalsService(goaps_backend)
+    goals_service = GoalsService(goals_backend)
 
     return Result.ok(Services(
         tasks=tasks_service,

@@ -108,7 +108,7 @@ uv run pytest tests/ -v  # ✅ 1863 passed, 19 skipped, 0 failed
 - ✅ Fixed ReportService constructor (journals_service → transcript_processor)
 - ✅ Fixed relationship tests to use RelationshipName enum
 - ✅ Fixed tasks_core_service.py query RETURN clause for `related_tasks`
-- ✅ Fixed goaps_core_service.py query RETURN clause for `related_goals`
+- ✅ Fixed goals_core_service.py query RETURN clause for `related_goals`
 - ✅ Fixed test_rich_context_pattern.py goal test milestone assertions
 - ✅ Fixed test_curriculum_rich_context.py repo → backend references
 
@@ -473,7 +473,7 @@ tests/
 ├── test_tasks_service.py     # ✅ Unit tests (19 passing)
 ├── test_tasks_scheduling_service.py  # ✅ Unit tests (19 passing)
 ├── test_habits_service.py    # ⚠️ Needs Phase 2 migration
-├── test_goaps_service.py     # ⚠️ Needs Phase 2 migration
+├── test_goals_service.py     # ⚠️ Needs Phase 2 migration
 └── ...
 ```
 

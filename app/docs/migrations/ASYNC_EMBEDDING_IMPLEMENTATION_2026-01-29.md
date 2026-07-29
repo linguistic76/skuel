@@ -51,7 +51,7 @@ Implemented async background embedding generation for all activity domains to ac
 | Tasks Core Service | ✅ Done | `core/services/tasks/tasks_core_service.py` |
 | Ingestion Preparer | ✅ Done | `core/services/ingestion/preparer.py` |
 | Bootstrap Wiring | ⏳ TODO | `services_bootstrap.py` |
-| Goals Core Service | ⏳ TODO | `core/services/goals/goaps_core_service.py` |
+| Goals Core Service | ⏳ TODO | `core/services/goals/goals_core_service.py` |
 | Habits Core Service | ⏳ TODO | `core/services/habits/habits_core_service.py` |
 | Events Core Service | ⏳ TODO | `core/services/events/events_core_service.py` |
 | Choices Core Service | ⏳ TODO | `core/services/choices/choices_core_service.py` |

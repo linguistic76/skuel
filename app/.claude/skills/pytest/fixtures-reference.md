@@ -105,7 +105,7 @@ async def tasks_backend(neo4j_container):
 
 
 @pytest_asyncio.fixture
-async def goaps_backend(neo4j_container):
+async def goals_backend(neo4j_container):
     """Create UniversalNeo4jBackend for goals."""
     uri = neo4j_container.get_connection_url()
     driver = AsyncGraphDatabase.driver(uri)
@@ -140,12 +140,12 @@ async def services(neo4j_container):
 
     # Create backends
     tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-    goaps_backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
+    goals_backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
     # ... more backends
 
     # Create services
     tasks_service = TasksService(backend=tasks_backend)
-    goals_service = GoalsService(backend=goaps_backend, ...)
+    goals_service = GoalsService(backend=goals_backend, ...)
     # ... more services
 
     yield TestServices(tasks=tasks_service, goals=goals_service, ...)

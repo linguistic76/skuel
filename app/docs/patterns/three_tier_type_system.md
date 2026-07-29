@@ -622,7 +622,7 @@ from adapters.persistence.neo4j.neo_label import NeoLabel
 tasks_backend = UniversalNeo4jBackend[Task](
     driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
 )
-goaps_backend = UniversalNeo4jBackend[Goal](
+goals_backend = UniversalNeo4jBackend[Goal](
     driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY
 )
 

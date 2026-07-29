@@ -246,7 +246,7 @@ async def tasks_backend(neo4j_container):
 ```
 neo4j_container
     └── driver
-        └── backends (tasks_backend, goaps_backend, etc.)
+        └── backends (tasks_backend, goals_backend, etc.)
             └── services (tasks_service, goals_service, etc.)
                 └── test functions
 ```
