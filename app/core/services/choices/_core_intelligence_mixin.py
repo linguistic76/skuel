@@ -54,7 +54,10 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     resolves them without runtime cost.
     """
 
-    # Populated by ChoicesIntelligenceService.__init__ (stores relationship_service)
+    # Populated by ChoicesIntelligenceService.__init__ (stores relationship_service).
+    # Stays optional to match BaseAnalyticsService's own `relationship_service: Any | None`
+    # parameter; the runtime guarantee is _require_relationships = True on the service,
+    # which refuses the construction. Sites that need the narrowing assert on it.
     backend: Any
     relationships: UnifiedRelationshipService[Any, Any, Any] | None
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.

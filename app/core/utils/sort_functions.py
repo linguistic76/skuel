@@ -628,3 +628,23 @@ def get_aligned_count(item: tuple[str, dict[str, Any]]) -> int:
         The aligned_count value
     """
     return item[1]["aligned_count"]
+
+
+def get_principle_frequency_rank(item: tuple[str, int]) -> tuple[int, str]:
+    """
+    Rank a (principle_uid, count) pair: most frequent first, UID ascending on ties.
+
+    Used to pick the most-linked principle deterministically. The UID tie-break matters
+    because the counts are built from Neo4j ``collect()`` output, whose order can differ
+    between runs — without it, two principles on equal counts would make the winner
+    non-reproducible for the same graph.
+    Example: min(principle_frequency.items(), key=get_principle_frequency_rank)
+
+    Args:
+        item: Tuple of (principle_uid, occurrence_count)
+
+    Returns:
+        Sort key placing the highest count first, then the lowest UID
+    """
+    uid, count = item
+    return (-count, uid)

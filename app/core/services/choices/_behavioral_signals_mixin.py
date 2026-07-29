@@ -180,19 +180,19 @@ class _BehavioralSignalsMixin:
             ) / len(choices_with_satisfaction)
             evidence.append(f"Average outcome quality: {avg_outcome_quality:.0%}")
 
-        # Calculate principle alignment via relationships
+        # Calculate principle alignment via relationships. No None guard: the service
+        # declares _require_relationships = True, so it cannot be constructed without one.
         principle_aligned_count = 0
-        if self.relationships:
-            for choice in decided[:10]:  # Sample first 10 for efficiency
-                # Service get_related_uids takes (method_key, uid). "principles" is the
-                # Choice→Principle config key (INFORMED_BY_PRINCIPLE); the previous 3-arg
-                # backend signature with a raw RelationshipName.value never matched.
-                rel_result = await self.relationships.get_related_uids(
-                    "principles",
-                    choice.uid,
-                )
-                if rel_result.is_ok and rel_result.value:
-                    principle_aligned_count += 1
+        for choice in decided[:10]:  # Sample first 10 for efficiency
+            # Service get_related_uids takes (method_key, uid). "principles" is the
+            # Choice→Principle config key (INFORMED_BY_PRINCIPLE); the previous 3-arg
+            # backend signature with a raw RelationshipName.value never matched.
+            rel_result = await self.relationships.get_related_uids(
+                "principles",
+                choice.uid,
+            )
+            if rel_result.is_ok and rel_result.value:
+                principle_aligned_count += 1
 
         principle_rate = principle_aligned_count / min(len(decided), 10) if decided else 0.0
         if principle_aligned_count > 0:

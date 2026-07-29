@@ -27,6 +27,7 @@ from __future__ import annotations
 from dataclasses import fields
 from datetime import date, timedelta
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -75,7 +76,13 @@ class RecordingBackend:
 
 
 def make_service(backend: RecordingBackend) -> ChoicesIntelligenceService:
-    return ChoicesIntelligenceService(backend=backend, cross_domain_query=None)
+    # ChoicesIntelligenceService declares _require_relationships = True, so construction
+    # refuses a missing relationship service. These tests never reach a relationship read
+    # (RecordingBackend returns no choices, so each method exits through `if not choices:`)
+    # — the stub only has to satisfy the constructor's fail-fast check.
+    return ChoicesIntelligenceService(
+        backend=backend, cross_domain_query=None, relationship_service=MagicMock()
+    )
 
 
 @pytest.mark.asyncio
