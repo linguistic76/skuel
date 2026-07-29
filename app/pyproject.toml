@@ -827,7 +827,7 @@ fixable = ["ALL"]
 # ("Placeholder Parameter Index", Groups A–J) — that is where a deferred parameter gets
 # recorded, not here. Of the four tag families the old header named, only FUTURE-IMPL-*
 # survives in code (6 sites in goal_event_handler_service.py, goals_progress_service.py
-# and lp_progress_service.py, all still citing the dead doc — separate cleanup).
+# and lp_progress_service.py, repointed at PLACEHOLDER_INDEX.md § Groups E/I in 2026-07).
 #
 # ⚠ MOST OF THIS BLOCK WAS DEAD, for a reason worth keeping: SKUEL marks a deferred
 # parameter by UNDERSCORE-PREFIXING it (`_user_uid`), and ruff's ARG rules already skip

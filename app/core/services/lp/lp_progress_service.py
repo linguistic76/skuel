@@ -168,7 +168,7 @@ class LpProgressService:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling path_step.completed event: {e}")
 
-    # FUTURE-IMPL: FUTURE-IMPL-009 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
+    # FUTURE-IMPL-009: See docs/reference/PLACEHOLDER_INDEX.md § I2
     async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: UserUID) -> None:
         """
         Internal helper to update a single learning path's progress from KU mastery.

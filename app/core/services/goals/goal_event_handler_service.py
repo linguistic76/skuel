@@ -488,7 +488,7 @@ class GoalEventHandlerService:
 
     def _recommend_domain_progression(self, domain: str, goal_type: str) -> dict | None:
         """Recommend a progressive goal in the same domain."""
-        # FUTURE-IMPL: FUTURE-IMPL-001 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
+        # FUTURE-IMPL-001: See docs/reference/PLACEHOLDER_INDEX.md § E2
         domain_progressions = {
             "TECH": {
                 "LEARNING": "Apply your knowledge by building a real project",
@@ -528,7 +528,7 @@ class GoalEventHandlerService:
 
     def _recommend_knowledge_expansion(self, knowledge_units: list[dict]) -> dict | None:
         """Recommend a goal that applies mastered knowledge in a new context."""
-        # FUTURE-IMPL: FUTURE-IMPL-002 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
+        # FUTURE-IMPL-002: See docs/reference/PLACEHOLDER_INDEX.md § E2
         knowledge_units = [ku for ku in knowledge_units if ku.get("uid") is not None]
         if not knowledge_units:
             return None
@@ -542,12 +542,12 @@ class GoalEventHandlerService:
             "confidence": 0.80,
             "recommendation_type": "knowledge_expansion",
             "related_knowledge": [ku["uid"] for ku in knowledge_units],
-            # FUTURE-IMPL: FUTURE-IMPL-004 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
+            # FUTURE-IMPL-004: See docs/reference/PLACEHOLDER_INDEX.md § E2
         }
 
     def _recommend_habit_reinforcement(self, habits: list[dict]) -> dict | None:
         """Recommend a goal that leverages established habits."""
-        # FUTURE-IMPL: FUTURE-IMPL-006 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
+        # FUTURE-IMPL-006: See docs/reference/PLACEHOLDER_INDEX.md § E2
         habits = [h for h in habits if h.get("uid") is not None]
         if not habits:
             return None
