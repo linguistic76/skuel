@@ -177,6 +177,10 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
     if not raw:
         return None
 
+    # Mirror _looks_like_local_path's `./` normalisation so the guard and the resolver
+    # agree on what a token means.
+    raw = raw.removeprefix("./")
+
     if raw.startswith("/"):
         # Absolute path relative to repo root — the ONE canonical citation
         # style for repo files. Machine-absolute citations
@@ -250,6 +254,16 @@ def extract_bare_paths(content: str) -> list[tuple[int, str]]:
     return results
 
 
+def _strip_quote_prefix(line: str) -> str:
+    """Strip Markdown blockquote markers (`>`, `> >`, …) from the head of a line."""
+    stripped = line
+    while True:
+        candidate = stripped.lstrip()
+        if not candidate.startswith(">"):
+            return stripped
+        stripped = candidate[1:].removeprefix(" ")
+
+
 def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
     """
     Walk triple-backtick/tilde fenced blocks.
@@ -266,13 +280,22 @@ def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
     treats any ``` run as a closer, so it truncates the wrapper case above. Reuse
     needs the shared walker to yield per-line, and fixing that walker moves
     ``stale_names``' own totals — a separate change, not this one.
+
+    Blockquoted fences count. `lstrip()` alone drops whitespace but not the `> `
+    container marker, so a quoted example never opened the fence and its contents were
+    silently skipped — a live one sits at
+    ``docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md:318`` (Codex, PR #872). The quote
+    prefix is stripped only for fences *opened* inside a quote, so a shell redirect at
+    the start of an unquoted fence line keeps its `>`.
     """
     results: list[tuple[int, str, str]] = []
     delim: str | None = None
     delim_len = 0
     lang = ""
+    quoted = False
 
-    for i, line in enumerate(content.splitlines(), 1):
+    for i, raw_line in enumerate(content.splitlines(), 1):
+        line = _strip_quote_prefix(raw_line) if delim is None or quoted else raw_line
         match = FENCE_DELIM_RE.match(line.lstrip())
         if delim is None:
             if match:
@@ -280,6 +303,7 @@ def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
                 delim_len = len(match.group(1))
                 info = match.group(2).strip()
                 lang = info.split()[0].lower() if info else ""
+                quoted = line is not raw_line and raw_line.lstrip().startswith(">")
             continue
         if (
             match
@@ -289,6 +313,7 @@ def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
         ):
             delim = None
             lang = ""
+            quoted = False
             continue
         results.append((i, lang, line))
     return results
@@ -375,6 +400,12 @@ def _looks_like_local_path(text: str) -> bool:
     """Heuristic: does this backtick span look like a checkable project file path?"""
     if _is_external(text):
         return False
+    # `./core/services/foo.py` is a valid repo-relative citation and the natural form in
+    # a copy-paste shell command, but it starts with neither `/` nor a known project
+    # directory, so the checks below silently dropped it (Codex, PR #872). Normalise
+    # here — the shared guard — so the inline-backtick pass gains it too; `resolve_path`
+    # strips the same prefix.
+    text = text.removeprefix("./")
     if len(text) < 5:
         return False
     if "{" in text or "<" in text or "*" in text:

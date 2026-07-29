@@ -160,6 +160,15 @@ positives but also a genuine one (a roadmap doc citing an `activity.py` under
 `adapters/persistence/neo4j/backends/`, where the real file is `activity_backends.py`),
 reintroducing exactly the doc-class blind spot this pass closes. The `(when implemented)` annotation is visible to the reader on the same line.
 
+Two latent gaps in the pass were closed on review (Codex, PR #872), both with a measured
+tree-wide delta of **0 dead refs** — they widen *coverage*, not the count:
+
+- **Blockquoted fences** (`> ` before the delimiter) never opened, so quoted examples were
+  skipped whole. One lives at `UNIFIED_RELATIONSHIP_SERVICE.md:318`; 4 previously-invisible
+  lines are now scanned, none holding a path token today.
+- **`./`-prefixed paths** (`cp ./core/services/foo.py`) start with neither `/` nor a project
+  directory, so the guard dropped them. 8 such tokens exist tree-wide, all currently live.
+
 Placeholder shapes are rejected by the shared `_looks_like_local_path` guard, not a
 second filter: syntactic markers (`{domain}`, `<name>`, `*`) plus a lexical vocabulary
 for the prose convention (`your_service.py`, `test_foo.py`, `alpine.X.Y.Z.min.js`).

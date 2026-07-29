@@ -145,6 +145,51 @@ def test_inner_fence_does_not_close_an_outer_wrapper() -> None:
     assert "after" not in walked
 
 
+def test_blockquoted_fence_is_walked() -> None:
+    """A quoted example is still an example (Codex, PR #872).
+
+    `lstrip()` drops whitespace but not the `> ` container marker, so a blockquoted
+    fence never opened and its contents were skipped entirely. One lives at
+    `docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md:318`. Measured delta on the live
+    tree was 0 dead refs — 4 previously-invisible lines, none holding a path token — so
+    this pins a *latent* gap, and only a test can keep it closed.
+    """
+    content = f"> ```bash\n> cp {DEAD_REL} x.py\n> ```\nafter\n"
+    assert ddl.iter_code_fence_lines(content) == [(2, "bash", f"cp {DEAD_REL} x.py")]
+    assert ddl.extract_fenced_paths(content) == [(2, DEAD_REL)]
+
+
+def test_unquoted_fence_keeps_a_leading_redirect() -> None:
+    """The quote strip is scoped to fences *opened* inside a quote.
+
+    Stripping unconditionally would eat the `>` of a shell redirect. Narrow beats tidy:
+    an over-broad strip silently rewrites content the checker is supposed to read.
+    """
+    assert ddl.iter_code_fence_lines("```bash\n> out.txt\n```\n") == [(2, "bash", "> out.txt")]
+
+
+@pytest.mark.parametrize("token", ["./core/services/gone.py", "./scripts/gone.py"])
+def test_dot_slash_relative_paths_are_checked(token: str) -> None:
+    """`./core/...` is the natural copy-paste shell form and a valid citation, but it
+    starts with neither `/` nor a project directory, so the guard dropped it (Codex,
+    PR #872). Normalised in the shared guard, so the inline-backtick pass gains it too.
+    """
+    assert ddl._looks_like_local_path(token)
+    assert ddl.extract_fenced_paths(f"```bash\ncp {token} x\n```\n") == [(2, token)]
+
+
+def test_dot_slash_resolves_to_the_same_file_as_the_bare_form(docs_root: Path) -> None:
+    """Guard and resolver must agree on what a `./` token means — otherwise a live file
+    reports broken (or a dead one reports clean) purely on citation style."""
+    (docs_root / "core").mkdir()
+    (docs_root / "core" / "real.py").write_text("", encoding="utf-8")
+    probe = docs_root / "docs" / "probe.md"
+    probe.write_text("x", encoding="utf-8")
+    for style in ("core/real.py", "./core/real.py"):
+        target = ddl.resolve_path(style, probe)
+        assert target is not None and target.exists(), style
+
+
 def test_all_fence_languages_are_scanned() -> None:
     """Measured choice, not an assumption: dead tokens land in bash, python, yaml,
     cypher, javascript, markdown, html and untagged fences alike, so restricting to
