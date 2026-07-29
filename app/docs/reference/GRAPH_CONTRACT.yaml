@@ -547,7 +547,7 @@ relationships:
       - config: Choice
         roles: [prerequisite]
         definitions:
-          - {direction: outgoing, target: Entity, context_field: required_knowledge, method: required_knowledge}
+          - {direction: outgoing, target: Entity, context_field: required_knowledge, method: required_knowledge, ingestion_field: connections.requires_knowledge_for_decision}
   OPENS_LEARNING_PATH:
     contract:
       - config: Choice

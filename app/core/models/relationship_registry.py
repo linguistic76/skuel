@@ -1187,6 +1187,11 @@ CHOICES_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "required_knowledge",
             "required_knowledge",
+            # Not "requires_knowledge": that field name is already Goal's, for the
+            # different REQUIRES_KNOWLEDGE edge. One authoring name must not mean two
+            # edges (cf. the ALIGNED_WITH_PRINCIPLE/INFORMED_BY_PRINCIPLE divergence
+            # guarded in tests/unit/test_ingestion_relationship_config.py).
+            yaml_field_path="connections.requires_knowledge_for_decision",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.INFORMED_BY_PRINCIPLE,
