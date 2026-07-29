@@ -5,12 +5,20 @@ them (usually, but not always, underscore-prefixed) and the hardcoded values tha
 computation that has not been written yet.*
 *Last updated: 2026-07-28*
 
-> ⚠ **Most coordinates outside Groups E2, F, H, I2 and J are stale — a repair sweep is outstanding.**
-> Rows in those five groups were re-verified against the tree on 2026-07-28. Elsewhere, expect a
-> wrong line number, a wrong path, or a symbol that has moved or been deleted — and note that some
-> rows' *descriptions* are wrong too, independently of their coordinates. **Treat any other row as a
-> lead, not a citation: read the code before relying on it.** Some rows need repointing and some
-> need deleting; that judgement is the sweep's, per row.
+Every coordinate below was re-verified against the tree on 2026-07-28 (`77c4d959b`). Each row names
+a file, a line, and a symbol that should be on it, so the set is re-checkable mechanically.
+
+**When a coordinate misses, grep the symbol, not the path.** Whether the file exists is the wrong
+staleness test: the previous revision's rows failed three different ways, and only one of them was
+a simple line drift.
+
+- A path that never existed in any branch — `goaps_intelligence_service.py`, a typo for
+  `goals_intelligence_service.py`, on three rows.
+- Files that still existed with the symbol moved out of them — `habits_service.py` and
+  `principles_intelligence_service.py`, whose methods went to `_enrichment_mixin.py` and
+  `_core_intelligence_mixin.py`.
+- Files whose cited code had been deleted outright — `cross_domain_analytics_service.py`,
+  `events_intelligence_service.py`.
 
 ## Convention
 
@@ -18,7 +26,7 @@ Parameters prefixed with `_` in SKUEL method signatures indicate accepted-but-un
 The method compiles and the signature is stable; the body ignores the parameter.
 
 ```python
-async def analyze_habit_performance(
+async def get_performance_analytics(
     self, user_uid: UserUID,
     _period_days: int = 30  # Placeholder - not yet implemented
 ) -> Result[dict[str, Any]]:
@@ -31,51 +39,89 @@ This is distinct from Python's `_` throwaway variable. The underscore prefix her
 
 ## Group A — Period-Based Analytics Filtering
 
-⚠ **Three, not four.** `GoalsIntelligenceService` no longer belongs here — it reads a
-non-underscore `period_days` and filters on it (`core/services/goals/goals_intelligence_service.py:162`).
-Its row below is stale, along with the other coordinates in this table; see the banner. The
-remaining three services accept `_period_days` and perform no date filtering, and should be
-implemented together when time-window analytics is scheduled.
+| Service | File | Line | Parameter | Method |
+|---------|------|------|-----------|--------|
+| HabitsIntelligenceService | `core/services/habits/habits_intelligence_service.py` | 112 | `_period_days: int = 30` | `get_performance_analytics()` (111) |
+| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 104 | `_period_days: int = 30` | `get_performance_analytics()` (103) |
+| PrinciplesIntelligenceService | `core/services/principles/_core_intelligence_mixin.py` | 55 | `_period_days: int = 30` | `get_performance_analytics()` (54), mixed into `principles_intelligence_service.py:44` |
 
-| Service | File | Line | Parameter | Notes |
-|---------|------|------|-----------|-------|
-| GoalsIntelligenceService | `core/services/goals/goaps_intelligence_service.py` | 202 | `_period_days: int = 30` | `analyze_goal_performance()` |
-| HabitsIntelligenceService | `core/services/habits/habits_intelligence_service.py` | 171 | `_period_days: int = 30` | `analyze_habit_performance()` |
-| ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 169 | `_period_days: int = 30` | `analyze_choice_patterns()` |
-| PrinciplesIntelligenceService | `core/services/principles/principles_intelligence_service.py` | 173 | `_period_days: int = 30` | `analyze_principle_alignment()` |
+⚠ **These three are live, and the placeholder is user-visible.** All six Activity Domains register
+`GET /api/{domain}/analytics` (`create_activity_domain_route_config` sets
+`intelligence=IntelligenceRouteConfig()`, `domain_route_factory.py:340`). The handler reads
+`period_days` off the query string and passes it through
+(`intelligence_route_factory.py:286`, `290`). Each of the three services then echoes it back as
+`"period_days"` in the response body (habits 173, choices 142, principles 99) while computing over
+everything `find_by(user_uid=...)` returns. The response therefore *claims* a window it did not
+apply — this is a wrong answer, not just a missing feature.
 
-**What full implementation requires:** Each service's query must filter nodes to those
-created/updated within the given period window. The `_period_days` parameter maps directly
-to a Cypher `WHERE n.created_at >= datetime() - duration({days: $period_days})` clause.
+**Goals is already implemented and is not listed here:** `GoalsIntelligenceService` takes a
+non-underscore `period_days` and filters on it at `goals_intelligence_service.py:162`.
+
+**What full implementation requires:** each service must bound its fetch to the period window.
+
+⚠ **Not by writing Cypher.** The previous revision of this row prescribed a
+`WHERE n.created_at >= datetime() - duration({days: $period_days})` clause. All three sites are in
+`core/`, where **SKUEL021 forbids raw Cypher** (`lint_skuel.py:17`, ADR-044) — and all three
+currently author none. That remedy would not lint.
+
+The in-architecture move is the one goals already uses: pass a bounded filter to `find_by`, which
+supports `__gte`/`__lte` suffixes (`universal_backend.py:228`).
+
+```python
+cutoff = datetime.now(UTC) - timedelta(days=period_days)
+result = await self.backend.find_by(user_uid=user_uid, updated_at__gte=cutoff.isoformat())
+```
+
+— `goals_intelligence_service.py:162–164`. Whether the window should key off `created_at` or
+`updated_at` is a semantic decision the implementer still has to make; goals chose `updated_at`.
 
 ---
 
 ## Group B — Habits Service Prediction Parameters
 
-| Service | File | Line | Parameter | Notes |
-|---------|------|------|-----------|-------|
-| HabitsService | `core/services/habits_service.py` | 798 | `_period: int = 30` | `get_habit_analytics()` — period filtering |
-| HabitsService | `core/services/habits_service.py` | 799 | `_include_predictions: bool = False` | `get_habit_analytics()` — AI streak/trend predictions |
+| Service | File | Line | Parameter | Method |
+|---------|------|------|-----------|--------|
+| HabitsService | `core/services/habits/_enrichment_mixin.py` | 42 | `_period: str = "month"` | `get_habit_analytics()` (39) |
+| HabitsService | `core/services/habits/_enrichment_mixin.py` | 43 | `_include_predictions: bool = False` | `get_habit_analytics()` (39) |
+
+⚠ **Unlike Group A, nothing calls this.** `get_habit_analytics()` has no call site anywhere in the
+tree — the one lexical near-match, `cross_domain_analytics_service.py:504`, calls the *backend*
+method of the same name (`cross_domain_backend.py:435`), which takes `user_uid` and neither of these
+parameters. Five of its `_EnrichmentMixin` siblings are registered in the bloat detector's PLANNED
+tier (`scripts/detect_bloat.py:504–512`); `get_habit_analytics` itself is not registered anywhere.
 
 **What full implementation requires:**
-- `_period`: Same date-window filtering as Group A.
+- `_period`: **not** Group A's filter. It is a period *name* (`"month"`), not a day count, so the
+  `_period_days` day-window clause is not a drop-in — either convert at the boundary or retype.
 - `_include_predictions`: Calls an AI service to forecast habit continuity. Depends on embedding
   similarity or completion pattern analysis. Should remain `False` by default (expensive).
+- Before either: establish a consumer, or delete the method. It is unreached surface today.
 
 ---
 
-## Group C — Askesis Bootstrap Entity Services (Phase 2.5)
+## Group C — Askesis Bootstrap Entity Services
 
-AskesisService is bootstrapped without domain service dependencies. When entity extraction
-is implemented, these four attributes must be wired in `services_bootstrap.py`.
+⚠ **Not deferred — dead parameters.** The work this group was opened for is done, elsewhere.
 
-| Location | Lines | Placeholder | Deferred To |
-|----------|-------|-------------|-------------|
-| `services_bootstrap.py` | 575–579, 1316–1319 | `_tasks_service`, `_habits_service`, `_goals_service`, `_events_service` | Phase 2.5 |
+| Location | Lines | Placeholder |
+|----------|-------|-------------|
+| `services_bootstrap/_learning_services.py` | 23–26 | `_tasks_service`, `_habits_service`, `_goals_service`, `_events_service` on `_create_learning_services()` — each name occurs exactly once in the file, in that signature |
+| `services_bootstrap/compose.py` | 718–721 | the four live activity services, passed into those unread parameters |
 
-**What full implementation requires:** Pass the four activity domain services into AskesisService
-so it can extract entity references from conversation context (e.g., "my goal to run 5k" resolves
-to a Goal UID). Requires entity extraction logic in AskesisService itself.
+Askesis creation moved out of `_create_learning_services()` in January 2026
+(`_learning_services.py:156`). It is now built by `create_askesis_service()`
+(`_intelligence_hub.py:201`, reached from `compose_services()` at `compose.py:1869`), which wires
+all four domain services as **required, non-underscore** `AskesisDeps` fields
+(`askesis_factory.py:63–66` → `askesis_service.py:90–93`).
+
+Entity extraction — the feature this group said was unimplemented — is written and wired:
+`EntityExtractor` stores the four services (`askesis/entity_extractor.py:95–98`) and uses them
+(146, 151, 156, 161); it is constructed at `askesis_service.py:196`, handed to `QueryProcessor`
+(233) and called at `askesis/query_processor.py:307`. (Whether a route reaches that call was not
+established here — it does not affect the remedy below.)
+
+**What full implementation requires:** nothing. Delete the four parameters and the four call-site
+arguments that feed them.
 
 ---
 
@@ -85,31 +131,53 @@ These are declared on the adapter but have no body beyond a docstring.
 
 | File | Line | Method | Parameter | Notes |
 |------|------|--------|-----------|-------|
-| `adapters/persistence/neo4j_adapter.py` | 186 | `bootstrap_indexes()` | `_force: bool = False` | Force-recreate indexes even if they exist |
+| `adapters/persistence/neo4j_adapter.py` | 209 | `bootstrap_indexes()` | `_force: bool = False` | Docstring (217): "Reserved for future use" |
 
-**What full implementation requires:**
-- `_force`: Index idempotency check. Currently `bootstrap_indexes()` runs unconditionally. Adding
-  `_force=False` would skip creation if indexes already exist.
+**Intent not recoverable.** The obvious reading — "skip creation when the indexes already exist" —
+is already the behaviour: every constraint and index statement in the method body carries
+`IF NOT EXISTS` (verified across 209–345; no bare `CREATE`), so the server no-ops on a second run.
+Nothing in the tree states what `_force` was reserved to switch. Delete the parameter or
+re-specify it — do not guess, and do not implement the docstring's literal reading, which the DDL
+already provides.
 
 ---
 
 ## Group E — AI Computation Placeholders (Hardcoded Values)
 
 These are not underscore parameters but are explicitly marked in comments — `# Placeholder` in the
-table below, `# FUTURE-IMPL-00N:` in the E2 subsection. They are hardcoded values that should
-eventually be computed from graph data.
+table below, `# FUTURE-IMPL-00N:` in the E2 subsection.
+
+⚠⚠ **Read this before touching the three choices rows: they are currently unreachable, and that is
+a live bug, not a placeholder.** Both enclosing methods filter on a `Choice` property that does not
+exist, so they return zero rows and exit through their empty-data guard long before the placeholder
+lines execute.
+
+| Step | Evidence |
+|---|---|
+| Both methods filter on `date` | `find_by(user_uid=..., date__gte=start_date, date__lte=end_date)` — `_analytics_mixin.py:256–257` and `443–444` |
+| `Choice` has no `date` property | Its temporal fields are `decision_deadline` and `decided_at` (`choice.py:75–76`) plus inherited `created_at`/`updated_at`; `ChoiceDTO` matches (`choice_dto.py:64–65`) |
+| The bad key is not rejected | `ModelQueryBuilder.filter()` validates only that a key is a safe identifier — `validate_field_name` is a regex plus a length cap (`core/utils/validation_helpers.py:59–61`), with no model introspection — so `date__gte` is recorded and emitted as Cypher |
+| Neo4j returns nothing | A predicate on an absent property is NULL, so every row is excluded — the repo's recurring silent-zero class, not an error |
+| Execution stops before the placeholders | `if not choices:` returns the empty payload at 265 (`get_decision_patterns`, 192) and 452 (`get_domain_decision_patterns`, 426); the placeholders are at 305/306 and 476 |
+
+**So the temporal filter must be repointed at a real property first.** Until then, an implementer who
+merely adds the in-memory aggregations below will compute them over a permanently empty list.
+
+⚠ **Nor do the four rows share a remedy — check where the data lives before writing a query.** Two
+need no query at all, one cannot be recovered by any query until persistence is defined, and only
+the fourth is a genuine graph read.
 
 | File | Line | Value | Should Become |
 |------|------|-------|---------------|
-| `core/services/choices/choices_intelligence_service.py` | 1087 | `avg_confidence = 0.7` | Mean of `choice.confidence` across recent choices |
-| `core/services/choices/choices_intelligence_service.py` | 1088 | `avg_satisfaction = 0.75` | Derived from outcome tracking |
-| `core/services/choices/choices_intelligence_service.py` | 1258 | `"avg_quality_score": 0.7` | Same as above |
-| `core/services/goals/goaps_intelligence_service.py` | 533 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum |
-| `core/services/cross_domain_analytics_service.py` | 661–665 | `average_mood`, `mood_trend`, `most_common_themes`, `longest_streak` | Computed from Journal/Submission sentiment analysis |
+| `core/services/choices/_analytics_mixin.py` | 305 | `avg_confidence = 0.7` | **Blocked — nothing to average.** `Choice` has no `confidence` field, and neither do `ChoiceDTO` nor the `Entity` base. Decision confidence is carried at the boundary only: `ChoiceDecisionRequest.confidence` (`core/models/choice/choice_request.py:149`) and the decision event (`core/events/choice_events.py:103`). Persisting it is the prerequisite, not a query |
+| `core/services/choices/_analytics_mixin.py` | 306 | `avg_satisfaction = 0.75` | **No query needed** (once the filter above is fixed). `get_decision_patterns()` already holds the `Choice` objects — it iterates them at 296–297. Mean of the non-null `Choice.satisfaction_score` (`choice.py:81`, 1–5 scale, nullable), rescaled |
+| `core/services/choices/_analytics_mixin.py` | 476 | `"avg_quality_score": 0.7` | **No query needed** (same prerequisite). `get_domain_decision_patterns()` holds `domain_choice_list` in the loop that emits this. Mean of `Choice.get_decision_quality_score()` (`choice.py:129`) |
+| `core/services/goals/_analytics_mixin.py` | 211 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum — **this one is a real graph read**, and is not affected by the filter bug above |
 
-**What full implementation requires:** Each value needs a dedicated graph query or NLP pipeline.
-`mood_trend` and `most_common_themes` specifically require text processing on Journal content.
-`longest_streak` requires date-sequence analysis on completion history.
+Rows 305/306 sit in `get_decision_patterns()` beside a genuinely computed ratio
+(`principle_alignment_score`, 307); row 476 sits in `get_domain_decision_patterns()` beside a real
+`percentage`. In both cases a caller cannot tell which fields of the returned dict were computed and
+which are constants — though today, neither dict is ever built.
 
 ### E2 — Goal-achievement recommendations (`FUTURE-IMPL-*`)
 
@@ -147,12 +215,17 @@ their uids, so they can be satisfied by widening the existing query. Until one o
 
 ## Group F — Goal Task Generation Stubs
 
-| File | Line | Method | Parameter |
-|------|------|--------|-----------|
-| `core/services/goal_task_generator.py` | 439 | `_generate_urgent_tasks()` | `_user_context: UserContext` |
+`GoalTaskGenerator` has three private generators that accept the caller's real `UserContext` and
+read none of it — `_user_context` occurs exactly three times in the file, once per signature.
+
+| File | Line | Method | Parameter | Called at |
+|------|------|--------|-----------|-----------|
+| `core/services/goal_task_generator.py` | 258 | `_generate_milestone_tasks()` | `_user_context: UserContext` | 131, in `generate_tasks_for_goal()` (96) |
+| `core/services/goal_task_generator.py` | 411 | `_generate_checkin_tasks()` | `_user_context: UserContext` | 143, in `generate_tasks_for_goal()` (96) |
+| `core/services/goal_task_generator.py` | 439 | `_generate_urgent_tasks()` | `_user_context: UserContext` | 245, in `generate_next_critical_tasks()` (223) |
 
 **What full implementation requires:** `_generate_urgent_tasks()` is **not** a stub — it is live
-(called at line 245) and emits a task for the goal's first incomplete milestone. But `_user_context`
+and emits a task for the goal's first incomplete milestone. But `_user_context`
 is not the only thing deferred in it:
 
 - **Urgency is not computed at all.** `priority=Priority.CRITICAL` (450) and
@@ -172,19 +245,6 @@ priority and a constant today+3 due date.
 
 (The two `adaptive_lp_recommendations_service.py` stubs formerly listed here were deleted with
 the unwired adaptive_lp shell in the 2026-06 curriculum dead-code campaign.)
-
----
-
-## Group G — Events Intelligence Private Methods
-
-| File | Lines | Method | Parameter |
-|------|-------|--------|-----------|
-| `core/services/events/events_intelligence_service.py` | 507 | `_analyze_goal_support()` | `_context: GraphContext` |
-| `core/services/events/events_intelligence_service.py` | 540 | `_analyze_habit_impact()` | `_context: GraphContext` |
-
-**What full implementation requires:** Both methods receive a `GraphContext` that contains the
-surrounding graph neighborhood. Once the graph context query is enriched to include goal and
-habit nodes, these private methods can traverse the context rather than issuing new queries.
 
 ---
 
@@ -212,14 +272,19 @@ not established here — "it has a caller" is the weak question.
 
 | File | Line | Method | Parameter | Notes |
 |------|------|--------|-----------|-------|
-| `core/models/entity.py` | 176 | `can_view()` | `_viewer_uid`, `_shared_user_uids` | Returns `visibility == PUBLIC`; both args unread because owner/sharing logic lives in the `UserOwnedEntity` override. **Not** an always-True stub |
-| `core/models/entity.py` | 233 | `substance_score()` | `_force_recalculate: bool` | Force-refresh flag; recalculation not implemented |
-| ~~`adapters/persistence/neo4j/user_backend.py`~~ | ~~952~~ | ~~`get_user_context()`~~ | ~~`_user_uid: str`~~ | **Removed** (March 2026) — was never a backend operation; use `UserService.get_user_context()` |
-| `adapters/persistence/neo4j/_relationship_crud_mixin.py` | 744 | (inline comment) | `_props` | Property validation not yet implemented |
-| `core/services/calendar_optimization_service.py` | 318 | `_get_user_energy_profile()` | `_user_uid: str` | Returns demo/static pattern; real profile query deferred |
-| `core/services/schema_change_detector.py` | 537 | `_update_optimizations()` | `_report: SchemaChangeReport` | Clears optimization caches; full re-optimization from the report deferred |
-| `core/services/goals/goaps_intelligence_service.py` | 1270 | `_determine_trend()` | `_lookback_days: int` | Trend direction ignores lookback window |
-| `core/services/user/lp_intelligence/learning_recommendation_engine.py` | 217 | (inline comment) | `recommended_ku_uids = []` | Returns empty list; real recommendation logic deferred |
+| `adapters/persistence/neo4j/_relationship_crud_mixin.py` | 910 | (inline comment) | `_props` | Property validation not yet implemented |
+| `core/services/calendar_optimization_service.py` | 318 | `_get_user_energy_profile()` | `_user_uid: UserUID` | Returns a static demo profile — the docstring says "for demo"; real profile query deferred |
+| `core/services/schema_change_detector.py` | 537 | `_update_optimizations()` | `_report: SchemaChangeReport` | Clears two optimization caches unconditionally; full re-optimization *from the report* deferred |
+| `core/services/goals/_predictive_mixin.py` | 401 | `_calculate_consistency_factor()` | `_lookback_days: int` | Caller passes a real window (135) |
+| `core/services/goals/_predictive_mixin.py` | 449 | `_calculate_momentum_factor()` | `_lookback_days: int` | Caller passes a real window (137) |
+| `core/services/goals/_predictive_mixin.py` | 676 | `_determine_trend()` | `_lookback_days: int` | Caller passes a real window (167) |
+| `core/services/lp_intelligence/learning_recommendation_engine.py` | 216 | (inline comment) | `recommended_ku_uids = []` | Returns empty list; real recommendation logic deferred |
+
+The three `_predictive_mixin` rows are one deferral, not three: `predict_goal_success()` (97) accepts
+`lookback_days: int = 30` (100) and threads it into all three helpers, every one of which discards
+it — so no consistency, momentum or trend output responds to the window the caller asked for. The
+parameter is not wholly dead: its one live consumer is `_determine_confidence_level()` (536), called
+at 149, which receives it positionally as `data_points` (537) and buckets it at 543–548.
 
 ### I2 — Progress event handlers (`FUTURE-IMPL-*`)
 
@@ -267,8 +332,26 @@ These are FastHTML component functions that accept parameters that are not yet r
 
 | File | Line | Function | Parameter | Notes |
 |------|------|----------|-----------|-------|
-| `ui/profile/curriculum_views.py` | 18 | `PathStepsDomainView()` | `_focus_uid` | Focus-on-UID not yet implemented |
-| `ui/admin/views.py` | 526 | `render_user_reports_list()` | `_user_uid` | UID passed but not used in query |
+| `ui/profile/curriculum_views.py` | 18 | `PathStepsDomainView()` | `_context`, `_focus_uid` | Renders a fixed empty state; **neither** parameter is read |
+| `ui/admin/views.py` | 526 | `render_user_reports_list()` | `_user_uid` | `@staticmethod` on `AdminUIComponents` (38); UID passed but not used in query |
+
+⚠ **Like Group B, neither function has a caller** — the only occurrence of each name in the Python
+tree is its own definition. `curriculum_views.py` goes further: **nothing imports the module**, its
+three other functions (`LearningPathsDomainView` 43, `_learning_paths_list` 84,
+`_ready_to_learn_list` 144) are unreached too, and `ui/profile/__init__.py` does not export it.
+
+**But the docs still register it as live**, which cuts the other way and must be weighed:
+`ui/profile/README.md:29` lists it in the package's module table as "KU, LS, LP profile views", and
+the `skuel-ui` skill repeats the entry (`.claude/skills/skuel-ui/SKILL.md:494`, as "KU, PS, LP").
+`ui/profile/_shared.py:3` also describes itself as "consumed by curriculum_views.py". None of that
+makes the module runtime-reachable, but it is evidence of intent, and whichever way the question is
+settled those three references have to move with it. Note the README entry still says **LS**,
+predating the LearningStep→PathStep rename — the register it belongs to is itself stale.
+
+Settle whether that module is abandoned or staged before implementing either parameter — `CLAUDE.md`
+§ One Path Forward deletes the first and registers the second. Do not read `./dev bloat` as having
+settled it: `ui` is in its `FIRST_PARTY_ROOTS` (`scripts/detect_bloat.py:57`), yet it reports none of
+these functions, so their absence from its PLANNED tables is not evidence either way.
 
 ---
 
@@ -276,35 +359,44 @@ These are FastHTML component functions that accept parameters that are not yet r
 
 | Priority | Group | Reason |
 |----------|-------|--------|
-| High | A — Period Analytics | Three services remain (choices, habits, principles); goals already filters — see `goals_intelligence_service.py:162`. Uniform pattern; one date-window filter per service |
-| High | B — Habits Predictions | Directly affects user-facing analytics |
-| Low | I — `entity.can_view()` | Base check is correct (`visibility == PUBLIC`); ownership/sharing handled by the `UserOwnedEntity` override. Previously ranked High on a "always returns True" reading that the code does not support |
-| Medium | C — Askesis Bootstrap | Phase 2.5 dependency; requires entity extraction logic |
-| Medium | E — Hardcoded Scalars | Affects intelligence accuracy; requires graph queries |
+| High | A — Period Analytics | Live on `GET /api/{choices,habits,principles}/analytics`; the response echoes a `period_days` it did not apply. Uniform pattern; one date-window filter per service, and goals already shows the shape (`goals_intelligence_service.py:162`) |
+| High | E — Hardcoded Scalars | The three choices rows are **unreachable** — both enclosing methods filter on a `Choice.date` property that does not exist, so they return empty. Repointing that filter comes before any of the aggregations; `learning_progress_rate` is independent and needs a graph query |
 | Medium | E2 — Goal-achievement recommendations | Confidences hardcoded and one strategy table-driven; `user_uid` accepted but unread |
-| Medium | G — Events Intelligence | Depends on GraphContext enrichment work |
 | Medium | I2 — Progress event handlers | `FUTURE-IMPL-009` needs persisted LP state — read the live `ENROLLED_IN` / `MASTERED` edges; `UserProgress` and `UserLpProgress` are both dead ends |
-| Low | D — Neo4j Adapter Stubs | Developer tooling; not user-facing |
-| Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread |
+| Low | B — Habits Predictions | No caller in the tree — `get_habit_analytics()` is unreached facade surface. Establish a consumer or delete it before implementing either parameter |
+| Low | C — Askesis Bootstrap | Not deferred: the four services are already wired through `askesis_factory.py`. Mechanical deletion of four parameters and four call-site arguments |
+| Low | D — Neo4j Adapter Stubs | Developer tooling; not user-facing, and `_force`'s intent is not recoverable |
+| Low | F — Goal Task Generation | Tasks are already generated; priority/due-date hardcoded and cross-goal context unread in all three generators |
 | Low | H — Askesis Private Methods | Internal heuristics refinement |
-| Low | I — misc infrastructure | Calendar energy profile, schema optimizer, trend lookback |
+| Low | I — misc infrastructure | Calendar energy profile, schema optimizer, predictive lookback window (3 sites), `_props` validation, LP recommendation stub |
 | Low | J — UI Views | UX enhancement; not correctness issues |
 
 Every row above resolves to a heading in this document (`## Group X`, or `### X2` for the
 `FUTURE-IMPL` subsections) — keep it that way when editing. A row with no section is how this
 table rotted last time.
 
-A former "K — Conversation System" row was dropped on 2026-07-28. Its section
-(`## Group K — Messaging / Conversation System Groundwork`, added 2026-02-25 in `5ce618ee1`) was
-deleted on 2026-06-19 by `69be520ca` (#338), which wired Neo4j conversation persistence and removed
-the `InMemoryConversationRepo` the section documented — but left the priority-table row behind. The
-groundwork it tracked was **built, not deferred**, so there is nothing left to record here.
+---
+
+## Removed rows
+
+Deletions are recorded here so they are not re-added from memory. **Group letters are identifiers,
+not a sequence** — the gap at G is deliberate; do not re-letter, because `§ E2` and `§ I2` are
+cited by name from six `FUTURE-IMPL-*` comments in the code.
+
+| Removed | When | Why |
+|---------|------|-----|
+| **Group G — Events Intelligence Private Methods** (2 rows + its priority row) | 2026-07-28 | `_analyze_goal_support` and `_analyze_habit_impact` do not exist anywhere in the tree |
+| **Group A — GoalsIntelligenceService row** | 2026-07-28 | `analyze_goal_performance` is gone tree-wide; the surviving `get_performance_analytics` takes a non-underscore `period_days` and filters on it. Implemented, not deferred |
+| **Group E — `cross_domain_analytics_service.py` mood/streak row** | 2026-07-28 | `JournalMoodAnalysis` + `get_mood_analysis` were removed in SKUEL030 tranche 3 (`7f9fc3c1c`, #737); the file records this at lines 56–60 and is now 580 lines long, short of the cited 661–665 |
+| **Group I — `Entity.can_view()` and `Entity.substance_score()`** (both rows + their shared priority row) | 2026-07-28 | **Implemented, not deferred — and structurally identical.** Each is a base method whose parameters are unread because the base has nothing to do, with the behaviour fully implemented on a subclass override taking the same parameters *without* underscores: `UserOwnedEntity.can_view(viewer_uid, shared_user_uids)` (`user_owned_entity.py:72`, owner + shared logic at 81–87) and `Curriculum.substance_score(force_recalculate)` (`curriculum.py:267`, cache bypass at 280–287). An ordinary polymorphic signature is not accepted-but-unimplemented work, and listing it here invites a future sweep to "implement" a base that is intentionally inert |
+| **Group I — `user_backend.get_user_context()` row** | 2026-07-28 | Had been struck through since the method's removal in `1373cc419` (2026-03-18). It was never a backend operation and no longer resolves; `UserService.get_user_context()` (`core/services/user_service.py:193`) is the live path |
+| **Priority row "K — Conversation System"** | 2026-07-28 (#856) | Its section (added 2026-02-25 in `5ce618ee1`) was deleted on 2026-06-19 by `69be520ca` (#338), which wired Neo4j conversation persistence and removed the `InMemoryConversationRepo` it documented. The groundwork was **built, not deferred** |
 
 ---
 
 ## Related Documentation
 
-- `CLAUDE.md` — "Parameter Naming" section defines the convention
+- `CLAUDE.md` — "Naming Conventions" § Parameters defines the underscore convention
 - `docs/patterns/ERROR_HANDLING.md` — Result[T] pattern used in all service methods above
 - `docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` — Intelligence service architecture
 - `docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — UserContext and period-based analytics context
