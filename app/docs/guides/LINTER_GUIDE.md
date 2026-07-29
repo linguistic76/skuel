@@ -218,10 +218,15 @@ conditions travel with that gate:
   and count tracking"), so the anchor reads them as Cypher. 19 such docstrings
   were admitted without the exemption, and one made CYP002 — ERROR severity,
   CI-gating — report a node named `the`.
-- **Comments are masked** before the rules run, the same treatment the `.cypher`
-  path has had since #710. Prose in a comment is not Cypher: `// The stale-owner
-  DELETE enforces the single-owner invariant` made CYP002 report a node named
-  `enforces` inside a query that is entirely correct.
+- **Cypher comments are masked** before the rules run, the same treatment the
+  `.cypher` path has had since #710. Prose in a comment is not Cypher: `// The
+  stale-owner DELETE enforces the single-owner invariant` made CYP002 report a
+  node named `enforces` inside a query that is entirely correct.
+- **Python `#` comments are masked too**, via `tokenize`, so commented-out code
+  is never read as a live query. On `main` this hole was open and gating:
+  `# query = """MATCH (n:Entity) DELETE n"""` produced a CI-blocking CYP002 on a
+  line Python never executes. `tokenize` rather than a `#`-matching regex,
+  because a `#` inside a string literal is not a comment.
 
 The gate replaced a local heuristic (`_is_actual_cypher`) that scored raw text for
 four structural shapes and so was blind to fully-interpolated queries. Deleting it
@@ -229,12 +234,19 @@ cost nothing measurable: the shared gate admits 1047 of the 1049 literals it
 admitted, and the 2 it declines are prose docstrings.
 
 **Known cost of the head anchor:** prose that opens with an uppercase clause and an
-operand (`MATCH the user to the correct task`) is admitted outside a docstring. That
-is the anchor working as designed — it is what admits `RETURN 1 as ping` and `SHOW
-INDEXES`, statement families with no paren to anchor on — and the docstring
-exemption is what keeps it safe. A test pins the trade; if it ever needs to change,
-the fix is a fourth condition on the shared anchor, not a second prose heuristic in
-`cypher_linter.py`.
+operand (`MATCH the user to the correct task`, `prompt = """DELETE the paragraph."""`)
+is admitted outside a docstring, and CYP002 will report an ERROR on it. That is the
+anchor working as designed — it is what admits `RETURN 1 as ping` and `SHOW INDEXES`,
+statement families with no paren to anchor on — and the docstring exemption is what
+keeps it tolerable.
+
+This is not a `cypher_linter` quirk: **SKUEL021 runs the same anchor at the same
+ERROR severity over `core/services` and flags that exact prose today.** Re-filtering
+it in the extractor would fork the anchor's semantics between two rules that are
+meant to agree. If the trade needs revisiting, the place is a fourth condition on the
+shared anchor in `cypher_vocabulary` — one change, both rules — never a second prose
+heuristic in `cypher_linter.py`. A test pins the current behaviour so a future
+tightening announces itself.
 
 Single-line
 f-string concatenation (`cypher += f"..."`) is below its resolution —

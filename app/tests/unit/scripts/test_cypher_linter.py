@@ -208,7 +208,54 @@ class TestDocstringExemption:
 
 
 # ============================================================================
-# COMMENT MASKING (parity with the .cypher path)
+# PYTHON COMMENT MASKING (Codex P2, #874)
+# ============================================================================
+
+
+class TestPythonCommentMasking:
+    """Commented-out code is not code, and a gating rule must not act on it.
+
+    Measured on origin/main, ``# query = \"\"\"MATCH (n:Entity) DELETE n\"\"\"``
+    ALREADY produced a CI-blocking CYP002 — the raw-source regex could not tell
+    a literal from text that looks like one. SKUEL021 never had the problem
+    because it reads the AST; this extractor was the odd one out.
+    """
+
+    def test_commented_out_query_is_not_extracted(self) -> None:
+        linter = make_linter()
+        assert linter._extract_cypher_queries('# query = """DELETE n"""\n', Path("t.py")) == []
+
+    def test_commented_out_match_is_not_extracted(self) -> None:
+        """The form that blocked strict CI on main."""
+        linter = make_linter()
+        content = '# query = """MATCH (n:Entity) DELETE n"""\n'
+        assert linter._extract_cypher_queries(content, Path("t.py")) == []
+
+    def test_a_hash_inside_a_string_is_not_a_comment(self) -> None:
+        """Why `tokenize` and not a `#`-matching regex — the control that fails it."""
+        linter = make_linter()
+        content = 'q = """MATCH (n:Entity) WHERE n.t = \'a # b\' DELETE n"""\n'
+        queries = linter._extract_cypher_queries(content, Path("t.py"))
+        assert len(queries) == 1
+        assert "'a # b'" in queries[0][0]
+
+    def test_a_trailing_comment_does_not_shift_the_query_line(self) -> None:
+        """Masking is length- and line-preserving, so offsets survive it."""
+        linter = make_linter()
+        content = '# leading comment\nx = 1  # trailing\nq = """MATCH (n:Entity) RETURN n"""\n'
+        ((_, line),) = linter._extract_cypher_queries(content, Path("t.py"))
+        assert line == 3
+
+    def test_untokenizable_content_is_left_alone(self) -> None:
+        """Best-effort: restore prior behaviour rather than silence the linter."""
+        linter = make_linter()
+        broken = 'q = """MATCH (n:Entity) RETURN n"""\nunclosed = "\n'
+        assert linter._mask_python_comments(broken) == broken
+        assert len(linter._extract_cypher_queries(broken, Path("t.py"))) == 1
+
+
+# ============================================================================
+# CYPHER COMMENT MASKING (parity with the .cypher path)
 # ============================================================================
 
 

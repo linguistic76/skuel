@@ -61,8 +61,10 @@ dropped upstream of all twelve rules. See ``_extract_cypher_queries``.
 
 import argparse
 import ast
+import io
 import re
 import sys
+import tokenize
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -185,6 +187,47 @@ class CypherLinter:
     # carry was a second copy of the admission decision.
     _TRIPLE_QUOTED_RE = re.compile(r'"""([\s\S]*?)"""')
 
+    @staticmethod
+    def _mask_python_comments(content: str) -> str:
+        """Blank every Python ``#`` comment, preserving length and line numbers.
+
+        A regex over raw source cannot tell a string literal from text that
+        merely looks like one inside a comment, and the failure is asymmetric:
+        ``# query = \"\"\"DELETE n\"\"\"`` is a COMMENT token Python never
+        executes, but the extractor read it as a query and CYP002 — ERROR
+        severity — blocked ``./dev quality --strict`` on it (Codex P2, #874).
+        SKUEL021 does not have this problem because it reads the AST; this
+        extractor was the odd one out. Measured on origin/main, the commented-out
+        form of a MATCH query ALREADY produced a CI-blocking error, so this is a
+        pre-existing hole that the wider gate would only have widened.
+
+        ``tokenize`` rather than a ``#``-matching regex, for the same reason the
+        Cypher side masks with a real scanner: a ``#`` inside a string literal is
+        not a comment. Masking in place — spaces, same length — keeps every
+        offset and line number the callers compute from.
+
+        Note the contrast with ``_docstring_lines``: ``tokenize`` reports
+        CHARACTER columns (it consumes ``str``), so column arithmetic is safe
+        here, where ``ast``'s BYTE columns made it unsafe there.
+
+        Best-effort: content the tokenizer rejects is returned unchanged, which
+        restores the previous behaviour rather than silencing the linter.
+        """
+        try:
+            tokens = list(tokenize.generate_tokens(io.StringIO(content).readline))
+        except (tokenize.TokenError, SyntaxError, IndentationError):  # fmt: skip
+            return content
+
+        lines = content.splitlines(keepends=True)
+        for token in tokens:
+            if token.type != tokenize.COMMENT:
+                continue
+            row, start_col = token.start[0] - 1, token.start[1]
+            end_col = token.end[1]
+            line = lines[row]
+            lines[row] = line[:start_col] + " " * (end_col - start_col) + line[end_col:]
+        return "".join(lines)
+
     def _docstring_lines(self, content: str) -> set[int]:
         """Every line number covered by a module/class/function docstring.
 
@@ -269,11 +312,30 @@ class CypherLinter:
            reason the statement splitter passes it: the suppression check reads
            the violation's own line.
 
+        4. **Python comments are masked first**, so commented-out code is never
+           read as a live query — see ``_mask_python_comments``. Measured on
+           origin/main, the commented-out form of a MATCH query ALREADY produced
+           a CI-blocking CYP002, so this closes a hole that predates the wider
+           gate rather than one the gate opened (Codex P2, #874).
+
+        Note what is deliberately NOT filtered: prose that opens with an
+        uppercase clause and an operand is admitted outside a docstring, so
+        ``prompt = \"\"\"DELETE the paragraph.\"\"\"`` in a scanned tree is an
+        ERROR. That is the shared head anchor's accepted trade, not a local
+        defect — SKUEL021 runs the same anchor at the same severity over
+        ``core/services`` and flags that exact string today. Re-filtering it
+        here would fork the anchor's semantics between two rules that are
+        supposed to agree; the place to change it is cypher_vocabulary.
+
         Returns:
             List of (query, line_number) tuples
         """
         queries: list[tuple[str, int]] = []
         seen_queries: set[str] = set()
+        # Python comments first, so the regex below cannot mistake commented-out
+        # code for a live query. Masking is length- and line-preserving, so the
+        # docstring line numbers and the match offsets both still hold.
+        content = self._mask_python_comments(content)
         docstring_lines = self._docstring_lines(content)
 
         for match in self._TRIPLE_QUOTED_RE.finditer(content):
