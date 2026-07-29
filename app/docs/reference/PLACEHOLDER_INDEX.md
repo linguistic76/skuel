@@ -221,15 +221,21 @@ not established here — "it has a caller" is the weak question.
 
 | Marker | File | Line | Placeholder | Notes |
 |--------|------|------|-------------|-------|
-| `FUTURE-IMPL-008` | `core/services/goals/goals_progress_service.py` | 1129 | `current_streak: int` (1131) on `_update_goal_from_habit_completion()` (1130) | ⚠ **One of the two deferred *parameters* in this register that are NOT underscore-prefixed** (the other is `user_uid` on `_generate_recommendations()`, Group E2). The handler recomputes progress from `avg_streak` across *all* habits linked to the goal, so the completing habit's own streak is discarded. Deferred: per-habit weighting. |
+| `FUTURE-IMPL-008` | `core/services/goals/goals_progress_service.py` | 1129 | `current_streak: int` (1131) on `_update_goal_from_habit_completion()` (1130) | ⚠ **One of the two deferred *parameters* in this register that are NOT underscore-prefixed** (the other is `user_uid` on `_generate_recommendations()`, Group E2). ⚠ **Intent unknown — do not assume a remedy.** The value is not lost: the completing habit's streak is persisted (`habits_progress_service.py:242`) *before* the event is published, and `count_linked_habits_avg_streak` averages the persisted `current_streak` of every linked habit, so it is already counted. The parameter is redundant as it stands, and the handler receives no `habit_uid` with which to single that habit out. |
 | `FUTURE-IMPL-009` | `core/services/lp/lp_progress_service.py` | 171 | `old_progress_percentage` synthesised as `((mastered_kus - 1) / total_kus) * 100` (205); `average_mastery_score=1.0` (239) | No `UserLpProgress` entity exists, so prior progress is inferred by assuming exactly one KU was just mastered, and `LearningPathCompleted` reports perfect mastery unconditionally. |
 
 **What full implementation requires:**
-- `FUTURE-IMPL-008`: weight the completing habit's `current_streak` against the goal's other
-  linked habits instead of collapsing to a flat average.
-- `FUTURE-IMPL-009`: a persisted `UserLpProgress` entity holding prior progress and `start_date`.
-  Two further placeholders resolve with it — the inferred `old_progress_percentage`, and the
-  hardcoded `average_mastery_score` (which should average real per-KU mastery scores).
+- `FUTURE-IMPL-008`: **decide, don't implement.** The averaged progress already includes the
+  completing habit, so there is no missing input to restore — establish whether a per-habit
+  emphasis was ever intended (which would need a `habit_uid` this handler is not given), and if
+  not, delete the parameter rather than invent a use for it.
+- `FUTURE-IMPL-009`: a persisted record of prior LP progress and its start date. **Extend the
+  existing `UserProgress`** (`core/models/progress/user_progress.py`, already generic over
+  `entity_uid`/`entity_type` with `progress_value`, `started_at` and `mastery_score`, and wired as
+  `UniversalNeo4jBackend[UserProgress]`) — do **not** add the `UserLpProgress` entity that
+  `lp_progress_service.py:204` names in passing, which would stand up a parallel progress model.
+  Two placeholders resolve with it: the inferred `old_progress_percentage`, and the hardcoded
+  `average_mastery_score` (which should average real per-KU mastery scores).
 
 > **Why `FUTURE-IMPL-008` has a named ruff entry — and why that entry is documentation, not
 > mechanism.** SKUEL defers a parameter by underscore-prefixing it, and ruff's `ARG` rules already
