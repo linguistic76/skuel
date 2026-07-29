@@ -2319,19 +2319,31 @@ class SkuelLinter:
             if clause is None:
                 continue
 
-            # The docstring's own first line, not the def's — that is where a
-            # reader looks and where a suppression comment would sit.
+            # Report on the docstring's own first line, not the def's — that is
+            # where a reader looks. But HONOUR a suppression anywhere in the
+            # docstring's line span: for a multi-line docstring the only place a
+            # real comment can go is after the closing quotes, since an interior
+            # `#` is just more string content. Checking the opening line alone
+            # made the documented escape unusable on exactly the docstrings most
+            # likely to need it, and left SKUEL026 reporting the closing-line
+            # comment as suppressing nothing (Codex P2, #868).
             body = getattr(node, "body", None)
-            line_num = body[0].lineno if body else getattr(node, "lineno", 1)
-            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
-            if self._is_line_suppressed(line, "SKUEL033"):
+            expr = body[0] if body else node
+            start = getattr(expr, "lineno", 1)
+            end = getattr(expr, "end_lineno", None) or start
+            if any(
+                self._is_line_suppressed(lines[i], "SKUEL033")
+                for i in range(start - 1, min(end, len(lines)))
+            ):
                 continue
+
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
 
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
-                    line_number=line_num,
-                    column=body[0].col_offset if body else 0,
+                    line_number=start,
+                    column=getattr(expr, "col_offset", 0),
                     severity=Severity.WARNING,
                     rule_id="SKUEL033",
                     message=(
@@ -2344,6 +2356,8 @@ class SkuelLinter:
                         "MERGE is an upsert — state the idempotency, don't flatten to 'Create'"
                     ),
                     line_content=line.strip(),
+                    # So SKUEL026's audit knows a closing-line comment is USED.
+                    suppression_span=(start, end),
                 )
             )
 

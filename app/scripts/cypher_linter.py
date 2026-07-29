@@ -469,17 +469,34 @@ class CypherLinter:
 
         return violations
 
-    @staticmethod
-    def _relationship_vars(query: str) -> set[str]:
+    # A variable bound inside a relationship bracket. Anything inside `[...]` in
+    # Cypher is an edge, so the only job is finding the NAME: skip optional
+    # whitespace after `[`, then require the next token to end at something that
+    # can legally follow a binding — `:` (type), `]` (bare), `{` (property map),
+    # or `*` (var-length bound). An anonymous `-[:TYPE]` is correctly skipped
+    # because the identifier class cannot match a leading `:`.
+    #
+    # The four terminators are load-bearing, and the narrower `[:\]]` this
+    # replaced is why: it missed `-[ r:OWNS ]`, `-[r {active: true}]`, and
+    # `-[r*1..2]` outright (Codex P2, #868). That narrowness was survivable while
+    # CYP002 was the only reader — a missed edge variable there produces a false
+    # POSITIVE, which someone sees. CYP012 reads the same set in the opposite
+    # direction, where the identical miss produces a silent false NEGATIVE: the
+    # rule would permit exactly the redundant detach it exists to catch.
+    _REL_VAR_RE = re.compile(r"-\[\s*([A-Za-z_]\w*)\s*(?=[:\]{*])")
+
+    @classmethod
+    def _relationship_vars(cls, query: str) -> set[str]:
         """Variables the query BINDS to a relationship (``-[r:TYPE]``/``-[r]``).
 
         THE one classifier, shared by the two rules that ask opposite questions
         of it: CYP002 skips these variables (an edge needs no DETACH), CYP012
         flags only these (an edge cannot BE detached). A second copy answering
-        the same question is how the two directions would drift apart.
+        the same question is how the two directions would drift apart — and,
+        per the pattern comment above, a gap here is invisible in one direction
+        and loud in the other.
         """
-        rel_pattern = r"-\[([a-z_][a-z0-9_]*)[:\]]"
-        return {m.group(1).lower() for m in re.finditer(rel_pattern, query, re.IGNORECASE)}
+        return {m.group(1).lower() for m in cls._REL_VAR_RE.finditer(query)}
 
     def _check_delete_without_detach(
         self, query: str, file_path: Path, start_line: int

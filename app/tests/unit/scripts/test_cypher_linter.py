@@ -591,6 +591,53 @@ class TestCYP012:
         query = "MATCH (a)-[r:OWNS]->(b)\nDETACH DELETE r // noqa: CYP012 - deliberate"
         assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
 
+    @pytest.mark.parametrize(
+        "binding",
+        [
+            "-[ r:OWNS ]->",  # whitespace inside the bracket
+            "-[r {active: true}]->",  # property map
+            "-[r*1..2]->",  # variable-length bound
+            "-[r]->",  # bare binding, no type
+            "-[r:A|B*1..3]->",  # type alternation + bound
+        ],
+        ids=["whitespace", "property-map", "var-length", "bare", "alternation-bound"],
+    )
+    def test_every_relationship_binding_form_is_classified(self, binding: str) -> None:
+        """Codex P2 (#868): the inherited `[:\\]]` terminator missed three of these.
+
+        Survivable while CYP002 was the only reader — a missed edge variable
+        there produces a false POSITIVE, which someone sees and reports. CYP012
+        reads the same set in the opposite direction, where the identical miss is
+        a silent false NEGATIVE that permits the exact shape the rule exists to
+        catch. RED against the old pattern for whitespace/property-map/var-length.
+        """
+        linter = make_linter()
+        query = f"MATCH (a){binding}(b)\nDETACH DELETE r"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1, f"{binding} not recognised as a relationship binding"
+
+    def test_anonymous_binding_binds_no_variable(self) -> None:
+        """`-[:OWNS]` names no variable — broadening must not invent one.
+
+        The guard on the widened pattern: it would be easy to start capturing the
+        TYPE as if it were the variable, which would make CYP002 skip real node
+        deletes.
+        """
+        assert make_linter()._relationship_vars("MATCH (a)-[:OWNS]->(b)") == set()
+        assert make_linter()._relationship_vars("MATCH (a)-[]->(b)") == set()
+
+    def test_widening_does_not_make_cyp002_miss_a_node_delete(self) -> None:
+        """The other direction of the same change: CYP002 must still fire.
+
+        Broadening the classifier can only ever make CYP002 skip MORE deletes, so
+        the risk it carries is a missed node delete — the opposite failure from
+        the one being fixed.
+        """
+        linter = make_linter()
+        query = "MATCH (a)-[ r:OWNS ]->(n:Entity)\nDELETE n"
+        violations = linter._check_delete_without_detach(query, Path("test.py"), 1)
+        assert [v.rule_code for v in violations] == ["CYP002"]
+
     def test_persistence_tree_is_clean_and_the_check_is_not_vacuous(self) -> None:
         """Real files report zero — and an INJECTED violation proves that means something.
 

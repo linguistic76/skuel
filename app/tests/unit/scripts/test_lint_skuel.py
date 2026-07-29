@@ -5442,6 +5442,38 @@ class TestSKUEL033:
         )
         assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
 
+    def test_suppression_on_a_multiline_docstrings_closing_line(self) -> None:
+        """Codex P2 (#868): the closing line is the ONLY place the comment can go.
+
+        Inside a multi-line docstring a `#` is just more string content, so the
+        escape this rule documents has exactly one legal position — after the
+        closing quotes. Honouring only the opening line made the documented
+        suppression unusable on the docstrings most likely to need it, leaving a
+        file-level disable as the sole workaround for a one-line exception.
+        """
+        content = (
+            "def f():\n"
+            '    """MERGE a VIEWED edge.\n'
+            "\n"
+            "    Longer explanation on another line.\n"
+            '    """  # skuel-lint: disable=SKUEL033 -- deliberately quoting the backend\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_multiline_docstring_without_suppression_still_fires(self) -> None:
+        """The other half of the pair — the span must not swallow real violations."""
+        content = (
+            "def f():\n"
+            '    """MERGE a VIEWED edge.\n'
+            "\n"
+            "    Longer explanation on another line.\n"
+            '    """\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+        assert violations[0].line_number == 2
+        assert violations[0].suppression_span == (2, 5)
+
     def test_module_and_class_docstrings_are_covered(self) -> None:
         """`ast.walk` over every docstring owner, not just functions."""
         module_doc = '"""MERGE the HAS_STEP edge for each row."""\n'
