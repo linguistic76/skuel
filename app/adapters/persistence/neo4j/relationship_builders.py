@@ -193,7 +193,7 @@ class RelationshipBuilder:
 
         query = f"""
             MATCH (from {from_pattern})-[r:{self._relationship_type}]->(to {to_pattern})
-            DETACH DELETE r
+            DELETE r
             RETURN count(r) as deleted
         """
         params = {"from_uid": self._from_uid, "to_uid": self._to_uid}

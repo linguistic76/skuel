@@ -147,7 +147,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Constants Usage Guide](patterns/constants_usage_guide.md) | 2025-11-27 | 493 |
 | [Context-First Relationship Pattern](patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) | 2026-02-10 | 712 |
 | [PrerequisiteChecker & the Learning-Requirements Lens](patterns/PREREQUISITE_CHECKER_PATTERN.md) | 2026-06-06 | 93 |
-| **[Domain Lateral Service Quick Start](patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md)** | **2026-01-31** | **350** |
 | [Domain-Specific Hooks Pattern](patterns/DOMAIN_SPECIFIC_HOOKS.md) | 2025-11-08 | 440 |
 | **[Lateral Relationships Visualization Pattern](patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)** | **2026-02-01** | **1020** |
 | [Error Handling Architecture](patterns/ERROR_HANDLING.md) | 2025-11-27 | 456 |

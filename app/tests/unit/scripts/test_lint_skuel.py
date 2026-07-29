@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from cypher_vocabulary import (  # type: ignore[import-not-found]
     CYPHER_LEADING_CLAUSES,
+    looks_like_cypher,
 )
 from lint_skuel import (  # type: ignore[import-not-found]
     LintResult,
@@ -119,6 +120,16 @@ def lint_content(
             linter._check_apoc_in_services(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL021"):
             linter._check_raw_cypher_in_services(fp, rel, content, lines, tree)
+
+    # Docstring-discipline rule — NOT is_above_boundary: core/utils/ is above the
+    # boundary and is explicitly allowed docstring Cypher. Reads the SAME tuple the
+    # production gate reads so the two cannot drift.
+    if (
+        not is_test
+        and rel.as_posix().startswith(SkuelLinter.DOCSTRING_INTENT_ONLY_TREES)
+        and linter._should_run_rule("SKUEL033")
+    ):
+        linter._check_docstring_cypher_head(fp, rel, content, lines, tree)
 
     if is_service and not is_test:
         if linter._should_run_rule("SKUEL002"):
@@ -3070,8 +3081,12 @@ class TestSKUEL021LeadingClauseAnchor:
         as the reason for the silence.
 
         The prose below is the shape `core/ports/` actually carried until the
-        find/replace damage was swept; it is kept here synthetically because no
-        correct docstring above the hexagonal boundary opens with a Cypher clause.
+        find/replace damage was swept. It is synthetic on purpose now: no
+        docstring in the intent-only trees opens with a Cypher clause any more,
+        and SKUEL033 is what keeps it that way, so there is no real head-position
+        prose left above the boundary to borrow. The carve-out's REAL-file
+        exercise moved with the prose — see
+        `test_docstring_carve_out_holds_on_real_files`.
         """
         prose = "DETACH DELETE a user + every OWNS-linked entity (GDPR erasure)."
 
@@ -3283,68 +3298,84 @@ class TestSKUEL021LeadingClauseAnchor:
 
     # --- Regression guard bound to the real files, not a hand-written stand-in ---
 
-    def test_core_ports_docstring_prose_stays_clean(self) -> None:
-        """Every `core/ports/` docstring that OPENS with a Cypher clause, linted for real.
+    def test_docstring_carve_out_holds_on_real_files(self) -> None:
+        """SKUEL021's docstring carve-out, exercised on real above-boundary prose.
 
-        A synthetic equivalent would only prove the equivalent is clean. This
-        runs the actual rule over the actual files, so a future widening cannot
-        regress them silently.
+        A synthetic equivalent would only prove the equivalent is clean. This runs
+        the actual rule over actual files, so a future widening cannot regress
+        them silently.
 
-        The corpus is DISCOVERED, not hard-coded. The previous version listed
-        four filenames and asserted ``"DETACH DELETE" in content`` — which had
-        quietly made find/replace damage ("DETACH DELETE a goal.") the fixture.
-        Repairing that prose emptied three of those four files, so a hard-coded
-        list would now pin text that no longer exists. Discovery also fails loudly
-        if the corpus ever empties, where a stale list would just keep passing.
+        REBOUND TWICE NOW, for the same reason both times: the fixture binds to a
+        SHAPE, never to a string. #863 moved it off a hard-coded
+        ``"DETACH DELETE" in content`` — which had quietly made find/replace
+        damage the fixture — and onto "docstrings that OPEN with a clause", which
+        discovered 12 in ``core/ports/``. But those 12 were themselves a
+        documented violation (SERVICE_DOCSTRING_STYLE.md § Where this applies
+        answers **No** for that tree), so repairing them emptied the second
+        binding as well, and SKUEL033 now keeps it empty by rule.
 
-        What legitimately carries the shape is ``curriculum_protocols.py``'s
-        ``MERGE a VIEWED edge ...`` family: real prose, naming the edge write the
-        port performs, and structurally identical to Cypher (uppercase clause,
-        head position, whitespace + operand).
+        The lesson the second rot taught: a guard must not rest on prose that a
+        documented standard forbids, or the next cleanup kills it again. So this
+        binding uses the tree where the SAME table answers **Yes** —
+        ``core/utils/``, whose USAGE EXAMPLES blocks are the teaching subject and
+        are named in SKUEL021's own docstring as the reason the carve-out exists.
+        That is prose no style cleanup can come for.
+
+        Discovery still sweeps every above-boundary tree, so newly-added docstring
+        Cypher anywhere is picked up; ``core/utils/`` is only what guarantees the
+        corpus cannot reach zero.
         """
-        ports = Path(__file__).resolve().parents[3] / "core" / "ports"
-        # A boolean "does any clause lead?" — so the longest-first ordering the
-        # linter needs for match PRECEDENCE has nothing to decide here.
-        leads_with_clause = re.compile(r"^(?:" + "|".join(CYPHER_LEADING_CLAUSES) + r")\s+\S")
+        core = Path(__file__).resolve().parents[3] / "core"
         docstring_owners = (ast.AsyncFunctionDef, ast.ClassDef, ast.FunctionDef, ast.Module)
 
-        corpus: dict[str, list[str]] = {}
-        for path in sorted(ports.glob("*.py")):
-            tree = ast.parse(path.read_text(encoding="utf-8"))
+        # Discovery uses the vocabulary predicate directly rather than the linter,
+        # so classifying thousands of docstring lines stays cheap. The LINTER is
+        # what the assertions below run — the predicate only picks the corpus.
+        corpus: dict[Path, list[str]] = {}
+        for path in sorted(core.rglob("*.py")):
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+            except SyntaxError:  # pragma: no cover - ruff would fail first
+                continue
             for node in ast.walk(tree):
                 if not isinstance(node, docstring_owners):
                     continue
                 doc = (ast.get_docstring(node) or "").strip()
-                if doc and leads_with_clause.match(doc):
-                    corpus.setdefault(path.name, []).append(doc.split("\n")[0])
+                if not doc:
+                    continue
+                for raw in doc.split("\n"):
+                    line = raw.strip()
+                    # A literal we could not safely re-embed in a probe below.
+                    if line and '"' not in line and "\\" not in line and looks_like_cypher(line):
+                        corpus.setdefault(path, []).append(line)
 
-        assert corpus, "no core/ports/ docstring opens with a Cypher clause — guard is inert"
+        assert corpus, "no core/ docstring carries Cypher any more — guard is inert"
 
-        # Non-vacuity: the very same prose, moved out of docstring position, must
-        # fire. Otherwise a head anchor that had stopped matching entirely would
-        # sail through the clean-assertions below.
-        sample = next(iter(corpus.values()))[0]
-        escaped = sample.replace("\\", "\\\\").replace('"', '\\"')
-        probe = lint_content(make_linter(["SKUEL021"]), f'msg = "{escaped}"\n')
-        assert [v.rule_id for v in probe] == ["SKUEL021"], (
-            f"{sample!r} no longer trips the head anchor — this guard proves nothing"
+        sanctioned = [p for p in corpus if "utils" in p.parts]
+        assert sanctioned, (
+            "the corpus no longer includes core/utils/, the one tree whose docstring "
+            "Cypher the style guide permanently sanctions — without it this guard is "
+            "one cleanup away from going inert again"
         )
 
-        checked = 0
-        for name in sorted(corpus):
-            path = ports / name
-            content = path.read_text(encoding="utf-8")
-            checked += 1
+        # Non-vacuity, kept from #863 and now anchored in the sanctioned tree: the
+        # very same prose, moved OUT of docstring position, must fire. Otherwise a
+        # rule that had stopped matching entirely would sail through the clean
+        # assertions below.
+        probe_line = corpus[sorted(sanctioned)[0]][0]
+        probe = lint_content(make_linter(["SKUEL021"]), f'msg = "{probe_line}"\n')
+        assert [v.rule_id for v in probe] == ["SKUEL021"], (
+            f"{probe_line!r} no longer trips SKUEL021 in value position — this guard proves nothing"
+        )
 
+        for path in sorted(corpus):
+            content = path.read_text(encoding="utf-8")
+            rel = path.relative_to(core.parent)
             linter = make_linter(["SKUEL021"])
-            tree = ast.parse(content)
             linter._check_raw_cypher_in_services(
-                path, Path("core/ports") / name, content, content.split("\n"), tree
+                path, rel, content, content.split("\n"), ast.parse(content)
             )
-            assert linter.result.violations == [], (
-                f"SKUEL021 fired on docstring prose in core/ports/{name}"
-            )
-        assert checked == len(corpus)
+            assert linter.result.violations == [], f"SKUEL021 fired on docstring prose in {rel}"
 
 
 # ============================================================================
@@ -5321,6 +5352,255 @@ class TestSKUEL029:
         )
         violations = lint_content(linter, content)
         assert violations == []
+
+
+# ============================================================================
+# SKUEL033 — Above-Boundary Docstrings State Intent, Not Mechanism
+#
+# The mechanised half of SERVICE_DOCSTRING_STYLE.md § Where this applies. Both
+# that doc and CLAUDE.md stated the rule and recorded that nothing enforced it;
+# left to convention it rotted into 14 docstrings across 6 files, one of which
+# had quietly become the fixture for another test.
+# ============================================================================
+
+
+class TestSKUEL033:
+    PORT = "core/ports/example_protocols.py"
+
+    def test_detects_docstring_opening_with_a_clause(self) -> None:
+        content = 'def record_view(uid):\n    """MERGE a VIEWED edge with view-count tracking."""\n'
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+        assert violations[0].severity == Severity.WARNING
+        assert "MERGE" in violations[0].message
+
+    def test_reports_the_docstring_line_not_the_def_line(self) -> None:
+        """A suppression comment sits on the docstring, so that is the anchor."""
+        content = (
+            "def record_view(\n    uid,\n    now,\n):\n"
+            '    """MERGE a VIEWED edge with view-count tracking."""\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.line_number for v in violations] == [5]
+
+    def test_intent_prose_is_clean(self) -> None:
+        """The rewritten form — what the rule is asking for."""
+        content = (
+            "def record_view(uid):\n"
+            '    """Record a user\'s visit to a KU; repeat visits accumulate count."""\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_clause_named_mid_sentence_is_clean(self) -> None:
+        """Reference position is prose about a neighbour — deliberately legal.
+
+        This is what keeps the rule off `query_types.py`, whose TypedDicts
+        document the row shape their backend's RETURN clause produces.
+        """
+        content = (
+            "def get_prereqs(uid):\n"
+            '    """Prerequisite UIDs for a Ku.\n\n'
+            '    Mirrors the row its RETURN collect(...) clause produces.\n    """\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_lowercase_prose_is_clean(self) -> None:
+        content = 'def f():\n    """Set the value and return the result."""\n'
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_core_utils_is_out_of_scope(self) -> None:
+        """The style guide's table answers YES for core/utils/ — USAGE EXAMPLES.
+
+        A rule that fired here would contradict the document it enforces, and
+        would also break SKUEL021's carve-out guard, which binds to this tree.
+        """
+        content = 'def f():\n    """MATCH (n:Entity) RETURN n — the shape this helper builds."""\n'
+        assert (
+            lint_content(
+                make_linter(["SKUEL033"]), content, file_path="core/utils/query_helpers.py"
+            )
+            == []
+        )
+
+    def test_adapters_persistence_is_out_of_scope(self) -> None:
+        """Below the boundary the backend docstring is the RIGHT home for Cypher."""
+        content = 'def f():\n    """MERGE the VIEWED edge with view-count tracking."""\n'
+        assert (
+            lint_content(
+                make_linter(["SKUEL033"]),
+                content,
+                file_path="adapters/persistence/neo4j/_learning_state_mixin.py",
+                is_service=False,
+            )
+            == []
+        )
+
+    def test_line_suppression(self) -> None:
+        content = (
+            "def f():\n"
+            '    """MERGE a VIEWED edge."""  # skuel-lint: disable=SKUEL033 -- quoting the backend\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_suppression_on_a_multiline_docstrings_closing_line(self) -> None:
+        """Codex P2 (#868): the closing line is the ONLY place the comment can go.
+
+        Inside a multi-line docstring a `#` is just more string content, so the
+        escape this rule documents has exactly one legal position — after the
+        closing quotes. Honouring only the opening line made the documented
+        suppression unusable on the docstrings most likely to need it, leaving a
+        file-level disable as the sole workaround for a one-line exception.
+        """
+        content = (
+            "def f():\n"
+            '    """MERGE a VIEWED edge.\n'
+            "\n"
+            "    Longer explanation on another line.\n"
+            '    """  # skuel-lint: disable=SKUEL033 -- deliberately quoting the backend\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_file_level_suppression_must_be_a_real_comment(self) -> None:
+        """Codex P2 (#868): the file-level early return also scanned raw text.
+
+        Not hypothetical — `RULE_DOCS` in `lint_skuel.py` documents every rule's
+        escape, which file-suppressed **18 rules on the linter's own source**.
+        Proven with an injected `hasattr()`: SKUEL011 reported nothing before the
+        fix and fires after it, and closing it unmasked zero pre-existing
+        violations tree-wide.
+        """
+        content = (
+            '"""Module docstring.\n'
+            "\n"
+            "Suppress the whole file with `# skuel-lint: disable-file=SKUEL033`.\n"
+            '"""\n'
+            "\n"
+            "def f():\n"
+            '    """MERGE a VIEWED edge."""\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+
+    def test_file_level_suppression_in_a_real_comment_still_works(self) -> None:
+        """The other half — tightening must not break the documented escape."""
+        content = (
+            "# skuel-lint: disable-file=SKUEL033 -- port mirrors the backend verbatim\n"
+            "def f():\n"
+            '    """MERGE a VIEWED edge."""\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_docstring_cannot_suppress_itself_by_quoting_the_escape(self) -> None:
+        """Codex P2 (#868): the span scan read raw lines, so string content counted.
+
+        A mechanism-first docstring that happens to QUOTE the escape — rule docs,
+        a linter test fixture, a migration note — would have silenced the rule
+        reading it, and SKUEL026 would not have reported the bypass either, since
+        it correctly audits only real comment tokens. tokenize closes it: inside a
+        docstring there is no comment, only text.
+        """
+        content = (
+            "def f():\n"
+            '    """MERGE a VIEWED edge.\n'
+            "\n"
+            "    Do not write `# skuel-lint: disable=SKUEL033` here expecting it to work.\n"
+            '    """\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+
+    def test_multiline_docstring_without_suppression_still_fires(self) -> None:
+        """The other half of the pair — the span must not swallow real violations."""
+        content = (
+            "def f():\n"
+            '    """MERGE a VIEWED edge.\n'
+            "\n"
+            "    Longer explanation on another line.\n"
+            '    """\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+        assert violations[0].line_number == 2
+        assert violations[0].suppression_span == (2, 5)
+
+    def test_module_and_class_docstrings_are_covered(self) -> None:
+        """`ast.walk` over every docstring owner, not just functions."""
+        module_doc = '"""MERGE the HAS_STEP edge for each row."""\n'
+        class_doc = 'class Port:\n    """CREATE a :ReviewRequest node per call."""\n'
+        for content in (module_doc, class_doc):
+            violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+            assert [v.rule_id for v in violations] == ["SKUEL033"], content
+
+    def test_scope_matches_the_style_guide_table(self) -> None:
+        """The rule's tree tuple is TRANSCRIBED from the doc — pin it to the doc.
+
+        Scope was chosen by reading SERVICE_DOCSTRING_STYLE.md's own table rather
+        than by judgement, so the failure mode is the doc moving underneath it: a
+        new `core/` row saying "No", or `core/utils/` flipping, would leave the
+        rule quietly enforcing a standard that no longer says what it says. A
+        hand-maintained scope tuple needs a test that rederives it.
+        """
+        doc = (
+            Path(__file__).resolve().parents[3] / "docs" / "patterns" / "SERVICE_DOCSTRING_STYLE.md"
+        ).read_text(encoding="utf-8")
+
+        row = re.compile(r"^\|\s*`([^`]+)`\s*\|[^|]*\|\s*([^|]+?)\s*\|\s*$", re.MULTILINE)
+        forbidden = {
+            location
+            for location, cypher_ok in row.findall(doc)
+            if location.startswith("core/") and cypher_ok.lower().startswith("no")
+        }
+
+        assert forbidden, "the style guide's § Where this applies table did not parse"
+        assert forbidden == set(SkuelLinter.DOCSTRING_INTENT_ONLY_TREES), (
+            "SKUEL033's scope no longer matches SERVICE_DOCSTRING_STYLE.md's table — "
+            "update DOCSTRING_INTENT_ONLY_TREES, or the doc, deliberately"
+        )
+
+    def test_real_trees_are_clean_and_the_rule_is_not_vacuous(self) -> None:
+        """The four trees report zero — and an INJECTED violation proves that means
+        something.
+
+        A bare "the tree is clean" assertion is exactly the shape that let a
+        config-only change ship two inert instruments in the ANN401 arc: it passes
+        identically whether the rule works or never runs. So the same real file
+        that reports clean is re-linted with its repaired docstring put back the
+        way it was, and that MUST fire.
+        """
+        app = Path(__file__).resolve().parents[3]
+
+        for tree_name in SkuelLinter.DOCSTRING_INTENT_ONLY_TREES:
+            for path in sorted((app / tree_name).rglob("*.py")):
+                content = path.read_text(encoding="utf-8")
+                linter = make_linter(["SKUEL033"])
+                linter._check_docstring_cypher_head(
+                    path,
+                    path.relative_to(app),
+                    content,
+                    content.split("\n"),
+                    ast.parse(content),
+                )
+                assert linter.result.violations == [], f"SKUEL033 fires on {path.relative_to(app)}"
+
+        target = app / "core" / "ports" / "zpd_protocols.py"
+        content = target.read_text(encoding="utf-8")
+        corrupted = content.replace(
+            '"""Keep one ZPD history record per user, refreshed with the latest assessment.',
+            '"""MERGE one :ZPDHistory row per user with the latest assessment summary.',
+        )
+        assert corrupted != content, "injection anchor moved — this proof is inert"
+
+        linter = make_linter(["SKUEL033"])
+        linter._check_docstring_cypher_head(
+            target,
+            Path("core/ports/zpd_protocols.py"),
+            corrupted,
+            corrupted.split("\n"),
+            ast.parse(corrupted),
+        )
+        assert [v.rule_id for v in linter.result.violations] == ["SKUEL033"], (
+            "SKUEL033 no longer catches the shape it was written for"
+        )
 
 
 class TestOptInRulesDrift:

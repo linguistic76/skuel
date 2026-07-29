@@ -16,7 +16,7 @@ Components:
     - LateralRelationshipService: Core domain-agnostic service (with ownership verification)
     - LateralRelationshipSpec: Metadata registry (in relationship_registry.py)
 
-See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
+See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
 from core.services.lateral_relationships.lateral_relationship_service import (

@@ -59,7 +59,6 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Patterns (Additional):**
 - [CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md](/docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md)
-- [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md)
 - [STANDALONE_SERVICE_PATTERN.md](/docs/patterns/STANDALONE_SERVICE_PATTERN.md)
 - [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
 - [search_service_pattern.md](/docs/patterns/search_service_pattern.md)
@@ -334,7 +333,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 ### @ui-css
 
-**Description:** SKUEL CSS layer — MonsterUI (FrankenUI + Tailwind) components
+**Description:** SKUEL CSS layer — Tailwind + ui.components (SKUEL-owned pure-Tailwind layer, ADR-071)
 
 **Patterns (Primary):**
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
@@ -426,7 +425,6 @@ For each documentation category, this section shows which skills are relevant.
 - [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) → @neo4j-cypher-patterns, @user-context-intelligence
 - [CYPHER_VS_APOC_STRATEGY.md](/docs/patterns/CYPHER_VS_APOC_STRATEGY.md) → @neo4j-cypher-patterns
 - [DOCSTRING_STANDARDS.md](/docs/patterns/DOCSTRING_STANDARDS.md) → @docs-skills-evolution, @python
-- [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md) → @base-analytics-service
 - [DOMAIN_PATTERNS_CATALOG.md](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) → @pydantic, @python
 - [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) → @domain-route-config, @fasthtml
 - [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md) → @result-pattern, @security, @ui-error-handling
@@ -485,7 +483,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Total skills:** 30
 - **Architecture docs:** 10 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
-- **Pattern docs:** 43 docs linked to skills
+- **Pattern docs:** 42 docs linked to skills
 - **ADRs:** 12 ADRs linked to skills
 
 ---

@@ -129,7 +129,7 @@ class JupyterSyncBackend:
         await self._executor.execute_query(
             """
             MATCH (ku:Entity {uid: $uid})-[r:REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE|RELATED_TO]->()
-            DETACH DELETE r
+            DELETE r
             """,
             {"uid": uid},
         )

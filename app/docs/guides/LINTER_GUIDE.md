@@ -31,7 +31,7 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
 | **SKUEL Patterns** | `scripts/lint_skuel.py` | 31 architectural rules (SKUEL001-SKUEL032; SKUEL004 deleted, IDs not renumbered) | Inline in script |
-| **Cypher Queries** | `scripts/cypher_linter.py` | 10 Neo4j query rules (CYP001-CYP010) | Inline in script |
+| **Cypher Queries** | `scripts/cypher_linter.py` | 12 Neo4j query rules (CYP001-CYP012) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
 - **MyPy** — static type checking (0 errors enforced)
@@ -123,7 +123,7 @@ them without failing.
 
 **Detailed examples and rationale:** See [Linter Rules](../patterns/linter_rules.md).
 
-## Cypher Query Rules (CYP001-CYP010)
+## Cypher Query Rules (CYP001-CYP012)
 
 Static analysis for Neo4j Cypher queries — both embedded in Python string
 literals and in standalone `.cypher` files.
@@ -131,7 +131,7 @@ literals and in standalone `.cypher` files.
 | Rule | Severity | Description |
 |------|----------|-------------|
 | **CYP001** | ERROR | Nested aggregate functions |
-| **CYP002** | ERROR | DELETE without DETACH |
+| **CYP002** | ERROR | DELETE without DETACH on a **node** |
 | **CYP003** | ERROR | Interpolated VALUE instead of parameter (`'{var}'`, `= {var}`, `IN {var}`) |
 | **CYP004** | WARNING | Unbounded relationship traversal |
 | **CYP005** | WARNING | Missing depth limit on multi-hop |
@@ -140,6 +140,57 @@ literals and in standalone `.cypher` files.
 | **CYP008** | WARNING | WITH clause without DISTINCT (disabled) |
 | **CYP009** | WARNING | Query complexity too high |
 | **CYP010** | INFO | Missing index hint |
+| **CYP011** | ERROR | Label / relationship type not registered in `NeoLabel` / `RelationshipName` (`.cypher` files only; the `.py` half is SKUEL030) |
+| **CYP012** | WARNING | DETACH on a **relationship** delete — a no-op |
+
+**CYP002 and CYP012 are the two directions of one question**, over one shared
+classifier (`_relationship_vars`, the set of variables a pattern binds to an
+edge). CYP002 asks whether a DETACH is *missing* and therefore skips edge
+deletes entirely; CYP012 asks whether a DETACH can do *anything* and therefore
+looks only at them. That asymmetry is why four sites emitted `DETACH DELETE r`
+on an edge unreported for as long as CYP002 shipped alone — the mechanism to
+classify the variable was already there, the second question was simply never
+asked. A relationship has no relationships to detach, so `DETACH DELETE r` and
+`DELETE r` leave identical graphs (verified against a live server, not read off
+the docs). CYP012 fires only when **every** target is an edge: `DETACH DELETE r, n`
+is correct and is not flagged, because the DETACH is there for `n`. A target also
+bound as a **node** anywhere in the query, or rebound by an `AS` alias, is skipped.
+
+**Only CYP012 reads those subtractions, and that asymmetry is deliberate.** The
+node/alias classifiers are lexical and query-wide, so they are sometimes wrong.
+Every way they can be wrong makes CYP012 *quieter*, which is free — it only ever
+removes a redundant keyword. Pointing the same subtractions at CYP002 makes them
+point the other way, and #868 measured the result: `count (r)` — valid Cypher,
+whitespace before the paren — reads as a node pattern, drops `r` from the edge
+set, and makes an **ERROR-severity, CI-gating rule fail a correct relationship
+deletion**. CYP002 therefore keeps the raw classifier. A gate must not fail closed
+because a regex was wrong.
+
+**Known limits of CYP012 (all misses, never false alarms):** a name reused across
+scopes (`CALL { MATCH ()-[r:OWNS]->() DELETE r } MATCH (r:Entity) DETACH DELETE r`);
+a whitespace-separated aggregate (`count (r)`), where telling a function name from
+a clause keyword is a parser's job; and any name a `WITH … AS r` rebinds. Four
+review rounds landed on this surface in #868. That progression is a regex growing
+toward a parser — a tail this repo already paid 19 rounds for once (#831) — so the
+mechanism stopped and the rule's *claim* narrowed instead: **CYP012 speaks only
+when a name is bound by a relationship pattern, never by a node pattern, and never
+by an alias.**
+
+**Known limit of CYP002 (pre-existing, left as found):** the same cross-scope
+reuse makes CYP002 *skip* a node delete that genuinely needs DETACH. This predates
+#868; a round of that PR "fixed" it via the subtractions above and had to be
+reverted when the fix proved worse than the bug. Closing it properly needs scope
+resolution. Both limits are asserted by tests, so a real fix will announce itself
+by turning those assertions red.
+
+**Coverage boundary (measured, not assumed):** of the four sites repaired when
+CYP012 was added, it guards **three**. `relationship_builders.py` interpolates
+every structural position (`(from {from_pattern})`, `-[r:{self._relationship_type}]`),
+so `_is_actual_cypher` sees no node pattern, rel pattern, property map or
+`$param` and the extractor never yields the query at all. That blind spot is
+upstream of *every* CYP rule, not CYP012's — handed the text directly, the rule
+fires, and a test pins exactly that so coverage follows if the heuristic is ever
+widened.
 
 **CYP003 (promoted WARNING → ERROR 2026-07, now CI-gated):** flags only
 value-position interpolation — quoted literals (`'{var}'`, including map values

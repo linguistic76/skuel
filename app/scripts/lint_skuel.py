@@ -39,6 +39,8 @@ WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report o
   SKUEL028: Result.fail(result.expect_error()) - use Result.fail(result) to propagate
   SKUEL030: Unregistered relationship type / node label in persistence Cypher
   SKUEL031: Stale pip references - SKUEL uses uv
+  SKUEL033: Above-boundary docstring opens with a Cypher clause — intent, not mechanism
+            (SERVICE_DOCSTRING_STYLE.md § Where this applies)
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -980,6 +982,58 @@ def calculate(self, paths) -> list[ActivePathData]:
     from ui.ui_types import ActivePathData
     return [ActivePathData(estimated_completion=f"{int(p.estimated_hours or 0)}h total", ...)]""",
     },
+    "SKUEL033": {
+        "title": "Above-Boundary Docstrings Do Not Open With a Cypher Clause",
+        "severity": "WARNING",
+        "description": """`docs/patterns/SERVICE_DOCSTRING_STYLE.md` has said since 2026-05 that
+docstrings in `core/services/`, `core/orchestrator/`, `core/ports/`, and `core/models/`
+describe INTENT in domain language, with mechanism living in the backend docstring. Its
+own § Relationship to SKUEL021 called the gap out: "SKUEL021 will not fail your build if
+you describe Cypher in a service docstring", and floated "a *warning-level* lint over
+[the above-boundary trees] that flags Cypher-shaped fragments in docstrings" as the way to
+close it. CLAUDE.md repeated the rule and the same caveat ("isn't lint-enforced"). This is
+that lint.
+
+Scope is the style guide's OWN table (§ Where this applies), not a fresh judgement — the
+four trees whose "Cypher in docstrings OK?" cell reads No. `core/utils/` is EXCLUDED
+because the same table answers Yes for it (USAGE EXAMPLES blocks are the teaching subject
+there), and SKUEL021's docstring already names that tree as the reason its carve-out
+exists. Measured at introduction: the excluded tree has zero head-position hits, so the
+exclusion costs no coverage — it prevents a rule from contradicting the document it
+enforces.
+
+HEAD POSITION ONLY, which is the same three-part test SKUEL030/SKUEL021 use through
+`cypher_vocabulary.leading_cypher_clause`: uppercase clause + whitespace + operand, at the
+docstring's head. A docstring that merely NAMES a clause mid-sentence ("returns the rows
+its RETURN clause produces") is prose describing a neighbour, and is deliberately NOT
+flagged — the distinction is the one `CYPHER_LEADING_CLAUSES` already draws, and the one
+that keeps this rule from firing on `query_types.py`'s row-shape references.
+
+Known and deliberate limit: a whole Cypher query indented under a `Pattern:` heading
+further down a docstring is a violation of the style guide that this rule does NOT see
+(`core/ports/user_entry_protocols.py` carries one). Head position catches the docstring
+that describes ITSELF in mechanism terms; the mid-body cases are a separate sweep with
+their own per-site judgement calls.
+
+Fix: say what the operation MEANS and what it guarantees. Note that `MERGE` carries real
+upsert semantics — flattening it to "Create" loses the contract, so state the idempotency
+instead.
+
+Suppress: # skuel-lint: disable=SKUEL033 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL033 -- <reason>""",
+        "good": '''async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
+    """Record a user's visit to a KU; repeat visits accumulate count and time spent.
+
+    One view record per user/KU pair, but NOT idempotent: every call increments
+    the view count and adds to total time spent, so a retry double-counts
+    engagement. The first-viewed timestamp is set once and survives later
+    visits; the running view count comes back on the row.
+    """''',
+        "bad": '''async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
+    """MERGE a VIEWED edge with timestamp and view-count tracking."""
+    # The port now documents the backend's mechanism. It drifts the moment the
+    # backend changes, and says nothing about what the caller is guaranteed.''',
+    },
 }
 
 
@@ -1135,6 +1189,7 @@ class SkuelLinter:
             "SKUEL029",
             "SKUEL030",
             "SKUEL032",
+            "SKUEL033",
         }
     )
 
@@ -1201,6 +1256,7 @@ class SkuelLinter:
             "SKUEL029",
             "SKUEL030",
             "SKUEL032",
+            "SKUEL033",
         }
     )
 
@@ -1340,6 +1396,7 @@ class SkuelLinter:
         # tree OBJECT (identity compare on a held strong ref, so a recycled
         # id() can never alias two trees).
         self._inert_ids_memo: tuple[ast.AST, set[int]] | None = None
+        self._comment_lines_memo: tuple[str, dict[int, str]] | None = None
 
     @staticmethod
     def _git_changed_files(root_dir: Path, staged_only: bool = False) -> list[Path] | None:
@@ -1405,10 +1462,28 @@ class SkuelLinter:
         return f"# skuel-lint: disable={rule_id}" in line
 
     def _is_file_suppressed(self, content: str, rule_id: str) -> bool:
-        """Check for file-level suppression: # skuel-lint: disable-file=SKUEL011"""
+        """Check for file-level suppression: # skuel-lint: disable-file=SKUEL011
+
+        Only a REAL `#` comment suppresses. A raw substring test cannot tell a
+        comment from string content, and that was not hypothetical: this very
+        file documents each rule's escape inside `RULE_DOCS`, which silently
+        file-suppressed **18 rules on `scripts/lint_skuel.py`** — the linter was
+        blind to most of itself. Proven with an injected `hasattr()`: SKUEL011
+        reported nothing before this change and fires after it. Measured cost of
+        closing it: zero new violations tree-wide, because the unmasked rules
+        were already clean here (#868).
+
+        The substring test stays as a cheap pre-filter, so a file that never
+        mentions the escape is never tokenized. Untokenizable files now honour no
+        file-level suppression — ruff reports the syntax error anyway, and for a
+        suppression mechanism, failing closed is the safe direction.
+        """
         if self.ignore_suppressions:
             return False
-        return f"# skuel-lint: disable-file={rule_id}" in content
+        marker = f"# skuel-lint: disable-file={rule_id}"
+        if marker not in content:
+            return False
+        return any(marker in comment for comment in self._comment_lines(content).values())
 
     def _find_suppression_comments(self, file_path: Path) -> list[SuppressionComment]:
         """
@@ -1709,6 +1784,17 @@ class SkuelLinter:
                     self._check_apoc_in_services(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL021"):
                     self._check_raw_cypher_in_services(file_path, rel_path, content, lines, tree)
+
+            # Docstring-discipline rule: above the boundary a docstring states
+            # intent. Scope is SERVICE_DOCSTRING_STYLE.md's own table, so this is
+            # NOT `is_above_boundary` — core/utils/ sits above the boundary and is
+            # explicitly allowed Cypher in docstrings by that same table.
+            if (
+                not is_test
+                and rel_path.as_posix().startswith(self.DOCSTRING_INTENT_ONLY_TREES)
+                and self._should_run_rule("SKUEL033")
+            ):
+                self._check_docstring_cypher_head(file_path, rel_path, content, lines, tree)
 
             # Import-direction rule (ADR-044): all of core/, not just services.
             if is_core and not is_test and self._should_run_rule("SKUEL022"):
@@ -2103,6 +2189,34 @@ class SkuelLinter:
                 return True
         return False
 
+    def _comment_lines(self, content: str) -> dict[int, str]:
+        """1-based line number -> the REAL `#` comment token text on that line.
+
+        Needed wherever a suppression is honoured over a multi-line span. A raw
+        line scan cannot tell a comment from string content, so a docstring whose
+        own text contains `# skuel-lint: disable=SKUEL033` would suppress the very
+        rule reading it — and SKUEL026 would not report the bypass either, since
+        it correctly audits only real comment tokens (Codex P2, #868). tokenize is
+        the same mechanism `_find_suppression_comments` already trusts for that
+        reason; this variant takes content in hand rather than a path, so
+        synthetic test input goes down the identical route as a real file.
+
+        Empty on untokenizable input: ruff reports the syntax error, and failing
+        open here would resurrect the bypass this exists to close.
+        """
+        if self._comment_lines_memo is not None and self._comment_lines_memo[0] is content:
+            return self._comment_lines_memo[1]
+        found: dict[int, str] = {}
+        if "#" in content:
+            try:
+                for tok in tokenize.generate_tokens(io.StringIO(content).readline):
+                    if tok.type == tokenize.COMMENT:
+                        found[tok.start[0]] = tok.string
+            except tokenize.TokenError, IndentationError, SyntaxError:
+                found = {}
+        self._comment_lines_memo = (content, found)
+        return found
+
     def _inert_ids_for(self, tree: ast.AST) -> set[int]:
         """Memoized `_inert_string_constant_ids` — one walk per file, shared by
         every string-constant rule (SKUEL001/021 today)."""
@@ -2188,6 +2302,116 @@ class SkuelLinter:
                         "(adapters/persistence/neo4j/) behind a core/ports protocol (ADR-044)"
                     ),
                     line_content=line.strip(),
+                )
+            )
+
+    # SKUEL033: the trees whose "Cypher in docstrings OK?" cell reads **No** in
+    # SERVICE_DOCSTRING_STYLE.md § Where this applies. Transcribed from that
+    # table rather than chosen here, so the rule cannot outgrow the document it
+    # enforces — and `core/utils/`, whose cell reads **Yes**, is absent for the
+    # same reason. That exclusion is not a concession: measured at introduction,
+    # `core/utils/` had ZERO head-position hits (its docstring Cypher all sits in
+    # `query='MATCH ...'` example lines), so excluding it cost no coverage while
+    # keeping the rule from contradicting its own source of truth.
+    DOCSTRING_INTENT_ONLY_TREES: ClassVar[tuple[str, ...]] = (
+        "core/services/",
+        "core/orchestrator/",
+        "core/ports/",
+        "core/models/",
+    )
+
+    def _check_docstring_cypher_head(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL033 [WARNING]: an above-boundary docstring must not OPEN with Cypher.
+
+        The mechanised half of SERVICE_DOCSTRING_STYLE.md § Where this applies.
+        That doc, and CLAUDE.md after it, both stated the rule and then recorded
+        that nothing enforced it — the doc even specified the shape ("a
+        *warning-level* lint ... that flags Cypher-shaped fragments in
+        docstrings"). Left to convention it rotted: 14 docstrings across 6 files
+        opened with `MERGE`/`DELETE`/`CREATE` naming the edge their backend
+        writes, and one of them had quietly become a lint fixture.
+
+        Head position is the whole test, via the shared
+        `cypher_vocabulary.leading_cypher_clause` — the same anchor SKUEL021 and
+        SKUEL030 read, so there is no fourth copy to drift. A docstring that
+        merely NAMES a clause mid-sentence is prose about a neighbour and stays
+        legal; one that OPENS with a clause is describing itself in mechanism
+        terms, which is the thing the style guide forbids.
+
+        Deliberately NOT covered: Cypher further down a docstring (a query block
+        under a `Pattern:` heading). Those are real style-guide violations with
+        per-site judgement calls, not this rule's shape.
+
+        Suppress: # skuel-lint: disable=SKUEL033 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL033 -- <reason>
+        """
+        if tree is None or self._is_file_suppressed(content, "SKUEL033"):
+            return
+
+        docstring_owners = (ast.AsyncFunctionDef, ast.ClassDef, ast.FunctionDef, ast.Module)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, docstring_owners):
+                continue
+            doc = (ast.get_docstring(node) or "").strip()
+            if not doc:
+                continue
+            clause = leading_cypher_clause(doc)
+            if clause is None:
+                continue
+
+            # Report on the docstring's own first line, not the def's — that is
+            # where a reader looks. But HONOUR a suppression anywhere in the
+            # docstring's line span: for a multi-line docstring the only place a
+            # real comment can go is after the closing quotes, since an interior
+            # `#` is just more string content. Checking the opening line alone
+            # made the documented escape unusable on exactly the docstrings most
+            # likely to need it, and left SKUEL026 reporting the closing-line
+            # comment as suppressing nothing (Codex P2, #868).
+            body = getattr(node, "body", None)
+            expr = body[0] if body else node
+            start = getattr(expr, "lineno", 1)
+            end = getattr(expr, "end_lineno", None) or start
+            # Only a REAL comment token suppresses. Every line in the span except
+            # the closing one is string content, so scanning raw lines would let a
+            # docstring suppress itself by quoting the escape.
+            comments = self._comment_lines(content)
+            if any(
+                self._is_line_suppressed(comments[lineno], "SKUEL033")
+                for lineno in range(start, end + 1)
+                if lineno in comments
+            ):
+                continue
+
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
+
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=start,
+                    column=getattr(expr, "col_offset", 0),
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL033",
+                    message=(
+                        f"Docstring opens with the Cypher clause '{clause.strip()}' — "
+                        "above the boundary a docstring states intent, not mechanism"
+                    ),
+                    suggestion=(
+                        "Say what the operation means and guarantees; leave the query to "
+                        "the backend docstring (docs/patterns/SERVICE_DOCSTRING_STYLE.md). "
+                        "MERGE is an upsert — state the idempotency, don't flatten to 'Create'"
+                    ),
+                    line_content=line.strip(),
+                    # So SKUEL026's audit knows a closing-line comment is USED.
+                    suppression_span=(start, end),
                 )
             )
 

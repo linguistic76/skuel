@@ -208,7 +208,7 @@ class UserProgressBackend:
             // Remove IN_PROGRESS if it exists
             WITH u, k
             OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)
-            DETACH DELETE ip
+            DELETE ip
             """,
             {
                 "user_uid": user_uid,

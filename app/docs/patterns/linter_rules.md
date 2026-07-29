@@ -25,11 +25,11 @@ For implementation guidance, see:
 2. **MyPy** (`mypy`) - Static type checker
 3. **Pyright** (`pyright`) - Additional type checker for VS Code
 4. **SKUEL Pattern Linter** (`scripts/lint_skuel.py`) - Custom architectural patterns
-5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP011), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations — semicolon-split statements, comment-masked; since PR #710)
+5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP012), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations — semicolon-split statements, comment-masked; since PR #710)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
 - `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
-- `tests/unit/scripts/test_cypher_linter.py` — 76 tests covering CYP001–CYP006, CYP009, Python query extraction, `.cypher` statement extraction, file discovery, helpers
+- `tests/unit/scripts/test_cypher_linter.py` — 122 tests covering CYP001–CYP006, CYP009, CYP011, CYP012, Python query extraction, `.cypher` statement extraction, file discovery, helpers
 
 ## SKUEL-Specific Rules
 
@@ -87,6 +87,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment — see "Suppression audit" below |
 | **SKUEL030** | Unregistered label / relationship type in persistence Cypher | Register it in `NeoLabel` / `RelationshipName`, or fix the name (AST rule, docstring-aware) |
 | **SKUEL031** | Stale pip references (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) | SKUEL is lockfile-managed by uv — `uv add` / `uv sync` / `uv remove` / `uv export`; the `pip-audit` tool name is not caught |
+| **SKUEL033** | A docstring in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` that *opens* with a Cypher clause | State intent and the guarantee; mechanism belongs in the backend docstring (AST rule, shares SKUEL021's head anchor; `core/utils/` excluded by the same table it enforces) |
 
 ## Inline Suppression
 
@@ -577,7 +578,7 @@ def fetch() -> None:
 
 **The two anchors disagree on comment masking, deliberately.** The head anchor masks comments; the substring anchor does not, so a commented-out `MATCH (` in a *used* literal still reports. Masking both is defensible (a comment cannot execute — the reasoning that exempts docstrings), but the anchors fail in opposite directions: masking only ever moves the head anchor's single match position past a planner hint, while the substring anchor matches anywhere in every string across all three trees, so masking it could only ever *remove* detections. A silent miss is what this rule exists to prevent; an over-report on a commented-out query is one suppression comment. Measured when the anchors were consolidated: masking the substring anchor would have moved **zero** verdicts in any of the three trees (40 non-inert constants there contain `//` or `/*`). `::TestSKUEL021AnchorMaskingAsymmetry` pins the asymmetry so it stays a decision rather than an accident.
 
-The head anchor exists because the substring anchor has a structural ceiling: a marker matched anywhere must be paren/sigil-shaped to stay out of prose, which left whole statement families with nothing to match on. **A real leak lived in that blind spot** — `core/services/system_service_init.py` ran `await session.run("RETURN 1 as ping")` for a long time, fully in scope, with no suppression comment, and the rule never fired. Position supplies the signal a substring cannot: `"MERGE a VIEWED edge"` at the head of a *used* string is Cypher, while the same words in a `core/ports/` docstring are prose. The mid-sentence case is `_spawn_orchestrator.py`'s "... deletes the node and its edges via `DETACH DELETE` on next failure". (Until the find/replace sweep of 2026-07-29 this read "~30 places across `core/`" — that count was of corrupted prose, where a stale replace had rewritten the English word "delete" into the clause; the surviving deliberate instance is the single one named above.)
+The head anchor exists because the substring anchor has a structural ceiling: a marker matched anywhere must be paren/sigil-shaped to stay out of prose, which left whole statement families with nothing to match on. **A real leak lived in that blind spot** — `core/services/system_service_init.py` ran `await session.run("RETURN 1 as ping")` for a long time, fully in scope, with no suppression comment, and the rule never fired. Position supplies the signal a substring cannot: `"MERGE a VIEWED edge"` at the head of a *used* string is Cypher, while the same words in a docstring are prose SKUEL021 correctly ignores. (Whether such a docstring is *wanted* is a separate question with a separate rule — SKUEL033 forbids it in the intent-only trees, and permits it in `core/utils/`, where the USAGE EXAMPLES blocks are the teaching subject.) The mid-sentence case is `_spawn_orchestrator.py`'s "... deletes the node and its edges via `DETACH DELETE` on next failure". (Until the find/replace sweep of 2026-07-29 this read "~30 places across `core/`" — that count was of corrupted prose, where a stale replace had rewritten the English word "delete" into the clause; the surviving deliberate instance is the single one named above.)
 
 **Composite strings are judged as a whole, never as their torn parts.** `ast.walk` yields a `JoinedStr` (or a `+` chain) *and* its `Constant` children, and the children are fragments. Both `f"RETURN {value}"` and `"RETURN " + projection` tear into a leading piece with no operand left to anchor on, while `f"cascade {mode} DETACH DELETE (default False)"` tears into a trailing piece that *falsely* leads with a clause keyword. The head anchor therefore runs against the reconstructed whole — `render_fstring()` output for f-strings, an `Add`-spine flatten for concatenation — with interpolations replaced by a sentinel. Concatenation is flattened along the `+` spine only, never into an operand's own expression, so a string literal buried in a call argument is not spliced into the query text. Nested `+` links resolve to their outermost root, so a chain reports once.
 
@@ -593,7 +594,9 @@ Three conditions keep the head anchor quiet on prose, each load-bearing: head po
 
 **How to fix a violation:** relocate the query into an adapter backend in `adapters/persistence/neo4j/` behind a `core/ports` protocol, and inject it at the composition root. For an "inverted boundary" case (a `core/` model/util that builds a Cypher string handed to a passthrough executor), pass the domain *intent* down and author the Cypher below the boundary — see `ConnectionFetchBackend` / `ConnectionFetchOperations` (PR #75) and `build_relationship_filter_fragments` (PR #78) for the patterns.
 
-**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL021` covers used Cypher in `core/services`/`core/utils`/`core/models`, in `adapters/inbound/` and `ui/`, f-strings, passed/returned strings, docstring + `USAGE EXAMPLES` + comment skips, the English-UI-string corpus, out-of-scope silence for `scripts/` and `adapters/persistence/`, multi-line collapse, and suppression. `::TestSKUEL021LeadingClauseAnchor` covers the head anchor: each newly-visible statement family, each prose guard, each of the five drifts closed by adopting the shared matcher, the derived whole-list check, and a regression test that lints every real `core/ports/` file whose docstrings *open* with a Cypher clause (a synthetic stand-in would only prove the stand-in is clean). That corpus is discovered per-run rather than hard-coded — currently 12 docstrings across 5 files, led by `curriculum_protocols.py`'s `MERGE a VIEWED edge ...` family — and the test fails loudly if it ever empties. It also proves its own non-vacuity by re-linting one discovered docstring in value position, which must fire. `::TestSKUEL021AnchorMaskingAsymmetry` pins the masking asymmetry between the two anchors. `tests/unit/test_core_utils_boundary.py` additionally bans execution primitives (neo4j driver imports, `.execute_query(` calls) that SKUEL021 does not cover; its Cypher-string sub-check now *derives* from `SkuelLinter` rather than hand-copying the markers, after the copy silently drifted a marker behind. The real tree is held clean by `./dev quality` in CI.
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL021` covers used Cypher in `core/services`/`core/utils`/`core/models`, in `adapters/inbound/` and `ui/`, f-strings, passed/returned strings, docstring + `USAGE EXAMPLES` + comment skips, the English-UI-string corpus, out-of-scope silence for `scripts/` and `adapters/persistence/`, multi-line collapse, and suppression. `::TestSKUEL021LeadingClauseAnchor` covers the head anchor: each newly-visible statement family, each prose guard, each of the five drifts closed by adopting the shared matcher, the derived whole-list check, and `test_docstring_carve_out_holds_on_real_files`, which lints real above-boundary files whose docstrings carry Cypher (a synthetic stand-in would only prove the stand-in is clean). That corpus is discovered per-run rather than hard-coded, and the test fails loudly if it ever empties. It also proves its own non-vacuity by re-linting one discovered docstring in value position, which must fire.
+
+**That fixture has now been rebound twice, both times off a string and onto a shape.** #863 moved it off a hard-coded `"DETACH DELETE" in content` — which had quietly made find/replace damage the fixture — onto "docstrings that *open* with a clause", which discovered 12 across 5 `core/ports/` files. Those 12 then turned out to be a documented violation in their own right (SERVICE_DOCSTRING_STYLE.md § Where this applies answers **No** for `core/ports/`), so repairing them emptied the second binding too, and **SKUEL033** now keeps it empty by rule. The durable lesson: *a guard must not rest on prose that a documented standard forbids*, or the next cleanup kills it again. The current binding requires the corpus to include `core/utils/`, the one tree whose docstring Cypher that same table permanently sanctions. `::TestSKUEL021AnchorMaskingAsymmetry` pins the masking asymmetry between the two anchors. `tests/unit/test_core_utils_boundary.py` additionally bans execution primitives (neo4j driver imports, `.execute_query(` calls) that SKUEL021 does not cover; its Cypher-string sub-check now *derives* from `SkuelLinter` rather than hand-copying the markers, after the copy silently drifted a marker behind. The real tree is held clean by `./dev quality` in CI.
 
 **Suppression:**
 - `# skuel-lint: disable=SKUEL021 -- <reason>` (line)
@@ -710,6 +713,54 @@ def to_active_path_data(row: LpActivePathProgress) -> ActivePathData:
 **Suppression:**
 - `# skuel-lint: disable=SKUEL032 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL032 -- <reason>` (file)
+
+## Rule: SKUEL033 - Above-Boundary Docstrings State Intent, Not Mechanism
+
+**Pattern:** A docstring in an intent-only tree that **opens** with a Cypher clause — `"""MERGE a VIEWED edge with timestamp and view-count tracking."""` on a `core/ports` protocol method — documents its backend's mechanism instead of its own contract. It drifts the moment the backend changes, duplicates what the backend docstring already says, and tells the caller nothing about what they are guaranteed.
+
+**Why this rule exists at all:** the discipline was written down twice and enforced neither time. [SERVICE_DOCSTRING_STYLE.md](SERVICE_DOCSTRING_STYLE.md) § Relationship to SKUEL021 stated the gap and even specified the remedy — "a *warning-level* lint … that flags Cypher-shaped fragments in docstrings would close the loop" — and CLAUDE.md § Docstring Philosophy repeated the rule plus the caveat "isn't lint-enforced". Left to convention it rotted: **14 docstrings across 6 files** opened with `MERGE`/`DELETE`/`CREATE`, and one family of them had quietly become the fixture another test depended on. This is that lint.
+
+**Scope is transcribed from the style guide's own table** (§ Where this applies), not chosen here — the four `core/` trees whose *"Cypher in docstrings OK?"* cell reads **No**: `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/`. `core/utils/` is **excluded** because the same table answers **Yes** for it (USAGE EXAMPLES blocks are the teaching subject there), and `adapters/persistence/neo4j/` is excluded because that table calls the backend docstring Cypher's right home. `::test_scope_matches_the_style_guide_table` reparses the markdown table and fails if the two ever disagree, so the scope cannot silently outlive its source.
+
+Measured at introduction: `core/utils/` had **zero** head-position hits, so the exclusion cost no coverage — it only stopped the rule contradicting the document it enforces.
+
+**Head position is the whole test**, through the shared `cypher_vocabulary.leading_cypher_clause` — the same anchor SKUEL021 and SKUEL030 read, so there is no fourth copy to drift (see the [five-drift history](#rule-skuel021---no-raw-cypher-above-the-boundary)). Prose that merely *names* a clause mid-sentence ("mirrors the row its `RETURN collect(...)` clause produces") is describing a neighbour and stays legal; that carve-out is what keeps the rule off `query_types.py`'s row-shape references.
+
+**Known limit, deliberately not covered:** a whole query indented under a `Pattern:` heading further down a docstring is a style-guide violation this rule does not see (`core/ports/user_entry_protocols.py` carries one). Head position catches the docstring that describes *itself* in mechanism terms; the mid-body cases are a separate sweep with their own per-site judgement calls.
+
+```python
+# ❌ WRONG — the port documents the backend's query
+async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
+    """MERGE a VIEWED edge with timestamp and view-count tracking."""
+
+# ✅ CORRECT — what the operation means, and what it guarantees
+async def record_view(self, user_uid, ku_uid, now, time_spent) -> Result[...]:
+    """Record a user's visit to a KU; repeat visits accumulate count and time spent.
+
+    One view record per user/KU pair, but NOT idempotent: every call increments
+    the view count and adds to total time spent, so a retry double-counts
+    engagement. The first-viewed timestamp is set once and survives later
+    visits; the running view count comes back on the row.
+    """
+```
+
+**Note what the "good" example does *not* say.** An earlier draft of this very
+example called `record_view` idempotent — because `MERGE` upserts one edge per
+pair, which is true of the *edge* and false of the *operation*: the backend's
+`ON MATCH` branch increments `view_count` and adds to `time_spent_seconds`, so a
+retry double-counts engagement. Stating a guarantee is the point of this rule,
+and a **wrong** guarantee is worse than the mechanism-flavoured line it replaced:
+"MERGE a VIEWED edge" at least sent the reader to the backend, whereas
+"idempotent" tells them a retry is safe when it is not. Read the `ON MATCH`
+branch before writing the word.
+
+**How to fix a violation:** say what the caller gets and what holds. Note that `MERGE` carries real upsert semantics — flattening it to "Create" *loses* the contract, so state the idempotency instead. Verify the wording against the implementing backend first: several of the founding 14 had non-obvious semantics ("higher score always wins on conflict", "True iff a NEW edge was created") that a generic rewrite would have silently dropped.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL033` — 11 cases covering the positive detection, docstring-line (not `def`-line) anchoring, intent prose, mid-sentence clause references, lowercase prose, both out-of-scope trees, suppression, module/class docstrings, the table-drift check, and a real-tree sweep that asserts all four trees report zero **and then re-lints a real file with its repaired docstring put back**, which must fire. A bare "the tree is clean" assertion passes identically whether the rule works or never runs.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL033 -- <reason>` (line, on the docstring)
+- `# skuel-lint: disable-file=SKUEL033 -- <reason>` (file)
 
 ## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
 
