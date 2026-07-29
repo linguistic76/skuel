@@ -15,10 +15,10 @@ from core.ports.knowledge_pattern_protocol import compute_knowledge_intensity
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-# Query specifications: (field_name, service_method_name)
-# Defines the mapping between dataclass fields and service query methods
+# Query specifications: (field_name, GOAPS_CONFIG relationship method key).
+# Keys must match GOAPS_CONFIG exactly — validated by tests/unit/test_query_spec_keys.py.
 GOAL_QUERY_SPECS: list[tuple[str, str]] = [
-    ("aligned_learning_path_uids", "aligned_learning_paths"),
+    ("aligned_learning_path_uids", "aligned_paths"),
     ("requires_completion_of_paths", "required_paths"),
     ("required_knowledge_uids", "knowledge"),
     ("sub_goal_uids", "subgoals"),
@@ -27,7 +27,6 @@ GOAL_QUERY_SPECS: list[tuple[str, str]] = [
     ("critical_habit_uids", "critical_habits"),
     ("optional_habit_uids", "optional_habits"),
     ("guiding_principle_uids", "principles"),
-    ("milestone_uids", "milestones"),
     ("serves_life_path_uids", "life_path"),
 ]
 
@@ -61,9 +60,6 @@ class GoalRelationships:
 
     # Principle relationships
     guiding_principle_uids: list[str] = field(default_factory=list)
-
-    # Milestone relationships
-    milestone_uids: list[str] = field(default_factory=list)
 
     # Life path alignment
     serves_life_path_uids: list[str] = field(default_factory=list)

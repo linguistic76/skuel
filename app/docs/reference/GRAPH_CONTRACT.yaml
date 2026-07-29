@@ -546,6 +546,8 @@ relationships:
     contract:
       - config: Choice
         roles: [prerequisite]
+        definitions:
+          - {direction: outgoing, target: Entity, context_field: required_knowledge, method: required_knowledge}
   OPENS_LEARNING_PATH:
     contract:
       - config: Choice
@@ -1085,6 +1087,7 @@ labels:
       ownership: OWNS
       relationships:
         - INFORMED_BY_KNOWLEDGE
+        - REQUIRES_KNOWLEDGE_FOR_DECISION
         - INFORMED_BY_PRINCIPLE
         - AFFECTS_GOAL
         - OPENS_LEARNING_PATH
@@ -1097,7 +1100,6 @@ labels:
         - SCHEDULES_EVENT
         - TRIGGERS_CHOICE
         - OWNS
-        - REQUIRES_KNOWLEDGE_FOR_DECISION
       semantic_types: ["learn:informed_by_knowledge", "learn:requires_theoretical_understanding"]
   Principle:
     entity_types: [principle]
