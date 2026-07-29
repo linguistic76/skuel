@@ -384,7 +384,6 @@ skills:
       - ADR-031  # BaseService mixin decomposition
     patterns:
       - /docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md
-      - /docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md
       - /docs/patterns/STANDALONE_SERVICE_PATTERN.md
       - /docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md
       - /docs/patterns/search_service_pattern.md

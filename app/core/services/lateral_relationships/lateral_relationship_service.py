@@ -27,7 +27,7 @@ Usage:
         metadata={"reason": "Must complete setup first", "severity": "required"}
     )
 
-See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
+See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
 from typing import TYPE_CHECKING, Any

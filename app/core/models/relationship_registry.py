@@ -178,7 +178,7 @@ class LateralRelationshipSpec:
     Part of the RelationshipRegistry — THE single source of truth
     for lateral relationship behavior (symmetry, inverses, constraints).
 
-    See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
+    See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
     """
 
     relationship: RelationshipName

@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-06-02
+updated: 2026-07-29
 status: current
 category: architecture
 version: 2.0.0
@@ -235,10 +235,12 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
   - `validate=True`: checks both entities exist, detects circular dependencies (`BLOCKS`/`PREREQUISITE_FOR`), rejects duplicates
   - `auto_inverse=True`: auto-creates the inverse (`BLOCKS` → also creates `BLOCKED_BY` in the reverse direction)
 - `delete_lateral_relationship(source_uid, target_uid, relationship_type)` → `Result[bool]`
-- `get_lateral_relationships(entity_uid, relationship_types, direction)` → `Result[list[dict]]` — filtered query with direction control (`"incoming"` / `"outgoing"` / `"both"`)
-- `get_blocking_chain(entity_uid)` → `Result[list[dict]]` — transitive blocking dependency chain
-- `get_alternatives_with_comparison(entity_uid)` → `Result[dict]` — side-by-side comparison data
-- `get_relationship_graph(entity_uid, depth)` → `Result[dict]` — Vis.js network format (nodes + edges)
+- `get_lateral_relationships(entity_uid, relationship_types, direction="outgoing", include_metadata=True, user_uid, domain_service)` → `Result[list[LateralRelationshipItem]]` — filtered query with direction control (`"incoming"` / `"outgoing"` / `"both"`)
+- `get_blocking_chain(entity_uid, max_depth=10)` → `Result[BlockingChainResult]` — transitive blocking dependency chain
+- `get_alternatives_with_comparison(entity_uid, comparison_fields=None)` → `Result[list[AlternativeComparisonItem]]` — side-by-side comparison data
+- `get_relationship_graph(entity_uid, depth=2, relationship_types=None)` → `Result[RelationshipGraphData]` — Vis.js network format (nodes + edges)
+
+Return rows are typed `TypedDict`s from `core/ports/query_types.py`, not raw `dict`s. Reads accept an optional `domain_service: OwnershipVerifier` — the ownership hook that replaced the per-domain wrappers (below).
 
 ### Lateral Relationship Type Taxonomy
 
@@ -279,27 +281,36 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 
 The extended types (`ENABLES`, `SIMILAR_TO`, `CONFLICTS_WITH`, `COUSIN`, `RECOMMENDED_WITH`, `STACKS_WITH`) are defined in `RelationshipName` and available to services but not yet wired to Phase 5 UI endpoints.
 
-### Domain-Specific Lateral Services
+### Per-Domain Wiring — One Service, No Wrappers
 
-Each domain wraps `LateralRelationshipService` to add ownership verification and domain business rules:
+**There are no per-domain lateral services.** The 9 wrappers (`GoalsLateralService`, `TasksLateralService`, …) were deleted in `e8818dc26` ("Unify lateral relationships"), eliminating ~3,400 lines of boilerplate. Their two real jobs moved into shared machinery:
+
+| Wrapper job | Now lives in |
+|-------------|--------------|
+| Relationship metadata (symmetry, inverses, constraints) | `RelationshipName` + `LateralRelationshipSpec` registry — `core/models/relationship_registry.py` (`get_lateral_spec`) |
+| Ownership verification | `OwnershipVerifier` protocol (`core/ports/service_protocols.py`) — one `verify_ownership` method, satisfied structurally by all 6 Activity facades |
+
+`LateralRelationshipService` stays domain-agnostic and takes an entity uid. `LateralRouteFactory` holds the domain's verifier and passes it per call, so the core service never learns about domains:
 
 ```python
-class GoalsLateralService:
-    def __init__(self, lateral_service, goals_service):
-        self.lateral_service = lateral_service  # LateralRelationshipService (backend-backed)
-        self.goals_service = goals_service
+# adapters/inbound/lateral_routes.py — the whole per-domain surface
+_LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
+    ("tasks", "Task", "tasks"),          # 3rd item = ownership-verifier attr
+    ...
+    ("ku", "Knowledge Unit", None),      # curriculum: shared, no ownership check
+]
 
-    async def create_blocking_relationship(
-        self, blocker_uid: str, blocked_uid: str, reason: str, user_uid: UserUID
-    ) -> Result[bool]:
-        for uid in [blocker_uid, blocked_uid]:
-            if (await self.goals_service.verify_ownership(uid, user_uid)).is_error:
-                return Err(...)
-        return await self.lateral_service.create_lateral_relationship(
-            blocker_uid, blocked_uid, LateralRelationType.BLOCKS,
-            metadata={"reason": reason}, auto_inverse=True
-        )
+factory = LateralRouteFactory(
+    domain=domain,
+    lateral_service=orchestrator.lateral_service,  # the one LateralRelationshipService
+    entity_name=entity_name,
+    domain_service=domain_service,                 # OwnershipVerifier | None
+)
 ```
+
+The composition root exposes exactly one lateral field — `services.lateral` — plus `services.lateral_orchestrator`; there are no `services.{domain}_lateral` fields.
+
+**Adding a domain is one entry in `_LATERAL_DOMAINS`.** Never reintroduce a `{domain}_lateral_service.py` wrapper — that is the pattern One Path Forward removed.
 
 ### Key Cypher Patterns
 
