@@ -532,6 +532,301 @@ class TestCYP002:
 
 
 # ============================================================================
+# CYP012: DETACH on a relationship delete — CYP002's inverse.
+#
+# CYP002 only ever asks whether a DETACH is MISSING, so it skips relationship
+# deletes outright (`test_relationship_delete_clean` above pins that skip). That
+# is why four tree sites emitted `DETACH DELETE <edge>` unreported: the mechanism
+# to classify the variable was already there, the question was never asked.
+# ============================================================================
+
+
+class TestCYP012:
+    def test_detects_detach_on_relationship(self) -> None:
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDETACH DELETE r"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+        assert violations[0].rule_code == "CYP012"
+        assert violations[0].severity == Severity.WARNING
+
+    def test_plain_delete_on_relationship_clean(self) -> None:
+        """The repaired form — the whole point of the rule is that this is fine."""
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDELETE r"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_detach_on_node_clean(self) -> None:
+        """A node genuinely needs DETACH — CYP002's territory, untouched."""
+        linter = make_linter()
+        query = "MATCH (n:Entity {uid: $uid})\nDETACH DELETE n"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_mixed_targets_are_not_flagged(self) -> None:
+        """`DETACH DELETE r, n` is CORRECT — the DETACH is there for the node.
+
+        Reading only the first target would make this a false positive, and it is
+        a live shape in this tree (`bulk_upsert_backend`'s cascade delete).
+        """
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(n:Entity)\nDETACH DELETE r, n"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_all_relationship_targets_are_flagged(self) -> None:
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)-[q:USES_KU]->(c)\nDETACH DELETE r, q"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+        assert "'r', 'q'" in violations[0].message
+
+    def test_optional_match_binding_still_classifies(self) -> None:
+        """The fourth tree site was bound by OPTIONAL MATCH, not MATCH."""
+        linter = make_linter()
+        query = "MATCH (u:User)\nOPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)\nDETACH DELETE ip"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+
+    def test_noqa_suppresses(self) -> None:
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDETACH DELETE r // noqa: CYP012 - deliberate"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    @pytest.mark.parametrize(
+        "binding",
+        [
+            "-[ r:OWNS ]->",  # whitespace inside the bracket
+            "-[r {active: true}]->",  # property map
+            "-[r*1..2]->",  # variable-length bound
+            "-[r]->",  # bare binding, no type
+            "-[r:A|B*1..3]->",  # type alternation + bound
+        ],
+        ids=["whitespace", "property-map", "var-length", "bare", "alternation-bound"],
+    )
+    def test_every_relationship_binding_form_is_classified(self, binding: str) -> None:
+        """Codex P2 (#868): the inherited `[:\\]]` terminator missed three of these.
+
+        Survivable while CYP002 was the only reader — a missed edge variable
+        there produces a false POSITIVE, which someone sees and reports. CYP012
+        reads the same set in the opposite direction, where the identical miss is
+        a silent false NEGATIVE that permits the exact shape the rule exists to
+        catch. RED against the old pattern for whitespace/property-map/var-length.
+        """
+        linter = make_linter()
+        query = f"MATCH (a){binding}(b)\nDETACH DELETE r"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1, f"{binding} not recognised as a relationship binding"
+
+    def test_anonymous_binding_binds_no_variable(self) -> None:
+        """`-[:OWNS]` names no variable — broadening must not invent one.
+
+        The guard on the widened pattern: it would be easy to start capturing the
+        TYPE as if it were the variable, which would make CYP002 skip real node
+        deletes.
+        """
+        assert make_linter()._relationship_vars("MATCH (a)-[:OWNS]->(b)") == set()
+        assert make_linter()._relationship_vars("MATCH (a)-[]->(b)") == set()
+
+    def test_name_reused_as_a_node_in_another_scope_is_not_flagged(self) -> None:
+        """Codex P2 (#868): the classifier is query-wide, so a reused name is ambiguous.
+
+        Here `n` is an edge inside the CALL subquery and a node outside it.
+        Reading the outer `DETACH DELETE n` as an edge would advise dropping a
+        DETACH the node genuinely needs — a suggestion that breaks the query.
+        Real scope analysis is a parser's job; this guard just declines to guess.
+        """
+        linter = make_linter()
+        query = (
+            "CALL { MATCH ()-[n:OWNS]->() DELETE n }\nMATCH (n:Entity {uid: $uid})\nDETACH DELETE n"
+        )
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_aggregate_over_the_edge_does_not_disarm_the_rule(self) -> None:
+        """The ambiguity guard must not read `count(r)` as a node pattern.
+
+        A node pattern's `(` never follows an identifier character; a function
+        call's always does. Without that distinction `DELETE r RETURN count(r)`
+        — the shape of two of the four real sites — would classify `r` as a node
+        and switch CYP012 off exactly where it matters.
+        """
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(b)\nDETACH DELETE r\nRETURN count(r) AS deleted"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1
+        assert linter._node_vars(query) == {"a", "b"}
+
+    def test_fully_interpolated_query_is_caught_by_the_rule_but_not_reached(self) -> None:
+        """Coverage boundary, measured: 3 of the 4 repaired sites are guarded, not 4.
+
+        `relationship_builders.py` interpolates EVERY structural position —
+        `(from {from_pattern})`, `-[r:{self._relationship_type}]` — so
+        `_is_actual_cypher` finds no node pattern, no rel pattern, no property
+        map and no `$param`, and the extractor never yields the query. That miss
+        is upstream of every CYP rule, not CYP012's: handed the text directly,
+        the rule fires. Pinned here so the boundary is visible rather than
+        assumed, and so coverage follows automatically if the extraction
+        heuristic is ever widened.
+        """
+        linter = make_linter()
+        query = (
+            "\n            MATCH (from {from_pattern})-[r:{self._relationship_type}]"
+            "->(to {to_pattern})\n            DETACH DELETE r\n"
+            "            RETURN count(r) as deleted\n        "
+        )
+        assert linter._is_actual_cypher(query) is False, "extraction gap closed — retest coverage"
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert [v.rule_code for v in violations] == ["CYP012"]
+
+    def test_comment_between_targets_does_not_truncate_the_list(self) -> None:
+        """Codex P2 (#868): a comment splitting the target list hid the node.
+
+        `DETACH DELETE r // edge first\\n, n` deletes an edge AND a node, so the
+        DETACH is load-bearing. Matching the raw text stopped at `r`, read the
+        all-relationships case, and suggested `DELETE r` — which both strips a
+        needed DETACH and drops `n` from the query entirely. Masking comments
+        first restores the real list.
+        """
+        linter = make_linter()
+        query = "MATCH (a)-[r:OWNS]->(n:Entity)\nDETACH DELETE r // edge first\n, n"
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_cyp002_never_blocks_ci_on_a_spaced_aggregate(self) -> None:
+        """Codex P2 (#868) round 7 — and the reason CYP002 keeps the RAW classifier.
+
+        `count (r)` is valid Cypher, and the node regex reads its `(r)` as a node
+        pattern. Round 5 had routed CYP002 through the node/alias subtractions, so
+        that misread dropped `r` from the edge set and made an ERROR-severity,
+        CI-gating rule fail a CORRECT relationship deletion.
+
+        Reverted deliberately. Before this PR CYP002 rested on one hand-written
+        approximation; the subtractions made it rest on three, trading a rare miss
+        of a contrived cross-scope query — pre-existing behaviour — for a false
+        failure on correct code. A gate must not fail closed on a regex being
+        wrong. This test is the guard on that decision.
+        """
+        linter = make_linter()
+        query = "MATCH ()-[r:OWNS]->() DELETE r RETURN count (r) AS deleted"
+        assert linter._node_vars(query) == {"r"}, "the misread itself is unchanged"
+        assert linter._check_delete_without_detach(query, Path("test.py"), 1) == []
+
+    def test_cyp002_cross_scope_miss_is_a_documented_pre_existing_limit(self) -> None:
+        """The cost of that revert, asserted so it cannot be mistaken for a fix.
+
+        `r` is an edge in the subquery and a node outside it; CYP002 skips the
+        outer delete even though it needs DETACH. This is how CYP002 behaved
+        before this PR and is left as found — closing it needs scope resolution,
+        which is a parser's job and its own change. Asserting the miss keeps it
+        honest: if someone later fixes it properly, this test says so out loud.
+        """
+        linter = make_linter()
+        query = "CALL { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDELETE r"
+        assert linter._check_delete_without_detach(query, Path("test.py"), 1) == []
+
+    def test_only_cyp012_reads_the_subtractions(self) -> None:
+        """Pins the asymmetry: every subtraction may quieten CYP012, never CYP002.
+
+        A future edit that "unifies" the two rules onto one classifier reopens
+        round 7 — so the divergence is asserted rather than left to a comment.
+        """
+        linter = make_linter()
+        query = "CALL { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDETACH DELETE r"
+        assert linter._relationship_vars(query) == {"r"}
+        assert linter._node_vars(query) == {"r"}
+        assert linter._edge_only_vars(query) == set()
+        # CYP012 declines the ambiguous target; CYP002 is untouched by that logic.
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    def test_node_reaching_the_target_through_an_alias_is_not_flagged(self) -> None:
+        """Codex P2 (#868), round 3 on this surface: `WITH n AS r` rebinds `r`.
+
+        No pattern in the query binds the outer `r`, so both pattern classifiers
+        describe something else and CYP012 would advise dropping a DETACH the node
+        needs. Answered by narrowing the claim, not by resolving aliases.
+        """
+        linter = make_linter()
+        query = (
+            "CALL { MATCH ()-[r:OWNS]->() DELETE r }\n"
+            "MATCH (n:Entity)\n"
+            "WITH n AS r\n"
+            "DETACH DELETE r"
+        )
+        assert linter._aliased_names(query) == {"r"}
+        assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # relationship_builders.py — every structural position interpolated
+            "MATCH (from {uid: $from_uid})-[r:OWNS]->(to {uid: $to_uid})\n"
+            "DETACH DELETE r\nRETURN count(r) as deleted",
+            # _relationship_crud_mixin.py
+            "MATCH (a {uid: $from_uid})-[r:APPLIES_KNOWLEDGE]->(b {uid: $to_uid})\n"
+            "WHERE NOT a:Content AND NOT b:Content\n"
+            "DETACH DELETE r\nRETURN count(r) as deleted_count",
+            # jupyter_sync_backend.py
+            "MATCH (ku:Entity {uid: $uid})-[r:REQUIRES_KNOWLEDGE|RELATED_TO]->()\nDETACH DELETE r",
+            # user_progress_backend.py — the site the brief never listed
+            "MATCH (u:User {uid: $user_uid})\nWITH u, k\n"
+            "OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)\nDETACH DELETE ip",
+        ],
+        ids=["relationship_builders", "crud_mixin", "jupyter_sync", "user_progress"],
+    )
+    def test_narrowing_still_catches_all_four_real_sites(self, query: str) -> None:
+        """The claim was narrowed three times; the rule must still do its job.
+
+        These are the four queries as they stood BEFORE this PR fixed them. Each
+        subtraction (node-bound, then alias-bound) could have quietly disarmed the
+        rule — `count(r) AS deleted` in two of them aliases a name, and an earlier
+        draft of the node classifier read `count(r)` itself as a node pattern. If a
+        future subtraction breaks these, the rule has narrowed past its purpose.
+        """
+        linter = make_linter()
+        violations = linter._check_detach_on_relationship(query, Path("test.py"), 1)
+        assert len(violations) == 1, "narrowing has disarmed CYP012 on a real site"
+
+    def test_widening_does_not_make_cyp002_miss_a_node_delete(self) -> None:
+        """The other direction of the same change: CYP002 must still fire.
+
+        Broadening the classifier can only ever make CYP002 skip MORE deletes, so
+        the risk it carries is a missed node delete — the opposite failure from
+        the one being fixed.
+        """
+        linter = make_linter()
+        query = "MATCH (a)-[ r:OWNS ]->(n:Entity)\nDELETE n"
+        violations = linter._check_delete_without_detach(query, Path("test.py"), 1)
+        assert [v.rule_code for v in violations] == ["CYP002"]
+
+    def test_persistence_tree_is_clean_and_the_check_is_not_vacuous(self) -> None:
+        """Real files report zero — and an INJECTED violation proves that means something.
+
+        A bare "the tree is clean" assertion would pass just as happily if the
+        pattern had stopped matching altogether, which is the failure mode this
+        rule was born from: CYP002 was silent on four real sites for the whole
+        time it shipped. So the same real file that reports clean is re-linted
+        with one `DELETE` turned back into `DETACH DELETE`, and that MUST fire.
+        """
+        linter = make_linter()
+        repo = Path(__file__).resolve().parents[3]
+        target = repo / "adapters/persistence/neo4j/_relationship_crud_mixin.py"
+
+        assert [v for v in linter.lint_file(target) if v.rule_code == "CYP012"] == []
+
+        corrupted = target.read_text(encoding="utf-8").replace(
+            "        DELETE r\n        RETURN count(r) as deleted_count",
+            "        DETACH DELETE r\n        RETURN count(r) as deleted_count",
+        )
+        assert "DETACH DELETE r" in corrupted, "injection missed — the anchor text moved"
+
+        injected = repo / "adapters/persistence/neo4j/_cyp012_probe_tmp.py"
+        try:
+            injected.write_text(corrupted, encoding="utf-8")
+            hits = [v for v in make_linter().lint_file(injected) if v.rule_code == "CYP012"]
+        finally:
+            injected.unlink(missing_ok=True)
+
+        assert len(hits) == 1, "CYP012 no longer catches the shape it was written for"
+
+
+# ============================================================================
 # CYP003: String interpolation
 # ============================================================================
 

@@ -648,7 +648,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
         WHERE NOT a:Content AND NOT b:Content
-        DETACH DELETE r
+        DELETE r
         RETURN count(r) as deleted_count
         """
 

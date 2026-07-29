@@ -1140,13 +1140,24 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     async def record_view(
         self, user_uid: UserUID, ku_uid: str, now: str, time_spent: int
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {view_count}
-        """MERGE a VIEWED edge with timestamp and view-count tracking."""
+        """Record a user's visit to a KU; repeat visits accumulate count and time spent.
+
+        One view record per user/KU pair, but NOT idempotent: every call
+        increments the view count and adds to total time spent, so a retry
+        double-counts engagement. The first-viewed timestamp is set once and
+        survives later visits; the running view count comes back on the row.
+        """
         ...
 
     async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str, now: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {success}
-        """MERGE an IN_PROGRESS edge for a user/KU pair."""
+        """Put a KU into the user's in-progress set, refreshing last activity.
+
+        One record per user/KU pair and safe to repeat — nothing accumulates, and
+        the original start time and progress score survive. Only the
+        last-activity timestamp moves.
+        """
         ...
 
     async def mark_as_learning(
@@ -1158,13 +1169,21 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     async def mark_as_read(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns the MARKED_AS_READ edge
-        """MERGE a MARKED_AS_READ edge for a user/KU pair."""
+        """Mark a KU as read for this user, returning the resulting read record.
+
+        Idempotent — the original marked-at time survives a repeat.
+        """
         ...
 
     async def mark_mastered(
         self, user_uid: UserUID, ku_uid: str, now: str, mastery_score: float, method: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {mastery_score}
-        """MERGE a MASTERED edge; higher score always wins on conflict."""
+        """Record mastery of a KU; the highest score ever reported always wins.
+
+        Idempotent — a lower score never regresses the stored mastery or
+        confidence, but the reporting method is always the most recent one.
+        Returns the score that ended up stored.
+        """
         ...
 
     async def count_in_progress_path_steps(
@@ -1188,7 +1207,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     async def create_bookmark(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: no RETURN (empty rows)
-        """MERGE a BOOKMARKED edge for a user/KU pair."""
+        """Bookmark a KU for the user; idempotent, keeping the original bookmark time."""
         ...
 
     async def delete_bookmark(

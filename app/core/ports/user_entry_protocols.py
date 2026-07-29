@@ -562,7 +562,12 @@ class EntryGroundingBackendOperations(Protocol):
     async def write_applies_knowledge(
         self, entry_uid: str, ku_uid: str, confidence: float
     ) -> Result[bool]:
-        """MERGE the inferred edge with provenance; True iff a NEW edge was created."""
+        """Ground an entry in a KU it applies, stamping provenance on first write only.
+
+        True iff this call created the link — an explicit reference the user
+        already authored is never restamped as inferred, and the caller publishes
+        the substance event only on True.
+        """
         ...
 
     async def stamp_grounded(self, entry_uid: str, text_hash: str, version: int) -> Result[None]:

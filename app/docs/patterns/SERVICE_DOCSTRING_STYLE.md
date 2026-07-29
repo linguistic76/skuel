@@ -1,6 +1,6 @@
 ---
 title: Service Docstring Style
-updated: 2026-05-28
+updated: 2026-07-29
 category: patterns
 related_skills:
 - python
@@ -10,7 +10,7 @@ related_docs:
 ---
 # Service Docstring Style
 
-> **Core Principle**: "In `core/services/`, docstrings describe **intent** in domain language; the backend describes **mechanism**."
+> **Core Principle**: "Above the hexagonal boundary, docstrings describe **intent** in domain language; the backend describes **mechanism**."
 
 A narrow companion to [DOCSTRING_STANDARDS.md](DOCSTRING_STANDARDS.md). That doc covers the universal three-layer model (implementation / pattern / architecture). This one covers the specific drift that the layer model permits at the service/backend boundary.
 
@@ -26,19 +26,21 @@ That permission is correct at the runtime layer, but it leaves a documentation-d
 - Duplicates mechanism that already lives in the backend docstring
 - Trains readers to think above the hexagonal boundary in below-the-boundary terms
 
-The rule below closes the gap by convention rather than lint.
+The rule below closed that gap by convention for a year; **SKUEL033 now enforces its head-position case** (see § Relationship to SKUEL021 and SKUEL033). Convention alone was not enough — 14 docstrings across 6 files had drifted into naming their backend's clause before the rule existed.
 
 ---
 
 ## The rule
 
-For files in `core/services/`:
+For files in the intent-only trees — `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` (the **No** rows of [the table below](#where-this-applies), which is the authority on scope):
 
-1. **Service-level docstrings describe WHAT the operation means** in domain language — what the caller gets, what the operation is *for*, what invariants hold.
-2. **Mechanism (Cypher, traversals, label sets, APOC behavior) lives in the backend docstring**, not the service docstring.
+1. **Docstrings describe WHAT the operation means** in domain language — what the caller gets, what the operation is *for*, what invariants hold.
+2. **Mechanism (Cypher, traversals, label sets, APOC behavior) lives in the backend docstring**, not above the boundary.
 3. **Cross-reference the backend method** with a `Backend:` line so a reader who wants the mechanism has a one-hop path.
 
 Files in `core/utils/`, `adapters/`, and tests are out of scope — Cypher in docstrings there is often the teaching subject and should stay.
+
+**`MERGE` is an upsert, so "Create" is a lossy rewrite.** The contract a caller needs is the idempotency: what survives a repeat call, what wins on conflict. `MERGE a MASTERED edge; higher score always wins` became *"Record mastery of a KU; the highest score ever reported always wins"* — the clause name went, the guarantee stayed. Check the implementing backend before rewording; several ports had non-obvious semantics that a generic rewrite would have silently dropped.
 
 ---
 
@@ -153,13 +155,20 @@ Before merging a `core/services/` change:
 
 ---
 
-## Relationship to SKUEL021
+## Relationship to SKUEL021 and SKUEL033
 
-SKUEL021 will not fail your build if you describe Cypher in a service docstring. This document is the reason that's OK in tooling terms but discouraged in review terms. PR reviewers may point at this doc when asking for an intent rewrite.
+SKUEL021 will not fail your build if you describe Cypher in a service docstring — it skips docstrings by node identity, correctly, because prose cannot execute. This document is the reason that's OK in tooling terms but discouraged in review terms.
 
-If you want the discipline mechanized later, a *warning-level* (non-blocking) lint over `core/services/**/*.py` that flags Cypher-shaped fragments in docstrings would close the loop without inflating SKUEL021's purpose.
+**The mechanization this section used to propose now exists: SKUEL033.** It is the warning-level rule described here — with two refinements learned from building it:
+
+- **Scope is the table above, not `core/services/` alone.** SKUEL033 reads the four `core/` rows whose *Cypher in docstrings OK?* cell says **No**, and a test reparses that table to keep the rule and the doc from drifting apart. Change a row here and the linter's test tells you to change the rule.
+- **It flags only the HEAD position** — a docstring that *opens* with a clause. Prose that merely names a clause mid-sentence is describing a neighbour, not documenting itself in mechanism terms, and stays legal. A whole query indented under a `Pattern:` heading further down a docstring is still a violation of this document that the rule does not catch.
+
+`core/utils/` is deliberately exempt, per its **Yes** row: its USAGE EXAMPLES blocks are the teaching subject. That exemption is also load-bearing for SKUEL021's own regression guard, which binds to `core/utils/` precisely because it is the one tree where docstring Cypher is permanently correct.
+
+**See:** [linter_rules.md § Rule: SKUEL033](linter_rules.md#rule-skuel033---above-boundary-docstrings-state-intent-not-mechanism)
 
 ---
 
-**Last Updated**: 2026-05-28
+**Last Updated**: 2026-07-29
 **Status**: Current

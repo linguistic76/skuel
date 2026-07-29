@@ -225,7 +225,7 @@ class ZPDSnapshotOperations(Protocol):
     async def save_snapshot(
         self, user_uid: UserUID, assessment: ZPDAssessment, trigger_event: str
     ) -> Result[None]:
-        """MERGE one :ZPDHistory row per user with the latest assessment summary.
+        """Keep one ZPD history record per user, refreshed with the latest assessment.
 
         Stores only summary fields (current/proximal/confirmed counts,
         behavioral readiness, life path alignment) plus a snapshot counter
