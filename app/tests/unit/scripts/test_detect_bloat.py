@@ -29,9 +29,10 @@ from detect_bloat import (  # type: ignore[import-not-found]
     EventUniverse,
     EventUsageCollector,
     ParsedCodebase,
+    VultureScan,
     analyze_events,
     analyze_methods,
-    measure_name_collision_exposure,
+    measure_vulture_blind_spot,
     run_vulture,
 )
 
@@ -476,7 +477,10 @@ def test_planned_method_reports_planned_not_dead(monkeypatch):
         {"core/services/x.py::future_method": "awaiting synthetic wiring"},
     )
     codebase = build_codebase({"core/services/x.py": "def future_method():\n    pass\n"})
-    analysis = analyze_methods(codebase, [FakeVultureItem("core/services/x.py", "future_method")])
+    analysis = analyze_methods(
+        codebase,
+        VultureScan([FakeVultureItem("core/services/x.py", "future_method")], frozenset()),
+    )
     finding = finding_for(analysis.findings, "future_method")
     assert finding is not None
     assert finding.severity is BloatSeverity.PLANNED
@@ -490,7 +494,8 @@ def test_stale_planned_method_marking_is_reported(monkeypatch):
         {"core/services/x.py::now_live_method": "awaiting synthetic wiring"},
     )
     codebase = build_codebase({})
-    analysis = analyze_methods(codebase, [])  # not a vulture candidate -> live or deleted
+    # not a vulture candidate -> live or deleted
+    analysis = analyze_methods(codebase, VultureScan([], frozenset()))
     stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["now_live_method"]
     assert stale[0].severity is BloatSeverity.INFO
@@ -801,45 +806,52 @@ def live_codebase():
     return codebase
 
 
-def test_name_collision_exposure_is_measured_not_asserted_small(live_codebase):
-    """The name-collision caveat must carry a number, and the number must be large.
+def test_blind_spot_is_measured_from_vultures_own_used_names(live_methods, live_codebase):
+    """The caveat must carry a number, and the number must come from the mechanism.
 
-    Vulture marks a method used when ANY same-named attribute is accessed anywhere, so a
-    dead method sharing a name with a live one elsewhere cannot be reported. That was
-    documented as "inherent under-reporting" — wording that reads like a rounding error
-    while the real exposure is most of the corpus. A clean run is not evidence the
-    colliding methods are live, and the report now says so with a figure.
-
-    Asserted as a floor rather than an exact count so ordinary refactors don't churn it;
-    the point is that the number is substantial and computed, never hardcoded.
+    Vulture treats a method as used when ANY same-named attribute is loaded anywhere, so
+    `used_names` is the suppressor and the only correct basis for the figure. Asserted as
+    a floor so ordinary refactors don't churn it — the point is that it is substantial and
+    computed, never hardcoded.
     """
-    colliding_names, exposed, total = measure_name_collision_exposure(live_codebase)
+    invisible, total = measure_vulture_blind_spot(live_codebase, live_methods.vulture_used_names)
     assert total > 1000, f"only {total} production methods seen — collector is broken"
-    assert colliding_names > 100, "collision detection found almost nothing — suspect a bug"
-    assert exposed > total // 4, (
-        f"only {exposed}/{total} methods exposed to name collision; if this genuinely "
+    assert invisible > total // 2, (
+        f"only {invisible}/{total} methods sit in the blind spot; if that genuinely "
         "dropped, re-measure and lower the floor deliberately rather than deleting it"
     )
 
 
-def test_name_collision_measurement_counts_classes_not_files(live_codebase):
-    """Two same-named methods on ONE class cannot happen; on two classes they collide.
+def test_blind_spot_counts_name_loads_not_duplicate_definitions(live_codebase):
+    """Regression pin for the wrong proxy this replaced (Codex, PR #876).
 
-    Pins the unit of collision. Counting per-file or per-definition instead would inflate
-    the figure with overrides and make the caveat look worse than it is.
+    The first cut counted names defined on 2+ classes, which is wrong in BOTH directions:
+    a duplicate-defined method whose name is never loaded is still reportable, and a
+    uniquely-defined method whose name IS loaded is invisible. Both directions asserted
+    here, because fixing only one would still look green.
     """
     import ast as _ast
-
-    single = _ast.parse("class A:\n    def solo(self): ...\n")
-    pair = _ast.parse("class A:\n    def dup(self): ...\nclass B:\n    def dup(self): ...\n")
+    from pathlib import Path as _Path
 
     class _Stub:
         def __init__(self, trees):
             self.production = trees
 
-    from pathlib import Path as _Path
+    # Two classes, same method name — duplicate-defined but NOT name-loaded.
+    duplicated = _Stub(
+        {
+            _Path("a.py"): _ast.parse(
+                "class A:\n    def dup(self): ...\nclass B:\n    def dup(self): ...\n"
+            )
+        }
+    )
+    assert measure_vulture_blind_spot(duplicated, frozenset()) == (0, 2), (
+        "duplicate definitions alone must not count — with no attribute load, vulture "
+        "can still report both"
+    )
 
-    none_collide = measure_name_collision_exposure(_Stub({_Path("a.py"): single}))
-    assert none_collide == (0, 0, 1)
-    two_collide = measure_name_collision_exposure(_Stub({_Path("a.py"): pair}))
-    assert two_collide == (1, 2, 2)
+    # One class, one method — uniquely defined but the name IS loaded somewhere.
+    unique = _Stub({_Path("a.py"): _ast.parse("class A:\n    def solo(self): ...\n")})
+    assert measure_vulture_blind_spot(unique, frozenset({"solo"})) == (1, 1), (
+        "a uniquely-defined method whose name is loaded elsewhere IS invisible and must be counted"
+    )

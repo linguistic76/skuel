@@ -2,28 +2,26 @@
 
 ``SKIP_FILES`` skips ``docs/tools/HEALTH_CHECKS.md`` because a scanner's documentation
 necessarily names the identifiers it tracks — sample output, the "What's tracked" table,
-the matching-semantics paragraph. That justification is real and every hit in the file
-today is such an example (verified by inspection, PR #876).
+the matching-semantics paragraph. The justification is real; the *mechanism* is file-wide
+while the justification is section-specific, and a suppressor broader than its grant is a
+silent blind spot. Concrete evidence the risk is live: PR #872 added ~60 lines to that
+document, including code identifiers, with zero coverage from this scanner.
 
-But the *mechanism* is file-wide while the *justification* is section-specific, and a
-suppressor that hides more than it was granted is a silent blind spot — nothing is
-reported, so nothing looks wrong. That is the same defect class as the placeholder
-vocabulary in PR #872, which passed every test written for it while shadowing a live
-repo file. Concrete evidence the risk is live: PR #872 added ~60 lines to that document,
-including code identifiers, with zero coverage from this scanner.
+So the skip stays and is scored against what it keeps invisible — **by section**.
 
-So the skip stays, but it is now scored against what it keeps invisible: the set of
-tracked identifiers appearing in a skipped file is pinned, and a NEW one fails. Keyed on
-identifier, deliberately — line numbers shift on every edit to that document, and a
-line-keyed pin would have to be rewritten (and rubber-stamped) each time.
-
-If this test fails, one of two things happened. Either a genuinely stale identifier was
-written into the file — fix the prose, that is the finding — or a new tracked name was
-legitimately added as documentation, in which case add it below with a note.
+The first cut of this audit pinned a *set of identifier names*, and Codex correctly broke
+it (PR #876): a genuinely stale `KuType` written into `## Known Limitations` left the name
+set unchanged, because `KuType` was already allowlisted as a legitimate example elsewhere.
+Every test still passed. That is the same defect this file exists to catch — scoring a
+suppressor on identity rather than on the thing that actually varies — so the pin now asks
+*where* each hidden hit sits, which is the question the justification is about. It also
+drops the name allowlist entirely: section scoping is strictly stronger, and a hand-listed
+set of 16 names was a rubber-stamp waiting to happen.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -32,27 +30,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "health
 
 import stale_names as sn  # type: ignore[import-not-found]
 
-# Tracked identifiers that HEALTH_CHECKS.md legitimately names as examples, all inside
-# its `### 3. stale_names.py` section or the `## Maintaining stale_names.py` paragraph
-# that documents matching semantics. Measured on the live tree, PR #876.
-EXPECTED_DOCUMENTED_EXAMPLES = {
-    "ActivityDataReader",
-    "ActivityReviewService",
-    "AiFeedback",
-    "EntityType.CURRICULUM",
-    "KuStatus",
-    "KuTaskCreateRequest",
-    "KuType",
-    "PageHead",
-    "ProfileLayout",
-    "active_tasks_rich",
-    "core.models.ku.",
-    "daisy_components",
-    "from core.models.ku.ku_enums import",
-    "htmx_a11y",
-    "list_reports",
-    "sel_routes",
+# Headings under which naming a tracked identifier is the documentation's job. Anything
+# outside these is prose the scanner should have been auditing all along.
+JUSTIFIED_HEADINGS = {
+    "### 3. `stale_names.py` — Deprecated Identifiers in Doc Code Blocks",
+    "## Maintaining `stale_names.py`",
 }
+
+_HEADING_RE = re.compile(r"^#{1,6} ")
+
+
+def _enclosing_heading(lines: list[str], lineno: int) -> str:
+    """Nearest preceding Markdown heading of any level ('' if the file has none yet)."""
+    for candidate in reversed(lines[: lineno - 1]):
+        if _HEADING_RE.match(candidate):
+            return candidate.strip()
+    return ""
+
+
+def _hidden_hits() -> list[tuple[Path, int, str, str]]:
+    """Every stale-name hit currently suppressed, with its enclosing heading."""
+    found = []
+    for path in sn.SKIP_FILES:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for lineno, name, _kind, _replacement in sn.scan_file(path):
+            found.append((path, lineno, name, _enclosing_heading(lines, lineno)))
+    return found
 
 
 def test_skip_files_entries_all_exist() -> None:
@@ -61,35 +64,48 @@ def test_skip_files_entries_all_exist() -> None:
     assert missing == [], f"SKIP_FILES entries no longer on disk: {missing}"
 
 
-def test_skipped_files_hide_only_known_documentation_examples() -> None:
-    """Score the suppressor against what it KEEPS invisible, not what it was written for."""
-    hidden: set[str] = set()
-    for path in sn.SKIP_FILES:
-        hidden.update(name for _lineno, name, _kind, _replacement in sn.scan_file(path))
-
-    unexpected = hidden - EXPECTED_DOCUMENTED_EXAMPLES
-    assert unexpected == set(), (
-        "SKIP_FILES is hiding tracked identifiers that are not known documentation "
-        f"examples: {sorted(unexpected)}. Either the prose is genuinely stale (fix it) "
-        "or the name is a new deliberate example (add it to EXPECTED_DOCUMENTED_EXAMPLES "
-        "with a note)."
+def test_suppressed_hits_all_sit_under_a_justified_heading() -> None:
+    """Score the suppressor against what it KEEPS invisible, by location."""
+    stray = [
+        f"{path.name}:{lineno} {name!r} under {heading!r}"
+        for path, lineno, name, heading in _hidden_hits()
+        if heading not in JUSTIFIED_HEADINGS
+    ]
+    assert stray == [], (
+        "SKIP_FILES is hiding tracked identifiers outside the sections that document "
+        f"the scanner: {stray}. Either the prose is genuinely stale (fix it — that is the "
+        "finding) or a new section legitimately documents tracked names, in which case add "
+        "its heading to JUSTIFIED_HEADINGS."
     )
 
 
-def test_the_pin_is_not_vacuous() -> None:
-    """A suppression audit that asserts an empty set would pass on a broken scanner.
+def test_the_audit_is_not_vacuous() -> None:
+    """Positive control: an audit that asserts an empty set passes on a broken scanner.
 
-    This is the positive control: the skipped file must actually still contain tracked
-    identifiers, otherwise `SKIP_FILES` has become unnecessary and should be deleted
-    rather than silently carried.
+    The skipped file must still contain tracked identifiers, and they must still land
+    under the justified headings — otherwise `SKIP_FILES` has stopped earning its keep and
+    should be deleted rather than silently carried.
     """
-    hidden = {name for path in sn.SKIP_FILES for _l, name, _k, _r in sn.scan_file(path)}
-    assert hidden, (
-        "no skipped file contains any tracked identifier — SKIP_FILES no longer "
-        "suppresses anything and should be removed"
+    hits = _hidden_hits()
+    assert hits, "no skipped file contains any tracked identifier — remove SKIP_FILES"
+    covered = {heading for _p, _l, _n, heading in hits}
+    assert covered <= JUSTIFIED_HEADINGS, f"unexpected headings: {covered}"
+    unused = JUSTIFIED_HEADINGS - covered
+    assert unused == set(), (
+        f"JUSTIFIED_HEADINGS lists headings that hide nothing: {sorted(unused)} — prune "
+        "them so the grant keeps matching the need"
     )
-    stale_expectations = EXPECTED_DOCUMENTED_EXAMPLES - hidden
-    assert stale_expectations == set(), (
-        "EXPECTED_DOCUMENTED_EXAMPLES lists names the file no longer contains — prune "
-        f"them so this pin keeps describing reality: {sorted(stale_expectations)}"
-    )
+
+
+def test_heading_lookup_finds_the_nearest_preceding_heading() -> None:
+    """The lookup is what the section scoping rests on, so pin it directly.
+
+    An off-by-one here would silently attribute a stray hit to the justified section above
+    it — the audit would keep passing while hiding exactly what it was built to surface.
+    """
+    lines = ["## First", "a", "### Second", "b", "c"]
+    assert _enclosing_heading(lines, 2) == "## First"
+    assert _enclosing_heading(lines, 3) == "## First"  # the heading line itself
+    assert _enclosing_heading(lines, 4) == "### Second"
+    assert _enclosing_heading(lines, 5) == "### Second"
+    assert _enclosing_heading(["no headings", "here"], 2) == ""
