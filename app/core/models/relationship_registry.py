@@ -87,14 +87,15 @@ class SharedNeighborConfig:
     - Related goals (share contributing tasks/habits)
     - Related habits (share knowledge or goals)
 
-    **Example Cypher Pattern:**
-    ```cypher
-    OPTIONAL MATCH (entity)-[:APPLIES_KNOWLEDGE|FULFILLS_GOAL]->(shared)
-                  <-[:APPLIES_KNOWLEDGE|FULFILLS_GOAL]-(related:Task)
-    WHERE related <> entity
-    WITH entity, ...,
-         collect(DISTINCT {uid: related.uid, title: related.title, shared_count: 1})[0..5] as related_tasks
-    ```
+    Two entities are "related" by *how many* intermediates they share, not
+    merely by sharing one: ``shared_count`` is a real count of distinct shared
+    neighbours, aggregated before the results are collected. Requesting it in
+    ``result_fields`` is therefore what decides whether the traversal needs that
+    aggregation step at all. Results are capped at ``limit`` per config, and an
+    entity is never related to itself.
+
+    Mechanism (the emitted clauses) lives with the generator that emits them:
+    ``adapters/persistence/neo4j/query/cypher/context_query_generator.py``.
 
     **Usage in UnifiedRelationshipDefinition:**
     ```python

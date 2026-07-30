@@ -953,7 +953,16 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     async def create_semantic_relationship(
         self, triple: SemanticTriple
     ) -> Result[list[dict[str, Any]]]:  # boundary: neo4j record shape
-        """Persist a single semantic triple as a MERGE'd relationship.
+        """Persist one semantic triple, keyed by its precise predicate.
+
+        Idempotent per PREDICATE, not per edge type: two predicates that
+        collapse onto the same coarse ``RelationshipName`` (both ``RELATED_TO``,
+        say) coexist as two distinct edges between the same pair, each keeping
+        its own meaning. Re-persisting the same triple updates that one edge's
+        metadata instead of duplicating it or overwriting a sibling's.
+
+        Creates the endpoint nodes if they are absent, unlike the registry-
+        validated ``create_relationship``.
 
         Takes the domain triple; the adapter authors the Cypher below the
         hexagonal boundary (ADR-044).

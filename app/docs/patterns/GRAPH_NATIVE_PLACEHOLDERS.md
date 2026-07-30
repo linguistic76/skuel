@@ -36,16 +36,30 @@ All placeholder methods use the `GRAPH-NATIVE:` prefix to indicate:
 ```
 
 ### Method-Level Comments
+
+Name the **edge** the data lives on and the **service method** that reads it — not the query. These placeholders sit in `core/models/`, which [SERVICE_DOCSTRING_STYLE.md](SERVICE_DOCSTRING_STYLE.md) § Where this applies answers **No** for on docstring Cypher, and SKUEL033 enforces.
+
 ```python
 def prerequisite_tasks(self) -> tuple[str, ...]:
     """
     Get prerequisite tasks for this task.
 
-    GRAPH-NATIVE: Real implementation requires service layer query.
-    Query: MATCH (task)-[:REQUIRES_TASK]->(prereq:Task) RETURN prereq.uid
+    GRAPH-NATIVE: always returns empty — prerequisites live on the
+    ``REQUIRES_TASK`` edge, so the model cannot answer this without the graph.
+
+    Service: backend.get_related_uids(
+        uid, RelationshipName.REQUIRES_TASK, "outgoing")
     """
     return ()
 ```
+
+> **Two layers share this method name.** The `core/ports` form above takes
+> `(uid, relationship_type: RelationshipName, direction)`; the service-layer
+> `UnifiedRelationshipService.get_related_uids` takes `(relationship_key: str,
+> entity_uid)`. Name the layer you mean — a pointer with the wrong argument
+> order is the same rot as a stale query.
+
+**An earlier version of this example prescribed a `Query: MATCH ... RETURN ...` line**, and `core/models/user/user.py` followed it. That line is exactly the drift the style guide warns about — the one in `user.py` had lost the `{uid: $user_uid}` scoping, so a reader who copied it would have queried **every** user's pins. A pointer to the service method cannot rot that way: it either resolves or it doesn't.
 
 ### Limited Implementation Comments
 ```python

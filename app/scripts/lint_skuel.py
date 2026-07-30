@@ -39,7 +39,7 @@ WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report o
   SKUEL028: Result.fail(result.expect_error()) - use Result.fail(result) to propagate
   SKUEL030: Unregistered relationship type / node label in persistence Cypher
   SKUEL031: Stale pip references - SKUEL uses uv
-  SKUEL033: Above-boundary docstring opens with a Cypher clause — intent, not mechanism
+  SKUEL033: Above-boundary docstring opens with, or hosts, Cypher — intent, not mechanism
             (SERVICE_DOCSTRING_STYLE.md § Where this applies)
 
 INFO (informational, visibility only):
@@ -983,7 +983,7 @@ def calculate(self, paths) -> list[ActivePathData]:
     return [ActivePathData(estimated_completion=f"{int(p.estimated_hours or 0)}h total", ...)]""",
     },
     "SKUEL033": {
-        "title": "Above-Boundary Docstrings Do Not Open With a Cypher Clause",
+        "title": "Above-Boundary Docstrings State Intent, Not Cypher",
         "severity": "WARNING",
         "description": """`docs/patterns/SERVICE_DOCSTRING_STYLE.md` has said since 2026-05 that
 docstrings in `core/services/`, `core/orchestrator/`, `core/ports/`, and `core/models/`
@@ -1002,18 +1002,30 @@ exists. Measured at introduction: the excluded tree has zero head-position hits,
 exclusion costs no coverage — it prevents a rule from contradicting the document it
 enforces.
 
-HEAD POSITION ONLY, which is the same three-part test SKUEL030/SKUEL021 use through
-`cypher_vocabulary.leading_cypher_clause`: uppercase clause + whitespace + operand, at the
-docstring's head. A docstring that merely NAMES a clause mid-sentence ("returns the rows
-its RETURN clause produces") is prose describing a neighbour, and is deliberately NOT
-flagged — the distinction is the one `CYPHER_LEADING_CLAUSES` already draws, and the one
-that keeps this rule from firing on `query_types.py`'s row-shape references.
+TWO SHAPES, both reading the same three-part test SKUEL030/SKUEL021 use through
+`cypher_vocabulary.leading_cypher_clause` (uppercase clause + whitespace + operand):
 
-Known and deliberate limit: a whole Cypher query indented under a `Pattern:` heading
-further down a docstring is a violation of the style guide that this rule does NOT see
-(`core/ports/user_entry_protocols.py` carries one). Head position catches the docstring
-that describes ITSELF in mechanism terms; the mid-body cases are a separate sweep with
-their own per-site judgement calls.
+1. HEAD — the docstring OPENS with a clause, i.e. describes ITSELF in mechanism terms.
+2. QUERY BLOCK — two or more non-head lines are each themselves Cypher, i.e. the
+   docstring HOSTS a query (classically indented under a `Pattern:` heading). Added in
+   #875 after the style guide had named this shape in writing as a violation the rule did
+   not catch. All three sites it found had DRIFTED from the backend they documented — one
+   advertised a whole `entry` node where the backend returns 14 flat scalars, another a
+   `$email`-keyed MATCH the backend writes as a WHERE, a third a `shared_count: 1`
+   literal where the generator does a two-step aggregation. That is the style guide's own
+   stated reason for the rule ("drifts from the backend, no enforced link"), measured.
+
+A docstring that merely NAMES a clause mid-sentence ("returns the rows its RETURN clause
+produces") is prose describing a neighbour, and is deliberately NOT flagged under either
+shape — the distinction is the one `CYPHER_LEADING_CLAUSES` already draws, and the one
+that keeps this rule from firing on `query_types.py`'s row-shape references, where the
+alias IS the contract because nothing statically links it to a TypedDict key.
+
+Known and deliberate limit: the block threshold is TWO clause lines, so a ONE-line query
+embedded mid-docstring stays legal. A wrapped English sentence puts a clause word at a
+line head with an operand after it, and the one-line threshold measured 8 sites with 5 of
+them legitimate. The failure direction is a miss, which is the fail-safe one here, and it
+is asserted by `test_single_clause_line_is_not_flagged`.
 
 Fix: say what the operation MEANS and what it guarantees. Note that `MERGE` carries real
 upsert semantics — flattening it to "Create" loses the contract, so state the idempotency
@@ -1794,7 +1806,7 @@ class SkuelLinter:
                 and rel_path.as_posix().startswith(self.DOCSTRING_INTENT_ONLY_TREES)
                 and self._should_run_rule("SKUEL033")
             ):
-                self._check_docstring_cypher_head(file_path, rel_path, content, lines, tree)
+                self._check_docstring_cypher(file_path, rel_path, content, lines, tree)
 
             # Import-direction rule (ADR-044): all of core/, not just services.
             if is_core and not is_test and self._should_run_rule("SKUEL022"):
@@ -2320,7 +2332,58 @@ class SkuelLinter:
         "core/models/",
     )
 
-    def _check_docstring_cypher_head(
+    # SKUEL033 shape 2: how many clause-leading lines make a docstring host a
+    # QUERY rather than reference a clause. Two, measured — not chosen.
+    #
+    # Scored over the four in-scope trees at introduction (#875):
+    #
+    #   any clause word anywhere  54 docstrings — 20 of them "AI services are
+    #                                OPTIONAL", 1 "Export as CSV". Unusable.
+    #   >=1 clause-leading line    8 docstrings — 5 legitimate: the four
+    #                                `query_types.py` row-shape refs whose
+    #                                ``RETURN <alias>`` opens a line inside
+    #                                backticks, plus one WRAPPED SENTENCE
+    #                                ("the MEGA-QUERY's OPTIONAL\nMATCH
+    #                                collects ..."). 62% precision.
+    #   >=2 clause-leading lines   3 docstrings — all three real query blocks,
+    #                                zero false positives.
+    #
+    # A wrapped sentence is why 1 cannot be the threshold: prose breaking across
+    # a line boundary puts a clause word at a line head with an operand after it,
+    # and no amount of tuning distinguishes that from a one-line query. Requiring
+    # a SECOND such line asks for the thing a query has and a sentence does not —
+    # more than one clause.
+    #
+    # The threshold's failure direction is a MISS: a one-line query embedded
+    # mid-docstring stays legal. That is deliberate and asserted by
+    # `test_single_clause_line_is_not_flagged` — for a rule whose job is to name
+    # a documented gap, a quiet miss is recoverable and a false failure trains
+    # authors to suppress. Raising coverage here means finding a signal a
+    # wrapped sentence cannot have, NOT lowering the threshold to 1.
+    DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES: ClassVar[int] = 2
+
+    def _docstring_query_block_lines(self, doc: str) -> list[int]:
+        """0-based offsets of NON-HEAD docstring lines that are themselves Cypher.
+
+        Reuses `leading_cypher_clause` — the same anchor the head check, SKUEL021
+        and SKUEL030 read. #868 spent four rounds learning that the fixes which
+        converge REPLACE an approximation with a mechanism already in the tree,
+        so this adds no second matcher; it only changes what text is fed in
+        (each line, rather than the docstring's head) and counts the hits.
+
+        Backticks are stripped because reStructuredText literal markers are how
+        this codebase writes an inline clause reference (``RETURN x``); leaving
+        them on would make the marker itself the reason a real query block hid.
+        """
+        offsets = []
+        for index, raw in enumerate(doc.splitlines()):
+            if index == 0:
+                continue  # the head check owns line 0
+            if leading_cypher_clause(raw.strip().strip("`").strip()) is not None:
+                offsets.append(index)
+        return offsets
+
+    def _check_docstring_cypher(
         self,
         file_path: Path,
         rel_path: Path,
@@ -2329,7 +2392,7 @@ class SkuelLinter:
         tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL033 [WARNING]: an above-boundary docstring must not OPEN with Cypher.
+        SKUEL033 [WARNING]: an above-boundary docstring states intent, not Cypher.
 
         The mechanised half of SERVICE_DOCSTRING_STYLE.md § Where this applies.
         That doc, and CLAUDE.md after it, both stated the rule and then recorded
@@ -2339,16 +2402,27 @@ class SkuelLinter:
         opened with `MERGE`/`DELETE`/`CREATE` naming the edge their backend
         writes, and one of them had quietly become a lint fixture.
 
-        Head position is the whole test, via the shared
+        TWO SHAPES, one standard, both reading the shared
         `cypher_vocabulary.leading_cypher_clause` — the same anchor SKUEL021 and
-        SKUEL030 read, so there is no fourth copy to drift. A docstring that
-        merely NAMES a clause mid-sentence is prose about a neighbour and stays
-        legal; one that OPENS with a clause is describing itself in mechanism
-        terms, which is the thing the style guide forbids.
+        SKUEL030 read, so there is no fourth copy to drift:
 
-        Deliberately NOT covered: Cypher further down a docstring (a query block
-        under a `Pattern:` heading). Those are real style-guide violations with
-        per-site judgement calls, not this rule's shape.
+        1. HEAD — the docstring OPENS with a clause. It is describing itself in
+           mechanism terms, which is what the style guide forbids.
+        2. QUERY BLOCK — `DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES` or more
+           non-head lines are each themselves Cypher, i.e. the docstring HOSTS a
+           query (classically indented under a `Pattern:` heading). The style
+           guide named this shape in writing as "still a violation of this
+           document that the rule does not catch"; #875 closed it after
+           measuring, and all three sites it found had DRIFTED from the backend
+           they claimed to document — one advertised a whole `entry` node where
+           the backend returns 14 flat scalars.
+
+        A docstring that merely NAMES a clause mid-sentence stays legal under
+        both shapes: it is prose about a neighbour, not documentation of itself.
+        That is the distinction `CYPHER_LEADING_CLAUSES` already draws, and it is
+        what keeps this rule off `query_types.py`'s row-shape references — where
+        the ``RETURN <alias>`` IS the contract, because nothing statically links
+        a Cypher alias to a TypedDict key.
 
         Suppress: # skuel-lint: disable=SKUEL033 -- <reason>
         File-level: # skuel-lint: disable-file=SKUEL033 -- <reason>
@@ -2364,8 +2438,11 @@ class SkuelLinter:
             doc = (ast.get_docstring(node) or "").strip()
             if not doc:
                 continue
+
             clause = leading_cypher_clause(doc)
-            if clause is None:
+            block = self._docstring_query_block_lines(doc)
+            hosts_query = len(block) >= self.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES
+            if clause is None and not hosts_query:
                 continue
 
             # Report on the docstring's own first line, not the def's — that is
@@ -2391,19 +2468,34 @@ class SkuelLinter:
             ):
                 continue
 
-            line = lines[start - 1] if 0 < start <= len(lines) else ""
+            # HEAD outranks QUERY BLOCK: a docstring that both opens with a clause
+            # and hosts a block is one violation with one fix, and the head is the
+            # line a reader lands on. One report per docstring either way.
+            if clause is not None:
+                report_line = start
+                message = (
+                    f"Docstring opens with the Cypher clause '{clause.strip()}' — "
+                    "above the boundary a docstring states intent, not mechanism"
+                )
+            else:
+                # Point at the query's FIRST line, not the docstring's — the block
+                # is what has to go, and it can sit far below the summary.
+                report_line = start + block[0]
+                message = (
+                    f"Docstring hosts a Cypher query ({len(block)} clause lines) — "
+                    "above the boundary a docstring states intent, not mechanism"
+                )
+
+            line = lines[report_line - 1] if 0 < report_line <= len(lines) else ""
 
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
-                    line_number=start,
+                    line_number=report_line,
                     column=getattr(expr, "col_offset", 0),
                     severity=Severity.WARNING,
                     rule_id="SKUEL033",
-                    message=(
-                        f"Docstring opens with the Cypher clause '{clause.strip()}' — "
-                        "above the boundary a docstring states intent, not mechanism"
-                    ),
+                    message=message,
                     suggestion=(
                         "Say what the operation means and guarantees; leave the query to "
                         "the backend docstring (docs/patterns/SERVICE_DOCSTRING_STYLE.md). "

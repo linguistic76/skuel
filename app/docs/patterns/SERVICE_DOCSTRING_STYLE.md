@@ -26,7 +26,7 @@ That permission is correct at the runtime layer, but it leaves a documentation-d
 - Duplicates mechanism that already lives in the backend docstring
 - Trains readers to think above the hexagonal boundary in below-the-boundary terms
 
-The rule below closed that gap by convention for a year; **SKUEL033 now enforces its head-position case** (see § Relationship to SKUEL021 and SKUEL033). Convention alone was not enough — 14 docstrings across 6 files had drifted into naming their backend's clause before the rule existed.
+The rule below closed that gap by convention for a year; **SKUEL033 now enforces it** — both a docstring that *opens* with a clause and one that *hosts* a whole query (see § Relationship to SKUEL021 and SKUEL033). Convention alone was not enough, and the first bullet above is why: 14 docstrings across 6 files had drifted into naming their backend's clause before the rule existed, and when the query-block half was swept, **all three of its sites had drifted from the backend they documented**.
 
 ---
 
@@ -162,7 +162,11 @@ SKUEL021 will not fail your build if you describe Cypher in a service docstring 
 **The mechanization this section used to propose now exists: SKUEL033.** It is the warning-level rule described here — with two refinements learned from building it:
 
 - **Scope is the table above, not `core/services/` alone.** SKUEL033 reads the four `core/` rows whose *Cypher in docstrings OK?* cell says **No**, and a test reparses that table to keep the rule and the doc from drifting apart. Change a row here and the linter's test tells you to change the rule.
-- **It flags only the HEAD position** — a docstring that *opens* with a clause. Prose that merely names a clause mid-sentence is describing a neighbour, not documenting itself in mechanism terms, and stays legal. A whole query indented under a `Pattern:` heading further down a docstring is still a violation of this document that the rule does not catch.
+- **It flags two shapes: HEAD and QUERY BLOCK.** Head = a docstring that *opens* with a clause. Query block = two or more non-head lines that are each themselves Cypher, i.e. the docstring *hosts* a query — classically indented under a `Pattern:` heading. The block shape was this section's last open gap and was closed in #875; the paragraph below records what closing it found.
+- **Prose that merely names a clause mid-sentence stays legal** under both shapes. It is describing a neighbour, not documenting itself in mechanism terms. `core/ports/query_types.py`'s row-shape references are the canonical keep: a TypedDict naming the ``RETURN <alias>`` its row mirrors is documenting **the contract**, because nothing statically links a Cypher alias to a TypedDict key — delete the reference and the only written record of what the key mirrors goes with it.
+- **The block threshold is two clause lines, so a one-line embedded query stays legal.** That is a measured limit, not an oversight: a wrapped English sentence puts a clause word at a line head with an operand after it, and a one-line threshold measured 8 sites with 5 of them legitimate. Its failure direction is a miss, and a test asserts it.
+
+**Closing the block gap found that every instance had drifted** — which is the first reason this document gives for the rule. Three sites, three drifts: a port advertising an `entry` **node** where its backend returns 14 flat scalars (and omitting a whole aggregation); a model documenting `duration({minutes: 15})` and alias `failed_attempts` where the backend parameterises the window and aliases `failed_count`, while never mentioning the *second*, per-IP rate limiter; and a config dataclass showing `shared_count: 1` where its generator does a two-step aggregation — documenting the bug the generator exists to avoid. **A docstring quoting Cypher is not merely redundant; unenforced, it reliably becomes wrong.** Prefer stating the guarantee, and where the row shape *is* the contract, document the shape and the alias rather than the query.
 
 `core/utils/` is deliberately exempt, per its **Yes** row: its USAGE EXAMPLES blocks are the teaching subject. That exemption is also load-bearing for SKUEL021's own regression guard, which binds to `core/utils/` precisely because it is the one tree where docstring Cypher is permanently correct.
 

@@ -87,7 +87,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment — see "Suppression audit" below |
 | **SKUEL030** | Unregistered label / relationship type in persistence Cypher | Register it in `NeoLabel` / `RelationshipName`, or fix the name (AST rule, docstring-aware) |
 | **SKUEL031** | Stale pip references (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) | SKUEL is lockfile-managed by uv — `uv add` / `uv sync` / `uv remove` / `uv export`; the `pip-audit` tool name is not caught |
-| **SKUEL033** | A docstring in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` that *opens* with a Cypher clause | State intent and the guarantee; mechanism belongs in the backend docstring (AST rule, shares SKUEL021's head anchor; `core/utils/` excluded by the same table it enforces) |
+| **SKUEL033** | A docstring in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` that *opens* with a Cypher clause, or *hosts* a query (≥2 clause-leading lines) | State intent and the guarantee; mechanism belongs in the backend docstring (AST rule, shares SKUEL021's head anchor; `core/utils/` excluded by the same table it enforces) |
 
 ## Inline Suppression
 
@@ -716,7 +716,7 @@ def to_active_path_data(row: LpActivePathProgress) -> ActivePathData:
 
 ## Rule: SKUEL033 - Above-Boundary Docstrings State Intent, Not Mechanism
 
-**Pattern:** A docstring in an intent-only tree that **opens** with a Cypher clause — `"""MERGE a VIEWED edge with timestamp and view-count tracking."""` on a `core/ports` protocol method — documents its backend's mechanism instead of its own contract. It drifts the moment the backend changes, duplicates what the backend docstring already says, and tells the caller nothing about what they are guaranteed.
+**Pattern:** A docstring in an intent-only tree that **opens with** a Cypher clause — `"""MERGE a VIEWED edge with timestamp and view-count tracking."""` on a `core/ports` protocol method — or that **hosts a whole query** further down, documents its backend's mechanism instead of its own contract. It drifts the moment the backend changes, duplicates what the backend docstring already says, and tells the caller nothing about what they are guaranteed.
 
 **Why this rule exists at all:** the discipline was written down twice and enforced neither time. [SERVICE_DOCSTRING_STYLE.md](SERVICE_DOCSTRING_STYLE.md) § Relationship to SKUEL021 stated the gap and even specified the remedy — "a *warning-level* lint … that flags Cypher-shaped fragments in docstrings would close the loop" — and CLAUDE.md § Docstring Philosophy repeated the rule plus the caveat "isn't lint-enforced". Left to convention it rotted: **14 docstrings across 6 files** opened with `MERGE`/`DELETE`/`CREATE`, and one family of them had quietly become the fixture another test depended on. This is that lint.
 
@@ -724,9 +724,24 @@ def to_active_path_data(row: LpActivePathProgress) -> ActivePathData:
 
 Measured at introduction: `core/utils/` had **zero** head-position hits, so the exclusion cost no coverage — it only stopped the rule contradicting the document it enforces.
 
-**Head position is the whole test**, through the shared `cypher_vocabulary.leading_cypher_clause` — the same anchor SKUEL021 and SKUEL030 read, so there is no fourth copy to drift (see the [five-drift history](#rule-skuel021---no-raw-cypher-above-the-boundary)). Prose that merely *names* a clause mid-sentence ("mirrors the row its `RETURN collect(...)` clause produces") is describing a neighbour and stays legal; that carve-out is what keeps the rule off `query_types.py`'s row-shape references.
+**Two shapes**, both through the shared `cypher_vocabulary.leading_cypher_clause` — the same anchor SKUEL021 and SKUEL030 read, so there is no fourth copy to drift (see the [five-drift history](#rule-skuel021---no-raw-cypher-above-the-boundary)):
 
-**Known limit, deliberately not covered:** a whole query indented under a `Pattern:` heading further down a docstring is a style-guide violation this rule does not see (`core/ports/user_entry_protocols.py` carries one). Head position catches the docstring that describes *itself* in mechanism terms; the mid-body cases are a separate sweep with their own per-site judgement calls.
+1. **HEAD** — the docstring *opens* with a clause, i.e. describes *itself* in mechanism terms.
+2. **QUERY BLOCK** — two or more non-head lines are each themselves Cypher, i.e. the docstring *hosts* a query (classically indented under a `Pattern:` heading).
+
+Prose that merely *names* a clause mid-sentence ("mirrors the row its `RETURN collect(...)` clause produces") is describing a neighbour and stays legal under both shapes; that carve-out is what keeps the rule off `query_types.py`'s row-shape references, where the alias **is** the contract because nothing statically links a Cypher alias to a TypedDict key.
+
+**The query-block shape was added in #875, and the three sites it found are the rule's own justification.** This document's `SERVICE_DOCSTRING_STYLE.md` sibling had named the shape in writing as "still a violation of this document that the rule does not catch" — and every one of the three had **drifted from the backend it claimed to document**, which is the first reason that doc gives for the rule existing at all:
+
+| Site | What the docstring claimed | What the backend does |
+|------|---------------------------|----------------------|
+| `core/ports/user_entry_protocols.py` | row contains an `entry` **node**, `student.user_uid`, 7 fields | 14 **flat scalars**, `student.uid`, plus a `feedback_count` aggregation the doc omitted entirely |
+| `core/models/auth/auth_event.py` | `MATCH (e:AuthEvent {event_type, email: $email})`, `duration({minutes: 15})`, alias `failed_attempts` | property filters in a `WHERE`, `duration({minutes: $minutes})`, alias `failed_count` — and a *second* per-IP counter the doc never mentioned |
+| `core/models/relationship_registry.py` | `shared_count: 1` (a literal) | a **two-step aggregation** computing `count(DISTINCT shared)` — the doc documented the bug the generator exists to avoid |
+
+**Known limit, deliberately not covered:** the block threshold is **two** clause lines, so a *one*-line query embedded mid-docstring stays legal. This is not a tuning gap — a wrapped English sentence puts a clause word at a line head with an operand after it ("the MEGA-QUERY's `OPTIONAL` ⏎ `MATCH` collects one all-null placeholder map", real prose in `grounding_projection.py`), and the one-line threshold measured **8 sites, 5 of them legitimate**. Requiring a second clause line asks for what a query has and a sentence does not. The failure direction is a *miss*, which is the fail-safe one, and `::test_single_clause_line_is_not_flagged` asserts it so a genuine improvement turns red rather than reading as a regression. Raising coverage means finding a signal a wrapped sentence cannot have — not lowering the number.
+
+Also not covered, because neither line *leads* with a clause: a one-line query behind a label (`Query: MATCH (user)-[r:PINNED]->(entity) RETURN ...`, the shape [GRAPH_NATIVE_PLACEHOLDERS.md](GRAPH_NATIVE_PLACEHOLDERS.md) used to prescribe) and a query inside a quoted string in a usage example (`"MATCH (e {uid: $uid}) RETURN e"` in `backend_operations_typing.py`, where the literal is what makes `execute_query`'s signature concrete and is a deliberate keep).
 
 ```python
 # ❌ WRONG — the port documents the backend's query
@@ -756,7 +771,9 @@ branch before writing the word.
 
 **How to fix a violation:** say what the caller gets and what holds. Note that `MERGE` carries real upsert semantics — flattening it to "Create" *loses* the contract, so state the idempotency instead. Verify the wording against the implementing backend first: several of the founding 14 had non-obvious semantics ("higher score always wins on conflict", "True iff a NEW edge was created") that a generic rewrite would have silently dropped.
 
-**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL033` — 11 cases covering the positive detection, docstring-line (not `def`-line) anchoring, intent prose, mid-sentence clause references, lowercase prose, both out-of-scope trees, suppression, module/class docstrings, the table-drift check, and a real-tree sweep that asserts all four trees report zero **and then re-lints a real file with its repaired docstring put back**, which must fire. A bare "the tree is clean" assertion passes identically whether the rule works or never runs.
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL033` — the head cases (positive detection, docstring-line rather than `def`-line anchoring, intent prose, mid-sentence clause references, lowercase prose, both out-of-scope trees, suppression, module/class docstrings), the block cases (`Pattern:`-heading detection, reporting at the *query's* first line, the row-shape reference staying clean, head-outranks-block so one docstring yields one violation, and the pinned threshold), plus the table-drift check.
+
+**Each shape has its own injected counterpart, because one clean-tree assertion cannot prove two shapes work.** The sweep asserts all four trees report zero, then re-lints a real file with its repaired *head* docstring put back — which must fire — and separately puts the deleted `Pattern:` block back into the real `user_entry_protocols.py` it came from, which must also fire. Injecting into the *current* file keeps both proofs honest as those docstrings are edited again. A bare "the tree is clean" assertion passes identically whether the rule works or never runs.
 
 **Suppression:**
 - `# skuel-lint: disable=SKUEL033 -- <reason>` (line, on the docstring)

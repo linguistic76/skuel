@@ -191,9 +191,13 @@ class User:
         """
         Get ordered list of pinned entities.
 
-        GRAPH-NATIVE PLACEHOLDER: Use service layer for actual query.
-        Query: MATCH (user)-[r:PINNED]->(entity) RETURN entity.uid ORDER BY r.order
-        Service: UserRelationshipBackend.get_pinned_entities(user_uid)
+        GRAPH-NATIVE PLACEHOLDER: always returns empty — pins live on the
+        ``PINNED`` edge, whose ``order`` property carries the ordering, so the
+        model cannot answer this without the graph.
+
+        Service: UserRelationshipBackend.get_pinned_entities(user_uid), which
+        scopes the read to one user. Do not hand-write the traversal at a call
+        site: an unscoped version returns every user's pins.
         """
         return []  # Placeholder - use service layer
 
