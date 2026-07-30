@@ -9,6 +9,10 @@ renamed or deleted as SKUEL evolves.
 Only checks fenced ``` code blocks and inline `backtick` spans — not prose —
 to avoid flagging legitimate historical descriptions.
 
+Fence boundaries come from ``scripts/health/markdown_fences``, the CommonMark-backed
+walker shared with ``dead_doc_links.py``. See ``extract_code_segments`` for the two
+coordinate rules it fixed.
+
 Usage:
     uv run python scripts/health/stale_names.py
     uv run python scripts/health/stale_names.py --verbose
@@ -18,6 +22,11 @@ Usage:
 import re
 import sys
 from pathlib import Path
+
+# scripts/health/ is not a package — these modules are run as scripts, so the sibling
+# import resolves at runtime via sys.path[0] but not for MyPy (matches the same ignore
+# in tests/unit/scripts/test_dead_doc_links.py).
+from markdown_fences import iter_code_fence_blocks  # type: ignore[import-not-found]
 
 from core.utils.terminal_colors import Colors
 
@@ -192,43 +201,50 @@ def extract_code_segments(content: str) -> list[tuple[int, str]]:
     """
     Extract fenced code blocks and inline backtick spans.
 
-    Returns list of (start_line_no, segment_text).
-    For multi-line fenced blocks, start_line_no is the opening fence line.
+    Returns list of (first_line_no, segment_text), ordered by position. ``segment_text``
+    for a fenced block is its content lines joined by newlines, so a caller walking those
+    lines gets true file coordinates from ``first_line_no + index``.
+
+    Fence boundaries come from ``markdown_fences``, the CommonMark-backed walker shared
+    with ``dead_doc_links.py``. The hand-written scanner this replaced closed a block on
+    any line starting with the opener's first three characters, so ANY inner fence ended
+    the outer one.
+
+    The live shape is not the 4-backtick wrapper it is easiest to picture — there are
+    none in this tree — but an equal-length inner fence carrying an info string: six
+    lines across four documents, e.g. a ```` ```markwhen ```` sample inside a
+    ```` ```markdown ```` block at ``docs/guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md:199``.
+    Closing there did not merely truncate one block, it INVERTED the fence state for the
+    rest of the document: code read as prose and prose read as code, 153 lines of prose
+    scanned as code across three files.
+
+    Two coordinate rules, both load-bearing and both previously wrong for fences:
+
+      * A block is keyed by its first CONTENT line, not its opening delimiter. Keying by
+        the delimiter reported every fenced hit one line early — 47 of 121 findings on the
+        live tree at the time of the fix.
+      * Delimiter lines belong to neither pass. They are not block content, and scanning
+        them as prose would read an info string (```` ```KuType ````) as an inline span.
+
+    Empty fences yield no segment — there is nothing to scan — but still suppress the
+    inline pass across their span.
     """
     results: list[tuple[int, str]] = []
-    lines = content.splitlines()
+    fenced_lines: set[int] = set()
 
-    in_block = False
-    block_start = 0
-    block_lines: list[str] = []
-    fence_char = ""
+    for block in iter_code_fence_blocks(content):
+        first, last = block.span
+        fenced_lines.update(range(first, last + 1))
+        if block.lines:
+            results.append((block.lines[0][0], "\n".join(text for _n, text in block.lines)))
 
-    for i, line in enumerate(lines, 1):
-        stripped = line.strip()
-
-        # Detect fenced block open/close
-        if not in_block and (stripped.startswith("```") or stripped.startswith("~~~")):
-            in_block = True
-            fence_char = stripped[:3]
-            block_start = i
-            block_lines = []
+    # Inline backtick spans, only on lines no fence has claimed.
+    for i, line in enumerate(content.splitlines(), 1):
+        if i in fenced_lines:
             continue
-
-        if in_block and stripped.startswith(fence_char):
-            in_block = False
-            results.append((block_start, "\n".join(block_lines)))
-            block_lines = []
-            fence_char = ""
-            continue
-
-        if in_block:
-            block_lines.append(line)
-            continue
-
-        # Inline backtick spans (not inside a fenced block)
         results.extend((i, match.group(1)) for match in re.finditer(r"`([^`\n]+)`", line))
 
-    return results
+    return sorted(results)
 
 
 def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
@@ -246,11 +262,14 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
     issues: list[tuple[int, str, str, str]] = []
     segments = extract_code_segments(content)
 
-    for block_start, segment in segments:
+    for first_line, segment in segments:
         seg_lines = segment.splitlines() if "\n" in segment else [segment]
 
+        # A block's content lines are contiguous, so the offset within the segment is
+        # the offset within the file. This is only true because `extract_code_segments`
+        # keys blocks by their first content line rather than their opening delimiter.
         for j, seg_line in enumerate(seg_lines):
-            lineno = block_start + j
+            lineno = first_line + j
 
             for old, new in RENAMED.items():
                 if _RENAMED_PATTERNS[old].search(seg_line):
