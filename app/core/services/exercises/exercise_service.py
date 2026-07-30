@@ -317,7 +317,10 @@ class ExerciseService(BaseService):
         """
         result = await self.backend.get(uid)
         if result.is_error:
-            return result
+            # Result.fail, not `return result`: the backend hands back
+            # Result[Exercise | None] and this method promises Result[Exercise].
+            # `self.backend` is Any, so MyPy cannot catch the mismatch (SKUEL028).
+            return Result.fail(result)
         if result.value is None:
             return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
         return Result.ok(result.value)
@@ -341,7 +344,7 @@ class ExerciseService(BaseService):
             uid, user_uid, self._config.search_visibility
         )
         if result.is_error:
-            return result
+            return Result.fail(result)
         if result.value is None:
             return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
         return Result.ok(result.value)

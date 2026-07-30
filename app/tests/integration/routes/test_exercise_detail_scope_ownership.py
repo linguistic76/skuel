@@ -229,6 +229,55 @@ class TestFragmentAudience:
 
 
 # ============================================================================
+# The OWNS edge is half a dual write, and the other half must still count
+# ============================================================================
+
+
+class TestOwnerWithoutOwnsEdge:
+    """An owner whose OWNS edge is missing must still reach their exercise.
+
+    `ExerciseService.create()` persists the node and only *warns* when
+    `create_owns_relationship()` fails, so this state follows a create that
+    reported success. Scoping on the edge alone would hide an exercise from the
+    very user who made it — a 404 on your own content, caused by a fix.
+    """
+
+    async def test_owner_reads_own_exercise_with_the_owns_edge_deleted(
+        self, handlers, seeded, neo4j_driver
+    ) -> None:
+        uid = seeded[ExerciseScope.PERSONAL.value]
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                "MATCH (:User {uid: $owner})-[r:OWNS]->(e:Exercise {uid: $uid}) "
+                "DELETE r RETURN count(r) AS deleted",
+                owner=OWNER,
+                uid=uid,
+            )
+            record = await result.single()
+        # Positive control on the fixture itself: if the seed never wrote the
+        # edge, deleting nothing would make the assertion below vacuous.
+        assert record["deleted"] == 1
+
+        markup = await _read_fragment(handlers, OWNER, uid)
+        _assert_readable(markup, ExerciseScope.PERSONAL)
+
+    async def test_stranger_still_refused_with_the_owns_edge_deleted(
+        self, handlers, seeded, neo4j_driver
+    ) -> None:
+        """The owner_uid fallback must widen the audience by exactly one user."""
+        uid = seeded[ExerciseScope.PERSONAL.value]
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (:User {uid: $owner})-[r:OWNS]->(e:Exercise {uid: $uid}) DELETE r",
+                owner=OWNER,
+                uid=uid,
+            )
+
+        markup = await _read_fragment(handlers, STRANGER, uid)
+        _assert_refused(markup, ExerciseScope.PERSONAL)
+
+
+# ============================================================================
 # The refusal must be 404-equivalent, not 403-equivalent
 # ============================================================================
 

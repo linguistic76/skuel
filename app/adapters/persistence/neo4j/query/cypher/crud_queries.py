@@ -198,9 +198,19 @@ def build_search_visibility_clause(
             responsible for not exposing unscoped user-owned searches
             (fail-closed skip); internal callers keep today's semantics.
         SCOPE_AWARE: CURRICULUM-scope entities are always visible; owned
-            scopes require :OWNS, :SHARES_WITH, or group membership
-            (:MEMBER_OF + :SHARED_WITH_GROUP). Without a user, only
-            CURRICULUM survives — shared content is the fail-closed floor.
+            scopes require the ``owner_uid`` claim, :OWNS, :SHARES_WITH, or
+            group membership (:MEMBER_OF + :SHARED_WITH_GROUP). Without a
+            user, only CURRICULUM survives — shared content is the
+            fail-closed floor.
+
+            ``owner_uid`` is checked alongside the :OWNS edge because the two
+            are a dual write and the edge half is not guaranteed: on Exercise,
+            ``create()`` persists the node and only *warns* if the OWNS write
+            fails, so an owner can hold a create that reported success while
+            the edge is missing. Trusting the edge alone hides that entity
+            from its own owner. Reading either half keeps the owner's claim
+            whole; both halves are written only by paths that already own the
+            entity, so this widens the audience by nothing else.
 
     Returns:
         ``(fragment, params)`` — a parenthesized WHERE fragment plus the
@@ -233,6 +243,7 @@ def build_search_visibility_clause(
     group_label = NeoLabel.GROUP.value
     return (
         f"({curriculum}"
+        f" OR {alias}.owner_uid = $user_uid"
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{owns}]->({alias}) }}"
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{shares}]->({alias}) }}"
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{member_of}]->"

@@ -76,6 +76,11 @@ class TestVisibilityClause:
         assert "-[:SHARES_WITH]->" in clause
         assert "-[:MEMBER_OF]->" in clause
         assert "<-[:SHARED_WITH_GROUP]-" in clause
+        # The owner_uid half of the OWNS dual write. Exercise.create() persists
+        # the node and only warns when the OWNS edge fails, so an owner can hold
+        # a create that reported success with no edge — the edge alone would
+        # hide that entity from its own owner.
+        assert "n.owner_uid = $user_uid" in clause
 
     def test_scope_aware_without_user_is_curriculum_only(self) -> None:
         clause, params = build_search_visibility_clause(
