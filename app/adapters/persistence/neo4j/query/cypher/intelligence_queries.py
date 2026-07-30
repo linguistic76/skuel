@@ -699,7 +699,7 @@ def build_weighted_path_query(
         path_weight,
         '{weight_mode}' as aggregation_mode // noqa: CYP003 - a weight_expr_map key; any other value raised ValueError above
     ORDER BY
-        CASE '$weight_mode'
+        CASE '{weight_mode}' // noqa: CYP003 - a weight_expr_map key; any other value raised ValueError above
             WHEN 'min' THEN -path_weight // Higher min is better
             WHEN 'sum' THEN path_weight // Lower sum is better (cost)
             ELSE -path_weight // Higher product/avg is better
