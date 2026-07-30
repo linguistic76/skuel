@@ -39,6 +39,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fasthtml.common import to_xml
+from starlette.responses import Response
 
 import adapters.inbound.teaching_forms_ui as tfu
 from adapters.inbound.groups_api import create_groups_api_routes
@@ -201,6 +202,24 @@ class TestGroupRosterIsScoped:
         # resource bug this fix also cleared (code was NOT_FOUND_GROUP <UID>...).
         assert foreign_body["code"] == "NOT_FOUND_GROUP"
 
+    async def test_backend_failure_is_not_reported_as_not_found(
+        self, group_handlers: dict[str, Any], group_backend: Any
+    ) -> None:
+        """Routing the roster through the access gate must not convert a Neo4j
+        outage into a confident 404 — before this route used the gate,
+        ``get_members`` surfaced the real database error. Only a successful
+        no-access answer is not-found."""
+        group_backend.get = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(operation="get_group", message="Neo4j unavailable")
+            )
+        )
+
+        response = await _members_route(group_handlers)(request=_make_request(OWNER), uid=GROUP_UID)
+
+        assert response.status_code != 404
+        assert _body(response)["category"] == "database"
+
     async def test_unauthenticated_is_refused(self, group_handlers: dict[str, Any]) -> None:
         from starlette.exceptions import HTTPException
 
@@ -306,13 +325,27 @@ def _submission_route(handlers: dict[str, Any]) -> Any:
     return handlers["/teaching/forms/submission"]
 
 
+def _page(result: Any) -> tuple[int, str]:
+    """Normalise a handler return into ``(status_code, html)``.
+
+    The success path returns a bare FT node, which FastHTML serves as 200;
+    refusals return an explicit ``Response`` carrying a status. Asserting on
+    markup alone cannot tell those apart — a denied read that rendered
+    "Submission not found" inside an HTTP 200 would pass a text-only check
+    while telling every client and intermediary the request succeeded.
+    """
+    if isinstance(result, Response):
+        return result.status_code, bytes(result.body).decode()
+    return 200, to_xml(result)
+
+
 class TestFormSubmissionDetailRequiresAuthority:
     """The TEACHER role is not authority over a particular student."""
 
     async def test_teacher_in_classroom_sees_submission(
         self, forms_handlers: dict[str, Any]
     ) -> None:
-        rendered = to_xml(
+        status, rendered = _page(
             await _submission_route(forms_handlers)(
                 request=_make_request(TEACHER_A, path="/teaching/forms/submission"),
                 uid=SUBMISSION_UID,
@@ -320,13 +353,14 @@ class TestFormSubmissionDetailRequiresAuthority:
             )
         )
 
+        assert status == 200
         assert SECRET_ANSWER in rendered
 
     async def test_teacher_outside_classroom_gets_not_found(
         self, forms_handlers: dict[str, Any]
     ) -> None:
         """The pre-fix failure mode: Teacher B reading Student 1's answers."""
-        rendered = to_xml(
+        status, rendered = _page(
             await _submission_route(forms_handlers)(
                 request=_make_request(TEACHER_B, path="/teaching/forms/submission"),
                 uid=SUBMISSION_UID,
@@ -334,6 +368,8 @@ class TestFormSubmissionDetailRequiresAuthority:
             )
         )
 
+        # A real 404, not a 200 that merely says "not found" in its body.
+        assert status == 404
         assert SECRET_ANSWER not in rendered
         assert STUDENT_1 not in rendered
         assert "not found" in rendered.lower()
@@ -346,14 +382,14 @@ class TestFormSubmissionDetailRequiresAuthority:
         Asserted as response equality rather than absence-of-a-word: the page
         must not become a submission-existence oracle for a curious teacher.
         """
-        foreign = to_xml(
+        foreign_status, foreign = _page(
             await _submission_route(forms_handlers)(
                 request=_make_request(TEACHER_B, path="/teaching/forms/submission"),
                 uid=SUBMISSION_UID,
                 current_user=_fake_user(TEACHER_B, UserRole.TEACHER),
             )
         )
-        missing = to_xml(
+        missing_status, missing = _page(
             await _submission_route(forms_handlers)(
                 request=_make_request(TEACHER_B, path="/teaching/forms/submission"),
                 uid="fs_does_not_exist",
@@ -361,13 +397,42 @@ class TestFormSubmissionDetailRequiresAuthority:
             )
         )
 
+        assert foreign_status == missing_status == 404
         # The UID is echoed in the banner, so compare with it neutralised.
         assert foreign.replace(SUBMISSION_UID, "UID") == missing.replace("fs_does_not_exist", "UID")
+
+    async def test_backend_failure_is_not_reported_as_not_found(
+        self, forms_handlers: dict[str, Any]
+    ) -> None:
+        """An infrastructure fault is not an access decision.
+
+        If the authority query itself fails (Neo4j down), a legitimate teacher
+        must not be handed a confident "no such submission" — that hides the
+        outage and misinforms the caller. Only a FORBIDDEN verdict is a denial.
+        """
+        forms_handlers["_review_service"].verify_teacher_authority = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(operation="verify_teacher_authority", message="Neo4j unavailable")
+            )
+        )
+
+        status, rendered = _page(
+            await _submission_route(forms_handlers)(
+                request=_make_request(TEACHER_A, path="/teaching/forms/submission"),
+                uid=SUBMISSION_UID,
+                current_user=_fake_user(TEACHER_A, UserRole.TEACHER),
+            )
+        )
+
+        assert status == 503
+        assert "not found" not in rendered.lower()
+        # Still fails closed — the submission body never renders.
+        assert SECRET_ANSWER not in rendered
 
     async def test_admin_retains_cross_classroom_view(self, forms_handlers: dict[str, Any]) -> None:
         """This page is documented as the Admin/Teacher view — the authority
         gate must not lock admins out of submissions outside their own groups."""
-        rendered = to_xml(
+        status, rendered = _page(
             await _submission_route(forms_handlers)(
                 request=_make_request(ADMIN, path="/teaching/forms/submission"),
                 uid=SUBMISSION_UID,
@@ -375,6 +440,7 @@ class TestFormSubmissionDetailRequiresAuthority:
             )
         )
 
+        assert status == 200
         assert SECRET_ANSWER in rendered
         # Admins short-circuit the predicate rather than being granted by it.
         forms_handlers["_review_service"].verify_teacher_authority.assert_not_awaited()

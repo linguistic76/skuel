@@ -13,13 +13,15 @@ TEACHER role required for all endpoints.
 import json
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, Small, Span
+from fasthtml.common import A, Div, Small, Span, to_xml
+from starlette.responses import HTMLResponse, Response
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.result_helpers import require_found
 from core.utils.logging import get_logger
+from core.utils.result_simplified import ErrorCategory
 from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -245,14 +247,33 @@ def create_teaching_forms_ui_routes(
             )
             return render_teaching_sidebar_page(content, active="forms", request=request)
 
-        def render_not_found() -> Any:
+        def render_not_found() -> Response:
             """The one not-found response — a submission outside the caller's
-            classroom is indistinguishable from one that does not exist."""
+            classroom is indistinguishable from one that does not exist.
+
+            Carries a real 404: a denied read must not reach clients or
+            intermediaries as a success (docs/patterns/OWNERSHIP_VERIFICATION.md).
+            """
             content = Div(
                 PageHeader("Submission Detail"),
                 render_error_banner("Submission not found", f"No submission with UID: {uid}"),
             )
-            return render_teaching_sidebar_page(content, active="forms", request=request)
+            return HTMLResponse(
+                to_xml(render_teaching_sidebar_page(content, active="forms", request=request)),
+                status_code=404,
+            )
+
+        def render_unavailable(detail: str) -> Response:
+            """A backend failure is not an access decision — keep it a 503 so
+            the fault stays visible instead of reading as 'no such submission'."""
+            content = Div(
+                PageHeader("Submission Detail"),
+                render_error_banner("Could not load submission", detail),
+            )
+            return HTMLResponse(
+                to_xml(render_teaching_sidebar_page(content, active="forms", request=request)),
+                status_code=503,
+            )
 
         result = await form_submission_service.get_submission_admin(uid)
         if result.is_error:
@@ -268,6 +289,18 @@ def create_teaching_forms_ui_routes(
                 current_user.uid, submission.user_uid
             )
             if authority.is_error:
+                error = authority.expect_error()
+                # Only a real refusal becomes not-found. An infrastructure
+                # failure reaching here would otherwise hand a legitimate
+                # teacher a confident "no such submission".
+                if error.category is not ErrorCategory.FORBIDDEN:
+                    logger.error(
+                        "Authority check failed for teacher %s on submission %s: %s",
+                        current_user.uid,
+                        uid,
+                        error.message,
+                    )
+                    return render_unavailable("Could not verify access. Please try again.")
                 logger.warning(
                     "Teacher %s denied access to submission %s (student %s): no shared classroom",
                     current_user.uid,

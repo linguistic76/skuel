@@ -28,7 +28,7 @@ from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 logger = get_logger(__name__)
 
@@ -91,21 +91,45 @@ class GroupService(BaseService):
         return Result.ok(entity)
 
     async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[Group]:
-        """Owner OR member can view a group."""
+        """Owner OR member can view a group.
+
+        Only a *successful* no-access answer becomes not-found. Backend
+        failures propagate with their own category (matching verify_ownership
+        above) so a Neo4j outage stays observable instead of masquerading as a
+        missing group — an infrastructure fault is not an access decision.
+        """
+        no_such_group: Result[Group] = Result.fail(
+            Errors.not_found(resource="Group", identifier=uid)
+        )
+
         result = await self.get(uid)
-        if result.is_error or not result.value:
-            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
+        if result.is_error:
+            # Infrastructure faults propagate; a not-found from the fetch is
+            # re-raised in THIS method's own shape. Passing the inner error
+            # through would make "absent" distinguishable from "not yours"
+            # (the base fetch words its not-found differently), turning the
+            # route back into an existence oracle.
+            if result.expect_error().category is not ErrorCategory.NOT_FOUND:
+                return Result.fail(result)
+            return no_such_group
+        if not result.value:
+            return no_such_group
         group = result.value
         # Owner can always view
         if group.owner_uid == user_uid:
             return Result.ok(group)
         # Check member access
         members_result = await self.get_members(uid)
-        if members_result.is_ok:
-            if any(m["user_uid"] == user_uid for m in (members_result.value or [])):
-                return Result.ok(group)
+        if members_result.is_error:
+            if members_result.expect_error().category is not ErrorCategory.NOT_FOUND:
+                return Result.fail(members_result)
+            return no_such_group
+        if any(m["user_uid"] == user_uid for m in (members_result.value or [])):
+            return Result.ok(group)
         # Same error as "no such group" — a non-member must not be able to tell
-        # the two apart (docs/patterns/OWNERSHIP_VERIFICATION.md).
+        # the two apart (docs/patterns/OWNERSHIP_VERIFICATION.md). Safe to
+        # differentiate from the backend errors above: those do not vary with
+        # the caller's access, so they reveal nothing about the group.
         return Result.fail(Errors.not_found(resource="Group", identifier=uid))
 
     # ========================================================================
