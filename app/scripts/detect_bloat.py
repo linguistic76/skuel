@@ -884,7 +884,7 @@ class Site:
 
 
 def measure_vulture_blind_spot(
-    codebase: "ParsedCodebase", used_names: frozenset[str]
+    codebase: "ParsedCodebase", used_names: frozenset[str], scope: str = METHOD_SCOPE
 ) -> tuple[int, int]:
     """
     Size the blind spot this detector declares but long left unquantified.
@@ -900,11 +900,19 @@ def measure_vulture_blind_spot(
     for a mechanism you already have on hand is just a second thing to get wrong; the
     corrected figure is also the larger one.
 
-    Returns (methods_vulture_cannot_report, total_production_methods).
+    Counted over ``scope`` — ``core/services/`` by default, because that is what
+    ``analyze_methods`` reports on: it discards every candidate outside METHOD_SCOPE, so a
+    corpus-wide percentage would annotate the method report with a number about a
+    different population (Codex, PR #876). ``used_names`` stays global, since the
+    suppressor is: an attribute load anywhere hides a method here.
+
+    Returns (methods_vulture_cannot_report, total_methods_in_scope).
     """
     total = 0
     invisible = 0
-    for tree in codebase.production.values():
+    for path, tree in codebase.production.items():
+        if not str(path.relative_to(codebase.root)).startswith(scope):
+            continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
@@ -2311,9 +2319,9 @@ def print_limitations(
         print(
             "  - Vulture name-collision: a method is treated as used when ANY same-named "
             "attribute is loaded anywhere, so it cannot be reported dead regardless of "
-            f"which class defines it. Measured: {invisible} of {total} production methods "
-            f"({invisible * 100 // total}%) have a name in vulture's used set — a clean "
-            "run is NOT evidence those are live."
+            f"which class defines it. Measured across {METHOD_SCOPE} (this report's own "
+            f"scope): {invisible} of {total} methods ({invisible * 100 // total}%) have a "
+            "name in vulture's used set — a clean run is NOT evidence those are live."
         )
     if codebase.syntax_errors:
         print(

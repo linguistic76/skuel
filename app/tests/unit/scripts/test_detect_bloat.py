@@ -822,25 +822,57 @@ def test_blind_spot_is_measured_from_vultures_own_used_names(live_methods, live_
     )
 
 
-def test_blind_spot_counts_name_loads_not_duplicate_definitions(live_codebase):
-    """Regression pin for the wrong proxy this replaced (Codex, PR #876).
+def test_blind_spot_is_scoped_to_the_report_it_annotates():
+    """The figure must describe METHOD_SCOPE, not the whole corpus (Codex, PR #876).
 
-    The first cut counted names defined on 2+ classes, which is wrong in BOTH directions:
-    a duplicate-defined method whose name is never loaded is still reportable, and a
-    uniquely-defined method whose name IS loaded is invisible. Both directions asserted
-    here, because fixing only one would still look green.
+    `analyze_methods` discards every candidate outside `core/services/`, so a corpus-wide
+    percentage would annotate the method report with a number about a different
+    population — adapters/ and ui/ methods it never claims to cover. Measured, the
+    distinction is material: 87% corpus-wide vs 94% in scope.
     """
     import ast as _ast
     from pathlib import Path as _Path
 
     class _Stub:
+        root = _Path("/repo")
+
         def __init__(self, trees):
             self.production = trees
+
+    tree = _ast.parse("class A:\n    def m(self): ...\n")
+    in_scope = _Stub({_Path("/repo/core/services/x.py"): tree})
+    out_of_scope = _Stub({_Path("/repo/adapters/persistence/y.py"): tree})
+
+    assert measure_vulture_blind_spot(in_scope, frozenset({"m"})) == (1, 1)
+    assert measure_vulture_blind_spot(out_of_scope, frozenset({"m"})) == (0, 0), (
+        "methods outside core/services/ must not enter the count — the method report "
+        "never claims to cover them"
+    )
+
+
+def test_blind_spot_counts_name_loads_not_duplicate_definitions():
+    """Regression pin for the wrong proxy this replaced (Codex, PR #876).
+
+    The first cut counted names defined on 2+ classes, which is wrong in BOTH directions:
+    a duplicate-defined method whose name is never loaded is still reportable, and a
+    uniquely-defined method whose name IS loaded is invisible. Both asserted here, because
+    fixing only one would still look green.
+    """
+    import ast as _ast
+    from pathlib import Path as _Path
+
+    class _Stub:
+        root = _Path("/repo")
+
+        def __init__(self, trees):
+            self.production = trees
+
+    in_scope = _Path("/repo/core/services/x.py")
 
     # Two classes, same method name — duplicate-defined but NOT name-loaded.
     duplicated = _Stub(
         {
-            _Path("a.py"): _ast.parse(
+            in_scope: _ast.parse(
                 "class A:\n    def dup(self): ...\nclass B:\n    def dup(self): ...\n"
             )
         }
@@ -851,7 +883,7 @@ def test_blind_spot_counts_name_loads_not_duplicate_definitions(live_codebase):
     )
 
     # One class, one method — uniquely defined but the name IS loaded somewhere.
-    unique = _Stub({_Path("a.py"): _ast.parse("class A:\n    def solo(self): ...\n")})
+    unique = _Stub({in_scope: _ast.parse("class A:\n    def solo(self): ...\n")})
     assert measure_vulture_blind_spot(unique, frozenset({"solo"})) == (1, 1), (
         "a uniquely-defined method whose name is loaded elsewhere IS invisible and must be counted"
     )

@@ -41,8 +41,15 @@ _HEADING_RE = re.compile(r"^#{1,6} ")
 
 
 def _enclosing_heading(lines: list[str], lineno: int) -> str:
-    """Nearest preceding Markdown heading of any level ('' if the file has none yet)."""
-    for candidate in reversed(lines[: lineno - 1]):
+    """Heading that governs ``lineno`` — itself if it is one, else the nearest above.
+
+    Including the line itself is load-bearing: a tracked identifier can appear IN a
+    heading (``## Known `KuType` limitations``), and attributing that hit to the *previous*
+    heading lets a stale heading inherit a justified section's grant and pass silently
+    (Codex, PR #876). The first cut of this excluded the current line and a test pinned
+    that as intended — the audit and its pin agreed with each other and both were wrong.
+    """
+    for candidate in reversed(lines[:lineno]):
         if _HEADING_RE.match(candidate):
             return candidate.strip()
     return ""
@@ -79,17 +86,28 @@ def test_suppressed_hits_all_sit_under_a_justified_heading() -> None:
     )
 
 
-def test_the_audit_is_not_vacuous() -> None:
-    """Positive control: an audit that asserts an empty set passes on a broken scanner.
+def test_every_skipped_path_earns_its_skip() -> None:
+    """Positive control, PER PATH — an aggregate check lets a new entry ride along.
 
-    The skipped file must still contain tracked identifiers, and they must still land
-    under the justified headings — otherwise `SKIP_FILES` has stopped earning its keep and
-    should be deleted rather than silently carried.
+    Checked in aggregate, this passed for a second file added to `SKIP_FILES` before it
+    contained any tracked identifier at all: `HEALTH_CHECKS.md` supplied the hits, so the
+    new file silently hid its first future stale name (Codex, PR #876). A suppression
+    granted to a file that needs none is the whole defect class this file audits.
     """
     hits = _hidden_hits()
     assert hits, "no skipped file contains any tracked identifier — remove SKIP_FILES"
-    covered = {heading for _p, _l, _n, heading in hits}
-    assert covered <= JUSTIFIED_HEADINGS, f"unexpected headings: {covered}"
+    for path in sn.SKIP_FILES:
+        own = [h for h in hits if h[0] == path]
+        assert own, (
+            f"{path.name} is in SKIP_FILES but contains no tracked identifier, so the "
+            "skip suppresses nothing today and will silently hide its first real hit — "
+            "remove the entry until it is actually needed"
+        )
+
+
+def test_justified_headings_all_earn_their_grant() -> None:
+    """A heading allowlisted but no longer hiding anything is a standing over-grant."""
+    covered = {heading for _p, _l, _n, heading in _hidden_hits()}
     unused = JUSTIFIED_HEADINGS - covered
     assert unused == set(), (
         f"JUSTIFIED_HEADINGS lists headings that hide nothing: {sorted(unused)} — prune "
@@ -105,7 +123,11 @@ def test_heading_lookup_finds_the_nearest_preceding_heading() -> None:
     """
     lines = ["## First", "a", "### Second", "b", "c"]
     assert _enclosing_heading(lines, 2) == "## First"
-    assert _enclosing_heading(lines, 3) == "## First"  # the heading line itself
     assert _enclosing_heading(lines, 4) == "### Second"
     assert _enclosing_heading(lines, 5) == "### Second"
     assert _enclosing_heading(["no headings", "here"], 2) == ""
+    # A hit ON a heading line belongs to THAT heading. This assertion previously read
+    # `== "## First"` and was wrong in the direction that silently accepts a stale
+    # heading under a justified section's grant.
+    assert _enclosing_heading(lines, 3) == "### Second"
+    assert _enclosing_heading(lines, 1) == "## First"
