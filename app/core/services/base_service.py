@@ -95,7 +95,7 @@ See Also:
     /core/models/shared_enums.py - Domain enum definitions
     /core/ports/domain_protocols.py - Service interfaces
     /adapters/persistence/neo4j/universal_backend.py - Generic backend
-    /core/models/query/cypher/ - CypherGenerator methods (modular package)
+    /adapters/persistence/neo4j/query/cypher/ - CypherGenerator methods (modular package)
     /core/services/mixins/ - Decomposed mixin implementations
 """
 

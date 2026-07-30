@@ -44,7 +44,7 @@ See Also
 --------
     /docs/patterns/three_tier_type_system.md - Three-tier architecture
     /core/ports/base_protocols.py - Related TypedDicts
-    /core/models/query/cypher/_types.py - Cypher query types
+    /adapters/persistence/neo4j/query/cypher/_types.py - Cypher query types
 
 Date Added: January 2026 (Type Safety Improvements)
 """
