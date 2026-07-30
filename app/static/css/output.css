@@ -2131,6 +2131,10 @@ body {
   max-height: 15rem;
 }
 
+.max-h-96 {
+  max-height: 24rem;
+}
+
 .max-h-\[80vh\] {
   max-height: 80vh;
 }
@@ -3800,6 +3804,10 @@ body {
   background-color: rgb(22 163 74 / 0.1);
 }
 
+.bg-success\/15 {
+  background-color: rgb(22 163 74 / 0.15);
+}
+
 .bg-success\/20 {
   background-color: rgb(22 163 74 / 0.2);
 }
@@ -3835,6 +3843,10 @@ body {
 .bg-warning {
   --tw-bg-opacity: 1;
   background-color: rgb(217 119 6 / var(--tw-bg-opacity, 1));
+}
+
+.bg-warning\/15 {
+  background-color: rgb(217 119 6 / 0.15);
 }
 
 .bg-warning\/20 {
@@ -3956,10 +3968,6 @@ body {
 
 .p-\[26px\] {
   padding: 26px;
-}
-
-.p-\[3px\] {
-  padding: 3px;
 }
 
 .p-\[6px\] {
@@ -5320,14 +5328,6 @@ body {
 /* Text truncation utilities */
 
 /* Flex overflow fix */
-
-.\[r\:FULFILLS_EXERCISE\] {
-  r: FULFILLS EXERCISE;
-}
-
-.\[r\:PINNED\] {
-  r: PINNED;
-}
 
 .\[scrollbar-width\:none\] {
   scrollbar-width: none;
