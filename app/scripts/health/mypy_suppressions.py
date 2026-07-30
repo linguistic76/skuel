@@ -53,8 +53,13 @@ comments, and it is explicitly NOT evidence for a deletion.
 Corollary on fail-safe direction: this rule under-reports rather than
 over-reports. Stripping one pair can only surface errors inside that block's own
 scope, so a non-zero count is conclusive proof the entry is load-bearing, while a
-zero is confirmed by the one run that isolates it. There is no approximation in
-the deletion path.
+zero is confirmed by the one run that isolates it.
+
+That holds only for runs that COMPLETED, which is why `run_mypy` aborts the whole
+audit on any run it cannot prove finished. A crashed mypy prints no `error:`
+lines, and an empty error set is bit-identical to a clean one — so without that
+guard the deletion path had exactly the silent-failure shape this script exists
+to find (Codex #883). An aborted audit reports nothing; it never reports zero.
 
 
 WHERE THIS RUNS AND WHY
@@ -123,6 +128,10 @@ ERROR_RE = re.compile(
     r"(?P<msg>.*?)(?:\s+\[(?P<code>[\w-]+)\])?$"
 )
 UNUSED_RE = re.compile(r"note:\s*unused section\(s\):\s*module\s*=\s*(?P<mods>\[.*\])")
+
+# Evidence that mypy actually finished, rather than dying silently. See run_mypy.
+MYPY_SUMMARY_RE = re.compile(r"^(?:Success: no issues found|Found \d+ error)", re.MULTILINE)
+COMPLETED_EXIT_CODES = frozenset({0, 1})
 
 DEC_ASSIGN_RE = re.compile(r"^(?P<indent>\s*)disable_error_code\s*=")
 
@@ -295,7 +304,22 @@ def write_stripped_config(text: str, removals: dict[int, set[str]], path: Path) 
 
 
 def run_mypy(config: Path) -> str:
-    """Run mypy over the tree with `config`, returning combined output."""
+    """
+    Run mypy over the tree with `config`, returning combined output.
+
+    A run that did not COMPLETE must abort the audit, never return empty output.
+    Silence and cleanliness are the same string here: if mypy dies to a launcher
+    fault, a bad config, or an internal crash, it emits no `error:` lines, so
+    `parse_errors` returns an empty set, `new_errors` is empty, and the pair reads
+    as vacuous — the audit would tell a maintainer to delete a load-bearing
+    suppression on the strength of a measurement that never happened. That is the
+    one direction this script must not fail in (Codex #883).
+
+    Completion is checked two ways, both of which abort on doubt:
+      * exit status — mypy exits 0 (clean) or 1 (errors found) after a completed
+        check; 2 is a usage/config error and anything else is a crash or signal;
+      * mypy's own summary line, which is the direct evidence it finished.
+    """
     proc = subprocess.run(
         [
             "uv",
@@ -314,7 +338,25 @@ def run_mypy(config: Path) -> str:
         text=True,
         check=False,
     )
-    return proc.stdout + proc.stderr
+    output = proc.stdout + proc.stderr
+
+    if proc.returncode not in COMPLETED_EXIT_CODES:
+        raise AuditError(
+            f"mypy exited {proc.returncode} with config {config.name} — a completed "
+            f"check exits 0 or 1. No measurement was made; refusing to report on it.\n"
+            f"--- last 20 lines ---\n{_tail(output)}"
+        )
+    if not MYPY_SUMMARY_RE.search(output):
+        raise AuditError(
+            f"mypy exited {proc.returncode} with config {config.name} but printed no "
+            f"summary line, so the check did not complete. Refusing to treat its "
+            f"silence as zero errors.\n--- last 20 lines ---\n{_tail(output)}"
+        )
+    return output
+
+
+def _tail(output: str, lines: int = 20) -> str:
+    return "\n".join(output.splitlines()[-lines:])
 
 
 def parse_errors(output: str) -> set[MypyError]:

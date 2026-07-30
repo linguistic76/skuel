@@ -63,12 +63,26 @@ jobs:
         working-directory: app
         run: uv sync --no-install-project
 
+      # The audit's own exit code is the finding signal, and it is captured rather
+      # than allowed to fail the step: exit 1 means dead suppressions were found and
+      # confirmed, exit 2 means the instrument aborted (a mypy run that did not
+      # complete), and anything else is infrastructure. `failure()` cannot tell those
+      # apart — under it, a broken checkout or a failed `uv sync` would open an issue
+      # asserting that suppressions had gone dead (Codex #883). The job is still
+      # failed at the end, by the last step.
       - name: Run the suppression audit
         id: audit
         working-directory: app
         run: |
-          set -o pipefail
-          uv run python scripts/health/mypy_suppressions.py --census | tee audit_output.txt
+          # Actions runs this under `bash -e`, so capture with `|| rc=$?` rather
+          # than a `| tee` pipeline: piping would make the step's status tee's,
+          # and reading the real code back out depends on PIPESTATUS surviving
+          # the -e semantics. Redirect-then-cat has neither subtlety.
+          rc=0
+          uv run python scripts/health/mypy_suppressions.py --census > audit_output.txt 2>&1 || rc=$?
+          cat audit_output.txt
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          echo "Audit exited $rc"
 
       - name: Upload audit output
         if: always()
@@ -79,7 +93,7 @@ jobs:
           retention-days: 30
 
       - name: Open an issue when suppressions have gone dead
-        if: failure()
+        if: steps.audit.outputs.exit_code == '1'
         uses: actions/github-script@v7
         with:
           script: |
@@ -132,3 +146,18 @@ jobs:
                 body: issueBody,
               });
             }
+
+      # Fail the job for BOTH real findings and an aborted instrument — an audit
+      # that could not measure must not read as a green week.
+      - name: Fail the job on findings or an aborted audit
+        if: steps.audit.outputs.exit_code != '0'
+        run: |
+          rc='${{ steps.audit.outputs.exit_code }}'
+          if [ "$rc" = '1' ]; then
+            echo "::error::Dead mypy suppressions found — see the issue and the audit artifact."
+          elif [ "$rc" = '2' ]; then
+            echo "::error::The audit aborted before measuring (a mypy run did not complete). No findings are implied."
+          else
+            echo "::error::The audit did not run to completion (exit '$rc')."
+          fi
+          exit 1

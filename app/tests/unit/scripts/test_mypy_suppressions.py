@@ -245,3 +245,80 @@ def test_no_unused_note_yields_no_findings() -> None:
 
 def test_a_malformed_note_yields_no_findings_rather_than_raising() -> None:
     assert ms.parse_unused_sections("pyproject.toml: note: unused section(s): module = [oops") == []
+
+
+# ============================================================================
+# A RUN THAT DID NOT COMPLETE MUST NOT READ AS A CLEAN ONE
+# ============================================================================
+#
+# The failure this guards is the one the whole script is about. A mypy that dies
+# — launcher fault, bad config, OOM — prints no `error:` lines, and an empty error
+# set is bit-identical to a clean one. Unguarded, the pair reads as vacuous and the
+# audit tells a maintainer to delete a load-bearing suppression on the strength of
+# a measurement that never happened (Codex #883). Every case below asserts the
+# ABORT, because a guard that cannot fire is not a guard.
+
+SUCCESS_LINE = "Success: no issues found in 2009 source files"
+FOUND_LINE = "Found 8 errors in 2 files (checked 2009 source files)"
+
+
+class _FakeProc:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def _patch_run(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, stdout: str = "", stderr: str = ""
+) -> None:
+    def fake_run(*_args: object, **_kwargs: object) -> _FakeProc:
+        return _FakeProc(returncode, stdout, stderr)
+
+    monkeypatch.setattr(ms.subprocess, "run", fake_run)
+
+
+def test_a_completed_clean_run_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_run(monkeypatch, 0, SUCCESS_LINE)
+    assert SUCCESS_LINE in ms.run_mypy(Path("cfg.toml"))
+
+
+def test_a_completed_run_with_errors_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exit 1 is a normal outcome here — it is how a load-bearing entry proves itself."""
+    _patch_run(monkeypatch, 1, f"core/x.py:1:1: error: boom  [misc]\n{FOUND_LINE}")
+    assert FOUND_LINE in ms.run_mypy(Path("cfg.toml"))
+
+
+def test_a_config_error_aborts_instead_of_measuring_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_run(monkeypatch, 2, stderr="mypy: error: Cannot find config file 'x.toml'")
+    with pytest.raises(ms.AuditError, match="exited 2"):
+        ms.run_mypy(Path("cfg.toml"))
+
+
+def test_a_killed_run_aborts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A signal death (-9, e.g. the OOM killer) is the likeliest real crash on CI."""
+    _patch_run(monkeypatch, -9)
+    with pytest.raises(ms.AuditError, match="exited -9"):
+        ms.run_mypy(Path("cfg.toml"))
+
+
+def test_exit_zero_with_no_summary_line_aborts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE dangerous shape: a plausible exit status with no evidence of a check.
+
+    Exit-code checking alone would accept this and hand back an empty error set,
+    which is exactly the silent zero that licenses a wrong deletion. mypy's own
+    summary line is the direct evidence it finished, so its absence must abort.
+    """
+    _patch_run(monkeypatch, 0, stdout="")
+    with pytest.raises(ms.AuditError, match="no summary line"):
+        ms.run_mypy(Path("cfg.toml"))
+
+
+def test_the_abort_message_carries_the_output_for_diagnosis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_run(monkeypatch, 2, stderr="mypy: error: unrecognized arguments: --nope")
+    with pytest.raises(ms.AuditError, match="unrecognized arguments"):
+        ms.run_mypy(Path("cfg.toml"))
