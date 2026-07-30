@@ -306,6 +306,16 @@ Load-bearing disable_error_code entries:
 
 **Fail-safe direction:** it under-reports rather than over-reports. Stripping one pair can only surface errors inside that scope, so a non-zero count proves the entry is load-bearing, and every zero is confirmed by the run that isolates it. That holds only for runs that *completed*, so any mypy invocation the script cannot prove finished aborts the whole audit — a crashed mypy prints no errors, and an empty error set is indistinguishable from a clean one. An aborted audit reports nothing; it never reports zero.
 
+**Exit codes** — unlike the other four checks, this one distinguishes *found something* from *could not measure*:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Clean |
+| 1 | Confirmed findings, and nothing else |
+| 2 | The instrument could not measure (incomplete mypy run, malformed config, any unexpected exception) |
+
+Exit 1 is load-bearing: the scheduled workflow opens an issue on it asserting dead suppressions were found, so every non-finding outcome — including Python's default status for an uncaught exception — is mapped to 2 instead.
+
 ---
 
 ## Maintaining `stale_names.py`

@@ -248,6 +248,62 @@ def test_a_malformed_note_yields_no_findings_rather_than_raising() -> None:
 
 
 # ============================================================================
+# EXIT 1 MUST MEAN CONFIRMED FINDINGS AND NOTHING ELSE
+# ============================================================================
+#
+# The scheduled workflow opens an issue on exit 1 asserting that dead
+# suppressions were found. Python's default status for an uncaught exception is
+# also 1, so a malformed pyproject.toml or any parser bug would have filed that
+# issue having measured nothing (Codex #883 r3). Catching only `AuditError`
+# covered the failures the script anticipated — and the recurring lesson here is
+# that those are not the dangerous ones.
+
+
+def test_clean_and_findings_keep_their_codes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ms, "main", lambda: 0)
+    assert ms.run_cli() == 0
+    monkeypatch.setattr(ms, "main", lambda: 1)
+    assert ms.run_cli() == 1
+
+
+def test_an_audit_error_exits_2_not_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom() -> int:
+        raise ms.AuditError("a mypy run did not complete")
+
+    monkeypatch.setattr(ms, "main", boom)
+    assert ms.run_cli() == 2
+
+
+def test_a_malformed_pyproject_exits_2_not_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The concrete case: tomllib raising on a broken config must not read as findings."""
+    import tomllib
+
+    def boom() -> int:
+        raise tomllib.TOMLDecodeError("bad toml", "[tool.mypy", 0)
+
+    monkeypatch.setattr(ms, "main", boom)
+    assert ms.run_cli() == 2
+
+
+def test_an_unreadable_file_exits_2_not_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom() -> int:
+        raise OSError("pyproject.toml vanished")
+
+    monkeypatch.setattr(ms, "main", boom)
+    assert ms.run_cli() == 2
+
+
+def test_an_unanticipated_bug_exits_2_not_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The general case — a plain programming error is a non-measurement, not a finding."""
+
+    def boom() -> int:
+        raise AttributeError("'NoneType' object has no attribute 'group'")
+
+    monkeypatch.setattr(ms, "main", boom)
+    assert ms.run_cli() == 2
+
+
+# ============================================================================
 # THE GLOBAL [tool.mypy] TABLE IS A SUPPRESSION SCOPE TOO
 # ============================================================================
 #

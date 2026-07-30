@@ -54,8 +54,8 @@ So the per-pair run is the verdict, and the aggregate is demoted to `--census`
 comments, and it is explicitly NOT evidence for a deletion.
 
 Corollary on fail-safe direction: this rule under-reports rather than
-over-reports. Stripping one pair can only surface errors inside that block's own
-scope, so a non-zero count is conclusive proof the entry is load-bearing, while a
+over-reports. Stripping one pair can only surface errors inside that scope's own
+files, so a non-zero count is conclusive proof the entry is load-bearing, while a
 zero is confirmed by the one run that isolates it.
 
 That holds only for runs that COMPLETED, which is why `run_mypy` aborts the whole
@@ -90,6 +90,16 @@ run over this tree is ~30s, but the runs share a dedicated cache, so the rest co
     were long dead), so a weekly scheduled run catches it with zero added latency
     on every PR.
 
+EXIT CODES
+----------
+    0 — clean
+    1 — CONFIRMED findings, and nothing else
+    2 — the instrument could not measure, for any reason
+
+Exit 1 is load-bearing: the scheduled workflow opens an issue on it asserting
+that dead suppressions were found, so anything that is not a confirmed finding
+must not use it. See `run_cli`.
+
 Usage:
     uv run python scripts/health/mypy_suppressions.py
     uv run python scripts/health/mypy_suppressions.py --verbose
@@ -104,6 +114,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -604,9 +615,36 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+def run_cli() -> int:
+    """
+    Translate every outcome into the audit's exit-code contract:
+
+        0 — clean
+        1 — CONFIRMED findings, and nothing else
+        2 — the instrument could not measure, for any reason
+
+    Exit 1 has to mean findings exclusively, because the scheduled workflow opens
+    an issue on it asserting that dead suppressions were found. Python's default
+    status for an uncaught exception is ALSO 1, so a malformed pyproject.toml
+    (`TOMLDecodeError`), an unreadable file, or any parser bug would have filed
+    that issue while nothing had been measured (Codex #883 r3). Catching only
+    `AuditError` was not enough: it covers the failures this script anticipated,
+    and the whole lesson of this PR is that those are not the dangerous ones.
+    """
     try:
-        sys.exit(main())
+        return main()
     except AuditError as exc:
         print(f"{Colors.RED}Audit aborted: {exc}{Colors.RESET}", file=sys.stderr)
-        sys.exit(2)
+        return 2
+    # safety-net: an unexpected failure is a non-measurement, never a finding.
+    except Exception as exc:
+        print(
+            f"{Colors.RED}Audit aborted — unexpected {type(exc).__name__}: {exc}{Colors.RESET}",
+            file=sys.stderr,
+        )
+        traceback.print_exc(file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(run_cli())

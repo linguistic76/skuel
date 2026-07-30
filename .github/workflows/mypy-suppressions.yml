@@ -64,12 +64,17 @@ jobs:
         run: uv sync --no-install-project
 
       # The audit's own exit code is the finding signal, and it is captured rather
-      # than allowed to fail the step: exit 1 means dead suppressions were found and
-      # confirmed, exit 2 means the instrument aborted (a mypy run that did not
-      # complete), and anything else is infrastructure. `failure()` cannot tell those
-      # apart — under it, a broken checkout or a failed `uv sync` would open an issue
-      # asserting that suppressions had gone dead (Codex #883). The job is still
-      # failed at the end, by the last step.
+      # than allowed to fail the step. The script's contract is exactly:
+      #   0 — clean
+      #   1 — CONFIRMED findings, and nothing else
+      #   2 — the instrument could not measure (a mypy run that did not complete,
+      #       a malformed pyproject.toml, any unexpected exception)
+      # `failure()` cannot tell those apart — under it, a broken checkout or a
+      # failed `uv sync` would open an issue asserting that suppressions had gone
+      # dead (Codex #883). Note the script must never leak Python's default
+      # exit-1-on-uncaught-exception into this gate; `run_cli` maps every
+      # non-finding outcome to 2 for that reason. The job is still failed at the
+      # end, by the last step.
       - name: Run the suppression audit
         id: audit
         working-directory: app
