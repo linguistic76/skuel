@@ -21,6 +21,7 @@ from core.events.form_events import (
 )
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_dto import FormTemplateDTO
+from core.models.type_hints import UserUID
 from core.ports.form_protocols import FormTemplateBackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
@@ -144,17 +145,32 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
     # ADMIN / TEACHER READ
     # ========================================================================
 
-    async def count_submissions(self, template_uid: str) -> Result[int]:
-        """Count submissions linked to a template."""
-        return await self.backend.count_submissions(template_uid)
+    async def count_submissions(
+        self, template_uid: str, teacher_uid: UserUID | None
+    ) -> Result[int]:
+        """Count submissions linked to a template, as one caller may read them.
+
+        `teacher_uid` is required rather than defaulted so no caller silently
+        publishes a cross-classroom total: `None` counts every classroom and is
+        reserved for ADMIN, a teacher UID counts only what that teacher may open.
+
+        Backend: FormTemplateBackend.count_submissions
+        """
+        return await self.backend.count_submissions(template_uid, teacher_uid)
 
     # ========================================================================
     # INTERNAL HELPERS
     # ========================================================================
 
     async def _get_submission_count(self, template_uid: str) -> int:
-        """Count submissions linked to a template via RESPONDS_TO_FORM."""
-        result = await self.backend.count_submissions(template_uid)
+        """Count submissions linked to a template via RESPONDS_TO_FORM.
+
+        Deliberately unscoped: this guards deletion, so it must see submissions
+        the deleting caller may not read. Scoping it to a teacher would report 0
+        for another classroom's work and let the template be deleted out from
+        under it.
+        """
+        result = await self.backend.count_submissions(template_uid, teacher_uid=None)
         if result.is_error:
             return 0
         return result.value

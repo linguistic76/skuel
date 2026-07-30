@@ -33,6 +33,19 @@ def _fake_require_role(*_args, **_kwargs):
     return _identity_decorator
 
 
+def _fake_teacher(uid):
+    """Stand-in for the User `@require_role` injects (non-admin: scoped reads)."""
+    from types import SimpleNamespace
+
+    from core.models.enums.user_enums import UserRole
+
+    return SimpleNamespace(
+        uid=uid,
+        role=UserRole.TEACHER,
+        has_permission=UserRole.TEACHER.has_permission,
+    )
+
+
 @pytest.mark.asyncio
 async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
     """The forms list handler iterates the templates list, not the (list, int) tuple."""
@@ -67,9 +80,11 @@ async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
 
     # First registered route is teaching_forms_list.
     handler = captured[0]
-    content = await handler(request=MagicMock())
+    content = await handler(request=MagicMock(), current_user=_fake_teacher("user_teacher"))
 
     rendered = to_xml(content)
     # The template title only appears if the LIST (not the tuple) was iterated.
     assert "Survey" in rendered
-    service.count_submissions.assert_awaited_once_with("ft_1")
+    # The count is scoped to the caller's classrooms — see
+    # tests/integration/routes/test_unscoped_uid_read_ownership.py for why.
+    service.count_submissions.assert_awaited_once_with("ft_1", "user_teacher")

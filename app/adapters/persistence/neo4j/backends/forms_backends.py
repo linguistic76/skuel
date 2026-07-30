@@ -20,6 +20,25 @@ if TYPE_CHECKING:
     from core.models.resource.resource import Resource  # noqa: F401
 
 
+# Restricts a submission to the caller's own classrooms: its author `u` must be a
+# member of an active Group the teacher owns. Written as an EXISTS predicate, not
+# an extra MATCH, so scoping can only ever REMOVE rows — a teacher in two groups
+# with the same student would otherwise see that student's submission twice, and
+# the row shape stays identical to the unscoped query.
+#
+# Mirrors _user_entry_assessment_mixin.verify_teacher_authority, which is the
+# single-row form of this same predicate and gates the submission detail page.
+# The two must agree: a row listed here has to be openable there.
+_TEACHER_SHARES_ACTIVE_GROUP = f"""EXISTS {{
+        MATCH (:User {{uid: $teacher_uid}})
+              -[:{RelationshipName.OWNS.value}]->
+              (g:Group)
+              <-[:{RelationshipName.MEMBER_OF.value}]-
+              (u)
+        WHERE g.is_active = true
+    }}"""
+
+
 class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
     """
     Domain backend for FormTemplate entities.
@@ -29,15 +48,38 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
     - count_submissions    — Count submissions linked to a template via RESPONDS_TO_FORM
     """
 
-    async def count_submissions(self, template_uid: str) -> Result[int]:
-        """Count submissions linked to a template via RESPONDS_TO_FORM."""
-        result = await self.execute_query(
-            f"""
-            MATCH (fs:Entity)-[:{RelationshipName.RESPONDS_TO_FORM.value}]->(ft:Entity {{uid: $uid}})
-            RETURN count(fs) as count
-            """,
-            {"uid": template_uid},
-        )
+    async def count_submissions(
+        self, template_uid: str, teacher_uid: UserUID | None
+    ) -> Result[int]:
+        """Count submissions linked to a template via RESPONDS_TO_FORM.
+
+        ``teacher_uid=None`` counts every classroom — required by the delete
+        guard, which must see submissions the caller may not read. A teacher UID
+        counts only submissions this count's reader may also open, so the number
+        never discloses activity outside their classrooms.
+        """
+        if teacher_uid is None:
+            result = await self.execute_query(
+                f"""
+                MATCH (fs:Entity)
+                      -[:{RelationshipName.RESPONDS_TO_FORM.value}]->
+                      (ft:Entity {{uid: $uid}})
+                RETURN count(fs) as count
+                """,
+                {"uid": template_uid},
+            )
+        else:
+            result = await self.execute_query(
+                f"""
+                MATCH (fs:Entity)
+                      -[:{RelationshipName.RESPONDS_TO_FORM.value}]->
+                      (ft:Entity {{uid: $uid}})
+                MATCH (u:User)-[:{RelationshipName.OWNS.value}]->(fs)
+                WHERE {_TEACHER_SHARES_ACTIVE_GROUP}
+                RETURN count(fs) as count
+                """,
+                {"uid": template_uid, "teacher_uid": teacher_uid},
+            )
         if result.is_error or not result.value:
             return Result.ok(0)
         return Result.ok(result.value[0].get("count", 0))
@@ -131,20 +173,44 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         return Result.ok(result.value[0]["uid"])
 
     async def get_submissions_for_template(
-        self, form_template_uid: str
+        self, form_template_uid: str, teacher_uid: UserUID | None
     ) -> Result[list[dict[str, Any]]]:
-        """Get all submissions for a form template, including submitter info."""
-        result = await self.execute_query(
-            f"""
-            MATCH (fs:Entity {{entity_type: 'form_submission'}})
-                  -[:{RelationshipName.RESPONDS_TO_FORM}]->
-                  (ft:Entity {{uid: $ft_uid}})
-            OPTIONAL MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
-            RETURN fs, u.uid AS user_uid, u.display_name AS user_name
-            ORDER BY fs.created_at DESC
-            """,
-            {"ft_uid": form_template_uid},
-        )
+        """Get submissions for a form template, including submitter info.
+
+        Every row carries the submitter's identity and full node — including
+        `form_data` — so the caller's reach is decided here, not by the page that
+        renders it. ``teacher_uid=None`` returns all classrooms and is reserved
+        for ADMIN; a teacher UID returns only submissions authored by students in
+        an active Group that teacher owns.
+        """
+        if teacher_uid is None:
+            result = await self.execute_query(
+                f"""
+                MATCH (fs:Entity {{entity_type: 'form_submission'}})
+                      -[:{RelationshipName.RESPONDS_TO_FORM}]->
+                      (ft:Entity {{uid: $ft_uid}})
+                OPTIONAL MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
+                RETURN fs, u.uid AS user_uid, u.display_name AS user_name
+                ORDER BY fs.created_at DESC
+                """,
+                {"ft_uid": form_template_uid},
+            )
+        else:
+            # Required MATCH, not OPTIONAL: a submission with no owner cannot be
+            # shown to belong to this teacher's classroom, so it is not theirs to
+            # read. The unscoped branch above keeps them for ADMIN.
+            result = await self.execute_query(
+                f"""
+                MATCH (fs:Entity {{entity_type: 'form_submission'}})
+                      -[:{RelationshipName.RESPONDS_TO_FORM}]->
+                      (ft:Entity {{uid: $ft_uid}})
+                MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
+                WHERE {_TEACHER_SHARES_ACTIVE_GROUP}
+                RETURN fs, u.uid AS user_uid, u.display_name AS user_name
+                ORDER BY fs.created_at DESC
+                """,
+                {"ft_uid": form_template_uid, "teacher_uid": teacher_uid},
+            )
         if result.is_error:
             return Result.fail(result)
         rows: list[dict[str, Any]] = []

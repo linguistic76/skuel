@@ -47,7 +47,9 @@ class FormTemplateBackendOperations(BackendOperations["FormTemplate"], Protocol)
 
     async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]: ...
 
-    async def count_submissions(self, template_uid: str) -> Result[int]: ...
+    async def count_submissions(
+        self, template_uid: str, teacher_uid: UserUID | None
+    ) -> Result[int]: ...
 
 
 class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Protocol):
@@ -69,7 +71,7 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_submissions_for_template(
-        self, form_template_uid: str
+        self, form_template_uid: str, teacher_uid: UserUID | None
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def find_admin_user_uid(self, admin_role: UserRole) -> Result[str | None]: ...
@@ -113,7 +115,9 @@ class FormTemplateOperations(Protocol):
 
     async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]: ...
 
-    async def count_submissions(self, template_uid: str) -> Result[int]: ...
+    async def count_submissions(
+        self, template_uid: str, teacher_uid: UserUID | None
+    ) -> Result[int]: ...
 
 
 class FormSubmissionOperations(Protocol):
@@ -143,7 +147,7 @@ class FormSubmissionOperations(Protocol):
     async def delete_submission(self, uid: str, user_uid: UserUID) -> Result[bool]: ...
 
     async def get_submissions_for_template(
-        self, form_template_uid: str
+        self, form_template_uid: str, teacher_uid: UserUID | None
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_submission_admin(self, uid: str) -> Result[FormSubmission]: ...

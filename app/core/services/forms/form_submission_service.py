@@ -243,10 +243,19 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     # ========================================================================
 
     async def get_submissions_for_template(
-        self, form_template_uid: str
+        self, form_template_uid: str, teacher_uid: UserUID | None
     ) -> Result[list[dict[str, Any]]]:
-        """All submissions for a template (admin/teacher use)."""
-        return await self.backend.get_submissions_for_template(form_template_uid)
+        """Submissions for a template, restricted to the caller's classrooms.
+
+        Rows carry the submitter's identity and answers, so `teacher_uid` is
+        required rather than defaulted: passing `None` grants a cross-classroom
+        read and is reserved for ADMIN callers. A teacher UID yields only
+        submissions authored by students in an active Group that teacher owns —
+        the same authority the submission detail page checks per row.
+
+        Backend: FormSubmissionBackend.get_submissions_for_template
+        """
+        return await self.backend.get_submissions_for_template(form_template_uid, teacher_uid)
 
     async def get_submission_admin(self, uid: str) -> Result[FormSubmission]:
         """Get submission by UID without ownership check (admin/teacher use)."""
