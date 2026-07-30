@@ -35,6 +35,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "health"))
 
 import dead_doc_links as ddl  # type: ignore[import-not-found]
+import markdown_fences as mf  # type: ignore[import-not-found]
 
 DEAD_REL = "core/services/goals/goals_lateral_service.py"
 DEAD_ABS = "/core/services/goals/goals_lateral_service.py"
@@ -374,7 +375,7 @@ def test_fence_walker_matches_commonmark_across_the_whole_tree() -> None:
     def path_tokens(lines: list[str], numbers: set[int]) -> set[tuple[int, str]]:
         found = set()
         for n in numbers:
-            for tok in ddl.FENCE_TOKEN_RE.findall(ddl._strip_quote_prefix(lines[n - 1])):
+            for tok in ddl.FENCE_TOKEN_RE.findall(mf.strip_quote_prefix(lines[n - 1])):
                 if ddl._looks_like_local_path(tok.rstrip(".,;:")):
                     found.add((n, tok.rstrip(".,;:")))
         return found
