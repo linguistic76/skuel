@@ -384,6 +384,10 @@ The first four scripts are fast enough to run on every commit if desired (a few 
 - Only catches names that are explicitly listed in RENAMED/DELETED — it won't catch names you forgot to add
 - Prose mentions inside code blocks (docstring examples, prose in fenced blocks) are also checked, which may trigger false positives if a doc legitimately shows before/after migration history
 
+**`mypy_suppressions.py`:**
+- **The verdict is per (scope, code), not per module pattern.** An override listing several module patterns is earned as a whole, so a pattern producing none of the code is still marked load-bearing. The live case: the domain-backends override lists seven modules, but all 8 `misc` errors come from `activity_backends` (6) and `curriculum_backends` (2) — a first `misc` violation in the other five would be suppressed with this audit green. The report prints the files behind each verdict so the gap is visible rather than silent; closing it properly is tracked separately, because a pattern cannot be isolated by deleting it from the list (for a block that sets other options too, that changes all of them for the module and measures the wrong thing).
+- It measures what mypy reports **today**. A code that is load-bearing now can become vacuous later when the last violation is fixed, which is why the weekly schedule is not gated on `pyproject.toml` changing.
+
 ---
 
 ## File Structure

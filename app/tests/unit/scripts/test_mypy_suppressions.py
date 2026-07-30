@@ -248,6 +248,53 @@ def test_a_malformed_note_yields_no_findings_rather_than_raising() -> None:
 
 
 # ============================================================================
+# A KNOWN BLIND SPOT MUST BE PRINTED, NOT LEFT SILENT
+# ============================================================================
+#
+# The verdict is per (scope, code); a scope listing several module patterns is
+# earned as a whole, so a pattern that produces none of the code is still marked
+# load-bearing (Codex #883 r5). That gap is not closed here — but for a script
+# about suppressors failing silently, leaving it unmentioned would be the same
+# defect one level up. The report therefore names the files behind each verdict,
+# verbatim from mypy, so a reader can see which patterns are unrepresented.
+
+
+def _verdict(paths: list[str]) -> ms.PairVerdict:
+    scope = ms.Override(index=0, header_line=1, modules=["a.*", "b.*"], codes=["misc"])
+    errors = [
+        ms.MypyError(path=p, line=str(i), col="1", code="misc", msg="boom")
+        for i, p in enumerate(paths, start=1)
+    ]
+    return ms.PairVerdict(override=scope, code="misc", new_errors=errors)
+
+
+def test_the_files_behind_a_verdict_are_reported(capsys: pytest.CaptureFixture[str]) -> None:
+    ms._print_error_files(_verdict(["a/one.py", "a/one.py", "a/two.py"]))
+    out = capsys.readouterr().out
+    assert "a/one.py (2)" in out
+    assert "a/two.py (1)" in out
+
+
+def test_a_pattern_producing_nothing_is_visible_by_its_absence(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The live shape: 7 backend patterns, errors from only 2 of them."""
+    ms._print_error_files(_verdict(["a/one.py"]))
+    out = capsys.readouterr().out
+    assert "a/one.py" in out
+    assert "b/" not in out, "b.* earned nothing, and the report must not imply it did"
+
+
+def test_long_file_lists_are_truncated_with_an_explicit_remainder(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Truncation must announce itself — a silent cap reads as full coverage."""
+    ms._print_error_files(_verdict([f"f{i}.py" for i in range(10)]))
+    out = capsys.readouterr().out
+    assert "and 7 more files" in out
+
+
+# ============================================================================
 # EXIT 1 MUST MEAN CONFIRMED FINDINGS AND NOTHING ELSE
 # ============================================================================
 #

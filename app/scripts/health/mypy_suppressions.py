@@ -90,6 +90,27 @@ run over this tree is ~30s, but the runs share a dedicated cache, so the rest co
     were long dead), so a weekly scheduled run catches it with zero added latency
     on every PR.
 
+KNOWN LIMIT: THE VERDICT IS PER SCOPE, NOT PER MODULE PATTERN
+-------------------------------------------------------------
+A scope may list several module patterns while only some of them actually produce
+the code, and this audit marks the pair load-bearing for the block as a whole. The
+backends override is the live example: seven patterns, but all 8 `misc` errors come
+from two of them, so a first `misc` violation in the other five would be suppressed
+with this audit still green (Codex #883 r5).
+
+It is NOT fixed by dropping a pattern from the list and re-measuring. For a block
+that also sets other options — `tests.*` sets five besides `disable_error_code` —
+removing a pattern changes all of them for that module and floods the run with
+unrelated errors, so the isolation would be measuring the wrong thing. A sound
+per-pattern measurement (most likely a narrower appended override using
+`enable_error_code`) needs its own verification and positive control.
+
+Until then the report prints the FILES behind each load-bearing verdict, taken
+verbatim from mypy, so the gap is visible rather than silent. For a script whose
+whole subject is suppressors failing silently, a known blind spot that the tool
+does not mention would be the same defect one level up.
+
+
 EXIT CODES
 ----------
     0 — clean
@@ -471,6 +492,32 @@ def _describe(scope: Override) -> str:
     return f"pyproject.toml:{scope.header_line}  module = [{modules}]"
 
 
+def _print_error_files(verdict: PairVerdict, limit: int = 3) -> None:
+    """
+    Show WHICH files earned the verdict, straight from mypy's own attribution.
+
+    A scope can list several module patterns while only some of them produce the
+    code, and a block-level verdict marks all of them load-bearing (Codex #883
+    r5). Measuring each pattern in isolation is not as simple as dropping it from
+    the list: for a block that also sets other options, removing a pattern
+    changes ALL of them for that module and surfaces unrelated errors, so a sound
+    per-pattern measurement needs its own design. Until then this refuses to keep
+    the gap SILENT — which, for a script about suppressors failing silently, is
+    the part that actually matters.
+
+    The file list is mypy's, verbatim: no path-to-module-pattern inference, since
+    a wrong mapping here would point at deleting a live pattern.
+    """
+    counts: dict[str, int] = {}
+    for error in verdict.new_errors:
+        counts[error.path] = counts.get(error.path, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    shown = ", ".join(f"{path} ({n})" for path, n in ranked[:limit])
+    if len(ranked) > limit:
+        shown += f", and {len(ranked) - limit} more files"
+    print(f"      {Colors.DIM}in: {shown}{Colors.RESET}")
+
+
 def _print_census(census: dict[str, int]) -> None:
     print(f"\n{Colors.BOLD}Aggregate census (--census){Colors.RESET}")
     print(
@@ -564,7 +611,16 @@ def main() -> int:
                 f"suppresses {Colors.BOLD}{len(verdict.new_errors)}{Colors.RESET} errors"
             )
             print(f"      {Colors.DIM}{_describe(verdict.override)}{Colors.RESET}")
-        print()
+            _print_error_files(verdict)
+        print(
+            f"{Colors.YELLOW}Each verdict above is per (scope, code): a scope listing "
+            f"several module patterns is earned as a WHOLE.{Colors.RESET}"
+        )
+        print(
+            f"{Colors.YELLOW}Compare the files against the patterns — a pattern absent "
+            f"from them is not verified by this run, and would eat its own first "
+            f"violation (Codex #883 r5).{Colors.RESET}\n"
+        )
 
     if vacuous:
         print(
