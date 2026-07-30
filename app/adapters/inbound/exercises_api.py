@@ -311,7 +311,10 @@ def create_exercises_api_routes(
 
         user_uid = require_authenticated_user(request)
 
-        result = await exercises_service.get_exercise(uid)
+        # Same audience check as the detail fragment — this route hands back the
+        # exercise body as a file, so an unscoped read here would leak exactly
+        # what the scoped read next door refuses.
+        result = await exercises_service.get_exercise_for_user(uid, user_uid)
         if result.is_error or not result.value:
             return Response(
                 content="Exercise not found",

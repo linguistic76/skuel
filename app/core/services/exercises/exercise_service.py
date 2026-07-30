@@ -308,8 +308,38 @@ class ExerciseService(BaseService):
 
     @with_error_handling("get_exercise", error_type="database")
     async def get_exercise(self, uid: str) -> Result[Exercise]:
-        """Get a specific Exercise by UID."""
+        """Get a specific Exercise by UID, unscoped.
+
+        Reads every scope, including another user's PERSONAL exercise, so it
+        is only for callers that have already established the audience —
+        internal service composition and role-gated authoring surfaces. Any
+        route serving a learner-supplied UID wants get_exercise_for_user().
+        """
         result = await self.backend.get(uid)
+        if result.is_error:
+            return result
+        if result.value is None:
+            return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
+        return Result.ok(result.value)
+
+    @with_error_handling("get_exercise_for_user", error_type="database")
+    async def get_exercise_for_user(self, uid: str, user_uid: UserUID) -> Result[Exercise]:
+        """Get an Exercise by UID only if this user is in its audience.
+
+        Applies the SCOPE_AWARE policy this service already declares for
+        search (see ``_config.search_visibility``) to a single-entity read:
+        CURRICULUM is everyone's; PERSONAL/ASSIGNED/ASSESSMENT need OWNS,
+        SHARES_WITH, or group membership. Without this, a direct read by UID
+        answered questions the same entity's search surface refuses.
+
+        Out-of-audience is reported as not-found, never forbidden, so the
+        response cannot confirm that a UID exists (OWNERSHIP_VERIFICATION.md).
+
+        Backend: UniversalNeo4jBackend.get_visible_to_user
+        """
+        result = await self.backend.get_visible_to_user(
+            uid, user_uid, self._config.search_visibility
+        )
         if result.is_error:
             return result
         if result.value is None:

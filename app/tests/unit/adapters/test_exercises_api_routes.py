@@ -25,7 +25,8 @@ from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.rate_limit import llm_quota_allowed, reset_buckets_for_testing
 from core.config.intelligence_tier import IntelligenceTier
 from core.constants import LLMQuota
-from core.models.enums import UserRole
+from core.models.enums import EntityType, ExerciseScope, UserRole
+from core.models.exercises.exercise import Exercise
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.result_simplified import Result
 
@@ -91,6 +92,7 @@ def _make_harness(
 
     exercises_service = MagicMock()
     exercises_service.get_exercise = AsyncMock(return_value=Result.ok(exercise))
+    exercises_service.get_exercise_for_user = AsyncMock(return_value=Result.ok(exercise))
     exercises_service.get_exercise_for_submission = AsyncMock(
         return_value=Result.ok({"exercise_uid": _EXERCISE_UID})
     )
@@ -327,8 +329,37 @@ class TestInputGuards:
 class TestMarkdownDownload:
     def test_missing_exercise_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
-        harness.exercises.get_exercise.return_value = Result.ok(None)
+        harness.exercises.get_exercise_for_user.return_value = Result.ok(None)
 
         response = harness.client.get(f"/api/exercises/md?uid={_EXERCISE_UID}")
 
         assert response.status_code == 404
+
+    def test_download_reads_through_the_audience_scoped_method(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The worksheet body is the exercise — this read must be scoped.
+
+        Pinned at the wiring level because both methods answer alike here:
+        without this, reverting the route to the unscoped ``get_exercise``
+        would leave every other assertion in this class still green.
+        """
+        harness = _make_harness(monkeypatch)
+        # A real Exercise, not the harness MagicMock: the renderer runs on the
+        # 200 path, so only a real one reaches the assertions below.
+        harness.exercises.get_exercise_for_user.return_value = Result.ok(
+            Exercise(
+                uid=_EXERCISE_UID,
+                title="Sample Exercise",
+                entity_type=EntityType.EXERCISE,
+                instructions="do the thing",
+                scope=ExerciseScope.PERSONAL,
+                owner_uid=_USER_UID,
+            )
+        )
+
+        response = harness.client.get(f"/api/exercises/md?uid={_EXERCISE_UID}")
+
+        assert response.status_code == 200
+        harness.exercises.get_exercise_for_user.assert_awaited_once_with(_EXERCISE_UID, _USER_UID)
+        harness.exercises.get_exercise.assert_not_awaited()

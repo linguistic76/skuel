@@ -161,9 +161,15 @@ def create_exercises_ui_routes(
     @app.get("/exercises/get/content")
     @ui_boundary_handler("Error loading exercise", fragment_id="exercise-detail-content")
     async def exercise_detail_content_fragment(request, uid: str, from_ps: str = "") -> Any:
-        """HTMX fragment: exercise detail content."""
-        require_authenticated_user(request)
-        result = await exercises_service.get_exercise(uid)
+        """HTMX fragment: exercise detail content.
+
+        This fragment is where the read actually happens — the /exercises/get
+        shell only echoes the uid into this URL — so the audience check belongs
+        here. A foreign PERSONAL exercise renders the same not-found banner as
+        a nonexistent uid.
+        """
+        user_uid = require_authenticated_user(request)
+        result = await exercises_service.get_exercise_for_user(uid, user_uid)
         if result.is_error or not result.value:
             return Div(
                 render_error_banner("Exercise not found"),

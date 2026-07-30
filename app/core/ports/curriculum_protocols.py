@@ -1775,7 +1775,20 @@ class ExerciseOperations(Protocol):
         ...
 
     async def get_exercise(self, uid: str) -> Result[Exercise]:
-        """Get exercise by UID. Returns Result[Exercise], or not-found error."""
+        """Get exercise by UID, unscoped. Returns Result[Exercise], or not-found error.
+
+        Reads every scope. Routes serving a user-supplied UID want
+        get_exercise_for_user() instead.
+        """
+        ...
+
+    async def get_exercise_for_user(self, uid: str, user_uid: UserUID) -> Result[Exercise]:
+        """Get exercise by UID only if the user is in its audience.
+
+        CURRICULUM is visible to everyone; PERSONAL/ASSIGNED/ASSESSMENT require
+        OWNS, SHARES_WITH, or group membership. Out-of-audience reads return the
+        same not-found error as a missing UID.
+        """
         ...
 
     async def list_user_exercises(
