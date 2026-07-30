@@ -324,9 +324,23 @@ class LateralRouteFactory:
             tradeoffs: list[str] | None = None,
             confidence: float = 0.8,
             priority: str = "medium",
+            timeframe: str = "",
+            difficulty: str = "",
+            resources: str = "",
         ) -> Result[dict[str, Any]]:
             """
             Create ALTERNATIVE_TO relationship.
+
+            ``timeframe`` / ``difficulty`` / ``resources`` are the comparison
+            axis the alternatives grid renders as criteria rows — free text,
+            compared side by side rather than parsed. They describe
+            ``target_uid``, the alternative being added.
+
+            A blank criterion is sent as ``None`` rather than omitted. The
+            backend upserts with ``MERGE`` + ``SET r += $metadata``, so an
+            omitted key would leave a previously authored value in place when
+            the same pair is submitted again; a null removes the property, and
+            the grid returns to "N/A".
 
             Args:
                 uid: First entity UID
@@ -335,6 +349,9 @@ class LateralRouteFactory:
                 tradeoffs: Optional list of tradeoffs
                 confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion)
                 priority: Relative importance of this relationship (low/medium/high/critical)
+                timeframe: How long this alternative takes (e.g. "about 18 months")
+                difficulty: How hard it is (e.g. "steep at first")
+                resources: What it costs to pursue (e.g. "one mentor plus a rowing machine")
             """
             user_uid = require_authenticated_user(request)
 
@@ -347,6 +364,12 @@ class LateralRouteFactory:
                 "domain": self.domain,
                 "created_by": user_uid,
             }
+            for criterion, value in (
+                ("timeframe", timeframe),
+                ("difficulty", difficulty),
+                ("resources", resources),
+            ):
+                metadata[criterion] = value or None
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
                 target_uid=target_uid,
