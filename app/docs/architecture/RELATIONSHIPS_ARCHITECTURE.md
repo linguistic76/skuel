@@ -239,7 +239,7 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 | `get_lateral_relationships(entity_uid, relationship_types=None, direction="outgoing", include_metadata=True, …)` | ✅ | `Result[list[LateralRelationshipItem]]` |
 | `get_siblings(entity_uid, include_explicit_only=False, …)` | ✅ | `Result[list[dict[str, Any]]]` |
 | `get_blocking_chain(entity_uid, max_depth=10, …)` | ✅ | `Result[BlockingChainResult]` |
-| `get_alternatives_with_comparison(entity_uid, comparison_fields=None, …)` | ✅ | `Result[list[AlternativeComparisonItem]]` |
+| `get_alternatives_with_comparison(entity_uid, …)` | ✅ | `Result[list[AlternativeComparisonItem]]` |
 | `get_relationship_graph(entity_uid, depth=2, relationship_types=None, …)` | ✅ | `Result[RelationshipGraphData]` |
 | `get_cousins(entity_uid, degree=1)` | ❌ | `Result[list[dict[str, Any]]]` |
 

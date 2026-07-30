@@ -673,22 +673,28 @@ class LateralRelationshipService:
     async def get_alternatives_with_comparison(
         self,
         entity_uid: EntityUID,
-        comparison_fields: list[str] | None = None,
         user_uid: UserUID | None = None,
         domain_service: "OwnershipVerifier | None" = None,
     ) -> Result[list[AlternativeComparisonItem]]:
         """
         Get alternative entities with side-by-side comparison data.
 
+        The comparison axis is a closed set — ``timeframe``, ``difficulty`` and
+        ``resources`` off the ALTERNATIVE_TO edge — matching the criteria rows
+        the grid renders. Other edge properties (ownership, provenance and
+        semantic bookkeeping written by the create route, the edge-YAML
+        ingestion door and the admin semantic route) are deliberately not
+        comparison criteria and are not carried into ``comparison_data``.
+
         Args:
             entity_uid: Entity UID to get alternatives for
-            comparison_fields: Specific fields to include in comparison
-                              (None = all available fields)
             user_uid: User requesting the alternatives (for ownership verification)
             domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result with list of alternatives with comparison data
+
+        Backend: LateralRelationshipBackend.get_alternatives_comparison
         """
         access = await self._verify_entity_access(entity_uid, user_uid, domain_service)
         if access.is_error:
@@ -713,19 +719,6 @@ class LateralRelationshipService:
                 comparison_data["difficulty"] = record["difficulty"]
             if record["resources"]:
                 comparison_data["resources"] = record["resources"]
-
-            # Add any custom comparison fields from relationship
-            rel_props = record["rel_properties"] or {}
-            for key, value in rel_props.items():
-                if key not in [
-                    "comparison_criteria",
-                    "tradeoffs",
-                    "created_at",
-                    "relationship_category",
-                    "is_symmetric",
-                ]:
-                    if comparison_fields is None or key in comparison_fields:
-                        comparison_data[key] = value
 
             alternative_data: AlternativeComparisonItem = {
                 "uid": record["uid"],

@@ -544,9 +544,7 @@ class LateralRelationshipBackend:
                 r.tradeoffs as tradeoffs,
                 r.timeframe as timeframe,
                 r.difficulty as difficulty,
-                r.resources as resources,
-                properties(alternative) as all_properties,
-                properties(r) as rel_properties
+                r.resources as resources
             """,
             {"uid": entity_uid},
         )

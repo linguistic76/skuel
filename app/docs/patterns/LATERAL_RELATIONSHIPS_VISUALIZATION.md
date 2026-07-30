@@ -205,10 +205,9 @@ Depth 2: [Root Blocker 1] [Root Blocker 2]
 ```
 
 **Features:**
-- Configurable comparison fields
-- Highlights differences
-- Metadata display (criteria, confidence)
-- Empty state: "No alternatives found"
+- Fixed comparison criteria — `timeframe` / `difficulty` / `resources`, hard-coded in `render_alternatives_fragment`. There is deliberately **no** per-request field selection: the route took a `?fields=` selector that could never change the fragment, and honouring it generically would have rendered the edge's provenance and ownership properties (`created_by`, `source_file`) as comparison rows. Widen the criteria list in the renderer, not via a query param.
+- Metadata display (criteria, tradeoffs)
+- Empty state: "No alternatives defined."
 
 ---
 
@@ -323,30 +322,12 @@ ORDER BY depth, blocker.created_at
 
 **Purpose:** Side-by-side comparison of alternatives
 
-**Cypher Query:**
-```cypher
-MATCH (entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alt)
-RETURN alt, r.criteria, r.confidence
-ORDER BY r.confidence DESC
-```
+**Cypher:** `LateralRelationshipBackend.get_alternatives_comparison` (`adapters/persistence/neo4j/backends/collab_backends.py`) — an undirected `ALTERNATIVE_TO` match, unordered.
 
-**Return Format:**
-```python
-{
-    "current": {"uid": "task_abc", "title": "Learn React", ...},
-    "alternatives": [
-        {
-            "entity": {"uid": "task_def", "title": "Learn Vue", ...},
-            "criteria": "component model",
-            "confidence": 0.85,
-            "differences": {
-                "complexity": {"current": "high", "alternative": "low"},
-                "ecosystem": {"current": "mature", "alternative": "growing"}
-            }
-        }
-    ]
-}
-```
+**Return:** a flat `list[AlternativeComparisonItem]` (`core/ports/query_types.py`) — one row per alternative, no `current` wrapper and no computed `differences` block. `comparison_data` carries the three comparison criteria (`timeframe` / `difficulty` / `resources`), each present only when the edge sets it; `metadata` carries `tradeoffs` + `comparison_criteria`.
+
+> [!NOTE]
+> The three criteria are read off the edge but **no writer sets them today** — not the `create_alternative` route (which persists `comparison_criteria`, `tradeoffs`, `confidence`, `priority`, `domain`, `created_by`), not the edge-YAML ingestion door (whose property allowlist in `preparer.py` does not include them), and not the admin semantic route. So the three criteria rows currently render `N/A` for every alternative. Populating them needs a writer, not a reader change.
 
 ---
 
@@ -481,7 +462,7 @@ await services.lateral.get_blocking_chain(
     uid, max_depth=10, user_uid=user_uid, domain_service=domain_service
 )
 await services.lateral.get_alternatives_with_comparison(
-    uid, comparison_fields=None, user_uid=user_uid, domain_service=domain_service
+    uid, user_uid=user_uid, domain_service=domain_service
 )
 await services.lateral.get_relationship_graph(
     uid, depth=2, relationship_types=None, user_uid=user_uid, domain_service=domain_service
@@ -659,18 +640,6 @@ await lateral_service.get_relationship_graph(
     uid=habit_uid,
     depth=2,
     types=["STACKS_WITH", "COMPLEMENTARY_TO"]  # Habit-specific
-)
-```
-
----
-
-### Pattern 3: Custom Comparison Fields
-
-```python
-# Override default comparison fields
-await lateral_service.get_alternatives_with_comparison(
-    uid=goal_uid,
-    fields=["target_date", "priority", "domain"]  # Goal-specific fields
 )
 ```
 

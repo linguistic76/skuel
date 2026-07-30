@@ -65,7 +65,15 @@ _ALTERNATIVE_ROW = {
     "resources": "budget",
     "tradeoffs": "slower",
     "comparison_criteria": "cost",
-    "rel_properties": {"comparison_criteria": "cost", "custom_field": "kept"},
+    # Negative control. The Cypher no longer returns the full edge-property map,
+    # but a row carrying it is exactly what re-adding `properties(r)` would hand
+    # the service. The three criteria above are the whole comparison axis, so
+    # nothing below may reach the fragment.
+    "rel_properties": {
+        "comparison_criteria": "cost",
+        "created_by": OWNER,
+        "source_file": "/vault/edges/edge_a-to-b.md",
+    },
 }
 _GRAPH_ROW = {
     "center_title": "Owned Goal",
@@ -290,14 +298,27 @@ class TestOwnerStillSucceeds:
     async def test_comparison_renders_the_built_in_criteria(
         self, owned_handlers: dict[str, Any]
     ) -> None:
-        """The comparison table still shows timeframe / difficulty / resources."""
+        """The comparison table shows timeframe / difficulty / resources.
+
+        These three are the whole comparison axis — the route takes no field
+        selector, and edge properties outside the three (provenance, ownership,
+        semantic bookkeeping) are not comparison criteria.
+
+        The two absence assertions guard the *renderer*, not the service: they
+        fail if the grid is ever changed to iterate ``comparison_data``
+        generically, because the edge-property map reaching it carries a user
+        UID and a vault path. That is the concrete cost of "honour the field
+        selector", and it is why the selector was deleted instead.
+        """
         response = await _compare(owned_handlers, "goals")(
-            request=_make_request(OWNER), uid=OWNED_UID, fields="custom_field"
+            request=_make_request(OWNER), uid=OWNED_UID
         )
 
         assert response.status_code == 200
         body = bytes(response.body)
         assert b"Q3" in body and b"hard" in body and b"budget" in body
+        assert b"user_owner" not in body
+        assert b"vault/edges" not in body
 
 
 # ============================================================================
@@ -347,10 +368,10 @@ class TestRouteThreadsTheVerifier:
         self, spy: tuple[Any, dict[str, Any]], owner_only_service: Any
     ) -> None:
         lateral, handlers = spy
-        await _compare(handlers, "goals")(request=_make_request(OWNER), uid=OWNED_UID, fields="a,b")
+        await _compare(handlers, "goals")(request=_make_request(OWNER), uid=OWNED_UID)
 
         args, kwargs = lateral.get_alternatives_with_comparison.await_args
-        assert args == (OWNED_UID, ["a", "b"])
+        assert args == (OWNED_UID,)
         assert kwargs == {"user_uid": OWNER, "domain_service": owner_only_service}
 
     async def test_graph_passes_user_and_verifier(
