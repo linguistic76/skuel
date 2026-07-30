@@ -248,6 +248,87 @@ def test_a_malformed_note_yields_no_findings_rather_than_raising() -> None:
 
 
 # ============================================================================
+# THE GLOBAL [tool.mypy] TABLE IS A SUPPRESSION SCOPE TOO
+# ============================================================================
+#
+# Auditing only `[[tool.mypy.overrides]]` leaves the WIDEST scope invisible: a
+# global `disable_error_code` silences a code across every checked file, and the
+# report would still print a clean bill of health (Codex #883 r2). This repo has
+# carried a global entry before — the note atop its `[tool.mypy]` table records
+# the deletion — so it is a live shape, not a hypothetical.
+
+GLOBAL_SAMPLE = """\
+[tool.mypy]
+strict = false
+disable_error_code = ["call-arg", "no-untyped-def"]
+
+[[tool.mypy.overrides]]
+module = ["ui.*"]
+disable_error_code = ["misc"]
+"""
+
+
+def test_a_global_disable_error_code_is_audited() -> None:
+    scopes = ms.parse_scopes(GLOBAL_SAMPLE)
+    assert scopes[0].index == ms.GLOBAL_SCOPE_INDEX
+    assert scopes[0].codes == ["call-arg", "no-untyped-def"]
+    assert scopes[0].modules == [], "global scope filters no modules — that is the point"
+    pairs = [(s.index, c) for s in scopes for c in s.codes]
+    assert pairs == [(-1, "call-arg"), (-1, "no-untyped-def"), (0, "misc")]
+
+
+def test_no_global_key_yields_no_global_scope() -> None:
+    """SAMPLE's [tool.mypy] carries no disable_error_code, so nothing is invented."""
+    assert ms.parse_global_scope(SAMPLE) is None
+    assert [s.index for s in ms.parse_scopes(SAMPLE)] == [0, 1, 2]
+
+
+def test_stripping_the_global_scope_leaves_the_override_untouched() -> None:
+    out = ms.render_stripped(GLOBAL_SAMPLE, {ms.GLOBAL_SCOPE_INDEX: {"call-arg"}})
+    scopes = ms.parse_scopes(out)
+    assert scopes[0].codes == ["no-untyped-def"]
+    assert scopes[1].codes == ["misc"]
+
+
+def test_stripping_an_override_leaves_the_global_scope_untouched() -> None:
+    out = ms.render_stripped(GLOBAL_SAMPLE, {0: {"misc"}})
+    scopes = ms.parse_scopes(out)
+    assert scopes[0].codes == ["call-arg", "no-untyped-def"]
+    assert scopes[1].codes == []
+
+
+def test_an_emptied_global_scope_still_parses_as_a_scope(tmp_path: Path) -> None:
+    """Keyed on presence, not truthiness.
+
+    Stripping a single-code global scope leaves `disable_error_code = []`. If that
+    made the scope vanish from the parse, write_stripped_config's own count check
+    would fire as though the edit had gone wrong — an instrument failure dressed
+    as a finding.
+    """
+    text = '[tool.mypy]\ndisable_error_code = ["misc"]\n'
+    out = ms.render_stripped(text, {ms.GLOBAL_SCOPE_INDEX: {"misc"}})
+    assert ms.parse_global_scope(out) is not None
+    assert ms.parse_global_scope(out).codes == []
+    # And the round trip through the verifying writer must not raise.
+    ms.write_stripped_config(text, {ms.GLOBAL_SCOPE_INDEX: {"misc"}}, tmp_path / "c.toml")
+
+
+def test_global_and_override_edits_in_one_pass_both_land() -> None:
+    """The census strips every scope at once; the global table is the FIRST in the
+    file but carries index -1, so edits must be ordered by line, not by index."""
+    out = ms.render_stripped(
+        GLOBAL_SAMPLE, {ms.GLOBAL_SCOPE_INDEX: {"call-arg", "no-untyped-def"}, 0: {"misc"}}
+    )
+    assert [s.codes for s in ms.parse_scopes(out)] == [[], []]
+
+
+def test_the_global_scope_is_described_as_global() -> None:
+    scope = ms.parse_global_scope(GLOBAL_SAMPLE)
+    assert scope is not None
+    assert "global" in ms._describe(scope)
+
+
+# ============================================================================
 # A RUN THAT DID NOT COMPLETE MUST NOT READ AS A CLEAN ONE
 # ============================================================================
 #

@@ -10,10 +10,13 @@ sweep repeatable.
 
 Reports two kinds of dead mypy suppression:
 
-  1. VACUOUS `disable_error_code` entries — an (override block, error code) pair
-     that currently suppresses ZERO errors. Harmless today, but a code that
-     suppresses nothing does not suppress nothing forever: it silently eats the
-     FIRST real violation of that code that anyone writes in its scope.
+  1. VACUOUS `disable_error_code` entries — a (scope, error code) pair that
+     currently suppresses ZERO errors. A scope is either the global `[tool.mypy]`
+     table or one `[[tool.mypy.overrides]]` block; both are audited, because the
+     global table is the WIDEST suppression there is and auditing only the
+     overrides would leave it permanently invisible behind a clean report.
+     Harmless today, but a code that suppresses nothing does not suppress nothing
+     forever: it silently eats the FIRST real violation written in its scope.
 
   2. UNUSED override sections — module patterns mypy itself reports under
      `unused section(s)` because they match nothing. mypy prints this as a
@@ -23,28 +26,28 @@ Reports two kinds of dead mypy suppression:
 
 MEASUREMENT
 -----------
-For each (block, code) pair: write a copy of pyproject.toml with that ONE code
-removed from that ONE block, everything else intact, and run
+For each (scope, code) pair: write a copy of pyproject.toml with that ONE code
+removed from that ONE scope, everything else intact, and run
 `uv run mypy . --config-file <temp>`. Errors are attributed by the trailing
 `[code-name]` and diffed against a baseline run of the unmodified config. Zero
 new errors of that code ⇒ the entry suppresses nothing.
 
 The text surgery is verified by re-parsing the generated config with `tomllib`
-and asserting the override list matches the intended edit exactly. The edit is
+and asserting the scope list matches the intended edit exactly. The edit is
 never trusted on its own — the parser is the authority on what the config says.
 
 
-WHY THE UNIT IS (BLOCK, CODE) AND NOT CODE
+WHY THE UNIT IS (SCOPE, CODE) AND NOT CODE
 ------------------------------------------
 #876 measured in two steps: strip ALL codes at once and attribute by code, then
 confirm each zero individually, because an aggregate run lets one error class
 shadow another. That second step is necessary but it is still not sufficient,
-because both steps measure a CODE while the thing you delete is a (block, code)
-pair — and today `misc` is disabled in two different blocks. An aggregate that
-reports `misc 32` cannot tell you whether both blocks earn it or whether all 32
-errors sit in one of them and the other entry has been inert for months. Same
-mistake #876 is about: scoring a suppressor on a proxy for the mechanism instead
-of the mechanism.
+because both steps measure a CODE while the thing you delete is a (scope, code)
+pair — and today `misc` is disabled in two different scopes. An aggregate that
+reports `misc 32` cannot tell you whether both earn it or whether all 32 errors
+sit in one of them and the other entry has been inert for months. Measured, they
+split 24/8. Same mistake #876 is about: scoring a suppressor on a proxy for the
+mechanism instead of the mechanism.
 
 So the per-pair run is the verdict, and the aggregate is demoted to `--census`
 (off by default) — it refreshes the backlog figures quoted in pyproject.toml's
@@ -64,7 +67,7 @@ to find (Codex #883). An aborted audit reports nothing; it never reports zero.
 
 WHERE THIS RUNS AND WHY
 -----------------------
-The audit needs one baseline run plus one run per (block, code) pair. A cold mypy
+The audit needs one baseline run plus one run per (scope, code) pair. A cold mypy
 run over this tree is ~30s, but the runs share a dedicated cache, so the rest cost
 ~8s each: measured end to end at 65-81s for today's five pairs plus `--census`
 (seven runs). That cost decides the wiring three ways:
@@ -121,6 +124,11 @@ AUDIT_CACHE = ROOT / ".mypy_cache_suppression_audit"
 
 TABLE_HEADER_RE = re.compile(r"^\[\[?[^\[\]]+\]\]?\s*(?:#.*)?$")
 OVERRIDE_HEADER = "[[tool.mypy.overrides]]"
+GLOBAL_TABLE_HEADER = "[tool.mypy]"
+
+# The global `[tool.mypy]` table is a suppression scope too — the widest one.
+# It gets a sentinel index so it can share the Override machinery.
+GLOBAL_SCOPE_INDEX = -1
 
 # `path:line:col: error: message  [code]` under --no-pretty --no-color-output.
 ERROR_RE = re.compile(
@@ -217,9 +225,50 @@ def parse_overrides(text: str) -> list[Override]:
     ]
 
 
-def _block_span(lines: list[str], overrides: list[Override], index: int) -> tuple[int, int]:
-    """0-based [start, end) line span of override `index`, ending at the next table header."""
-    start = overrides[index].header_line - 1
+def parse_global_scope(text: str) -> Override | None:
+    """
+    Parse a `disable_error_code` on the global `[tool.mypy]` table, if present.
+
+    A global suppression is the widest scope there is — it silences a code across
+    every checked file — and auditing only `[[tool.mypy.overrides]]` would leave it
+    permanently invisible, with the report still printing a clean bill of health
+    (Codex #883 r2). This repo has carried a global entry before; the note at the
+    top of the `[tool.mypy]` table records its deletion.
+
+    Returned as an `Override` at index GLOBAL_SCOPE_INDEX with no modules, since
+    "no module filter" is exactly what global scope means.
+    """
+    data = tomllib.loads(text)
+    mypy_table = data.get("tool", {}).get("mypy", {})
+    # Keyed on PRESENCE, not truthiness: stripping a single-code global scope
+    # leaves `disable_error_code = []`, and a scope that vanished from the parse
+    # would trip write_stripped_config's own count check as if the edit had gone
+    # wrong. An empty list is still a scope; a missing key is not.
+    if "disable_error_code" not in mypy_table:
+        return None
+    codes = _as_list(mypy_table["disable_error_code"])
+
+    lines = text.splitlines()
+    header_lines = [i + 1 for i, line in enumerate(lines) if line.strip() == GLOBAL_TABLE_HEADER]
+    if len(header_lines) != 1:
+        raise AuditError(
+            f"Expected exactly one '{GLOBAL_TABLE_HEADER}' header line, found "
+            f"{len(header_lines)}. Cannot locate the global scope in the text."
+        )
+
+    return Override(index=GLOBAL_SCOPE_INDEX, header_line=header_lines[0], modules=[], codes=codes)
+
+
+def parse_scopes(text: str) -> list[Override]:
+    """Every scope that can carry `disable_error_code`: global first, then overrides."""
+    global_scope = parse_global_scope(text)
+    overrides = parse_overrides(text)
+    return [global_scope, *overrides] if global_scope else overrides
+
+
+def _scope_span(lines: list[str], scope: Override) -> tuple[int, int]:
+    """0-based [start, end) line span of `scope`, ending at the next table header."""
+    start = scope.header_line - 1
     for j in range(start + 1, len(lines)):
         if TABLE_HEADER_RE.match(lines[j]):
             return start, j
@@ -243,23 +292,24 @@ def _find_dec_span(lines: list[str], start: int, end: int) -> tuple[int, int] | 
 
 
 def render_stripped(text: str, removals: dict[int, set[str]]) -> str:
-    """Return `text` with the given codes removed from the given override blocks."""
-    overrides = parse_overrides(text)
+    """Return `text` with the given codes removed from the given scopes."""
+    scopes = {scope.index: scope for scope in parse_scopes(text)}
     lines = text.splitlines()
 
-    # Edit from the bottom up so earlier spans keep their indices.
-    for index in sorted(removals, reverse=True):
+    # Edit by descending header line so earlier spans keep their indices. Sorting
+    # on the line, not the index, keeps the global scope (index -1, but the FIRST
+    # table in the file) in its true textual position.
+    for index in sorted(removals, key=lambda i: -scopes[i].header_line):
         drop = removals[index]
         if not drop:
             continue
-        start, end = _block_span(lines, overrides, index)
+        scope = scopes[index]
+        start, end = _scope_span(lines, scope)
         span = _find_dec_span(lines, start, end)
         if span is None:
-            raise AuditError(
-                f"Override block {index} has no disable_error_code assignment to strip."
-            )
+            raise AuditError(f"Scope {_scope_name(scope)} has no disable_error_code to strip.")
         first, last = span
-        kept = [c for c in overrides[index].codes if c not in drop]
+        kept = [c for c in scope.codes if c not in drop]
         indent = DEC_ASSIGN_RE.match(lines[first]).group("indent")  # type: ignore[union-attr]
         rendered = ", ".join(json.dumps(c) for c in kept)
         lines[first : last + 1] = [f"{indent}disable_error_code = [{rendered}]"]
@@ -273,27 +323,27 @@ def write_stripped_config(text: str, removals: dict[int, set[str]], path: Path) 
 
     The text surgery above is a means; `tomllib` is the authority on what the
     written file actually says. If the parse does not match the intended edit
-    exactly — same block count, same modules, same remaining codes — the audit
+    exactly — same scope count, same modules, same remaining codes — the audit
     aborts. A wrong config would otherwise produce a confident wrong verdict.
     """
-    original = parse_overrides(text)
+    original = parse_scopes(text)
     path.write_text(render_stripped(text, removals), encoding="utf-8")
-    written = parse_overrides(path.read_text(encoding="utf-8"))
+    written = parse_scopes(path.read_text(encoding="utf-8"))
 
     if len(written) != len(original):
         raise AuditError(
-            f"Stripped config has {len(written)} override blocks, expected {len(original)}."
+            f"Stripped config has {len(written)} suppression scopes, expected {len(original)}."
         )
     for before, after in zip(original, written, strict=True):
         if before.modules != after.modules:
             raise AuditError(
-                f"Stripped config changed block {before.index} modules: "
+                f"Stripped config changed scope {_scope_name(before)} modules: "
                 f"{before.modules} -> {after.modules}"
             )
         expected = [c for c in before.codes if c not in removals.get(before.index, set())]
         if after.codes != expected:
             raise AuditError(
-                f"Stripped config block {before.index} has codes {after.codes}, "
+                f"Stripped config scope {_scope_name(before)} has codes {after.codes}, "
                 f"expected {expected}."
             )
 
@@ -399,9 +449,15 @@ def parse_unused_sections(output: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _describe(override: Override) -> str:
-    modules = ", ".join(override.modules) if override.modules else "(no module key)"
-    return f"pyproject.toml:{override.header_line}  module = [{modules}]"
+def _scope_name(scope: Override) -> str:
+    return GLOBAL_TABLE_HEADER if scope.index == GLOBAL_SCOPE_INDEX else f"block {scope.index}"
+
+
+def _describe(scope: Override) -> str:
+    if scope.index == GLOBAL_SCOPE_INDEX:
+        return f"pyproject.toml:{scope.header_line}  {GLOBAL_TABLE_HEADER} (global — every checked file)"
+    modules = ", ".join(scope.modules) if scope.modules else "(no module key)"
+    return f"pyproject.toml:{scope.header_line}  module = [{modules}]"
 
 
 def _print_census(census: dict[str, int]) -> None:
@@ -437,11 +493,15 @@ def main() -> int:
     print("=" * 60)
 
     text = PYPROJECT.read_text(encoding="utf-8")
-    overrides = parse_overrides(text)
-    pairs = [(o, code) for o in overrides for code in o.codes]
+    scopes = parse_scopes(text)
+    pairs = [(s, code) for s in scopes for code in s.codes]
+    has_global = any(s.index == GLOBAL_SCOPE_INDEX for s in scopes)
 
+    scope_summary = f"{len(scopes)} suppression scopes"
+    if has_global:
+        scope_summary += f" (incl. the global {GLOBAL_TABLE_HEADER} table)"
     print(
-        f"{len(overrides)} override blocks, {len(pairs)} (block, code) pairs to verify.\n"
+        f"{scope_summary}, {len(pairs)} (scope, code) pairs to verify.\n"
         f"{Colors.DIM}One mypy run each plus a baseline — this takes a few minutes.{Colors.RESET}\n"
     )
 
@@ -455,26 +515,26 @@ def main() -> int:
         unused_sections = parse_unused_sections(baseline_output)
 
         verdicts: list[PairVerdict] = []
-        for override, code in pairs:
+        for scope, code in pairs:
             if args.verbose:
                 print(
-                    f"{Colors.DIM}  un-suppressing [{code}] in block "
-                    f"{override.index} (line {override.header_line}){Colors.RESET}"
+                    f"{Colors.DIM}  un-suppressing [{code}] in {_scope_name(scope)} "
+                    f"(line {scope.header_line}){Colors.RESET}"
                 )
-            write_stripped_config(text, {override.index: {code}}, TEMP_CONFIG)
+            write_stripped_config(text, {scope.index: {code}}, TEMP_CONFIG)
             errors = parse_errors(run_mypy(TEMP_CONFIG))
             new = sorted(
                 (e for e in errors - baseline_errors if e.code == code),
                 key=lambda e: (e.path, int(e.line)),
             )
-            verdicts.append(PairVerdict(override=override, code=code, new_errors=new))
+            verdicts.append(PairVerdict(override=scope, code=code, new_errors=new))
 
         census: dict[str, int] = {}
         if args.census:
             if args.verbose:
                 print(f"{Colors.DIM}  aggregate: every code stripped at once{Colors.RESET}")
             write_stripped_config(
-                text, {o.index: set(o.codes) for o in overrides if o.codes}, TEMP_CONFIG
+                text, {s.index: set(s.codes) for s in scopes if s.codes}, TEMP_CONFIG
             )
             for error in parse_errors(run_mypy(TEMP_CONFIG)) - baseline_errors:
                 census[error.code] = census.get(error.code, 0) + 1
@@ -519,7 +579,7 @@ def main() -> int:
             f"scrolls past unread. Delete the patterns.{Colors.RESET}\n"
         )
         for pattern in unused_sections:
-            owners = [o for o in overrides if pattern in o.modules]
+            owners = [s for s in scopes if pattern in s.modules]
             location = _describe(owners[0]) if owners else "pyproject.toml"
             print(f"  {Colors.RED}●{Colors.RESET} {Colors.BOLD}{pattern}{Colors.RESET}")
             print(f"      {Colors.DIM}{location}{Colors.RESET}")

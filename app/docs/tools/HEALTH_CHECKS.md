@@ -295,14 +295,16 @@ Load-bearing disable_error_code entries:
 
 | Finding | Meaning |
 |---------|---------|
-| Vacuous `disable_error_code` entry | The code currently suppresses 0 errors in that block — it will silently eat the FIRST real violation someone writes |
+| Vacuous `disable_error_code` entry | The code currently suppresses 0 errors in that scope — it will silently eat the FIRST real violation someone writes |
 | Unused override section | A module pattern matching nothing, taken straight from mypy's own `unused section(s)` note |
 
-**How it measures.** For each (override block, error code) pair it writes a copy of `pyproject.toml` with that one code removed from that one block, runs `uv run mypy .` against it, and attributes errors by the trailing `[code-name]`. The generated config is re-parsed with `tomllib` and checked against the intended edit before it is trusted.
+**What counts as a scope.** Both the global `[tool.mypy]` table and each `[[tool.mypy.overrides]]` block. The global table is the widest suppression there is — it silences a code across every checked file — so auditing only the overrides would leave it invisible behind a clean report. This repo has carried a global entry before; the note atop its `[tool.mypy]` table records the deletion.
 
-**Why the unit is the pair, not the code.** PR #876 measured by stripping every code at once and attributing by code, then confirming each zero individually. That is necessary but not sufficient: what you delete is a (block, code) pair, and `misc` is currently disabled in two different blocks. An aggregate reading of `misc 32` cannot tell you whether both blocks earn it or whether all 32 sit in one — in fact they split 24/8. The aggregate survives as `--census`, which refreshes the backlog figures quoted in `pyproject.toml` and is explicitly not evidence for a deletion.
+**How it measures.** For each (scope, error code) pair it writes a copy of `pyproject.toml` with that one code removed from that one scope, runs `uv run mypy .` against it, and attributes errors by the trailing `[code-name]`. The generated config is re-parsed with `tomllib` and checked against the intended edit before it is trusted.
 
-**Fail-safe direction:** it under-reports rather than over-reports. Stripping one pair can only surface errors inside that block's own scope, so a non-zero count proves the entry is load-bearing, and every zero is confirmed by the run that isolates it.
+**Why the unit is the pair, not the code.** PR #876 measured by stripping every code at once and attributing by code, then confirming each zero individually. That is necessary but not sufficient: what you delete is a (scope, code) pair, and `misc` is currently disabled in two different scopes. An aggregate reading of `misc 32` cannot tell you whether both earn it or whether all 32 sit in one — in fact they split 24/8. The aggregate survives as `--census`, which refreshes the backlog figures quoted in `pyproject.toml` and is explicitly not evidence for a deletion.
+
+**Fail-safe direction:** it under-reports rather than over-reports. Stripping one pair can only surface errors inside that scope, so a non-zero count proves the entry is load-bearing, and every zero is confirmed by the run that isolates it. That holds only for runs that *completed*, so any mypy invocation the script cannot prove finished aborts the whole audit — a crashed mypy prints no errors, and an empty error set is indistinguishable from a clean one. An aborted audit reports nothing; it never reports zero.
 
 ---
 
