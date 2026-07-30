@@ -6,10 +6,19 @@ Cypher Query Linter - Static Analysis for Neo4j Queries
 Validates Cypher queries against SKUEL best practices, catching common errors
 before they reach runtime. Lints two source shapes:
 
-- Python files (.py): Cypher extracted from triple-quoted string literals
+- Python files (.py): Cypher extracted from non-docstring triple-quoted string
+  literals, admitted by ``cypher_vocabulary.looks_like_cypher`` — the same gate
+  SKUEL030 applies to the same kind of text — with comments masked before the
+  rules run
 - Standalone Cypher files (.cypher): whole-file Cypher (indexes, migrations,
   bulk-upsert templates), split into semicolon-terminated statements so each
   statement is linted as its own query
+
+Both shapes now agree on the two things that decide what a rule reads: comments
+are masked, and no rule ever sees prose. They did not before — the Python half
+ran a local admission heuristic that scored the RAW text for four structural
+shapes, so a query interpolating every structural position scored zero and was
+dropped upstream of all twelve rules. See ``_extract_cypher_queries``.
 
 **Validation Rules:**
 - CYP001: Nested aggregate functions (ERROR)
@@ -51,17 +60,22 @@ before they reach runtime. Lints two source shapes:
 """
 
 import argparse
+import ast
+import io
 import re
 import sys
+import tokenize
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-# Shared with lint_skuel.py (SKUEL030) — one registry reader, one name scanner.
+# Shared with lint_skuel.py (SKUEL030) — one registry reader, one name scanner,
+# and one admission gate for Cypher embedded in Python string literals.
 sys.path.insert(0, str(Path(__file__).parent))
 from cypher_vocabulary import (  # type: ignore[import-not-found]
     VocabularyError,
     load_vocabulary,
+    looks_like_cypher,
     mask_cypher_comments,
     scanning_fragment_at,
     unregistered_names,
@@ -165,44 +179,179 @@ class CypherLinter:
 
         return violations
 
+    # Cypher embedded in a Python file lives in triple-quoted literals. One
+    # pattern, not two: the old second pass re-scanned for
+    # `session.run("""...""")`, and every one of its 252 tree-wide matches was
+    # already found by this one — structurally, not by luck, since the general
+    # pattern has no context requirement to fail. What the second copy did
+    # carry was a second copy of the admission decision.
+    _TRIPLE_QUOTED_RE = re.compile(r'"""([\s\S]*?)"""')
+
+    @staticmethod
+    def _mask_python_comments(content: str) -> str:
+        """Blank every Python ``#`` comment, preserving length and line numbers.
+
+        A regex over raw source cannot tell a string literal from text that
+        merely looks like one inside a comment, and the failure is asymmetric:
+        ``# query = \"\"\"DELETE n\"\"\"`` is a COMMENT token Python never
+        executes, but the extractor read it as a query and CYP002 — ERROR
+        severity — blocked ``./dev quality --strict`` on it (Codex P2, #874).
+        SKUEL021 does not have this problem because it reads the AST; this
+        extractor was the odd one out. Measured on origin/main, the commented-out
+        form of a MATCH query ALREADY produced a CI-blocking error, so this is a
+        pre-existing hole that the wider gate would only have widened.
+
+        ``tokenize`` rather than a ``#``-matching regex, for the same reason the
+        Cypher side masks with a real scanner: a ``#`` inside a string literal is
+        not a comment. Masking in place — spaces, same length — keeps every
+        offset and line number the callers compute from.
+
+        Note the contrast with ``_docstring_lines``: ``tokenize`` reports
+        CHARACTER columns (it consumes ``str``), so column arithmetic is safe
+        here, where ``ast``'s BYTE columns made it unsafe there.
+
+        Best-effort: content the tokenizer rejects is returned unchanged, which
+        restores the previous behaviour rather than silencing the linter.
+        """
+        try:
+            tokens = list(tokenize.generate_tokens(io.StringIO(content).readline))
+        except (tokenize.TokenError, SyntaxError, IndentationError):  # fmt: skip
+            return content
+
+        lines = content.splitlines(keepends=True)
+        for token in tokens:
+            if token.type != tokenize.COMMENT:
+                continue
+            row, start_col = token.start[0] - 1, token.start[1]
+            end_col = token.end[1]
+            line = lines[row]
+            lines[row] = line[:start_col] + " " * (end_col - start_col) + line[end_col:]
+        return "".join(lines)
+
+    def _docstring_lines(self, content: str) -> set[int]:
+        """Every line number covered by a module/class/function docstring.
+
+        From the AST, because a docstring is defined by POSITION — first
+        statement of a module, class or function — which is precisely what a
+        regex over quote characters cannot see.
+
+        Lines rather than character spans: ``col_offset`` is a UTF-8 BYTE
+        offset, and this tree's docstrings carry em-dashes and box-drawing
+        characters, so a character-span containment test would drift on exactly
+        the files with the most prose. Line numbers have no such encoding
+        dependence, and a second ``\"\"\"`` literal cannot open inside a
+        docstring's line range — it would have closed it.
+
+        Unparseable content yields an empty set, which exempts nothing: the
+        gate is then the only filter, as it was before this exemption existed.
+        """
+        try:
+            tree = ast.parse(content)
+        except (SyntaxError, ValueError):  # fmt: skip
+            return set()
+
+        lines: set[int] = set()
+        for node in ast.walk(tree):
+            if not isinstance(
+                node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+            ):
+                continue
+            body = node.body
+            if not body:
+                continue
+            first = body[0]
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)
+                and first.value.end_lineno is not None
+            ):
+                lines.update(range(first.value.lineno, first.value.end_lineno + 1))
+        return lines
+
     def _extract_cypher_queries(self, content: str, file_path: Path) -> list[tuple[str, int]]:
         """
-        Extract Cypher queries from Python file.
+        Extract Cypher queries from the triple-quoted literals of a Python file.
 
-        Looks for:
-        1. Multi-line triple-quoted strings containing MATCH
-        2. session.run() calls with Cypher
-        3. Raw Cypher string assignments
+        Three decisions, each settled by measuring the scanned trees rather than
+        by reasoning about what a query looks like:
+
+        1. **The gate is ``looks_like_cypher``** — the same three-anchor
+           predicate SKUEL030 applies to Python string literals — not a local
+           heuristic. The local one this replaced (``_is_actual_cypher``) tested
+           for four structural shapes in the RAW source text, so a query that
+           interpolated every structural position scored zero and was dropped
+           before any rule saw it: ``MATCH (from {from_pattern})-[r:{self.
+           _relationship_type}]->(to {to_pattern})`` has no ``(var:Label``, no
+           ``-[var:TYPE``, no ``{prop:`` and no ``$param``. That made all twelve
+           CYP rules blind to 113 queries tree-wide, a gap upstream of every
+           rule rather than in any of them. Deleting the local heuristic costs
+           nothing measurable: the shared gate admits 1047 of the 1049 literals
+           it admitted, and the 2 it declines are prose docstrings.
+
+        2. **Docstrings are skipped.** This is a stated PRECONDITION of the
+           shared gate's head anchor, not a preference — see the
+           ``CYPHER_LEADING_CLAUSES`` block: "Docstrings are already exempt on
+           the SKUEL030 side as inert nodes; head position is what keeps the
+           rule honest for the prose that is assigned or passed." SKUEL030 gets
+           that exemption free from its AST walk; this extractor is a regex over
+           raw source and had none. The cost of the omission is not theoretical:
+           SKUEL033's intent-only docstrings open with the clause the method
+           performs ("MERGE VIEWED relationship with timestamp and count
+           tracking"), which is head-anchor bait by construction. 19 such
+           docstrings are admitted without this, and one made CYP002 — ERROR
+           severity, CI-gating under ``--strict`` — report a node named 'the'.
+
+        3. **Comments are masked**, which the ``.cypher`` path has always done
+           and this one never did. The rules read raw text, so prose inside a
+           ``//`` comment was read as Cypher: ``// The stale-owner DELETE
+           enforces the single-owner invariant`` made CYP002 report a node named
+           'enforces' inside a query that is entirely correct. Masking also
+           stops CYP009 scoring comment keywords as query complexity — 4 sites
+           re-score, one of them down from 663. ``keep_noqa=True`` for the same
+           reason the statement splitter passes it: the suppression check reads
+           the violation's own line.
+
+        4. **Python comments are masked first**, so commented-out code is never
+           read as a live query — see ``_mask_python_comments``. Measured on
+           origin/main, the commented-out form of a MATCH query ALREADY produced
+           a CI-blocking CYP002, so this closes a hole that predates the wider
+           gate rather than one the gate opened (Codex P2, #874).
+
+        Note what is deliberately NOT filtered: prose that opens with an
+        uppercase clause and an operand is admitted outside a docstring, so
+        ``prompt = \"\"\"DELETE the paragraph.\"\"\"`` in a scanned tree is an
+        ERROR. That is the shared head anchor's accepted trade, not a local
+        defect — SKUEL021 runs the same anchor at the same severity over
+        ``core/services`` and flags that exact string today. Re-filtering it
+        here would fork the anchor's semantics between two rules that are
+        supposed to agree; the place to change it is cypher_vocabulary.
 
         Returns:
             List of (query, line_number) tuples
         """
         queries: list[tuple[str, int]] = []
         seen_queries: set[str] = set()
+        # Python comments first, so the regex below cannot mistake commented-out
+        # code for a live query. Masking is length- and line-preserving, so the
+        # docstring line numbers and the match offsets both still hold.
+        content = self._mask_python_comments(content)
+        docstring_lines = self._docstring_lines(content)
 
-        # Pattern 1: Multi-line triple-quoted strings with Cypher keywords
-        triple_quote_pattern = r'"""([\s\S]*?)"""'
-        for match in re.finditer(triple_quote_pattern, content):
+        for match in self._TRIPLE_QUOTED_RE.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            if line_num in docstring_lines:
+                continue
             query = match.group(1)
-            # Only process actual Cypher queries (must have MATCH or CREATE)
-            if self._is_actual_cypher(query):
-                # Avoid duplicate queries
-                query_key = query.strip()
-                if query_key not in seen_queries:
-                    seen_queries.add(query_key)
-                    line_num = content[: match.start()].count("\n") + 1
-                    queries.append((query, line_num))
-
-        # Pattern 2: session.run() calls with multi-line strings
-        session_run_pattern = r'session\.run\(\s*"""([\s\S]*?)"""'
-        for match in re.finditer(session_run_pattern, content):
-            query = match.group(1)
-            if self._is_actual_cypher(query):
-                query_key = query.strip()
-                if query_key not in seen_queries:
-                    seen_queries.add(query_key)
-                    line_num = content[: match.start()].count("\n") + 1
-                    queries.append((query, line_num))
+            if not looks_like_cypher(query):
+                continue
+            query_key = query.strip()
+            if query_key in seen_queries:
+                continue
+            seen_queries.add(query_key)
+            # Masking preserves length, newlines and therefore every offset the
+            # rules compute line numbers from.
+            queries.append((mask_cypher_comments(query, keep_noqa=True), line_num))
 
         return queries
 
@@ -210,11 +359,11 @@ class CypherLinter:
         """
         Extract statements from a standalone .cypher file.
 
-        The whole file is Cypher by declaration, so no admission heuristic at
-        all — not ``_is_actual_cypher``, and not the ``looks_like_cypher`` gate
-        SKUEL030 needs for Python string literals. Just split on
-        statement-terminating semicolons and keep every non-empty fragment.
-        Two comment treatments:
+        The whole file is Cypher by declaration, so no admission gate at all —
+        not the ``looks_like_cypher`` gate the Python half needs for string
+        literals, and not the local ``_is_actual_cypher`` heuristic that gate
+        replaced. Just split on statement-terminating semicolons and keep every
+        non-empty fragment. Two comment treatments:
 
         - Comments — ``//`` line and ``/* */`` block (non-nesting, per the
           Cypher spec) — are masked with spaces (positions, newlines, and
@@ -319,91 +468,6 @@ class CypherLinter:
             statements.append((statement[lead:], line_num))
 
         return statements
-
-    def _is_actual_cypher(self, text: str) -> bool:
-        """
-        Check if text is actual Cypher query (not just documentation).
-
-        Actual Cypher queries have structured syntax like:
-        - MATCH (n:Label) WHERE ...
-        - CREATE (n:Label {prop: value})
-        - MERGE (n)-[r:TYPE]->(m)
-
-        Documentation just mentions keywords in natural language.
-        """
-        text_upper = text.upper()
-
-        # 1. Must start with a Cypher command (not documentation)
-        first_line = text.strip().split("\n")[0].strip()
-        if not any(
-            first_line.upper().startswith(cmd)
-            for cmd in ["MATCH", "CREATE", "MERGE", "WITH", "UNWIND", "CALL", "RETURN"]
-        ):
-            return False
-
-        # 2. Check for Cypher syntax patterns (not just keywords)
-        # Actual Cypher has patterns like (n:Label), [r:TYPE], {prop: value},
-        # or $param driver parameters (procedure-call queries like
-        # `CALL db.index.fulltext.queryNodes(..., $term)` have no node pattern
-        # at all — $params were their only structural signal).
-        has_node_pattern = bool(re.search(r"\([a-z_][a-z0-9_]*:[A-Z]", text))  # (n:Label)
-        has_rel_pattern = bool(re.search(r"-\[[a-z_][a-z0-9_]*:[A-Z]", text))  # [r:TYPE]
-        has_property_map = bool(re.search(r"\{[a-z_][a-z0-9_]*:", text))  # {prop:
-        has_parameter = bool(re.search(r"\$[a-z_][a-z0-9_]*", text))  # $param
-        has_cypher_syntax = has_node_pattern or has_rel_pattern or has_property_map or has_parameter
-
-        # 3. Count Cypher keywords (SET/UNWIND/CALL/YIELD/LIMIT counted since
-        # 2026-07 — MERGE+SET upserts and CALL procedures scored 1 before and
-        # were silently skipped)
-        cypher_count = sum(
-            1
-            for kw in [
-                "MATCH",
-                "CREATE",
-                "MERGE",
-                "DELETE",
-                "RETURN",
-                "WHERE",
-                "WITH",
-                "SET",
-                "UNWIND",
-                "CALL",
-                "YIELD",
-                "LIMIT",
-            ]
-            if kw in text_upper
-        )
-
-        # 4. Check for natural language indicators (documentation)
-        natural_language_indicators = [
-            "the ",
-            "a ",
-            "an ",
-            " is ",
-            " are ",
-            " for ",
-            " to ",
-            " this ",
-            "removes",
-            "creates",
-            "updates",
-            "deletes",
-            "retrieves",
-        ]
-        has_natural_language = any(
-            indicator in text.lower() for indicator in natural_language_indicators
-        )
-
-        # Actual Cypher: structured syntax + minimal natural language
-        # Documentation: natural language + maybe one keyword + no structured syntax
-        if has_natural_language and not has_cypher_syntax:
-            return False  # This is documentation, not Cypher
-
-        # >= 1 since 2026-07 (was >= 2): the command-prefix gate above plus a
-        # structural signal is already strong evidence; >= 2 silently skipped
-        # single-command queries — exactly the shape of interpolated one-line
-        # MERGE upserts CYP003 exists to catch.
-        return cypher_count >= 1 and has_cypher_syntax
 
     # ========================================================================
     # VALIDATION RULES

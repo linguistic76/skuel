@@ -697,7 +697,7 @@ def build_weighted_path_query(
         [r in rels | coalesce(r.{weight_property}, 1.0)] as edge_weights,
         path_length,
         path_weight,
-        '{weight_mode}' as aggregation_mode
+        '{weight_mode}' as aggregation_mode // noqa: CYP003 - a weight_expr_map key; any other value raised ValueError above
     ORDER BY
         CASE '$weight_mode'
             WHEN 'min' THEN -path_weight // Higher min is better
@@ -870,8 +870,8 @@ def build_relationship_weight_stats_query(
 
     RETURN
         total_relationships,
-        '{source_label}' as source_label,
-        '{relationship_type}' as relationship_type,
+        '{source_label}' as source_label, // noqa: CYP003 - validate_label() above
+        '{relationship_type}' as relationship_type, // noqa: CYP003 - validate_identifier() above
         [
         {prop_stats_str}
         ] as property_stats
