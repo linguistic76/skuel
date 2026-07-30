@@ -599,7 +599,6 @@ class LateralRelationshipOperations(Protocol):
     async def get_alternatives_with_comparison(
         self,
         entity_uid: EntityUID,
-        comparison_fields: list[str] | None = None,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
     ) -> "Result[list[AlternativeComparisonItem]]": ...
@@ -681,7 +680,7 @@ class LateralRelationshipBackendOperations(Protocol):
 
     async def get_alternatives_comparison(
         self, entity_uid: EntityUID
-    ) -> Result[list[dict[str, Any]]]: ...  # boundary: contains all_properties/rel_properties
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: raw ALTERNATIVE_TO comparison rows
 
     async def get_relationship_graph(
         self,

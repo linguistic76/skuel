@@ -150,12 +150,6 @@ class TestGetAlternativesWithComparison:
             "timeframe": "3 years",
             "difficulty": "very_high",
             "resources": "self-funded",
-            "all_properties": {},
-            "rel_properties": {
-                "comparison_criteria": "career growth vs autonomy",
-                "tradeoffs": "Higher risk, more freedom",
-                "timeframe": "3 years",
-            },
         }
         mock_backend.get_alternatives_comparison.return_value = Result.ok([mock_record])
 
@@ -187,8 +181,6 @@ class TestGetAlternativesWithComparison:
                 "timeframe": "5 years",
                 "difficulty": "high",
                 "resources": "company",
-                "all_properties": {},
-                "rel_properties": {"timeframe": "5 years"},
             },
             {
                 "uid": "goal_c",
@@ -202,8 +194,6 @@ class TestGetAlternativesWithComparison:
                 "timeframe": "1 year",
                 "difficulty": "medium",
                 "resources": "self",
-                "all_properties": {},
-                "rel_properties": {"timeframe": "1 year"},
             },
         ]
         mock_backend.get_alternatives_comparison.return_value = Result.ok(mock_records)
@@ -236,8 +226,6 @@ class TestGetAlternativesWithComparison:
             "timeframe": "3 years",
             "difficulty": "very_high",
             "resources": "self-funded",
-            "all_properties": {},
-            "rel_properties": {"timeframe": "3 years"},
         }
         mock_backend.get_alternatives_comparison.return_value = Result.ok([mock_record])
 

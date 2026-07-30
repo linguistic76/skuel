@@ -631,7 +631,6 @@ class LateralRouteFactory:
         async def get_comparison(
             request: Request,
             uid: str,
-            fields: str | None = None,
         ) -> "Result[FT]":
             """
             Get alternatives rendered as a side-by-side comparison HTML fragment.
@@ -639,17 +638,16 @@ class LateralRouteFactory:
             The AlternativesComparisonGrid container HTMX-loads this and swaps it
             inline, so the route returns rendered HTML (Result[FT] → HTMLResponse).
 
+            The comparison criteria are fixed (see ``render_alternatives_fragment``)
+            — there is no per-request field selection.
+
             Args:
                 uid: Entity UID
-                fields: Comma-separated list of comparison fields (optional)
             """
             user_uid = require_authenticated_user(request)
 
-            comparison_fields = fields.split(",") if fields else None
-
             result = await self.lateral_service.get_alternatives_with_comparison(
                 EntityUID(uid),
-                comparison_fields,
                 user_uid=user_uid,
                 domain_service=self.domain_service,
             )
