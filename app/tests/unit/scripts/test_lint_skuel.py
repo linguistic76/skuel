@@ -5676,6 +5676,50 @@ class TestSKUEL033:
         )
         assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
 
+    def test_two_adjacent_alias_references_stay_legal(self) -> None:
+        """Codex P2 round 2 (#875): the run fix did not cover ADJACENT references.
+
+        Two sanctioned aliases on consecutive lines have no blank line between
+        them, so the contiguity requirement admitted them as one "query block" —
+        and as Codex put it, two consecutive `RETURN` clauses cannot form one
+        Cypher query, so the classification was incoherent on its face.
+
+        Both rounds had ONE root cause: the block scan stripped literal markers
+        and then matched, turning every reference into candidate query text.
+        Not stripping fixes the class rather than either instance.
+        """
+        content = (
+            "class TwoAliasRow(TypedDict):\n"
+            '    """Row shape for a two-part fetch.\n'
+            "\n"
+            "    ``RETURN collect(prereq.uid) as prereq_uids`` — the first row.\n"
+            "    ``RETURN count(DISTINCT h) as habits`` — the second row.\n"
+            '    """\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_a_fenced_cypher_block_is_still_caught(self) -> None:
+        """Skipping backtick-opening lines must not let a ```cypher fence hide.
+
+        The fence markers open with backticks and are skipped, but the query
+        lines inside them do not — which is why `relationship_registry.py`'s
+        fenced block was detected. Pins that the subtraction cost no coverage.
+        """
+        content = (
+            "class SharedNeighborConfig:\n"
+            '    """Configuration for finding related entities.\n'
+            "\n"
+            "    ```cypher\n"
+            "    OPTIONAL MATCH (entity)-[:APPLIES_KNOWLEDGE]->(shared)\n"
+            "    WHERE related <> entity\n"
+            "    WITH entity, collect(related)[0..5] as related_tasks\n"
+            "    ```\n"
+            '    """\n'
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+        assert [v.line_number for v in violations] == [5]
+
     def test_a_stray_reference_above_a_block_anchors_to_the_block(self) -> None:
         """The run is reported, not the first hit — the reference may legally stay."""
         content = (

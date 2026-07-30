@@ -1022,6 +1022,14 @@ shape — the distinction is the one `CYPHER_LEADING_CLAUSES` already draws, and
 that keeps this rule from firing on `query_types.py`'s row-shape references, where the
 alias IS the contract because nothing statically links it to a TypedDict key.
 
+A line opening with a BACKTICK is a reference, never query text, and is skipped before any
+counting. Earlier revisions stripped the literal markers and then matched, which turned
+every sanctioned ``RETURN <alias>`` into candidate query text and caused BOTH Codex rounds
+on this rule (#875) — two references separated by a blank line, then two adjacent, which
+the run requirement could not see. Two consecutive RETURN clauses cannot be one Cypher
+query. Removing the strip costs zero coverage: no real site wraps its query lines in
+markers, and a ```cypher fence puts its own markers on separate lines.
+
 Known and deliberate limit: the block threshold is TWO clause lines IN ONE contiguous run
 of non-blank lines, so a ONE-line query embedded mid-docstring stays legal, as does a
 query split across a blank line. Both halves are load-bearing. A wrapped English sentence
@@ -2405,9 +2413,26 @@ class SkuelLinter:
         so this adds no second matcher; it only changes what text is fed in
         (each line, rather than the docstring's head) and counts the hits.
 
-        Backticks are stripped because reStructuredText literal markers are how
-        this codebase writes an inline clause reference (``RETURN x``); leaving
-        them on would make the marker itself the reason a real query block hid.
+        A line opening with a BACKTICK is a reference and is never query text.
+        Earlier revisions stripped the literal markers and then matched, which is
+        the single root cause of both #875 Codex rounds on this helper: it turned
+        every sanctioned ``RETURN <alias>`` reference into a candidate query line,
+        so two of them — separated by a blank line in round 1, adjacent in round 2
+        — combined into a phantom "block". Round 2 named the reason the shape is
+        incoherent: two consecutive RETURN clauses cannot be one Cypher query.
+
+        Not stripping is a SUBTRACTION that costs zero coverage, verified against
+        all three real sites: none wraps its query lines in literal markers,
+        because nobody writes an embedded query that way — an indented block has
+        no per-line backticks and a ```cypher fence puts its markers on their own
+        lines (which this same test skips, since they open with a backtick too).
+        #868's converging rounds all shared this trait: REMOVE an approximation
+        rather than extend it. Growing a second classifier to tell one reference
+        from two was the branch not taken.
+
+        Deliberate miss, therefore: a query block whose every line is individually
+        wrapped in literal markers is not detected. It is unreachable in practice
+        and fail-safe when wrong.
         """
         offsets: list[int] = []
         seen_head = False
@@ -2420,7 +2445,9 @@ class SkuelLinter:
                 if stripped:
                     seen_head = True
                 continue
-            if leading_cypher_clause(stripped.strip("`").strip()) is not None:
+            if stripped.startswith("`"):
+                continue  # a literal reference, or a fence marker — never query text
+            if leading_cypher_clause(stripped) is not None:
                 offsets.append(index)
         return offsets
 
