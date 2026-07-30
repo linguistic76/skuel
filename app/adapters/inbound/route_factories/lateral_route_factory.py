@@ -333,9 +333,14 @@ class LateralRouteFactory:
 
             ``timeframe`` / ``difficulty`` / ``resources`` are the comparison
             axis the alternatives grid renders as criteria rows — free text,
-            compared side by side rather than parsed. Each is written only when
-            non-empty, so an unauthored criterion leaves no property on the edge
-            and the grid keeps showing "N/A" rather than a blank cell.
+            compared side by side rather than parsed. They describe
+            ``target_uid``, the alternative being added.
+
+            A blank criterion is sent as ``None`` rather than omitted. The
+            backend upserts with ``MERGE`` + ``SET r += $metadata``, so an
+            omitted key would leave a previously authored value in place when
+            the same pair is submitted again; a null removes the property, and
+            the grid returns to "N/A".
 
             Args:
                 uid: First entity UID
@@ -364,8 +369,7 @@ class LateralRouteFactory:
                 ("difficulty", difficulty),
                 ("resources", resources),
             ):
-                if value:
-                    metadata[criterion] = value
+                metadata[criterion] = value or None
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
                 target_uid=target_uid,

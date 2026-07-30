@@ -529,10 +529,20 @@ class LateralRelationshipBackend:
     async def get_alternatives_comparison(
         self, entity_uid: EntityUID
     ) -> Result[list[Neo4jProperties]]:
-        """Get alternative entities with side-by-side comparison data."""
+        """Get alternative entities with side-by-side comparison data.
+
+        ALTERNATIVE_TO is symmetric, so the match is undirected and each entity
+        sees the other as an alternative. The three comparison criteria are not
+        symmetric, though: the create route authors them to describe the edge's
+        END node. Projecting them unconditionally would attribute the target's
+        timeframe to the source when the pair is viewed from the other side, so
+        they are gated on the viewer being the edge's start node. Viewed from
+        the far end nobody has authored criteria, and the grid says "N/A".
+        """
         return await self.executor.execute_query(
             """
             MATCH (entity:Entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
+            WITH entity, r, alternative, startNode(r).uid = $uid AS describes_alternative
             RETURN
                 alternative.uid as uid,
                 alternative.title as title,
@@ -542,9 +552,9 @@ class LateralRelationshipBackend:
                 labels(alternative)[0] as entity_type,
                 r.comparison_criteria as comparison_criteria,
                 r.tradeoffs as tradeoffs,
-                r.timeframe as timeframe,
-                r.difficulty as difficulty,
-                r.resources as resources
+                CASE WHEN describes_alternative THEN r.timeframe END as timeframe,
+                CASE WHEN describes_alternative THEN r.difficulty END as difficulty,
+                CASE WHEN describes_alternative THEN r.resources END as resources
             """,
             {"uid": entity_uid},
         )

@@ -249,6 +249,89 @@ class TestAuthoredCriteriaReachTheTable:
         assert OWNER.encode() not in body
 
 
+class TestCriteriaDescribeOneEndpoint:
+    """The criteria are not symmetric even though the edge is.
+
+    ALTERNATIVE_TO is symmetric and the comparison Cypher matches it undirected,
+    so both entities list each other. The criteria, though, are authored about
+    the target — projecting them from either side would show the target's
+    timeframe under the *source's* column on the far entity's page.
+    """
+
+    async def test_far_endpoint_does_not_inherit_the_criteria(
+        self, handlers: dict[tuple[str, str], Any], two_goals
+    ) -> None:
+        """Authored on A→B, B's page must not attribute them to A."""
+        await _author_alternative(
+            handlers,
+            timeframe=AUTHORED_TIMEFRAME,
+            difficulty=AUTHORED_DIFFICULTY,
+            resources=AUTHORED_RESOURCES,
+        )
+
+        far = await _compare(handlers)(request=_make_request(OWNER), uid=TARGET_UID)
+        body = bytes(far.body).decode()
+
+        # Positive control: the far page DOES list the pairing, so the absences
+        # below are the gate working — not an empty result.
+        assert far.status_code == 200
+        assert "Row the Atlantic" in body
+        assert AUTHORED_TIMEFRAME not in body
+        assert AUTHORED_DIFFICULTY not in body
+        assert AUTHORED_RESOURCES not in body
+        assert "N/A" in body
+
+    async def test_authoring_end_still_shows_them(
+        self, handlers: dict[tuple[str, str], Any], two_goals
+    ) -> None:
+        """The gate must not suppress the side that authored them."""
+        await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
+
+        near = await _compare(handlers)(request=_make_request(OWNER), uid=SOURCE_UID)
+
+        assert AUTHORED_TIMEFRAME.encode() in bytes(near.body)
+
+
+class TestResubmitClearsBlankedCriteria:
+    """``MERGE`` + ``SET r += $metadata`` keeps keys absent from the map.
+
+    Re-selecting an already-related target is reachable — the picker only
+    excludes the current entity — so a criterion cleared in the form has to be
+    sent as null, or the stale value survives and the grid keeps showing it.
+    """
+
+    async def test_blanking_a_criterion_removes_it(
+        self, handlers: dict[tuple[str, str], Any], two_goals, neo4j_driver
+    ) -> None:
+        await _author_alternative(
+            handlers,
+            timeframe=AUTHORED_TIMEFRAME,
+            difficulty=AUTHORED_DIFFICULTY,
+        )
+        # Re-submit the same pair with difficulty cleared and timeframe changed.
+        await _author_alternative(handlers, timeframe="now much shorter", difficulty="")
+
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                """
+                MATCH (:Entity {uid: $source})-[r:ALTERNATIVE_TO]-(:Entity {uid: $target})
+                RETURN r.timeframe AS timeframe, 'difficulty' IN keys(r) AS has_difficulty
+                """,
+                source=SOURCE_UID,
+                target=TARGET_UID,
+            )
+            record = await result.single()
+
+        # Positive control: the edge was genuinely rewritten by the second post.
+        assert record["timeframe"] == "now much shorter"
+        assert record["has_difficulty"] is False
+
+        response = await _compare(handlers)(request=_make_request(OWNER), uid=SOURCE_UID)
+        body = bytes(response.body).decode()
+        assert AUTHORED_DIFFICULTY not in body
+        assert "now much shorter" in body
+
+
 class TestOwnershipIsUnchanged:
     """The writer must not loosen the read gate #877 and its predecessor set."""
 
