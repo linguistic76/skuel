@@ -31,6 +31,7 @@ from detect_bloat import (  # type: ignore[import-not-found]
     ParsedCodebase,
     analyze_events,
     analyze_methods,
+    measure_name_collision_exposure,
     run_vulture,
 )
 
@@ -786,3 +787,59 @@ def test_live_method_self_diagnostic(live_methods):
     assert live_methods.total_candidates > 100
     assert len(live_methods.dispatch.live) > 100
     assert len(live_methods.dispatch.unanalyzable_getattr) > 0
+
+
+# ============================================================================
+# BLIND-SPOT MEASUREMENT — the detector's own under-reporting, quantified
+# ============================================================================
+
+
+@pytest.fixture(scope="module")
+def live_codebase():
+    codebase = ParsedCodebase(ROOT)
+    codebase.load()
+    return codebase
+
+
+def test_name_collision_exposure_is_measured_not_asserted_small(live_codebase):
+    """The name-collision caveat must carry a number, and the number must be large.
+
+    Vulture marks a method used when ANY same-named attribute is accessed anywhere, so a
+    dead method sharing a name with a live one elsewhere cannot be reported. That was
+    documented as "inherent under-reporting" — wording that reads like a rounding error
+    while the real exposure is most of the corpus. A clean run is not evidence the
+    colliding methods are live, and the report now says so with a figure.
+
+    Asserted as a floor rather than an exact count so ordinary refactors don't churn it;
+    the point is that the number is substantial and computed, never hardcoded.
+    """
+    colliding_names, exposed, total = measure_name_collision_exposure(live_codebase)
+    assert total > 1000, f"only {total} production methods seen — collector is broken"
+    assert colliding_names > 100, "collision detection found almost nothing — suspect a bug"
+    assert exposed > total // 4, (
+        f"only {exposed}/{total} methods exposed to name collision; if this genuinely "
+        "dropped, re-measure and lower the floor deliberately rather than deleting it"
+    )
+
+
+def test_name_collision_measurement_counts_classes_not_files(live_codebase):
+    """Two same-named methods on ONE class cannot happen; on two classes they collide.
+
+    Pins the unit of collision. Counting per-file or per-definition instead would inflate
+    the figure with overrides and make the caveat look worse than it is.
+    """
+    import ast as _ast
+
+    single = _ast.parse("class A:\n    def solo(self): ...\n")
+    pair = _ast.parse("class A:\n    def dup(self): ...\nclass B:\n    def dup(self): ...\n")
+
+    class _Stub:
+        def __init__(self, trees):
+            self.production = trees
+
+    from pathlib import Path as _Path
+
+    none_collide = measure_name_collision_exposure(_Stub({_Path("a.py"): single}))
+    assert none_collide == (0, 0, 1)
+    two_collide = measure_name_collision_exposure(_Stub({_Path("a.py"): pair}))
+    assert two_collide == (1, 2, 2)

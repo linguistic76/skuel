@@ -883,6 +883,36 @@ class Site:
 # ============================================================================
 
 
+def measure_name_collision_exposure(codebase: "ParsedCodebase") -> tuple[int, int, int]:
+    """
+    Size the name-collision blind spot this detector declares but never quantified.
+
+    Vulture marks a method used when ANY same-named attribute is accessed anywhere, so a
+    dead method whose name is shared with a live one on another class cannot be reported.
+    That was documented as "inherent under-reporting", which reads as a rounding error and
+    is not: a third of production method names are shared. Printing the number keeps a
+    clean run from being read as "no dead methods" (PR #876).
+
+    Returns (colliding_names, methods_those_names_cover, total_production_methods).
+    Reuses the already-parsed ``codebase.production`` ASTs rather than re-walking the
+    tree, so the denominator is exactly this tool's own scope.
+    """
+    owners: dict[str, set[str]] = defaultdict(set)
+    for path, tree in codebase.production.items():
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and not (
+                    item.name.startswith("__")
+                ):
+                    owners[item.name].add(f"{node.name}@{path}")
+
+    colliding = [defs for defs in owners.values() if len(defs) > 1]
+    total = sum(len(defs) for defs in owners.values())
+    return len(colliding), sum(len(defs) for defs in colliding), total
+
+
 class ParsedCodebase:
     """File discovery + one-shot ast.parse cache.
 
@@ -2255,10 +2285,14 @@ def print_limitations(
             "computed name — methods reachable only through them may be falsely "
             "flagged (run --verbose for locations)."
         )
+        colliding_names, exposed, total = measure_name_collision_exposure(codebase)
         print(
             "  - Vulture name-collision: any same-named attribute access anywhere "
             "marks ALL same-named methods used, so common-named dead methods stay "
-            "invisible (inherent under-reporting)."
+            "invisible (inherent under-reporting). Measured exposure: "
+            f"{colliding_names} method names are defined on 2+ classes, covering "
+            f"{exposed} of {total} production methods — a dead one of those cannot "
+            "be reported here, so a clean run is not evidence they are all live."
         )
     if codebase.syntax_errors:
         print(
