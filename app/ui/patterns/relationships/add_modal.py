@@ -116,6 +116,9 @@ def AddRelationshipModal(entity_uid: str, entity_type: str) -> Div:
         "prerequisites",
         Input(name="reasoning", placeholder="Why is this a prerequisite? (optional)"),
     )
+    # The three optional criteria are the comparison grid's criteria rows. Each
+    # renders "N/A" until authored here, so this sub-form is the writer for the
+    # whole comparison axis — see AlternativesComparisonGrid.
     alt_form = _sub_form(
         entity_uid,
         entity_type,
@@ -123,6 +126,9 @@ def AddRelationshipModal(entity_uid: str, entity_type: str) -> Div:
         RelationshipName.ALTERNATIVE_TO.value,
         "alternatives",
         Input(name="comparison_criteria", placeholder="How do these compare?", required=True),
+        Input(name="timeframe", placeholder="Timeframe — how long? (optional)"),
+        Input(name="difficulty", placeholder="Difficulty — how hard? (optional)"),
+        Input(name="resources", placeholder="Resources — what does it take? (optional)"),
     )
     comp_form = _sub_form(
         entity_uid,
@@ -161,6 +167,11 @@ def AddRelationshipModal(entity_uid: str, entity_type: str) -> Div:
         show="open",
         close="open = false",
         max_width="max-w-lg",
+        # The alternatives sub-form carries five fields — tall enough to exceed
+        # a phone's visual viewport once the on-screen keyboard opens. Without
+        # this the flex-centred box is clipped at both ends with no way to
+        # reach the submit button.
+        scrollable=True,
         id=f"add-rel-modal-{entity_uid}",
     )
 

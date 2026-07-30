@@ -324,9 +324,18 @@ class LateralRouteFactory:
             tradeoffs: list[str] | None = None,
             confidence: float = 0.8,
             priority: str = "medium",
+            timeframe: str = "",
+            difficulty: str = "",
+            resources: str = "",
         ) -> Result[dict[str, Any]]:
             """
             Create ALTERNATIVE_TO relationship.
+
+            ``timeframe`` / ``difficulty`` / ``resources`` are the comparison
+            axis the alternatives grid renders as criteria rows — free text,
+            compared side by side rather than parsed. Each is written only when
+            non-empty, so an unauthored criterion leaves no property on the edge
+            and the grid keeps showing "N/A" rather than a blank cell.
 
             Args:
                 uid: First entity UID
@@ -335,6 +344,9 @@ class LateralRouteFactory:
                 tradeoffs: Optional list of tradeoffs
                 confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion)
                 priority: Relative importance of this relationship (low/medium/high/critical)
+                timeframe: How long this alternative takes (e.g. "about 18 months")
+                difficulty: How hard it is (e.g. "steep at first")
+                resources: What it costs to pursue (e.g. "one mentor plus a rowing machine")
             """
             user_uid = require_authenticated_user(request)
 
@@ -347,6 +359,13 @@ class LateralRouteFactory:
                 "domain": self.domain,
                 "created_by": user_uid,
             }
+            for criterion, value in (
+                ("timeframe", timeframe),
+                ("difficulty", difficulty),
+                ("resources", resources),
+            ):
+                if value:
+                    metadata[criterion] = value
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
                 target_uid=target_uid,
