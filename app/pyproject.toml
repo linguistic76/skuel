@@ -307,10 +307,15 @@ warn_return_any = false
 # leniency this block wanted; the codes only stood to hide the first real violation.
 
 [[tool.mypy.overrides]]
-# Domain backends — MRO mixin conflicts (create/get/update/delete/list/create_relationship)
-# are a known consequence of composing _CrudMixin, _UserEntityMixin, _SearchMixin,
-# _TraversalMixin, _RelationshipCrudMixin via UniversalNeo4jBackend. The overlapping
-# method signatures work correctly at runtime; suppressing [misc] avoids ~42 false positives.
+# Domain backends — an MRO conflict from composing the relationship mixins via
+# UniversalNeo4jBackend. The overlapping signatures work correctly at runtime.
+# Measured backlog (`./dev health-mypy`, 2026-07-30): misc 8 — every one of them
+# `get_related_entities` declared incompatibly across _RelationshipQueryMixin and
+# _RelationshipOrderedMixin, in activity_backends (6) and curriculum_backends (2).
+# The former figure here was "~42 false positives" across a different mixin set
+# (_CrudMixin/_UserEntityMixin/_SearchMixin/_TraversalMixin/_RelationshipCrudMixin,
+# on create/get/update/delete/list/create_relationship); that conflict no longer
+# occurs. The other five modules listed below currently contribute no [misc] errors.
 module = [
     "adapters.persistence.neo4j.backends.activity_backends",
     "adapters.persistence.neo4j.backends.curriculum_backends",
