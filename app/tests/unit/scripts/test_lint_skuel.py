@@ -5736,6 +5736,92 @@ class TestSKUEL033:
         assert [v.line_number for v in violations] == [6]
         assert "2 clause lines" in violations[0].message
 
+    def test_escaped_newlines_do_not_invent_source_lines(self) -> None:
+        """Codex P2 round 4 (#875): an AST string value is DECODED, not lexical.
+
+        `clean=False` stops the dedenting, but `\\n` escapes have already become
+        real newlines, so `splitlines()` invented physical lines that do not
+        exist. This one-source-line docstring produced four "lines" and reported
+        the violation PAST THE END OF THE FILE with empty context.
+
+        Reading physical source lines makes it a miss instead, which is both
+        fail-safe and honest: a docstring squeezed onto one physical line is not
+        the indented multi-line block this shape is about.
+        """
+        content = (
+            'def f():\n    """Intent.\\n\\n    MATCH (n:Entity {uid: $uid})\\n    RETURN n"""\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_every_report_lands_inside_the_docstring_with_real_content(self) -> None:
+        """The INVARIANT all three offset bugs broke — assert it, not each case.
+
+        Rounds 2 and 4 were both "a string value's offsets are not source
+        coordinates", surfacing as an off-by-one and then as invented lines. Each
+        was caught by a case-shaped test written after the fact. This asserts the
+        property instead: whatever the rule reports, the line must lie inside the
+        docstring it is talking about and must not be blank. A future offset
+        regression fails here without anyone guessing the fixture shape first.
+        """
+        cases = [
+            # (label, source) — every quoting/indentation shape that has bitten.
+            (
+                "summary on opening line",
+                'def f():\n    """Intent.\n\n        MATCH (n {uid: $u})\n        RETURN n\n    """\n',
+            ),
+            (
+                "opening quotes alone",
+                'def f():\n    """\n    Intent.\n\n        MATCH (n {uid: $u})\n        RETURN n\n    """\n',
+            ),
+            ("module docstring", '"""\nIntent.\n\n    MATCH (n {uid: $u})\n    RETURN n\n"""\n'),
+            (
+                "closing quotes on the last query line",
+                'def f():\n    """Intent.\n\n        MATCH (n {uid: $u})\n        RETURN n"""\n',
+            ),
+            (
+                "fenced block",
+                'def f():\n    """Intent.\n\n    ```cypher\n    MATCH (n {uid: $u})\n    RETURN n\n    ```\n    """\n',
+            ),
+            ("head shape", 'def f():\n    """MERGE the HAS_STEP edge for each row."""\n'),
+            # MUST be in this list: it is the round-4 shape, and it is the reason
+            # the invariant is checked separately from "does it fire". Asserting
+            # one-violation-per-case would have excluded the very input whose
+            # report landed past the end of the file.
+            (
+                "escaped newlines on ONE source line",
+                'def f():\n    """Intent.\\n\\n    MATCH (n {uid: $u})\\n    RETURN n"""\n',
+            ),
+        ]
+        must_fire = {label for label, _ in cases} - {"escaped newlines on ONE source line"}
+        fired: set[str] = set()
+
+        for label, content in cases:
+            lines = content.split("\n")
+            tree = ast.parse(content)
+            owner = next(
+                n
+                for n in ast.walk(tree)
+                if isinstance(n, ast.Module | ast.FunctionDef) and ast.get_docstring(n)
+            )
+            expr = owner.body[0]
+            linter = make_linter(["SKUEL033"])
+            linter._check_docstring_cypher(Path(self.PORT), Path(self.PORT), content, lines, tree)
+
+            for violation in linter.result.violations:
+                fired.add(label)
+                reported = violation.line_number
+                assert expr.lineno <= reported <= (expr.end_lineno or expr.lineno), (
+                    f"{label}: reported line {reported} is OUTSIDE the docstring span "
+                    f"{expr.lineno}..{expr.end_lineno} — a string value's offsets are "
+                    "not source coordinates"
+                )
+                assert violation.line_content, f"{label}: reported a blank line"
+
+        # The invariant above is vacuous for any case that never fires, so pin
+        # which cases must fire — otherwise a rule that reported nothing at all
+        # would satisfy every assertion in this test.
+        assert fired == must_fire, f"expected {sorted(must_fire)} to fire, got {sorted(fired)}"
+
     def test_block_threshold_is_the_measured_one(self) -> None:
         """Pin the constant: 2 was measured, not chosen (see the rule's comment)."""
         assert SkuelLinter.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES == 2

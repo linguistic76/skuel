@@ -1022,13 +1022,26 @@ shape — the distinction is the one `CYPHER_LEADING_CLAUSES` already draws, and
 that keeps this rule from firing on `query_types.py`'s row-shape references, where the
 alias IS the contract because nothing statically links it to a TypedDict key.
 
+The block scan reads PHYSICAL SOURCE LINES, never the AST string value, so its results ARE
+source line numbers. An AST string is a DECODED value: `clean=True` also dedents (reporting
+one line early on a docstring whose quotes sit alone), and even `clean=False` has already
+turned `\n` escapes into real newlines, which invented lines that do not exist and reported
+past the end of the file. Both are one mistake — a string value's offsets are not source
+coordinates. A decoded-to-source map would have grown a classifier; source lines remove
+the mapping instead.
+
 A line opening with a BACKTICK is a reference, never query text, and is skipped before any
 counting. Earlier revisions stripped the literal markers and then matched, which turned
-every sanctioned ``RETURN <alias>`` into candidate query text and caused BOTH Codex rounds
-on this rule (#875) — two references separated by a blank line, then two adjacent, which
-the run requirement could not see. Two consecutive RETURN clauses cannot be one Cypher
-query. Removing the strip costs zero coverage: no real site wraps its query lines in
-markers, and a ```cypher fence puts its own markers on separate lines.
+every sanctioned ``RETURN <alias>`` into candidate query text — two references separated by
+a blank line, then two adjacent, which the run requirement could not see. Two consecutive
+RETURN clauses cannot be one Cypher query. Removing the strip costs zero coverage: no real
+site wraps its query lines in markers, and a ```cypher fence puts its own markers on
+separate lines.
+
+Four review rounds landed on this one helper (#875), each fix pinned by a test shaped like
+the bug that prompted it, each fixture accidentally avoiding the next shape. The guard is
+now a PROPERTY — every report must land inside its docstring's span on a non-blank line —
+because a case list cannot anticipate the shape nobody has hit yet.
 
 Known and deliberate limit: the block threshold is TWO clause lines IN ONE contiguous run
 of non-blank lines, so a ONE-line query embedded mid-docstring stays legal, as does a
@@ -2393,83 +2406,84 @@ class SkuelLinter:
     # finding a signal a wrapped sentence cannot have, NOT lowering the threshold.
     DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES: ClassVar[int] = 2
 
-    def _docstring_query_block_lines(self, raw_doc: str) -> list[int]:
-        """0-based RAW-offsets of non-head docstring lines that are Cypher.
+    # Delimiters and string prefixes to shave off a PHYSICAL source line before
+    # matching. Only the outermost pair can appear on a docstring's own lines.
+    _DOCSTRING_EDGE_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"""^(?:[rRbBuUfF]{0,2})(?:\"\"\"|''')|(?:\"\"\"|''')$"""
+    )
 
-        Takes the UNCLEANED docstring, and the reason is line math: raw offset i
-        is always source line `node.lineno + i`, because the raw string begins
-        immediately after the opening quotes. `ast.get_docstring()` defaults to
-        `clean=True`, which runs `inspect.cleandoc` and DROPS the leading blank
-        line of a docstring whose `\"\"\"` sits on its own line — so a cleaned
-        offset added to `lineno` reports one line early, landing on the blank line
-        above the query it claims to anchor (Codex P2, #875). Two of the three
-        real sites open that way, and neither the unit test nor the CLI proof
-        caught it because both fixtures put the summary on the opening line: a
-        test can be weaker than the claim made for it (#868).
+    def _docstring_query_lines(self, lines: list[str], start: int, end: int) -> list[int]:
+        """ABSOLUTE source line numbers, inside a docstring, that are Cypher.
 
-        Reuses `leading_cypher_clause` — the same anchor the head check, SKUEL021
-        and SKUEL030 read. #868 spent four rounds learning that the fixes which
-        converge REPLACE an approximation with a mechanism already in the tree,
-        so this adds no second matcher; it only changes what text is fed in
-        (each line, rather than the docstring's head) and counts the hits.
+        Reads PHYSICAL SOURCE LINES, never the AST string value, and that is the
+        third and last subtraction this helper needed (Codex P2 ×3, #875). An AST
+        string is a DECODED value: `clean=False` stops the dedenting, but `\\n`
+        escapes have already become real newlines, so `splitlines()` invents
+        physical lines that do not exist. A one-source-line docstring written with
+        `\\n` escapes produced four "lines" and reported the violation PAST THE
+        END OF THE FILE with empty diagnostic context. Its predecessor bug was the
+        cleaned-vs-raw off-by-one. Both are the same mistake — treating a string
+        value's offsets as source coordinates.
 
-        A line opening with a BACKTICK is a reference and is never query text.
-        Earlier revisions stripped the literal markers and then matched, which is
-        the single root cause of both #875 Codex rounds on this helper: it turned
-        every sanctioned ``RETURN <alias>`` reference into a candidate query line,
-        so two of them — separated by a blank line in round 1, adjacent in round 2
-        — combined into a phantom "block". Round 2 named the reason the shape is
-        incoherent: two consecutive RETURN clauses cannot be one Cypher query.
+        Source lines ARE the coordinates, so there is no mapping left to get
+        wrong. The alternative on offer was a decoded-to-source line map; that
+        grows a classifier, which is the shape #868 watched generate a new finding
+        every round. Three rounds on one helper is the documented stop signal, and
+        what converged there was narrowing the claim and writing the limit down.
 
-        Not stripping is a SUBTRACTION that costs zero coverage, verified against
-        all three real sites: none wraps its query lines in literal markers,
-        because nobody writes an embedded query that way — an indented block has
-        no per-line backticks and a ```cypher fence puts its markers on their own
-        lines (which this same test skips, since they open with a backtick too).
-        #868's converging rounds all shared this trait: REMOVE an approximation
-        rather than extend it. Growing a second classifier to tell one reference
-        from two was the branch not taken.
+        The claim is now exactly: **two or more physical source lines, inside one
+        docstring, each of which is itself a Cypher clause.** Consequences, all
+        deliberate, all fail-safe, all asserted by tests:
 
-        Deliberate miss, therefore: a query block whose every line is individually
-        wrapped in literal markers is not detected. It is unreachable in practice
-        and fail-safe when wrong.
+        * a docstring squeezed onto ONE physical line is never a query block, no
+          matter what its decoded value looks like;
+        * a line opening with a BACKTICK is a reference, never query text — this
+          killed rounds 1 and 2 (a sanctioned ``RETURN <alias>`` combining with a
+          second one, separated then adjacent) and costs no coverage, since real
+          embedded queries carry no per-line markers and a ```cypher fence keeps
+          its markers on their own lines;
+        * the first NON-BLANK line is the summary, which the head check owns.
+
+        `leading_cypher_clause` stays the only matcher — the same anchor the head
+        check, SKUEL021 and SKUEL030 read, so there is no further copy to drift.
         """
-        offsets: list[int] = []
+        found: list[int] = []
         seen_head = False
-        for index, line in enumerate(raw_doc.splitlines()):
-            stripped = line.strip()
+        for lineno in range(max(start, 1), min(end, len(lines)) + 1):
+            text = self._DOCSTRING_EDGE_RE.sub("", lines[lineno - 1].strip()).strip()
             if not seen_head:
-                # The first NON-BLANK raw line is the summary the head check owns.
-                # Skipping by index instead would skip nothing on a docstring that
-                # opens with a newline, and double-report its summary.
-                if stripped:
+                # The first NON-BLANK line is the summary. Skipping by position
+                # instead would skip nothing when the opening quotes sit alone on
+                # their line, and would double-report that docstring's summary.
+                if text:
                     seen_head = True
                 continue
-            if stripped.startswith("`"):
+            if text.startswith("`"):
                 continue  # a literal reference, or a fence marker — never query text
-            if leading_cypher_clause(stripped) is not None:
-                offsets.append(index)
-        return offsets
+            if leading_cypher_clause(text) is not None:
+                found.append(lineno)
+        return found
 
-    def _query_block_run(self, raw_doc: str, offsets: list[int]) -> list[int]:
-        """The first run of >=N ``offsets`` sharing one contiguous non-blank span.
+    def _query_block_run(self, lines: list[str], candidates: list[int]) -> list[int]:
+        """The first run of >=N ``candidates`` sharing one contiguous non-blank span.
 
         Returns the RUN, not a bool, so the violation anchors to the query's own
         first line even when a lone prose reference sits above it — reporting
-        `offsets[0]` would point at the reference and send the reader to the one
+        `candidates[0]` would point at the reference and send the reader to the one
         line that is allowed to stay.
         """
-        if len(offsets) < self.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES:
+        if len(candidates) < self.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES:
             return []
-        blank = {index for index, line in enumerate(raw_doc.splitlines()) if not line.strip()}
-        run = [offsets[0]]
-        for previous, current in itertools.pairwise(offsets):
+        run = [candidates[0]]
+        for previous, current in itertools.pairwise(candidates):
             # Contiguous run = no BLANK line between them. Intervening non-blank
             # lines are the query's own continuations (WHERE / AND / field list).
-            if any(gap in blank for gap in range(previous + 1, current)):
-                run = [current]
-            else:
-                run.append(current)
+            separated = any(
+                not lines[gap - 1].strip()
+                for gap in range(previous + 1, current)
+                if 0 < gap <= len(lines)
+            )
+            run = [current] if separated else [*run, current]
             if len(run) >= self.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES:
                 return run
         return []
@@ -2531,12 +2545,6 @@ class SkuelLinter:
                 continue
 
             clause = leading_cypher_clause(doc)
-            # The block half reads the RAW docstring: cleaned offsets cannot be
-            # added to `lineno` (see `_docstring_query_block_lines`).
-            raw_doc = ast.get_docstring(node, clean=False) or ""
-            block = self._query_block_run(raw_doc, self._docstring_query_block_lines(raw_doc))
-            if clause is None and not block:
-                continue
 
             # Report on the docstring's own first line, not the def's — that is
             # where a reader looks. But HONOUR a suppression anywhere in the
@@ -2550,6 +2558,14 @@ class SkuelLinter:
             expr = body[0] if body else node
             start = getattr(expr, "lineno", 1)
             end = getattr(expr, "end_lineno", None) or start
+
+            # The block half reads PHYSICAL SOURCE LINES over the docstring's own
+            # span, so its results are already source line numbers — an AST string
+            # value's offsets are not source coordinates (see
+            # `_docstring_query_lines`).
+            block = self._query_block_run(lines, self._docstring_query_lines(lines, start, end))
+            if clause is None and not block:
+                continue
             # Only a REAL comment token suppresses. Every line in the span except
             # the closing one is string content, so scanning raw lines would let a
             # docstring suppress itself by quoting the escape.
@@ -2572,8 +2588,9 @@ class SkuelLinter:
                 )
             else:
                 # Point at the query's FIRST line, not the docstring's — the block
-                # is what has to go, and it can sit far below the summary.
-                report_line = start + block[0]
+                # is what has to go, and it can sit far below the summary. Already
+                # a source line number; no offset arithmetic left to get wrong.
+                report_line = block[0]
                 message = (
                     f"Docstring hosts a Cypher query ({len(block)} clause lines) — "
                     "above the boundary a docstring states intent, not mechanism"
