@@ -217,6 +217,39 @@ def test_quoted_fence_ends_with_its_blockquote_container() -> None:
     assert ddl.extract_fenced_paths("> ```bash\n> cp core/a.py x\n> ```\n") == [(2, "core/a.py")]
 
 
+# ============================================================================
+# CONTAINER BOUNDARIES — the five bugs that ended the hand-written walker
+# ============================================================================
+
+
+def test_fence_in_nested_quote_ends_when_the_inner_quote_ends() -> None:
+    """`> > ```bash` closes when the line drops to a single `>` (Codex, #872 r3).
+
+    The hand-written walker asked only "is there still a quote marker?", so outer-quote
+    prose stayed inside the fence and its paths reported as `[code]`.
+    """
+    content = "> > ```bash\n> > cp core/a.py x\n> core/dead.py in outer-quote prose\n"
+    assert ddl.extract_fenced_paths(content) == [(2, "core/a.py")]
+
+
+def test_list_item_fence_ends_when_the_list_container_ends() -> None:
+    """A dedent ends the list item, and with it an unclosed fence (Codex, #872 r3).
+
+    The old walker kept no container state, so it scanned to EOF and reported ordinary
+    prose paths as `[code]`.
+    """
+    content = "- step:\n\n  ```bash\n  cp core/a.py x\n\nDedented prose naming core/dead.py.\n"
+    assert ddl.extract_fenced_paths(content) == [(4, "core/a.py")]
+
+
+def test_four_space_indented_delimiter_is_not_a_fence() -> None:
+    """At document root CommonMark allows at most 3 leading spaces before a delimiter;
+    4+ makes it an *indented code block*, so a doc literally illustrating fence syntax
+    must not have its sample opened as a real fence (Codex, #872 r3)."""
+    content = "Example of fence syntax:\n\n    ```bash\n    cp core/dead.py x\n    ```\n"
+    assert ddl.extract_fenced_paths(content) == []
+
+
 def test_tokenizer_and_guard_agree_on_every_template_marker() -> None:
     """Derived from TEMPLATE_MARKERS, so the two cannot drift apart again.
 
@@ -244,21 +277,26 @@ def test_quoted_path_containing_spaces_survives_tokenization() -> None:
 
 
 def test_fence_walker_matches_commonmark_across_the_whole_tree() -> None:
-    """Differential guard against a real CommonMark parser — the mechanism, not cases.
+    """Corpus guard: the whole scanned tree still parses to the same fence lines.
 
-    `iter_code_fence_lines` is a hand-written parser, and review found two bugs in it
-    (blockquote open, blockquote leak). Rather than migrate to markdown-it-py — a
-    transitive dependency, and measured to buy nothing — pin *equivalence* to it over
-    every doc the checker scans. Any future divergence in fence handling fails here
-    instead of arriving as a review finding.
+    `iter_code_fence_lines` now *is* CommonMark-backed, so this is no longer a
+    hand-written-vs-parser differential; it is a canary on the surrounding glue — the
+    unclosed-fence handling, the blockquote strip, the `sorted()` contract — over 400+
+    real documents rather than the synthetic cases above.
 
-    Compares only path-bearing lines, since that is all the pass acts on.
+    Its history is the more useful lesson. As a differential it reported ZERO
+    disagreements, which I read as "the hand-written walker is equivalent to CommonMark".
+    It meant only "the corpus contains none of the shapes where they differ" — review
+    then found three such shapes (nested quote, list container, 4-space indent), none
+    present in `docs/`. Corpus-relative agreement is not correctness, and a green
+    corpus-wide check is the *weaker* evidence here; the synthetic container tests above
+    are the ones that would catch a regression.
 
     Note the `closed` check: an unclosed fence has no closing delimiter to skip, and
     assuming one is what made the first version of this comparison report a false
-    disagreement — the harness was wrong, not the walker.
+    disagreement — the harness was wrong, not the code under test.
     """
-    markdown_it = pytest.importorskip("markdown_it", reason="transitive via rich")
+    markdown_it = pytest.importorskip("markdown_it")
     md = markdown_it.MarkdownIt("commonmark")
 
     def path_tokens(lines: list[str], numbers: set[int]) -> set[tuple[int, str]]:

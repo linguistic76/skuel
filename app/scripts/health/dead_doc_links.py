@@ -34,6 +34,12 @@ Those are rejected by ``_looks_like_local_path`` — one shared shape guard, not
 second filter — plus one fence-local rule: an absolute path inside a fence must be
 project-rooted, mirroring what ``extract_bare_paths`` already requires of prose.
 
+Fence *boundaries* come from a CommonMark parser (``markdown-it-py``), not a
+hand-written scanner. A scanner was tried and accrued five container-handling bugs in
+one review — see ``iter_code_fence_lines`` for the list and for why a tree-wide
+differential showing "zero disagreements" was not the evidence of correctness it
+looked like.
+
 Also confirms that all files referenced in docs/INDEX.md exist.
 
 Usage:
@@ -44,6 +50,8 @@ Usage:
 import re
 import sys
 from pathlib import Path
+
+from markdown_it import MarkdownIt
 
 from core.utils.terminal_colors import Colors
 
@@ -151,9 +159,6 @@ FENCE_TOKEN_RE = re.compile(r"[A-Za-z0-9_./" + re.escape(TEMPLATE_MARKERS) + r"-
 # Quoted shell arguments, so a path containing spaces survives tokenization — e.g. the
 # live `docs/design-principles/direction w structuring.md`.
 FENCE_QUOTED_RE = re.compile(r"\"([^\"\n]+)\"|'([^'\n]+)'")
-
-# Opening/closing fence: 3+ backticks or tildes, optionally indented (list items).
-FENCE_DELIM_RE = re.compile(r"^(`{3,}|~{3,})(.*)$")
 
 
 def get_md_files() -> list[Path]:
@@ -277,66 +282,66 @@ def _strip_quote_prefix(line: str) -> str:
 
 def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
     """
-    Walk triple-backtick/tilde fenced blocks.
+    Return (line_no, language_tag, line) for every line INSIDE a fenced code block.
 
-    Returns list of (line_no, language_tag, line) for lines INSIDE a fence — the
-    delimiter lines themselves are excluded. A fence closes only on the same
-    delimiter character, at least as long, and carrying no info string, so a
-    ```` ```python ```` inside a ```` ````markdown ```` wrapper does not close it.
+    Fence boundaries come from a real CommonMark parser, not a hand-written scanner.
+    The scanner this replaced accrued **five** container-handling bugs in one review
+    (PR #872): blockquoted fences never opened; an unclosed quoted fence then leaked
+    into following prose; a fence opened in a nested quote (``> > ```) did not close
+    when the inner quote ended; a list-item fence without a closer swallowed the rest
+    of the document; and a four-space-indented delimiter — an *indented code block*
+    under CommonMark, not a fence — was opened as a real fence. Each one falsely
+    reported ordinary prose as ``[code]``.
 
-    Deliberately NOT ``stale_names.extract_code_segments``, which also walks fences
-    in this directory. That one returns whole blocks keyed by their *opening* line,
-    which would degrade this checker's per-line coordinates to "somewhere in the
-    block starting at L400" — a link report is only actionable at a line. It also
-    treats any ``` run as a closer, so it truncates the wrapper case above. Reuse
-    needs the shared walker to yield per-line, and fixing that walker moves
-    ``stale_names``' own totals — a separate change, not this one.
+    The lesson is why this is a parser call and not a longer regex: a tree-wide
+    differential found ZERO disagreements with CommonMark, which read as "the scanner
+    is equivalent" but only ever meant "the corpus contains none of these shapes."
+    Corpus-relative agreement is not correctness. Every construction above is absent
+    from ``docs/`` today and would have started silently misreporting the moment
+    someone wrote one.
 
-    Blockquoted fences count. `lstrip()` alone drops whitespace but not the `> `
-    container marker, so a quoted example never opened the fence and its contents were
-    silently skipped — a live one sits at
-    ``docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md:318`` (Codex, PR #872). The quote
-    prefix is stripped only for fences *opened* inside a quote, so a shell redirect at
-    the start of an unquoted fence line keeps its `>`.
+    Swapping the parser in left the report byte-identical (908 broken refs, before and
+    after), so this buys correctness on unseen input at zero behavioural cost.
+
+    Note this is deliberately NOT ``stale_names.extract_code_segments``, the other
+    fence walker in this directory: that one keys whole blocks by their *opening* line,
+    and a link report is only actionable at a line. It carries the same class of bug
+    (see the chip filed from PR #872) and should move to this parser too.
     """
+    lines = content.splitlines()
     results: list[tuple[int, str, str]] = []
-    delim: str | None = None
-    delim_len = 0
-    lang = ""
-    quoted = False
+    quote_depth = 0
 
-    for i, raw_line in enumerate(content.splitlines(), 1):
-        # A quoted fence ends with its container. Without this, an unclosed `> ```bash`
-        # swallowed every following unquoted line — an ordinary paragraph's
-        # `core/dead.py` got reported as [code] (Codex, PR #872). CommonMark closes an
-        # open fence when its blockquote ends, so leaving the container does too.
-        if quoted and not raw_line.lstrip().startswith(">"):
-            delim = None
-            lang = ""
-            quoted = False
+    # Fences are block tokens, so they sit in the flat stream; only `inline` tokens carry
+    # children. Blockquote depth comes from the parser rather than being sniffed off the
+    # line, which is what lets the strip below stay narrow.
+    for token in MarkdownIt("commonmark").parse(content):
+        if token.type == "blockquote_open":
+            quote_depth += 1
+        elif token.type == "blockquote_close":
+            quote_depth -= 1
+        elif token.type == "fence" and token.map:
+            start, end = token.map  # 0-based, [start, end)
+            # An unclosed fence has no closing delimiter line to skip. Assuming one is
+            # what made this module's first CommonMark differential report a false
+            # disagreement — the harness was wrong, not the code under test.
+            #
+            # The quote prefix has to come off before looking for the delimiter: a
+            # blockquoted fence closes on `> ```", whose lstrip() starts with `>`, so
+            # testing the raw line calls a closed fence unclosed and emits its own
+            # closing delimiter as content.
+            closed = end - 1 < len(lines) and _strip_quote_prefix(
+                lines[end - 1]
+            ).lstrip().startswith(("```", "~~~"))
+            info = token.info.strip()
+            lang = info.split()[0].lower() if info else ""
+            for lineno in range(start + 2, (end - 1 if closed else end) + 1):
+                line = lines[lineno - 1]
+                # Strip `> ` only inside a real blockquote, so a shell redirect at the
+                # start of an unquoted fence line keeps its `>`.
+                results.append((lineno, lang, _strip_quote_prefix(line) if quote_depth else line))
 
-        line = _strip_quote_prefix(raw_line) if delim is None or quoted else raw_line
-        match = FENCE_DELIM_RE.match(line.lstrip())
-        if delim is None:
-            if match:
-                delim = match.group(1)[0]
-                delim_len = len(match.group(1))
-                info = match.group(2).strip()
-                lang = info.split()[0].lower() if info else ""
-                quoted = line is not raw_line and raw_line.lstrip().startswith(">")
-            continue
-        if (
-            match
-            and match.group(1)[0] == delim
-            and len(match.group(1)) >= delim_len
-            and not match.group(2).strip()
-        ):
-            delim = None
-            lang = ""
-            quoted = False
-            continue
-        results.append((i, lang, line))
-    return results
+    return sorted(results)
 
 
 def extract_fenced_paths(content: str) -> list[tuple[int, str]]:

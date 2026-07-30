@@ -160,8 +160,22 @@ positives but also a genuine one (a roadmap doc citing an `activity.py` under
 `adapters/persistence/neo4j/backends/`, where the real file is `activity_backends.py`),
 reintroducing exactly the doc-class blind spot this pass closes. The `(when implemented)` annotation is visible to the reader on the same line.
 
-Two latent gaps in the pass were closed on review (Codex, PR #872), both with a measured
-tree-wide delta of **0 dead refs** — they widen *coverage*, not the count:
+**Fence boundaries come from a CommonMark parser** (`markdown-it-py`, dev-only), not a
+hand-written scanner. A scanner was tried first and accrued **five** container-handling
+bugs in one review — blockquoted fences never opening, an unclosed quoted fence leaking
+into later prose, a nested-quote fence not closing with its inner quote, a list-item fence
+swallowing the document after a dedent, and a four-space-indented delimiter (an *indented
+code block* under CommonMark) opened as a real fence. Each falsely reported ordinary prose
+as `[code]`.
+
+Worth recording why the migration happened late: a tree-wide differential against the
+parser found **zero disagreements**, which read as "the scanner is equivalent" but only
+ever meant "the corpus contains none of the shapes where they differ." All three
+later-found shapes are absent from `docs/` today. Corpus-relative agreement is not
+correctness. Swapping the parser in left the report byte-identical at 908.
+
+Other latent gaps closed on review (Codex, PR #872), each with a measured tree-wide delta
+of **0 dead refs** — they widen *coverage*, not the count:
 
 - **Blockquoted fences** (`> ` before the delimiter) never opened, so quoted examples were
   skipped whole. One lives at `UNIFIED_RELATIONSHIP_SERVICE.md:318`; 4 previously-invisible
