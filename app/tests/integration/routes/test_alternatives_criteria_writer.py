@@ -292,6 +292,83 @@ class TestCriteriaDescribeOneEndpoint:
         assert AUTHORED_TIMEFRAME.encode() in bytes(near.body)
 
 
+class TestReverseSubmissionDoesNotDuplicate:
+    """A pairing asserted from both sides is backed by two edges.
+
+    ``create_relationship`` MERGEs a *directed* pattern, so submitting the same
+    pair from the far entity adds a mirror edge rather than updating the
+    original — and the picker only excludes the current entity, so that is
+    reachable. Both edges match the undirected comparison query, which would
+    render the same alternative twice, once populated and once blank.
+    """
+
+    async def test_alternative_appears_once_after_both_sides_author(
+        self, handlers: dict[tuple[str, str], Any], two_goals, neo4j_driver
+    ) -> None:
+        await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
+        # The far entity now asserts the same pairing about the first one.
+        await _create(handlers)(
+            request=_make_request(OWNER, method="POST"),
+            uid=TARGET_UID,
+            target_uid=SOURCE_UID,
+            comparison_criteria="the other way round",
+            timeframe="the reverse timeframe",
+        )
+
+        # Positive control: there really are two edges, so the dedupe below is
+        # doing work rather than describing a graph that never duplicated.
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                """
+                MATCH (:Entity {uid: $source})-[r:ALTERNATIVE_TO]->(:Entity {uid: $target})
+                RETURN count(r) AS forward
+                """,
+                source=SOURCE_UID,
+                target=TARGET_UID,
+            )
+            forward = (await result.single())["forward"]
+            result = await session.run(
+                """
+                MATCH (:Entity {uid: $target})-[r:ALTERNATIVE_TO]->(:Entity {uid: $source})
+                RETURN count(r) AS reverse
+                """,
+                source=SOURCE_UID,
+                target=TARGET_UID,
+            )
+            reverse = (await result.single())["reverse"]
+        assert forward == 1 and reverse == 1
+
+        response = await _compare(handlers)(request=_make_request(OWNER), uid=SOURCE_UID)
+        body = bytes(response.body).decode()
+
+        # The alternative is named once — a duplicate column would repeat it.
+        assert body.count("Cycle the Andes") == 1
+        # And the surviving row is the one describing that alternative.
+        assert AUTHORED_TIMEFRAME in body
+        assert "the reverse timeframe" not in body
+
+    async def test_each_side_sees_criteria_authored_about_the_other(
+        self, handlers: dict[tuple[str, str], Any], two_goals
+    ) -> None:
+        """Both directions authored: each page shows the other's criteria."""
+        await _author_alternative(handlers, timeframe=AUTHORED_TIMEFRAME)
+        await _create(handlers)(
+            request=_make_request(OWNER, method="POST"),
+            uid=TARGET_UID,
+            target_uid=SOURCE_UID,
+            comparison_criteria="the other way round",
+            timeframe="the reverse timeframe",
+        )
+
+        far = bytes(
+            (await _compare(handlers)(request=_make_request(OWNER), uid=TARGET_UID)).body
+        ).decode()
+
+        assert far.count("Row the Atlantic") == 1
+        assert "the reverse timeframe" in far
+        assert AUTHORED_TIMEFRAME not in far
+
+
 class TestResubmitClearsBlankedCriteria:
     """``MERGE`` + ``SET r += $metadata`` keeps keys absent from the map.
 

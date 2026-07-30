@@ -534,15 +534,25 @@ class LateralRelationshipBackend:
         ALTERNATIVE_TO is symmetric, so the match is undirected and each entity
         sees the other as an alternative. The three comparison criteria are not
         symmetric, though: the create route authors them to describe the edge's
-        END node. Projecting them unconditionally would attribute the target's
-        timeframe to the source when the pair is viewed from the other side, so
-        they are gated on the viewer being the edge's start node. Viewed from
-        the far end nobody has authored criteria, and the grid says "N/A".
+        END node, so they are only projected when the viewer is the edge's start
+        node. Viewed from an end nobody authored criteria for, the grid says
+        "N/A".
+
+        One row per alternative. A pairing can be backed by two edges — the
+        create route's ``MERGE`` is directed, so asserting the same pair from
+        the far side adds a mirror rather than updating the original. Both edges
+        match undirected, which would render the same alternative twice, once
+        blank. Ordering by the describing edge and keeping the first collapses
+        that, and gives each side the criteria authored about the other when
+        both were authored.
         """
         return await self.executor.execute_query(
             """
-            MATCH (entity:Entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
-            WITH entity, r, alternative, startNode(r).uid = $uid AS describes_alternative
+            MATCH (entity:Entity {uid: $uid})-[rel:ALTERNATIVE_TO]-(alternative)
+            WITH alternative, rel, startNode(rel).uid = $uid AS describes_alternative
+            ORDER BY describes_alternative DESC
+            WITH alternative,
+                 head(collect({rel: rel, describes: describes_alternative})) AS chosen
             RETURN
                 alternative.uid as uid,
                 alternative.title as title,
@@ -550,11 +560,11 @@ class LateralRelationshipBackend:
                 alternative.status as status,
                 alternative.priority as priority,
                 labels(alternative)[0] as entity_type,
-                r.comparison_criteria as comparison_criteria,
-                r.tradeoffs as tradeoffs,
-                CASE WHEN describes_alternative THEN r.timeframe END as timeframe,
-                CASE WHEN describes_alternative THEN r.difficulty END as difficulty,
-                CASE WHEN describes_alternative THEN r.resources END as resources
+                chosen.rel.comparison_criteria as comparison_criteria,
+                chosen.rel.tradeoffs as tradeoffs,
+                CASE WHEN chosen.describes THEN chosen.rel.timeframe END as timeframe,
+                CASE WHEN chosen.describes THEN chosen.rel.difficulty END as difficulty,
+                CASE WHEN chosen.describes THEN chosen.rel.resources END as resources
             """,
             {"uid": entity_uid},
         )
