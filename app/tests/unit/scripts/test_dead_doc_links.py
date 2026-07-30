@@ -242,6 +242,50 @@ def test_list_item_fence_ends_when_the_list_container_ends() -> None:
     assert ddl.extract_fenced_paths(content) == [(4, "core/a.py")]
 
 
+@pytest.mark.parametrize(
+    ("opener", "last_line"),
+    [
+        ("```bash", "```core/dead.py"),  # delimiter run followed by text
+        ("````bash", "```core/dead.py"),  # run shorter than the opener
+    ],
+)
+def test_last_line_of_an_unclosed_fence_is_audited(opener: str, last_line: str) -> None:
+    """A near-miss delimiter must not be mistaken for a closer (Codex, #872 r4).
+
+    An unclosed fence has no closing line to skip, so calling its last line a closer
+    drops it from the audit — and a `startswith("```")` test accepts three things that
+    are not closers: a shorter run, the other delimiter character, and a run followed by
+    text. `_closes_fence` compares against the parser's own `token.markup` instead.
+    """
+    content = f"{opener}\ncp core/a.py x\n{last_line}\n"
+    assert ddl.extract_fenced_paths(content) == [(2, "core/a.py"), (3, "core/dead.py")]
+
+
+@pytest.mark.parametrize(
+    "closer", ["```", "`````", "```   ", "> ```"]
+)  # exact, longer, trailing space, blockquoted
+def test_real_closing_delimiters_are_still_excluded(closer: str) -> None:
+    """The other direction: making the check exact must not start reporting closers."""
+    quote = "> " if closer.startswith(">") else ""
+    content = f"{quote}```bash\n{quote}cp core/a.py x\n{closer}\n"
+    assert ddl.extract_fenced_paths(content) == [(2, "core/a.py")]
+
+
+def test_wrong_char_delimiter_is_content_though_its_token_stays_glued() -> None:
+    """Scope pin, so the fix above is not over-claimed.
+
+    `~~~core/dead.py` is not a valid closer for a ``` fence, so the line IS now audited
+    as content. The path is still not reported — but for an unrelated and deliberate
+    reason: `~` is a TEMPLATE_MARKER kept attached to its token, so the guard rejects the
+    whole run. Separated by a space, it reports normally. That is the documented
+    fail-safe direction (suppress rather than false-report), not a closer bug.
+    """
+    glued = "```bash\ncp core/a.py x\n~~~core/dead.py\n"
+    assert ddl.extract_fenced_paths(glued) == [(2, "core/a.py")]
+    spaced = "```bash\ncp core/a.py x\n~~~ core/dead.py\n"
+    assert (3, "core/dead.py") in ddl.extract_fenced_paths(spaced)
+
+
 def test_four_space_indented_delimiter_is_not_a_fence() -> None:
     """At document root CommonMark allows at most 3 leading spaces before a delimiter;
     4+ makes it an *indented code block*, so a doc literally illustrating fence syntax

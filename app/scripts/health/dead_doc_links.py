@@ -280,6 +280,28 @@ def _strip_quote_prefix(line: str) -> str:
         stripped = candidate[1:].removeprefix(" ")
 
 
+def _closes_fence(line: str, opener: str) -> bool:
+    """
+    Is this line a valid CommonMark closing delimiter for a fence opened with ``opener``?
+
+    Exact rather than heuristic, and measured against the parser's own ``token.markup``:
+    a closer uses the same character, is at least as long as the opener, and carries
+    nothing but whitespace afterwards. A "starts with ``` or ~~~" test admits three
+    non-closers — a shorter run, the other delimiter character, and a run followed by
+    text — and each one makes an *unclosed* fence look closed, dropping its last line
+    from the audit. `` ```core/dead.py `` at the end of a file is the shape that bites
+    (Codex, PR #872).
+
+    The quote prefix comes off first: a blockquoted fence closes on ``> ``` ``, whose
+    ``lstrip()`` starts with ``>``, so testing the raw line calls a closed fence unclosed
+    and emits its own closing delimiter as content.
+    """
+    candidate = _strip_quote_prefix(line).lstrip()
+    char = opener[0]
+    run = len(candidate) - len(candidate.lstrip(char))
+    return run >= len(opener) and not candidate[run:].strip()
+
+
 def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
     """
     Return (line_no, language_tag, line) for every line INSIDE a fenced code block.
@@ -322,17 +344,11 @@ def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
             quote_depth -= 1
         elif token.type == "fence" and token.map:
             start, end = token.map  # 0-based, [start, end)
-            # An unclosed fence has no closing delimiter line to skip. Assuming one is
-            # what made this module's first CommonMark differential report a false
+            # An unclosed fence has no closing delimiter line to skip, so whether the
+            # last line is a real closer decides if it is content. Assuming it always
+            # is once made this module's own CommonMark differential report a false
             # disagreement — the harness was wrong, not the code under test.
-            #
-            # The quote prefix has to come off before looking for the delimiter: a
-            # blockquoted fence closes on `> ```", whose lstrip() starts with `>`, so
-            # testing the raw line calls a closed fence unclosed and emits its own
-            # closing delimiter as content.
-            closed = end - 1 < len(lines) and _strip_quote_prefix(
-                lines[end - 1]
-            ).lstrip().startswith(("```", "~~~"))
+            closed = end - 1 < len(lines) and _closes_fence(lines[end - 1], token.markup)
             info = token.info.strip()
             lang = info.split()[0].lower() if info else ""
             for lineno in range(start + 2, (end - 1 if closed else end) + 1):
