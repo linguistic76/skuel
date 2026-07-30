@@ -85,16 +85,16 @@ class GroupService(BaseService):
             return result
         entity = result.value
         if not entity:
-            return Result.fail(Errors.not_found(f"Group {uid} not found"))
+            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
         if entity.owner_uid != user_uid:
-            return Result.fail(Errors.not_found(f"Group {uid} not found"))
+            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
         return Result.ok(entity)
 
     async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[Group]:
         """Owner OR member can view a group."""
         result = await self.get(uid)
         if result.is_error or not result.value:
-            return Result.fail(Errors.not_found(f"Group {uid} not found"))
+            return Result.fail(Errors.not_found(resource="Group", identifier=uid))
         group = result.value
         # Owner can always view
         if group.owner_uid == user_uid:
@@ -104,7 +104,9 @@ class GroupService(BaseService):
         if members_result.is_ok:
             if any(m["user_uid"] == user_uid for m in (members_result.value or [])):
                 return Result.ok(group)
-        return Result.fail(Errors.not_found(f"Group {uid} not found"))
+        # Same error as "no such group" — a non-member must not be able to tell
+        # the two apart (docs/patterns/OWNERSHIP_VERIFICATION.md).
+        return Result.fail(Errors.not_found(resource="Group", identifier=uid))
 
     # ========================================================================
     # CRUD OVERRIDES

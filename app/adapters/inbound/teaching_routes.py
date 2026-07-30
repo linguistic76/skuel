@@ -62,6 +62,15 @@ def create_teaching_routes(
                 "TeacherOrchestrator missing from Services — required to wire teaching UI routes"
             )
 
+        # Forms submission detail gates on teacher-over-student authority, so the
+        # review service is a hard requirement, not an enhancement.
+        teacher_review = services.teacher_review
+        if teacher_review is None:
+            raise RuntimeError(
+                "TeacherReviewService missing from Services — required to verify "
+                "teacher authority on forms submission detail"
+            )
+
         # 2. UI routes via TeacherOrchestrator
         create_teaching_ui_routes(
             _app=app,
@@ -78,6 +87,9 @@ def create_teaching_routes(
             form_template_service=services.form_templates,
             form_submission_service=services.form_submissions,
             user_service=services.user,
+            # Submission detail verifies teacher authority over the submitting
+            # student, not just the TEACHER role — see ADR-040.
+            teacher_review_service=teacher_review,
         )
 
 

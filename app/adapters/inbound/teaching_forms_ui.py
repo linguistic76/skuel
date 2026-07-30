@@ -11,7 +11,7 @@ TEACHER role required for all endpoints.
 """
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Small, Span
 
@@ -36,6 +36,9 @@ from ui.teaching.forms import (
 )
 from ui.teaching.nav import render_teaching_sidebar_page
 
+if TYPE_CHECKING:
+    from core.ports.report_protocols import TeacherReviewOperations
+
 logger = get_logger(__name__)
 
 
@@ -45,6 +48,7 @@ def create_teaching_forms_ui_routes(
     form_template_service: Any,
     form_submission_service: Any,
     user_service: Any,
+    teacher_review_service: "TeacherReviewOperations",
 ) -> list[Any]:
     """Create teaching forms UI routes.
 
@@ -234,8 +238,6 @@ def create_teaching_forms_ui_routes(
     async def teaching_forms_submission_detail(
         request: Request, uid: str = "", current_user: Any = None
     ) -> Any:
-        require_authenticated_user(request)
-
         if not uid:
             content = Div(
                 PageHeader("Submission Detail"),
@@ -243,15 +245,36 @@ def create_teaching_forms_ui_routes(
             )
             return render_teaching_sidebar_page(content, active="forms", request=request)
 
-        result = await form_submission_service.get_submission_admin(uid)
-        if result.is_error:
+        def render_not_found() -> Any:
+            """The one not-found response — a submission outside the caller's
+            classroom is indistinguishable from one that does not exist."""
             content = Div(
                 PageHeader("Submission Detail"),
                 render_error_banner("Submission not found", f"No submission with UID: {uid}"),
             )
             return render_teaching_sidebar_page(content, active="forms", request=request)
 
+        result = await form_submission_service.get_submission_admin(uid)
+        if result.is_error:
+            return render_not_found()
+
         submission = result.value
+
+        # The TEACHER role is not authority over a *particular* student: without
+        # this gate any teacher can read any student's submission. Admins keep
+        # the cross-classroom view this page is documented to provide.
+        if not current_user.has_permission(UserRole.ADMIN):
+            authority = await teacher_review_service.verify_teacher_authority(
+                current_user.uid, submission.user_uid
+            )
+            if authority.is_error:
+                logger.warning(
+                    "Teacher %s denied access to submission %s (student %s): no shared classroom",
+                    current_user.uid,
+                    uid,
+                    submission.user_uid,
+                )
+                return render_not_found()
 
         # Try to fetch the template for field labels
         template = None

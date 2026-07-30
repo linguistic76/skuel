@@ -61,7 +61,9 @@ async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
     service.list = AsyncMock(return_value=Result.ok(([_FakeTemplate("ft_1", "Survey")], 1)))
     service.count_submissions = AsyncMock(return_value=Result.ok(3))
 
-    tfu.create_teaching_forms_ui_routes(MagicMock(), _fake_rt, service, MagicMock(), MagicMock())
+    tfu.create_teaching_forms_ui_routes(
+        MagicMock(), _fake_rt, service, MagicMock(), MagicMock(), MagicMock()
+    )
 
     # First registered route is teaching_forms_list.
     handler = captured[0]
