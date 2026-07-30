@@ -101,6 +101,13 @@ dev = [
     "mcp-neo4j-cypher>=0.6.0",
     "types-requests>=2.33.0.20260712",
     "types-markdown>=3.10.2.20260712",
+    # CommonMark parser backing scripts/health/dead_doc_links.py's fenced-code pass.
+    # Dev-only: that checker runs from `./dev health-links`, never in the app. Declared
+    # direct rather than leaned on transitively (it arrives via rich) — a hand-written
+    # fence walker accrued 5 container-handling bugs in review (PR #872), and CommonMark
+    # container rules are a parser's job. Python-Markdown (`markdown`, a main dep) is not
+    # a substitute: it exposes no per-fence source line map.
+    "markdown-it-py>=4.2.0",
     # PyYAML ships no inline types; 6 files in MyPy's scope import `yaml`. Previously
     # supplied transitively by neo4j-graphrag <- langchain-neo4j; declared direct
     # 2026-07-27 when that tree was removed. Dropping it fails the CI MyPy job.

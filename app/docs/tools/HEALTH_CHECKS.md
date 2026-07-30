@@ -87,20 +87,22 @@ Scanning 339 Markdown files in docs/ and .claude/skills/...
 Broken References — 1360 dead links:
 
   docs/INDEX.md  [INDEX.md]
-    L  14  [link]      docs/decisions/ADR-030-analytics-vs-ai.md
+    L  14  [link]      docs/decisions/ADR-029-graphnative-service-removal.md
 
   docs/patterns/three_tier_type_system.md
     L 500  [backtick]  /core/services/base_service.py
 ```
 
-**Three reference kinds detected** (examples cite real files — the checker scans
-this doc too, so a made-up example path would self-report as broken):
+**Four reference kinds detected** (examples cite real files — the checker scans
+this doc too, including these fenced samples, so a made-up example path would
+self-report as broken):
 
 | Kind | Example | Detection Method |
 |------|---------|-----------------|
 | `[link]` | `[text](/docs/INDEX.md)` | Markdown link syntax |
 | `[backtick]` | `` `core/services/base_service.py` `` | Inline code spans that look like paths |
 | `[bare]` | `/docs/patterns/linter_rules.md` in prose | Bare absolute paths with project prefixes |
+| `[code]` | `cp core/services/base_service.py …` inside a ` ``` ` block | Path-looking tokens in fenced code blocks |
 
 **Absolute paths** (starting with `/`) are resolved relative to the repo root — the ONE
 canonical citation style. Machine-absolute paths (`/home/.../app/...`) are deliberately
@@ -120,6 +122,78 @@ they are retried relative to the repo root (docs routinely cite root-relative pa
 - A file is renamed or deleted but the docs aren't updated
 - A skill directory is listed in the index before it's created
 - A test file referenced in a doc is deleted after the test is removed
+
+#### The `[code]` pass and the 807 → 908 step (PR #872)
+
+The first three kinds are prose-shaped, and how-to guides are mostly *fence*. That
+left a structural blind spot: `DOMAIN_LATERAL_SERVICE_QUICK_START.md` told readers to
+`cp core/services/goals/goals_lateral_service.py …` for ~6 months after that file was
+deleted (`e8818dc26`), and this checker reported **zero** broken references for it
+across 13 maintenance sweeps (PR #870).
+
+The gap was narrower than "fences are never scanned". `[bare]` detection is already
+fence-blind, so a project-rooted *absolute* path inside a fence has always been
+reported; only **relative** tokens were invisible — precisely the shape a copy-paste
+shell instruction uses.
+
+**The total moved 807 → 908. That step is the new pass, not new rot**, and it
+decomposes as:
+
+| Step | Total | Δ |
+|------|-------|---|
+| Baseline at `28e406602` | 807 | — |
+| Extended placeholder guard (also applies to the older passes) | 806 | −1 |
+| New `[code]` pass | 909 | +103 |
+| Fixed this doc's own stale `ADR-030` sample, which the new pass caught | **908** | −1 |
+
+Of the 102 remaining `[code]` reports, **96 are genuine** — mostly docs telling you to
+`uv run python scripts/<gone>.py` or `pytest tests/<never-existed>.py`. **6 are known
+false positives** that no structural rule catches: three `docs/roadmap/` forward
+references annotated `(new)`/`(when implemented)`, two citations of an aspirational
+`recording_rules.yml`, and one simulated `git status` sample in a git tutorial.
+**Precision ≈ 94%**, measured over the whole candidate surface rather than a sample —
+a widening only turns non-reports into reports, so the previously-unreported set *was*
+the complete candidate surface (653 fenced tokens, 176 dead, 103 not already reported).
+
+Excluding `docs/roadmap/` wholesale was considered and rejected: it would drop 3 false
+positives but also a genuine one (a roadmap doc citing an `activity.py` under
+`adapters/persistence/neo4j/backends/`, where the real file is `activity_backends.py`),
+reintroducing exactly the doc-class blind spot this pass closes. The `(when implemented)` annotation is visible to the reader on the same line.
+
+**Fence boundaries come from a CommonMark parser** (`markdown-it-py`, dev-only), not a
+hand-written scanner. A scanner was tried first and accrued **five** container-handling
+bugs in one review — blockquoted fences never opening, an unclosed quoted fence leaking
+into later prose, a nested-quote fence not closing with its inner quote, a list-item fence
+swallowing the document after a dedent, and a four-space-indented delimiter (an *indented
+code block* under CommonMark) opened as a real fence. Each falsely reported ordinary prose
+as `[code]`.
+
+Worth recording why the migration happened late: a tree-wide differential against the
+parser found **zero disagreements**, which read as "the scanner is equivalent" but only
+ever meant "the corpus contains none of the shapes where they differ." All three
+later-found shapes are absent from `docs/` today. Corpus-relative agreement is not
+correctness. Swapping the parser in left the report byte-identical at 908.
+
+Other latent gaps closed on review (Codex, PR #872), each with a measured tree-wide delta
+of **0 dead refs** — they widen *coverage*, not the count:
+
+- **Blockquoted fences** (`> ` before the delimiter) never opened, so quoted examples were
+  skipped whole. One lives at `UNIFIED_RELATIONSHIP_SERVICE.md:318`; 4 previously-invisible
+  lines are now scanned, none holding a path token today.
+- **`./`-prefixed paths** (`cp ./core/services/base_service.py`) start with neither `/` nor a project
+  directory, so the guard dropped them. 8 such tokens exist tree-wide, all currently live.
+- **Dedup is keyed on the resolved target, not the raw string.** Once the dot-slash form
+  became checkable, the backtick pass reported it while `[bare]` independently matched its
+  leading-slash tail — one defect, two lines. Two spellings of one dead file on one line are
+  now one finding; two different dead files on one line remain two.
+
+Placeholder shapes are rejected by the shared `_looks_like_local_path` guard, not a
+second filter: syntactic markers (`{domain}`, `<name>`, `*`) plus a lexical vocabulary
+for the prose convention (`your_service.py`, `test_foo.py`, `alpine.X.Y.Z.min.js`).
+That vocabulary only ever *subtracts* reports, so a gap in it costs one noisy advisory
+line rather than a false failure — never invert it to decide something *is* broken.
+Every entry is pinned by `tests/unit/scripts/test_dead_doc_links.py`, which also pins
+all four cells of the {inline, fenced} × {relative, absolute} matrix.
 
 ---
 
