@@ -220,20 +220,28 @@ class UserEntryAssessmentOperations(Protocol):
         teacher_uid: str,
         status_filter: list[str] | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Teacher's pending review queue via ``SHARED_WITH_GROUP``.
+        """Entries awaiting this teacher's review, newest submission first.
 
-        Pattern:
+        Scoped to groups the teacher OWNS: an entry qualifies only by having
+        been shared to one of those groups with pipeline ``teacher_review``.
+        Empty when the teacher owns no groups, so the queue never reveals that
+        an unrelated student's submission exists.
 
-            MATCH (teacher:User {user_uid: $teacher_uid})-[:OWNS]->(g:Group)
-            MATCH (entry:Entity:UserEntry)-[:SHARED_WITH_GROUP]->(g)
-            WHERE entry.pipeline = 'teacher_review'
-              AND entry.status IN $status_filter
-            OPTIONAL MATCH (entry)-[r:FULFILLS_EXERCISE]->(ex:Exercise)
-            OPTIONAL MATCH (student:User)-[:OWNS]->(entry)
-            RETURN entry, student.user_uid AS student_uid,
-                   student.display_name AS student_name,
-                   ex.uid AS exercise_uid, ex.title AS exercise_title,
-                   r.revision AS revision, g.uid AS group_uid
+        ``status_filter`` narrows by entry status; ``None`` means the default
+        submitted-or-active pair rather than "all statuses".
+
+        Each row is FLAT — scalars, not an ``entry`` node — keyed:
+        ``entry_uid``, ``title``, ``status``, ``entity_type``,
+        ``original_filename``, ``submitted_at``, ``student_uid``,
+        ``student_name``, ``exercise_uid``, ``exercise_title``, ``due_date``,
+        ``revision``, ``group_uid``, ``feedback_count``. The aliases ARE the
+        contract: nothing statically links them to a consumer's key, and
+        ``TeacherReviewService`` remaps 12 of them into ``ReviewQueueItem``.
+
+        ``feedback_count`` counts EntryReports already written for the entry,
+        so a re-reviewed entry is distinguishable from an untouched one.
+
+        Backend: _UserEntryAssessmentMixin.get_review_queue_by_groups
         """
         ...
 

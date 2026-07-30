@@ -22,11 +22,22 @@ Neo4j Schema:
     (user:User)-[:HAD_AUTH_EVENT]->(event:AuthEvent)
 
 Rate Limiting:
-    AuthEvents are used for rate limiting by counting recent LOGIN_FAILED events:
+    Login lockout is derived from this audit trail rather than from separate
+    counter state, so the evidence for a lockout is always inspectable.
 
-    MATCH (e:AuthEvent {event_type: 'LOGIN_FAILED', email: $email})
-    WHERE e.timestamp > datetime() - duration({minutes: 15})
-    RETURN count(e) as failed_attempts
+    Two independent counters read LOGIN_FAILED events over the same rolling
+    window (``LOCKOUT_MINUTES``), because they catch different attacks:
+
+    - per-EMAIL — a brute force against one account; trips at
+      ``MAX_FAILED_ATTEMPTS``
+    - per-IP, across all accounts — one host fanning out over many emails
+      (distributed credential stuffing); trips at
+      ``MAX_FAILED_ATTEMPTS_PER_IP``
+
+    Both windows slide: attempts age out, so a lockout expires on its own with
+    no unlock write. Backend: SessionBackend.count_recent_failed_attempts /
+    .count_recent_failed_attempts_by_ip (is_account_locked / is_ip_rate_limited
+    apply the thresholds).
 """
 
 import secrets

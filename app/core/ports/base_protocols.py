@@ -475,7 +475,18 @@ class GraphRelationshipOperations(Protocol):
         relationship_type: RelationshipName,
         properties: Neo4jProperties | None = None,
     ) -> ResultType[bool]:
-        """Create (MERGE) a validated graph edge between two entities.
+        """Attach a registry-validated edge between two entities, idempotently.
+
+        Safe to retry: a repeat call updates the one edge of this type between
+        this pair rather than adding a second, and merges ``properties`` into
+        whatever the edge already carries — keys absent from this call survive,
+        keys present win. Edge identity is (source, type, target) only, so
+        properties never fork it.
+
+        Both entities must ALREADY exist; this creates the edge, never the
+        endpoints. Invalid pairs fail hard rather than silently no-op: the
+        relationship type must be legal for the source's domain and the target's
+        label must match the registry's spec for it.
 
         Args:
             from_uid: Source entity UID
