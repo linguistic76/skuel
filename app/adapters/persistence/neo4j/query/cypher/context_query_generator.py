@@ -32,7 +32,9 @@ WITH entity, ...,
 
 **Usage:**
 ```python
-from core.models.query.cypher.context_query_generator import generate_context_query
+from adapters.persistence.neo4j.query.cypher.context_query_generator import (
+    generate_context_query,
+)
 
 # Generate Task context query
 query, params = generate_context_query("Task")
