@@ -271,6 +271,34 @@ def test_real_closing_delimiters_are_still_excluded(closer: str) -> None:
     assert ddl.extract_fenced_paths(content) == [(2, "core/a.py")]
 
 
+@pytest.mark.parametrize(
+    ("content", "label"),
+    [
+        ("```bash\n>core/generated.txt\n```\n", "unquoted"),
+        ("> ```bash\n> >core/generated.txt\n> ```\n", "quoted, depth 1"),
+        ("> > ```bash\n> > >core/generated.txt\n> > ```\n", "quoted, depth 2"),
+    ],
+)
+def test_quoting_a_fence_does_not_change_what_it_reports(content: str, label: str) -> None:
+    """A literal `>` in fence content must survive the container strip (Codex, #872 r6).
+
+    `_strip_quote_prefix` stripped every leading `>` greedily, but only `quote_depth` of
+    them are container markers. In `> >core/generated.txt` the second `>` is a shell
+    redirect — content — and eating it handed the guard a bare path to report, while the
+    identical *unquoted* redirect was correctly rejected by the `>` template marker. Same
+    command, different answer depending on whether someone quoted the block.
+    """
+    assert ddl.extract_fenced_paths(content) == [], label
+
+
+def test_depth_bounded_strip_still_finds_real_quoted_paths() -> None:
+    """The other direction: bounding the strip must not resurrect the #870 blind spot."""
+    quoted = f"> ```bash\n> cp {DEAD_REL} x.py\n> ```\n"
+    assert ddl.extract_fenced_paths(quoted) == [(2, DEAD_REL)]
+    nested = f"> > ```bash\n> > cp {DEAD_REL} x.py\n> > ```\n"
+    assert ddl.extract_fenced_paths(nested) == [(2, DEAD_REL)]
+
+
 def test_wrong_char_delimiter_is_content_though_its_token_stays_glued() -> None:
     """Scope pin, so the fix above is not over-claimed.
 

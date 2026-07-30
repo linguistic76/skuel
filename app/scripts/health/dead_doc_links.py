@@ -270,17 +270,34 @@ def extract_bare_paths(content: str) -> list[tuple[int, str]]:
     return results
 
 
-def _strip_quote_prefix(line: str) -> str:
-    """Strip Markdown blockquote markers (`>`, `> >`, …) from the head of a line."""
+def _strip_quote_prefix(line: str, depth: int | None = None) -> str:
+    """
+    Remove Markdown blockquote container markers from the head of a line.
+
+    ``depth`` bounds how many are removed; pass the parser's quote depth so that a
+    literal ``>`` in *fence content* survives. Stripping greedily conflates the two: in
+    a quoted fence holding a no-space shell redirect, ``> >core/generated.txt`` has one
+    container marker and one content character, and eating both hands the guard a bare
+    path that gets reported — while the identical unquoted redirect is correctly rejected
+    by the ``>`` template marker. Quoting a fence must not change what it reports
+    (Codex, PR #872).
+
+    ``None`` means strip every marker, which is only right when the caller has no depth
+    to work from.
+    """
+    remaining = depth
     stripped = line
-    while True:
+    while remaining is None or remaining > 0:
         candidate = stripped.lstrip()
         if not candidate.startswith(">"):
-            return stripped
+            break
         stripped = candidate[1:].removeprefix(" ")
+        if remaining is not None:
+            remaining -= 1
+    return stripped
 
 
-def _closes_fence(line: str, opener: str) -> bool:
+def _closes_fence(line: str, opener: str, quote_depth: int) -> bool:
     """
     Is this line a valid CommonMark closing delimiter for a fence opened with ``opener``?
 
@@ -296,7 +313,7 @@ def _closes_fence(line: str, opener: str) -> bool:
     ``lstrip()`` starts with ``>``, so testing the raw line calls a closed fence unclosed
     and emits its own closing delimiter as content.
     """
-    candidate = _strip_quote_prefix(line).lstrip()
+    candidate = _strip_quote_prefix(line, quote_depth).lstrip()
     char = opener[0]
     run = len(candidate) - len(candidate.lstrip(char))
     return run >= len(opener) and not candidate[run:].strip()
@@ -348,14 +365,18 @@ def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
             # last line is a real closer decides if it is content. Assuming it always
             # is once made this module's own CommonMark differential report a false
             # disagreement — the harness was wrong, not the code under test.
-            closed = end - 1 < len(lines) and _closes_fence(lines[end - 1], token.markup)
+            closed = end - 1 < len(lines) and _closes_fence(
+                lines[end - 1], token.markup, quote_depth
+            )
             info = token.info.strip()
             lang = info.split()[0].lower() if info else ""
             for lineno in range(start + 2, (end - 1 if closed else end) + 1):
                 line = lines[lineno - 1]
                 # Strip `> ` only inside a real blockquote, so a shell redirect at the
                 # start of an unquoted fence line keeps its `>`.
-                results.append((lineno, lang, _strip_quote_prefix(line) if quote_depth else line))
+                results.append(
+                    (lineno, lang, _strip_quote_prefix(line, quote_depth) if quote_depth else line)
+                )
 
     return sorted(results)
 
