@@ -262,7 +262,7 @@ disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 # Core models and infrastructure - medium strictness
-module = ["core.models.*", "core.infrastructure.*", "core.patterns.*"]
+module = ["core.models.*", "core.infrastructure.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 warn_return_any = false
@@ -286,7 +286,8 @@ disallow_untyped_defs = false
 warn_return_any = false
 disallow_any_generics = false
 warn_unreachable = true
-disable_error_code = ["import-untyped"]
+# No disable_error_code: `import-untyped` was suppressed here and measured 0 errors
+# (PR #876) — a code that suppresses nothing only hides the FIRST real one.
 
 [[tool.mypy.overrides]]
 # Bootstrap: no frozen-dataclass post-init normalization or Neo4j
@@ -298,11 +299,12 @@ warn_unreachable = true
 
 [[tool.mypy.overrides]]
 # Events and protocols - lenient (auto-generated patterns)
-module = ["core.events.*", "core.protocols"]
+module = ["core.events.*"]
 disallow_untyped_defs = false
 warn_return_any = false
-# Allow common event patterns
-disable_error_code = ["call-arg", "no-untyped-def"]
+# `call-arg` and `no-untyped-def` were suppressed here and measured 0 errors each
+# (PR #876). `disallow_untyped_defs = false` above already covers the untyped-def
+# leniency this block wanted; the codes only stood to hide the first real violation.
 
 [[tool.mypy.overrides]]
 # Domain backends — MRO mixin conflicts (create/get/update/delete/list/create_relationship)
@@ -336,20 +338,11 @@ module = [
     "openai.*",
     "deepgram.*",
     "anthropic.*",
-    "rdflib.*",
-    "psutil.*",
     "huggingface_hub.*",
     "vulture.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
-
-[[tool.mypy.overrides]]
-# Configuration module - ensure config typing is strict
-module = ["config"]
-disallow_any_generics = true
-disallow_untyped_defs = true
-warn_return_any = true
 
 [[tool.mypy.overrides]]
 # Tests and scripts — check_untyped_defs enforced (2026-05-17).
@@ -375,7 +368,9 @@ disallow_incomplete_defs = false
 check_untyped_defs = true
 warn_return_any = false  # too noisy for fixture helpers
 warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
-disable_error_code = ["method-assign", "type-var", "misc", "arg-type", "import-untyped"]
+# Measured backlog, PR #876: arg-type 2260, method-assign 96, type-var 33, misc 32.
+# `import-untyped` was here too and measured 0 — dropped.
+disable_error_code = ["method-assign", "type-var", "misc", "arg-type"]
 
 # ============================================================================
 # PYRIGHT CONFIGURATION

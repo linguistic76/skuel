@@ -46,7 +46,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, NamedTuple
 
 from core.utils.terminal_colors import Colors
 
@@ -881,6 +881,49 @@ class Site:
 # ============================================================================
 # Parsed codebase — every file parsed exactly once, shared by all analyses
 # ============================================================================
+
+
+def measure_vulture_blind_spot(
+    codebase: "ParsedCodebase", used_names: frozenset[str], scope: str = METHOD_SCOPE
+) -> tuple[int, int]:
+    """
+    Size the blind spot this detector declares but long left unquantified.
+
+    Vulture marks a method used when ANY same-named attribute is loaded anywhere, so a
+    method whose name is in ``used_names`` cannot be reported dead no matter which class
+    defines it. That set IS the suppressor, so exposure is measured from it directly.
+
+    An earlier cut of this counted *duplicate definitions* instead — names defined on 2+
+    classes — and it was wrong in both directions (Codex, PR #876): 268 duplicate-defined
+    methods are never loaded as an attribute at all, so vulture can still report them,
+    while 2013 uniquely-defined methods ARE name-loaded and were omitted entirely. A proxy
+    for a mechanism you already have on hand is just a second thing to get wrong; the
+    corrected figure is also the larger one.
+
+    Counted over ``scope`` — ``core/services/`` by default, because that is what
+    ``analyze_methods`` reports on: it discards every candidate outside METHOD_SCOPE, so a
+    corpus-wide percentage would annotate the method report with a number about a
+    different population (Codex, PR #876). ``used_names`` stays global, since the
+    suppressor is: an attribute load anywhere hides a method here.
+
+    Returns (methods_vulture_cannot_report, total_methods_in_scope).
+    """
+    total = 0
+    invisible = 0
+    for path, tree in codebase.production.items():
+        if not str(path.relative_to(codebase.root)).startswith(scope):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and not (
+                    item.name.startswith("__")
+                ):
+                    total += 1
+                    if item.name in used_names:
+                        invisible += 1
+    return invisible, total
 
 
 class ParsedCodebase:
@@ -1755,6 +1798,7 @@ class MethodAnalysis:
     suppressed: dict[str, str]  # method name -> dispatch reason
     total_candidates: int
     dispatch: DispatchKnowledge
+    vulture_used_names: frozenset[str]
 
 
 def _test_reference_index(codebase: ParsedCodebase) -> dict[str, int]:
@@ -1770,7 +1814,20 @@ def _test_reference_index(codebase: ParsedCodebase) -> dict[str, int]:
     return counts
 
 
-def run_vulture(root: Path) -> list:
+class VultureScan(NamedTuple):
+    """Vulture's unused-code candidates plus the used-name set that gates them.
+
+    `used_names` is carried because it IS the suppressor: vulture marks a method used
+    when ANY same-named attribute is loaded anywhere, so a name in this set cannot be
+    reported dead regardless of which class defines it. Returning it lets the report
+    quantify its own blind spot from the mechanism instead of a proxy (PR #876).
+    """
+
+    items: list
+    used_names: frozenset[str]
+
+
+def run_vulture(root: Path) -> VultureScan:
     """Vulture over the full first-party tree (whitelist included).
 
     min_confidence=60 is mechanics, not tuning: vulture assigns exactly 60 to
@@ -1783,14 +1840,17 @@ def run_vulture(root: Path) -> list:
     paths = [str(root / name) for name in FIRST_PARTY_ROOTS]
     paths.append(str(root / "vulture_whitelist.py"))
     v.scavenge(paths)
-    return [
-        item
-        for item in v.get_unused_code(min_confidence=60)
-        if item.typ in ("function", "method", "property")
-    ]
+    return VultureScan(
+        items=[
+            item
+            for item in v.get_unused_code(min_confidence=60)
+            if item.typ in ("function", "method", "property")
+        ],
+        used_names=frozenset(v.used_names),
+    )
 
 
-def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnalysis:
+def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalysis:
     """Filter vulture's service-layer candidates through dispatch knowledge.
 
     Pipeline: scope to core/services -> drop names in the dispatch-live
@@ -1807,7 +1867,7 @@ def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnal
     suppressed: dict[str, str] = {}
     total = 0
 
-    for item in vulture_items:
+    for item in scan.items:
         rel = str(Path(item.filename).relative_to(codebase.root))
         if not rel.startswith(METHOD_SCOPE):
             continue
@@ -1897,7 +1957,7 @@ def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnal
     findings.extend(_out_of_scope_planned_findings(codebase))
 
     findings.sort(key=lambda f: (f.file, f.line))
-    return MethodAnalysis(findings, exempted, suppressed, total, dispatch)
+    return MethodAnalysis(findings, exempted, suppressed, total, dispatch, scan.used_names)
 
 
 def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
@@ -2255,10 +2315,13 @@ def print_limitations(
             "computed name — methods reachable only through them may be falsely "
             "flagged (run --verbose for locations)."
         )
+        invisible, total = measure_vulture_blind_spot(codebase, methods.vulture_used_names)
         print(
-            "  - Vulture name-collision: any same-named attribute access anywhere "
-            "marks ALL same-named methods used, so common-named dead methods stay "
-            "invisible (inherent under-reporting)."
+            "  - Vulture name-collision: a method is treated as used when ANY same-named "
+            "attribute is loaded anywhere, so it cannot be reported dead regardless of "
+            f"which class defines it. Measured across {METHOD_SCOPE} (this report's own "
+            f"scope): {invisible} of {total} methods ({invisible * 100 // total}%) have a "
+            "name in vulture's used set — a clean run is NOT evidence those are live."
         )
     if codebase.syntax_errors:
         print(

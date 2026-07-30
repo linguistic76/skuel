@@ -29,8 +29,10 @@ from detect_bloat import (  # type: ignore[import-not-found]
     EventUniverse,
     EventUsageCollector,
     ParsedCodebase,
+    VultureScan,
     analyze_events,
     analyze_methods,
+    measure_vulture_blind_spot,
     run_vulture,
 )
 
@@ -475,7 +477,10 @@ def test_planned_method_reports_planned_not_dead(monkeypatch):
         {"core/services/x.py::future_method": "awaiting synthetic wiring"},
     )
     codebase = build_codebase({"core/services/x.py": "def future_method():\n    pass\n"})
-    analysis = analyze_methods(codebase, [FakeVultureItem("core/services/x.py", "future_method")])
+    analysis = analyze_methods(
+        codebase,
+        VultureScan([FakeVultureItem("core/services/x.py", "future_method")], frozenset()),
+    )
     finding = finding_for(analysis.findings, "future_method")
     assert finding is not None
     assert finding.severity is BloatSeverity.PLANNED
@@ -489,7 +494,8 @@ def test_stale_planned_method_marking_is_reported(monkeypatch):
         {"core/services/x.py::now_live_method": "awaiting synthetic wiring"},
     )
     codebase = build_codebase({})
-    analysis = analyze_methods(codebase, [])  # not a vulture candidate -> live or deleted
+    # not a vulture candidate -> live or deleted
+    analysis = analyze_methods(codebase, VultureScan([], frozenset()))
     stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["now_live_method"]
     assert stale[0].severity is BloatSeverity.INFO
@@ -786,3 +792,98 @@ def test_live_method_self_diagnostic(live_methods):
     assert live_methods.total_candidates > 100
     assert len(live_methods.dispatch.live) > 100
     assert len(live_methods.dispatch.unanalyzable_getattr) > 0
+
+
+# ============================================================================
+# BLIND-SPOT MEASUREMENT — the detector's own under-reporting, quantified
+# ============================================================================
+
+
+@pytest.fixture(scope="module")
+def live_codebase():
+    codebase = ParsedCodebase(ROOT)
+    codebase.load()
+    return codebase
+
+
+def test_blind_spot_is_measured_from_vultures_own_used_names(live_methods, live_codebase):
+    """The caveat must carry a number, and the number must come from the mechanism.
+
+    Vulture treats a method as used when ANY same-named attribute is loaded anywhere, so
+    `used_names` is the suppressor and the only correct basis for the figure. Asserted as
+    a floor so ordinary refactors don't churn it — the point is that it is substantial and
+    computed, never hardcoded.
+    """
+    invisible, total = measure_vulture_blind_spot(live_codebase, live_methods.vulture_used_names)
+    assert total > 1000, f"only {total} production methods seen — collector is broken"
+    assert invisible > total // 2, (
+        f"only {invisible}/{total} methods sit in the blind spot; if that genuinely "
+        "dropped, re-measure and lower the floor deliberately rather than deleting it"
+    )
+
+
+def test_blind_spot_is_scoped_to_the_report_it_annotates():
+    """The figure must describe METHOD_SCOPE, not the whole corpus (Codex, PR #876).
+
+    `analyze_methods` discards every candidate outside `core/services/`, so a corpus-wide
+    percentage would annotate the method report with a number about a different
+    population — adapters/ and ui/ methods it never claims to cover. Measured, the
+    distinction is material: 87% corpus-wide vs 94% in scope.
+    """
+    import ast as _ast
+    from pathlib import Path as _Path
+
+    class _Stub:
+        root = _Path("/repo")
+
+        def __init__(self, trees):
+            self.production = trees
+
+    tree = _ast.parse("class A:\n    def m(self): ...\n")
+    in_scope = _Stub({_Path("/repo/core/services/x.py"): tree})
+    out_of_scope = _Stub({_Path("/repo/adapters/persistence/y.py"): tree})
+
+    assert measure_vulture_blind_spot(in_scope, frozenset({"m"})) == (1, 1)
+    assert measure_vulture_blind_spot(out_of_scope, frozenset({"m"})) == (0, 0), (
+        "methods outside core/services/ must not enter the count — the method report "
+        "never claims to cover them"
+    )
+
+
+def test_blind_spot_counts_name_loads_not_duplicate_definitions():
+    """Regression pin for the wrong proxy this replaced (Codex, PR #876).
+
+    The first cut counted names defined on 2+ classes, which is wrong in BOTH directions:
+    a duplicate-defined method whose name is never loaded is still reportable, and a
+    uniquely-defined method whose name IS loaded is invisible. Both asserted here, because
+    fixing only one would still look green.
+    """
+    import ast as _ast
+    from pathlib import Path as _Path
+
+    class _Stub:
+        root = _Path("/repo")
+
+        def __init__(self, trees):
+            self.production = trees
+
+    in_scope = _Path("/repo/core/services/x.py")
+
+    # Two classes, same method name — duplicate-defined but NOT name-loaded.
+    duplicated = _Stub(
+        {
+            in_scope: _ast.parse(
+                "class A:\n    def dup(self): ...\nclass B:\n    def dup(self): ...\n"
+            )
+        }
+    )
+    assert measure_vulture_blind_spot(duplicated, frozenset()) == (0, 2), (
+        "duplicate definitions alone must not count — with no attribute load, vulture "
+        "can still report both"
+    )
+
+    # One class, one method — uniquely defined but the name IS loaded somewhere.
+    unique = _Stub({in_scope: _ast.parse("class A:\n    def solo(self): ...\n")})
+    assert measure_vulture_blind_spot(unique, frozenset({"solo"})) == (1, 1), (
+        "a uniquely-defined method whose name is loaded elsewhere IS invisible and must be counted"
+    )
