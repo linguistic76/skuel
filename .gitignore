@@ -163,6 +163,10 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+# scripts/health/mypy_suppressions.py cleans both up in a finally block; these
+# are here so an interrupted run cannot leave a cache dir staged for commit.
+.mypy_cache_suppression_audit/
+.mypy_suppressions_audit.toml
 
 # Pyre type checker
 .pyre/

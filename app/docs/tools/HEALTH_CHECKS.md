@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-07-24
+updated: 2026-07-30
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -15,21 +15,24 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 
 ## Overview
 
-Four automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, and skill↔doc cross-reference inconsistencies.
+Five automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, skill↔doc cross-reference inconsistencies, and mypy suppressions that have stopped suppressing anything.
 
 ```bash
-./dev health              # run all four checks
+./dev health              # run the first four checks
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
 ./dev health-xref         # cross-reference + staleness only
+./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
 
-All four exit non-zero when issues are found, so they can be used in CI.
+All five exit non-zero when issues are found, so they can be used in CI.
+
+**`health-mypy` is deliberately outside `./dev health`.** The first four are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
 
 ---
 
-## The Four Checks
+## The Five Checks
 
 ### 1. `dead_modules.py` — Zero-Importer Python Files
 
@@ -270,6 +273,51 @@ Cross-Reference Validation Report
 
 ---
 
+### 5. `mypy_suppressions.py` — Dead MyPy Suppressions
+
+The mypy counterpart to SKUEL026. SKUEL026 flags any `# skuel-lint: disable=...` comment that suppresses nothing; mypy had no equivalent, so its suppressions drifted unwatched until PR #876 swept them by hand. This makes that sweep repeatable.
+
+```
+MyPy Suppression Auditor
+============================================================
+13 override blocks, 5 (block, code) pairs to verify.
+
+Load-bearing disable_error_code entries:
+  ● arg-type suppresses 2260 errors
+      pyproject.toml:347  module = [tests.*, examples.*, scripts.*]
+  ● misc suppresses 8 errors
+      pyproject.toml:309  module = [adapters.persistence.neo4j.backends...]
+
+✓ No dead mypy suppressions (5 entries verified load-bearing)
+```
+
+**What it reports:**
+
+| Finding | Meaning |
+|---------|---------|
+| Vacuous `disable_error_code` entry | The code currently suppresses 0 errors in that scope — it will silently eat the FIRST real violation someone writes |
+| Unused override section | A module pattern matching nothing, taken straight from mypy's own `unused section(s)` note |
+
+**What counts as a scope.** Both the global `[tool.mypy]` table and each `[[tool.mypy.overrides]]` block. The global table is the widest suppression there is — it silences a code across every checked file — so auditing only the overrides would leave it invisible behind a clean report. This repo has carried a global entry before; the note atop its `[tool.mypy]` table records the deletion.
+
+**How it measures.** For each (scope, error code) pair it writes a copy of `pyproject.toml` with that one code removed from that one scope, runs `uv run mypy .` against it, and attributes errors by the trailing `[code-name]`. The generated config is re-parsed with `tomllib` and checked against the intended edit before it is trusted.
+
+**Why the unit is the pair, not the code.** PR #876 measured by stripping every code at once and attributing by code, then confirming each zero individually. That is necessary but not sufficient: what you delete is a (scope, code) pair, and `misc` is currently disabled in two different scopes. An aggregate reading of `misc 32` cannot tell you whether both earn it or whether all 32 sit in one — in fact they split 24/8. The aggregate survives as `--census`, which refreshes the backlog figures quoted in `pyproject.toml` and is explicitly not evidence for a deletion.
+
+**Fail-safe direction:** it under-reports rather than over-reports. Stripping one pair can only surface errors inside that scope, so a non-zero count proves the entry is load-bearing, and every zero is confirmed by the run that isolates it. That holds only for runs that *completed*, so any mypy invocation the script cannot prove finished aborts the whole audit — a crashed mypy prints no errors, and an empty error set is indistinguishable from a clean one. An aborted audit reports nothing; it never reports zero.
+
+**Exit codes** — unlike the other four checks, this one distinguishes *found something* from *could not measure*:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Clean |
+| 1 | Confirmed findings, and nothing else |
+| 2 | The instrument could not measure (incomplete mypy run, malformed config, any unexpected exception) |
+
+Exit 1 is load-bearing: the scheduled workflow opens an issue on it asserting dead suppressions were found, so every non-finding outcome — including Python's default status for an uncaught exception — is mapped to 2 instead.
+
+---
+
 ## Maintaining `stale_names.py`
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
@@ -316,7 +364,7 @@ Once a rename has been fully applied to ALL code and docs and the scanner report
 | Monthly maintenance | Catch slow drift |
 | Before cutting a release | Ensure docs are accurate |
 
-The scripts are fast enough to run on every commit if desired (a few seconds each).
+The first four scripts are fast enough to run on every commit if desired (a few seconds each). `mypy_suppressions.py` is not — it runs a full type check per suppression, so it has a weekly CI schedule (`.github/workflows/mypy-suppressions.yml`) and is worth running locally when editing `[tool.mypy]` config.
 
 ---
 
@@ -336,6 +384,10 @@ The scripts are fast enough to run on every commit if desired (a few seconds eac
 - Only catches names that are explicitly listed in RENAMED/DELETED — it won't catch names you forgot to add
 - Prose mentions inside code blocks (docstring examples, prose in fenced blocks) are also checked, which may trigger false positives if a doc legitimately shows before/after migration history
 
+**`mypy_suppressions.py`:**
+- **The verdict is per (scope, code), not per module pattern.** An override listing several module patterns is earned as a whole, so a pattern producing none of the code is still marked load-bearing. The live case: the domain-backends override lists seven modules, but all 8 `misc` errors come from `activity_backends` (6) and `curriculum_backends` (2) — a first `misc` violation in the other five would be suppressed with this audit green. The report prints the files behind each verdict so the gap is visible rather than silent; closing it properly is tracked separately, because a pattern cannot be isolated by deleting it from the list (for a block that sets other options too, that changes all of them for the module and measures the wrong thing).
+- It measures what mypy reports **today**. A code that is load-bearing now can become vacuous later when the last violation is fixed, which is why the weekly schedule is not gated on `pyproject.toml` changing.
+
 ---
 
 ## File Structure
@@ -344,12 +396,14 @@ The scripts are fast enough to run on every commit if desired (a few seconds eac
 scripts/health/
 ├── dead_modules.py                    # Zero-importer Python module detection
 ├── dead_doc_links.py                  # Markdown link validator
-└── stale_names.py                     # Deprecated identifier scanner
+├── stale_names.py                     # Deprecated identifier scanner
+├── markdown_fences.py                 # Shared CommonMark fence walker (links + names)
+└── mypy_suppressions.py               # Dead mypy suppression auditor
 scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
 ```
 
 **Related:**
-- `./dev health` — runs all four
+- `./dev health` — runs the first four
 - `./dev bloat` — separate check for unused events/methods (different scope) — see [BLOAT_DETECTION.md](BLOAT_DETECTION.md)
 - `docs/tools/AUTOMATIC_DOCS_CHECK.md` — post-commit hook for doc freshness
 - `docs/user-guides/documentation-freshness.md` — unified user guide

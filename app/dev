@@ -213,6 +213,14 @@ case "$1" in
     uv run python scripts/validate_cross_references.py
     ;;
 
+  health-mypy)
+    # Deliberately NOT part of `./dev health` — one mypy run per (block, code)
+    # pair puts this at ~80s, and a fast target that grows a slow tail stops
+    # being run. See the script docstring for the full placement reasoning.
+    echo -e "${YELLOW}Auditing mypy suppressions that suppress nothing...${NC}"
+    uv run python scripts/health/mypy_suppressions.py "${@:2}"
+    ;;
+
   docs-check)
     echo -e "${YELLOW}Running post-commit docs check...${NC}"
     echo '{"tool_input":{"command":"git commit"},"tool_response":"simulated"}' | bash .claude/hooks/post-commit-docs.sh | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('additionalContext','No suggestions.'))" 2>/dev/null || echo "Hook not available"
@@ -278,6 +286,7 @@ case "$1" in
     echo "  ./dev health-links   - Find broken links in docs/ and .claude/skills/"
     echo "  ./dev health-names   - Find stale/deprecated identifiers in doc code blocks"
     echo "  ./dev health-xref    - Validate skill↔doc cross-references and staleness"
+    echo "  ./dev health-mypy    - Find mypy suppressions that suppress nothing (~80s, not in health)"
     echo ""
     echo "Testing:"
     echo "  ./dev test              - unit + integration + infrastructure [RECOMMENDED]"
