@@ -277,6 +277,14 @@ def create_teaching_forms_ui_routes(
 
         result = await form_submission_service.get_submission_admin(uid)
         if result.is_error:
+            # Same rule as the authority check below: only a genuine NOT_FOUND
+            # is a 404. get_submission_admin propagates backend errors with
+            # their own category, so collapsing them here would report an
+            # outage as a missing submission.
+            fetch_error = result.expect_error()
+            if fetch_error.category is not ErrorCategory.NOT_FOUND:
+                logger.error("Failed to load submission %s: %s", uid, fetch_error.message)
+                return render_unavailable("Could not load the submission. Please try again.")
             return render_not_found()
 
         submission = result.value

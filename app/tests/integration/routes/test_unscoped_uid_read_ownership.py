@@ -318,6 +318,7 @@ def forms_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         review_service,
     )
     registered["_review_service"] = review_service
+    registered["_submission_service"] = submission_service
     return registered
 
 
@@ -427,6 +428,33 @@ class TestFormSubmissionDetailRequiresAuthority:
         assert status == 503
         assert "not found" not in rendered.lower()
         # Still fails closed — the submission body never renders.
+        assert SECRET_ANSWER not in rendered
+
+    async def test_fetch_failure_is_not_reported_as_not_found(
+        self, forms_handlers: dict[str, Any]
+    ) -> None:
+        """The submission *fetch* obeys the same rule as the authority check.
+
+        ``get_submission_admin`` propagates backend errors with their own
+        category, so the handler must not collapse them into 404 — the two
+        error sites in one handler have to agree.
+        """
+        forms_handlers["_submission_service"].get_submission_admin = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(operation="get_submission", message="Neo4j unavailable")
+            )
+        )
+
+        status, rendered = _page(
+            await _submission_route(forms_handlers)(
+                request=_make_request(TEACHER_A, path="/teaching/forms/submission"),
+                uid=SUBMISSION_UID,
+                current_user=_fake_user(TEACHER_A, UserRole.TEACHER),
+            )
+        )
+
+        assert status == 503
+        assert "not found" not in rendered.lower()
         assert SECRET_ANSWER not in rendered
 
     async def test_admin_retains_cross_classroom_view(self, forms_handlers: dict[str, Any]) -> None:
