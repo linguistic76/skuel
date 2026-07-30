@@ -71,6 +71,7 @@ Last Updated: April 2026
 
 import ast
 import io
+import itertools
 import re
 import subprocess
 import sys
@@ -1021,11 +1022,17 @@ shape — the distinction is the one `CYPHER_LEADING_CLAUSES` already draws, and
 that keeps this rule from firing on `query_types.py`'s row-shape references, where the
 alias IS the contract because nothing statically links it to a TypedDict key.
 
-Known and deliberate limit: the block threshold is TWO clause lines, so a ONE-line query
-embedded mid-docstring stays legal. A wrapped English sentence puts a clause word at a
-line head with an operand after it, and the one-line threshold measured 8 sites with 5 of
-them legitimate. The failure direction is a miss, which is the fail-safe one here, and it
-is asserted by `test_single_clause_line_is_not_flagged`.
+Known and deliberate limit: the block threshold is TWO clause lines IN ONE contiguous run
+of non-blank lines, so a ONE-line query embedded mid-docstring stays legal, as does a
+query split across a blank line. Both halves are load-bearing. A wrapped English sentence
+puts a clause word at a line head with an operand after it, and the one-line threshold
+measured 8 sites with 5 of them legitimate. The run requirement is what keeps a docstring
+documenting TWO non-adjacent aliases — legitimate under the style guide — from reaching
+the threshold on two prose references (Codex P2, #875); a query survives it because its
+own continuations (WHERE / AND / an indented field list) are non-blank, while prose
+separates paragraphs with blank lines. The failure direction is a miss, which is the
+fail-safe one here given SKUEL033 DOES fail `--strict`, and both limits are asserted by
+tests so a genuine improvement turns them red instead of reading as a regression.
 
 Fix: say what the operation MEANS and what it guarantees. Note that `MERGE` carries real
 upsert semantics — flattening it to "Create" loses the contract, so state the idempotency
@@ -2354,16 +2361,43 @@ class SkuelLinter:
     # a SECOND such line asks for the thing a query has and a sentence does not —
     # more than one clause.
     #
+    # The two must also be in the SAME contiguous run of non-blank lines, and
+    # that is not a refinement — it is the difference between a sound predicate
+    # and one that only happens to score well on today's corpus (Codex P2, #875).
+    # A docstring documenting TWO non-adjacent aliases — entirely legitimate
+    # under the style guide, and the shape `query_types.py` is one blank line away
+    # from — would otherwise reach the threshold on two prose references and be
+    # flagged. That matters more than a WARNING usually would, because SKUEL033
+    # DOES fail `--strict`: a false positive here blocks CI and the only escapes
+    # are deleting sanctioned documentation or suppressing the rule.
+    #
+    # A query survives this test because its own continuation lines (WHERE / AND /
+    # ORDER BY / an indented field list) are non-blank, so the whole statement is
+    # one run; prose separates its paragraphs with blank lines. Verified on all
+    # three real sites: none has adjacent clause lines, and every one is a single
+    # non-blank run.
+    #
     # The threshold's failure direction is a MISS: a one-line query embedded
-    # mid-docstring stays legal. That is deliberate and asserted by
-    # `test_single_clause_line_is_not_flagged` — for a rule whose job is to name
-    # a documented gap, a quiet miss is recoverable and a false failure trains
-    # authors to suppress. Raising coverage here means finding a signal a
-    # wrapped sentence cannot have, NOT lowering the threshold to 1.
+    # mid-docstring stays legal, as does a query split across a blank line. That
+    # is deliberate and asserted by `test_single_clause_line_is_not_flagged` — for
+    # a rule whose job is to name a documented gap, a quiet miss is recoverable
+    # and a false failure trains authors to suppress. Raising coverage here means
+    # finding a signal a wrapped sentence cannot have, NOT lowering the threshold.
     DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES: ClassVar[int] = 2
 
-    def _docstring_query_block_lines(self, doc: str) -> list[int]:
-        """0-based offsets of NON-HEAD docstring lines that are themselves Cypher.
+    def _docstring_query_block_lines(self, raw_doc: str) -> list[int]:
+        """0-based RAW-offsets of non-head docstring lines that are Cypher.
+
+        Takes the UNCLEANED docstring, and the reason is line math: raw offset i
+        is always source line `node.lineno + i`, because the raw string begins
+        immediately after the opening quotes. `ast.get_docstring()` defaults to
+        `clean=True`, which runs `inspect.cleandoc` and DROPS the leading blank
+        line of a docstring whose `\"\"\"` sits on its own line — so a cleaned
+        offset added to `lineno` reports one line early, landing on the blank line
+        above the query it claims to anchor (Codex P2, #875). Two of the three
+        real sites open that way, and neither the unit test nor the CLI proof
+        caught it because both fixtures put the summary on the opening line: a
+        test can be weaker than the claim made for it (#868).
 
         Reuses `leading_cypher_clause` — the same anchor the head check, SKUEL021
         and SKUEL030 read. #868 spent four rounds learning that the fixes which
@@ -2375,13 +2409,43 @@ class SkuelLinter:
         this codebase writes an inline clause reference (``RETURN x``); leaving
         them on would make the marker itself the reason a real query block hid.
         """
-        offsets = []
-        for index, raw in enumerate(doc.splitlines()):
-            if index == 0:
-                continue  # the head check owns line 0
-            if leading_cypher_clause(raw.strip().strip("`").strip()) is not None:
+        offsets: list[int] = []
+        seen_head = False
+        for index, line in enumerate(raw_doc.splitlines()):
+            stripped = line.strip()
+            if not seen_head:
+                # The first NON-BLANK raw line is the summary the head check owns.
+                # Skipping by index instead would skip nothing on a docstring that
+                # opens with a newline, and double-report its summary.
+                if stripped:
+                    seen_head = True
+                continue
+            if leading_cypher_clause(stripped.strip("`").strip()) is not None:
                 offsets.append(index)
         return offsets
+
+    def _query_block_run(self, raw_doc: str, offsets: list[int]) -> list[int]:
+        """The first run of >=N ``offsets`` sharing one contiguous non-blank span.
+
+        Returns the RUN, not a bool, so the violation anchors to the query's own
+        first line even when a lone prose reference sits above it — reporting
+        `offsets[0]` would point at the reference and send the reader to the one
+        line that is allowed to stay.
+        """
+        if len(offsets) < self.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES:
+            return []
+        blank = {index for index, line in enumerate(raw_doc.splitlines()) if not line.strip()}
+        run = [offsets[0]]
+        for previous, current in itertools.pairwise(offsets):
+            # Contiguous run = no BLANK line between them. Intervening non-blank
+            # lines are the query's own continuations (WHERE / AND / field list).
+            if any(gap in blank for gap in range(previous + 1, current)):
+                run = [current]
+            else:
+                run.append(current)
+            if len(run) >= self.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES:
+                return run
+        return []
 
     def _check_docstring_cypher(
         self,
@@ -2440,9 +2504,11 @@ class SkuelLinter:
                 continue
 
             clause = leading_cypher_clause(doc)
-            block = self._docstring_query_block_lines(doc)
-            hosts_query = len(block) >= self.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES
-            if clause is None and not hosts_query:
+            # The block half reads the RAW docstring: cleaned offsets cannot be
+            # added to `lineno` (see `_docstring_query_block_lines`).
+            raw_doc = ast.get_docstring(node, clean=False) or ""
+            block = self._query_block_run(raw_doc, self._docstring_query_block_lines(raw_doc))
+            if clause is None and not block:
                 continue
 
             # Report on the docstring's own first line, not the def's — that is

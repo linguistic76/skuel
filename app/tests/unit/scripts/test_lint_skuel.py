@@ -5629,6 +5629,69 @@ class TestSKUEL033:
         assert [v.line_number for v in violations] == [2]
         assert "opens with" in violations[0].message
 
+    def test_newline_opening_docstring_reports_the_real_query_line(self) -> None:
+        """Codex P2 (#875): `ast.get_docstring()` cleans, so offsets were off by one.
+
+        `clean=True` runs `inspect.cleandoc`, which DROPS the leading blank line
+        of a docstring whose opening quotes sit on their own line. Adding that
+        cleaned offset to the string node's `lineno` reported one line early —
+        onto the blank line above the query it claimed to anchor. Two of the three
+        real sites open this way, and neither the original unit test nor the CLI
+        proof caught it, because both fixtures put the summary on the opening
+        line: **a test can be weaker than the claim made for it.** Raw offsets fix
+        it by construction — raw offset i IS source line `lineno + i`.
+        """
+        content = (
+            "def f():\n"  # 1
+            '    """\n'  # 2  <- string node starts here
+            "    Intent summary.\n"  # 3
+            "\n"  # 4
+            "        MATCH (n:Entity {uid: $uid})\n"  # 5  <- the query starts HERE
+            "        RETURN n.uid AS uid\n"  # 6
+            '    """\n'  # 7
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.line_number for v in violations] == [5]
+        assert violations[0].line_content == "MATCH (n:Entity {uid: $uid})"
+
+    def test_two_separated_clause_references_stay_legal(self) -> None:
+        """Codex P2 (#875): counting docstring-wide made two prose refs a "query".
+
+        A docstring documenting TWO non-adjacent aliases is legitimate under the
+        style guide, and `query_types.py` is one blank line away from this shape.
+        Counting every clause hit in the docstring reached the threshold on two
+        *references* — and because SKUEL033 fails `--strict`, the only escapes
+        would have been deleting sanctioned documentation or suppressing the rule.
+        Requiring one contiguous non-blank run is what separates a statement from
+        two paragraphs that each mention a clause.
+        """
+        content = (
+            "class TwoAliasRow(TypedDict):\n"
+            '    """Row shape for a two-part fetch.\n'
+            "\n"
+            "    ``RETURN collect(prereq.uid) as prereq_uids`` — the first row.\n"
+            "\n"
+            "    ``RETURN count(DISTINCT h) as habits`` — the second row.\n"
+            '    """\n'
+        )
+        assert lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT) == []
+
+    def test_a_stray_reference_above_a_block_anchors_to_the_block(self) -> None:
+        """The run is reported, not the first hit — the reference may legally stay."""
+        content = (
+            "def f():\n"  # 1
+            '    """Intent summary.\n'  # 2
+            "\n"  # 3
+            "    Mirrors ``RETURN entry.uid AS uid`` from the backend.\n"  # 4
+            "\n"  # 5
+            "        MATCH (e:Entity {uid: $uid})\n"  # 6  <- the block
+            "        RETURN e.uid AS uid\n"  # 7
+            '    """\n'  # 8
+        )
+        violations = lint_content(make_linter(["SKUEL033"]), content, file_path=self.PORT)
+        assert [v.line_number for v in violations] == [6]
+        assert "2 clause lines" in violations[0].message
+
     def test_block_threshold_is_the_measured_one(self) -> None:
         """Pin the constant: 2 was measured, not chosen (see the rule's comment)."""
         assert SkuelLinter.DOCSTRING_QUERY_BLOCK_MIN_CLAUSE_LINES == 2
@@ -5747,6 +5810,50 @@ class TestSKUEL033:
             "this rule was extended to close"
         )
         assert "hosts a Cypher query" in violations[0].message
+
+    def test_a_newline_opening_real_docstring_anchors_to_its_query_line(self) -> None:
+        """The shape that slipped past BOTH original proofs (Codex P2, #875).
+
+        `auth_event.py` is a real MODULE docstring whose opening quotes sit on
+        their own line — the case where `ast.get_docstring()`'s cleaning shifted
+        every offset by one. The head-shape proof and the CLI proof both used
+        fixtures with the summary on the opening line, so neither exercised it.
+        This re-inserts the real removed block into the real file and pins the
+        reported line to the source line the `MATCH` actually occupies.
+        """
+        app = Path(__file__).resolve().parents[3]
+        target = app / "core" / "models" / "auth" / "auth_event.py"
+        content = target.read_text(encoding="utf-8")
+
+        anchor = "Rate Limiting:\n"
+        assert content.startswith('"""\n'), "auth_event.py no longer opens with a newline"
+        assert anchor in content, "injection anchor moved — this proof is inert"
+        corrupted = content.replace(
+            anchor,
+            "Rate Limiting:\n"
+            "    AuthEvents are used for rate limiting by counting LOGIN_FAILED events:\n"
+            "\n"
+            "    MATCH (e:AuthEvent {event_type: 'LOGIN_FAILED', email: $email})\n"
+            "    WHERE e.timestamp > datetime() - duration({minutes: 15})\n"
+            "    RETURN count(e) as failed_attempts\n",
+            1,
+        )
+
+        linter = make_linter(["SKUEL033"])
+        linter._check_docstring_cypher(
+            target,
+            Path("core/models/auth/auth_event.py"),
+            corrupted,
+            corrupted.split("\n"),
+            ast.parse(corrupted),
+        )
+        violations = linter.result.violations
+        assert [v.rule_id for v in violations] == ["SKUEL033"]
+        reported = corrupted.split("\n")[violations[0].line_number - 1].strip()
+        assert reported.startswith("MATCH (e:AuthEvent"), (
+            f"anchored to {reported!r}, not the query's own first line — the "
+            "cleaned-vs-raw offset bug is back"
+        )
 
 
 class TestOptInRulesDrift:
