@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, FilterParams, UserUID
+from core.models.type_hints import EntityUID, FilterParams, Neo4jProperties, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
@@ -263,7 +263,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         self,
         uid: str,
         extra_where: str = "",
-        extra_params: dict[str, Any] | None = None,
+        extra_params: Neo4jProperties | None = None,
     ) -> Result[T | None]:
         """
         THE single MATCH-by-UID read body, behind get() and get_visible_to_user().
@@ -334,7 +334,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             visibility, entity_alias="n", has_user=True
         )
         extra_where, scope_params = visibility_scope or ("", {})
-        params: dict[str, Any] = {"user_uid": user_uid, **scope_params}
+        params: Neo4jProperties = {"user_uid": user_uid, **scope_params}
         return await self._get_by_uid(uid, extra_where=extra_where, extra_params=params)
 
     async def get_or_fail(self, uid: str) -> Result[T]:
