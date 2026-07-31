@@ -32,10 +32,13 @@ only the first:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
+
+if TYPE_CHECKING:
+    from neo4j import Record
 
 from adapters.inbound.boundary import jsonable_content
 from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
@@ -96,8 +99,14 @@ async def two_children(neo4j_driver):
         )
 
 
-async def _read_edge(neo4j_driver, rel_type: RelationshipName, source: str, target: str) -> Any:
-    """Read one edge's full property map, directed source→target."""
+async def _read_edge(neo4j_driver, rel_type: RelationshipName, source: str, target: str) -> Record:
+    """Read one edge's full property map, directed source→target.
+
+    Fails loudly when the edge is absent. Every caller here needs it to exist,
+    so this doubles as their shared positive control: without it a write that
+    never landed would surface as a confusing subscript error several lines
+    later rather than as "the edge is missing".
+    """
     async with neo4j_driver.session() as session:
         result = await session.run(
             f"""
@@ -107,7 +116,9 @@ async def _read_edge(neo4j_driver, rel_type: RelationshipName, source: str, targ
             source=source,
             target=target,
         )
-        return await result.single()
+        record = await result.single()
+    assert record is not None, f"no {rel_type.value} edge {source} -> {target}: write never landed"
+    return record
 
 
 class TestTheValueIsARealInstant:
@@ -120,10 +131,9 @@ class TestTheValueIsARealInstant:
         )
         assert not created.is_error, created.expect_error()
 
-        record = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
-        # Positive control: the edge exists at all, so a missing stamp below is a
+        # `_read_edge` asserts the edge exists, so a missing stamp below is a
         # stamping failure rather than an empty match.
-        assert record is not None
+        record = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
         stamp = record["props"]["created_at"]
 
         assert stamp != LITERAL_DEFECT
@@ -142,10 +152,10 @@ class TestTheValueIsARealInstant:
 
         forward = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
         # BLOCKS is asymmetric with inverse BLOCKED_BY, written target→source.
+        # `_read_edge` asserts, so a missing auto-inverse fails here by name.
         inverse = await _read_edge(
             neo4j_driver, RelationshipName.BLOCKED_BY, TARGET_UID, SOURCE_UID
         )
-        assert inverse is not None, "auto-inverse edge was not created"
 
         assert inverse["props"]["created_at"] != LITERAL_DEFECT
         datetime.fromisoformat(inverse["props"]["created_at"])
