@@ -22,11 +22,10 @@ assert were queried, not that they gate.
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
+from core.ports.query_types import ReviewQueueItem
 from core.services.report.teacher_review_service import TeacherReviewService
 
 TEACHER = "user_qcc_teacher"
@@ -222,7 +221,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
 async def _queue_uids(review_service: TeacherReviewService) -> set[str]:
     result = await review_service.get_review_queue(TEACHER)
     assert result.is_ok, f"queue read failed: {result}"
-    items: list[dict[str, Any]] = list(result.value)
+    items: list[ReviewQueueItem] = list(result.value)
     return {item["submission_uid"] for item in items}
 
 
