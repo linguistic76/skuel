@@ -33,6 +33,28 @@ Journal tier — orthogonal to UserRole:
 from enum import StrEnum
 
 
+class GroupMemberRole(StrEnum):
+    """A user's role on a ``MEMBER_OF`` edge — their standing in one classroom.
+
+    Distinct from ``UserRole``, which is account-wide: a TEACHER may be a
+    student in someone else's group, and the ``role`` property on the edge is
+    what says so.
+
+    Why an enum rather than the literal: this value decides who a submission's
+    default audience is (``FormSubmissionService.share_with_default_audience``
+    and the backfill both filter on STUDENT). A stale spelling makes Neo4j
+    match zero rows instead of erroring, which reads as "this student has no
+    teachers" — a submission that silently reaches nobody.
+
+    ``StrEnum``, so it drops into the existing ``role: str`` parameters on
+    ``GroupOperations`` unchanged.
+    """
+
+    OWNER = "owner"  # Created the group (also carried by the OWNS edge)
+    TEACHER = "teacher"  # Teaches in the group
+    STUDENT = "student"  # Studies in the group — "my teachers" resolves to these
+
+
 class UserRole(StrEnum):
     """
     Four-tier user role hierarchy for SKUEL.

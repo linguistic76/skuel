@@ -2,13 +2,69 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import UserRole
+from core.models.enums import GroupMemberRole, UserRole
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
+from core.ports.query_types import (
+    BackfilledGroupRow,
+    TeacherSubmissionAccessRow,
+    UnaudiencedSubmissionRow,
+)
 from core.utils.result_simplified import Errors, Result
+
+
+def _default_audience_match(owner_var: str, submission_var: str) -> str:
+    """Cypher matching ``g`` — the groups a submission's default audience is.
+
+    Shared by the write and by the dry run's preview so an operator reviewing
+    what would be shared is reading the same selection that would run, not a
+    second copy of it.
+
+    "As of the submission" is a *reconstruction*, and the graph records only
+    current membership state: ``MEMBER_OF`` carries when the edge was created
+    but not when its role last changed, so a role edited after the fact reads
+    as if it always held. That is why the migration asks a human to confirm a
+    listed set rather than deriving intent it cannot actually derive.
+    """
+    return f"""
+        MATCH ({owner_var})-[m:{RelationshipName.MEMBER_OF}]->(g:Group)
+        WHERE m.role = $student_role
+          AND g.is_active = true
+          AND m.joined_at IS NOT NULL
+          AND m.joined_at <= datetime({submission_var}.created_at)
+    """
+
+
+def _teacher_audience_predicate(submission_var: str) -> str:
+    """Cypher for "this submission's audience includes ``$teacher_uid``".
+
+    One spelling shared by the three teacher-facing reads (detail gate, list,
+    card count). They have to admit exactly the same set: a count that
+    disagrees with the list leaks how much cross-classroom activity exists,
+    and a list that disagrees with the detail gate indexes what it refuses.
+
+    Both audience kinds ``_share_on_submit`` writes count — a
+    ``SHARED_WITH_GROUP`` edge to an active group the teacher owns, or a direct
+    ``SHARES_WITH`` from the teacher (``recipient_uids`` on the submit API).
+    ``EXISTS`` rather than a ``MATCH`` so a submission reachable several ways
+    is still one row.
+    """
+    return f"""
+        EXISTS {{
+            ({submission_var})-[:{RelationshipName.SHARED_WITH_GROUP}]->
+                (g:Group {{is_active: true}})
+                <-[:{RelationshipName.OWNS}]-(:User {{uid: $teacher_uid}})
+        }}
+        OR EXISTS {{
+            (:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH}]->({submission_var})
+        }}
+    """
+
 
 if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
@@ -18,25 +74,6 @@ if TYPE_CHECKING:
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
-
-
-# Restricts a submission to the caller's own classrooms: its author `u` must be a
-# member of an active Group the teacher owns. Written as an EXISTS predicate, not
-# an extra MATCH, so scoping can only ever REMOVE rows — a teacher in two groups
-# with the same student would otherwise see that student's submission twice, and
-# the row shape stays identical to the unscoped query.
-#
-# Mirrors _user_entry_assessment_mixin.verify_teacher_authority, which is the
-# single-row form of this same predicate and gates the submission detail page.
-# The two must agree: a row listed here has to be openable there.
-_TEACHER_SHARES_ACTIVE_GROUP = f"""EXISTS {{
-        MATCH (:User {{uid: $teacher_uid}})
-              -[:{RelationshipName.OWNS.value}]->
-              (g:Group)
-              <-[:{RelationshipName.MEMBER_OF.value}]-
-              (u)
-        WHERE g.is_active = true
-    }}"""
 
 
 class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
@@ -58,31 +95,45 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
         counts only submissions this count's reader may also open, so the number
         never discloses activity outside their classrooms.
         """
+        params: dict[str, Any] = {
+            "uid": template_uid,
+            "entity_type": EntityType.FORM_SUBMISSION.value,
+        }
         if teacher_uid is None:
-            result = await self.execute_query(
-                f"""
-                MATCH (fs:Entity)
-                      -[:{RelationshipName.RESPONDS_TO_FORM.value}]->
-                      (ft:Entity {{uid: $uid}})
-                RETURN count(fs) as count
-                """,
-                {"uid": template_uid},
-            )
+            scope = ""
         else:
-            result = await self.execute_query(
-                f"""
-                MATCH (fs:Entity)
-                      -[:{RelationshipName.RESPONDS_TO_FORM.value}]->
-                      (ft:Entity {{uid: $uid}})
-                MATCH (u:User)-[:{RelationshipName.OWNS.value}]->(fs)
-                WHERE {_TEACHER_SHARES_ACTIVE_GROUP}
-                RETURN count(fs) as count
-                """,
-                {"uid": template_uid, "teacher_uid": teacher_uid},
-            )
-        if result.is_error or not result.value:
+            scope = f"WHERE {_teacher_audience_predicate('fs')}"
+            params["teacher_uid"] = teacher_uid
+        result = await self.execute_query(
+            f"""
+            MATCH (fs:Entity {{entity_type: $entity_type}})
+                  -[:{RelationshipName.RESPONDS_TO_FORM.value}]->
+                  (ft:Entity {{uid: $uid}})
+            {scope}
+            RETURN count(fs) as count
+            """,
+            params,
+        )
+        return self._count_or_error(result)
+
+    @staticmethod
+    def _count_or_error(result: Result[list[Neo4jProperties]]) -> Result[int]:
+        """Unwrap a ``count`` row, keeping a backend failure a failure.
+
+        Collapsing an error to ``0`` would make an outage indistinguishable
+        from a template nobody has answered — and on the scoped count, from a
+        classroom with nothing shared to it. Zero is reserved for a successful
+        empty result.
+        """
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
             return Result.ok(0)
-        return Result.ok(result.value[0].get("count", 0))
+        # Neo4j's count() is an integer, but the property type is a union —
+        # narrow before arithmetic rather than trusting the driver's shape.
+        raw = records[0].get("count", 0)
+        return Result.ok(raw if isinstance(raw, int) else 0)
 
     async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]:
         """Get all FormTemplates embedded in a path step as typed models."""
@@ -153,6 +204,8 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
 
     Provides:
     - get_submissions_for_template — Query all submissions for a template
+    - get_submissions_for_template_for_teacher — the same list, Model B gated
+    - verify_teacher_submission_access — Model B gate for one submission
     - list_by_user                 — Get user's form submissions
     - find_admin_user_uid          — Find the first admin user UID
     """
@@ -178,48 +231,283 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         """Get submissions for a form template, including submitter info.
 
         Every row carries the submitter's identity and full node — including
-        `form_data` — so the caller's reach is decided here, not by the page that
-        renders it. ``teacher_uid=None`` returns all classrooms and is reserved
-        for ADMIN; a teacher UID returns only submissions authored by students in
-        an active Group that teacher owns.
+        ``form_data`` — so the caller's reach is decided here, not by the page
+        that renders it. ``teacher_uid=None`` returns all classrooms and is
+        reserved for ADMIN.
+
+        A teacher UID returns only submissions whose own audience includes that
+        teacher — not merely ones whose *author* they teach. A student may
+        study in several classrooms, so a response shared with one teacher's
+        group is not thereby readable by another's. Same predicate as the
+        detail gate, so a row listed here is exactly a row that opens there.
         """
+        params: dict[str, Any] = {
+            "ft_uid": form_template_uid,
+            "entity_type": EntityType.FORM_SUBMISSION.value,
+        }
         if teacher_uid is None:
-            result = await self.execute_query(
-                f"""
-                MATCH (fs:Entity {{entity_type: 'form_submission'}})
-                      -[:{RelationshipName.RESPONDS_TO_FORM}]->
-                      (ft:Entity {{uid: $ft_uid}})
-                OPTIONAL MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
-                RETURN fs, u.uid AS user_uid, u.display_name AS user_name
-                ORDER BY fs.created_at DESC
-                """,
-                {"ft_uid": form_template_uid},
-            )
+            scope = ""
         else:
-            # Required MATCH, not OPTIONAL: a submission with no owner cannot be
-            # shown to belong to this teacher's classroom, so it is not theirs to
-            # read. The unscoped branch above keeps them for ADMIN.
-            result = await self.execute_query(
-                f"""
-                MATCH (fs:Entity {{entity_type: 'form_submission'}})
-                      -[:{RelationshipName.RESPONDS_TO_FORM}]->
-                      (ft:Entity {{uid: $ft_uid}})
-                MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
-                WHERE {_TEACHER_SHARES_ACTIVE_GROUP}
-                RETURN fs, u.uid AS user_uid, u.display_name AS user_name
-                ORDER BY fs.created_at DESC
-                """,
-                {"ft_uid": form_template_uid, "teacher_uid": teacher_uid},
-            )
+            scope = f"WHERE {_teacher_audience_predicate('fs')}"
+            params["teacher_uid"] = teacher_uid
+        result = await self.execute_query(
+            f"""
+            MATCH (fs:Entity {{entity_type: $entity_type}})
+                  -[:{RelationshipName.RESPONDS_TO_FORM}]->
+                  (ft:Entity {{uid: $ft_uid}})
+            {scope}
+            OPTIONAL MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
+            RETURN fs, u.uid AS user_uid, u.display_name AS user_name
+            ORDER BY fs.created_at DESC
+            """,
+            params,
+        )
         if result.is_error:
             return Result.fail(result)
+        return Result.ok(self._rows_with_submitter(result.value or []))
+
+    @staticmethod
+    def _rows_with_submitter(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Flatten ``fs`` nodes plus their submitter columns into row dicts.
+
+        Shared by the scoped and unscoped branches so the two cannot drift into
+        different shapes — the page renders whichever it is given.
+        """
         rows: list[dict[str, Any]] = []
-        for record in result.value or []:
+        for record in records:
             row = dict(record["fs"])
             row["user_uid"] = record.get("user_uid")
             row["user_name"] = record.get("user_name")
             rows.append(row)
-        return Result.ok(rows)
+        return rows
+
+    async def find_submissions_without_audience(
+        self, after_uid: str, limit: int
+    ) -> Result[list[UnaudiencedSubmissionRow]]:
+        """Submissions carrying no audience at all, with their owner.
+
+        The migration surface for the Model B gate: a submission created before
+        submit-time audience resolution existed has neither ``SHARES_WITH`` nor
+        ``SHARED_WITH_GROUP``, so the gate hides it from every teacher.
+
+        **"No audience at all" is the point, not a limitation.** A submission
+        that already names an audience was scoped deliberately — by
+        ``group_uid`` or ``recipient_uids`` on the submit API — and adding the
+        submitter's other classrooms would expose their answers to teachers
+        they did not pick. That is the very leak this gate exists to stop, so a
+        migration must never widen an audience that already exists.
+
+        **Restricted further, to templates embedded in a PathStep.** Having no
+        audience is *not* by itself evidence a submission was meant to be seen:
+        ``/api/form-submissions/submit`` takes ``group_uid`` and
+        ``recipient_uids`` from the caller, both optional, so leaving them
+        empty was a deliberate choice to stay private. Nothing on the node
+        records which route created it. The ``EMBEDS_FORM`` restriction is the
+        available proxy: the PathStep-embedded route can only submit templates
+        embedded in a PathStep, so this keeps every submission that had no way
+        to declare an audience while dropping API submissions of ordinary
+        templates. It is a *narrowing*, not a proof — an API submission of an
+        embedded template is still indistinguishable — which is why the script
+        requires an explicit confirmation to write.
+
+        This can be both narrow and retryable only because the write is atomic:
+        ``share_with_default_audience`` creates a submission's whole audience in
+        one statement, so there is no partial state for this predicate to miss.
+
+        Paged by a ``fs.uid`` cursor rather than an offset, so the walk advances
+        past a row whose write failed instead of returning it forever — the
+        failure resurfaces on the next run, since nothing marks rows done.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs:Entity {{entity_type: $entity_type}})
+            WHERE fs.uid > $after_uid
+              AND NOT EXISTS {{ (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->(:Group) }}
+              AND NOT EXISTS {{ (:User)-[:{RelationshipName.SHARES_WITH}]->(fs) }}
+              AND EXISTS {{
+                  (fs)-[:{RelationshipName.RESPONDS_TO_FORM}]->
+                      (:Entity)<-[:{RelationshipName.EMBEDS_FORM}]-(:Entity)
+              }}
+            RETURN fs.uid AS submission_uid, u.uid AS owner_uid
+            ORDER BY fs.uid ASC
+            LIMIT $limit
+            """,
+            {
+                "after_uid": after_uid,
+                "limit": limit,
+                "entity_type": EntityType.FORM_SUBMISSION.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                UnaudiencedSubmissionRow(
+                    submission_uid=str(record["submission_uid"]),
+                    owner_uid=str(record["owner_uid"]),
+                )
+                for record in result.value or []
+            ]
+        )
+
+    async def preview_default_audience(
+        self, submission_uid: str
+    ) -> Result[list[BackfilledGroupRow]]:
+        """The groups ``share_with_default_audience`` would write, writing none.
+
+        The dry run's whole job is to let a human check the migration's
+        reconstruction before it happens, and a list of submission UIDs cannot
+        be checked — the reviewable fact is *which classroom* each answer would
+        go to. Runs the same selection as the write (see
+        ``_default_audience_match``) so the preview cannot drift from it.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (u:User)-[:{RelationshipName.OWNS}]->
+                  (fs:Entity {{uid: $submission_uid, entity_type: $entity_type}})
+            WHERE fs.created_at IS NOT NULL
+            {_default_audience_match("u", "fs")}
+            RETURN g.uid AS group_uid
+            """,
+            {
+                "submission_uid": submission_uid,
+                "student_role": GroupMemberRole.STUDENT.value,
+                "entity_type": EntityType.FORM_SUBMISSION.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                BackfilledGroupRow(group_uid=str(record["group_uid"]))
+                for record in result.value or []
+            ]
+        )
+
+    async def share_with_default_audience(
+        self, submission_uid: str
+    ) -> Result[list[BackfilledGroupRow]]:
+        """Give one submission the audience its owner's classrooms imply.
+
+        Shared by the submit path and the backfill — the same operation in both
+        places, so there is one implementation of "who are this student's
+        teachers" rather than two that can disagree.
+
+        Deliberately a **single statement**, for two reasons:
+
+        - *Atomicity.* A submission's whole audience lands or none of it does.
+          Writing the groups one at a time leaves a half-audienced submission
+          that ``find_submissions_without_audience`` can no longer see, so the
+          classroom whose write failed is stranded permanently.
+        - *No time-of-check gap.* The no-audience guard is re-evaluated inside
+          the write, so an explicit share landing between a caller's check and
+          this call makes it a no-op rather than piling every classroom on top
+          of an audience the owner had just chosen deliberately.
+
+        That guard also defines the contract: this only ever *establishes* an
+        audience, never widens one. Both callers want exactly that.
+
+        **The audience is the one that existed when the submission was made.**
+        Memberships are filtered to those joined at or before ``fs.created_at``,
+        so a classroom the student enrolled in *later* never receives an older
+        answer. Submit-time resolution snapshots the groups at creation and
+        would never retroactively add one; a migration running months later
+        must not either. At submit time the filter is a no-op, since every
+        existing membership predates the submission being created.
+
+        Both timestamps trace back to ``datetime.now().isoformat()``, but they
+        are stored differently — ``joined_at`` as a Neo4j datetime (see
+        ``GroupBackend.add_member``) and ``created_at`` as an ISO string (the
+        mapper serialises every datetime field that way), so the string is
+        converted before comparing. A null on either side excludes the group:
+        an unknown ordering is not evidence the membership came first.
+
+        Authorization holds by construction — the groups are reached through
+        the owner's own ``MEMBER_OF`` edges, so this can only produce shares
+        ``UnifiedSharingService.share_with_group`` would itself have allowed.
+        Mirrors ``GroupBackend.get_user_groups``'s definition of a student
+        membership (``MEMBER_OF.role`` + an active group).
+
+        Returns the groups written — empty when the owner studies in none, or
+        when the submission already had an audience. Neither is a failure.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (u:User)-[:{RelationshipName.OWNS}]->
+                  (fs:Entity {{uid: $submission_uid, entity_type: $entity_type}})
+            WHERE NOT EXISTS {{ (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->(:Group) }}
+              AND NOT EXISTS {{ (:User)-[:{RelationshipName.SHARES_WITH}]->(fs) }}
+              AND fs.created_at IS NOT NULL
+            {_default_audience_match("u", "fs")}
+            MERGE (fs)-[r:{RelationshipName.SHARED_WITH_GROUP}]->(g)
+              ON CREATE SET r.shared_at = datetime($shared_at),
+                            r.share_version = $share_version
+            RETURN g.uid AS group_uid
+            """,
+            {
+                "submission_uid": submission_uid,
+                "student_role": GroupMemberRole.STUDENT.value,
+                "shared_at": datetime.now().isoformat(),
+                "share_version": "original",
+                "entity_type": EntityType.FORM_SUBMISSION.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                BackfilledGroupRow(group_uid=str(record["group_uid"]))
+                for record in result.value or []
+            ]
+        )
+
+    async def verify_teacher_submission_access(
+        self, submission_uid: str, teacher_uid: str
+    ) -> Result[list[TeacherSubmissionAccessRow]]:
+        """Verify one submission's audience includes the requesting teacher.
+
+        The entity-level half of the Model B gate, and the detail page's twin
+        of ``get_submissions_for_template_for_teacher`` — the two must admit
+        exactly the same set or the list becomes an index of what the detail
+        page refuses.
+
+        Granted by either audience kind ``_share_on_submit`` writes: a
+        ``SHARED_WITH_GROUP`` edge to an active group the teacher owns, or a
+        direct ``SHARES_WITH`` from the teacher (``recipient_uids`` on the
+        submit API). ``group_uid`` names the classroom that granted the read
+        and is null when a direct share did; an empty *result* is the refusal,
+        which callers map to not-found.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (fs:Entity {{uid: $submission_uid, entity_type: $entity_type}})
+            WHERE {_teacher_audience_predicate("fs")}
+            OPTIONAL MATCH (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->
+                           (granting:Group {{is_active: true}})
+                           <-[:{RelationshipName.OWNS}]-(:User {{uid: $teacher_uid}})
+            // Aggregate keyed on `fs`, never bare. An unkeyed `collect` emits
+            // one row even from zero input, so a refusal would come back as a
+            // single null-valued row — and this gate reads row *presence* as
+            // the grant. That failure is fail-open.
+            WITH fs, collect(granting.uid) AS granting_groups
+            RETURN granting_groups[0] AS group_uid
+            """,
+            {
+                "submission_uid": submission_uid,
+                "teacher_uid": teacher_uid,
+                "entity_type": EntityType.FORM_SUBMISSION.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                TeacherSubmissionAccessRow(
+                    group_uid=None if record["group_uid"] is None else str(record["group_uid"])
+                )
+                for record in result.value or []
+            ]
+        )
 
     async def create_with_relationships(
         self,

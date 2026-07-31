@@ -962,6 +962,21 @@ async def compose_services(
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
+        # Create group service (ADR-040: Teacher Exercise Workflow)
+        from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
+        from core.models.group.group import Group
+        from core.services.groups import GroupService
+
+        group_backend = GroupBackend(
+            driver=driver,
+            label=NeoLabel.GROUP,
+            entity_class=Group,
+            prometheus_metrics=prometheus_metrics,
+        )
+
+        group_service = GroupService(backend=group_backend, event_bus=event_bus)
+        logger.info("✅ GroupService created (ADR-040)")
+
         form_template_service = FormTemplateService(
             backend=form_template_backend, event_bus=event_bus
         )
@@ -997,21 +1012,6 @@ async def compose_services(
             event_bus=event_bus,
         )
         logger.info("✅ InteractionService created (User Interaction Contract)")
-
-        # Create group service (ADR-040: Teacher Exercise Workflow)
-        from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
-        from core.models.group.group import Group
-        from core.services.groups import GroupService
-
-        group_backend = GroupBackend(
-            driver=driver,
-            label=NeoLabel.GROUP,
-            entity_class=Group,
-            prometheus_metrics=prometheus_metrics,
-        )
-
-        group_service = GroupService(backend=group_backend, event_bus=event_bus)
-        logger.info("✅ GroupService created (ADR-040)")
 
         # Create teacher review service (ADR-040: Teacher Exercise Workflow)
         from core.services.report.teacher_review_service import TeacherReviewService

@@ -11,12 +11,19 @@ row the scoped call withholds. Without it a query that matched nothing at all �
 a mistyped label, a reversed MEMBER_OF direction, a property that is never set —
 would satisfy every "must not see" assertion and read as a working boundary.
 
-Covers the two shapes the Python stand-in structurally cannot reach:
+The scope is **entity-level**: a teacher reaches a submission because *that
+submission* was shared into a classroom they own, not because they happen to
+teach its author. A student may study in several classrooms, so the two are not
+the same question — see ``test_form_submission_access_gate.py``, which pins that
+distinction directly.
 
-- a student in TWO active groups the same teacher owns, which is why the
-  predicate is ``EXISTS { ... }`` rather than an extra ``MATCH`` (a join would
-  return that student's submission once per group);
-- an INACTIVE group, whose exclusion lives entirely in the Cypher.
+Covers the shapes the Python stand-in structurally cannot reach:
+
+- a submission shared with TWO active groups the same teacher owns, which is why
+  the predicate is ``EXISTS { ... }`` rather than an extra ``MATCH`` (a join
+  would return it once per group);
+- an INACTIVE group, whose exclusion lives entirely in the Cypher;
+- the direction of the OWNS edge, which no Python stub would get wrong.
 """
 
 from __future__ import annotations
@@ -82,6 +89,15 @@ CREATE (f1)-[:RESPONDS_TO_FORM]->(ft)
 CREATE (f2)-[:RESPONDS_TO_FORM]->(ft)
 CREATE (f3)-[:RESPONDS_TO_FORM]->(ft)
 CREATE (f4)-[:RESPONDS_TO_FORM]->(ft)
+// The audience each submission carries — what a teacher's reach is decided by.
+// Membership alone grants nothing: the scope asks whether *this submission* was
+// shared into a classroom the teacher owns, so each answer is shared with its
+// author's groups exactly as submit-time resolution would have done. f4 has no
+// owner and so no audience.
+CREATE (f1)-[:SHARED_WITH_GROUP]->(g1)
+CREATE (f1)-[:SHARED_WITH_GROUP]->(g2)
+CREATE (f2)-[:SHARED_WITH_GROUP]->(g4)
+CREATE (f3)-[:SHARED_WITH_GROUP]->(g3)
 """
 
 _SEED_PARAMS = {
@@ -194,7 +210,7 @@ class TestPredicateShape:
     async def test_two_active_groups_yield_one_row(
         self, submissions: FormSubmissionBackend
     ) -> None:
-        """Student 1 is in g1 AND g2, both owned by Teacher A.
+        """Student 1's submission is shared with g1 AND g2, both Teacher A's.
 
         An extra MATCH instead of EXISTS would return this submission twice —
         the page would show the same student's answers as two rows and the count
@@ -206,7 +222,8 @@ class TestPredicateShape:
     async def test_inactive_group_does_not_grant_access(
         self, submissions: FormSubmissionBackend
     ) -> None:
-        """Teacher A owns Student 3's group, but it is not active.
+        """Student 3's submission is shared with a group Teacher A owns —
+        but that group is not active.
 
         Paired with its control: the submission does exist and is readable
         unscoped, so an empty scoped result is the predicate working rather than
@@ -218,10 +235,12 @@ class TestPredicateShape:
     async def test_ownerless_submission_is_not_attributable(
         self, submissions: FormSubmissionBackend
     ) -> None:
-        """No OWNS edge means no classroom, so no teacher may read it.
+        """A submission with no owner carries no audience, so no teacher reaches it.
 
-        The unscoped branch keeps it (OPTIONAL MATCH) for ADMIN — asserted here
-        so the scoped exclusion is shown to be the scope, not a lost row.
+        Under an entity-level scope this follows from the *audience*, not from
+        the missing OWNS edge: nothing was ever shared into a classroom. The
+        unscoped branch keeps it (OPTIONAL MATCH) for ADMIN — asserted here so
+        the scoped exclusion is shown to be the scope, not a lost row.
         """
         assert SUB_ORPHAN not in await _uids(submissions, TEACHER_A)
         assert SUB_ORPHAN not in await _uids(submissions, TEACHER_B)
@@ -232,9 +251,10 @@ class TestPredicateShape:
     ) -> None:
         """A teacher who is a MEMBER_OF a group does not thereby own it.
 
-        Pins the predicate's direction: OWNS from the teacher, MEMBER_OF from
-        the student. A predicate that ignored direction would let Teacher B —
-        made a member of Teacher A's group here — read Student 1's answers.
+        Pins the predicate's direction: the grant runs SHARED_WITH_GROUP from
+        the submission to a group the teacher OWNS. A predicate that accepted
+        any edge to the group would let Teacher B — made a member of Teacher A's
+        group here — read Student 1's answers.
         """
         async with forms_graph.session() as session:
             await session.run(

@@ -77,6 +77,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         group_uid: str | None = None,
         recipient_uids: list[str] | None = None,
         share_with_admin: bool = False,
+        use_default_audience: bool = False,
     ) -> Result[FormSubmission]:
         """
         Submit a form response.
@@ -84,6 +85,14 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         Creates the FormSubmission entity, links it to the FormTemplate
         via RESPONDS_TO_FORM, creates OWNS relationship, and optionally
         shares with groups/users.
+
+        ``use_default_audience`` says what an *absent* audience means, which
+        only the caller knows. A surface that offers audience controls (the
+        submit API) leaves it False: empty there is the submitter's choice to
+        stay private. A surface with no such controls (the PathStep-embedded
+        form) passes True, since the submitter had no way to say "my teachers"
+        and the response would otherwise reach nobody. An explicit audience
+        always wins over both.
 
         Validates that:
         1. The FormTemplate exists
@@ -136,8 +145,26 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             self.logger.error(f"Failed to create form submission: {result.error}")
             return result
 
-        # Handle sharing at submit time
-        await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)
+        # Handle sharing at submit time. An explicit audience always wins. With
+        # none, the default audience applies only where the caller says an
+        # absent audience meant "my teachers" — teacher reads are gated on
+        # these edges (Model B), so a submission that lands without them is
+        # readable by nobody but its owner and admins, but auto-sharing one
+        # whose submitter *chose* to leave the audience empty would publish it
+        # to their whole classroom.
+        if group_uid or recipient_uids or share_with_admin:
+            await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)
+        elif use_default_audience:
+            audience = await self._share_with_default_audience(uid)
+            if audience.is_error:
+                # Not survivable the way a partial explicit share is. The
+                # default audience is the submission's *only* audience, so a
+                # failed write leaves it visible to nobody — and returning
+                # success would tell the learner their answer reached their
+                # teacher when it reached no one. Fail loudly so they can
+                # retry; the record stays (they own it, and the backfill can
+                # repair it) rather than deleting work over a transient fault.
+                return Result.fail(audience)
 
         # Publish event
         await publish_event(
@@ -196,6 +223,37 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
 
         if share_with_admin:
             await self._share_with_admin(submission_uid, user_uid)
+
+    async def _share_with_default_audience(self, submission_uid: str) -> Result[None]:
+        """Share a submission with every group the submitter studies in.
+
+        The forms equivalent of ``AudienceResolver.resolve_default_teachers``:
+        "my teachers" is expanded at write time into the concrete groups the
+        submitter is a student-member of, so read access is decided by an edge
+        rather than by re-deriving a relationship at read time.
+
+        Delegates to the backend's single-statement write rather than looping
+        ``share_with_group`` per group. A per-group loop can leave a submission
+        holding some of its classrooms and not others, and the backfill only
+        repairs submissions with *no* audience — so a half-written one would
+        stay invisible to the stranded teacher forever.
+
+        Returns the failure rather than swallowing it — the caller decides, and
+        for ``submit_form`` an unaudienced submission is not a success. Note
+        that a submitter in *no* group is ``Result.ok`` with nothing written:
+        that is a legitimate empty audience, not a fault, and there is no
+        implicit "share with everyone" fallback.
+
+        Backend: FormSubmissionBackend.share_with_default_audience
+        """
+        result = await self.backend.share_with_default_audience(submission_uid)
+        if result.is_error:
+            self.logger.warning(
+                f"Could not resolve default audience for submission {submission_uid}: "
+                f"{result.expect_error()}"
+            )
+            return Result.fail(result)
+        return Result.ok(None)
 
     async def _share_with_admin(self, submission_uid: str, user_uid: UserUID) -> None:
         """Share a submission with the admin user (using UserRole enum)."""
@@ -256,6 +314,38 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         Backend: FormSubmissionBackend.get_submissions_for_template
         """
         return await self.backend.get_submissions_for_template(form_template_uid, teacher_uid)
+
+    async def verify_teacher_access(self, uid: str, teacher_uid: str) -> Result[bool]:
+        """Verify a teacher may read one submission (Model B gate).
+
+        Authority is carried by the submission's own share edges: it must be
+        shared with an active group the teacher owns. Sharing a classroom with
+        the *submitter* is deliberately not enough — a student may belong to
+        several groups, and a submission shared with one teacher's group is
+        not thereby readable by another's.
+
+        Returns a ``forbidden`` error on refusal so callers can tell a denial
+        apart from an infrastructure fault. Mirrors
+        ``TeacherReviewService.verify_teacher_authority``'s error contract.
+
+        Backend: FormSubmissionBackend.verify_teacher_submission_access
+        """
+        result = await self.backend.verify_teacher_submission_access(uid, teacher_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        if not result.value:
+            return Result.fail(
+                Errors.forbidden(
+                    action="read form submission",
+                    reason=(
+                        f"Submission {uid} is not shared with any active group "
+                        f"owned by teacher {teacher_uid}"
+                    ),
+                )
+            )
+
+        return Result.ok(True)
 
     async def get_submission_admin(self, uid: str) -> Result[FormSubmission]:
         """Get submission by UID without ownership check (admin/teacher use)."""

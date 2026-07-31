@@ -3479,6 +3479,40 @@ class KnowledgeHealthRaw(TypedDict):
 
 
 # ============================================================================
+# FORM SUBMISSION ACCESS + AUDIENCE MIGRATION ROWS
+# ============================================================================
+
+
+class TeacherSubmissionAccessRow(TypedDict):
+    """One grant of teacher access to a form submission (the Model B gate).
+
+    The *presence* of a row is the verdict; ``group_uid`` only says which
+    classroom granted it, and is ``None`` when a direct ``SHARES_WITH`` did.
+    Callers must branch on emptiness, never on this field being set.
+    """
+
+    group_uid: str | None
+
+
+class UnaudiencedSubmissionRow(TypedDict):
+    """A form submission carrying no share edges, and who owns it.
+
+    The audience-backfill's work list. Deliberately excludes submissions that
+    already name an audience — widening an explicit one would leak answers to
+    teachers the submitter did not pick.
+    """
+
+    submission_uid: str
+    owner_uid: str
+
+
+class BackfilledGroupRow(TypedDict):
+    """A group a submission's audience backfill shared it with."""
+
+    group_uid: str
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -3681,4 +3715,8 @@ __all__ = [
     "KnowledgeCoverageMetric",
     "KnowledgeHealthReport",
     "KnowledgeHealthRaw",
+    # FormSubmission Access + Audience Migration Rows
+    "TeacherSubmissionAccessRow",
+    "UnaudiencedSubmissionRow",
+    "BackfilledGroupRow",
 ]

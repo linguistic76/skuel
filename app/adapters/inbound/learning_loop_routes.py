@@ -567,6 +567,12 @@ def create_learning_loop_fragment_routes(
             user_uid=user_uid,
             form_template_uid=template_uid,
             form_data=form_data,
+            # This form has no audience controls, so the submitter has no way
+            # to say "share with my teachers" — and teacher reads are gated on
+            # the submission's own share edges, so without this the response
+            # would reach nobody. The submit API leaves this False, where an
+            # empty audience is a deliberate choice.
+            use_default_audience=True,
         )
         if result.is_error:
             error_msg = result.expect_error().message

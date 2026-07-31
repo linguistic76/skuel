@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import GroupMemberRole
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import EntityUID, UserUID
@@ -363,7 +364,9 @@ class AudienceResolver:
         """
         if self.group_service is None:
             return []
-        result = await self.group_service.get_user_groups(user_uid, role="student")
+        result = await self.group_service.get_user_groups(
+            user_uid, role=GroupMemberRole.STUDENT.value
+        )
         if result.is_error:
             self.logger.warning(
                 f"Could not resolve default-teacher groups for {user_uid}: {result.expect_error()}"
