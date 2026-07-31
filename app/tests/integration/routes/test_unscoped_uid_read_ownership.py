@@ -13,11 +13,21 @@ entity by UID with no scoping:
   *authority over that particular student*, so any teacher could read any
   student's form submission, including students in another teacher's classroom.
 
+The forms gate has since moved one step finer, and these pin the newer form.
+Authority over the *student* was still too coarse: a student may belong to
+several groups, so a submission shared with one teacher's group stayed readable
+by another teacher of the same student. Access now follows the submission's own
+share edges (the Model B gate), and the list and card count carry the same
+predicate — an unscoped list hands over the UIDs and content previews that make
+the detail page reachable.
+
 These tests pin the closed form. Both services are real (``GroupService``,
-``TeacherReviewService``'s authority predicate) with only the Neo4j backend
-mocked, so they exercise route → service → gate end to end: a handler that
-forgets the gate reaches the backend and returns the victim's data, failing the
-``_foreign`` cases.
+``FormSubmissionService``) with only the Neo4j backend mocked, so they exercise
+route → service → gate end to end: a handler that forgets the gate reaches the
+backend and returns the victim's data, failing the ``_foreign`` cases.
+``tests/integration/test_form_submission_access_gate.py`` runs the same
+scenarios against real Neo4j, since a query matching zero rows is
+indistinguishable from a refusal at this layer.
 
 The asserted property for a refusal is **indistinguishability** — a foreign
 entity and a nonexistent one must produce the same response, so a UID cannot be
@@ -293,20 +303,23 @@ def forms_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     template_service = MagicMock()
     template_service.get = AsyncMock(return_value=Result.ok(None))
 
-    # Real authority semantics: Teacher A shares an active group with Student 1,
-    # Teacher B does not. Mirrors the Cypher in _user_entry_assessment_mixin.
-    async def verify_teacher_authority(teacher_uid: str, student_uid: str) -> Result[bool]:
-        if teacher_uid == TEACHER_A and student_uid == STUDENT_1:
+    # Real access semantics, at *entity* granularity: this submission was shared
+    # into Teacher A's classroom. Teacher B teaches Student 1 too — a
+    # student-granularity predicate would admit them — but holds no share on
+    # this response, so they are refused. See
+    # tests/integration/test_form_submission_access_gate.py for the same
+    # scenario against real Neo4j.
+    async def verify_teacher_access(uid: str, teacher_uid: str) -> Result[bool]:
+        if uid == SUBMISSION_UID and teacher_uid == TEACHER_A:
             return Result.ok(True)
         return Result.fail(
             Errors.forbidden(
-                action="verify_teacher_authority",
-                reason=f"Teacher {teacher_uid} has no authority over {student_uid}",
+                action="read form submission",
+                reason=f"Submission {uid} is not shared with a group owned by {teacher_uid}",
             )
         )
 
-    review_service = MagicMock()
-    review_service.verify_teacher_authority = AsyncMock(side_effect=verify_teacher_authority)
+    submission_service.verify_teacher_access = AsyncMock(side_effect=verify_teacher_access)
 
     registered: dict[str, Any] = {}
 
@@ -323,9 +336,7 @@ def forms_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         template_service,
         submission_service,
         MagicMock(),
-        review_service,
     )
-    registered["_review_service"] = review_service
     registered["_submission_service"] = submission_service
     return registered
 
@@ -419,9 +430,9 @@ class TestFormSubmissionDetailRequiresAuthority:
         must not be handed a confident "no such submission" — that hides the
         outage and misinforms the caller. Only a FORBIDDEN verdict is a denial.
         """
-        forms_handlers["_review_service"].verify_teacher_authority = AsyncMock(
+        forms_handlers["_submission_service"].verify_teacher_access = AsyncMock(
             return_value=Result.fail(
-                Errors.database(operation="verify_teacher_authority", message="Neo4j unavailable")
+                Errors.database(operation="verify_teacher_access", message="Neo4j unavailable")
             )
         )
 
@@ -479,21 +490,25 @@ class TestFormSubmissionDetailRequiresAuthority:
         assert status == 200
         assert SECRET_ANSWER in rendered
         # Admins short-circuit the predicate rather than being granted by it.
-        forms_handlers["_review_service"].verify_teacher_authority.assert_not_awaited()
+        forms_handlers["_submission_service"].verify_teacher_access.assert_not_awaited()
 
-    async def test_authority_checked_against_the_submitting_student(
+    async def test_authority_checked_against_the_submission(
         self, forms_handlers: dict[str, Any]
     ) -> None:
-        """The gate must ask about the submission's owner and the session
-        teacher — not a default, and not the UID being requested."""
+        """The gate must ask about the *submission* and the session teacher.
+
+        Pins the granularity, not just the outcome: handed the author's UID
+        instead of the submission's, the gate cannot tell one classroom's share
+        from another's — which is the hole this replaced.
+        """
         await _submission_route(forms_handlers)(
             request=_make_request(TEACHER_A, path="/teaching/forms/submission"),
             uid=SUBMISSION_UID,
             current_user=_fake_user(TEACHER_A, UserRole.TEACHER),
         )
 
-        forms_handlers["_review_service"].verify_teacher_authority.assert_awaited_once_with(
-            TEACHER_A, STUDENT_1
+        forms_handlers["_submission_service"].verify_teacher_access.assert_awaited_once_with(
+            SUBMISSION_UID, TEACHER_A
         )
 
 
@@ -621,7 +636,6 @@ def forms_list_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         rt_collector,
         template_service,
         submission_service,
-        MagicMock(),
         MagicMock(),
     )
     registered["_backend"] = submission_backend

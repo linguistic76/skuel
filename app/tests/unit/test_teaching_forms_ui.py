@@ -14,7 +14,7 @@ import pytest
 from fasthtml.common import to_xml
 
 import adapters.inbound.teaching_forms_ui as tfu
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 class _FakeTemplate:
@@ -74,11 +74,11 @@ async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
     service.list = AsyncMock(return_value=Result.ok(([_FakeTemplate("ft_1", "Survey")], 1)))
     service.count_submissions = AsyncMock(return_value=Result.ok(3))
 
-    tfu.create_teaching_forms_ui_routes(
-        MagicMock(), _fake_rt, service, MagicMock(), MagicMock(), MagicMock()
-    )
+    tfu.create_teaching_forms_ui_routes(MagicMock(), _fake_rt, service, MagicMock(), MagicMock())
 
-    # First registered route is teaching_forms_list.
+    # First registered route is teaching_forms_list. `current_user` is what
+    # @require_role injects in production; the card count branches on it, so a
+    # None here would only mean the stub is unlike the real caller.
     handler = captured[0]
     content = await handler(request=MagicMock(), current_user=_fake_teacher("user_teacher"))
 
@@ -88,3 +88,48 @@ async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
     # The count is scoped to the caller's classrooms — see
     # tests/integration/routes/test_unscoped_uid_read_ownership.py for why.
     service.count_submissions.assert_awaited_once_with("ft_1", "user_teacher")
+
+
+@pytest.mark.asyncio
+async def test_forms_list_does_not_render_a_failed_count_as_zero(monkeypatch):
+    """A backend failure must not read as "this classroom has no submissions".
+
+    `_count_or_error` propagates the failure deliberately; rendering 0 here
+    would spend that signal to tell a teacher something false about their
+    students while the database is down.
+    """
+
+    def _fake_render(content, active, request):
+        return content
+
+    def _fake_auth(_request):
+        return "user_teacher"
+
+    monkeypatch.setattr(tfu, "require_role", _fake_require_role)
+    monkeypatch.setattr(tfu, "require_authenticated_user", _fake_auth)
+    monkeypatch.setattr(tfu, "render_teaching_sidebar_page", _fake_render)
+
+    captured: list = []
+
+    def _fake_rt(_path: str):
+        def _register(fn):
+            captured.append(fn)
+            return fn
+
+        return _register
+
+    service = MagicMock()
+    service.list = AsyncMock(return_value=Result.ok(([_FakeTemplate("ft_1", "Survey")], 1)))
+    service.count_submissions = AsyncMock(
+        return_value=Result.fail(Errors.database(operation="count", message="Neo4j unavailable"))
+    )
+
+    tfu.create_teaching_forms_ui_routes(MagicMock(), _fake_rt, service, MagicMock(), MagicMock())
+
+    content = await captured[0](request=MagicMock(), current_user=_fake_teacher("user_teacher"))
+
+    rendered = to_xml(content)
+    assert "count unavailable" in rendered
+    # The page still renders — one broken count does not blank the list.
+    assert "Survey" in rendered
+    assert "0 submissions" not in rendered

@@ -19,7 +19,7 @@ from starlette.responses import HTMLResponse, Response
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.result_helpers import require_found
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
 from ui.components import ButtonT
@@ -39,8 +39,9 @@ from ui.teaching.forms import (
 from ui.teaching.nav import render_teaching_sidebar_page
 
 if TYPE_CHECKING:
+    from core.models.forms.form_template import FormTemplate
     from core.models.user.user import User
-    from core.ports.report_protocols import TeacherReviewOperations
+    from core.ports.form_protocols import FormSubmissionOperations, FormTemplateOperations
 
 logger = get_logger(__name__)
 
@@ -73,7 +74,7 @@ if TYPE_CHECKING:
         return injected
 
 
-def _classroom_scope(current_user: ScopeSubject) -> str | None:
+def _classroom_scope(current_user: ScopeSubject) -> UserUID | None:
     """The teacher UID that bounds a read, or None for the ADMIN-wide view.
 
     ADMIN keeps the cross-classroom view these pages are documented to provide;
@@ -84,16 +85,15 @@ def _classroom_scope(current_user: ScopeSubject) -> str | None:
     """
     if current_user.has_permission(UserRole.ADMIN):
         return None
-    return current_user.uid
+    return UserUID(current_user.uid)
 
 
 def create_teaching_forms_ui_routes(
     _app: Any,
     rt: Any,
-    form_template_service: Any,
-    form_submission_service: Any,
+    form_template_service: "FormTemplateOperations",
+    form_submission_service: "FormSubmissionOperations",
     user_service: Any,
-    teacher_review_service: "TeacherReviewOperations",
 ) -> list[Any]:
     """Create teaching forms UI routes.
 
@@ -131,15 +131,31 @@ def create_teaching_forms_ui_routes(
         # discloses other classrooms' activity and contradicts the list page it
         # links to.
         scope = _classroom_scope(current_user)
-        rows = []
+        rows: list[tuple[FormTemplate, int | None]] = []
         for template in templates:
             count_result = await form_template_service.count_submissions(template.uid, scope)
-            count = count_result.value if not count_result.is_error else 0
-            rows.append((template, count))
+            if count_result.is_error:
+                # None, not 0. The count query propagates backend failures on
+                # purpose, and rendering "0 submissions" here would spend that
+                # signal to tell a teacher their classroom is empty when the
+                # database is simply down.
+                logger.error(
+                    "Submission count failed for template %s: %s",
+                    template.uid,
+                    count_result.expect_error().message,
+                )
+                rows.append((template, None))
+            else:
+                rows.append((template, count_result.value))
 
         template_cards = []
         for template, count in rows:
-            count_variant = BadgeT.info if count > 0 else BadgeT.ghost
+            count_variant = BadgeT.info if count else BadgeT.ghost
+            count_label = (
+                "count unavailable"
+                if count is None
+                else f"{count} submission{'s' if count != 1 else ''}"
+            )
             field_count = len(template.form_schema) if template.form_schema else 0
 
             template_cards.append(
@@ -149,7 +165,7 @@ def create_teaching_forms_ui_routes(
                     subtitle=template.instructions[:100] if template.instructions else None,
                     header_badges=[
                         Badge(
-                            f"{count} submission{'s' if count != 1 else ''}",
+                            count_label,
                             variant=count_variant,
                             size=Size.sm,
                         ),
@@ -191,8 +207,13 @@ def create_teaching_forms_ui_routes(
             )
             return render_teaching_sidebar_page(content, active="forms", request=request)
 
-        # Fetch template
-        template_result = require_found(await form_template_service.get(uid), "FormTemplate", uid)
+        # Fetch template. AGENTS.md's `require_found` convention covers a fetch
+        # that may return None; `FormTemplateOperations.get` returns a
+        # non-optional `Result[FormTemplate]` because the CRUD mixin already
+        # converts a missing entity into NOT_FOUND, so there is no None to
+        # guard and `Result`'s invariance rejects the call outright. The
+        # normalization the helper provides has therefore already happened.
+        template_result = await form_template_service.get(uid)
         if template_result.is_error:
             content = Div(
                 PageHeader("Form Submissions"),
@@ -342,13 +363,14 @@ def create_teaching_forms_ui_routes(
 
         submission = result.value
 
-        # The TEACHER role is not authority over a *particular* student: without
-        # this gate any teacher can read any student's submission. Admins keep
-        # the cross-classroom view this page is documented to provide.
+        # Authority is carried by *this submission's* share edges, not by the
+        # caller's relationship to its author (the Model B gate — see
+        # FormSubmissionService.verify_teacher_access). A student may study in
+        # several groups, so sharing a classroom with the author does not make
+        # a submission shared with another teacher's group readable here.
+        # Admins keep the cross-classroom view this page is documented to give.
         if not current_user.has_permission(UserRole.ADMIN):
-            authority = await teacher_review_service.verify_teacher_authority(
-                current_user.uid, submission.user_uid
-            )
+            authority = await form_submission_service.verify_teacher_access(uid, current_user.uid)
             if authority.is_error:
                 error = authority.expect_error()
                 # Only a real refusal becomes not-found. An infrastructure
@@ -363,10 +385,9 @@ def create_teaching_forms_ui_routes(
                     )
                     return render_unavailable("Could not verify access. Please try again.")
                 logger.warning(
-                    "Teacher %s denied access to submission %s (student %s): no shared classroom",
+                    "Teacher %s denied access to submission %s: not shared with a group they own",
                     current_user.uid,
                     uid,
-                    submission.user_uid,
                 )
                 return render_not_found()
 

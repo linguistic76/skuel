@@ -62,15 +62,6 @@ def create_teaching_routes(
                 "TeacherOrchestrator missing from Services — required to wire teaching UI routes"
             )
 
-        # Forms submission detail gates on teacher-over-student authority, so the
-        # review service is a hard requirement, not an enhancement.
-        teacher_review = services.teacher_review
-        if teacher_review is None:
-            raise RuntimeError(
-                "TeacherReviewService missing from Services — required to verify "
-                "teacher authority on forms submission detail"
-            )
-
         # 2. UI routes via TeacherOrchestrator
         create_teaching_ui_routes(
             _app=app,
@@ -80,16 +71,24 @@ def create_teaching_routes(
             entry_report_service=services.entry_report,
         )
 
-        # 3. Forms UI routes (separate concern)
+        # 3. Forms UI routes (separate concern). The submission service carries
+        # the access gate these pages read through, so a missing one is a wiring
+        # fault, not a degraded mode — fail loudly rather than serve pages that
+        # cannot decide who may read a submission.
+        form_submissions = services.form_submissions
+        form_templates = services.form_templates
+        if form_submissions is None or form_templates is None:
+            raise RuntimeError(
+                "Form services missing from Services — required to gate "
+                "teaching forms reads on submission access"
+            )
+
         create_teaching_forms_ui_routes(
             _app=app,
             rt=rt,
-            form_template_service=services.form_templates,
-            form_submission_service=services.form_submissions,
+            form_template_service=form_templates,
+            form_submission_service=form_submissions,
             user_service=services.user,
-            # Submission detail verifies teacher authority over the submitting
-            # student, not just the TEACHER role — see ADR-040.
-            teacher_review_service=teacher_review,
         )
 
 

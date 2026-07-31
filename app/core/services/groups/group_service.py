@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.enums import GroupMemberRole
 from core.models.group.group import Group, GroupDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -255,8 +256,10 @@ class GroupService(BaseService):
         # more than MAX_STUDENT_GROUPS groups *as a student*. Teacher/TA role
         # memberships are counted separately (see /groups hub) and do not eat
         # into the student cap.
-        if role == "student":
-            user_groups_result = await self.get_user_groups(user_uid, role="student")
+        if role == GroupMemberRole.STUDENT.value:
+            user_groups_result = await self.get_user_groups(
+                user_uid, role=GroupMemberRole.STUDENT.value
+            )
             if user_groups_result.is_ok:
                 current_groups = user_groups_result.value or []
                 already_in = any(g.uid == group_uid for g in current_groups)

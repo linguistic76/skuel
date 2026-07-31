@@ -149,7 +149,14 @@ from .user_entry_enums import (
 )
 
 # User enums - roles, health scoring, and account management
-from .user_enums import ContextHealthScore, JournalMode, JournalTier, UserRole, UserStatus
+from .user_enums import (
+    ContextHealthScore,
+    GroupMemberRole,
+    JournalMode,
+    JournalTier,
+    UserRole,
+    UserStatus,
+)
 
 __all__ = [
     "ActivityType",
@@ -236,6 +243,7 @@ __all__ = [
     "TimeOfDay",
     "TranscriptionStatus",
     "TrendDirection",
+    "GroupMemberRole",
     "UserRole",
     "UserStatus",
     "Visibility",

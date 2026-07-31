@@ -90,14 +90,23 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         joined_at: str,
         role: str = "student",
     ) -> Result[list[Neo4jProperties]]:
-        """Create MEMBER_OF relationship from user to group."""
+        """Create or update the MEMBER_OF relationship from user to group.
+
+        ``MERGE`` makes this an upsert, so re-adding an existing member is
+        idempotent. ``joined_at`` is set ``ON CREATE`` only: it records when
+        this membership *began*, and re-stamping it on a duplicate add would
+        rewrite history — the roster would show the wrong date, and anything
+        reasoning about what a member could see at a past moment (the
+        submission audience backfill) would treat an old membership as new.
+        ``role`` is set unconditionally, since a promotion is a real change.
+        """
         result = await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})
             MATCH (group:Group {{uid: $group_uid}})
             MERGE (user)-[r:{RelationshipName.MEMBER_OF}]->(group)
-            SET r.joined_at = datetime($joined_at),
-                r.role = $role
+            ON CREATE SET r.joined_at = datetime($joined_at)
+            SET r.role = $role
             RETURN true as success
             """,
             {

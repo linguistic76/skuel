@@ -21,6 +21,11 @@ from core.models.enums import UserRole
 from core.models.type_hints import FilterParams, UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import BackendOperations
+from core.ports.query_types import (
+    BackfilledGroupRow,
+    TeacherSubmissionAccessRow,
+    UnaudiencedSubmissionRow,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -73,6 +78,22 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
     async def get_submissions_for_template(
         self, form_template_uid: str, teacher_uid: UserUID | None
     ) -> Result[list[dict[str, Any]]]: ...
+
+    async def verify_teacher_submission_access(
+        self, submission_uid: str, teacher_uid: str
+    ) -> Result[list[TeacherSubmissionAccessRow]]: ...
+
+    async def find_submissions_without_audience(
+        self, after_uid: str, limit: int
+    ) -> Result[list[UnaudiencedSubmissionRow]]: ...
+
+    async def share_with_default_audience(
+        self, submission_uid: str, *, only_prior_memberships: bool = False
+    ) -> Result[list[BackfilledGroupRow]]: ...
+
+    async def preview_default_audience(
+        self, submission_uid: str
+    ) -> Result[list[BackfilledGroupRow]]: ...
 
     async def find_admin_user_uid(self, admin_role: UserRole) -> Result[str | None]: ...
 
@@ -136,6 +157,7 @@ class FormSubmissionOperations(Protocol):
         group_uid: str | None = None,
         recipient_uids: list[str] | None = None,
         share_with_admin: bool = False,
+        use_default_audience: bool = False,
     ) -> Result[FormSubmission]: ...
 
     async def get_submission(self, uid: str, user_uid: UserUID) -> Result[FormSubmission]: ...
@@ -149,6 +171,8 @@ class FormSubmissionOperations(Protocol):
     async def get_submissions_for_template(
         self, form_template_uid: str, teacher_uid: UserUID | None
     ) -> Result[list[dict[str, Any]]]: ...
+
+    async def verify_teacher_access(self, uid: str, teacher_uid: str) -> Result[bool]: ...
 
     async def get_submission_admin(self, uid: str) -> Result[FormSubmission]: ...
 

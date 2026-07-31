@@ -417,6 +417,73 @@ class Task:
 **NOTE (January 2026):** MOC is now KU-based - a KU "is" a MOC when it has
 outgoing ORGANIZES relationships. No separate MapOfContent entity exists.
 
+### Teacher-Readable Domains (the Model B gate)
+
+A teacher reading a student's work is neither "owner only" nor "shared with
+everyone". Access is carried by the **entity's own share edges**: the entity
+must be `SHARED_WITH_GROUP` an active group the requesting teacher `OWNS`, or
+`SHARES_WITH` the teacher directly.
+
+**Honour every edge kind the write path can produce.** `_share_on_submit` writes
+`SHARED_WITH_GROUP` for `group_uid` and `SHARES_WITH` for `recipient_uids`; a
+gate checking only the group edge refuses the very teacher a student explicitly
+picked. Whenever a read gate is defined in terms of edges, enumerate the writers
+first — a gate narrower than its writers is a silent functional bug, and one
+wider than them is the vulnerability.
+
+| Domain | Entity | Gate |
+|--------|--------|------|
+| UserEntry | UserEntry | `_UserEntryAssessmentMixin.get_entry_detail_for_teacher` |
+| Forms | FormSubmission | `FormSubmissionService.verify_teacher_access` |
+
+**Sharing a classroom with the author is deliberately not enough.** A student may
+belong to several groups (`GroupService.MAX_STUDENT_GROUPS = 4`), so a
+student-granularity predicate — "do teacher and student share *some* active
+group?" — lets a second teacher read work shared only with the first teacher's
+group. Ask about the entity, never about its author.
+
+Two consequences worth stating, because getting either wrong is silent:
+
+1. **The write path owns the audience — and only the caller knows what an
+   absent one means.** Because reads are decided by edges, an entity persisted
+   without any is readable by nobody but its owner and admins. So a surface
+   with no audience controls must resolve a default at write time
+   (`AudienceResolver.resolve_default_teachers` for UserEntry,
+   `FormSubmissionService._share_with_default_audience` for FormSubmission —
+   both expand "my teachers" into the submitter's actual student-role groups,
+   neither has an implicit "share with everyone" fallback).
+
+   But a surface that *does* offer those controls must not: there, an empty
+   audience is the submitter's decision to stay private, and defaulting it
+   publishes their answers to a whole classroom. Pass the intent explicitly
+   from the route (`submit_form(use_default_audience=...)`) rather than
+   inferring it from the absence of a value — one service backs both surfaces,
+   and the arguments alone cannot tell "I have no way to say this" from
+   "I don't want to".
+2. **List and detail must share the gate.** A scoped detail page in front of an
+   unscoped list is not a gate — the list hands over the UIDs and a content
+   preview. Scope the list in Cypher (see
+   `get_submissions_for_template_for_teacher`) rather than filtering after the
+   fetch.
+3. **A migration must never widen an existing audience.** Backfilling a default
+   audience is only safe for entities that have *none*: one that already names
+   an audience was scoped deliberately, and adding the owner's other groups
+   leaks exactly what the gate exists to prevent. Keep the work list to
+   "no share edges at all", and make the write atomic per entity
+   (`FormSubmissionBackend.share_with_default_audience`) so a partial failure
+   cannot leave a half-audienced entity the narrow work list can no longer see.
+   Re-check the predicate *inside* the write, or a share landing between
+   selection and write gets buried under the default audience.
+4. **Absence of an audience is not consent to share.** A record with no share
+   edges may have had no *way* to declare one, or may have been kept private on
+   purpose — and if no provenance field distinguishes them, that is not
+   recoverable from the data. Narrow by what you can actually infer, say plainly
+   what residue remains, and make the operator confirm rather than deriving
+   intent you do not have.
+
+ADMIN is exempt from both, preserving the documented cross-classroom view.
+Refusals return the same not-found a missing entity returns, per this document.
+
 ### Admin-Only Domains (role-gated, no ContentScope)
 
 | Domain | Entity | Notes |
