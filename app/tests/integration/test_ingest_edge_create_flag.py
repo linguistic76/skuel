@@ -39,6 +39,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver, Record
 
 from core.models.relationship_names import RelationshipName
 from core.services.ingestion.preparer import prepare_edge_data
@@ -61,6 +62,10 @@ def _prepare(evidence: str) -> dict[str, Any]:
     ``evidence`` differs per call so a re-ingest can be shown to have actually
     reached the edge — otherwise a silently-failed second write would satisfy the
     "created_at is preserved" assertion for the wrong reason.
+
+    The return type mirrors ``prepare_edge_data``'s own ``dict[str, Any]``
+    deliberately: a TypedDict here would assert a shape the production function
+    does not guarantee, and the test would then be pinning a fiction.
     """
     return prepare_edge_data(
         {
@@ -73,7 +78,7 @@ def _prepare(evidence: str) -> dict[str, Any]:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def two_entities(neo4j_driver):
+async def two_entities(neo4j_driver: AsyncDriver):
     """The two endpoints the edge is written between.
 
     Load-bearing: ``ingest_edge`` returns no rows when either endpoint is
@@ -96,8 +101,13 @@ async def two_entities(neo4j_driver):
         )
 
 
-async def _read_edge(neo4j_driver) -> Any:
-    """Read the edge's full property map, directed source→target."""
+async def _read_edge(neo4j_driver: AsyncDriver) -> Record | None:
+    """Read the edge's full property map, directed source→target.
+
+    ``None`` means the edge is absent — every caller asserts on that before
+    reading, so a write that silently failed surfaces as a clear assertion
+    rather than a subscript error.
+    """
     async with neo4j_driver.session() as session:
         result = await session.run(
             f"""
@@ -110,7 +120,7 @@ async def _read_edge(neo4j_driver) -> Any:
         return await result.single()
 
 
-async def _count_edges(neo4j_driver) -> int:
+async def _count_edges(neo4j_driver: AsyncDriver) -> int:
     """How many source→target edges of this type exist."""
     async with neo4j_driver.session() as session:
         result = await session.run(
@@ -207,14 +217,18 @@ class TestTheCreateSignalIsTransient:
         contract for all 9 domains' lateral GET routes.
         """
         assert not (await ingestion_service.ingest_edge(_prepare("first"))).is_error
-        after_create = set((await _read_edge(neo4j_driver))["props"])
+        created_record = await _read_edge(neo4j_driver)
+        assert created_record is not None
+        after_create = set(created_record["props"])
 
         # Positive control: the projection is not simply empty, which would make
         # the "no internal keys" assertion below true for the wrong reason.
         assert "created_at" in after_create
 
         assert not (await ingestion_service.ingest_edge(_prepare("second"))).is_error
-        after_update = set((await _read_edge(neo4j_driver))["props"])
+        updated_record = await _read_edge(neo4j_driver)
+        assert updated_record is not None
+        after_update = set(updated_record["props"])
 
         # Both branches of the MERGE, since a marker may be written on either.
         assert not [key for key in after_create if key.startswith("_")], after_create
