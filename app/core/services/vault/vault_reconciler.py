@@ -758,6 +758,8 @@ def _merge_ingest_stats(
     # genuine failures.
     stats.files_failed = max(0, int(ingest.failed or 0) - stats.files_ignored)
     if isinstance(ingest, IncrementalStats):
+        stats.edges_created = int(ingest.edges_created or 0)
+        stats.edges_updated = int(ingest.edges_updated or 0)
         stats.entities_deleted = int(ingest.entities_deleted or 0)
         stats.edges_deleted = int(ingest.edges_deleted or 0)
         stats.moves_detected = int(ingest.moves_detected or 0)

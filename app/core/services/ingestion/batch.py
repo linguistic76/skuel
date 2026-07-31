@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -466,12 +467,40 @@ async def parse_file_for_batch(
             return (None, None, error.to_dict())
 
 
+@dataclass(frozen=True)
+class _EdgeBatchOutcome:
+    """What one edge-file batch did — the write half of the sync's edge report.
+
+    ``created``/``updated`` are counted from the upsert's own signal rather than
+    summed into one "written" total: a vault author needs to know whether a new
+    Edge YAML established a relationship or refreshed one that already existed.
+    Each entry in ``successes`` carries {source_file, from_uid, to_uid, rel_type}
+    so the caller can record IngestionMetadata for the edge file — which is what
+    makes edge-file deletion propagate (and unchanged edge files skip).
+    """
+
+    created: int = 0
+    updated: int = 0
+    errors: list[dict[str, str]] = field(default_factory=list)
+    successes: list[dict[str, str]] = field(default_factory=list)
+
+    @property
+    def written(self) -> int:
+        """Edges the batch wrote, created and refreshed alike."""
+        return self.created + self.updated
+
+
 async def _ingest_edge_batch(
     write_backend: IngestionWriteOperations,
     edge_files: list[dict[str, Any]],
-) -> tuple[int, list[dict[str, str]], list[dict[str, str]]]:
+) -> _EdgeBatchOutcome:
     """
     Ingest a batch of prepared edge data into Neo4j.
+
+    The write is an upsert, so re-ingesting an edge refreshes its properties
+    instead of adding a second one; ``ingest_edge`` reports which of the two
+    happened via MERGE's own ``created`` flag (#890) and the counts keep them
+    apart.
 
     Args:
         write_backend: Ingestion write backend (edge Cypher lives below the
@@ -479,15 +508,11 @@ async def _ingest_edge_batch(
         edge_files: List of prepared edge dicts (from prepare_edge_data)
 
     Returns:
-        Tuple of (edges_written_count, error_dicts, successes). The write is an
-        upsert, so the count covers edges created AND edges refreshed — the
-        create/update split is available (``ingest_edge`` returns MERGE's own
-        ``created`` flag) but deliberately not reported here: no surface reads
-        it. Each success carries {source_file, from_uid, to_uid, rel_type} so
-        the caller can record IngestionMetadata for the edge file — which is
-        what makes edge-file deletion propagate (and unchanged edge files skip).
+        An :class:`_EdgeBatchOutcome` carrying the create/update split, the
+        per-edge errors, and the successes the caller tracks metadata for.
     """
-    edges_written = 0
+    edges_created = 0
+    edges_updated = 0
     errors: list[dict[str, str]] = []
     successes: list[dict[str, str]] = []
 
@@ -515,7 +540,12 @@ async def _ingest_edge_batch(
             # Cypher lives in IngestionWriteBackend below the boundary (ADR-044).
             records = await write_backend.ingest_edge(from_uid, to_uid, rel_type, props)
             if records:
-                edges_written += 1
+                # MERGE's own ON CREATE / ON MATCH flag — not inferred from the
+                # data the write just stamped (the bug #890 fixed).
+                if records[0]["created"]:
+                    edges_created += 1
+                else:
+                    edges_updated += 1
                 successes.append(
                     {
                         "source_file": props.get("source_file", ""),
@@ -541,7 +571,9 @@ async def _ingest_edge_batch(
             )
             errors.append(edge_error.to_dict())
 
-    return edges_written, errors, successes
+    return _EdgeBatchOutcome(
+        created=edges_created, updated=edges_updated, errors=errors, successes=successes
+    )
 
 
 async def ingest_directory(
@@ -1292,15 +1324,16 @@ async def ingest_directory(
             errors.append(rel_error.to_dict())
 
     # Ingest edge files (after entities, so referenced nodes likely exist)
-    total_edges_written = 0
-    edge_successes: list[dict[str, str]] = []
+    edge_outcome = _EdgeBatchOutcome()
     if edge_files and write_backend is not None:
-        total_edges_written, edge_errors, edge_successes = await _ingest_edge_batch(
-            write_backend, edge_files
-        )
-        errors.extend(edge_errors)
-        if total_edges_written:
-            logger.info(f"Ingested {total_edges_written} edges from {len(edge_files)} edge files")
+        edge_outcome = await _ingest_edge_batch(write_backend, edge_files)
+        errors.extend(edge_outcome.errors)
+        if edge_outcome.written:
+            logger.info(
+                f"Ingested {edge_outcome.written} edges from {len(edge_files)} edge files "
+                f"({edge_outcome.created} created, {edge_outcome.updated} updated)"
+            )
+    edge_successes = edge_outcome.successes
 
     # Update ingestion metadata for successfully processed files
     if tracker is not None and ingestion_mode != "full":
@@ -1413,6 +1446,8 @@ async def ingest_directory(
                 duration_seconds=duration,
                 skipped_unchanged=skipped_unchanged,
                 skipped_hash_match=skipped_hash_match,
+                edges_created=edge_outcome.created,
+                edges_updated=edge_outcome.updated,
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,

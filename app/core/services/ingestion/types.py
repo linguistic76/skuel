@@ -160,6 +160,13 @@ class IncrementalStats:
     # Breakdown by skip reason
     skipped_unchanged: int = 0
     skipped_hash_match: int = 0
+    # Edge-YAML writes, split by what the upsert actually did (the create flag
+    # is MERGE's own, not an inference). Unchanged edge files are filtered on
+    # hash before parsing, so these count author action: a new edge file, an
+    # edited one, or a forced re-ingest. Standalone Edge YAMLs only —
+    # relationships declared in entity frontmatter are relationships_created.
+    edges_created: int = 0  # new Edge YAMLs: relationship created
+    edges_updated: int = 0  # re-written Edge YAMLs: existing relationship refreshed
     # Deletion propagation (vault file deleted -> graph entity/edge deleted)
     entities_deleted: int = 0
     edges_deleted: int = 0  # deleted Edge YAMLs: relationship removed

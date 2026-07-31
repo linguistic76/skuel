@@ -1059,8 +1059,11 @@ tags: [health, nervous-system]
 - `is_edge_type()` detects `type: Edge` before entity type detection
 - `validate_edge_data()` validates required fields and value constraints
 - `prepare_edge_data()` normalizes UIDs (colon→dot) and extracts evidence properties
-- `ingest_edge()` uses `MERGE (a)-[r:REL_TYPE]->(b) SET r += $props` (idempotent)
+- `ingest_edge()` upserts with `MERGE`, stamping `created_at` on create only, and
+  returns `MERGE`'s own create-vs-match flag
 - In batch mode, edges are processed AFTER entities (so referenced nodes exist)
+- The sync surfaces report the outcome as `edges_created` / `edges_updated`
+  (§ IncrementalStats)
 
 **Validation rules:**
 - Required: `from`, `to`, `relationship` (must be valid `RelationshipName`)
@@ -1175,13 +1178,20 @@ non-fatal `warnings`, `errors`, and a `files_per_second` property.
 Returned for `ingestion_mode="incremental"` and `"smart"`. Everything above,
 plus the incremental-only signals: the skip breakdown (`files_skipped`,
 `skipped_unchanged`, `skipped_hash_match`, and a `skip_efficiency` property),
-deletion propagation (`entities_deleted`, `edges_deleted`,
-`stale_metadata_removed`), and move detection (`moves_detected`, `moves`).
+standalone-edge writes (`edges_created`, `edges_updated`), deletion propagation
+(`entities_deleted`, `edges_deleted`, `stale_metadata_removed`), and move
+detection (`moves_detected`, `moves`).
 
-Neither type reports a count of standalone edge files written. The batch engine
-counts them for its log line ("Ingested N edges from M edge files") but the
-number reaches no caller — see `_ingest_edge_batch` in
-`core/services/ingestion/batch.py`.
+`edges_created` / `edges_updated` split on `MERGE`'s own flag rather than summing
+to one "written" total, so a new Edge YAML that reports *updated* tells the author
+the relationship already existed. Both count standalone edge FILES — the unit
+`edges_deleted` already used. Relationships declared in entity frontmatter are
+`relationships_created` and have no deletion counterpart.
+
+Unchanged edge files are filtered on hash before parsing, so a non-zero count
+always means author action: a new edge file, an edited one, or `force=True`.
+`IngestionStats` (full mode) carries none of these — full mode runs no tracker,
+so it has neither an edge-file skip gate nor deletion reconciliation.
 
 ### RelationshipValidationResult
 
