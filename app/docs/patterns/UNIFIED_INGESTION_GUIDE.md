@@ -303,11 +303,12 @@ defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
   revision. The teacher review queue (and its dashboard pending badge)
   collapses each (student, exercise) lineage to the newest turn-in copy
   *visible to that teacher* — a pending copy superseded by a later
-  `teacher_review` revision shared with one of the teacher's groups never
-  surfaces as work to do. Lineage siblings the teacher cannot see (a
-  private AI entry; a revision a multi-class student directed only to
-  another teacher's group) never retire their pending work, and every
-  copy stays visible in the per-student and per-exercise history views. Flip back to `in process` to revise in peace. Sync never
+  `teacher_review` revision shared with one of the teacher's active
+  groups never surfaces as work to do. Lineage siblings the teacher
+  cannot see (a private AI entry; a revision a multi-class student
+  directed only to another teacher's group; a copy in a deactivated
+  group) never retire their pending work, and every copy stays visible
+  in the per-student and per-exercise history views. Flip back to `in process` to revise in peace. Sync never
   writes into the user's file.
 - **The living entry's own status stays `active`** while the file says
   `submitted` — it is not itself in a review queue; the submitted state

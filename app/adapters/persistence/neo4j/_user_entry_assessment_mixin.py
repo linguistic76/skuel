@@ -116,10 +116,14 @@ class _UserEntryAssessmentMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Teacher's pending review queue via ``SHARED_WITH_GROUP``.
 
-        Returns entries shared with the teacher's groups whose pipeline is
-        ``teacher_review``. Empty when the teacher owns no groups, or when no
-        ``UserEntry`` has been ``SHARED_WITH_GROUP`` an owned group — so we do
-        not leak the existence of unrelated students' submissions.
+        Returns entries shared with the teacher's ACTIVE groups whose pipeline
+        is ``teacher_review`` — the same visibility the detail read
+        (``get_entry_detail_for_teacher``) and the review writes
+        (``verify_teacher_has_group_access``) enforce, so the queue never
+        lists work the teacher cannot open or act on. Empty when the teacher
+        owns no groups, or when no ``UserEntry`` has been
+        ``SHARED_WITH_GROUP`` an owned group — so we do not leak the
+        existence of unrelated students' submissions.
 
         Copy revisions collapse to the lineage's newest: the vault exercise
         channel freezes a copy per turn-in, and a pending copy with a newer
@@ -129,20 +133,22 @@ class _UserEntryAssessmentMixin:
         work and never queues, regardless of the newer copy's status (a
         reviewed rev 2 retires a still-pending rev 1). Only a copy THIS
         teacher can see supersedes — a ``teacher_review`` entry shared with
-        one of the querying teacher's owned groups. Two lineage siblings
-        deliberately do not supersede: a newer PRIVATE ``llm_summary``
-        entry (the upload form keeps ``fulfills_exercise_uid`` on every
-        destination, so AI entries share the lineage), and a revision a
-        multi-class student directed only to another teacher's group
-        (``share_with_groups``). Collapsing behind either would remove work
-        with no teacher-visible successor. Entries with no exercise anchor
-        have no lineage and always pass through.
+        one of the querying teacher's ACTIVE owned groups. Three lineage
+        siblings deliberately do not supersede: a newer PRIVATE
+        ``llm_summary`` entry (the upload form keeps
+        ``fulfills_exercise_uid`` on every destination, so AI entries share
+        the lineage), a revision a multi-class student directed only to
+        another teacher's group (``share_with_groups``), and a copy locked
+        in a group this teacher has deactivated. Collapsing behind any of
+        them would remove work with no teacher-visible successor. Entries
+        with no exercise anchor have no lineage and always pass through.
         """
         statuses = status_filter or ["submitted", "active"]
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         MATCH (entry:Entity:UserEntry)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-        WHERE entry.pipeline = $pipeline
+        WHERE g.is_active = true
+          AND entry.pipeline = $pipeline
           AND entry.status IN $statuses
         OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
@@ -151,7 +157,7 @@ class _UserEntryAssessmentMixin:
             MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
                   -[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
             WHERE newer.pipeline = $pipeline
-              AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)
+              AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
                   <-[:{RelationshipName.OWNS.value}]-(teacher)
               AND (coalesce(nr.revision, 0) > coalesce(r.revision, 0)
                    OR (coalesce(nr.revision, 0) = coalesce(r.revision, 0)
@@ -421,12 +427,17 @@ class _UserEntryAssessmentMixin:
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
         RETURN
           count(DISTINCT CASE
-              WHEN sub.status IN ['submitted', 'active'] AND NOT EXISTS {{
+              WHEN sub.status IN ['submitted', 'active']
+               AND EXISTS {{
+                  (sub)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
+                       <-[:{RelationshipName.OWNS.value}]-(teacher)
+               }}
+               AND NOT EXISTS {{
                   MATCH (sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
                         <-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]-(newer:Entity:UserEntry)
                   WHERE (student)-[:{RelationshipName.OWNS.value}]->(newer)
                     AND newer.pipeline = $pipeline
-                    AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)
+                    AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
                         <-[:{RelationshipName.OWNS.value}]-(teacher)
                     AND (coalesce(nr.revision, 0) > coalesce(sr.revision, 0)
                          OR (coalesce(nr.revision, 0) = coalesce(sr.revision, 0)
