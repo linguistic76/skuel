@@ -28,6 +28,16 @@ if TYPE_CHECKING:
     from core.models.relationship_names import RelationshipName
 
 
+# Carries MERGE's create/match signal from the ON CREATE / ON MATCH branches to
+# the RETURN, then is removed in the same transaction — it is never committed,
+# and must stay that way: ``properties(r)`` is projected wholesale into the JSON
+# response of all 9 domains' lateral GET routes, and every lateral type is
+# edge-YAML ingestible, so a surviving marker would become part of that contract.
+# Named once because Cypher reads an unknown property as null rather than
+# erroring, which would silently turn the flag back into a constant.
+_CREATE_MARKER = "_merge_created"
+
+
 class IngestionWriteBackend:
     """Raw-driver Cypher for ingestion entity/edge writes and existence checks."""
 
@@ -39,10 +49,25 @@ class IngestionWriteBackend:
     ) -> list[dict[str, Any]]:
         """MERGE a ``rel_type`` edge between two existing nodes; return matched rows.
 
+        An upsert: re-ingesting an edge refreshes its properties rather than
+        adding a second one. ``created_at`` in ``props`` is treated as a
+        *creation* stamp — applied ``ON CREATE`` only, so re-syncing a vault does
+        not overwrite when the edge first appeared. Every other key is refreshed
+        on every write. Same shape as the lateral-relationship edge writer.
+
+        The returned ``created`` flag is ``MERGE``'s own signal rather than an
+        inference from the data. It used to compare ``r.created_at`` against the
+        value the preceding ``SET`` had just written, so it was always ``true``
+        and a re-ingested edge reported itself as newly created.
+
         Empty result means one or both endpoints were not found. ``rel_type`` is a
         ``RelationshipName`` — the enum type makes the interpolation injection-safe
         (MyPy rejects raw strings at the call site).
         """
+        # The stamp is applied ON CREATE, so it must not also ride along in the
+        # map re-applied on every write — `+=` would undo the guarantee.
+        refreshed = {key: value for key, value in props.items() if key != "created_at"}
+
         # NOT :Content — the chunk store's shadow node shares its entity's
         # uid; an unguarded MERGE would duplicate the edge onto the shadow
         # (G13). Exclusion, not :Entity binding: edge endpoints may be
@@ -51,15 +76,19 @@ class IngestionWriteBackend:
         MATCH (a {{uid: $from_uid}}) WHERE NOT a:Content
         MATCH (b {{uid: $to_uid}}) WHERE NOT b:Content
         MERGE (a)-[r:{rel_type}]->(b)
+          ON CREATE SET r.created_at = $created_at, r.{_CREATE_MARKER} = true
+          ON MATCH SET r.{_CREATE_MARKER} = false
+        WITH a, b, r, r.{_CREATE_MARKER} AS created
         SET r += $props
-        RETURN a.uid AS from_uid, b.uid AS to_uid, type(r) AS rel_type,
-               CASE WHEN r.created_at = $props.created_at THEN true ELSE false END AS created
+        REMOVE r.{_CREATE_MARKER}
+        RETURN a.uid AS from_uid, b.uid AS to_uid, type(r) AS rel_type, created
         """
         records, _, _ = await self._driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
             query,
             from_uid=from_uid,
             to_uid=to_uid,
-            props=props,
+            props=refreshed,
+            created_at=props.get("created_at"),
         )
         return list(records)
 
