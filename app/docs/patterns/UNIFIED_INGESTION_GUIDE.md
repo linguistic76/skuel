@@ -1159,43 +1159,29 @@ ingestion dashboard's "Sync content vault" button (`POST /api/vault/sync/content
 
 ## Response Types
 
+Both are frozen-in-place field lists that drift the moment a counter is added,
+so the authoritative definitions live in `core/services/ingestion/types.py` —
+read them there rather than trusting a copy here.
+
 ### IngestionStats (Full Ingestion)
 
-```python
-@dataclass
-class IngestionStats:
-    total_files: int
-    successful: int
-    failed: int
-    nodes_created: int
-    nodes_updated: int
-    relationships_created: int
-    edges_created: int          # Standalone edge files ingested
-    duration_seconds: float
-    errors: list[dict] | None
-```
+Returned for `ingestion_mode="full"`. Carries the file tallies
+(`total_files` / `successful` / `failed`), the node and relationship write
+counts, the skip-reason bookkeeping (`files_walled` / `files_unsupported`),
+non-fatal `warnings`, `errors`, and a `files_per_second` property.
 
 ### IncrementalStats (Incremental Ingestion)
 
-```python
-@dataclass
-class IncrementalStats:
-    total_files: int
-    files_checked: int
-    files_skipped: int
-    files_ingested: int
-    files_failed: int
-    nodes_created: int
-    nodes_updated: int
-    relationships_created: int
-    duration_seconds: float
-    skipped_unchanged: int
-    skipped_hash_match: int
-    errors: list[dict] | None
+Returned for `ingestion_mode="incremental"` and `"smart"`. Everything above,
+plus the incremental-only signals: the skip breakdown (`files_skipped`,
+`skipped_unchanged`, `skipped_hash_match`, and a `skip_efficiency` property),
+deletion propagation (`entities_deleted`, `edges_deleted`,
+`stale_metadata_removed`), and move detection (`moves_detected`, `moves`).
 
-    @property
-    def skip_efficiency(self) -> float
-```
+Neither type reports a count of standalone edge files written. The batch engine
+counts them for its log line ("Ingested N edges from M edge files") but the
+number reaches no caller — see `_ingest_edge_batch` in
+`core/services/ingestion/batch.py`.
 
 ### RelationshipValidationResult
 
