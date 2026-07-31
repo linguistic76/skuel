@@ -66,6 +66,52 @@ async def seeded(neo4j_driver):
         await session.run("MATCH (n:Entity) WHERE n.uid IN $uids DETACH DELETE n", uids=_UIDS)
 
 
+def test_guard_rejects_a_census_that_does_not_add_up():
+    """The guard predicate, exercised directly.
+
+    Testing the decision separately means the failure branch has real coverage
+    without having to manufacture a concurrent writer mid-transaction.
+    """
+    holds = migration.guard_holds
+    assert holds(total_before=10, literal_before=3, total_after=7, literal_after=0)
+    # Literals survived the REMOVE.
+    assert not holds(total_before=10, literal_before=3, total_after=7, literal_after=1)
+    # Too many edges lost the property — an over-broad WHERE.
+    assert not holds(total_before=10, literal_before=3, total_after=5, literal_after=0)
+    # Too few — the REMOVE under-matched.
+    assert not holds(total_before=10, literal_before=3, total_after=9, literal_after=0)
+
+
+async def test_guard_failure_rolls_the_removal_back(neo4j_driver, seeded):
+    """A failing guard must leave the graph untouched, not half-migrated.
+
+    The guard is forced to fail by making it expect an impossible outcome. What
+    matters is the consequence: the REMOVE ran inside the same transaction, so
+    the literal-stamped edges must still be there afterwards.
+    """
+    literal_before = await migration._count_literal(neo4j_driver)
+    assert literal_before >= 2, "positive control: nothing seeded, rollback would prove nothing"
+
+    removed_inside_tx: list[int] = []
+
+    async def always_fails(tx):
+        removed_inside_tx.append(
+            await migration._tx_scalar(tx, migration._REMOVE_LITERAL, literal=migration.LITERAL)
+        )
+        raise migration.GuardFailedError("forced")
+
+    async with neo4j_driver.session() as session:
+        with pytest.raises(migration.GuardFailedError):
+            await session.execute_write(always_fails)
+
+    # Positive control: the destructive statement really ran and really matched.
+    # Without it, a REMOVE that silently matched nothing would make the
+    # "still there afterwards" assertion below prove nothing about rollback.
+    assert removed_inside_tx == [literal_before]
+
+    assert await migration._count_literal(neo4j_driver) == literal_before
+
+
 async def test_removes_only_the_literal_stamped_edges(neo4j_driver, seeded):
     literal_before = await migration._count_literal(neo4j_driver)
     total_before = await migration._scalar(neo4j_driver, migration._COUNT_ALL_WITH_CREATED_AT)
@@ -75,9 +121,10 @@ async def test_removes_only_the_literal_stamped_edges(neo4j_driver, seeded):
     assert literal_before >= 2
     assert total_before >= literal_before + 1, "the legitimately-stamped control edge is missing"
 
-    removed = await migration._scalar(
-        neo4j_driver, migration._REMOVE_LITERAL, literal=migration.LITERAL
-    )
+    # The real guarded path, not a hand-rolled equivalent.
+    async with neo4j_driver.session() as session:
+        outcome = await session.execute_write(migration._remove_literals_guarded)
+    removed = outcome["removed"]
     assert removed == literal_before
 
     assert await migration._count_literal(neo4j_driver) == 0

@@ -28,8 +28,17 @@ the match is on the exact literal, not on "looks wrong".
 **The write is guarded by a census, not by trust in the WHERE clause.** A
 mis-scoped ``REMOVE`` would silently strip ``created_at`` from every edge in the
 graph and report success. So the run counts edges carrying *any* ``created_at``
-before and after, and refuses to report success unless the drop equals exactly
-the number of literals it set out to remove.
+before and after, and requires the drop to equal exactly the number of literals
+it set out to remove.
+
+**Census, removal and verification share ONE transaction.** Run as separate
+autocommit statements they would prove nothing on a live graph: an unrelated
+writer touching some other edge's ``created_at`` between them could trip a false
+failure *after* the removal had already committed, or offset a real
+discrepancy and let a bad removal pass. One transaction gives one snapshot, and
+a guard that does not hold raises — rolling the ``REMOVE`` back instead of
+leaving the graph half-migrated. The guard is a precondition for committing,
+not a report filed afterwards.
 
 Usage:
     uv run scripts/backfill_lateral_created_at.py              # census only (default)
@@ -78,6 +87,15 @@ RETURN count(*) AS n
 """
 
 
+class GuardFailedError(RuntimeError):
+    """The post-removal census disagreed with the pre-removal one.
+
+    Raised *inside* the write transaction so the driver rolls the REMOVE back —
+    the guard is a precondition for committing, not a report filed after an
+    irreversible write.
+    """
+
+
 async def _scalar(driver, query: str, **params: str) -> int:
     records, _, _ = await driver.execute_query(query, **params)
     return int(records[0]["n"]) if records else 0
@@ -87,6 +105,65 @@ async def _count_literal(driver) -> int:
     """Total edges carrying the literal, summed across relationship types."""
     records, _, _ = await driver.execute_query(_COUNT_LITERAL_BY_TYPE, literal=LITERAL)
     return sum(int(row["n"]) for row in records)
+
+
+def guard_holds(
+    *, total_before: int, literal_before: int, total_after: int, literal_after: int
+) -> bool:
+    """True when the REMOVE hit exactly the set that was counted.
+
+    Split out from the transaction so the decision itself is testable without
+    having to manufacture a concurrent writer.
+    """
+    return literal_after == 0 and total_after == total_before - literal_before
+
+
+async def _tx_scalar(tx, query: str, **params: str) -> int:
+    result = await tx.run(query, **params)
+    record = await result.single()
+    return int(record["n"]) if record else 0
+
+
+async def _tx_count_literal(tx) -> int:
+    result = await tx.run(_COUNT_LITERAL_BY_TYPE, literal=LITERAL)
+    # Async comprehension, not a bare generator: sum() cannot consume the latter.
+    return sum([int(row["n"]) async for row in result])
+
+
+async def _remove_literals_guarded(tx) -> dict[str, int]:
+    """Census, remove, and re-census inside ONE transaction.
+
+    All five statements share one snapshot and one commit, so an unrelated
+    writer touching some other edge's ``created_at`` mid-run can neither trip a
+    false failure nor mask a real one. If the guard does not hold, raising here
+    rolls the REMOVE back rather than leaving the graph half-migrated.
+    """
+    total_before = await _tx_scalar(tx, _COUNT_ALL_WITH_CREATED_AT)
+    literal_before = await _tx_count_literal(tx)
+
+    removed = await _tx_scalar(tx, _REMOVE_LITERAL, literal=LITERAL)
+
+    literal_after = await _tx_count_literal(tx)
+    total_after = await _tx_scalar(tx, _COUNT_ALL_WITH_CREATED_AT)
+
+    if not guard_holds(
+        total_before=total_before,
+        literal_before=literal_before,
+        total_after=total_after,
+        literal_after=literal_after,
+    ):
+        raise GuardFailedError(
+            f"census mismatch — rolled back. before={total_before} "
+            f"literal={literal_before} after={total_after} "
+            f"(expected {total_before - literal_before}) literal_after={literal_after}"
+        )
+
+    return {
+        "removed": removed,
+        "total_before": total_before,
+        "literal_before": literal_before,
+        "total_after": total_after,
+    }
 
 
 async def run_backfill(*, confirm: bool) -> int:
@@ -124,28 +201,27 @@ async def run_backfill(*, confirm: bool) -> int:
             print("\nCensus only. Re-run with --confirm to remove the property.")
             return 0
 
-        removed = await _scalar(driver, _REMOVE_LITERAL, literal=LITERAL)
+        # The counts above are a preview only. The numbers the guard acts on are
+        # re-read inside the write transaction, so nothing here can go stale
+        # between the census and the removal.
+        async with driver.session() as session:
+            try:
+                outcome = await session.execute_write(_remove_literals_guarded)
+            except GuardFailedError as failure:
+                print(
+                    f"\nFAILED: {failure}\nThe REMOVE affected a different set than the "
+                    "one counted, so the transaction was rolled back and the graph is "
+                    "unchanged. Investigate before re-running.",
+                    file=sys.stderr,
+                )
+                return 1
 
-        # Guard: prove the REMOVE hit exactly its intended set. A WHERE clause
-        # that matched too widely would report a happy "removed N" above while
-        # having stripped good stamps too.
-        literal_after = await _count_literal(driver)
-        total_after = await _scalar(driver, _COUNT_ALL_WITH_CREATED_AT)
-        expected_total = total_before - literal_before
-
-        print(f"\nRemoved the property from {removed} edge(s).")
-        print(f"Edges still carrying the literal      : {literal_after} (expected 0)")
-        print(f"Edges carrying created_at in any shape: {total_after} (expected {expected_total})")
-
-        if literal_after != 0 or total_after != expected_total:
-            print(
-                "\nFAILED: the post-run census does not match. The REMOVE affected a "
-                "different set than the one counted. Investigate before re-running.",
-                file=sys.stderr,
-            )
-            return 1
-
-        print("\nVerified: only the literal-stamped edges lost the property.")
+        print(f"\nRemoved the property from {outcome['removed']} edge(s).")
+        print(
+            f"Edges carrying created_at in any shape: {outcome['total_after']} "
+            f"(was {outcome['total_before']}, less {outcome['literal_before']} literals)"
+        )
+        print("\nVerified in-transaction: only the literal-stamped edges lost the property.")
         return 0
     finally:
         await adapter.close()
