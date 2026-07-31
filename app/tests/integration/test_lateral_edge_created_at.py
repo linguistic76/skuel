@@ -242,3 +242,64 @@ class TestTheStampRecordsFirstCreation:
         assert second["props"]["reason"] == "second assertion"
 
         assert second["props"]["created_at"] == first["props"]["created_at"]
+
+
+class TestTheCallerCannotSupplyTheStamp:
+    """``created_at`` is stamped by the service, never taken from the caller.
+
+    ``create_lateral_relationship`` is a public, domain-agnostic API documented
+    as accepting arbitrary "relationship properties". The backend applies
+    ``SET r += $metadata`` *after* its ``ON CREATE SET``, so a caller-supplied
+    ``created_at`` would land last and undo both guarantees — including
+    reintroducing the exact literal this PR removes. No caller passes one today;
+    these pin that the guarantee is structural rather than caller discipline.
+    """
+
+    async def test_caller_supplied_created_at_is_ignored_on_create(
+        self, service, neo4j_driver, two_children
+    ):
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+            metadata={"created_at": LITERAL_DEFECT, "reason": "forged stamp"},
+        )
+        record = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+
+        # Positive control: the rest of the caller's metadata still lands, so
+        # this is a targeted strip and not a dropped write.
+        assert record["props"]["reason"] == "forged stamp"
+        assert record["props"]["created_at"] != LITERAL_DEFECT
+        datetime.fromisoformat(record["props"]["created_at"])
+
+    async def test_caller_supplied_created_at_cannot_rewrite_an_existing_edge(
+        self, service, neo4j_driver, two_children
+    ):
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+        )
+        first = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+            metadata={"created_at": "1999-01-01T00:00:00", "reason": "re-asserted"},
+        )
+        second = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+
+        assert second["props"]["reason"] == "re-asserted"
+        assert second["props"]["created_at"] == first["props"]["created_at"]
+
+    async def test_the_callers_metadata_dict_is_not_mutated(self, service, two_children):
+        """Creating an edge must not be observable as a side effect on the input."""
+        caller_metadata: dict[str, object] = {"reason": "mine"}
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+            metadata=caller_metadata,
+        )
+        assert caller_metadata == {"reason": "mine"}

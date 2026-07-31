@@ -117,8 +117,16 @@ class LateralRelationshipService:
             if validation_result.is_error:
                 return validation_result
 
-        # Prepare metadata
-        rel_metadata = metadata or {}
+        # Copied, not aliased: the injections below would otherwise mutate the
+        # caller's own dict as a side effect of creating an edge.
+        rel_metadata = dict(metadata or {})
+        # `created_at` is stamped by this service and never accepted from a
+        # caller. The backend applies `SET r += $metadata` *after* its
+        # `ON CREATE SET`, so a caller-supplied key would land last and silently
+        # defeat both guarantees below — on a new edge it could persist an
+        # arbitrary value (the old "timestamp()" literal included), and on a
+        # re-assert it would rewrite the original creation time.
+        rel_metadata.pop("created_at", None)
         spec = get_lateral_spec(relationship_type)
         rel_metadata["relationship_category"] = spec.category if spec else ""
         rel_metadata["is_symmetric"] = spec.is_symmetric if spec else False
