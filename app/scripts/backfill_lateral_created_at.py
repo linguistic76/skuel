@@ -31,14 +31,24 @@ graph and report success. So the run counts edges carrying *any* ``created_at``
 before and after, and requires the drop to equal exactly the number of literals
 it set out to remove.
 
-**Census, removal and verification share ONE transaction.** Run as separate
-autocommit statements they would prove nothing on a live graph: an unrelated
-writer touching some other edge's ``created_at`` between them could trip a false
-failure *after* the removal had already committed, or offset a real
-discrepancy and let a bad removal pass. One transaction gives one snapshot, and
-a guard that does not hold raises — rolling the ``REMOVE`` back instead of
-leaving the graph half-migrated. The guard is a precondition for committing,
-not a report filed afterwards.
+**Census, removal and verification share ONE transaction — for atomicity, not
+isolation.** What that buys is precise: a guard that does not hold raises, and
+the ``REMOVE`` rolls back with it, so the graph is never left half-migrated and
+the check is a precondition for committing rather than a report filed over an
+irreversible write.
+
+What it does **not** buy is a stable read view. Neo4j's default isolation is
+read-committed, so the before and after censuses do not observe one snapshot:
+an unrelated writer committing a ``created_at`` change between them can still
+skew the totals — tripping a false failure (safe: it rolls back) or offsetting
+a real discrepancy (not safe: a bad removal could pass). The comparison is
+global, so it is only sound when nothing else is writing.
+
+**Therefore: run this against a quiet graph.** That is an operational
+requirement, not a guarantee this script can make for itself. It is a one-shot
+admin migration, so a write-free window is a reasonable thing to ask for — but
+it has to be asked for out loud rather than implied by a guard that looks
+race-proof and is not.
 
 Usage:
     uv run scripts/backfill_lateral_created_at.py              # census only (default)
@@ -93,6 +103,10 @@ class GuardFailedError(RuntimeError):
     Raised *inside* the write transaction so the driver rolls the REMOVE back —
     the guard is a precondition for committing, not a report filed after an
     irreversible write.
+
+    A concurrent writer can also cause this without anything being wrong, since
+    the census totals are global and Neo4j is read-committed. That direction is
+    safe (nothing is removed), and re-running against a quiet graph resolves it.
     """
 
 
@@ -133,10 +147,12 @@ async def _tx_count_literal(tx) -> int:
 async def _remove_literals_guarded(tx) -> dict[str, int]:
     """Census, remove, and re-census inside ONE transaction.
 
-    All five statements share one snapshot and one commit, so an unrelated
-    writer touching some other edge's ``created_at`` mid-run can neither trip a
-    false failure nor mask a real one. If the guard does not hold, raising here
-    rolls the REMOVE back rather than leaving the graph half-migrated.
+    The transaction provides **atomicity, not isolation**: raising here rolls the
+    REMOVE back, so a failed guard leaves the graph untouched. It does not give
+    these reads a common snapshot — Neo4j is read-committed, so a concurrent
+    writer changing some other edge's ``created_at`` mid-run can still skew the
+    totals in either direction. Run against a quiet graph; see the module
+    docstring.
     """
     total_before = await _tx_scalar(tx, _COUNT_ALL_WITH_CREATED_AT)
     literal_before = await _tx_count_literal(tx)
