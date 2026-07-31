@@ -641,6 +641,7 @@ class LateralRelationshipBackendOperations(Protocol):
         target_uid: str,
         relationship_type: RelationshipName,
         metadata: dict[str, Any],
+        created_at: str,
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns relationship properties
 
     async def delete_relationship(
@@ -656,6 +657,7 @@ class LateralRelationshipBackendOperations(Protocol):
         target_uid: str,
         relationship_type: RelationshipName,
         metadata: dict[str, Any],
+        created_at: str,
     ) -> Result[list[dict[str, Any]]]: ...  # boundary: no RETURN clause
 
     async def delete_inverse(

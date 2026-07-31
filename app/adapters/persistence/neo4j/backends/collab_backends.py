@@ -287,20 +287,35 @@ class LateralRelationshipBackend:
         target_uid: str,
         relationship_type: RelationshipName,
         metadata: dict[str, Any],
+        created_at: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Create a lateral relationship between two entities (idempotent)."""
+        """MERGE a lateral relationship between two entities (upsert, idempotent).
+
+        ``created_at`` is stamped ``ON CREATE`` only, so re-asserting an existing
+        edge refreshes its metadata without rewriting when the edge first
+        appeared. It arrives as an ISO string from the service rather than a
+        Cypher ``datetime()`` — see the note at its stamp site for why the
+        representation is fixed.
+
+        The row returns the *persisted* ``created_at`` alongside the edge, which
+        is the candidate on a fresh edge and the original on a re-assert. The
+        service needs that distinction to give a late-created inverse the
+        forward edge's real timestamp rather than a fresh one.
+        """
         return await self.executor.execute_query(
             f"""
             MATCH (source {{uid: $source_uid}})
             MATCH (target {{uid: $target_uid}})
             MERGE (source)-[r:{relationship_type}]->(target)
+            ON CREATE SET r.created_at = $created_at
             SET r += $metadata
-            RETURN r
+            RETURN r, r.created_at AS created_at
             """,
             {
                 "source_uid": source_uid,
                 "target_uid": target_uid,
                 "metadata": metadata,
+                "created_at": created_at,
             },
         )
 
@@ -326,19 +341,26 @@ class LateralRelationshipBackend:
         target_uid: str,
         relationship_type: RelationshipName,
         metadata: dict[str, Any],
+        created_at: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Create inverse relationship for asymmetric types (idempotent)."""
+        """MERGE the inverse edge for asymmetric types (upsert, idempotent).
+
+        Same ``ON CREATE`` stamping as ``create_relationship`` — the inverse is a
+        real edge a reader can land on, so it gets the same timestamp guarantee.
+        """
         return await self.executor.execute_query(
             f"""
             MATCH (source {{uid: $source_uid}})
             MATCH (target {{uid: $target_uid}})
             MERGE (source)-[r:{relationship_type}]->(target)
+            ON CREATE SET r.created_at = $created_at
             SET r += $metadata
             """,
             {
                 "source_uid": source_uid,
                 "target_uid": target_uid,
                 "metadata": metadata,
+                "created_at": created_at,
             },
         )
 
