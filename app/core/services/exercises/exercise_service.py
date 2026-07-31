@@ -310,10 +310,15 @@ class ExerciseService(BaseService):
     async def get_exercise(self, uid: str) -> Result[Exercise]:
         """Get a specific Exercise by UID, unscoped.
 
-        Reads every scope, including another user's PERSONAL exercise, so it
-        is only for callers that have already established the audience —
-        internal service composition and role-gated authoring surfaces. Any
-        route serving a learner-supplied UID wants get_exercise_for_user().
+        Reads every scope, including another user's PERSONAL exercise, so it is
+        only for callers that have already established the audience by other
+        means — service composition resolving the exercise a submission
+        fulfils, after that submission has itself been checked.
+
+        A role gate is not such a check: it decides who may act, never on whose
+        content (ADR-042 §3). Any surface serving a user-supplied UID wants
+        get_exercise_for_user(), or verify_ownership() when the surface belongs
+        to the exercise's author.
         """
         result = await self.backend.get(uid)
         if result.is_error:

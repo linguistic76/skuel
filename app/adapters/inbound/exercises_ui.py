@@ -51,7 +51,8 @@ def create_exercises_ui_routes(
     Create exercises UI routes.
 
     Dashboard is open to all authenticated users (exercises are shared curriculum).
-    Create/edit/delete routes are TEACHER+ gated.
+    Create/edit/delete routes are TEACHER+ gated *and* owner-scoped — the role
+    decides who may author, the owner check decides which exercise.
     """
 
     get_user_service = make_service_getter(user_service)
@@ -96,8 +97,21 @@ def create_exercises_ui_routes(
     @require_teacher(get_user_service)
     @ui_boundary_handler("Error loading exercise")
     async def edit_exercise_form(_request, uid: str, current_user=None) -> Any:
-        """Edit exercise form."""
-        result = await exercises_service.get_exercise(uid)
+        """Edit exercise form — the teacher's own exercises only.
+
+        TEACHER gates whether you may author exercises at all, never *whose*:
+        ADR-042 §3 puts teachers on the same footing as anyone else for another
+        user's content, and PERSONAL exercises belong to students as much as to
+        teachers. Role and ownership are orthogonal and both apply — which is
+        already what this domain's write half declares
+        (``EXERCISES_CONFIG.crud``: scope=USER_OWNED + require_role=TEACHER).
+
+        Owner rather than the wider audience the student fragment serves,
+        because this form's Save posts to ``PUT /api/exercises/{uid}``, which is
+        owner-scoped. Any read audience wider than the write audience renders an
+        editable form whose Save can only fail.
+        """
+        result = await exercises_service.verify_ownership(uid, current_user.uid)
 
         if result.is_error or not result.value:
             return render_inline_error("Exercise not found")
@@ -110,8 +124,15 @@ def create_exercises_ui_routes(
     @require_teacher(get_user_service)
     @ui_boundary_handler("Error viewing exercise")
     async def view_exercise(_request, uid: str, current_user=None) -> Any:
-        """View exercise with transparency and required Ku foundation."""
-        result = await exercises_service.get_exercise(uid)
+        """View exercise with transparency and required Ku foundation.
+
+        The authoring surface's read view — it links straight to the editor
+        above, so it carries the same owner audience. This is deliberately
+        narrower than the learner's ``/exercises/get`` detail, which serves the
+        full SCOPE_AWARE audience; reading shared curriculum or a group's
+        assigned exercise is that surface's job, not this one's.
+        """
+        result = await exercises_service.verify_ownership(uid, current_user.uid)
 
         if result.is_error or not result.value:
             return render_inline_error("Exercise not found")
