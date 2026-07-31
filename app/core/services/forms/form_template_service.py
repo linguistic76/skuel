@@ -112,10 +112,25 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         Admins must delete submissions first, ensuring data integrity.
         Always cascades to remove EMBEDS_FORM relationships.
 
+        A count that cannot be read refuses the delete. The guard is fail-safe:
+        uncertainty about whether submissions exist is not permission to destroy
+        them.
+
         Note: Uses override (not _post_delete hook) because the submission guard
         must run BEFORE the delete, not after.
         """
-        submission_count = await self._get_submission_count(uid)
+        count_result = await self._get_submission_count(uid)
+        if count_result.is_error:
+            # Propagate the fault rather than dressing it as the business rule.
+            # "Delete the submissions first" would send an admin after work that
+            # may not exist, and the advice would never resolve.
+            self.logger.error(
+                f"Refusing to delete template {uid}: submission count unavailable "
+                f"({count_result.expect_error().message})"
+            )
+            return Result.fail(count_result)
+
+        submission_count = count_result.value
         if submission_count > 0:
             return Result.fail(
                 Errors.business(
@@ -162,18 +177,21 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
     # INTERNAL HELPERS
     # ========================================================================
 
-    async def _get_submission_count(self, template_uid: str) -> int:
-        """Count submissions linked to a template via RESPONDS_TO_FORM.
+    async def _get_submission_count(self, template_uid: str) -> Result[int]:
+        """Count every submission answering a template, for the deletion guard.
 
         Deliberately unscoped: this guards deletion, so it must see submissions
         the deleting caller may not read. Scoping it to a teacher would report 0
         for another classroom's work and let the template be deleted out from
         under it.
+
+        Returns the failure rather than a number when the count cannot be read.
+        A count is the guard's whole evidence, so collapsing an error to 0 here
+        would reach `delete` as a genuine "nobody has answered this".
+
+        Backend: FormTemplateBackend.count_submissions
         """
-        result = await self.backend.count_submissions(template_uid, teacher_uid=None)
-        if result.is_error:
-            return 0
-        return result.value
+        return await self.backend.count_submissions(template_uid, teacher_uid=None)
 
     # ========================================================================
     # PATH STEP LINKING (domain-specific, not part of CRUDOperations)
