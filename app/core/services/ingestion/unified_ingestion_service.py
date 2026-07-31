@@ -258,13 +258,17 @@ class UnifiedIngestionService:
         Ingest a standalone edge (relationship) into Neo4j.
 
         Uses the edge-write backend (not the bulk node upsert) since edges create
-        relationships, not nodes.
+        relationships, not nodes. Idempotent: re-ingesting an edge refreshes its
+        evidence properties instead of adding a second one, and ``created`` then
+        reports ``False``.
 
         Args:
             edge_data: Prepared edge data from prepare_edge_data()
 
         Returns:
-            Result with edge details (from_uid, to_uid, relationship, created)
+            Result with edge details (from_uid, to_uid, relationship, created —
+            whether this call created the edge rather than updating one already
+            in the graph)
         """
         from_uid = edge_data["from_uid"]
         to_uid = edge_data["to_uid"]

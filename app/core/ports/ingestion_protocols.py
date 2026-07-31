@@ -107,7 +107,16 @@ class IngestionWriteOperations(Protocol):
 
     async def ingest_edge(
         self, from_uid: str, to_uid: str, rel_type: RelationshipName, props: dict[str, Any]
-    ) -> list[dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]:
+        """Upsert an edge between two existing nodes; return the matched rows.
+
+        Two behavioural guarantees an implementation must honour, neither
+        visible in the signature: a ``created_at`` key in ``props`` is a
+        *creation* stamp (written once, when the edge first appears — every
+        other key is refreshed on every write), and the returned ``created``
+        flag distinguishes a newly created edge from a re-asserted one.
+        """
+        ...
 
     async def entity_exists(self, uid: str) -> bool: ...
 
