@@ -81,7 +81,13 @@ async def seed_user(neo4j_driver) -> Callable[..., Awaitable[str]]:
 
 @pytest_asyncio.fixture
 async def seed_group(neo4j_driver) -> Callable[..., Awaitable[str]]:
-    """MERGE a ``:Group`` node owned by a teacher (User-[:OWNS]->Group)."""
+    """MERGE a ``:Group`` node owned by a teacher (User-[:OWNS]->Group).
+
+    ``is_active = true`` mirrors the real creation path (``Group.is_active``
+    defaults to ``True`` and is always serialized to the node) — every
+    teacher-review surface (queue, detail, writes) gates on it, so a seed
+    without it models a group that cannot exist in production.
+    """
 
     async def _seed(group_uid: str, teacher_uid: str, name: str | None = None) -> str:
         async with neo4j_driver.session() as session:
@@ -90,6 +96,7 @@ async def seed_group(neo4j_driver) -> Callable[..., Awaitable[str]]:
                 MERGE (g:Group {uid: $group_uid})
                 ON CREATE SET g.name = $name,
                               g.created_at = datetime()
+                SET g.is_active = true
                 WITH g
                 MATCH (t:User {uid: $teacher_uid})
                 MERGE (t)-[:OWNS]->(g)
