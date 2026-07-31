@@ -506,7 +506,7 @@ revision cycle explicitly rather than implicitly.
 - Inherits `UserOwnedEntity` (NOT Curriculum) — needs `user_uid` but not 21 Curriculum fields
 - `ContentOrigin.USER_CREATED` — teacher-authored content targeted at a specific student, not shared curriculum
 - Teacher-owned, student-targeted (student visibility via `student_uid` field)
-- `revision_number` auto-determined from existing chain length
+- `revision_number` auto-determined per-(exercise, student): `max(existing for the pair) + 1` — never a global per-exercise count (which would number one student's first revision of a shared exercise by the whole classroom's total), and never `len + 1` (which mints duplicate ordinals into gap-numbered chains after deletions). Both writers agree: `RevisedExerciseService.create()` via `get_next_revision_number`, and the atomic `create_report_and_revised_exercise` Cypher
 - `feedback_points` carries typed `FeedbackPoint` objects (`FeedbackCategory` + free-text detail) — enables pattern tracking across submissions
 - `expected_modality` and `submission_uid` auto-resolved by service on creation from the original Exercise and authority check
 - `parent_entity_uid` set to `report_uid` at `create()` time — the EntryReport is the direct derivation parent. Mirror of the `RESPONDS_TO_REPORT` graph edge; makes the chain Python-model-readable without a graph query.
@@ -533,21 +533,25 @@ revision cycle explicitly rather than implicitly.
 services.revised_exercises              # RevisedExerciseService (standalone CRUD)
 services.teacher_review                 # TeacherReviewService.request_revision_with_exercise()
 # ^ Atomic path: creates EntryReport + RevisedExercise in one Neo4j transaction
-#   via UserEntryBackend.create_report_and_revised_exercise()
+#   via EntryReportBackend.create_report_and_revised_exercise()
 ```
 
 **API routes (teacher, CRUDRouteFactory):** `POST /api/revised-exercises/create`,
 `GET /api/revised-exercises/get?uid=`, `GET /api/revised-exercises/list`,
 `POST /api/revised-exercises/update?uid=`, `POST /api/revised-exercises/delete?uid=`.
 **API routes (teacher, domain-specific):** `GET /api/revised-exercises/for-student?student_uid=`,
-`GET /api/revised-exercises/chain?exercise_uid=`.
+`GET /api/revised-exercises/chain?exercise_uid=[&student_uid=]` (classroom-scoped: revisions for
+students in active groups the requesting teacher owns — the same audience the revision write uses;
+an out-of-classroom read is an empty chain, indistinguishable from a nonexistent exercise).
 **API routes (student):** `GET /api/revised-exercises/my-revisions` (list targeting current user),
 `GET /api/revised-exercises/view?uid=` (view if student or owning teacher).
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation.
 
 **Access control:** `create()` (overrides `CrudOperationsMixin.create`) verifies the `student_uid`
 owns the submission linked to the report (OWNS-based, per ADR-040). Teacher identity is
-role-gated at the route level (`@require_role(UserRole.TEACHER)`).
+role-gated at the route level (`@require_role(UserRole.TEACHER)`). Teacher-facing *reads* are
+scoped beyond the role gate (#887 class): `/chain` to the requesting teacher's classrooms,
+`/for-student` to revisions the requesting teacher owns.
 
 **Student discovery:** On creation, a `SHARES_WITH {role: 'student'}` relationship is auto-created
 from the student to the RevisedExercise (same pattern as ADR-040 assignment auto-sharing). This means:

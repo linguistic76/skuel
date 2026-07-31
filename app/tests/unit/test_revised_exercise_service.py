@@ -41,6 +41,7 @@ def mock_backend():
     backend.list_for_student = AsyncMock()
     backend.create = AsyncMock()
     backend.get_revision_chain = AsyncMock(return_value=Result.ok([]))
+    backend.get_next_revision_number = AsyncMock(return_value=Result.ok(1))
     return backend
 
 
@@ -127,7 +128,7 @@ class TestCreateRevisedExerciseAccessControl:
         )
         mock_backend.create_owns_relationship.return_value = Result.ok(True)
         mock_backend.auto_share_with_student.return_value = Result.ok(True)
-        mock_backend.get_revision_chain.return_value = Result.ok([])
+        mock_backend.get_next_revision_number.return_value = Result.ok(1)
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
         mock_backend.link_to_report = AsyncMock(return_value=Result.ok(True))
         mock_backend.link_to_exercise = AsyncMock(return_value=Result.ok(True))
@@ -146,7 +147,7 @@ class TestCreateRevisedExerciseAccessControl:
         )
         mock_backend.create_owns_relationship.return_value = Result.ok(True)
         mock_backend.auto_share_with_student.return_value = Result.ok(True)
-        mock_backend.get_revision_chain.return_value = Result.ok([])
+        mock_backend.get_next_revision_number.return_value = Result.ok(1)
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
         mock_backend.link_to_report = AsyncMock(return_value=Result.ok(True))
         mock_backend.link_to_exercise = AsyncMock(return_value=Result.ok(True))

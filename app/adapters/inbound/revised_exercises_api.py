@@ -63,11 +63,15 @@ def create_revised_exercises_api_routes(
     async def get_revision_chain(
         request: Request, current_user: Any = None
     ) -> Result[list[RevisionChainResult]]:
-        """Get the revision chain for an original exercise."""
+        """Revision chain for an original exercise, scoped to the teacher's classrooms."""
         exercise_uid = request.query_params.get("exercise_uid")
         if not exercise_uid:
             return Result.fail(Errors.validation("exercise_uid is required", field="exercise_uid"))
-        return await revised_exercise_service.get_revision_chain(exercise_uid)
+        return await revised_exercise_service.get_revision_chain(
+            exercise_uid,
+            teacher_uid=current_user.uid,
+            student_uid=request.query_params.get("student_uid"),
+        )
 
     # ========================================================================
     # STUDENT-FACING (no role decorator — authenticated users only)
