@@ -207,9 +207,12 @@ def create_teaching_forms_ui_routes(
             )
             return render_teaching_sidebar_page(content, active="forms", request=request)
 
-        # Fetch template. No require_found wrapper: the service's get already
-        # converts a missing entity into a NOT_FOUND error rather than a None
-        # value, so wrapping it only re-checks something that cannot happen.
+        # Fetch template. AGENTS.md's `require_found` convention covers a fetch
+        # that may return None; `FormTemplateOperations.get` returns a
+        # non-optional `Result[FormTemplate]` because the CRUD mixin already
+        # converts a missing entity into NOT_FOUND, so there is no None to
+        # guard and `Result`'s invariance rejects the call outright. The
+        # normalization the helper provides has therefore already happened.
         template_result = await form_template_service.get(uid)
         if template_result.is_error:
             content = Div(

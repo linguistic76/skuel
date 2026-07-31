@@ -113,7 +113,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
         counts only submissions this count's reader may also open, so the number
         never discloses activity outside their classrooms.
         """
-        params: dict[str, Any] = {
+        params: Neo4jProperties = {
             "uid": template_uid,
             "entity_type": EntityType.FORM_SUBMISSION.value,
         }
@@ -259,7 +259,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         group is not thereby readable by another's. Same predicate as the
         detail gate, so a row listed here is exactly a row that opens there.
         """
-        params: dict[str, Any] = {
+        params: Neo4jProperties = {
             "ft_uid": form_template_uid,
             "entity_type": EntityType.FORM_SUBMISSION.value,
         }
