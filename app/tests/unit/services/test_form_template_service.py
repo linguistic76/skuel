@@ -8,7 +8,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.forms.form_template import FormTemplate
 from core.models.update_contracts import RawChanges
 from core.services.forms.form_template_service import FormTemplateService
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
 def _make_template(**kwargs):
@@ -182,6 +182,56 @@ class TestDelete:
         await service.delete("ft_test_123")
 
         backend.count_submissions.assert_awaited_once_with("ft_test_123", teacher_uid=None)
+
+    @pytest.mark.asyncio
+    async def test_delete_refuses_when_the_count_cannot_be_read(self):
+        """An unreadable count blocks the delete instead of permitting it.
+
+        The guard is the only thing standing between a delete and orphaned
+        RESPONDS_TO_FORM submissions. Reading a backend failure as 0 would let
+        a transient outage do exactly the damage the guard exists to prevent —
+        fail-safe for a guard means refusing on uncertainty.
+        """
+        backend = MagicMock()
+        backend.count_submissions = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(operation="count_submissions", message="Neo4j unavailable")
+            )
+        )
+        backend.delete = AsyncMock(return_value=Result.ok(True))
+        event_bus = MagicMock()
+        event_bus.publish_async = AsyncMock()
+        service = _make_service(backend=backend, event_bus=event_bus)
+
+        result = await service.delete("ft_test_123")
+
+        assert result.is_error
+        backend.delete.assert_not_awaited()
+        event_bus.publish_async.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_delete_reports_a_failed_count_as_a_fault_not_a_refusal(self):
+        """The refusal must name the fault, not invent a submission count.
+
+        Dressing an outage as the business rule would tell an admin to go
+        delete submissions that may not exist, and the advice would never
+        resolve. An infrastructure fault is not a domain answer.
+        """
+        backend = MagicMock()
+        backend.count_submissions = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(operation="count_submissions", message="Neo4j unavailable")
+            )
+        )
+        backend.delete = AsyncMock(return_value=Result.ok(True))
+        service = _make_service(backend=backend)
+
+        result = await service.delete("ft_test_123")
+
+        error = result.expect_error()
+        assert error.category is ErrorCategory.DATABASE
+        assert "Neo4j unavailable" in error.message
+        assert "existing submission" not in error.message
 
     @pytest.mark.asyncio
     async def test_delete_publishes_event(self):
