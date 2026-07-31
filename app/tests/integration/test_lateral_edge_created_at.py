@@ -172,6 +172,62 @@ class TestTheValueIsARealInstant:
         # Both halves of one pair record one instant, not two near-misses.
         assert inverse["props"]["created_at"] == forward["props"]["created_at"]
 
+    async def test_a_late_inverse_adopts_the_forward_stamp(
+        self, service, neo4j_driver, two_children
+    ):
+        """The inverse can be created long after its forward half.
+
+        Reachable three ways: an earlier call passed ``auto_inverse=False``, a
+        ``delete_inverse=False`` removed only the inverse, or the earlier
+        inverse write failed — ``_create_inverse_relationship`` only logs, so
+        that leaves a forward edge with no inverse and no error to the caller.
+
+        On the later re-assert the forward ``MERGE`` preserves its original
+        stamp while the inverse is genuinely new, so a freshly generated
+        timestamp would split one pair across two instants.
+        """
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+            auto_inverse=False,
+        )
+        forward_first = await _read_edge(
+            neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID
+        )
+
+        # Positive control: the inverse really is absent, so the re-assert below
+        # exercises the late-creation path rather than a plain no-op.
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                f"""
+                MATCH (:Entity {{uid: $t}})-[r:{RelationshipName.BLOCKED_BY.value}]->
+                      (:Entity {{uid: $s}})
+                RETURN count(r) AS n
+                """,
+                t=TARGET_UID,
+                s=SOURCE_UID,
+            )
+            assert (await result.single())["n"] == 0
+
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+        )
+
+        forward_second = await _read_edge(
+            neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID
+        )
+        inverse = await _read_edge(
+            neo4j_driver, RelationshipName.BLOCKED_BY, TARGET_UID, SOURCE_UID
+        )
+
+        # The forward edge kept its original stamp through the re-assert...
+        assert forward_second["props"]["created_at"] == forward_first["props"]["created_at"]
+        # ...and the late inverse adopted it rather than stamping "now".
+        assert inverse["props"]["created_at"] == forward_first["props"]["created_at"]
+
 
 class TestTheRepresentationIsAnISOString:
     async def test_edge_metadata_survives_the_json_boundary(

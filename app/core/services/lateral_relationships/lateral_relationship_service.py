@@ -164,6 +164,16 @@ class LateralRelationshipService:
             f"Created lateral relationship: {source_uid} -[{relationship_type.value}]-> {target_uid}"
         )
 
+        # What the forward edge actually kept, which is the candidate above only
+        # on a fresh edge — a re-assert preserves its original. The inverse may
+        # be created later than its forward half (a previous call passed
+        # `auto_inverse=False`, a `delete_inverse=False` removed it, or the
+        # earlier inverse write simply failed and was only logged), and giving it
+        # today's timestamp would leave one pair recording two different
+        # instants. Adopting the persisted value keeps the pair consistent.
+        persisted = result.value[0].get("created_at")
+        pair_created_at = str(persisted) if persisted else created_at
+
         # Auto-create inverse if asymmetric
         if auto_inverse and spec and not spec.is_symmetric:
             inverse_type = spec.inverse_type
@@ -173,7 +183,7 @@ class LateralRelationshipService:
                     target_uid=source_uid,  # Reversed
                     relationship_type=inverse_type,
                     metadata=rel_metadata,
-                    created_at=created_at,
+                    created_at=pair_created_at,
                 )
 
         return Result.ok(True)

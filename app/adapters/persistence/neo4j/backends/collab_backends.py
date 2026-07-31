@@ -296,6 +296,11 @@ class LateralRelationshipBackend:
         appeared. It arrives as an ISO string from the service rather than a
         Cypher ``datetime()`` — see the note at its stamp site for why the
         representation is fixed.
+
+        The row returns the *persisted* ``created_at`` alongside the edge, which
+        is the candidate on a fresh edge and the original on a re-assert. The
+        service needs that distinction to give a late-created inverse the
+        forward edge's real timestamp rather than a fresh one.
         """
         return await self.executor.execute_query(
             f"""
@@ -304,7 +309,7 @@ class LateralRelationshipBackend:
             MERGE (source)-[r:{relationship_type}]->(target)
             ON CREATE SET r.created_at = $created_at
             SET r += $metadata
-            RETURN r
+            RETURN r, r.created_at AS created_at
             """,
             {
                 "source_uid": source_uid,
