@@ -156,13 +156,31 @@ class _UserEntryAssessmentMixin:
             },
         )
 
-    async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Get the report_file_path for an EntryReport node by UID."""
-        query = """
-        MATCH (r:Entity {uid: $report_uid, entity_type: 'entry_report'})
-        RETURN r.report_file_path as file_path
+    async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:
+        """Get the report_file_path for an EntryReport, gated by teacher group access.
+
+        Anchors on the report, walks ``REPORT_FOR`` to the reviewed submission
+        and its owning student, and requires the teacher to share an active
+        group with that student — the same predicate that gates writing the
+        feedback (``verify_teacher_has_group_access``). Returns ``None`` both
+        when no such report exists and when the teacher is outside the student's
+        classroom, so a denied download is indistinguishable from a missing one
+        and cannot enumerate other classrooms' reports.
         """
-        result = await self.execute_query(query, {"report_uid": report_uid})
+        query = f"""
+        MATCH (r:Entity {{uid: $report_uid, entity_type: 'entry_report'}})
+              -[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+              <-[:{RelationshipName.MEMBER_OF.value}]-(student)
+        WHERE g.is_active = true
+          AND student.uid <> $teacher_uid
+        RETURN r.report_file_path as file_path
+        LIMIT 1
+        """
+        result = await self.execute_query(
+            query, {"report_uid": report_uid, "teacher_uid": teacher_uid}
+        )
         if result.is_error:
             return Result.fail(result)
         if not result.value:

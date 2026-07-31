@@ -619,8 +619,12 @@ class TeacherReviewOperations(Protocol):
         """Submit report for a student submission."""
         ...
 
-    async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Get the report_file_path for an EntryReport node by UID."""
+    async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:
+        """Get the report file path, gated by the teacher's classroom access.
+
+        ``None`` when the report is missing or outside the teacher's active
+        groups — role decides who may review, this decides whose feedback.
+        """
         ...
 
     async def request_revision(

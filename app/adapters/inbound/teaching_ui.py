@@ -248,33 +248,40 @@ def create_teaching_ui_routes(
         """HTMX fragment: review detail with submission content + feedback history + forms."""
         user_uid = require_authenticated_user(request)
 
-        # Fetch submission content
+        # get_submission_detail is the access gate — it returns not-found for a
+        # submission outside a group this teacher owns. The role gate said "may
+        # review"; this says "not this one". Everything below (feedback history,
+        # the feedback/revision forms whose Save is itself group-gated) reads or
+        # writes this student's private work, so it must sit behind the same
+        # check. Short-circuit to the byte-identical fragment a missing UID
+        # yields, so a denied read cannot be told from a nonexistent one and no
+        # dead Save form is shown (OWNERSHIP_VERIFICATION.md).
         detail_result = await orchestrator.get_submission_detail(
             submission_uid=uid, teacher_uid=user_uid
         )
-        submission_section: Any = ""
-        if not detail_result.is_error and detail_result.value:
-            d = detail_result.value
-            detail = SubmissionDetail(
-                title=d.get("title", "Untitled"),
-                entity_type=d.get("entity_type"),
-                status=d.get("status") or "",
-                student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
-                student_uid=d.get("student_uid", ""),
-                exercise_title=d.get("exercise_title"),
-                exercise_instructions=d.get("exercise_instructions"),
-                processed_content=d.get("processed_content"),
-                content=d.get("content"),
-                original_filename=d.get("original_filename"),
-            )
-            submission_section = render_submission_content(detail)
-        else:
-            submission_section = Div(
-                P("Submission content unavailable.", cls="text-sm text-muted-foreground italic"),
-                cls="mb-4",
+        if detail_result.is_error or not detail_result.value:
+            return Div(
+                P("Submission not found.", cls="text-sm text-muted-foreground italic"),
+                id="review-detail-content",
             )
 
-        # Fetch feedback history via the typed read path
+        d = detail_result.value
+        detail = SubmissionDetail(
+            title=d.get("title", "Untitled"),
+            entity_type=d.get("entity_type"),
+            status=d.get("status") or "",
+            student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
+            student_uid=d.get("student_uid", ""),
+            exercise_title=d.get("exercise_title"),
+            exercise_instructions=d.get("exercise_instructions"),
+            processed_content=d.get("processed_content"),
+            content=d.get("content"),
+            original_filename=d.get("original_filename"),
+        )
+        submission_section: Any = render_submission_content(detail)
+
+        # Fetch feedback history via the typed read path — access already
+        # established above.
         feedback_history_section: Any = ""
         if entry_report_service is not None:
             history_result = await entry_report_service.list_for_submission(uid)
