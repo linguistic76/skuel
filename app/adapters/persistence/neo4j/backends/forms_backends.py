@@ -457,6 +457,16 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             f"""
             MATCH (u:User)-[:{RelationshipName.OWNS}]->
                   (fs:Entity {{uid: $submission_uid, entity_type: $entity_type}})
+            // Take a write lock on `fs` BEFORE reading its audience. Neo4j
+            // reads are read-committed and lock-free, so without this a share
+            // committing between the WHERE and the MERGE would be invisible
+            // here — and the MERGE does not re-evaluate the predicate, so every
+            // classroom would land on top of the audience the owner just chose.
+            // Writing a property back to itself changes nothing and is the
+            // pure-Cypher way to acquire that lock (apoc.lock.* is out of
+            // scope: APOC is restricted to apoc.meta.*).
+            SET fs.uid = fs.uid
+            WITH u, fs
             WHERE NOT EXISTS {{ (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->(:Group) }}
               AND NOT EXISTS {{ (:User)-[:{RelationshipName.SHARES_WITH}]->(fs) }}
               {"AND fs.created_at IS NOT NULL" if only_prior_memberships else ""}
