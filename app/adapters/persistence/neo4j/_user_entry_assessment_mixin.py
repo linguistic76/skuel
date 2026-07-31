@@ -127,8 +127,13 @@ class _UserEntryAssessmentMixin:
         ``FULFILLS_EXERCISE`` edge revision, the same root-lineage lens as
         ``get_latest_entry_for_exercise`` / ``_next_revision`` — is superseded
         work and never queues, regardless of the newer copy's status (a
-        reviewed rev 2 retires a still-pending rev 1). Entries with no
-        exercise anchor have no lineage and always pass through.
+        reviewed rev 2 retires a still-pending rev 1). Only a fellow
+        ``teacher_review`` copy supersedes: the upload form keeps
+        ``fulfills_exercise_uid`` on every destination, so a newer PRIVATE
+        ``llm_summary`` entry shares the lineage but is invisible to the
+        teacher — collapsing behind it would remove work with no
+        teacher-visible successor. Entries with no exercise anchor have no
+        lineage and always pass through.
         """
         statuses = status_filter or ["submitted", "active"]
         query = f"""
@@ -142,9 +147,10 @@ class _UserEntryAssessmentMixin:
         WHERE ex IS NULL OR NOT EXISTS {{
             MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
                   -[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-            WHERE coalesce(nr.revision, 0) > coalesce(r.revision, 0)
-               OR (coalesce(nr.revision, 0) = coalesce(r.revision, 0)
-                   AND newer.created_at > entry.created_at)
+            WHERE newer.pipeline = $pipeline
+              AND (coalesce(nr.revision, 0) > coalesce(r.revision, 0)
+                   OR (coalesce(nr.revision, 0) = coalesce(r.revision, 0)
+                       AND newer.created_at > entry.created_at))
         }}
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WITH entry, r, ex, student, g, count(DISTINCT report) AS feedback_count
@@ -414,6 +420,7 @@ class _UserEntryAssessmentMixin:
                   MATCH (sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
                         <-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]-(newer:Entity:UserEntry)
                   WHERE (student)-[:{RelationshipName.OWNS.value}]->(newer)
+                    AND newer.pipeline = $pipeline
                     AND (coalesce(nr.revision, 0) > coalesce(sr.revision, 0)
                          OR (coalesce(nr.revision, 0) = coalesce(sr.revision, 0)
                              AND newer.created_at > sub.created_at))

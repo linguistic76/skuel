@@ -301,10 +301,11 @@ defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
   dedup state (no hash bookkeeping), so idle re-syncs while still marked
   `submitted` are no-ops, and editing while submitted files the next
   revision. The teacher review queue (and its dashboard pending badge)
-  collapses each (student, exercise) lineage to its newest copy — a
-  pending copy superseded by a later revision never surfaces as work to
-  do, though every copy stays visible in the per-student and per-exercise
-  history views. Flip back to `in process` to revise in peace. Sync never
+  collapses each (student, exercise) lineage to its newest turn-in copy —
+  a pending copy superseded by a later `teacher_review` revision never
+  surfaces as work to do (a newer private AI entry in the same lineage
+  does NOT retire it), though every copy stays visible in the per-student
+  and per-exercise history views. Flip back to `in process` to revise in peace. Sync never
   writes into the user's file.
 - **The living entry's own status stays `active`** while the file says
   `submitted` — it is not itself in a review queue; the submitted state

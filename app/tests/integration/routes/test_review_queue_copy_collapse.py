@@ -38,7 +38,8 @@ EX_1 = "ex_qcc_one"
 EX_2 = "ex_qcc_two"
 
 S1_REV1 = "ue_qcc_s1_rev1"  # superseded by S1_REV2 — must NOT queue
-S1_REV2 = "ue_qcc_s1_rev2"  # lineage-newest, pending — must queue
+S1_REV2 = "ue_qcc_s1_rev2"  # newest TEACHER-REVIEW copy, pending — must queue
+S1_AI = "ue_qcc_s1_ai"  # newer PRIVATE llm_summary entry — must not retire S1_REV2
 S1_LONE = "ue_qcc_s1_lone"  # no exercise anchor — no lineage, must queue
 S2_EX1 = "ue_qcc_s2_ex1"  # other student, same exercise — own lineage, must queue
 S2_EX2_REV1 = "ue_qcc_s2_ex2_rev1"  # superseded by a REVIEWED rev 2 — must NOT queue
@@ -70,6 +71,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     """One classroom, two students, three lineages of frozen copies.
 
     - STUDENT_1 x EX_1: rev 1 + rev 2 both pending → only rev 2 queues.
+      A rev 3 exists too, but it is a PRIVATE llm_summary entry (the upload
+      form keeps ``fulfills_exercise_uid`` on every destination, so AI
+      entries join the same lineage) — it must not retire the teacher's
+      still-unreviewed rev 2.
     - STUDENT_1, no exercise anchor: standalone entry → queues untouched.
     - STUDENT_2 x EX_1: rev 1 pending → queues (S1's rev 2 on the same
       exercise is a different lineage and must not swallow it).
@@ -104,6 +109,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 status: 'submitted', pipeline: 'teacher_review',
                 created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
+            CREATE (ai:Entity:UserEntry {
+                uid: $s1_ai, entity_type: 'user_entry', title: 'S1 AI feedback run',
+                status: 'active', pipeline: 'llm_summary',
+                created_at: datetime(), updated_at: datetime()
+            })
             CREATE (lone:Entity:UserEntry {
                 uid: $s1_lone, entity_type: 'user_entry', title: 'S1 standalone',
                 status: 'submitted', pipeline: 'teacher_review',
@@ -126,12 +136,14 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             })
             MERGE (s1)-[:OWNS]->(a1)
             MERGE (s1)-[:OWNS]->(a2)
+            MERGE (s1)-[:OWNS]->(ai)
             MERGE (s1)-[:OWNS]->(lone)
             MERGE (s2)-[:OWNS]->(b1)
             MERGE (s2)-[:OWNS]->(c1)
             MERGE (s2)-[:OWNS]->(c2)
             MERGE (a1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex1)
             MERGE (a2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex1)
+            MERGE (ai)-[:FULFILLS_EXERCISE {revision: 3}]->(ex1)
             MERGE (b1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex1)
             MERGE (c1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex2)
             MERGE (c2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex2)
@@ -150,6 +162,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             ex_2=EX_2,
             s1_rev1=S1_REV1,
             s1_rev2=S1_REV2,
+            s1_ai=S1_AI,
             s1_lone=S1_LONE,
             s2_ex1=S2_EX1,
             s2_ex2_rev1=S2_EX2_REV1,
@@ -181,6 +194,18 @@ class TestQueueCopyCollapse:
         uids = await _queue_uids(review_service)
         assert S2_EX2_REV1 not in uids
         assert S2_EX2_REV2 not in uids, "a completed copy is not pending work either"
+
+    async def test_private_ai_entry_never_retires_teacher_work(
+        self, review_service, seeded
+    ) -> None:
+        """Only a teacher-review copy supersedes: a newer PRIVATE llm_summary
+        entry in the same lineage is invisible to the teacher, so collapsing
+        behind it would remove work with no teacher-visible successor."""
+        uids = await _queue_uids(review_service)
+        assert S1_REV2 in uids, (
+            "the newest teacher-review copy must survive a newer private AI entry"
+        )
+        assert S1_AI not in uids, "the private AI entry itself is never teacher work"
 
     async def test_other_lineages_are_untouched(self, review_service, seeded) -> None:
         """Collapse is per-(student, exercise): neighbors must not be swallowed."""
