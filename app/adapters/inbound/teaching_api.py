@@ -212,18 +212,29 @@ def create_teaching_api_routes(
     async def download_report_file(
         request: Request, report_uid: str, current_user: Any = None
     ) -> Any:
-        """Download the .md feedback file attached to an EntryReport."""
-        path_result = await teacher_review_service.get_report_file_path(report_uid)
-        if path_result.is_error or not path_result.value:
-            from fasthtml.common import Div, P
+        """Download the .md feedback file attached to an EntryReport.
 
-            return Div(P("Report file not found.", cls="text-sm text-destructive"))
+        Owner-scoped, not just teacher-gated: ``get_report_file_path`` returns a
+        path only for a report on a submission the caller shares an active group
+        with — the same audience that may write the feedback. A report outside
+        the caller's classroom, or one that does not exist, both return ``None``
+        and yield the same real 404 (a denied read must not reach a client or
+        cache as a 200 success).
+        """
+        from starlette.responses import Response
+
+        def _not_found() -> Response:
+            return Response("Report not found", status_code=404, media_type="text/plain")
+
+        path_result = await teacher_review_service.get_report_file_path(
+            report_uid, current_user.uid
+        )
+        if path_result.is_error or not path_result.value:
+            return _not_found()
 
         file_path = pathlib.Path(path_result.value)
         if not file_path.exists():
-            from fasthtml.common import Div, P
-
-            return Div(P("Report file not found on disk.", cls="text-sm text-destructive"))
+            return _not_found()
 
         return FileResponse(
             str(file_path),
@@ -282,9 +293,18 @@ def create_teaching_api_routes(
         """
         from ui.teaching.detail import render_review_panel_inline
 
+        # get_submission_detail gates on shared-group access; a denied/missing
+        # submission returns not-found. The feedback history below is this
+        # student's private work, so it must not be read until that gate passes
+        # — otherwise a teacher outside the classroom reads the reports while the
+        # submission itself reads "unavailable". Empty panel either way, so a
+        # denied read is indistinguishable from a missing one.
         detail_result = await teacher_review_service.get_submission_detail(
             submission_uid=uid, teacher_uid=current_user.uid
         )
+        detail_value = detail_result.value if not detail_result.is_error else None
+        if not detail_value:
+            return render_review_panel_inline(uid, {}, [])
 
         if entry_report_service is None:
             history: list[Any] = []
@@ -294,11 +314,7 @@ def create_teaching_api_routes(
                 history_result.value if not history_result.is_error and history_result.value else []
             )
 
-        detail_data: dict[str, Any] = dict(
-            detail_result.value if not detail_result.is_error and detail_result.value else {}
-        )
-
-        return render_review_panel_inline(uid, detail_data, history)
+        return render_review_panel_inline(uid, dict(detail_value), history)
 
     @rt("/api/teaching/exercises", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)

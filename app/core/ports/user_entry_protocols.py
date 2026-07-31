@@ -273,8 +273,10 @@ class UserEntryAssessmentOperations(Protocol):
 
     # -------- teacher review workflow --------
 
-    async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Read ``report_file_path`` for an ``EntryReport`` node."""
+    async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:
+        """Read ``report_file_path`` for an ``EntryReport``, gated by the
+        teacher's active-group access to the reviewed submission's owner.
+        ``None`` when missing or out of the teacher's classroom (indistinguishable)."""
         ...
 
     async def approve_and_get_linked_kus(

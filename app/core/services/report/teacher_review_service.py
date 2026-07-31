@@ -882,9 +882,19 @@ class TeacherReviewService:
     # PRIVATE HELPERS
     # ========================================================================
 
-    async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Get the report_file_path for an EntryReport node by UID."""
-        return await self.user_entry_backend.get_report_file_path(report_uid)
+    async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:
+        """Report file path, gated by the teacher's classroom access to the report.
+
+        The role gate on the download route answers "may you review at all",
+        never "whose feedback"; this answers the second question. Returns
+        ``None`` when the report is missing or belongs to a submission outside
+        the teacher's active groups, so the download route yields a 404 either
+        way (a denied read must not read as a missing-file success either).
+
+        Backend: UserEntryBackend.get_report_file_path (REPORT_FOR → owner →
+        shared active group).
+        """
+        return await self.user_entry_backend.get_report_file_path(report_uid, teacher_uid)
 
     async def _verify_teacher_has_group_access(
         self,
