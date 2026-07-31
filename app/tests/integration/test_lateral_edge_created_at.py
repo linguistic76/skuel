@@ -23,10 +23,20 @@ only the first:
    same property of the same edge population — *and* break the read path, since
    ``get_relationships`` projects ``properties(r)`` wholesale into a JSON API
    response where a ``neo4j.time.DateTime`` is not serializable.
-3. It records when the edge **first** appeared —
-   ``test_recreate_preserves_created_at``. ``MERGE`` + an unconditional
-   ``SET r += $metadata`` rewrote it on every re-assert; the stamp is now
-   ``ON CREATE SET``.
+3. **This writer** no longer rewrites it — ``test_recreate_preserves_created_at``.
+   ``MERGE`` + an unconditional ``SET r += $metadata`` rewrote the stamp on
+   every re-assert; it is now ``ON CREATE SET``.
+
+The third guarantee is deliberately scoped to this writer, not to the property.
+The edge-YAML ingestion door still rewrites ``created_at`` on every re-ingest
+(``SET r += $props`` after its own ``MERGE``, with a fresh stamp from
+``prepare_edge_data``), so an edge authored in the vault has its stamp refreshed
+by each ``./dev vault-sync``. That is measured, not theoretical: of 77 vault
+files declaring ``type: Edge``, 41 carry a lateral type — RELATED_TO 23,
+PREREQUISITE_FOR 9, COMPLEMENTARY_TO 6, BLOCKS 3. It is a separate defect in a
+separate subsystem, affecting all 77 rather than only the lateral ones, and is
+tracked separately; claiming it fixed here would be the overstatement these
+tests exist to prevent.
 """
 
 from __future__ import annotations
