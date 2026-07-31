@@ -43,9 +43,13 @@ from starlette.responses import Response
 
 import adapters.inbound.teaching_forms_ui as tfu
 from adapters.inbound.groups_api import create_groups_api_routes
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_enums import UserRole
 from core.models.forms.form_submission import FormSubmission
+from core.models.forms.form_template import FormTemplate
 from core.models.group.group import Group
+from core.services.forms.form_submission_service import FormSubmissionService
+from core.services.forms.form_template_service import FormTemplateService
 from core.services.groups.group_service import GroupService
 from core.utils.result_simplified import Errors, Result
 
@@ -62,9 +66,13 @@ TEACHER_A = "user_teacher_a"
 TEACHER_B = "user_teacher_b"
 ADMIN = "user_admin"
 STUDENT_1 = "user_student_1"
+STUDENT_2 = "user_student_2"
 SUBMISSION_UID = "fs_student1_survey"
-# The payload that must never reach a teacher outside Student 1's classroom.
+SUBMISSION_2_UID = "fs_student2_survey"
+TEMPLATE_UID = "ft_survey"
+# The payloads that must never reach a teacher outside their author's classroom.
 SECRET_ANSWER = "my-private-reflection-text"
+SECRET_ANSWER_2 = "student-2-private-reflection"
 
 
 def _make_request(user_uid: str | None = OWNER, path: str = "/api/groups/x/members") -> Any:
@@ -487,3 +495,299 @@ class TestFormSubmissionDetailRequiresAuthority:
         forms_handlers["_review_service"].verify_teacher_authority.assert_awaited_once_with(
             TEACHER_A, STUDENT_1
         )
+
+
+# ============================================================================
+# GET /teaching/forms/detail?uid= — the BULK sibling of the gate above
+# ============================================================================
+#
+# The detail page checks authority for the one submission it opens. The list
+# page reached the same data a row at a time, so the per-row gate above was one
+# click away from being bypassed by simply reading the list: every row carried
+# the submitter's UID, display name, and a preview of `form_data`.
+#
+# Scoping happens in the backend query rather than by filtering rendered rows,
+# so these tests drive route -> real FormSubmissionService -> backend with only
+# the Neo4j call replaced. A route that drops the scope, or a service that fails
+# to thread it, reaches the stand-in with `teacher_uid=None` and returns the
+# other classroom's answers — failing the `_foreign` cases below.
+
+
+class _FormsBackendStandIn:
+    """Backend stand-in whose scoping mirrors the real Cypher.
+
+    ``teacher_uid=None`` returns every classroom (ADMIN); otherwise a row
+    survives only if its author is in an active group the teacher owns — the
+    Python form of the EXISTS predicate in ``forms_backends``. Deliberately a
+    faithful predicate rather than an ``AsyncMock`` returning a fixed list: a
+    canned list is satisfied by a route that never passes the scope at all.
+    """
+
+    def __init__(self) -> None:
+        self.rows = [
+            {
+                "uid": SUBMISSION_UID,
+                "user_uid": STUDENT_1,
+                "user_name": "Student One",
+                "title": "Student 1 reflection",
+                "form_data": json.dumps({"reflection": SECRET_ANSWER}),
+                "created_at": "2026-07-01T10:00:00",
+            },
+            {
+                "uid": SUBMISSION_2_UID,
+                "user_uid": STUDENT_2,
+                "user_name": "Student Two",
+                "title": "Student 2 reflection",
+                "form_data": json.dumps({"reflection": SECRET_ANSWER_2}),
+                "created_at": "2026-07-02T10:00:00",
+            },
+        ]
+        # Teacher A owns an active group Student 1 is in; Teacher B, Student 2.
+        self.classrooms = {TEACHER_A: {STUDENT_1}, TEACHER_B: {STUDENT_2}}
+        self.calls: list[Any] = []
+
+    def _visible(self, teacher_uid: str | None) -> list[dict[str, Any]]:
+        if teacher_uid is None:
+            return list(self.rows)
+        roster = self.classrooms.get(teacher_uid, set())
+        return [row for row in self.rows if row["user_uid"] in roster]
+
+    async def get_submissions_for_template(
+        self, form_template_uid: str, teacher_uid: str | None
+    ) -> Result[list[dict[str, Any]]]:
+        self.calls.append((form_template_uid, teacher_uid))
+        if form_template_uid != TEMPLATE_UID:
+            return Result.ok([])
+        return Result.ok(self._visible(teacher_uid))
+
+    async def count_submissions(self, template_uid: str, teacher_uid: str | None) -> Result[int]:
+        self.calls.append((template_uid, teacher_uid))
+        if template_uid != TEMPLATE_UID:
+            return Result.ok(0)
+        return Result.ok(len(self._visible(teacher_uid)))
+
+
+@pytest.fixture
+def forms_list_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """Register the teaching-forms routes over real services.
+
+    Only the Neo4j-facing backend is replaced, so the scope travels the real
+    route -> service -> backend path. ``require_role`` is patched out for the
+    same reason as ``forms_handlers``: the role gate is not what is under test.
+    """
+
+    def _identity_decorator(fn: Any) -> Any:
+        return fn
+
+    def _fake_require_role(*_a: Any, **_kw: Any) -> Any:
+        return _identity_decorator
+
+    def _fake_render(content: Any, active: str, request: Any) -> Any:
+        return content
+
+    monkeypatch.setattr(tfu, "require_role", _fake_require_role)
+    monkeypatch.setattr(tfu, "render_teaching_sidebar_page", _fake_render)
+    monkeypatch.setattr(tfu, "require_authenticated_user", lambda _request: "ignored")
+
+    template = FormTemplate(
+        uid=TEMPLATE_UID,
+        title="Weekly Survey",
+        entity_type=EntityType.FORM_TEMPLATE,
+        form_schema=({"name": "reflection", "type": "text", "label": "Reflection"},),
+    )
+
+    submission_backend = _FormsBackendStandIn()
+    template_backend = MagicMock()
+    template_backend.count_submissions = submission_backend.count_submissions
+    template_backend.get = AsyncMock(return_value=Result.ok(template))
+    template_backend.list = AsyncMock(return_value=Result.ok(([template], 1)))
+
+    template_service = FormTemplateService(backend=template_backend)
+    submission_service = FormSubmissionService(
+        backend=submission_backend, form_template_service=template_service
+    )
+
+    registered: dict[str, Any] = {}
+
+    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
+        def decorator(fn: Any) -> Any:
+            registered[path] = fn
+            return fn
+
+        return decorator
+
+    tfu.create_teaching_forms_ui_routes(
+        MagicMock(),
+        rt_collector,
+        template_service,
+        submission_service,
+        MagicMock(),
+        MagicMock(),
+    )
+    registered["_backend"] = submission_backend
+    return registered
+
+
+def _detail_route(handlers: dict[str, Any]) -> Any:
+    return handlers["/teaching/forms/detail"]
+
+
+async def _detail_page(handlers: dict[str, Any], actor: str, role: UserRole) -> str:
+    return _page(
+        await _detail_route(handlers)(
+            request=_make_request(actor, path="/teaching/forms/detail"),
+            uid=TEMPLATE_UID,
+            current_user=_fake_user(actor, role),
+        )
+    )[1]
+
+
+class TestFormSubmissionListIsScoped:
+    """A teacher's submission list stops at their own classrooms."""
+
+    async def test_teacher_sees_only_their_own_students(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        rendered = await _detail_page(forms_list_handlers, TEACHER_A, UserRole.TEACHER)
+
+        assert SECRET_ANSWER in rendered
+        assert "Student One" in rendered
+
+    async def test_other_classrooms_answers_never_reach_the_page(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """The pre-fix failure mode: Student 2's answers on Teacher A's page.
+
+        Asserts on the answer text, the submitter's UID and their display name
+        separately — the leak was all three, and a fix that merely stopped
+        rendering the preview would still publish the roster.
+        """
+        rendered = await _detail_page(forms_list_handlers, TEACHER_A, UserRole.TEACHER)
+
+        assert SECRET_ANSWER_2 not in rendered
+        assert STUDENT_2 not in rendered
+        assert "Student Two" not in rendered
+
+    async def test_scoping_is_symmetric(self, forms_list_handlers: dict[str, Any]) -> None:
+        """Teacher B is confined the other way round.
+
+        Guards against a stand-in that happens to hide Student 2 for everyone:
+        the same page must show Student 2 to the teacher who does teach them.
+        """
+        rendered = await _detail_page(forms_list_handlers, TEACHER_B, UserRole.TEACHER)
+
+        assert SECRET_ANSWER_2 in rendered
+        assert SECRET_ANSWER not in rendered
+        assert STUDENT_1 not in rendered
+
+    async def test_teacher_with_no_classroom_sees_an_empty_list(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """The accepted visible change: no active group means no rows.
+
+        A teacher whose students are not in an active group they own sees the
+        ordinary empty state, not another classroom's work.
+        """
+        rendered = await _detail_page(
+            forms_list_handlers, "user_teacher_unaffiliated", UserRole.TEACHER
+        )
+
+        assert SECRET_ANSWER not in rendered
+        assert SECRET_ANSWER_2 not in rendered
+        assert "No submissions yet" in rendered
+
+    async def test_admin_retains_cross_classroom_view(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """ADMIN keeps the view this page is documented to provide."""
+        rendered = await _detail_page(forms_list_handlers, ADMIN, UserRole.ADMIN)
+
+        assert SECRET_ANSWER in rendered
+        assert SECRET_ANSWER_2 in rendered
+        assert forms_list_handlers["_backend"].calls[-1] == (TEMPLATE_UID, None)
+
+    async def test_scope_passed_is_the_session_teacher(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """The query is scoped by the caller, not by a default or the template.
+
+        Pins the argument itself: a route that passed ``None`` would satisfy
+        every assertion about ADMIN above while leaking to every teacher.
+        """
+        await _detail_page(forms_list_handlers, TEACHER_A, UserRole.TEACHER)
+
+        assert forms_list_handlers["_backend"].calls[-1] == (TEMPLATE_UID, TEACHER_A)
+
+    async def test_header_count_reflects_only_visible_rows(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """The subtitle must not disclose the cross-classroom total."""
+        rendered = await _detail_page(forms_list_handlers, TEACHER_A, UserRole.TEACHER)
+
+        assert "1 submission" in rendered
+        assert "2 submission" not in rendered
+
+    async def test_backend_failure_is_not_rendered_as_an_empty_list(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """An infrastructure fault is not "no submissions".
+
+        A list page fails silently: the natural failure mode is an empty page,
+        which is exactly what a legitimately-empty classroom looks like. The
+        same rule the detail page applies to its gate applies here.
+        """
+
+        async def _fail(_ft_uid: str, _teacher_uid: str | None) -> Result[list[dict[str, Any]]]:
+            return Result.fail(Errors.database(operation="get_submissions", message="Neo4j down"))
+
+        forms_list_handlers["_backend"].get_submissions_for_template = _fail
+
+        rendered = await _detail_page(forms_list_handlers, TEACHER_A, UserRole.TEACHER)
+
+        assert "No submissions yet" not in rendered
+        assert "Failed to load submissions" in rendered
+
+    async def test_template_list_count_badge_is_scoped(
+        self, forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """The /teaching/forms badge counts what the caller can open.
+
+        An unscoped total both signals other classrooms' activity and
+        contradicts the page it links to.
+        """
+        rendered = _page(
+            await forms_list_handlers["/teaching/forms"](
+                request=_make_request(TEACHER_A, path="/teaching/forms"),
+                current_user=_fake_user(TEACHER_A, UserRole.TEACHER),
+            )
+        )[1]
+
+        assert "1 submission" in rendered
+        assert "2 submissions" not in rendered
+        assert forms_list_handlers["_backend"].calls[-1] == (TEMPLATE_UID, TEACHER_A)
+
+
+class TestListAndDetailPagesAgree:
+    """The two pages must admit the same set, or the gate is decorative."""
+
+    async def test_row_absent_from_the_list_is_also_unopenable(
+        self, forms_handlers: dict[str, Any], forms_list_handlers: dict[str, Any]
+    ) -> None:
+        """Student 1's submission is withheld from Teacher B in both places.
+
+        The list hiding a row is only a real boundary if the detail page
+        refuses the same UID; otherwise hiding it is cosmetic.
+        """
+        listed = await _detail_page(forms_list_handlers, TEACHER_B, UserRole.TEACHER)
+        assert SECRET_ANSWER not in listed
+
+        status, opened = _page(
+            await _submission_route(forms_handlers)(
+                request=_make_request(TEACHER_B, path="/teaching/forms/submission"),
+                uid=SUBMISSION_UID,
+                current_user=_fake_user(TEACHER_B, UserRole.TEACHER),
+            )
+        )
+
+        assert status == 404
+        assert SECRET_ANSWER not in opened

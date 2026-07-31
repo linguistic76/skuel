@@ -166,6 +166,24 @@ class TestDelete:
         backend.delete.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_delete_guard_counts_every_classroom(self):
+        """The delete guard is deliberately NOT classroom-scoped.
+
+        count_submissions takes a teacher scope so reader-facing counts can be
+        bounded to the caller's own classrooms. This guard must pass None: a
+        scoped count would report 0 for another classroom's submissions and let
+        the template be deleted out from under them.
+        """
+        backend = MagicMock()
+        backend.count_submissions = AsyncMock(return_value=Result.ok(3))
+        backend.delete = AsyncMock()
+        service = _make_service(backend=backend)
+
+        await service.delete("ft_test_123")
+
+        backend.count_submissions.assert_awaited_once_with("ft_test_123", teacher_uid=None)
+
+    @pytest.mark.asyncio
     async def test_delete_publishes_event(self):
         template = _make_template()
         backend = MagicMock()

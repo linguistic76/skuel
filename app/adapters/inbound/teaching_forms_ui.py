@@ -11,7 +11,7 @@ TEACHER role required for all endpoints.
 """
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fasthtml.common import A, Div, Small, Span, to_xml
 from starlette.responses import HTMLResponse, Response
@@ -39,9 +39,52 @@ from ui.teaching.forms import (
 from ui.teaching.nav import render_teaching_sidebar_page
 
 if TYPE_CHECKING:
+    from core.models.user.user import User
     from core.ports.report_protocols import TeacherReviewOperations
 
 logger = get_logger(__name__)
+
+
+class ScopeSubject(Protocol):
+    """The slice of the authenticated user that decides a read's classroom scope.
+
+    Structural rather than the concrete `User` so the contract is exactly the two
+    members the decision reads, and so the handlers' FastHTML-boundary `Any` stops
+    at this function instead of travelling into the decision itself. `Any` here
+    would let `has_permission` being renamed or returning a truthy non-bool widen
+    every scoped read to the ADMIN-wide one, silently.
+    """
+
+    @property
+    def uid(self) -> str: ...
+
+    def has_permission(self, required_role: UserRole) -> bool: ...
+
+
+if TYPE_CHECKING:
+
+    def _user_satisfies_scope_subject(injected: "User") -> ScopeSubject:
+        """Static proof that what `@require_role` injects satisfies the protocol.
+
+        Without this the protocol is decorative: nothing else in the tree checks
+        the real `User` against it, so renaming `User.uid` would leave the
+        contract type-checking against a shape no caller ever passes.
+        """
+        return injected
+
+
+def _classroom_scope(current_user: ScopeSubject) -> str | None:
+    """The teacher UID that bounds a read, or None for the ADMIN-wide view.
+
+    ADMIN keeps the cross-classroom view these pages are documented to provide;
+    every other caller sees only their own classrooms. This is the same exemption
+    the submission detail gate applies, kept in one place because the two must
+    agree — a row this scope admits to the list has to open on the detail page,
+    and a row it withholds must not be reachable by guessing its UID.
+    """
+    if current_user.has_permission(UserRole.ADMIN):
+        return None
+    return current_user.uid
 
 
 def create_teaching_forms_ui_routes(
@@ -83,10 +126,14 @@ def create_teaching_forms_ui_routes(
             )
             return render_teaching_sidebar_page(content, active="forms", request=request)
 
-        # Gather submission counts
+        # Gather submission counts. Scoped to the caller's classrooms so the
+        # badge counts what they can actually open — an unscoped total both
+        # discloses other classrooms' activity and contradicts the list page it
+        # links to.
+        scope = _classroom_scope(current_user)
         rows = []
         for template in templates:
-            count_result = await form_template_service.count_submissions(template.uid)
+            count_result = await form_template_service.count_submissions(template.uid, scope)
             count = count_result.value if not count_result.is_error else 0
             rows.append((template, count))
 
@@ -155,8 +202,14 @@ def create_teaching_forms_ui_routes(
 
         template = template_result.value
 
-        # Fetch submissions
-        subs_result = await form_submission_service.get_submissions_for_template(uid)
+        # Fetch submissions, bounded to the caller's classrooms. Every row here
+        # carries the submitter's name and a preview of their answers, so the
+        # TEACHER role alone is not enough — without this scope any teacher reads
+        # every student's answers for any template, and the per-row authority
+        # check on the detail page is bypassed by simply reading the list.
+        subs_result = await form_submission_service.get_submissions_for_template(
+            uid, _classroom_scope(current_user)
+        )
         if subs_result.is_error:
             content = Div(
                 PageHeader(template.title, subtitle="Submissions"),
