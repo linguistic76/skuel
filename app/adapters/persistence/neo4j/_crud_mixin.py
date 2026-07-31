@@ -7,6 +7,7 @@ CrudOperations[T] protocol implementation.
 Provides:
     create: Create entity with auto-user OWNS relationship
     get: Get entity by UID
+    get_visible_to_user: Get entity by UID only if the user is in its audience
     get_or_fail: Get entity by UID, not-found as error Result
     get_many: Batch entity retrieval (N+1 prevention)
     update: Partial update with updated_at timestamp
@@ -29,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, FilterParams, UserUID
+from core.models.type_hints import EntityUID, FilterParams, Neo4jProperties, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
@@ -42,12 +43,13 @@ if TYPE_CHECKING:
 
     from adapters.persistence.neo4j.query import UnifiedQueryBuilder
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.models.enums import SearchVisibility
     from core.models.enums.neo_labels import NeoLabel
 
 
 class _CrudMixin[T: DomainModelProtocol]:
     """
-    CrudOperations[T] — create, get, get_many, update, delete, list.
+    CrudOperations[T] — create, get, get_visible_to_user, get_many, update, delete, list.
 
     Requires on concrete class:
         driver: AsyncDriver
@@ -255,8 +257,23 @@ class _CrudMixin[T: DomainModelProtocol]:
             - Not found is NOT an error - returns Result.ok(None)
             - For batch retrieval, use get_many() to avoid N+1 queries
         """
-        df_clause = self._default_filter_clause()
-        where_line = f"WHERE {df_clause}" if df_clause else ""
+        return await self._get_by_uid(uid)
+
+    async def _get_by_uid(
+        self,
+        uid: str,
+        extra_where: str = "",
+        extra_params: Neo4jProperties | None = None,
+    ) -> Result[T | None]:
+        """
+        THE single MATCH-by-UID read body, behind get() and get_visible_to_user().
+
+        ``extra_where`` is ANDed onto the default-filter conditions, so an
+        audience predicate rides as a parameter on this one walk rather than
+        as a second, drift-prone copy of it.
+        """
+        conditions = [c for c in (self._default_filter_clause(), extra_where) if c]
+        where_line = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
         query = f"""
         MATCH (n:{self.label} {{uid: $uid}})
@@ -266,6 +283,8 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         params: dict[str, Any] = {"uid": uid}
         params.update(self._default_filter_params())
+        if extra_params:
+            params.update(extra_params)
 
         record = await self._run_single(query, params)
 
@@ -274,6 +293,49 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         entity = from_neo4j_node(dict(record["n"]), self.entity_class)
         return Result.ok(entity)
+
+    @safe_backend_operation("get_visible_to_user")
+    async def get_visible_to_user(
+        self,
+        uid: str,
+        user_uid: UserUID,
+        visibility: SearchVisibility | None,
+    ) -> Result[T | None]:
+        """
+        Get an entity by UID only if this user is in its audience.
+
+        The single-entity twin of search's ownership scoping: both compose the
+        audience predicate from ``build_search_visibility_clause()``, so a
+        direct read and a search of the same domain agree by construction
+        instead of by two hand-maintained policies.
+
+        Not-found and not-visible are deliberately the SAME outcome
+        (``Result.ok(None)``) — a caller cannot distinguish "no such UID" from
+        "not yours", which is what keeps the 404-equivalent refusal in
+        OWNERSHIP_VERIFICATION.md honest.
+
+        Note the declaration decides the scoping: a domain declaring
+        ``PUBLIC`` yields no predicate and this read is deliberately as open
+        as ``get()``. Pass the domain's own ``search_visibility``, never a
+        literal chosen at the call site.
+
+        Args:
+            uid: Entity UID to read.
+            user_uid: The requesting user, referenced by the predicate.
+            visibility: The domain's SearchVisibility declaration.
+
+        Returns:
+            Result[T | None]: the entity when visible, None when absent or
+            out of audience.
+        """
+        from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
+
+        visibility_scope = build_search_visibility_clause(
+            visibility, entity_alias="n", has_user=True
+        )
+        extra_where, scope_params = visibility_scope or ("", {})
+        params: Neo4jProperties = {"user_uid": user_uid, **scope_params}
+        return await self._get_by_uid(uid, extra_where=extra_where, extra_params=params)
 
     async def get_or_fail(self, uid: str) -> Result[T]:
         """
