@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
@@ -729,9 +730,9 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """
         result = await self.execute_query(
             f"""
-            MATCH (re:Entity {{entity_type: 'revised_exercise'}})
+            MATCH (re:Entity {{entity_type: $re_type}})
                   -[:{RelationshipName.REVISES_EXERCISE}]->
-                  (ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+                  (ex:Entity {{uid: $exercise_uid, entity_type: $exercise_type}})
             WHERE ($student_uid IS NULL OR re.student_uid = $student_uid)
               AND re.student_uid <> $teacher_uid
               AND EXISTS {{
@@ -752,6 +753,8 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
                 "exercise_uid": exercise_uid,
                 "teacher_uid": teacher_uid,
                 "student_uid": student_uid,
+                "re_type": EntityType.REVISED_EXERCISE.value,
+                "exercise_type": EntityType.EXERCISE.value,
             },
         )
         if result.is_error:
@@ -771,12 +774,17 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """
         result = await self.execute_query(
             f"""
-            MATCH (re:Entity {{entity_type: 'revised_exercise', student_uid: $student_uid}})
+            MATCH (re:Entity {{entity_type: $re_type, student_uid: $student_uid}})
                   -[:{RelationshipName.REVISES_EXERCISE}]->
-                  (ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+                  (ex:Entity {{uid: $exercise_uid, entity_type: $exercise_type}})
             RETURN coalesce(max(re.revision_number), 0) + 1 AS next_revision_number
             """,
-            {"exercise_uid": exercise_uid, "student_uid": student_uid},
+            {
+                "exercise_uid": exercise_uid,
+                "student_uid": student_uid,
+                "re_type": EntityType.REVISED_EXERCISE.value,
+                "exercise_type": EntityType.EXERCISE.value,
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -939,7 +947,12 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         """
         from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
 
-        params = {**params, "re_props": to_neo4j_node(re_entity)}
+        params = {
+            **params,
+            "re_props": to_neo4j_node(re_entity),
+            "re_entity_type": EntityType.REVISED_EXERCISE.value,
+            "exercise_entity_type": EntityType.EXERCISE.value,
+        }
 
         query = f"""
         // Phase 1: Match submission with status guard, create EntryReport
@@ -985,15 +998,15 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         // Phase 2: Next per-(exercise, student) ordinal — max+1, so deleted or
         // legacy gap-numbered revisions can never mint a duplicate ordinal
         WITH submission, student, fb, author
-        OPTIONAL MATCH (existing_re:Entity {{entity_type: 'revised_exercise'}})
+        OPTIONAL MATCH (existing_re:Entity {{entity_type: $re_entity_type}})
                        -[:{RelationshipName.REVISES_EXERCISE.value}]->
-                       (orig_ex:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})
+                       (orig_ex:Entity {{uid: $original_exercise_uid, entity_type: $exercise_entity_type}})
         WHERE existing_re.student_uid = student.uid
         WITH submission, student, fb, author,
              coalesce(max(existing_re.revision_number), 0) + 1 AS revision_number
 
         // Resolve expected_modality from original exercise
-        OPTIONAL MATCH (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})
+        OPTIONAL MATCH (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: $exercise_entity_type}})
 
         // Create RevisedExercise node
         WITH submission, student, fb, author, revision_number, orig_exercise
