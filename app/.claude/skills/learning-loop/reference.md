@@ -578,7 +578,7 @@ PathStep → Exercise v1 → Submission v1 → EntryReport v1
 - Inherits `UserOwnedEntity` (NOT Curriculum) — needs `user_uid` but not 21 Curriculum fields
 - `ContentOrigin.USER_CREATED` — teacher-authored content targeted at a specific student, not shared curriculum
 - Teacher-owned, student-targeted (student visibility via `student_uid` field)
-- `revision_number` auto-determined from existing chain length
+- `revision_number` auto-determined per-(exercise, student): `max(existing for the pair) + 1` — never a global per-exercise count, never `len + 1` (duplicate ordinals after deletions). Both writers agree: `RevisedExerciseService.create()` via `get_next_revision_number`, and the atomic `create_report_and_revised_exercise` Cypher
 - `feedback_points: tuple[FeedbackPoint, ...]` — typed feedback using `FeedbackCategory` enum (ACCURACY, COMPLETENESS, DEPTH, CLARITY, APPLICATION, METHODOLOGY) + free-text detail. Enables pattern tracking across submissions.
 - `expected_modality` and `submission_uid` auto-resolved by service on creation — teacher doesn't provide these
 - `parent_entity_uid` set to `report_uid` at `create()` time — the EntryReport is the direct derivation parent. Makes the chain navigable via Python model: no graph query needed to answer "which report prompted this revision?" The `RESPONDS_TO_REPORT` graph edge and `parent_entity_uid` carry the same information.
@@ -593,7 +593,10 @@ services.revised_exercises              # RevisedExerciseService — CRUD + chai
 # RevisedExerciseBackend — domain-specific relationship Cypher (standalone create path)
 await backend.link_to_report(re_uid, report_uid)           # RESPONDS_TO_REPORT
 await backend.link_to_exercise(re_uid, exercise_uid)      # REVISES_EXERCISE
-await backend.get_revision_chain(exercise_uid)             # All revisions ordered
+await backend.get_revision_chain(exercise_uid, teacher_uid, student_uid=None)
+# ^ Classroom-scoped (teacher's active groups only — same audience as the write);
+#   out-of-classroom reads return an empty chain, identical to a missing exercise
+await backend.get_next_revision_number(exercise_uid, student_uid)  # per-pair max+1
 await backend.get_by_report_uid(report_uid)                # Lookup RevisedExercise by report
 
 # EntryReportBackend — atomic revision request (preferred path from teaching UI)
