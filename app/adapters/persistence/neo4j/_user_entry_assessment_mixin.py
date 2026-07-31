@@ -127,13 +127,16 @@ class _UserEntryAssessmentMixin:
         ``FULFILLS_EXERCISE`` edge revision, the same root-lineage lens as
         ``get_latest_entry_for_exercise`` / ``_next_revision`` — is superseded
         work and never queues, regardless of the newer copy's status (a
-        reviewed rev 2 retires a still-pending rev 1). Only a fellow
-        ``teacher_review`` copy supersedes: the upload form keeps
-        ``fulfills_exercise_uid`` on every destination, so a newer PRIVATE
-        ``llm_summary`` entry shares the lineage but is invisible to the
-        teacher — collapsing behind it would remove work with no
-        teacher-visible successor. Entries with no exercise anchor have no
-        lineage and always pass through.
+        reviewed rev 2 retires a still-pending rev 1). Only a copy THIS
+        teacher can see supersedes — a ``teacher_review`` entry shared with
+        one of the querying teacher's owned groups. Two lineage siblings
+        deliberately do not supersede: a newer PRIVATE ``llm_summary``
+        entry (the upload form keeps ``fulfills_exercise_uid`` on every
+        destination, so AI entries share the lineage), and a revision a
+        multi-class student directed only to another teacher's group
+        (``share_with_groups``). Collapsing behind either would remove work
+        with no teacher-visible successor. Entries with no exercise anchor
+        have no lineage and always pass through.
         """
         statuses = status_filter or ["submitted", "active"]
         query = f"""
@@ -143,11 +146,13 @@ class _UserEntryAssessmentMixin:
           AND entry.status IN $statuses
         OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
-        WITH entry, r, ex, student, g
+        WITH teacher, entry, r, ex, student, g
         WHERE ex IS NULL OR NOT EXISTS {{
             MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
                   -[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
             WHERE newer.pipeline = $pipeline
+              AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)
+                  <-[:{RelationshipName.OWNS.value}]-(teacher)
               AND (coalesce(nr.revision, 0) > coalesce(r.revision, 0)
                    OR (coalesce(nr.revision, 0) = coalesce(r.revision, 0)
                        AND newer.created_at > entry.created_at))
@@ -421,6 +426,8 @@ class _UserEntryAssessmentMixin:
                         <-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]-(newer:Entity:UserEntry)
                   WHERE (student)-[:{RelationshipName.OWNS.value}]->(newer)
                     AND newer.pipeline = $pipeline
+                    AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)
+                        <-[:{RelationshipName.OWNS.value}]-(teacher)
                     AND (coalesce(nr.revision, 0) > coalesce(sr.revision, 0)
                          OR (coalesce(nr.revision, 0) = coalesce(sr.revision, 0)
                              AND newer.created_at > sub.created_at))

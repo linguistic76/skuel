@@ -30,9 +30,11 @@ from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBack
 from core.services.report.teacher_review_service import TeacherReviewService
 
 TEACHER = "user_qcc_teacher"
+OTHER_TEACHER = "user_qcc_other_teacher"
 STUDENT_1 = "user_qcc_student_1"
 STUDENT_2 = "user_qcc_student_2"
 GROUP_UID = "group_qcc"
+OTHER_GROUP_UID = "group_qcc_other"
 
 EX_1 = "ex_qcc_one"
 EX_2 = "ex_qcc_two"
@@ -42,6 +44,7 @@ S1_REV2 = "ue_qcc_s1_rev2"  # newest TEACHER-REVIEW copy, pending — must queue
 S1_AI = "ue_qcc_s1_ai"  # newer PRIVATE llm_summary entry — must not retire S1_REV2
 S1_LONE = "ue_qcc_s1_lone"  # no exercise anchor — no lineage, must queue
 S2_EX1 = "ue_qcc_s2_ex1"  # other student, same exercise — own lineage, must queue
+S2_EX1_OTHER = "ue_qcc_s2_ex1_other"  # rev 2 shared ONLY with the other classroom
 S2_EX2_REV1 = "ue_qcc_s2_ex2_rev1"  # superseded by a REVIEWED rev 2 — must NOT queue
 S2_EX2_REV2 = "ue_qcc_s2_ex2_rev2"  # completed — not pending, not queued
 
@@ -76,8 +79,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
       entries join the same lineage) — it must not retire the teacher's
       still-unreviewed rev 2.
     - STUDENT_1, no exercise anchor: standalone entry → queues untouched.
-    - STUDENT_2 x EX_1: rev 1 pending → queues (S1's rev 2 on the same
-      exercise is a different lineage and must not swallow it).
+    - STUDENT_2 x EX_1: rev 1 pending, shared with TEACHER's group → queues
+      (S1's rev 2 on the same exercise is a different lineage and must not
+      swallow it). A rev 2 exists but the multi-class student directed it
+      ONLY to OTHER_TEACHER's group (share_with_groups supports this) — a
+      copy this teacher cannot see must not retire their pending work.
     - STUDENT_2 x EX_2: rev 1 pending, rev 2 already completed → rev 1 is
       superseded by the reviewed copy and must not queue.
     """
@@ -85,12 +91,16 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
         await session.run(
             """
             MERGE (t:User {uid: $teacher})
+            MERGE (ot:User {uid: $other_teacher})
             MERGE (s1:User {uid: $student_1})
             MERGE (s2:User {uid: $student_2})
             MERGE (g:Group {uid: $group}) SET g.is_active = true
+            MERGE (g2:Group {uid: $other_group}) SET g2.is_active = true
             MERGE (t)-[:OWNS]->(g)
+            MERGE (ot)-[:OWNS]->(g2)
             MERGE (s1)-[:MEMBER_OF]->(g)
             MERGE (s2)-[:MEMBER_OF]->(g)
+            MERGE (s2)-[:MEMBER_OF]->(g2)
             CREATE (ex1:Entity:Exercise {
                 uid: $ex_1, entity_type: 'exercise', title: 'Exercise one',
                 status: 'active', created_at: datetime(), updated_at: datetime()
@@ -122,7 +132,12 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (b1:Entity:UserEntry {
                 uid: $s2_ex1, entity_type: 'user_entry', title: 'S2 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
-                created_at: datetime(), updated_at: datetime()
+                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+            })
+            CREATE (b2:Entity:UserEntry {
+                uid: $s2_ex1_other, entity_type: 'user_entry', title: 'S2 turn-in',
+                status: 'submitted', pipeline: 'teacher_review',
+                created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
             CREATE (c1:Entity:UserEntry {
                 uid: $s2_ex2_rev1, entity_type: 'user_entry', title: 'S2 second exercise',
@@ -139,25 +154,30 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (s1)-[:OWNS]->(ai)
             MERGE (s1)-[:OWNS]->(lone)
             MERGE (s2)-[:OWNS]->(b1)
+            MERGE (s2)-[:OWNS]->(b2)
             MERGE (s2)-[:OWNS]->(c1)
             MERGE (s2)-[:OWNS]->(c2)
             MERGE (a1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex1)
             MERGE (a2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex1)
             MERGE (ai)-[:FULFILLS_EXERCISE {revision: 3}]->(ex1)
             MERGE (b1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex1)
+            MERGE (b2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex1)
             MERGE (c1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex2)
             MERGE (c2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex2)
             MERGE (a1)-[:SHARED_WITH_GROUP]->(g)
             MERGE (a2)-[:SHARED_WITH_GROUP]->(g)
             MERGE (lone)-[:SHARED_WITH_GROUP]->(g)
             MERGE (b1)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (b2)-[:SHARED_WITH_GROUP]->(g2)
             MERGE (c1)-[:SHARED_WITH_GROUP]->(g)
             MERGE (c2)-[:SHARED_WITH_GROUP]->(g)
             """,
             teacher=TEACHER,
+            other_teacher=OTHER_TEACHER,
             student_1=STUDENT_1,
             student_2=STUDENT_2,
             group=GROUP_UID,
+            other_group=OTHER_GROUP_UID,
             ex_1=EX_1,
             ex_2=EX_2,
             s1_rev1=S1_REV1,
@@ -165,6 +185,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             s1_ai=S1_AI,
             s1_lone=S1_LONE,
             s2_ex1=S2_EX1,
+            s2_ex1_other=S2_EX1_OTHER,
             s2_ex2_rev1=S2_EX2_REV1,
             s2_ex2_rev2=S2_EX2_REV2,
         )
@@ -206,6 +227,19 @@ class TestQueueCopyCollapse:
             "the newest teacher-review copy must survive a newer private AI entry"
         )
         assert S1_AI not in uids, "the private AI entry itself is never teacher work"
+
+    async def test_other_classrooms_copy_never_retires_this_teachers_work(
+        self, review_service, seeded
+    ) -> None:
+        """A multi-class student can direct a revision to another teacher's
+        group only (share_with_groups); a copy this teacher cannot see must
+        not supersede the pending copy they can."""
+        uids = await _queue_uids(review_service)
+        assert S2_EX1 in uids, (
+            "the newest copy VISIBLE TO THIS TEACHER must survive a newer copy "
+            "shared only with another classroom"
+        )
+        assert S2_EX1_OTHER not in uids, "the other classroom's copy is not this teacher's work"
 
     async def test_other_lineages_are_untouched(self, review_service, seeded) -> None:
         """Collapse is per-(student, exercise): neighbors must not be swallowed."""
