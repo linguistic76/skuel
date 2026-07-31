@@ -65,6 +65,8 @@ def _make_harness(
     groups.add_member = AsyncMock(return_value=Result.ok(True))
     groups.remove_member = AsyncMock(return_value=Result.ok(True))
     groups.get_members = AsyncMock(return_value=Result.ok([]))
+    # Owner-OR-member read gate on the roster; default harness caller passes.
+    groups.get_for_user = AsyncMock(return_value=Result.ok(True))
 
     user_service = MagicMock()
     user_service.get_user = AsyncMock(return_value=Result.ok(_caller(role)))
@@ -165,10 +167,30 @@ class TestReads:
         assert response.status_code == 200
         harness.groups.get_user_groups.assert_awaited_once_with(_USER_UID)
 
-    def test_list_members_requires_auth_only(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_list_members_requires_owner_or_member(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The roster is owner-OR-member, not auth-only.
+
+        This test previously pinned ``requires_auth_only`` — the vulnerable
+        contract, where any authenticated user could enumerate any group's
+        membership. The gate is now asserted, not just the read.
+        """
         harness = _make_harness(monkeypatch, role=UserRole.MEMBER)
 
         response = harness.client.get(f"/api/groups/{_GROUP_UID}/members")
 
         assert response.status_code == 200
+        harness.groups.get_for_user.assert_awaited_once_with(_GROUP_UID, _USER_UID)
         harness.groups.get_members.assert_awaited_once_with(_GROUP_UID)
+
+    def test_list_members_non_member_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A caller who is neither owner nor member gets the not-found a
+        nonexistent group returns — and the roster is never read."""
+        harness = _make_harness(monkeypatch, role=UserRole.MEMBER)
+        harness.groups.get_for_user = AsyncMock(
+            return_value=Result.fail(Errors.not_found(resource="Group", identifier=_GROUP_UID))
+        )
+
+        response = harness.client.get(f"/api/groups/{_GROUP_UID}/members")
+
+        assert response.status_code == 404
+        harness.groups.get_members.assert_not_awaited()

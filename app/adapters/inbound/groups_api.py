@@ -107,7 +107,15 @@ def create_groups_api_routes(
     @boundary_handler()
     async def list_members(request: Request, uid: str) -> Result[list[dict[str, Any]]]:
         """List group members. Accessible to owner and members."""
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
+
+        # Membership roster is classroom data — gate on the same owner-OR-member
+        # predicate the group detail read uses. Non-members get the not_found
+        # that a nonexistent group returns, so the roster cannot be enumerated.
+        access = await group_service.get_for_user(uid, user_uid)
+        if access.is_error:
+            return Result.fail(access)
+
         return await group_service.get_members(uid)
 
     logger.info("Groups API routes registered (domain-specific only, CRUD via factory)")
