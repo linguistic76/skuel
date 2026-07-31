@@ -120,6 +120,15 @@ class _UserEntryAssessmentMixin:
         ``teacher_review``. Empty when the teacher owns no groups, or when no
         ``UserEntry`` has been ``SHARED_WITH_GROUP`` an owned group — so we do
         not leak the existence of unrelated students' submissions.
+
+        Copy revisions collapse to the lineage's newest: the vault exercise
+        channel freezes a copy per turn-in, and a pending copy with a newer
+        sibling in its (student, root exercise) lineage — newer by the
+        ``FULFILLS_EXERCISE`` edge revision, the same root-lineage lens as
+        ``get_latest_entry_for_exercise`` / ``_next_revision`` — is superseded
+        work and never queues, regardless of the newer copy's status (a
+        reviewed rev 2 retires a still-pending rev 1). Entries with no
+        exercise anchor have no lineage and always pass through.
         """
         statuses = status_filter or ["submitted", "active"]
         query = f"""
@@ -129,6 +138,14 @@ class _UserEntryAssessmentMixin:
           AND entry.status IN $statuses
         OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
+        WITH entry, r, ex, student, g
+        WHERE ex IS NULL OR NOT EXISTS {{
+            MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
+                  -[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+            WHERE coalesce(nr.revision, 0) > coalesce(r.revision, 0)
+               OR (coalesce(nr.revision, 0) = coalesce(r.revision, 0)
+                   AND newer.created_at > entry.created_at)
+        }}
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WITH entry, r, ex, student, g, count(DISTINCT report) AS feedback_count
         RETURN entry.uid AS entry_uid,
@@ -375,6 +392,12 @@ class _UserEntryAssessmentMixin:
         across entries ``SHARED_WITH_GROUP`` an active group the teacher owns.
         ``total_exercises`` + ``total_groups`` are scoped via direct ``OWNS``
         from the teacher (already correct pre-fix).
+
+        ``pending_count`` is the review queue's badge twin and applies the
+        queue's copy-revision collapse (see ``get_review_queue_by_groups``):
+        a pending copy superseded by a newer sibling in its (student, root
+        exercise) lineage is not pending work, so the badge and the queue
+        length agree.
         """
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
@@ -386,7 +409,16 @@ class _UserEntryAssessmentMixin:
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
         RETURN
-          count(DISTINCT CASE WHEN sub.status IN ['submitted', 'active'] THEN sub.uid END) AS pending_count,
+          count(DISTINCT CASE
+              WHEN sub.status IN ['submitted', 'active'] AND NOT EXISTS {{
+                  MATCH (sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
+                        <-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]-(newer:Entity:UserEntry)
+                  WHERE (student)-[:{RelationshipName.OWNS.value}]->(newer)
+                    AND (coalesce(nr.revision, 0) > coalesce(sr.revision, 0)
+                         OR (coalesce(nr.revision, 0) = coalesce(sr.revision, 0)
+                             AND newer.created_at > sub.created_at))
+              }}
+              THEN sub.uid END) AS pending_count,
           count(DISTINCT student) AS total_students,
           count(DISTINCT ex) AS total_exercises,
           count(DISTINCT g) AS total_groups
