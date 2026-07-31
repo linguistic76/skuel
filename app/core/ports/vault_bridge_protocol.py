@@ -170,6 +170,13 @@ class VaultSyncStats:
     files_failed: int = 0
     files_walled: int = 0
     files_unsupported: int = 0
+    # Standalone Edge YAMLs, both directions. Writes are split by what the
+    # upsert did, so adding an edge file that reports "updated" tells the author
+    # the relationship already existed. Relationships declared in entity
+    # frontmatter are not counted here — they are not edge files, and only edge
+    # files have a deletion counterpart.
+    edges_created: int = 0
+    edges_updated: int = 0
     entities_deleted: int = 0
     edges_deleted: int = 0
     # Content-hash move detection: uid-less renames whose identity survived

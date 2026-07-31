@@ -167,6 +167,11 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     (content-caused: no ``type:``, malformed frontmatter) list with their
     reasons but do NOT flip the header — a sync whose only findings are
     ignored files is complete (2026-07-23 ruling).
+
+    Edge YAMLs and deleted files report only when they happened. Entities and
+    edges create no ``entries_ingested`` movement between them, so without these
+    lines a sync that wrote five relationships and removed a note read exactly
+    like one that did nothing at all.
     """
     ingested = stats_dict.get("entries_ingested", 0)
     injected = stats_dict.get("ids_injected", 0)
@@ -175,6 +180,10 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     walled = stats_dict.get("files_walled", 0)
     unsupported = stats_dict.get("files_unsupported", 0)
     moved = stats_dict.get("moves_detected", 0)
+    edges_created = stats_dict.get("edges_created", 0)
+    edges_updated = stats_dict.get("edges_updated", 0)
+    entities_deleted = stats_dict.get("entities_deleted", 0)
+    edges_deleted = stats_dict.get("edges_deleted", 0)
     ignored: list[str] = stats_dict.get("ignored", [])
     errors: list[str] = stats_dict.get("errors", [])
     warnings: list[str] = stats_dict.get("warnings", [])
@@ -189,6 +198,28 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
             Li(
                 Span(f"{moved}", cls="font-semibold"),
                 " renamed/moved notes recognized (identity preserved)",
+            )
+        )
+    if edges_created:
+        items.append(
+            Li(Span(f"{edges_created}", cls="font-semibold"), " relationships created from edges/")
+        )
+    if edges_updated:
+        items.append(
+            Li(
+                Span(f"{edges_updated}", cls="font-semibold"),
+                " relationships refreshed (edge file already had one)",
+            )
+        )
+    if entities_deleted:
+        items.append(
+            Li(Span(f"{entities_deleted}", cls="font-semibold"), " notes removed (file deleted)")
+        )
+    if edges_deleted:
+        items.append(
+            Li(
+                Span(f"{edges_deleted}", cls="font-semibold"),
+                " relationships removed (edge file deleted)",
             )
         )
     if failed:

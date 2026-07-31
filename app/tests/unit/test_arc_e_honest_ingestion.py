@@ -1,8 +1,11 @@
 """Arc E (G10) — honest ingestion: stats plumbing, relaxation scoping, skip reasons.
 
-Pins the four seams this arc opened:
+Pins the five seams this arc opened:
 1. VaultReconciler stats merge — IncrementalStats errors/warnings/failed survive
    into VaultSyncStats (they were discarded by the old ``_count_ingested``).
+1a. Sync fragment render — the edge-file and deletion counts the merge carries
+   reach the panel. Edge YAMLs create no nodes, so an unrendered count is
+   indistinguishable from a sync that did nothing.
 2. Ingestion-context date relaxation — the EXTRACT_ACTIVITIES converters accept
    past dates (historical notes); interactive request construction still rejects.
 3. Skip-reason bookkeeping — collect_files_detailed counts walled/unsupported
@@ -13,12 +16,13 @@ Pins the four seams this arc opened:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+from fasthtml.common import to_xml
 from pydantic import ValidationError
 
 from core.models.enums.entity_enums import EntityType
@@ -36,6 +40,7 @@ from core.services.ingestion.config import (
 from core.services.ingestion.types import IncrementalStats, IngestionStats
 from core.services.ingestion.user_entry_ingestion import _extraction_warnings_from_entry
 from core.services.vault.vault_reconciler import _format_ingest_error, _merge_ingest_stats
+from ui.vault.sync_fragments import sync_stats_fragment
 
 # ============================================================================
 # 1. VaultSyncStats merge (the G10 core: nothing discarded)
@@ -51,6 +56,8 @@ class TestMergeIngestStats:
             files_failed=2,
             files_walled=5,
             files_unsupported=7,
+            edges_created=3,
+            edges_updated=4,
             entities_deleted=1,
             edges_deleted=2,
             warnings=["lp.x: relationship target 'ps.phantom' does not exist — edge not created"],
@@ -69,6 +76,10 @@ class TestMergeIngestStats:
         assert stats.ignored == ["bad.md — boom"]
         assert stats.files_walled == 5
         assert stats.files_unsupported == 7
+        # Distinct values per field: a merge that carried one edge count into
+        # both slots would satisfy any pair that happened to be equal.
+        assert stats.edges_created == 3
+        assert stats.edges_updated == 4
         assert stats.entities_deleted == 1
         assert stats.edges_deleted == 2
         assert stats.warnings == ingest.warnings
@@ -118,6 +129,56 @@ class TestMergeIngestStats:
         assert stats.warnings == ["deletion skipped for notes/gone.md: entity mismatch"]
         for line in stats.errors + stats.warnings + stats.ignored:
             assert str(tmp_path.resolve()) not in line
+
+    def test_full_mode_carries_no_edge_or_deletion_counts(self):
+        """Only the tracked modes have them, so the fields must stay at zero.
+
+        Deletion reconciliation and edge-file tracking do not run in full mode,
+        and ``IngestionStats`` has no field for either — the merge reads them off
+        ``IncrementalStats`` alone. A carry moved out of that branch would report
+        counts a full-mode run never measured.
+        """
+        stats = VaultSyncStats()
+        _merge_ingest_stats(stats, IngestionStats(nodes_created=1), Path("/vault"))
+        assert (stats.edges_created, stats.edges_updated, stats.edges_deleted) == (0, 0, 0)
+
+
+class TestSyncStatsFragment:
+    """The sync panel reports edge-file work in both directions.
+
+    Edge YAMLs move no node count, so before these lines a sync that wrote or
+    removed relationships rendered identically to one that did nothing. Each
+    line appears only when its count is non-zero (the file's existing idiom).
+    """
+
+    def test_edge_and_deletion_counts_render(self):
+        xml = to_xml(
+            sync_stats_fragment(
+                asdict(
+                    VaultSyncStats(
+                        edges_created=2,
+                        edges_updated=3,
+                        entities_deleted=4,
+                        edges_deleted=5,
+                    )
+                )
+            )
+        )
+        # Each count is asserted next to its own label: a fragment that rendered
+        # the right four numbers against swapped labels would pass on counts
+        # alone, and "5 relationships created" is a lie about a deletion.
+        assert '<span class="font-semibold">2</span> relationships created from edges/' in xml
+        assert '<span class="font-semibold">3</span> relationships refreshed' in xml
+        assert '<span class="font-semibold">4</span> notes removed' in xml
+        assert '<span class="font-semibold">5</span> relationships removed' in xml
+
+    def test_untouched_counts_render_nothing(self):
+        xml = to_xml(sync_stats_fragment(asdict(VaultSyncStats(entries_ingested=1))))
+        # The always-on line proves the fragment rendered — without it the two
+        # absence assertions below would also hold for an empty string.
+        assert '<span class="font-semibold">1</span> notes ingested' in xml
+        assert "relationships" not in xml
+        assert "removed" not in xml
 
 
 class TestIgnoredClassification:
