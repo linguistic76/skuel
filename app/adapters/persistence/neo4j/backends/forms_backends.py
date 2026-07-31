@@ -18,25 +18,43 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Errors, Result
 
 
-def _default_audience_match(owner_var: str, submission_var: str) -> str:
+def _default_audience_match(owner_var: str, submission_var: str, *, only_prior: bool) -> str:
     """Cypher matching ``g`` — the groups a submission's default audience is.
 
     Shared by the write and by the dry run's preview so an operator reviewing
     what would be shared is reading the same selection that would run, not a
     second copy of it.
 
-    "As of the submission" is a *reconstruction*, and the graph records only
-    current membership state: ``MEMBER_OF`` carries when the edge was created
-    but not when its role last changed, so a role edited after the fact reads
-    as if it always held. That is why the migration asks a human to confirm a
-    listed set rather than deriving intent it cannot actually derive.
+    ``only_prior`` restricts to memberships joined at or before the submission,
+    and belongs **only to the backfill**. There, the audience is a
+    *reconstruction* of a past moment, so a classroom the student joined later
+    must not receive an older answer, and an unknown join date is excluded —
+    unknown ordering is not evidence the membership came first.
+
+    A live submit resolves the audience for a submission being created *now*,
+    where every existing membership trivially qualifies. Applying the cutoff
+    there would only ever exclude: a ``MEMBER_OF`` edge without ``joined_at``
+    (older or hand-made data) would drop the classroom, the submission would
+    land with no audience, and submit would report success on a response no
+    teacher can open.
+
+    Even with the cutoff the reconstruction is imperfect — ``MEMBER_OF`` records
+    when the edge was created but not when its role last changed, so a role
+    edited afterwards reads as if it always held. That is why the migration asks
+    a human to confirm a listed set rather than deriving intent it cannot
+    actually derive.
     """
+    cutoff = (
+        f"""
+          AND m.joined_at IS NOT NULL
+          AND m.joined_at <= datetime({submission_var}.created_at)"""
+        if only_prior
+        else ""
+    )
     return f"""
         MATCH ({owner_var})-[m:{RelationshipName.MEMBER_OF}]->(g:Group)
         WHERE m.role = $student_role
-          AND g.is_active = true
-          AND m.joined_at IS NOT NULL
-          AND m.joined_at <= datetime({submission_var}.created_at)
+          AND g.is_active = true{cutoff}
     """
 
 
@@ -353,20 +371,20 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
     async def preview_default_audience(
         self, submission_uid: str
     ) -> Result[list[BackfilledGroupRow]]:
-        """The groups ``share_with_default_audience`` would write, writing none.
+        """The groups the backfill would write for one submission, writing none.
 
         The dry run's whole job is to let a human check the migration's
         reconstruction before it happens, and a list of submission UIDs cannot
         be checked — the reviewable fact is *which classroom* each answer would
-        go to. Runs the same selection as the write (see
-        ``_default_audience_match``) so the preview cannot drift from it.
+        go to. Runs the same selection as the backfill's write, cutoff included
+        (see ``_default_audience_match``), so the preview cannot drift from it.
         """
         result = await self.execute_query(
             f"""
             MATCH (u:User)-[:{RelationshipName.OWNS}]->
                   (fs:Entity {{uid: $submission_uid, entity_type: $entity_type}})
             WHERE fs.created_at IS NOT NULL
-            {_default_audience_match("u", "fs")}
+            {_default_audience_match("u", "fs", only_prior=True)}
             RETURN g.uid AS group_uid
             """,
             {
@@ -385,7 +403,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         )
 
     async def share_with_default_audience(
-        self, submission_uid: str
+        self, submission_uid: str, *, only_prior_memberships: bool = False
     ) -> Result[list[BackfilledGroupRow]]:
         """Give one submission the audience its owner's classrooms imply.
 
@@ -407,20 +425,24 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         That guard also defines the contract: this only ever *establishes* an
         audience, never widens one. Both callers want exactly that.
 
-        **The audience is the one that existed when the submission was made.**
-        Memberships are filtered to those joined at or before ``fs.created_at``,
-        so a classroom the student enrolled in *later* never receives an older
-        answer. Submit-time resolution snapshots the groups at creation and
-        would never retroactively add one; a migration running months later
-        must not either. At submit time the filter is a no-op, since every
-        existing membership predates the submission being created.
+        ``only_prior_memberships`` is the backfill's flag, and is why the two
+        callers are not quite identical. It restricts the audience to
+        classrooms joined at or before ``fs.created_at``, so a migration running
+        months later cannot hand an old answer to a teacher the student met
+        afterwards — submit-time resolution snapshots the groups at creation and
+        would never retroactively add one.
 
-        Both timestamps trace back to ``datetime.now().isoformat()``, but they
-        are stored differently — ``joined_at`` as a Neo4j datetime (see
+        A live submit leaves it off. Every existing membership trivially
+        predates a submission being created now, so the cutoff could only ever
+        *exclude*: a ``MEMBER_OF`` edge without ``joined_at`` would drop that
+        classroom, the submission would land with no audience, and submit would
+        report success on a response no teacher can open.
+
+        Both timestamps trace back to ``datetime.now().isoformat()`` but are
+        stored differently — ``joined_at`` as a Neo4j datetime (see
         ``GroupBackend.add_member``) and ``created_at`` as an ISO string (the
-        mapper serialises every datetime field that way), so the string is
-        converted before comparing. A null on either side excludes the group:
-        an unknown ordering is not evidence the membership came first.
+        mapper serialises every datetime field that way) — so the string is
+        converted before comparing.
 
         Authorization holds by construction — the groups are reached through
         the owner's own ``MEMBER_OF`` edges, so this can only produce shares
@@ -437,8 +459,8 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
                   (fs:Entity {{uid: $submission_uid, entity_type: $entity_type}})
             WHERE NOT EXISTS {{ (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->(:Group) }}
               AND NOT EXISTS {{ (:User)-[:{RelationshipName.SHARES_WITH}]->(fs) }}
-              AND fs.created_at IS NOT NULL
-            {_default_audience_match("u", "fs")}
+              {"AND fs.created_at IS NOT NULL" if only_prior_memberships else ""}
+            {_default_audience_match("u", "fs", only_prior=only_prior_memberships)}
             MERGE (fs)-[r:{RelationshipName.SHARED_WITH_GROUP}]->(g)
               ON CREATE SET r.shared_at = datetime($shared_at),
                             r.share_version = $share_version

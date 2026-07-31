@@ -134,7 +134,13 @@ async def run_backfill(*, batch_size: int, dry_run: bool, after_uid: str) -> int
                         left_private += 1
                     continue
 
-                result = await submissions.share_with_default_audience(submission_uid)
+                # only_prior_memberships: this reconstructs a past audience, so
+                # a classroom joined after the answer was written must not
+                # receive it. The live submit path leaves the flag off — there
+                # is no past to reconstruct.
+                result = await submissions.share_with_default_audience(
+                    submission_uid, only_prior_memberships=True
+                )
                 if result.is_error:
                     failed.append((submission_uid, str(result.expect_error())))
                     continue

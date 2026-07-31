@@ -88,7 +88,7 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
     ) -> Result[list[UnaudiencedSubmissionRow]]: ...
 
     async def share_with_default_audience(
-        self, submission_uid: str
+        self, submission_uid: str, *, only_prior_memberships: bool = False
     ) -> Result[list[BackfilledGroupRow]]: ...
 
     async def preview_default_audience(

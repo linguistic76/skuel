@@ -558,7 +558,9 @@ class TestShareWithDefaultAudience:
             {"s": STUDENT_1, "g": GROUP_Z, "joined": "2027-01-01T00:00:00"},
         )
 
-        result = await gate_backend.share_with_default_audience(FS_UNSHARED)
+        result = await gate_backend.share_with_default_audience(
+            FS_UNSHARED, only_prior_memberships=True
+        )
 
         assert result.is_ok, result.error
         written = sorted(str(row["group_uid"]) for row in result.value or [])
@@ -566,8 +568,11 @@ class TestShareWithDefaultAudience:
         assert written == sorted([GROUP_X, GROUP_Y])
         assert GROUP_Z not in await self._shared_groups(gate_backend, FS_UNSHARED)
 
-    async def test_a_membership_with_no_join_date_is_not_written(self, gate_backend: Any) -> None:
-        """Unknown ordering is not evidence the membership came first."""
+    async def test_the_backfill_skips_a_membership_with_no_join_date(
+        self, gate_backend: Any
+    ) -> None:
+        """Reconstructing a past audience, unknown ordering is not evidence the
+        membership came first — so the migration leaves it out."""
         await gate_backend.execute_query(
             """
             MATCH (s:User {uid: $s}), (g:Group {uid: $g})
@@ -576,9 +581,52 @@ class TestShareWithDefaultAudience:
             {"s": STUDENT_1, "g": GROUP_Z},
         )
 
-        await gate_backend.share_with_default_audience(FS_UNSHARED)
+        await gate_backend.share_with_default_audience(FS_UNSHARED, only_prior_memberships=True)
 
         assert GROUP_Z not in await self._shared_groups(gate_backend, FS_UNSHARED)
+
+    async def test_a_live_submit_keeps_a_membership_with_no_join_date(
+        self, gate_backend: Any
+    ) -> None:
+        """The same edge must NOT be dropped at submit time.
+
+        There is no past to reconstruct for a submission being created now, so
+        the cutoff could only exclude — and a ``MEMBER_OF`` without
+        ``joined_at`` (older or hand-made data) would leave the response with no
+        audience while submit reported success. Fails *open* in the safe
+        direction: toward the student's own teacher seeing their work.
+        """
+        await gate_backend.execute_query(
+            """
+            MATCH (s:User {uid: $s}), (g:Group {uid: $g})
+            CREATE (s)-[:MEMBER_OF {role: 'student'}]->(g)
+            """,
+            {"s": STUDENT_1, "g": GROUP_Z},
+        )
+
+        result = await gate_backend.share_with_default_audience(FS_UNSHARED)
+
+        assert result.is_ok, result.error
+        assert GROUP_Z in sorted(str(row["group_uid"]) for row in result.value or [])
+
+    async def test_a_live_submit_ignores_the_join_date_ordering(self, gate_backend: Any) -> None:
+        """A classroom joined "after" the seeded submission still counts live.
+
+        The cutoff belongs to the migration alone; applying it here would make
+        submit-time audience depend on clock ordering it has no reason to check.
+        """
+        await gate_backend.execute_query(
+            """
+            MATCH (s:User {uid: $s}), (g:Group {uid: $g})
+            CREATE (s)-[:MEMBER_OF {role: 'student', joined_at: datetime($joined)}]->(g)
+            """,
+            {"s": STUDENT_1, "g": GROUP_Z, "joined": "2027-01-01T00:00:00"},
+        )
+
+        result = await gate_backend.share_with_default_audience(FS_UNSHARED)
+
+        assert result.is_ok, result.error
+        assert GROUP_Z in sorted(str(row["group_uid"]) for row in result.value or [])
 
     async def test_the_preview_matches_what_the_write_does(self, gate_backend: Any) -> None:
         """The dry run is the human's only check on this reconstruction, so it
@@ -587,7 +635,9 @@ class TestShareWithDefaultAudience:
         assert preview.is_ok, preview.error
         previewed = sorted(str(row["group_uid"]) for row in preview.value or [])
 
-        written = await gate_backend.share_with_default_audience(FS_UNSHARED)
+        written = await gate_backend.share_with_default_audience(
+            FS_UNSHARED, only_prior_memberships=True
+        )
         assert written.is_ok, written.error
 
         assert previewed == sorted(str(row["group_uid"]) for row in written.value or [])
