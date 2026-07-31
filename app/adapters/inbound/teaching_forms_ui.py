@@ -11,7 +11,7 @@ TEACHER role required for all endpoints.
 """
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fasthtml.common import A, Div, Small, Span, to_xml
 from starlette.responses import HTMLResponse, Response
@@ -39,12 +39,41 @@ from ui.teaching.forms import (
 from ui.teaching.nav import render_teaching_sidebar_page
 
 if TYPE_CHECKING:
+    from core.models.user.user import User
     from core.ports.report_protocols import TeacherReviewOperations
 
 logger = get_logger(__name__)
 
 
-def _classroom_scope(current_user: Any) -> str | None:
+class ScopeSubject(Protocol):
+    """The slice of the authenticated user that decides a read's classroom scope.
+
+    Structural rather than the concrete `User` so the contract is exactly the two
+    members the decision reads, and so the handlers' FastHTML-boundary `Any` stops
+    at this function instead of travelling into the decision itself. `Any` here
+    would let `has_permission` being renamed or returning a truthy non-bool widen
+    every scoped read to the ADMIN-wide one, silently.
+    """
+
+    @property
+    def uid(self) -> str: ...
+
+    def has_permission(self, required_role: UserRole) -> bool: ...
+
+
+if TYPE_CHECKING:
+
+    def _user_satisfies_scope_subject(injected: "User") -> ScopeSubject:
+        """Static proof that what `@require_role` injects satisfies the protocol.
+
+        Without this the protocol is decorative: nothing else in the tree checks
+        the real `User` against it, so renaming `User.uid` would leave the
+        contract type-checking against a shape no caller ever passes.
+        """
+        return injected
+
+
+def _classroom_scope(current_user: ScopeSubject) -> str | None:
     """The teacher UID that bounds a read, or None for the ADMIN-wide view.
 
     ADMIN keeps the cross-classroom view these pages are documented to provide;
@@ -55,7 +84,7 @@ def _classroom_scope(current_user: Any) -> str | None:
     """
     if current_user.has_permission(UserRole.ADMIN):
         return None
-    return str(current_user.uid)
+    return current_user.uid
 
 
 def create_teaching_forms_ui_routes(
