@@ -157,11 +157,13 @@ class RevisedExerciseService(BaseService):
                     with contextlib.suppress(ValueError):
                         expected_modality = SubmissionModality(raw_modality)
 
-        # Determine revision number from existing chain
-        chain_result = await self.backend.get_revision_chain(original_exercise_uid)
-        revision_number = 1
-        if chain_result.is_ok and chain_result.value:
-            revision_number = len(chain_result.value) + 1
+        # Next per-(exercise, student) ordinal — max+1, never a global count
+        number_result = await self.backend.get_next_revision_number(
+            original_exercise_uid, student_uid
+        )
+        if number_result.is_error:
+            return Result.fail(number_result)
+        revision_number = number_result.value
 
         # Enrich entity with computed fields
         display_title = entity.title or f"Revision {revision_number}"
@@ -323,6 +325,14 @@ class RevisedExerciseService(BaseService):
             return Result.ok(None)
 
     @with_error_handling("get_revision_chain", error_type="database")
-    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
-        """Get all revisions in the chain for an original exercise."""
-        return await self.backend.get_revision_chain(exercise_uid)
+    async def get_revision_chain(
+        self, exercise_uid: str, teacher_uid: str, student_uid: str | None = None
+    ) -> Result[list[RevisionChainResult]]:
+        """List an exercise's revisions for the teacher's own classrooms.
+
+        Scoped to students in active groups the teacher owns — the same
+        audience the revision write uses (ADR-040; #887 read-scope class).
+        An out-of-classroom read is an empty chain, indistinguishable from
+        a nonexistent exercise.
+        """
+        return await self.backend.get_revision_chain(exercise_uid, teacher_uid, student_uid)

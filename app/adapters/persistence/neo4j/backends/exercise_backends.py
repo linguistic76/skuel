@@ -714,27 +714,45 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """
         return await self.execute_query(query, {"report_uid": report_uid})
 
-    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
+    async def get_revision_chain(
+        self, exercise_uid: str, teacher_uid: str, student_uid: str | None = None
+    ) -> Result[list[RevisionChainResult]]:
         """
-        Get all revised exercises in the revision chain for an original exercise.
+        Get an exercise's revised exercises for the teacher's own classrooms.
 
-        Returns revisions ordered by revision_number ascending.
+        Scoped in Cypher to revisions whose target student is a MEMBER_OF an
+        active Group the teacher OWNS — the same audience the revision write
+        uses (verify_teacher_has_group_access). An out-of-classroom teacher
+        gets an empty chain, indistinguishable from a nonexistent exercise.
+
+        Returns revisions ordered by student, then revision_number ascending.
         """
         result = await self.execute_query(
             f"""
             MATCH (re:Entity {{entity_type: 'revised_exercise'}})
                   -[:{RelationshipName.REVISES_EXERCISE}]->
                   (ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+            WHERE ($student_uid IS NULL OR re.student_uid = $student_uid)
+              AND re.student_uid <> $teacher_uid
+              AND EXISTS {{
+                  MATCH (:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
+                        <-[:{RelationshipName.MEMBER_OF.value}]-(:User {{uid: re.student_uid}})
+                  WHERE g.is_active = true
+              }}
             RETURN re.uid as uid,
                    re.title as title,
                    re.revision_number as revision_number,
                    re.student_uid as student_uid,
                    re.report_uid as report_uid,
                    re.status as status,
-                   re.created_at as created_at
-            ORDER BY re.revision_number ASC
+                   toString(re.created_at) as created_at
+            ORDER BY re.student_uid ASC, re.revision_number ASC
             """,
-            {"exercise_uid": exercise_uid},
+            {
+                "exercise_uid": exercise_uid,
+                "teacher_uid": teacher_uid,
+                "student_uid": student_uid,
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -742,6 +760,30 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             cast("RevisionChainResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
+
+    async def get_next_revision_number(self, exercise_uid: str, student_uid: str) -> Result[int]:
+        """
+        Compute the next per-(exercise, student) revision ordinal.
+
+        max(existing) + 1 rather than count + 1: deleted revisions and
+        legacy globally-numbered chains leave gaps, and a count would mint
+        a duplicate ordinal into such a chain.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (re:Entity {{entity_type: 'revised_exercise', student_uid: $student_uid}})
+                  -[:{RelationshipName.REVISES_EXERCISE}]->
+                  (ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+            RETURN coalesce(max(re.revision_number), 0) + 1 AS next_revision_number
+            """,
+            {"exercise_uid": exercise_uid, "student_uid": student_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(1)
+        return Result.ok(int(records[0]["next_revision_number"]))
 
     async def get_for_teacher(
         self, teacher_uid: str, limit: int = 50
@@ -940,13 +982,15 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             }}]->(fb)
         )
 
-        // Phase 2: Count existing revisions for revision_number
+        // Phase 2: Next per-(exercise, student) ordinal — max+1, so deleted or
+        // legacy gap-numbered revisions can never mint a duplicate ordinal
         WITH submission, student, fb, author
         OPTIONAL MATCH (existing_re:Entity {{entity_type: 'revised_exercise'}})
                        -[:{RelationshipName.REVISES_EXERCISE.value}]->
                        (orig_ex:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})
+        WHERE existing_re.student_uid = student.uid
         WITH submission, student, fb, author,
-             count(existing_re) + 1 AS revision_number
+             coalesce(max(existing_re.revision_number), 0) + 1 AS revision_number
 
         // Resolve expected_modality from original exercise
         OPTIONAL MATCH (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})

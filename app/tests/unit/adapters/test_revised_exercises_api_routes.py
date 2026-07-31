@@ -119,6 +119,39 @@ class TestTeacherRoleGate:
         )
 
 
+class TestRevisionChain:
+    def test_chain_as_member_is_403(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.MEMBER)
+
+        response = harness.client.get("/api/revised-exercises/chain?exercise_uid=ex_1")
+
+        assert response.status_code == 403
+        harness.service.get_revision_chain.assert_not_awaited()
+
+    def test_chain_scopes_to_requesting_teacher(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The classroom scope is the caller's identity, never a query param."""
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER)
+
+        response = harness.client.get("/api/revised-exercises/chain?exercise_uid=ex_1")
+
+        assert response.status_code == 200
+        harness.service.get_revision_chain.assert_awaited_once_with(
+            "ex_1", teacher_uid=_USER_UID, student_uid=None
+        )
+
+    def test_chain_forwards_student_filter(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER)
+
+        response = harness.client.get(
+            f"/api/revised-exercises/chain?exercise_uid=ex_1&student_uid={_STUDENT_UID}"
+        )
+
+        assert response.status_code == 200
+        harness.service.get_revision_chain.assert_awaited_once_with(
+            "ex_1", teacher_uid=_USER_UID, student_uid=_STUDENT_UID
+        )
+
+
 class TestInputGuards:
     def test_for_student_missing_student_uid_refuses_before_service(
         self, monkeypatch: pytest.MonkeyPatch
@@ -129,6 +162,16 @@ class TestInputGuards:
 
         assert response.status_code == 400
         harness.service.list_for_student.assert_not_awaited()
+
+    def test_chain_missing_exercise_uid_refuses_before_service(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch, role=UserRole.TEACHER)
+
+        response = harness.client.get("/api/revised-exercises/chain")
+
+        assert response.status_code == 400
+        harness.service.get_revision_chain.assert_not_awaited()
 
     def test_view_missing_uid_refuses_before_service(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)

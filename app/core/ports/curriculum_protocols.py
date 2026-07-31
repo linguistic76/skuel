@@ -1864,7 +1864,16 @@ class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Pro
 
     async def get_by_report_uid(self, report_uid: str) -> Result[list[Neo4jProperties]]: ...
 
-    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]: ...
+    async def get_revision_chain(
+        self,
+        exercise_uid: str,
+        teacher_uid: str,
+        student_uid: str | None = None,
+    ) -> Result[list[RevisionChainResult]]: ...
+
+    async def get_next_revision_number(
+        self, exercise_uid: str, student_uid: str
+    ) -> Result[int]: ...
 
 
 class RevisedExerciseOperations(Protocol):
@@ -1907,8 +1916,20 @@ class RevisedExerciseOperations(Protocol):
         """
         ...
 
-    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
-        """Get all revisions in the chain for an original exercise."""
+    async def get_revision_chain(
+        self, exercise_uid: str, teacher_uid: str, student_uid: str | None = None
+    ) -> Result[list[RevisionChainResult]]:
+        """List an exercise's revisions for the teacher's own classrooms.
+
+        Scoped to students in active groups the teacher owns — the same
+        audience the revision write uses. An out-of-classroom read is an
+        empty chain, indistinguishable from a nonexistent exercise.
+
+        Args:
+            exercise_uid: The original exercise whose revisions to list.
+            teacher_uid: The requesting teacher; scopes the read.
+            student_uid: Optional in-classroom filter to one student's chain.
+        """
         ...
 
 
