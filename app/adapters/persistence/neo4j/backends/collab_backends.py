@@ -287,13 +287,22 @@ class LateralRelationshipBackend:
         target_uid: str,
         relationship_type: RelationshipName,
         metadata: dict[str, Any],
+        created_at: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Create a lateral relationship between two entities (idempotent)."""
+        """MERGE a lateral relationship between two entities (upsert, idempotent).
+
+        ``created_at`` is stamped ``ON CREATE`` only, so re-asserting an existing
+        edge refreshes its metadata without rewriting when the edge first
+        appeared. It arrives as an ISO string from the service rather than a
+        Cypher ``datetime()`` — see the note at its stamp site for why the
+        representation is fixed.
+        """
         return await self.executor.execute_query(
             f"""
             MATCH (source {{uid: $source_uid}})
             MATCH (target {{uid: $target_uid}})
             MERGE (source)-[r:{relationship_type}]->(target)
+            ON CREATE SET r.created_at = $created_at
             SET r += $metadata
             RETURN r
             """,
@@ -301,6 +310,7 @@ class LateralRelationshipBackend:
                 "source_uid": source_uid,
                 "target_uid": target_uid,
                 "metadata": metadata,
+                "created_at": created_at,
             },
         )
 
@@ -326,19 +336,26 @@ class LateralRelationshipBackend:
         target_uid: str,
         relationship_type: RelationshipName,
         metadata: dict[str, Any],
+        created_at: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Create inverse relationship for asymmetric types (idempotent)."""
+        """MERGE the inverse edge for asymmetric types (upsert, idempotent).
+
+        Same ``ON CREATE`` stamping as ``create_relationship`` — the inverse is a
+        real edge a reader can land on, so it gets the same timestamp guarantee.
+        """
         return await self.executor.execute_query(
             f"""
             MATCH (source {{uid: $source_uid}})
             MATCH (target {{uid: $target_uid}})
             MERGE (source)-[r:{relationship_type}]->(target)
+            ON CREATE SET r.created_at = $created_at
             SET r += $metadata
             """,
             {
                 "source_uid": source_uid,
                 "target_uid": target_uid,
                 "metadata": metadata,
+                "created_at": created_at,
             },
         )
 

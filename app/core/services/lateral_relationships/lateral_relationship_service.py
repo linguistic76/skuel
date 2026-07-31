@@ -30,6 +30,7 @@ Usage:
 See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
@@ -118,10 +119,18 @@ class LateralRelationshipService:
 
         # Prepare metadata
         rel_metadata = metadata or {}
-        rel_metadata["created_at"] = "timestamp()"
         spec = get_lateral_spec(relationship_type)
         rel_metadata["relationship_category"] = spec.category if spec else ""
         rel_metadata["is_symmetric"] = spec.is_symmetric if spec else False
+
+        # Stamped here, not in Cypher. Two writers reach these same edge types —
+        # this service and the edge-YAML ingestion door (whose only gate is
+        # RelationshipName membership, so every lateral type is ingestible) —
+        # and `prepare_edge_data` stamps an ISO string. One property, one shape.
+        # Cypher `datetime()` would also break the read path: `get_relationships`
+        # projects `properties(r)` wholesale into a JSON API response, and a
+        # neo4j.time.DateTime is not JSON-serializable at the Result→HTTP edge.
+        created_at = datetime.now().isoformat()
 
         # Create the relationship
         result = await self.backend.create_relationship(
@@ -129,6 +138,7 @@ class LateralRelationshipService:
             target_uid=target_uid,
             relationship_type=relationship_type,
             metadata=rel_metadata,
+            created_at=created_at,
         )
 
         if result.is_error:
@@ -155,6 +165,7 @@ class LateralRelationshipService:
                     target_uid=source_uid,  # Reversed
                     relationship_type=inverse_type,
                     metadata=rel_metadata,
+                    created_at=created_at,
                 )
 
         return Result.ok(True)
@@ -424,7 +435,9 @@ class LateralRelationshipService:
         - Both entities exist
         - Relationship constraints met (same parent, same depth, etc.)
         - No circular dependencies
-        - No duplicate relationships
+
+        Duplicates need no check: the write is a ``MERGE`` on the directed pair,
+        so re-asserting an existing edge updates it rather than adding a second.
         """
         # Check entities exist
         exists_result = await self._check_entities_exist(source_uid, target_uid)
@@ -547,13 +560,19 @@ class LateralRelationshipService:
         target_uid: str,
         relationship_type: RelationshipName,
         metadata: dict[str, Any],
+        created_at: str,
     ) -> None:
-        """Create inverse relationship for asymmetric types."""
+        """Create inverse relationship for asymmetric types.
+
+        Takes the forward edge's ``created_at`` so both halves of the pair carry
+        one instant rather than two near-misses.
+        """
         result = await self.backend.create_inverse(
             source_uid=source_uid,
             target_uid=target_uid,
             relationship_type=relationship_type,
             metadata=metadata,
+            created_at=created_at,
         )
         if result.is_error:
             logger.error(f"Failed to create inverse relationship: {result.error}")

@@ -1,0 +1,244 @@
+"""Lateral edge ``created_at`` is a real instant, in one representation, stamped once.
+
+``LateralRelationshipService.create_lateral_relationship`` used to set
+``rel_metadata["created_at"] = "timestamp()"`` and hand the dict to
+``SET r += $metadata`` — a query *parameter*. Neo4j never evaluates parameter
+values as expressions, so every lateral edge ever created through this path
+(BLOCKS, PREREQUISITE_FOR, ALTERNATIVE_TO, COMPLEMENTARY_TO, …) carried the
+literal 11-character string ``"timestamp()"`` instead of a time. The auto-created
+inverse edge reused the same dict, so inverses carried it too.
+
+Three separate guarantees are pinned here, because the obvious fix satisfies
+only the first:
+
+1. The value is a **real instant** — ``test_created_at_is_a_parseable_instant``.
+2. It is an **ISO string, not a Neo4j temporal** —
+   ``test_edge_metadata_survives_the_json_boundary`` and
+   ``test_stamp_agrees_with_the_ingestion_edge_writer``. This is not a stylistic
+   preference. Two writers reach these same edge types: this service, and the
+   edge-YAML ingestion door, whose only gate is ``RelationshipName`` membership
+   (``validate_edge_data``), so every lateral type is ingestible. That door
+   stamps ``datetime.now().isoformat()``. Moving the stamp into Cypher as
+   ``datetime()`` would put a ``neo4j.time.DateTime`` and an ISO string on the
+   same property of the same edge population — *and* break the read path, since
+   ``get_relationships`` projects ``properties(r)`` wholesale into a JSON API
+   response where a ``neo4j.time.DateTime`` is not serializable.
+3. It records when the edge **first** appeared —
+   ``test_recreate_preserves_created_at``. ``MERGE`` + an unconditional
+   ``SET r += $metadata`` rewrote it on every re-assert; the stamp is now
+   ``ON CREATE SET``.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+import pytest
+import pytest_asyncio
+
+from adapters.inbound.boundary import jsonable_content
+from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.relationship_names import RelationshipName
+from core.services.ingestion.preparer import prepare_edge_data
+from core.services.lateral_relationships.lateral_relationship_service import (
+    LateralRelationshipService,
+)
+
+pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+PARENT_UID = "goal_stamp_parent"
+SOURCE_UID = "goal_stamp_source"
+TARGET_UID = "goal_stamp_target"
+_FIXTURE_UIDS = [PARENT_UID, SOURCE_UID, TARGET_UID]
+
+# The exact defect string. Named so a grep for it lands here.
+LITERAL_DEFECT = "timestamp()"
+
+
+@pytest.fixture
+def service(neo4j_driver) -> LateralRelationshipService:
+    """The real service over the real backend — nothing stubbed."""
+    return LateralRelationshipService(
+        backend=LateralRelationshipBackend(executor=Neo4jQueryExecutor(neo4j_driver))
+    )
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def two_children(neo4j_driver):
+    """Two goals under one parent.
+
+    The shared parent is load-bearing: ``BLOCKS`` declares
+    ``requires_same_parent``, so without it validation refuses and every test
+    below would pass vacuously on an edge that was never written.
+    """
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            CREATE (p:Entity:Goal {uid: $parent, title: 'Cross an ocean',
+                                   entity_type: 'goal', status: 'active'})
+            CREATE (s:Entity:Goal {uid: $source, title: 'Fix the hull',
+                                   entity_type: 'goal', status: 'active'})
+            CREATE (t:Entity:Goal {uid: $target, title: 'Provision the boat',
+                                   entity_type: 'goal', status: 'active'})
+            CREATE (p)-[:HAS_SUBGOAL]->(s)
+            CREATE (p)-[:HAS_SUBGOAL]->(t)
+            """,
+            parent=PARENT_UID,
+            source=SOURCE_UID,
+            target=TARGET_UID,
+        )
+    yield
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MATCH (n:Entity) WHERE n.uid IN $uids DETACH DELETE n", uids=_FIXTURE_UIDS
+        )
+
+
+async def _read_edge(neo4j_driver, rel_type: RelationshipName, source: str, target: str) -> Any:
+    """Read one edge's full property map, directed source→target."""
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            f"""
+            MATCH (:Entity {{uid: $source}})-[r:{rel_type.value}]->(:Entity {{uid: $target}})
+            RETURN properties(r) AS props, valueType(r.created_at) AS value_type
+            """,
+            source=source,
+            target=target,
+        )
+        return await result.single()
+
+
+class TestTheValueIsARealInstant:
+    async def test_created_at_is_a_parseable_instant(self, service, neo4j_driver, two_children):
+        """RED before the fix: the property held the literal string ``timestamp()``."""
+        created = await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+        )
+        assert not created.is_error, created.expect_error()
+
+        record = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+        # Positive control: the edge exists at all, so a missing stamp below is a
+        # stamping failure rather than an empty match.
+        assert record is not None
+        stamp = record["props"]["created_at"]
+
+        assert stamp != LITERAL_DEFECT
+        # Parsing is the real assertion — it fails on any non-instant, not just
+        # on the one string the old code happened to write.
+        parsed = datetime.fromisoformat(stamp)
+        assert abs((datetime.now() - parsed).total_seconds()) < 300
+
+    async def test_inverse_edge_carries_the_same_instant(self, service, neo4j_driver, two_children):
+        """The inverse reused the same metadata dict, so it inherited the defect."""
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+        )
+
+        forward = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+        # BLOCKS is asymmetric with inverse BLOCKED_BY, written target→source.
+        inverse = await _read_edge(
+            neo4j_driver, RelationshipName.BLOCKED_BY, TARGET_UID, SOURCE_UID
+        )
+        assert inverse is not None, "auto-inverse edge was not created"
+
+        assert inverse["props"]["created_at"] != LITERAL_DEFECT
+        datetime.fromisoformat(inverse["props"]["created_at"])
+        # Both halves of one pair record one instant, not two near-misses.
+        assert inverse["props"]["created_at"] == forward["props"]["created_at"]
+
+
+class TestTheRepresentationIsAnISOString:
+    async def test_edge_metadata_survives_the_json_boundary(
+        self, service, neo4j_driver, two_children
+    ):
+        """``properties(r)`` is JSON-serialized on all 9 domains' lateral GET routes.
+
+        This is the guard that makes the ISO-string decision durable: a Cypher
+        ``datetime()`` stamp would return a ``neo4j.time.DateTime`` here, which
+        ``jsonable_content`` cannot serialize — the route would 500.
+        """
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+        )
+
+        found = await service.get_lateral_relationships(
+            entity_uid=SOURCE_UID,
+            relationship_types=[RelationshipName.BLOCKS],
+        )
+        assert not found.is_error, found.expect_error()
+        assert found.value, "positive control: the read path returned no relationship"
+        assert "created_at" in found.value[0]["metadata"], (
+            "positive control: created_at is not in the projected metadata, so "
+            "serializing it below would prove nothing"
+        )
+
+        # The real boundary serializer, not a stand-in.
+        encoded = jsonable_content(found.value)
+        assert isinstance(encoded[0]["metadata"]["created_at"], str)
+
+    async def test_stamp_agrees_with_the_ingestion_edge_writer(
+        self, service, neo4j_driver, two_children
+    ):
+        """The two writers that reach these edge types must agree on the shape.
+
+        Asserting agreement rather than a hand-copied format string: if
+        ``prepare_edge_data`` ever changes representation, this fails instead of
+        silently letting the two drift onto one property.
+        """
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+        )
+        record = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+        lateral_stamp = record["props"]["created_at"]
+
+        ingestion_stamp = prepare_edge_data(
+            {"from": "ku:a", "to": "ku:b", "relationship": RelationshipName.BLOCKS.value}
+        )["properties"]["created_at"]
+
+        assert type(lateral_stamp) is type(ingestion_stamp)
+        # Neo4j sees a STRING, not a temporal — the property type in the graph is
+        # what a future reader will have to cope with.
+        assert record["value_type"].startswith("STRING")
+        # Same tz-awareness: mixing naive and aware ISO strings on one property
+        # breaks both comparison and lexicographic ordering.
+        assert (
+            datetime.fromisoformat(lateral_stamp).tzinfo
+            is datetime.fromisoformat(ingestion_stamp).tzinfo
+        )
+
+
+class TestTheStampRecordsFirstCreation:
+    async def test_recreate_preserves_created_at(self, service, neo4j_driver, two_children):
+        """``MERGE`` + unconditional ``SET r +=`` rewrote ``created_at`` every time."""
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+            metadata={"reason": "first assertion"},
+        )
+        first = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+
+        await service.create_lateral_relationship(
+            source_uid=SOURCE_UID,
+            target_uid=TARGET_UID,
+            relationship_type=RelationshipName.BLOCKS,
+            metadata={"reason": "second assertion"},
+        )
+        second = await _read_edge(neo4j_driver, RelationshipName.BLOCKS, SOURCE_UID, TARGET_UID)
+
+        # Positive control: the re-assert really did reach the edge. Without
+        # this, a create that silently failed would satisfy the guarantee below.
+        assert first["props"]["reason"] == "first assertion"
+        assert second["props"]["reason"] == "second assertion"
+
+        assert second["props"]["created_at"] == first["props"]["created_at"]
