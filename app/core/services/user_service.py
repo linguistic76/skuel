@@ -13,15 +13,18 @@ This service is part of the refactored UserService architecture:
 - UserService: Facade coordinating all sub-services (THIS FILE)
 
 Architecture:
-- Delegates all operations to appropriate sub-services
-- Maintains backward compatibility with original UserService
+- Thin delegation methods live here; the two logic-bearing clusters are
+  mixins (July 2026 decomposition):
+  - _AdminLifecycleMixin: admin-gated account lifecycle (role changes,
+    listing, deactivation/reactivation, GDPR hard-delete)
+  - _ContextPlanningMixin: context building, rich-context cache
+    orchestration, profile hub, daily work plan
 - Acts as single entry point for user-related operations
-- Zero business logic (pure delegation)
 """
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import DualTrackDimension, UserRole
+from core.models.enums import DualTrackDimension
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import EntityUID, UserUID
 from core.models.user import User
@@ -34,24 +37,22 @@ if TYPE_CHECKING:
     from core.ports.service_protocols import SessionInvalidationOperations
     from core.ports.user_context_protocols import UserContextQueryOperations
 from core.models.auth.device import Device, PairingCodeIssued
-from core.models.context_types import DailyWorkPlan
-from core.services.user import UserContext
+from core.services.user._admin_lifecycle_mixin import _AdminLifecycleMixin
+from core.services.user._context_planning_mixin import _ContextPlanningMixin
 from core.services.user.device_service import DeviceService
 from core.services.user.intelligence import UserContextIntelligenceFactory
-from core.services.user.unified_user_context import RichUserContext
 from core.services.user.user_activity_service import InvalidationReason, UserActivityService
 from core.services.user.user_context_builder import UserContextBuilder
 from core.services.user.user_core_service import UserCoreService
 from core.services.user.user_progress_recorder_service import UserProgressRecorderService
 from core.services.user.user_stats_aggregator import UserStatsAggregator
-from core.services.user_stats_types import ProfileHubData
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
 
-class UserService:
+class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
     """
     Facade coordinating all user-related sub-services.
 
@@ -64,8 +65,8 @@ class UserService:
     - UserStatsAggregator: Stats aggregation
 
     Architecture:
-    - Zero business logic (pure delegation)
-    - Maintains backward compatibility
+    - Thin delegation on the facade; logic-bearing clusters in
+      _AdminLifecycleMixin + _ContextPlanningMixin
     - Single entry point for user operations
     - Composed of 5 focused sub-services
     """
@@ -190,36 +191,6 @@ class UserService:
         """Get user by username."""
         return await self.core.get_user_by_username(username)
 
-    async def get_user_context(self, user_uid: UserUID) -> Result[UserContext]:
-        """
-        Get UserContext for a user (public API for Askesis and other services).
-
-        This method exposes the internal _build_user_context() functionality
-        for services that need rich user context (like Askesis AI assistant).
-
-        Args:
-            user_uid: User's unique identifier
-
-        Returns:
-            Result containing UserContext with all domain activity data
-
-        Note:
-            For statistical views, use get_profile_hub_data() instead.
-            For rich entity details, use get_rich_unified_context() instead.
-        """
-        # Get user first
-        user_result = await self.get_user(user_uid)
-        if user_result.is_error:
-            return Result.fail(user_result)
-
-        if not user_result.value:
-            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-
-        user = user_result.value
-
-        # Build and return UserContext
-        return await self._build_user_context(user_uid, user)
-
     async def update_user(self, user: User) -> Result[User]:
         """Update user information."""
         return await self.core.update_user(user)
@@ -291,49 +262,6 @@ class UserService:
         """Soft-delete a user: mark status=DELETED, scrub PII, preserve OWNS graph."""
         return await self.core.delete_user(user_uid, reason=reason, deleted_by=deleted_by)
 
-    async def hard_delete_user(
-        self,
-        target_user_uid: UserUID,
-        admin_user_uid: UserUID,
-        reason: str,
-    ) -> Result[int]:
-        """
-        Hard-delete a user and every OWNS-linked entity (GDPR erasure, ADMIN only).
-
-        Args:
-            target_user_uid: User to erase.
-            admin_user_uid: Admin initiating erasure (audit trail).
-            reason: Free-form reason (required for audit).
-
-        Returns:
-            Result[int]: Count of deleted nodes (user + owned entities), or error.
-        """
-        admin_result = await self.get_user(admin_user_uid)
-        if admin_result.is_error:
-            return Result.fail(admin_result)
-
-        if not admin_result.value:
-            return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
-
-        admin = admin_result.value
-
-        if not admin.can_manage_users():
-            logger.warning(f"Non-admin {admin_user_uid} attempted hard-delete of {target_user_uid}")
-            return Result.fail(
-                Errors.forbidden(
-                    action="hard_delete_user",
-                    reason="Hard-delete requires ADMIN role",
-                    required_role=UserRole.ADMIN.value,
-                )
-            )
-
-        return await self.core.hard_delete_user(
-            target_user_uid,
-            requester_role=admin.role,
-            deleted_by=admin_user_uid,
-            reason=reason,
-        )
-
     # ========================================================================
     # AUTHENTICATION (Delegate to UserCoreService)
     # ========================================================================
@@ -402,246 +330,6 @@ class UserService:
         if devices.is_error:
             return Result.fail(devices)
         return await devices.value.touch_device(device_uid)
-
-    # ========================================================================
-    # ROLE MANAGEMENT (December 2025 - Admin Only)
-    # ========================================================================
-
-    async def update_role(
-        self,
-        target_user_uid: UserUID,
-        new_role: UserRole,
-        admin_user_uid: UserUID,
-    ) -> Result[User]:
-        """
-        Update a user's role (ADMIN only).
-
-        Performs authorization check before delegating to UserCoreService.
-
-        Args:
-            target_user_uid: User to update
-            new_role: New role to assign
-            admin_user_uid: UID of admin making the change
-
-        Returns:
-            Result[User]: Updated user or error
-
-        Business Rules:
-            - Only ADMIN can change user roles
-            - Admins cannot demote themselves
-            - Prevents escalation beyond ADMIN
-            - An actual role change revokes all of the target's live sessions
-              (forced re-login — see security-hardening roadmap item 4)
-        """
-        # Verify admin has permission
-        admin_result = await self.get_user(admin_user_uid)
-        if admin_result.is_error:
-            return Result.fail(admin_result)
-
-        if not admin_result.value:
-            return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
-
-        admin = admin_result.value
-
-        if not admin.can_manage_users():
-            logger.warning(
-                f"Non-admin {admin_user_uid} attempted to change role for {target_user_uid}"
-            )
-            return Result.fail(
-                Errors.business(rule="admin_only", message="Only admins can change user roles")
-            )
-
-        # Prevent self-demotion for admins
-        if target_user_uid == admin_user_uid and new_role != UserRole.ADMIN:
-            return Result.fail(
-                Errors.business(rule="self_demotion", message="Admins cannot demote themselves")
-            )
-
-        # Fetch target first: a no-op role set must not revoke live sessions
-        # (also keeps an ADMIN→ADMIN self-update from logging the admin out)
-        target_result = await self.get_user(target_user_uid)
-        if target_result.is_error:
-            return Result.fail(target_result)
-        if not target_result.value:
-            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
-        if target_result.value.role == new_role:
-            return Result.ok(target_result.value)
-
-        if self.session_invalidator is None:
-            return Result.fail(
-                Errors.system(
-                    "Session invalidator not wired — pass session_invalidator to UserService",
-                    operation="update_role",
-                )
-            )
-
-        # Role change and session revocation commit in ONE transaction. Any
-        # two-step sequence has a hole: revoke-then-update lets the target
-        # sign in against the old user record inside the window (that fresh
-        # session dodges the completed sweep — exploitable by a user being
-        # demoted); update-then-revoke isn't retryable (the retry sees the
-        # role already changed, takes the no-op branch above, and never
-        # re-attempts the revocation).
-        atomic = await self.session_invalidator.update_role_and_revoke_sessions(
-            target_user_uid, new_role
-        )
-        if atomic.is_error:
-            return Result.fail(atomic)
-        logger.info(
-            f"Updated role for {target_user_uid}: {target_result.value.role.value} → "
-            f"{new_role.value}; revoked {atomic.value} live session(s)"
-        )
-
-        refreshed = await self.get_user(target_user_uid)
-        if refreshed.is_error:
-            return Result.fail(refreshed)
-        if not refreshed.value:
-            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
-        return Result.ok(refreshed.value)
-
-    async def list_users(
-        self,
-        admin_user_uid: UserUID,
-        limit: int = 100,
-        offset: int = 0,
-        role_filter: UserRole | None = None,
-        active_only: bool = True,
-    ) -> Result[list[User]]:
-        """
-        List users (ADMIN only).
-
-        Args:
-            admin_user_uid: UID of admin making the request
-            limit: Max results
-            offset: Pagination offset
-            role_filter: Optional filter by role
-            active_only: Only return active users (default True)
-
-        Returns:
-            Result[list[User]]: List of users or error
-        """
-        # Verify admin has permission
-        admin_result = await self.get_user(admin_user_uid)
-        if admin_result.is_error:
-            return Result.fail(admin_result)
-
-        if not admin_result.value:
-            return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
-
-        if not admin_result.value.can_manage_users():
-            logger.warning(f"Non-admin {admin_user_uid} attempted to list users")
-            return Result.fail(
-                Errors.business(rule="admin_only", message="Only admins can list users")
-            )
-
-        # Delegate to core service
-        return await self.core.list_users(limit, offset, role_filter, active_only)
-
-    async def deactivate_user(
-        self,
-        target_user_uid: UserUID,
-        admin_user_uid: UserUID,
-        reason: str = "",
-    ) -> Result[User]:
-        """
-        Deactivate a user account (ADMIN only).
-
-        Deactivation and session revocation commit atomically (one Cypher
-        transaction on SessionBackend) — deactivation must take effect
-        immediately, not at next login, and must not be able to half-apply.
-
-        Args:
-            target_user_uid: User to deactivate
-            admin_user_uid: Admin making the request
-            reason: Reason for deactivation
-
-        Returns:
-            Result[User]: Updated user or error
-        """
-        # Verify admin has permission
-        admin_result = await self.get_user(admin_user_uid)
-        if admin_result.is_error:
-            return Result.fail(admin_result)
-
-        if not admin_result.value:
-            return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
-
-        admin = admin_result.value
-
-        if not admin.can_manage_users():
-            logger.warning(f"Non-admin {admin_user_uid} attempted to deactivate {target_user_uid}")
-            return Result.fail(
-                Errors.business(rule="admin_only", message="Only admins can deactivate users")
-            )
-
-        # Prevent self-deactivation
-        if target_user_uid == admin_user_uid:
-            return Result.fail(
-                Errors.business(
-                    rule="self_deactivation", message="Admins cannot deactivate themselves"
-                )
-            )
-
-        if self.session_invalidator is None:
-            return Result.fail(
-                Errors.system(
-                    "Session invalidator not wired — pass session_invalidator to UserService",
-                    operation="deactivate_user",
-                )
-            )
-
-        # Deactivation and session revocation commit in ONE transaction.
-        # Session nodes cache user_is_active at creation, and a two-step
-        # sequence (persist is_active=false, then revoke) has a failure mode
-        # where the account LOOKS deactivated but its live sessions keep
-        # validating — and nothing prompts the admin to retry an operation
-        # that already appears applied.
-        atomic = await self.session_invalidator.deactivate_user_and_revoke_sessions(target_user_uid)
-        if atomic.is_error:
-            return Result.fail(atomic)
-        logger.info(
-            f"Deactivated {target_user_uid}, revoked {atomic.value} live session(s). "
-            f"Reason: {reason or 'not specified'}"
-        )
-
-        refreshed = await self.get_user(target_user_uid)
-        if refreshed.is_error:
-            return Result.fail(refreshed)
-        if not refreshed.value:
-            return Result.fail(Errors.not_found(resource="User", identifier=target_user_uid))
-        return Result.ok(refreshed.value)
-
-    async def activate_user(
-        self,
-        target_user_uid: UserUID,
-        admin_user_uid: UserUID,
-    ) -> Result[User]:
-        """
-        Reactivate a user account (ADMIN only).
-
-        Args:
-            target_user_uid: User to reactivate
-            admin_user_uid: Admin making the request
-
-        Returns:
-            Result[User]: Updated user or error
-        """
-        # Verify admin has permission
-        admin_result = await self.get_user(admin_user_uid)
-        if admin_result.is_error:
-            return Result.fail(admin_result)
-
-        if not admin_result.value:
-            return Result.fail(Errors.not_found(resource="Admin user", identifier=admin_user_uid))
-
-        if not admin_result.value.can_manage_users():
-            logger.warning(f"Non-admin {admin_user_uid} attempted to activate {target_user_uid}")
-            return Result.fail(
-                Errors.business(rule="admin_only", message="Only admins can activate users")
-            )
-
-        # Delegate to core service
-        return await self.core.activate_user(target_user_uid)
 
     # ========================================================================
     # LEARNING PROGRESS (Delegate to UserProgressRecorderService)
@@ -762,237 +450,6 @@ class UserService:
     ) -> Result[list[User]]:
         """Get users who have been active recently."""
         return await self.activity.get_active_learners(since_hours, limit)
-
-    # ========================================================================
-    # PROFILE HUB DATA (Delegate to UserStatsAggregator)
-    # ========================================================================
-
-    async def get_profile_hub_data(self, user_uid: UserUID) -> Result[ProfileHubData]:
-        """
-        Get aggregated data for user profile hub.
-
-        Pattern 3C + UserContext Integration:
-        - Builds UserContext from domain queries (single source of truth)
-        - Uses ProfileHubData.from_context() to compute statistical view
-        - Returns strongly-typed ProfileHubData with full context
-
-        Args:
-            user_uid: User's unique identifier
-
-        Returns:
-            Result[ProfileHubData]: Strongly-typed profile hub data with frozen dataclasses
-
-        Raises:
-            ValueError: If stats aggregator not initialized (driver required)
-        """
-        if not self.stats:
-            from core.utils.result_simplified import Errors
-
-            return Result.fail(
-                Errors.system(
-                    message="ProfileHubData requires Neo4j driver - initialize UserService with driver"
-                )
-            )
-
-        return await self.stats.get_profile_hub_data(user_uid)
-
-    # ========================================================================
-    # CONTEXT BUILDING (Internal - used by stats aggregator)
-    # ========================================================================
-
-    async def _build_user_context(self, user_uid: UserUID, user: User) -> Result[UserContext]:
-        """
-        Build UserContext from domain queries.
-
-        INTERNAL METHOD: Used by UserStatsAggregator.
-
-        Args:
-            user_uid: User's unique identifier
-            user: User entity
-
-        Returns:
-            Result[UserContext] with complete domain awareness (~240 fields)
-        """
-        if not self.context_builder:
-            return Result.fail(Errors.system(message="Context building requires Neo4j driver"))
-
-        return await self.context_builder.build_user_context(user_uid, user)
-
-    # ========================================================================
-    # RICH CONTEXT (November 22, 2025 - Neo4j Optimization)
-    # ========================================================================
-
-    def peek_cached_context(self, user_uid: UserUID) -> RichUserContext | None:
-        """Cache-hit-only context access — NEVER builds (no MEGA-QUERY, ever).
-
-        For latency-sensitive surfaces (the keystroke-driven /search path)
-        that want to enrich opportunistically when a rich context is already
-        warm, and silently do without one when it isn't. Use
-        ``get_rich_unified_context`` when you need a context unconditionally.
-        """
-        if self.activity is None:
-            return None
-        return self.activity.get_valid_context(user_uid)
-
-    async def get_rich_unified_context(
-        self, user_uid: UserUID, min_confidence: float = 0.7
-    ) -> Result[RichUserContext]:
-        """
-        Get COMPLETE UserContext with BOTH standard AND rich fields.
-
-        **PERFORMANCE OPTIMIZATION (February 6, 2026):**
-        Now uses UserContextCache (5-minute TTL) with event-driven invalidation.
-        - Cache hit (~80% of requests): Returns instantly without database query
-        - Cache miss: Builds context with MEGA-QUERY and caches result
-        - Auto-invalidation: Domain events (TaskCompleted, GoalAchieved, etc.) clear cache
-
-        **ARCHITECTURE REFACTOR (November 24, 2025):**
-        This now uses the TRUE MEGA-QUERY that fetches EVERYTHING in a single database query.
-
-        **Before:** 2-3 queries (standard context + MEGA-QUERY)
-        **After:** 1 query (TRUE MEGA-QUERY) with caching
-
-        This single comprehensive query fetches:
-        1. **Standard context fields** (UIDs, relationships, metadata)
-           - active_task_uids, active_goal_uids, active_habit_uids
-           - habit_streaks, knowledge_mastery, goal_progress
-           - tasks_by_goal, overdue_task_uids, etc.
-
-        2. **Rich context fields** (full entities + graph neighborhoods)
-           - entities_rich: {"tasks": [{entity: {...}, graph_context: {...}}, ...], "goals": [...], ...}
-           - knowledge_units_rich: {uid: {ku: {...}, graph_context: {prerequisites, dependents}}, ...}
-
-        Args:
-            user_uid: User's unique identifier
-            min_confidence: Minimum relationship confidence (default 0.7)
-
-        Returns:
-            Result[UserContext] with ALL ~240 fields populated
-
-        Performance:
-            - Cache hit: ~1-5ms (no database query)
-            - Cache miss: ~800ms-2s (MEGA-QUERY runs)
-            - Expected cache hit rate: ~80% during active user sessions
-
-        Usage:
-            # Dashboard view - needs full entity data
-            context_result = await user_service.get_rich_unified_context(user_uid)
-            context = context_result.value
-
-            # Access lightweight UIDs (standard context)
-            task_uids = context.active_task_uids # ✅ Populated from MEGA-QUERY
-
-            # Access rich entities with graph neighborhoods
-            for task_data in context.entities_rich.get("tasks", []):  # ✅ Populated from MEGA-QUERY
-                task = task_data["entity"]
-                graph_context = task_data["graph_context"]
-
-                # Use subtasks, dependencies, applied knowledge, etc.
-                subtasks = graph_context["subtasks"]
-                dependencies = graph_context["dependencies"]
-                knowledge = graph_context["applied_knowledge"]
-        """
-        if not self.context_builder:
-            return Result.fail(Errors.system(message="Rich context building requires Neo4j driver"))
-
-        # ========================================================================
-        # STEP 1: Check cache first (5-minute TTL with event-driven invalidation)
-        # ========================================================================
-        if self.activity:
-            cached_context = self.activity.get_valid_context(user_uid)
-            if cached_context:
-                logger.debug(
-                    "Rich context cache HIT", extra={"user_uid": user_uid, "cache_age_seconds": 0}
-                )
-                return Result.ok(cached_context)
-
-            logger.debug(
-                "Rich context cache MISS - building from database", extra={"user_uid": user_uid}
-            )
-
-        # ========================================================================
-        # STEP 2: Cache miss - build from database (MEGA_QUERY)
-        # ========================================================================
-        # Use builder-owned user resolution to avoid duplicating lookup/error handling
-        # and keep MEGA_QUERY orchestration in a single place.
-        context_result = await self.context_builder.build_rich(
-            user_uid, min_confidence=min_confidence
-        )
-
-        if context_result.is_error:
-            return context_result
-
-        # ========================================================================
-        # STEP 3: Cache the freshly-built context
-        # ========================================================================
-        context = context_result.value
-        if self.activity:
-            self.activity.cache_context(user_uid, context)
-            logger.debug(
-                "Rich context cached",
-                extra={"user_uid": user_uid, "cache_ttl_seconds": 300},  # 5 minutes
-            )
-
-        return Result.ok(context)
-
-    # ========================================================================
-    # INTELLIGENCE METHODS
-    # ========================================================================
-
-    async def get_daily_work_plan(
-        self,
-        user_uid: UserUID,
-        prioritize_life_path: bool = True,
-        respect_capacity: bool = True,
-    ) -> Result[DailyWorkPlan]:
-        """
-        Get optimal daily work plan for a user.
-
-        🎯 THE FLAGSHIP METHOD - What should I focus on TODAY?
-
-        This synthesizes across ALL domains to create an optimal daily plan:
-        - Learning: Knowledge ready to learn + aligned with goals
-        - Tasks: Today's tasks + high-impact tasks + overdue tasks
-        - Habits: Daily habits + at-risk habits (maintain streaks)
-        - Goals: Goals nearing deadline + primary goal focus
-        - Events: Today's events
-
-        Considers:
-        - User capacity (available_minutes_daily)
-        - Energy level (current_energy_level)
-        - Workload (current_workload_score)
-        - Life path alignment (if prioritize_life_path=True)
-
-        Args:
-            user_uid: User's unique identifier
-            prioritize_life_path: Weight life path alignment highly
-            respect_capacity: Don't exceed available time
-
-        Returns:
-            Result[DailyWorkPlan]: Complete daily plan with rationale and priorities
-        """
-        # Check if intelligence factory is available
-        if not self.intelligence_factory:
-            return Result.fail(
-                Errors.system(
-                    message="Intelligence factory not available",
-                    operation="get_daily_work_plan",
-                )
-            )
-
-        # Build rich user context — intelligence methods consume rich-only fields.
-        context_result = await self.get_rich_unified_context(user_uid)
-        if context_result.is_error:
-            return Result.fail(context_result)
-
-        context = context_result.value
-
-        # Create intelligence service from factory and get daily plan
-        intelligence = self.intelligence_factory.create(context)
-        return await intelligence.get_ready_to_work_on_today(
-            prioritize_life_path=prioritize_life_path,
-            respect_capacity=respect_capacity,
-        )
 
 
 # ============================================================================

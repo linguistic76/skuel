@@ -961,7 +961,7 @@ plan = await intelligence.get_ready_to_work_on_today()
 
 ### UserService Integration
 
-**Location:** `/core/services/user_service.py`
+**Location:** `/core/services/user/_context_planning_mixin.py` (on the `UserService` facade)
 
 UserService uses the factory to create intelligence instances:
 
@@ -1202,7 +1202,7 @@ UserContextIntelligence has no dedicated dashboard UI. Its flagship outputs are
 consumed by:
 
 - **Askesis** (`core/services/askesis_service.py` + `adapters/inbound/askesis_api.py`) — daily-plan, synergies, path-steps, life-path-alignment endpoints
-- **UserService.get_daily_work_plan** (`core/services/user_service.py`) — daily plan for programmatic consumers
+- **UserService.get_daily_work_plan** (`core/services/user/_context_planning_mixin.py`) — daily plan for programmatic consumers
 - **ZPD assessment** (`core/models/zpd/zpd_assessment.py`) — `get_optimal_next_path_steps()` is the primary ranking signal
 - **`build_rich()` capstone** (`core/services/user/unified_user_context.py`)
 
