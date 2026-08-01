@@ -46,11 +46,12 @@ def orchestrator(
 async def test_get_bucketed_student_submissions_success(
     orchestrator: TeacherOrchestrator, mock_teacher_review_service: MagicMock
 ) -> None:
-    """Needs Review is queue membership, not a status read.
+    """Needs Review AND Revision Requested are queue membership, not status reads.
 
     The student-scoped review queue (same query, same copy-revision collapse
-    as /teaching/queue) decides the pending bucket; statuses only split the
-    remainder into revision vs completed/history.
+    as /teaching/queue) decides the pending bucket with its default statuses
+    and the revision bucket with status_filter='revision_requested'; anything
+    both queues omit is completed/history.
     """
     mock_submissions = [
         {"uid": "sub1", "status": "submitted", "student_name": "Alice M."},
@@ -59,11 +60,20 @@ async def test_get_bucketed_student_submissions_success(
         # Pending status but ABSENT from the queue — a superseded copy.
         # It is history, never Needs Review.
         {"uid": "sub4", "status": "submitted"},
+        # Revision-requested status but ABSENT from the waiting queue — the
+        # student already resubmitted, so the copy is history, not waiting.
+        {"uid": "sub5", "status": "revision_requested"},
     ]
     mock_teacher_review_service.get_student_submissions.return_value = Result.ok(mock_submissions)
-    mock_teacher_review_service.get_review_queue.return_value = Result.ok(
-        [{"submission_uid": "sub1"}]
-    )
+
+    async def _scoped_queue(
+        teacher_uid: str, status_filter: str | None = None, student_uid: str | None = None
+    ) -> Result[list[dict[str, str]]]:
+        if status_filter == "revision_requested":
+            return Result.ok([{"submission_uid": "sub2"}])
+        return Result.ok([{"submission_uid": "sub1"}])
+
+    mock_teacher_review_service.get_review_queue.side_effect = _scoped_queue
 
     result = await orchestrator.get_bucketed_student_submissions(
         teacher_uid="teacher-123", student_uid="student-456"
@@ -74,15 +84,20 @@ async def test_get_bucketed_student_submissions_success(
 
     assert [item["uid"] for item in pending] == ["sub1"]
     assert [item["uid"] for item in revision] == ["sub2"]
-    assert [item["uid"] for item in completed] == ["sub3", "sub4"]
+    assert [item["uid"] for item in completed] == ["sub3", "sub4", "sub5"]
 
     assert student_name == "Alice M."
     mock_teacher_review_service.get_student_submissions.assert_called_once_with(
         teacher_uid="teacher-123", student_uid="student-456"
     )
-    mock_teacher_review_service.get_review_queue.assert_called_once_with(
-        teacher_uid="teacher-123", student_uid="student-456"
-    )
+    queue_calls = mock_teacher_review_service.get_review_queue.await_args_list
+    assert len(queue_calls) == 2
+    assert queue_calls[0].kwargs == {"teacher_uid": "teacher-123", "student_uid": "student-456"}
+    assert queue_calls[1].kwargs == {
+        "teacher_uid": "teacher-123",
+        "status_filter": "revision_requested",
+        "student_uid": "student-456",
+    }
 
 
 @pytest.mark.asyncio
@@ -118,6 +133,32 @@ async def test_get_bucketed_student_submissions_queue_error_propagates(
     mock_teacher_review_service.get_review_queue.return_value = Result.fail(
         Errors.database("execute_query", "timeout")
     )
+
+    result = await orchestrator.get_bucketed_student_submissions(
+        teacher_uid="teacher-123", student_uid="student-456"
+    )
+
+    assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_get_bucketed_student_submissions_waiting_queue_error_propagates(
+    orchestrator: TeacherOrchestrator, mock_teacher_review_service: MagicMock
+) -> None:
+    """A failed waiting-queue read must fail the bucketing too — silently
+    bucketing revision-requested work to history would hide it."""
+    mock_teacher_review_service.get_student_submissions.return_value = Result.ok(
+        [{"uid": "sub1", "status": "submitted"}]
+    )
+
+    async def _scoped_queue(
+        teacher_uid: str, status_filter: str | None = None, student_uid: str | None = None
+    ) -> Result[list[dict[str, str]]]:
+        if status_filter == "revision_requested":
+            return Result.fail(Errors.database("execute_query", "timeout"))
+        return Result.ok([{"submission_uid": "sub1"}])
+
+    mock_teacher_review_service.get_review_queue.side_effect = _scoped_queue
 
     result = await orchestrator.get_bucketed_student_submissions(
         teacher_uid="teacher-123", student_uid="student-456"

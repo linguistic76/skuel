@@ -46,6 +46,7 @@ INACTIVE_GROUP_UID = "group_qcc_inactive"  # owned by TEACHER, deactivated
 
 EX_1 = "ex_qcc_one"
 EX_2 = "ex_qcc_two"
+EX_3 = "ex_qcc_three"
 
 S1_REV1 = "ue_qcc_s1_rev1"  # superseded by S1_REV2 — must NOT queue
 S1_REV2 = "ue_qcc_s1_rev2"  # newest TEACHER-REVIEW copy, pending — must queue
@@ -57,6 +58,9 @@ S2_EX2_REV1 = "ue_qcc_s2_ex2_rev1"  # superseded by a REVIEWED rev 2 — must NO
 S2_EX2_REV2 = "ue_qcc_s2_ex2_rev2"  # completed — not pending, not queued
 S1_EX2_REV1 = "ue_qcc_s1_ex2_rev1"  # active-group share, pending — must queue
 S1_EX2_REV2 = "ue_qcc_s1_ex2_rev2"  # shared ONLY with the deactivated group
+S1_EX3_WAIT = "ue_qcc_s1_ex3_wait"  # revision requested, no resubmit — waiting
+S2_EX3_REV1 = "ue_qcc_s2_ex3_rev1"  # revision requested, then resubmitted — history
+S2_EX3_REV2 = "ue_qcc_s2_ex3_rev2"  # the resubmit — back in Needs review
 
 
 @pytest.fixture
@@ -101,6 +105,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
       with a group TEACHER owns but has DEACTIVATED. The queue's visibility
       is active-owned-groups (matching the detail view and review writes),
       so rev 2 neither queues nor supersedes the reviewable rev 1.
+    - STUDENT_1 x EX_3: rev 1 revision_requested with no resubmit → the
+      waiting-for-resubmit view's sole member; never in Needs review.
+    - STUDENT_2 x EX_3: rev 1 revision_requested, rev 2 resubmitted
+      (submitted) — the same collapse moves the lineage from Waiting back to
+      Needs review: rev 2 queues, rev 1 is history in BOTH views.
     """
     async with neo4j_driver.session() as session:
         await session.run(
@@ -124,6 +133,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             })
             CREATE (ex2:Entity:Exercise {
                 uid: $ex_2, entity_type: 'exercise', title: 'Exercise two',
+                status: 'active', created_at: datetime(), updated_at: datetime()
+            })
+            CREATE (ex3:Entity:Exercise {
+                uid: $ex_3, entity_type: 'exercise', title: 'Exercise three',
                 status: 'active', created_at: datetime(), updated_at: datetime()
             })
             CREATE (a1:Entity:UserEntry {
@@ -176,6 +189,21 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 status: 'submitted', pipeline: 'teacher_review',
                 created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
+            CREATE (w1:Entity:UserEntry {
+                uid: $s1_ex3_wait, entity_type: 'user_entry', title: 'S1 third exercise',
+                status: 'revision_requested', pipeline: 'teacher_review',
+                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+            })
+            CREATE (w2:Entity:UserEntry {
+                uid: $s2_ex3_rev1, entity_type: 'user_entry', title: 'S2 third exercise',
+                status: 'revision_requested', pipeline: 'teacher_review',
+                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+            })
+            CREATE (w3:Entity:UserEntry {
+                uid: $s2_ex3_rev2, entity_type: 'user_entry', title: 'S2 third exercise',
+                status: 'submitted', pipeline: 'teacher_review',
+                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+            })
             MERGE (s1)-[:OWNS]->(a1)
             MERGE (s1)-[:OWNS]->(a2)
             MERGE (s1)-[:OWNS]->(ai)
@@ -186,6 +214,9 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (s2)-[:OWNS]->(c2)
             MERGE (s1)-[:OWNS]->(d1)
             MERGE (s1)-[:OWNS]->(d2)
+            MERGE (s1)-[:OWNS]->(w1)
+            MERGE (s2)-[:OWNS]->(w2)
+            MERGE (s2)-[:OWNS]->(w3)
             MERGE (a1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex1)
             MERGE (a2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex1)
             MERGE (ai)-[:FULFILLS_EXERCISE {revision: 3}]->(ex1)
@@ -195,6 +226,9 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (c2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex2)
             MERGE (d1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex2)
             MERGE (d2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex2)
+            MERGE (w1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex3)
+            MERGE (w2)-[:FULFILLS_EXERCISE {revision: 1}]->(ex3)
+            MERGE (w3)-[:FULFILLS_EXERCISE {revision: 2}]->(ex3)
             MERGE (a1)-[:SHARED_WITH_GROUP]->(g)
             MERGE (a2)-[:SHARED_WITH_GROUP]->(g)
             MERGE (lone)-[:SHARED_WITH_GROUP]->(g)
@@ -204,6 +238,9 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (c2)-[:SHARED_WITH_GROUP]->(g)
             MERGE (d1)-[:SHARED_WITH_GROUP]->(g)
             MERGE (d2)-[:SHARED_WITH_GROUP]->(g3)
+            MERGE (w1)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (w2)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (w3)-[:SHARED_WITH_GROUP]->(g)
             """,
             teacher=TEACHER,
             other_teacher=OTHER_TEACHER,
@@ -224,16 +261,32 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             s2_ex2_rev2=S2_EX2_REV2,
             s1_ex2_rev1=S1_EX2_REV1,
             s1_ex2_rev2=S1_EX2_REV2,
+            ex_3=EX_3,
+            s1_ex3_wait=S1_EX3_WAIT,
+            s2_ex3_rev1=S2_EX3_REV1,
+            s2_ex3_rev2=S2_EX3_REV2,
         )
 
 
 async def _queue_uids(
-    review_service: TeacherReviewService, student_uid: str | None = None
+    review_service: TeacherReviewService,
+    student_uid: str | None = None,
+    status_filter: str | None = None,
 ) -> set[str]:
-    result = await review_service.get_review_queue(TEACHER, student_uid=student_uid)
+    result = await review_service.get_review_queue(
+        TEACHER, status_filter=status_filter, student_uid=student_uid
+    )
     assert result.is_ok, f"queue read failed: {result}"
     items: list[ReviewQueueItem] = list(result.value)
     return {item["submission_uid"] for item in items}
+
+
+async def _waiting_uids(
+    review_service: TeacherReviewService, student_uid: str | None = None
+) -> set[str]:
+    return await _queue_uids(
+        review_service, student_uid=student_uid, status_filter="revision_requested"
+    )
 
 
 class TestQueueCopyCollapse:
@@ -302,7 +355,54 @@ class TestQueueCopyCollapse:
         )
 
     async def test_queue_is_exactly_the_lineage_newest_set(self, review_service, seeded) -> None:
-        assert await _queue_uids(review_service) == {S1_REV2, S1_LONE, S2_EX1, S1_EX2_REV1}
+        assert await _queue_uids(review_service) == {
+            S1_REV2,
+            S1_LONE,
+            S2_EX1,
+            S1_EX2_REV1,
+            S2_EX3_REV2,
+        }
+
+
+class TestWaitingForResubmitFilter:
+    """``status_filter='revision_requested'`` on the SAME query is the waiting set.
+
+    Pins arc-2 C3: no dedicated waiting query exists — the needs-review query
+    with the revision_requested status carries the same visibility and the
+    same copy-revision collapse, so a resubmit atomically moves the lineage
+    from Waiting for resubmit back to Needs review with no state to sync.
+    """
+
+    async def test_waiting_is_exactly_the_unresubmitted_revision_requests(
+        self, review_service, seeded
+    ) -> None:
+        assert await _waiting_uids(review_service) == {S1_EX3_WAIT}
+
+    async def test_resubmit_moves_lineage_from_waiting_to_needs_review(
+        self, review_service, seeded
+    ) -> None:
+        """The collapse retires the revision-requested copy the moment a
+        teacher-visible resubmit exists — one query, both directions."""
+        waiting = await _waiting_uids(review_service)
+        needs_review = await _queue_uids(review_service)
+        assert S2_EX3_REV1 not in waiting, (
+            "a revision-requested copy with a teacher-visible resubmit is no longer waiting"
+        )
+        assert S2_EX3_REV2 in needs_review, "the resubmit itself is work to review"
+
+    async def test_views_are_disjoint(self, review_service, seeded) -> None:
+        assert await _waiting_uids(review_service) & await _queue_uids(review_service) == set(), (
+            "no entry may show as both Needs review and Waiting for resubmit"
+        )
+
+    async def test_scoped_waiting_partitions_the_unscoped_waiting(
+        self, review_service, seeded
+    ) -> None:
+        s1 = await _waiting_uids(review_service, student_uid=STUDENT_1)
+        s2 = await _waiting_uids(review_service, student_uid=STUDENT_2)
+        assert s1 == {S1_EX3_WAIT}
+        assert s2 == set(), "S2's revision request was resubmitted — nothing waiting"
+        assert s1 | s2 == await _waiting_uids(review_service)
 
 
 class TestDashboardPendingCountAgrees:
@@ -311,7 +411,7 @@ class TestDashboardPendingCountAgrees:
     async def test_pending_count_matches_collapsed_queue(self, review_service, seeded) -> None:
         stats = await review_service.get_dashboard_stats(TEACHER)
         assert stats.is_ok, f"dashboard read failed: {stats}"
-        assert stats.value["pending_count"] == 4
+        assert stats.value["pending_count"] == 5
 
 
 class TestStudentScopedQueue:
@@ -321,7 +421,7 @@ class TestStudentScopedQueue:
         s1_uids = await _queue_uids(review_service, student_uid=STUDENT_1)
         s2_uids = await _queue_uids(review_service, student_uid=STUDENT_2)
         assert s1_uids == {S1_REV2, S1_LONE, S1_EX2_REV1}
-        assert s2_uids == {S2_EX1}
+        assert s2_uids == {S2_EX1, S2_EX3_REV2}
         assert s1_uids | s2_uids == await _queue_uids(review_service), (
             "the per-student scopes must partition the unscoped queue — "
             "same rule, narrowed, nothing added or lost"
@@ -332,11 +432,13 @@ class TestStudentScopedQueue:
 
 
 class TestStudentPageAgreesWithQueue:
-    """The per-student page's Needs Review bucket IS the student-scoped queue.
+    """The per-student page's buckets ARE the student-scoped queues.
 
-    Pins the arc's acceptance case: the superseded rev-1 copy that the queue
-    drops must stop appearing in the student page's Needs Review — it lands
-    in Completed (history) instead, and the two surfaces agree exactly.
+    Pins both directions of the arc's acceptance case: Needs Review is the
+    scoped needs-review queue (the superseded rev-1 copy the queue drops
+    lands in Completed, never limbo), and Revision Requested is the scoped
+    waiting queue (a revision-requested copy whose student resubmitted is
+    history too, not still-waiting).
     """
 
     async def test_needs_review_bucket_equals_scoped_queue(self, review_service, seeded) -> None:
@@ -355,7 +457,9 @@ class TestStudentPageAgreesWithQueue:
         assert S1_REV1 in {item["uid"] for item in completed}, (
             "a superseded copy is history — it belongs to Completed, not limbo"
         )
-        assert revision == []
+        assert {item["uid"] for item in revision} == await _waiting_uids(
+            review_service, student_uid=STUDENT_1
+        ), "the Revision Requested bucket is the scoped waiting queue — same rule, same collapse"
 
     async def test_reviewed_lineage_buckets_to_history(self, review_service, seeded) -> None:
         orchestrator = TeacherOrchestrator(teacher_review_service=review_service)
@@ -363,9 +467,13 @@ class TestStudentPageAgreesWithQueue:
             teacher_uid=UserUID(TEACHER), student_uid=STUDENT_2
         )
         assert result.is_ok, f"bucketing failed: {result}"
-        pending, _revision, completed, _name = result.value
+        pending, revision, completed, _name = result.value
 
-        assert {item["uid"] for item in pending} == {S2_EX1}
-        assert {item["uid"] for item in completed} == {S2_EX2_REV1, S2_EX2_REV2}, (
-            "both the reviewed rev 2 AND the rev 1 it retired are history"
+        assert {item["uid"] for item in pending} == {S2_EX1, S2_EX3_REV2}
+        assert revision == [], (
+            "S2's revision request was resubmitted — the old copy is not still waiting"
+        )
+        assert {item["uid"] for item in completed} == {S2_EX2_REV1, S2_EX2_REV2, S2_EX3_REV1}, (
+            "retired copies are history: the reviewed rev 1, its reviewer, AND the "
+            "resubmitted revision-requested copy"
         )

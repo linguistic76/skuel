@@ -134,6 +134,10 @@ All four sub-pages use the Submissions sidebar (Exercise → Journal → Sync �
 
 Teaching child pages (Students, Groups, Review Queue, Forms) use `SidebarPage` with Teaching sidebar; nav defined in `ui/teaching/nav.py`.
 
+### `/teaching/queue` — Review Queue
+
+Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry `SHARED_WITH_GROUP` gate): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.
+
 ### `/teaching/forms`
 
 Teachers view FormTemplate submissions — template list with counts, per-template submission list with user names, and read-only submission detail. Routes in `adapters/inbound/teaching_forms_ui.py`.
