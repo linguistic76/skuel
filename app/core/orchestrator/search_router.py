@@ -2,9 +2,8 @@
 EntityType-Driven Search Router
 ================================
 
-*Last updated: 2026-02-14*
-
-Type-safe search routing based on EntityType and NonKuDomain enums.
+Application orchestrator for cross-domain search — THE single path for all
+external search access (SEARCH_ARCHITECTURE).
 
 Design Philosophy:
 - EntityType/NonKuDomain is the single source of truth for domain classification
@@ -17,23 +16,24 @@ Architecture:
                                       ↓
                                 PriorityScore (unified scoring)
 
-Key Features:
-1. Type-safe routing via EntityType/NonKuDomain pattern matching
-2. Automatic service discovery from Services container
-3. Unified search results with domain tagging
-4. Cross-domain search with merged results
-5. Integration with unified scoring framework
+Dependencies are explicit constructor parameters (one per routed domain, plus
+user/vector-search/event-bus infrastructure). Every parameter name matches the
+``Services`` container field the composition root reads it from — guarded by
+``tests/unit/models/test_search_router_registry.py``. All are optional and the
+router fails soft per domain: a missing service contributes no results rather
+than failing the search (CORE tier has no vector service; finance/calendar may
+be absent).
 
 One Path Forward (January 2026):
     SearchRequest is THE canonical search request model. UnifiedSearchRequest
     was merged into SearchRequest. All advanced_search calls use SearchRequest.
 
 Usage:
-    from core.models.search import SearchRouter, UnifiedSearchResult
+    from core.orchestrator.search_router import SearchRouter
     from core.models.search_request import SearchRequest
 
-    # Initialize router with services
-    router = SearchRouter(services)
+    # Initialize router with the domain services it should route across
+    router = SearchRouter(tasks=tasks_service, ku=ku_service, event_bus=bus)
 
     # Route by EntityType
     result = await router.search(EntityType.TASK, "urgent deadline")
@@ -56,19 +56,12 @@ Usage:
         tags_contain=["python"],
     )
     result = await router.advanced_search(request)
-
-Version: 3.0.0
-Date: 2026-02-14
-Changes:
-- v3.0.0: EntityType migrated to EntityType/NonKuDomain (One Path Forward)
-- v2.0.0: UnifiedSearchRequest merged into SearchRequest (One Path Forward)
-- v1.0.0: Initial implementation
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
@@ -78,6 +71,7 @@ from core.ports.search_protocols import (
     SupportsGraphAwareSearch,
     SupportsGraphTraversalSearch,
     SupportsTagSearch,
+    SupportsTextSearch,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -86,16 +80,56 @@ from core.utils.sort_functions import get_combined_score, get_dict_score
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
+    from core.ports import (
+        CalendarServiceOperations,
+        EventBusOperations,
+        ExerciseOperations,
+        LifePathOperations,
+        RevisedExerciseOperations,
+    )
     from core.ports.query_types import (
         CapacityWarnings,
         NousSubtopicPair,
         SemanticSearchChunkResult,
         TagFrequency,
     )
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.finance_service import FinanceService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.ku_service import KuService
+    from core.services.lp_service import LpService
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+    from core.services.principles_service import PrinciplesService
+    from core.services.ps_service import PsService
+    from core.services.tasks_service import TasksService
     from core.services.user import UserContext
-    from services_bootstrap import Services
+    from core.services.user_entry.user_entry_service import UserEntryService
+    from core.services.user_service import UserService
 
-T = TypeVar("T")
+    # The union of every service the registry can route to. Heterogeneous by
+    # design (concrete facades for facade-tier domains, ISP protocols for thin
+    # ones — mirroring the Services container's own field types); capability
+    # protocols (SupportsTextSearch / SupportsGraphAwareSearch / ...) do the
+    # per-call narrowing.
+    type DomainService = (
+        TasksService
+        | GoalsService
+        | HabitsService
+        | EventsService
+        | ChoicesService
+        | PrinciplesService
+        | FinanceService
+        | KuService
+        | PsService
+        | LpService
+        | ExerciseOperations
+        | RevisedExerciseOperations
+        | UserEntryService
+        | LifePathOperations
+        | CalendarServiceOperations
+    )
 
 logger = get_logger(__name__)
 
@@ -201,23 +235,6 @@ class UnifiedSearchResult:
 
 
 # =============================================================================
-# SEARCHABLE PROTOCOL - Interface for domain search services
-# =============================================================================
-
-
-class SearchableService(Protocol[T]):
-    """
-    Protocol for services that support search operations.
-
-    All 6 Activity Domain search services implement this interface.
-    """
-
-    async def search(self, query: str, limit: int = 50) -> Result[list[T]]:
-        """Text search on title and description."""
-        ...
-
-
-# =============================================================================
 # SEARCH ROUTER - EntityType/NonKuDomain-driven dispatch
 # =============================================================================
 
@@ -233,7 +250,7 @@ class SearchRouter:
     stringly-typed domain checks scattered across the codebase.
 
     Example:
-        router = SearchRouter(services)
+        router = SearchRouter(tasks=tasks_service, goals=goals_service)
 
         # Search single domain
         tasks = await router.search(EntityType.TASK, "urgent")
@@ -251,10 +268,14 @@ class SearchRouter:
         )
     """
 
-    # Mapping of EntityType/NonKuDomain to Services attribute name
-    # This enables automatic service discovery from Services container
+    # Mapping of EntityType/NonKuDomain to its domain string — simultaneously
+    # the router's constructor parameter name, the Services field name compose
+    # reads the dependency from, and the wire vocabulary (`SearchResponse.domain`,
+    # `_GRAPH_AWARE_DOMAINS` membership). Kept in lock-step with the
+    # constructor-built `_domain_services` dict by
+    # tests/unit/models/test_search_router_registry.py.
     # Note: Attribute names follow consistent plural pattern for activity domains
-    _SERVICE_REGISTRY: dict[EntityType | NonKuDomain, str] = {
+    _SERVICE_REGISTRY: ClassVar[dict[EntityType | NonKuDomain, str]] = {
         # Activity Domains (6) - have dedicated search services (all plural)
         EntityType.TASK: "tasks",
         EntityType.GOAL: "goals",
@@ -302,17 +323,77 @@ class SearchRouter:
         }
     )
 
-    def __init__(self, services: "Services") -> None:
+    # Reverse of _SERVICE_REGISTRY: domain string → enum, for the paths that
+    # receive the wire vocabulary (request.domain / _GRAPH_AWARE_DOMAINS).
+    _DOMAIN_STR_TO_ENTITY: ClassVar[dict[str, EntityType | NonKuDomain]] = {
+        attr: entity for entity, attr in _SERVICE_REGISTRY.items()
+    }
+
+    def __init__(
+        self,
+        *,
+        tasks: "TasksService | None" = None,
+        goals: "GoalsService | None" = None,
+        habits: "HabitsService | None" = None,
+        events: "EventsService | None" = None,
+        choices: "ChoicesService | None" = None,
+        principles: "PrinciplesService | None" = None,
+        finance: "FinanceService | None" = None,
+        ku: "KuService | None" = None,
+        ps: "PsService | None" = None,
+        lp: "LpService | None" = None,
+        exercises: "ExerciseOperations | None" = None,
+        revised_exercises: "RevisedExerciseOperations | None" = None,
+        user_entry: "UserEntryService | None" = None,
+        lifepath: "LifePathOperations | None" = None,
+        calendar: "CalendarServiceOperations | None" = None,
+        user: "UserService | None" = None,
+        vector_search_service: "Neo4jVectorSearchService | None" = None,
+        event_bus: "EventBusOperations | None" = None,
+    ) -> None:
         """
-        Initialize router with service container.
+        Initialize router with explicit dependencies.
+
+        Each parameter name matches both its `_SERVICE_REGISTRY` domain string
+        and the Services container field the composition root reads it from.
+        Every dependency is optional — the router fails soft per domain
+        (a missing service contributes no results rather than failing search).
 
         Args:
-            services: Bootstrapped Services container with all domain services
+            tasks..calendar: The 15 routed domain services (types mirror the
+                Services container's field declarations).
+            user: Capacity-warning source (`peek_cached_context` — cache-hit-only).
+            vector_search_service: Digital-layer semantic search (None on CORE tier).
+            event_bus: `search.executed` discovery-analytics publishing.
         """
-        self.services = services
+        self._ku = ku
+        self._ps = ps
+        self._habits = habits
+        self._user = user
+        self._vector_search = vector_search_service
+        self._event_bus = event_bus
+        # Keys are exactly _SERVICE_REGISTRY's keys (guarded by
+        # test_search_router_registry) so enum-driven dispatch cannot dangle.
+        self._domain_services: "dict[EntityType | NonKuDomain, DomainService | None]" = {
+            EntityType.TASK: tasks,
+            EntityType.GOAL: goals,
+            EntityType.HABIT: habits,
+            EntityType.EVENT: events,
+            EntityType.CHOICE: choices,
+            EntityType.PRINCIPLE: principles,
+            NonKuDomain.FINANCE: finance,
+            EntityType.KU: ku,
+            EntityType.PATH_STEP: ps,
+            EntityType.LEARNING_PATH: lp,
+            EntityType.EXERCISE: exercises,
+            EntityType.REVISED_EXERCISE: revised_exercises,
+            EntityType.USER_ENTRY: user_entry,
+            EntityType.LIFE_PATH: lifepath,
+            NonKuDomain.CALENDAR: calendar,
+        }
         self.logger = get_logger(__name__)
 
-    def get_service(self, entity_type: EntityType | NonKuDomain) -> Any | None:
+    def get_service(self, entity_type: EntityType | NonKuDomain) -> "DomainService | None":
         """
         Get the appropriate service for a EntityType or NonKuDomain.
 
@@ -322,15 +403,13 @@ class SearchRouter:
         Returns:
             Service instance or None if not found/not initialized
         """
-        attr_name = self._SERVICE_REGISTRY.get(entity_type)
-
-        if not attr_name:
+        if entity_type not in self._domain_services:
             self.logger.warning(f"No service registered for domain: {entity_type}")
             return None
 
-        service = getattr(self.services, attr_name, None)
+        service = self._domain_services[entity_type]
         if service is None:
-            self.logger.debug(f"Service '{attr_name}' not initialized for {entity_type}")
+            self.logger.debug(f"Service not initialized for {entity_type}")
 
         return service
 
@@ -348,8 +427,10 @@ class SearchRouter:
         nothing rather than failing the whole vocabulary.
         """
         pairs: "list[NousSubtopicPair]" = []
-        for entity_type in (EntityType.KU, EntityType.PATH_STEP):
-            service = self.get_service(entity_type)
+        for entity_type, service in (
+            (EntityType.KU, self._ku),
+            (EntityType.PATH_STEP, self._ps),
+        ):
             if service is None:
                 continue
             result = await service.nous_subtopic_pairs()
@@ -384,8 +465,10 @@ class SearchRouter:
         call contributes nothing rather than failing the vocabulary).
         """
         counts: dict[str, int] = {}
-        for entity_type in (EntityType.KU, EntityType.PATH_STEP):
-            service = self.get_service(entity_type)
+        for entity_type, service in (
+            (EntityType.KU, self._ku),
+            (EntityType.PATH_STEP, self._ps),
+        ):
             if service is None:
                 continue
             result = await service.search.tag_frequencies()
@@ -492,9 +575,16 @@ class SearchRouter:
 
         try:
             # Get the search service (might be a sub-service for Activity Domains)
-            search_service = self._get_search_service(service, entity_type)
-            if search_service is None:
+            search_service = self._get_search_service(service)
+            if search_service is None and isinstance(service, SupportsTextSearch):
                 search_service = service
+            if search_service is None:
+                return Result.fail(
+                    Errors.database(
+                        operation="search",
+                        message=f"{entity_type.value} service does not support text search",
+                    )
+                )
 
             # Forward the owner scope unconditionally — the domain's
             # search_visibility declaration (DomainConfig) decides what the
@@ -509,9 +599,7 @@ class SearchRouter:
             self.logger.error(f"Search failed for {entity_type.value} (unexpected): {e}")
             return Result.fail(Errors.database(operation="search", message=str(e)))
 
-    def _get_search_service(
-        self, service: Any, entity_type: EntityType | NonKuDomain
-    ) -> Any | None:
+    def _get_search_service(self, service: "DomainService") -> SupportsTextSearch | None:
         """
         Get the search sub-service from a domain service.
 
@@ -520,22 +608,28 @@ class SearchRouter:
 
         Args:
             service: Domain service instance
-            entity_type: EntityType or NonKuDomain for logging
 
         Returns:
             Search service or None
 
         Note:
-            This method is only called after supports_search() validation,
-            so entity_type is guaranteed to be in _SEARCHABLE_DOMAINS.
+            This method is only called after supports_search() validation.
             Activity Domain services expose search via a .search property.
+            The callable() check is load-bearing and cannot be replaced by
+            isinstance alone — a runtime_checkable protocol cannot distinguish
+            ".search is the sub-service" from ".search is a method"; the
+            isinstance narrows the sub-service to the text-search capability.
         """
         # Activity Domain pattern: .search is a property returning SearchService
         # Access directly - supports_search() already validated this is a searchable domain
         search_attr = getattr(service, "search", None)
 
         # If .search is a property (not a method), it returns the search sub-service
-        if search_attr is not None and not callable(search_attr):
+        if (
+            search_attr is not None
+            and not callable(search_attr)
+            and isinstance(search_attr, SupportsTextSearch)
+        ):
             return search_attr
 
         # Fall back to the service itself (service implements search directly)
@@ -628,7 +722,7 @@ class SearchRouter:
                 domains=domains,
                 filters_json=json.dumps(filters or {}, default=str),
             )
-            await publish_event(self.services.event_bus, event, self.logger)
+            await publish_event(self._event_bus, event, self.logger)
         except Exception as e:  # safety-net: search logging must never break search
             self.logger.warning(f"search.executed not published: {e}")
 
@@ -767,10 +861,9 @@ class SearchRouter:
         warnings; surfaces that build the rich context (profile, personal
         header) warm it, and domain events keep it honest via invalidation.
         """
-        user_service = getattr(self.services, "user", None)
-        if user_service is None:
+        if self._user is None:
             return {}
-        context = user_service.peek_cached_context(user_uid)
+        context = self._user.peek_cached_context(user_uid)
         if context is None:
             return {}
         return context.get_capacity_warnings()
@@ -806,7 +899,7 @@ class SearchRouter:
         # Different feature, different clause.
         del user_uid
 
-        vector_search = getattr(self.services, "vector_search_service", None)
+        vector_search = self._vector_search
         if vector_search is None:
             return Result.fail(
                 Errors.unavailable(
@@ -887,7 +980,7 @@ class SearchRouter:
         if not request.query_text:
             return response
 
-        vector_search = getattr(self.services, "vector_search_service", None)
+        vector_search = self._vector_search
         if vector_search is None:
             self.logger.debug("Body-chunk search skipped: vector search unavailable (CORE tier)")
             return response
@@ -1041,11 +1134,15 @@ class SearchRouter:
     def _resolve_graph_aware_service(self, domain_str: str) -> "SupportsGraphAwareSearch | None":
         """Resolve a domain string to its graph-aware search service, if any.
 
-        Domain strings in _GRAPH_AWARE_DOMAINS are Services attribute names.
-        Facade domains expose the capability on their ``.search`` sub-service;
-        thin services (Exercise, UserEntry, etc.) implement it directly.
+        Domain strings in _GRAPH_AWARE_DOMAINS are _SERVICE_REGISTRY values
+        (the wire vocabulary). Facade domains expose the capability on their
+        ``.search`` sub-service; thin services (Exercise, UserEntry, etc.)
+        implement it directly.
         """
-        domain_service = getattr(self.services, domain_str, None)
+        entity_type = self._DOMAIN_STR_TO_ENTITY.get(domain_str)
+        if entity_type is None:
+            return None
+        domain_service = self._domain_services.get(entity_type)
         if domain_service is None:
             return None
 
@@ -1573,8 +1670,10 @@ class SearchRouter:
                     continue
 
                 # Get the search service
-                search_service = self._get_search_service(service, entity_type)
+                search_service = self._get_search_service(service)
                 if search_service is None:
+                    if not isinstance(service, SupportsTextSearch):
+                        continue
                     search_service = service
 
                 # Choose search strategy based on filters
@@ -1624,7 +1723,7 @@ class SearchRouter:
 
     async def _execute_advanced_search(
         self,
-        search_service: Any,
+        search_service: SupportsTextSearch,
         entity_type: EntityType | NonKuDomain,
         request: "SearchRequest",
         limit_per_domain: int,
@@ -1726,7 +1825,7 @@ class SearchRouter:
 
     async def _fallback_search(
         self,
-        search_service: Any,
+        search_service: SupportsTextSearch,
         entity_type: EntityType | NonKuDomain,
         request: "SearchRequest",
         limit_per_domain: int,
@@ -1771,16 +1870,12 @@ class SearchRouter:
             List of SearchResultItem with semantic boost metadata
         """
         # Check if vector search service available
-        if getattr(self.services, "vector_search_service", None) is None:
+        vector_search = self._vector_search
+        if vector_search is None:
             self.logger.warning(
                 "Vector search service not available, falling back to standard search"
             )
             return []
-
-        vector_search = self.services.vector_search_service
-        if vector_search is None:
-            return []
-        assert vector_search is not None  # mypy narrowing
 
         # Must have query text for vector search
         if not request.query_text:
@@ -1840,7 +1935,7 @@ class SearchRouter:
                     title=node.get("title", ""),
                     relevance_score=score,  # Use vector/semantic score as relevance
                     priority_score=node.get("priority_score", 0.0),
-                    match_reason=self._create_match_reason(vec_result, request),
+                    match_reason=self._create_match_reason(vec_result),
                 )
                 items.append(item)
 
@@ -1856,13 +1951,12 @@ class SearchRouter:
             self.logger.error(f"Semantic/learning-aware search failed (unexpected): {e}")
             return []  # Graceful degradation
 
-    def _create_match_reason(self, vec_result: dict, request: "SearchRequest") -> str:
+    def _create_match_reason(self, vec_result: dict) -> str:
         """
         Create human-readable match reason from vector search result.
 
         Args:
             vec_result: Vector search result dict
-            request: Original search request
 
         Returns:
             Match reason string explaining why this result matched
@@ -2048,20 +2142,16 @@ class SearchRouter:
             score_principle,
             score_task,
         )
-        from core.services.habits._goal_links import enrich_habits_with_goal_links
 
         # Enrich habits with SUPPORTS_GOAL edge before scoring so ACTIVE_GOAL_SUPPORT
         # uses the real graph edge rather than scoring 0.0 for every habit.
         enriched_habits: dict[str, Any] = {}
         habit_items = [item for item in items if item.entity_type == EntityType.HABIT]
-        if habit_items:
-            habits_service = self.get_service(EntityType.HABIT)
-            backend = getattr(habits_service, "backend", None) if habits_service else None
-            if backend is not None:
-                enriched = await enrich_habits_with_goal_links(
-                    backend, [item.entity for item in habit_items], user_context.active_goal_uids
-                )
-                enriched_habits = {h.uid: h for h in enriched}
+        if habit_items and self._habits is not None:
+            enriched = await self._habits.search.enrich_with_goal_links(
+                [item.entity for item in habit_items], user_context.active_goal_uids
+            )
+            enriched_habits = {h.uid: h for h in enriched}
 
         scored_items = []
         for item in items:
@@ -2108,44 +2198,3 @@ class SearchRouter:
 
         # Sort by combined score
         return sorted(scored_items, key=get_combined_score, reverse=True)
-
-
-# =============================================================================
-# DOMAIN TYPE EXTENSIONS - Add search routing to EntityType/NonKuDomain
-# =============================================================================
-
-
-def get_search_service_attr(entity_type: EntityType | NonKuDomain) -> str | None:
-    """
-    Get the Services attribute name for a given EntityType/NonKuDomain's search service.
-
-    This function provides the mapping between EntityType/NonKuDomain and the
-    corresponding attribute name in the Services container.
-
-    Args:
-        entity_type: EntityType or NonKuDomain to look up
-
-    Returns:
-        Attribute name (e.g., "tasks" for EntityType.TASK) or None
-
-    Example:
-        attr = get_search_service_attr(EntityType.TASK)
-        service = getattr(services, attr) # Gets TasksService
-    """
-    return SearchRouter._SERVICE_REGISTRY.get(entity_type)
-
-
-def is_searchable_domain(entity_type: EntityType | NonKuDomain) -> bool:
-    """
-    Check if a EntityType or NonKuDomain represents a searchable domain.
-
-    Searchable domains implement the DomainSearchOperations[T] protocol
-    and have dedicated search services.
-
-    Args:
-        entity_type: EntityType or NonKuDomain to check
-
-    Returns:
-        True if the domain supports search operations
-    """
-    return entity_type in SearchRouter._SEARCHABLE_DOMAINS

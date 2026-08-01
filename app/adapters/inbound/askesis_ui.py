@@ -23,6 +23,7 @@ from core.utils.logging import get_logger
 from ui.askesis import render_askesis_page, render_assistant_message, render_user_message
 
 if TYPE_CHECKING:
+    from core.orchestrator.search_router import SearchRouter
     from core.services.user_service import UserService
 
 logger = get_logger("skuel.ui.askesis")
@@ -35,7 +36,7 @@ def create_askesis_ui_routes(
     intelligence_tier: IntelligenceTier | None = None,
     user_service: "UserService | None" = None,
     ku_service: Any = None,
-    search_router: Any = None,
+    search_router: "SearchRouter | None" = None,
 ) -> list[Any]:
     """Create UI routes for Askesis AI assistant."""
 

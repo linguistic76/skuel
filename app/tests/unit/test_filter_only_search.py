@@ -27,8 +27,8 @@ from core.models.enums import (
     Priority,
     SELCategory,
 )
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
+from core.orchestrator.search_router import SearchRouter
 
 
 class TestHasAnyCriteria:
@@ -167,7 +167,7 @@ class TestCrossDomainRoutesRelationshipOnly:
 
     @pytest.mark.anyio
     async def test_relationship_only_routes_to_faceted_sweep(self) -> None:
-        router = SearchRouter(MagicMock())
+        router = SearchRouter()
         router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
         router.search_domains = AsyncMock()  # type: ignore[method-assign]
 
@@ -182,7 +182,7 @@ class TestCrossDomainRoutesRelationshipOnly:
         # Empty-query browse (July 2026, /explore/library consolidation): a
         # request with no query text routes through the faceted sweep — the
         # plain text sweep would hard-reject the empty query per domain.
-        router = SearchRouter(MagicMock())
+        router = SearchRouter()
         router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
         router.search_domains = AsyncMock()  # type: ignore[method-assign]
 
@@ -195,7 +195,7 @@ class TestCrossDomainRoutesRelationshipOnly:
     async def test_query_only_request_uses_plain_text_sweep(self) -> None:
         # Sanity control: query text with no filters still rides the scored
         # plain text sweep (relevance ranking), not the faceted sweep.
-        router = SearchRouter(MagicMock())
+        router = SearchRouter()
         router._faceted_sweep = AsyncMock()  # type: ignore[method-assign]
         router.search_domains = AsyncMock(return_value=MagicMock(results_by_domain={}))  # type: ignore[method-assign]
 

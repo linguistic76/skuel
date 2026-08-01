@@ -52,9 +52,11 @@ SKUEL's search architecture consists of **three complementary systems** that wor
 
 ## Searchable Entity Types (12 total)
 
-All 12 entity types resolve through `SearchRouter._SERVICE_REGISTRY` to a live
-`Services` field — guarded by `tests/unit/models/test_search_router_registry.py`
-(every `_SEARCHABLE_DOMAINS` member must resolve, so `supports_search()` can't lie).
+All 12 entity types resolve through `SearchRouter._SERVICE_REGISTRY` to an
+explicit constructor dependency whose parameter name matches the `Services`
+field compose reads it from — guarded by
+`tests/unit/models/test_search_router_registry.py` (registry key → constructor
+param → `Services` field, so `supports_search()` can't lie).
 
 | Group | Entity Types | SearchVisibility | Search Mode |
 |-------|---------|-----------|-------------|
@@ -491,7 +493,7 @@ results unchanged.
 
 **Code:** `SearchRouter._augment_with_body_chunks` /
 `_aggregate_body_chunk_parents` (pure, DB-free dedup) /
-`_chunk_hit_to_result` in `core/models/search/search_router.py`.
+`_chunk_hit_to_result` in `core/orchestrator/search_router.py`.
 
 **Scoped Ask (RAG counterpart):** `SearchRouter.retrieve_scoped_chunks(request, …)`
 is the chunk-level sibling of `faceted_search` — where the latter returns entity
@@ -664,23 +666,23 @@ await ku_service.search.graph_aware_faceted_search(request, user_uid, driver)
 
 ## Route Wiring
 
-Search routes use explicit parameter-based dependency injection:
+Search routes wire through `DomainRouteConfig` with the router as the primary
+service:
 
 ```python
 # adapters/inbound/search_routes.py
-def create_search_routes(
-    app: Any,
-    rt: Any,
-    services: "Services",
-    search_router: SearchRouter,  # ← Explicit parameter (no globals)
-) -> None:
-    @app.get("/search/results")
-    async def search_results(...):
-        result = await search_router.faceted_search(search_request, user_uid)
-        ...
+SEARCH_CONFIG = DomainRouteConfig(
+    domain_name="search",
+    primary_service_attr="search_router",
+    api_factory=create_search_api_routes,   # search_router: "SearchRouter"
+    api_related_services={"ku_service": "ku", ...},
+)
 ```
 
-Search is a meta-service (orchestrates domain search services), so it uses explicit injection rather than `DomainRouteConfig`, matching the same pattern used by other orchestration-level routes.
+The router itself is an application orchestrator
+(`core/orchestrator/search_router.py`) built in compose with explicit typed
+dependencies — one keyword parameter per routed domain plus
+user/vector-search/event-bus, each read from the same-named `Services` field.
 
 **Search HTTP endpoints (all in `search_routes.py`):**
 
@@ -874,7 +876,7 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_user_due_to
 | File | Purpose |
 |------|---------|
 | `core/models/search/scoring.py` | Unified `score_<domain>` functions + shared `ComponentScore` helpers (`score_deadline_proximity`, `score_priority_level`, `score_goal_alignment`, `score_streak_protection`, `score_progress_momentum`) and the `PriorityScore` dataclass |
-| `core/models/search/search_router.py` | `SearchRouter._score_results()` consumes the same scorers for cross-domain ranking |
+| `core/orchestrator/search_router.py` | `SearchRouter._score_results()` consumes the same scorers for cross-domain ranking |
 | `core/utils/timestamp_helpers.py` | `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_bounds()`, `prev_month()`, `next_month()`, `week_label()` |
 | `core/services/domain_config.py` | `date_field`, `temporal_exclude_statuses`, `temporal_secondary_sort`, `completed_statuses` config fields |
 | `core/services/mixins/time_query_mixin.py` | `get_upcoming()`, `get_overdue()`, `get_active()` base implementations |
@@ -946,7 +948,7 @@ Graph Relationships:
 
 1. **New property filter**: Add field to `SearchRequest`, update `to_property_filters()`
 2. **New relationship filter**: Add a bool field + a `RelationshipFilters` field, update `has_relationship_filters()` and `to_relationship_filters()`, then add the Cypher fragment in `relationship_filter_fragments.py` (below the boundary)
-3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS` and `_SERVICE_REGISTRY`, add `SearchFieldConfig` in `config.py`. For graph-aware search, also add `_GRAPH_AWARE_DOMAINS` entry and handler `_graph_aware_search_{domain}()`
+3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS` and `_SERVICE_REGISTRY`, add a same-named constructor parameter on `SearchRouter` (wired in `compose.py` from the same-named `Services` field — the registry test enforces the chain), add `SearchFieldConfig` in `config.py`. For graph-aware search, also add a `_GRAPH_AWARE_DOMAINS` entry
 4. **New semantic relationship type**: Add to `relationship_type_weights` in `VectorSearchConfig`
 
 ---
@@ -955,7 +957,7 @@ Graph Relationships:
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **SearchRouter** | `/core/models/search/search_router.py` | THE search orchestrator |
+| **SearchRouter** | `/core/orchestrator/search_router.py` | THE search orchestrator |
 | **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling with explicit DI |
 | **Request Model** | `/core/models/search_request.py` | `SearchRequest`, `SearchResponse` |
 | **Domain Search Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain search logic |

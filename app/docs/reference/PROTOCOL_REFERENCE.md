@@ -664,9 +664,9 @@ return None
 ```
 
 This is the live pattern, not an illustration: `SearchRouter` resolves the service
-with `isinstance` (`core/models/search/search_router.py:1055`) and calls
-`graph_aware_faceted_search(request=..., user_uid=...)` at `:1090`. The protocol's
-own docstring (`core/ports/search_protocols.py:688-691`) carries the same example —
+with `isinstance` (`core/orchestrator/search_router.py:1152`) and calls
+`graph_aware_faceted_search(request=..., user_uid=...)` at `:1187`. The protocol's
+own docstring (`core/ports/search_protocols.py:723-725`) carries the same example —
 **diff against it rather than paraphrasing it.**
 
 > **Note.** A generic capability tier (`SupportsCount`, `SupportsSearch`,

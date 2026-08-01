@@ -55,7 +55,7 @@ Unified Search API:
     SearchRouter provides `advanced_search()` combining all phases in one call.
     SearchRequest is THE canonical request model (One Path Forward).
 
-        from core.models.search import SearchRouter
+        from core.orchestrator.search_router import SearchRouter
         from core.models.search_request import SearchRequest
 
         request = SearchRequest(

@@ -63,7 +63,7 @@ def test_conversation_labels_have_no_embedding_registration() -> None:
 # Guard 5 (unit) — search invisibility.
 # ---------------------------------------------------------------------------
 def test_conversation_labels_are_not_searchable_domains() -> None:
-    from core.models.search.search_router import SearchRouter
+    from core.orchestrator.search_router import SearchRouter
 
     # The searchable-domain registry is EntityType-keyed; since the conversation
     # labels are not EntityTypes, they cannot be registered as a searchable

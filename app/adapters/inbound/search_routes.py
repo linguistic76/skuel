@@ -46,6 +46,7 @@ from ui.search.components import (
 )
 
 if TYPE_CHECKING:
+    from core.orchestrator.search_router import SearchRouter
     from services_bootstrap import Services
 
 from core.utils.logging import get_logger
@@ -61,7 +62,7 @@ logger = get_logger("skuel.routes.search")
 def create_search_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    search_router: Any,
+    search_router: "SearchRouter",
     ku_service: Any = None,
     intelligence_tier: IntelligenceTier | None = None,
     user_service: Any = None,

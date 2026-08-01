@@ -243,11 +243,12 @@ from .search_protocols import (
     HabitsSearchOperations,
     PrinciplesSearchOperations,
     QueryBuilderOperations,
-    SearchOperations,
+    ScopedChunkRetrievalOperations,
     # Graph-aware search capability protocols (January 2026)
     SupportsGraphAwareSearch,
     SupportsGraphTraversalSearch,
     SupportsTagSearch,
+    SupportsTextSearch,
     TasksSearchOperations,
 )
 
@@ -440,7 +441,7 @@ __all__ = [
     "Result",
     "SchemaOperations",
     "SchemaQueryExecutor",
-    "SearchOperations",
+    "ScopedChunkRetrievalOperations",
     "Serializable",
     "StreaksLike",
     # ========== BACKEND CAPABILITY PROTOCOLS (10) ==========
@@ -448,6 +449,7 @@ __all__ = [
     "SupportsGraphAwareSearch",
     "SupportsGraphTraversalSearch",
     "SupportsTagSearch",
+    "SupportsTextSearch",
     "SystemServiceOperations",
     "TasksSearchOperations",
     "TasksOperations",

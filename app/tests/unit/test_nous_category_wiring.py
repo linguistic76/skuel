@@ -14,7 +14,6 @@ Covers the query-layer mechanics behind the `nous` topic facet:
 - Ku model: list-authored `nous` normalizes to tuple
 """
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -28,9 +27,9 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.pathways.path_step import PathStep
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.models.task.task import Task
+from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
 
 
@@ -125,7 +124,7 @@ class TestFacetedSweepInterleave:
 
         ps_records = [{"uid": f"ps_{i}", "title": f"PS {i}", "_domain": "ps"} for i in range(5)]
         lp_records = [{"uid": "lp_1", "title": "LP 1", "_domain": "lp"}]
-        router = SearchRouter(services=SimpleNamespace(ps=_svc(ps_records), lp=_svc(lp_records)))
+        router = SearchRouter(ps=_svc(ps_records), lp=_svc(lp_records))
         request = SearchRequest(nous="body", limit=3)
 
         results = await router._faceted_sweep(

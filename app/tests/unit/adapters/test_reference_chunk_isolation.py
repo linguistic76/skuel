@@ -15,7 +15,7 @@ these assertions fails — the deliberate omission is the isolation guarantee.
 from pathlib import Path
 
 import adapters.persistence.neo4j.vector_search_backend as vsb_module
-import core.models.search.search_router as router_module
+import core.orchestrator.search_router as router_module
 
 REFERENCE_INDEX = "referencechunk_embedding_idx"
 CONTENT_INDEX = "contentchunk_embedding_idx"
