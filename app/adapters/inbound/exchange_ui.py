@@ -20,7 +20,7 @@ from fasthtml.common import FT, to_xml
 from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.auth.roles import UserRole, get_user_role
+from adapters.inbound.auth.roles import UserRole
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
@@ -63,6 +63,22 @@ def create_exchange_ui_routes(
                 status_code=404,
             )
 
+        def _unavailable() -> HTMLResponse:
+            """The operational-failure shape: rendered error banner, real 500."""
+            return HTMLResponse(
+                to_xml(
+                    BasePage(
+                        content=render_error_banner(
+                            "Could not load the exchange. Please try again."
+                        ),
+                        title="Exchange",
+                        request=request,
+                        active_page="gradebook",
+                    )
+                ),
+                status_code=500,
+            )
+
         if not exercise:
             return _not_found()
 
@@ -71,9 +87,18 @@ def create_exchange_ui_routes(
             # read live, so an ex-teacher who still OWNS groups cannot keep
             # reading students' work on a stale edge. The orchestrator's
             # shared-active-group check is the second gate. Both denials
-            # render the same 404 page.
-            role = await get_user_role(request, orchestrator.user_service)
-            if role is None or not role.has_permission(UserRole.TEACHER):
+            # render the same 404 page — but the user read keeps its Result
+            # distinction: a failed lookup is an outage, never a denial.
+            viewer_result = await orchestrator.user_service.get_user(user_uid)
+            if viewer_result.is_error:
+                logger.error(
+                    "Failed to resolve viewer role for exchange %s: %s",
+                    exercise,
+                    viewer_result.expect_error().message,
+                )
+                return _unavailable()
+            viewer = viewer_result.value
+            if viewer is None or not viewer.has_permission(UserRole.TEACHER):
                 return _not_found()
 
         result = await orchestrator.get_exchange_thread(
@@ -90,19 +115,7 @@ def create_exchange_ui_routes(
             error = result.expect_error()
             if error.category is not ErrorCategory.NOT_FOUND:
                 logger.error("Failed to load exchange thread for %s: %s", exercise, error.message)
-                return HTMLResponse(
-                    to_xml(
-                        BasePage(
-                            content=render_error_banner(
-                                "Could not load the exchange. Please try again."
-                            ),
-                            title="Exchange",
-                            request=request,
-                            active_page="gradebook",
-                        )
-                    ),
-                    status_code=500,
-                )
+                return _unavailable()
             return _not_found()
 
         return BasePage(
