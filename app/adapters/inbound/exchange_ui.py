@@ -7,14 +7,20 @@ of one (student, root exercise) exchange: submissions, feedback reports, and
 revision requests interleaved, each linking to its existing detail/action
 surface. Query params over path params per FastHTML conventions.
 
-Access: the viewer reads their own exchange; ``student`` requires the viewer
-to share an active owned group with that student (the report-download gate).
-Every denial renders the same not-found page (404-not-403).
+Access: the viewer reads their own exchange; ``student`` requires the SAME
+double gate as the report download — the live TEACHER role ("may you review
+at all") plus a shared active owned group with that student ("this student").
+Every denial serves the same rendered not-found page with a REAL 404 status
+(404-not-403; a denied read must not reach a client or cache as a success).
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from fasthtml.common import FT, to_xml
+from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth.roles import UserRole, get_user_role
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
@@ -35,20 +41,38 @@ def create_exchange_ui_routes(
     """Register the /exchange thread page."""
 
     @rt("/exchange")
-    async def exchange_thread_page(request: Request, exercise: str = "", student: str = "") -> Any:
+    async def exchange_thread_page(
+        request: Request, exercise: str = "", student: str = ""
+    ) -> "FT | HTMLResponse":
         """The exchange thread for (viewer-or-student, exercise) — read-only."""
         user_uid = require_authenticated_user(request)
 
-        def _not_found() -> Any:
-            return BasePage(
-                content=render_exchange_not_found(),
-                title="Exchange",
-                request=request,
-                active_page="gradebook",
+        def _not_found() -> HTMLResponse:
+            """The one denial shape: the rendered page with a real 404 status."""
+            return HTMLResponse(
+                to_xml(
+                    BasePage(
+                        content=render_exchange_not_found(),
+                        title="Exchange",
+                        request=request,
+                        active_page="gradebook",
+                    )
+                ),
+                status_code=404,
             )
 
         if not exercise:
             return _not_found()
+
+        if student and student != user_uid:
+            # The report-download route's first gate, replicated: the role is
+            # read live, so an ex-teacher who still OWNS groups cannot keep
+            # reading students' work on a stale edge. The orchestrator's
+            # shared-active-group check is the second gate. Both denials
+            # render the same 404 page.
+            role = await get_user_role(request, orchestrator.user_service)
+            if role is None or not role.has_permission(UserRole.TEACHER):
+                return _not_found()
 
         result = await orchestrator.get_exchange_thread(
             viewer_uid=user_uid,
