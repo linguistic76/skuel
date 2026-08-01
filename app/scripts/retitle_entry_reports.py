@@ -37,6 +37,8 @@ import argparse
 import asyncio
 import sys
 
+from core.models.relationship_names import RelationshipName
+
 # Legacy machine-title prefix → the composed-title lead-in the writers use now.
 _PREFIX_MAP = {
     "Feedback: ": "Feedback on",
@@ -48,13 +50,13 @@ _PREFIX_MAP = {
 
 # Census: legacy-titled reports, bucketed by prefix and by whether a subject
 # title is derivable via REPORT_FOR (the retitle's own derivation, read-only).
-_CENSUS = """
+_CENSUS = f"""
 MATCH (r:Entity:EntryReport)
 WHERE any(p IN keys($prefix_map) WHERE r.title STARTS WITH p)
-OPTIONAL MATCH (r)-[:REPORT_FOR]->(s:Entity)
+OPTIONAL MATCH (r)-[:{RelationshipName.REPORT_FOR.value}]->(s:Entity)
 WITH r, head([p IN keys($prefix_map) WHERE r.title STARTS WITH p]) AS legacy_prefix,
      coalesce(
-         head([(s)-[:FULFILLS_EXERCISE]->(ex:Entity)
+         head([(s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
                WHERE ex.title IS NOT NULL AND ex.title <> '' | ex.title]),
          s.title
      ) AS subject_title
@@ -64,13 +66,13 @@ RETURN legacy_prefix,
 ORDER BY legacy_prefix
 """
 
-_RETITLE = """
+_RETITLE = f"""
 MATCH (r:Entity:EntryReport)
 WHERE any(p IN keys($prefix_map) WHERE r.title STARTS WITH p)
-OPTIONAL MATCH (r)-[:REPORT_FOR]->(s:Entity)
+OPTIONAL MATCH (r)-[:{RelationshipName.REPORT_FOR.value}]->(s:Entity)
 WITH r, head([p IN keys($prefix_map) WHERE r.title STARTS WITH p]) AS legacy_prefix,
      coalesce(
-         head([(s)-[:FULFILLS_EXERCISE]->(ex:Entity)
+         head([(s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
                WHERE ex.title IS NOT NULL AND ex.title <> '' | ex.title]),
          s.title
      ) AS subject_title
