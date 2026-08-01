@@ -602,8 +602,13 @@ class TeacherReviewOperations(Protocol):
         self,
         teacher_uid: str,
         status_filter: str | None = None,
+        student_uid: str | None = None,
     ) -> "Result[list[ReviewQueueItem]]":
-        """Get teacher's pending review queue (group-shared entries only)."""
+        """Get teacher's pending review queue (group-shared entries only).
+
+        ``student_uid`` scopes the queue to one student — the single
+        needs-review rule shared by the queue page and the per-student page.
+        """
         ...
 
     async def get_submission_detail(

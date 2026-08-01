@@ -168,6 +168,9 @@ here; the pre-filled frontmatter is for the student's reference.
 > `(teacher)-[:OWNS]->(:Group)<-[:SHARED_WITH_GROUP]-(entry:UserEntry)` where
 > `entry.pipeline = 'teacher_review'`. (The pre-ADR-054 `(teacher)-[:OWNS]->(exercise)`
 > traversal is no longer the queue path — relying on it hides valid group-shared entries.)
+> This query is THE needs-review rule: scoped by `student_uid` it also feeds the per-student
+> page's Needs Review bucket (`TeacherOrchestrator.get_bucketed_student_submissions`), so the
+> queue and the student page share one copy-revision collapse and cannot drift.
 > Separately, because `Exercise` extends `Curriculum(Entity)` — NOT `UserOwnedEntity` —
 > `exercise.user_uid` is always `None`; an exercise's owning teacher is resolved via the OWNS
 > edge (`UserEntryBackend.get_exercise_context()` uses the `COALESCE(teacher.uid,
@@ -316,7 +319,7 @@ services.user_entry_processor  # UserEntryProcessingService — pipeline dispatc
 # UserEntryBackend — :UserEntry node CRUD, exercise linking, review queue, assessment
 await backend.create_with_exercise_link(entry, exercise_uid, revision)  # FULFILLS_* edges
 await backend.count_entries_for_exercise(user_uid, exercise_uid)        # revision counter
-await backend.get_review_queue_by_groups(teacher_uid, status_filter)    # teacher queue
+await backend.get_review_queue_by_groups(teacher_uid, status_filter, student_uid)  # teacher queue; student_uid scopes it (per-student Needs Review reads the SAME query)
 await backend.get_exercise_context(...)                                 # OWNS/COALESCE teacher
 ```
 

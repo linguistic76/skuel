@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 @pytest.fixture
@@ -46,14 +46,24 @@ def orchestrator(
 async def test_get_bucketed_student_submissions_success(
     orchestrator: TeacherOrchestrator, mock_teacher_review_service: MagicMock
 ) -> None:
-    """Test that student submissions are correctly bucketed based on status."""
+    """Needs Review is queue membership, not a status read.
+
+    The student-scoped review queue (same query, same copy-revision collapse
+    as /teaching/queue) decides the pending bucket; statuses only split the
+    remainder into revision vs completed/history.
+    """
     mock_submissions = [
         {"uid": "sub1", "status": "submitted", "student_name": "Alice M."},
         {"uid": "sub2", "status": "revision_requested", "student_name": "Alice M."},
         {"uid": "sub3", "status": "completed", "student_name": ""},
-        {"uid": "sub4", "status": "unknown_status"},  # defaults to pending
+        # Pending status but ABSENT from the queue — a superseded copy.
+        # It is history, never Needs Review.
+        {"uid": "sub4", "status": "submitted"},
     ]
     mock_teacher_review_service.get_student_submissions.return_value = Result.ok(mock_submissions)
+    mock_teacher_review_service.get_review_queue.return_value = Result.ok(
+        [{"submission_uid": "sub1"}]
+    )
 
     result = await orchestrator.get_bucketed_student_submissions(
         teacher_uid="teacher-123", student_uid="student-456"
@@ -62,18 +72,15 @@ async def test_get_bucketed_student_submissions_success(
     assert result.is_ok
     pending, revision, completed, student_name = result.value
 
-    assert len(pending) == 2
-    assert pending[0]["uid"] == "sub1"
-    assert pending[1]["uid"] == "sub4"
-
-    assert len(revision) == 1
-    assert revision[0]["uid"] == "sub2"
-
-    assert len(completed) == 1
-    assert completed[0]["uid"] == "sub3"
+    assert [item["uid"] for item in pending] == ["sub1"]
+    assert [item["uid"] for item in revision] == ["sub2"]
+    assert [item["uid"] for item in completed] == ["sub3", "sub4"]
 
     assert student_name == "Alice M."
     mock_teacher_review_service.get_student_submissions.assert_called_once_with(
+        teacher_uid="teacher-123", student_uid="student-456"
+    )
+    mock_teacher_review_service.get_review_queue.assert_called_once_with(
         teacher_uid="teacher-123", student_uid="student-456"
     )
 
@@ -84,6 +91,7 @@ async def test_get_bucketed_student_submissions_empty(
 ) -> None:
     """Test bucketing works when submissions are empty."""
     mock_teacher_review_service.get_student_submissions.return_value = Result.ok([])
+    mock_teacher_review_service.get_review_queue.return_value = Result.ok([])
 
     result = await orchestrator.get_bucketed_student_submissions(
         teacher_uid="teacher-123", student_uid="student-456"
@@ -96,6 +104,26 @@ async def test_get_bucketed_student_submissions_empty(
     assert len(revision) == 0
     assert len(completed) == 0
     assert student_name == "student-456"  # falls back to uid when no names exist
+
+
+@pytest.mark.asyncio
+async def test_get_bucketed_student_submissions_queue_error_propagates(
+    orchestrator: TeacherOrchestrator, mock_teacher_review_service: MagicMock
+) -> None:
+    """A failed queue read must fail the bucketing — silently bucketing
+    everything to history would hide reviewable work."""
+    mock_teacher_review_service.get_student_submissions.return_value = Result.ok(
+        [{"uid": "sub1", "status": "submitted"}]
+    )
+    mock_teacher_review_service.get_review_queue.return_value = Result.fail(
+        Errors.database("execute_query", "timeout")
+    )
+
+    result = await orchestrator.get_bucketed_student_submissions(
+        teacher_uid="teacher-123", student_uid="student-456"
+    )
+
+    assert result.is_error
 
 
 @pytest.mark.asyncio

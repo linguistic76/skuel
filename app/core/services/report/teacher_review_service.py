@@ -100,6 +100,7 @@ class TeacherReviewService:
         self,
         teacher_uid: str,
         status_filter: str | None = None,
+        student_uid: str | None = None,
     ) -> Result[list[ReviewQueueItem]]:
         """
         Get teacher's pending review queue.
@@ -109,16 +110,24 @@ class TeacherReviewService:
         groups or no entries have been shared — does not leak the existence
         of unrelated students' submissions.
 
+        This is THE needs-review rule: the per-student page's Needs Review
+        section calls this same method with ``student_uid`` set, so the queue
+        and the student page always agree on what awaits review.
+
         Args:
             teacher_uid: Teacher UID
             status_filter: Optional single-status filter (e.g., "submitted").
                 Defaults to ["submitted", "active"] when ``None``.
+            student_uid: Optional student scope — restricts the queue to
+                entries that student owns.
 
         Returns:
             Result containing list of review items (``ReviewQueueItem`` shape)
         """
         statuses = [status_filter] if status_filter else None
-        result = await self.user_entry_backend.get_review_queue_by_groups(teacher_uid, statuses)
+        result = await self.user_entry_backend.get_review_queue_by_groups(
+            teacher_uid, statuses, student_uid
+        )
         if result.is_error:
             return Result.fail(result)
 

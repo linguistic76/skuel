@@ -649,7 +649,9 @@ class TestGetReviewQueue:
 
         await service.get_review_queue(TEACHER_UID, status_filter="submitted")
 
-        backend.get_review_queue_by_groups.assert_awaited_once_with(TEACHER_UID, ["submitted"])
+        backend.get_review_queue_by_groups.assert_awaited_once_with(
+            TEACHER_UID, ["submitted"], None
+        )
 
     @pytest.mark.asyncio
     async def test_no_status_filter_passes_none(self):
@@ -658,7 +660,19 @@ class TestGetReviewQueue:
 
         await service.get_review_queue(TEACHER_UID)
 
-        backend.get_review_queue_by_groups.assert_awaited_once_with(TEACHER_UID, None)
+        backend.get_review_queue_by_groups.assert_awaited_once_with(TEACHER_UID, None, None)
+
+    @pytest.mark.asyncio
+    async def test_student_scope_passed_through(self):
+        """The per-student Needs Review surface reads the SAME queue query —
+        the student scope must reach the backend, not be re-filtered in the
+        service (that is how the queue/student-page drift was born)."""
+        backend = _make_user_entry_backend()
+        service = _make_service(user_entry_backend=backend)
+
+        await service.get_review_queue(TEACHER_UID, student_uid=STUDENT_UID)
+
+        backend.get_review_queue_by_groups.assert_awaited_once_with(TEACHER_UID, None, STUDENT_UID)
 
     @pytest.mark.asyncio
     async def test_db_error_propagated(self):

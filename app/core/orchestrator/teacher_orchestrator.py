@@ -50,11 +50,13 @@ class TeacherOrchestrator:
         self,
         teacher_uid: UserUID,
         status_filter: str | None = None,
+        student_uid: str | None = None,
     ) -> Result[list[Any]]:
         """Get teacher's pending review queue (group-shared entries only)."""
         return await self._review.get_review_queue(
             teacher_uid=teacher_uid,
             status_filter=status_filter,
+            student_uid=student_uid,
         )
 
     # ------------------------------------------------------------------
@@ -87,22 +89,31 @@ class TeacherOrchestrator:
             teacher_uid=teacher_uid, student_uid=student_uid
         )
 
-    # Submission workflow status classification — single source of truth
-    NEEDS_REVIEW_STATUSES: frozenset[str] = frozenset(
-        {"submitted", "active", "queued", "processing"}
-    )
     REVISION_STATUSES: frozenset[str] = frozenset({"revision_requested"})
-    COMPLETED_STATUSES: frozenset[str] = frozenset({"completed", "failed"})
 
     async def get_bucketed_student_submissions(
         self, teacher_uid: UserUID, student_uid: str
     ) -> Result[tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]]:
-        """Fetch and bucket student submissions into (pending, revision, completed, student_name)."""
+        """Fetch and bucket student submissions into (pending, revision, completed, student_name).
+
+        Needs Review is not a status read: it is the review queue scoped to
+        this student — the same query, the same copy-revision collapse, so the
+        queue page and the student page can never disagree on what awaits
+        review. A pending-status entry the queue omits (a superseded copy) is
+        history and buckets to completed, never Needs Review.
+        """
         result = await self.get_student_submissions(
             teacher_uid=teacher_uid, student_uid=student_uid
         )
         if result.is_error:
             return Result.fail(result)
+
+        queue_result = await self._review.get_review_queue(
+            teacher_uid=teacher_uid, student_uid=student_uid
+        )
+        if queue_result.is_error:
+            return Result.fail(queue_result)
+        needs_review_uids = {item["submission_uid"] for item in queue_result.value or []}
 
         pending: list[dict[str, Any]] = []
         revision: list[dict[str, Any]] = []
@@ -114,14 +125,12 @@ class TeacherOrchestrator:
             if raw_name and student_name == student_uid:
                 student_name = str(raw_name)
             status_str = (item.get("status") or "").lower()
-            if status_str in self.NEEDS_REVIEW_STATUSES:
+            if item.get("uid") in needs_review_uids:
                 pending.append(item)
             elif status_str in self.REVISION_STATUSES:
                 revision.append(item)
-            elif status_str in self.COMPLETED_STATUSES:
-                completed.append(item)
             else:
-                pending.append(item)
+                completed.append(item)
 
         return Result.ok((pending, revision, completed, student_name))
 
