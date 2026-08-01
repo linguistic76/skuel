@@ -53,12 +53,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
+# EntityDTO is a runtime import (not TYPE_CHECKING) so reflection on
+# SharedWithMeItem — typing.get_type_hints() and PEP 649 lazy evaluation —
+# resolves the annotation instead of raising NameError.
+from core.models.entity_dto import EntityDTO
 from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from datetime import date, datetime
 
-    from core.models.entity_dto import EntityDTO
     from core.models.enums import ContextHealthScore
 
 # ============================================================================
@@ -1621,7 +1624,7 @@ class SharedWithMeItem(TypedDict):
     ``None`` for entity types with no exercise subject (e.g. FormSubmission).
     """
 
-    entity: "EntityDTO"
+    entity: EntityDTO
     role: str | None
     shared_at: str | None
     shared_by: str | None
