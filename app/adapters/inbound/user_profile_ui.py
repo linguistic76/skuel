@@ -27,6 +27,7 @@ from core.config.settings import get_settings
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
+    from core.ports.query_types import SharedWithMeItem
     from services_bootstrap import Services
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
@@ -277,7 +278,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         from ui.profile.shared_view import SharedWithMeView
 
-        shared_items: list[dict[str, Any]] = []
+        shared_items: list[SharedWithMeItem] = []
         items_result = await profile_orchestrator.get_shared_with_me_items(
             user_uid=user_uid,
             limit=50,

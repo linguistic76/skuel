@@ -53,6 +53,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
+# EntityDTO is a runtime import (not TYPE_CHECKING) so reflection on
+# SharedWithMeItem — typing.get_type_hints() and PEP 649 lazy evaluation —
+# resolves the annotation instead of raising NameError.
+from core.models.entity_dto import EntityDTO
 from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
@@ -1602,6 +1606,33 @@ class TeacherDashboardStats(TypedDict, total=False):
     total_students: int
     total_exercises: int
     total_groups: int
+
+
+# ============================================================================
+# SHARING RESULT TYPES
+# ============================================================================
+
+
+class SharedWithMeItem(TypedDict):
+    """One Shared-With-Me inbox item: the shared entity, share-edge metadata,
+    and its resolved subject context (C4, feedback-loop UX arc).
+
+    The subject fields answer "what is this feedback about": the exercise an
+    EntryReport's submission fulfills (``REPORT_FOR`` → ``FULFILLS_EXERCISE``)
+    or a RevisedExercise's original (``REVISES_EXERCISE``), plus the PathStep
+    anchoring that exercise when one exists (``HAS_EXERCISE``). All four are
+    ``None`` for entity types with no exercise subject (e.g. FormSubmission).
+    """
+
+    entity: EntityDTO
+    role: str | None
+    shared_at: str | None
+    shared_by: str | None
+    share_version: str | None
+    subject_exercise_uid: str | None
+    subject_exercise_title: str | None
+    subject_ps_uid: str | None
+    subject_ps_title: str | None
 
 
 # ============================================================================
@@ -3573,6 +3604,8 @@ __all__ = [
     "SignInResult",
     # Teacher Review Result Types
     "ReviewQueueItem",
+    # Sharing Result Types
+    "SharedWithMeItem",
     "SubmissionDetailResult",
     "TeacherDashboardStats",
     # Knowledge Intelligence Result Types

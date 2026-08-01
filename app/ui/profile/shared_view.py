@@ -2,19 +2,31 @@
 
 Renders whatever the SHARES_WITH edge points at (today: ADR-040 auto-shared
 EntryReports/RevisedExercises and manually shared FormSubmissions) as one
-card shape: title, entity-type badge, sharer attribution, share date, and a
-detail link resolved per-type via ``entity_detail_href``. Group shares are
-deliberately absent — they surface on the /groups hub.
+card shape: title, entity-type badge, sharer attribution, share date, a
+subject-context line ("on *{exercise}* · in *{path step}*", linked) when the
+item has a resolved exercise subject, and a detail link resolved per-type via
+``entity_detail_href``. Group shares are deliberately absent — they surface
+on the /groups hub.
 
-Data shape: items from ``UnifiedSharingService.get_shared_with_me`` —
-``{"entity": EntityDTO, "shared_by", "shared_at", "role", "share_version"}``.
+Data shape: ``SharedWithMeItem`` rows from
+``UnifiedSharingService.get_shared_with_me`` — entity DTO + share-edge
+metadata + ``subject_*`` context columns.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H4, Div, P
+from fasthtml.common import H4, A, Div, Em, P
+
+from core.models.enums.entity_enums import EntityType
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from fasthtml.common import FT
+
+    from core.ports.query_types import SharedWithMeItem
 
 from ui.components import ButtonT, Card, CardBody
 from ui.enum_helpers import get_status_badge_class
@@ -27,7 +39,33 @@ from ui.patterns.relative_time import format_relative_time
 from ui.primitives import ButtonLink
 
 
-def SharedItemCard(item: dict[str, Any]) -> Any:
+def _subject_link(title: str, entity_type: str, uid: str | None) -> FT:
+    """Italicized subject reference, linked when a detail page exists."""
+    href = entity_detail_href(entity_type, uid) if uid else None
+    if not href:
+        return Em(title)
+    return A(Em(title), href=href, cls="underline decoration-dotted hover:text-foreground")
+
+
+def _subject_context_line(item: SharedWithMeItem) -> FT | str:
+    """The "on *{exercise}* · in *{path step}*" line, or "" without a subject."""
+    ex_title = item.get("subject_exercise_title")
+    if not ex_title:
+        return ""
+    children: list[FT | str] = [
+        "on ",
+        _subject_link(ex_title, EntityType.EXERCISE.value, item.get("subject_exercise_uid")),
+    ]
+    ps_title = item.get("subject_ps_title")
+    if ps_title:
+        children += [
+            " · in ",
+            _subject_link(ps_title, EntityType.PATH_STEP.value, item.get("subject_ps_uid")),
+        ]
+    return P(*children, cls="text-xs text-muted-foreground mt-2 mb-0")
+
+
+def SharedItemCard(item: SharedWithMeItem) -> Any:
     """One shared entity as a card — works for any EntityType."""
     entity = item["entity"]
     title = entity.title or entity.uid
@@ -54,6 +92,7 @@ def SharedItemCard(item: dict[str, Any]) -> Any:
                 ),
                 cls="flex items-start justify-between gap-2",
             ),
+            _subject_context_line(item),
             Div(
                 Badge(entity.entity_type.get_display_name(), size=Size.sm),
                 P(meta_line, cls="text-xs text-muted-foreground mb-0") if meta_line else "",
@@ -73,7 +112,7 @@ def SharedItemCard(item: dict[str, Any]) -> Any:
     )
 
 
-def SharedWithMeView(items: list[dict[str, Any]]) -> Div:
+def SharedWithMeView(items: Sequence[SharedWithMeItem]) -> Div:
     """Full Shared With Me page content: header + card grid or empty state."""
     return Div(
         PageHeader(

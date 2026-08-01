@@ -162,6 +162,7 @@ async def test_ai_report_creates_shares_with_edge_to_student(
             OPTIONAL MATCH (owner:User)-[:OWNS]->(r)
             RETURN labels(r)           AS labels,
                    r.entity_type       AS entity_type,
+                   r.title             AS title,
                    r.processor_type    AS processor_type,
                    r.assessment_outcome AS assessment_outcome,
                    r.processed_content AS content,
@@ -186,6 +187,9 @@ async def test_ai_report_creates_shares_with_edge_to_student(
     assert record["processor_type"] == ReportSource.LLM.value
     assert record["assessment_outcome"] == AssessmentOutcome.AI_EVALUATED.value
     assert record["content"] == "Detailed feedback body."
+    # C3 title composition: no FULFILLS_EXERCISE edge is seeded, so the
+    # subject falls back to the submission's own title — never a raw UID.
+    assert record["title"] == "AI feedback on 'Integration Submission'"
 
     # The behavioral fix: AI reports MUST be shared with the submission owner.
     assert record["student_uid"] == STUDENT_UID, (
@@ -198,6 +202,54 @@ async def test_ai_report_creates_shares_with_edge_to_student(
     # the student so the report surfaces in the student's hub.
     assert record["author_uid"] is None
     assert record["owner_uid"] == STUDENT_UID
+
+
+@pytest.mark.asyncio
+async def test_ai_report_title_composed_from_fulfilled_exercise(
+    neo4j_driver,
+    seeded_submission,
+    entry_report_backend,
+):
+    """C3: with a FULFILLS_EXERCISE edge present, the report title is composed
+    from the exercise's title at creation — "AI feedback on '{exercise.title}'"."""
+    async with neo4j_driver.session() as session:
+        await (
+            await session.run(
+                """
+                MATCH (submission:Entity {uid: $sub})
+                CREATE (ex:Entity:Exercise {
+                    uid: $ex_uid,
+                    title: 'Week 3 Reflection',
+                    entity_type: 'exercise'
+                })
+                CREATE (submission)-[:FULFILLS_EXERCISE]->(ex)
+                """,
+                sub=SUBMISSION_UID,
+                ex_uid=EXERCISE_UID,
+            )
+        ).consume()
+
+    service = EntryReportService(
+        llm_caller=_make_llm_caller("Composed-title check."),
+        backend=entry_report_backend,
+    )
+    result = await service.generate_report(
+        entry=_make_submission(),
+        exercise=_make_exercise(),
+        user_uid=AUTHOR_UID,
+    )
+    assert not result.is_error, result.error if result.is_error else None
+    # The service-side entity echoes the backend-composed title.
+    assert result.value.title == "AI feedback on 'Week 3 Reflection'"
+
+    async with neo4j_driver.session() as session:
+        cursor = await session.run(
+            "MATCH (r:EntryReport {uid: $uid}) RETURN r.title AS title",
+            uid=result.value.uid,
+        )
+        record = await cursor.single()
+    assert record is not None
+    assert record["title"] == "AI feedback on 'Week 3 Reflection'"
 
 
 @pytest.mark.asyncio

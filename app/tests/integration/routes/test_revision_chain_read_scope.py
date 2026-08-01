@@ -342,7 +342,8 @@ class TestRevisionOrdinalPerStudent:
                 "author_uid": OUT_TEACHER,
                 "feedback": "Atomic revision notes",
                 "report_file_path": None,
-                "title": f"Revision request: {SUB_B2}",
+                # Composed backend-side into "Revision requested on '{subject}'" (C3).
+                "title_prefix": "Revision requested on",
                 "entity_type": EntityType.ENTRY_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,

@@ -853,7 +853,13 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             author_uid: UID of the human who authored the report — the teacher
                 for HUMAN reports, ``None`` for LLM/AI reports (no human author,
                 per the EntryReport contract).
-            feedback, title, entity_type, completed_status, processor_type,
+            title_prefix: human lead-in for the report title (e.g. ``Feedback on``).
+                The title is composed here, from the report's subject, at creation
+                (C3, feedback-loop UX arc): ``{title_prefix} '{subject}'`` where
+                the subject is the fulfilled exercise's title when the
+                FULFILLS_EXERCISE edge exists, else the submission's own title —
+                never a raw UID. Returned as ``report_title``.
+            feedback, entity_type, completed_status, processor_type,
                 assessment_outcome, now: standard report fields
             report_file_path: optional path to uploaded .md file (may be None)
             submission_status: new status to transition the submission to, or
@@ -876,6 +882,17 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
            OR submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
+        // Subject for the composed title: fulfilled exercise's title when the
+        // edge exists, else the submission's own title (pattern comprehension —
+        // never multiplies rows even if edges were ever duplicated).
+        WITH submission, student,
+             coalesce(
+                 head([(submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(subject_ex:Entity)
+                       WHERE subject_ex.title IS NOT NULL AND subject_ex.title <> ''
+                       | subject_ex.title]),
+                 submission.title
+             ) AS subject_title
+
         SET submission.updated_at = datetime($now)
 
         // Optional status transition (skip when $submission_status is null)
@@ -888,7 +905,10 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         // typed reads via EntryReportBackend (CLAUDE.md: multi-label writes invariant).
         CREATE (fb:Entity:EntryReport {{
             uid: $report_entity_uid,
-            title: $title,
+            title: CASE WHEN subject_title IS NULL OR subject_title = ''
+                        THEN $title_prefix
+                        ELSE $title_prefix + " '" + subject_title + "'"
+                   END,
             entity_type: $entity_type,
             user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
             author_uid: $author_uid,
@@ -921,7 +941,8 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         RETURN submission.uid as uid,
                submission.status as status,
                student.uid as student_uid,
-               fb.uid as report_entity_uid
+               fb.uid as report_entity_uid,
+               fb.title as report_title
         """
         return await self.execute_query(query, params)
 
@@ -975,9 +996,11 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
 
         Params required:
             Phase 1 (EntryReport): report_uid (submission UID), report_entity_uid,
-                author_uid, feedback, report_file_path, title, entity_type,
-                submission_status, completed_status, processor_type,
-                assessment_outcome, allowed_from_statuses, now
+                author_uid, feedback, report_file_path, title_prefix (composed
+                into ``{title_prefix} '{subject}'`` exactly as in
+                ``create_report_node``), entity_type, submission_status,
+                completed_status, processor_type, assessment_outcome,
+                allowed_from_statuses, now
             Phase 2 (RevisedExercise): re_props (from to_neo4j_node), re_uid,
                 original_exercise_uid
         """
@@ -994,12 +1017,25 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         WHERE submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
+        // Title subject: fulfilled exercise's title, else the submission's own
+        // title (same composition rule as create_report_node — C3).
+        WITH submission, student,
+             coalesce(
+                 head([(submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(subject_ex:Entity)
+                       WHERE subject_ex.title IS NOT NULL AND subject_ex.title <> ''
+                       | subject_ex.title]),
+                 submission.title
+             ) AS subject_title
+
         SET submission.status = $submission_status,
             submission.updated_at = datetime($now)
 
         CREATE (fb:Entity:EntryReport {{
             uid: $report_entity_uid,
-            title: $title,
+            title: CASE WHEN subject_title IS NULL OR subject_title = ''
+                        THEN $title_prefix
+                        ELSE $title_prefix + " '" + subject_title + "'"
+                   END,
             entity_type: $entity_type,
             user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
             author_uid: $author_uid,
