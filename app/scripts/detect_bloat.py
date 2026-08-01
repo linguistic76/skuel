@@ -8,9 +8,15 @@ Finds dead code that generic tools cannot express:
 - Event lifecycle: events defined but never published, subscribed but never
   published, published but never subscribed (the publish/subscribe semantics
   live in SKUEL's event bus, not in Python's import graph).
-- Service-method liveness (PR 2, pending): Vulture as the liveness engine,
-  post-filtered through SKUEL dynamic-dispatch knowledge (route-factory
-  templates, relationship-registry method names, dispatch tables).
+- Service-method liveness: Vulture as the liveness engine, post-filtered
+  through SKUEL dynamic-dispatch knowledge (route-factory templates,
+  relationship-registry method names, dispatch tables).
+- Prompt-template backlog: PLANNED_TEMPLATES entries with no render site
+  (full report only).
+
+Scope is EXACTLY those three subjects. Dataclasses, fields, enum members, and
+config knobs are never examined — a clean run is not evidence they are live.
+Inert fields are found by review, not by this tool.
 
 Design rules (mirrors the SKUEL linter's structural-soundness discipline):
 
@@ -23,9 +29,11 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
 - No silent caps: everything the analysis could not resolve is counted and
   printed in the Limitations section.
 - Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
-  PLANNED_METHODS reports in its own PLANNED tier — a visible completion
-  to-do list that never fails --check. Stale markings (subject became live)
-  are themselves reported.
+  PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
+  visible completion to-do list that never fails --check. Stale markings
+  (subject became live) are themselves reported. There is deliberately no
+  PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
+  audited, and there is no field scanner to audit with.
 
 Advisory by default (exit 0). ``--check`` exits 1 on surviving WARNING
 findings — not wired into quality gates until the manual false-positive audit
@@ -2299,6 +2307,11 @@ def print_limitations(
     methods: MethodAnalysis | None,
 ) -> None:
     print(f"\n{Colors.BOLD}📏 Limitations (read before acting on findings){Colors.RESET}")
+    print(
+        "  - Scope: event lifecycle, service-method liveness, and prompt-template "
+        "wiring ONLY. Dataclasses, fields, enum members, and config knobs are "
+        "never examined — a clean run is NOT evidence those are live."
+    )
     if usage is not None:
         print(
             f"  - {len(usage.unresolved_publishes)} publish and "
@@ -2421,7 +2434,8 @@ def main() -> int:
             )
         else:
             print(
-                f"{Colors.GREEN}✅ No structurally-dead findings"
+                f"{Colors.GREEN}✅ No structurally-dead findings within scope "
+                f"(events/methods/templates)"
                 f"{f' ({len(planned)} planned)' if planned else ''}.{Colors.RESET}"
             )
 
