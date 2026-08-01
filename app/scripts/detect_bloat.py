@@ -2433,9 +2433,20 @@ def main() -> int:
                 f"Verify before deleting.{Colors.RESET}"
             )
         else:
+            # Name only what this run examined: templates ride the full report
+            # (mirrors the analyze_planned_templates gate above).
+            ran = [
+                name
+                for name, examined in [
+                    ("events", check_events),
+                    ("methods", check_methods),
+                    ("templates", check_events and check_methods),
+                ]
+                if examined
+            ]
             print(
                 f"{Colors.GREEN}✅ No structurally-dead findings within scope "
-                f"(events/methods/templates)"
+                f"({'/'.join(ran)})"
                 f"{f' ({len(planned)} planned)' if planned else ''}.{Colors.RESET}"
             )
 
