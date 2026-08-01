@@ -21,7 +21,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.teaching_api import create_teaching_api_routes
 from core.models.enums import UserRole
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 _TEACHER_UID = "user_teacher"
 _SUBMISSION_UID = "entry_1"
@@ -209,6 +209,34 @@ class TestSubmitFeedback:
             feedback="Good work.",
             file_path="/tmp/feedback.md",
         )
+
+    def test_service_rejection_removes_saved_feedback_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """The file is written before the service validates status — a refusal
+        (e.g. entry no longer reviewable) must not leave an orphan on disk."""
+        harness = _make_harness(monkeypatch)
+
+        saved = tmp_path / "feedback.md"
+
+        def _write_report_file(teacher_uid: str, submission_uid: str, content: str) -> str:
+            saved.write_text(content, encoding="utf-8")
+            return str(saved)
+
+        monkeypatch.setattr("adapters.inbound.teaching_api._save_report_file", _write_report_file)
+        harness.review.submit_report.return_value = Result.fail(
+            Errors.validation("not in a reviewable status", field="status")
+        )
+
+        response = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/report",
+            headers=_csrf(harness.client),
+            files={"feedback_file": ("feedback.md", b"Good work.", "text/markdown")},
+        )
+
+        assert response.status_code == 200
+        assert "not in a reviewable status" in response.text
+        assert not saved.exists(), "rejected submit must clean up the report file it wrote"
 
 
 class TestRequestRevision:

@@ -129,6 +129,10 @@ def create_teaching_api_routes(
             file_path=file_path,
         )
         if result.is_error:
+            # The service refused (e.g. the entry is no longer in a reviewable
+            # status) — remove the file written above so a rejected submit
+            # leaves no orphan on disk.
+            pathlib.Path(file_path).unlink(missing_ok=True)
             error = result.expect_error()
             return Div(P(error.message, cls="text-sm text-destructive"))
 

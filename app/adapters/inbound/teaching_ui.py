@@ -55,10 +55,15 @@ from ui.teaching.detail import (
     render_submission_content,
     student_detail_sidebar_items,
 )
-from ui.teaching.forms import render_feedback_submission_form, render_revision_request_form
+from ui.teaching.forms import (
+    render_feedback_submission_form,
+    render_revision_request_form,
+    render_waiting_actions,
+)
 from ui.teaching.nav import render_teaching_sidebar_page
 from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
+    NEEDS_REVIEW_STATUSES,
     ClassMember,
     ClassSummary,
     SubmissionDetail,
@@ -362,16 +367,36 @@ def create_teaching_ui_routes(
                 size="sm",
             )
 
+        # Action availability follows the write ops' status gates: feedback and
+        # revision requests accept only submitted/active entries, approve only
+        # revision_requested — never render a form the service must refuse.
+        status_lower = (detail.status or "").lower()
+        if status_lower in NEEDS_REVIEW_STATUSES:
+            action_section: Any = Div(
+                render_feedback_submission_form(uid),
+                render_revision_request_form(uid),
+            )
+        elif status_lower == EntityStatus.REVISION_REQUESTED.value:
+            action_section = render_waiting_actions(uid)
+        else:
+            action_section = P(
+                "This submission is not awaiting review.",
+                cls="text-sm text-muted-foreground italic",
+            )
+
         return Div(
             submission_section,
             feedback_history_section,
-            render_feedback_submission_form(uid),
-            render_revision_request_form(uid),
+            action_section,
             Div(
                 exchange_link,
                 ButtonLink(
                     "Back to Queue",
-                    href="/teaching/queue",
+                    href=(
+                        "/teaching/queue?view=waiting"
+                        if status_lower == EntityStatus.REVISION_REQUESTED.value
+                        else "/teaching/queue"
+                    ),
                     cls=(ButtonT.ghost, "mt-4"),
                     size="sm",
                 ),
