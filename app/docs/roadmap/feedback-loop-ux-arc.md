@@ -71,7 +71,10 @@ contained in the assessment path — no analytics or external consumers).
 SHARES_WITH in one Cypher — the generic `create()` treats OWNS as warning-only, which
 would have made a transient edge failure an invisible report); the read excludes
 `visibility='private'` (self-owned journal reflections are the student's own artifacts,
-not received feedback).
+not received feedback); report cards/detail/preview fall back across the two body
+fields (`content` ↔ `processed_content` — the writers split them per report class);
+the migration script also normalizes legacy string-typed report timestamps to native
+datetimes (mixed types would bucket, not interleave, in the newest-first ORDER BY).
 *Rejected:* dual-writing `ASSESSMENT_OF` in `create_report_node()` (keeps two parallel
 edges meaning the same thing); reading via `REPORT_FOR`→entry→`OWNS` chain (2-hop, and
 misses any report legitimately not anchored to an entry).

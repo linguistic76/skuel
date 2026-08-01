@@ -197,7 +197,11 @@ def create_entry_reports_ui_routes(
                 if isinstance(processor_type, ReportSource)
                 else None
             )
-            content = getattr(report, "processed_content", None) or ""
+            # Body field varies by writer: review/AI reports store
+            # processed_content, assessments store content.
+            content = (
+                getattr(report, "processed_content", None) or getattr(report, "content", None) or ""
+            )
             href = f"/entry-reports/detail?uid={uid}" if uid else "/entry-reports"
             cards.append(
                 HubPreviewCard(

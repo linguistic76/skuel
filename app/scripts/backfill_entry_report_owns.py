@@ -31,13 +31,23 @@ other relationship type — so no census guard beyond the in-transaction
 verification is needed. Neo4j is read-committed, so as with any global
 migration: run against a quiet graph.
 
+**Second concern, same convergence: timestamp normalization.** Assessments
+created through the generic ``create()`` carried the mapper's ISO-*string*
+``created_at``/``updated_at``, while ``create_report_node`` (and now
+``create_assessment_node``) stamp native Neo4j datetimes. The received-feedback
+read orders the combined set by ``created_at``, and Neo4j groups heterogeneous
+property types instead of interleaving them chronologically — so string-stamped
+legacy reports would sort as a separate block. All writers now stamp native
+datetimes; this script converts any remaining string-typed report timestamps
+(``datetime(<iso-string>)`` parses the mapper's format directly).
+
 Also reported (read-only, both modes): reports with NO owner and no
 ``ASSESSMENT_OF`` to derive one from. This script cannot repair those — they
 indicate a third write path and need investigation, not a forced edge.
 
 Usage:
     uv run scripts/backfill_entry_report_owns.py              # census only (default)
-    uv run scripts/backfill_entry_report_owns.py --confirm    # backfill OWNS + delete edges
+    uv run scripts/backfill_entry_report_owns.py --confirm    # migrate (edges + timestamps)
 """
 
 from __future__ import annotations
@@ -84,6 +94,26 @@ RETURN count(*) AS n
 _DELETE_EDGES = """
 MATCH ()-[a:ASSESSMENT_OF]->()
 DELETE a
+RETURN count(*) AS n
+"""
+
+# Legacy generic-create reports carry mapper ISO strings; the report listing
+# ORDER BY needs one temporal type across the whole entity class.
+_COUNT_STRING_TIMESTAMPS = """
+MATCH (r:Entity {entity_type: 'entry_report'})
+WHERE r.created_at IS :: STRING OR r.updated_at IS :: STRING
+RETURN count(*) AS n
+"""
+
+_NORMALIZE_STRING_TIMESTAMPS = """
+MATCH (r:Entity {entity_type: 'entry_report'})
+WHERE r.created_at IS :: STRING OR r.updated_at IS :: STRING
+SET r.created_at = CASE
+        WHEN r.created_at IS :: STRING THEN datetime(r.created_at)
+        ELSE r.created_at END,
+    r.updated_at = CASE
+        WHEN r.updated_at IS :: STRING THEN datetime(r.updated_at)
+        ELSE r.updated_at END
 RETURN count(*) AS n
 """
 
@@ -148,6 +178,7 @@ async def run_migration(*, confirm: bool) -> int:
         owns_gaps = await _scalar(driver, _COUNT_OWNS_GAPS)
         non_user = await _scalar(driver, _COUNT_NON_USER_TARGETS)
         orphans = await _scalar(driver, _COUNT_ORPHAN_REPORTS)
+        string_ts = await _scalar(driver, _COUNT_STRING_TIMESTAMPS)
 
         print(f"\nASSESSMENT_OF edges                    : {edge_total}")
         for row in by_endpoints:
@@ -155,6 +186,7 @@ async def run_migration(*, confirm: bool) -> int:
             targets = ":".join(row["target_labels"]) or "(no label)"
             print(f"    ({labels}) -> ({targets})  {row['n']}")
         print(f"Edges whose report lacks student OWNS  : {owns_gaps}")
+        print(f"Reports with string-typed timestamps   : {string_ts}")
         if non_user:
             print(
                 f"\n  STOP: {non_user} edge(s) target a non-User node — no owner is "
@@ -169,26 +201,43 @@ async def run_migration(*, confirm: bool) -> int:
                 file=sys.stderr,
             )
 
-        if edge_total == 0:
-            print("\nNothing to migrate — no ASSESSMENT_OF edge exists.")
+        if edge_total == 0 and string_ts == 0:
+            print("\nNothing to migrate — no ASSESSMENT_OF edge, no string timestamp.")
             return 0
 
         if not confirm:
-            print("\nCensus only. Re-run with --confirm to backfill OWNS and delete the edges.")
+            print("\nCensus only. Re-run with --confirm to migrate.")
             return 0
 
-        # The counts above are a preview; the guard re-reads inside the write
-        # transaction, so nothing can go stale between census and migration.
-        async with driver.session() as session:
-            try:
-                outcome = await session.execute_write(_migrate_guarded)
-            except GuardFailedError as failure:
-                print(f"\nFAILED: {failure}", file=sys.stderr)
+        if edge_total:
+            # The counts above are a preview; the guard re-reads inside the
+            # write transaction, so nothing can go stale between census and
+            # migration.
+            async with driver.session() as session:
+                try:
+                    outcome = await session.execute_write(_migrate_guarded)
+                except GuardFailedError as failure:
+                    print(f"\nFAILED: {failure}", file=sys.stderr)
+                    return 1
+
+            print(f"\nCreated {outcome['owns_created']} OWNS edge(s).")
+            print(f"Deleted {outcome['deleted']} ASSESSMENT_OF edge(s).")
+            print("Verified in-transaction: every affected report is student-owned.")
+
+        if string_ts:
+            # Idempotent: the type predicate excludes already-converted nodes.
+            normalized, _, _ = await driver.execute_query(_NORMALIZE_STRING_TIMESTAMPS)
+            n = int(normalized[0]["n"]) if normalized else 0
+            remaining = await _scalar(driver, _COUNT_STRING_TIMESTAMPS)
+            print(f"\nNormalized timestamps on {n} report(s); {remaining} string-typed remain.")
+            if remaining:
+                print(
+                    "FAILED: string-typed timestamps survived normalization — "
+                    "investigate their values before re-running.",
+                    file=sys.stderr,
+                )
                 return 1
 
-        print(f"\nCreated {outcome['owns_created']} OWNS edge(s).")
-        print(f"Deleted {outcome['deleted']} ASSESSMENT_OF edge(s).")
-        print("Verified in-transaction: every affected report is student-owned.")
         return 0
     finally:
         await adapter.close()
@@ -200,8 +249,9 @@ def main() -> None:
         "--confirm",
         action="store_true",
         help=(
-            "actually write: MERGE the missing OWNS edges, then delete all "
-            "ASSESSMENT_OF edges. Without it the run is a read-only census."
+            "actually write: MERGE the missing OWNS edges, delete all "
+            "ASSESSMENT_OF edges, and normalize string-typed report "
+            "timestamps. Without it the run is a read-only census."
         ),
     )
     args = parser.parse_args()

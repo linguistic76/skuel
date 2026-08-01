@@ -165,7 +165,11 @@ def render_report_card(assessment: Any) -> Any:
 
     uid = getattr(assessment, "uid", "") or ""
     title = getattr(assessment, "title", "") or "Assessment"
-    content = getattr(assessment, "content", "") or ""
+    # Body field varies by writer: assessments store `content`,
+    # teacher-review/AI reports store `processed_content` (create_report_node).
+    content = (
+        getattr(assessment, "content", "") or getattr(assessment, "processed_content", "") or ""
+    )
     preview = content[:200] + ("..." if len(content) > 200 else "")
     created_at = getattr(assessment, "created_at", None)
     # Attribution is the AUTHOR (created_by), not the owner \u2014 reports are
@@ -244,7 +248,11 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
         revised_exercise: Optional RevisedExercise linked to this report
     """
     title = getattr(report, "title", "") or "Entry Report"
-    report_content = getattr(report, "processed_content", "") or ""
+    # Body field varies by writer: teacher-review/AI reports store
+    # `processed_content` (create_report_node), assessments store `content`.
+    report_content = (
+        getattr(report, "processed_content", "") or getattr(report, "content", "") or ""
+    )
     created_at = getattr(report, "created_at", None)
     user_uid = getattr(report, "user_uid", "") or ""
     subject_uid = getattr(report, "subject_uid", "") or ""
