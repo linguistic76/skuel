@@ -10,9 +10,9 @@ Handles:
 - Querying assessments authored by a teacher
 
 Assessments are EntryReport entities with entity_type=ENTRY_REPORT. The student
-owns the report — ``(student)-[:OWNS]->(report)`` is auto-created from
-``user_uid`` at node creation and is THE visibility anchor for the student's
-received-feedback reads — and the report is auto-shared via SHARES_WITH.
+owns the report — ``(student)-[:OWNS]->(report)`` is written atomically with
+the node and is THE visibility anchor for the student's received-feedback
+reads — and the report is auto-shared via SHARES_WITH in the same transaction.
 
 Moved from core/services/submissions/ per ADR-054.
 """
@@ -130,26 +130,19 @@ class AssessmentService:
             metadata=metadata or {},
         )
 
-        # The student owns the report: create() auto-writes
-        # (student)-[:OWNS]->(report) from user_uid=subject_uid, which is the
-        # visibility anchor the /entry-reports listing reads by.
-        result = await self.report_backend.create(assessment)
-        if result.is_error:
-            return Result.fail(result)
-
-        # Auto-share with student
-        share_result = await self.backend.auto_share_assessment_with_student(
-            subject_uid, uid, datetime.now().isoformat()
+        # Atomic write: node + student OWNS + SHARES_WITH succeed or fail
+        # together. OWNS is the visibility anchor the /entry-reports listing
+        # reads by, so a partial write must never leave an invisible report.
+        create_result = await self.report_backend.create_assessment_node(
+            assessment, datetime.now().isoformat()
         )
+        if create_result.is_error:
+            return Result.fail(create_result)
 
-        if share_result.is_error:
-            self.logger.error(f"Failed to auto-share assessment with student: {share_result.error}")
-            return Result.fail(Errors.database("create_assessment", str(share_result.error)))
-
-        if not (share_result.value or []):
-            self.logger.error(f"SHARES_WITH not created for student {subject_uid}")
+        if not (create_result.value or []):
+            self.logger.error(f"Assessment not created: student {subject_uid} not found")
             return Result.fail(
-                Errors.database("create_assessment", "Failed to auto-share assessment with student")
+                Errors.database("create_assessment", f"Student {subject_uid} not found")
             )
 
         # Publish event

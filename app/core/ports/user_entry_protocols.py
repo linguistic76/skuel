@@ -245,18 +245,12 @@ class UserEntryAssessmentOperations(Protocol):
         """
         ...
 
-    # -------- assessment relationships --------
+    # -------- assessment authority + queries --------
 
     async def verify_teacher_authority(
         self, teacher_uid: str, subject_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Verify teacher-student share an active group."""
-        ...
-
-    async def auto_share_assessment_with_student(
-        self, subject_uid: str, assessment_uid: str, now: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Auto-share assessment report with student via ``SHARES_WITH``."""
         ...
 
     async def get_assessments_for_student_raw(

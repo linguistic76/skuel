@@ -598,7 +598,7 @@ User annotates report (additive or revision mode)
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% |
 | `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% |
-| `AssessmentService` | `tests/unit/test_assessment_service.py` | 9 | 88% |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 8 | 88% |
 
 ---
 

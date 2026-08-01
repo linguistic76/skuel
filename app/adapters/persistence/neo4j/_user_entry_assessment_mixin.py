@@ -3,7 +3,7 @@ UserEntry Assessment + Teacher Review Mixin
 ============================================
 
 Assessment scoring + teacher-review queue and reporting.
-Covers teacher authority verification, assessment relationships,
+Covers teacher authority verification, assessment queries,
 review queue queries, report creation, and teacher dashboards.
 
 Consolidated from the legacy ``_SubmissionAssessmentMixin`` into a single
@@ -59,23 +59,6 @@ class _UserEntryAssessmentMixin:
         """
         return await self.execute_query(
             query, {"teacher_uid": teacher_uid, "subject_uid": subject_uid}
-        )
-
-    async def auto_share_assessment_with_student(
-        self, subject_uid: str, assessment_uid: str, now: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Auto-share assessment with student via SHARES_WITH."""
-        query = """
-        MATCH (student:User {uid: $subject_uid})
-        MATCH (assessment:Entity {uid: $assessment_uid})
-        MERGE (student)-[rel:SHARES_WITH]->(assessment)
-        SET rel.shared_at = datetime($now),
-            rel.role = 'student'
-        RETURN true AS success
-        """
-        return await self.execute_query(
-            query,
-            {"subject_uid": subject_uid, "assessment_uid": assessment_uid, "now": now},
         )
 
     async def get_assessments_for_student_raw(
