@@ -16,6 +16,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 import pathlib
+import secrets
 from typing import TYPE_CHECKING, Any
 
 import starlette.datastructures
@@ -55,13 +56,18 @@ _REPORTS_DIR = pathlib.Path(__file__).parents[2] / "data" / "reports"
 
 
 def _save_report_file(teacher_uid: str, submission_uid: str, content: str) -> str:
-    """Save teacher feedback content to data/reports/{teacher_uid}/{submission_uid}/feedback.md.
+    """Save teacher feedback to data/reports/{teacher_uid}/{submission_uid}/feedback-<token>.md.
 
-    Returns the absolute file path as a string.
+    The filename is unique per submit — the path is persisted on the
+    EntryReport and read back by the download route, and the file is written
+    BEFORE the service validates the submission status. With a fixed name, a
+    retried submit against an already-completed submission would overwrite
+    (and its rejection cleanup delete) the file an earlier persisted report
+    references. Returns the absolute file path as a string.
     """
     dest = _REPORTS_DIR / teacher_uid / submission_uid
     dest.mkdir(parents=True, exist_ok=True)
-    file_path = dest / "feedback.md"
+    file_path = dest / f"feedback-{secrets.token_hex(4)}.md"
     file_path.write_text(content, encoding="utf-8")
     return str(file_path)
 
