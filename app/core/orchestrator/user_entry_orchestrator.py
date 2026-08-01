@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from core.models.report.entry_report import EntryReport
     from core.models.user_entry.user_entry import UserEntry
     from core.ports.query_types import (
+        ExchangeThread,
         KnowledgeEntryGroundingRow,
         OrganizerResult,
         SubmissionChain,
@@ -233,6 +234,34 @@ class UserEntryOrchestrator:
         Backend: ReportRelationshipService.get_submission_chain.
         """
         return await self._report_relationship.get_submission_chain(entry_uid)
+
+    async def get_exchange_thread(
+        self,
+        viewer_uid: UserUID,
+        exercise_uid: str,
+        student_uid: str | None = None,
+    ) -> Result[ExchangeThread]:
+        """One (student, root exercise) exchange for the /exchange thread view.
+
+        The viewer reads their own exchange by default; passing another
+        ``student_uid`` requires the viewer to share an active owned group
+        with that student — the same gate that guards the report-file
+        download. Every denial (no authority, missing exercise, student never
+        submitted) collapses to the same not-found error, so the page can
+        probe neither exercise existence nor other classrooms' work
+        (404-not-403, OWNERSHIP_VERIFICATION.md).
+
+        Backend: ReportRelationshipService.get_exchange_thread (one chain
+        read); TeacherReviewService.verify_teacher_authority (the gate).
+        """
+        target_uid = student_uid or viewer_uid
+        if target_uid != viewer_uid:
+            authority = await self._teacher_review.verify_teacher_authority(
+                teacher_uid=viewer_uid, student_uid=target_uid
+            )
+            if authority.is_error:
+                return Result.fail(Errors.not_found(resource="Exchange", identifier=exercise_uid))
+        return await self._report_relationship.get_exchange_thread(exercise_uid, target_uid)
 
     async def get_entry_responses(self, entry_uid: str) -> Result[list[dict[str, Any]]]:
         """List the EntryReports attached to an entry (the "Responses" section).

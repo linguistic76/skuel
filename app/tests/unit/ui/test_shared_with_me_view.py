@@ -80,8 +80,8 @@ def test_card_untitled_falls_back_to_uid() -> None:
     assert "er_x" in html
 
 
-def test_card_subject_context_line_links_exercise_and_path_step() -> None:
-    """C4: a report with a resolved subject gains "on {exercise} · in {ps}"."""
+def test_card_subject_context_line_links_exchange_and_path_step() -> None:
+    """C4+C5: the exercise subject links into the exchange thread, the PS to its page."""
     html = to_xml(
         SharedItemCard(
             _item(
@@ -94,13 +94,13 @@ def test_card_subject_context_line_links_exercise_and_path_step() -> None:
         )
     )
     assert "List your Tasks" in html
-    assert "/exercises/get?uid=ex_tasks" in html
+    assert "/exchange?exercise=ex_tasks" in html
     assert "Task Management" in html
     assert "/explore/ps/ps.skuel.tasks" in html
 
 
 def test_card_subject_context_line_exercise_only() -> None:
-    """No PathStep anchor → the exercise link renders without an "in" segment."""
+    """No PathStep anchor → the exchange link renders without an "in" segment."""
     html = to_xml(
         SharedItemCard(
             _item(
@@ -110,14 +110,14 @@ def test_card_subject_context_line_exercise_only() -> None:
             )
         )
     )
-    assert "/exercises/get?uid=ex_tasks" in html
+    assert "/exchange?exercise=ex_tasks" in html
     assert " · in " not in html
 
 
 def test_card_without_subject_renders_no_context_line() -> None:
     """FormSubmissions and other non-report shares carry null subject columns."""
     html = to_xml(SharedItemCard(_item(_ENTRY_REPORT_PROPS)))
-    assert "/exercises/get" not in html
+    assert "/exchange?exercise=" not in html
 
 
 def test_view_empty_state() -> None:

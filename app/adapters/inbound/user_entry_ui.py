@@ -31,7 +31,7 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H4, Div, P, Span
+from fasthtml.common import H4, A, Div, P, Span
 from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -654,6 +654,11 @@ def create_user_entry_ui_routes(
                     str(fulfilled_exercise.get("title") or fulfilled_exercise.get("uid")),
                     variant=BadgeT.outline,
                     size=Size.sm,
+                ),
+                A(
+                    "View exchange thread →",
+                    href=f"/exchange?exercise={fulfilled_exercise.get('uid')}",
+                    cls="text-xs text-primary hover:underline ml-2",
                 ),
                 cls="mb-4",
             )

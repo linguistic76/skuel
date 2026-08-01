@@ -352,6 +352,7 @@ that never closes the loop.
 | `adapters/inbound/teaching_ui.py` | 4 | Students (default page), review queue (`/teaching/queue`), student detail with KU tab, groups |
 | `adapters/inbound/teaching_forms_ui.py` | — | Forms visibility: template list, per-template submissions, submission detail (teacher role) |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, students, groups) |
+| `adapters/inbound/exchange_ui.py` | 2+4 | `/exchange` thread view — one (student, exercise) exchange chronologically (renderer: `ui/learning_loop/exchange_thread.py`) |
 | `ui/patterns/feedback_item.py` | 4 | Shared feedback rendering (used by teaching + submissions UI) |
 | `core/prompts/templates/activity_feedback.md` | 4 | LLM prompt template (via PROMPT_REGISTRY) |
 

@@ -293,12 +293,26 @@ def create_teaching_ui_routes(
                     cls="mb-6",
                 )
 
+        # Exchange thread link (C5): the review page anchors one submission;
+        # the thread shows the whole (student, exercise) exchange around it.
+        exchange_link: Any = ""
+        d_exercise_uid = d.get("exercise_uid")
+        d_student_uid = d.get("student_uid")
+        if d_exercise_uid and d_student_uid:
+            exchange_link = ButtonLink(
+                "View exchange thread",
+                href=f"/exchange?exercise={d_exercise_uid}&student={d_student_uid}",
+                cls=(ButtonT.ghost, "mt-4 mr-2"),
+                size="sm",
+            )
+
         return Div(
             submission_section,
             feedback_history_section,
             render_feedback_submission_form(uid),
             render_revision_request_form(uid),
             Div(
+                exchange_link,
                 ButtonLink(
                     "Back to Queue",
                     href="/teaching/queue",

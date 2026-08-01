@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.metadata_enums import Visibility
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -149,6 +150,74 @@ class _UserEntryReportQueryMixin:
                collect(DISTINCT re {{.uid, .title, .revision_number, .created_at}}) AS revised_exercises
         """
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
+
+    async def get_exchange_thread_raw(
+        self, exercise_uid: str, student_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """One (student, root exercise) exchange — the whole chain in one read.
+
+        Collects every artifact of the exchange thread (feedback-loop UX arc
+        C5): the student's entries against the root exercise (both the direct
+        ``FULFILLS_EXERCISE`` turn-ins, carrying the edge's ``revision``, and
+        entries fulfilling a revision of it via ``FULFILLS_REVISED_EXERCISE``),
+        the reports written on those entries, and the revision requests that
+        respond to those reports. Revisions are scoped through the chain's own
+        reports, so another student's revision of the same exercise never
+        appears.
+
+        PRIVATE reports are excluded — a self-owned journal reflection is the
+        student's own artifact, not part of the teacher↔student exchange
+        (same class rule as ``get_assessments_for_student_raw``).
+
+        Every ``created_at`` is emitted through ``toString()`` so the caller
+        always receives ISO-8601 strings — entry timestamps are stored as ISO
+        strings by the mapper while report timestamps are native datetimes,
+        and a mixed-type emission would push the sort problem to every reader.
+
+        Returns a single row: ``exercise`` (NULL when the UID matches no
+        exercise), ``entries``, ``reports``, ``revisions``.
+        """
+        query = f"""
+        OPTIONAL MATCH (ex:Entity:Exercise {{uid: $exercise_uid}})
+        OPTIONAL MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(direct:Entity:UserEntry)
+                       -[f:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+        WITH ex,
+             collect(DISTINCT direct {{.uid, .title, .status, created_at: toString(direct.created_at),
+                                       revision: f.revision, via_revised_uid: NULL}}) AS direct_rows,
+             collect(DISTINCT direct) AS direct_nodes
+        OPTIONAL MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(rentry:Entity:UserEntry)
+                       -[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(rex:Entity:RevisedExercise)
+                       -[:{RelationshipName.REVISES_EXERCISE.value}]->(ex)
+        WITH ex, direct_rows, direct_nodes,
+             collect(DISTINCT rentry {{.uid, .title, .status, created_at: toString(rentry.created_at),
+                                       revision: NULL, via_revised_uid: rex.uid}}) AS revised_rows,
+             collect(DISTINCT rentry) AS revised_nodes
+        WITH ex, direct_rows + revised_rows AS entry_rows, direct_nodes + revised_nodes AS entry_nodes
+        OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
+        WHERE entry IN entry_nodes
+          AND coalesce(report.visibility, 'shared') <> $private_visibility
+        WITH ex, entry_rows,
+             collect(DISTINCT report {{.uid, .title, .content, .processed_content, .processor_type,
+                                       .report_file_path, created_at: toString(report.created_at),
+                                       entry_uid: entry.uid}}) AS report_rows,
+             collect(DISTINCT report) AS report_nodes
+        OPTIONAL MATCH (rev:Entity:RevisedExercise)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(rep)
+        WHERE rep IN report_nodes
+        RETURN ex {{.uid, .title, .status, .entity_type}} AS exercise,
+               entry_rows AS entries,
+               report_rows AS reports,
+               collect(DISTINCT rev {{.uid, .title, .instructions, .revision_number,
+                                      created_at: toString(rev.created_at),
+                                      report_uid: rep.uid}}) AS revisions
+        """
+        return await self.execute_query(
+            query,
+            {
+                "exercise_uid": exercise_uid,
+                "student_uid": student_uid,
+                "private_visibility": Visibility.PRIVATE.value,
+            },
+        )
 
     async def get_submission_chain_raw(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """Traverse learning loop chain from a specific entry."""
