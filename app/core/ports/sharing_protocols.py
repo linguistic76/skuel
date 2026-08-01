@@ -30,6 +30,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.ports.query_types import SharedWithMeItem
 from core.utils.result_simplified import Result
 
 
@@ -202,11 +203,9 @@ class SharingOperations(Protocol):
         self,
         user_uid: UserUID,
         limit: int = 50,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get entities shared with a user, with share-edge metadata.
-
-        Returns Result[list[dict]] — keys: entity (EntityDTO), role,
-        shared_at, shared_by, share_version.
+    ) -> Result[list[SharedWithMeItem]]:
+        """Get entities shared with a user, with share-edge metadata and the
+        resolved subject context (which exercise/PathStep the item is about).
         """
         ...
 

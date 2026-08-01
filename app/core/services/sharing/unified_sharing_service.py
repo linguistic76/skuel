@@ -28,8 +28,10 @@ from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.query_types import SharedWithMeItem
 from core.ports.sharing_protocols import SharingBackendOperations
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import neo4j_opt_str
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.sharing")
@@ -269,24 +271,30 @@ class UnifiedSharingService:
         self,
         user_uid: UserUID,
         limit: int = 50,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[SharedWithMeItem]]:
         """Get entities shared with a specific user, with share-edge metadata.
 
-        Each item carries the entity DTO plus who shared it and when — the
-        Shared With Me page renders type-aware cards from this shape.
+        Each item carries the entity DTO, who shared it and when, plus the
+        resolved subject context (which exercise the feedback is about, and
+        its PathStep when linked) — the Shared With Me page renders type-aware
+        cards from this shape.
 
         Backend: SharingBackend.query_shared_with_me
         """
         result = await self.backend.query_shared_with_me(user_uid=user_uid, limit=limit)
         if result.is_error:
             return Result.fail(result)
-        items: list[dict[str, Any]] = [
+        items: list[SharedWithMeItem] = [
             {
                 "entity": EntityDTO.from_dict(dict(cast("dict[str, Any]", record["entity"]))),
-                "role": record["role"],
-                "shared_at": record["shared_at"],
-                "shared_by": record["shared_by"],
-                "share_version": record["share_version"],
+                "role": neo4j_opt_str(record, "role"),
+                "shared_at": neo4j_opt_str(record, "shared_at"),
+                "shared_by": neo4j_opt_str(record, "shared_by"),
+                "share_version": neo4j_opt_str(record, "share_version"),
+                "subject_exercise_uid": neo4j_opt_str(record, "subject_exercise_uid"),
+                "subject_exercise_title": neo4j_opt_str(record, "subject_exercise_title"),
+                "subject_ps_uid": neo4j_opt_str(record, "subject_ps_uid"),
+                "subject_ps_title": neo4j_opt_str(record, "subject_ps_title"),
             }
             for record in (result.value or [])
         ]

@@ -50,6 +50,21 @@ def neo4j_str(props: Neo4jProperties, key: str, default: str | None = None) -> s
     return value
 
 
+def neo4j_opt_str(props: Neo4jProperties, key: str) -> str | None:
+    """Narrow a Neo4j property to ``str | None``.
+
+    For columns that are legitimately nullable (OPTIONAL MATCH / pattern
+    comprehension projections): absent or ``None`` maps to ``None``. Raises
+    ``TypeError`` if a present value is not a string.
+    """
+    value = props.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"Neo4j property {key!r} has type {type(value).__name__}, expected str")
+    return value
+
+
 def neo4j_user_uid(props: Neo4jProperties, key: str) -> UserUID:
     """Narrow a Neo4j property to a validated ``UserUID``.
 

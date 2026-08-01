@@ -293,6 +293,11 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
                     "shared_at": "2026-02-02T12:00:00",
                     "shared_by": "Teacher Name",
                     "share_version": None,
+                    # Subject context resolved by the backend join (C4).
+                    "subject_exercise_uid": "ex_essay",
+                    "subject_exercise_title": "Essay Exercise",
+                    "subject_ps_uid": "ps.test.essays",
+                    "subject_ps_title": "Writing Essays",
                 }
             ]
         )
@@ -308,6 +313,10 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
     assert item["shared_by"] == "Teacher Name"
     assert item["shared_at"] == "2026-02-02T12:00:00"
     assert item["role"] == "student"
+    assert item["subject_exercise_uid"] == "ex_essay"
+    assert item["subject_exercise_title"] == "Essay Exercise"
+    assert item["subject_ps_uid"] == "ps.test.essays"
+    assert item["subject_ps_title"] == "Writing Essays"
 
 
 @pytest.mark.asyncio

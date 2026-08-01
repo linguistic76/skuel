@@ -13,6 +13,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import SharingOperations
+    from core.ports.query_types import SharedWithMeItem
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
@@ -108,6 +109,7 @@ class ProfileOrchestrator:
 
     async def get_shared_with_me_items(
         self, user_uid: UserUID, limit: int = 50
-    ) -> Result[list[dict[str, Any]]]:
-        """Get content shared with the user (entity DTO + share-edge metadata)."""
+    ) -> Result[list[SharedWithMeItem]]:
+        """Get content shared with the user (entity DTO + share-edge metadata
+        + resolved subject context)."""
         return await self._sharing_service.get_shared_with_me(user_uid=user_uid, limit=limit)

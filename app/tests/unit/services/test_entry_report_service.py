@@ -74,6 +74,8 @@ def _make_ext_backend() -> MagicMock:
                     "status": EntityStatus.ACTIVE.value,
                     "student_uid": STUDENT_UID,
                     "report_entity_uid": "sr_will_be_overwritten",
+                    # Composed backend-side from title_prefix + subject (C3).
+                    "report_title": "AI feedback on 'Week 3 Reflection'",
                 }
             ]
         )
@@ -200,13 +202,15 @@ class TestGenerateReportBackendDelegation:
         backend = _make_ext_backend()
         service = _make_service(backend=backend)
 
-        await service.generate_report(
+        result = await service.generate_report(
             entry=_make_submission(),
             exercise=_make_exercise(),
             user_uid=TEACHER_UID,
         )
 
         backend.create_report_node.assert_awaited_once()
+        # The entity echoes the backend-composed title, not a service-built one.
+        assert result.value.title == "AI feedback on 'Week 3 Reflection'"
 
     @pytest.mark.asyncio
     async def test_params_mark_report_as_llm_processor(self):
@@ -274,7 +278,10 @@ class TestGenerateReportBackendDelegation:
         assert params["report_uid"] == SUBMISSION_UID
         assert params["feedback"] == "Detailed feedback body."
         assert params["report_file_path"] is None
-        assert "Reflection #3" in params["title"]
+        # Title is composed backend-side from the subject (C3) — the service
+        # only supplies the lead-in, never a pre-baked title.
+        assert params["title_prefix"] == "AI feedback on"
+        assert "title" not in params
         assert params["now"]  # ISO timestamp, non-empty
         assert params["report_entity_uid"].startswith("er_")
 

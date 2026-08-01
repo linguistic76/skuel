@@ -198,23 +198,42 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         user_uid: UserUID,
         limit: int,
     ) -> Result[list[Neo4jProperties]]:
-        """Get entities shared with a user via direct SHARES_WITH.
+        """Get entities shared with a user via direct SHARES_WITH, with subject context.
 
         ``shared_by`` resolves the entity creator's display name — the sharer
         is not recorded on the edge, but every current writer (ADR-040
         auto-share, form-submission share) shares the entity its creator made.
         ``toString`` normalizes ``shared_at`` (temporal on all writers) to an
         ISO string.
+
+        The ``subject_*`` columns resolve what the shared item is about (C4,
+        feedback-loop UX arc): an EntryReport's subject exercise via its
+        submission (``REPORT_FOR`` → ``FULFILLS_EXERCISE``), a
+        RevisedExercise's original via ``REVISES_EXERCISE``, and the PathStep
+        anchoring that exercise via ``HAS_EXERCISE``. Pattern comprehensions —
+        an item with no subject yields ``null`` columns, never a dropped or
+        duplicated row.
         """
         result = await self.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(entity:Entity)
             OPTIONAL MATCH (sharer:User {uid: entity.created_by})
+            WITH entity, r, sharer,
+                 coalesce(
+                     head([(entity)-[:REPORT_FOR]->(:Entity)-[:FULFILLS_EXERCISE]->(ex:Entity) | ex]),
+                     head([(entity)-[:REVISES_EXERCISE]->(ex:Entity) | ex])
+                 ) AS subject_ex
+            WITH entity, r, sharer, subject_ex,
+                 head([(ps:Entity)-[:HAS_EXERCISE]->(subject_ex) | ps]) AS subject_ps
             RETURN entity,
                    r.role as role,
                    toString(r.shared_at) as shared_at,
                    r.share_version as share_version,
-                   coalesce(sharer.display_name, sharer.title, entity.created_by) as shared_by
+                   coalesce(sharer.display_name, sharer.title, entity.created_by) as shared_by,
+                   subject_ex.uid as subject_exercise_uid,
+                   subject_ex.title as subject_exercise_title,
+                   subject_ps.uid as subject_ps_uid,
+                   subject_ps.title as subject_ps_title
             ORDER BY r.shared_at DESC
             LIMIT $limit
             """,

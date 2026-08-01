@@ -296,11 +296,6 @@ class EntryReportService:
 
         report_entity_uid = UIDGenerator.generate_uid("er")
         now = datetime.now().isoformat()
-        title = (
-            f"Reflection on: {entry.title[:50]}"
-            if entry.title
-            else f"Reflection on entry {entry.uid[:20]}"
-        )
 
         try:
             query_result = await self.backend.create_report_node(
@@ -310,7 +305,8 @@ class EntryReportService:
                     "author_uid": None,
                     "feedback": response_text,
                     "report_file_path": None,
-                    "title": title,
+                    # Composed backend-side into "Reflection on '{entry title}'" (C3).
+                    "title_prefix": "Reflection on",
                     "entity_type": EntityType.ENTRY_REPORT.value,
                     "submission_status": None,
                     "completed_status": EntityStatus.COMPLETED.value,
@@ -335,7 +331,7 @@ class EntryReportService:
                 EntryReport(
                     uid=report_entity_uid,
                     entity_type=EntityType.ENTRY_REPORT,
-                    title=title,
+                    title=str(query_result.value[0].get("report_title") or "Reflection"),
                     user_uid=user_uid,
                     author_uid=None,
                     status=EntityStatus.COMPLETED,
@@ -474,11 +470,6 @@ class EntryReportService:
 
         report_entity_uid = UIDGenerator.generate_uid("er")
         now = datetime.now().isoformat()
-        title = (
-            f"AI Feedback: {exercise.title[:50]}"
-            if exercise.title
-            else f"AI Feedback: {exercise.uid[:20]}"
-        )
 
         try:
             query_result = await self.backend.create_report_node(
@@ -490,7 +481,8 @@ class EntryReportService:
                     "author_uid": None,
                     "feedback": feedback_text,
                     "report_file_path": None,
-                    "title": title,
+                    # Composed backend-side into "AI feedback on '{subject}'" (C3).
+                    "title_prefix": "AI feedback on",
                     "entity_type": EntityType.ENTRY_REPORT.value,
                     "submission_status": None,
                     "completed_status": EntityStatus.COMPLETED.value,
@@ -513,15 +505,12 @@ class EntryReportService:
 
             self.logger.info(f"ENTRY_REPORT entity created: {report_entity_uid}")
 
-            student_uid: UserUID = (
-                UserUID(str(query_result.value[0].get("student_uid") or user_uid))
-                if query_result.value
-                else user_uid
-            )
+            record = query_result.value[0]
+            student_uid: UserUID = UserUID(str(record.get("student_uid") or user_uid))
             feedback_entity = EntryReport(
                 uid=report_entity_uid,
                 entity_type=EntityType.ENTRY_REPORT,
-                title=title,
+                title=str(record.get("report_title") or "AI feedback"),
                 user_uid=student_uid,
                 author_uid=None,
                 status=EntityStatus.COMPLETED,

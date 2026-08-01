@@ -180,6 +180,82 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert access_after_unshare.value is False
 
 
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_shared_with_me_resolves_subject_context(sharing_service, neo4j_driver):
+    """C4 (feedback-loop UX arc): inbox rows resolve which exercise a shared
+    item is about — EntryReport via REPORT_FOR → FULFILLS_EXERCISE,
+    RevisedExercise via REVISES_EXERCISE — plus the PathStep anchoring that
+    exercise (HAS_EXERCISE). Items without an exercise subject still appear,
+    with null context columns."""
+    student_uid = "test_user_ctx_student"
+    seed = """
+    MERGE (student:User {uid: $student_uid})
+    CREATE (report:Entity:EntryReport {
+        uid: 'test_er_ctx', entity_type: 'entry_report', status: 'completed',
+        title: "Feedback on 'Essay Exercise'", created_by: 'test_user_ctx_teacher',
+        visibility: 'shared', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (entry:Entity:UserEntry {
+        uid: 'test_ue_ctx', entity_type: 'user_entry', status: 'completed',
+        title: 'My essay', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (ex:Entity:Exercise {
+        uid: 'test_ex_ctx', entity_type: 'exercise', title: 'Essay Exercise',
+        status: 'active', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (ps:Entity:PathStep {
+        uid: 'ps.test.ctx', entity_type: 'path_step', title: 'Writing',
+        status: 'active', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (re:Entity:RevisedExercise {
+        uid: 'test_re_ctx', entity_type: 'revised_exercise', status: 'active',
+        title: 'Revision 1', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (plain:Entity {
+        uid: 'test_fs_ctx', entity_type: 'form_submission', status: 'completed',
+        title: 'Weekly form', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (student)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(report)
+    CREATE (student)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(re)
+    CREATE (student)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(plain)
+    CREATE (report)-[:REPORT_FOR]->(entry)
+    CREATE (entry)-[:FULFILLS_EXERCISE]->(ex)
+    CREATE (re)-[:REVISES_EXERCISE]->(ex)
+    CREATE (ps)-[:HAS_EXERCISE]->(ex)
+    """
+    await neo4j_driver.execute_query(seed, student_uid=student_uid)
+    try:
+        result = await sharing_service.get_shared_with_me(user_uid=student_uid, limit=10)
+        assert not result.is_error
+        by_uid = {item["entity"].uid: item for item in result.value}
+        assert set(by_uid) == {"test_er_ctx", "test_re_ctx", "test_fs_ctx"}
+
+        for uid in ("test_er_ctx", "test_re_ctx"):
+            assert by_uid[uid]["subject_exercise_uid"] == "test_ex_ctx", uid
+            assert by_uid[uid]["subject_exercise_title"] == "Essay Exercise", uid
+            assert by_uid[uid]["subject_ps_uid"] == "ps.test.ctx", uid
+            assert by_uid[uid]["subject_ps_title"] == "Writing", uid
+
+        plain_item = by_uid["test_fs_ctx"]
+        assert plain_item["subject_exercise_uid"] is None
+        assert plain_item["subject_exercise_title"] is None
+        assert plain_item["subject_ps_uid"] is None
+        assert plain_item["subject_ps_title"] is None
+    finally:
+        await neo4j_driver.execute_query(
+            """
+            MATCH (n:Entity)
+            WHERE n.uid IN ['test_er_ctx', 'test_ue_ctx', 'test_ex_ctx',
+                            'ps.test.ctx', 'test_re_ctx', 'test_fs_ctx']
+            DETACH DELETE n
+            """
+        )
+        await neo4j_driver.execute_query(
+            "MATCH (u:User {uid: $uid}) DETACH DELETE u", uid=student_uid
+        )
+
+
 # ============================================================================
 # VISIBILITY LEVEL TESTS
 # ============================================================================

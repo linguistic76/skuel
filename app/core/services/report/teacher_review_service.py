@@ -196,7 +196,8 @@ class TeacherReviewService:
                 "author_uid": teacher_uid,
                 "feedback": feedback,
                 "report_file_path": file_path,
-                "title": f"Feedback: {report_uid[:30]}",
+                # Composed backend-side into "Feedback on '{subject}'" (C3).
+                "title_prefix": "Feedback on",
                 "entity_type": EntityType.ENTRY_REPORT.value,
                 "submission_status": EntityStatus.COMPLETED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
@@ -283,7 +284,8 @@ class TeacherReviewService:
                 "author_uid": teacher_uid,
                 "feedback": notes,
                 "report_file_path": None,
-                "title": f"Revision request: {report_uid[:30]}",
+                # Composed backend-side into "Revision requested on '{subject}'" (C3).
+                "title_prefix": "Revision requested on",
                 "entity_type": EntityType.ENTRY_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
@@ -403,7 +405,8 @@ class TeacherReviewService:
                 "author_uid": teacher_uid,
                 "feedback": notes,
                 "report_file_path": None,
-                "title": f"Revision request: {submission_uid[:30]}",
+                # Composed backend-side into "Revision requested on '{subject}'" (C3).
+                "title_prefix": "Revision requested on",
                 "entity_type": EntityType.ENTRY_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,

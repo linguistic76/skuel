@@ -262,7 +262,13 @@ class EntryReportBackendOperations(Protocol):
         ...
 
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
-        """Create EntryReport node, link via REPORT_FOR, share with student, update submission."""
+        """Create EntryReport node, link via REPORT_FOR, share with student, update submission.
+
+        The report title is composed at creation from ``params["title_prefix"]``
+        plus the report's subject (fulfilled exercise's title, else the
+        submission's own title — never a raw UID) and returned as
+        ``report_title`` (C3, feedback-loop UX arc).
+        """
         ...
 
     async def create_report_and_revised_exercise(
