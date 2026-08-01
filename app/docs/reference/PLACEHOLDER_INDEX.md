@@ -348,7 +348,7 @@ not established here — "it has a caller" is the weak question.
 | File | Line | Method | Parameter | Notes |
 |------|------|--------|-----------|-------|
 | `adapters/persistence/neo4j/_relationship_crud_mixin.py` | 910 | (inline comment) | `_props` | Property validation not yet implemented |
-| `core/services/calendar_optimization_service.py` | 318 | `_get_user_energy_profile()` | `_user_uid: UserUID` | Returns a static demo profile — the docstring says "for demo"; real profile query deferred |
+| `core/services/calendar_optimization_service.py` | 143 | `_get_user_energy_profile()` | `_user_uid: UserUID` | Returns a static demo profile — the docstring says "for demo"; real profile query deferred |
 | `core/services/schema_change_detector.py` | 537 | `_update_optimizations()` | `_report: SchemaChangeReport` | Clears two optimization caches unconditionally; full re-optimization *from the report* deferred |
 | `core/services/goals/_predictive_mixin.py` | 401 | `_calculate_consistency_factor()` | `_lookback_days: int` | Caller passes a real window (135) |
 | `core/services/goals/_predictive_mixin.py` | 449 | `_calculate_momentum_factor()` | `_lookback_days: int` | Caller passes a real window (137) |

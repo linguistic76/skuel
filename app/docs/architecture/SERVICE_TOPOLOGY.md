@@ -98,7 +98,7 @@ Standalone services without subfolders.
 | **Knowledge Analytics** | `knowledge/knowledge_pattern_analyzer.py` (generic 5-pattern engine), `tasks/task_knowledge_analyzer.py` (Task-specific, composes generic) |
 | **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
 | **KU Generation Pipeline** | `entity_chunking_service.py`, `insight/insight_generation_service.py` (shell + 3 mixins, July 2026 decomposition), `entity_inference_service.py`, `ku_intelligence_service.py` |
-| **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` |
+| **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` (shell + `calendar_optimization_strategies.py` mixin, July 2026 decomposition; models in `core/models/calendar_optimization.py`) |
 | **Content** | `conversion_service.py`, `content_enrichment_service.py` |
 | **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
 | **System** | `system_service.py`, `schema_service.py`, `performance_optimization_service.py` |
