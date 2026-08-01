@@ -19,9 +19,10 @@ from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
+from adapters.inbound.teaching_api import _save_report_file as _real_save_report_file
 from adapters.inbound.teaching_api import create_teaching_api_routes
 from core.models.enums import UserRole
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 _TEACHER_UID = "user_teacher"
 _SUBMISSION_UID = "entry_1"
@@ -208,6 +209,75 @@ class TestSubmitFeedback:
             teacher_uid=_TEACHER_UID,
             feedback="Good work.",
             file_path="/tmp/feedback.md",
+        )
+
+    def test_service_rejection_removes_saved_feedback_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """The file is written before the service validates status — a refusal
+        (e.g. entry no longer reviewable) must not leave an orphan on disk."""
+        harness = _make_harness(monkeypatch)
+
+        saved = tmp_path / "feedback.md"
+
+        def _write_report_file(teacher_uid: str, submission_uid: str, content: str) -> str:
+            saved.write_text(content, encoding="utf-8")
+            return str(saved)
+
+        monkeypatch.setattr("adapters.inbound.teaching_api._save_report_file", _write_report_file)
+        harness.review.submit_report.return_value = Result.fail(
+            Errors.validation("not in a reviewable status", field="status")
+        )
+
+        response = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/report",
+            headers=_csrf(harness.client),
+            files={"feedback_file": ("feedback.md", b"Good work.", "text/markdown")},
+        )
+
+        assert response.status_code == 200
+        assert "not in a reviewable status" in response.text
+        assert not saved.exists(), "rejected submit must clean up the report file it wrote"
+
+    def test_rejected_retry_never_touches_previously_persisted_feedback(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """Feedback filenames are unique per submit: a retried submit against a
+        completed submission writes (then cleans up) its OWN file — never
+        overwriting or deleting the file an earlier persisted EntryReport
+        references, whose Download link must keep working."""
+        harness = _make_harness(monkeypatch)
+        # This test exercises the real writer against a temp reports tree.
+        monkeypatch.setattr(
+            "adapters.inbound.teaching_api._save_report_file", _real_save_report_file
+        )
+        monkeypatch.setattr("adapters.inbound.teaching_api._REPORTS_DIR", tmp_path)
+        report_dir = tmp_path / _TEACHER_UID / _SUBMISSION_UID
+
+        first = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/report",
+            headers=_csrf(harness.client),
+            files={"feedback_file": ("feedback.md", b"Round one.", "text/markdown")},
+        )
+        assert "submitted successfully" in first.text
+        persisted = list(report_dir.glob("*.md"))
+        assert len(persisted) == 1
+
+        harness.review.submit_report.return_value = Result.fail(
+            Errors.validation("not in a reviewable status", field="status")
+        )
+        retry = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/report",
+            headers=_csrf(harness.client),
+            files={"feedback_file": ("feedback.md", b"Round two.", "text/markdown")},
+        )
+        assert "not in a reviewable status" in retry.text
+
+        assert list(report_dir.glob("*.md")) == persisted, (
+            "the rejected retry must clean up only its own uniquely-named file"
+        )
+        assert persisted[0].read_text(encoding="utf-8") == "Round one.", (
+            "the persisted report's file content must survive the retry untouched"
         )
 
 

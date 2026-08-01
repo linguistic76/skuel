@@ -170,7 +170,11 @@ here; the pre-filled frontmatter is for the student's reference.
 > traversal is no longer the queue path — relying on it hides valid group-shared entries.)
 > This query is THE needs-review rule: scoped by `student_uid` it also feeds the per-student
 > page's Needs Review bucket (`TeacherOrchestrator.get_bucketed_student_submissions`), so the
-> queue and the student page share one copy-revision collapse and cannot drift.
+> queue and the student page share one copy-revision collapse and cannot drift. The same
+> query with `status_filter='revision_requested'` is the queue's **Waiting for resubmit**
+> view (`/teaching/queue?view=waiting`) AND the per-student Revision Requested bucket —
+> there is no dedicated waiting query, so a teacher-visible resubmit automatically moves
+> the lineage from Waiting back to Needs review (feedback-loop UX arc 2, C3).
 > Separately, because `Exercise` extends `Curriculum(Entity)` — NOT `UserOwnedEntity` —
 > `exercise.user_uid` is always `None`; an exercise's owning teacher is resolved via the OWNS
 > edge (`UserEntryBackend.get_exercise_context()` uses the `COALESCE(teacher.uid,

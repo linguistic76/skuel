@@ -57,7 +57,12 @@ def render_feedback_submission_form(submission_uid: str) -> Any:
 
 
 def render_revision_request_form(submission_uid: str) -> Any:
-    """Revision request card — text notes + approve button — for teacher review detail page."""
+    """Revision request card — text notes — for the teacher review detail page.
+
+    No Approve button here: ``approve_report`` accepts only
+    ``revision_requested`` entries, so Approve lives on the waiting card
+    (``render_waiting_actions``), the one place it can succeed.
+    """
     return Card(
         CardBody(
             P(
@@ -80,23 +85,42 @@ def render_revision_request_form(submission_uid: str) -> Any:
                     ),
                     cls="mb-4",
                 ),
-                Div(
-                    Button("Request Revision", cls=ButtonT.secondary, type="submit"),
-                    Button(
-                        "Approve",
-                        cls=ButtonT.primary,
-                        type="button",
-                        hx_post=f"/api/teaching/review/{submission_uid}/approve",
-                        hx_target="#review-result",
-                        hx_swap="innerHTML",
-                        hx_confirm="Approve this submission?",
-                    ),
-                    cls="flex gap-3",
-                ),
+                Button("Request Revision", cls=ButtonT.secondary, type="submit"),
                 hx_post=f"/api/teaching/review/{submission_uid}/revision",
                 hx_target="#review-result",
                 hx_swap="innerHTML",
             ),
+        ),
+        cls="bg-background shadow-sm",
+    )
+
+
+def render_waiting_actions(submission_uid: str) -> Any:
+    """Waiting-for-resubmit card — Approve is the one valid teacher action.
+
+    A revision-requested entry accepts no feedback and no further revision
+    request (both write ops gate on submitted/active); ``approve_report``
+    closes the loop without a resubmit (allowed only from
+    ``revision_requested``).
+    """
+    return Card(
+        CardBody(
+            P("Waiting for the student to resubmit.", cls="text-sm font-medium mb-1"),
+            P(
+                "Feedback actions reopen when a new revision arrives. "
+                "Approve instead to accept the work as it stands and close the loop.",
+                cls="text-sm text-muted-foreground mb-3",
+            ),
+            Button(
+                "Approve",
+                cls=ButtonT.primary,
+                type="button",
+                hx_post=f"/api/teaching/review/{submission_uid}/approve",
+                hx_target="#review-result",
+                hx_swap="innerHTML",
+                hx_confirm="Approve this submission?",
+            ),
+            Div(id="review-result", cls="mt-4"),
         ),
         cls="bg-background shadow-sm",
     )

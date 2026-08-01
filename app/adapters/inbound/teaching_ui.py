@@ -24,6 +24,7 @@ from fasthtml.common import FT, H3, A, Div, Form, P
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
+from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT, Icon
@@ -54,10 +55,15 @@ from ui.teaching.detail import (
     render_submission_content,
     student_detail_sidebar_items,
 )
-from ui.teaching.forms import render_feedback_submission_form, render_revision_request_form
+from ui.teaching.forms import (
+    render_feedback_submission_form,
+    render_revision_request_form,
+    render_waiting_actions,
+)
 from ui.teaching.nav import render_teaching_sidebar_page
 from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
+    NEEDS_REVIEW_STATUSES,
     ClassMember,
     ClassSummary,
     SubmissionDetail,
@@ -75,6 +81,45 @@ logger = get_logger("skuel.routes.teaching.ui")
 # Review-page section tabs. Tab ids are UI naming — "ku" the tab, not the
 # entity_type value (route segments and tab ids never carry enum semantics).
 _REVIEW_TAB_IDS = ("pending", "revision", "completed", "ku")
+
+# Queue views: needs-review (default) and waiting-for-resubmit. View ids are
+# UI naming; each maps to a status set on the SAME scoped queue query, so a
+# resubmit automatically moves the copy from Waiting back to Needs review
+# (feedback-loop UX arc 2, C3).
+_QUEUE_VIEWS: dict[str, str] = {
+    "needs-review": "Student submissions awaiting your review",
+    "waiting": "Revisions you requested, awaiting student resubmission",
+}
+_QUEUE_DEFAULT_VIEW = "needs-review"
+
+
+def _queue_view_tabs(active: str) -> Div:
+    """Link tab pair switching the queue between its two views (full-page GET)."""
+
+    def _tab(label: str, view_id: str, href: str) -> A:
+        is_active = view_id == active
+        return A(
+            label,
+            href=href,
+            role="tab",
+            aria_selected="true" if is_active else "false",
+            cls=(
+                "px-5 py-3 text-base font-semibold border-b-3 transition-colors no-underline "
+                + (
+                    "border-primary text-primary"
+                    if is_active
+                    else "border-transparent text-muted-foreground hover:text-foreground"
+                )
+            ),
+        )
+
+    return Div(
+        _tab("Needs review", "needs-review", "/teaching/queue"),
+        _tab("Waiting for resubmit", "waiting", "/teaching/queue?view=waiting"),
+        role="tablist",
+        aria_label="Queue views",
+        cls="flex border-b border-border mb-4",
+    )
 
 
 def _new_group_modal() -> Any:
@@ -193,19 +238,34 @@ def create_teaching_ui_routes(
     @rt("/teaching/queue")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_queue_page(request: Request, current_user: Any = None) -> Any:
-        """Review queue — pending student submissions."""
+        """Review queue — needs-review (default) and waiting-for-resubmit views."""
         user_uid = require_authenticated_user(request)
 
-        result = await orchestrator.get_review_queue(teacher_uid=user_uid)
+        view_param = request.query_params.get("view")
+        view = view_param if view_param in _QUEUE_VIEWS else _QUEUE_DEFAULT_VIEW
+        waiting = view == "waiting"
+
+        result = await orchestrator.get_review_queue(
+            teacher_uid=user_uid,
+            status_filter=EntityStatus.REVISION_REQUESTED.value if waiting else None,
+        )
 
         if result.is_error:
             queue_content: Any = render_error_banner(
                 "Failed to load review queue", str(result.error)
             )
         elif not result.value:
-            queue_content = EmptyState(
-                "No submissions to review",
-                description="When students submit work against your assignments, it will appear here.",
+            queue_content = (
+                EmptyState(
+                    "Nothing waiting for resubmit",
+                    description="When you request a revision, the submission waits here "
+                    "until the student resubmits.",
+                )
+                if waiting
+                else EmptyState(
+                    "No submissions to review",
+                    description="When students submit work against your assignments, it will appear here.",
+                )
             )
         else:
             queue_content = Div(
@@ -213,7 +273,8 @@ def create_teaching_ui_routes(
             )
 
         content = Div(
-            PageHeader("Review Queue", subtitle="Student submissions awaiting your review"),
+            PageHeader("Review Queue", subtitle=_QUEUE_VIEWS[view]),
+            _queue_view_tabs(view),
             queue_content,
         )
         return render_teaching_sidebar_page(
@@ -306,16 +367,36 @@ def create_teaching_ui_routes(
                 size="sm",
             )
 
+        # Action availability follows the write ops' status gates: feedback and
+        # revision requests accept only submitted/active entries, approve only
+        # revision_requested — never render a form the service must refuse.
+        status_lower = (detail.status or "").lower()
+        if status_lower in NEEDS_REVIEW_STATUSES:
+            action_section: Any = Div(
+                render_feedback_submission_form(uid),
+                render_revision_request_form(uid),
+            )
+        elif status_lower == EntityStatus.REVISION_REQUESTED.value:
+            action_section = render_waiting_actions(uid)
+        else:
+            action_section = P(
+                "This submission is not awaiting review.",
+                cls="text-sm text-muted-foreground italic",
+            )
+
         return Div(
             submission_section,
             feedback_history_section,
-            render_feedback_submission_form(uid),
-            render_revision_request_form(uid),
+            action_section,
             Div(
                 exchange_link,
                 ButtonLink(
                     "Back to Queue",
-                    href="/teaching/queue",
+                    href=(
+                        "/teaching/queue?view=waiting"
+                        if status_lower == EntityStatus.REVISION_REQUESTED.value
+                        else "/teaching/queue"
+                    ),
                     cls=(ButtonT.ghost, "mt-4"),
                     size="sm",
                 ),
