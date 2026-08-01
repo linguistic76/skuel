@@ -1,10 +1,10 @@
 # Feedback-Loop UX — Design & Choices (Arc 2: GradeBook centerpiece, waiting both ways, inbox identity)
 
-**Status:** Draft for founder confirmation — scoped 2026-08-01 after workflow elicitation +
-ground-truth verification (live graph + code map + authed headless-Chrome pass, both roles,
-all nine page-loads clean). Successor to Arc 1
+**Status:** CONFIRMED 2026-08-01 (founder go-ahead; PR 1 in flight) — scoped 2026-08-01
+after workflow elicitation + ground-truth verification (live graph + code map + authed
+headless-Chrome pass, both roles, all nine page-loads clean). Successor to Arc 1
 (`docs/roadmap/feedback-loop-ux-arc.md`, PRs #902–#905). This document is the arc's source
-of truth once confirmed.
+of truth.
 **Related:** ADR-040, ADR-054, PR #895 (newest-copy collapse), Arc 1 contract,
 `docs/patterns/SHARING_PATTERNS.md`, `docs/ui/ROUTE_MAP.md`.
 
