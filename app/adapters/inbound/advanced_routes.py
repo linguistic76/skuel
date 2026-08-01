@@ -36,10 +36,10 @@ from adapters.inbound.route_factories import (
     parse_date_param_strict,
     register_domain_routes,
 )
+from core.models.calendar_optimization import CalendarOptimization, SchedulingStrategy
 from core.orchestrator.calendar_optimization_orchestrator import (
     CalendarOptimizationOrchestrator,
 )
-from core.services.calendar_optimization_service import CalendarOptimization, SchedulingStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 

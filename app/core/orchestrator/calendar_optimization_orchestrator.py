@@ -21,11 +21,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.services.calendar_optimization_service import (
-        CalendarOptimization,
-        CalendarOptimizationService,
-        SchedulingStrategy,
-    )
+    from core.models.calendar_optimization import CalendarOptimization, SchedulingStrategy
+    from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.events_service import EventsService
     from core.services.tasks_service import TasksService
 
