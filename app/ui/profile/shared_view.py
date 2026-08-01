@@ -19,8 +19,12 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, A, Div, Em, P
 
+from core.models.enums.entity_enums import EntityType
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from fasthtml.common import FT
 
     from core.ports.query_types import SharedWithMeItem
 
@@ -35,7 +39,7 @@ from ui.patterns.relative_time import format_relative_time
 from ui.primitives import ButtonLink
 
 
-def _subject_link(title: str, entity_type: str, uid: str | None) -> Any:
+def _subject_link(title: str, entity_type: str, uid: str | None) -> FT:
     """Italicized subject reference, linked when a detail page exists."""
     href = entity_detail_href(entity_type, uid) if uid else None
     if not href:
@@ -43,20 +47,20 @@ def _subject_link(title: str, entity_type: str, uid: str | None) -> Any:
     return A(Em(title), href=href, cls="underline decoration-dotted hover:text-foreground")
 
 
-def _subject_context_line(item: SharedWithMeItem) -> Any:
+def _subject_context_line(item: SharedWithMeItem) -> FT | str:
     """The "on *{exercise}* · in *{path step}*" line, or "" without a subject."""
     ex_title = item.get("subject_exercise_title")
     if not ex_title:
         return ""
-    children: list[Any] = [
+    children: list[FT | str] = [
         "on ",
-        _subject_link(ex_title, "exercise", item.get("subject_exercise_uid")),
+        _subject_link(ex_title, EntityType.EXERCISE.value, item.get("subject_exercise_uid")),
     ]
     ps_title = item.get("subject_ps_title")
     if ps_title:
         children += [
             " · in ",
-            _subject_link(ps_title, "path_step", item.get("subject_ps_uid")),
+            _subject_link(ps_title, EntityType.PATH_STEP.value, item.get("subject_ps_uid")),
         ]
     return P(*children, cls="text-xs text-muted-foreground mt-2 mb-0")
 
