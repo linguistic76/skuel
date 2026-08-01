@@ -209,7 +209,7 @@ class ReportRelationshipService:
         )
 
     async def get_exchange_thread(
-        self, exercise_uid: str, student_uid: str
+        self, exercise_uid: str, student_uid: str, viewer_uid: str | None = None
     ) -> Result[ExchangeThread]:
         """
         One (student, root exercise) exchange — the thread view's single read.
@@ -221,18 +221,25 @@ class ReportRelationshipService:
         Not-found covers BOTH a missing exercise and an exercise this student
         has never submitted against: an empty thread and a nonexistent one are
         deliberately indistinguishable, so the page cannot be used to probe
-        which exercise UIDs exist.
+        which exercise UIDs exist. In teacher mode that includes an exchange
+        whose entries the student directed only to another teacher's classroom
+        — scoped out entirely, it reads as not-found too.
 
         Args:
             exercise_uid: UID of the root exercise.
             student_uid: The student whose exchange to read (already
                 access-checked by the caller when it is not the viewer).
+            viewer_uid: Teacher-mode scope (``None`` = self view) — only
+                entries shared with an active group this viewer owns are in
+                the chain (the Model B entry-level gate).
 
         Returns:
             Result[ExchangeThread] — exercise identity + entries/reports/
             revisions, each ``created_at`` an ISO-8601 string.
         """
-        result = await self.backend.get_exchange_thread_raw(exercise_uid, student_uid)
+        result = await self.backend.get_exchange_thread_raw(
+            exercise_uid, student_uid, viewer_uid=viewer_uid
+        )
         if result.is_error:
             return Result.fail(result)
 

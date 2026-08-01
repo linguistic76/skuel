@@ -375,7 +375,7 @@ class UserEntryReportQueryOperations(Protocol):
         ...
 
     async def get_exchange_thread_raw(
-        self, exercise_uid: str, student_uid: str
+        self, exercise_uid: str, student_uid: str, viewer_uid: str | None = None
     ) -> Result[list[Neo4jProperties]]:
         """One (student, root exercise) exchange chain in a single read.
 
@@ -384,6 +384,11 @@ class UserEntryReportQueryOperations(Protocol):
         (PRIVATE journal reflections excluded — not part of the exchange),
         and the revision requests responding to those reports. All
         ``created_at`` values arrive as ISO-8601 strings.
+
+        ``viewer_uid`` is the teacher-mode scope (``None`` = self view):
+        each entry must be ``SHARED_WITH_GROUP`` an active group the viewer
+        owns, so a multi-class student's work directed to another teacher's
+        classroom stays invisible (the Model B entry-level gate).
 
         Backend: _UserEntryReportQueryMixin.get_exchange_thread_raw
         """

@@ -19,7 +19,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, A, Div, Form, P
+from fasthtml.common import FT, H3, A, Div, Form, P
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
@@ -295,7 +295,7 @@ def create_teaching_ui_routes(
 
         # Exchange thread link (C5): the review page anchors one submission;
         # the thread shows the whole (student, exercise) exchange around it.
-        exchange_link: Any = ""
+        exchange_link: FT | str = ""
         d_exercise_uid = d.get("exercise_uid")
         d_student_uid = d.get("student_uid")
         if d_exercise_uid and d_student_uid:

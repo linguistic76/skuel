@@ -10,6 +10,10 @@ Pins the C5 contract (feedback-loop UX arc):
   of the teacher↔student exchange (the C1 class rule).
 - Scoping is per-student: another student's entries, reports, and revisions
   against the SAME exercise never leak into the thread.
+- Teacher mode applies the Model B entry-level gate: only entries
+  ``SHARED_WITH_GROUP`` an active group the viewer owns are in the chain, so
+  a multi-class student's work directed to another teacher's classroom stays
+  invisible even though both teachers pass the shared-group authority check.
 - Not-found covers a missing exercise AND a student with no entries — an
   empty thread and a nonexistent one are indistinguishable.
 - The orchestrator gate: the viewer reads their own exchange freely; another
@@ -31,16 +35,19 @@ from core.services.report.report_relationship_service import ReportRelationshipS
 from core.services.report.teacher_review_service import TeacherReviewService
 
 TEACHER = "user_ext_teacher"
-OTHER_TEACHER = "user_ext_other_teacher"
+SECOND_TEACHER = "user_ext_second_teacher"  # student's OTHER class
+OTHER_TEACHER = "user_ext_other_teacher"  # no shared group with STUDENT
 STUDENT = "user_ext_student"
 OTHER_STUDENT = "user_ext_other_student"
 GROUP_UID = "group_ext"
+SECOND_GROUP_UID = "group_ext_second"  # STUDENT's other class
 OTHER_GROUP_UID = "group_ext_other"
 
 EX = "ex_ext_root"
 E1 = "ue_ext_rev1"  # direct turn-in, revision 1
 E2 = "ue_ext_rev2"  # direct turn-in, revision 2 — carries the reports
 E3 = "ue_ext_via_revised"  # entry against the revision request
+E_SECOND = "ue_ext_second_class"  # shared ONLY with SECOND_TEACHER's group
 R_SHARED = "er_ext_shared"  # teacher feedback on E2 — in the thread
 R_PRIVATE = "er_ext_private"  # self-owned journal reflection — excluded
 REVISED = "re_ext_revision"  # revision request responding to R_SHARED
@@ -92,23 +99,28 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
 
     STUDENT's chain: rev-1 and rev-2 turn-ins, a shared teacher report and a
     PRIVATE reflection on rev 2, a revision request responding to the shared
-    report, and a follow-up entry against that revision. OTHER_STUDENT has
+    report, and a follow-up entry against that revision — all shared with
+    TEACHER's group. STUDENT is multi-class: a fourth entry on the same
+    exercise is shared ONLY with SECOND_TEACHER's group. OTHER_STUDENT has
     their own entry/report/revision on the SAME exercise — none of it may
-    appear in STUDENT's thread. TEACHER shares an active group with STUDENT;
-    OTHER_TEACHER does not.
+    appear in STUDENT's thread. OTHER_TEACHER shares no group with STUDENT.
     """
     async with neo4j_driver.session() as session:
         await session.run(
             """
             MERGE (t:User {uid: $teacher})
+            MERGE (st:User {uid: $second_teacher})
             MERGE (ot:User {uid: $other_teacher})
             MERGE (s:User {uid: $student})
             MERGE (os:User {uid: $other_student})
             MERGE (g:Group {uid: $group}) SET g.is_active = true
+            MERGE (sg:Group {uid: $second_group}) SET sg.is_active = true
             MERGE (g2:Group {uid: $other_group}) SET g2.is_active = true
             MERGE (t)-[:OWNS]->(g)
+            MERGE (st)-[:OWNS]->(sg)
             MERGE (ot)-[:OWNS]->(g2)
             MERGE (s)-[:MEMBER_OF]->(g)
+            MERGE (s)-[:MEMBER_OF]->(sg)
             MERGE (os)-[:MEMBER_OF]->(g2)
             CREATE (ex:Entity:Exercise {
                 uid: $ex, entity_type: 'exercise', title: 'Root exercise',
@@ -146,6 +158,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 status: 'submitted', pipeline: 'teacher_review',
                 created_at: datetime() - duration('PT30M'), updated_at: datetime()
             })
+            CREATE (esc:Entity:UserEntry {
+                uid: $e_second, entity_type: 'user_entry', title: 'Second-class turn-in',
+                status: 'submitted', pipeline: 'teacher_review',
+                created_at: datetime() - duration('PT20M'), updated_at: datetime()
+            })
             CREATE (oe:Entity:UserEntry {
                 uid: $o_entry, entity_type: 'user_entry', title: 'Other student turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
@@ -165,13 +182,20 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (s)-[:OWNS]->(e1)
             MERGE (s)-[:OWNS]->(e2)
             MERGE (s)-[:OWNS]->(e3)
+            MERGE (s)-[:OWNS]->(esc)
             MERGE (s)-[:OWNS]->(r1)
             MERGE (s)-[:OWNS]->(rp)
             MERGE (os)-[:OWNS]->(oe)
             MERGE (os)-[:OWNS]->(orep)
             MERGE (e1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex)
             MERGE (e2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex)
+            MERGE (esc)-[:FULFILLS_EXERCISE {revision: 3}]->(ex)
             MERGE (oe)-[:FULFILLS_EXERCISE {revision: 1}]->(ex)
+            MERGE (e1)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (e2)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (e3)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (esc)-[:SHARED_WITH_GROUP]->(sg)
+            MERGE (oe)-[:SHARED_WITH_GROUP]->(g2)
             MERGE (r1)-[:REPORT_FOR]->(e2)
             MERGE (rp)-[:REPORT_FOR]->(e2)
             MERGE (orep)-[:REPORT_FOR]->(oe)
@@ -182,15 +206,18 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (e3)-[:FULFILLS_REVISED_EXERCISE]->(re)
             """,
             teacher=TEACHER,
+            second_teacher=SECOND_TEACHER,
             other_teacher=OTHER_TEACHER,
             student=STUDENT,
             other_student=OTHER_STUDENT,
             group=GROUP_UID,
+            second_group=SECOND_GROUP_UID,
             other_group=OTHER_GROUP_UID,
             ex=EX,
             e1=E1,
             e2=E2,
             e3=E3,
+            e_second=E_SECOND,
             r_shared=R_SHARED,
             r_private=R_PRIVATE,
             revised=REVISED,
@@ -212,7 +239,9 @@ class TestExchangeChainRead:
 
         assert thread["exercise_uid"] == EX
         assert thread["exercise_title"] == "Root exercise"
-        assert {e["uid"] for e in thread["entries"]} == {E1, E2, E3}
+        assert {e["uid"] for e in thread["entries"]} == {E1, E2, E3, E_SECOND}, (
+            "the self view spans ALL the student's classes"
+        )
         assert {r["uid"] for r in thread["reports"]} == {R_SHARED}
         assert {r["uid"] for r in thread["revisions"]} == {REVISED}
 
@@ -259,7 +288,7 @@ class TestExchangeAccessGate:
     async def test_student_reads_own_exchange(self, orchestrator, seeded) -> None:
         result = await orchestrator.get_exchange_thread(viewer_uid=STUDENT, exercise_uid=EX)
         assert result.is_ok
-        assert {e["uid"] for e in result.value["entries"]} == {E1, E2, E3}
+        assert {e["uid"] for e in result.value["entries"]} == {E1, E2, E3, E_SECOND}
 
     async def test_group_teacher_reads_student_exchange(self, orchestrator, seeded) -> None:
         result = await orchestrator.get_exchange_thread(
@@ -267,6 +296,28 @@ class TestExchangeAccessGate:
         )
         assert result.is_ok
         assert result.value["student_uid"] == STUDENT
+
+    async def test_teacher_mode_scopes_to_own_classroom(self, orchestrator, seeded) -> None:
+        """Multi-class student: each teacher sees only entries shared with THEIR group.
+
+        Both teachers pass the shared-group authority check; the entry-level
+        gate must still partition the chain — reports/revisions hang off the
+        entries, so the second teacher sees neither of them either.
+        """
+        first = await orchestrator.get_exchange_thread(
+            viewer_uid=TEACHER, exercise_uid=EX, student_uid=STUDENT
+        )
+        assert first.is_ok
+        assert {e["uid"] for e in first.value["entries"]} == {E1, E2, E3}
+        assert E_SECOND not in {e["uid"] for e in first.value["entries"]}
+
+        second = await orchestrator.get_exchange_thread(
+            viewer_uid=SECOND_TEACHER, exercise_uid=EX, student_uid=STUDENT
+        )
+        assert second.is_ok
+        assert {e["uid"] for e in second.value["entries"]} == {E_SECOND}
+        assert second.value["reports"] == []
+        assert second.value["revisions"] == []
 
     async def test_unrelated_teacher_gets_not_found(self, orchestrator, seeded) -> None:
         """No shared active group → the same not-found a missing exercise yields."""

@@ -152,7 +152,7 @@ class _UserEntryReportQueryMixin:
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
 
     async def get_exchange_thread_raw(
-        self, exercise_uid: str, student_uid: str
+        self, exercise_uid: str, student_uid: str, viewer_uid: str | None = None
     ) -> Result[list[Neo4jProperties]]:
         """One (student, root exercise) exchange — the whole chain in one read.
 
@@ -164,6 +164,14 @@ class _UserEntryReportQueryMixin:
         respond to those reports. Revisions are scoped through the chain's own
         reports, so another student's revision of the same exercise never
         appears.
+
+        ``viewer_uid`` is the teacher-mode scope (NULL = the student reading
+        their own exchange): each entry must itself be ``SHARED_WITH_GROUP``
+        an active group the viewer owns — the Model B entry-level gate
+        (``get_entry_detail_for_teacher``). Merely sharing *some* group with
+        a multi-class student must not expose work the student directed only
+        to another teacher's classroom; reports and revisions hang off the
+        entries, so gating the entries gates the whole chain.
 
         PRIVATE reports are excluded — a self-owned journal reflection is the
         student's own artifact, not part of the teacher↔student exchange
@@ -177,10 +185,15 @@ class _UserEntryReportQueryMixin:
         Returns a single row: ``exercise`` (NULL when the UID matches no
         exercise), ``entries``, ``reports``, ``revisions``.
         """
+        viewer_gate = f"""($viewer_uid IS NULL OR EXISTS {{
+            MATCH (%s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
+                  <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $viewer_uid}})
+        }})"""
         query = f"""
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: $exercise_uid}})
         OPTIONAL MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(direct:Entity:UserEntry)
                        -[f:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+        WHERE {viewer_gate % "direct"}
         WITH ex,
              collect(DISTINCT direct {{.uid, .title, .status, created_at: toString(direct.created_at),
                                        revision: f.revision, via_revised_uid: NULL}}) AS direct_rows,
@@ -188,6 +201,7 @@ class _UserEntryReportQueryMixin:
         OPTIONAL MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(rentry:Entity:UserEntry)
                        -[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(rex:Entity:RevisedExercise)
                        -[:{RelationshipName.REVISES_EXERCISE.value}]->(ex)
+        WHERE {viewer_gate % "rentry"}
         WITH ex, direct_rows, direct_nodes,
              collect(DISTINCT rentry {{.uid, .title, .status, created_at: toString(rentry.created_at),
                                        revision: NULL, via_revised_uid: rex.uid}}) AS revised_rows,
@@ -215,6 +229,7 @@ class _UserEntryReportQueryMixin:
             {
                 "exercise_uid": exercise_uid,
                 "student_uid": student_uid,
+                "viewer_uid": viewer_uid,
                 "private_visibility": Visibility.PRIVATE.value,
             },
         )
