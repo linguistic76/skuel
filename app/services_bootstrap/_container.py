@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
     from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
+    from core.orchestrator.search_router import SearchRouter
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
@@ -109,7 +110,6 @@ from core.ports import (
     LifePathOperations,
     QueryExecutor,
     RevisedExerciseOperations,
-    SearchOperations,
     SharingOperations,
     SystemServiceOperations,
     TeacherReviewOperations,
@@ -301,7 +301,8 @@ class Services:
     )
 
     # Search infrastructure (One Path Forward, January 2026)
-    search_router: SearchOperations | None = None  # SearchRouter - THE path for all search
+    # Concrete class like the other orchestrator fields — the router IS the contract.
+    search_router: "SearchRouter | None" = None  # THE path for all search
 
     # Orchestration services
     # Note: principles moved to Activity Domains section above

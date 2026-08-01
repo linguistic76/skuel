@@ -13,10 +13,11 @@ Protocol Categories:
    - GoalsSearchOperations - Goals domain search
    - ChoicesSearchOperations - Choices domain search
    - PrinciplesSearchOperations - Principles domain search
-3. SearchOperations - Cross-domain unified search
+3. ScopedChunkRetrievalOperations - Chunk-level (RAG) retrieval (SearchRouter's ISP slice)
 4. QueryBuilderOperations - Cypher query building
 5. CypherOperations - Query execution
 6. SearchIndexOperations - Index management
+7. Supports* capability protocols - per-call narrowing for SearchRouter dispatch
 
 - v2.0.0: Added DomainSearchOperations[T] protocol for activity domain search services
 """
@@ -39,7 +40,11 @@ if TYPE_CHECKING:
     from core.models.principle.principle import Principle as Principle
     from core.models.search_request import SearchRequest
     from core.models.task.task import Task as Task
-    from core.ports.query_types import SearchEventProps, SearchGapRow
+    from core.ports.query_types import (
+        SearchEventProps,
+        SearchGapRow,
+        SemanticSearchChunkResult,
+    )
     from core.services.user import UserContext
 
 # Generic type variable for domain entities
@@ -352,6 +357,12 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
     """
 
     # --- Habit-specific methods ---
+    async def enrich_with_goal_links(
+        self, habits: list["Habit"], active_goal_uids: list[str] | None = None
+    ) -> list["Habit"]:
+        """Populate each habit's derived ``supports_goal_uid`` from its SUPPORTS_GOAL edge."""
+        ...
+
     async def get_by_frequency(self, frequency: str, limit: int = 100) -> Result[list["Habit"]]:
         """Get habits by frequency pattern."""
         ...
@@ -582,26 +593,24 @@ class Retrievable(Protocol):
         ...
 
 
-@runtime_checkable
-class SearchOperations(Protocol):
-    """Core search operations."""
+class ScopedChunkRetrievalOperations(Protocol):
+    """Chunk-level (RAG) retrieval scoped by SearchRequest facets.
 
-    async def search(
+    The narrow slice of SearchRouter that Askesis's ContextRetriever holds —
+    grounding-passage retrieval, nothing else (ISP). Satisfied by
+    ``core.orchestrator.search_router.SearchRouter``; conformance is checked
+    where compose post-wires the router onto the retriever.
+    """
+
+    async def retrieve_scoped_chunks(
         self,
-        query: str,
-        domain: str | None = None,
-        filters: Metadata | None = None,
-        limit: int = 25,
-    ) -> list[Metadata]:
-        """Perform a search with optional domain and filters."""
-        ...
-
-    async def search_by_domain(self, query: str, domain: str, limit: int = 25) -> list[Metadata]:
-        """Search within a specific domain."""
-        ...
-
-    async def unified_search(self, query: str) -> dict[str, list[Metadata]]:
-        """Search across all domains, returns results grouped by domain."""
+        request: "SearchRequest",
+        *,
+        chunk_types: list[str] | None = None,
+        min_score: float | None = None,
+        user_uid: UserUID | None = None,
+    ) -> Result[list["SemanticSearchChunkResult"]]:
+        """Retrieve lesson-BODY passages scoped to the request's facets."""
         ...
 
 
@@ -672,6 +681,32 @@ class SearchIndexOperations(Protocol):
 # These protocols enable type-safe capability checking for advanced search
 # features. Use isinstance(service, Protocol) instead of hasattr().
 # See: SKUEL011 linter rule - "No hasattr() in production code"
+
+
+@runtime_checkable
+class SupportsTextSearch(Protocol):
+    """
+    Protocol for services with plain owner-scoped text search capability.
+
+    The baseline capability SearchRouter dispatches to: facade domains carry it
+    on their ``.search`` sub-service (SearchOperationsMixin), thin services
+    (Exercise, UserEntry, ...) implement it directly on the service.
+
+    Use isinstance(service, SupportsTextSearch) to narrow the heterogeneous
+    domain-service union before calling search(). Note runtime_checkable
+    isinstance checks attribute PRESENCE only — SearchRouter additionally
+    keeps its callable() check to tell "``.search`` is the sub-service"
+    apart from "``.search`` is the method".
+    """
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 50,
+        user_uid: UserUID | None = None,
+    ) -> Result[list[Any]]:
+        """Text search on the domain's configured fields, owner-scoped by user_uid."""
+        ...
 
 
 @runtime_checkable

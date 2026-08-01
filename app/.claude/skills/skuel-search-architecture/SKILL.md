@@ -31,7 +31,7 @@ SearchRouter (THE Orchestrator):
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **Orchestrator** | `/core/models/search/search_router.py` | THE single path |
+| **Orchestrator** | `/core/orchestrator/search_router.py` | THE single path |
 | **Models** | `/core/models/search_request.py` | SearchRequest/SearchResponse |
 | **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling |
 | **Domain Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain logic |

@@ -8,18 +8,20 @@ silently return not_found — user entries were unsearchable for months while
 every surface claimed otherwise.
 
 No live database needed: the registry guards introspect the ``Services``
-dataclass fields; the routing guards monkeypatch the router's internals.
+dataclass fields and the router's own constructor signature (explicit DI —
+compose passes ``services.<name>`` for each same-named parameter); the routing
+guards monkeypatch the router's internals.
 """
 
 import dataclasses
-from types import SimpleNamespace
+import inspect
 
 import pytest
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.ps_content.content_chunks import ContentChunkType
-from core.models.search.search_router import SearchRouter, UnifiedSearchResult
 from core.models.search_request import SearchRequest
+from core.orchestrator.search_router import SearchRouter, UnifiedSearchResult
 from services_bootstrap import Services
 
 SERVICES_FIELD_NAMES = {f.name for f in dataclasses.fields(Services)}
@@ -53,6 +55,45 @@ class TestRegistryCompleteness:
             "getattr(services, attr, None) degrades this to a silent not_found at runtime."
         )
 
+    def test_registry_keys_match_constructor_service_dict(self) -> None:
+        """Every _SERVICE_REGISTRY key is dispatchable: __init__ builds a
+        _domain_services entry for it (and nothing extra)."""
+        router = SearchRouter()
+        assert set(router._domain_services) == set(SearchRouter._SERVICE_REGISTRY), (
+            "_SERVICE_REGISTRY and the constructor-built _domain_services dict "
+            "disagree — an enum routed by the registry has no constructor "
+            "parameter carrying its service (or vice versa)."
+        )
+
+    def test_registry_attributes_are_constructor_params(self) -> None:
+        """Every _SERVICE_REGISTRY value names a SearchRouter.__init__ parameter.
+
+        The explicit-DI counterpart of the Services-field check: compose passes
+        ``services.<name>`` to the parameter of the same name, so a registry
+        value without a matching parameter is a domain search silently lost.
+        """
+        params = set(inspect.signature(SearchRouter.__init__).parameters) - {"self"}
+        phantom = {
+            et: attr for et, attr in SearchRouter._SERVICE_REGISTRY.items() if attr not in params
+        }
+        assert not phantom, (
+            f"_SERVICE_REGISTRY names constructor parameters that do not exist: {phantom}."
+        )
+
+    def test_constructor_params_exist_on_services_container(self) -> None:
+        """Every SearchRouter.__init__ parameter is a real Services field.
+
+        Pins the name-for-name convention compose relies on
+        (``SearchRouter(tasks=services.tasks, ...)``) — a container rename
+        must rename the router parameter with it.
+        """
+        params = set(inspect.signature(SearchRouter.__init__).parameters) - {"self"}
+        phantom = sorted(params - SERVICES_FIELD_NAMES)
+        assert not phantom, (
+            f"SearchRouter.__init__ takes parameters with no Services field: {phantom}. "
+            "compose.py wires each parameter from the same-named container field."
+        )
+
     def test_graph_aware_domain_strings_exist_on_services_container(self) -> None:
         """_GRAPH_AWARE_DOMAINS strings are used directly as Services attributes."""
         phantom = sorted(SearchRouter._GRAPH_AWARE_DOMAINS - SERVICES_FIELD_NAMES)
@@ -67,7 +108,7 @@ class TestUserEntryPrivacyLine:
 
     @pytest.mark.asyncio
     async def test_search_without_user_uid_is_refused(self) -> None:
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
 
         result = await router.search(EntityType.USER_ENTRY, "anything")
 
@@ -77,7 +118,7 @@ class TestUserEntryPrivacyLine:
     @pytest.mark.asyncio
     async def test_cross_domain_sweep_excludes_user_entry(self, monkeypatch) -> None:
         """The default 'All Types' sweep never touches the UserEntry store."""
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         swept_types: list[EntityType | NonKuDomain] = []
         swept_uids: list[str | None] = []
 
@@ -100,7 +141,7 @@ class TestUserEntryPrivacyLine:
     @pytest.mark.asyncio
     async def test_explicit_multi_type_filter_includes_user_entry(self, monkeypatch) -> None:
         """[USER_ENTRY, TASK] narrows the sweep and keeps entries (scoped)."""
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         swept_types: list[EntityType | NonKuDomain] = []
         swept_uids: list[str | None] = []
 
@@ -123,7 +164,7 @@ class TestUserEntryPrivacyLine:
     @pytest.mark.asyncio
     async def test_faceted_user_entry_without_user_is_refused(self) -> None:
         """A user_entry faceted request with no user fails loudly, not empty-ok."""
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
 
         request = SearchRequest(query_text="anything", entity_types=[EntityType.USER_ENTRY])
         result = await router.faceted_search(request, user_uid=None)
@@ -135,10 +176,10 @@ class TestUserEntryPrivacyLine:
     async def test_advanced_search_skips_user_entry(self) -> None:
         """Cross-domain advanced search (unscoped strategies) skips UserEntry.
 
-        The empty Services namespace would raise (→ error Result) if the loop
-        reached get_service, so an ok/empty result proves the skip fired first.
+        USER_ENTRY is excluded from eligibility before any service lookup —
+        an ok/empty result (never a not_found error) proves the skip fired.
         """
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
 
         request = SearchRequest(query_text="anything", entity_types=[EntityType.USER_ENTRY])
         result = await router.advanced_search(request)
@@ -152,26 +193,26 @@ class TestSingleEntityTypeRouting:
     """The /search dropdown filter routes to the single-domain path."""
 
     def test_user_entry_filter_resolves_to_user_entry_domain(self) -> None:
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         request = SearchRequest(query_text="x", entity_types=[EntityType.USER_ENTRY])
 
         assert router._resolve_single_domain(request) == "user_entry"
 
     def test_task_filter_resolves_to_tasks_domain(self) -> None:
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         request = SearchRequest(query_text="x", entity_types=[EntityType.TASK])
 
         assert router._resolve_single_domain(request) == "tasks"
 
     def test_no_filter_resolves_to_none(self) -> None:
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         request = SearchRequest(query_text="x")
 
         assert router._resolve_single_domain(request) is None
 
     def test_multiple_filters_resolve_to_none(self) -> None:
         """Two or more entity types stay on the cross-domain path."""
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         request = SearchRequest(query_text="x", entity_types=[EntityType.TASK, EntityType.GOAL])
 
         assert router._resolve_single_domain(request) is None
@@ -179,7 +220,7 @@ class TestSingleEntityTypeRouting:
     def test_ku_filter_resolves_to_ku_domain(self) -> None:
         """Ku is a searchable curriculum domain — the /search 'Knowledge
         Units' dropdown option routes to the single-domain path."""
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         request = SearchRequest(query_text="x", entity_types=[EntityType.KU])
 
         assert router._resolve_single_domain(request) == "ku"
@@ -188,7 +229,7 @@ class TestSingleEntityTypeRouting:
         """LIFE_PATH is registered for get_service but NOT searchable — the
         dropdown filter must stay consistent with search()'s supports_search()
         gate."""
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         request = SearchRequest(query_text="x", entity_types=[EntityType.LIFE_PATH])
 
         assert router._resolve_single_domain(request) is None
@@ -196,7 +237,7 @@ class TestSingleEntityTypeRouting:
     @pytest.mark.asyncio
     async def test_user_entry_filter_routes_graph_aware_with_user(self, monkeypatch) -> None:
         """user_entry filter + user → OWNS-scoped graph-aware domain search."""
-        router = SearchRouter(services=SimpleNamespace())
+        router = SearchRouter()
         captured: dict[str, str] = {}
 
         async def fake_graph_aware(request, user_uid, domain_str):

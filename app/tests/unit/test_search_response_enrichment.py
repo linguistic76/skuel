@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fasthtml.common import to_xml
 
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest, SearchResponse, build_facet_counts
+from core.orchestrator.search_router import SearchRouter
 from core.services.user.unified_user_context import UserContext
 
 # ============================================================================
@@ -114,32 +114,31 @@ class TestCapacityWarnings:
 
 class TestPeekCapacityWarnings:
     def test_missing_user_service_is_empty(self) -> None:
-        services = MagicMock(spec=[])  # no .user attribute at all
-        router = SearchRouter(services)
+        router = SearchRouter()  # no user service wired
         assert router._peek_capacity_warnings("user_x") == {}
 
     def test_cold_cache_is_empty(self) -> None:
-        services = MagicMock()
-        services.user.peek_cached_context.return_value = None
-        router = SearchRouter(services)
+        user = MagicMock()
+        user.peek_cached_context.return_value = None
+        router = SearchRouter(user=user)
         assert router._peek_capacity_warnings("user_x") == {}
-        services.user.peek_cached_context.assert_called_once_with("user_x")
+        user.peek_cached_context.assert_called_once_with("user_x")
 
     def test_warm_cache_yields_context_warnings(self) -> None:
-        services = MagicMock()
-        services.user.peek_cached_context.return_value = _context(
+        user = MagicMock()
+        user.peek_cached_context.return_value = _context(
             current_workload_score=0.9, active_task_uids=["t1"]
         )
-        router = SearchRouter(services)
+        router = SearchRouter(user=user)
         warnings = router._peek_capacity_warnings("user_x")
         assert warnings["workload"]["level"] == "high"
 
     def test_never_calls_the_building_path(self) -> None:
-        services = MagicMock()
-        services.user.peek_cached_context.return_value = None
-        router = SearchRouter(services)
+        user = MagicMock()
+        user.peek_cached_context.return_value = None
+        router = SearchRouter(user=user)
         router._peek_capacity_warnings("user_x")
-        services.user.get_rich_unified_context.assert_not_called()
+        user.get_rich_unified_context.assert_not_called()
 
 
 # ============================================================================
@@ -149,9 +148,9 @@ class TestPeekCapacityWarnings:
 
 @pytest.mark.asyncio
 async def test_faceted_search_populates_enrichment_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    services = MagicMock()
-    services.user.peek_cached_context.return_value = _context(overdue_task_uids=["t1"])
-    router = SearchRouter(services)
+    user = MagicMock()
+    user.peek_cached_context.return_value = _context(overdue_task_uids=["t1"])
+    router = SearchRouter(user=user)
     router._publish_search_event = AsyncMock()
 
     cross_results: list[dict[str, Any]] = [
@@ -179,9 +178,9 @@ async def test_faceted_search_populates_enrichment_fields(monkeypatch: pytest.Mo
 async def test_faceted_search_respects_include_facet_counts_flag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    services = MagicMock()
-    services.user.peek_cached_context.return_value = None
-    router = SearchRouter(services)
+    user = MagicMock()
+    user.peek_cached_context.return_value = None
+    router = SearchRouter(user=user)
     router._publish_search_event = AsyncMock()
 
     async def fake_cross_domain(request: Any, user_uid: Any) -> list[dict[str, Any]]:

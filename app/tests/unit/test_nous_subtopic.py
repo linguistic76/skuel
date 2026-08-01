@@ -21,8 +21,8 @@ from fasthtml.common import to_xml
 
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
+from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
 from ui.askesis.chat import render_askesis_shell
 from ui.search.components import (
@@ -90,9 +90,7 @@ class TestScopedChunkRetrievalHonorsSubtopic:
         """to_property_filters feeds chunk parent_filters — sub-topic scoping is free."""
         vector_search = MagicMock()
         vector_search.find_similar_chunks_by_text = AsyncMock(return_value=Result.ok([]))
-        services = MagicMock()
-        services.vector_search_service = vector_search
-        router = SearchRouter(services)
+        router = SearchRouter(vector_search_service=vector_search)
 
         request = SearchRequest(
             query_text="what is the vagus nerve?", nous="body", nous_subtopic="nervous-system"
@@ -292,18 +290,13 @@ class TestSearchRouterNousSubtopicMerge:
     layer, not in a single-domain backend (Codex #551 P1)."""
 
     def _router(self, ku_pairs: list[dict[str, Any]], ps_pairs: list[dict[str, Any]]) -> Any:
-        from core.models.enums.entity_enums import EntityType
-        from core.models.search.search_router import SearchRouter
+        from core.orchestrator.search_router import SearchRouter
 
-        router = SearchRouter.__new__(SearchRouter)
-        router.logger = MagicMock()  # type: ignore[misc]
         ku_service = MagicMock()
         ku_service.nous_subtopic_pairs = AsyncMock(return_value=Result.ok(ku_pairs))
         ps_service = MagicMock()
         ps_service.nous_subtopic_pairs = AsyncMock(return_value=Result.ok(ps_pairs))
-        services = {EntityType.KU: ku_service, EntityType.PATH_STEP: ps_service}
-        router.get_service = MagicMock(side_effect=services.get)  # type: ignore[method-assign]
-        return router
+        return SearchRouter(ku=ku_service, ps=ps_service)
 
     @pytest.mark.asyncio
     async def test_map_merges_ku_and_pathstep_pairs(self) -> None:

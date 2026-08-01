@@ -18,8 +18,8 @@ from neo4j.exceptions import ServiceUnavailable
 
 from core.events import EVENT_REGISTRY, SearchExecuted
 from core.models.enums.entity_enums import EntityType
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest, SearchResponse
+from core.orchestrator.search_router import SearchRouter
 from core.services.search_event_recorder import SearchEventRecorder
 from core.utils.result_simplified import Errors, Result
 
@@ -120,11 +120,10 @@ async def test_recorder_fail_soft_on_database_exception() -> None:
 
 
 def _router_with_bus() -> tuple[SearchRouter, AsyncMock]:
-    services = MagicMock()
     publish = AsyncMock()
-    services.event_bus = MagicMock()
-    services.event_bus.publish_async = publish
-    return SearchRouter(services), publish
+    bus = MagicMock()
+    bus.publish_async = publish
+    return SearchRouter(event_bus=bus), publish
 
 
 def _published_events(publish: AsyncMock) -> list[SearchExecuted]:

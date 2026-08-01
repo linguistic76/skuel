@@ -4,7 +4,7 @@
 
 ---
 
-## SearchRouter Methods (`core/models/search/search_router.py`)
+## SearchRouter Methods (`core/orchestrator/search_router.py`)
 
 ```python
 # Single domain — type-safe dispatch by EntityType

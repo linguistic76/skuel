@@ -38,9 +38,9 @@ from core.models.enums import LearningLevel, SearchVisibility, SELCategory
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.models.task.task import Task
+from core.orchestrator.search_router import SearchRouter
 from core.services.domain_config import DomainConfig
 from core.utils.result_simplified import Result
 
@@ -242,7 +242,7 @@ def _mock_task_service() -> MagicMock:
 @pytest.fixture
 def router() -> tuple[SearchRouter, MagicMock]:
     service = _mock_task_service()
-    return SearchRouter(services=SimpleNamespace(tasks=service)), service
+    return SearchRouter(tasks=service), service
 
 
 class TestAdvancedSearchScoping:
@@ -310,9 +310,7 @@ class TestAdvancedSearchScoping:
         skips TASK fail-closed — EXERCISE must get the FULL limit budget,
         not half of it."""
         exercise_service = _mock_task_service()
-        search_router = SearchRouter(
-            services=SimpleNamespace(tasks=_mock_task_service(), exercises=exercise_service)
-        )
+        search_router = SearchRouter(tasks=_mock_task_service(), exercises=exercise_service)
         request = SearchRequest(
             query_text="Alpha",
             entity_types=[EntityType.TASK, EntityType.EXERCISE],

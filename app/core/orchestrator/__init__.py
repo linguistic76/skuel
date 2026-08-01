@@ -15,4 +15,6 @@ Implemented orchestrators:
 - PathwaysOrchestrator                 — Pathways UI (LpService + UserProgressService)
 - LateralRelationshipsOrchestrator     — Lateral Relationships API
 - CalendarOptimizationOrchestrator     — Calendar Optimization API
+- SearchRouter                         — Cross-domain search (THE single path for
+                                          all external search access)
 """

@@ -17,15 +17,13 @@ in this store, so owner-only scoping is the privacy line.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.orchestrator.search_router import SearchRouter
 
 OWNER_UID = "user_ue_search_owner"
 OTHER_UID = "user_ue_search_other"
@@ -33,8 +31,8 @@ OTHER_UID = "user_ue_search_other"
 
 @pytest.fixture
 def search_router(user_entry_service) -> SearchRouter:
-    """SearchRouter over a Services stand-in exposing only user_entry."""
-    return SearchRouter(services=SimpleNamespace(user_entry=user_entry_service))
+    """SearchRouter wired with only the user_entry domain."""
+    return SearchRouter(user_entry=user_entry_service)
 
 
 async def _seed_entries(user_entry_service, seed_user) -> dict[str, str]:

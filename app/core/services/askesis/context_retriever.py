@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     from core.models.resource.resource import Resource
     from core.models.search_request import SearchRequest
     from core.ports.query_types import RichPathStepItem
+    from core.ports.search_protocols import ScopedChunkRetrievalOperations
     from core.services.ps_engagement.engagement import Engagement
     from core.services.user import UserContext
 
@@ -199,8 +200,10 @@ class ContextRetriever:
 
         # SearchRouter — THE single path for external chunk (RAG) retrieval.
         # Post-wired in compose after the router is built (it is constructed
-        # after Askesis in bootstrap), never a constructor param.
-        self.search_router: Any = None  # boundary: SearchRouter — post-wired in compose
+        # after Askesis in bootstrap), never a constructor param. Typed against
+        # the ISP slice the retriever actually uses, so compose's post-wire
+        # assignment is a real conformance check.
+        self.search_router: "ScopedChunkRetrievalOperations | None" = None
 
         # PS bundle dependencies
         self.ps_service = ps_service
@@ -932,6 +935,10 @@ class ContextRetriever:
             List of dicts shaped like SemanticSearchChunkResult; empty on search error.
         """
         from core.models.search_request import SearchRequest
+
+        if self.search_router is None:
+            logger.warning("Chunk retrieval skipped: SearchRouter not wired")
+            return []
 
         request = (
             scope.model_copy(update={"query_text": query, "limit": 5})

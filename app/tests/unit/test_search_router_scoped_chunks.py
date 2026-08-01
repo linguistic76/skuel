@@ -8,15 +8,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.ps_content.content_chunks import ContentChunkType
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
+from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
 
 
 def _router_with_vector_search(vector_search: Any | None) -> SearchRouter:
-    services = MagicMock()
-    services.vector_search_service = vector_search
-    return SearchRouter(services)
+    return SearchRouter(vector_search_service=vector_search)
 
 
 @pytest.mark.anyio

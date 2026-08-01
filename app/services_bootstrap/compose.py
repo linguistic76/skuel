@@ -1885,10 +1885,32 @@ async def compose_services(
         # Activity Domains → graph_aware_faceted_search()
         # Curriculum Domains → simple text search via domain services
         # Cross-domain → aggregates from all searchable domains
-        from core.models.search.search_router import SearchRouter
+        from core.orchestrator.search_router import SearchRouter
 
-        search_router = SearchRouter(services)
-        services.search_router = search_router  # type: ignore[assignment]  # SearchRouter implements SearchOperations
+        # Explicit DI: each keyword matches the Services field of the same name
+        # (the invariant test_search_router_registry pins), so a container
+        # rename can no longer silently strand a domain out of search.
+        search_router = SearchRouter(
+            tasks=services.tasks,
+            goals=services.goals,
+            habits=services.habits,
+            events=services.events,
+            choices=services.choices,
+            principles=services.principles,
+            finance=services.finance,
+            ku=services.ku,
+            ps=services.ps,
+            lp=services.lp,
+            exercises=services.exercises,
+            revised_exercises=services.revised_exercises,
+            user_entry=services.user_entry,
+            lifepath=services.lifepath,
+            calendar=services.calendar,
+            user=services.user,
+            vector_search_service=services.vector_search_service,
+            event_bus=services.event_bus,
+        )
+        services.search_router = search_router
         logger.info("✅ SearchRouter created (One Path Forward)")
 
         # Post-wire SearchRouter onto Askesis's ContextRetriever — chunk (RAG)

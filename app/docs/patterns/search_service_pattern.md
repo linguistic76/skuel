@@ -554,7 +554,7 @@ class PsService:
 - `/core/ports/search_protocols.py` - Protocol definition
 - `/core/services/base_service.py` - BaseService with generic filter methods
 - `/core/services/search/config.py` - Centralized search field configuration
-- `/core/models/search/search_router.py` - THE search orchestrator (One Path Forward)
+- `/core/orchestrator/search_router.py` - THE search orchestrator (One Path Forward)
 - `/core/services/goals/goal_search_service.py` - Reference implementation (uses inherited methods)
 - `/core/services/principles/principle_search_service.py` - Example of custom overrides
 - `/core/services/ps/ps_search_service.py` - Path Steps search (standalone pattern)

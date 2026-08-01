@@ -181,7 +181,7 @@ This **splits** the arc; it does not extend it.
 - Attribution pattern to reuse: `core/services/askesis_citation_service.py` (the "Sources &
   Evidence" footer shape), `core/services/askesis/context_retriever.py` (passage retrieval).
 - Vector search seam: `core/services/neo4j_vector_search_service.py`
-  (`find_similar_chunks_by_text`), `core/models/search/search_router.py`
+  (`find_similar_chunks_by_text`), `core/orchestrator/search_router.py`
   (`retrieve_scoped_chunks`), `core/services/ingestion/config.py` (chunk configs, the wall).
 - The wall: `services_bootstrap/compose.py` (`excluded_dirs={... "Resources"}`).
 - Reference-library arc this splits from: `docs/roadmap/resources-reference-library.md`.

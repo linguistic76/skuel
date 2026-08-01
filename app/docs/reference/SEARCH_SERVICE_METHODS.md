@@ -487,9 +487,9 @@ goals = await goals_search.get_prioritized("user.123", limit=3)
 habits = await habits_search.get_prioritized("user.123", limit=5)
 kus = await ku_search.get_prioritized("user.123", limit=5)
 
-# Or use SearchRouter for unified search
-from core.models.search.search_router import SearchRouter
-router = SearchRouter(services)
+# Or use SearchRouter for unified search (wired in compose with explicit deps)
+from core.orchestrator.search_router import SearchRouter
+router = services.search_router
 result = await router.faceted_search(SearchRequest(
     query="",
     domains=[EntityType.TASK, EntityType.GOAL, EntityType.CURRICULUM],

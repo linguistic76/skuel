@@ -22,7 +22,6 @@ closed four faceted-path gaps in the process:
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -35,8 +34,8 @@ from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.search.filter_enums import SearchSortOrder
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
+from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
 from ui.explore.cards import (
     LIBRARY_PAGE_SIZE,
@@ -219,7 +218,7 @@ class TestAnonymousGates:
     @pytest.mark.asyncio
     async def test_anon_public_single_domain_takes_rich_path(self) -> None:
         ku = _graph_aware_service([{"uid": "ku_1", "title": "K", "_domain": "ku"}])
-        router = SearchRouter(services=SimpleNamespace(ku=ku, event_bus=None))
+        router = SearchRouter(ku=ku, event_bus=None)
 
         result = await router.faceted_search(
             SearchRequest(entity_types=[EntityType.KU]), user_uid=None
@@ -236,7 +235,7 @@ class TestAnonymousGates:
             [{"uid": "task_1", "title": "T", "_domain": "task"}],
             visibility=SearchVisibility.OWNER_ONLY,
         )
-        router = SearchRouter(services=SimpleNamespace(ku=ku, tasks=tasks, event_bus=None))
+        router = SearchRouter(ku=ku, tasks=tasks, event_bus=None)
 
         results = await router._faceted_sweep(
             SearchRequest(), None, [EntityType.KU, EntityType.TASK]
@@ -247,7 +246,7 @@ class TestAnonymousGates:
 
     @pytest.mark.asyncio
     async def test_empty_query_multi_domain_routes_to_faceted_sweep(self) -> None:
-        router = SearchRouter(MagicMock())
+        router = SearchRouter()
         router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
         router.search_domains = AsyncMock()  # type: ignore[method-assign]
 
@@ -263,7 +262,7 @@ class TestAnonymousGates:
         # (created_desc/title_asc). The scored text sweep ignores sort and
         # offset and caps at limit//6 minimal records per domain — an explicit
         # sort must force the faceted sweep (Codex, PR #669).
-        router = SearchRouter(MagicMock())
+        router = SearchRouter()
         router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
         router.search_domains = AsyncMock()  # type: ignore[method-assign]
 
@@ -288,7 +287,7 @@ class TestSweepMergeAndPagination:
             ]
         )
         ps = _graph_aware_service([{"uid": "ps_a", "title": "Apple", "_domain": "path_step"}])
-        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps, event_bus=None))
+        router = SearchRouter(ku=ku, ps=ps, event_bus=None)
 
         request = SearchRequest(sort_order=SearchSortOrder.TITLE_ASC)
         results = await router._faceted_sweep(
@@ -310,7 +309,7 @@ class TestSweepMergeAndPagination:
             "estimated_time_minutes": 15,
         }
         ps = _graph_aware_service([record])
-        router = SearchRouter(services=SimpleNamespace(ps=ps, event_bus=None))
+        router = SearchRouter(ps=ps, event_bus=None)
 
         results = await router._faceted_sweep(SearchRequest(), "user_x", [EntityType.PATH_STEP])
 
@@ -322,7 +321,7 @@ class TestSweepMergeAndPagination:
         ku = _graph_aware_service(
             [{"uid": f"ku_{i}", "title": f"T{i:02d}", "_domain": "ku"} for i in range(5)]
         )
-        router = SearchRouter(services=SimpleNamespace(ku=ku, event_bus=None))
+        router = SearchRouter(ku=ku, event_bus=None)
 
         request = SearchRequest(sort_order=SearchSortOrder.TITLE_ASC, limit=2, offset=2)
         results = await router._faceted_sweep(request, "user_x", [EntityType.KU])
@@ -346,7 +345,7 @@ class TestTagVocabulary:
         ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 2, "mind": 1}))
         ps = MagicMock()
         ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 3, "attention": 1}))
-        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+        router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.tag_frequencies()
 
@@ -363,7 +362,7 @@ class TestTagVocabulary:
         ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"zen": 1, "action": 1}))
         ps = MagicMock()
         ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({}))
-        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+        router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.tag_frequencies()
 
@@ -375,7 +374,7 @@ class TestTagVocabulary:
         ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 2, "mind": 1}))
         ps = MagicMock()
         ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 9, "attention": 1}))
-        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+        router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.list_tags()
 
@@ -388,7 +387,7 @@ class TestTagVocabulary:
         ku.search.tag_frequencies = AsyncMock(return_value=Result.fail(MagicMock(is_error=True)))
         ps = MagicMock()
         ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"attention": 1}))
-        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+        router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.list_tags()
 

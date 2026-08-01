@@ -312,7 +312,7 @@ class Services:
     context_service: UserContextOperations | None = None
     askesis: AskesisOperations | None = None
     moc: KuOperations | None = None
-    search_router: SearchOperations | None = None
+    search_router: "SearchRouter | None" = None  # July 2026: concrete orchestrator class (SoC arc PR 13; the old SearchOperations protocol matched nothing the router implements and was deleted)
     user_service: "UserService | None" = None  # Facade — concrete type
 ```
 

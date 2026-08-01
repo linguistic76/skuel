@@ -22,8 +22,6 @@ Coverage:
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
@@ -32,9 +30,9 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
-from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.models.task.task import Task
+from core.orchestrator.search_router import SearchRouter
 from core.services.exercises.exercise_service import ExerciseService
 
 OWNER = "user_scope_owner"
@@ -56,8 +54,8 @@ def exercise_service(neo4j_driver) -> ExerciseService:
 
 @pytest.fixture
 def search_router(tasks_service, exercise_service) -> SearchRouter:
-    """SearchRouter over a Services stand-in exposing tasks + exercises."""
-    return SearchRouter(services=SimpleNamespace(tasks=tasks_service, exercises=exercise_service))
+    """SearchRouter wired with only tasks + exercises."""
+    return SearchRouter(tasks=tasks_service, exercises=exercise_service)
 
 
 async def _seed_users_and_group(neo4j_driver) -> None:

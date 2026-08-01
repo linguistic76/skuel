@@ -16,7 +16,7 @@ Detail pages (/explore/ku/{uid}, /explore/ps/{uid}) and learning loop
 fragments (/learning-loop/ps/*) are in learning_loop_routes.py.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     FT,
@@ -34,6 +34,10 @@ from core.models.enums.learning_enums import LearningLevel
 from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import SearchRequest
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.orchestrator.search_router import SearchRouter
+
 from ui.explore.cards import (
     LIBRARY_DEFAULT_SORT,
     LIBRARY_PAGE_SIZE,
@@ -155,7 +159,7 @@ def create_explore_api_routes(
     _app: Any,
     rt: Any,
     orchestrator: Any,
-    search_router: Any,
+    search_router: "SearchRouter | None",
 ) -> list[Any]:
     """Register /api/explore/* JSON + HTMX API routes."""
     if orchestrator is None:
@@ -248,7 +252,7 @@ def create_explore_ui_routes(
     _app: Any,
     rt: Any,
     orchestrator: Any,
-    search_router: Any,
+    search_router: "SearchRouter | None",
 ) -> list[Any]:
     """Create /explore discovery UI routes."""
     if orchestrator is None:

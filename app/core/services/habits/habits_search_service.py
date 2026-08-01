@@ -160,6 +160,17 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         self.logger.info(f"Prioritized {len(prioritized)} habits for user {user_context.user_uid}")
         return Result.ok(prioritized)
 
+    async def enrich_with_goal_links(  # skuel-lint: disable=SKUEL005 -- fail-soft enrichment by design: a backend error returns the habits unchanged, never an error
+        self, habits: list[Habit], active_goal_uids: list[str] | None = None
+    ) -> list[Habit]:
+        """Populate each habit's derived ``supports_goal_uid`` from its SUPPORTS_GOAL edge.
+
+        The reusable half of ``get_prioritized``'s enrichment step, exposed for
+        callers that score an arbitrary habit list (SearchRouter's cross-domain
+        result scoring). Habits with no edge come back unchanged.
+        """
+        return await enrich_habits_with_goal_links(self.backend, habits, active_goal_uids)
+
     # get_by_relationship() - inherited from BaseService using _dto_class, _model_class
 
     @with_error_handling("get_upcoming", error_type="database")
