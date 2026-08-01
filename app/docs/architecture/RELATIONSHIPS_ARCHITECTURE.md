@@ -141,7 +141,7 @@ class DomainRelationshipConfig:
 | Life Path | 3 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH`, `ALIGNMENT_SNAPSHOT` |
 | Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
 | Resource | 1 | `CITES_RESOURCE` — `(PathStep/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
-| Content / Processing | 4 | `REPORT_FOR`, `TRANSCRIBED_FOR`, `ASSESSMENT_OF`, `HAS_SCHEDULE` |
+| Content / Processing | 3 | `REPORT_FOR`, `TRANSCRIBED_FOR`, `HAS_SCHEDULE` |
 | Lateral | 13 | `BLOCKS`, `BLOCKED_BY`, `PREREQUISITE_FOR`, `DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO` |
 
 ---

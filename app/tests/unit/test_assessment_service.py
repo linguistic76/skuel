@@ -28,7 +28,6 @@ def mock_backend():
     backend.find_by = AsyncMock()
     backend.execute_query = AsyncMock()
     backend.verify_teacher_authority = AsyncMock()
-    backend.create_assessment_relationship = AsyncMock()
     backend.auto_share_assessment_with_student = AsyncMock()
     backend.get_assessments_for_student_raw = AsyncMock()
     return backend
@@ -82,7 +81,6 @@ class TestCreateAssessment:
         """Test successful assessment creation."""
         mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
-        mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = RELATIONSHIP_SUCCESS
 
         result = await core_service.create_assessment(
@@ -107,10 +105,14 @@ class TestCreateAssessment:
     async def test_create_assessment_creates_relationships(
         self, core_service, mock_backend, mock_report_backend
     ):
-        """Test that ASSESSMENT_OF and SHARES_WITH relationships are created."""
+        """Test that the authority check runs and SHARES_WITH is created.
+
+        Student OWNS is not a separate backend call: the report backend's
+        ``create()`` auto-creates it from ``user_uid`` (asserted student-owned
+        in test_create_assessment_success).
+        """
         mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
-        mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = RELATIONSHIP_SUCCESS
 
         await core_service.create_assessment(
@@ -120,9 +122,7 @@ class TestCreateAssessment:
             content="Content",
         )
 
-        # 3 calls: authority check + ASSESSMENT_OF + SHARES_WITH
         mock_backend.verify_teacher_authority.assert_awaited_once()
-        mock_backend.create_assessment_relationship.assert_awaited_once()
         mock_backend.auto_share_assessment_with_student.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -151,7 +151,6 @@ class TestCreateAssessment:
         """Test metadata is passed through."""
         mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
-        mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = RELATIONSHIP_SUCCESS
 
         await core_service.create_assessment(
@@ -185,34 +184,12 @@ class TestCreateAssessment:
         mock_report_backend.create.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_create_assessment_relationship_failure_propagated(
-        self, core_service, mock_backend, mock_report_backend
-    ):
-        """Test that relationship creation failure is propagated (not swallowed)."""
-        mock_report_backend.create.return_value = Result.ok(MagicMock())
-        mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
-        mock_backend.create_assessment_relationship.return_value = Result.fail(
-            Errors.database("create_assessment_relationship", "Neo4j connection lost")
-        )
-
-        result = await core_service.create_assessment(
-            teacher_uid="user_teacher",
-            subject_uid="user_student",
-            title="Assessment",
-            content="Content",
-        )
-
-        assert result.is_error
-        assert "Neo4j connection lost" in str(result.expect_error())
-
-    @pytest.mark.asyncio
     async def test_create_assessment_shares_with_failure_propagated(
         self, core_service, mock_backend, mock_report_backend
     ):
         """Test that SHARES_WITH failure is propagated (not swallowed)."""
         mock_report_backend.create.return_value = Result.ok(MagicMock())
         mock_backend.verify_teacher_authority.return_value = AUTHORITY_MATCH
-        mock_backend.create_assessment_relationship.return_value = RELATIONSHIP_SUCCESS
         mock_backend.auto_share_assessment_with_student.return_value = Result.fail(
             Errors.database("auto_share", "Connection timeout")
         )

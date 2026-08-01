@@ -9,8 +9,10 @@ Handles:
 - Querying assessments received by a student
 - Querying assessments authored by a teacher
 
-Assessments are EntryReport entities with entity_type=ENTRY_REPORT,
-linked to students via ASSESSMENT_OF relationships and auto-shared via SHARES_WITH.
+Assessments are EntryReport entities with entity_type=ENTRY_REPORT. The student
+owns the report — ``(student)-[:OWNS]->(report)`` is auto-created from
+``user_uid`` at node creation and is THE visibility anchor for the student's
+received-feedback reads — and the report is auto-shared via SHARES_WITH.
 
 Moved from core/services/submissions/ per ADR-054.
 """
@@ -47,8 +49,8 @@ class AssessmentService:
     Teacher assessment workflow operations.
 
     Standalone service (not BaseService) — receives backend and event_bus
-    in constructor. Handles authority verification, ASSESSMENT_OF relationship
-    creation, auto-sharing with students, and assessment queries.
+    in constructor. Handles authority verification, auto-sharing with
+    students, and assessment queries.
     """
 
     def __init__(
@@ -128,22 +130,12 @@ class AssessmentService:
             metadata=metadata or {},
         )
 
+        # The student owns the report: create() auto-writes
+        # (student)-[:OWNS]->(report) from user_uid=subject_uid, which is the
+        # visibility anchor the /entry-reports listing reads by.
         result = await self.report_backend.create(assessment)
         if result.is_error:
             return Result.fail(result)
-
-        # Create ASSESSMENT_OF relationship
-        assess_result = await self.backend.create_assessment_relationship(uid, subject_uid)
-
-        if assess_result.is_error:
-            self.logger.error(f"Failed to create ASSESSMENT_OF relationship: {assess_result.error}")
-            return Result.fail(Errors.database("create_assessment", str(assess_result.error)))
-
-        if not (assess_result.value or []):
-            self.logger.error(f"ASSESSMENT_OF not created: student {subject_uid} not found")
-            return Result.fail(
-                Errors.database("create_assessment", "Failed to create ASSESSMENT_OF relationship")
-            )
 
         # Auto-share with student
         share_result = await self.backend.auto_share_assessment_with_student(

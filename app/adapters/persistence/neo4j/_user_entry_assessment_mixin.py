@@ -61,20 +61,6 @@ class _UserEntryAssessmentMixin:
             query, {"teacher_uid": teacher_uid, "subject_uid": subject_uid}
         )
 
-    async def create_assessment_relationship(
-        self, assessment_uid: str, subject_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create ASSESSMENT_OF relationship from assessment to user."""
-        query = """
-        MATCH (assessment:Entity {uid: $assessment_uid})
-        MATCH (u:User {uid: $subject_uid})
-        MERGE (assessment)-[:ASSESSMENT_OF]->(u)
-        RETURN true AS success
-        """
-        return await self.execute_query(
-            query, {"assessment_uid": assessment_uid, "subject_uid": subject_uid}
-        )
-
     async def auto_share_assessment_with_student(
         self, subject_uid: str, assessment_uid: str, now: str
     ) -> Result[list[Neo4jProperties]]:
@@ -95,9 +81,16 @@ class _UserEntryAssessmentMixin:
     async def get_assessments_for_student_raw(
         self, student_uid: str, limit: int
     ) -> Result[list[Neo4jProperties]]:
-        """Get assessment nodes for a student via ASSESSMENT_OF."""
-        query = """
-        MATCH (report:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
+        """Feedback report nodes the student owns, newest first.
+
+        Ownership is THE visibility anchor: every report about a student's
+        work carries ``(student)-[:OWNS]->(report)`` — written by
+        ``create_report_node`` (teacher/AI review) and by the generic
+        ``create()`` from ``user_uid`` (teacher assessments) — so one read
+        covers both creation paths.
+        """
+        query = f"""
+        MATCH (u:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(report:Entity)
         WHERE report.entity_type = 'entry_report'
         RETURN report
         ORDER BY report.created_at DESC
