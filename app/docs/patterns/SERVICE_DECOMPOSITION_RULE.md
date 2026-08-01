@@ -126,6 +126,17 @@ dead residue orphaned by bloat campaign 18's method deletions (`CognitiveLoadTyp
 dataclasses/TypedDicts are outside the bloat detector's scope, so they survived the
 method sweep). The shell lands ~540 lines of orchestration + slot/load analysis +
 scoring.
+`user_service.py` (1040 lines) — a facade whose docstring claimed "zero business
+logic" while two clusters had accreted real logic — was decomposed July 2026 into
+`user/_admin_lifecycle_mixin.py` (~320 lines: update_role, list_users,
+deactivate_user, activate_user, hard_delete_user — admin authorization + the atomic
+role-change/deactivation + session-revocation reasoning) and
+`user/_context_planning_mixin.py` (~290 lines: get_user_context, _build_user_context,
+peek_cached_context, get_rich_unified_context, get_profile_hub_data,
+get_daily_work_plan — context building, rich-context cache orchestration, and the
+planning-intelligence bridge). Both clusters pass the 4+ coherence test (contrast
+tasks_service's 2 fat methods, which failed it). The facade lands ~500 lines of
+delegation + wiring — what its docstring always claimed it was.
 
 ## Deliberately Long (judged 2026-07-23 — do not re-flag)
 
