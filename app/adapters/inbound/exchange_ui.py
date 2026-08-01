@@ -23,11 +23,13 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, get_user_role
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
+from core.utils.result_simplified import ErrorCategory
 from ui.layouts.base_page import BasePage
 from ui.learning_loop.exchange_thread import (
     render_exchange_not_found,
     render_exchange_thread,
 )
+from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
@@ -80,6 +82,27 @@ def create_exchange_ui_routes(
             student_uid=student or None,
         )
         if result.is_error:
+            # Only a genuine NOT_FOUND is the deliberately hidden class
+            # (missing exercise / no entries / denied access — the
+            # orchestrator already collapses denials into it). An operational
+            # failure (Neo4j down, query error) must surface as an outage,
+            # never masquerade as missing user data.
+            error = result.expect_error()
+            if error.category is not ErrorCategory.NOT_FOUND:
+                logger.error("Failed to load exchange thread for %s: %s", exercise, error.message)
+                return HTMLResponse(
+                    to_xml(
+                        BasePage(
+                            content=render_error_banner(
+                                "Could not load the exchange. Please try again."
+                            ),
+                            title="Exchange",
+                            request=request,
+                            active_page="gradebook",
+                        )
+                    ),
+                    status_code=500,
+                )
             return _not_found()
 
         return BasePage(
