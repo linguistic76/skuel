@@ -195,7 +195,7 @@ Context is built lazily on first intelligence request. The first daily plan of e
 | File | Purpose |
 |------|---------|
 | `core/services/user/user_context_cache.py` | Cache implementation + policy documentation |
-| `core/services/user_service.py` (~line 545) | Cache integration in UserService |
+| `core/services/user/_context_planning_mixin.py` (`get_rich_unified_context`) | Cache integration in UserService |
 | `services_bootstrap.py` | Event subscription wiring |
 | `core/config/unified_config.py` (`RedisConfig`) | Future Redis config (TTL mismatch: 86400s) |
 | `docs/roadmap/deferred-work.md` (item 3) | Incremental delta query context |
