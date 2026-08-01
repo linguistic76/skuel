@@ -36,7 +36,7 @@ Is it one-off UI for a single route?
 
 **Route thinning signal:** If a `*_ui.py` file imports `Form`, `Input`, `Label`, or `Textarea` from fasthtml, HTML construction is leaking into routing. Extract those blocks to a `render_*` function in the domain's `ui/` package.
 
-**Canonical example:** `ui/teaching/forms.py` — holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_submission_metadata()`. `teaching_ui.py` calls them; it imports none of the form primitives itself.
+**Canonical example:** `ui/teaching/forms.py` — holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_waiting_actions()`, `render_submission_metadata()`. `teaching_ui.py` calls them; it imports none of the form primitives itself.
 
 **Adopted domains (Phase 1):** `ui/lifepath/` (vision form, alignment dashboard), `ui/askesis/` (welcome, chat, settings — dissolved `AskesisUI` class), `ui/activity_review/` (snapshot + feedback forms), `ui/analytics/` (dashboard, 7 domain metrics renderers — dissolved `AnalyticsUIComponents` class), `ui/ingestion/` (ingestion dashboard cards + JS), `ui/system/` (landing page, admin hub, 404 page), `ui/exercises/` (editor, cards, detail), `ui/explore/` (cards, filters).
 
