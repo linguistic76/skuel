@@ -67,6 +67,11 @@ EntryReport about a student's work carries `(student)-[:OWNS]->(report)` (EntryR
 listing reads by OWNS + `entity_type`, and `ASSESSMENT_OF` is **deleted** — writes, reads,
 protocol methods, registry entry (One Path Forward; grep confirms all 18 references are
 contained in the assessment path — no analytics or external consumers).
+*Review refinements (PR 1, Codex):* the assessment write is atomic (node + OWNS +
+SHARES_WITH in one Cypher — the generic `create()` treats OWNS as warning-only, which
+would have made a transient edge failure an invisible report); the read excludes
+`visibility='private'` (self-owned journal reflections are the student's own artifacts,
+not received feedback).
 *Rejected:* dual-writing `ASSESSMENT_OF` in `create_report_node()` (keeps two parallel
 edges meaning the same thing); reading via `REPORT_FOR`→entry→`OWNS` chain (2-hop, and
 misses any report legitimately not anchored to an entry).

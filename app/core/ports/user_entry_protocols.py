@@ -256,8 +256,10 @@ class UserEntryAssessmentOperations(Protocol):
     async def get_assessments_for_student_raw(
         self, student_uid: str, limit: int
     ) -> Result[list[Neo4jProperties]]:
-        """Feedback report nodes the student owns (``OWNS`` + entity_type),
-        newest first — covers teacher-review, AI, and assessment reports."""
+        """RECEIVED feedback report nodes the student owns (``OWNS`` +
+        entity_type), newest first — teacher-review, AI, and assessment
+        reports. Excludes PRIVATE self-owned journal reflections, which are
+        the student's own artifacts, not received feedback."""
         ...
 
     # -------- teacher review workflow --------
