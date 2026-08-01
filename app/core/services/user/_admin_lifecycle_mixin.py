@@ -14,13 +14,15 @@ See: /docs/patterns/SERVICE_DECOMPOSITION_RULE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from core.models.type_hints import UserUID
     from core.models.user import User
     from core.ports.service_protocols import SessionInvalidationOperations
@@ -40,7 +42,8 @@ class _AdminLifecycleMixin:
     # Populated by UserService.__init__
     core: UserCoreService
     session_invalidator: SessionInvalidationOperations | None
-    get_user: Any  # delegation method on UserService
+    # Delegation method defined on the facade — typed so calls stay checked
+    get_user: Callable[[UserUID], Awaitable[Result[User | None]]]
 
     async def hard_delete_user(
         self,

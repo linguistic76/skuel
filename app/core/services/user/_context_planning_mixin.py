@@ -12,12 +12,14 @@ See: /docs/patterns/SERVICE_DECOMPOSITION_RULE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from core.models.context_types import DailyWorkPlan
     from core.models.type_hints import UserUID
     from core.models.user import User
@@ -44,7 +46,8 @@ class _ContextPlanningMixin:
     context_builder: UserContextBuilder | None
     activity: UserActivityService
     intelligence_factory: UserContextIntelligenceFactory | None
-    get_user: Any  # delegation method on UserService
+    # Delegation method defined on the facade — typed so calls stay checked
+    get_user: Callable[[UserUID], Awaitable[Result[User | None]]]
 
     async def get_user_context(self, user_uid: UserUID) -> Result[UserContext]:
         """
