@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import EntityUID, UserUID
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 if TYPE_CHECKING:
     from core.models.exercises.exercise import Exercise
@@ -253,7 +253,8 @@ class UserEntryOrchestrator:
         student never submitted, nothing shared with this viewer) collapses
         to the same not-found error, so the page can probe neither exercise
         existence nor other classrooms' work (404-not-403,
-        OWNERSHIP_VERIFICATION.md).
+        OWNERSHIP_VERIFICATION.md). Operational failures propagate with
+        their own category — an outage must never read as missing data.
 
         Backend: ReportRelationshipService.get_exchange_thread (one chain
         read); TeacherReviewService.verify_teacher_authority (the gate).
@@ -265,6 +266,11 @@ class UserEntryOrchestrator:
                 teacher_uid=viewer_uid, student_uid=target_uid
             )
             if authority.is_error:
+                # Only the gate's own FORBIDDEN verdict is the deliberately
+                # hidden class; a database failure during the check is an
+                # outage and keeps its category for the route's 500 branch.
+                if authority.expect_error().category is not ErrorCategory.FORBIDDEN:
+                    return Result.fail(authority)
                 return Result.fail(Errors.not_found(resource="Exchange", identifier=exercise_uid))
             teacher_scope = viewer_uid
         return await self._report_relationship.get_exchange_thread(
