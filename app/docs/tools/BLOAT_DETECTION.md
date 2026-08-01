@@ -24,6 +24,18 @@ Finds dead code that generic tools cannot express:
 - **Service-method liveness** — Vulture as the liveness engine, post-filtered
   through SKUEL's dynamic-dispatch knowledge (route-factory templates,
   relationship-registry method names, dispatch tables).
+- **Prompt-template backlog** — `PLANNED_TEMPLATES` entries with no render
+  site (rides the full report only, not the scoped modes).
+
+**Scope is exactly those three subjects.** Dataclasses, fields, enum members,
+and config knobs are never examined, so a clean run is **not evidence** they
+are live — inert fields are found by review, not by this tool (e.g. the
+#849 / #853 / #864 / #877 deletions, all review-caught). There is deliberately
+no `PLANNED_FIELDS` registry: the PLANNED tiers stay honest only because the
+detector stale-audits their keys, and it has no field scanner to audit with.
+Field-liveness detection itself is out of reach under the design rules below —
+fields are consumed through `**kwargs`, DTO conversion, Neo4j property dicts,
+and frontmatter mapping, which is cross-file dataflow.
 
 ```bash
 ./dev bloat               # full report (events + methods)
@@ -139,6 +151,9 @@ dynamically-dispatched method vocabulary, collected structurally:
 
 ## Known limitations (also printed by the tool)
 
+- **Out-of-scope subjects (dataclasses, fields, enum members, config knobs):**
+  no scanner examines them — their absence from the report is silence, not a
+  liveness verdict.
 - **Vulture name-collision under-reporting:** any same-named attribute access
   anywhere marks ALL same-named methods used, so common-named dead methods and
   facade methods delegating to same-named sub-service methods are invisible.

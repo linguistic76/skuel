@@ -149,7 +149,7 @@ throughout. Neither error is visible to a link checker, and neither reads as obv
 tree — the one lexical near-match, `cross_domain_analytics_service.py:504`, calls the *backend*
 method of the same name (`cross_domain_backend.py:435`), which takes `user_uid` and neither of these
 parameters. Five of its `_EnrichmentMixin` siblings are registered in the bloat detector's PLANNED
-tier (`scripts/detect_bloat.py:504–512`); `get_habit_analytics` itself is not registered anywhere.
+tier (`scripts/detect_bloat.py:512–520`); `get_habit_analytics` itself is not registered anywhere.
 
 **What full implementation requires:**
 - `_period`: **not** Group A's filter. It is a period *name* (`"month"`), not a day count, so the
@@ -425,7 +425,7 @@ predating the LearningStep→PathStep rename — the register it belongs to is i
 
 Settle whether that module is abandoned or staged before implementing either parameter — `CLAUDE.md`
 § One Path Forward deletes the first and registers the second. Do not read `./dev bloat` as having
-settled it: `ui` is in its `FIRST_PARTY_ROOTS` (`scripts/detect_bloat.py:57`), yet it reports none of
+settled it: `ui` is in its `FIRST_PARTY_ROOTS` (`scripts/detect_bloat.py:65`), yet it reports none of
 these functions, so their absence from its PLANNED tables is not evidence either way.
 
 ---
