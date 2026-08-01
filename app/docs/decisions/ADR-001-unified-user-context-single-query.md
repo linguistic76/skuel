@@ -229,14 +229,19 @@ Development/operational complexity too high. We want to stay within Python ecosy
 ## Implementation Details
 
 ### Code Location
-**Where is this decision implemented?**
-- Primary file: `/core/services/user/graph_sourced_context_builder.py:128-246`
+**Where is this decision implemented?** (refreshed 2026-08-01 — the original
+`graph_sourced_context_builder.py:128-246` citation predates the builder
+consolidation and the ADR-044 boundary move)
+- Primary file: `/adapters/persistence/neo4j/user_context_queries.py`
+  (`MEGA_QUERY` + its executor — Cypher lives below the boundary per ADR-044)
 - Related files:
+  - `/core/services/user/user_context_builder.py` (orchestrates the query via
+    the injected executor)
   - `/core/services/user/unified_user_context.py` (context data structure)
-  - `/core/services/user/user_service.py` (caller)
+  - `/core/services/user/_context_planning_mixin.py` (facade caller —
+    `UserService.get_rich_unified_context`)
 - Tests:
-  - `/tests/integration/test_unified_user_context.py` (14/14 passing)
-  - `/tests/integration/test_graph_sourced_context_builder.py`
+  - `/tests/integration/test_unified_user_context.py`
 
 ### Complexity Analysis
 **Breakdown of query complexity:**
