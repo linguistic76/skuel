@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Priority
 from core.models.type_hints import UserUID
+from core.ports.query_types import SharedWithMeItem
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import SharingOperations
-    from core.ports.query_types import SharedWithMeItem
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
