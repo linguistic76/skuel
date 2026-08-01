@@ -21,7 +21,15 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any, cast
 
 from core.models.type_hints import UserUID
-from core.ports.query_types import LearningLoopChain, ReportSummary, SubmissionChain
+from core.ports.query_types import (
+    ExchangeThread,
+    ExchangeThreadEntry,
+    ExchangeThreadReport,
+    ExchangeThreadRevision,
+    LearningLoopChain,
+    ReportSummary,
+    SubmissionChain,
+)
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
@@ -198,6 +206,61 @@ class ReportRelationshipService:
                 "feedback": [dict(f) for f in feedback if f.get("uid")],
                 "revised_exercises": [dict(r) for r in revised if r.get("uid")],
             }
+        )
+
+    async def get_exchange_thread(
+        self, exercise_uid: str, student_uid: str, viewer_uid: str | None = None
+    ) -> Result[ExchangeThread]:
+        """
+        One (student, root exercise) exchange — the thread view's single read.
+
+        Returns every artifact of the exchange (the student's entries against
+        the exercise, the reports on them, the revision requests responding to
+        those reports) for the /exchange thread page (feedback-loop UX arc C5).
+
+        Not-found covers BOTH a missing exercise and an exercise this student
+        has never submitted against: an empty thread and a nonexistent one are
+        deliberately indistinguishable, so the page cannot be used to probe
+        which exercise UIDs exist. In teacher mode that includes an exchange
+        whose entries the student directed only to another teacher's classroom
+        — scoped out entirely, it reads as not-found too.
+
+        Args:
+            exercise_uid: UID of the root exercise.
+            student_uid: The student whose exchange to read (already
+                access-checked by the caller when it is not the viewer).
+            viewer_uid: Teacher-mode scope (``None`` = self view) — only
+                entries shared with an active group this viewer owns are in
+                the chain (the Model B entry-level gate).
+
+        Returns:
+            Result[ExchangeThread] — exercise identity + entries/reports/
+            revisions, each ``created_at`` an ISO-8601 string.
+        """
+        result = await self.backend.get_exchange_thread_raw(
+            exercise_uid, student_uid, viewer_uid=viewer_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        records = result.value or []
+        record = cast("dict[str, Any]", records[0]) if records else {}
+        exercise = record.get("exercise")
+        entries = [dict(e) for e in (record.get("entries") or []) if e.get("uid")]
+        if exercise is None or not entries:
+            return Result.fail(Errors.not_found(resource="Exchange", identifier=exercise_uid))
+
+        reports = [dict(r) for r in (record.get("reports") or []) if r.get("uid")]
+        revisions = [dict(r) for r in (record.get("revisions") or []) if r.get("uid")]
+        return Result.ok(
+            ExchangeThread(
+                exercise_uid=str(exercise.get("uid") or exercise_uid),
+                exercise_title=str(exercise.get("title") or "") or exercise_uid,
+                student_uid=student_uid,
+                entries=cast("list[ExchangeThreadEntry]", entries),
+                reports=cast("list[ExchangeThreadReport]", reports),
+                revisions=cast("list[ExchangeThreadRevision]", revisions),
+            )
         )
 
     async def get_submission_chain(self, submission_uid: str) -> Result[SubmissionChain]:

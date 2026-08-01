@@ -52,10 +52,19 @@ def _subject_context_line(item: SharedWithMeItem) -> FT | str:
     ex_title = item.get("subject_exercise_title")
     if not ex_title:
         return ""
-    children: list[FT | str] = [
-        "on ",
-        _subject_link(ex_title, EntityType.EXERCISE.value, item.get("subject_exercise_uid")),
-    ]
+    # The exercise subject links into the exchange thread (C5) — the shared
+    # item IS one artifact of that exchange — not the exercise detail page.
+    ex_uid = item.get("subject_exercise_uid")
+    exercise_ref: FT = (
+        A(
+            Em(ex_title),
+            href=f"/exchange?exercise={ex_uid}",
+            cls="underline decoration-dotted hover:text-foreground",
+        )
+        if ex_uid
+        else Em(ex_title)
+    )
+    children: list[FT | str] = ["on ", exercise_ref]
     ps_title = item.get("subject_ps_title")
     if ps_title:
         children += [

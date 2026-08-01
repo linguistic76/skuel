@@ -2782,6 +2782,66 @@ class SubmissionChain(TypedDict, total=False):
     revised_exercises: list[dict[str, Any]]
 
 
+class ExchangeThreadEntry(TypedDict):
+    """One submission in an exchange thread (C5, feedback-loop UX arc).
+
+    ``revision`` carries the ``FULFILLS_EXERCISE`` edge revision for direct
+    turn-ins; ``via_revised_uid`` names the RevisedExercise for entries
+    submitted against a revision (the two are mutually exclusive).
+    """
+
+    uid: str
+    title: str | None
+    status: str | None
+    created_at: str | None
+    revision: int | None
+    via_revised_uid: str | None
+
+
+class ExchangeThreadReport(TypedDict):
+    """One feedback report in an exchange thread.
+
+    Body lives in ``processed_content`` (teacher-review/AI writers) or
+    ``content`` (assessment writer) — renderers must fall back across both.
+    """
+
+    uid: str
+    title: str | None
+    content: str | None
+    processed_content: str | None
+    processor_type: str | None
+    report_file_path: str | None
+    created_at: str | None
+    entry_uid: str | None
+
+
+class ExchangeThreadRevision(TypedDict):
+    """One revision request (RevisedExercise) in an exchange thread."""
+
+    uid: str
+    title: str | None
+    instructions: str | None
+    revision_number: int | None
+    created_at: str | None
+    report_uid: str | None
+
+
+class ExchangeThread(TypedDict):
+    """Return shape for ReportRelationshipService.get_exchange_thread().
+
+    One (student, root exercise) exchange: every entry, report, and revision
+    request in the chain, each ``created_at`` an ISO-8601 string. The UI
+    interleaves the three lists chronologically into the thread view.
+    """
+
+    exercise_uid: str
+    exercise_title: str
+    student_uid: str
+    entries: list[ExchangeThreadEntry]
+    reports: list[ExchangeThreadReport]
+    revisions: list[ExchangeThreadRevision]
+
+
 # ============================================================================
 # SYSTEM HEALTH RESULT TYPES
 # ============================================================================

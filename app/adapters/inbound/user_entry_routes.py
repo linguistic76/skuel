@@ -87,12 +87,16 @@ def create_user_entry_routes(
     if user_entry_orch:
         from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
         from adapters.inbound.entry_reports_ui import create_entry_reports_ui_routes
+        from adapters.inbound.exchange_ui import create_exchange_ui_routes
         from adapters.inbound.revised_exercises_ui import create_revised_exercises_ui_routes
 
         create_entry_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
         create_activity_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
         create_revised_exercises_ui_routes(app, rt, orchestrator=user_entry_orch)
-        logger.info("UserEntry: exercise/activity/revised-exercise UI sub-factories registered")
+        create_exchange_ui_routes(app, rt, orchestrator=user_entry_orch)
+        logger.info(
+            "UserEntry: exercise/activity/revised-exercise/exchange UI sub-factories registered"
+        )
 
 
 __all__ = ["USER_ENTRY_CONFIG", "create_user_entry_routes"]

@@ -75,12 +75,25 @@ def _submission_row(sub: PathStepSubmissionRow) -> Div:
             cls="text-xs text-primary hover:underline shrink-0",
         )
 
+    # Exercise-anchored submissions also link into the exchange thread (C5) —
+    # the whole (student, exercise) chain, not just this one artifact.
+    exchange_action = (
+        A(
+            "Exchange →",
+            href=f"/exchange?exercise={sub['exercise_uid']}",
+            cls="text-xs text-primary hover:underline shrink-0",
+        )
+        if sub.get("exercise_uid")
+        else None
+    )
+
     return Div(
         Div(
             Span(title, cls="text-sm font-medium text-foreground mr-auto"),
             _status_badge(sub["status"]),
             exercise_note,
             action,
+            exchange_action,
             cls="flex items-center gap-2",
         ),
         cls="py-2.5 border-b border-border/50 last:border-0",
