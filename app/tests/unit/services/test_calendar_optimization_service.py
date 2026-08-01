@@ -23,18 +23,18 @@ from datetime import date, datetime, time, timedelta
 
 import pytest
 
-from core.models.curriculum_dto import CurriculumDTO
-from core.models.enums import Domain, EntityType, Priority
-from core.models.event.event_dto import EventDTO
-from core.models.task.task_dto import TaskDTO
-from core.services.calendar_optimization_service import (
-    CalendarOptimizationService,
+from core.models.calendar_optimization import (
     CognitiveLoadAnalysis,
     EnergyLevel,
     LearningSession,
     OptimizedTimeSlot,
     SchedulingStrategy,
 )
+from core.models.curriculum_dto import CurriculumDTO
+from core.models.enums import Domain, EntityType, Priority
+from core.models.event.event_dto import EventDTO
+from core.models.task.task_dto import TaskDTO
+from core.services.calendar_optimization_service import CalendarOptimizationService
 
 TARGET_DATE = date(2026, 7, 20)
 USER_UID = "user_test"

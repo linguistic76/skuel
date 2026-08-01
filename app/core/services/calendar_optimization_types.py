@@ -66,21 +66,3 @@ SchedulingStrategyResult = (
 Every member carries a ``schedule`` key, so the scoring helpers consume the
 union directly instead of widening to ``dict[str, Any]``.
 """
-
-
-class HourLoadInfo(TypedDict):
-    """Load information for a specific hour category."""
-
-    max_load: float  # Maximum cognitive load for this hour category
-    recommended_tasks: int  # Recommended number of tasks
-
-
-class OptimalLoadDistribution(TypedDict):
-    """Optimal cognitive load distribution across hour categories."""
-
-    peak_hours: HourLoadInfo
-    high_hours: HourLoadInfo
-    medium_hours: HourLoadInfo
-    low_hours: HourLoadInfo
-    total_capacity: float  # Total daily cognitive capacity
-    utilization_target: float  # Target utilization (0.0-1.0)

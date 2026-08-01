@@ -113,6 +113,19 @@ block (3 methods, ~125 lines — below the 250 floor, single-consumer) and the t
 sub-service delegation + content blocks (pass-throughs belong on the facade). The
 shell lands ~580 lines — over the advisory 350 signal, coherent, documented (see
 Deliberately Long below).
+`calendar_optimization_service.py` (975 lines, only 8/27 methods thin) was decomposed
+July 2026 along both of its seams: the domain models (2 enums + 6 dataclasses,
+~200 lines) moved to `core/models/calendar_optimization.py` (the #791 models-out
+motion), and the strategy cluster — the `_apply_optimization_strategy` dispatcher,
+its five `_apply_*_strategy` implementations, and the two match-quality scorers only
+they consume — moved to `calendar_optimization_strategies.py`
+(`_SchedulingStrategiesMixin`, ~300 lines: 8 coherent methods, self-contained, clears
+the floor test because it is real computation, not delegation). The same pass deleted
+dead residue orphaned by bloat campaign 18's method deletions (`CognitiveLoadType`,
+`CognitiveLoadBalance`, `DomainLoadInfo`, `OptimalLoadDistribution`, `HourLoadInfo` —
+dataclasses/TypedDicts are outside the bloat detector's scope, so they survived the
+method sweep). The shell lands ~540 lines of orchestration + slot/load analysis +
+scoring.
 
 ## Deliberately Long (judged 2026-07-23 — do not re-flag)
 
