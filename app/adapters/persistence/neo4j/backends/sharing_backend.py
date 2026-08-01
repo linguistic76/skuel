@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
 
@@ -215,16 +216,17 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         duplicated row.
         """
         result = await self.execute_query(
-            """
-            MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(entity:Entity)
-            OPTIONAL MATCH (sharer:User {uid: entity.created_by})
+            f"""
+            MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.SHARES_WITH.value}]->(entity:Entity)
+            OPTIONAL MATCH (sharer:User {{uid: entity.created_by}})
             WITH entity, r, sharer,
                  coalesce(
-                     head([(entity)-[:REPORT_FOR]->(:Entity)-[:FULFILLS_EXERCISE]->(ex:Entity) | ex]),
-                     head([(entity)-[:REVISES_EXERCISE]->(ex:Entity) | ex])
+                     head([(entity)-[:{RelationshipName.REPORT_FOR.value}]->(:Entity)
+                           -[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity) | ex]),
+                     head([(entity)-[:{RelationshipName.REVISES_EXERCISE.value}]->(ex:Entity) | ex])
                  ) AS subject_ex
             WITH entity, r, sharer, subject_ex,
-                 head([(ps:Entity)-[:HAS_EXERCISE]->(subject_ex) | ps]) AS subject_ps
+                 head([(ps:Entity)-[:{RelationshipName.HAS_EXERCISE.value}]->(subject_ex) | ps]) AS subject_ps
             RETURN entity,
                    r.role as role,
                    toString(r.shared_at) as shared_at,
