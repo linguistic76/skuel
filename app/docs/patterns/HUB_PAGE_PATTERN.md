@@ -198,7 +198,7 @@ HTMX matches each response fragment to its page target by `id` and swaps them in
 
 1. **Sidebar badges** (`user_profile_ui.py:363`) — `GET /api/sidebar/badges` returns 9 badge spans (activity + curriculum domains) as OOB swaps. The sidebar renders each badge placeholder with its `id`; a single hidden trigger on the sidebar fires once on load.
 
-2. **StudentHub submission blocks** (`teaching_ui.py`) — `GET /api/teaching/students/{uid}/submissions/preview` returns 3 bucket previews (pending, revision, completed) as OOB swaps. One DB call, three panels populated. Bucketing logic lives in `TeacherOrchestrator.get_bucketed_student_submissions()`.
+2. **StudentHub submission blocks** (`teaching_ui.py`) — `GET /api/teaching/students/{uid}/submissions/preview` returns 3 bucket previews (pending, revision, completed) as OOB swaps. One orchestrator fetch, three panels populated. Bucketing logic lives in `TeacherOrchestrator.get_bucketed_student_submissions()` — Needs Review is the student-scoped review queue (one collapse rule, two surfaces), not a status read.
 
 **Combined endpoint pattern (FastHTML):**
 

@@ -219,6 +219,7 @@ class UserEntryAssessmentOperations(Protocol):
         self,
         teacher_uid: str,
         status_filter: list[str] | None = None,
+        student_uid: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
         """Entries awaiting this teacher's review, newest submission first.
 
@@ -228,7 +229,10 @@ class UserEntryAssessmentOperations(Protocol):
         an unrelated student's submission exists.
 
         ``status_filter`` narrows by entry status; ``None`` means the default
-        submitted-or-active pair rather than "all statuses".
+        submitted-or-active pair rather than "all statuses". ``student_uid``
+        narrows to entries that student owns — the per-student Needs Review
+        surface reads through this same query so it can never disagree with
+        the queue (one collapse rule, two surfaces).
 
         Each row is FLAT — scalars, not an ``entry`` node — keyed:
         ``entry_uid``, ``title``, ``status``, ``entity_type``,

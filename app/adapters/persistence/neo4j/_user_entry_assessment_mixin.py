@@ -105,6 +105,7 @@ class _UserEntryAssessmentMixin:
         self,
         teacher_uid: str,
         status_filter: list[str] | None = None,
+        student_uid: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
         """Teacher's pending review queue via ``SHARED_WITH_GROUP``.
 
@@ -116,6 +117,12 @@ class _UserEntryAssessmentMixin:
         owns no groups, or when no ``UserEntry`` has been
         ``SHARED_WITH_GROUP`` an owned group — so we do not leak the
         existence of unrelated students' submissions.
+
+        ``student_uid`` narrows the queue to entries that student owns. This
+        is THE needs-review rule for per-student surfaces too: the student
+        page's Needs Review section reads through this same query, so the
+        queue and the student page can never disagree on what awaits review
+        (one collapse rule, two surfaces — feedback-loop UX arc C2).
 
         Copy revisions collapse to the lineage's newest: the vault exercise
         channel freezes a copy per turn-in, and a pending copy with a newer
@@ -142,6 +149,9 @@ class _UserEntryAssessmentMixin:
         WHERE g.is_active = true
           AND entry.pipeline = $pipeline
           AND entry.status IN $statuses
+          AND ($student_uid IS NULL OR EXISTS {{
+              MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(entry)
+          }})
         OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
         WITH teacher, entry, r, ex, student, g
@@ -179,6 +189,7 @@ class _UserEntryAssessmentMixin:
                 "teacher_uid": teacher_uid,
                 "pipeline": Pipeline.TEACHER_REVIEW.value,
                 "statuses": statuses,
+                "student_uid": student_uid,
             },
         )
 

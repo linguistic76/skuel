@@ -15,6 +15,12 @@ the newer copy's status (a reviewed rev 2 still retires the pending rev 1).
 Collapse is per-lineage: another student's copy of the same exercise, and
 entries with no exercise anchor at all, must never be swallowed.
 
+The queue query is also THE needs-review rule for the per-student page
+(feedback-loop UX arc C2): scoped by ``student_uid`` it feeds the student
+page's Needs Review bucket, so the two surfaces read one collapse rule and
+can never drift apart — the drift WAS the bug (the per-student query had no
+collapse and listed superseded copies the queue correctly dropped).
+
 Run against a real Neo4j: the collapse resolves against persisted
 ``FULFILLS_EXERCISE {revision}`` edges, which a mocked backend would only
 assert were queried, not that they gate.
@@ -25,6 +31,8 @@ from __future__ import annotations
 import pytest
 
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
+from core.models.type_hints import UserUID
+from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.ports.query_types import ReviewQueueItem
 from core.services.report.teacher_review_service import TeacherReviewService
 
@@ -56,8 +64,9 @@ def review_service(neo4j_driver) -> TeacherReviewService:
     """Real service over a real user_entry backend.
 
     Only ``user_entry_backend`` is exercised by the reads under test
-    (``get_review_queue``, ``get_dashboard_stats``); the other collaborators
-    are never touched, so ``None`` is honest here.
+    (``get_review_queue``, ``get_dashboard_stats``, ``get_student_submissions``,
+    ``verify_teacher_authority``); the other collaborators are never touched,
+    so ``None`` is honest here.
     """
     user_entry_backend = UserEntryBackend(driver=neo4j_driver)
     return TeacherReviewService(
@@ -218,8 +227,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
         )
 
 
-async def _queue_uids(review_service: TeacherReviewService) -> set[str]:
-    result = await review_service.get_review_queue(TEACHER)
+async def _queue_uids(
+    review_service: TeacherReviewService, student_uid: str | None = None
+) -> set[str]:
+    result = await review_service.get_review_queue(TEACHER, student_uid=student_uid)
     assert result.is_ok, f"queue read failed: {result}"
     items: list[ReviewQueueItem] = list(result.value)
     return {item["submission_uid"] for item in items}
@@ -301,3 +312,60 @@ class TestDashboardPendingCountAgrees:
         stats = await review_service.get_dashboard_stats(TEACHER)
         assert stats.is_ok, f"dashboard read failed: {stats}"
         assert stats.value["pending_count"] == 4
+
+
+class TestStudentScopedQueue:
+    """``student_uid`` narrows the queue to one student without changing the rule."""
+
+    async def test_scope_partitions_the_unscoped_queue(self, review_service, seeded) -> None:
+        s1_uids = await _queue_uids(review_service, student_uid=STUDENT_1)
+        s2_uids = await _queue_uids(review_service, student_uid=STUDENT_2)
+        assert s1_uids == {S1_REV2, S1_LONE, S1_EX2_REV1}
+        assert s2_uids == {S2_EX1}
+        assert s1_uids | s2_uids == await _queue_uids(review_service), (
+            "the per-student scopes must partition the unscoped queue — "
+            "same rule, narrowed, nothing added or lost"
+        )
+
+    async def test_superseded_copy_stays_hidden_under_scope(self, review_service, seeded) -> None:
+        assert S1_REV1 not in await _queue_uids(review_service, student_uid=STUDENT_1)
+
+
+class TestStudentPageAgreesWithQueue:
+    """The per-student page's Needs Review bucket IS the student-scoped queue.
+
+    Pins the arc's acceptance case: the superseded rev-1 copy that the queue
+    drops must stop appearing in the student page's Needs Review — it lands
+    in Completed (history) instead, and the two surfaces agree exactly.
+    """
+
+    async def test_needs_review_bucket_equals_scoped_queue(self, review_service, seeded) -> None:
+        orchestrator = TeacherOrchestrator(teacher_review_service=review_service)
+        result = await orchestrator.get_bucketed_student_submissions(
+            teacher_uid=UserUID(TEACHER), student_uid=STUDENT_1
+        )
+        assert result.is_ok, f"bucketing failed: {result}"
+        pending, revision, completed, _name = result.value
+
+        pending_uids = {item["uid"] for item in pending}
+        assert pending_uids == await _queue_uids(review_service, student_uid=STUDENT_1)
+        assert S1_REV1 not in pending_uids, (
+            "the superseded pending copy must never show as Needs Review"
+        )
+        assert S1_REV1 in {item["uid"] for item in completed}, (
+            "a superseded copy is history — it belongs to Completed, not limbo"
+        )
+        assert revision == []
+
+    async def test_reviewed_lineage_buckets_to_history(self, review_service, seeded) -> None:
+        orchestrator = TeacherOrchestrator(teacher_review_service=review_service)
+        result = await orchestrator.get_bucketed_student_submissions(
+            teacher_uid=UserUID(TEACHER), student_uid=STUDENT_2
+        )
+        assert result.is_ok, f"bucketing failed: {result}"
+        pending, _revision, completed, _name = result.value
+
+        assert {item["uid"] for item in pending} == {S2_EX1}
+        assert {item["uid"] for item in completed} == {S2_EX2_REV1, S2_EX2_REV2}, (
+            "both the reviewed rev 2 AND the rev 1 it retired are history"
+        )

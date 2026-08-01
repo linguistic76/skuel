@@ -1,7 +1,7 @@
 """Teaching UI view model types.
 
 Frozen dataclasses for teaching queue and detail components,
-plus canonical status classification constants and dict-to-dataclass converters.
+plus the action-availability status set and dict-to-dataclass converters.
 """
 
 from dataclasses import dataclass
@@ -10,12 +10,15 @@ from typing import Any
 from core.models.type_hints import UserUID
 
 # ============================================================================
-# Submission workflow status classification — single source of truth
+# Status → action availability
 # ============================================================================
 
+# Statuses on which the inline review panel offers teacher actions (submit
+# feedback / request revision / approve). This is NOT the Needs Review rule:
+# what awaits review is the student-scoped review queue
+# (TeacherReviewService.get_review_queue — one collapse rule, two surfaces);
+# this set only gates the per-submission action forms.
 NEEDS_REVIEW_STATUSES: frozenset[str] = frozenset({"submitted", "active", "queued", "processing"})
-REVISION_STATUSES: frozenset[str] = frozenset({"revision_requested"})
-COMPLETED_STATUSES: frozenset[str] = frozenset({"completed", "failed"})
 
 
 @dataclass(frozen=True)
