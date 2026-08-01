@@ -444,7 +444,7 @@ ENTRY_REPORT entities are produced two ways, behind **separate route-facing prot
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `EntryReportOperations` (service) | `entry_report` | generate_report(`UserEntry`, `Exercise`) → `EntryReport` `LLM`, list_for_submission → `list[EntryReport]` (both HUMAN + LLM, discriminated by `processor_type`) | `exercises_api.py`, `teaching_api.py`, `teaching_ui.py`, `user_entry_ui.py` |
-| `AssessmentOperations` (service) | `user_entry_assessment` | create_assessment → `EntryReport` `HUMAN`, get_assessments_for_student → `list[EntryReport]`, get_assessments_by_teacher | `entry_report_api.py`, `ProfileOrchestrator` (recent received assessments) |
+| `AssessmentOperations` (service) | `user_entry_assessment` | create_assessment → `EntryReport` `HUMAN`, get_assessments_for_student → `list[EntryReport]` (reads student `OWNS` — the visibility anchor, C1 feedback-loop UX arc), get_assessments_by_teacher | `entry_report_api.py`, `entry_reports_ui.py` via `UserEntryOrchestrator` |
 | `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_report_api.py` |

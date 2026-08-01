@@ -77,7 +77,6 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `REPORT_FOR` | EntryReport | UserEntry | Report targets submission |
 | `RESPONDS_TO_REPORT` | RevisedExercise | EntryReport | Revision generated from feedback |
 | `REVISES_EXERCISE` | RevisedExercise | Exercise | Links revision back to origin |
-| `ASSESSMENT_OF` | EntryReport | UserEntry | Formal assessment link |
 | `INTERACTION_DURING` | Interaction | PathStep | Interaction happened during step |
 | `INTERACTION_WITHIN` | Interaction | LearningPath | Interaction within a path |
 

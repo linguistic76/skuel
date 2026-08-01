@@ -3,7 +3,7 @@ UserEntry Assessment + Teacher Review Mixin
 ============================================
 
 Assessment scoring + teacher-review queue and reporting.
-Covers teacher authority verification, assessment relationships,
+Covers teacher authority verification, assessment queries,
 review queue queries, report creation, and teacher dashboards.
 
 Consolidated from the legacy ``_SubmissionAssessmentMixin`` into a single
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
@@ -61,49 +62,40 @@ class _UserEntryAssessmentMixin:
             query, {"teacher_uid": teacher_uid, "subject_uid": subject_uid}
         )
 
-    async def create_assessment_relationship(
-        self, assessment_uid: str, subject_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create ASSESSMENT_OF relationship from assessment to user."""
-        query = """
-        MATCH (assessment:Entity {uid: $assessment_uid})
-        MATCH (u:User {uid: $subject_uid})
-        MERGE (assessment)-[:ASSESSMENT_OF]->(u)
-        RETURN true AS success
-        """
-        return await self.execute_query(
-            query, {"assessment_uid": assessment_uid, "subject_uid": subject_uid}
-        )
-
-    async def auto_share_assessment_with_student(
-        self, subject_uid: str, assessment_uid: str, now: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Auto-share assessment with student via SHARES_WITH."""
-        query = """
-        MATCH (student:User {uid: $subject_uid})
-        MATCH (assessment:Entity {uid: $assessment_uid})
-        MERGE (student)-[rel:SHARES_WITH]->(assessment)
-        SET rel.shared_at = datetime($now),
-            rel.role = 'student'
-        RETURN true AS success
-        """
-        return await self.execute_query(
-            query,
-            {"subject_uid": subject_uid, "assessment_uid": assessment_uid, "now": now},
-        )
-
     async def get_assessments_for_student_raw(
         self, student_uid: str, limit: int
     ) -> Result[list[Neo4jProperties]]:
-        """Get assessment nodes for a student via ASSESSMENT_OF."""
-        query = """
-        MATCH (report:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
+        """RECEIVED feedback report nodes the student owns, newest first.
+
+        Ownership is THE visibility anchor: every report about a student's
+        work carries ``(student)-[:OWNS]->(report)`` — written atomically by
+        ``create_report_node`` (teacher/AI review) and
+        ``create_assessment_node`` (teacher assessments) — so one read covers
+        both creation paths.
+
+        PRIVATE reports are excluded: a self-owned journal reflection
+        (``_persist_entry_response``, ``visibility='private'``) is the
+        student's own artifact, not received feedback, and belongs to the
+        journals surface — not the exercise-feedback page. ``coalesce``
+        keeps a legacy node with no ``visibility`` property listed (the
+        pre-convergence report class was all student-facing feedback).
+        """
+        query = f"""
+        MATCH (u:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(report:Entity)
         WHERE report.entity_type = 'entry_report'
+          AND coalesce(report.visibility, 'shared') <> $private_visibility
         RETURN report
         ORDER BY report.created_at DESC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"student_uid": student_uid, "limit": limit})
+        return await self.execute_query(
+            query,
+            {
+                "student_uid": student_uid,
+                "limit": limit,
+                "private_visibility": Visibility.PRIVATE.value,
+            },
+        )
 
     # ========================================================================
     # TEACHER REVIEW OPERATIONS

@@ -97,11 +97,15 @@ class TestEntryReportConfig:
         assert ENTRY_REPORT_CONFIG is LABEL_CONFIGS["EntryReport"]
 
     def test_entry_report_has_loop_relationships(self):
-        """Verify the three report edges of the learning loop are declared."""
+        """Verify the report edges of the learning loop are declared.
+
+        The student a report is about is its OWNER (ownership_relationship),
+        not a separate targeting edge — ASSESSMENT_OF was deleted in the C1
+        report-visibility convergence (feedback-loop UX arc).
+        """
         rel_names = {r.relationship for r in ENTRY_REPORT_CONFIG.relationships}
         assert rel_names == {
             RelationshipName.REPORT_FOR,
-            RelationshipName.ASSESSMENT_OF,
             RelationshipName.RESPONDS_TO_REPORT,
         }
 

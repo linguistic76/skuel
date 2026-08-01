@@ -160,12 +160,13 @@ class AssessmentOperations(Protocol):
 
     The human half of the report surface (the AI half is
     :class:`EntryReportOperations`). Assessments are ENTRY_REPORT entities
-    (ReportSource.HUMAN) created by a teacher, linked to the student via
-    ASSESSMENT_OF and auto-shared via SHARES_WITH.
+    (ReportSource.HUMAN) created by a teacher, owned by the student (``OWNS``,
+    written atomically with the node — the visibility anchor for
+    received-feedback reads) and auto-shared via SHARES_WITH.
 
     Route consumers: entry_report_api.py (assessment CRUD),
-    profile_orchestrator.py (a student's received assessments).
-    Implementation: ``AssessmentService`` (core/services/user_entry/).
+    entry_reports_ui.py via UserEntryOrchestrator (a student's received
+    feedback). Implementation: ``AssessmentService`` (core/services/user_entry/).
     """
 
     async def create_assessment(
@@ -215,12 +216,14 @@ class EntryReportBackendOperations(Protocol):
     ``EntryReportBackend(UniversalNeo4jBackend[EntryReport])``.
     """
 
-    async def create(self, entity: "EntryReport") -> "Result[EntryReport]":
-        """Create an ENTRY_REPORT node with ``:Entity:EntryReport`` labels.
-
-        Canonical report-node creation: stamps the correct multi-label so the
-        node is an EntryReport, not a UserEntry. Used by teacher-assessment
-        creation, which then attaches ASSESSMENT_OF / SHARES_WITH edges itself.
+    async def create_assessment_node(
+        self, entity: "EntryReport", now: str
+    ) -> "Result[list[Neo4jProperties]]":
+        """Create a teacher-assessment ENTRY_REPORT node atomically with its
+        student ``OWNS`` and ``SHARES_WITH`` edges — all-or-nothing, because
+        ownership is the received-feedback visibility anchor and a report
+        must never exist without it. Stamps ``:Entity:EntryReport``
+        multi-labels. Empty result when the student does not exist.
         """
         ...
 

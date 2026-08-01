@@ -2189,8 +2189,9 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # ENTRY_REPORT (Four-Phase Learning Loop — Phase 3 feedback artifact)
 # The report evaluates one UserEntry (REPORT_FOR, created in the same
-# transaction as the report node); teacher assessments additionally target the
-# student (ASSESSMENT_OF); revisions answer the report (RESPONDS_TO_REPORT).
+# transaction as the report node); revisions answer the report
+# (RESPONDS_TO_REPORT). The student the report is about is its OWNER
+# (ownership_relationship below) — there is no separate targeting edge.
 # Registered 2026-07 (learning-loop contract review): these edges were written
 # and read in backend Cypher but invisible to the declarative layer, so
 # enrichment/context queries could not project the report side of the loop.
@@ -2212,18 +2213,6 @@ ENTRY_REPORT_CONFIG = DomainRelationshipConfig(
             "reviewed_entry",
             "reviewed_entry",
             fields=("uid", "title", "status", "user_uid"),
-            single=True,
-        ),
-        # Outgoing: EntryReport → User (teacher assessment targets the student).
-        # User nodes store the username in `title` (create_user: title=username);
-        # a `username` node property never existed.
-        UnifiedRelationshipDefinition(
-            RelationshipName.ASSESSMENT_OF,
-            "User",
-            "outgoing",
-            "assessed_student",
-            "assessed_student",
-            fields=("uid", "title", "display_name"),
             single=True,
         ),
         # Incoming: RevisedExercise → EntryReport (revision addressing this report)

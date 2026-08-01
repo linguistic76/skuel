@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 181, with_contract: 98}
+    relationships: {total: 180, with_contract: 97}
     labels: {total: 61, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -834,11 +834,6 @@ relationships:
     contract: null
   HAS_SCHEDULE:
     contract: null
-  ASSESSMENT_OF:
-    contract:
-      - config: EntryReport
-        definitions:
-          - {direction: outgoing, target: User, context_field: assessed_student, method: assessed_student, fields: [uid, title, display_name], single: true}
   REPORT_FOR:
     contract:
       - config: UserEntry
@@ -1205,7 +1200,6 @@ labels:
       ownership: OWNS
       relationships:
         - REPORT_FOR
-        - ASSESSMENT_OF
         - RESPONDS_TO_REPORT
         - OWNS
   UserEntry:

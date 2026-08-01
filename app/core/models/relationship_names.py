@@ -375,9 +375,6 @@ class RelationshipName(StrEnum):
         "HAS_REFERENCE_CHUNK"  # (Resource)-[:HAS_REFERENCE_CHUNK]->(ReferenceChunk) - canon shelf
     )
     HAS_SCHEDULE = "HAS_SCHEDULE"  # (User)-[:HAS_SCHEDULE]->(ReportSchedule) - User's report generation schedule
-    ASSESSMENT_OF = (
-        "ASSESSMENT_OF"  # (Report)-[:ASSESSMENT_OF]->(User) - Teacher assessment targets student
-    )
     REPORT_FOR = "REPORT_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
 
     # =========================================================================

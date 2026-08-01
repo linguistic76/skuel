@@ -245,7 +245,7 @@ class UserEntryAssessmentOperations(Protocol):
         """
         ...
 
-    # -------- assessment relationships --------
+    # -------- assessment authority + queries --------
 
     async def verify_teacher_authority(
         self, teacher_uid: str, subject_uid: str
@@ -253,22 +253,13 @@ class UserEntryAssessmentOperations(Protocol):
         """Verify teacher-student share an active group."""
         ...
 
-    async def create_assessment_relationship(
-        self, assessment_uid: str, subject_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create ``ASSESSMENT_OF`` from assessment report to student."""
-        ...
-
-    async def auto_share_assessment_with_student(
-        self, subject_uid: str, assessment_uid: str, now: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Auto-share assessment report with student via ``SHARES_WITH``."""
-        ...
-
     async def get_assessments_for_student_raw(
         self, student_uid: str, limit: int
     ) -> Result[list[Neo4jProperties]]:
-        """Assessment report nodes for a student via ``ASSESSMENT_OF``."""
+        """RECEIVED feedback report nodes the student owns (``OWNS`` +
+        entity_type), newest first — teacher-review, AI, and assessment
+        reports. Excludes PRIVATE self-owned journal reflections, which are
+        the student's own artifacts, not received feedback."""
         ...
 
     # -------- teacher review workflow --------
