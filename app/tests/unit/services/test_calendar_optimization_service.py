@@ -25,10 +25,10 @@ import pytest
 
 from core.models.calendar_optimization import (
     CognitiveLoadAnalysis,
-    EnergyLevel,
     LearningSession,
     OptimizedTimeSlot,
     SchedulingStrategy,
+    SlotEnergyLevel,
 )
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityType, Priority
@@ -59,7 +59,7 @@ def make_event(uid: str, **kwargs) -> EventDTO:
 def make_slot(
     hour: int,
     cognitive_capacity: float = 0.80,
-    energy_level: EnergyLevel = EnergyLevel.HIGH,
+    energy_level: SlotEnergyLevel = SlotEnergyLevel.HIGH,
     learning_effectiveness: float = 0.70,
     productivity_score: float = 0.70,
 ) -> OptimizedTimeSlot:
@@ -264,17 +264,17 @@ class TestHourlyHeuristics:
 
     def test_determine_energy_level_membership(self, service: CalendarOptimizationService) -> None:
         profile = service._get_user_energy_profile(USER_UID)
-        assert service._determine_energy_level(9, profile) == EnergyLevel.PEAK
-        assert service._determine_energy_level(8, profile) == EnergyLevel.HIGH
-        assert service._determine_energy_level(13, profile) == EnergyLevel.MEDIUM
-        assert service._determine_energy_level(19, profile) == EnergyLevel.LOW
+        assert service._determine_energy_level(9, profile) == SlotEnergyLevel.PEAK
+        assert service._determine_energy_level(8, profile) == SlotEnergyLevel.HIGH
+        assert service._determine_energy_level(13, profile) == SlotEnergyLevel.MEDIUM
+        assert service._determine_energy_level(19, profile) == SlotEnergyLevel.LOW
 
     def test_determine_energy_level_depleted_fallthrough(
         self, service: CalendarOptimizationService
     ) -> None:
         profile = service._get_user_energy_profile(USER_UID)
-        assert service._determine_energy_level(23, profile) == EnergyLevel.DEPLETED
-        assert service._determine_energy_level(3, profile) == EnergyLevel.DEPLETED
+        assert service._determine_energy_level(23, profile) == SlotEnergyLevel.DEPLETED
+        assert service._determine_energy_level(3, profile) == SlotEnergyLevel.DEPLETED
 
     def test_cognitive_capacity_map(self, service: CalendarOptimizationService) -> None:
         profile = service._get_user_energy_profile(USER_UID)
@@ -299,16 +299,16 @@ class TestHourlyHeuristics:
         self, service: CalendarOptimizationService
     ) -> None:
         # Hour 9 at PEAK: 0.95 energy factor x 0.95 time factor.
-        peak_morning = service._calculate_learning_effectiveness(9, EnergyLevel.PEAK)
+        peak_morning = service._calculate_learning_effectiveness(9, SlotEnergyLevel.PEAK)
         assert peak_morning == pytest.approx(0.95 * 0.95)
         # Hour 16 at MEDIUM: 0.65 energy factor x 0.80 afternoon time factor.
-        medium_afternoon = service._calculate_learning_effectiveness(16, EnergyLevel.MEDIUM)
+        medium_afternoon = service._calculate_learning_effectiveness(16, SlotEnergyLevel.MEDIUM)
         assert medium_afternoon == pytest.approx(0.65 * 0.80)
 
     def test_productivity_score_weights(self, service: CalendarOptimizationService) -> None:
         # Hour 10, PEAK, capacity 0.95:
         # 0.95*0.4 + (1 - 0.6)*0.3 + (0.95*0.95)*0.3
-        score = service._calculate_productivity_score(10, EnergyLevel.PEAK, 0.95)
+        score = service._calculate_productivity_score(10, SlotEnergyLevel.PEAK, 0.95)
         expected = 0.95 * 0.4 + 0.4 * 0.3 + (0.95 * 0.95) * 0.3
         assert score == pytest.approx(expected)
 
@@ -451,11 +451,14 @@ class TestEnergyAlignedStrategy:
         # HIGH-priority and mastery tasks land in PEAK/HIGH slots.
         for uid in (high.uid, mastery.uid):
             assert schedule[uid]["energy_match"] == "optimal"
-            assert schedule[uid]["slot"].energy_level in (EnergyLevel.PEAK, EnergyLevel.HIGH)
+            assert schedule[uid]["slot"].energy_level in (
+                SlotEnergyLevel.PEAK,
+                SlotEnergyLevel.HIGH,
+            )
         assert schedule[medium.uid]["energy_match"] == "good"
-        assert schedule[medium.uid]["slot"].energy_level == EnergyLevel.MEDIUM
+        assert schedule[medium.uid]["slot"].energy_level == SlotEnergyLevel.MEDIUM
         assert schedule[low.uid]["energy_match"] == "adequate"
-        assert schedule[low.uid]["slot"].energy_level == EnergyLevel.LOW
+        assert schedule[low.uid]["slot"].energy_level == SlotEnergyLevel.LOW
         # 2 optimal out of 4 scheduled.
         assert result["energy_efficiency"] == pytest.approx(0.5)
 
@@ -477,9 +480,9 @@ class TestEnergyAlignedStrategy:
             assert schedule[uid]["energy_match"] == "optimal"
         # CRITICAL is seated first even though it was listed after HIGH,
         # and slots are consumed best-capacity-first: 9:00 PEAK then 10:00 PEAK.
-        assert schedule[critical.uid]["slot"].energy_level == EnergyLevel.PEAK
+        assert schedule[critical.uid]["slot"].energy_level == SlotEnergyLevel.PEAK
         assert schedule[critical.uid]["slot"].start_time.hour == 9
-        assert schedule[high.uid]["slot"].energy_level == EnergyLevel.PEAK
+        assert schedule[high.uid]["slot"].energy_level == SlotEnergyLevel.PEAK
         assert schedule[high.uid]["slot"].start_time.hour == 10
         assert (
             schedule[critical.uid]["slot"].cognitive_capacity

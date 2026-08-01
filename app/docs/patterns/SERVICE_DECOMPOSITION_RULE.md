@@ -178,4 +178,9 @@ class _{Theme}Mixin:
     backend: Any
     logger: Any
     # ... other attributes used by the mixin methods
+
+    # Facade-method hook — type it precisely, never Any: an async facade
+    # method satisfies a Callable[..., Awaitable[...]] declaration, so calls
+    # from the mixin stay fully checked (established on PR #899, Codex P2)
+    get_entity: Callable[[EntityUID], Awaitable[Result[Entity | None]]]
 ```

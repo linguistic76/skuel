@@ -6,11 +6,9 @@ Domain models for knowledge-aware calendar scheduling: the capacity/strategy
 enums and the analysis/recommendation dataclasses consumed by
 CalendarOptimizationService and its scheduling-strategies mixin.
 
-Note: ``EnergyLevel`` here is the *hourly capacity* scale (PEAK..DEPLETED)
-used for time-slot analysis — deliberately distinct from
-``core.models.enums.scheduling_enums.EnergyLevel``, the task
-energy-requirement scale (LOW/MEDIUM/HIGH/VARIABLE) on user preferences.
-Do not merge them.
+Note: ``SlotEnergyLevel`` is the *hourly capacity* scale (PEAK..DEPLETED) for
+time-slot analysis — a different concept from ``scheduling_enums.EnergyLevel``
+(task energy requirement, LOW/MEDIUM/HIGH/VARIABLE); do not merge them.
 """
 
 from dataclasses import dataclass
@@ -25,8 +23,8 @@ from core.models.enums import Domain
 KnowledgeUnitDTO = CurriculumDTO
 
 
-class EnergyLevel(Enum):
-    """User energy levels throughout the day."""
+class SlotEnergyLevel(Enum):
+    """Hourly energy capacity of a time slot."""
 
     PEAK = "peak"  # 90-100% capacity
     HIGH = "high"  # 70-89% capacity
@@ -104,7 +102,7 @@ class OptimizedTimeSlot:
 
     start_time: datetime
     end_time: datetime
-    energy_level: EnergyLevel
+    energy_level: SlotEnergyLevel
     cognitive_capacity: float  # Available cognitive capacity (0.0-1.0)
     domain_affinity: Domain | None  # Best domain for this slot
     interruption_risk: float  # Risk of interruptions (0.0-1.0)
@@ -144,7 +142,7 @@ class KnowledgeSchedulingRecommendation:
     activity_type: str  # "learning", "application", "review", "practice"
     recommended_time: datetime
     duration_minutes: int
-    energy_requirement: EnergyLevel
+    energy_requirement: SlotEnergyLevel
     cognitive_load: CognitiveLoadAnalysis
     knowledge_units: list[str]
     reasoning: str  # Why this timing is recommended
