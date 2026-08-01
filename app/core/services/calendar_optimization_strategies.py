@@ -15,11 +15,11 @@ from typing import Any
 
 from core.models.calendar_optimization import (
     CognitiveLoadAnalysis,
-    EnergyLevel,
     EnergyProfile,
     KnowledgeUnitDTO,
     OptimizedTimeSlot,
     SchedulingStrategy,
+    SlotEnergyLevel,
 )
 from core.models.enums import Priority
 from core.models.task.task_dto import TaskDTO
@@ -132,7 +132,7 @@ class _SchedulingStrategiesMixin:
         # Assign high-energy tasks to peak/high energy slots, best capacity
         # first so CRITICAL is seated into PEAK before HIGH slots.
         peak_slots = sorted(
-            (s for s in slots if s.energy_level in [EnergyLevel.PEAK, EnergyLevel.HIGH]),
+            (s for s in slots if s.energy_level in [SlotEnergyLevel.PEAK, SlotEnergyLevel.HIGH]),
             key=attrgetter("cognitive_capacity"),
             reverse=True,
         )
@@ -141,13 +141,13 @@ class _SchedulingStrategiesMixin:
                 schedule[task.uid] = {"slot": peak_slots[i], "energy_match": "optimal"}
 
         # Assign medium-energy tasks to medium energy slots
-        medium_slots = [s for s in slots if s.energy_level == EnergyLevel.MEDIUM]
+        medium_slots = [s for s in slots if s.energy_level == SlotEnergyLevel.MEDIUM]
         for i, task in enumerate(medium_energy_tasks):
             if i < len(medium_slots):
                 schedule[task.uid] = {"slot": medium_slots[i], "energy_match": "good"}
 
         # Assign low-energy tasks to low energy slots
-        low_slots = [s for s in slots if s.energy_level == EnergyLevel.LOW]
+        low_slots = [s for s in slots if s.energy_level == SlotEnergyLevel.LOW]
         for i, task in enumerate(low_energy_tasks):
             if i < len(low_slots):
                 schedule[task.uid] = {"slot": low_slots[i], "energy_match": "adequate"}

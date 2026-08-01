@@ -16,13 +16,13 @@ from typing import Any
 from core.models.calendar_optimization import (
     CalendarOptimization,
     CognitiveLoadAnalysis,
-    EnergyLevel,
     EnergyProfile,
     KnowledgeSchedulingRecommendation,
     KnowledgeUnitDTO,
     LearningSession,
     OptimizedTimeSlot,
     SchedulingStrategy,
+    SlotEnergyLevel,
 )
 from core.models.enums import Domain, Priority
 from core.models.event.event_dto import EventDTO
@@ -211,42 +211,42 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
 
         return slots
 
-    def _determine_energy_level(self, hour: int, energy_profile: EnergyProfile) -> EnergyLevel:
+    def _determine_energy_level(self, hour: int, energy_profile: EnergyProfile) -> SlotEnergyLevel:
         """Determine energy level for a given hour."""
         if hour in energy_profile.peak_hours:
-            return EnergyLevel.PEAK
+            return SlotEnergyLevel.PEAK
         elif hour in energy_profile.high_hours:
-            return EnergyLevel.HIGH
+            return SlotEnergyLevel.HIGH
         elif hour in energy_profile.medium_hours:
-            return EnergyLevel.MEDIUM
+            return SlotEnergyLevel.MEDIUM
         elif hour in energy_profile.low_hours:
-            return EnergyLevel.LOW
+            return SlotEnergyLevel.LOW
         else:
-            return EnergyLevel.DEPLETED
+            return SlotEnergyLevel.DEPLETED
 
     def _calculate_cognitive_capacity(self, hour: int, energy_profile: EnergyProfile) -> float:
         """Calculate cognitive capacity for a given hour."""
         energy = self._determine_energy_level(hour, energy_profile)
 
         base_capacity = {
-            EnergyLevel.PEAK: 0.95,
-            EnergyLevel.HIGH: 0.80,
-            EnergyLevel.MEDIUM: 0.60,
-            EnergyLevel.LOW: 0.40,
-            EnergyLevel.DEPLETED: 0.20,
+            SlotEnergyLevel.PEAK: 0.95,
+            SlotEnergyLevel.HIGH: 0.80,
+            SlotEnergyLevel.MEDIUM: 0.60,
+            SlotEnergyLevel.LOW: 0.40,
+            SlotEnergyLevel.DEPLETED: 0.20,
         }
 
         return base_capacity[energy]
 
-    def _determine_domain_affinity(self, hour: int, energy: EnergyLevel) -> Domain | None:
+    def _determine_domain_affinity(self, hour: int, energy: SlotEnergyLevel) -> Domain | None:
         """Determine which domain is best suited for this time slot."""
-        if energy in [EnergyLevel.PEAK, EnergyLevel.HIGH]:
+        if energy in [SlotEnergyLevel.PEAK, SlotEnergyLevel.HIGH]:
             # High energy times are good for complex domains
             if 9 <= hour <= 11:
                 return Domain.TECH  # Technical work in morning
             elif 14 <= hour <= 16:
                 return Domain.CREATIVE  # Creative work in afternoon
-        elif energy == EnergyLevel.MEDIUM:
+        elif energy == SlotEnergyLevel.MEDIUM:
             return Domain.BUSINESS  # Business tasks for medium energy
         else:
             return Domain.PERSONAL  # Personal tasks for low energy
@@ -263,14 +263,14 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         else:
             return 0.1
 
-    def _calculate_learning_effectiveness(self, hour: int, energy: EnergyLevel) -> float:
+    def _calculate_learning_effectiveness(self, hour: int, energy: SlotEnergyLevel) -> float:
         """Calculate learning effectiveness for a given hour and energy level."""
         energy_factor = {
-            EnergyLevel.PEAK: 0.95,
-            EnergyLevel.HIGH: 0.85,
-            EnergyLevel.MEDIUM: 0.65,
-            EnergyLevel.LOW: 0.40,
-            EnergyLevel.DEPLETED: 0.20,
+            SlotEnergyLevel.PEAK: 0.95,
+            SlotEnergyLevel.HIGH: 0.85,
+            SlotEnergyLevel.MEDIUM: 0.65,
+            SlotEnergyLevel.LOW: 0.40,
+            SlotEnergyLevel.DEPLETED: 0.20,
         }[energy]
 
         # Time-of-day factor
@@ -286,7 +286,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         return energy_factor * time_factor
 
     def _calculate_productivity_score(
-        self, hour: int, energy: EnergyLevel, cognitive_capacity: float
+        self, hour: int, energy: SlotEnergyLevel, cognitive_capacity: float
     ) -> float:
         """Calculate overall productivity score for a time slot."""
         interruption_factor = 1.0 - self._calculate_interruption_risk(hour)
@@ -395,7 +395,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
                         knowledge_units=[ku.uid for ku in units],
                         primary_domain=domain,
                         session_type="deep_focus"
-                        if slot.energy_level == EnergyLevel.PEAK
+                        if slot.energy_level == SlotEnergyLevel.PEAK
                         else "review",
                         cognitive_load=CognitiveLoadAnalysis(0.6, 0.2, 0.4, 0.7, 0.5, 0.1),
                         prerequisites_covered=[],
@@ -420,8 +420,8 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         recommendations = []
 
         # Recommend optimal times for different types of knowledge work
-        peak_slots = [s for s in available_slots if s.energy_level == EnergyLevel.PEAK]
-        high_slots = [s for s in available_slots if s.energy_level == EnergyLevel.HIGH]
+        peak_slots = [s for s in available_slots if s.energy_level == SlotEnergyLevel.PEAK]
+        high_slots = [s for s in available_slots if s.energy_level == SlotEnergyLevel.HIGH]
 
         if peak_slots:
             # Deep learning recommendation
@@ -430,7 +430,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
                     activity_type="deep_learning",
                     recommended_time=peak_slots[0].start_time,
                     duration_minutes=90,
-                    energy_requirement=EnergyLevel.PEAK,
+                    energy_requirement=SlotEnergyLevel.PEAK,
                     cognitive_load=CognitiveLoadAnalysis(0.7, 0.2, 0.5, 0.8, 0.6, 0.1),
                     knowledge_units=[ku.uid for ku in knowledge_units[:3]],
                     reasoning="Peak energy period optimal for complex learning tasks",
@@ -447,7 +447,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
                     activity_type="application_practice",
                     recommended_time=high_slots[0].start_time,
                     duration_minutes=60,
-                    energy_requirement=EnergyLevel.HIGH,
+                    energy_requirement=SlotEnergyLevel.HIGH,
                     cognitive_load=CognitiveLoadAnalysis(0.5, 0.2, 0.3, 0.6, 0.4, 0.1),
                     knowledge_units=[ku.uid for ku in knowledge_units[3:6]],
                     reasoning="High energy suitable for applying learned concepts",
@@ -494,13 +494,13 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
                 energy_level = self._determine_energy_level(hour, energy_profile)
 
                 # Higher score for better energy alignment
-                if energy_level == EnergyLevel.PEAK:
+                if energy_level == SlotEnergyLevel.PEAK:
                     alignment_scores.append(1.0)
-                elif energy_level == EnergyLevel.HIGH:
+                elif energy_level == SlotEnergyLevel.HIGH:
                     alignment_scores.append(0.8)
-                elif energy_level == EnergyLevel.MEDIUM:
+                elif energy_level == SlotEnergyLevel.MEDIUM:
                     alignment_scores.append(0.6)
-                elif energy_level == EnergyLevel.LOW:
+                elif energy_level == SlotEnergyLevel.LOW:
                     alignment_scores.append(0.4)
                 else:  # DEPLETED
                     alignment_scores.append(0.2)
