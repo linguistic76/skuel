@@ -28,11 +28,15 @@ re-litigate them outside the item's own future elicitation.
 
 **Seams already in place (verified at arc close):**
 
-- `ReportSource` value-set is deliberately open — the GradeBook Source filter
-  (`ui/gradebook/summary.py`, `_SOURCE_OPTIONS`) names only the sources that exist and
-  carries the comment that "Peer joins as a fourth option … with no schema or filter
-  rework". The Shared-With-Me Shared-by filter derives its options from live data, so a
-  peer sharer appears with zero code change.
+- `ReportSource` was left peer-compatible: **additive, not free**. Landing "peer" means
+  adding a typed `ReportSource` enum member + its labels
+  (`core/models/enums/pipeline.py` — it is a closed `StrEnum`; never persist a raw
+  string) and one `_SOURCE_OPTIONS` row in the GradeBook Source filter
+  (`ui/gradebook/summary.py` — `normalize_exchange_filters` clamps unknown sources to
+  `all`, so an unregistered value silently stops filtering). The arc 2 "no schema or
+  filter rework" ruling means exactly this: the additions slot in without redesigning
+  the filter model. The Shared-With-Me Shared-by filter derives its options from live
+  data and genuinely needs nothing.
 - `SHARES_WITH` edges carry `role` / `shared_at` / `share_version`; every current writer
   stamps `created_by` on the shared entity (arc 2 PR 3 invariant — sharer attribution and
   the Shared-by filter key on it). A peer writer must keep both properties honest.
