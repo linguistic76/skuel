@@ -164,7 +164,10 @@ def test_modal_offers_no_completion_without_day_stamp() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _task_item(item_type: CalendarItemType = CalendarItemType.TASK_WORK) -> CalendarItem:
+def _task_item(
+    item_type: CalendarItemType = CalendarItemType.TASK_WORK,
+    status: str = "active",
+) -> CalendarItem:
     return CalendarItem(
         uid="task-task_1",
         source_uid="task_1",
@@ -173,6 +176,7 @@ def _task_item(item_type: CalendarItemType = CalendarItemType.TASK_WORK) -> Cale
         start_time=datetime(2026, 8, 14, 9, 0),
         end_time=datetime(2026, 8, 14, 10, 0),
         all_day=item_type == CalendarItemType.TASK_DEADLINE,
+        metadata={"status": status},
     )
 
 
@@ -190,6 +194,21 @@ def test_deadline_task_modal_also_offers_reschedule() -> None:
     html = to_xml(create_item_details_modal(_task_item(CalendarItemType.TASK_DEADLINE)))
     assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
     assert 'name="new_date"' in html
+
+
+def test_terminal_task_modal_offers_no_reschedule() -> None:
+    """TasksCoreService._validate_update refuses every change to a terminal
+    task — the modal must not offer a form that is guaranteed to fail."""
+    for status in ("cancelled", "failed", "archived", "completed"):
+        html = to_xml(create_item_details_modal(_task_item(status=status)))
+        assert "/reschedule" not in html, f"terminal status {status} must hide the form"
+
+
+def test_unknown_task_status_still_offers_reschedule() -> None:
+    """A missing/unknown status counts as actionable — the service policy is
+    the backstop, and its refusal message renders in the form."""
+    html = to_xml(create_item_details_modal(_task_item(status="")))
+    assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
 
 
 def _event_item(day: date) -> CalendarItem:

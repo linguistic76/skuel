@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import H1, H2, A, Div, Form, P, Span
 from fasthtml.common import Button as HtmlButton
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.event.calendar_models import (
     CalendarData,
@@ -649,6 +650,23 @@ def habit_day_state_line(done: bool, *, oob: bool = False) -> P:
     )
 
 
+def _is_terminal_task(item: CalendarItem) -> bool:
+    """Whether a task calendar item is in a terminal status (cancelled/failed/
+    archived/completed).
+
+    Reads the ``status`` value ``_task_to_calendar_item`` stamps into
+    ``metadata``. TasksCoreService._validate_update refuses every change to a
+    terminal task, so terminal chips must not offer actions that are
+    guaranteed to fail. A missing/unknown status counts as actionable — the
+    service policy is the backstop.
+    """
+    raw_status = str(item.metadata.get("status", ""))
+    try:
+        return EntityStatus(raw_status).is_terminal()
+    except ValueError:
+        return False
+
+
 def item_schedule_line(item: CalendarItem, *, oob: bool = False) -> P:
     """The modal's schedule line for a task/event item (``#item-schedule-text``).
 
@@ -737,8 +755,9 @@ def create_item_details_modal(item: Any) -> Div:
     Task and event modals carry a ``reschedule_form`` in the schedule panel
     (date input; events add a start-time input — duration is preserved
     in-service). Habit modals never do: habits recur, they don't reschedule.
-    Past events get no form either — they are immutable historical records
-    and the events service refuses date/time changes on them.
+    Terminal tasks and past events (immutable historical records) get no
+    form either — their domain services refuse date changes, so the form
+    would be guaranteed to fail.
     """
     color = item.color
 
@@ -780,12 +799,17 @@ def create_item_details_modal(item: Any) -> Div:
 
     # Reschedule — tasks move by date (overdue tasks included: moving them
     # forward is the point), events by date + start time (duration preserved
-    # in-service). Habits recur; they never get this form. Past events are
-    # immutable historical records (EventsCoreService._validate_update), so
-    # offering the form would guarantee failure — the service policy stays
-    # the backstop for hand-crafted posts.
+    # in-service). Habits recur; they never get this form. Two states get no
+    # form because their domain services refuse every date change, so
+    # offering it would guarantee failure (the service policies stay the
+    # backstop for hand-crafted posts): terminal tasks
+    # (TasksCoreService._validate_update) and past events — immutable
+    # historical records (EventsCoreService._validate_update).
     resched_form = None
-    if item.item_type in (CalendarItemType.TASK_WORK, CalendarItemType.TASK_DEADLINE):
+    if item.item_type in (
+        CalendarItemType.TASK_WORK,
+        CalendarItemType.TASK_DEADLINE,
+    ) and not _is_terminal_task(item):
         resched_form = reschedule_form(
             item.uid,
             with_time=False,
