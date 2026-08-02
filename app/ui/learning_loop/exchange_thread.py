@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from fasthtml.common import H3, A, Div, P, Span
 
 from core.models.enums.pipeline import ReportSource
+from core.utils.timestamp_helpers import parse_iso_utc
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -42,23 +43,11 @@ _EPOCH = datetime.min.replace(tzinfo=UTC)
 
 
 def _sort_key(created_at: str | None) -> datetime:
-    """Chronological sort key for a thread item.
-
-    Entry timestamps are naive ISO strings (the mapper emits ``isoformat()``)
-    while report/revision stamps are timezone-aware (server-side
-    ``datetime($now)``) — comparing them raw would TypeError, so naive values
-    are treated as UTC. Unparseable/missing stamps sort first rather than
+    """Chronological sort key for a thread item — naive stamps are UTC
+    (``parse_iso_utc``); unparseable/missing stamps sort first rather than
     dropping the item.
     """
-    if not created_at:
-        return _EPOCH
-    try:
-        parsed = datetime.fromisoformat(created_at)
-    except ValueError:
-        return _EPOCH
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed
+    return parse_iso_utc(created_at) or _EPOCH
 
 
 def _when(created_at: str | None) -> str:

@@ -25,7 +25,6 @@ from fasthtml.common import (
     Textarea,
     Ul,
 )
-from fasthtml.common import Button as HtmlButton
 
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
@@ -156,76 +155,6 @@ def render_yours_list(items: list[dict]) -> Any:
 
 
 # ============================================================================
-# TEACHER ASSESSMENT CARDS (feedback received by student)
-# ============================================================================
-
-
-def render_report_card(assessment: Any) -> Any:
-    """Render a single received-report card (server-side, no inline JS)."""
-
-    uid = getattr(assessment, "uid", "") or ""
-    title = getattr(assessment, "title", "") or "Assessment"
-    # Body field varies by writer: assessments store `content`,
-    # teacher-review/AI reports store `processed_content` (create_report_node).
-    content = (
-        getattr(assessment, "content", "") or getattr(assessment, "processed_content", "") or ""
-    )
-    preview = content[:200] + ("..." if len(content) > 200 else "")
-    created_at = getattr(assessment, "created_at", None)
-    # Attribution is the AUTHOR (created_by), not the owner \u2014 reports are
-    # owned by the student for access control.
-    author_uid = getattr(assessment, "created_by", "") or getattr(assessment, "user_uid", "") or ""
-
-    processor_type = getattr(assessment, "processor_type", None)
-    if processor_type:
-        _missing = object()
-        ptype_val = getattr(processor_type, "value", _missing)
-        ptype_str = ptype_val if ptype_val is not _missing else str(processor_type)
-        source_label = "AI" if ptype_str == "llm" else "Teacher"
-    else:
-        source_label = "Teacher"
-
-    date_str = format_date(created_at)
-
-    return Div(
-        Card(
-            CardBody(
-                H4(title, cls="font-semibold mb-1"),
-                P(
-                    f"From: {author_uid} \u00b7 {date_str} \u00b7 {source_label}",
-                    cls="text-sm text-muted-foreground mb-2",
-                ),
-                P(preview, cls="text-sm"),
-                ButtonLink(
-                    "View Full",
-                    href=f"/entry-reports/detail?uid={uid}",
-                    cls=(ButtonT.primary, "mt-2"),
-                    size="sm",
-                ),
-                cls="p-4",
-            ),
-            cls="bg-background shadow-sm mb-3",
-        ),
-    )
-
-
-def render_received_report_list(items: list[Any]) -> Any:
-    """Render the full list of received reports (HTMX swap target)."""
-    if not items:
-        return Div(
-            EmptyState(
-                title="No reports yet",
-                description="Assessments from teachers will appear here once submitted.",
-            ),
-            id="feedback-list",
-        )
-    return Div(
-        *[render_report_card(a) for a in items],
-        id="feedback-list",
-    )
-
-
-# ============================================================================
 # EXERCISE REPORT DETAIL VIEW
 # ============================================================================
 
@@ -346,8 +275,8 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
     # Back link
     back = Div(
         ButtonLink(
-            "\u2190 Back to Entry Reports",
-            href="/entry-reports",
+            "\u2190 Back to GradeBook",
+            href="/gradebook",
             cls=ButtonT.ghost,
         ),
         cls="mt-6",
@@ -436,36 +365,6 @@ def render_activity_report_list(items: list[Any]) -> Any:
         *[render_activity_report_card(r) for r in items],
         id="activity-feedback-list",
     )
-
-
-def render_time_period_filter(active_period: str = "") -> Any:
-    """Render time-period filter buttons for activity reports."""
-    periods = [
-        ("", "All"),
-        ("7d", "7 days"),
-        ("14d", "14 days"),
-        ("30d", "30 days"),
-        ("90d", "90 days"),
-    ]
-    buttons = []
-    for value, label in periods:
-        is_active = value == active_period
-        cls = "px-3 py-1 text-sm rounded-md border transition-colors "
-        cls += (
-            "bg-primary text-primary-foreground border-primary"
-            if is_active
-            else "bg-background text-foreground border-border hover:border-primary/50"
-        )
-        buttons.append(
-            HtmlButton(
-                label,
-                cls=cls,
-                hx_get=f"/reports/activity-list?time_period={value}",
-                hx_target="#activity-feedback-list",
-                hx_swap="outerHTML",
-            )
-        )
-    return Div(*buttons, cls="flex gap-2 flex-wrap mb-4")
 
 
 # ============================================================================
@@ -656,8 +555,8 @@ def render_activity_report_detail(
     # Back link
     back = Div(
         ButtonLink(
-            "\u2190 Back to Activity Reports",
-            href="/activity-reports",
+            "\u2190 Back to GradeBook",
+            href="/gradebook",
             cls=ButtonT.ghost,
         ),
         cls="mt-6",

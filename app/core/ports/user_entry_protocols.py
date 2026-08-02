@@ -394,6 +394,21 @@ class UserEntryReportQueryOperations(Protocol):
         """
         ...
 
+    async def get_student_exchange_summaries_raw(
+        self, student_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Every exchange the student is in, one summary row each — one read.
+
+        Per root exercise with lineage entries (direct turn-ins + resubmits
+        via a revision): latest entry, latest report on it, lineage counts.
+        A second column carries received reports outside any exchange (the
+        GradeBook "Other feedback" group). PRIVATE reports excluded; all
+        ``created_at`` values arrive as ISO-8601 strings.
+
+        Backend: _UserEntryReportQueryMixin.get_student_exchange_summaries_raw
+        """
+        ...
+
     async def get_entry_chain_raw(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
         """Loop chain rooted at a specific entry."""
         ...

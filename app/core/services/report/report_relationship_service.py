@@ -18,25 +18,38 @@ Graph relationships queried:
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
+from core.models.enums.pipeline import ExchangeStatus
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     ExchangeThread,
     ExchangeThreadEntry,
     ExchangeThreadReport,
     ExchangeThreadRevision,
+    GradebookOtherReport,
     LearningLoopChain,
     ReportSummary,
+    StudentExchangeSummaries,
+    StudentExchangeSummary,
     SubmissionChain,
 )
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import parse_iso_utc
 
 if TYPE_CHECKING:
     from core.models.enums.pipeline import Pipeline
     from core.ports.user_entry_protocols import UserEntryReportQueryOperations
+
+_EPOCH = datetime.min.replace(tzinfo=UTC)
+
+
+def _latest_activity_key(summary: StudentExchangeSummary) -> datetime:
+    """Newest-first sort key for an exchange line; missing stamps sort oldest."""
+    return parse_iso_utc(summary["latest_activity_at"]) or _EPOCH
 
 
 class ReportRelationshipService:
@@ -261,6 +274,90 @@ class ReportRelationshipService:
                 reports=cast("list[ExchangeThreadReport]", reports),
                 revisions=cast("list[ExchangeThreadRevision]", revisions),
             )
+        )
+
+    async def get_student_exchange_summaries(
+        self, student_uid: UserUID
+    ) -> Result[StudentExchangeSummaries]:
+        """
+        Every exchange the student is in, one summary line each — the
+        GradeBook page's single read (feedback-loop UX arc 2 C1).
+
+        Per root exercise with lineage entries (direct turn-ins + resubmits
+        via a revision): the latest entry, the latest report on it, lineage
+        counts, the derived ``ExchangeStatus``, and ``latest_activity_at``
+        (the newer of the two stamps, naive = UTC). Lines come back newest
+        activity first. ``other_feedback`` carries received reports outside
+        any exchange (report on an entry with no exercise lineage, or on no
+        entry) — the page's conditional third group.
+
+        A student with no exchanges gets empty lists, not an error — an
+        empty GradeBook is a state, not a failure.
+
+        Args:
+            student_uid: The student whose exchanges to summarize (the
+                caller's own authenticated identity — OWNS-scoped read).
+
+        Returns:
+            Result[StudentExchangeSummaries] — ``exercises`` newest-first +
+            ``other_feedback``.
+        """
+        result = await self.backend.get_student_exchange_summaries_raw(student_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        records = result.value or []
+        record = cast("dict[str, Any]", records[0]) if records else {}
+
+        exercises: list[StudentExchangeSummary] = []
+        for row in record.get("exercise_summaries") or []:
+            if not row.get("exercise_uid") or not row.get("latest_entry_uid"):
+                continue
+            report = dict(row.get("latest_report") or {})
+            entry_stamp = row.get("latest_entry_created_at")
+            report_stamp = report.get("created_at")
+            stamps = [
+                (parsed, stamp)
+                for parsed, stamp in (
+                    (parse_iso_utc(entry_stamp), entry_stamp),
+                    (parse_iso_utc(report_stamp), report_stamp),
+                )
+                if parsed is not None
+            ]
+            latest_activity = max(stamps, default=(_EPOCH, None))[1]
+            status = ExchangeStatus.derive(
+                row.get("latest_entry_status"), has_report=bool(report.get("uid"))
+            )
+            exercises.append(
+                StudentExchangeSummary(
+                    exercise_uid=str(row["exercise_uid"]),
+                    exercise_title=str(row.get("exercise_title") or "") or str(row["exercise_uid"]),
+                    latest_entry_uid=str(row["latest_entry_uid"]),
+                    latest_entry_status=row.get("latest_entry_status"),
+                    latest_entry_created_at=entry_stamp,
+                    latest_report_uid=report.get("uid"),
+                    latest_report_source=report.get("processor_type"),
+                    latest_report_created_at=report_stamp,
+                    entry_count=coerce_int(row.get("entry_count")),
+                    report_count=coerce_int(row.get("report_count")),
+                    exchange_status=status.value,
+                    latest_activity_at=latest_activity,
+                )
+            )
+        exercises.sort(key=_latest_activity_key, reverse=True)
+
+        other_feedback = [
+            GradebookOtherReport(
+                uid=str(r["uid"]),
+                title=r.get("title"),
+                source=r.get("processor_type"),
+                created_at=r.get("created_at"),
+            )
+            for r in (record.get("other_feedback") or [])
+            if r.get("uid")
+        ]
+        return Result.ok(
+            StudentExchangeSummaries(exercises=exercises, other_feedback=other_feedback)
         )
 
     async def get_submission_chain(self, submission_uid: str) -> Result[SubmissionChain]:

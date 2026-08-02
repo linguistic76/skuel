@@ -65,6 +65,29 @@ def today() -> date:
 # =============================================================================
 
 
+def parse_iso_utc(value: str | None) -> datetime | None:
+    """Parse an ISO-8601 timestamp string, treating naive values as UTC.
+
+    Learning-loop stamps have mixed provenance: entry ``created_at`` values
+    are naive ISO strings (the mapper emits ``isoformat()``) while report/
+    revision stamps are timezone-aware (server-side ``datetime()``,
+    ``toString()``-ed at the Cypher boundary). Comparing them raw would
+    TypeError — naive values are UTC by convention (feedback-loop UX arc).
+
+    Returns:
+        Timezone-aware datetime, or None for missing/unparseable input.
+    """
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
 def parse_date_value(value: Any) -> date | None:
     """
     Parse a date value from Neo4j (string, date, or neo4j.time.Date).

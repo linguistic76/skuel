@@ -1,15 +1,16 @@
 """GradeBook sidebar navigation.
 
-Renders a collapsible sidebar for GradeBook pages:
-Entry Reports, Activity Reports, Revisions.
-(My Submissions moved to Submissions sidebar — see ui/workbench/nav.py)
+Renders a collapsible sidebar for GradeBook surfaces. Since the 3→1
+collapse (feedback-loop UX arc 2 C1) the section is one page — the
+exchange-lines GradeBook — plus the activity-report request form; report/
+revision detail pages render under the same shell with ``active="gradebook"``.
 
 Usage:
     from ui.gradebook.nav import render_gradebook_sidebar_page
 
     return render_gradebook_sidebar_page(
         content=my_content,
-        active="submissions",
+        active="gradebook",
         request=request,
     )
 """
@@ -26,9 +27,13 @@ if TYPE_CHECKING:
 GRADEBOOK_STORAGE_KEY = "gradebook-sidebar"
 
 GRADEBOOK_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Entry Reports", "/entry-reports", "entry-reports", icon="clipboard-check"),
-    SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="bar-chart-2"),
-    SidebarItem("Revisions", "/revised-exercises", "revised-exercises", icon="refresh-cw"),
+    SidebarItem("GradeBook", "/gradebook", "gradebook", icon="clipboard-check"),
+    SidebarItem(
+        "Request Activity Report",
+        "/submit-activity-report",
+        "submit-activity-report",
+        icon="bar-chart-2",
+    ),
 ]
 
 
@@ -41,7 +46,7 @@ def render_gradebook_sidebar_page(
 
     Args:
         content: The page content to render in the main area.
-        active: The active sidebar item slug (e.g. "submissions", "submit").
+        active: The active sidebar item slug (e.g. "gradebook").
         request: The request object for auth detection.
     """
     return SidebarPage(

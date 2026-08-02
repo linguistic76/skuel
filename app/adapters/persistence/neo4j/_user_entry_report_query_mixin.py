@@ -234,6 +234,94 @@ class _UserEntryReportQueryMixin:
             },
         )
 
+    async def get_student_exchange_summaries_raw(
+        self, student_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Every exchange the student is in, one summary row each — one read.
+
+        The GradeBook page's single query (feedback-loop UX arc 2 C1): per
+        root exercise the student has lineage entries against (direct
+        ``FULFILLS_EXERCISE`` turn-ins + resubmits via
+        ``FULFILLS_REVISED_EXERCISE`` → ``REVISES_EXERCISE`` — the
+        ``get_exchange_thread_raw`` lineage lens), the latest entry, the
+        latest report on that entry, and lineage counts. A second column
+        carries the received reports OUTSIDE any exchange (report on an
+        entry with no exercise lineage, or on no entry at all) so the page's
+        "Other feedback" group needs no second query.
+
+        Latest-entry pick is ``created_at`` (tie: uid) rather than the review
+        queue's revision-first collapse — the union lineage's resubmits carry
+        no ``FULFILLS_EXERCISE`` edge revision, so revision-first ordering
+        would rank any numbered direct turn-in above a later resubmit.
+
+        PRIVATE reports are excluded everywhere (a self-owned journal
+        reflection is not received feedback), and every ``created_at`` is
+        emitted through ``toString()`` — entry stamps are ISO strings, report
+        stamps native datetimes; emission normalizes so the service can treat
+        naive values as UTC (the exchange-thread convention).
+
+        Returns a single row: ``exercise_summaries`` (unordered — the
+        service sorts by latest activity), ``other_feedback`` (newest first).
+        """
+        query = f"""
+        MATCH (student:User {{uid: $student_uid}})
+        CALL (student) {{
+            CALL (student) {{
+                MATCH (student)-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
+                      -[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
+                RETURN e, ex
+                UNION
+                MATCH (student)-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
+                      -[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(:Entity:RevisedExercise)
+                      -[:{RelationshipName.REVISES_EXERCISE.value}]->(ex:Entity:Exercise)
+                RETURN e, ex
+            }}
+            OPTIONAL MATCH (r:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(e)
+                WHERE coalesce(r.visibility, 'shared') <> $private_visibility
+            WITH e, ex, r ORDER BY r.created_at DESC
+            WITH e, ex, collect(r {{.uid, .processor_type, created_at: toString(r.created_at)}}) AS entry_reports
+            WITH ex, e, entry_reports, size(entry_reports) AS n_reports
+            ORDER BY toString(e.created_at) DESC, e.uid
+            WITH ex,
+                 count(e) AS entry_count,
+                 sum(n_reports) AS report_count,
+                 collect({{uid: e.uid, status: e.status, created_at: toString(e.created_at),
+                          reports: entry_reports}})[0] AS latest
+            RETURN collect({{
+                exercise_uid: ex.uid,
+                exercise_title: ex.title,
+                latest_entry_uid: latest.uid,
+                latest_entry_status: latest.status,
+                latest_entry_created_at: latest.created_at,
+                latest_report: head(latest.reports),
+                entry_count: entry_count,
+                report_count: report_count
+            }}) AS exercise_summaries
+        }}
+        CALL (student) {{
+            MATCH (student)-[:{RelationshipName.OWNS.value}]->(r:Entity {{entity_type: $report_type}})
+            WHERE coalesce(r.visibility, 'shared') <> $private_visibility
+            OPTIONAL MATCH (r)-[:{RelationshipName.REPORT_FOR.value}]->(e:Entity:UserEntry)
+            WITH r, e
+            WHERE e IS NULL OR NOT (
+                EXISTS {{ MATCH (e)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) }}
+                OR EXISTS {{ MATCH (e)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(:Entity:RevisedExercise)
+                                   -[:{RelationshipName.REVISES_EXERCISE.value}]->(:Entity:Exercise) }}
+            )
+            WITH r ORDER BY r.created_at DESC
+            RETURN collect(r {{.uid, .title, .processor_type, created_at: toString(r.created_at)}}) AS other_feedback
+        }}
+        RETURN exercise_summaries, other_feedback
+        """
+        return await self.execute_query(
+            query,
+            {
+                "student_uid": student_uid,
+                "report_type": EntityType.ENTRY_REPORT.value,
+                "private_visibility": Visibility.PRIVATE.value,
+            },
+        )
+
     async def get_submission_chain_raw(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """Traverse learning loop chain from a specific entry."""
         query = f"""

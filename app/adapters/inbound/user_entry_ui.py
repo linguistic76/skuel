@@ -11,7 +11,8 @@ Routes:
 - GET  /submit                           — 302 redirect → /submissions/exercise (legacy)
 - GET  /submissions/journal              — Journal file-upload UX (alternative to /journals)
 - GET  /submit/journals/{uid}/download   — Ownership-verified download
-- GET  /gradebook                        — MOC root: links to Entry Reports, Activity Reports, Revised Exercises
+- GET  /gradebook                        — GradeBook: per-exercise exchange lines + conditional report groups
+- GET  /gradebook/lines                  — HTMX fragment: filtered exchange lines (status/source)
 - GET  /gradebook/{uid}                  — Submission detail page
 - GET  /submissions/history              — Submission history (4th sidebar slot)
 - GET  /submissions/history/list         — HTMX fragment refresh
@@ -46,9 +47,16 @@ from core.utils.logging import get_logger
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.gradebook.summary import (
+    EXCHANGE_SECTION_ID,
+    normalize_exchange_filters,
+    render_activity_reports_group,
+    render_exchange_section,
+    render_other_feedback_group,
+)
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
-from ui.learning_loop.report import render_yours_list
+from ui.learning_loop.report import render_activity_report_list, render_yours_list
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner, render_inline_error
@@ -565,48 +573,73 @@ def create_user_entry_ui_routes(
         return _render_entry_responses(responses)
 
     # =========================================================================
-    # GRADEBOOK MOC ROOT
+    # GRADEBOOK — one page: per-exercise exchange lines (arc 2 C1+C2)
     # =========================================================================
 
     @rt("/gradebook")
-    def gradebook_moc(request: Request) -> Any:
-        """GradeBook MOC — links to all 3 sub-pages, no sidebar."""
-        require_authenticated_user(request)
+    async def gradebook_page(request: Request, status: str = "all", source: str = "all") -> Any:
+        """GradeBook — feedback received, one exchange line per exercise."""
+        user_uid = require_authenticated_user(request)
+        status, source = normalize_exchange_filters(status, source)
+        header = PageHeader("GradeBook", subtitle="Feedback you've received on your work")
+
+        summaries_result = await orchestrator.get_student_exchange_summaries(user_uid)
+        if summaries_result.is_error:
+            # Outage ≠ empty: a failed read must never render as a blank GradeBook.
+            logger.error(f"Failed to load exchange summaries: {summaries_result.error}")
+            return render_gradebook_sidebar_page(
+                content=Div(
+                    header,
+                    render_error_banner("Could not load your feedback. Please try again."),
+                ),
+                active="gradebook",
+                request=request,
+            )
+        summaries = summaries_result.value
+
+        # Conditional group: activity reports (flat, hidden when empty). A
+        # failed read surfaces as its own banner — not a silently absent group.
+        activity_result = await orchestrator.get_activity_report_history(user_uid, limit=50)
+        if activity_result.is_error:
+            logger.error(f"Failed to load activity reports: {activity_result.error}")
+            activity_group: Any = Div(
+                render_error_banner("Could not load activity reports.", severity="warning"),
+                cls="mt-8",
+            )
+        else:
+            reports = activity_result.value or []
+            activity_group = render_activity_reports_group(
+                render_activity_report_list(reports) if reports else None
+            )
 
         content = Div(
-            PageHeader("GradeBook", subtitle="Review your feedback, reports, and revised work"),
-            Div(
-                MocCard(
-                    "Entry Reports",
-                    "AI and teacher feedback on your submitted exercises and journals.",
-                    "/entry-reports",
-                    "clipboard-check",
-                    "bg-blue-50",
-                ),
-                MocCard(
-                    "Activity Reports",
-                    "Holistic reports aggregating your activity patterns and progress.",
-                    "/activity-reports",
-                    "bar-chart-2",
-                    "bg-amber-50",
-                ),
-                MocCard(
-                    "Revised Exercises",
-                    "Exercises returned for revision with teacher comments and scoring.",
-                    "/revised-exercises",
-                    "refresh-cw",
-                    "bg-emerald-50",
-                ),
-                cls="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6",
-            ),
+            header,
+            render_exchange_section(summaries["exercises"], status, source),
+            activity_group,
+            render_other_feedback_group(summaries["other_feedback"]),
+        )
+        return render_gradebook_sidebar_page(
+            content=content,
+            active="gradebook",
+            request=request,
         )
 
-        return BasePage(
-            content=content,
-            title="GradeBook",
-            request=request,
-            active_page="gradebook",
-        )
+    # Registered BEFORE /gradebook/{uid}: registration order keeps the
+    # fragment path from being swallowed by the catch-all detail route.
+    @rt("/gradebook/lines")
+    @ui_boundary_handler("Error loading exchanges", fragment_id=EXCHANGE_SECTION_ID)
+    async def gradebook_lines(request: Request, status: str = "all", source: str = "all") -> Any:
+        """HTMX fragment: exchange lines re-rendered for a chip/source change."""
+        user_uid = require_authenticated_user(request)
+        status, source = normalize_exchange_filters(status, source)
+        result = await orchestrator.get_student_exchange_summaries(user_uid)
+        if result.is_error:
+            logger.error(f"Failed to load exchange summaries: {result.error}")
+            return Div(
+                render_error_banner("Failed to load exchanges", str(result.error)),
+                id=EXCHANGE_SECTION_ID,
+            )
+        return render_exchange_section(result.value["exercises"], status, source)
 
     # =========================================================================
     # GRADEBOOK DETAIL — MUST BE LAST (catch-all pattern)
@@ -766,7 +799,7 @@ def create_user_entry_ui_routes(
 
         return render_gradebook_sidebar_page(
             content=content,
-            active="submissions",
+            active="gradebook",
             request=request,
         )
 
@@ -783,7 +816,8 @@ def create_user_entry_ui_routes(
         submissions_knowledge,
         download_journal,
         respond_to_entry,
-        gradebook_moc,
+        gradebook_page,
+        gradebook_lines,
         submission_detail,  # MUST BE LAST — catch-all /gradebook/{uid}
     ]
 

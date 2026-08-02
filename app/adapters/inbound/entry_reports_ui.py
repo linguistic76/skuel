@@ -13,14 +13,14 @@ assessment_outcome drives what the student sees:
     NEEDS_REVISION  — detail page surfaces link to Phase 4 (RevisedExercise)
     AI_EVALUATED    — AI feedback; teacher review may follow
 
-These pages live in the GradeBook sidebar (ui/gradebook/nav.py).
+The list surface is the GradeBook exchange lines (/gradebook, arc 2 C1) —
+this file keeps only the detail page and the profile hub preview.
 
 Routes:
-- GET /entry-reports              — Exercise reports list page
 - GET /entry-reports/detail?uid=  — Report detail with outcome badge + revision link
-- GET /reports/list                  — HTMX fragment: teacher assessments received
+- GET /api/gradebook/entry-reports/preview — HTMX hub preview block
 
-Renderers: ui/submissions/report.py
+Renderers: ui/learning_loop/report.py
 Services: EntryReportService (AI), TeacherReviewService (teacher)
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
@@ -34,21 +34,14 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.pipeline import ReportSource
 from core.utils.logging import get_logger
 from core.utils.text_truncation import truncate_to_budget
-from ui.components import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
-from ui.learning_loop.report import (
-    render_entry_report_detail,
-    render_received_report_list,
-)
+from ui.learning_loop.report import render_entry_report_detail
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
-from ui.patterns.loading import content_loading_placeholder
-from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.entry_reports")
 
@@ -63,44 +56,13 @@ def create_entry_reports_ui_routes(
     rt: RouteDecorator,
     orchestrator: Any = None,
 ) -> list[Any]:
-    """Create /entry-reports UI routes.
+    """Create entry-report detail + preview routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
         orchestrator: SubmissionsOrchestrator for unified state
     """
-
-    # ========================================================================
-    # EXERCISE REPORTS PAGE
-    # ========================================================================
-
-    @rt("/entry-reports")
-    def entry_reports_page(request: Request) -> Any:
-        """Teacher and AI exercise reports on submissions."""
-        require_authenticated_user(request)
-
-        reports_section = Card(
-            content_loading_placeholder(
-                "/reports/list",
-                "feedback-list",
-                loading_text="Loading exercise reports...",
-            ),
-            cls="bg-background shadow-sm p-4",
-        )
-
-        content = Div(
-            PageHeader(
-                "Entry Reports",
-                subtitle="Teacher and AI feedback on your exercise submissions",
-            ),
-            reports_section,
-        )
-        return render_gradebook_sidebar_page(
-            content=content,
-            active="entry-reports",
-            request=request,
-        )
 
     # ========================================================================
     # EXERCISE REPORT DETAIL PAGE
@@ -115,14 +77,14 @@ def create_entry_reports_ui_routes(
         if not uid:
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report UID is required")),
-                active="entry-reports",
+                active="gradebook",
                 request=request,
             )
 
         if not orchestrator:
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report service unavailable")),
-                active="entry-reports",
+                active="gradebook",
                 request=request,
             )
 
@@ -131,7 +93,7 @@ def create_entry_reports_ui_routes(
             logger.warning(f"Exercise report not found or inaccessible: {uid}")
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report not found")),
-                active="entry-reports",
+                active="gradebook",
                 request=request,
             )
 
@@ -141,35 +103,12 @@ def create_entry_reports_ui_routes(
         )
         return render_gradebook_sidebar_page(
             content=content,
-            active="entry-reports",
+            active="gradebook",
             request=request,
         )
 
     # ========================================================================
-    # HTMX ENDPOINTS
-    # ========================================================================
-
-    @rt("/reports/list")
-    @ui_boundary_handler("Error loading feedback", fragment_id="feedback-list")
-    async def entry_reports_list(request: Request) -> Any:
-        """HTMX fragment: teacher assessments received."""
-        user_uid = require_authenticated_user(request)
-        if not orchestrator:
-            return Div(
-                render_error_banner("Feedback service unavailable"),
-                id="feedback-list",
-            )
-        result = await orchestrator.get_assessments_for_student(user_uid)
-        if result.is_error:
-            logger.error(f"Error loading feedback list: {result.error}")
-            return Div(
-                render_error_banner("Failed to load feedback", str(result.error)),
-                id="feedback-list",
-            )
-        return render_received_report_list(result.value or [])
-
-    # ========================================================================
-    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
+    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /profile Reports tab)
     # ========================================================================
 
     @rt("/api/gradebook/entry-reports/preview")
@@ -202,7 +141,7 @@ def create_entry_reports_ui_routes(
             content = (
                 getattr(report, "processed_content", None) or getattr(report, "content", None) or ""
             )
-            href = f"/entry-reports/detail?uid={uid}" if uid else "/entry-reports"
+            href = f"/entry-reports/detail?uid={uid}" if uid else "/gradebook"
             cards.append(
                 HubPreviewCard(
                     title=title,
@@ -213,12 +152,8 @@ def create_entry_reports_ui_routes(
             )
         return HubPreviewGrid(cards)
 
-    logger.info(
-        "Entry Reports UI routes created (/entry-reports, /entry-reports/detail, /reports/list)"
-    )
+    logger.info("Entry Reports UI routes created (/entry-reports/detail + hub preview)")
 
     return [
-        entry_reports_page,
         entry_report_detail,
-        entry_reports_list,
     ]
