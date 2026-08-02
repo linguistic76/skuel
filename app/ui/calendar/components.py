@@ -639,7 +639,7 @@ def habit_day_state_line(done: bool, *, oob: bool = False) -> P:
     extra: dict[str, str] = {"hx_swap_oob": "true"} if oob else {}
     return P(
         Icon(
-            "circle-check" if done else "circle",
+            "check-circle" if done else "circle",
             cls="w-4 h-4 inline-block mr-1.5 align-[-3px]",
         ),
         "Completed on this day ✓" if done else "Not completed on this day",
