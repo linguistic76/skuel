@@ -27,6 +27,7 @@ from core.models.enums import RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.event.calendar_models import CalendarView
+from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.services.calendar_service import CalendarService
 from core.utils.result_simplified import Errors, Result
@@ -286,6 +287,91 @@ async def test_get_calendar_view_marks_completed_days() -> None:
     assert statuses[date(2026, 7, 21)] == CompletionStatus.DONE
     assert statuses[date(2026, 7, 20)] == CompletionStatus.PENDING
     assert statuses[date(2026, 7, 22)] == CompletionStatus.PENDING
+
+
+# ---------------------------------------------------------------------------
+# record_habit_occurrence — day-idempotent write; strict actionable reads
+# ---------------------------------------------------------------------------
+
+
+def _owned_habit() -> Habit:
+    return _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+
+
+def _completion(completed_at: datetime) -> HabitCompletion:
+    return HabitCompletion(
+        uid=f"hc.user_test.habit.test.{int(completed_at.timestamp())}",
+        habit_uid="habit.test",
+        completed_at=completed_at,
+        created_at=completed_at,
+        updated_at=completed_at,
+    )
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_is_day_idempotent() -> None:
+    """A day that already carries a completion returns the existing record and
+    writes nothing — a stale modal or double click must not double-count."""
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    existing = _completion(datetime(2026, 8, 1, 0, 0))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.ok([existing])
+    )
+    svc.habits_service.track_habit = AsyncMock()
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-08-01")
+
+    assert result.is_ok
+    assert result.value is existing
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_writes_when_day_clear() -> None:
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(return_value=Result.ok([]))
+    written = _completion(datetime(2026, 8, 1, 0, 0))
+    svc.habits_service.track_habit = AsyncMock(return_value=Result.ok(written))
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-08-01")
+
+    assert result.is_ok and result.value is written
+    await_args = svc.habits_service.track_habit.await_args
+    assert await_args is not None
+    assert await_args.args[0].completion_date == "2026-08-01"
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_idempotency_read_failure_propagates() -> None:
+    """The pre-write read never degrades into a write (double-count risk)."""
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.fail(Errors.database("habits.completions", "boom"))
+    )
+    svc.habits_service.track_habit = AsyncMock()
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-08-01")
+
+    assert result.is_error
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_item_day_stamp_read_failure_propagates() -> None:
+    """The actionable modal must not render an already-done day as PENDING
+    when the completion read fails — the error propagates instead."""
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.fail(Errors.database("habits.completions", "boom"))
+    )
+
+    result = await svc.get_item("user_test", "habit-habit.test", on_date=date(2026, 8, 1))
+
+    assert result.is_error
 
 
 # ---------------------------------------------------------------------------

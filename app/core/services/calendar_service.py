@@ -239,29 +239,42 @@ class CalendarService:
                     return Result.ok(None)  # not the requester's — treat as not found
                 item = self._habit_to_calendar_item(habit_result.value)
                 if on_date is not None:
-                    item = await self._stamp_habit_occurrence(item, source_uid, on_date)
+                    stamped = await self._stamp_habit_occurrence(item, source_uid, on_date)
+                    if stamped.is_error:
+                        return Result.fail(stamped)
+                    item = stamped.value
                 return Result.ok(item)
 
         return Result.ok(None)
 
     async def _stamp_habit_occurrence(
         self, item: CalendarItem, habit_uid: str, on_date: date
-    ) -> CalendarItem:
+    ) -> Result[CalendarItem]:
         """Scope a habit calendar item to one occurrence day.
 
         Replaces the now()-stamped stub times with the occurrence day (all-day)
         and records the day + its completion state in ``occurrence_data`` — the
         contract habit chips and the item-details modal share.
+
+        Unlike the grid's best-effort ``_fetch_completed_dates``, a failed
+        completions read here PROPAGATES: this stamp drives an actionable
+        modal, and rendering an already-done day as PENDING would offer a
+        second "Mark Complete" for it.
         """
-        completed = await self._fetch_completed_dates(habit_uid, on_date, on_date)
-        status = CompletionStatus.DONE if on_date in completed else CompletionStatus.PENDING
+        completions = await self._read_completions(habit_uid, on_date, on_date)
+        if completions.is_error:
+            return Result.fail(completions)
+        done = any(self._completion_day(c) == on_date for c in completions.value)
+        status = CompletionStatus.DONE if done else CompletionStatus.PENDING
         day_start = datetime.combine(on_date, datetime.min.time())
-        return replace(
-            item,
-            all_day=True,
-            start_time=day_start,
-            end_time=day_start,
-            occurrence_data={"date": on_date.isoformat(), "status": status.value},
+        return Result.ok(
+            replace(
+                item,
+                all_day=True,
+                start_time=day_start,
+                end_time=day_start,
+                occurrence_data={"date": on_date.isoformat(), "status": status.value},
+            )
         )
 
     @with_error_handling("quick_create", error_type="system")
@@ -514,38 +527,55 @@ class CalendarService:
 
         return habits
 
+    async def _read_completions(
+        self, habit_uid: str, start_date: date, end_date: date
+    ) -> Result[list[HabitCompletion]]:
+        """The habit's stored completions in [start_date, end_date] (errors propagate)."""
+        try:
+            return await self.habits_service.completions.get_completions_for_habit(
+                habit_uid, start_date=start_date, end_date=end_date
+            )
+        except NEO4J_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.database("calendar.read_completions", f"habit {habit_uid}: {e}")
+            )
+
+    @staticmethod
+    def _completion_day(completion: HabitCompletion) -> date | None:
+        """The calendar day a completion landed on.
+
+        Tolerates the native/string temporal split (storage type is decided by
+        the writer): native Neo4j DateTime / datetime via the converter, ISO
+        strings via fromisoformat.
+        """
+        completed_at = convert_neo4j_datetime(completion.completed_at)
+        if completed_at is None and isinstance(completion.completed_at, str):
+            try:
+                completed_at = datetime.fromisoformat(completion.completed_at)
+            except ValueError:
+                return None
+        return completed_at.date() if completed_at is not None else None
+
     async def _fetch_completed_dates(
         self, habit_uid: str, start_date: date, end_date: date
     ) -> set[date]:
         """Days in [start_date, end_date] with a recorded completion for the habit.
 
-        Best-effort like the other calendar fetches: a failed completions read
-        logs and returns an empty set (occurrences render PENDING) rather than
-        failing the whole view.
+        Best-effort like the other calendar GRID fetches: a failed completions
+        read logs and returns an empty set (occurrences render PENDING) rather
+        than failing the whole view. Display-only degradation is safe because
+        the actionable paths do their own strict reads — the modal stamp
+        propagates read failures and the completion write is day-idempotent.
         """
-        try:
-            result = await self.habits_service.completions.get_completions_for_habit(
-                habit_uid, start_date=start_date, end_date=end_date
-            )
-        except NEO4J_EXCEPTIONS as e:
-            logger.warning(f"Failed to fetch completions for habit {habit_uid}: {e}")
-            return set()
+        result = await self._read_completions(habit_uid, start_date, end_date)
         if result.is_error:
             logger.warning(f"Failed to fetch completions for habit {habit_uid}: {result.error}")
             return set()
         completed: set[date] = set()
         for completion in result.value:
-            # Tolerate the native/string temporal split (storage type is
-            # decided by the writer): native Neo4j DateTime / datetime via the
-            # converter, ISO strings via fromisoformat.
-            completed_at = convert_neo4j_datetime(completion.completed_at)
-            if completed_at is None and isinstance(completion.completed_at, str):
-                try:
-                    completed_at = datetime.fromisoformat(completion.completed_at)
-                except ValueError:
-                    completed_at = None
-            if completed_at is not None:
-                completed.add(completed_at.date())
+            day = self._completion_day(completion)
+            if day is not None:
+                completed.add(day)
         return completed
 
     # ========================================================================
@@ -940,6 +970,11 @@ class CalendarService:
         the modal's day, never a server-side "today". Verifies the requester
         owns the habit (returns not-found otherwise, no UID oracle), then
         delegates to habits_service.track_habit.
+
+        Day-idempotent: if that day already carries a completion, the existing
+        record is returned and nothing is written — a stale/degraded modal (or
+        a double click) must not double-count streaks and totals. The
+        idempotency read's failure propagates (never degrades to a write).
         """
         habit_get = await self.habits_service.get(habit_uid)
         if habit_get.is_error:
@@ -947,6 +982,18 @@ class CalendarService:
             return Result.fail(habit_get)
         if not habit_get.value or habit_get.value.user_uid != user_uid:
             return Result.fail(Errors.not_found(f"Habit not found: {habit_uid}"))
+        try:
+            day = date.fromisoformat(on_date[:10])
+        except ValueError:
+            return Result.fail(
+                Errors.validation("on_date must be an ISO date", field="on_date", value=on_date)
+            )
+        existing = await self._read_completions(habit_uid, day, day)
+        if existing.is_error:
+            return Result.fail(existing)
+        for completion in existing.value:
+            if self._completion_day(completion) == day:
+                return Result.ok(completion)  # already complete that day — idempotent
         request = TrackHabitRequest(
             habit_uid=habit_uid,
             completion_date=on_date,

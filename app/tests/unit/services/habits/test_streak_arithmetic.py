@@ -155,10 +155,11 @@ class TestBackfilledCompletion:
         )
 
         assert result.is_ok
-        new_streak, last_completed = result.value
+        new_streak, last_completed, best_candidate = result.value
         assert new_streak == 3  # the backfill bridged Jul 8 and Jul 10 into one run
         assert last_completed == last  # never regressed
-        # Recompute anchored at last_completed's day, over stored history.
+        assert best_candidate == 3
+        # Recompute window reaches the current tail, over stored history.
         args = streak_service.get_completions_for_habit.await_args
         assert args.kwargs["end_date"] == last.date()
 
@@ -172,7 +173,7 @@ class TestBackfilledCompletion:
         )
 
         assert result.is_ok
-        assert result.value == (6, datetime(2026, 7, 10, 8, 0, 0))
+        assert result.value == (6, datetime(2026, 7, 10, 8, 0, 0), 6)
         streak_service.get_completions_for_habit.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -192,7 +193,33 @@ class TestBackfilledCompletion:
         )
 
         assert result.is_ok
-        assert result.value == (400, last)
+        assert result.value == (400, last, 400)
+
+    @pytest.mark.asyncio
+    async def test_backfill_into_historical_run_updates_best_candidate(
+        self, streak_service, sample_habit
+    ):
+        """A backfill can bridge two OLD runs that never reach the current
+        tail: the current streak stays put, but best_candidate must carry the
+        bridged historical run so best_streak sees it."""
+        last = datetime(2026, 1, 20, 8, 0, 0)
+        habit = replace(sample_habit, last_completed=last, current_streak=1, best_streak=10)
+        # History AFTER backfilling Jan 7: Jan 1-6 + Jan 7 + Jan 8-13, and the
+        # lone current-run day Jan 20.
+        history = [
+            SimpleNamespace(completed_at=datetime(2026, 1, d, 8, 0)) for d in range(1, 14)
+        ] + [SimpleNamespace(completed_at=last)]
+        streak_service.get_completions_for_habit = AsyncMock(return_value=Result.ok(history))
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 1, 7, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        new_streak, last_completed, best_candidate = result.value
+        assert new_streak == 1  # the current run is untouched
+        assert last_completed == last
+        assert best_candidate == 13  # Jan 1-13, bridged by the backfill
 
     @pytest.mark.asyncio
     async def test_backfill_history_error_propagates(self, streak_service, sample_habit):

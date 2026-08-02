@@ -249,8 +249,8 @@ class HabitsCompletionService:
         streak_result = await self._streak_and_last_completed(habit, habit_uid, completed_at)
         if streak_result.is_error:
             return Result.fail(streak_result)
-        new_streak, last_completed = streak_result.value
-        is_new_record = new_streak > habit.best_streak
+        new_streak, last_completed, best_candidate = streak_result.value
+        is_new_record = best_candidate > habit.best_streak
 
         # Check for milestone (names used by _publish_milestone_event_if_reached)
         milestone: tuple[str, int] | None = None
@@ -264,7 +264,7 @@ class HabitsCompletionService:
         # dict literal is the honest type here.
         updates: dict[str, Any] = {
             "current_streak": new_streak,
-            "best_streak": max(new_streak, habit.best_streak),
+            "best_streak": max(best_candidate, habit.best_streak),
             "total_completions": habit.total_completions + 1,
             "last_completed": last_completed,
             "updated_at": now,
@@ -296,7 +296,7 @@ class HabitsCompletionService:
         )
         if streak_result.is_error:
             return Result.fail(streak_result)
-        new_streak, last_completed = streak_result.value
+        new_streak, last_completed, best_candidate = streak_result.value
 
         # Check for streak milestones and publish events
         await self._check_streak_milestones(habit, new_streak, habit.user_uid)
@@ -307,7 +307,7 @@ class HabitsCompletionService:
         # events. A plain dict literal is the honest type here.
         updates: dict[str, Any] = {
             "current_streak": new_streak,
-            "best_streak": max(new_streak, habit.best_streak),
+            "best_streak": max(best_candidate, habit.best_streak),
             "total_completions": habit.total_completions + 1,
             "last_completed": last_completed,
         }
@@ -325,47 +325,71 @@ class HabitsCompletionService:
 
     async def _streak_and_last_completed(
         self, habit: Habit, habit_uid: str, completed_at: datetime
-    ) -> Result[tuple[int, datetime]]:
-        """New (streak, last_completed) after recording a completion at ``completed_at``.
+    ) -> Result[tuple[int, datetime, int]]:
+        """New (current_streak, last_completed, best_candidate) after a completion.
 
         In-order completions use the incremental delta formula
         (``_calculate_new_streak``) and advance ``last_completed``. A BACKFILLED
         completion — one dated before the habit's ``last_completed``, e.g. the
         calendar's per-day Mark Complete on an earlier pending day — must not
         regress ``last_completed``, and the delta formula cannot apply (it would
-        read the negative gap as a broken streak); the streak is instead
+        read the negative gap as a broken streak); streaks are instead
         recomputed from stored completion history, so a backfill can BRIDGE two
         runs into one, never break one.
+
+        ``best_candidate`` is the longest run this write is known to produce:
+        the new current streak for in-order writes; for a backfill, ALSO the
+        full run containing the backfilled day — a backfill can bridge two
+        HISTORICAL runs that never reach the current tail, and ``best_streak``
+        must still see that run. Milestone events stay keyed to the current
+        streak only (historical badge archaeology is deliberately out of scope;
+        the badge handler dedupes re-earned tiers anyway).
         """
         if habit.last_completed is not None and completed_at.date() < habit.last_completed.date():
-            recomputed = await self._streak_ending_at(habit_uid, habit.last_completed.date())
-            if recomputed.is_error:
-                return Result.fail(recomputed)
-            # A backfill can only lengthen or preserve the run ending at
-            # last_completed — never shorten it. max() guards the recompute's
-            # 365-day window (a >365-day live streak would otherwise truncate)
-            # and any pre-node-era completions missing from stored history.
-            return Result.ok((max(recomputed.value, habit.current_streak), habit.last_completed))
-        return Result.ok((self._calculate_new_streak(habit, completed_at), completed_at))
+            tail = habit.last_completed.date()
+            backfill_day = completed_at.date()
+            days_result = await self._completed_days_window(habit_uid, backfill_day, tail)
+            if days_result.is_error:
+                return Result.fail(days_result)
+            days = days_result.value
+            # Current run: consecutive days ending at the tail. max() guards the
+            # fetch window (a >window live streak must not truncate) and any
+            # pre-node-era completions missing from stored history.
+            current = max(self._run_length_ending_at(days, tail), habit.current_streak)
+            # The run containing the backfilled day (may be purely historical).
+            run_top = backfill_day
+            while run_top + timedelta(days=1) in days:
+                run_top += timedelta(days=1)
+            backfilled_run = self._run_length_ending_at(days, run_top)
+            return Result.ok((current, habit.last_completed, max(backfilled_run, current)))
+        new_streak = self._calculate_new_streak(habit, completed_at)
+        return Result.ok((new_streak, completed_at, new_streak))
 
-    async def _streak_ending_at(self, habit_uid: str, anchor: date) -> Result[int]:
-        """Consecutive-day streak ending at ``anchor``, recomputed from stored completions.
+    async def _completed_days_window(
+        self, habit_uid: str, low: date, high: date
+    ) -> Result[set[date]]:
+        """Distinct completion days in [low - 365d, high] from stored completions.
 
-        Bounded to the trailing 365 days (past the largest milestone); the
-        caller (``_streak_and_last_completed``) guards window truncation by
-        never letting a backfill lower ``current_streak``. Tolerates the
-        native/string ``completed_at`` temporal split.
+        The extra trailing year lets a run that STARTS before the backfilled day
+        be measured past the largest milestone. Bounded fetch (undercounting
+        beyond the limit is conservative — runs read shorter, never longer).
+        Tolerates the native/string ``completed_at`` temporal split.
         """
         completions = await self.get_completions_for_habit(
             habit_uid,
-            start_date=anchor - timedelta(days=365),
-            end_date=anchor,
-            limit=400,  # 366 daily completions fit; find_by truncation stays out of reach
+            start_date=low - timedelta(days=365),
+            end_date=high,
+            limit=1000,
         )
         if completions.is_error:
             return Result.fail(completions)
-        completed_days: set[date] = set()
-        for c in completions.value:
+        return Result.ok(self._completion_days(completions.value))
+
+    @staticmethod
+    def _completion_days(completions: list[Any]) -> set[date]:
+        """Distinct calendar days carrying a completion (native/string tolerant)."""
+        days: set[date] = set()
+        for c in completions:
             completed_at = c.completed_at
             if isinstance(completed_at, str):
                 try:
@@ -373,13 +397,18 @@ class HabitsCompletionService:
                 except ValueError:
                     continue
             if completed_at is not None:
-                completed_days.add(completed_at.date())
+                days.add(completed_at.date())
+        return days
+
+    @staticmethod
+    def _run_length_ending_at(days: set[date], anchor: date) -> int:
+        """Length of the consecutive-day run in ``days`` ending at ``anchor``."""
         streak = 0
         day = anchor
-        while day in completed_days:
+        while day in days:
             streak += 1
             day -= timedelta(days=1)
-        return Result.ok(streak)
+        return streak
 
     def _calculate_new_streak(self, habit: Habit, completion_date: datetime) -> int:
         """Calculate new streak based on last completion (in-order completions only).
