@@ -19,7 +19,7 @@ _calculate_new_streak never uses them).
 """
 
 from dataclasses import replace
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -220,6 +220,40 @@ class TestBackfilledCompletion:
         assert new_streak == 1  # the current run is untouched
         assert last_completed == last
         assert best_candidate == 13  # Jan 1-13, bridged by the backfill
+
+    @pytest.mark.asyncio
+    async def test_backfill_widens_window_until_run_start_found(self, streak_service, sample_habit):
+        """A bridged run longer than the initial 365-day window must be
+        measured in full: the window widens until the run's start is inside
+        it, so best_candidate sees the whole run."""
+        last = datetime(2026, 7, 10, 8, 0, 0)
+        habit = replace(sample_habit, last_completed=last, current_streak=1, best_streak=1)
+        backfill_day = date(2026, 7, 1)
+        run_start = backfill_day - timedelta(days=400)
+        all_days = {
+            run_start + timedelta(days=i) for i in range((date(2026, 7, 10) - run_start).days + 1)
+        }
+
+        def windowed_fetch(habit_uid, start_date=None, end_date=None, limit=100):
+            visible = sorted(d for d in all_days if start_date <= d <= end_date)
+            return Result.ok(
+                [SimpleNamespace(completed_at=datetime(d.year, d.month, d.day, 8)) for d in visible]
+            )
+
+        streak_service.get_completions_for_habit = AsyncMock(side_effect=windowed_fetch)
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 7, 1, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        new_streak, last_completed, best_candidate = result.value
+        total_run = (date(2026, 7, 10) - run_start).days + 1  # 410 days, contiguous
+        assert best_candidate == total_run
+        assert new_streak == total_run  # the run reaches the tail too
+        assert last_completed == last
+        # First window's floor truncated the run → exactly one widening refetch.
+        assert streak_service.get_completions_for_habit.await_count == 2
 
     @pytest.mark.asyncio
     async def test_backfill_history_error_propagates(self, streak_service, sample_habit):

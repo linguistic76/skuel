@@ -348,45 +348,59 @@ class HabitsCompletionService:
         if habit.last_completed is not None and completed_at.date() < habit.last_completed.date():
             tail = habit.last_completed.date()
             backfill_day = completed_at.date()
-            days_result = await self._completed_days_window(habit_uid, backfill_day, tail)
-            if days_result.is_error:
-                return Result.fail(days_result)
-            days = days_result.value
+            # Widen the history window until the backfilled run's START is
+            # inside it — a run touching the window floor may extend further
+            # back, and best_candidate must measure the WHOLE bridged run
+            # (Codex #915: a >365-day historical run would otherwise truncate).
+            # The iteration cap bounds pathological corpora; exhausting it
+            # under-reports conservatively (runs read shorter, never longer).
+            floor = backfill_day - timedelta(days=365)
+            days: set[date] = set()
+            backfilled_run = 0
+            for _ in range(20):
+                days_result = await self._completed_days_window(habit_uid, floor, tail)
+                if days_result.is_error:
+                    return Result.fail(days_result)
+                days = days_result.value
+                run_top = backfill_day
+                while run_top + timedelta(days=1) in days:
+                    run_top += timedelta(days=1)
+                backfilled_run = self._run_length_ending_at(days, run_top)
+                run_start = run_top - timedelta(days=backfilled_run - 1)
+                if run_start > floor:
+                    break  # the run starts inside the window — fully measured
+                floor -= timedelta(days=365)
             # Current run: consecutive days ending at the tail. max() guards the
             # fetch window (a >window live streak must not truncate) and any
             # pre-node-era completions missing from stored history.
             current = max(self._run_length_ending_at(days, tail), habit.current_streak)
-            # The run containing the backfilled day (may be purely historical).
-            run_top = backfill_day
-            while run_top + timedelta(days=1) in days:
-                run_top += timedelta(days=1)
-            backfilled_run = self._run_length_ending_at(days, run_top)
             return Result.ok((current, habit.last_completed, max(backfilled_run, current)))
         new_streak = self._calculate_new_streak(habit, completed_at)
         return Result.ok((new_streak, completed_at, new_streak))
 
     async def _completed_days_window(
-        self, habit_uid: str, low: date, high: date
+        self, habit_uid: str, floor: date, high: date
     ) -> Result[set[date]]:
-        """Distinct completion days in [low - 365d, high] from stored completions.
+        """Distinct completion days in [floor, high] from stored completions.
 
-        The extra trailing year lets a run that STARTS before the backfilled day
-        be measured past the largest milestone. Bounded fetch (undercounting
-        beyond the limit is conservative — runs read shorter, never longer).
-        Tolerates the native/string ``completed_at`` temporal split.
+        Bounded fetch sized to the window (undercounting beyond the limit is
+        conservative — runs read shorter, never longer). Tolerates the
+        native/string ``completed_at`` temporal split.
         """
         completions = await self.get_completions_for_habit(
             habit_uid,
-            start_date=low - timedelta(days=365),
+            start_date=floor,
             end_date=high,
-            limit=1000,
+            # One row per day matters; x2 absorbs pre-idempotency same-day
+            # duplicates without starving the window.
+            limit=max(1000, (high - floor).days * 2),
         )
         if completions.is_error:
             return Result.fail(completions)
         return Result.ok(self._completion_days(completions.value))
 
     @staticmethod
-    def _completion_days(completions: list[Any]) -> set[date]:
+    def _completion_days(completions: list[HabitCompletion]) -> set[date]:
         """Distinct calendar days carrying a completion (native/string tolerant)."""
         days: set[date] = set()
         for c in completions:
