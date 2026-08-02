@@ -24,7 +24,6 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.utils.completion_exporter import export_completions_csv, export_completions_json
-from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
@@ -103,30 +102,44 @@ class HabitsCompletionService:
 
         Returns:
             Result[HabitCompletion] with the created completion record
+
+        Write order: the post-completion stats are computed BEFORE anything is
+        persisted — the backfill history read is fallible, and a failure after
+        the node write would strand a completion the day-idempotent calendar
+        retry could never repair. A compute failure therefore persists nothing.
+        (The residual window — node stored, then the single stats update write
+        fails — predates this ordering and is the same one every completion
+        writer has always had.)
         """
         self.logger.info(f"Recording completion for habit {habit_uid}")
 
         # Validate habit exists
         habit_result = await self.habits_backend.get(habit_uid)
-        if habit_result.is_error:
+        if habit_result.is_error or habit_result.value is None:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
+        habit = habit_result.value
+
+        now = datetime.now()
+        completed_at = completed_at or now
+
+        # Compute stats first (fallible reads happen before any write).
+        streak_result = await self._streak_and_last_completed(habit, habit_uid, completed_at)
+        if streak_result.is_error:
+            return Result.fail(streak_result)
+        new_streak, last_completed, best_candidate = streak_result.value
 
         # Create completion record
-        now = datetime.now()
         completion_uid = f"hc.{user_uid}.{habit_uid}.{int(now.timestamp())}"
-
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,
-            completed_at=completed_at or now,
+            completed_at=completed_at,
             quality=quality,
             duration_actual=duration_actual,
             notes=notes,
             created_at=now,
             updated_at=now,
         )
-
-        # Store completion
         create_result = await self.completions_backend.create(completion_dto)
         if create_result.is_error:
             return create_result
@@ -134,12 +147,26 @@ class HabitsCompletionService:
         # Convert to domain model
         completion = HabitCompletion.from_dto(completion_dto)
 
-        # Update habit statistics (fail-fast: stats must succeed)
-        stats_result = await self._update_habit_stats(habit_uid, completion)
-        if stats_result.is_error:
-            return Result.fail(stats_result)
+        # raw-write: system streak/stat propagation from a habit completion. Bypasses the
+        # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
+        # purpose — _check_streak_milestones below owns the streak/milestone provenance
+        # events. A plain dict literal is the honest type here.
+        updates: dict[str, Any] = {
+            "current_streak": new_streak,
+            "best_streak": max(best_candidate, habit.best_streak),
+            "total_completions": habit.total_completions + 1,
+            "last_completed": last_completed,
+        }
+        if habit.is_identity_based():
+            updates["identity_votes_cast"] = habit.identity_votes_cast + 1
+        update_result = await self.habits_backend.update(habit_uid, updates)
+        if update_result.is_error:
+            return Result.fail(update_result)
 
-        self.logger.info(f"✅ Recorded completion {completion_uid}")
+        # Milestones after both writes — events describe persisted facts.
+        await self._check_streak_milestones(habit, new_streak, habit.user_uid)
+
+        self.logger.info(f"✅ Recorded completion {completion_uid} (streak={new_streak})")
         return Result.ok(completion)
 
     async def record_completions_bulk(
@@ -276,53 +303,6 @@ class HabitsCompletionService:
 
         return Result.ok((completion, is_new_record, milestone))
 
-    @with_error_handling("update_habit_stats", error_type="database", uid_param="habit_uid")
-    async def _update_habit_stats(
-        self, habit_uid: str, completion: HabitCompletion
-    ) -> Result[None]:
-        """Update habit statistics after completion."""
-        # Get current habit
-        habit_result = await self.habits_backend.get(habit_uid)
-        if habit_result.is_error:
-            return Result.fail(habit_result)
-
-        # Backend returns Result[Habit | None] - trust the type system
-        habit = habit_result.value
-
-        # Calculate new streak (backfill-safe: an out-of-order completion never
-        # regresses last_completed or breaks the streak — see the helper).
-        streak_result = await self._streak_and_last_completed(
-            habit, habit_uid, completion.completed_at
-        )
-        if streak_result.is_error:
-            return Result.fail(streak_result)
-        new_streak, last_completed, best_candidate = streak_result.value
-
-        # Check for streak milestones and publish events
-        await self._check_streak_milestones(habit, new_streak, habit.user_uid)
-
-        # raw-write: system streak/stat propagation from a habit completion. Bypasses the
-        # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
-        # purpose — _check_streak_milestones above owns the streak/milestone provenance
-        # events. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {
-            "current_streak": new_streak,
-            "best_streak": max(best_candidate, habit.best_streak),
-            "total_completions": habit.total_completions + 1,
-            "last_completed": last_completed,
-        }
-
-        # Update identity votes if applicable
-        if habit.is_identity_based():
-            updates["identity_votes_cast"] = habit.identity_votes_cast + 1
-
-        update_result = await self.habits_backend.update(habit_uid, updates)
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        self.logger.debug(f"Updated habit {habit_uid} stats: streak={new_streak}")
-        return Result.ok(None)
-
     async def _streak_and_last_completed(
         self, habit: Habit, habit_uid: str, completed_at: datetime
     ) -> Result[tuple[int, datetime, int]]:
@@ -361,7 +341,10 @@ class HabitsCompletionService:
                 days_result = await self._completed_days_window(habit_uid, floor, tail)
                 if days_result.is_error:
                     return Result.fail(days_result)
-                days = days_result.value
+                # Union in the day being completed: record_completion computes
+                # stats BEFORE persisting the node (a no-op when the caller
+                # runs post-write and the day is already stored).
+                days = days_result.value | {backfill_day}
                 run_top = backfill_day
                 while run_top + timedelta(days=1) in days:
                     run_top += timedelta(days=1)

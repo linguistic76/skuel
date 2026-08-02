@@ -202,12 +202,9 @@ class TestRecordCompletion:
         yesterday = datetime.now() - timedelta(days=1)
         habit_with_yesterday = Habit(**{**sample_habit.__dict__, "last_completed": yesterday})
 
-        # Setup mocks - return domain model (Habit) for streak calculation
-        # First call returns dict for validation, second returns Habit for stats update
-        mock_habits_backend.get.side_effect = [
-            Result.ok(habit_with_yesterday.to_dto().to_dict()),  # For validation
-            Result.ok(habit_with_yesterday),  # For _update_habit_stats (expects Habit)
-        ]
+        # Setup mocks — record_completion fetches the habit ONCE (domain model)
+        # and computes stats before persisting anything.
+        mock_habits_backend.get.return_value = Result.ok(habit_with_yesterday)
         mock_completions_backend.create.return_value = Result.ok({})
         mock_habits_backend.update.return_value = Result.ok({})
 
@@ -228,12 +225,9 @@ class TestRecordCompletion:
         three_days_ago = datetime.now() - timedelta(days=3)
         habit_with_gap = Habit(**{**sample_habit.__dict__, "last_completed": three_days_ago})
 
-        # Setup mocks - return domain model (Habit) for streak calculation
-        # First call returns dict for validation, second returns Habit for stats update
-        mock_habits_backend.get.side_effect = [
-            Result.ok(habit_with_gap.to_dto().to_dict()),  # For validation
-            Result.ok(habit_with_gap),  # For _update_habit_stats (expects Habit)
-        ]
+        # Setup mocks — record_completion fetches the habit ONCE (domain model)
+        # and computes stats before persisting anything.
+        mock_habits_backend.get.return_value = Result.ok(habit_with_gap)
         mock_completions_backend.create.return_value = Result.ok({})
         mock_habits_backend.update.return_value = Result.ok({})
 
@@ -244,6 +238,30 @@ class TestRecordCompletion:
         update_call = mock_habits_backend.update.call_args
         updates = update_call[0][1]
         assert updates["current_streak"] == 1  # Reset to 1
+
+    @pytest.mark.asyncio
+    async def test_backfill_compute_failure_persists_nothing(
+        self, completion_service, mock_habits_backend, mock_completions_backend, sample_habit
+    ):
+        """Stats are computed BEFORE any write: if the backfill history read
+        fails, no completion node is created — otherwise the day-idempotent
+        calendar retry could never repair the stranded partial write."""
+        habit = Habit(**{**sample_habit.__dict__, "last_completed": datetime.now()})
+        mock_habits_backend.get.return_value = Result.ok(habit)
+        # The backfill history read (completions find_by) fails.
+        mock_completions_backend.find_by.return_value = Result.fail(
+            {"code": "DATABASE", "message": "boom"}
+        )
+
+        result = await completion_service.record_completion(
+            habit_uid="habit.test.1",
+            user_uid="user_mike",
+            completed_at=datetime.now() - timedelta(days=2),
+        )
+
+        assert result.is_error
+        mock_completions_backend.create.assert_not_called()
+        mock_habits_backend.update.assert_not_called()
 
 
 class TestCompletionQueries:
