@@ -265,9 +265,10 @@ class HabitsService(
         start_date: date,
         end_date: date,
         include_completed: bool = False,
+        date_field: str | list[str] | None = None,
     ) -> Result[list[Habit]]:
         return await self.core.get_user_items_in_range(
-            user_uid, start_date, end_date, include_completed
+            user_uid, start_date, end_date, include_completed, date_field
         )
 
     # Progress delegations

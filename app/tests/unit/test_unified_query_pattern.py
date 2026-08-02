@@ -113,6 +113,86 @@ class TestUnifiedQueryPattern:
         exclude_statuses = [EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value]
         assert exclude_statuses == ["completed", "cancelled"]
 
+    def test_build_user_activity_query_multi_field_or(self):
+        """Multiple date fields OR together — each through the #766 idiom (act-from C2)."""
+        query, params = build_user_activity_query(
+            user_uid="user_mike",
+            node_label="Task",
+            date_field=["due_date", "scheduled_date"],
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 31),
+            exclude_statuses=["completed"],
+        )
+
+        # EVERY field goes through the date(left(toString(...), 10)) idiom
+        assert "date(left(toString(n.due_date), 10)) >= date($start_date)" in query
+        assert "date(left(toString(n.due_date), 10)) <= date($end_date)" in query
+        assert "date(left(toString(n.scheduled_date), 10)) >= date($start_date)" in query
+        assert "date(left(toString(n.scheduled_date), 10)) <= date($end_date)" in query
+
+        # OR semantics between the per-field range groups, parenthesized so the
+        # OR cannot leak into the surrounding AND chain (user_uid / status filters)
+        assert (
+            "((date(left(toString(n.due_date), 10)) >= date($start_date)"
+            " AND date(left(toString(n.due_date), 10)) <= date($end_date))"
+            " OR (date(left(toString(n.scheduled_date), 10)) >= date($start_date)"
+            " AND date(left(toString(n.scheduled_date), 10)) <= date($end_date)))" in query
+        )
+        assert "WHERE n.user_uid = $user_uid AND ((" in query
+        assert ")) AND NOT n.status IN $exclude_statuses" in query
+
+        # Date VALUES stay driver parameters (CYP003)
+        assert "2026-08" not in query
+        assert params["start_date"] == "2026-08-01"
+        assert params["end_date"] == "2026-08-31"
+
+    def test_build_user_activity_query_single_field_list_matches_string(self):
+        """A one-element list is the same query as the plain-string shape."""
+        query_str, params_str = build_user_activity_query(
+            user_uid="user_mike",
+            node_label="Task",
+            date_field="due_date",
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 31),
+            exclude_statuses=["completed"],
+        )
+        query_list, params_list = build_user_activity_query(
+            user_uid="user_mike",
+            node_label="Task",
+            date_field=["due_date"],
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 31),
+            exclude_statuses=["completed"],
+        )
+        assert query_str == query_list
+        assert params_str == params_list
+
+    def test_build_user_activity_query_validates_every_field(self):
+        """EVERY field in a multi-field list is identifier-validated (injection guard)."""
+        with pytest.raises(ValueError, match="date field"):
+            build_user_activity_query(
+                user_uid="user_mike",
+                node_label="Task",
+                date_field=["due_date", "scheduled_date) OR true // "],
+                start_date=date(2026, 8, 1),
+                end_date=date(2026, 8, 31),
+                exclude_statuses=[],
+            )
+
+    def test_build_user_activity_query_empty_field_list_means_no_date_filter(self):
+        """An empty list behaves like date_field=None — no date clause at all."""
+        query, params = build_user_activity_query(
+            user_uid="user_mike",
+            node_label="Task",
+            date_field=[],
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 31),
+            exclude_statuses=[],
+        )
+        assert "date(" not in query
+        assert "start_date" not in params
+        assert "end_date" not in params
+
     def test_query_parameter_injection_safety(self):
         """Verify queries use parameterization (no SQL injection risk)."""
         query, params = build_user_activity_query(

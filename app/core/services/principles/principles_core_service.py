@@ -413,7 +413,12 @@ class PrinciplesCoreService(
 
     @with_error_handling("get_user_items_in_range", error_type="database", uid_param="user_uid")
     async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+        date_field: str | list[str] | None = None,
     ) -> Result[list[Principle]]:
         """Get user's principles adopted within a date range.
 
@@ -427,10 +432,20 @@ class PrinciplesCoreService(
             start_date: Filter principles adopted on or after this date
             end_date: Filter principles adopted on or before this date
             include_completed: Include inactive principles (is_active=False)
+            date_field: Unsupported here — Principles always range on adoption
+                date via its is_active backend path (fails fast if provided)
 
         Returns:
             Result containing list of Principles
         """
+        if date_field is not None:
+            return Result.fail(
+                Errors.validation(
+                    message="PrinciplesService does not support a date_field override; "
+                    "principles always range on their adoption date",
+                    field="date_field",
+                )
+            )
         result = await self.backend.get_user_items_in_range(
             user_uid=user_uid,
             start_date=start_date,

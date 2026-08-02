@@ -963,7 +963,7 @@ def build_principle_with_context(
 def build_user_activity_query(
     user_uid: UserUID,
     node_label: NeoLabel,
-    date_field: str | None = None,
+    date_field: str | list[str] | None = None,
     start_date: "date | None" = None,
     end_date: "date | None" = None,
     exclude_statuses: list[str] | None = None,
@@ -979,7 +979,11 @@ def build_user_activity_query(
     Args:
         user_uid: User UID
         node_label: Node label (e.g., "Task", "Habit", "Event")
-        date_field: Field to filter by date ("due_date", "scheduled_for", etc.)
+        date_field: Field(s) to filter by date ("due_date", "scheduled_for", etc.).
+            A list means OR semantics: an item matches when ANY of the fields
+            falls inside the range (e.g. Tasks by due_date OR scheduled_date for
+            the calendar). Every field is identifier-validated; date VALUES stay
+            driver parameters.
         start_date: Start of date range
         end_date: End of date range
         exclude_statuses: Status values to exclude (e.g., ["completed", "cancelled"])
@@ -1007,22 +1011,32 @@ def build_user_activity_query(
         )
     """
     validate_label(node_label)
-    if date_field:
-        validate_identifier(date_field, "date field")
+    date_fields: list[str] = [date_field] if isinstance(date_field, str) else list(date_field or [])
+    for field in date_fields:
+        validate_identifier(field, "date field")
 
     # Build WHERE clauses
     where_clauses = ["n.user_uid = $user_uid"]
 
+    has_date_filter = bool(date_fields and start_date and end_date)
+
     # Date range filtering (if provided)
-    if date_field and start_date and end_date:
+    if has_date_filter:
         # left(toString(...), 10) takes the YYYY-MM-DD prefix before date() so the
         # comparison is date-vs-date, not string-vs-date (Neo4j evaluates the latter
         # to null → the row is silently dropped). Bare date() on a *datetime* string
         # ("2026-06-17T09:00") THROWS ("Text cannot be parsed to a Date"), taking the
         # whole range query down (see #766); the prefix tolerates every storage shape
         # — date/datetime temporal types and date-only/datetime strings alike.
-        where_clauses.append(f"date(left(toString(n.{date_field}), 10)) >= date($start_date)")
-        where_clauses.append(f"date(left(toString(n.{date_field}), 10)) <= date($end_date)")
+        # Multiple fields OR together: a null field evaluates to null (falsy in OR),
+        # so an item matches when ANY populated field lands in the range. The group
+        # is parenthesized so the OR never leaks into the surrounding AND chain.
+        field_ranges = [
+            f"(date(left(toString(n.{field}), 10)) >= date($start_date)"
+            f" AND date(left(toString(n.{field}), 10)) <= date($end_date))"
+            for field in date_fields
+        ]
+        where_clauses.append("(" + " OR ".join(field_ranges) + ")")
 
     # Status filtering (if provided)
     if exclude_statuses:
@@ -1042,7 +1056,7 @@ def build_user_activity_query(
     # Build parameters
     params: dict[str, Neo4jValue] = {"user_uid": user_uid, "limit": limit}
 
-    if date_field and start_date and end_date:
+    if has_date_filter and start_date and end_date:
         params["start_date"] = start_date.isoformat()
         params["end_date"] = end_date.isoformat()
 

@@ -249,10 +249,15 @@ class GoalsService(
         return await self.core.get_user_goals(user_uid)
 
     async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+        date_field: str | list[str] | None = None,
     ) -> Result[list[Goal]]:
         return await self.core.get_user_items_in_range(
-            user_uid, start_date, end_date, include_completed
+            user_uid, start_date, end_date, include_completed, date_field
         )
 
     async def activate_goal(self, uid: str) -> Result[bool]:
