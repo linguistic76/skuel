@@ -17,7 +17,9 @@ Routes:
     GET  /cal/week/{date_str}                — Week view shell
     GET  /cal/week/{date_str}/content        — Week agenda fragment
     GET  /cal/item-details/{item_id}         — HTMX item-details modal
-    POST /cal/habit/{habit_uid}/complete     — Record today's habit completion
+                                               (?date= scopes a habit to that day)
+    POST /cal/habit/{habit_uid}/complete     — Record a habit completion for the
+                                               posted day (form field ``on_date``)
 """
 
 import calendar as cal
@@ -28,18 +30,20 @@ from fasthtml.common import (
     H2,
     Div,
     P,
+    to_xml,
 )
-from starlette.responses import RedirectResponse
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import require_owned_entity
+from adapters.inbound.route_factories import parse_date_query_param
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
 from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
+from core.utils.result_simplified import ErrorCategory
 from core.utils.timestamp_helpers import (
     month_grid_bounds,
     next_month,
@@ -56,6 +60,7 @@ from ui.calendar.components import (
     create_month_grid,
     create_week_grid,
     error_response,
+    habit_day_state_line,
 )
 from ui.components import Button, ButtonT
 from ui.patterns.loading import content_loading_placeholder
@@ -152,7 +157,7 @@ def _calendar_shell(
 # ============================================================================
 
 
-def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
+def create_calendar_ui_routes(_app, rt, calendar_service):
     """Register calendar page and HTMX fragment routes."""
 
     @rt("/cal")
@@ -215,7 +220,16 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         )
         if not result.is_ok:
             return Div(error_response(result.error), id="calendar-month-content")
-        return Div(create_month_grid(result.value, year, month), id="calendar-month-content")
+        # calendar-refresh listener: the habit-complete POST fires the event
+        # (HX-Trigger header), so a recorded completion re-renders the grid —
+        # the chip turns completed without a manual reload.
+        return Div(
+            create_month_grid(result.value, year, month),
+            id="calendar-month-content",
+            hx_get=f"/cal/month/{year}/{month}/content",
+            hx_trigger="calendar-refresh from:body",
+            hx_swap="outerHTML",
+        )
 
     @rt("/cal/week/{date_str}")
     def calendar_week(request: Request, date_str: str) -> Any:
@@ -257,7 +271,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         )
         if not result.is_ok:
             return Div(error_response(result.error), id="calendar-week-content")
-        return Div(create_week_grid(result.value), id="calendar-week-content")
+        # Same calendar-refresh listener as the month fragment (see above).
+        return Div(
+            create_week_grid(result.value),
+            id="calendar-week-content",
+            hx_get=f"/cal/week/{date_str}/content",
+            hx_trigger="calendar-refresh from:body",
+            hx_swap="outerHTML",
+        )
 
     # =========================================================================
     # HTMX Fragment Routes
@@ -268,10 +289,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         """
         HTMX endpoint for calendar item details modal.
 
-        Returns HTML fragment instead of JSON for direct DOM insertion.
+        ``?date=YYYY-MM-DD`` scopes a habit item to that occurrence day — the
+        modal then shows THAT day's completion state and its Mark Complete
+        posts that day. Returns HTML fragment instead of JSON for direct DOM
+        insertion.
         """
         user_uid = require_authenticated_user(request)
-        result = await calendar_service.get_item(user_uid, item_id)
+        on_date = parse_date_query_param(request.query_params, "date")
+        result = await calendar_service.get_item(user_uid, item_id, on_date=on_date)
 
         if result.is_ok and result.value:
             return create_item_details_modal(result.value)
@@ -302,24 +327,47 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
     @rt("/cal/habit/{habit_uid}/complete", methods=["POST"])
     @csrf_protected
     async def calendar_habit_complete(request: Request, habit_uid: str) -> Any:
-        """Record today's completion for a habit from the item-details modal.
+        """Record a habit completion for a specific day (item-details modal).
 
-        Backend: HabitsCompletionService.record_completion. The response swaps
-        the modal's "Mark Complete" button (hx_swap="outerHTML").
+        The modal posts its occurrence day as form field ``on_date``; future
+        days are rejected server-side. Recording goes through
+        ``calendar_service.record_habit_occurrence`` (ownership verified
+        in-service — not-found on non-owner, no UID oracle). On success the
+        response swaps the button to "Completed ✓", OOB-swaps the modal's
+        day-state line, and fires ``calendar-refresh`` (HX-Trigger) so the
+        grid re-renders the chip as completed.
         """
         user_uid = require_authenticated_user(request)
-        _habit, error = await require_owned_entity(
-            habits_service and habits_service.core, habit_uid, user_uid, "Habit"
+        form = await request.form()
+        raw_on_date = str(form.get("on_date") or "")
+        try:
+            on_date = date.fromisoformat(raw_on_date)
+        except ValueError:
+            return Response("Invalid or missing on_date", status_code=400)
+        if on_date > date.today():
+            return Response("Cannot complete a future day", status_code=400)
+        result = await calendar_service.record_habit_occurrence(
+            user_uid, habit_uid, on_date.isoformat()
         )
-        if error:
-            return error
-        result = await habits_service.completions.record_completion(habit_uid, user_uid)
         if result.is_error:
+            error = result.expect_error()
+            if error.category == ErrorCategory.NOT_FOUND:
+                return Response("Habit not found", status_code=404)
+            if error.category == ErrorCategory.VALIDATION:
+                # e.g. a day the habit never occurs on — retrying can't succeed.
+                return Response(error.message, status_code=400)
             # Keep the hx attrs so the swapped-in button can retry.
             return Button(
                 "Completion failed — try again",
                 cls=(ButtonT.secondary, "mr-2"),
                 hx_post=f"/cal/habit/{habit_uid}/complete",
+                hx_vals=f'{{"on_date": "{on_date.isoformat()}"}}',
                 hx_swap="outerHTML",
             )
-        return Button("Completed ✓", disabled=True, cls=(ButtonT.secondary, "mr-2"))
+        # Button swap + OOB day-state line keep the open modal truthful;
+        # HX-Trigger re-renders the grid fragment (chip turns completed).
+        completed_button = Button("Completed ✓", disabled=True, cls=(ButtonT.secondary, "mr-2"))
+        return HTMLResponse(
+            to_xml(completed_button) + to_xml(habit_day_state_line(True, oob=True)),
+            headers={"HX-Trigger": "calendar-refresh"},
+        )

@@ -9,7 +9,7 @@ We deliberately do not exercise the page-shell routes (`/cal/month/...`)
 because they pull in the full sidebar-page template stack.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -56,14 +56,14 @@ class _RouteRegistry:
         return self.handlers[(path, method.upper())]
 
 
-def _make_request(*, user_uid: str = "user_smoke", form_data=None):
+def _make_request(*, user_uid: str = "user_smoke", form_data=None, query_params=None):
     request = SimpleNamespace()
     request.session = {"user_uid": user_uid}
     request.url = SimpleNamespace(path="/test")
     request.method = "POST"  # the @csrf_protected POST handlers read request.method
     request.cookies = {}
-    if form_data is not None:
-        request.form = AsyncMock(return_value=form_data)
+    request.query_params = query_params or {}
+    request.form = AsyncMock(return_value=form_data if form_data is not None else {})
     return request
 
 
@@ -101,20 +101,8 @@ def _make_calendar_item() -> CalendarItem:
 def routes_and_service():
     registry = _RouteRegistry()
     service = AsyncMock()
-    create_calendar_ui_routes(
-        _app=None, rt=registry, calendar_service=service, habits_service=AsyncMock()
-    )
+    create_calendar_ui_routes(_app=None, rt=registry, calendar_service=service)
     return registry, service
-
-
-@pytest.fixture
-def routes_and_habits_service():
-    registry = _RouteRegistry()
-    habits_service = AsyncMock()
-    create_calendar_ui_routes(
-        _app=None, rt=registry, calendar_service=AsyncMock(), habits_service=habits_service
-    )
-    return registry, habits_service
 
 
 # ============================================================================
@@ -153,6 +141,9 @@ class TestMonthContentFragment:
 
         rendered = _render(response)
         assert "calendar-month-content" in rendered
+        # The fragment listens for the habit-complete POST's HX-Trigger event
+        # so a recorded completion re-renders the grid.
+        assert 'hx-trigger="calendar-refresh from:body"' in rendered
         service.get_calendar_view.assert_awaited_once()
         kwargs = service.get_calendar_view.await_args.kwargs
         # Full visible grid range: Monday on/before May 1 (Fri) through the
@@ -211,7 +202,9 @@ class TestWeekContentFragment:
         service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
         handler = registry.get("/cal/week/{date_str}/content")
         response = await handler(_make_request(), date_str="2026-05-20")
-        assert "calendar-week-content" in _render(response)
+        rendered = _render(response)
+        assert "calendar-week-content" in rendered
+        assert 'hx-trigger="calendar-refresh from:body"' in rendered
         kwargs = service.get_calendar_view.await_args.kwargs
         assert kwargs["view_type"] == CalendarView.WEEK
 
@@ -240,6 +233,28 @@ class TestItemDetailsModal:
         response = await handler(_make_request(), item_id="cal_event_1")
         # Returns a modal containing the item title.
         assert "Smoke item" in _render(response)
+        # No ?date= query param → the service receives no occurrence day.
+        assert service.get_item.await_args.kwargs["on_date"] is None
+
+    @pytest.mark.asyncio
+    async def test_date_query_param_scopes_habit_to_that_day(self, routes_and_service) -> None:
+        """?date=YYYY-MM-DD is parsed and handed to the service — the modal
+        shows THAT day, never a server-side reconstruction from today."""
+        registry, service = routes_and_service
+        service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
+        handler = registry.get("/cal/item-details/{item_id}")
+        await handler(_make_request(query_params={"date": "2026-05-19"}), item_id="habit-habit_1")
+        service.get_item.assert_awaited_once_with(
+            "user_smoke", "habit-habit_1", on_date=date(2026, 5, 19)
+        )
+
+    @pytest.mark.asyncio
+    async def test_invalid_date_query_param_falls_back_to_none(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
+        handler = registry.get("/cal/item-details/{item_id}")
+        await handler(_make_request(query_params={"date": "not-a-date"}), item_id="habit-habit_1")
+        assert service.get_item.await_args.kwargs["on_date"] is None
 
     @pytest.mark.asyncio
     async def test_missing_returns_error_modal(self, routes_and_service) -> None:
@@ -257,42 +272,78 @@ class TestItemDetailsModal:
 
 class TestHabitComplete:
     @pytest.mark.asyncio
-    async def test_records_completion_and_swaps_button(self, routes_and_habits_service) -> None:
-        registry, habits_service = routes_and_habits_service
-        habits_service.core.verify_ownership = AsyncMock(return_value=Result.ok(object()))
-        habits_service.completions.record_completion = AsyncMock(
-            return_value=Result.ok(SimpleNamespace())
-        )
+    async def test_records_completion_for_posted_day(self, routes_and_service) -> None:
+        """The posted ``on_date`` form field is what gets recorded — the loop
+        closes on the day the user acted on, not on a server-side 'today'."""
+        registry, service = routes_and_service
+        service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
         handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
-        response = await handler(_make_request(), habit_uid="habit_1")
-
-        assert "Completed" in _render(response)
-        habits_service.completions.record_completion.assert_awaited_once_with(
-            "habit_1", "user_smoke"
+        response = await handler(
+            _make_request(form_data={"on_date": yesterday}), habit_uid="habit_1"
         )
+
+        body = response.body.decode()
+        assert "Completed" in body
+        # OOB day-state swap keeps the open modal truthful...
+        assert 'hx-swap-oob="true"' in body
+        assert 'id="habit-day-state"' in body
+        # ...and the HX-Trigger event re-renders the grid (chip turns completed).
+        assert response.headers["HX-Trigger"] == "calendar-refresh"
+        service.record_habit_occurrence.assert_awaited_once_with("user_smoke", "habit_1", yesterday)
 
     @pytest.mark.asyncio
-    async def test_unowned_habit_returns_not_found(self, routes_and_habits_service) -> None:
-        registry, habits_service = routes_and_habits_service
-        habits_service.core.verify_ownership = AsyncMock(
+    async def test_unowned_habit_returns_not_found(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.record_habit_occurrence = AsyncMock(
             return_value=Result.fail(Errors.not_found(resource="Habit", identifier="habit_x"))
         )
         handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
-        response = await handler(_make_request(), habit_uid="habit_x")
+        response = await handler(
+            _make_request(form_data={"on_date": date.today().isoformat()}), habit_uid="habit_x"
+        )
 
         assert response.status_code == 404
-        habits_service.completions.record_completion.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_failed_completion_keeps_retry_button(self, routes_and_habits_service) -> None:
-        registry, habits_service = routes_and_habits_service
-        habits_service.core.verify_ownership = AsyncMock(return_value=Result.ok(object()))
-        habits_service.completions.record_completion = AsyncMock(
+    async def test_future_date_rejected(self, routes_and_service) -> None:
+        """Future-day completions are rejected server-side (the modal hides the
+        button on future chips; this is the backstop)."""
+        registry, service = routes_and_service
+        service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        response = await handler(
+            _make_request(form_data={"on_date": tomorrow}), habit_uid="habit_1"
+        )
+
+        assert response.status_code == 400
+        service.record_habit_occurrence.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_missing_on_date_rejected(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
+        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        response = await handler(_make_request(form_data={}), habit_uid="habit_1")
+
+        assert response.status_code == 400
+        service.record_habit_occurrence.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_failed_completion_keeps_retry_button(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.record_habit_occurrence = AsyncMock(
             return_value=Result.fail(Errors.database("habits.complete", "boom"))
         )
+        today_iso = date.today().isoformat()
         handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
-        response = await handler(_make_request(), habit_uid="habit_1")
+        response = await handler(
+            _make_request(form_data={"on_date": today_iso}), habit_uid="habit_1"
+        )
 
         rendered = _render(response)
         assert "try again" in rendered
         assert "/cal/habit/habit_1/complete" in rendered
+        # The retry button re-posts the same day.
+        assert today_iso in rendered

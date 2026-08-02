@@ -5,9 +5,10 @@ Calendar Routes - Configuration-Driven Registration
 Factory that wires calendar API and UI routes using DomainRouteConfig.
 
 Architecture:
-    - API Routes: calendar_api.py (quick-create, item details, reschedule)
-    - UI Routes:  calendar_ui.py  (month/week/day views, HTMX fragments)
-    - Components: calendar_components.py
+    - API Routes: calendar_api.py (item-details JSON)
+    - UI Routes:  calendar_ui.py  (month/week views, HTMX fragments,
+      item-details modal, per-day habit completion)
+    - Components: ui/calendar/components.py
 """
 
 from typing import TYPE_CHECKING, Any
@@ -26,8 +27,6 @@ CALENDAR_CONFIG = DomainRouteConfig(
     primary_service_attr="calendar",
     api_factory=create_calendar_api_routes,
     ui_factory=create_calendar_ui_routes,
-    # habits_service backs POST /cal/habit/{uid}/complete (item-details modal).
-    ui_related_services={"habits_service": "habits"},
 )
 
 

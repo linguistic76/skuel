@@ -1,12 +1,15 @@
 """Unit tests for CalendarService habit-occurrence projection.
 
-Covers the two behaviours added in the calendar-habits fix (PR #777):
+Covers the behaviours of the calendar-habits fix (PR #777) and the act-from
+arc's completion state (C3):
 
   1. Clamp — an ongoing habit is never projected before its inception
      (``started_at``, else ``created_at``), so it can't backfill earlier days.
   2. Anchor — weekly/biweekly/monthly/quarterly/yearly recurrences are phased
      off the habit's inception, not the view window (Habit has no ``start_date``,
      which the old code silently used as the anchor via getattr).
+  3. Completion state — occurrences on days carrying a recorded completion are
+     DONE (fetched per habit by the async caller), the rest PENDING.
 
 ``_generate_habit_occurrences`` is pure/sync and touches none of the injected
 domain services, so we build the service with mocks and call it directly.
@@ -15,15 +18,19 @@ domain services, so we build the service with mocks and call it directly.
 from __future__ import annotations
 
 from datetime import date, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from core.models.enums import RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.habit_enums import CompletionStatus
+from core.models.event.calendar_models import CalendarView
+from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.services.calendar_service import CalendarService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 def _service() -> CalendarService:
@@ -203,6 +210,217 @@ def test_weekday_weekend_filters(pattern: RecurrencePattern, expected: list[date
     lo = date(2026, 7, 20) if pattern is RecurrencePattern.WEEKDAYS else date(2026, 7, 25)
     hi = date(2026, 7, 21) if pattern is RecurrencePattern.WEEKDAYS else date(2026, 7, 26)
     assert _dates(svc, habit, lo, hi) == expected
+
+
+# ---------------------------------------------------------------------------
+# Completion state — occurrences on completed days carry DONE (act-from C3)
+# ---------------------------------------------------------------------------
+
+
+def test_completed_dates_map_to_done_status() -> None:
+    """Occurrences on days with a recorded completion are DONE, the rest PENDING."""
+    svc = _service()
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    occurrences = svc._generate_habit_occurrences(
+        habit, date(2026, 7, 20), date(2026, 7, 22), completed_dates={date(2026, 7, 21)}
+    )
+    assert [(occ.date, occ.status) for occ in occurrences] == [
+        (date(2026, 7, 20), CompletionStatus.PENDING),
+        (date(2026, 7, 21), CompletionStatus.DONE),
+        (date(2026, 7, 22), CompletionStatus.PENDING),
+    ]
+
+
+def test_no_completed_dates_leaves_all_pending() -> None:
+    svc = _service()
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    occurrences = svc._generate_habit_occurrences(habit, date(2026, 7, 20), date(2026, 7, 22))
+    assert all(occ.status == CompletionStatus.PENDING for occ in occurrences)
+
+
+@pytest.mark.asyncio
+async def test_fetch_completed_dates_maps_completion_days() -> None:
+    svc = _service()
+    completions = [
+        SimpleNamespace(completed_at=datetime(2026, 7, 21, 8, 30)),
+        SimpleNamespace(completed_at="2026-07-23T19:00:00"),  # string-writer temporal split
+    ]
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.ok(completions)
+    )
+    got = await svc._fetch_completed_dates("habit.test", date(2026, 7, 20), date(2026, 7, 26))
+    assert got == {date(2026, 7, 21), date(2026, 7, 23)}
+
+
+@pytest.mark.asyncio
+async def test_fetch_completed_dates_error_returns_empty_set() -> None:
+    """A failed completions read degrades to PENDING chips, not a failed view."""
+    svc = _service()
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.fail(Errors.database("habits.completions", "boom"))
+    )
+    got = await svc._fetch_completed_dates("habit.test", date(2026, 7, 20), date(2026, 7, 26))
+    assert got == set()
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_view_marks_completed_days() -> None:
+    """End-to-end through get_calendar_view: a recorded completion surfaces as
+    a DONE occurrence for that day (both writers, one render truth)."""
+    svc = CalendarService(
+        tasks_service=AsyncMock(), events_service=AsyncMock(), habits_service=AsyncMock()
+    )
+    svc.tasks_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
+    svc.events_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    svc.habits_service.get_active = AsyncMock(return_value=Result.ok([habit]))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.ok([SimpleNamespace(completed_at=datetime(2026, 7, 21, 8, 0))])
+    )
+
+    result = await svc.get_calendar_view(
+        "user_test", date(2026, 7, 20), date(2026, 7, 22), CalendarView.WEEK
+    )
+
+    assert result.is_ok
+    statuses = {occ.date: occ.status for occ in result.value.occurrences[habit.uid]}
+    assert statuses[date(2026, 7, 21)] == CompletionStatus.DONE
+    assert statuses[date(2026, 7, 20)] == CompletionStatus.PENDING
+    assert statuses[date(2026, 7, 22)] == CompletionStatus.PENDING
+
+
+# ---------------------------------------------------------------------------
+# record_habit_occurrence — day-idempotent write; strict actionable reads
+# ---------------------------------------------------------------------------
+
+
+def _owned_habit() -> Habit:
+    return _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+
+
+def _completion(completed_at: datetime) -> HabitCompletion:
+    return HabitCompletion(
+        uid=f"hc.user_test.habit.test.{int(completed_at.timestamp())}",
+        habit_uid="habit.test",
+        completed_at=completed_at,
+        created_at=completed_at,
+        updated_at=completed_at,
+    )
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_is_day_idempotent() -> None:
+    """A day that already carries a completion returns the existing record and
+    writes nothing — a stale modal or double click must not double-count."""
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    existing = _completion(datetime(2026, 8, 1, 0, 0))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.ok([existing])
+    )
+    svc.habits_service.track_habit = AsyncMock()
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-08-01")
+
+    assert result.is_ok
+    assert result.value is existing
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_writes_when_day_clear() -> None:
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(return_value=Result.ok([]))
+    written = _completion(datetime(2026, 8, 1, 0, 0))
+    svc.habits_service.track_habit = AsyncMock(return_value=Result.ok(written))
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-08-01")
+
+    assert result.is_ok and result.value is written
+    await_args = svc.habits_service.track_habit.await_args
+    assert await_args is not None
+    assert await_args.args[0].completion_date == "2026-08-01"
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_idempotency_read_failure_propagates() -> None:
+    """The pre-write read never degrades into a write (double-count risk)."""
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.fail(Errors.database("habits.completions", "boom"))
+    )
+    svc.habits_service.track_habit = AsyncMock()
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-08-01")
+
+    assert result.is_error
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_rejects_off_schedule_day() -> None:
+    """A day the habit never occurs on (off-cadence) is rejected — an
+    invisible completion would still inflate the stats."""
+    svc = _service()
+    # Weekly habit anchored to Wednesday 2026-07-01.
+    habit = _habit(RecurrencePattern.WEEKLY, created=datetime(2026, 7, 1))
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock()
+    svc.habits_service.track_habit = AsyncMock()
+
+    # 2026-07-23 is a Thursday — off the Wednesday cadence.
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-07-23")
+
+    assert result.is_error
+    svc.habits_service.completions.get_completions_for_habit.assert_not_awaited()
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_rejects_pre_inception_day() -> None:
+    svc = _service()
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 10))
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
+    svc.habits_service.track_habit = AsyncMock()
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-07-05")
+
+    assert result.is_error
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_item_off_schedule_date_yields_unstamped_item() -> None:
+    """An off-schedule ?date= yields the display-only modal — no day stamp,
+    hence no Mark Complete."""
+    svc = _service()
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 10))
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock()
+
+    result = await svc.get_item("user_test", "habit-habit.test", on_date=date(2026, 7, 5))
+
+    assert result.is_ok
+    assert result.value is not None
+    assert result.value.occurrence_data is None
+    svc.habits_service.completions.get_completions_for_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_item_day_stamp_read_failure_propagates() -> None:
+    """The actionable modal must not render an already-done day as PENDING
+    when the completion read fails — the error propagates instead."""
+    svc = _service()
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.fail(Errors.database("habits.completions", "boom"))
+    )
+
+    result = await svc.get_item("user_test", "habit-habit.test", on_date=date(2026, 8, 1))
+
+    assert result.is_error
 
 
 # ---------------------------------------------------------------------------

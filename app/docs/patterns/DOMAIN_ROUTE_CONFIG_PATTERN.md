@@ -799,7 +799,7 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 
 ---
 
-### Example 10: Standard with UI Optional Dependency (Calendar)
+### Example 10: Minimal Cross-Cutting Config (Calendar)
 
 **File:** `/adapters/inbound/calendar_routes.py`
 
@@ -809,27 +809,25 @@ CALENDAR_CONFIG = DomainRouteConfig(
     primary_service_attr="calendar",  # services.calendar
     api_factory=create_calendar_api_routes,
     ui_factory=create_calendar_ui_routes,
-    # habits_service backs POST /cal/habit/{uid}/complete (item-details modal).
-    ui_related_services={"habits_service": "habits"},
 )
 ```
 
 **API Routes:** (`calendar_api.py` - 1 route)
 - `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[Any]`
 
-**UI Routes:** (`calendar_ui.py` - 7 routes)
-- 1 redirect: `/cal` → the current month
+**UI Routes:** (`calendar_ui.py`)
+- 3 redirects: `/cal`, `/cal/month`, `/cal/week` → the current month/week
 - 2 page shells: `/cal/month/{y}/{m}`, `/cal/week/{date}` (chrome renders immediately; the grid loads via HTMX)
 - 2 HTMX content fragments: month grid, week agenda
-- 1 HTMX fragment: item-details modal
-- 1 POST action: `/cal/habit/{uid}/complete` (item-details modal "Mark Complete", ownership-verified + csrf-protected)
+- 1 HTMX fragment: item-details modal (`?date=` scopes a habit item to that occurrence day)
+- 1 POST action: `/cal/habit/{uid}/complete` (item-details modal "Mark Complete" — posts the occurrence day as form field `on_date`; future and off-schedule days rejected server-side; day-idempotent write; csrf-protected; ownership verified in-service by `record_habit_occurrence`, not-found on non-owner)
 - Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week)
 
 **Key features:**
-- **Near-minimal config:** the UI factory takes `(app, rt, calendar_service, habits_service)` — `habits_service` arrives via `ui_related_services` and backs only the habit-complete POST. Both views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`. (The single-day view was dropped — the Today surface owns the current day; Week/Month are the calendar's temporal lenses.)
+- **Minimal config:** the UI factory takes `(app, rt, calendar_service)` — no `ui_related_services`; even the habit-complete POST goes through the calendar meta-service (`calendar_service.record_habit_occurrence`, which delegates to the habits facade internally). Both views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`. (The single-day view was dropped — the Today surface owns the current day; Week/Month are the calendar's temporal lenses.)
 - **Shell + fragment split:** each page shell returns chrome (eyebrow, title, per-type legend, segmented switcher, Prev/Today/Next + Monthly-note toolbar) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load. The legend swatches double as type filters (`calendarLegend` Alpine component on the shell + pure-CSS `cal-hide-*`/`cal-spot-*` rules in `calendar.css`, so filters survive fragment swaps).
 - **Redirect entry point:** `GET /cal` issues a `RedirectResponse` to `/cal/month/{y}/{m}` for the current month.
-- **Item-details modal:** event chips carry `hx_get=/cal/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; the modal manages its own Alpine `open` state.
+- **Item-details modal:** chips carry `hx_get=/cal/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; day-stamped habit chips append `?date=YYYY-MM-DD` so the modal shows THAT day's completion state; the modal manages its own Alpine `open` state.
 
 **Migration:** 2026-02-03 (Phase 5)
 

@@ -24,7 +24,6 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.utils.completion_exporter import export_completions_csv, export_completions_json
-from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
@@ -103,30 +102,44 @@ class HabitsCompletionService:
 
         Returns:
             Result[HabitCompletion] with the created completion record
+
+        Write order: the post-completion stats are computed BEFORE anything is
+        persisted — the backfill history read is fallible, and a failure after
+        the node write would strand a completion the day-idempotent calendar
+        retry could never repair. A compute failure therefore persists nothing.
+        (The residual window — node stored, then the single stats update write
+        fails — predates this ordering and is the same one every completion
+        writer has always had.)
         """
         self.logger.info(f"Recording completion for habit {habit_uid}")
 
         # Validate habit exists
         habit_result = await self.habits_backend.get(habit_uid)
-        if habit_result.is_error:
+        if habit_result.is_error or habit_result.value is None:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
+        habit = habit_result.value
+
+        now = datetime.now()
+        completed_at = completed_at or now
+
+        # Compute stats first (fallible reads happen before any write).
+        streak_result = await self._streak_and_last_completed(habit, habit_uid, completed_at)
+        if streak_result.is_error:
+            return Result.fail(streak_result)
+        new_streak, last_completed, best_candidate = streak_result.value
 
         # Create completion record
-        now = datetime.now()
         completion_uid = f"hc.{user_uid}.{habit_uid}.{int(now.timestamp())}"
-
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,
-            completed_at=completed_at or now,
+            completed_at=completed_at,
             quality=quality,
             duration_actual=duration_actual,
             notes=notes,
             created_at=now,
             updated_at=now,
         )
-
-        # Store completion
         create_result = await self.completions_backend.create(completion_dto)
         if create_result.is_error:
             return create_result
@@ -134,12 +147,26 @@ class HabitsCompletionService:
         # Convert to domain model
         completion = HabitCompletion.from_dto(completion_dto)
 
-        # Update habit statistics (fail-fast: stats must succeed)
-        stats_result = await self._update_habit_stats(habit_uid, completion)
-        if stats_result.is_error:
-            return Result.fail(stats_result)
+        # raw-write: system streak/stat propagation from a habit completion. Bypasses the
+        # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
+        # purpose — _check_streak_milestones below owns the streak/milestone provenance
+        # events. A plain dict literal is the honest type here.
+        updates: dict[str, Any] = {
+            "current_streak": new_streak,
+            "best_streak": max(best_candidate, habit.best_streak),
+            "total_completions": habit.total_completions + 1,
+            "last_completed": last_completed,
+        }
+        if habit.is_identity_based():
+            updates["identity_votes_cast"] = habit.identity_votes_cast + 1
+        update_result = await self.habits_backend.update(habit_uid, updates)
+        if update_result.is_error:
+            return Result.fail(update_result)
 
-        self.logger.info(f"✅ Recorded completion {completion_uid}")
+        # Milestones after both writes — events describe persisted facts.
+        await self._check_streak_milestones(habit, new_streak, habit.user_uid)
+
+        self.logger.info(f"✅ Recorded completion {completion_uid} (streak={new_streak})")
         return Result.ok(completion)
 
     async def record_completions_bulk(
@@ -176,12 +203,11 @@ class HabitsCompletionService:
             # Record each completion (without individual events)
             result = await self._record_completion_no_event(habit_uid, user_uid, now)
             if result.is_ok:
-                completion, is_new_record, milestone = result.value
+                completion, is_new_record, milestones = result.value
                 completions.append(completion)
                 if is_new_record:
                     new_streak_records.append(habit_uid)
-                if milestone:
-                    milestones_reached.append(milestone)
+                milestones_reached.extend(milestones)
 
         # Publish single bulk event for all completions
         if completions:
@@ -206,21 +232,34 @@ class HabitsCompletionService:
         habit_uid: str,
         user_uid: UserUID,
         completed_at: datetime,
-    ) -> Result[tuple[HabitCompletion, bool, tuple[str, int] | None]]:
+    ) -> Result[tuple[HabitCompletion, bool, list[tuple[str, int]]]]:
         """
         Record a completion without publishing individual events.
 
-        Used by record_completions_bulk for batch processing.
+        Used by record_completions_bulk for batch processing. Same write order
+        as ``record_completion``: stats compute BEFORE any write, so a fallible
+        backfill history read can never strand a stored completion node with
+        stale statistics.
 
         Returns:
-            Result containing (completion, is_new_streak_record, milestone_or_none)
+            Result containing (completion, is_new_streak_record,
+            milestones_crossed) — one (habit_uid, tier) per threshold the
+            streak crossed; a jump-capable recompute can cross several at once.
         """
         # Validate habit exists
         habit_result = await self.habits_backend.get(habit_uid)
-        if habit_result.is_error:
+        if habit_result.is_error or habit_result.value is None:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
         habit = habit_result.value
+
+        # Compute stats first (backfill-safe: an out-of-order completion never
+        # regresses last_completed or breaks the streak — see the helper).
+        streak_result = await self._streak_and_last_completed(habit, habit_uid, completed_at)
+        if streak_result.is_error:
+            return Result.fail(streak_result)
+        new_streak, last_completed, best_candidate = streak_result.value
+        is_new_record = best_candidate > habit.best_streak
 
         # Create completion record
         completion_uid = f"hc.{user_uid}.{habit_uid}.{int(completed_at.timestamp())}"
@@ -244,15 +283,15 @@ class HabitsCompletionService:
 
         completion = HabitCompletion.from_dto(completion_dto)
 
-        # Calculate new streak
-        new_streak = self._calculate_new_streak(habit, completed_at)
-        is_new_record = new_streak > habit.best_streak
-
-        # Check for milestone (names used by _publish_milestone_event_if_reached)
-        milestone: tuple[str, int] | None = None
-        milestone_values = {7, 30, 100, 365}  # one_week, one_month, one_hundred, one_year
-        if new_streak in milestone_values and habit.current_streak < new_streak:
-            milestone = (habit_uid, new_streak)
+        # Every threshold the streak crossed — a backfill recompute can jump
+        # several tiers at once, and exact-equality would skip the interior
+        # ones (mirrors _check_streak_milestones). Tuples carry the crossed
+        # TIER, matching the badge handler's exact MILESTONE_BADGES lookup.
+        milestones = [
+            (habit_uid, tier)
+            for tier in (7, 30, 100, 365)  # one_week / one_month / one_hundred / one_year
+            if habit.current_streak < tier <= new_streak
+        ]
 
         # raw-write: system streak/stat propagation from a habit completion. Bypasses the
         # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
@@ -260,9 +299,9 @@ class HabitsCompletionService:
         # dict literal is the honest type here.
         updates: dict[str, Any] = {
             "current_streak": new_streak,
-            "best_streak": max(new_streak, habit.best_streak),
+            "best_streak": max(best_candidate, habit.best_streak),
             "total_completions": habit.total_completions + 1,
-            "last_completed": completed_at,
+            "last_completed": last_completed,
             "updated_at": now,
         }
         if habit.is_identity_based():
@@ -270,51 +309,118 @@ class HabitsCompletionService:
 
         await self.habits_backend.update(habit_uid, updates)
 
-        return Result.ok((completion, is_new_record, milestone))
+        return Result.ok((completion, is_new_record, milestones))
 
-    @with_error_handling("update_habit_stats", error_type="database", uid_param="habit_uid")
-    async def _update_habit_stats(
-        self, habit_uid: str, completion: HabitCompletion
-    ) -> Result[None]:
-        """Update habit statistics after completion."""
-        # Get current habit
-        habit_result = await self.habits_backend.get(habit_uid)
-        if habit_result.is_error:
-            return Result.fail(habit_result)
+    async def _streak_and_last_completed(
+        self, habit: Habit, habit_uid: str, completed_at: datetime
+    ) -> Result[tuple[int, datetime, int]]:
+        """New (current_streak, last_completed, best_candidate) after a completion.
 
-        # Backend returns Result[Habit | None] - trust the type system
-        habit = habit_result.value
+        In-order completions use the incremental delta formula
+        (``_calculate_new_streak``) and advance ``last_completed``. A BACKFILLED
+        completion — one dated before the habit's ``last_completed``, e.g. the
+        calendar's per-day Mark Complete on an earlier pending day — must not
+        regress ``last_completed``, and the delta formula cannot apply (it would
+        read the negative gap as a broken streak); streaks are instead
+        recomputed from stored completion history, so a backfill can BRIDGE two
+        runs into one, never break one.
 
-        # Calculate new streak
-        new_streak = self._calculate_new_streak(habit, completion.completed_at)
+        ``best_candidate`` is the longest run this write is known to produce:
+        the new current streak for in-order writes; for a backfill, ALSO the
+        full run containing the backfilled day — a backfill can bridge two
+        HISTORICAL runs that never reach the current tail, and ``best_streak``
+        must still see that run. Milestone events stay keyed to the current
+        streak only (historical badge archaeology is deliberately out of scope;
+        the badge handler dedupes re-earned tiers anyway).
+        """
+        if habit.last_completed is not None and completed_at.date() < habit.last_completed.date():
+            tail = habit.last_completed.date()
+            backfill_day = completed_at.date()
+            # Widen the history window until the backfilled run's START is
+            # inside it — a run touching the window floor may extend further
+            # back, and best_candidate must measure the WHOLE bridged run
+            # (Codex #915: a >365-day historical run would otherwise truncate).
+            # The iteration cap bounds pathological corpora; exhausting it
+            # under-reports conservatively (runs read shorter, never longer).
+            floor = backfill_day - timedelta(days=365)
+            days: set[date] = set()
+            backfilled_run = 0
+            for _ in range(20):
+                days_result = await self._completed_days_window(habit_uid, floor, tail)
+                if days_result.is_error:
+                    return Result.fail(days_result)
+                # Union in the day being completed: record_completion computes
+                # stats BEFORE persisting the node (a no-op when the caller
+                # runs post-write and the day is already stored).
+                days = days_result.value | {backfill_day}
+                run_top = backfill_day
+                while run_top + timedelta(days=1) in days:
+                    run_top += timedelta(days=1)
+                backfilled_run = self._run_length_ending_at(days, run_top)
+                run_start = run_top - timedelta(days=backfilled_run - 1)
+                if run_start > floor:
+                    break  # the run starts inside the window — fully measured
+                floor -= timedelta(days=365)
+            # Current run: consecutive days ending at the tail. max() guards the
+            # fetch window (a >window live streak must not truncate) and any
+            # pre-node-era completions missing from stored history.
+            current = max(self._run_length_ending_at(days, tail), habit.current_streak)
+            return Result.ok((current, habit.last_completed, max(backfilled_run, current)))
+        new_streak = self._calculate_new_streak(habit, completed_at)
+        return Result.ok((new_streak, completed_at, new_streak))
 
-        # Check for streak milestones and publish events
-        await self._check_streak_milestones(habit, new_streak, habit.user_uid)
+    async def _completed_days_window(
+        self, habit_uid: str, floor: date, high: date
+    ) -> Result[set[date]]:
+        """Distinct completion days in [floor, high] from stored completions.
 
-        # raw-write: system streak/stat propagation from a habit completion. Bypasses the
-        # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
-        # purpose — _check_streak_milestones above owns the streak/milestone provenance
-        # events. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {
-            "current_streak": new_streak,
-            "best_streak": max(new_streak, habit.best_streak),
-            "total_completions": habit.total_completions + 1,
-            "last_completed": completion.completed_at,
-        }
+        Bounded fetch sized to the window (undercounting beyond the limit is
+        conservative — runs read shorter, never longer). Tolerates the
+        native/string ``completed_at`` temporal split.
+        """
+        completions = await self.get_completions_for_habit(
+            habit_uid,
+            start_date=floor,
+            end_date=high,
+            # One row per day matters; x2 absorbs pre-idempotency same-day
+            # duplicates without starving the window.
+            limit=max(1000, (high - floor).days * 2),
+        )
+        if completions.is_error:
+            return Result.fail(completions)
+        return Result.ok(self._completion_days(completions.value))
 
-        # Update identity votes if applicable
-        if habit.is_identity_based():
-            updates["identity_votes_cast"] = habit.identity_votes_cast + 1
+    @staticmethod
+    def _completion_days(completions: list[HabitCompletion]) -> set[date]:
+        """Distinct calendar days carrying a completion (native/string tolerant)."""
+        days: set[date] = set()
+        for c in completions:
+            completed_at = c.completed_at
+            if isinstance(completed_at, str):
+                try:
+                    completed_at = datetime.fromisoformat(completed_at)
+                except ValueError:
+                    continue
+            if completed_at is not None:
+                days.add(completed_at.date())
+        return days
 
-        update_result = await self.habits_backend.update(habit_uid, updates)
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        self.logger.debug(f"Updated habit {habit_uid} stats: streak={new_streak}")
-        return Result.ok(None)
+    @staticmethod
+    def _run_length_ending_at(days: set[date], anchor: date) -> int:
+        """Length of the consecutive-day run in ``days`` ending at ``anchor``."""
+        streak = 0
+        day = anchor
+        while day in days:
+            streak += 1
+            day -= timedelta(days=1)
+        return streak
 
     def _calculate_new_streak(self, habit: Habit, completion_date: datetime) -> int:
-        """Calculate new streak based on last completion."""
+        """Calculate new streak based on last completion (in-order completions only).
+
+        Backfilled (out-of-order) completions never reach this formula — they are
+        routed to ``_streak_ending_at`` by ``_streak_and_last_completed``.
+        """
         if not habit.last_completed:
             return 1  # First completion
 
@@ -348,16 +454,24 @@ class HabitsCompletionService:
 
         old_streak = habit.current_streak
 
-        # Check if new streak exactly matches a milestone (and we just reached it)
+        # Publish every threshold the streak crossed. In-order completions step
+        # +1 at a time (at most one exact crossing), but a bridging backfill can
+        # jump several days at once — exact-equality matching would silently
+        # skip the milestones inside the jump.
         for milestone_value, milestone_name in milestones.items():
-            if new_streak == milestone_value and old_streak < milestone_value:
+            if old_streak < milestone_value <= new_streak:
                 # Milestone reached! Publish event
                 from core.events.habit_events import HabitStreakMilestone
 
+                # streak_length carries the CROSSED TIER, not the raw streak:
+                # the badge handler awards via an exact MILESTONE_BADGES lookup
+                # on this field, and a bridging jump (e.g. 3 → 10) must still
+                # land on the 7-day badge. Identical to the raw streak for
+                # in-order +1 crossings.
                 event = HabitStreakMilestone(
                     habit_uid=habit.uid,
                     user_uid=user_uid,
-                    streak_length=new_streak,
+                    streak_length=milestone_value,
                     milestone_name=milestone_name,
                 )
                 await publish_event(self.event_bus, event, self.logger)

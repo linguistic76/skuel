@@ -19,7 +19,9 @@ _calculate_new_streak never uses them).
 """
 
 from dataclasses import replace
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -28,6 +30,7 @@ from core.models.enums.entity_enums import EntityStatus as HabitStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.habit.habit import Habit
 from core.services.habits.habits_completion_service import HabitsCompletionService
+from core.utils.result_simplified import Errors, Result
 
 FIXED_NOW = datetime(2026, 7, 10, 8, 0, 0)
 
@@ -114,11 +117,199 @@ class TestBrokenStreak:
         assert new_streak == 1
 
     def test_backdated_completion_resets_streak(self, streak_service, sample_habit):
-        # Actual behavior: a completion dated BEFORE last_completed produces a
-        # negative days_since and falls into the reset branch (returns 1).
+        # Raw-formula behavior: a completion dated BEFORE last_completed
+        # produces a negative days_since and falls into the reset branch.
+        # Backfilled completions never reach this formula in the live paths —
+        # _streak_and_last_completed routes them to the history recompute
+        # (TestBackfilledCompletion below).
         habit = replace(sample_habit, last_completed=datetime(2026, 7, 10, 8, 0, 0))
         new_streak = streak_service._calculate_new_streak(habit, datetime(2026, 7, 9, 8, 0, 0))
         assert new_streak == 1
+
+
+class TestBackfilledCompletion:
+    """_streak_and_last_completed: out-of-order completions are backfill-safe.
+
+    A completion dated before last_completed (the calendar's per-day Mark
+    Complete on an earlier pending day) must never regress last_completed nor
+    break the streak — the streak is recomputed from stored history, so a
+    backfill can bridge two runs into one.
+    """
+
+    @pytest.mark.asyncio
+    async def test_backfill_bridges_gap_and_keeps_last_completed(
+        self, streak_service, sample_habit
+    ):
+        last = datetime(2026, 7, 10, 8, 0, 0)
+        habit = replace(sample_habit, last_completed=last, current_streak=1)
+        # Stored history AFTER the backfill write: Jul 8, Jul 9 (backfilled), Jul 10.
+        history = [
+            SimpleNamespace(completed_at=datetime(2026, 7, 8, 8, 0)),
+            SimpleNamespace(completed_at=datetime(2026, 7, 9, 8, 0)),
+            SimpleNamespace(completed_at="2026-07-10T08:00:00"),  # string-writer split
+        ]
+        streak_service.get_completions_for_habit = AsyncMock(return_value=Result.ok(history))
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 7, 9, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        new_streak, last_completed, best_candidate = result.value
+        assert new_streak == 3  # the backfill bridged Jul 8 and Jul 10 into one run
+        assert last_completed == last  # never regressed
+        assert best_candidate == 3
+        # Recompute window reaches the current tail, over stored history.
+        args = streak_service.get_completions_for_habit.await_args
+        assert args.kwargs["end_date"] == last.date()
+
+    @pytest.mark.asyncio
+    async def test_in_order_completion_uses_delta_formula(self, streak_service, sample_habit):
+        habit = replace(sample_habit, last_completed=datetime(2026, 7, 9, 8, 0, 0))
+        streak_service.get_completions_for_habit = AsyncMock()  # must not be consulted
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 7, 10, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        assert result.value == (6, datetime(2026, 7, 10, 8, 0, 0), 6)
+        streak_service.get_completions_for_habit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_backfill_never_lowers_current_streak(self, streak_service, sample_habit):
+        """The recompute is bounded to a 365-day window (and stored history can
+        predate completion nodes) — a backfill must preserve a longer live
+        streak, never truncate it to what the window can see."""
+        last = datetime(2026, 7, 10, 8, 0, 0)
+        habit = replace(sample_habit, last_completed=last, current_streak=400)
+        # Window-truncated history: only the anchor day is visible.
+        streak_service.get_completions_for_habit = AsyncMock(
+            return_value=Result.ok([SimpleNamespace(completed_at=last)])
+        )
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 7, 9, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        assert result.value == (400, last, 400)
+
+    @pytest.mark.asyncio
+    async def test_backfill_into_historical_run_updates_best_candidate(
+        self, streak_service, sample_habit
+    ):
+        """A backfill can bridge two OLD runs that never reach the current
+        tail: the current streak stays put, but best_candidate must carry the
+        bridged historical run so best_streak sees it."""
+        last = datetime(2026, 1, 20, 8, 0, 0)
+        habit = replace(sample_habit, last_completed=last, current_streak=1, best_streak=10)
+        # History AFTER backfilling Jan 7: Jan 1-6 + Jan 7 + Jan 8-13, and the
+        # lone current-run day Jan 20.
+        history = [
+            SimpleNamespace(completed_at=datetime(2026, 1, d, 8, 0)) for d in range(1, 14)
+        ] + [SimpleNamespace(completed_at=last)]
+        streak_service.get_completions_for_habit = AsyncMock(return_value=Result.ok(history))
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 1, 7, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        new_streak, last_completed, best_candidate = result.value
+        assert new_streak == 1  # the current run is untouched
+        assert last_completed == last
+        assert best_candidate == 13  # Jan 1-13, bridged by the backfill
+
+    @pytest.mark.asyncio
+    async def test_backfill_widens_window_until_run_start_found(self, streak_service, sample_habit):
+        """A bridged run longer than the initial 365-day window must be
+        measured in full: the window widens until the run's start is inside
+        it, so best_candidate sees the whole run."""
+        last = datetime(2026, 7, 10, 8, 0, 0)
+        habit = replace(sample_habit, last_completed=last, current_streak=1, best_streak=1)
+        backfill_day = date(2026, 7, 1)
+        run_start = backfill_day - timedelta(days=400)
+        all_days = {
+            run_start + timedelta(days=i) for i in range((date(2026, 7, 10) - run_start).days + 1)
+        }
+
+        def windowed_fetch(habit_uid, start_date=None, end_date=None, limit=100):
+            visible = sorted(d for d in all_days if start_date <= d <= end_date)
+            return Result.ok(
+                [SimpleNamespace(completed_at=datetime(d.year, d.month, d.day, 8)) for d in visible]
+            )
+
+        streak_service.get_completions_for_habit = AsyncMock(side_effect=windowed_fetch)
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 7, 1, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        new_streak, last_completed, best_candidate = result.value
+        total_run = (date(2026, 7, 10) - run_start).days + 1  # 410 days, contiguous
+        assert best_candidate == total_run
+        assert new_streak == total_run  # the run reaches the tail too
+        assert last_completed == last
+        # First window's floor truncated the run → exactly one widening refetch.
+        assert streak_service.get_completions_for_habit.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_backfill_history_error_propagates(self, streak_service, sample_habit):
+        habit = replace(sample_habit, last_completed=datetime(2026, 7, 10, 8, 0, 0))
+        streak_service.get_completions_for_habit = AsyncMock(
+            return_value=Result.fail(Errors.database("habits.completions", "boom"))
+        )
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 7, 9, 8, 0, 0)
+        )
+        assert result.is_error
+
+
+class TestMilestonesCrossedByJump:
+    """_check_streak_milestones publishes every threshold a jump crosses.
+
+    In-order completions step +1 (exact crossings), but a bridging backfill can
+    jump several days at once — the old exact-equality match silently skipped
+    milestones inside the jump.
+    """
+
+    @pytest.mark.asyncio
+    async def test_jump_publishes_each_crossed_milestone(self, streak_service, sample_habit):
+        streak_service.event_bus = AsyncMock()
+        habit = replace(sample_habit, current_streak=3)
+
+        await streak_service._check_streak_milestones(habit, 10, "user_mike")
+
+        published = [
+            call.args[0] for call in streak_service.event_bus.publish_async.await_args_list
+        ]
+        assert [e.streak_length for e in published] == [7]
+        assert published[0].milestone_name == "one_week"
+
+    @pytest.mark.asyncio
+    async def test_jump_crossing_two_thresholds_publishes_both(self, streak_service, sample_habit):
+        streak_service.event_bus = AsyncMock()
+        habit = replace(sample_habit, current_streak=5)
+
+        await streak_service._check_streak_milestones(habit, 31, "user_mike")
+
+        published = [
+            call.args[0] for call in streak_service.event_bus.publish_async.await_args_list
+        ]
+        assert sorted(e.streak_length for e in published) == [7, 30]
+
+    @pytest.mark.asyncio
+    async def test_exact_single_step_crossing_still_publishes_once(
+        self, streak_service, sample_habit
+    ):
+        streak_service.event_bus = AsyncMock()
+        habit = replace(sample_habit, current_streak=6)
+
+        await streak_service._check_streak_milestones(habit, 7, "user_mike")
+
+        assert streak_service.event_bus.publish_async.await_count == 1
 
 
 if __name__ == "__main__":
