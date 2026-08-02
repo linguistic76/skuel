@@ -39,9 +39,13 @@ re-litigate them outside the item's own future elicitation.
 - The exchange thread (`/exchange`, `get_exchange_thread_raw`) renders the artifact chain
   generically — a peer artifact anchored into the chain would surface there without a new
   page.
-- Authorization class rule (arc 1 PR 4, Codex-enforced twice): any non-owner read of entry
-  content needs the **per-entry `SHARED_WITH_GROUP` gate**, not just group-membership
-  authority. Peer read access must be designed inside that rule, not around it.
+- Authorization class rule: non-owner access to entry content requires an
+  **entity-specific grant** — a direct `SHARES_WITH` edge (ADR-054 audiences via
+  `AudienceResolver`) or a per-entry `SHARED_WITH_GROUP` share. The arc 1 PR 4 rule
+  (Codex-enforced twice) is the teacher-mode instance of this: group-membership
+  *authority* alone never substitutes for the per-entry grant. Peer read access must be
+  designed inside that rule, not around it — which grant a peer gets is elicitation
+  question 3.
 
 **Un-staging gate:** a real second user working in a shared group — the elicitation needs
 an actual peer workflow to verify (`verify-workflow-before-arc-scoping`), not a
