@@ -51,6 +51,7 @@ def _calendar_with_tasks(tasks: list[Task]) -> tuple[CalendarService, Mock]:
         tasks_service=tasks_service,
         events_service=Mock(),
         habits_service=Mock(),
+        goals_service=Mock(),
     )
     return service, tasks_service
 

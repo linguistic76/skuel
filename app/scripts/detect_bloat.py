@@ -446,25 +446,19 @@ _EXERCISES_ARCHIVE = (
 # between B2 and B3; the detector stopped flagging them (test coverage + name
 # collisions), so the markings went stale and were removed per its convention.
 # Their production consumer is still B4's LocalAgentVaultAdapter.
-_CALENDAR_TRACKABLE_AFFORDANCE = (
-    "CalendarTrackable protocol member the calendar converters don't consume yet — "
-    "edit/delete/reschedule/progress affordances declared for calendar views "
-    "(protocol: core/ports/calendar_protocol.py). Exposed to this gate when "
-    "calendar_adapters.py moved adapters/ → core/services/ (SoC PR B, 2026-07-17); "
-    "wire calendar-item action buttons or trim the protocol member set"
-)
+# NOTE (act-from arc C5, 2026-08-02): the CalendarTrackable affordance entries
+# (core/services/calendar_adapters.py::can_edit et al.) left with the pipeline —
+# the arc wired calendar actions through CalendarService + the item modal, so
+# the adapters/protocol/converters trio was superseded and deleted whole.
 
 PLANNED_METHODS: dict[str, str] = {
-    # --- Calendar adapters: unconsumed CalendarTrackable affordances ---
-    "core/services/calendar_adapters.py::can_edit": _CALENDAR_TRACKABLE_AFFORDANCE,
-    "core/services/calendar_adapters.py::can_delete": _CALENDAR_TRACKABLE_AFFORDANCE,
-    "core/services/calendar_adapters.py::can_reschedule": _CALENDAR_TRACKABLE_AFFORDANCE,
-    "core/services/calendar_adapters.py::get_completion_percentage": (
-        _CALENDAR_TRACKABLE_AFFORDANCE
-    ),
-    "core/services/calendar_adapters.py::get_visibility": _CALENDAR_TRACKABLE_AFFORDANCE,
-    "core/services/calendar_adapters.py::get_actual_duration_minutes": (
-        _CALENDAR_TRACKABLE_AFFORDANCE
+    # --- Entity chunking: staged metadata read path ---
+    "core/services/entity_chunking_service.py::get_metadata": (
+        "read accessor over the live _metadata_cache (populated by "
+        "process_content_for_ingestion, counted in get_cache_stats) — unmasked "
+        "when the calendar adapters' same-named method left the tree with the "
+        "act-from arc C5 deletion (vulture name-collision); wire a chunk-metadata "
+        "consumer or delete the accessor"
     ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (

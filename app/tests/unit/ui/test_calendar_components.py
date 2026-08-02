@@ -252,3 +252,43 @@ def test_habit_modal_never_offers_reschedule() -> None:
         create_item_details_modal(_stamped(date.today() - timedelta(days=1))),
     ):
         assert "/reschedule" not in to_xml(habit_modal)
+
+
+# ---------------------------------------------------------------------------
+# create_item_details_modal — goal milestones (act-from arc C5)
+# ---------------------------------------------------------------------------
+
+
+def _milestone_item() -> CalendarItem:
+    day = date(2026, 8, 21)
+    return CalendarItem(
+        uid="goal-goal_1",
+        source_uid="goal_1",
+        item_type=CalendarItemType.MILESTONE,
+        title="Focus on Van",
+        start_time=datetime.combine(day, datetime.min.time()),
+        end_time=datetime.combine(day, datetime.max.time()),
+        all_day=True,
+    )
+
+
+def test_milestone_chip_opens_detail_modal() -> None:
+    """Milestone chips are clickable the moment they exist (#911 gotcha) —
+    the chip must point at the item-details endpoint."""
+    assert _opens_detail_modal(_milestone_item()) is True
+    chip = to_xml(_event_chip(_milestone_item()))
+    assert 'hx-get="/cal/item-details/goal-goal_1"' in chip
+    assert 'data-item-type="milestone"' in chip
+
+
+def test_milestone_modal_offers_view_goal_link() -> None:
+    html = to_xml(create_item_details_modal(_milestone_item()))
+    assert "View Goal" in html
+    assert 'href="/goals/detail?uid=goal_1"' in html
+
+
+def test_milestone_modal_never_offers_reschedule() -> None:
+    """Goal target dates move on the goals surface, not the calendar (C5)."""
+    html = to_xml(create_item_details_modal(_milestone_item()))
+    assert "/reschedule" not in html
+    assert 'name="new_date"' not in html

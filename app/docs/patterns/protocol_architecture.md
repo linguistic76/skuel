@@ -79,7 +79,6 @@ core/ports/
 ├── backend_operations_typing.py       # Typed aliases for backend operations
 ├── base_protocols.py                  # Backend operations ISP hierarchy (7+ protocols)
 ├── base_service_interface.py          # BaseService mixin protocols
-├── calendar_protocol.py               # CalendarTrackable entity protocol
 ├── content_protocols.py               # Content/media protocols
 ├── curriculum_protocols.py            # KU, PS, LP operations (5 protocols: CurriculumOperations, PsOperations, LpOperations, KuOperations, ExerciseOperations)
 ├── domain_protocols.py                # Activity domain operations (9 protocols)
