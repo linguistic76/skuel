@@ -389,6 +389,9 @@ class TeacherReviewService:
             entity_type=EntityType.REVISED_EXERCISE,
             title="",  # Overridden in Cypher
             user_uid=UserUID(teacher_uid),
+            # Mirrors the EntryReport's created_by stamp in the same Cypher —
+            # the Shared-With-Me inbox resolves sharer attribution from it.
+            created_by=teacher_uid,
             original_exercise_uid=original_exercise_uid,
             report_uid=report_entity_uid,
             instructions=notes,

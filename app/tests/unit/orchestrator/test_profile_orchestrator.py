@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums import Priority
+from core.models.enums.entity_enums import EntityType
 from core.orchestrator.profile_orchestrator import ProfileOrchestrator
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
@@ -177,4 +178,22 @@ async def test_get_shared_with_me_items_delegates() -> None:
     orch, mocks = _build()
     mocks["sharing_service"].get_shared_with_me.return_value = Result.ok([])
     await orch.get_shared_with_me_items("user_1", limit=25)
-    mocks["sharing_service"].get_shared_with_me.assert_called_once_with(user_uid="user_1", limit=25)
+    mocks["sharing_service"].get_shared_with_me.assert_called_once_with(
+        user_uid="user_1", limit=25, entity_type=None, sharer_uid=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_shared_with_me_items_forwards_filters() -> None:
+    """Arc 2 C4: the inbox filters pass through the orchestrator untouched."""
+    orch, mocks = _build()
+    mocks["sharing_service"].get_shared_with_me.return_value = Result.ok([])
+    await orch.get_shared_with_me_items(
+        "user_1", limit=25, entity_type=EntityType.ENTRY_REPORT, sharer_uid="user_admin"
+    )
+    mocks["sharing_service"].get_shared_with_me.assert_called_once_with(
+        user_uid="user_1",
+        limit=25,
+        entity_type=EntityType.ENTRY_REPORT,
+        sharer_uid="user_admin",
+    )

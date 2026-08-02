@@ -1,12 +1,15 @@
-"""Shared With Me view — type-aware inbox of entities shared via SHARES_WITH.
+"""Shared With Me view — the reviewing inbox of entities shared via SHARES_WITH.
 
 Renders whatever the SHARES_WITH edge points at (today: ADR-040 auto-shared
 EntryReports/RevisedExercises and manually shared FormSubmissions) as one
 card shape: title, entity-type badge, sharer attribution, share date, a
 subject-context line ("on *{exercise}* · in *{path step}*", linked) when the
 item has a resolved exercise subject, and a detail link resolved per-type via
-``entity_detail_href``. Group shares are deliberately absent — they surface
-on the /groups hub.
+``entity_detail_href``. A FilterBar (Type · Shared by, options derived from
+the live inbox) narrows the cards server-side through the
+``/profile/shared/list-fragment`` HTMX fragment (arc 2 C4 — the FilterBar
+convention: no client-side filter logic). Group shares are deliberately
+absent — they surface on the /groups hub.
 
 Data shape: ``SharedWithMeItem`` rows from
 ``UnifiedSharingService.get_shared_with_me`` — entity DTO + share-edge
@@ -28,6 +31,7 @@ if TYPE_CHECKING:
 
     from core.ports.query_types import SharedWithMeItem
 
+from ui.activities.filter_bar import ActivityFilterBar, FilterBarConfig, FilterSelect
 from ui.components import ButtonT, Card, CardBody
 from ui.enum_helpers import get_status_badge_class
 from ui.feedback import Badge
@@ -37,6 +41,12 @@ from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relative_time import format_relative_time
 from ui.primitives import ButtonLink
+
+SHARED_LIST_ID = "shared-with-me-list"
+LIST_FRAGMENT_URL = "/profile/shared/list-fragment"
+SHARED_WITH_ME_SUBTITLE = "Work and feedback shared with you for your attention."
+
+_ALL = "all"
 
 
 def _subject_link(title: str, entity_type: str, uid: str | None) -> FT:
@@ -121,29 +131,103 @@ def SharedItemCard(item: SharedWithMeItem) -> Any:
     )
 
 
-def SharedWithMeView(items: Sequence[SharedWithMeItem]) -> Div:
-    """Full Shared With Me page content: header + card grid or empty state."""
-    return Div(
-        PageHeader(
-            "Shared With Me",
-            subtitle="Feedback and content shared directly with you.",
+def _option_label_key(pair: tuple[str, str]) -> str:
+    """Case-insensitive sort key on an option's display label."""
+    return pair[0].lower()
+
+
+def _type_options(items: Sequence[SharedWithMeItem]) -> list[tuple[str, str]]:
+    """ "All" + the entity types actually present in the inbox, alphabetical."""
+    seen: dict[str, str] = {}
+    for item in items:
+        entity_type = item["entity"].entity_type
+        seen.setdefault(entity_type.value, entity_type.get_display_name())
+    return [
+        ("All", _ALL),
+        *sorted(((label, value) for value, label in seen.items()), key=_option_label_key),
+    ]
+
+
+def _sharer_options(items: Sequence[SharedWithMeItem]) -> list[tuple[str, str]]:
+    """ "All" + the sharers actually present, labeled by display name, keyed by uid.
+
+    Items with no resolvable sharer (``created_by`` absent) contribute no
+    option — they stay visible under "All".
+    """
+    seen: dict[str, str] = {}
+    for item in items:
+        sharer_uid = item.get("sharer_uid")
+        if sharer_uid:
+            seen.setdefault(sharer_uid, item.get("shared_by") or sharer_uid)
+    return [
+        ("All", _ALL),
+        *sorted(((label, uid) for uid, label in seen.items()), key=_option_label_key),
+    ]
+
+
+def shared_filter_bar(items: Sequence[SharedWithMeItem]) -> FT:
+    """Type · Shared-by FilterBar, options derived from the unfiltered inbox.
+
+    The bar persists across fragment swaps (only ``#shared-with-me-list`` is
+    the HTMX target), so it is built once from the full page load's items.
+    """
+    config = FilterBarConfig(
+        fragment_url=LIST_FRAGMENT_URL,
+        list_target_id=SHARED_LIST_ID,
+        filters=[
+            FilterSelect(name="entity_type", label="Type", options=_type_options(items)),
+            FilterSelect(name="sharer", label="Shared by", options=_sharer_options(items)),
+        ],
+    )
+    return ActivityFilterBar(config)
+
+
+def shared_items_content(items: Sequence[SharedWithMeItem], filtered: bool = False) -> FT:
+    """The card grid, or the state matching WHY it is empty.
+
+    ``filtered`` distinguishes "nothing shared at all" (full EmptyState) from
+    "nothing matches this filter" (muted line — the inbox itself isn't empty).
+    """
+    if items:
+        return Div(
+            *[SharedItemCard(item) for item in items],
+            cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
+        )
+    if filtered:
+        return P(
+            "Nothing shared matches this filter.",
+            cls="text-sm text-muted-foreground py-4 text-center",
+        )
+    return EmptyState(
+        title="Nothing shared with you yet",
+        description=(
+            "When someone shares work or feedback for your attention — "
+            "teacher feedback, revised exercises, form submissions — "
+            "it will appear here."
         ),
-        (
-            Div(
-                *[SharedItemCard(item) for item in items],
-                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
-            )
-            if items
-            else EmptyState(
-                title="Nothing shared with you yet",
-                description=(
-                    "Teacher feedback, revised exercises, and form submissions "
-                    "shared with you will appear here."
-                ),
-                icon="📥",
-            )
-        ),
+        icon="📥",
     )
 
 
-__all__ = ["SharedItemCard", "SharedWithMeView"]
+def SharedWithMeView(items: Sequence[SharedWithMeItem]) -> Div:
+    """Full Shared With Me page content: header + filter bar + card grid.
+
+    The filter bar renders only when there is something to narrow; the list
+    wrapper keeps its id either way so the fragment always has a swap target.
+    """
+    return Div(
+        PageHeader("Shared With Me", subtitle=SHARED_WITH_ME_SUBTITLE),
+        shared_filter_bar(items) if items else "",
+        Div(shared_items_content(items), id=SHARED_LIST_ID),
+    )
+
+
+__all__ = [
+    "LIST_FRAGMENT_URL",
+    "SHARED_LIST_ID",
+    "SHARED_WITH_ME_SUBTITLE",
+    "SharedItemCard",
+    "SharedWithMeView",
+    "shared_filter_bar",
+    "shared_items_content",
+]

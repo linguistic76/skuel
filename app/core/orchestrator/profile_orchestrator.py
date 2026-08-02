@@ -13,6 +13,7 @@ from core.ports.query_types import SharedWithMeItem
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.enums.entity_enums import EntityType
     from core.ports import SharingOperations
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
@@ -108,8 +109,18 @@ class ProfileOrchestrator:
         return Result.ok(sorted_items[:3])
 
     async def get_shared_with_me_items(
-        self, user_uid: UserUID, limit: int = 50
+        self,
+        user_uid: UserUID,
+        limit: int = 50,
+        entity_type: "EntityType | None" = None,
+        sharer_uid: UserUID | None = None,
     ) -> Result[list[SharedWithMeItem]]:
         """Get content shared with the user (entity DTO + share-edge metadata
-        + resolved subject context)."""
-        return await self._sharing_service.get_shared_with_me(user_uid=user_uid, limit=limit)
+        + resolved subject context), optionally narrowed by entity type and/or
+        sharer (arc 2 C4 inbox filters)."""
+        return await self._sharing_service.get_shared_with_me(
+            user_uid=user_uid,
+            limit=limit,
+            entity_type=entity_type,
+            sharer_uid=sharer_uid,
+        )

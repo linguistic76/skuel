@@ -82,7 +82,7 @@ Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live i
 
 ### `/profile/shared` — Shared With Me
 
-Type-aware inbox of entities shared with the viewer via `SHARES_WITH` — today that means ADR-040 auto-shared feedback (EntryReports, RevisedExercises) and manually shared FormSubmissions. Cards show title, entity-type badge, sharer, share date, and — when the item has an exercise subject (feedback-loop UX arc C4) — an "on *{exercise}* · in *{path step}*" context line linking to the exercise/PathStep detail pages; detail links resolve per-type via `entity_detail_href()`. Reached from the inbox icon in the top navbar (next to the bell). Group shares surface on `/groups`, not here. View in `ui/profile/shared_view.py`; route in `adapters/inbound/user_profile_ui.py`.
+Type-aware reviewing inbox of entities shared with the viewer via `SHARES_WITH` — today that means ADR-040 auto-shared feedback (EntryReports, RevisedExercises) and manually shared FormSubmissions, framed as *work shared with you for your attention* (feedback-loop UX arc 2 C4). Cards show title, entity-type badge, sharer, share date, and — when the item has an exercise subject (arc 1 C4) — an "on *{exercise}* · in *{path step}*" context line linking to the exercise/PathStep detail pages; detail links resolve per-type via `entity_detail_href()`. A FilterBar (Type · Shared by, options derived from the live inbox) narrows the cards server-side through the `/profile/shared/list-fragment` HTMX fragment. Reached from the inbox icon in the top navbar (next to the bell). Group shares surface on `/groups`, not here. View in `ui/profile/shared_view.py`; route in `adapters/inbound/user_profile_ui.py`.
 
 ### `/ku` — Knowledge Index
 

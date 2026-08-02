@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.services.sharing.unified_sharing_service import UnifiedSharingService
 from core.utils.result_simplified import Result
@@ -292,6 +293,7 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
                     "role": "student",
                     "shared_at": "2026-02-02T12:00:00",
                     "shared_by": "Teacher Name",
+                    "sharer_uid": "user_teacher",
                     "share_version": None,
                     # Subject context resolved by the backend join (C4).
                     "subject_exercise_uid": "ex_essay",
@@ -311,12 +313,40 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
     assert item["entity"].uid == "er_abc123"
     assert item["entity"].title == "Feedback: ue_xyz"
     assert item["shared_by"] == "Teacher Name"
+    assert item["sharer_uid"] == "user_teacher"
     assert item["shared_at"] == "2026-02-02T12:00:00"
     assert item["role"] == "student"
     assert item["subject_exercise_uid"] == "ex_essay"
     assert item["subject_exercise_title"] == "Essay Exercise"
     assert item["subject_ps_uid"] == "ps.test.essays"
     assert item["subject_ps_title"] == "Writing Essays"
+    # No filters requested → the backend must see explicit None (no filter),
+    # not stale or omitted arguments.
+    mock_backend.query_shared_with_me.assert_awaited_once_with(
+        user_uid="user_student", limit=50, entity_type=None, sharer_uid=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_shared_with_me_passes_filters_as_canonical_values(mock_backend, sharing_service):
+    """Arc 2 C4: the EntityType filter crosses to the backend as its canonical
+    enum value and the sharer filter as the raw uid — both driver parameters."""
+    mock_backend.query_shared_with_me = AsyncMock(return_value=Result.ok([]))
+
+    result = await sharing_service.get_shared_with_me(
+        user_uid="user_student",
+        limit=50,
+        entity_type=EntityType.ENTRY_REPORT,
+        sharer_uid="user_teacher",
+    )
+
+    assert not result.is_error
+    mock_backend.query_shared_with_me.assert_awaited_once_with(
+        user_uid="user_student",
+        limit=50,
+        entity_type="entry_report",
+        sharer_uid="user_teacher",
+    )
 
 
 @pytest.mark.asyncio

@@ -1622,12 +1622,17 @@ class SharedWithMeItem(TypedDict):
     or a RevisedExercise's original (``REVISES_EXERCISE``), plus the PathStep
     anchoring that exercise when one exists (``HAS_EXERCISE``). All four are
     ``None`` for entity types with no exercise subject (e.g. FormSubmission).
+
+    ``shared_by`` is the sharer's resolved display name; ``sharer_uid`` is the
+    raw ``created_by`` uid backing it — the value the inbox Shared-by filter
+    keys on (arc 2 C4).
     """
 
     entity: EntityDTO
     role: str | None
     shared_at: str | None
     shared_by: str | None
+    sharer_uid: str | None
     share_version: str | None
     subject_exercise_uid: str | None
     subject_exercise_title: str | None
