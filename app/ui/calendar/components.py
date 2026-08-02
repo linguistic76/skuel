@@ -325,8 +325,14 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
 # ============================================================================
 
 
-def create_month_grid(calendar_data: CalendarData) -> Div:
+def create_month_grid(calendar_data: CalendarData, year: int, month: int) -> Div:
     """Flat month grid: ISO-week rail + 7 day columns, one row per week.
+
+    ``calendar_data`` spans the full visible grid (Monday on/before the 1st
+    through the Sunday of the last rendered week — ``month_grid_bounds``), so
+    lead-in/tail cells carry real data. ``year``/``month`` name the focus
+    month explicitly: with a grid-wide fetch range it can no longer be
+    inferred from ``start_date``.
 
     Fills the viewport below the page chrome (uniform rows on sparse months);
     the Monday-anchored ISO-week rail is load-bearing — each week number links
@@ -334,13 +340,13 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
     """
     items_by_date = _items_by_date(calendar_data)
 
-    # Grid starts on the Monday on/just before the 1st of the month.
-    first_day = calendar_data.start_date
-    grid_start = first_day - timedelta(days=first_day.weekday())
+    # Monday snap is a no-op when the route passes month_grid_bounds; it keeps
+    # rows week-aligned if a caller ever hands in an unaligned range.
+    grid_start = calendar_data.start_date - timedelta(days=calendar_data.start_date.weekday())
 
     weeks = []
     current_date = grid_start
-    while current_date <= calendar_data.end_date or current_date.month == first_day.month:
+    while current_date <= calendar_data.end_date:
         iso_year, iso_week, _ = current_date.isocalendar()
         week_cells = []
         for weekday_index in range(7):
@@ -349,7 +355,7 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
                 create_day_cell(
                     current_date,
                     day_items,
-                    is_current_month=current_date.month == first_day.month,
+                    is_current_month=(current_date.year, current_date.month) == (year, month),
                     is_weekend=weekday_index >= 5,
                 )
             )
@@ -370,9 +376,6 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
         # rows on sparse months); a busy row still grows to its content, so no
         # chip is ever clipped (the #623 all-chips-visible ruling).
         weeks.append(Div(rail, *week_cells, cls=f"{_MONTH_GRID_COLS} flex-1"))
-
-        if current_date.month != first_day.month and current_date > calendar_data.end_date:
-            break
 
     header = Div(
         Div(

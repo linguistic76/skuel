@@ -21,7 +21,6 @@ Routes:
 """
 
 import calendar as cal
-from calendar import monthrange
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
@@ -42,6 +41,7 @@ if TYPE_CHECKING:
 from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import (
+    month_grid_bounds,
     next_month,
     next_week,
     prev_month,
@@ -199,19 +199,23 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
 
     @rt("/cal/month/{year}/{month}/content")
     async def calendar_month_content(request: Request, year: int, month: int) -> Any:
-        """HTMX fragment: month grid."""
+        """HTMX fragment: month grid.
+
+        Fetches the full visible grid range (Monday on/before the 1st through
+        Sunday of the last rendered week) so lead-in/tail cells of adjacent
+        months carry real data, consistent with the week view of those days.
+        """
         user_uid = require_authenticated_user(request)
-        first_day = date(year, month, 1)
-        last_day = date(year, month, monthrange(year, month)[1])
+        grid_start, grid_end = month_grid_bounds(year, month)
         result = await calendar_service.get_calendar_view(
             user_uid=user_uid,
-            start_date=first_day,
-            end_date=last_day,
+            start_date=grid_start,
+            end_date=grid_end,
             view_type=CalendarView.MONTH,
         )
         if not result.is_ok:
             return Div(error_response(result.error), id="calendar-month-content")
-        return Div(create_month_grid(result.value), id="calendar-month-content")
+        return Div(create_month_grid(result.value, year, month), id="calendar-month-content")
 
     @rt("/cal/week/{date_str}")
     def calendar_week(request: Request, date_str: str) -> Any:
