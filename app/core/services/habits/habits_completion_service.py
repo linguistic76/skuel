@@ -237,17 +237,28 @@ class HabitsCompletionService:
         """
         Record a completion without publishing individual events.
 
-        Used by record_completions_bulk for batch processing.
+        Used by record_completions_bulk for batch processing. Same write order
+        as ``record_completion``: stats compute BEFORE any write, so a fallible
+        backfill history read can never strand a stored completion node with
+        stale statistics.
 
         Returns:
             Result containing (completion, is_new_streak_record, milestone_or_none)
         """
         # Validate habit exists
         habit_result = await self.habits_backend.get(habit_uid)
-        if habit_result.is_error:
+        if habit_result.is_error or habit_result.value is None:
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
         habit = habit_result.value
+
+        # Compute stats first (backfill-safe: an out-of-order completion never
+        # regresses last_completed or breaks the streak — see the helper).
+        streak_result = await self._streak_and_last_completed(habit, habit_uid, completed_at)
+        if streak_result.is_error:
+            return Result.fail(streak_result)
+        new_streak, last_completed, best_candidate = streak_result.value
+        is_new_record = best_candidate > habit.best_streak
 
         # Create completion record
         completion_uid = f"hc.{user_uid}.{habit_uid}.{int(completed_at.timestamp())}"
@@ -270,14 +281,6 @@ class HabitsCompletionService:
             return Result.fail(create_result)
 
         completion = HabitCompletion.from_dto(completion_dto)
-
-        # Calculate new streak (backfill-safe: an out-of-order completion never
-        # regresses last_completed or breaks the streak — see the helper).
-        streak_result = await self._streak_and_last_completed(habit, habit_uid, completed_at)
-        if streak_result.is_error:
-            return Result.fail(streak_result)
-        new_streak, last_completed, best_candidate = streak_result.value
-        is_new_record = best_candidate > habit.best_streak
 
         # Check for milestone (names used by _publish_milestone_event_if_reached)
         milestone: tuple[str, int] | None = None

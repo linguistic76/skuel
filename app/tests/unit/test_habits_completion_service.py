@@ -263,6 +263,26 @@ class TestRecordCompletion:
         mock_completions_backend.create.assert_not_called()
         mock_habits_backend.update.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_bulk_backfill_compute_failure_persists_nothing(
+        self, completion_service, mock_habits_backend, mock_completions_backend, sample_habit
+    ):
+        """The bulk helper has the same write order as record_completion:
+        stats compute before any write."""
+        habit = Habit(**{**sample_habit.__dict__, "last_completed": datetime.now()})
+        mock_habits_backend.get.return_value = Result.ok(habit)
+        mock_completions_backend.find_by.return_value = Result.fail(
+            {"code": "DATABASE", "message": "boom"}
+        )
+
+        result = await completion_service._record_completion_no_event(
+            "habit.test.1", "user_mike", datetime.now() - timedelta(days=2)
+        )
+
+        assert result.is_error
+        mock_completions_backend.create.assert_not_called()
+        mock_habits_backend.update.assert_not_called()
+
 
 class TestCompletionQueries:
     """Test completion query methods."""
