@@ -135,7 +135,12 @@ rescheduling habits (habits recur, they don't reschedule).
 `CalendarService` gains `goals_service: GoalsOperations` (compose.py:815) +
 `_fetch_goals` (existing `get_user_items_in_range`, `target_date` config) +
 `_goal_to_calendar_item` emitting `CalendarItemType.MILESTONE` (all-day, 🎯, #9333ea) —
-every legend entry now has a producer. Delete `ui/calendar/converters.py` +
+every legend entry now has a producer. ⚠️ Gotcha (Codex, #911): `_opens_detail_modal`
+admits every non-habit type, so milestone chips are clickable the moment they exist —
+but `get_item` parses only `task-`/`event-`/`habit-` prefixes, so a click would open
+"Calendar item not found". C5 therefore ALSO adds owner-scoped `goal-` handling to
+`CalendarService.get_item` (same not-found-on-non-owner pattern as the other three) and
+a "View Goal" action (`/goals` detail link) in the modal. Delete `ui/calendar/converters.py` +
 `tests/unit/ui/test_calendar_converters.py` (superseded → delete, per the
 deletion-campaign protocol; the service's occurrence generator is the one path).
 *Rejected:* dropping Milestone from the legend (goals-on-calendar gives the act-from
@@ -184,7 +189,7 @@ the gate auto-passes docs PRs without a verdict).
 | 2 | C2 — OR-of-date-fields in query builder; tasks fetch by due OR scheduled | A live pending task with `scheduled_date` in the view range and NO `due_date` renders as a work chip; a due-only task still renders as a deadline chip; non-calendar range consumers unchanged (`./dev quality` + targeted tests) |
 | 3 | C3 — day-aware habit chips, real completion state, per-day Mark Complete | Clicking "Meditate" on yesterday's cell opens a modal for THAT day; Mark Complete records a completion dated yesterday (verified in graph); the chip turns completed; today's chip completed via /habits also renders completed; future chips offer no completion |
 | 4 | C4 — modal reschedule for tasks/events | Rescheduling a live scheduled task from its modal moves the chip to the new date (graph verified); an event keeps its duration; non-owner UIDs get not-found |
-| 5 | C5 — goals as Milestones; delete dead converters; docstring truth | Setting a `target_date` on live goal "Focus on Van" renders a purple Milestone chip on that day; `ui/calendar/converters.py` + its test are gone; `calendar_routes.py` docstring matches reality |
+| 5 | C5 — goals as Milestones (incl. `goal-` in `get_item` + modal); delete dead converters; docstring truth | Setting a `target_date` on live goal "Focus on Van" renders a purple Milestone chip on that day; clicking it opens a working details modal with a View Goal link (non-owner → not-found); `ui/calendar/converters.py` + its test are gone; `calendar_routes.py` docstring matches reality |
 | 6 | C6 — quick-add (OPTIONAL — separate elicitation first) | Elicit entry-point design with founder before any code |
 
 PR 1 → 2 → 3 is the dependency spine (truthful grid → truthful items → actions on
