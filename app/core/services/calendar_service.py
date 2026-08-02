@@ -384,12 +384,13 @@ class CalendarService:
         Reschedule a calendar item to a new start.
 
         Moves the date that PLACES the item on the calendar: a scheduled task
-        moves ``scheduled_date`` (a due-only deadline task moves ``due_date``
-        and stays a deadline); an event moves its date + start time and keeps
-        its duration (refused when the preserved duration would cross
-        midnight — the Event model is single-day). Owner-scoped: any other
-        user's item — and any non task/event id (habits recur, they don't
-        reschedule) — is not-found.
+        moves ``scheduled_date`` (refused past the task's own due_date —
+        creation forbids that ordering); a due-only deadline task moves
+        ``due_date`` and stays a deadline; an event moves its date + start
+        time and keeps its duration (refused when the preserved duration
+        would cross midnight — the Event model is single-day). Owner-scoped:
+        any other user's item — and any non task/event id (habits recur,
+        they don't reschedule) — is not-found.
 
         Args:
             item_uid: UID of the item to reschedule,
@@ -425,6 +426,22 @@ class CalendarService:
                 if task.scheduled_date is None and task.due_date is not None:
                     intent = TaskUpdateIntent(due_date=new_start.date())
                 else:
+                    if task.due_date is not None and new_start.date() > task.due_date:
+                        # Creation forbids due_date < scheduled_date
+                        # (TaskCreateRequest.validate_due_after_scheduled) and
+                        # the update path doesn't recheck — refuse rather than
+                        # persist work scheduled after its own deadline.
+                        return Result.fail(
+                            Errors.validation(
+                                message=(
+                                    "Work date would pass the task's deadline "
+                                    f"({task.due_date.isoformat()}) — edit the task "
+                                    "to move the deadline"
+                                ),
+                                field="new_start",
+                                value=new_start.isoformat(),
+                            )
+                        )
                     intent = TaskUpdateIntent(scheduled_date=new_start.date())
                 task_update = await self.tasks_service.update_task(EntityUID(source_uid), intent)
                 if task_update.is_ok:

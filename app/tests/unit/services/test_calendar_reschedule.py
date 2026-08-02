@@ -132,12 +132,41 @@ async def test_task_with_both_dates_moves_scheduled_only() -> None:
     task = _task(due=date(2026, 8, 15), scheduled=date(2026, 8, 10))
     service, tasks_service, _ = _service(task=task)
 
-    result = await service.reschedule_item("user_test", "task-task_1", datetime(2026, 8, 20, 0, 0))
+    result = await service.reschedule_item("user_test", "task-task_1", datetime(2026, 8, 14, 0, 0))
 
     assert result.is_ok
     intent = tasks_service.update_task.await_args.args[1]
-    assert intent.scheduled_date == date(2026, 8, 20)
+    assert intent.scheduled_date == date(2026, 8, 14)
     assert intent.due_date is UNSET
+
+
+@pytest.mark.asyncio
+async def test_work_date_may_land_exactly_on_the_deadline() -> None:
+    """due_date == scheduled_date is legal (creation forbids only due < scheduled)."""
+    task = _task(due=date(2026, 8, 15), scheduled=date(2026, 8, 10))
+    service, tasks_service, _ = _service(task=task)
+
+    result = await service.reschedule_item("user_test", "task-task_1", datetime(2026, 8, 15, 0, 0))
+
+    assert result.is_ok
+    assert tasks_service.update_task.await_args.args[1].scheduled_date == date(2026, 8, 15)
+
+
+@pytest.mark.asyncio
+async def test_work_date_past_the_deadline_is_refused() -> None:
+    """Creation forbids due_date < scheduled_date and the update path doesn't
+    recheck — the calendar must not persist work scheduled after its own
+    deadline."""
+    task = _task(due=date(2026, 8, 15), scheduled=date(2026, 8, 10))
+    service, tasks_service, _ = _service(task=task)
+
+    result = await service.reschedule_item("user_test", "task-task_1", datetime(2026, 8, 20, 0, 0))
+
+    assert result.is_error
+    error = result.expect_error()
+    assert error.category == ErrorCategory.VALIDATION
+    assert "2026-08-15" in error.message  # names the deadline so the form shows it
+    tasks_service.update_task.assert_not_awaited()
 
 
 @pytest.mark.asyncio
