@@ -141,6 +141,9 @@ class TestMonthContentFragment:
 
         rendered = _render(response)
         assert "calendar-month-content" in rendered
+        # The fragment listens for the habit-complete POST's HX-Trigger event
+        # so a recorded completion re-renders the grid.
+        assert 'hx-trigger="calendar-refresh from:body"' in rendered
         service.get_calendar_view.assert_awaited_once()
         kwargs = service.get_calendar_view.await_args.kwargs
         # Full visible grid range: Monday on/before May 1 (Fri) through the
@@ -199,7 +202,9 @@ class TestWeekContentFragment:
         service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
         handler = registry.get("/cal/week/{date_str}/content")
         response = await handler(_make_request(), date_str="2026-05-20")
-        assert "calendar-week-content" in _render(response)
+        rendered = _render(response)
+        assert "calendar-week-content" in rendered
+        assert 'hx-trigger="calendar-refresh from:body"' in rendered
         kwargs = service.get_calendar_view.await_args.kwargs
         assert kwargs["view_type"] == CalendarView.WEEK
 
@@ -278,7 +283,13 @@ class TestHabitComplete:
             _make_request(form_data={"on_date": yesterday}), habit_uid="habit_1"
         )
 
-        assert "Completed" in _render(response)
+        body = response.body.decode()
+        assert "Completed" in body
+        # OOB day-state swap keeps the open modal truthful...
+        assert 'hx-swap-oob="true"' in body
+        assert 'id="habit-day-state"' in body
+        # ...and the HX-Trigger event re-renders the grid (chip turns completed).
+        assert response.headers["HX-Trigger"] == "calendar-refresh"
         service.record_habit_occurrence.assert_awaited_once_with("user_smoke", "habit_1", yesterday)
 
     @pytest.mark.asyncio

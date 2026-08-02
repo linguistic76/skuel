@@ -30,8 +30,9 @@ from fasthtml.common import (
     H2,
     Div,
     P,
+    to_xml,
 )
-from starlette.responses import RedirectResponse, Response
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -59,6 +60,7 @@ from ui.calendar.components import (
     create_month_grid,
     create_week_grid,
     error_response,
+    habit_day_state_line,
 )
 from ui.components import Button, ButtonT
 from ui.patterns.loading import content_loading_placeholder
@@ -218,7 +220,16 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         )
         if not result.is_ok:
             return Div(error_response(result.error), id="calendar-month-content")
-        return Div(create_month_grid(result.value, year, month), id="calendar-month-content")
+        # calendar-refresh listener: the habit-complete POST fires the event
+        # (HX-Trigger header), so a recorded completion re-renders the grid —
+        # the chip turns completed without a manual reload.
+        return Div(
+            create_month_grid(result.value, year, month),
+            id="calendar-month-content",
+            hx_get=f"/cal/month/{year}/{month}/content",
+            hx_trigger="calendar-refresh from:body",
+            hx_swap="outerHTML",
+        )
 
     @rt("/cal/week/{date_str}")
     def calendar_week(request: Request, date_str: str) -> Any:
@@ -260,7 +271,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         )
         if not result.is_ok:
             return Div(error_response(result.error), id="calendar-week-content")
-        return Div(create_week_grid(result.value), id="calendar-week-content")
+        # Same calendar-refresh listener as the month fragment (see above).
+        return Div(
+            create_week_grid(result.value),
+            id="calendar-week-content",
+            hx_get=f"/cal/week/{date_str}/content",
+            hx_trigger="calendar-refresh from:body",
+            hx_swap="outerHTML",
+        )
 
     # =========================================================================
     # HTMX Fragment Routes
@@ -314,8 +332,10 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         The modal posts its occurrence day as form field ``on_date``; future
         days are rejected server-side. Recording goes through
         ``calendar_service.record_habit_occurrence`` (ownership verified
-        in-service — not-found on non-owner, no UID oracle). The response swaps
-        the modal's "Mark Complete" button (hx_swap="outerHTML").
+        in-service — not-found on non-owner, no UID oracle). On success the
+        response swaps the button to "Completed ✓", OOB-swaps the modal's
+        day-state line, and fires ``calendar-refresh`` (HX-Trigger) so the
+        grid re-renders the chip as completed.
         """
         user_uid = require_authenticated_user(request)
         form = await request.form()
@@ -340,4 +360,10 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                 hx_vals=f'{{"on_date": "{on_date.isoformat()}"}}',
                 hx_swap="outerHTML",
             )
-        return Button("Completed ✓", disabled=True, cls=(ButtonT.secondary, "mr-2"))
+        # Button swap + OOB day-state line keep the open modal truthful;
+        # HX-Trigger re-renders the grid fragment (chip turns completed).
+        completed_button = Button("Completed ✓", disabled=True, cls=(ButtonT.secondary, "mr-2"))
+        return HTMLResponse(
+            to_xml(completed_button) + to_xml(habit_day_state_line(True, oob=True)),
+            headers={"HX-Trigger": "calendar-refresh"},
+        )

@@ -627,6 +627,28 @@ def _format_datetime(dt: datetime) -> str:
 # ============================================================================
 
 
+def habit_day_state_line(done: bool, *, oob: bool = False) -> P:
+    """That-day completion state line in the habit modal (``#habit-day-state``).
+
+    One render truth shared by the modal and the habit-complete POST response:
+    on success the route returns this line with ``oob=True`` (an HTMX
+    out-of-band swap by id), so the open modal flips to "Completed on this
+    day ✓" instead of contradicting the recorded write.
+    """
+    tone = "text-success" if done else "text-muted-foreground"
+    extra: dict[str, str] = {"hx_swap_oob": "true"} if oob else {}
+    return P(
+        Icon(
+            "circle-check" if done else "circle",
+            cls="w-4 h-4 inline-block mr-1.5 align-[-3px]",
+        ),
+        "Completed on this day ✓" if done else "Not completed on this day",
+        cls=f"text-sm font-medium {tone} mt-1",
+        id="habit-day-state",
+        **extra,
+    )
+
+
 def create_item_details_modal(item: Any) -> Div:
     """Render calendar item details as an HTMX modal fragment.
 
@@ -761,20 +783,7 @@ def create_item_details_modal(item: Any) -> Div:
                 )
             )
         if occurrence_day is not None:
-            day_state = (
-                "Completed on this day ✓" if occurrence_done else "Not completed on this day"
-            )
-            day_tone = "text-success" if occurrence_done else "text-muted-foreground"
-            habit_lines.append(
-                P(
-                    Icon(
-                        "circle-check" if occurrence_done else "circle",
-                        cls="w-4 h-4 inline-block mr-1.5 align-[-3px]",
-                    ),
-                    day_state,
-                    cls=f"text-sm font-medium {day_tone} mt-1",
-                )
-            )
+            habit_lines.append(habit_day_state_line(occurrence_done))
         habit_info = Div(*habit_lines, cls="bg-success/10 p-4 rounded-lg mb-4")
 
     # Tags

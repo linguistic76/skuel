@@ -133,6 +133,8 @@ def test_modal_names_the_occurrence_day_and_offers_mark_complete() -> None:
     assert f'"on_date": "{day.isoformat()}"' in html
     assert 'hx-post="/cal/habit/habit_1/complete"' in html
     assert "Not completed on this day" in html
+    # The OOB target the habit-complete POST flips on success.
+    assert 'id="habit-day-state"' in html
 
 
 def test_modal_shows_completed_state_for_done_day() -> None:

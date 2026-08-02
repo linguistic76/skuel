@@ -244,8 +244,12 @@ class HabitsCompletionService:
 
         completion = HabitCompletion.from_dto(completion_dto)
 
-        # Calculate new streak
-        new_streak = self._calculate_new_streak(habit, completed_at)
+        # Calculate new streak (backfill-safe: an out-of-order completion never
+        # regresses last_completed or breaks the streak — see the helper).
+        streak_result = await self._streak_and_last_completed(habit, habit_uid, completed_at)
+        if streak_result.is_error:
+            return Result.fail(streak_result)
+        new_streak, last_completed = streak_result.value
         is_new_record = new_streak > habit.best_streak
 
         # Check for milestone (names used by _publish_milestone_event_if_reached)
@@ -262,7 +266,7 @@ class HabitsCompletionService:
             "current_streak": new_streak,
             "best_streak": max(new_streak, habit.best_streak),
             "total_completions": habit.total_completions + 1,
-            "last_completed": completed_at,
+            "last_completed": last_completed,
             "updated_at": now,
         }
         if habit.is_identity_based():
@@ -285,8 +289,14 @@ class HabitsCompletionService:
         # Backend returns Result[Habit | None] - trust the type system
         habit = habit_result.value
 
-        # Calculate new streak
-        new_streak = self._calculate_new_streak(habit, completion.completed_at)
+        # Calculate new streak (backfill-safe: an out-of-order completion never
+        # regresses last_completed or breaks the streak — see the helper).
+        streak_result = await self._streak_and_last_completed(
+            habit, habit_uid, completion.completed_at
+        )
+        if streak_result.is_error:
+            return Result.fail(streak_result)
+        new_streak, last_completed = streak_result.value
 
         # Check for streak milestones and publish events
         await self._check_streak_milestones(habit, new_streak, habit.user_uid)
@@ -299,7 +309,7 @@ class HabitsCompletionService:
             "current_streak": new_streak,
             "best_streak": max(new_streak, habit.best_streak),
             "total_completions": habit.total_completions + 1,
-            "last_completed": completion.completed_at,
+            "last_completed": last_completed,
         }
 
         # Update identity votes if applicable
@@ -313,8 +323,65 @@ class HabitsCompletionService:
         self.logger.debug(f"Updated habit {habit_uid} stats: streak={new_streak}")
         return Result.ok(None)
 
+    async def _streak_and_last_completed(
+        self, habit: Habit, habit_uid: str, completed_at: datetime
+    ) -> Result[tuple[int, datetime]]:
+        """New (streak, last_completed) after recording a completion at ``completed_at``.
+
+        In-order completions use the incremental delta formula
+        (``_calculate_new_streak``) and advance ``last_completed``. A BACKFILLED
+        completion — one dated before the habit's ``last_completed``, e.g. the
+        calendar's per-day Mark Complete on an earlier pending day — must not
+        regress ``last_completed``, and the delta formula cannot apply (it would
+        read the negative gap as a broken streak); the streak is instead
+        recomputed from stored completion history, so a backfill can BRIDGE two
+        runs into one, never break one.
+        """
+        if habit.last_completed is not None and completed_at.date() < habit.last_completed.date():
+            recomputed = await self._streak_ending_at(habit_uid, habit.last_completed.date())
+            if recomputed.is_error:
+                return Result.fail(recomputed)
+            return Result.ok((recomputed.value, habit.last_completed))
+        return Result.ok((self._calculate_new_streak(habit, completed_at), completed_at))
+
+    async def _streak_ending_at(self, habit_uid: str, anchor: date) -> Result[int]:
+        """Consecutive-day streak ending at ``anchor``, recomputed from stored completions.
+
+        Bounded to the trailing 365 days (past the largest milestone) — a streak
+        longer than the window is reported as the window's span. Tolerates the
+        native/string ``completed_at`` temporal split.
+        """
+        completions = await self.get_completions_for_habit(
+            habit_uid,
+            start_date=anchor - timedelta(days=365),
+            end_date=anchor,
+            limit=400,  # 366 daily completions fit; find_by truncation stays out of reach
+        )
+        if completions.is_error:
+            return Result.fail(completions)
+        completed_days: set[date] = set()
+        for c in completions.value:
+            completed_at = c.completed_at
+            if isinstance(completed_at, str):
+                try:
+                    completed_at = datetime.fromisoformat(completed_at)
+                except ValueError:
+                    continue
+            if completed_at is not None:
+                completed_days.add(completed_at.date())
+        streak = 0
+        day = anchor
+        while day in completed_days:
+            streak += 1
+            day -= timedelta(days=1)
+        return Result.ok(streak)
+
     def _calculate_new_streak(self, habit: Habit, completion_date: datetime) -> int:
-        """Calculate new streak based on last completion."""
+        """Calculate new streak based on last completion (in-order completions only).
+
+        Backfilled (out-of-order) completions never reach this formula — they are
+        routed to ``_streak_ending_at`` by ``_streak_and_last_completed``.
+        """
         if not habit.last_completed:
             return 1  # First completion
 
