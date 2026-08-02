@@ -373,15 +373,21 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             error = result.expect_error()
             if error.category == ErrorCategory.NOT_FOUND:
                 return Response("Item not found", status_code=404)
-            if error.category == ErrorCategory.VALIDATION:
-                return Response(error.message, status_code=400)
-            # Re-render the form with the posted values so the user can retry.
+            # Re-render the form with the posted values (HTMX swaps 200s, not
+            # bare 4xx bodies): a validation refusal shows its actionable
+            # reason (e.g. the cross-midnight message); anything else offers
+            # a plain retry.
+            message = (
+                error.message
+                if error.category == ErrorCategory.VALIDATION
+                else "Reschedule failed — try again"
+            )
             return reschedule_form(
                 item_id,
                 with_time=is_event,
                 date_value=raw_new_date,
                 time_value=raw_new_time,
-                error="Reschedule failed — try again",
+                error=message,
             )
         # Confirmation swap + OOB schedule line keep the open modal truthful;
         # HX-Trigger re-renders the grid fragment (the chip moves).

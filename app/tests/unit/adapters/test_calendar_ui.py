@@ -373,6 +373,34 @@ class TestItemReschedule:
         service.reschedule_item.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_validation_failure_renders_its_reason_in_the_form(
+        self, routes_and_service
+    ) -> None:
+        """A service validation refusal (e.g. cross-midnight) must be SEEN:
+        HTMX swaps 200 bodies, not bare 4xx, so the form re-renders with the
+        actionable message."""
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(
+            return_value=Result.fail(
+                Errors.validation(
+                    message="Event duration crosses midnight — choose an earlier start time",
+                    field="new_start",
+                )
+            )
+        )
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "2026-08-12", "new_time": "23:30"}),
+            item_id="event-event_1",
+        )
+
+        rendered = _render(response)
+        assert "crosses midnight" in rendered
+        assert "/cal/item/event-event_1/reschedule" in rendered
+        # Posted values survive so the user adjusts rather than retypes.
+        assert "2026-08-12" in rendered and "23:30" in rendered
+
+    @pytest.mark.asyncio
     async def test_failed_reschedule_keeps_retry_form(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.reschedule_item = AsyncMock(
