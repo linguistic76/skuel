@@ -369,7 +369,13 @@ class CalendarService:
         self, user_uid: UserUID, item_uid: str, new_start: datetime
     ) -> Result[CalendarItem]:
         """
-        Reschedule a calendar item.
+        Reschedule a calendar item to a new start.
+
+        Moves the date that PLACES the item on the calendar: a scheduled task
+        moves ``scheduled_date`` (a due-only deadline task moves ``due_date``
+        and stays a deadline); an event moves its date + start time and keeps
+        its duration. Owner-scoped: any other user's item — and any non
+        task/event id (habits recur, they don't reschedule) — is not-found.
 
         Args:
             item_uid: UID of the item to reschedule,
@@ -387,11 +393,18 @@ class CalendarService:
                 if task.user_uid != user_uid:
                     # Not the requester's task — 'not found', no UID oracle.
                     return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
-                # Reschedule mutates only the scheduled date (ADR-066 typed update
-                # contract: a TaskUpdateIntent, not a rebuilt DTO or field dict).
-                task_update = await self.tasks_service.update_task(
-                    EntityUID(source_uid), TaskUpdateIntent(scheduled_date=new_start.date())
-                )
+                # Move the date that PLACES the task on the calendar (ADR-066
+                # typed update contract: a TaskUpdateIntent, not a rebuilt DTO
+                # or field dict). A due-only task renders as a deadline chip —
+                # moving it must move due_date itself; writing scheduled_date
+                # would silently convert the deadline into a work chip while
+                # the real due date stayed behind. A scheduled task moves
+                # scheduled_date (an existing due_date is a separate fact).
+                if task.scheduled_date is None and task.due_date is not None:
+                    intent = TaskUpdateIntent(due_date=new_start.date())
+                else:
+                    intent = TaskUpdateIntent(scheduled_date=new_start.date())
+                task_update = await self.tasks_service.update_task(EntityUID(source_uid), intent)
                 if task_update.is_ok:
                     return Result.ok(self._task_to_calendar_item(task_update.value))
                 return Result.fail(task_update)
