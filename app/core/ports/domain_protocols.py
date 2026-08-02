@@ -248,7 +248,12 @@ class TasksOperations(
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+        date_field: str | list[str] | None = None,
     ) -> Result[list[Task]]:
         """
         Get user's tasks in date range - unified interface for meta-services.
@@ -261,13 +266,16 @@ class TasksOperations(
             start_date: Range start date
             end_date: Range end date
             include_completed: Include completed tasks (default: False)
+            date_field: Optional override of the configured due_date field;
+                a list means OR semantics across fields — the calendar asks for
+                ["due_date", "scheduled_date"] so scheduled-only tasks render
 
         Returns:
             Result[list[Task]] filtered by user, date range, and completion status
 
         Implementation:
-            Filters by user_uid, due_date field, and excludes completed status
-            unless include_completed=True. Uses CypherGenerator.build_user_activity_query()
+            Filters by user_uid, the requested date field(s), and excludes completed
+            status unless include_completed=True. Uses build_user_activity_query()
 
         Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
         """

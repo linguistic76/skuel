@@ -382,10 +382,11 @@ class CalendarService:
         """
         Fetch tasks and convert to calendar items.
 
-        Refactoring:
-        Uses unified query pattern with Cypher-level date filtering.
-        BEFORE: Fetched 100 tasks, filtered in Python
-        AFTER: Cypher filters by date range at database level
+        Fetches by due_date OR scheduled_date (calendar-only override of Tasks'
+        configured due_date field): ``_task_to_calendar_item`` renders scheduled
+        tasks as work chips, so a scheduled-only task must be fetched too — with
+        due_date alone it could never render (act-from arc C2). Other range
+        consumers keep the DomainConfig default.
         """
         items: list[CalendarItem] = []
 
@@ -398,6 +399,7 @@ class CalendarService:
                 start_date=start_date,
                 end_date=end_date,
                 include_completed=include_completed,
+                date_field=["due_date", "scheduled_date"],
             )
 
             if result.is_ok:

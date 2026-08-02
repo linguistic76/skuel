@@ -752,12 +752,16 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
     async def user_activity_range_raw(
         self,
         user_uid: UserUID,
-        date_field: str,
+        date_field: str | builtins.list[str],
         start_date: date,
         end_date: date,
         exclude_statuses: builtins.list[str] | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Query user entities within a date range."""
+        """Query user entities within a date range.
+
+        A list of date fields uses OR semantics: an entity matches when ANY
+        of the fields falls inside the range.
+        """
         ...
 
     async def upcoming_raw(

@@ -96,7 +96,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         user_uid: UserUID,
         start_date: date,
         end_date: date,
-        date_field: str,
+        date_field: str | builtins.list[str],
         dto_class: type[DTOProtocol],
         model_class: type[T],
         exclude_statuses: builtins.list[str] | None = None,
@@ -111,7 +111,8 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             user_uid: User identifier (REQUIRED)
             start_date: Start of date range
             end_date: End of date range
-            date_field: Domain-specific date field name
+            date_field: Domain-specific date field name(s) — a list matches items
+                where ANY of the fields falls inside the range (OR semantics)
             dto_class: DTO class for conversion (e.g., TaskDTO, GoalDTO)
             model_class: Domain model class (e.g., Task, Goal)
             exclude_statuses: List of status values to exclude (optional)
@@ -153,6 +154,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         start_date: date,
         end_date: date,
         include_completed: bool = False,
+        date_field: str | builtins.list[str] | None = None,
     ) -> Result[builtins.list[T]]:
         """
         Get user's items in date range - unified implementation using class attributes.
@@ -167,6 +169,10 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             start_date: Start of date range
             end_date: End of date range
             include_completed: Include completed/archived items (default False)
+            date_field: Optional override of the domain's configured date field.
+                A list matches items where ANY of the fields falls inside the
+                range (OR semantics) — e.g. the calendar fetches Tasks by
+                due_date OR scheduled_date. Default None uses DomainConfig.
 
         Returns:
             Result containing list of domain model instances
@@ -186,7 +192,8 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         completed_statuses = self._get_config_value("completed_statuses", [])
         exclude_statuses = [] if include_completed else list(completed_statuses)
 
-        date_field = self._get_config_value("date_field", "created_at")
+        if date_field is None:
+            date_field = self._get_config_value("date_field", "created_at")
 
         return await self.get_user_items_in_range_base(
             user_uid=user_uid,

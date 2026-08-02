@@ -670,6 +670,7 @@ class TimeQueryOperations(Protocol[T]):
         start_date: date,
         end_date: date,
         include_completed: bool = False,
+        date_field: str | list[str] | None = None,
     ) -> Result[list[T]]:
         """
         Get user's items in date range.
@@ -679,6 +680,8 @@ class TimeQueryOperations(Protocol[T]):
             start_date: Range start date
             end_date: Range end date
             include_completed: Whether to include completed items
+            date_field: Optional override of the domain's configured date field;
+                a list means OR semantics across fields (default None uses config)
 
         Returns:
             Result[list[T]]: Entities in the date range

@@ -50,7 +50,7 @@ class _TemporalMixin[T: DomainModelProtocol]:
     async def user_activity_range_raw(
         self,
         user_uid: UserUID,
-        date_field: str,
+        date_field: str | builtins.list[str],
         start_date: date,
         end_date: date,
         exclude_statuses: builtins.list[str] | None = None,
@@ -60,7 +60,8 @@ class _TemporalMixin[T: DomainModelProtocol]:
 
         Args:
             user_uid: User identifier
-            date_field: Date field name for range filter
+            date_field: Date field name(s) for range filter — a list matches
+                entities where ANY of the fields falls inside the range
             start_date: Range start
             end_date: Range end
             exclude_statuses: Status values to exclude
