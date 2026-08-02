@@ -198,6 +198,43 @@ async def test_event_reschedule_preserves_duration() -> None:
 
 
 @pytest.mark.asyncio
+async def test_event_move_onto_or_past_recurrence_end_is_refused() -> None:
+    """Creation forbids event_date on/after recurrence_end_date — the move
+    must not persist a recurrence window that ends before it starts."""
+    event = Event(
+        uid="event_1",
+        user_uid="user_test",
+        title="Weekly sync",
+        entity_type=EntityType.EVENT,
+        status=EntityStatus.SCHEDULED,
+        created_at=datetime(2026, 7, 1, 8, 0),
+        updated_at=datetime(2026, 7, 1, 8, 0),
+        event_date=date(2026, 8, 11),
+        start_time=time(10, 0),
+        end_time=time(11, 0),
+        recurrence_end_date=date(2026, 8, 20),
+    )
+    service, _, events_service = _service(event=event)
+
+    result = await service.reschedule_item(
+        "user_test", "event-event_1", datetime(2026, 8, 20, 10, 0)
+    )
+
+    assert result.is_error
+    error = result.expect_error()
+    assert error.category == ErrorCategory.VALIDATION
+    assert "2026-08-20" in error.message  # names the recurrence end
+    events_service.update_event.assert_not_awaited()
+
+    # Strictly before the recurrence end stays legal.
+    result = await service.reschedule_item(
+        "user_test", "event-event_1", datetime(2026, 8, 19, 10, 0)
+    )
+    assert result.is_ok
+    assert events_service.update_event.await_args.args[1].event_date == date(2026, 8, 19)
+
+
+@pytest.mark.asyncio
 async def test_event_move_crossing_midnight_is_refused() -> None:
     """The Event model is single-day: an end past midnight would persist
     end_time BEFORE start_time. Such moves are refused, not truncated."""

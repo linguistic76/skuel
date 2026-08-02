@@ -484,6 +484,23 @@ class CalendarService:
                             value=new_start.isoformat(),
                         )
                     )
+                recurrence_end = convert_neo4j_date(event.recurrence_end_date)
+                if recurrence_end is not None and new_start.date() >= recurrence_end:
+                    # Creation forbids event_date on/after recurrence_end_date
+                    # (validate_recurrence_end_after_start) and the update
+                    # path doesn't recheck — refuse rather than persist a
+                    # recurrence window that ends before it starts.
+                    return Result.fail(
+                        Errors.validation(
+                            message=(
+                                "New date is not before the recurrence end "
+                                f"({recurrence_end.isoformat()}) — edit the event "
+                                "to change its recurrence"
+                            ),
+                            field="new_start",
+                            value=new_start.isoformat(),
+                        )
+                    )
                 # Reschedule mutates only the date/time window (ADR-066 typed update
                 # contract: an EventUpdateIntent, not a rebuilt DTO or field dict).
                 event_update = await self.events_service.update_event(
