@@ -21,7 +21,9 @@ __version__ = "5.0"  # Hub page (MOC pattern) — no sidebar
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, Request
+# FT imported at runtime: FastHTML resolves handler signature annotations at
+# registration, so a TYPE_CHECKING-only import would kill bootstrap.
+from fasthtml.common import FT, Div, Request
 
 from core.config.settings import get_settings
 from core.models.enums.entity_enums import EntityType
@@ -287,7 +289,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         )
         if items_result.is_error:
             # Outage ≠ empty: a failed read must never render as a blank inbox.
-            logger.error(f"Failed to load shared-with-me items: {items_result.error}")
+            logger.error(f"Failed to load shared-with-me items: {items_result.expect_error()}")
             content: Div = Div(
                 PageHeader("Shared With Me", subtitle=SHARED_WITH_ME_SUBTITLE),
                 render_error_banner("Could not load your shared items. Please try again."),
@@ -305,7 +307,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     @rt("/profile/shared/list-fragment")
     async def profile_shared_list_fragment(
         request: Request, entity_type: str = "all", sharer: str = "all"
-    ) -> Any:
+    ) -> FT:
         """HTMX fragment: the filtered card grid for a FilterBar change.
 
         Filter params are clamped, never 400'd (the gradebook convention):
@@ -328,7 +330,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             sharer_uid=sharer_filter,
         )
         if items_result.is_error:
-            logger.error(f"Failed to load shared-with-me items: {items_result.error}")
+            logger.error(f"Failed to load shared-with-me items: {items_result.expect_error()}")
             return render_error_banner("Could not load your shared items. Please try again.")
 
         return shared_items_content(
