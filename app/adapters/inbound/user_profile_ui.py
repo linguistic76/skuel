@@ -288,7 +288,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         if items_result.is_error:
             # Outage ≠ empty: a failed read must never render as a blank inbox.
             logger.error(f"Failed to load shared-with-me items: {items_result.error}")
-            content: Any = Div(
+            content: Div = Div(
                 PageHeader("Shared With Me", subtitle=SHARED_WITH_ME_SUBTITLE),
                 render_error_banner("Could not load your shared items. Please try again."),
             )

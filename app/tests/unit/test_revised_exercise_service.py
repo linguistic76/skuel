@@ -138,6 +138,10 @@ class TestCreateRevisedExerciseAccessControl:
 
         assert not result.is_error
         mock_backend.create.assert_called_once()
+        # Sharer attribution (arc 2 C4): the enriched entity crosses the
+        # boundary stamped with the teacher as creator.
+        enriched = mock_backend.create.call_args[0][0]
+        assert enriched.created_by == "user_teacher"
 
     @pytest.mark.asyncio
     async def test_auto_shares_with_student(self, service, mock_backend):
