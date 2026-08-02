@@ -37,6 +37,7 @@ def _task(
     user_uid: str = "user_test",
     due: date | None = None,
     scheduled: date | None = None,
+    recurrence_end: date | None = None,
 ) -> Task:
     created = datetime(2026, 7, 1, 8, 0)
     return Task(
@@ -49,6 +50,7 @@ def _task(
         updated_at=created,
         due_date=due,
         scheduled_date=scheduled,
+        recurrence_end_date=recurrence_end,
     )
 
 
@@ -167,6 +169,28 @@ async def test_work_date_past_the_deadline_is_refused() -> None:
     assert error.category == ErrorCategory.VALIDATION
     assert "2026-08-15" in error.message  # names the deadline so the form shows it
     tasks_service.update_task.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recurring_deadline_move_onto_or_past_recurrence_end_is_refused() -> None:
+    """Task twin of the event recurrence guard: creation forbids due_date
+    on/after recurrence_end_date — a deadline move must not persist a
+    recurrence window that ends before it starts."""
+    task = _task(due=date(2026, 8, 10), recurrence_end=date(2026, 8, 20))
+    service, tasks_service, _ = _service(task=task)
+
+    result = await service.reschedule_item("user_test", "task-task_1", datetime(2026, 8, 20, 0, 0))
+
+    assert result.is_error
+    error = result.expect_error()
+    assert error.category == ErrorCategory.VALIDATION
+    assert "2026-08-20" in error.message  # names the recurrence end
+    tasks_service.update_task.assert_not_awaited()
+
+    # Strictly before the recurrence end stays legal.
+    result = await service.reschedule_item("user_test", "task-task_1", datetime(2026, 8, 19, 0, 0))
+    assert result.is_ok
+    assert tasks_service.update_task.await_args.args[1].due_date == date(2026, 8, 19)
 
 
 @pytest.mark.asyncio

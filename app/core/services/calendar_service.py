@@ -424,6 +424,23 @@ class CalendarService:
                 # the real due date stayed behind. A scheduled task moves
                 # scheduled_date (an existing due_date is a separate fact).
                 if task.scheduled_date is None and task.due_date is not None:
+                    task_recurrence_end = convert_neo4j_date(task.recurrence_end_date)
+                    if task_recurrence_end is not None and new_start.date() >= task_recurrence_end:
+                        # Creation forbids due_date on/after recurrence_end_date
+                        # (validate_recurrence_end_after_start) and the update
+                        # path doesn't recheck — refuse rather than persist a
+                        # recurrence window that ends before it starts.
+                        return Result.fail(
+                            Errors.validation(
+                                message=(
+                                    "New date is not before the recurrence end "
+                                    f"({task_recurrence_end.isoformat()}) — edit the task "
+                                    "to change its recurrence"
+                                ),
+                                field="new_start",
+                                value=new_start.isoformat(),
+                            )
+                        )
                     intent = TaskUpdateIntent(due_date=new_start.date())
                 else:
                     if task.due_date is not None and new_start.date() > task.due_date:
