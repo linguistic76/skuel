@@ -122,6 +122,9 @@ artifact; hub-merge; nav badge counts; read-state; pagination; notification chan
 teacher vault file-delivery; any change to needs-review semantics (the scoped queue stays
 the single rule; `NEEDS_REVIEW_STATUSES` stays action-form-availability only).
 
+*Post-arc note (2026-08-01):* the deferred items' settled rulings, ready seams, and
+un-staging gates are recorded in `feedback-loop-staged-directions.md`.
+
 ## Standing conventions that bind every PR here
 
 Per-entry `SHARED_WITH_GROUP` gate for any teacher read of entry content; outage ≠
