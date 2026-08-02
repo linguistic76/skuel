@@ -223,21 +223,30 @@ class CalendarService:
 
         if kind is EntityType.TASK:
             task_result = await self.tasks_service.get(source_uid)
-            if task_result.is_ok and task_result.value:
+            if task_result.is_error:
+                # A failed read is not a missing item — propagate it.
+                return Result.fail(task_result)
+            if task_result.value:
                 if task_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._task_to_calendar_item(task_result.value))
 
         elif kind is EntityType.EVENT:
             event_result = await self.events_service.get(source_uid)
-            if event_result.is_ok and event_result.value:
+            if event_result.is_error:
+                # A failed read is not a missing item — propagate it.
+                return Result.fail(event_result)
+            if event_result.value:
                 if event_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._event_to_calendar_item(event_result.value))
 
         elif kind is EntityType.HABIT:
             habit_result = await self.habits_service.get(source_uid)
-            if habit_result.is_ok and habit_result.value:
+            if habit_result.is_error:
+                # A failed read is not a missing item — propagate it.
+                return Result.fail(habit_result)
+            if habit_result.value:
                 if habit_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 item = self._habit_to_calendar_item(habit_result.value)
@@ -397,7 +406,11 @@ class CalendarService:
 
         if kind is EntityType.TASK:
             task_get = await self.tasks_service.get(source_uid)
-            if task_get.is_ok and task_get.value:
+            if task_get.is_error:
+                # A failed read is not a missing item — propagate so the
+                # caller retries instead of seeing a false 'not found'.
+                return Result.fail(task_get)
+            if task_get.value:
                 task = task_get.value
                 if task.user_uid != user_uid:
                     # Not the requester's task — 'not found', no UID oracle.
@@ -420,7 +433,11 @@ class CalendarService:
 
         elif kind is EntityType.EVENT:
             event_get = await self.events_service.get(source_uid)
-            if event_get.is_ok and event_get.value:
+            if event_get.is_error:
+                # A failed read is not a missing item — propagate so the
+                # caller retries instead of seeing a false 'not found'.
+                return Result.fail(event_get)
+            if event_get.value:
                 event: Event = event_get.value  # Type hint for MyPy protocol inference
                 if event.user_uid != user_uid:
                     # Not the requester's event — 'not found', no UID oracle.

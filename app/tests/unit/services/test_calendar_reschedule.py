@@ -28,7 +28,7 @@ from core.models.event.event import Event
 from core.models.sentinels import UNSET
 from core.models.task.task import Task
 from core.services.calendar_service import CalendarService
-from core.utils.result_simplified import ErrorCategory, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
 def _task(
@@ -182,6 +182,49 @@ async def test_event_move_crossing_midnight_is_refused() -> None:
     assert result.is_error
     assert result.expect_error().category == ErrorCategory.VALIDATION
     events_service.update_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_failed_task_read_propagates_not_404() -> None:
+    """A transient read failure is not a missing item — the caller must see
+    a retryable failure, never a false 'not found'."""
+    service, tasks_service, _ = _service()
+    tasks_service.get = AsyncMock(return_value=Result.fail(Errors.database("tasks.get", "boom")))
+    tasks_service.update_task = AsyncMock()
+
+    result = await service.reschedule_item("user_test", "task-task_1", datetime(2026, 8, 20, 0, 0))
+
+    assert result.is_error
+    assert result.expect_error().category == ErrorCategory.DATABASE
+    tasks_service.update_task.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_failed_event_read_propagates_not_404() -> None:
+    service, _, events_service = _service()
+    events_service.get = AsyncMock(return_value=Result.fail(Errors.database("events.get", "boom")))
+    events_service.update_event = AsyncMock()
+
+    result = await service.reschedule_item(
+        "user_test", "event-event_1", datetime(2026, 8, 12, 14, 15)
+    )
+
+    assert result.is_error
+    assert result.expect_error().category == ErrorCategory.DATABASE
+    events_service.update_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_item_propagates_failed_read() -> None:
+    """Same class in the read path: get_item must not render a DB failure as
+    the 'not found' modal state (Result.ok(None))."""
+    service, tasks_service, _ = _service()
+    tasks_service.get = AsyncMock(return_value=Result.fail(Errors.database("tasks.get", "boom")))
+
+    result = await service.get_item("user_test", "task-task_1")
+
+    assert result.is_error
+    assert result.expect_error().category == ErrorCategory.DATABASE
 
 
 def test_parse_calendar_item_uid_wire_format() -> None:
