@@ -341,14 +341,19 @@ class HabitsCompletionService:
             recomputed = await self._streak_ending_at(habit_uid, habit.last_completed.date())
             if recomputed.is_error:
                 return Result.fail(recomputed)
-            return Result.ok((recomputed.value, habit.last_completed))
+            # A backfill can only lengthen or preserve the run ending at
+            # last_completed — never shorten it. max() guards the recompute's
+            # 365-day window (a >365-day live streak would otherwise truncate)
+            # and any pre-node-era completions missing from stored history.
+            return Result.ok((max(recomputed.value, habit.current_streak), habit.last_completed))
         return Result.ok((self._calculate_new_streak(habit, completed_at), completed_at))
 
     async def _streak_ending_at(self, habit_uid: str, anchor: date) -> Result[int]:
         """Consecutive-day streak ending at ``anchor``, recomputed from stored completions.
 
-        Bounded to the trailing 365 days (past the largest milestone) — a streak
-        longer than the window is reported as the window's span. Tolerates the
+        Bounded to the trailing 365 days (past the largest milestone); the
+        caller (``_streak_and_last_completed``) guards window truncation by
+        never letting a backfill lower ``current_streak``. Tolerates the
         native/string ``completed_at`` temporal split.
         """
         completions = await self.get_completions_for_habit(
@@ -415,16 +420,24 @@ class HabitsCompletionService:
 
         old_streak = habit.current_streak
 
-        # Check if new streak exactly matches a milestone (and we just reached it)
+        # Publish every threshold the streak crossed. In-order completions step
+        # +1 at a time (at most one exact crossing), but a bridging backfill can
+        # jump several days at once — exact-equality matching would silently
+        # skip the milestones inside the jump.
         for milestone_value, milestone_name in milestones.items():
-            if new_streak == milestone_value and old_streak < milestone_value:
+            if old_streak < milestone_value <= new_streak:
                 # Milestone reached! Publish event
                 from core.events.habit_events import HabitStreakMilestone
 
+                # streak_length carries the CROSSED TIER, not the raw streak:
+                # the badge handler awards via an exact MILESTONE_BADGES lookup
+                # on this field, and a bridging jump (e.g. 3 → 10) must still
+                # land on the 7-day badge. Identical to the raw streak for
+                # in-order +1 crossings.
                 event = HabitStreakMilestone(
                     habit_uid=habit.uid,
                     user_uid=user_uid,
-                    streak_length=new_streak,
+                    streak_length=milestone_value,
                     milestone_name=milestone_name,
                 )
                 await publish_event(self.event_bus, event, self.logger)

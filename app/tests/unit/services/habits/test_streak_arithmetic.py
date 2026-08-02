@@ -176,6 +176,25 @@ class TestBackfilledCompletion:
         streak_service.get_completions_for_habit.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_backfill_never_lowers_current_streak(self, streak_service, sample_habit):
+        """The recompute is bounded to a 365-day window (and stored history can
+        predate completion nodes) — a backfill must preserve a longer live
+        streak, never truncate it to what the window can see."""
+        last = datetime(2026, 7, 10, 8, 0, 0)
+        habit = replace(sample_habit, last_completed=last, current_streak=400)
+        # Window-truncated history: only the anchor day is visible.
+        streak_service.get_completions_for_habit = AsyncMock(
+            return_value=Result.ok([SimpleNamespace(completed_at=last)])
+        )
+
+        result = await streak_service._streak_and_last_completed(
+            habit, habit.uid, datetime(2026, 7, 9, 8, 0, 0)
+        )
+
+        assert result.is_ok
+        assert result.value == (400, last)
+
+    @pytest.mark.asyncio
     async def test_backfill_history_error_propagates(self, streak_service, sample_habit):
         habit = replace(sample_habit, last_completed=datetime(2026, 7, 10, 8, 0, 0))
         streak_service.get_completions_for_habit = AsyncMock(
@@ -185,6 +204,51 @@ class TestBackfilledCompletion:
             habit, habit.uid, datetime(2026, 7, 9, 8, 0, 0)
         )
         assert result.is_error
+
+
+class TestMilestonesCrossedByJump:
+    """_check_streak_milestones publishes every threshold a jump crosses.
+
+    In-order completions step +1 (exact crossings), but a bridging backfill can
+    jump several days at once — the old exact-equality match silently skipped
+    milestones inside the jump.
+    """
+
+    @pytest.mark.asyncio
+    async def test_jump_publishes_each_crossed_milestone(self, streak_service, sample_habit):
+        streak_service.event_bus = AsyncMock()
+        habit = replace(sample_habit, current_streak=3)
+
+        await streak_service._check_streak_milestones(habit, 10, "user_mike")
+
+        published = [
+            call.args[0] for call in streak_service.event_bus.publish_async.await_args_list
+        ]
+        assert [e.streak_length for e in published] == [7]
+        assert published[0].milestone_name == "one_week"
+
+    @pytest.mark.asyncio
+    async def test_jump_crossing_two_thresholds_publishes_both(self, streak_service, sample_habit):
+        streak_service.event_bus = AsyncMock()
+        habit = replace(sample_habit, current_streak=5)
+
+        await streak_service._check_streak_milestones(habit, 31, "user_mike")
+
+        published = [
+            call.args[0] for call in streak_service.event_bus.publish_async.await_args_list
+        ]
+        assert sorted(e.streak_length for e in published) == [7, 30]
+
+    @pytest.mark.asyncio
+    async def test_exact_single_step_crossing_still_publishes_once(
+        self, streak_service, sample_habit
+    ):
+        streak_service.event_bus = AsyncMock()
+        habit = replace(sample_habit, current_streak=6)
+
+        await streak_service._check_streak_milestones(habit, 7, "user_mike")
+
+        assert streak_service.event_bus.publish_async.await_count == 1
 
 
 if __name__ == "__main__":
