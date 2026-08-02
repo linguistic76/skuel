@@ -118,6 +118,7 @@ def test_expected_routes_are_registered(routes_and_service) -> None:
         ("/cal/week/{date_str}", "GET"),
         ("/cal/week/{date_str}/content", "GET"),
         ("/cal/item-details/{item_id}", "GET"),
+        ("/cal/item/{item_id}/reschedule", "POST"),
         ("/cal/habit/{habit_uid}/complete", "POST"),
     ]
     for key in expected:
@@ -263,6 +264,130 @@ class TestItemDetailsModal:
         handler = registry.get("/cal/item-details/{item_id}")
         response = await handler(_make_request(), item_id="missing")
         assert "Calendar item not found" in _render(response)
+
+
+# ============================================================================
+# POST /cal/item/{item_id}/reschedule — modal reschedule action (tasks/events)
+# ============================================================================
+
+
+def _rescheduled_task_item() -> CalendarItem:
+    return CalendarItem(
+        uid="task-task_1",
+        source_uid="task_1",
+        item_type=CalendarItemType.TASK_WORK,
+        title="Rescheduled task",
+        start_time=datetime(2026, 8, 14, 9, 0),
+        end_time=datetime(2026, 8, 14, 10, 0),
+    )
+
+
+class TestItemReschedule:
+    @pytest.mark.asyncio
+    async def test_task_reschedule_moves_to_posted_date(self, routes_and_service) -> None:
+        """The posted ``new_date`` is what gets rescheduled — tasks are
+        date-only, so the service receives midnight of that day."""
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(return_value=Result.ok(_rescheduled_task_item()))
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "2026-08-14"}), item_id="task-task_1"
+        )
+
+        service.reschedule_item.assert_awaited_once_with(
+            "user_smoke", "task-task_1", datetime(2026, 8, 14, 0, 0)
+        )
+        body = response.body.decode()
+        assert "Rescheduled ✓" in body
+        # OOB schedule-line swap keeps the open modal truthful...
+        assert 'id="item-schedule-text"' in body
+        assert 'hx-swap-oob="true"' in body
+        # ...and the HX-Trigger event re-renders the grid (the chip moves).
+        assert response.headers["HX-Trigger"] == "calendar-refresh"
+
+    @pytest.mark.asyncio
+    async def test_event_reschedule_combines_date_and_time(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "2026-08-14", "new_time": "10:30"}),
+            item_id="event-event_1",
+        )
+
+        service.reschedule_item.assert_awaited_once_with(
+            "user_smoke", "event-event_1", datetime(2026, 8, 14, 10, 30)
+        )
+        assert response.headers["HX-Trigger"] == "calendar-refresh"
+
+    @pytest.mark.asyncio
+    async def test_event_missing_time_rejected(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "2026-08-14"}), item_id="event-event_1"
+        )
+
+        assert response.status_code == 400
+        service.reschedule_item.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_invalid_date_rejected(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(return_value=Result.ok(_rescheduled_task_item()))
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "not-a-date"}), item_id="task-task_1"
+        )
+
+        assert response.status_code == 400
+        service.reschedule_item.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_unowned_item_returns_not_found(self, routes_and_service) -> None:
+        """Ownership is enforced in-service (not-found on non-owner, no UID
+        oracle) — the route surfaces it as 404."""
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Item not found: task-task_x"))
+        )
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "2026-08-14"}), item_id="task-task_x"
+        )
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_habit_item_rejected(self, routes_and_service) -> None:
+        """Habits recur — they don't reschedule. Rejected before the service."""
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(return_value=Result.ok(_rescheduled_task_item()))
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "2026-08-14"}), item_id="habit-habit_1"
+        )
+
+        assert response.status_code == 400
+        service.reschedule_item.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_failed_reschedule_keeps_retry_form(self, routes_and_service) -> None:
+        registry, service = routes_and_service
+        service.reschedule_item = AsyncMock(
+            return_value=Result.fail(Errors.database("calendar.reschedule", "boom"))
+        )
+        handler = registry.get("/cal/item/{item_id}/reschedule", "POST")
+        response = await handler(
+            _make_request(form_data={"new_date": "2026-08-14"}), item_id="task-task_1"
+        )
+
+        rendered = _render(response)
+        assert "try again" in rendered
+        # The re-rendered form re-posts to the same endpoint with the posted date.
+        assert "/cal/item/task-task_1/reschedule" in rendered
+        assert "2026-08-14" in rendered
 
 
 # ============================================================================

@@ -27,7 +27,7 @@ from datetime import date, datetime, timedelta
 from itertools import islice
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H1, H2, A, Div, P, Span
+from fasthtml.common import H1, H2, A, Div, Form, P, Span
 from fasthtml.common import Button as HtmlButton
 
 from core.models.enums.habit_enums import CompletionStatus
@@ -36,7 +36,7 @@ from core.models.event.calendar_models import (
     CalendarItem,
     CalendarItemType,
 )
-from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon, Input
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
@@ -649,6 +649,77 @@ def habit_day_state_line(done: bool, *, oob: bool = False) -> P:
     )
 
 
+def item_schedule_line(item: CalendarItem, *, oob: bool = False) -> P:
+    """The modal's schedule line for a task/event item (``#item-schedule-text``).
+
+    One render truth shared by the modal and the reschedule POST response: on
+    success the route returns this line with ``oob=True`` (an HTMX out-of-band
+    swap by id), so the open modal's schedule flips to the new date instead of
+    contradicting the recorded move. Day-stamped habit modals render their own
+    occurrence-day line and never OOB-swap this one.
+    """
+    if item.all_day:
+        text = "All Day"
+    else:
+        text = f"{_format_datetime(item.start_time)} - {_format_datetime(item.end_time)}"
+    extra: dict[str, str] = {"hx_swap_oob": "true"} if oob else {}
+    return P(text, cls="text-sm text-foreground", id="item-schedule-text", **extra)
+
+
+def reschedule_form(
+    item_id: str,
+    *,
+    with_time: bool,
+    date_value: str,
+    time_value: str = "",
+    error: str | None = None,
+) -> Form:
+    """Inline reschedule control in the item-details modal (``#reschedule-form``).
+
+    Posts form-encoded ``new_date`` (+ ``new_time`` for events) to
+    ``POST /cal/item/{item_id}/reschedule`` and swaps itself: success replaces
+    the form with a "Rescheduled ✓" confirmation plus an OOB
+    ``item_schedule_line`` update; a retryable failure re-renders the form
+    with an error line and the posted values intact. Only task/event modals
+    get this form — habits recur, they don't reschedule.
+    """
+    fields: list[FT] = [
+        Input(
+            type="date",
+            name="new_date",
+            value=date_value,
+            required=True,
+            full_width=False,
+            aria_label="New date",
+        )
+    ]
+    if with_time:
+        fields.append(
+            Input(
+                type="time",
+                name="new_time",
+                value=time_value,
+                required=True,
+                full_width=False,
+                aria_label="New start time",
+            )
+        )
+    fields.append(Button("Reschedule", type="submit", cls=ButtonT.secondary))
+    error_line = P(error, cls="text-sm font-medium text-error mt-2") if error else None
+    return Form(
+        P(
+            "Move to",
+            cls="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1.5",
+        ),
+        Div(*fields, cls="flex items-center gap-2"),
+        error_line,
+        hx_post=f"/cal/item/{item_id}/reschedule",
+        hx_swap="outerHTML",
+        id="reschedule-form",
+        cls="mt-3 pt-3 border-t border-border",
+    )
+
+
 def create_item_details_modal(item: Any) -> Div:
     """Render calendar item details as an HTMX modal fragment.
 
@@ -662,6 +733,10 @@ def create_item_details_modal(item: Any) -> Div:
     posts that day (form field ``on_date``) — already-done days show a disabled
     "Completed ✓", future days offer no completion. An unstamped habit item
     stays display-only: the day is never reconstructed from "today".
+
+    Task and event modals carry a ``reschedule_form`` in the schedule panel
+    (date input; events add a start-time input — duration is preserved
+    in-service). Habit modals never do: habits recur, they don't reschedule.
     """
     color = item.color
 
@@ -692,15 +767,31 @@ def create_item_details_modal(item: Any) -> Div:
     )
 
     # Schedule — a day-stamped habit names its occurrence day; otherwise the
-    # item's own times.
+    # item's own times (via item_schedule_line, the reschedule OOB target).
     if occurrence_day is not None:
-        schedule_text = (
-            f"{occurrence_day:%A}, {occurrence_day:%B} {occurrence_day.day}, {occurrence_day.year}"
+        schedule_display = P(
+            f"{occurrence_day:%A}, {occurrence_day:%B} {occurrence_day.day}, {occurrence_day.year}",
+            cls="text-sm text-foreground",
         )
-    elif item.all_day:
-        schedule_text = "All Day"
     else:
-        schedule_text = f"{_format_datetime(item.start_time)} - {_format_datetime(item.end_time)}"
+        schedule_display = item_schedule_line(item)
+
+    # Reschedule — tasks move by date, events by date + start time (duration
+    # preserved in-service). Habits recur; they never get this form.
+    resched_form = None
+    if item.item_type in (CalendarItemType.TASK_WORK, CalendarItemType.TASK_DEADLINE):
+        resched_form = reschedule_form(
+            item.uid,
+            with_time=False,
+            date_value=item.start_time.date().isoformat(),
+        )
+    elif item.item_type == CalendarItemType.EVENT:
+        resched_form = reschedule_form(
+            item.uid,
+            with_time=True,
+            date_value=item.start_time.date().isoformat(),
+            time_value=item.start_time.strftime("%H:%M"),
+        )
     recurrence_info = None
     if item.is_recurring:
         recurrence_info = P(
@@ -864,8 +955,9 @@ def create_item_details_modal(item: Any) -> Div:
                     "Schedule",
                     cls="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1.5",
                 ),
-                P(schedule_text, cls="text-sm text-foreground"),
+                schedule_display,
                 recurrence_info,
+                resched_form,
                 cls="bg-muted/60 p-4 rounded-lg mb-4",
             ),
             description_section,

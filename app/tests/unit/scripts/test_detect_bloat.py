@@ -786,6 +786,14 @@ def test_live_known_dead_facade_method_flagged(live_methods):
     assert finding is not None and finding.severity is BloatSeverity.PLANNED
 
 
+def test_calendar_reschedule_item_unstaged_quick_create_still_planned():
+    # Act-from arc PR 4 wired reschedule_item (POST /cal/item/{item_id}/reschedule);
+    # a PLANNED entry for a wired method is registry rot (planned-marking-stale).
+    assert "core/services/calendar_service.py::reschedule_item" not in detect_bloat.PLANNED_METHODS
+    # quick_create stays staged unless PR 6 is green-lit at its own elicitation.
+    assert "core/services/calendar_service.py::quick_create" in detect_bloat.PLANNED_METHODS
+
+
 def test_live_method_self_diagnostic(live_methods):
     # The engine must actually see candidates, and dispatch knowledge must
     # actually collect a vocabulary — zeros mean a broken collector.
