@@ -76,8 +76,9 @@ hypothetical one. Questions the elicitation must answer:
 1. Review of the graded artifact, a shared "similar piece", or both (the variant wrinkle)?
 2. Is peer feedback an `EntryReport` with a peer `ReportSource`, or a distinct entity?
    (Leaning from the rulings: reuse — the filter framing presumes one report stream.)
-3. What grants a peer read access to the student's entry — group membership, an explicit
-   per-entry share, or an invitation artifact?
+3. Which **entity-specific grant** does a peer get — a direct `SHARES_WITH` edge, a
+   per-entry `SHARED_WITH_GROUP` share, or an invitation artifact that resolves into one
+   of those? (Bare group membership is not an option — the class rule above.)
 4. Does peer feedback participate in mastery/substance, or is it social-only at first?
 5. Teacher visibility: does the teacher see peer exchanges in the queue, or are they a
    parallel student-space lane?
@@ -129,11 +130,18 @@ peer feedback exists" for owed-response state, and no volume to make read/unread
 
 **Substrate note (why this stays cheap):** the learning-state layer already MERGEs
 per-user edges of exactly this shape — `VIEWED` (`last_viewed_at`, view count) and
-`MARKED_AS_READ` (`_learning_state_mixin.py`, user→curriculum today). Inbox read-state
-would be the same species pointed at shared entities, surfaced as an Unread **filter chip**
-on `/profile/shared`. One design constraint discovered since: telemetry retention
-(ADR-080 H0) prunes stale `VIEWED` edges — an inbox read-state edge must explicitly join
-that retention discussion (attention state is probably *not* prunable telemetry).
+`MARKED_AS_READ` (`_learning_state_mixin.py`, user→curriculum today) — so the *pattern*
+is proven. The existing edges are **not directly reusable**: both UserContext queries
+(`user_context_queries.py`, MEGA + CONSOLIDATED) match `VIEWED`/`MARKED_AS_READ` against
+any `:Entity` with no type filter and feed the results into knowledge state
+(`ku_view_data`, `ku_marked_as_read_uids`) — pointing them at inbox items would
+contaminate learner context. Inbox read-state therefore needs a **distinct relationship**
+(preferred — context queries stay untouched) or explicit entity-type filtering added to
+those queries first. Surfaced as an Unread **filter chip** on `/profile/shared`. Two more
+constraints: telemetry retention (ADR-080 H0) prunes stale `VIEWED` edges — an inbox
+read-state edge must explicitly join that retention discussion (attention state is
+probably *not* prunable telemetry) — and any new relationship name must be registered in
+`RelationshipName` (SKUEL030).
 
 **Un-staging gate:** share volume — more than one active sharer and enough items that
 "which of these have I looked at" is a real question. Likely rides along with whichever of
