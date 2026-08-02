@@ -216,6 +216,10 @@ class TestCreateEntryRouting:
         await service.create_entry(request, user_uid="user_1")
         backend.create.assert_awaited_once()
         backend.create_with_exercise_link.assert_not_called()
+        # Sharer attribution (arc 2 C4): the entry crosses the boundary
+        # stamped with its author — direct shares resolve sharer from it.
+        entry = backend.create.call_args[0][0]
+        assert entry.created_by == "user_1"
 
     @pytest.mark.asyncio
     async def test_with_exercise_uses_linked_create(self):
