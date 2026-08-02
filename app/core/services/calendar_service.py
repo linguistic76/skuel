@@ -238,7 +238,10 @@ class CalendarService:
                 if habit_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 item = self._habit_to_calendar_item(habit_result.value)
-                if on_date is not None:
+                # Stamp only genuine occurrence days: an off-schedule ?date=
+                # (hand-crafted URL) yields the unstamped, display-only modal —
+                # no Mark Complete for a day the habit never occurs on.
+                if on_date is not None and self._is_occurrence_day(habit_result.value, on_date):
                     stamped = await self._stamp_habit_occurrence(item, source_uid, on_date)
                     if stamped.is_error:
                         return Result.fail(stamped)
@@ -246,6 +249,14 @@ class CalendarService:
                 return Result.ok(item)
 
         return Result.ok(None)
+
+    def _is_occurrence_day(self, habit: Habit, day: date) -> bool:
+        """Whether the habit's recurrence projects an occurrence on ``day``.
+
+        The same generator that renders chips decides — one projection truth
+        for inception clamp, recurrence end, and cadence.
+        """
+        return any(occ.date == day for occ in self._generate_habit_occurrences(habit, day, day))
 
     async def _stamp_habit_occurrence(
         self, item: CalendarItem, habit_uid: str, on_date: date
@@ -975,6 +986,10 @@ class CalendarService:
         record is returned and nothing is written — a stale/degraded modal (or
         a double click) must not double-count streaks and totals. The
         idempotency read's failure propagates (never degrades to a write).
+
+        Only genuine occurrence days are completable: a day the habit never
+        occurs on (before inception, past its recurrence end, off-cadence) is
+        rejected — an invisible completion would still inflate the stats.
         """
         habit_get = await self.habits_service.get(habit_uid)
         if habit_get.is_error:
@@ -987,6 +1002,10 @@ class CalendarService:
         except ValueError:
             return Result.fail(
                 Errors.validation("on_date must be an ISO date", field="on_date", value=on_date)
+            )
+        if not self._is_occurrence_day(habit_get.value, day):
+            return Result.fail(
+                Errors.validation("No habit occurrence on this day", field="on_date", value=on_date)
             )
         existing = await self._read_completions(habit_uid, day, day)
         if existing.is_error:

@@ -360,6 +360,55 @@ async def test_record_habit_occurrence_idempotency_read_failure_propagates() -> 
 
 
 @pytest.mark.asyncio
+async def test_record_habit_occurrence_rejects_off_schedule_day() -> None:
+    """A day the habit never occurs on (off-cadence) is rejected — an
+    invisible completion would still inflate the stats."""
+    svc = _service()
+    # Weekly habit anchored to Wednesday 2026-07-01.
+    habit = _habit(RecurrencePattern.WEEKLY, created=datetime(2026, 7, 1))
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock()
+    svc.habits_service.track_habit = AsyncMock()
+
+    # 2026-07-23 is a Thursday — off the Wednesday cadence.
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-07-23")
+
+    assert result.is_error
+    svc.habits_service.completions.get_completions_for_habit.assert_not_awaited()
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_record_habit_occurrence_rejects_pre_inception_day() -> None:
+    svc = _service()
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 10))
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
+    svc.habits_service.track_habit = AsyncMock()
+
+    result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-07-05")
+
+    assert result.is_error
+    svc.habits_service.track_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_item_off_schedule_date_yields_unstamped_item() -> None:
+    """An off-schedule ?date= yields the display-only modal — no day stamp,
+    hence no Mark Complete."""
+    svc = _service()
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 10))
+    svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock()
+
+    result = await svc.get_item("user_test", "habit-habit.test", on_date=date(2026, 7, 5))
+
+    assert result.is_ok
+    assert result.value is not None
+    assert result.value.occurrence_data is None
+    svc.habits_service.completions.get_completions_for_habit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_get_item_day_stamp_read_failure_propagates() -> None:
     """The actionable modal must not render an already-done day as PENDING
     when the completion read fails — the error propagates instead."""

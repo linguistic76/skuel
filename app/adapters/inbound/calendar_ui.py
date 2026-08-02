@@ -350,8 +350,12 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             user_uid, habit_uid, on_date.isoformat()
         )
         if result.is_error:
-            if result.expect_error().category == ErrorCategory.NOT_FOUND:
+            error = result.expect_error()
+            if error.category == ErrorCategory.NOT_FOUND:
                 return Response("Habit not found", status_code=404)
+            if error.category == ErrorCategory.VALIDATION:
+                # e.g. a day the habit never occurs on — retrying can't succeed.
+                return Response(error.message, status_code=400)
             # Keep the hx attrs so the swapped-in button can retry.
             return Button(
                 "Completion failed — try again",

@@ -820,7 +820,7 @@ CALENDAR_CONFIG = DomainRouteConfig(
 - 2 page shells: `/cal/month/{y}/{m}`, `/cal/week/{date}` (chrome renders immediately; the grid loads via HTMX)
 - 2 HTMX content fragments: month grid, week agenda
 - 1 HTMX fragment: item-details modal (`?date=` scopes a habit item to that occurrence day)
-- 1 POST action: `/cal/habit/{uid}/complete` (item-details modal "Mark Complete" — posts the occurrence day as form field `on_date`; future days rejected server-side; csrf-protected; ownership verified in-service by `record_habit_occurrence`, not-found on non-owner)
+- 1 POST action: `/cal/habit/{uid}/complete` (item-details modal "Mark Complete" — posts the occurrence day as form field `on_date`; future and off-schedule days rejected server-side; day-idempotent write; csrf-protected; ownership verified in-service by `record_habit_occurrence`, not-found on non-owner)
 - Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week)
 
 **Key features:**
