@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import H1, H2, A, Div, P, Span
 from fasthtml.common import Button as HtmlButton
 
+from core.models.enums.habit_enums import CompletionStatus
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
@@ -212,6 +213,10 @@ def _items_by_date(calendar_data: CalendarData) -> dict[date, list[CalendarItem]
     at ``now()``, so it is expanded into one all-day chip per generated occurrence
     (title/color reused from the habit item) — otherwise recurring habits would only
     show on today, and vanish entirely in months that don't include today.
+
+    Each expanded habit chip is stamped with its occurrence day + status in
+    ``occurrence_data`` — that day stamp is what lets the chip open a day-aware
+    item-details modal (``?date=``) and render completed days distinctly.
     """
     habit_items = {
         item.source_uid: item
@@ -232,7 +237,16 @@ def _items_by_date(calendar_data: CalendarData) -> dict[date, list[CalendarItem]
                 continue
             day_start = datetime.combine(occ.date, midnight)
             by_date.setdefault(occ.date, []).append(
-                replace(base, all_day=True, start_time=day_start, end_time=day_start)
+                replace(
+                    base,
+                    all_day=True,
+                    start_time=day_start,
+                    end_time=day_start,
+                    occurrence_data={
+                        "date": occ.date.isoformat(),
+                        "status": occ.status.value,
+                    },
+                )
             )
     return by_date
 
@@ -251,15 +265,33 @@ def _time_range_label(item: CalendarItem) -> str:
     return f"{start} – {end}" if end != start else start
 
 
+def _occurrence_date_iso(item: CalendarItem) -> str | None:
+    """The occurrence-day stamp (ISO date) a habit chip carries, if any."""
+    if item.occurrence_data is None:
+        return None
+    stamped = item.occurrence_data.get("date")
+    return str(stamped) if stamped else None
+
+
+def _is_completed_occurrence(item: CalendarItem) -> bool:
+    """Whether a habit chip's stamped occurrence day has a recorded completion."""
+    if item.occurrence_data is None:
+        return False
+    return bool(item.occurrence_data.get("status") == CompletionStatus.DONE.value)
+
+
 def _opens_detail_modal(item: CalendarItem) -> bool:
     """Whether a chip should open the item-details modal on click.
 
-    Habit chips are per-occurrence overlays synthesized from a single now()-stamped
-    habit item, so ``get_item`` can't reconstruct the clicked day — they render as
-    display-only chips (matching the pre-redesign occurrence overlay) rather than
-    linking to a modal that would always show today.
+    Habit chips open the modal only when stamped with their occurrence day
+    (``occurrence_data``, set during ``_items_by_date`` expansion) — the modal
+    shows THAT day, and must never reconstruct it from "today" (the exact bug
+    that once made habit chips display-only). The raw now()-stamped habit stub
+    has no stamp and stays display-only; every other type always opens.
     """
-    return item.item_type != CalendarItemType.HABIT
+    if item.item_type == CalendarItemType.HABIT:
+        return _occurrence_date_iso(item) is not None
+    return True
 
 
 def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
@@ -267,23 +299,30 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
 
     Fill = type color at ~10% alpha (8-digit hex ``1a``); a 3px left accent bar +
     leading dot in the full color. ``large`` (week/day) adds a mono time label.
-    Non-habit chips open the item-details modal via the existing HTMX endpoint;
-    habit-occurrence chips are display-only (see ``_opens_detail_modal``).
+    Chips open the item-details modal via the existing HTMX endpoint; day-stamped
+    habit chips pass their occurrence day (``?date=``, query param per FastHTML
+    convention) so the modal shows THAT day, and carry ``data-completed`` when
+    the day has a recorded completion (calendar.css renders them ✓/dimmed).
     """
     color = item.color
     dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
     chip_style = f"background-color: {color}1a; border-left: 3px solid {color}"
-    interactive: dict[str, str] = (
-        {
+    interactive: dict[str, str] = {}
+    if _opens_detail_modal(item):
+        detail_url = f"/cal/item-details/{item.uid}"
+        occurrence_day = _occurrence_date_iso(item)
+        if occurrence_day is not None:
+            detail_url += f"?date={occurrence_day}"
+        interactive = {
             "data_item_id": item.uid,
-            "hx_get": f"/cal/item-details/{item.uid}",
+            "hx_get": detail_url,
             "hx_target": "body",
             "hx_swap": "beforeend",
         }
-        if _opens_detail_modal(item)
-        else {}
-    )
     cursor = " cursor-pointer" if interactive else ""
+    state_attrs: dict[str, str] = {"data_item_type": item.item_type.value}
+    if _is_completed_occurrence(item):
+        state_attrs["data_completed"] = "true"
 
     if large:
         return Div(
@@ -291,7 +330,10 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
                 dot,
                 Span(
                     item.title,
-                    cls="flex-1 min-w-0 truncate text-[12.5px] font-semibold text-foreground",
+                    cls=(
+                        "calendar-item-title flex-1 min-w-0 truncate text-[12.5px]"
+                        " font-semibold text-foreground"
+                    ),
                 ),
                 cls="flex items-center gap-1.5",
             ),
@@ -302,20 +344,20 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
             cls=f"calendar-item px-2.5 py-2 rounded-lg{cursor}",
             style=chip_style,
             title=item.title,
-            data_item_type=item.item_type.value,
+            **state_attrs,
             **interactive,
         )
 
     return Div(
         dot,
-        Span(item.title, cls="flex-1 min-w-0 truncate"),
+        Span(item.title, cls="calendar-item-title flex-1 min-w-0 truncate"),
         cls=(
             "calendar-item flex items-center gap-1.5 px-[7px] py-0.5 rounded-md"
             f" text-[11.5px] font-medium leading-[1.5] text-foreground{cursor}"
         ),
         style=chip_style,
         title=item.title,
-        data_item_type=item.item_type.value,
+        **state_attrs,
         **interactive,
     )
 
@@ -591,8 +633,27 @@ def create_item_details_modal(item: Any) -> Div:
     Header = a type-colored dot + type pill + Lucide close; the body keeps the full
     schedule / description / event / habit / tags detail. Returns server-rendered
     HTML (not JSON) for a direct ``beforeend`` swap onto ``body``.
+
+    A habit item stamped with an occurrence day (``occurrence_data``, via
+    ``get_item(..., on_date=...)``) renders day-aware: the schedule names THAT
+    day, the habit panel shows that day's completion state, and "Mark Complete"
+    posts that day (form field ``on_date``) — already-done days show a disabled
+    "Completed ✓", future days offer no completion. An unstamped habit item
+    stays display-only: the day is never reconstructed from "today".
     """
     color = item.color
+
+    # Habit day-awareness — the occurrence-day stamp set by the service.
+    occurrence_day: date | None = None
+    occurrence_done = False
+    if item.item_type == CalendarItemType.HABIT and item.occurrence_data:
+        raw_day = item.occurrence_data.get("date")
+        if raw_day:
+            try:
+                occurrence_day = date.fromisoformat(str(raw_day))
+            except ValueError:
+                occurrence_day = None
+        occurrence_done = item.occurrence_data.get("status") == CompletionStatus.DONE.value
     type_pill = Span(
         item.item_type.get_label(),
         cls=(
@@ -608,12 +669,16 @@ def create_item_details_modal(item: Any) -> Div:
         "open = false; $nextTick(() => document.getElementById('item-details-modal')?.remove())"
     )
 
-    # Schedule
-    schedule_text = (
-        "All Day"
-        if item.all_day
-        else f"{_format_datetime(item.start_time)} - {_format_datetime(item.end_time)}"
-    )
+    # Schedule — a day-stamped habit names its occurrence day; otherwise the
+    # item's own times.
+    if occurrence_day is not None:
+        schedule_text = (
+            f"{occurrence_day:%A}, {occurrence_day:%B} {occurrence_day.day}, {occurrence_day.year}"
+        )
+    elif item.all_day:
+        schedule_text = "All Day"
+    else:
+        schedule_text = f"{_format_datetime(item.start_time)} - {_format_datetime(item.end_time)}"
     recurrence_info = None
     if item.is_recurring:
         recurrence_info = P(
@@ -681,17 +746,36 @@ def create_item_details_modal(item: Any) -> Div:
         if event_details:
             event_info = Div(*event_details, cls="bg-info/10 p-4 rounded-lg mb-4")
 
-    # Habit streak
+    # Habit streak + that-day completion state
     habit_info = None
-    if item.item_type == CalendarItemType.HABIT and item.streak_count is not None:
-        habit_info = Div(
-            P(
-                Icon("flame", cls="w-4 h-4 inline-block mr-1.5 align-[-3px]"),
-                f"Current streak: {item.streak_count} days",
-                cls="text-sm font-semibold text-success",
-            ),
-            cls="bg-success/10 p-4 rounded-lg mb-4",
-        )
+    if item.item_type == CalendarItemType.HABIT and (
+        item.streak_count is not None or occurrence_day is not None
+    ):
+        habit_lines: list[FT] = []
+        if item.streak_count is not None:
+            habit_lines.append(
+                P(
+                    Icon("flame", cls="w-4 h-4 inline-block mr-1.5 align-[-3px]"),
+                    f"Current streak: {item.streak_count} days",
+                    cls="text-sm font-semibold text-success",
+                )
+            )
+        if occurrence_day is not None:
+            day_state = (
+                "Completed on this day ✓" if occurrence_done else "Not completed on this day"
+            )
+            day_tone = "text-success" if occurrence_done else "text-muted-foreground"
+            habit_lines.append(
+                P(
+                    Icon(
+                        "circle-check" if occurrence_done else "circle",
+                        cls="w-4 h-4 inline-block mr-1.5 align-[-3px]",
+                    ),
+                    day_state,
+                    cls=f"text-sm font-medium {day_tone} mt-1",
+                )
+            )
+        habit_info = Div(*habit_lines, cls="bg-success/10 p-4 rounded-lg mb-4")
 
     # Tags
     tags_section = None
@@ -731,16 +815,25 @@ def create_item_details_modal(item: Any) -> Div:
                 cls=(ButtonT.primary, "mr-2"),
             ),
         )
-    elif item.item_type == CalendarItemType.HABIT:
-        action_buttons.insert(
-            0,
-            Button(
-                "Mark Complete",
-                cls=(ButtonT.secondary, "mr-2"),
-                hx_post=f"/cal/habit/{item.source_uid}/complete",
-                hx_swap="outerHTML",
-            ),
-        )
+    elif item.item_type == CalendarItemType.HABIT and occurrence_day is not None:
+        # Day-aware completion: post THAT day. Already-done days show a
+        # disabled "Completed ✓"; future days offer no completion (the server
+        # rejects them too); an unstamped habit modal offers no action at all.
+        if occurrence_done:
+            action_buttons.insert(
+                0, Button("Completed ✓", disabled=True, cls=(ButtonT.secondary, "mr-2"))
+            )
+        elif occurrence_day <= date.today():
+            action_buttons.insert(
+                0,
+                Button(
+                    "Mark Complete",
+                    cls=(ButtonT.secondary, "mr-2"),
+                    hx_post=f"/cal/habit/{item.source_uid}/complete",
+                    hx_vals=f'{{"on_date": "{occurrence_day.isoformat()}"}}',
+                    hx_swap="outerHTML",
+                ),
+            )
 
     return Div(
         AlpineModal(

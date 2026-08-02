@@ -89,8 +89,14 @@ class CalendarServiceOperations(Protocol):
         """Get calendar view for a date range. Returns Result[CalendarData]."""
         ...
 
-    async def get_item(self, user_uid: UserUID, item_uid: str) -> "Result[CalendarItem | None]":
-        """Get a calendar item by UID, scoped to its owner. Returns Result[CalendarItem | None]."""
+    async def get_item(
+        self, user_uid: UserUID, item_uid: str, on_date: date | None = None
+    ) -> "Result[CalendarItem | None]":
+        """Get a calendar item by UID, scoped to its owner. Returns Result[CalendarItem | None].
+
+        ``on_date`` scopes a habit item to that occurrence day (day + completion
+        state stamped in ``occurrence_data``); ignored for non-habit items.
+        """
         ...
 
     async def quick_create(
@@ -126,10 +132,9 @@ class CalendarServiceOperations(Protocol):
         user_uid: UserUID,
         habit_uid: str,
         on_date: str,
-        status: str,
         notes: str | None = None,
     ) -> "Result[HabitCompletion]":
-        """Record a habit occurrence (verifies habit ownership) from the calendar view."""
+        """Record a habit completion for the given day (verifies habit ownership)."""
         ...
 
 

@@ -55,6 +55,20 @@
     opacity: 0.25;
 }
 
+/*
+ * Completed habit occurrences (act-from arc C3).
+ * Day-stamped habit chips carry data-completed="true" when that day has a
+ * recorded completion: the chip dims and its title gains a trailing check,
+ * so completed days read distinctly from pending/missed ones.
+ */
+.calendar-item[data-completed="true"] {
+    opacity: 0.55;
+}
+
+.calendar-item[data-completed="true"] .calendar-item-title::after {
+    content: " ✓";
+}
+
 /* Item Details Modal */
 #item-details-modal {
     animation: fadeIn 0.2s ease-out;
