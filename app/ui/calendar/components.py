@@ -737,6 +737,8 @@ def create_item_details_modal(item: Any) -> Div:
     Task and event modals carry a ``reschedule_form`` in the schedule panel
     (date input; events add a start-time input — duration is preserved
     in-service). Habit modals never do: habits recur, they don't reschedule.
+    Past events get no form either — they are immutable historical records
+    and the events service refuses date/time changes on them.
     """
     color = item.color
 
@@ -776,8 +778,12 @@ def create_item_details_modal(item: Any) -> Div:
     else:
         schedule_display = item_schedule_line(item)
 
-    # Reschedule — tasks move by date, events by date + start time (duration
-    # preserved in-service). Habits recur; they never get this form.
+    # Reschedule — tasks move by date (overdue tasks included: moving them
+    # forward is the point), events by date + start time (duration preserved
+    # in-service). Habits recur; they never get this form. Past events are
+    # immutable historical records (EventsCoreService._validate_update), so
+    # offering the form would guarantee failure — the service policy stays
+    # the backstop for hand-crafted posts.
     resched_form = None
     if item.item_type in (CalendarItemType.TASK_WORK, CalendarItemType.TASK_DEADLINE):
         resched_form = reschedule_form(
@@ -785,7 +791,7 @@ def create_item_details_modal(item: Any) -> Div:
             with_time=False,
             date_value=item.start_time.date().isoformat(),
         )
-    elif item.item_type == CalendarItemType.EVENT:
+    elif item.item_type == CalendarItemType.EVENT and item.start_time.date() >= date.today():
         resched_form = reschedule_form(
             item.uid,
             with_time=True,

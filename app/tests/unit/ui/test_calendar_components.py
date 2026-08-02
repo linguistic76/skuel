@@ -192,20 +192,38 @@ def test_deadline_task_modal_also_offers_reschedule() -> None:
     assert 'name="new_date"' in html
 
 
-def test_event_modal_offers_date_and_time_reschedule() -> None:
-    item = CalendarItem(
+def _event_item(day: date) -> CalendarItem:
+    return CalendarItem(
         uid="event-event_1",
         source_uid="event_1",
         item_type=CalendarItemType.EVENT,
         title="Standup",
-        start_time=datetime(2026, 8, 14, 10, 30),
-        end_time=datetime(2026, 8, 14, 11, 30),
+        start_time=datetime.combine(day, datetime.min.time().replace(hour=10, minute=30)),
+        end_time=datetime.combine(day, datetime.min.time().replace(hour=11, minute=30)),
     )
-    html = to_xml(create_item_details_modal(item))
+
+
+def test_event_modal_offers_date_and_time_reschedule() -> None:
+    html = to_xml(create_item_details_modal(_event_item(date.today() + timedelta(days=7))))
     assert 'hx-post="/cal/item/event-event_1/reschedule"' in html
     assert 'name="new_date"' in html
     assert 'name="new_time"' in html
     assert 'value="10:30"' in html  # prefilled with the current start time
+
+
+def test_todays_event_modal_still_offers_reschedule() -> None:
+    """event_date == today is mutable — only strictly-past events are frozen."""
+    html = to_xml(create_item_details_modal(_event_item(date.today())))
+    assert 'hx-post="/cal/item/event-event_1/reschedule"' in html
+
+
+def test_past_event_modal_offers_no_reschedule() -> None:
+    """Past events are immutable historical records — the events service
+    refuses date/time changes, so the modal must not offer a form that is
+    guaranteed to fail."""
+    html = to_xml(create_item_details_modal(_event_item(date.today() - timedelta(days=1))))
+    assert "/reschedule" not in html
+    assert 'name="new_date"' not in html
 
 
 def test_habit_modal_never_offers_reschedule() -> None:
