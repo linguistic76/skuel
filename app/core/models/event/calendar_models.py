@@ -15,6 +15,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.type_hints import EntityUID
 
@@ -81,6 +82,29 @@ class CalendarView(StrEnum):
 
     WEEK = "week"
     MONTH = "month"
+
+
+# The '{kind}-{source_uid}' wire format CalendarService's item converters
+# author (e.g. 'task-task_123'). Extend here when a new kind gains calendar
+# items (PR 5 adds 'goal-' Milestones).
+_CALENDAR_ITEM_UID_PREFIXES: tuple[tuple[str, EntityType], ...] = (
+    ("task-", EntityType.TASK),
+    ("event-", EntityType.EVENT),
+    ("habit-", EntityType.HABIT),
+)
+
+
+def parse_calendar_item_uid(item_uid: str) -> tuple[EntityType, str] | None:
+    """Split a calendar item uid into (source entity type, source uid).
+
+    THE single parse of the calendar item wire format — service dispatch and
+    route guards both use it, so no second string classifier can drift.
+    Returns None for an unknown kind; callers treat that as not-found.
+    """
+    for prefix, entity_type in _CALENDAR_ITEM_UID_PREFIXES:
+        if item_uid.startswith(prefix):
+            return entity_type, item_uid[len(prefix) :]
+    return None
 
 
 @dataclass(frozen=True, kw_only=True)

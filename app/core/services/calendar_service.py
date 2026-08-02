@@ -51,6 +51,7 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
     CalendarView,
+    parse_calendar_item_uid,
 )
 from core.models.event.event import Event
 from core.models.event.event_update_intent import EventUpdateIntent
@@ -214,27 +215,38 @@ class CalendarService:
         Returns:
             Result with CalendarItem or None if not found
         """
-        # Parse item type from UID prefix
-        if item_uid.startswith("task-"):
-            source_uid = item_uid[5:]  # Remove "task-" prefix
+        # One wire-format parse (parse_calendar_item_uid), typed dispatch after.
+        parsed = parse_calendar_item_uid(item_uid)
+        if parsed is None:
+            return Result.ok(None)
+        kind, source_uid = parsed
+
+        if kind is EntityType.TASK:
             task_result = await self.tasks_service.get(source_uid)
-            if task_result.is_ok and task_result.value:
+            if task_result.is_error:
+                # A failed read is not a missing item — propagate it.
+                return Result.fail(task_result)
+            if task_result.value:
                 if task_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._task_to_calendar_item(task_result.value))
 
-        elif item_uid.startswith("event-"):
-            source_uid = item_uid[6:]  # Remove "event-" prefix
+        elif kind is EntityType.EVENT:
             event_result = await self.events_service.get(source_uid)
-            if event_result.is_ok and event_result.value:
+            if event_result.is_error:
+                # A failed read is not a missing item — propagate it.
+                return Result.fail(event_result)
+            if event_result.value:
                 if event_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._event_to_calendar_item(event_result.value))
 
-        elif item_uid.startswith("habit-"):
-            source_uid = item_uid[6:]  # Remove "habit-" prefix
+        elif kind is EntityType.HABIT:
             habit_result = await self.habits_service.get(source_uid)
-            if habit_result.is_ok and habit_result.value:
+            if habit_result.is_error:
+                # A failed read is not a missing item — propagate it.
+                return Result.fail(habit_result)
+            if habit_result.value:
                 if habit_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 item = self._habit_to_calendar_item(habit_result.value)
@@ -369,7 +381,16 @@ class CalendarService:
         self, user_uid: UserUID, item_uid: str, new_start: datetime
     ) -> Result[CalendarItem]:
         """
-        Reschedule a calendar item.
+        Reschedule a calendar item to a new start.
+
+        Moves the date that PLACES the item on the calendar: a scheduled task
+        moves ``scheduled_date`` (refused past the task's own due_date —
+        creation forbids that ordering); a due-only deadline task moves
+        ``due_date`` and stays a deadline; an event moves its date + start
+        time and keeps its duration (refused when the preserved duration
+        would cross midnight — the Event model is single-day). Owner-scoped:
+        any other user's item — and any non task/event id (habits recur,
+        they don't reschedule) — is not-found.
 
         Args:
             item_uid: UID of the item to reschedule,
@@ -378,28 +399,79 @@ class CalendarService:
         Returns:
             Result with updated CalendarItem
         """
-        # Parse item type and update accordingly
-        if item_uid.startswith("task-"):
-            source_uid = item_uid[5:]
+        # One wire-format parse (parse_calendar_item_uid), typed dispatch after.
+        parsed = parse_calendar_item_uid(item_uid)
+        if parsed is None:
+            return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
+        kind, source_uid = parsed
+
+        if kind is EntityType.TASK:
             task_get = await self.tasks_service.get(source_uid)
-            if task_get.is_ok and task_get.value:
+            if task_get.is_error:
+                # A failed read is not a missing item — propagate so the
+                # caller retries instead of seeing a false 'not found'.
+                return Result.fail(task_get)
+            if task_get.value:
                 task = task_get.value
                 if task.user_uid != user_uid:
                     # Not the requester's task — 'not found', no UID oracle.
                     return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
-                # Reschedule mutates only the scheduled date (ADR-066 typed update
-                # contract: a TaskUpdateIntent, not a rebuilt DTO or field dict).
-                task_update = await self.tasks_service.update_task(
-                    EntityUID(source_uid), TaskUpdateIntent(scheduled_date=new_start.date())
-                )
+                # Move the date that PLACES the task on the calendar (ADR-066
+                # typed update contract: a TaskUpdateIntent, not a rebuilt DTO
+                # or field dict). A due-only task renders as a deadline chip —
+                # moving it must move due_date itself; writing scheduled_date
+                # would silently convert the deadline into a work chip while
+                # the real due date stayed behind. A scheduled task moves
+                # scheduled_date (an existing due_date is a separate fact).
+                if task.scheduled_date is None and task.due_date is not None:
+                    task_recurrence_end = convert_neo4j_date(task.recurrence_end_date)
+                    if task_recurrence_end is not None and new_start.date() >= task_recurrence_end:
+                        # Creation forbids due_date on/after recurrence_end_date
+                        # (validate_recurrence_end_after_start) and the update
+                        # path doesn't recheck — refuse rather than persist a
+                        # recurrence window that ends before it starts.
+                        return Result.fail(
+                            Errors.validation(
+                                message=(
+                                    "New date is not before the recurrence end "
+                                    f"({task_recurrence_end.isoformat()}) — edit the task "
+                                    "to change its recurrence"
+                                ),
+                                field="new_start",
+                                value=new_start.isoformat(),
+                            )
+                        )
+                    intent = TaskUpdateIntent(due_date=new_start.date())
+                else:
+                    if task.due_date is not None and new_start.date() > task.due_date:
+                        # Creation forbids due_date < scheduled_date
+                        # (TaskCreateRequest.validate_due_after_scheduled) and
+                        # the update path doesn't recheck — refuse rather than
+                        # persist work scheduled after its own deadline.
+                        return Result.fail(
+                            Errors.validation(
+                                message=(
+                                    "Work date would pass the task's deadline "
+                                    f"({task.due_date.isoformat()}) — edit the task "
+                                    "to move the deadline"
+                                ),
+                                field="new_start",
+                                value=new_start.isoformat(),
+                            )
+                        )
+                    intent = TaskUpdateIntent(scheduled_date=new_start.date())
+                task_update = await self.tasks_service.update_task(EntityUID(source_uid), intent)
                 if task_update.is_ok:
                     return Result.ok(self._task_to_calendar_item(task_update.value))
                 return Result.fail(task_update)
 
-        elif item_uid.startswith("event-"):
-            source_uid = item_uid[6:]
+        elif kind is EntityType.EVENT:
             event_get = await self.events_service.get(source_uid)
-            if event_get.is_ok and event_get.value:
+            if event_get.is_error:
+                # A failed read is not a missing item — propagate so the
+                # caller retries instead of seeing a false 'not found'.
+                return Result.fail(event_get)
+            if event_get.value:
                 event: Event = event_get.value  # Type hint for MyPy protocol inference
                 if event.user_uid != user_uid:
                     # Not the requester's event — 'not found', no UID oracle.
@@ -416,6 +488,36 @@ class CalendarService:
                     )
                 duration = end_dt - start_dt
                 new_end = new_start + duration
+                if new_end.date() != new_start.date():
+                    # The Event model is single-day (one event_date + two
+                    # times) — an end past midnight would persist end_time
+                    # BEFORE start_time and corrupt duration everywhere.
+                    return Result.fail(
+                        Errors.validation(
+                            message=(
+                                "Event duration crosses midnight — choose an earlier start time"
+                            ),
+                            field="new_start",
+                            value=new_start.isoformat(),
+                        )
+                    )
+                recurrence_end = convert_neo4j_date(event.recurrence_end_date)
+                if recurrence_end is not None and new_start.date() >= recurrence_end:
+                    # Creation forbids event_date on/after recurrence_end_date
+                    # (validate_recurrence_end_after_start) and the update
+                    # path doesn't recheck — refuse rather than persist a
+                    # recurrence window that ends before it starts.
+                    return Result.fail(
+                        Errors.validation(
+                            message=(
+                                "New date is not before the recurrence end "
+                                f"({recurrence_end.isoformat()}) — edit the event "
+                                "to change its recurrence"
+                            ),
+                            field="new_start",
+                            value=new_start.isoformat(),
+                        )
+                    )
                 # Reschedule mutates only the date/time window (ADR-066 typed update
                 # contract: an EventUpdateIntent, not a rebuilt DTO or field dict).
                 event_update = await self.events_service.update_event(

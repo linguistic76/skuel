@@ -18,12 +18,15 @@ Routes:
     GET  /cal/week/{date_str}/content        — Week agenda fragment
     GET  /cal/item-details/{item_id}         — HTMX item-details modal
                                                (?date= scopes a habit to that day)
+    POST /cal/item/{item_id}/reschedule      — Move a task/event to the posted
+                                               date (form fields ``new_date``,
+                                               ``new_time`` for events)
     POST /cal/habit/{habit_uid}/complete     — Record a habit completion for the
                                                posted day (form field ``on_date``)
 """
 
 import calendar as cal
-from datetime import date
+from datetime import date, datetime, time
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -41,7 +44,8 @@ from adapters.inbound.route_factories import parse_date_query_param
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
-from core.models.event.calendar_models import CalendarView
+from core.models.enums.entity_enums import EntityType
+from core.models.event.calendar_models import CalendarView, parse_calendar_item_uid
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
 from core.utils.timestamp_helpers import (
@@ -61,6 +65,8 @@ from ui.calendar.components import (
     create_week_grid,
     error_response,
     habit_day_state_line,
+    item_schedule_line,
+    reschedule_form,
 )
 from ui.components import Button, ButtonT
 from ui.patterns.loading import content_loading_placeholder
@@ -322,6 +328,76 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             ),
             x_data="{ open: true }",
             id="item-details-modal",
+        )
+
+    @rt("/cal/item/{item_id}/reschedule", methods=["POST"])
+    @csrf_protected
+    async def calendar_item_reschedule(request: Request, item_id: str) -> Any:
+        """Move a task or event to a new date (item-details modal).
+
+        The modal posts form field ``new_date`` (tasks are date-only) plus
+        ``new_time`` for events — event duration is preserved in-service.
+        Habits are rejected up front: they recur, they don't reschedule.
+        The move goes through ``calendar_service.reschedule_item`` (ownership
+        verified in-service — not-found on non-owner, no UID oracle). On
+        success the response swaps the form to a "Rescheduled ✓" confirmation,
+        OOB-swaps the modal's schedule line, and fires ``calendar-refresh``
+        (HX-Trigger) so the grid re-renders — the chip visibly moves.
+        """
+        user_uid = require_authenticated_user(request)
+        # One wire-format parse (parse_calendar_item_uid) — the same typed
+        # discriminator the service dispatches on; unknown kinds fall through
+        # to the service's not-found.
+        parsed = parse_calendar_item_uid(item_id)
+        kind = parsed[0] if parsed else None
+        if kind is EntityType.HABIT:
+            return Response("Habits recur — they don't reschedule", status_code=400)
+        is_event = kind is EntityType.EVENT
+        form = await request.form()
+        raw_new_date = str(form.get("new_date") or "")
+        try:
+            new_date = date.fromisoformat(raw_new_date)
+        except ValueError:
+            return Response("Invalid or missing new_date", status_code=400)
+        raw_new_time = str(form.get("new_time") or "")
+        new_time = time.min
+        if is_event:
+            try:
+                new_time = time.fromisoformat(raw_new_time)
+            except ValueError:
+                return Response("Invalid or missing new_time", status_code=400)
+        result = await calendar_service.reschedule_item(
+            user_uid, item_id, datetime.combine(new_date, new_time)
+        )
+        if result.is_error:
+            error = result.expect_error()
+            if error.category == ErrorCategory.NOT_FOUND:
+                return Response("Item not found", status_code=404)
+            # Re-render the form with the posted values (HTMX swaps 200s, not
+            # bare 4xx bodies): a validation refusal shows its actionable
+            # reason (e.g. the cross-midnight message); anything else offers
+            # a plain retry.
+            message = (
+                error.message
+                if error.category == ErrorCategory.VALIDATION
+                else "Reschedule failed — try again"
+            )
+            return reschedule_form(
+                item_id,
+                with_time=is_event,
+                date_value=raw_new_date,
+                time_value=raw_new_time,
+                error=message,
+            )
+        # Confirmation swap + OOB schedule line keep the open modal truthful;
+        # HX-Trigger re-renders the grid fragment (the chip moves).
+        confirmation = P(
+            "Rescheduled ✓",
+            cls="text-sm font-medium text-success mt-3 pt-3 border-t border-border",
+        )
+        return HTMLResponse(
+            to_xml(confirmation) + to_xml(item_schedule_line(result.value, oob=True)),
+            headers={"HX-Trigger": "calendar-refresh"},
         )
 
     @rt("/cal/habit/{habit_uid}/complete", methods=["POST"])

@@ -169,11 +169,10 @@ _EVENTS_SCHEDULING = (
     "CalendarOptimizationOrchestrator (cross-domain slot view)"
 )
 _CALENDAR_EDIT_SURFACE = (
-    "calendar editing surface staged — quick_create / reschedule_item backed the "
-    "calendar's inline quick-add and drag-drop reschedule, dropped by the view-only "
-    "agenda redesign (2026-07-12); being re-wired by the act-from arc "
-    "(record_habit_occurrence un-staged in PR 3; reschedule_item lands in PR 4, "
-    "quick_create only if PR 6 is green-lit at its own elicitation)"
+    "calendar editing surface staged — quick_create backed the calendar's inline "
+    "quick-add, dropped by the view-only agenda redesign (2026-07-12); the act-from "
+    "arc re-wired record_habit_occurrence (PR 3) and reschedule_item (PR 4); "
+    "quick_create stays staged unless PR 6 is green-lit at its own elicitation"
 )
 _HABIT_EVENT_AUTOMATION = (
     "bulk habit→event automation staged on the LIVE HabitEventScheduler (single-habit "
@@ -551,7 +550,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/events/events_search_service.py::get_conflicting": _EVENTS_SCHEDULING,
     # --- Calendar: editing surface unwired by the view-only agenda redesign ---
     "core/services/calendar_service.py::quick_create": _CALENDAR_EDIT_SURFACE,
-    "core/services/calendar_service.py::reschedule_item": _CALENDAR_EDIT_SURFACE,
     # --- Events: bulk habit→event automation ---
     "core/services/habit_event_scheduler.py::schedule_events_for_all_habits": (
         _HABIT_EVENT_AUTOMATION

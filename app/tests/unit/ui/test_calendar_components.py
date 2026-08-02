@@ -157,3 +157,98 @@ def test_modal_offers_no_completion_without_day_stamp() -> None:
     html = to_xml(create_item_details_modal(_habit_item()))
     assert "Mark Complete" not in html
     assert "hx-post" not in html
+
+
+# ---------------------------------------------------------------------------
+# create_item_details_modal — reschedule form (act-from arc C4)
+# ---------------------------------------------------------------------------
+
+
+def _task_item(
+    item_type: CalendarItemType = CalendarItemType.TASK_WORK,
+    status: str = "active",
+) -> CalendarItem:
+    return CalendarItem(
+        uid="task-task_1",
+        source_uid="task_1",
+        item_type=item_type,
+        title="Write report",
+        start_time=datetime(2026, 8, 14, 9, 0),
+        end_time=datetime(2026, 8, 14, 10, 0),
+        all_day=item_type == CalendarItemType.TASK_DEADLINE,
+        metadata={"status": status},
+    )
+
+
+def test_task_modal_offers_date_only_reschedule() -> None:
+    html = to_xml(create_item_details_modal(_task_item()))
+    assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
+    assert 'name="new_date"' in html
+    assert 'value="2026-08-14"' in html  # prefilled with the current date
+    assert 'name="new_time"' not in html  # tasks move by date only
+    # The OOB target the reschedule POST flips on success.
+    assert 'id="item-schedule-text"' in html
+
+
+def test_deadline_task_modal_also_offers_reschedule() -> None:
+    html = to_xml(create_item_details_modal(_task_item(CalendarItemType.TASK_DEADLINE)))
+    assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
+    assert 'name="new_date"' in html
+
+
+def test_terminal_task_modal_offers_no_reschedule() -> None:
+    """TasksCoreService._validate_update refuses every change to a terminal
+    task — the modal must not offer a form that is guaranteed to fail."""
+    for status in ("cancelled", "failed", "archived", "completed"):
+        html = to_xml(create_item_details_modal(_task_item(status=status)))
+        assert "/reschedule" not in html, f"terminal status {status} must hide the form"
+
+
+def test_unknown_task_status_still_offers_reschedule() -> None:
+    """A missing/unknown status counts as actionable — the service policy is
+    the backstop, and its refusal message renders in the form."""
+    html = to_xml(create_item_details_modal(_task_item(status="")))
+    assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
+
+
+def _event_item(day: date) -> CalendarItem:
+    return CalendarItem(
+        uid="event-event_1",
+        source_uid="event_1",
+        item_type=CalendarItemType.EVENT,
+        title="Standup",
+        start_time=datetime.combine(day, datetime.min.time().replace(hour=10, minute=30)),
+        end_time=datetime.combine(day, datetime.min.time().replace(hour=11, minute=30)),
+    )
+
+
+def test_event_modal_offers_date_and_time_reschedule() -> None:
+    html = to_xml(create_item_details_modal(_event_item(date.today() + timedelta(days=7))))
+    assert 'hx-post="/cal/item/event-event_1/reschedule"' in html
+    assert 'name="new_date"' in html
+    assert 'name="new_time"' in html
+    assert 'value="10:30"' in html  # prefilled with the current start time
+
+
+def test_todays_event_modal_still_offers_reschedule() -> None:
+    """event_date == today is mutable — only strictly-past events are frozen."""
+    html = to_xml(create_item_details_modal(_event_item(date.today())))
+    assert 'hx-post="/cal/item/event-event_1/reschedule"' in html
+
+
+def test_past_event_modal_offers_no_reschedule() -> None:
+    """Past events are immutable historical records — the events service
+    refuses date/time changes, so the modal must not offer a form that is
+    guaranteed to fail."""
+    html = to_xml(create_item_details_modal(_event_item(date.today() - timedelta(days=1))))
+    assert "/reschedule" not in html
+    assert 'name="new_date"' not in html
+
+
+def test_habit_modal_never_offers_reschedule() -> None:
+    """Habits recur — they don't reschedule (C4 rejected design)."""
+    for habit_modal in (
+        create_item_details_modal(_habit_item()),
+        create_item_details_modal(_stamped(date.today() - timedelta(days=1))),
+    ):
+        assert "/reschedule" not in to_xml(habit_modal)
