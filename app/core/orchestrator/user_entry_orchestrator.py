@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         ExchangeThread,
         KnowledgeEntryGroundingRow,
         OrganizerResult,
+        StudentExchangeSummaries,
         SubmissionChain,
     )
     from core.services.exercises.exercise_service import ExerciseService
@@ -276,6 +277,17 @@ class UserEntryOrchestrator:
         return await self._report_relationship.get_exchange_thread(
             exercise_uid, target_uid, viewer_uid=teacher_scope
         )
+
+    async def get_student_exchange_summaries(
+        self, student_uid: UserUID
+    ) -> Result[StudentExchangeSummaries]:
+        """Every exchange the caller is in, one summary line each — the
+        GradeBook page's single read (arc 2 C1). Self-view only: the
+        authenticated user reads their own OWNS-scoped summaries.
+
+        Backend: ReportRelationshipService.get_student_exchange_summaries.
+        """
+        return await self._report_relationship.get_student_exchange_summaries(student_uid)
 
     async def get_entry_responses(self, entry_uid: str) -> Result[list[dict[str, Any]]]:
         """List the EntryReports attached to an entry (the "Responses" section).

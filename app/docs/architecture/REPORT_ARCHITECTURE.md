@@ -402,10 +402,10 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 
 | Route | Who | What |
 |-------|-----|------|
-| `/activity-reports` | User | Activity report list page (time-period filter) |
+| `/gradebook` | User | GradeBook "Activity reports" group — flat list, hidden when empty (arc 2 C1) |
 | `/activity-reports/detail` (+`/content`) | User | Report detail with annotation UI |
 | `/submit-activity-report` | User | On-demand report request form |
-| `/reports/activity-list`, `/reports/progress-list` | User | HTMX list fragments |
+| `/reports/progress-list` | User | HTMX fragment (recent reports on the request form) |
 | `/api/gradebook/activity-reports/preview` | Teacher | Gradebook report preview |
 | `/activity-review` → `/activity-review/queue` | Admin | Pending review queue (`get_pending_reviews`) |
 | `/activity-review/new` | Admin | Admin review form |

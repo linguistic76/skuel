@@ -9,15 +9,14 @@ re-entering Phase 2 (new UserEntry) for another round:
 
     EntryReport (NEEDS_REVISION) → RevisedExercise → UserEntry v2 → ...
 
-These pages live in the GradeBook sidebar (ui/gradebook/nav.py).
+Revisions surface on the GradeBook exchange lines and inside /exchange threads
+(arc 2 C1) — this file keeps the detail page and the profile hub preview.
 
 Routes:
-- GET /revised-exercises                        — Revisions list page
 - GET /revised-exercises/detail?uid=            — Revision detail with feedback points + submit link
-- GET /revised-exercises/list                   — HTMX fragment: filtered revisions list
 - GET /api/gradebook/revised-exercises/preview  — HTMX hub preview block
 
-Renderers: ui/submissions/revised_exercise.py
+Renderers: ui/learning_loop/revised_exercise.py
 Teacher creation: TeacherReviewService.request_revision_with_exercise()
 See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
@@ -31,20 +30,13 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.text_truncation import truncate_to_budget
-from ui.components import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
-from ui.learning_loop.revised_exercise import (
-    render_revised_exercise_detail,
-    render_revised_exercise_list,
-)
+from ui.learning_loop.revised_exercise import render_revised_exercise_detail
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
-from ui.patterns.loading import content_loading_placeholder
-from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.revised_exercises_ui")
 
@@ -59,44 +51,13 @@ def create_revised_exercises_ui_routes(
     rt: RouteDecorator,
     orchestrator: Any = None,
 ) -> list[Any]:
-    """Create /revised-exercises UI routes.
+    """Create revised-exercise detail + preview routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
         orchestrator: SubmissionsOrchestrator for unified states
     """
-
-    # ========================================================================
-    # REVISIONS LIST PAGE
-    # ========================================================================
-
-    @rt("/revised-exercises")
-    def revised_exercises_page(request: Request) -> Any:
-        """Student-facing list of revision requests."""
-        require_authenticated_user(request)
-
-        revisions_section = Card(
-            content_loading_placeholder(
-                "/revised-exercises/list",
-                "revisions-list",
-                loading_text="Loading revisions...",
-            ),
-            cls="bg-background shadow-sm p-4",
-        )
-
-        content = Div(
-            PageHeader(
-                "Revisions",
-                subtitle="Teacher revision requests for your submissions",
-            ),
-            revisions_section,
-        )
-        return render_gradebook_sidebar_page(
-            content=content,
-            active="revised-exercises",
-            request=request,
-        )
 
     # ========================================================================
     # REVISION DETAIL PAGE
@@ -111,14 +72,14 @@ def create_revised_exercises_ui_routes(
         if not uid:
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision UID is required")),
-                active="revised-exercises",
+                active="gradebook",
                 request=request,
             )
 
         if not orchestrator:
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision orchestrator unavailable")),
-                active="revised-exercises",
+                active="gradebook",
                 request=request,
             )
 
@@ -127,7 +88,7 @@ def create_revised_exercises_ui_routes(
             logger.warning(f"Revised exercise not found: {uid}")
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision not found")),
-                active="revised-exercises",
+                active="gradebook",
                 request=request,
             )
 
@@ -138,42 +99,19 @@ def create_revised_exercises_ui_routes(
         if user_uid not in (entity_student, entity_owner):
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision not found")),
-                active="revised-exercises",
+                active="gradebook",
                 request=request,
             )
 
         content = Div(render_revised_exercise_detail(entity))
         return render_gradebook_sidebar_page(
             content=content,
-            active="revised-exercises",
+            active="gradebook",
             request=request,
         )
 
     # ========================================================================
-    # HTMX ENDPOINTS
-    # ========================================================================
-
-    @rt("/revised-exercises/list")
-    @ui_boundary_handler("Error loading revisions", fragment_id="revisions-list")
-    async def revised_exercises_list(request: Request) -> Any:
-        """HTMX fragment: revised exercises for current student."""
-        user_uid = require_authenticated_user(request)
-        if not orchestrator:
-            return Div(
-                render_error_banner("Revision orchestrator unavailable"),
-                id="revisions-list",
-            )
-        result = await orchestrator.list_revised_exercises(user_uid)
-        if result.is_error:
-            logger.error(f"Error loading revisions list: {result.error}")
-            return Div(
-                render_error_banner("Failed to load revisions", str(result.error)),
-                id="revisions-list",
-            )
-        return render_revised_exercise_list(result.value or [])
-
-    # ========================================================================
-    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
+    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /profile Reports tab)
     # ========================================================================
 
     @rt("/api/gradebook/revised-exercises/preview")
@@ -198,7 +136,7 @@ def create_revised_exercises_ui_routes(
                 cls="text-[10px] font-medium text-destructive",
             )
             instructions = getattr(rev, "instructions", None) or ""
-            href = f"/revised-exercises/detail?uid={uid}" if uid else "/revised-exercises"
+            href = f"/revised-exercises/detail?uid={uid}" if uid else "/gradebook"
             cards.append(
                 HubPreviewCard(
                     title=title,
@@ -209,13 +147,8 @@ def create_revised_exercises_ui_routes(
             )
         return HubPreviewGrid(cards)
 
-    logger.info(
-        "Revised Exercises UI routes created "
-        "(/revised-exercises, /revised-exercises/detail, /revised-exercises/list)"
-    )
+    logger.info("Revised Exercises UI routes created (/revised-exercises/detail + hub preview)")
 
     return [
-        revised_exercises_page,
         revised_exercise_detail,
-        revised_exercises_list,
     ]

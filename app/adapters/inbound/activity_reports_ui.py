@@ -2,14 +2,16 @@
 Activity Reports UI Routes — ActivityReport Pages
 ===================================================
 
-Routes for viewing and requesting activity reports.
+Routes for viewing and requesting activity reports. The list surface is the
+GradeBook's conditional "Activity reports" group (/gradebook, arc 2 C1) —
+this file keeps the detail view, the request form, and the hub preview.
 
 Routes:
-- GET /activity-reports — Activity reports list page
 - GET /activity-reports/detail — Activity report detail view
+- GET /activity-reports/detail/content — HTMX fragment: detail body
 - GET /submit-activity-report — On-demand activity report request form
-- GET /reports/activity-list — HTMX fragment: activity reports with time filter
-- GET /reports/progress-list — HTMX fragment: progress reports
+- GET /reports/progress-list — HTMX fragment: progress reports (request form page)
+- GET /api/gradebook/activity-reports/preview — HTMX hub preview block
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -26,13 +28,10 @@ from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.text_truncation import truncate_to_budget
-from ui.components import ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.report import (
     render_activity_report_detail,
-    render_activity_report_list,
     render_progress_report_list,
-    render_time_period_filter,
 )
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.generate_report import (
@@ -42,7 +41,6 @@ from ui.patterns.generate_report import (
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
-from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.activity_reports")
 
@@ -57,46 +55,13 @@ def create_activity_reports_ui_routes(
     rt: RouteDecorator,
     orchestrator: Any = None,
 ) -> list[Any]:
-    """Create /activity-reports UI routes.
+    """Create activity-report detail/request/preview routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
         orchestrator: SubmissionsOrchestrator for unified states
     """
-
-    # ========================================================================
-    # ACTIVITY REPORTS PAGE
-    # ========================================================================
-
-    @rt("/activity-reports")
-    def activity_reports_page(request: Request) -> Any:
-        """Activity feedback — AI and scheduled activity reports."""
-        require_authenticated_user(request)
-
-        content = Div(
-            PageHeader(
-                "Activity Reports",
-                subtitle="AI and scheduled feedback on your activity patterns",
-                actions=ButtonLink(
-                    "Submit Activity Report",
-                    href="/submit-activity-report",
-                    cls=ButtonT.secondary,
-                    size="sm",
-                ),
-            ),
-            render_time_period_filter(),
-            content_loading_placeholder(
-                "/reports/activity-list",
-                "activity-feedback-list",
-                loading_text="Loading activity reports...",
-            ),
-        )
-        return render_gradebook_sidebar_page(
-            content=content,
-            active="activity-reports",
-            request=request,
-        )
 
     # ========================================================================
     # SUBMIT ACTIVITY REPORT — on-demand activity report request
@@ -117,7 +82,7 @@ def create_activity_reports_ui_routes(
         )
         return render_gradebook_sidebar_page(
             content=content,
-            active="activity-reports",
+            active="submit-activity-report",
             request=request,
         )
 
@@ -133,7 +98,7 @@ def create_activity_reports_ui_routes(
         if not uid:
             return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report UID is required")),
-                active="activity-reports",
+                active="gradebook",
                 request=request,
             )
         content = Div(
@@ -144,7 +109,7 @@ def create_activity_reports_ui_routes(
         )
         return render_gradebook_sidebar_page(
             content=content,
-            active="activity-reports",
+            active="gradebook",
             request=request,
         )
 
@@ -185,31 +150,6 @@ def create_activity_reports_ui_routes(
     # HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/reports/activity-list")
-    @ui_boundary_handler("Error loading activity feedback", fragment_id="activity-feedback-list")
-    async def activity_report_list_fragment(request: Request) -> Any:
-        """HTMX fragment: activity reports with optional time_period filter."""
-        user_uid = require_authenticated_user(request)
-        if not orchestrator:
-            return Div(
-                render_error_banner(
-                    "Activity feedback orchestrator unavailable", severity="warning"
-                ),
-                id="activity-feedback-list",
-            )
-        time_period = request.query_params.get("time_period", "")
-        result = await orchestrator.get_activity_report_history(user_uid, limit=50)
-        if result.is_error:
-            logger.error(f"Error loading activity feedback: {result.error}")
-            return Div(
-                render_error_banner("Failed to load activity feedback", str(result.error)),
-                id="activity-feedback-list",
-            )
-        reports = result.value or []
-        if time_period:
-            reports = [r for r in reports if getattr(r, "time_period", None) == time_period]
-        return render_activity_report_list(reports)
-
     @rt("/reports/progress-list")
     @ui_boundary_handler("Error loading progress reports", fragment_id="progress-list")
     async def progress_list_fragment(request: Request) -> Any:
@@ -230,7 +170,7 @@ def create_activity_reports_ui_routes(
         return render_progress_report_list(result.value or [])
 
     # ========================================================================
-    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
+    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /profile Reports tab)
     # ========================================================================
 
     @rt("/api/gradebook/activity-reports/preview")
@@ -247,7 +187,8 @@ def create_activity_reports_ui_routes(
             return HubPreviewEmpty("activity reports")
         cards = []
         for report in reports[:3]:
-            title = str(getattr(report, "title", None) or getattr(report, "uid", "Report"))
+            uid = getattr(report, "uid", "") or ""
+            title = str(getattr(report, "title", None) or uid or "Report")
             period = getattr(report, "time_period", None) or ""
             badge = (
                 Span(period, cls="text-[10px] font-medium text-muted-foreground")
@@ -255,10 +196,11 @@ def create_activity_reports_ui_routes(
                 else None
             )
             content = getattr(report, "processed_content", None) or ""
+            href = f"/activity-reports/detail?uid={uid}" if uid else "/gradebook"
             cards.append(
                 HubPreviewCard(
                     title=title,
-                    href="/activity-reports",
+                    href=href,
                     badge=badge,
                     description=truncate_to_budget(content, 160) if content else None,
                 )
@@ -267,14 +209,12 @@ def create_activity_reports_ui_routes(
 
     logger.info(
         "Activity Reports UI routes created "
-        "(/activity-reports, /activity-reports/detail, /submit-activity-report)"
+        "(/activity-reports/detail, /submit-activity-report + hub preview)"
     )
 
     return [
-        activity_reports_page,
         submit_activity_report_page,
         activity_report_detail,
         activity_report_detail_content,
-        activity_report_list_fragment,
         progress_list_fragment,
     ]

@@ -319,7 +319,7 @@ that never closes the loop.
 | `core/models/exercises/revised_exercise.py` | 5 | RevisedExercise frozen dataclass |
 | `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
 | `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
-| `adapters/inbound/revised_exercises_ui.py` | 5 | RevisedExercise student UI routes (GradeBook sidebar) |
+| `adapters/inbound/revised_exercises_ui.py` | 5 | RevisedExercise detail + hub preview (GradeBook shell) |
 | `adapters/inbound/entry_reports_ui.py` | 4 | EntryReport UI routes (list + detail page) |
 | `ui/learning_loop/revised_exercise.py` | 5 | RevisedExercise renderers (detail, card, list views) |
 | `ui/learning_loop/report.py` | 4 | EntryReport renderers (detail page with outcome/processor badges) |

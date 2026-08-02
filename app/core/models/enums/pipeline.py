@@ -218,3 +218,50 @@ class ReportSource(StrEnum):
             ReportSource.HYBRID: "AI + Teacher",
             ReportSource.AUTOMATIC: "Auto",
         }[self]
+
+
+class ExchangeStatus(StrEnum):
+    """
+    Where one (student, exercise) exchange stands, from the student's side.
+
+    Derived per exercise line on the GradeBook (feedback-loop UX arc 2 C2) —
+    never stored on a node. Exactly one status per line:
+
+        WAITING            — latest entry has no report yet; ball with reviewer
+        FEEDBACK_RECEIVED  — a report exists on the latest entry
+        REVISION_REQUESTED — latest entry status is revision_requested;
+                             ball back with the student
+    """
+
+    WAITING = "waiting"
+    FEEDBACK_RECEIVED = "feedback_received"
+    REVISION_REQUESTED = "revision_requested"
+
+    @classmethod
+    def derive(cls, latest_entry_status: str | None, has_report: bool) -> ExchangeStatus:
+        """The one derivation rule for an exchange line's status.
+
+        ``revision_requested`` on the latest entry wins even though that
+        entry has a report — the revision request IS the feedback, and the
+        next move is the student's.
+        """
+        if latest_entry_status == cls.REVISION_REQUESTED.value:
+            return cls.REVISION_REQUESTED
+        if has_report:
+            return cls.FEEDBACK_RECEIVED
+        return cls.WAITING
+
+    def get_display_name(self) -> str:
+        return {
+            ExchangeStatus.WAITING: "Waiting",
+            ExchangeStatus.FEEDBACK_RECEIVED: "Feedback received",
+            ExchangeStatus.REVISION_REQUESTED: "Revision requested",
+        }[self]
+
+    def get_badge_class(self) -> str:
+        """Tailwind classes for the line's status text / chip accent."""
+        return {
+            ExchangeStatus.WAITING: "bg-amber-100 text-amber-800",
+            ExchangeStatus.FEEDBACK_RECEIVED: "bg-emerald-100 text-emerald-800",
+            ExchangeStatus.REVISION_REQUESTED: "bg-orange-100 text-orange-800",
+        }[self]

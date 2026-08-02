@@ -32,14 +32,14 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
 | `/submissions` | MOC root (sidebar-free card hub) | Sync, Exercise, Journal, History, Knowledge |
-| `/gradebook` | MOC root (sidebar-free card hub) | Entry Reports, Activity Reports, Revised Exercises |
+| `/gradebook` | Received-feedback page (exchange lines) | Per-exercise feedback exchanges, activity reports, other feedback |
 | `/library` | MOC root (sidebar-free card hub) | Exercises, Resources, Ku, Path Steps |
 | `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
 | `/profile` | Personal overview | 4 tabs: Activities (default), Curriculum, Submissions, Reports |
 
-### MOC Root Pages (`/submissions`, `/gradebook`, `/library`)
+### MOC Root Pages (`/submissions`, `/library`)
 
-Each is a sidebar-free `BasePage(STANDARD)` with a 2×2 card grid. Cards use rounded icon badges (`w-14 h-14 rounded-2xl`) + title + description and link directly to the section's sidebar sub-pages. The pattern is defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`, `gradebook_moc`) and `adapters/inbound/library_ui.py` (`library_moc`).
+Each is a sidebar-free `BasePage(STANDARD)` with a 2×2 card grid. Cards use rounded icon badges (`w-14 h-14 rounded-2xl`) + title + description and link directly to the section's sidebar sub-pages. The pattern is defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`) and `adapters/inbound/library_ui.py` (`library_moc`). `/gradebook` left this set in the arc-2 3→1 collapse — it is now a content page (per-exercise exchange lines, `ui/gradebook/summary.py`) under the GradeBook sidebar, not a card hub.
 
 Child pages use `SidebarPage` for within-section navigation. Sidebar `title_href` links back to the MOC root (e.g. `/library`, `/gradebook`, `/submissions`).
 

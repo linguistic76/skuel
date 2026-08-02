@@ -17,7 +17,7 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**`/submissions`**, **`/gradebook`**, and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`ui/home_hub.py`) is retired; these three routes are now independent `BasePage(STANDARD)` pages.
+**`/submissions`** and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`ui/home_hub.py`) is retired. **`/gradebook`** left the MOC-root set in the arc-2 3→1 collapse: it is now THE received-feedback page (per-exercise exchange lines + conditional report groups) rendered under the GradeBook sidebar.
 
 **Profile** (`/profile`) is the **personal overview hub** — four tabs (Activities / Curriculum / Submissions / Reports, `?tab=` selected, default `activities`). Activities, Curriculum, and Reports show HTMX lazy-loaded preview blocks (`ACTIVITY_BLOCKS` / `LIBRARY_BLOCKS` / `GRADEBOOK_BLOCKS`); Submissions is a simple 4-button link panel (Sync first) mirroring the `/submissions` sidebar (`SubmissionsTabPanel`, `ui/workbench/hub.py`). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
@@ -31,8 +31,7 @@ Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with th
 | `/path-steps` | Enrolled + available path steps | Active |
 | `/exercises` | Practice linked to PathSteps and Kus | Active |
 | `/submissions` | Full submission list + browse | Active |
-| `/entry-reports` | Teacher and AI feedback on submissions | Active |
-| `/activity-reports` | Activity progress reports | Active |
+| `/gradebook` | Received feedback — exchange lines + activity reports + other feedback | Active |
 
 Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions).
 
@@ -323,11 +322,11 @@ ACTIVITY_BLOCKS = [
 _panel("activities", HubAccordionBlockList(ACTIVITY_BLOCKS))
 ```
 
-### MOC root pages (`/submissions`, `/gradebook`, `/library`)
+### MOC root pages (`/submissions`, `/library`)
 
 Each is a `BasePage(STANDARD)` with a `grid grid-cols-1 sm:grid-cols-2` of `MocCard()` components (shared, in `ui/patterns/hub.py`). No sidebar, no Alpine state. Routes in:
 
-- `adapters/inbound/user_entry_ui.py` — `submissions_moc` and `gradebook_moc`
+- `adapters/inbound/user_entry_ui.py` — `submissions_moc`
 - `adapters/inbound/library_ui.py` — `library_moc`
 
 **HTMX preview endpoints** (still used by profile and teaching hubs):
@@ -360,7 +359,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 | `/curriculum` | `/profile` (301 redirect) |
 | `/study` | `/profile` (301 redirect) |
 | `/activities` | — (no redirect, route deleted; content lives on the `/profile` Activities tab) |
-| `HomeHub(active_tab=...)` | Three independent MOC root pages (`/submissions`, `/gradebook`, `/library`) |
+| `HomeHub(active_tab=...)` | Independent top-level pages (`/submissions`, `/gradebook`, `/library`) |
 
 ## File Locations
 
@@ -372,7 +371,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 | Activity blocks + preview renderer | `ui/activities/hub.py` (Activities tab on `/profile`) |
 | Activity hub redirect | — (removed; `/activities` route no longer exists) |
 | Activity sidebar | `ui/activities/nav.py` |
-| MOC root pages | `adapters/inbound/user_entry_ui.py` (`submissions_moc`, `gradebook_moc`), `adapters/inbound/library_ui.py` (`library_moc`) |
+| MOC root pages | `adapters/inbound/user_entry_ui.py` (`submissions_moc`), `adapters/inbound/library_ui.py` (`library_moc`) |
 | GradeBook block definitions | `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`, used by HTMX previews) |
 | GradeBook sidebar | `ui/gradebook/nav.py` |
 | Library block definitions | `ui/library/hub.py` (`LIBRARY_BLOCKS`) |

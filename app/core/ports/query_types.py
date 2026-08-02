@@ -2842,6 +2842,55 @@ class ExchangeThread(TypedDict):
     revisions: list[ExchangeThreadRevision]
 
 
+class StudentExchangeSummary(TypedDict):
+    """One GradeBook exercise line (C1, feedback-loop UX arc 2).
+
+    Summarizes one (student, root exercise) exchange: the latest lineage
+    entry, the latest report on that entry, lineage counts, and the derived
+    line state. ``exchange_status`` is an ``ExchangeStatus`` value;
+    ``latest_report_source`` a ``ReportSource`` value (the Source filter's
+    substrate). ``latest_activity_at`` is the newer of the two timestamps —
+    the page's newest-first sort key.
+    """
+
+    exercise_uid: str
+    exercise_title: str
+    latest_entry_uid: str
+    latest_entry_status: str | None
+    latest_entry_created_at: str | None
+    latest_report_uid: str | None
+    latest_report_source: str | None
+    latest_report_created_at: str | None
+    entry_count: int
+    report_count: int
+    exchange_status: str
+    latest_activity_at: str | None
+
+
+class GradebookOtherReport(TypedDict):
+    """One received report outside any exchange (GradeBook "Other feedback").
+
+    A report on an entry with no exercise lineage, or on no entry at all —
+    the Arc-1 visibility-convergence guard surfaced as its own group.
+    """
+
+    uid: str
+    title: str | None
+    source: str | None
+    created_at: str | None
+
+
+class StudentExchangeSummaries(TypedDict):
+    """Return shape for ReportRelationshipService.get_student_exchange_summaries().
+
+    ``exercises`` newest-activity-first; ``other_feedback`` newest-first.
+    Both empty for a student with no exchanges and no received reports.
+    """
+
+    exercises: list[StudentExchangeSummary]
+    other_feedback: list[GradebookOtherReport]
+
+
 # ============================================================================
 # SYSTEM HEALTH RESULT TYPES
 # ============================================================================

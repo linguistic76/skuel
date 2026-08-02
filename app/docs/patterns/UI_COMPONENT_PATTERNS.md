@@ -168,9 +168,8 @@ from ui.patterns.sidebar import SidebarItem, SidebarPage
 items = [
     SidebarItem("Submit", "/submit", "submit", icon="📤"),
     SidebarItem("History", "/submissions/history", "history", icon="📝"),
-    SidebarItem("Entry Reports", "/entry-reports", "entry-reports", icon="📋"),
-    SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
-    SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
+    SidebarItem("GradeBook", "/gradebook", "gradebook", icon="📋"),
+    SidebarItem("Request Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
 ]
 
 return SidebarPage(

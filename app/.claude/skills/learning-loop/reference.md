@@ -650,15 +650,16 @@ enables student notification and learning loop progression tracking.
   - Daily planning: `get_ready_to_work_on_today()` surfaces them at Priority 2.3 via
     `context.pending_revised_exercises` (populated by MEGA-QUERY)
 
-**Student-facing UI (GradeBook sidebar — 2026-04-05):**
+**Student-facing UI (GradeBook 3→1, feedback-loop UX arc 2 C1):**
 
-Students view their revisions in the GradeBook sidebar under "Revisions":
-- `GET /revised-exercises` — list page with `render_revised_exercise_list()`
+Revisions surface on the GradeBook exchange lines (`/gradebook` — a
+`revision_requested` latest entry renders the line's "Revision requested"
+status) and inside the `/exchange` thread; the former `/revised-exercises`
+list page is deleted. Kept surfaces:
 - `GET /revised-exercises/detail?uid=` — detail page with `render_revised_exercise_detail()` (feedback points, instructions, submit link)
-- `GET /revised-exercises/list` — HTMX fragment for filtered list
-- `GET /api/gradebook/revised-exercises/preview` — hub preview block
+- `GET /api/gradebook/revised-exercises/preview` — hub preview block (`/profile` Reports tab)
 
-Routes in `adapters/inbound/revised_exercises_ui.py`. Renderers in `ui/learning_loop/revised_exercise.py`.
+Routes in `adapters/inbound/revised_exercises_ui.py`. Renderer in `ui/learning_loop/revised_exercise.py`.
 The detail page links to `/submissions/exercise?exercise_uid={re_uid}` — triggering the two-path Cypher for
 `FULFILLS_REVISED_EXERCISE`. The EntryReport detail at `/entry-reports/detail?uid=` shows
 a "View Revision" link when a `RevisedExercise` exists for that report (via `get_by_report_uid()`).
@@ -770,6 +771,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission report** | `/api/reports/assessments/given` | GET | Teacher |
 | **Submission report** | `/api/reports/assessments/received` | GET | Student |
 | **GradeBook** | `/gradebook` | GET | Student |
+| **GradeBook lines (HTMX)** | `/gradebook/lines?status=&source=` | GET | Student |
 | **Teacher review** | `/api/teaching/review-queue` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/report` | POST | Teacher |
@@ -794,9 +796,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Activity review (user)** | `/api/activity-review/history` | GET | User |
 | **Annotation** | `/api/activity-reports/annotate` | POST | User |
 | **Exercise report detail** | `/entry-reports/detail?uid=` | GET | Student (owner) |
-| **Revised exercises (list)** | `/revised-exercises` | GET | Student |
 | **Revised exercises (detail)** | `/revised-exercises/detail?uid=` | GET | Student |
-| **Revised exercises (HTMX list)** | `/revised-exercises/list` | GET | Student |
 | **Revised exercises (hub preview)** | `/api/gradebook/revised-exercises/preview` | GET | Student |
 | **Revised exercises (API)** | `/api/revised-exercises/my-revisions` | GET | Student |
 | **Revised exercises (API)** | `/api/revised-exercises/view?uid=` | GET | Student or Teacher |

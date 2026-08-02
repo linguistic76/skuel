@@ -2,8 +2,9 @@
 Revised Exercise UI Components
 ================================
 
-Renderers for RevisedExercise detail, list, and card views.
-Used by the student-facing /revised-exercises routes in GradeBook sidebar.
+Renderer for the RevisedExercise detail view (/revised-exercises/detail).
+List surfaces live on the GradeBook exchange lines and /exchange threads
+(feedback-loop UX arc 2 C1).
 
 Pattern: ui/submissions/report.py
 """
@@ -19,10 +20,9 @@ from fasthtml.common import (
 )
 
 from core.models.enums.learning_enums import FeedbackCategory
-from ui.components import ButtonT, Card, CardBody
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.primitives import ButtonLink
 
@@ -168,8 +168,8 @@ def render_revised_exercise_detail(entity: Any) -> Any:
     # Back link
     back = Div(
         ButtonLink(
-            "\u2190 Back to Revisions",
-            href="/revised-exercises",
+            "\u2190 Back to GradeBook",
+            href="/gradebook",
             cls=ButtonT.ghost,
         ),
         cls="mt-6",
@@ -190,66 +190,4 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         rationale_section,
         links_section,
         back,
-    )
-
-
-# ============================================================================
-# LIST CARD
-# ============================================================================
-
-
-def render_revised_exercise_card(entity: Any) -> Any:
-    """Render a single revised exercise card for list views."""
-    uid = getattr(entity, "uid", "") or ""
-    title = getattr(entity, "title", "") or "Revision"
-    instructions = getattr(entity, "instructions", "") or ""
-    preview = instructions[:200] + ("..." if len(instructions) > 200 else "")
-    revision_number = getattr(entity, "revision_number", 1) or 1
-    created_at = getattr(entity, "created_at", None)
-    date_str = _format_date(created_at)
-
-    return Div(
-        Card(
-            CardBody(
-                Div(
-                    Span(title, cls="font-semibold"),
-                    Span(
-                        f"Revision #{revision_number}",
-                        cls="text-[10px] font-medium bg-destructive/10 text-destructive px-1.5 py-0.5 rounded ml-2",
-                    ),
-                    cls="flex items-center mb-1",
-                ),
-                P(date_str, cls="text-sm text-muted-foreground mb-2") if date_str else None,
-                P(preview, cls="text-sm") if preview else None,
-                ButtonLink(
-                    "View Details",
-                    href=f"/revised-exercises/detail?uid={uid}",
-                    cls=(ButtonT.secondary, "mt-2"),
-                    size="sm",
-                ),
-                cls="p-4",
-            ),
-            cls="bg-background shadow-sm mb-3",
-        ),
-    )
-
-
-# ============================================================================
-# LIST VIEW
-# ============================================================================
-
-
-def render_revised_exercise_list(items: list[Any]) -> Any:
-    """Render the full list of revised exercises (HTMX swap target)."""
-    if not items:
-        return Div(
-            EmptyState(
-                title="No revisions yet",
-                description="Revision requests from teachers will appear here.",
-            ),
-            id="revisions-list",
-        )
-    return Div(
-        *[render_revised_exercise_card(item) for item in items],
-        id="revisions-list",
     )

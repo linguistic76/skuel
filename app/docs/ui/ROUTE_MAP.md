@@ -66,7 +66,7 @@ is a "Self-Assessment" section on each activity detail page → `POST /{domain}/
 
 ### `/home` — Post-Login Landing Hub
 
-Legacy hub superseded. `/submissions`, `/gradebook`, and `/library` are now standalone MOC root pages (sidebar-free card grids). Route in `adapters/inbound/home_routes.py` only registers shared HTMX fragments (`/api/navbar/notification-badge`, `/api/personal-header`).
+Legacy hub superseded. `/submissions` and `/library` are standalone MOC root pages (sidebar-free card grids); `/gradebook` is the one received-feedback page (arc 2 C1). Route in `adapters/inbound/home_routes.py` only registers shared HTMX fragments (`/api/navbar/notification-badge`, `/api/personal-header`).
 
 Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA_QUERY on the critical path.
 
@@ -94,13 +94,15 @@ Flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking).
 
 ### `/gradebook`
 
-MOC root page (no sidebar) — three cards linking to the three GradeBook sub-pages. Defined in `adapters/inbound/user_entry_ui.py` (`gradebook_moc`). Child pages use `SidebarPage` with GradeBook sidebar; nav defined in `ui/gradebook/nav.py`.
+THE received-feedback page (3→1 collapse, feedback-loop UX arc 2 C1+C2) — one exchange line per exercise, newest activity first: exercise title, derived status (**Waiting** / **Feedback received** / **Revision requested** — `ExchangeStatus.derive`), latest-activity date, source of the latest feedback (Teacher/AI), and lineage counts; each line opens its `/exchange` thread. Status chips + a Source select filter server-side through the `GET /gradebook/lines` HTMX fragment (one summary read: `get_student_exchange_summaries`, `_UserEntryReportQueryMixin`). Two conditional groups render below only when non-empty: **Activity reports** (flat list; request form at `/submit-activity-report`) and **Other feedback** (received reports outside any exchange). Route in `adapters/inbound/user_entry_ui.py` (`gradebook_page`); view in `ui/gradebook/summary.py`; sidebar (GradeBook · Request Activity Report) in `ui/gradebook/nav.py`.
 
-- `/entry-reports` — AI and teacher feedback on submitted exercises and journals; detail at `/entry-reports/detail`.
-- `/activity-reports` — Holistic reports aggregating activity patterns and progress; submit at `/submit-activity-report`.
-- `/revised-exercises` — Exercises returned for revision with teacher comments; detail at `/revised-exercises/detail`.
+The former list pages `/entry-reports`, `/activity-reports`, `/revised-exercises` are deleted (One Path Forward); their detail routes remain and render under the GradeBook sidebar:
 
-All three sub-pages use the GradeBook sidebar (Entry Reports → Activity Reports → Revised Exercises). The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry` — including a fulfills-exercise badge (read from the `FULFILLS_EXERCISE` edge) with a "View exchange thread →" link, a "Request AI feedback" button (submission owner, FULL tier — posts to `POST /api/exercises/report`), and a "Map of Content" card section when the entry has outgoing `ORGANIZES` edges (emergent MOC, drawn by vault `moc: true` ingestion) — children link to their per-type detail pages via `ui/patterns/entity_links.py`.
+- `/entry-reports/detail?uid=` — full report content with outcome badge + revision link.
+- `/activity-reports/detail?uid=` — activity report detail (HTMX-loaded body).
+- `/revised-exercises/detail?uid=` — revision instructions with feedback points + submit link.
+
+The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry` — including a fulfills-exercise badge (read from the `FULFILLS_EXERCISE` edge) with a "View exchange thread →" link, a "Request AI feedback" button (submission owner, FULL tier — posts to `POST /api/exercises/report`), and a "Map of Content" card section when the entry has outgoing `ORGANIZES` edges (emergent MOC, drawn by vault `moc: true` ingestion) — children link to their per-type detail pages via `ui/patterns/entity_links.py`.
 
 ### `/exchange?exercise={uid}[&student={uid}]`
 
@@ -188,7 +190,7 @@ Stages 1–3 and follow-up return HTMX fragments that swap `#journal-workspace` 
 
 ### `/tasks`, `/goals`
 
-Read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport at `/activity-reports`.
+Read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport in the GradeBook's Activity reports group (`/gradebook`).
 
 ### `/path-steps`
 
