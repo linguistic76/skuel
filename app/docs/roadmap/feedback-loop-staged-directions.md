@@ -37,9 +37,15 @@ re-litigate them outside the item's own future elicitation.
   filter rework" ruling means exactly this: the additions slot in without redesigning
   the filter model. The Shared-With-Me Shared-by filter derives its options from live
   data and genuinely needs nothing.
-- `SHARES_WITH` edges carry `role` / `shared_at` / `share_version`; every current writer
-  stamps `created_by` on the shared entity (arc 2 PR 3 invariant — sharer attribution and
-  the Shared-by filter key on it). A peer writer must keep both properties honest.
+- `SHARES_WITH` edges all carry `shared_at` + `role`; `share_version` exists **only** on
+  the generic `UnifiedSharingService.share` door — the report/revision Cyphers and
+  `auto_share_with_student` write edges without it. `created_by` is stamped by every
+  **user-authored** writer (arc 2 PR 3 — sharer attribution and the Shared-by filter key
+  on it); AI-generated reports pass `author_uid=None` *by design* (no human sharer —
+  `created_by` is null, provenance is carried by `processor_type` / the Source filter,
+  and the item simply contributes no Shared-by option). A peer writer must stamp
+  `created_by` and must not assume complete sharer/version metadata on every existing
+  edge.
 - The exchange thread (`/exchange`, `get_exchange_thread_raw`) renders the artifact chain
   generically — a peer artifact anchored into the chain would surface there without a new
   page.
