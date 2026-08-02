@@ -283,6 +283,35 @@ class TestRecordCompletion:
         mock_completions_backend.create.assert_not_called()
         mock_habits_backend.update.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_bulk_helper_reports_every_crossed_milestone(
+        self, completion_service, mock_habits_backend, mock_completions_backend, sample_habit
+    ):
+        """A jump across a threshold reports the interior milestones too —
+        exact-equality would skip the 7-day tier on a 5 → 8 jump... here the
+        in-order +1 case and a crossing are both pinned via streak 6 → 7."""
+        yesterday = datetime.now() - timedelta(days=1)
+        habit = Habit(
+            **{
+                **sample_habit.__dict__,
+                "last_completed": yesterday,
+                "current_streak": 6,
+                "best_streak": 6,
+            }
+        )
+        mock_habits_backend.get.return_value = Result.ok(habit)
+        mock_completions_backend.create.return_value = Result.ok({})
+        mock_habits_backend.update.return_value = Result.ok({})
+
+        result = await completion_service._record_completion_no_event(
+            "habit.test.1", "user_mike", datetime.now()
+        )
+
+        assert result.is_ok
+        _completion, is_new_record, milestones = result.value
+        assert is_new_record is True
+        assert milestones == [("habit.test.1", 7)]  # the crossed TIER, not the raw streak
+
 
 class TestCompletionQueries:
     """Test completion query methods."""

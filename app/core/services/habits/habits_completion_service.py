@@ -203,12 +203,11 @@ class HabitsCompletionService:
             # Record each completion (without individual events)
             result = await self._record_completion_no_event(habit_uid, user_uid, now)
             if result.is_ok:
-                completion, is_new_record, milestone = result.value
+                completion, is_new_record, milestones = result.value
                 completions.append(completion)
                 if is_new_record:
                     new_streak_records.append(habit_uid)
-                if milestone:
-                    milestones_reached.append(milestone)
+                milestones_reached.extend(milestones)
 
         # Publish single bulk event for all completions
         if completions:
@@ -233,7 +232,7 @@ class HabitsCompletionService:
         habit_uid: str,
         user_uid: UserUID,
         completed_at: datetime,
-    ) -> Result[tuple[HabitCompletion, bool, tuple[str, int] | None]]:
+    ) -> Result[tuple[HabitCompletion, bool, list[tuple[str, int]]]]:
         """
         Record a completion without publishing individual events.
 
@@ -243,7 +242,9 @@ class HabitsCompletionService:
         stale statistics.
 
         Returns:
-            Result containing (completion, is_new_streak_record, milestone_or_none)
+            Result containing (completion, is_new_streak_record,
+            milestones_crossed) — one (habit_uid, tier) per threshold the
+            streak crossed; a jump-capable recompute can cross several at once.
         """
         # Validate habit exists
         habit_result = await self.habits_backend.get(habit_uid)
@@ -282,11 +283,15 @@ class HabitsCompletionService:
 
         completion = HabitCompletion.from_dto(completion_dto)
 
-        # Check for milestone (names used by _publish_milestone_event_if_reached)
-        milestone: tuple[str, int] | None = None
-        milestone_values = {7, 30, 100, 365}  # one_week, one_month, one_hundred, one_year
-        if new_streak in milestone_values and habit.current_streak < new_streak:
-            milestone = (habit_uid, new_streak)
+        # Every threshold the streak crossed — a backfill recompute can jump
+        # several tiers at once, and exact-equality would skip the interior
+        # ones (mirrors _check_streak_milestones). Tuples carry the crossed
+        # TIER, matching the badge handler's exact MILESTONE_BADGES lookup.
+        milestones = [
+            (habit_uid, tier)
+            for tier in (7, 30, 100, 365)  # one_week / one_month / one_hundred / one_year
+            if habit.current_streak < tier <= new_streak
+        ]
 
         # raw-write: system streak/stat propagation from a habit completion. Bypasses the
         # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
@@ -304,7 +309,7 @@ class HabitsCompletionService:
 
         await self.habits_backend.update(habit_uid, updates)
 
-        return Result.ok((completion, is_new_record, milestone))
+        return Result.ok((completion, is_new_record, milestones))
 
     async def _streak_and_last_completed(
         self, habit: Habit, habit_uid: str, completed_at: datetime
