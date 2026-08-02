@@ -97,10 +97,11 @@ share_result = await sharing_service.share(
 
 # Step 3: Teacher fetches shared entities
 # Each item is a SharedWithMeItem (core/ports/query_types): entity DTO +
-# share-edge metadata (shared_by/shared_at/role/share_version) + resolved
-# subject context (subject_exercise_uid/title, subject_ps_uid/title — which
-# exercise the feedback is about, and its PathStep when linked). The
-# /profile/shared inbox renders type-aware cards from this shape.
+# share-edge metadata (shared_by/sharer_uid/shared_at/role/share_version) +
+# resolved subject context (subject_exercise_uid/title, subject_ps_uid/title —
+# which exercise the feedback is about, and its PathStep when linked). The
+# /profile/shared inbox renders type-aware cards from this shape. Optional
+# entity_type (EntityType) / sharer_uid narrow the inbox (arc 2 C4 filters).
 shared = await sharing_service.get_shared_with_me(
     user_uid=teacher_uid,
     limit=50,
@@ -467,15 +468,19 @@ Located at `/submissions/{uid}`, visible only to owner.
 
 ---
 
-### "Shared With Me" Tab (Profile Hub)
+### "Shared With Me" Inbox
 
 Route: `/profile/shared`
 
 **Features:**
-- Card grid of shared entities (direct shares)
-- Filter tabs (All/Submissions/Activity Reports)
-- Empty state message
-- Owner info and metadata
+- Card grid of shared entities (direct shares), framed as a reviewing inbox
+  ("shared with you for your attention" — feedback-loop UX arc 2 C4)
+- FilterBar (Type · Shared by) with options derived from the live inbox,
+  filtering server-side via the `/profile/shared/list-fragment` HTMX fragment
+  (`get_shared_with_me(entity_type=..., sharer_uid=...)` — additive,
+  parameterized WHERE filters)
+- Empty state message ("no match" line when a filter empties a non-empty inbox)
+- Sharer info and metadata
 
 ---
 

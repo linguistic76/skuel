@@ -165,7 +165,8 @@ class RevisedExerciseService(BaseService):
             return Result.fail(number_result)
         revision_number = number_result.value
 
-        # Enrich entity with computed fields
+        # Enrich entity with computed fields. created_by feeds Shared-With-Me
+        # sharer attribution — every SHARES_WITH writer must stamp it.
         display_title = entity.title or f"Revision {revision_number}"
         enriched = dataclasses.replace(
             entity,
@@ -174,6 +175,7 @@ class RevisedExerciseService(BaseService):
             submission_uid=submission_uid,
             expected_modality=expected_modality,
             parent_entity_uid=EntityUID(report_uid),
+            created_by=entity.created_by or teacher_uid,
         )
 
         result = await self.backend.create(enriched)

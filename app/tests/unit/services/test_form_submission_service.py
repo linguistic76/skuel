@@ -83,6 +83,10 @@ class TestSubmitForm:
         assert result.value.form_data == {"q1": "answer", "q2": "a"}
         assert result.value.status == EntityStatus.COMPLETED
         backend.create_with_relationships.assert_awaited_once()
+        # Sharer attribution (arc 2 C4): the submission crosses the boundary
+        # stamped with its submitting user as creator.
+        created = backend.create_with_relationships.call_args[0][0]
+        assert created.created_by == "user_1"
 
     @pytest.mark.asyncio
     async def test_submit_template_not_found(self):

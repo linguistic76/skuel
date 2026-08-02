@@ -434,6 +434,46 @@ class TestRequestRevision:
 
 
 # ========================================================================
+# TestRequestRevisionWithExercise
+# ========================================================================
+
+
+class TestRequestRevisionWithExercise:
+    @pytest.mark.asyncio
+    async def test_revised_exercise_stamped_with_teacher_as_creator(self):
+        """The RE entity crosses the boundary with created_by = the teacher —
+        the Shared-With-Me inbox resolves sharer attribution from it (arc 2 C4)."""
+        backend = _make_user_entry_backend()
+        report_backend = _make_report_backend()
+        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        report_backend.create_report_and_revised_exercise.return_value = Result.ok(
+            [
+                {
+                    "uid": SUBMISSION_UID,
+                    "status": "revision_requested",
+                    "student_uid": STUDENT_UID,
+                    "revision_number": 1,
+                }
+            ]
+        )
+        service = _make_service(user_entry_backend=backend, report_backend=report_backend)
+
+        result = await service.request_revision_with_exercise(
+            submission_uid=SUBMISSION_UID,
+            teacher_uid=TEACHER_UID,
+            notes="Tighten the argument",
+            original_exercise_uid=EXERCISE_UID,
+            feedback_points=[],
+            revision_rationale=None,
+        )
+
+        assert not result.is_error
+        re_entity = report_backend.create_report_and_revised_exercise.call_args[0][1]
+        assert re_entity.created_by == TEACHER_UID
+        assert re_entity.user_uid == TEACHER_UID
+
+
+# ========================================================================
 # TestApproveReport
 # ========================================================================
 

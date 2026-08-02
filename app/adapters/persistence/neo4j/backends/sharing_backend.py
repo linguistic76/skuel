@@ -198,14 +198,20 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         user_uid: UserUID,
         limit: int,
+        entity_type: str | None = None,
+        sharer_uid: UserUID | None = None,
     ) -> Result[list[Neo4jProperties]]:
         """Get entities shared with a user via direct SHARES_WITH, with subject context.
 
         ``shared_by`` resolves the entity creator's display name — the sharer
         is not recorded on the edge, but every current writer (ADR-040
         auto-share, form-submission share) shares the entity its creator made.
-        ``toString`` normalizes ``shared_at`` (temporal on all writers) to an
-        ISO string.
+        ``sharer_uid`` (the raw ``created_by``) rides along so the inbox can
+        build a Shared-by filter keyed on uid, and the optional
+        ``entity_type`` / ``sharer_uid`` arguments narrow by those same two
+        columns (``None`` = no filter — the null-guarded predicates are
+        additive, arc 2 C4). ``toString`` normalizes ``shared_at`` (temporal
+        on all writers) to an ISO string.
 
         The ``subject_*`` columns resolve what the shared item is about (C4,
         feedback-loop UX arc): an EntryReport's subject exercise via its
@@ -218,6 +224,8 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         result = await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.SHARES_WITH.value}]->(entity:Entity)
+            WHERE ($entity_type IS NULL OR entity.entity_type = $entity_type)
+              AND ($sharer_uid IS NULL OR entity.created_by = $sharer_uid)
             OPTIONAL MATCH (sharer:User {{uid: entity.created_by}})
             WITH entity, r, sharer,
                  coalesce(
@@ -232,6 +240,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                    toString(r.shared_at) as shared_at,
                    r.share_version as share_version,
                    coalesce(sharer.display_name, sharer.title, entity.created_by) as shared_by,
+                   entity.created_by as sharer_uid,
                    subject_ex.uid as subject_exercise_uid,
                    subject_ex.title as subject_exercise_title,
                    subject_ps.uid as subject_ps_uid,
@@ -239,7 +248,12 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             ORDER BY r.shared_at DESC
             LIMIT $limit
             """,
-            {"user_uid": user_uid, "limit": limit},
+            {
+                "user_uid": user_uid,
+                "limit": limit,
+                "entity_type": entity_type,
+                "sharer_uid": sharer_uid,
+            },
         )
         if result.is_error:
             return Result.fail(result)

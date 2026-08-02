@@ -130,6 +130,9 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             title=display_title,
             entity_type=EntityType.FORM_SUBMISSION,
             user_uid=user_uid,
+            # Sharer attribution: the Shared-With-Me inbox resolves who shared
+            # an item from created_by — every SHARES_WITH writer must stamp it.
+            created_by=user_uid,
             form_template_uid=form_template_uid,
             form_data=form_data,
             processed_content=processed_content,

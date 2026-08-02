@@ -271,17 +271,27 @@ class UnifiedSharingService:
         self,
         user_uid: UserUID,
         limit: int = 50,
+        entity_type: EntityType | None = None,
+        sharer_uid: UserUID | None = None,
     ) -> Result[list[SharedWithMeItem]]:
         """Get entities shared with a specific user, with share-edge metadata.
 
         Each item carries the entity DTO, who shared it and when, plus the
         resolved subject context (which exercise the feedback is about, and
         its PathStep when linked) — the Shared With Me page renders type-aware
-        cards from this shape.
+        cards from this shape. ``entity_type`` / ``sharer_uid`` optionally
+        narrow the inbox (arc 2 C4); ``None`` means no filter. The enum
+        crosses to the backend as its canonical value — a driver parameter,
+        never interpolated.
 
         Backend: SharingBackend.query_shared_with_me
         """
-        result = await self.backend.query_shared_with_me(user_uid=user_uid, limit=limit)
+        result = await self.backend.query_shared_with_me(
+            user_uid=user_uid,
+            limit=limit,
+            entity_type=entity_type.value if entity_type is not None else None,
+            sharer_uid=sharer_uid,
+        )
         if result.is_error:
             return Result.fail(result)
         items: list[SharedWithMeItem] = [
@@ -290,6 +300,7 @@ class UnifiedSharingService:
                 "role": neo4j_opt_str(record, "role"),
                 "shared_at": neo4j_opt_str(record, "shared_at"),
                 "shared_by": neo4j_opt_str(record, "shared_by"),
+                "sharer_uid": neo4j_opt_str(record, "sharer_uid"),
                 "share_version": neo4j_opt_str(record, "share_version"),
                 "subject_exercise_uid": neo4j_opt_str(record, "subject_exercise_uid"),
                 "subject_exercise_title": neo4j_opt_str(record, "subject_exercise_title"),

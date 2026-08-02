@@ -28,6 +28,7 @@ See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
 
 from typing import Any, Protocol, runtime_checkable
 
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import SharedWithMeItem
@@ -89,6 +90,8 @@ class SharingBackendOperations(Protocol):
         self,
         user_uid: UserUID,
         limit: int,
+        entity_type: str | None = None,
+        sharer_uid: UserUID | None = None,
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def create_group_share(
@@ -203,9 +206,13 @@ class SharingOperations(Protocol):
         self,
         user_uid: UserUID,
         limit: int = 50,
+        entity_type: EntityType | None = None,
+        sharer_uid: UserUID | None = None,
     ) -> Result[list[SharedWithMeItem]]:
         """Get entities shared with a user, with share-edge metadata and the
         resolved subject context (which exercise/PathStep the item is about).
+        Optional ``entity_type`` / ``sharer_uid`` narrow the inbox (arc 2 C4);
+        ``None`` means no filter.
         """
         ...
 

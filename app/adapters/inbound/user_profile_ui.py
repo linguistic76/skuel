@@ -21,13 +21,15 @@ __version__ = "5.0"  # Hub page (MOC pattern) — no sidebar
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, Request
+# FT imported at runtime: FastHTML resolves handler signature annotations at
+# registration, so a TYPE_CHECKING-only import would kill bootstrap.
+from fasthtml.common import FT, Div, Request
 
 from core.config.settings import get_settings
+from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
-    from core.ports.query_types import SharedWithMeItem
     from services_bootstrap import Services
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
@@ -268,32 +270,77 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile/shared")
     async def profile_shared(request: Request) -> Any:
-        """Shared With Me — entities shared with the current user via SHARES_WITH.
+        """Shared With Me — the reviewing inbox of SHARES_WITH entities.
 
         Type-aware inbox: ADR-040 auto-shared feedback (EntryReports,
         RevisedExercises) and manually shared FormSubmissions render the same
-        card shape. Group shares surface on /groups, not here.
+        card shape, narrowed by the Type · Shared-by FilterBar (arc 2 C4).
+        Group shares surface on /groups, not here.
         """
         user_uid = require_authenticated_user(request)
 
-        from ui.profile.shared_view import SharedWithMeView
+        from ui.patterns.error_banner import render_error_banner
+        from ui.patterns.page_header import PageHeader
+        from ui.profile.shared_view import SHARED_WITH_ME_SUBTITLE, SharedWithMeView
 
-        shared_items: list[SharedWithMeItem] = []
         items_result = await profile_orchestrator.get_shared_with_me_items(
             user_uid=user_uid,
             limit=50,
         )
-        if not items_result.is_error:
-            shared_items = items_result.value
+        if items_result.is_error:
+            # Outage ≠ empty: a failed read must never render as a blank inbox.
+            logger.error(f"Failed to load shared-with-me items: {items_result.expect_error()}")
+            content: Div = Div(
+                PageHeader("Shared With Me", subtitle=SHARED_WITH_ME_SUBTITLE),
+                render_error_banner("Could not load your shared items. Please try again."),
+            )
+        else:
+            content = SharedWithMeView(items_result.value)
 
         return BasePage(
-            content=SharedWithMeView(shared_items),
+            content=content,
             title="Shared With Me",
             request=request,
             active_page="shared",
         )
 
-    logger.info("✅ Profile routes registered (/profile, /profile/shared)")
+    @rt("/profile/shared/list-fragment")
+    async def profile_shared_list_fragment(
+        request: Request, entity_type: str = "all", sharer: str = "all"
+    ) -> FT:
+        """HTMX fragment: the filtered card grid for a FilterBar change.
+
+        Filter params are clamped, never 400'd (the gradebook convention):
+        an unknown ``entity_type`` parses to ``None`` = All, and both values
+        cross the service boundary typed (EntityType / UserUID) — the Cypher
+        only ever sees driver parameters.
+        """
+        user_uid = require_authenticated_user(request)
+
+        from ui.patterns.error_banner import render_error_banner
+        from ui.profile.shared_view import shared_items_content
+
+        type_filter = EntityType.from_string(entity_type) if entity_type != "all" else None
+        sharer_filter = UserUID(sharer) if sharer != "all" else None
+
+        items_result = await profile_orchestrator.get_shared_with_me_items(
+            user_uid=user_uid,
+            limit=50,
+            entity_type=type_filter,
+            sharer_uid=sharer_filter,
+        )
+        if items_result.is_error:
+            logger.error(f"Failed to load shared-with-me items: {items_result.expect_error()}")
+            return render_error_banner("Could not load your shared items. Please try again.")
+
+        return shared_items_content(
+            items_result.value,
+            filtered=type_filter is not None or sharer_filter is not None,
+        )
+
+    logger.info(
+        "✅ Profile routes registered (/profile, /profile/shared, /profile/shared/list-fragment)"
+    )
 
 
 __all__ = ["setup_user_profile_routes"]
