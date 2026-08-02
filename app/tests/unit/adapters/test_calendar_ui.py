@@ -155,10 +155,41 @@ class TestMonthContentFragment:
         assert "calendar-month-content" in rendered
         service.get_calendar_view.assert_awaited_once()
         kwargs = service.get_calendar_view.await_args.kwargs
-        assert kwargs["start_date"] == date(2026, 5, 1)
+        # Full visible grid range: Monday on/before May 1 (Fri) through the
+        # Sunday closing the last week (May 31 IS a Sunday in 2026).
+        assert kwargs["start_date"] == date(2026, 4, 27)
         assert kwargs["end_date"] == date(2026, 5, 31)
         assert kwargs["view_type"] == CalendarView.MONTH
         assert kwargs["user_uid"] == "user_smoke"
+
+    @pytest.mark.asyncio
+    async def test_lead_in_day_items_render(self, routes_and_service) -> None:
+        """Items on lead-in cells (previous month) render in the grid — the
+        month view's edge cells must agree with the week view of those days."""
+        registry, service = routes_and_service
+        lead_in_item = CalendarItem(
+            uid="cal_event_lead_in",
+            source_uid="event_lead_in",
+            item_type=CalendarItemType.EVENT,
+            title="Lead-in item",
+            start_time=datetime(2026, 4, 28, 10, 0),
+            end_time=datetime(2026, 4, 28, 11, 0),
+        )
+        service.get_calendar_view = AsyncMock(
+            return_value=Result.ok(
+                CalendarData(
+                    items=[lead_in_item],
+                    occurrences={},
+                    view=CalendarView.MONTH,
+                    start_date=date(2026, 4, 27),
+                    end_date=date(2026, 5, 31),
+                    metadata={},
+                )
+            )
+        )
+        handler = registry.get("/cal/month/{year}/{month}/content")
+        response = await handler(_make_request(), year=2026, month=5)
+        assert "Lead-in item" in _render(response)
 
     @pytest.mark.asyncio
     async def test_failure_renders_error_response(self, routes_and_service) -> None:

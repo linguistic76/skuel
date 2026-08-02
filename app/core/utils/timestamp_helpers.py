@@ -8,7 +8,7 @@ Eliminates duplication of timestamp operations across services.
 DRY Principle:
 - Timezone-aware "now" helpers
 - Duration/age calculations (days_until, days_since, is_overdue, is_today)
-- Calendar arithmetic (week_bounds, prev/next month and week)
+- Calendar arithmetic (week_bounds, month_grid_bounds, prev/next month and week)
 - Neo4j-tolerant scalar date parsing (parse_date_value)
 
 Usage:
@@ -22,6 +22,7 @@ Note: dict-level batch parsing for DTO deserialization lives in
 this module only owns scalar/date arithmetic helpers.
 """
 
+from calendar import monthrange
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -230,6 +231,24 @@ def week_bounds(d: date) -> tuple[date, date]:
     monday = d - timedelta(days=d.weekday())
     sunday = monday + timedelta(days=6)
     return monday, sunday
+
+
+def month_grid_bounds(year: int, month: int) -> tuple[date, date]:
+    """
+    Get the full visible range of a Monday-start month grid.
+
+    The grid renders whole weeks, so it starts on the Monday on/before the
+    1st and ends on the Sunday on/after the month's last day — lead-in and
+    tail cells belonging to adjacent months included.
+
+    Returns:
+        (grid_start, grid_end) tuple, both inclusive
+    """
+    first = date(year, month, 1)
+    last = date(year, month, monthrange(year, month)[1])
+    grid_start = first - timedelta(days=first.weekday())
+    grid_end = last + timedelta(days=6 - last.weekday())
+    return grid_start, grid_end
 
 
 def prev_month(year: int, month: int) -> tuple[int, int]:
