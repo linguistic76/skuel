@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.event.calendar_models import CalendarItemType
+from core.models.event.calendar_models import CalendarItemType, parse_calendar_item_uid
 from core.models.event.event import Event
 from core.models.sentinels import UNSET
 from core.models.task.task import Task
@@ -166,6 +166,31 @@ async def test_event_reschedule_preserves_duration() -> None:
     assert intent.event_date == date(2026, 8, 12)
     assert intent.start_time == time(14, 15)
     assert intent.end_time == time(15, 45)  # 90 minutes preserved
+
+
+@pytest.mark.asyncio
+async def test_event_move_crossing_midnight_is_refused() -> None:
+    """The Event model is single-day: an end past midnight would persist
+    end_time BEFORE start_time. Such moves are refused, not truncated."""
+    event = _event(start=time(10, 0), end=time(11, 30))  # 90 minutes
+    service, _, events_service = _service(event=event)
+
+    result = await service.reschedule_item(
+        "user_test", "event-event_1", datetime(2026, 8, 12, 23, 30)
+    )
+
+    assert result.is_error
+    assert result.expect_error().category == ErrorCategory.VALIDATION
+    events_service.update_event.assert_not_awaited()
+
+
+def test_parse_calendar_item_uid_wire_format() -> None:
+    """One parse of the '{kind}-{source_uid}' wire format for service + route."""
+    assert parse_calendar_item_uid("task-task_1") == (EntityType.TASK, "task_1")
+    assert parse_calendar_item_uid("event-event:abc") == (EntityType.EVENT, "event:abc")
+    assert parse_calendar_item_uid("habit-habit_1") == (EntityType.HABIT, "habit_1")
+    assert parse_calendar_item_uid("goal-goal_1") is None  # milestones land in PR 5
+    assert parse_calendar_item_uid("garbage") is None
 
 
 @pytest.mark.asyncio

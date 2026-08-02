@@ -44,7 +44,8 @@ from adapters.inbound.route_factories import parse_date_query_param
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
-from core.models.event.calendar_models import CalendarView
+from core.models.enums.entity_enums import EntityType
+from core.models.event.calendar_models import CalendarView, parse_calendar_item_uid
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
 from core.utils.timestamp_helpers import (
@@ -344,9 +345,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         (HX-Trigger) so the grid re-renders — the chip visibly moves.
         """
         user_uid = require_authenticated_user(request)
-        if item_id.startswith("habit-"):
+        # One wire-format parse (parse_calendar_item_uid) — the same typed
+        # discriminator the service dispatches on; unknown kinds fall through
+        # to the service's not-found.
+        parsed = parse_calendar_item_uid(item_id)
+        kind = parsed[0] if parsed else None
+        if kind is EntityType.HABIT:
             return Response("Habits recur — they don't reschedule", status_code=400)
-        is_event = item_id.startswith("event-")
+        is_event = kind is EntityType.EVENT
         form = await request.form()
         raw_new_date = str(form.get("new_date") or "")
         try:
