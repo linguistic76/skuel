@@ -1,7 +1,9 @@
 # Calendar × Periodic Notes Arc — Rulings & Staged Contract
 
 **Status:** STAGED 2026-08-02 — deliberately parked until the calendar act-from arc
-(`docs/roadmap/calendar-act-from-arc.md`, PRs 1–5) completes. The rulings below are
+(`docs/roadmap/calendar-act-from-arc.md`) completes **through PR 6** (PRs 1–5 shipped
+2026-08-02 as #913–#917; PR 6's C6 ruling re-routes the day-cell click and adds the
+Daily-note toolbar buttons — the same surface S2 touches, see Sequencing). The rulings below are
 SETTLED (founder elicitation, 2026-08-02); the scope items are CANDIDATES — the marked
 ones get their own elicitation at pickup. This doc exists so the return path survives
 context loss.
