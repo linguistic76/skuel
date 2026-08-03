@@ -7,7 +7,8 @@ Factory that wires calendar API and UI routes using DomainRouteConfig.
 Architecture:
     - API Routes: calendar_api.py (item-details JSON)
     - UI Routes:  calendar_ui.py  (month/week views, HTMX fragments,
-      item-details modal, per-day habit completion, task/event reschedule)
+      item-details modal for all four item kinds — tasks, events, habits,
+      goal milestones — per-day habit completion, task/event reschedule)
     - Components: ui/calendar/components.py
 """
 

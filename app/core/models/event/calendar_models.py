@@ -86,11 +86,13 @@ class CalendarView(StrEnum):
 
 # The '{kind}-{source_uid}' wire format CalendarService's item converters
 # author (e.g. 'task-task_123'). Extend here when a new kind gains calendar
-# items (PR 5 adds 'goal-' Milestones).
+# items. This prefix is the calendar's OWN wire format, not entity-type
+# sniffing — the source uid after the dash stays opaque.
 _CALENDAR_ITEM_UID_PREFIXES: tuple[tuple[str, EntityType], ...] = (
     ("task-", EntityType.TASK),
     ("event-", EntityType.EVENT),
     ("habit-", EntityType.HABIT),
+    ("goal-", EntityType.GOAL),
 )
 
 

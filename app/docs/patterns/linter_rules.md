@@ -335,7 +335,7 @@ RETURN child
 
 **Coverage (2026-07):** the linter's `RELATIONSHIP_NAMES` catalog mirrors the **complete** `RelationshipName` enum (all 170 values), pinned by `TestRelationshipNamesDrift` in `test_lint_skuel.py` — add a member to the enum and the drift test tells you to mirror it. (It previously drifted to a ~30-value hand-picked subset with four stale names, silently under-enforcing the rule.)
 
-**Suppression:** boundary-shaped literals — e.g. mapping an *external* system's status/type string that merely collides with a relationship name (`"IN_PROGRESS"` in `calendar_adapters.py` is an EventStatus literal, not the relationship) — are legitimate; annotate with `# skuel-lint: disable=SKUEL013 -- <reason>`.
+**Suppression:** boundary-shaped literals — e.g. mapping an *external* system's status/type string that merely collides with a relationship name (an `"IN_PROGRESS"` status literal is not the `IN_PROGRESS` relationship) — are legitimate; annotate with `# skuel-lint: disable=SKUEL013 -- <reason>`.
 
 **Infrastructure defense-in-depth:** Even when callers use `RelationshipName` enum (safe), the infrastructure layer validates all interpolated identifiers before Cypher interpolation. Shared guards `validate_label()` and `validate_identifier()` in `_helpers.py` are used by all 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`). Backend mixins additionally use `validate_relationship_type()` in `_build_direction_pattern()`, `traverse()`, `find_path()`. See `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`.
 

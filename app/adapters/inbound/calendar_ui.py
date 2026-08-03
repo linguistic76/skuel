@@ -337,7 +337,8 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
 
         The modal posts form field ``new_date`` (tasks are date-only) plus
         ``new_time`` for events — event duration is preserved in-service.
-        Habits are rejected up front: they recur, they don't reschedule.
+        Habits and goal milestones are rejected up front: habits recur, and
+        goal target dates move on the goals surface, not the calendar.
         The move goes through ``calendar_service.reschedule_item`` (ownership
         verified in-service — not-found on non-owner, no UID oracle). On
         success the response swaps the form to a "Rescheduled ✓" confirmation,
@@ -352,6 +353,8 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         kind = parsed[0] if parsed else None
         if kind is EntityType.HABIT:
             return Response("Habits recur — they don't reschedule", status_code=400)
+        if kind is EntityType.GOAL:
+            return Response("Goal target dates move on the goals surface", status_code=400)
         is_event = kind is EntityType.EVENT
         form = await request.form()
         raw_new_date = str(form.get("new_date") or "")

@@ -486,7 +486,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/insights/` | Insight UI rendering: `components.py`, `filters.py`, `insight_card.py` — extracted from `insights_ui.py` |
 | `/ui/pathways/` | Pathways UI rendering: `components.py` — extracted from `pathways_ui.py` |
 | `/ui/notifications/` | Notification UI rendering: `cards.py` — extracted from `notifications_routes.py` |
-| `/ui/calendar/` | Calendar UI rendering: `components.py`, `converters.py` — extracted from `calendar_ui.py` |
+| `/ui/calendar/` | Calendar UI rendering: `components.py` — extracted from `calendar_ui.py` |
 | `/ui/finance/` | Finance UI rendering: `components.py`, `invoice_views.py`, `layout.py`, `section_views.py`, `types.py` — extracted from `finance_ui.py` |
 | `/ui/explore/ku_detail.py` | Ku detail page rendering — extracted from `explore_ui.py` |
 | `/ui/explore/ps_detail.py` | PathStep detail page rendering — extracted from `explore_ui.py` |

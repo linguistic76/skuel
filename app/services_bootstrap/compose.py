@@ -816,6 +816,7 @@ async def compose_services(
             tasks_service=activity_services["tasks"],
             events_service=activity_services["events"],
             habits_service=activity_services["habits"],
+            goals_service=activity_services["goals"],
         )
         logger.info("✅ Calendar service created")
 

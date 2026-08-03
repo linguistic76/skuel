@@ -1757,7 +1757,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/insights/` (components, filters, insight_card)
 - `/ui/pathways/` (components)
 - `/ui/notifications/` (cards)
-- `/ui/calendar/` (components, converters)
+- `/ui/calendar/` (components)
 - `/ui/finance/` (components, invoice_views, layout, section_views, types)
 - `/ui/vault/` (sync_fragments — vault sync/preview buttons, privacy wall, consent form, stats/preview/error fragments; routes stay in `vault_routes.py`)
 

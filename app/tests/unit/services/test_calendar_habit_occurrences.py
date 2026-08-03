@@ -34,7 +34,9 @@ from core.utils.result_simplified import Errors, Result
 
 
 def _service() -> CalendarService:
-    return CalendarService(tasks_service=Mock(), events_service=Mock(), habits_service=Mock())
+    return CalendarService(
+        tasks_service=Mock(), events_service=Mock(), habits_service=Mock(), goals_service=Mock()
+    )
 
 
 def _habit(
@@ -268,10 +270,14 @@ async def test_get_calendar_view_marks_completed_days() -> None:
     """End-to-end through get_calendar_view: a recorded completion surfaces as
     a DONE occurrence for that day (both writers, one render truth)."""
     svc = CalendarService(
-        tasks_service=AsyncMock(), events_service=AsyncMock(), habits_service=AsyncMock()
+        tasks_service=AsyncMock(),
+        events_service=AsyncMock(),
+        habits_service=AsyncMock(),
+        goals_service=AsyncMock(),
     )
     svc.tasks_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
     svc.events_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
+    svc.goals_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
     habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok([habit]))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(

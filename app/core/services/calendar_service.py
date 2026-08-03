@@ -2,15 +2,16 @@
 Calendar Service
 ================
 
-Unified calendar service for displaying tasks, events, and habits in calendar views.
-Simplified implementation focusing on essential calendar functionality.
+Unified calendar service for displaying tasks, events, habits, and goal
+milestones in calendar views. Simplified implementation focusing on essential
+calendar functionality.
 
 DESIGN DECISION (October 3, 2025):
 ----------------------------------
 This service intentionally keeps a SIMPLE, BASIC, FUNDAMENTAL design.
 
 Core Responsibilities:
-1. Display calendar items (tasks, events, habits)
+1. Display calendar items (tasks, events, habits, goal milestones)
 2. Provide day/week/month views
 3. Basic CRUD operations (create, reschedule, quick-create)
 4. Habit recurrence projection
@@ -55,6 +56,7 @@ from core.models.event.calendar_models import (
 )
 from core.models.event.event import Event
 from core.models.event.event_update_intent import EventUpdateIntent
+from core.models.goal.goal import Goal
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 
@@ -67,6 +69,7 @@ from core.ports import get_enum_value
 # Import protocol interfaces for dependency injection
 from core.ports.domain_protocols import (
     EventsOperations,
+    GoalsOperations,
     TasksOperations,
 )
 from core.utils.decorators import with_error_handling
@@ -97,13 +100,13 @@ class CalendarService:
 
     Provides:
     - Calendar view generation (day/week/month)
-    - Task, event, and habit integration
+    - Task, event, habit, and goal-milestone integration
     - Habit recurrence projection
     - Color and icon styling
 
     This is a meta-service: it delegates all graph queries to the injected domain
-    services (TasksOperations, EventsOperations, HabitsService). It does not
-    write Cypher directly.
+    services (TasksOperations, EventsOperations, HabitsService, GoalsOperations).
+    It does not write Cypher directly.
     """
 
     def __init__(
@@ -111,20 +114,23 @@ class CalendarService:
         tasks_service: TasksOperations,
         events_service: EventsOperations,
         habits_service: HabitsService,
+        goals_service: GoalsOperations,
     ) -> None:
         """
         Initialize with required domain services.
 
-        All three domain services are required — fail-fast if any is missing.
+        All four domain services are required — fail-fast if any is missing.
 
         Args:
             tasks_service: Service for task operations
             events_service: Service for event operations
             habits_service: Service for habit operations
+            goals_service: Service for goal operations (Milestone chips)
         """
         self.tasks_service = tasks_service
         self.events_service = events_service
         self.habits_service = habits_service
+        self.goals_service = goals_service
         self.logger = logger
         logger.debug("CalendarService initialized")
 
@@ -168,6 +174,10 @@ class CalendarService:
         # Fetch events using unified API (Cypher-level filtering)
         event_items = await self._fetch_events(user_uid, start_date, end_date, include_completed)
         items.extend(event_items)
+
+        # Fetch goals as all-day Milestone markers on their target_date
+        goal_items = await self._fetch_goals(user_uid, start_date, end_date, include_completed)
+        items.extend(goal_items)
 
         # Fetch habits (ongoing practices — status-filtered, never date-filtered)
         habit_occurrences = {}
@@ -240,6 +250,16 @@ class CalendarService:
                 if event_result.value.user_uid != user_uid:
                     return Result.ok(None)  # not the requester's — treat as not found
                 return Result.ok(self._event_to_calendar_item(event_result.value))
+
+        elif kind is EntityType.GOAL:
+            goal_result = await self.goals_service.get(source_uid)
+            if goal_result.is_error:
+                # A failed read is not a missing item — propagate it.
+                return Result.fail(goal_result)
+            if goal_result.value:
+                if goal_result.value.user_uid != user_uid:
+                    return Result.ok(None)  # not the requester's — treat as not found
+                return Result.ok(self._goal_to_calendar_item(goal_result.value))
 
         elif kind is EntityType.HABIT:
             habit_result = await self.habits_service.get(source_uid)
@@ -389,8 +409,9 @@ class CalendarService:
         ``due_date`` and stays a deadline; an event moves its date + start
         time and keeps its duration (refused when the preserved duration
         would cross midnight — the Event model is single-day). Owner-scoped:
-        any other user's item — and any non task/event id (habits recur,
-        they don't reschedule) — is not-found.
+        any other user's item — and any non task/event id (habits recur and
+        goal target dates move on the goals surface — neither reschedules
+        here) — is not-found.
 
         Args:
             item_uid: UID of the item to reschedule,
@@ -604,6 +625,35 @@ class CalendarService:
 
         return items
 
+    async def _fetch_goals(
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
+    ) -> list[CalendarItem]:
+        """
+        Fetch goals with a target date in range and convert to Milestone items.
+
+        Goals place on the calendar by ``target_date`` (the Goals DomainConfig
+        date field, so the plain range fetch works unmodified); a goal without
+        a target date has no calendar placement and is never fetched. Every
+        legend entry now has a producer (act-from arc C5).
+        """
+        items: list[CalendarItem] = []
+
+        try:
+            result = await self.goals_service.get_user_items_in_range(
+                user_uid=user_uid,
+                start_date=start_date,
+                end_date=end_date,
+                include_completed=include_completed,
+            )
+
+            if result.is_ok:
+                items = [self._goal_to_calendar_item(goal) for goal in result.value]
+
+        except NEO4J_EXCEPTIONS as e:
+            logger.warning(f"Failed to fetch goals: {e}")
+
+        return items
+
     async def _fetch_habits(
         self, user_uid: UserUID, include_completed: bool = False
     ) -> list[Habit]:
@@ -785,6 +835,42 @@ class CalendarService:
                 "status": event.status.value if event.status else "scheduled",
                 "attendee_count": len(event.attendee_emails) if event.attendee_emails else 0,
                 "has_capacity": has_capacity,
+            },
+        )
+
+    def _goal_to_calendar_item(self, goal: Goal) -> CalendarItem:
+        """Convert a goal to an all-day Milestone marker on its target date.
+
+        The one MILESTONE producer in the calendar pipeline — color/icon come
+        from the enum so the legend stays truthful. Tolerates a missing/
+        unparseable target_date (a hand-crafted ``get_item`` request for a
+        dateless goal) by falling back to now, like the task converter.
+        """
+        target_date = convert_neo4j_date(goal.target_date)
+        if target_date is not None:
+            start_time = datetime.combine(target_date, datetime.min.time())
+            end_time = datetime.combine(target_date, datetime.max.time())
+        else:
+            start_time = datetime.now()
+            end_time = start_time + timedelta(hours=1)
+
+        item_type = CalendarItemType.MILESTONE
+        return CalendarItem(
+            uid=f"goal-{goal.uid}",
+            source_uid=goal.uid,
+            title=goal.title,
+            description=goal.description or "",
+            item_type=item_type,
+            start_time=start_time,
+            end_time=end_time,
+            all_day=True,
+            color=item_type.get_color(),
+            icon=item_type.get_icon(),
+            priority=Priority(goal.priority).to_numeric() if goal.priority else 1,
+            tags=list(goal.tags),
+            metadata={
+                "status": goal.status.value if goal.status else "active",
+                "progress": goal.progress_percentage,
             },
         )
 

@@ -92,6 +92,7 @@ def _service(
         tasks_service=tasks_service,
         events_service=events_service,
         habits_service=Mock(),
+        goals_service=Mock(),
     )
     return service, tasks_service, events_service
 
@@ -322,7 +323,7 @@ def test_parse_calendar_item_uid_wire_format() -> None:
     assert parse_calendar_item_uid("task-task_1") == (EntityType.TASK, "task_1")
     assert parse_calendar_item_uid("event-event:abc") == (EntityType.EVENT, "event:abc")
     assert parse_calendar_item_uid("habit-habit_1") == (EntityType.HABIT, "habit_1")
-    assert parse_calendar_item_uid("goal-goal_1") is None  # milestones land in PR 5
+    assert parse_calendar_item_uid("goal-goal_1") == (EntityType.GOAL, "goal_1")
     assert parse_calendar_item_uid("garbage") is None
 
 
@@ -333,6 +334,18 @@ async def test_habit_item_id_is_not_found() -> None:
     result = await service.reschedule_item(
         "user_test", "habit-habit_1", datetime(2026, 8, 20, 0, 0)
     )
+
+    assert result.is_error
+    assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_goal_item_id_is_not_found() -> None:
+    """Goal target dates move on the goals surface — the calendar never
+    reschedules a milestone (C5)."""
+    service, _, _ = _service()
+
+    result = await service.reschedule_item("user_test", "goal-goal_1", datetime(2026, 8, 20, 0, 0))
 
     assert result.is_error
     assert result.expect_error().category == ErrorCategory.NOT_FOUND

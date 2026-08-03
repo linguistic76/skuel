@@ -313,14 +313,14 @@ from ui.enum_helpers import get_status_badge_class
 assert get_status_badge_class("active") != ""
 assert get_status_badge_class("invalid") == "bg-gray-100 text-gray-600 border-gray-200"
 
-# Calendar converter tests — use SimpleNamespace for mock entities
-from types import SimpleNamespace
-task = SimpleNamespace(uid="task_1", title="Test", due_date=date.today(), ...)
-item = task_to_calendar_item(task)
-assert item.source_uid == "task_1"
+# Calendar component tests — build frozen CalendarItem fixtures directly
+from core.models.event.calendar_models import CalendarItem, CalendarItemType
+item = CalendarItem(uid="task-task_1", source_uid="task_1", item_type=CalendarItemType.TASK_WORK,
+                    title="Test", start_time=start, end_time=end)
+assert "hx-get" in to_xml(_event_chip(item))
 ```
 
-**Coverage:** 276 tests across 7 files cover linters (SKUEL001-017, CYP001-009), UI helpers (enum bridges, calendar converters, typography, layout, buttons).
+**Coverage:** 276 tests across 7 files cover linters (SKUEL001-017, CYP001-009), UI helpers (enum bridges, calendar components, typography, layout, buttons).
 
 ## Learning Loop Service Tests
 

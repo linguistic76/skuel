@@ -758,6 +758,10 @@ def create_item_details_modal(item: Any) -> Div:
     Terminal tasks and past events (immutable historical records) get no
     form either — their domain services refuse date changes, so the form
     would be guaranteed to fail.
+
+    A milestone (goal) modal carries a "View Goal" link to the goal's detail
+    page and no reschedule form — goal target dates move on the goals
+    surface, not the calendar.
     """
     color = item.color
 
@@ -942,6 +946,15 @@ def create_item_details_modal(item: Any) -> Div:
             ButtonLink(
                 "Edit Event",
                 href=f"/events/edit?uid={item.source_uid}",
+                cls=(ButtonT.primary, "mr-2"),
+            ),
+        )
+    elif item.item_type == CalendarItemType.MILESTONE:
+        action_buttons.insert(
+            0,
+            ButtonLink(
+                "View Goal",
+                href=f"/goals/detail?uid={item.source_uid}",
                 cls=(ButtonT.primary, "mr-2"),
             ),
         )

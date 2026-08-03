@@ -29,7 +29,6 @@ from typing import (
 
 if TYPE_CHECKING:
     from core.models.enums.activity_enums import Priority
-    from core.ports.calendar_protocol import CalendarTrackable
     from core.utils.result_simplified import Result as _Result
 
     # Type alias for Result used at boundaries (avoids circular import)
@@ -172,8 +171,6 @@ EdgeDirection = Literal["outgoing", "incoming", "both"]
 
 # Generic type variables
 T = TypeVar("T")
-
-T_Trackable = TypeVar("T_Trackable", bound="CalendarTrackable")
 
 
 # ============================================================================
@@ -566,7 +563,6 @@ __all__ = [
     "Success",
     # Type variables
     "T",
-    "T_Trackable",
     "Tag",
     # Collection types
     "TagList",
