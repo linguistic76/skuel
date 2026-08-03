@@ -87,20 +87,29 @@ named dissolves rather than needing a new ruling.
   (`core/services/calendar_service.py:846`) sets `start_time=now` — the moment
   of the query — with a hardcoded 30-minute duration, ignoring the habit's own
   `preferred_time` and `duration_minutes`.
-- **`preferred_time` is a two-interpretation string.**
+- **`preferred_time` is a three-interpretation string.**
   `habit_event_scheduler.py` parses it as `"%H:%M"` clock time;
   `habits_scheduling_service.py` compares slot words ("morning"/"evening");
-  live data holds `"evening"`, `"anytime"`, `"medium"` (a priority word —
-  polluted), and null. The one-vocabulary defect M1 targets.
+  and `ui/today/orchestrator.py` gates habits into Today's rituals and
+  day-spine via `_parse_hhmm(h.preferred_time)` (a habit whose value doesn't
+  parse as `HH:MM` is silently excluded — slot values would drop habits from
+  Today entirely; Codex finding on this PR, code-verified). Live data holds
+  `"evening"`, `"anytime"`, `"medium"` (a priority word — polluted), and
+  null. The one-vocabulary defect M1 targets.
 - **The fuzzy vocabulary already exists.** `TimeOfDay`
   (`core/models/enums/scheduling_enums.py:58`) defines EARLY_MORNING (5–7),
   MORNING (7–12), AFTERNOON (12–17), EVENING (17–21), NIGHT (21–24),
   LATE_NIGHT (0–5), ANYTIME — each with an hour range and a representative
   hour. M3's ruling maps onto it with no new enum.
-- **The rhythm ordering already exists.** The week view sorts a day's chips
-  chronologically by item start time (`ui/calendar/components.py:248`). Once
-  habit items carry truthful times, ordered-sequence display falls out of
-  shipped code.
+- **The rhythm ordering already exists — but habit expansion bypasses it.**
+  The week view sorts a day's chips chronologically by item start time
+  (`ui/calendar/components.py:248`). However, `_items_by_date` expands each
+  habit occurrence as an `all_day=True` chip re-stamped to midnight
+  (`components.py:281-287`) — so truthful times on the base item alone would
+  still cluster every habit at day start (Codex finding on this PR,
+  code-verified). PR 2 must carry the representative times through occurrence
+  expansion (and the day-aware item-details stamp) for the existing sort to
+  produce the rhythm.
 - **The tick already exists.** Act-from C3 shipped per-day habit completion on
   calendar chips — M6's mechanism is live.
 - **Habit is file-ingestible** (`EntityType.HABIT` ingestion config), so
@@ -122,16 +131,24 @@ named dissolves rather than needing a new ruling.
   rename). Migrate live values (`"evening"`→EVENING, `"anytime"`→ANYTIME,
   `"medium"`→null). Unify the consumers: the `%H:%M` parse path in
   `habit_event_scheduler` derives from the slot's representative hour; slot
-  comparisons in `habits_scheduling_service` become enum comparisons. Expose
-  slot + `duration_minutes` in the habit create/edit form and verify both flow
-  through vault frontmatter ingestion. The PR's fresh read maps the full
-  consumer set (the events-side habit-integration readers included).
+  comparisons in `habits_scheduling_service` become enum comparisons; the
+  Today orchestrator's `_parse_hhmm` gates (rituals filter + day-spine,
+  `ui/today/orchestrator.py`) derive from the slot's representative hour
+  instead of rejecting non-`HH:MM` values. Expose slot + `duration_minutes`
+  in the habit create/edit form and verify both flow through vault
+  frontmatter ingestion. The PR's fresh read maps the full consumer set (the
+  events-side habit-integration readers included).
 - **S2 — Truthful habit chips (PR 2).** `_habit_to_calendar_item` (and the
   occurrence generator's times) derive `start_time` from the habit's
   `TimeOfDay` representative hour and `end_time` from real
   `duration_minutes`, with ANYTIME/unset falling back to a stable default.
-  Chips surface the duration (e.g. "20m"). Week-view day columns then order
-  habits into the day's rhythm among tasks and events via the existing sort.
+  The truthful times must survive occurrence expansion: `_items_by_date`
+  currently re-stamps expanded habit chips to midnight/`all_day=True`
+  (`components.py:281-287`) — the expansion combines each occurrence date
+  with the habit's representative time instead, and the day-aware
+  item-details stamp keeps working. Chips surface the duration (e.g. "20m").
+  Week-view day columns then order habits into the day's rhythm among tasks
+  and events via the existing sort.
 - **S3 — Delete `/timelines` (PR 3).** Remove the page, `timeline_routes.py`,
   the timeline endpoints and service methods
   (`get_timeline_data`/`get_tasks_timeline_data`, `format_for_visjs`/
@@ -178,8 +195,8 @@ vault content in this public repo — specimen shapes only.
 | PR | Scope | Acceptance (live case) |
 |----|-------|------------------------|
 | 0 | This doc (docs-only; summon Codex explicitly — the gate auto-passes docs PRs without a verdict) | Doc reflects M1–M7 + the E4 resolution; PR table matches the rulings |
-| 1 | S1 — `preferred_time: TimeOfDay \| None`; live-value migration; consumer unification; form + frontmatter authoring | Live graph shows no non-enum `preferred_time` values after migration (the `"medium"` pollution is gone); setting "Meditate" to `morning` + 20m via the habit form persists both; a habit vault file with `preferred_time: evening` frontmatter ingests to `TimeOfDay.EVENING`; `./dev quality` green with the string's two former interpretations gone |
-| 2 | S2 — truthful habit chip times + visible duration | In a live week view, "Meditate" (morning, 20m) renders before an afternoon task and after nothing earlier, with "20m" on the chip; an ANYTIME habit still renders (stable fallback position); the C3 completion tick still flips the chip; headless-Chrome verified in week AND month views |
+| 1 | S1 — `preferred_time: TimeOfDay \| None`; live-value migration; consumer unification (scheduler, scheduling service, Today orchestrator); form + frontmatter authoring | Live graph shows no non-enum `preferred_time` values after migration (the `"medium"` pollution is gone); setting "Meditate" to `morning` + 20m via the habit form persists both; a habit vault file with `preferred_time: evening` frontmatter ingests to `TimeOfDay.EVENING`; a slot-valued habit still appears in Today's rituals/day-spine (the `_parse_hhmm` gate no longer drops it); `./dev quality` green with all three former string interpretations gone |
+| 2 | S2 — truthful habit chip times + visible duration, preserved through occurrence expansion | In a live week view, "Meditate" (morning, 20m) renders before an afternoon task and after nothing earlier, with "20m" on the chip — verified on a NON-today day (proving expansion carries the time, not just the base item); an ANYTIME habit still renders (stable fallback position); the C3 completion tick still flips the chip and the day-aware modal still opens with its `?date=`; headless-Chrome verified in week AND month views |
 | 3 | S3 — delete `/timelines` and its feeding surface | `/timelines` returns 404; timeline endpoints removed from `visualization_api.py`; no dangling imports (`./dev quality` green); `static/vendor/vis-timeline/` gone; `./dev bloat` reports no new dead code; calendar views unaffected in headless Chrome |
 
 Suggested order 1 → 2 (2 depends on 1's truthful fields); PR 3 is independent
