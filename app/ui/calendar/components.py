@@ -132,22 +132,46 @@ def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False
     )
 
 
+def _note_button(href: str, label: str) -> A:
+    """A bordered periodic-note pill with a leading square-pen icon."""
+    return A(
+        Icon("square-pen", cls="w-[15px] h-[15px]"),
+        Span(label),
+        href=href,
+        title=f"Open {label.lower()}",
+        **_NO_BOOST,
+        cls=(
+            "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
+            " bg-card rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
+            " whitespace-nowrap"
+        ),
+    )
+
+
 def calendar_nav_cluster(
     prev_href: str,
     next_href: str,
     today_href: str,
     note_href: str,
     note_label: str,
+    daily_note_href: str | None = None,
 ) -> Div:
-    """Prev/Now/Next pills + the periodic-note button, right-aligned (no margin).
+    """Prev/Now/Next pills + periodic-note button(s), right-aligned (no margin).
 
     The recenter pill is labelled "Now" — the word "Today" belongs solely to the
     Today surface (sidebar link), keeping the two meanings distinct. ``note_label``
-    names the view's periodic note ("Weekly note" / "Monthly note" / "Daily note").
+    names the view's own periodic note ("Weekly note" / "Monthly note" / "Daily
+    note"). ``daily_note_href`` — when given — adds a second "Daily note" button
+    (today's note) beside it, so the Week/Month toolbars complete the
+    Daily/Weekly/Monthly note family (act-from arc C6). The Today day-lens header
+    omits it: its single note button already IS the daily note.
 
     Shared by the calendar toolbar (Week/Month) and the Today day-lens header, so
     all three temporal lenses carry an identical navigation cluster (#665).
     """
+    note_buttons = [_note_button(note_href, note_label)]
+    if daily_note_href is not None:
+        note_buttons.append(_note_button(daily_note_href, "Daily note"))
     return Div(
         _nav_button("Prev", prev_href, "chevron-left"),
         A(
@@ -160,21 +184,10 @@ def calendar_nav_cluster(
         ),
         _nav_button("Next", next_href, "chevron-right", trailing=True),
         Div(cls="w-px h-[22px] bg-border mx-1"),
-        A(
-            Icon("square-pen", cls="w-[15px] h-[15px]"),
-            Span(note_label),
-            href=note_href,
-            title=f"Open {note_label.lower()}",
-            **_NO_BOOST,
-            cls=(
-                "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
-                " bg-card rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
-                " whitespace-nowrap"
-            ),
-        ),
+        *note_buttons,
         # flex-wrap: on phones the full cluster is wider than the viewport —
         # without it the leading "Prev" pill clips off the left edge; wrapped,
-        # the note button drops to a second row instead.
+        # the note button(s) drop to a second row instead.
         cls="flex items-center justify-end gap-2 flex-wrap",
     )
 
@@ -185,14 +198,19 @@ def create_calendar_toolbar(
     today_href: str,
     note_href: str,
     note_label: str,
+    daily_note_href: str | None = None,
 ) -> Div:
     """Right-aligned Prev/Now/Next + periodic-note toolbar row (Week/Month views).
 
     Thin margin wrapper around :func:`calendar_nav_cluster`; the Today surface
-    embeds the bare cluster in its header column instead.
+    embeds the bare cluster in its header column instead. ``daily_note_href``
+    threads through to add the "Daily note" (today's note) button beside the
+    view's own periodic-note button.
     """
     return Div(
-        calendar_nav_cluster(prev_href, next_href, today_href, note_href, note_label),
+        calendar_nav_cluster(
+            prev_href, next_href, today_href, note_href, note_label, daily_note_href
+        ),
         cls="flex items-center justify-end gap-4 flex-wrap mb-5",
     )
 
@@ -475,6 +493,7 @@ def create_day_cell(
     """
     is_today = cell_date == date.today()
     daily_href = f"/journals/daily/{cell_date.isoformat()}"
+    day_lens_href = f"/today/{cell_date.isoformat()}"
 
     if is_today:
         date_el = A(
@@ -511,18 +530,21 @@ def create_day_cell(
     else:
         cell_cls += "bg-background"
 
-    # Navigate to the daily note on any click that isn't a chip (item modal) or a
-    # link. closest() — not target===this — because on busy days chips and their
-    # column wrapper cover most of the cell, which shrank the daily-note click
-    # surface to the date number alone. Plain JS so it works in HTMX-swapped
-    # content without an Alpine re-init.
+    # Act from the day: any click on the cell that isn't a chip (item modal) or a
+    # link opens that day's lens (/today/{date}, the acting surface — act-from arc
+    # C6), including past days (reviewing a past day is legitimate). closest() —
+    # not target===this — because on busy days chips and their column wrapper cover
+    # most of the cell, which shrank the click surface to the date number alone.
+    # The date-number link (an <a>, matched by closest('a')) stays independently
+    # clickable and keeps opening the daily note. Plain JS so it works in
+    # HTMX-swapped content without an Alpine re-init.
     return Div(
         # Day number top-right (standard desktop-calendar convention).
         Div(date_el, cls="flex items-center justify-end min-h-[24px] mb-[5px]"),
         Div(*chips, cls="flex flex-col gap-[3px]"),
         cls=cell_cls + " cursor-pointer",
         style=cell_style,
-        onclick=f"if(!event.target.closest('.calendar-item,a'))window.location.href='{daily_href}'",
+        onclick=f"if(!event.target.closest('.calendar-item,a'))window.location.href='{day_lens_href}'",
     )
 
 
@@ -565,8 +587,9 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
         body = Div(*body_children, cls="p-2 flex flex-col gap-1.5 flex-1")
 
         # Same non-chip/non-link click-through as the month cells: the card's
-        # empty space opens the daily note (the head link and chips keep their
-        # own behavior).
+        # empty space opens that day's lens (/today/{date}, the acting surface —
+        # act-from arc C6), while the head link (an <a> to the daily note) and the
+        # chips keep their own behavior.
         cards.append(
             Div(
                 head,
@@ -580,7 +603,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
                 ),
                 onclick=(
                     "if(!event.target.closest('.calendar-item,a'))"
-                    f"window.location.href='/journals/daily/{day.isoformat()}'"
+                    f"window.location.href='/today/{day.isoformat()}'"
                 ),
             )
         )

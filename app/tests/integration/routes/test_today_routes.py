@@ -103,6 +103,7 @@ def mock_services() -> Any:
     services.tasks = MagicMock()
     services.tasks.core = MagicMock()
     services.tasks.core.verify_ownership = AsyncMock(return_value=Result.ok(_make_task()))
+    services.tasks.core.create_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.update_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.complete_task = AsyncMock(return_value=Result.ok(_make_task()))
@@ -120,6 +121,7 @@ def mock_services() -> Any:
                 "date_label": "Saturday · April 23",
                 "heading": "Today",
                 "is_today": True,
+                "can_quick_add": True,
                 "now_hhmm": "09:00",
                 "stats": {"nodes": 0, "committed_min": 0, "done": 0},
                 "triage": [],
@@ -298,6 +300,84 @@ class TestTaskComplete:
         )
         request = _make_request()
         response = await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_001")
+        assert response.status_code == 500
+
+
+# ============================================================================
+# POST /today/tasks/quick-add
+# ============================================================================
+
+
+class TestTaskQuickAdd:
+    """C6: day-lens quick-add — scheduled_date only, no due_date, past refused."""
+
+    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
+        request = _make_request(
+            user_uid=None, form={"title": "x", "view_date": date.today().isoformat()}
+        )
+        with pytest.raises(HTTPException) as exc:
+            await handlers["/today/tasks/quick-add"](request=request)
+        assert exc.value.status_code == 401
+
+    async def test_creates_task_scheduled_on_view_date_without_due(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        view = date.today() + timedelta(days=5)
+        request = _make_request(form={"title": "  Draft memo  ", "view_date": view.isoformat()})
+        response = await handlers["/today/tasks/quick-add"](request=request)
+        assert response.status_code == 204
+        # HX-Redirect reloads the day's lens so the new work chip renders.
+        assert response.headers["HX-Redirect"] == f"/today/{view.isoformat()}"
+        call = mock_services.tasks.core.create_task.await_args
+        req = call.args[0]
+        assert req.title == "Draft memo"  # trimmed
+        assert req.scheduled_date == view
+        assert req.due_date is None  # a work chip, never a deadline
+        assert req.status == EntityStatus.SCHEDULED
+        assert call.args[1] == "user_mike"
+
+    async def test_today_is_allowed(self, handlers: dict[str, Any], mock_services: Any) -> None:
+        request = _make_request(form={"title": "x", "view_date": date.today().isoformat()})
+        response = await handlers["/today/tasks/quick-add"](request=request)
+        assert response.status_code == 204
+
+    async def test_blank_title_returns_400(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        request = _make_request(form={"title": "   ", "view_date": date.today().isoformat()})
+        response = await handlers["/today/tasks/quick-add"](request=request)
+        assert response.status_code == 400
+        mock_services.tasks.core.create_task.assert_not_called()
+
+    async def test_past_view_date_refused_400(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        """The affordance is hidden on past days; the POST is the backstop against
+        a forged/stale past-date request."""
+        past = date.today() - timedelta(days=1)
+        request = _make_request(form={"title": "late", "view_date": past.isoformat()})
+        response = await handlers["/today/tasks/quick-add"](request=request)
+        assert response.status_code == 400
+        mock_services.tasks.core.create_task.assert_not_called()
+
+    @pytest.mark.parametrize("view_date", ["", "not-a-date", "2026-13-40"])
+    async def test_bad_view_date_returns_400(
+        self, handlers: dict[str, Any], mock_services: Any, view_date: str
+    ) -> None:
+        request = _make_request(form={"title": "x", "view_date": view_date})
+        response = await handlers["/today/tasks/quick-add"](request=request)
+        assert response.status_code == 400
+        mock_services.tasks.core.create_task.assert_not_called()
+
+    async def test_create_failure_returns_500(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        mock_services.tasks.core.create_task = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="create_task", message="boom"))
+        )
+        view = date.today() + timedelta(days=1)
+        request = _make_request(form={"title": "x", "view_date": view.isoformat()})
+        response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 500
 
 
@@ -675,4 +755,13 @@ class TestCsrfProtection:
         monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")  # override the module-wide disable
         request = _make_request()  # authenticated, but carries no CSRF cookie/token
         response = await handlers[path](request=request, uid="x_001")
+        assert response.status_code == 403
+
+    async def test_quick_add_without_csrf_token_is_forbidden(
+        self, handlers: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # quick-add takes no uid path param — verify its own CSRF guard.
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+        request = _make_request(form={"title": "x", "view_date": date.today().isoformat()})
+        response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 403

@@ -150,6 +150,11 @@
       },
       onKey(e) {
         if (this.openTaskKey) return; // drawer owns keys while open
+        // Never hijack keystrokes typed into a field: j/k/x/d are single-key
+        // actions, but the day-lens quick-add input needs those letters as text.
+        const el = e.target;
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ||
+                   el.tagName === 'SELECT' || el.isContentEditable)) return;
         const k = e.key;
         if (k === 'j' || k === 'ArrowDown')      { e.preventDefault(); this.moveSelection(+1); }
         else if (k === 'k' || k === 'ArrowUp')   { e.preventDefault(); this.moveSelection(-1); }

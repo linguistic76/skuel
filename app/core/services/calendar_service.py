@@ -13,8 +13,12 @@ This service intentionally keeps a SIMPLE, BASIC, FUNDAMENTAL design.
 Core Responsibilities:
 1. Display calendar items (tasks, events, habits, goal milestones)
 2. Provide day/week/month views
-3. Basic CRUD operations (create, reschedule, quick-create)
+3. Reschedule tasks/events and record habit completions from the calendar
 4. Habit recurrence projection
+
+Creation is NOT a calendar concern: the day lens (/today/{date}) is the acting
+surface for adding tasks (act-from arc C6) — it creates through TasksService, so
+the calendar's former multi-type ``quick_create`` was deleted as superseded.
 
 This service does NOT provide:
 - Intelligent scheduling recommendations
@@ -36,7 +40,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import EntityUID, UserUID
 
@@ -44,7 +48,7 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
 
 from core.models.enums import Priority
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.event.calendar_models import (
     CalendarData,
@@ -81,7 +85,6 @@ from core.utils.neo4j_temporal import (
     convert_neo4j_time,
 )
 from core.utils.result_simplified import Errors, Result
-from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger("skuel.services.calendar")
 
@@ -319,82 +322,6 @@ class CalendarService:
                 occurrence_data={"date": on_date.isoformat(), "status": status.value},
             )
         )
-
-    @with_error_handling("quick_create", error_type="system")
-    async def quick_create(
-        self, user_uid: UserUID, item_type: str, title: str, start_time: datetime, **kwargs: Any
-    ) -> Result[CalendarItem]:
-        """
-        Quick create a calendar item.
-
-        Args:
-            item_type: Type of item (task, event, habit),
-            title: Title of the item,
-            start_time: Start time
-            **kwargs: Additional fields
-
-        Returns:
-            Result with created CalendarItem
-        """
-        duration = kwargs.get("duration", 60)  # Default 60 minutes
-        end_time = start_time + timedelta(minutes=duration)
-
-        if item_type == EntityType.TASK.value:
-            # Create task — frozen domain model end-to-end (ADR-035/ADR-065).
-            task = Task(
-                uid=EntityUID(UIDGenerator.generate_random_uid("task")),
-                entity_type=EntityType.TASK,
-                user_uid=user_uid,
-                title=title,
-                description=kwargs.get("description", ""),
-                scheduled_date=start_time.date(),
-                due_date=start_time.date(),
-                status=EntityStatus.SCHEDULED,
-                priority=Priority.MEDIUM,
-            )
-            task_result = await self.tasks_service.create(task)
-            if task_result.is_ok:
-                return Result.ok(self._task_to_calendar_item(task_result.value))
-            # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
-            return Result.fail(task_result)
-
-        elif item_type == EntityType.EVENT.value:
-            # Create event — frozen domain model end-to-end (ADR-035/ADR-065).
-            event = Event(
-                uid=EntityUID(UIDGenerator.generate_random_uid("event")),
-                entity_type=EntityType.EVENT,
-                user_uid=user_uid,
-                title=title,
-                description=kwargs.get("description", ""),
-                event_date=start_time.date(),
-                start_time=start_time.time(),
-                end_time=end_time.time(),
-                status=EntityStatus.SCHEDULED,
-            )
-            event_result = await self.events_service.create(event)
-            if event_result.is_ok:
-                return Result.ok(self._event_to_calendar_item(event_result.value))
-            # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
-            return Result.fail(event_result)
-
-        elif item_type == EntityType.HABIT.value:
-            # Create habit — frozen domain model end-to-end (ADR-035/ADR-065).
-            habit = Habit(
-                uid=EntityUID(UIDGenerator.generate_random_uid("habit")),
-                entity_type=EntityType.HABIT,
-                user_uid=user_uid,
-                title=title,
-                description=kwargs.get("description", ""),
-                target_days_per_week=kwargs.get("frequency", 7),
-                status=EntityStatus.ACTIVE,
-            )
-            habit_result = await self.habits_service.create(habit)
-            if habit_result.is_ok:
-                return Result.ok(self._habit_to_calendar_item(habit_result.value))
-            # Type boundary: Extract error from Result[Habit] for Result[CalendarItem]
-            return Result.fail(habit_result)
-
-        return Result.fail(Errors.validation(f"Unknown item type: {item_type}", field="item_type"))
 
     @with_error_handling("reschedule_item", error_type="system", uid_param="item_uid")
     async def reschedule_item(

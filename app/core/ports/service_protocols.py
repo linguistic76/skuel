@@ -99,25 +99,6 @@ class CalendarServiceOperations(Protocol):
         """
         ...
 
-    async def quick_create(
-        self,
-        user_uid: UserUID,
-        item_type: str,
-        title: str,
-        start_time: datetime,
-        *,
-        duration: int = ...,
-        description: str = ...,
-        frequency: int = ...,
-    ) -> "Result[CalendarItem]":
-        """Quick-create a calendar item owned by user_uid. Returns Result[CalendarItem].
-
-        The optional fields are the closed set ``CalendarService.quick_create``
-        reads: ``duration`` (task/event minutes), ``description``, and
-        ``frequency`` (habit target days per week).
-        """
-        ...
-
     async def reschedule_item(
         self,
         user_uid: UserUID,

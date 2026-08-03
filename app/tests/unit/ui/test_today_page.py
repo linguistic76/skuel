@@ -15,12 +15,19 @@ from fasthtml.common import to_xml
 from ui.today.page import TodayPage, _step_day
 
 
-def _ctx(today_iso: str, *, heading: str = "Today", is_today: bool = True) -> dict:
+def _ctx(
+    today_iso: str,
+    *,
+    heading: str = "Today",
+    is_today: bool = True,
+    can_quick_add: bool = True,
+) -> dict:
     return {
         "today_iso": today_iso,
         "date_label": "X",
         "heading": heading,
         "is_today": is_today,
+        "can_quick_add": can_quick_add,
         "now_hhmm": "09:00",
         "stats": {"nodes": 0, "committed_min": 0, "done": 0},
         "triage": [],
@@ -78,3 +85,19 @@ def test_drawer_defer_buttons_have_exactly_one_transport() -> None:
     assert "/defer`" not in xml  # no `:hx-post` template literal for defer
     assert "/complete`" not in xml  # no hx-post twin on Mark complete either
     assert "deferTask(keySource(openTaskKey), keyId(openTaskKey)" in xml
+
+
+def test_quick_add_present_on_actable_day_anchored_to_view_date() -> None:
+    """C6: today/future lenses carry a tasks-only quick-add posting to the
+    day-lens create route, anchored to the viewed day."""
+    xml = to_xml(TodayPage(_ctx("2026-08-20")))
+    assert 'hx-post="/today/tasks/quick-add"' in xml
+    assert 'name="view_date"' in xml
+    assert 'value="2026-08-20"' in xml
+    assert 'name="title"' in xml
+
+
+def test_quick_add_absent_on_past_day() -> None:
+    """C6: a past-day lens offers no add — the POST refuses past dates too."""
+    xml = to_xml(TodayPage(_ctx("2020-01-01", heading="Jan 1", can_quick_add=False)))
+    assert "/today/tasks/quick-add" not in xml

@@ -22,7 +22,9 @@ from fasthtml.common import (
     Aside,
     Button,
     Div,
+    Form,
     Header,
+    Input,
     Li,
     Main,
     NotStr,
@@ -66,7 +68,7 @@ def TodayPage(ctx: TodayPageContext) -> FT:
     return Main(
         _seed_script(seed_json),
         _header(view_date, ctx["heading"]),
-        _two_column(),
+        _two_column(view_date, can_quick_add=ctx["can_quick_add"]),
         _flash_toast(),
         _drawer(),
         # Synchronous (no defer) so this registers the alpine:init listener
@@ -190,20 +192,68 @@ def _stats_row() -> FT:
 # ============================================================================
 
 
-def _two_column() -> FT:
+def _two_column(view_date: date, *, can_quick_add: bool) -> FT:
     return Div(
-        _ribbons_column(),
+        _ribbons_column(view_date, can_quick_add=can_quick_add),
         _day_spine(),
         cls="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_252px] gap-7 items-start",
     )
 
 
-def _ribbons_column() -> FT:
-    return Div(
+def _ribbons_column(view_date: date, *, can_quick_add: bool) -> FT:
+    # Quick-add sits above the ribbons and outside the allEmpty gate, so a caught-up
+    # day still offers a way to add the first task (act-from arc C6). Absent on past
+    # days — you plan work forward, not into a day already gone.
+    children: list[FT] = []
+    if can_quick_add:
+        children.append(_quick_add(view_date))
+    children += [
         _empty_state(),
         _triage_bar(),
         _lifepath_ribbons(),
         _keyboard_hints(),
+    ]
+    return Div(*children)
+
+
+def _quick_add(view_date: date) -> FT:
+    """Tasks-only quick-add for the viewed day (act-from arc C6).
+
+    Creates a task with ``scheduled_date`` = the viewed day and NO ``due_date``
+    ("I'll work on it that day" — a work chip, not a deadline). Submits via HTMX
+    (CSRF header attached by skuel.js); the route replies ``HX-Redirect`` back to
+    this day's lens so the new task renders immediately. The hidden ``view_date``
+    anchors creation to the day the lens is pointed at, not a second server clock.
+    """
+    return Form(
+        Input(type="hidden", name="view_date", value=view_date.isoformat()),
+        Input(
+            type="text",
+            name="title",
+            placeholder="Add a task for this day…",
+            required=True,
+            autocomplete="off",
+            maxlength="200",
+            aria_label="New task title",
+            cls=(
+                "flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-card "
+                "text-sm text-foreground placeholder:text-muted-foreground "
+                "focus:outline-none focus:shadow-focus"
+            ),
+        ),
+        Button(
+            Icon("plus", size=15),
+            "Add task",
+            type="submit",
+            cls=(
+                "inline-flex items-center gap-1.5 h-10 px-4 rounded-md shrink-0 "
+                "bg-foreground text-background text-sm font-semibold "
+                "hover:opacity-90 focus:outline-none focus:shadow-focus"
+            ),
+        ),
+        hx_post="/today/tasks/quick-add",
+        hx_swap="none",
+        cls="mb-6 flex items-center gap-2",
     )
 
 

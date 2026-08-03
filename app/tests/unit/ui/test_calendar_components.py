@@ -25,7 +25,11 @@ from ui.calendar.components import (
     _event_chip,
     _items_by_date,
     _opens_detail_modal,
+    calendar_nav_cluster,
+    create_calendar_toolbar,
+    create_day_cell,
     create_item_details_modal,
+    create_week_grid,
 )
 
 
@@ -292,3 +296,79 @@ def test_milestone_modal_never_offers_reschedule() -> None:
     html = to_xml(create_item_details_modal(_milestone_item()))
     assert "/reschedule" not in html
     assert 'name="new_date"' not in html
+
+
+# ---------------------------------------------------------------------------
+# Day-click acts: cell/card body opens the day lens; date number stays the
+# daily-note door (act-from arc C6)
+# ---------------------------------------------------------------------------
+
+
+def test_month_day_cell_click_opens_day_lens_number_keeps_daily_note() -> None:
+    cell = to_xml(create_day_cell(date(2026, 8, 20), [], is_current_month=True, is_weekend=False))
+    # Cell body click → the day lens (the acting surface).
+    assert "window.location.href='/today/2026-08-20'" in cell
+    # Guarded so chips and the date-number link stay independently clickable.
+    assert "closest('.calendar-item,a')" in cell
+    # The date-number link still opens that day's daily note.
+    assert 'href="/journals/daily/2026-08-20"' in cell
+
+
+def test_month_past_day_cell_still_navigates_to_its_lens() -> None:
+    """Reviewing a past day is legitimate — the cell always opens its lens."""
+    cell = to_xml(create_day_cell(date(2020, 1, 1), [], is_current_month=True, is_weekend=False))
+    assert "window.location.href='/today/2020-01-01'" in cell
+
+
+def test_week_card_click_opens_day_lens_head_keeps_daily_note() -> None:
+    data = CalendarData(
+        items=[],
+        occurrences={},
+        view=CalendarView.WEEK,
+        start_date=date(2026, 8, 17),  # Monday
+        end_date=date(2026, 8, 23),
+        metadata={},
+    )
+    grid = to_xml(create_week_grid(data))
+    # Each day card body opens that day's lens; the head link keeps the daily note.
+    assert "window.location.href='/today/2026-08-20'" in grid
+    assert 'href="/journals/daily/2026-08-20"' in grid
+
+
+# ---------------------------------------------------------------------------
+# Toolbar: Month/Week gain a "Daily note" (today's) button beside the
+# view's own periodic note; the day-lens cluster keeps a single note button
+# ---------------------------------------------------------------------------
+
+
+def test_toolbar_has_both_period_note_and_daily_note_buttons() -> None:
+    toolbar = to_xml(
+        create_calendar_toolbar(
+            prev_href="/cal/month/2026/7",
+            next_href="/cal/month/2026/9",
+            today_href="/cal",
+            note_href="/journals/monthly/2026/8",
+            note_label="Monthly note",
+            daily_note_href="/journals/daily/2026-08-02",
+        )
+    )
+    assert "Monthly note" in toolbar
+    assert "Daily note" in toolbar
+    assert 'href="/journals/daily/2026-08-02"' in toolbar
+
+
+def test_nav_cluster_without_daily_note_href_has_one_note_button() -> None:
+    """The Today day-lens header omits the second button — its single note
+    button already IS the daily note."""
+    cluster = to_xml(
+        calendar_nav_cluster(
+            prev_href="/today/2026-08-01",
+            next_href="/today/2026-08-03",
+            today_href="/today",
+            note_href="/journals/daily/2026-08-02",
+            note_label="Daily note",
+        )
+    )
+    # Exactly one periodic-note button (each carries a title="Open …").
+    assert cluster.count('title="Open ') == 1
+    assert "Daily note" in cluster
