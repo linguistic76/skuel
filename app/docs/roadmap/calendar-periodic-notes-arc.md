@@ -122,15 +122,17 @@ for the weekly/monthly notes. That is this arc.
   references resolve on any parsed line; all six domains have creators including
   `_create_choice`/`_create_principle` (`activity_extractor.py`). PR 3 is
   verify-against-specimens + close gaps + document — not green-field.
-- **⚠️ The FULL-tier bridge pre-pass violates E3 for periodic notes today** (Codex
-  finding on this PR, code-verified). When `dsl_bridge` is wired (FULL tier),
-  `UserEntryProcessingService.process()` sends all non-checkbox prose to the LLM and
-  appends the generated `@context()` lines before parsing
-  (`user_entry_processing_service.py:439-486`); vault sync triggers this for every
-  EXTRACT_ACTIVITIES entry (`user_entry_ingestion.py:584-588`). Unmarked periodic-note
-  prose can therefore create entities — "inferred from writing", which E3 rules out.
-  PR 3 closes this: periodic entries bypass the bridge pre-pass; non-periodic entries
-  keep it unchanged (the bridge is a sanctioned Digital enhancement elsewhere).
+- **⚠️ The FULL-tier bridge pre-pass violated E3 for periodic notes** (Codex
+  finding on this PR, code-verified — **CLOSED by PR 3**). When `dsl_bridge` was
+  wired (FULL tier), `UserEntryProcessingService.process()` sent all non-checkbox
+  prose to the LLM and appended the generated `@context()` lines before parsing;
+  vault sync triggered this for every EXTRACT_ACTIVITIES entry. Unmarked
+  periodic-note prose could therefore create entities — "inferred from writing",
+  which E3 rules out. PR 3 closed this: periodic entries bypass the bridge
+  pre-pass (gated on the shared `UserEntry.is_periodic_note()` model predicate);
+  non-periodic entries keep it unchanged (the bridge is a sanctioned Digital
+  enhancement elsewhere). Contract documented in `docs/dsl/DSL_USAGE_GUIDE.md`
+  § Periodic Notes — The Parse Contract (cross-linked with the ingestion guide).
 - **The weekly-note page is a bare editor today.** `/journals/{entry_uid}` renders
   `PeriodicNotePage` with an editable `PeriodicNoteFragment` (title + content) and
   nothing else (`journals_routes.py:1054-1105`) — PR 2's panel has a clean canvas.
