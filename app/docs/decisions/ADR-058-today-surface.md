@@ -142,7 +142,7 @@ usage data shows `/home` traffic has fallen off.
 - `GET  /today/{date_str}` — day lens for an arbitrary date (Prev/Now/Next navigation, parallel to Week/Month); unparseable dates degrade to today
 - `GET  /today/tasks/{id}/drawer` — detail drawer fragment
 - `POST /today/tasks/{id}/complete` — optimistic complete, 204
-- `POST /today/tasks/{id}/defer` — accepts `span=1d|1w`, 204
+- `POST /today/tasks/{id}/defer` — accepts `span=1d|1w` + `source=ribbon|triage` + `view_date`; moves the field(s) the card spoke for to `view_date + span`, guarded by the shared lens-membership predicate (`ui/today/membership.py`, C7 of the calendar act-from arc), 204
 - `POST /today/tasks/{id}/star` — toggle priority pin, 204
 - `POST /today/lifepaths/{id}/wake` — clear dormant flag, returns ribbon fragment
 
