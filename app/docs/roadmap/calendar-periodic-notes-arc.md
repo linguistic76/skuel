@@ -88,6 +88,10 @@ for the weekly/monthly notes. That is this arc.
 - **S2 — Visible note-doors.** Make the day-cell → daily-note navigation discoverable
   (R5's nearby "Details"-style link or equivalent affordance); keep the existing
   Weekly/Monthly note buttons; audit Today view for the same door.
+  *(Update 2026-08-02: the act-from arc's C6 ruling re-routes day-cell click to
+  `/today/{date}` and adds "Daily note" toolbar buttons to both calendar views while
+  keeping the per-cell date-number links — the calendar side of S2 is largely
+  pre-resolved by act-from PR 6; at pickup, audit the Today view door and any residue.)*
 - **S3 — Weekly note as planning surface** *(elicit mechanics at pickup)*. Designed
   function per R4: the place where next week's intentions become scheduled entities.
   Open: does planning flow through EXTRACT_ACTIVITIES lines, a guided section, or

@@ -3,7 +3,8 @@
 **Status:** CONFIRMED 2026-08-02 (founder ruling: "I want the calendar to be a place that
 I act from") — scoped 2026-08-02 after live-graph verification + full code-path read
 (routes → service → query builder → components). This document is the arc's source of
-truth; each PR runs in a fresh context against it.
+truth; each PR runs in a fresh context against it. **PRs 1–5 shipped 2026-08-02
+(#913–#917). C6 ruled at its own elicitation later that day — see C6 and PR table row 6.**
 **Related:** `core/services/calendar_service.py`, `adapters/inbound/calendar_ui.py`,
 `ui/calendar/components.py`, `scripts/detect_bloat.py` (`_CALENDAR_EDIT_SURFACE` PLANNED
 tier), the #623 all-chips-visible ruling, the Monday-start ISO-rail ruling (PERMANENT).
@@ -17,7 +18,8 @@ it truthful (everything that should render, renders, consistently across views) 
 makes it **actable**: completing habits per-day, rescheduling tasks/events — un-staging
 the three PLANNED calendar-edit methods (`quick_create`, `reschedule_item`,
 `record_habit_occurrence`) that have waited since the 2026-07-12 redesign for exactly
-this decision.
+this decision. (Outcome: two were wired in PRs 3–4; `quick_create` was superseded by
+the C6 ruling and is deleted, not wired — see C6.)
 
 ## Founder ruling (2026-08-02 elicitation)
 
@@ -147,12 +149,33 @@ deletion-campaign protocol; the service's occurrence generator is the one path).
 surface forward pull for free); porting any converter logic first (verified drifted and
 wrong).
 
-**C6 — Quick-add: staged, elicit before build.** `quick_create` stays PLANNED unless
-PR 6 is green-lit at its own elicitation. Open design tension to resolve THEN: day-cell
-click already navigates to the daily note (a loved affordance) — quick-add needs a
-non-conflicting entry point (hover "+" chip? toolbar button + date picker?). Honest
-essentialness read: habit-complete and reschedule are daily-lived; quick-add duplicates
-the existing Create-an-Event page and /tasks forms. Deferral is acceptable and cheap.
+**C6 — Day-click acts: the day lens is the entry point; `quick_create` dies superseded.**
+RULED 2026-08-02 (founder elicitation #2; supersedes the staged-elicit-first text that
+stood here). The entry-point tension resolved by re-routing the click, not by adding a
+new affordance to the grid:
+- **Day-cell click → `/today/{date}`** (the existing day lens from the Today↔Calendar
+  arc) — month grid cells AND week-view day cards, keeping the `closest()` guard so
+  chips/links stay independently clickable. Past days navigate too (reviewing a past
+  day is legitimate; the lens is always meaningful).
+- **Daily-note doors:** the per-cell date-number link to `/journals/daily/{date}` STAYS
+  (the always-nearby door). The Month AND Week toolbars gain a **"Daily note"** button
+  (today's note) beside their period-note button — completing the Daily/Weekly/Monthly
+  family. This pre-resolves the calendar side of periodic-notes S2 (visible note-doors).
+- **Quick-add is TASKS ONLY and lives on the day lens**, not in a calendar modal: an
+  add-a-task affordance on `/today/{date}` creating with `scheduled_date` = viewed day
+  and **no `due_date`** (work-chip semantics — founder: "it's I'll work on it that
+  day"). The affordance is absent on past-day lenses AND the POST refuses past dates
+  server-side. Events keep the Create-an-Event page; the day lens may carry a
+  date-prefilled "Create event for this day" link.
+- **`quick_create` is DELETED as superseded, not wired:** it was designed for a
+  calendar-owned modal world — multi-type, and it stamps BOTH `scheduled_date` and
+  `due_date` (contradicting the ruling). Creation belongs to the Today surface through
+  `TasksService`, like the lens's existing complete/defer/star actions. Un-register it
+  from `PLANNED_METHODS` in the same PR — `_CALENDAR_EDIT_SURFACE` empties.
+*Rejected:* a calendar quick-add modal (duplicates existing forms; the day lens IS the
+acting surface); hover "+" chips (grid noise); toolbar-only daily-note access (past
+days' notes would lose their calendar door); inline event creation on the lens
+(duplicates Create-an-Event; tasks are the daily-lived quick capture).
 
 ## Non-goals (this arc)
 
@@ -190,7 +213,9 @@ the gate auto-passes docs PRs without a verdict).
 | 3 | C3 — day-aware habit chips, real completion state, per-day Mark Complete | Clicking "Meditate" on yesterday's cell opens a modal for THAT day; Mark Complete records a completion dated yesterday (verified in graph); the chip turns completed; today's chip completed via /habits also renders completed; future chips offer no completion |
 | 4 | C4 — modal reschedule for tasks/events | Rescheduling a live scheduled task from its modal moves the chip to the new date (graph verified); an event keeps its duration; non-owner UIDs get not-found |
 | 5 | C5 — goals as Milestones (incl. `goal-` in `get_item` + modal); delete dead converters; docstring truth | Setting a `target_date` on live goal "Focus on Van" renders a purple Milestone chip on that day; clicking it opens a working details modal with a View Goal link (non-owner → not-found); `ui/calendar/converters.py` + its test are gone; `calendar_routes.py` docstring matches reality |
-| 6 | C6 — quick-add (OPTIONAL — separate elicitation first) | Elicit entry-point design with founder before any code |
+| 6 | C6 — day-click → day lens; day-lens task quick-add; Daily-note toolbar buttons; delete `quick_create` | Clicking Aug 20 in month AND week views opens `/today/2026-08-20`; adding a task there creates it with `scheduled_date=2026-08-20`, no `due_date`, and it renders as a work chip on the calendar; a past day's lens offers no add and a forged past-date POST is refused; date numbers still link to daily notes; both toolbars show a Daily note button opening today's note; `quick_create` gone from `CalendarService` AND `PLANNED_METHODS` (`_CALENDAR_EDIT_SURFACE` empty); `./dev bloat` clean |
 
 PR 1 → 2 → 3 is the dependency spine (truthful grid → truthful items → actions on
 them); PRs 4 and 5 are independent of each other and can land in either order after 3.
+PR 6 runs last (ruled after 1–5 shipped; it re-routes the day-cell click and touches
+the toolbar both earlier PRs shaped).
