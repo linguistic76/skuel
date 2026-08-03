@@ -232,6 +232,14 @@ def create_today_routes(
                 )
             move_fields = ribbon_date_fields(task, view_date)
 
+        # The day lens supports the full date range (its Prev/Next arrows clamp
+        # at date.min/date.max), so a card CAN render on a boundary day —
+        # view_date + span would raise OverflowError there. Refuse controlled.
+        if view_date > date.max - delta:
+            return Response(
+                "Deferred date would pass the end of the supported date range",
+                status_code=400,
+            )
         new_value = view_date + delta
 
         # Moving only the work date must not push it past a standing deadline

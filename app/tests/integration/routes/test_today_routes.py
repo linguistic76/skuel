@@ -511,6 +511,21 @@ class TestTaskDefer:
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
+    async def test_defer_at_date_max_boundary_returns_400_not_500(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        """The day lens supports date.max (its nav arrows clamp there), so a
+        ribbon card can exist on the boundary day — view_date + span must be
+        refused controlled, not raise OverflowError."""
+        boundary = date.max
+        mock_services.tasks.get_task = AsyncMock(
+            return_value=Result.ok(_make_task(scheduled=boundary))
+        )
+        request = _make_request(form=_defer_form(span="1d", source="ribbon", view_date=boundary))
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        assert response.status_code == 400
+        mock_services.tasks.update_task.assert_not_called()
+
     # ---- date-ordering refusals (C4's guard family) -----------------------------
 
     async def test_ribbon_defer_pushing_scheduled_past_due_is_refused(
