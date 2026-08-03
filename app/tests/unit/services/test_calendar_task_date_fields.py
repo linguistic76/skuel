@@ -1,7 +1,7 @@
 """Unit tests for the calendar's due-OR-scheduled task fetch (act-from arc C2).
 
 Defect: tasks were fetched with the DomainConfig ``due_date`` field only, yet
-``_task_to_calendar_item`` renders ``scheduled_date``-first as a TASK_WORK chip
+``_task_to_calendar_item`` renders ``scheduled_date``-first as a Task work chip
 — so a scheduled-only task (no due_date) could never be fetched, and therefore
 never render. The fix threads an OR-of-date-fields override through the range
 seam; the calendar asks Tasks for ``["due_date", "scheduled_date"]``.
@@ -76,7 +76,7 @@ async def test_fetch_tasks_requests_due_or_scheduled() -> None:
 
 @pytest.mark.asyncio
 async def test_scheduled_only_task_renders_as_work_chip() -> None:
-    """A scheduled-only task (no due_date) surfaces as a 9am TASK_WORK chip."""
+    """A scheduled-only task (no due_date) surfaces as a 9am Task chip."""
     scheduled_only = _task(uid="task_sched", scheduled=date(2026, 8, 12))
     service, _ = _calendar_with_tasks([scheduled_only])
 
@@ -86,14 +86,16 @@ async def test_scheduled_only_task_renders_as_work_chip() -> None:
 
     assert len(items) == 1
     item = items[0]
-    assert item.item_type == CalendarItemType.TASK_WORK
+    assert item.item_type == CalendarItemType.TASK
+    assert item.is_due is False
     assert item.all_day is False
     assert item.start_time == datetime(2026, 8, 12, 9, 0)
 
 
 @pytest.mark.asyncio
-async def test_due_only_task_still_renders_as_deadline_chip() -> None:
-    """A due-only task keeps its all-day TASK_DEADLINE placement (unchanged by C2)."""
+async def test_due_only_task_renders_as_due_state_task() -> None:
+    """A due-only task is still a Task — the ONE kind — carrying the due
+    state (periodic-notes arc E1): all-day placement, ⏰ icon, is_due flag."""
     due_only = _task(uid="task_due", due=date(2026, 8, 20))
     service, _ = _calendar_with_tasks([due_only])
 
@@ -103,6 +105,8 @@ async def test_due_only_task_still_renders_as_deadline_chip() -> None:
 
     assert len(items) == 1
     item = items[0]
-    assert item.item_type == CalendarItemType.TASK_DEADLINE
+    assert item.item_type == CalendarItemType.TASK
+    assert item.is_due is True
+    assert item.icon == "⏰"
     assert item.all_day is True
     assert item.start_time.date() == date(2026, 8, 20)

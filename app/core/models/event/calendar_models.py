@@ -26,19 +26,22 @@ def _default_all_item_types() -> Any:
 
 
 class CalendarItemType(StrEnum):
-    """Type of item displayed on calendar"""
+    """Kind of item displayed on calendar.
+
+    Four kinds — one per grid-rendered thing (periodic-notes arc E1). Due-ness
+    is NOT a kind: a due-but-unscheduled task is still a Task, carrying the
+    ``CalendarItem.is_due`` state flag (the way completed is a state).
+    """
 
     EVENT = "event"  # Native event (meeting, appointment)
-    TASK_WORK = "task_work"  # Scheduled work block from task
-    TASK_DEADLINE = "task_deadline"  # Task due date marker
+    TASK = "task"  # Task chip (scheduled work, or due-only via is_due)
     HABIT = "habit"  # Recurring habit block
-    MILESTONE = "milestone"  # Project milestone
+    MILESTONE = "milestone"  # Goal target date
 
     def get_icon(self) -> str:
         """Get emoji icon for this calendar item type"""
         icons = {
-            CalendarItemType.TASK_WORK: "📋",
-            CalendarItemType.TASK_DEADLINE: "⏰",
+            CalendarItemType.TASK: "📋",
             CalendarItemType.EVENT: "📅",
             CalendarItemType.HABIT: "🔄",
             CalendarItemType.MILESTONE: "🎯",
@@ -51,11 +54,12 @@ class CalendarItemType(StrEnum):
         The calendar's per-type palette (Dynamic Enum Pattern): color communicates
         the KIND of item, so the legend stays truthful across month/week/day.
         These are item-data hex values (CalendarItem.color), not CSS tokens.
+        Due-state urgency is a chip-level cue (⏰ + red accent, calendar.css),
+        never a kind color.
         """
         colors = {
             CalendarItemType.EVENT: "#2563eb",
-            CalendarItemType.TASK_WORK: "#6366f1",
-            CalendarItemType.TASK_DEADLINE: "#e11d48",
+            CalendarItemType.TASK: "#6366f1",
             CalendarItemType.HABIT: "#16a34a",
             CalendarItemType.MILESTONE: "#9333ea",
         }
@@ -65,8 +69,7 @@ class CalendarItemType(StrEnum):
         """Human label for this type — legend + item-detail type pill."""
         labels = {
             CalendarItemType.EVENT: "Event",
-            CalendarItemType.TASK_WORK: "Task",
-            CalendarItemType.TASK_DEADLINE: "Deadline",
+            CalendarItemType.TASK: "Task",
             CalendarItemType.HABIT: "Habit",
             CalendarItemType.MILESTONE: "Milestone",
         }
@@ -133,6 +136,9 @@ class CalendarItem:
     color: str = "#3B82F6"  # Hex color for rendering
     icon: str = "📅"  # Emoji or icon class
     all_day: bool = False
+    # Due-state (tasks): due-but-unscheduled — a STATE of a Task, not a kind
+    # (periodic-notes arc E1). Chips render it as ⏰ + red accent.
+    is_due: bool = False
 
     # Recurrence
     is_recurring: bool = False

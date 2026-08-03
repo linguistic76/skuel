@@ -35,8 +35,7 @@
  * Pure CSS so filters keep applying to HTMX-swapped grid content.
  */
 .cal-hide-event [data-item-type="event"],
-.cal-hide-task_work [data-item-type="task_work"],
-.cal-hide-task_deadline [data-item-type="task_deadline"],
+.cal-hide-task [data-item-type="task"],
 .cal-hide-habit [data-item-type="habit"],
 .cal-hide-milestone [data-item-type="milestone"] {
     display: none;
@@ -48,11 +47,20 @@
 }
 
 .cal-spot-event [data-item-type]:not([data-item-type="event"]),
-.cal-spot-task_work [data-item-type]:not([data-item-type="task_work"]),
-.cal-spot-task_deadline [data-item-type]:not([data-item-type="task_deadline"]),
+.cal-spot-task [data-item-type]:not([data-item-type="task"]),
 .cal-spot-habit [data-item-type]:not([data-item-type="habit"]),
 .cal-spot-milestone [data-item-type]:not([data-item-type="milestone"]) {
     opacity: 0.25;
+}
+
+/*
+ * Due-state urgency cue (periodic-notes arc E1): a due-but-unscheduled task
+ * is still a Task (one legend kind), but its chip carries data-due="true" —
+ * the left accent turns red while the fill keeps the Task kind color.
+ * !important: the accent overrides the chip's inline border-left kind color.
+ */
+.calendar-item[data-due="true"] {
+    border-left-color: #e11d48 !important;
 }
 
 /*

@@ -315,7 +315,7 @@ assert get_status_badge_class("invalid") == "bg-gray-100 text-gray-600 border-gr
 
 # Calendar component tests — build frozen CalendarItem fixtures directly
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
-item = CalendarItem(uid="task-task_1", source_uid="task_1", item_type=CalendarItemType.TASK_WORK,
+item = CalendarItem(uid="task-task_1", source_uid="task_1", item_type=CalendarItemType.TASK,
                     title="Test", start_time=start, end_time=end)
 assert "hx-get" in to_xml(_event_chip(item))
 ```

@@ -9,7 +9,7 @@ shape contract. Complements the handler-level smoke tests in
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -33,7 +33,7 @@ def _item() -> CalendarItem:
     return CalendarItem(
         uid=_ITEM_UID,
         source_uid="task_1",
-        item_type=CalendarItemType.TASK_WORK,
+        item_type=CalendarItemType.TASK,
         title="Write essay",
         description="",
         start_time=datetime(2026, 7, 18, 9, 0),
@@ -102,6 +102,21 @@ class TestResponseShape:
         payload = response.json()
         assert payload["uid"] == _ITEM_UID
         assert payload["source_uid"] == "task_1"
-        assert payload["item_type"] == CalendarItemType.TASK_WORK.value
+        assert payload["item_type"] == CalendarItemType.TASK.value
+        # One Task kind — the due STATE must travel in the payload (E1),
+        # else consumers can't tell due-only from scheduled tasks.
+        assert payload["is_due"] is False
         assert payload["start_time"] == "2026-07-18T09:00:00"
         assert payload["attendee_count"] == 0
+
+    def test_due_only_item_payload_carries_due_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        due_item = replace(_item(), is_due=True, all_day=True)
+        harness.calendar.get_item = AsyncMock(return_value=Result.ok(due_item))
+
+        response = harness.client.get(f"/api/v2/calendar/items/{_ITEM_UID}")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["item_type"] == CalendarItemType.TASK.value
+        assert payload["is_due"] is True

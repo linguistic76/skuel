@@ -275,7 +275,7 @@ def _rescheduled_task_item() -> CalendarItem:
     return CalendarItem(
         uid="task-task_1",
         source_uid="task_1",
-        item_type=CalendarItemType.TASK_WORK,
+        item_type=CalendarItemType.TASK,
         title="Rescheduled task",
         start_time=datetime(2026, 8, 14, 9, 0),
         end_time=datetime(2026, 8, 14, 10, 0),
