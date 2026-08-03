@@ -122,6 +122,15 @@ for the weekly/monthly notes. That is this arc.
   references resolve on any parsed line; all six domains have creators including
   `_create_choice`/`_create_principle` (`activity_extractor.py`). PR 3 is
   verify-against-specimens + close gaps + document — not green-field.
+- **⚠️ The FULL-tier bridge pre-pass violates E3 for periodic notes today** (Codex
+  finding on this PR, code-verified). When `dsl_bridge` is wired (FULL tier),
+  `UserEntryProcessingService.process()` sends all non-checkbox prose to the LLM and
+  appends the generated `@context()` lines before parsing
+  (`user_entry_processing_service.py:439-486`); vault sync triggers this for every
+  EXTRACT_ACTIVITIES entry (`user_entry_ingestion.py:584-588`). Unmarked periodic-note
+  prose can therefore create entities — "inferred from writing", which E3 rules out.
+  PR 3 closes this: periodic entries bypass the bridge pre-pass; non-periodic entries
+  keep it unchanged (the bridge is a sanctioned Digital enhancement elsewhere).
 - **The weekly-note page is a bare editor today.** `/journals/{entry_uid}` renders
   `PeriodicNotePage` with an editable `PeriodicNoteFragment` (title + content) and
   nothing else (`journals_routes.py:1054-1105`) — PR 2's panel has a clean canvas.
@@ -152,9 +161,11 @@ for the weekly/monthly notes. That is this arc.
 - **S4 — Parse contract (PR 3).** Per E3: recognized shapes = checkbox lines +
   explicit `@context()` DSL markers; nothing else, ever. Deliverables: verify the
   live contract against the real specimens (daily + weekly), close gaps (especially
-  explicit-marker Choices/Principles in periodic-note prose), and DOCUMENT the
-  recognized-shape contract where the docs architecture homes it (DSL usage guide or
-  ingestion guide § periodic notes — cross-linked both ways).
+  explicit-marker Choices/Principles in periodic-note prose), **gate the FULL-tier
+  bridge pre-pass off for periodic entries** (see ground truth — unmarked prose must
+  create nothing on EITHER tier; non-periodic entries keep the bridge), and DOCUMENT
+  the recognized-shape contract where the docs architecture homes it (DSL usage guide
+  or ingestion guide § periodic notes — cross-linked both ways).
 - **S5 — Markwhen: DEFERRED** (E4). Recorded; out of arc.
 
 ## Non-goals
@@ -194,7 +205,7 @@ vault content in this public repo — specimen shapes only.
 | 0 | This doc (docs-only; summon Codex explicitly — the gate auto-passes docs PRs without a verdict) | Doc reflects E1–E4 + S2 resolution; PR table matches the rulings |
 | 1 | S1 — pair-grouped legend; one Task kind (due = chip state); visible filter affordance | Legend shows Tasks+Events / Goals+Habits groups with four kind-swatches; a live due-only task renders as a Task chip WITH the due-state cue; clicking the Task swatch hides scheduled AND due-only task chips; hover spotlight unchanged; swatches read as controls (discoverable affordance); the item-details pill for a due-only task says "Task"; no legend entry for Choices/Principles; month + week views verified in headless Chrome |
 | 2 | S3 — weekly-note page read panel (week's Tasks+Events + Milestones, day-lens links) | A live week's note shows that ISO week's tasks (due OR scheduled) + events + any milestone dated in-week, in pair vocabulary; rows link to `/today/{date}`; the panel is read-only; a checkbox task line with an in-week `📅` due date added to the vault weekly note appears in the panel after "Sync from Obsidian" (plan → entity → visible loop closed); daily/monthly note pages unchanged |
-| 3 | S4 — verify + close gaps + document the periodic-note parse contract | A specimen-shaped note ingests: checkbox task line → Task; explicit `@context(choice)` line → Choice (and `@context(principle)` → Principle); unmarked prose creates NOTHING — including bare lines under a "## Goals" heading (negative control for the ruled-out section magic); the recognized-shape contract is documented and matches behavior |
+| 3 | S4 — verify + close gaps + document the periodic-note parse contract; periodic entries bypass the FULL-tier bridge pre-pass | A specimen-shaped note ingests: checkbox task line → Task; explicit `@context(choice)` line → Choice (and `@context(principle)` → Principle); unmarked prose creates NOTHING — including bare lines under a "## Goals" heading (negative control for the ruled-out section magic) — **with the FULL-tier bridge path active** (`dsl_bridge` wired), not just parser-only CORE; a non-periodic EXTRACT_ACTIVITIES entry still gets the bridge pre-pass (no regression); the recognized-shape contract is documented and matches behavior |
 
 PR 1 is independent; PRs 2 and 3 are independent of each other (suggested order
 1 → 2 → 3). Any PR that discovers a contract-breaking surprise updates THIS doc in
