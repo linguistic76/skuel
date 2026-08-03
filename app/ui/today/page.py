@@ -246,6 +246,11 @@ def _empty_state() -> FT:
 
 
 def _task_row(*, is_triage: bool) -> FT:
+    # Composite (source, uid) card key — a dual-membership task renders one
+    # card per surface and ALL interaction state (selection, hide, drawer)
+    # is keyed per card, never per task (C7). Matches cardKey() in today.js.
+    source = "triage" if is_triage else "ribbon"
+    row_key_expr = f"'{source}:' + t.id"
     right_label_expr = "t.reason || ''" if is_triage else "t.due_label || ''"
     row_classes = (
         "task-row relative flex items-center gap-3 px-3.5 py-2.5 bg-card "
@@ -307,12 +312,12 @@ def _task_row(*, is_triage: bool) -> FT:
         cls="w-7 h-7 rounded flex-none flex items-center justify-center",
         **{
             ":class": (
-                "selectedId === t.id "
+                f"selectedKey === {row_key_expr} "
                 "? 'bg-primary text-primary-foreground' "
                 ": 'text-muted-foreground hover:bg-muted'"
             ),
             ":aria-label": "'Open ' + (t.label || '')",
-            "@click.stop": "openDrawer(t.id)",
+            "@click.stop": f"openDrawer({row_key_expr})",
         },
     )
 
@@ -325,13 +330,13 @@ def _task_row(*, is_triage: bool) -> FT:
         role="button",
         tabindex="0",
         **{
-            ":class": "{ 'ring-2 ring-primary/40 shadow-focus': selectedId === t.id }",
+            ":class": f"{{ 'ring-2 ring-primary/40 shadow-focus': selectedKey === {row_key_expr} }}",
             ":aria-label": (
                 f"(t.label || '') + ' · ' + ({right_label_expr}) + ' · ' + t.est_min + 'm'"
             ),
-            "@mousedown": "rowDown($event, t.id)",
-            "@click": "rowClick($event, t.id)",
-            "@keydown": "rowKey($event, t.id)",
+            "@mousedown": f"rowDown($event, {row_key_expr})",
+            "@click": f"rowClick($event, {row_key_expr})",
+            "@keydown": f"rowKey($event, {row_key_expr})",
         },
     )
 
@@ -348,7 +353,7 @@ def _task_row(*, is_triage: bool) -> FT:
         backdrop,
         inner_row,
         cls="relative",
-        **{":data-task-row": "t.id"},
+        **{":data-task-row": row_key_expr},
     )
 
 
@@ -739,7 +744,7 @@ def _drawer_panel() -> FT:
             "x-transition:leave-start": "translate-x-0",
             "x-transition:leave-end": "translate-x-full",
             # Server-swapped richer body. `openDrawer()` in today.js fires
-            # `load-drawer` on body (after setting openTaskId) to trigger this.
+            # `load-drawer` on body (after setting openTaskKey) to trigger this.
             ":hx-get": "openTask ? `/today/tasks/${openTask.id}/drawer` : null",
             "hx-trigger": "load-drawer from:body",
             "hx-target": "#drawer-body",
@@ -833,6 +838,9 @@ def _drawer_title_meta() -> FT:
 
 
 def _drawer_primary_action() -> FT:
+    # One transport per control: completeTask() posts via htmx.ajax — an
+    # hx-post twin here would double-submit (same defect family C7 fixed on
+    # the defer buttons below).
     return Button(
         Icon("check", size=16),
         "Mark complete",
@@ -844,14 +852,16 @@ def _drawer_primary_action() -> FT:
             "focus:outline-none focus:shadow-focus"
         ),
         **{
-            ":hx-post": "`/today/tasks/${openTask.id}/complete`",
-            "hx-swap": "none",
             "@click": "completeTask(openTask.id); closeDrawer()",
         },
     )
 
 
 def _drawer_secondary_actions() -> FT:
+    # Exactly ONE transport per defer control (C7): deferTask() owns the POST
+    # (fetch with rollback-on-error). The former :hx-post twin double-submitted;
+    # under the fresh-membership guard the second request fails the match and
+    # its non-2xx handler would falsely restore a card whose defer succeeded.
     def _defer_btn(label: str, span: str) -> FT:
         return Button(
             label,
@@ -862,10 +872,10 @@ def _drawer_secondary_actions() -> FT:
                 "focus:outline-none focus:shadow-focus"
             ),
             **{
-                ":hx-post": "`/today/tasks/${openTask.id}/defer`",
-                "hx-vals": f'{{"span":"{span}"}}',
-                "hx-swap": "none",
-                "@click": f"deferTask(openTask.id, '{span}'); closeDrawer()",
+                "@click": (
+                    f"deferTask(keySource(openTaskKey), keyId(openTaskKey), '{span}'); "
+                    "closeDrawer()"
+                ),
             },
         )
 

@@ -2,6 +2,11 @@
 
 > One-page spec for engineering.  Pairs with `today.html`.
 > Route: `GET /today` → `ui/today.py::render_today(ctx)`
+>
+> `today.html` is the original design mock — a pre-C7 snapshot (uid-keyed
+> state, span-only defer, defer Undo). Where the mock and this doc differ,
+> this doc's §3/§5 are current; the defer protocol is ruled by C7 of
+> `docs/roadmap/calendar-act-from-arc.md`.
 
 ---
 
@@ -115,22 +120,27 @@ Component root: `x-data="today()"` on `<main>`.
 ```js
 {
   seed:          TodayContext,          // hydrated from <script>window.SEED = ...</script>
-  selectedId:    string | null,         // keyboard / click focus
-  openTaskId:    string | null,         // drawer target
+  selectedKey:   'source:uid' | null,   // keyboard / click focus — card key, NOT task uid
+  openTaskKey:   'source:uid' | null,   // drawer target (source = 'ribbon' | 'triage')
   flash:         { msg, action } | null,
   flashTimer:    number | null,
-  deferred:      { [taskId]: '1d' | '1w' },   // optimistic, hidden until server confirms
-  completed:     Set<string>,                 // optimistic
-  _lastAction:   { type: 'complete' | 'defer', id, span? } | null,
+  deferred:      { [cardKey]: '1d' | '1w' },  // optimistic hide, PER CARD (C7)
+  completed:     Set<string>,                 // optimistic; uid-keyed (task-level fact)
+  _lastAction:   { type: 'complete', id } | null,  // undo is complete-only (C7)
 }
 ```
+
+A dual-membership task (overdue AND scheduled on the viewed day) renders one
+card per surface; ALL per-card interaction state is keyed `'source:uid'` so
+acting on one card never touches the other (C7 of
+`docs/roadmap/calendar-act-from-arc.md`).
 
 **Derived:**
 - `fTasks`, `fTriage` — seed tasks/triage minus deferred & completed
 - `allEmpty` — no triage, no tasks
 - `committedMin`, `fmtCommitted`, `statList`
 - `nowPct` — 0..100 position on the 06:00–22:00 day spine
-- `openTask` — resolved task/triage object for `openTaskId`
+- `openTask` — task/triage object resolved from `openTaskKey`'s own surface
 
 **Helpers:** `principlesFor(lpId)`, `tasksFor(lpId)`, `goalFor(t)`,
 `principleFor(t)`, `lifepathFor(t)`, `strengthClass(s)`,
@@ -153,7 +163,7 @@ is open (the drawer owns `Escape`).
 | `⇧D`                  | Defer focused 1 week                       |
 | `Escape`              | Close drawer; return focus to origin row   |
 
-Focus is moved by `selectedId` + `.focus()` on the matched row's `role="button"`.
+Focus is moved by `selectedKey` + `.focus()` on the matched row's `role="button"`.
 Rows are themselves `role="button"` + `tabindex="0"`, so native Tab also works.
 
 ---
@@ -166,17 +176,20 @@ HTML has `hx-post` / `hx-get` bindings colocated with each trigger.
 | Trigger                                   | Method · URL                                       | Request       | Response             |
 |-------------------------------------------|----------------------------------------------------|---------------|----------------------|
 | Complete task (drawer button, `x`, drag)  | `POST /today/tasks/{id}/complete`                  | —             | `204` or new ribbon fragment |
-| Defer task (drawer button, `d`/`⇧D`, drag)| `POST /today/tasks/{id}/defer`                     | `span=1d\|1w` | `204` or new fragment |
+| Defer task (drawer button, `d`/`⇧D`, drag)| `POST /today/tasks/{id}/defer`                     | `span=1d\|1w` + `source=ribbon\|triage` + `view_date=YYYY-MM-DD` | `204`; `400` + message on any refused move (C7 guards) |
 | Wake dormant LifePath                     | `POST /today/lifepaths/{id}/wake`                  | —             | `outerHTML` swap → active ribbon |
 | Star / pin task (drawer)                  | `POST /today/tasks/{id}/star`                      | —             | `204`                |
 | Server-rendered drawer body               | `GET  /today/tasks/{id}/drawer`                    | —             | HTML fragment into `#drawer-body` |
 | Full surface SSR                          | `GET  /today`                                      | —             | full page            |
 
-**Optimistic UI contract:** the client mutates `deferred` / `completed` and
-shows a flash toast with Undo *immediately*.  HTMX fires the POST in the
-background; on error the server should return `422` + a fragment that replaces
-the toast with an error state.  On success, the fragment either `204`s
-(keeping the optimistic state) or swaps a fresh ribbon to reconcile.
+**Optimistic UI contract (C7):** the client mutates `deferred` / `completed`
+and shows a flash toast *immediately*. Complete posts via `htmx.ajax` and
+keeps an Undo (local-state revert). Defer posts exactly ONE `fetch` carrying
+`span` + `source` + `view_date`; the flash offers **no Undo** (the mutation is
+already posted — a local revert would lie). On ANY non-2xx the client restores
+the hidden card and shows the server's message; the server moves the field(s)
+the card spoke for to `view_date + span`, validated against the same
+membership predicate the lens renders by (`ui/today/membership.py`).
 
 **Swap targets used in the HTML:**
 - `hx-swap="outerHTML"` on the dormant-ribbon wake button

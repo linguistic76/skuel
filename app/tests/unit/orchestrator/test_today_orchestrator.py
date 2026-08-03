@@ -73,6 +73,7 @@ def _fake_task(
     title: str = "Ship it",
     description: str = "",
     due_date: date | None = None,
+    scheduled_date: date | None = None,
     status: EntityStatus = EntityStatus.ACTIVE,
     priority: Priority = Priority.MEDIUM,
     duration_minutes: int = 30,
@@ -86,6 +87,7 @@ def _fake_task(
         title=title,
         description=description,
         due_date=due_date,
+        scheduled_date=scheduled_date,
         status=status,
         priority=priority,
         duration_minutes=duration_minutes,
@@ -277,6 +279,74 @@ async def test_build_context_day_lens_targets_other_day() -> None:
     assert ctx["is_today"] is False
     assert ctx["today_iso"] == tomorrow.isoformat()
     assert ctx["heading"] == "Tomorrow"
+
+
+@pytest.mark.asyncio
+async def test_build_context_ribbon_admits_scheduled_only_task() -> None:
+    """C7 membership widening: scheduled_date == view_date puts a task on the
+    ribbon even with NO due_date — it must not be invisible to the very lens
+    that acts on it (and that quick-add will create it from, PR 6)."""
+    orch, services = _build()
+    today = date.today()
+    services["tasks_service"].get_user_tasks = AsyncMock(
+        return_value=_ok(
+            [
+                _fake_task(uid="t-work", scheduled_date=today),  # scheduled-only
+                _fake_task(uid="t-elsewhere", scheduled_date=today + timedelta(days=2)),
+                _fake_task(
+                    uid="t-done-work",
+                    scheduled_date=today,
+                    status=EntityStatus.COMPLETED,
+                ),
+            ]
+        )
+    )
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    ctx = result.value
+    assert [t["id"] for t in ctx["tasks"]] == ["t-work"]
+    # No due_date → no due label; the card still renders.
+    assert ctx["tasks"][0]["due_label"] == ""
+    assert ctx["triage"] == []
+
+
+@pytest.mark.asyncio
+async def test_build_context_dual_membership_task_in_ribbon_and_triage() -> None:
+    """Overdue AND scheduled today → one card per surface: the ribbon speaks
+    work-plan language (scheduled match), triage speaks deadline language."""
+    orch, services = _build()
+    today = date.today()
+    services["tasks_service"].get_user_tasks = AsyncMock(
+        return_value=_ok(
+            [
+                _fake_task(
+                    uid="t-dual",
+                    due_date=today - timedelta(days=3),
+                    scheduled_date=today,
+                ),
+            ]
+        )
+    )
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    ctx = result.value
+    assert [t["id"] for t in ctx["tasks"]] == ["t-dual"]
+    assert [t["id"] for t in ctx["triage"]] == ["t-dual"]
+
+
+@pytest.mark.asyncio
+async def test_build_context_triage_stays_due_based_not_scheduled() -> None:
+    """A past scheduled_date alone never puts a task in triage — triage is
+    deadline language (due-based), per the contract."""
+    orch, services = _build()
+    today = date.today()
+    services["tasks_service"].get_user_tasks = AsyncMock(
+        return_value=_ok([_fake_task(uid="t-old-plan", scheduled_date=today - timedelta(days=5))])
+    )
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    assert result.value["triage"] == []
+    assert result.value["tasks"] == []
 
 
 @pytest.mark.asyncio

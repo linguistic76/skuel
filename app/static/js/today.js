@@ -19,23 +19,38 @@
   function todayFactory() {
     return {
       seed: window.SEED || {
-        date_label: '', heading: 'Today', is_today: true, now_hhmm: '00:00',
+        today_iso: '', date_label: '', heading: 'Today', is_today: true, now_hhmm: '00:00',
         stats: {nodes: 0, committed_min: 0, done: 0},
         triage: [], lifepaths: [], principles: [], goals: [], tasks: [], rituals: [], kinds: {},
       },
-      selectedId: null,
-      openTaskId: null,
+      // ---- (source, uid) card keying ----------------------------------------
+      // A task can hold BOTH a ribbon card (scheduled/due == viewed day) and a
+      // triage card (overdue). ALL per-card interaction state — optimistic
+      // hide, selection, focus order, the drawer — is keyed by 'source:uid'
+      // so acting on one card never touches the other (C7,
+      // docs/roadmap/calendar-act-from-arc.md). Completion stays uid-keyed
+      // deliberately: completing is a task-level fact and hides both cards.
+      selectedKey: null,     // 'ribbon:<uid>' | 'triage:<uid>'
+      openTaskKey: null,
       flash: null,
       flashTimer: null,
-      deferred: {},          // id -> '1d' | '1w' (optimistic hidden until confirm)
-      completed: new Set(),  // ids
-      _lastAction: null,     // for undo
+      deferred: {},          // cardKey -> '1d' | '1w' (optimistic hide, per card)
+      completed: new Set(),  // uids
+      _lastAction: null,     // for undo (complete only — defer has no truthful undo)
+
+      cardKey(source, id) { return source + ':' + id; },
+      keySource(key) { return key ? key.slice(0, key.indexOf(':')) : null; },
+      keyId(key) { return key ? key.slice(key.indexOf(':') + 1) : null; },
+      taskBy(source, id) {
+        const list = source === 'triage' ? this.seed.triage : this.seed.tasks;
+        return list.find(x => x.id === id) || null;
+      },
 
       // ---- Derived ---------------------------------------------------------
       get fTasks()  { return this.seed.tasks.filter(t =>
-        !this.deferred[t.id] && !this.completed.has(t.id)); },
+        !this.deferred[this.cardKey('ribbon', t.id)] && !this.completed.has(t.id)); },
       get fTriage() { return this.seed.triage.filter(t =>
-        !this.deferred[t.id] && !this.completed.has(t.id)); },
+        !this.deferred[this.cardKey('triage', t.id)] && !this.completed.has(t.id)); },
       get allEmpty() { return this.fTasks.length === 0 && this.fTriage.length === 0; },
 
       get committedMin() { return this.fTasks.reduce((a, t) => a + (t.est_min || 0), 0); },
@@ -104,29 +119,29 @@
       ritualPast(hhmm) { return this.seed.is_today && hhmm < this.seed.now_hhmm; },
 
       get openTask() {
-        if (!this.openTaskId) return null;
-        const t = this.seed.tasks.find(x => x.id === this.openTaskId);
-        if (t) return t;
-        const tri = this.seed.triage.find(x => x.id === this.openTaskId);
-        return tri || null;
+        if (!this.openTaskKey) return null;
+        // Resolve from the drawer's originating surface — a dual-membership
+        // task has one card per surface and the drawer belongs to ONE of them.
+        return this.taskBy(this.keySource(this.openTaskKey), this.keyId(this.openTaskKey));
       },
 
       // ---- Interaction: keyboard, drag, click -------------------------------
       flatOrder() {
         return [
-          ...this.fTriage.map(t => t.id),
-          ...this.seed.lifepaths.flatMap(lp => this.tasksFor(lp.id).map(t => t.id)),
+          ...this.fTriage.map(t => this.cardKey('triage', t.id)),
+          ...this.seed.lifepaths.flatMap(lp =>
+            this.tasksFor(lp.id).map(t => this.cardKey('ribbon', t.id))),
         ];
       },
       moveSelection(delta) {
         const order = this.flatOrder();
         if (order.length === 0) return;
-        let idx = order.indexOf(this.selectedId);
+        let idx = order.indexOf(this.selectedKey);
         if (idx < 0) idx = delta > 0 ? -1 : order.length;
         idx = (idx + delta + order.length) % order.length;
-        this.selectedId = order[idx];
+        this.selectedKey = order[idx];
         this.$nextTick(() => {
-          const el = document.querySelector(`[data-task-row="${this.selectedId}"]`);
+          const el = document.querySelector(`[data-task-row="${this.selectedKey}"]`);
           if (el) {
             const btn = el.querySelector('[role="button"]');
             if (btn) btn.focus({ preventScroll: false });
@@ -134,36 +149,41 @@
         });
       },
       onKey(e) {
-        if (this.openTaskId) return; // drawer owns keys while open
+        if (this.openTaskKey) return; // drawer owns keys while open
         const k = e.key;
         if (k === 'j' || k === 'ArrowDown')      { e.preventDefault(); this.moveSelection(+1); }
         else if (k === 'k' || k === 'ArrowUp')   { e.preventDefault(); this.moveSelection(-1); }
-        else if (k === 'Enter' && this.selectedId) { e.preventDefault(); this.openDrawer(this.selectedId); }
-        else if (k === 'x' && this.selectedId)     { e.preventDefault(); this.completeTask(this.selectedId); }
-        else if (k === 'd' && this.selectedId && !e.shiftKey) {
-          e.preventDefault(); this.deferTask(this.selectedId, '1d');
+        else if (k === 'Enter' && this.selectedKey) { e.preventDefault(); this.openDrawer(this.selectedKey); }
+        else if (k === 'x' && this.selectedKey) {
+          e.preventDefault(); this.completeTask(this.keyId(this.selectedKey));
         }
-        else if ((k === 'D' || (k === 'd' && e.shiftKey)) && this.selectedId) {
-          e.preventDefault(); this.deferTask(this.selectedId, '1w');
+        else if (k === 'd' && this.selectedKey && !e.shiftKey) {
+          e.preventDefault();
+          this.deferTask(this.keySource(this.selectedKey), this.keyId(this.selectedKey), '1d');
+        }
+        else if ((k === 'D' || (k === 'd' && e.shiftKey)) && this.selectedKey) {
+          e.preventDefault();
+          this.deferTask(this.keySource(this.selectedKey), this.keyId(this.selectedKey), '1w');
         }
       },
 
       // Row handlers — bound via @click / @mousedown / @keydown in page.py.
-      rowClick(e, id) {
+      // ``key`` is the composite 'source:uid' card key.
+      rowClick(e, key) {
         if (e.target.closest('button')) return;
-        this.openDrawer(id);
+        this.openDrawer(key);
       },
-      rowKey(e, id) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openDrawer(id); }
+      rowKey(e, key) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openDrawer(key); }
       },
-      rowDown(e, id) {
+      rowDown(e, key) {
         if (e.button !== 0) return;
         const rowEl = e.currentTarget;
         const backdropWrap = rowEl.parentElement;
         const backdrop = backdropWrap.querySelector('[data-defer-backdrop]');
         const hint = backdrop.querySelector('[data-defer-hint]');
         const start = { x: e.clientX, y: e.clientY };
-        this.selectedId = id;
+        this.selectedKey = key;
         rowEl.classList.add('dragging');
         let dx = 0, stage = 0;
 
@@ -189,8 +209,8 @@
           rowEl.classList.remove('dragging');
           rowEl.style.setProperty('--dx', '0px');
           setStage(0);
-          if (dx > 180)      this.deferTask(id, '1w');
-          else if (dx > 70)  this.deferTask(id, '1d');
+          if (dx > 180)      this.deferTask(this.keySource(key), this.keyId(key), '1w');
+          else if (dx > 70)  this.deferTask(this.keySource(key), this.keyId(key), '1d');
         };
         const cancel = () => { cleanup(); rowEl.classList.remove('dragging');
                                rowEl.style.setProperty('--dx', '0px'); setStage(0); };
@@ -202,46 +222,76 @@
         window.addEventListener('mouseup', onUp);
       },
 
-      // ---- Actions (optimistic + HTMX confirm) ------------------------------
-      openDrawer(id) {
-        this.openTaskId = id;
-        this.selectedId = id;
+      // ---- Actions (optimistic + server confirm) ----------------------------
+      openDrawer(key) {
+        this.openTaskKey = key;
+        this.selectedKey = key;
         // Fire `load-drawer` once Alpine has updated the panel's :hx-get binding
-        // to /today/tasks/${id}/drawer, so HTMX swaps the richer body into
-        // #drawer-body (the panel listens via hx-trigger="load-drawer from:body").
+        // to /today/tasks/${openTask.id}/drawer, so HTMX swaps the richer body
+        // into #drawer-body (the panel listens via hx-trigger="load-drawer from:body").
         // Without this the drawer opens but its server-derived body stays empty.
         this.$nextTick(() => {
           document.body.dispatchEvent(new Event('load-drawer', { bubbles: true }));
         });
       },
       closeDrawer() {
-        const id = this.openTaskId;
-        this.openTaskId = null;
+        const key = this.openTaskKey;
+        this.openTaskKey = null;
         this.$nextTick(() => {
-          const el = document.querySelector(`[data-task-row="${id}"] [role="button"]`);
+          const el = document.querySelector(`[data-task-row="${key}"] [role="button"]`);
           if (el) el.focus();
         });
       },
 
       completeTask(id) {
-        const t = this.openTask || this.seed.tasks.find(x => x.id === id)
-                                || this.seed.triage.find(x => x.id === id);
+        const t = this.taskBy('ribbon', id) || this.taskBy('triage', id);
         this.completed.add(id);
         this._lastAction = { type: 'complete', id };
         this.showFlash(`Completed "${(t && t.label) || id}"`, 'undo');
         if (window.htmx) window.htmx.ajax('POST', `/today/tasks/${id}/complete`, { swap: 'none' });
       },
-      deferTask(id, span) {
-        const t = this.openTask || this.seed.tasks.find(x => x.id === id)
-                                || this.seed.triage.find(x => x.id === id);
-        this.deferred[id] = span;
-        this._lastAction = { type: 'defer', id, span };
+      // Defer speaks the day it was asked from (C7): the POST carries the
+      // lens day (seed.today_iso) and the card's surface, and the server
+      // moves the field(s) that card spoke for to view_date + span. The hide
+      // is optimistic PER CARD; on ANY non-2xx the card is restored and the
+      // server's message shown. No Undo — the client could only lie about it
+      // (the mutation already posted); the correction paths are the calendar
+      // modal reschedule or deferring again from the new day's lens. Exactly
+      // ONE transport per defer control — this fetch is it.
+      deferTask(source, id, span) {
+        const key = this.cardKey(source, id);
+        // A repeat on an already-hidden card (held `d`, double-click) must not
+        // re-post: the first request may already have moved the date, so its
+        // twin would fail the fresh-membership guard and the non-2xx handler
+        // would falsely restore a card whose defer succeeded (Codex #919 P2).
+        if (this.deferred[key]) return Promise.resolve();
+        const t = this.taskBy(source, id);
+        this.deferred[key] = span;
+        const label = (t && t.label) || id;
         this.showFlash(
-          span === '1w' ? `Deferred "${(t && t.label) || id}" → next week`
-                        : `Deferred "${(t && t.label) || id}" → tomorrow`,
-          'undo');
-        if (window.htmx) window.htmx.ajax('POST', `/today/tasks/${id}/defer`,
-          { swap: 'none', values: { span }});
+          span === '1w' ? `Deferred "${label}" → next week`
+                        : `Deferred "${label}" → tomorrow`);
+        const body = new URLSearchParams({
+          span: span,
+          source: source,
+          view_date: this.seed.today_iso || '',
+        });
+        return fetch(`/today/tasks/${id}/defer`, {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': (window.SKUEL && window.SKUEL.csrf()) || '' },
+          body: body,
+        }).then((resp) => {
+          if (resp.ok) return undefined;
+          return resp.text().then((text) => {
+            this.restoreDeferred(key, text || `Defer failed (${resp.status})`);
+          });
+        }).catch(() => {
+          this.restoreDeferred(key, 'Defer failed — network error. The task was not moved.');
+        });
+      },
+      restoreDeferred(key, msg) {
+        delete this.deferred[key];
+        this.showFlash(msg);
       },
 
       showFlash(msg, action = null) {
@@ -253,7 +303,6 @@
         const a = this._lastAction;
         if (!a) { this.flash = null; return; }
         if (a.type === 'complete') this.completed.delete(a.id);
-        if (a.type === 'defer')    delete this.deferred[a.id];
         this._lastAction = null;
         this.flash = null;
       },

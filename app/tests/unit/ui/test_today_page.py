@@ -56,3 +56,25 @@ def test_today_page_renders_at_date_boundaries() -> None:
 
     max_xml = to_xml(TodayPage(_ctx("9999-12-31", heading="Dec 31")))
     assert 'href="/today/9999-12-31"' in max_xml  # Next clamped to self
+
+
+def test_task_rows_are_keyed_by_source_and_uid() -> None:
+    """C7: a dual-membership task renders one card per surface — every card
+    binding (row key, selection, drawer open) must carry the source prefix so
+    the two cards act independently."""
+    xml = to_xml(TodayPage(_ctx("2026-08-02")))
+    # Both surfaces emit composite-key bindings, never a bare t.id key.
+    assert "data-task-row=\"'triage:' + t.id\"" in xml
+    assert "data-task-row=\"'ribbon:' + t.id\"" in xml
+    assert 'data-task-row="t.id"' not in xml
+    assert "selectedId" not in xml  # replaced by selectedKey end to end
+
+
+def test_drawer_defer_buttons_have_exactly_one_transport() -> None:
+    """C7: the drawer defer buttons must NOT carry an hx-post twin — the
+    deferTask() fetch (with rollback-on-error) is the only request. Same for
+    the complete button (identical double-submit family)."""
+    xml = to_xml(TodayPage(_ctx("2026-08-02")))
+    assert "/defer`" not in xml  # no `:hx-post` template literal for defer
+    assert "/complete`" not in xml  # no hx-post twin on Mark complete either
+    assert "deferTask(keySource(openTaskKey), keyId(openTaskKey)" in xml
