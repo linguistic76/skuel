@@ -1,9 +1,12 @@
 # Calendar × Periodic Notes Arc — Rulings & Contract
 
-**Status:** ACTIVE 2026-08-03 — the staging gate cleared (calendar act-from arc COMPLETE,
-PRs 1–7 shipped 2026-08-02→03 as #913–#917, #919, #920) and the pickup elicitations ran
-2026-08-03 (rulings E1–E4 below). This document is the arc's source of truth; each
-implementation PR runs in a fresh context against it.
+**Status:** ✅ COMPLETE 2026-08-03 — all four PRs shipped the same day the arc went
+active: #921 (PR 0, this contract), #922 (PR 1, legend), #923 (PR 2, weekly panel),
+#924 (PR 3, parse contract + FULL-tier bridge bypass). Every PR carried a real Codex
+verdict, considered and resolved; acceptance verified against live cases per the
+table below. History: the staging gate cleared when the calendar act-from arc
+completed (PRs 1–7 as #913–#917, #919, #920) and the pickup elicitations ran
+2026-08-03 (rulings E1–E4 below). The rulings remain binding on future work.
 **Related:** `docs/roadmap/calendar-act-from-arc.md`, ADR-070 (VaultBridge), ADR-073
 (journals / periodic-note storage), `core/services/user_entry/user_entry_service.py`
 (`ensure_periodic_note`), `core/services/ingestion/user_entry_ingestion.py` (periodic
@@ -201,6 +204,8 @@ form (never normalize). Vault sync stays human-initiated (ADR-070 D9). No person
 vault content in this public repo — specimen shapes only.
 
 ## PR plan (contract)
+
+All shipped 2026-08-03: PR 0 = #921 · PR 1 = #922 · PR 2 = #923 · PR 3 = #924.
 
 | PR | Scope | Acceptance (live case) |
 |----|-------|------------------------|
