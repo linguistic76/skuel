@@ -430,6 +430,36 @@ Reflected on the morning walk. It felt unhurried.
         assert parsed.get_habits() == []
         assert parsed.get_events() == []
 
+    def test_tagged_checkbox_explicit_marker_wins_over_adapter(self):
+        """Precedence pin (Codex #924): a checkbox line that ALSO carries
+        ``@context(...)`` is a DSL line — the explicit marker wins (Goal, not
+        Task) and the obsidian-tasks vocabulary is NOT interpreted: emoji/🆔
+        stay literal description text; ``vault_id``/``when`` are not captured.
+        Documented in DSL_USAGE_GUIDE § Periodic Notes — The Parse Contract
+        ("one vocabulary per line"); changing this routing must update that
+        contract in the same PR.
+        """
+        from core.models.enums.entity_enums import EntityType
+        from core.services.dsl.activity_dsl_parser import ActivityDSLParser
+
+        line = "- [ ] Ship the plan @context(goal) 📅 2099-01-15 🆔 sk_zz99yy"
+        result = ActivityDSLParser().parse_journal(line, entry_kind="daily")
+
+        assert result.is_ok
+        parsed = result.value
+        assert parsed.activity_lines_found == 1
+        assert parsed.get_tasks() == []  # the adapter did NOT claim the line
+
+        goals = parsed.get_goals()
+        assert len(goals) == 1
+        assert goals[0].contexts == [EntityType.GOAL]
+        # Obsidian-tasks metadata is not interpreted on a DSL line: the 📅 date
+        # does not become a schedule, the 🆔 token is not captured as the
+        # ADR-070 join key — both remain literal description text.
+        assert goals[0].when is None
+        assert goals[0].vault_id is None
+        assert "sk_zz99yy" in goals[0].description
+
 
 class TestErrorHandling:
     """Test error handling and edge cases."""

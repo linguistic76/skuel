@@ -352,8 +352,10 @@ processing instead of being discarded.
 
 For a periodic note (`entry_kind: daily | weekly | monthly` +
 `pipeline: extract_activities`), exactly **two** line shapes create
-entities: checkbox lines (→ Task, obsidian-tasks adapter) and explicit
-`@context()` DSL lines (the only path to Choices/Principles). Unmarked
+entities: untagged checkbox lines (→ Task, obsidian-tasks adapter) and
+explicit `@context()` DSL lines (the only path to Choices/Principles; on a
+line carrying both shapes the explicit marker wins and obsidian-tasks emoji
+metadata is not interpreted). Unmarked
 prose and section headings create nothing — no heading→domain mapping,
 ever — and the FULL-tier LLM pre-pass is **bypassed for periodic entries**
 (`UserEntry.is_periodic_note()` gate), so both intelligence tiers behave

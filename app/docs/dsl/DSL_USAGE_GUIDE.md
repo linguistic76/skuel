@@ -65,10 +65,11 @@ Settled by ruling E3 of the calendar × periodic-notes arc
 
 **Exactly two line shapes create entities. Nothing else, ever:**
 
-1. **Checkbox lines** — any markdown checkbox (`- [ ]` / `- [x]`) becomes a
-   **Task** via the obsidian-tasks adapter (`📅` due, `⏳` scheduled,
-   priority emoji, `#tags`, `🆔 sk_*` join key — ADR-070). A checkbox is a
-   Task regardless of which section it sits under.
+1. **Untagged checkbox lines** — a markdown checkbox (`- [ ]` / `- [x]`)
+   carrying no `@context()` tag becomes a **Task** via the obsidian-tasks
+   adapter (`📅` due, `⏳` scheduled, priority emoji, `#tags`, `🆔 sk_*`
+   join key — ADR-070). An untagged checkbox is a Task regardless of which
+   section it sits under.
 2. **Explicit `@context()` DSL lines** — any line carrying `@context(...)`
    parses as that type. This is the ONLY way prose becomes an entity — and
    the only way **Choices and Principles** are ever created from a note
@@ -79,6 +80,17 @@ Settled by ruling E3 of the calendar × periodic-notes arc
    I choose to prioritize deep work this week @context(choice)
    Act with patience in every conversation @context(principle)
    ```
+
+**Precedence — one vocabulary per line.** A checkbox line that ALSO carries
+`@context(...)` is a DSL line, not an obsidian-tasks line: the explicit
+marker wins and the line parses as the type you declared — so
+`- [ ] … @context(goal)` creates a **Goal**, not a Task. The obsidian-tasks
+vocabulary is **not** interpreted on such a line: `📅`/`⏳`/priority emoji
+and any `🆔 sk_*` token are left as literal description text and `vault_id`
+is not captured, which puts the line outside the ADR-070 checkbox
+round-trip. On a DSL line, express schedule/priority with the DSL's own
+tags (`@when()`, `@priority()`); don't mix the two vocabularies on one
+line.
 
 **What never creates entities:**
 
