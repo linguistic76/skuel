@@ -16,6 +16,8 @@ from ui.components import Icon
 from ui.journals.week_panel import weekly_period_start
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from core.models.conversation import ConversationSession
     from core.models.user.user import User
     from core.models.user_entry.user_entry import UserEntry
@@ -79,7 +81,7 @@ def JournalsLandingPage(
 def PeriodicNotePage(
     entry: "UserEntry",
     initial_workspace: Any,
-    week_panel: Any = None,
+    week_panel: "FT | None" = None,
 ) -> Any:
     """Full-height layout for periodic notes (daily/weekly/monthly).
 
@@ -90,7 +92,7 @@ def PeriodicNotePage(
     entities (periodic-notes arc S3), rendered as a right column. Only the
     weekly-note route passes it; daily/monthly pages stay two-column.
     """
-    columns: list[Any] = [
+    columns: list[FT] = [
         _periodic_note_sidebar(entry),
         Div(
             initial_workspace,

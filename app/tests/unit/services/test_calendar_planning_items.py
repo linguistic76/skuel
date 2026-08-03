@@ -150,6 +150,22 @@ async def test_planning_items_are_chronological() -> None:
 
 
 @pytest.mark.asyncio
+async def test_dual_date_task_placed_outside_the_range_is_filtered() -> None:
+    """A task scheduled BEFORE the week but due within it matches the OR fetch,
+    yet its placement day (scheduled-first, ``_task_to_calendar_item``) falls
+    outside the range — the week grid never renders that chip, so the panel
+    must not list it either (it shows on its scheduled day's week). Codex #923."""
+    dual = _task("task_dual", due=date(2026, 8, 5), scheduled=date(2026, 7, 30))
+    in_week = _task("task_in", scheduled=date(2026, 8, 4))
+    service, *_ = _service(tasks=[dual, in_week])
+
+    result = await service.get_planning_items("user_test", _WEEK_START, _WEEK_END)
+
+    assert result.is_ok
+    assert [i.uid for i in result.value] == ["task-task_in"]
+
+
+@pytest.mark.asyncio
 async def test_due_only_task_carries_the_due_state() -> None:
     """A due-but-unscheduled task is a Task WITH is_due=True (E1: state, not kind)."""
     service, *_ = _service(tasks=[_task("task_due", due=date(2026, 8, 7))])

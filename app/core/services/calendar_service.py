@@ -235,7 +235,18 @@ class CalendarService:
         task_items = await self._fetch_tasks(user_uid, start_date, end_date, False)
         event_items = await self._fetch_events(user_uid, start_date, end_date, False)
         goal_items = await self._fetch_goals(user_uid, start_date, end_date, False)
-        items = [*task_items, *event_items, *goal_items]
+        # The grid's range rule, applied listwise: an item lives on its
+        # ``start_time.date()`` (``_items_by_date``), and the due-OR-scheduled
+        # task fetch can match a task whose PLACEMENT day is outside the range
+        # (scheduled before the week, due within it — Codex #923). The week
+        # grid never renders such a chip (its day is outside the view), so the
+        # panel filters identically — same fetch, same placement, same
+        # visibility; that task shows on the week its scheduled day lives in.
+        items = [
+            item
+            for item in (*task_items, *event_items, *goal_items)
+            if start_date <= item.start_time.date() <= end_date
+        ]
         items.sort(key=_planning_item_start)
         return Result.ok(items)
 

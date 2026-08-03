@@ -17,13 +17,15 @@ task keeps its ⏰ + red state cue — a STATE of a Task, never a kind (E1).
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import A, Div, P, Span
 
 from core.models.event.calendar_models import CalendarItemType
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from core.models.event.calendar_models import CalendarItem
 
 
@@ -55,7 +57,7 @@ _PANEL_PAIRS: tuple[tuple[str, tuple[CalendarItemType, ...]], ...] = (
 )
 
 
-def WeeklyPlanningPanel(items: "list[CalendarItem]", week_start: date) -> Any:
+def WeeklyPlanningPanel(items: "list[CalendarItem]", week_start: date) -> Div:
     """Read-only panel of the ISO week's existing entities, pair-grouped.
 
     ``items`` come from ``CalendarService.get_planning_items`` (tasks due OR
@@ -83,9 +85,9 @@ def _range_label(start: date, end: date) -> str:
     return f"{start.strftime('%b')} {start.day} – {end.strftime('%b')} {end.day}"
 
 
-def _panel_group(label: str, items: "list[CalendarItem]") -> Any:
+def _panel_group(label: str, items: "list[CalendarItem]") -> Div:
     """One pair group: legend-styled label + rows (or a muted empty state)."""
-    rows: list[Any] = (
+    rows: list[FT] = (
         [_panel_row(item) for item in items]
         if items
         else [P("Nothing this week", cls="text-[12px] text-muted-foreground italic px-2 py-1")]
@@ -100,7 +102,7 @@ def _panel_group(label: str, items: "list[CalendarItem]") -> Any:
     )
 
 
-def _panel_row(item: "CalendarItem") -> Any:
+def _panel_row(item: "CalendarItem") -> A:
     """One entity row — a link to its day's lens. Reading here, acting there.
 
     Kind travels as the color dot (the legend's color-communicates-kind rule);
