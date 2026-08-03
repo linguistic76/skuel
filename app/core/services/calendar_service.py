@@ -89,6 +89,11 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.services.calendar")
 
 
+def _planning_item_start(item: CalendarItem) -> datetime:
+    """Chronological sort key for planning-item lists (named — SKUEL012)."""
+    return item.start_time
+
+
 # ============================================================================
 # CALENDAR SERVICE
 # ============================================================================
@@ -209,6 +214,30 @@ class CalendarService:
         )
 
         return Result.ok(calendar_data)
+
+    @with_error_handling("get_planning_items", error_type="system", uid_param="user_uid")
+    async def get_planning_items(
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+    ) -> Result[list[CalendarItem]]:
+        """The range's plannable items — tasks + events + goal Milestones, no habits.
+
+        Producer for the weekly-note read panel (periodic-notes arc S3): the
+        vault plans, the app shows. Composes the SAME internal fetches as the
+        calendar grid, so the due-OR-scheduled task semantics (act-from arc C2)
+        can never drift between the two surfaces. Habits are deliberately
+        excluded — daily recurrence is calendar texture, not weekly planning
+        matter (v1 ruling) — and each fetch degrades to empty on failure,
+        matching the grid's best-effort display contract.
+        """
+        task_items = await self._fetch_tasks(user_uid, start_date, end_date, False)
+        event_items = await self._fetch_events(user_uid, start_date, end_date, False)
+        goal_items = await self._fetch_goals(user_uid, start_date, end_date, False)
+        items = [*task_items, *event_items, *goal_items]
+        items.sort(key=_planning_item_start)
+        return Result.ok(items)
 
     @with_error_handling("get_item", error_type="system", uid_param="item_uid")
     async def get_item(
