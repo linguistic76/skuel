@@ -10,10 +10,9 @@ no independent status list" clause.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from types import SimpleNamespace
-from typing import Any
 
 from core.models.enums import EntityStatus
+from core.models.task.task import Task
 from ui.today.membership import (
     DUE_FIELD,
     LENS_EXCLUDED_STATUSES,
@@ -32,8 +31,17 @@ def _task(
     due_date: date | None = None,
     scheduled_date: date | None = None,
     status: EntityStatus = EntityStatus.ACTIVE,
-) -> Any:
-    return SimpleNamespace(due_date=due_date, scheduled_date=scheduled_date, status=status)
+) -> Task:
+    # A real frozen-dataclass Task, not a namespace double — the predicates
+    # are typed against Task and the fixture must not drift from its contract.
+    return Task(
+        uid="task:membership-fixture",
+        title="Membership fixture",
+        user_uid="user_test",
+        status=status,
+        due_date=due_date,
+        scheduled_date=scheduled_date,
+    )
 
 
 # ---------------------------------------------------------------------------
