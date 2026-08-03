@@ -858,7 +858,7 @@ def create_journals_routes(
         entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
         if entry_result.is_error or entry_result.value is None:
             return _P("Note not found", id="note-save-status", cls="text-[13px] text-destructive")
-        if not user_entry_service.is_periodic_note(entry_result.value):
+        if not entry_result.value.is_periodic_note():
             return _P(
                 "Not a periodic note", id="note-save-status", cls="text-[13px] text-destructive"
             )
@@ -1085,7 +1085,7 @@ def create_journals_routes(
 
         # Only periodic notes have a stored page. Sessions (never stored) and any
         # other entry kind → 404.
-        if not user_entry_service.is_periodic_note(entry):
+        if not entry.is_periodic_note():
             return Response("Not found", status_code=404)
 
         from ui.journals import PeriodicNoteFragment

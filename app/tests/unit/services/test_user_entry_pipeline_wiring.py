@@ -580,6 +580,91 @@ class TestExtractActivities:
         assert extractor.extract_and_create.await_args.kwargs["content_override"] == entry.content
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("entry_kind", ["daily", "weekly", "monthly"])
+    async def test_periodic_entry_bypasses_bridge_pre_pass(self, entry_kind: str):
+        # Periodic-note parse contract (E3, calendar-periodic-notes-arc): a
+        # periodic entry's prose must NEVER reach the LLM bridge — entities
+        # come only from checkbox lines + explicit @context() markers. The
+        # bridge here WOULD return generated activity lines; the gate
+        # (UserEntry.is_periodic_note) must keep it from ever being asked.
+        entry = _make_entry(
+            Pipeline.EXTRACT_ACTIVITIES,
+            content="## Goals\nGet fit someday\n\nSome reflection prose.",
+            metadata={"entry_kind": entry_kind},
+        )
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(
+            return_value=Result.ok(
+                DSLTransformResult(
+                    original_text=entry.content or "",
+                    transformed_text="- @context(goal) Get fit someday",
+                    activity_lines=["- @context(goal) Get fit someday"],
+                )
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+        goals_service = MagicMock()
+        goals_service.get_active = AsyncMock(return_value=Result.ok([]))
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        dispatcher.goals_service = goals_service
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        bridge.transform_with_context.assert_not_called()
+        # No grounding query either — the whole pre-pass is skipped.
+        goals_service.get_active.assert_not_called()
+        # The parser runs over the ORIGINAL text: no appended
+        # "## Extracted Activities" block, no bridge line hashes.
+        kwargs = extractor.extract_and_create.await_args.kwargs
+        assert kwargs["content_override"] == entry.content
+        assert kwargs["bridge_line_hashes"] == frozenset()
+
+    @pytest.mark.asyncio
+    async def test_non_periodic_entry_keeps_bridge_pre_pass(self):
+        # Negative control for the periodic gate: the SAME prose in an entry
+        # without entry_kind metadata still takes the bridge pre-pass — the
+        # bridge stays a sanctioned Digital enhancement outside periodic notes.
+        entry = _make_entry(
+            Pipeline.EXTRACT_ACTIVITIES,
+            content="## Goals\nGet fit someday\n\nSome reflection prose.",
+        )
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(
+            return_value=Result.ok(
+                DSLTransformResult(
+                    original_text=entry.content or "",
+                    transformed_text="- @context(goal) Get fit someday",
+                    activity_lines=["- @context(goal) Get fit someday"],
+                )
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        bridge.transform_with_context.assert_awaited_once()
+        working = extractor.extract_and_create.await_args.kwargs["content_override"]
+        assert "## Extracted Activities" in working
+        assert "- @context(goal) Get fit someday" in working
+
+    @pytest.mark.asyncio
     async def test_bridge_pre_pass_is_grounded_in_active_goals(self):
         # Regression guard for the grounding asymmetry fix: the entity-creating
         # EXTRACT_ACTIVITIES pre-pass must call the CONTEXT-aware bridge entry

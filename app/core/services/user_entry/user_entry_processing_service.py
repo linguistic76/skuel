@@ -437,10 +437,18 @@ class UserEntryProcessingService:
             )
 
         # --- Bridge pre-pass (optional Digital enhancement) ------------------
+        # Periodic notes (daily/weekly/monthly) NEVER take the bridge: the
+        # periodic-note parse contract (E3, docs/roadmap/
+        # calendar-periodic-notes-arc.md) rules that entities come ONLY from
+        # checkbox lines + explicit @context() markers — never inferred from
+        # prose — so both tiers behave identically for periodic entries. The
+        # bridge stays a sanctioned Digital enhancement for every other
+        # EXTRACT_ACTIVITIES entry. One shared predicate
+        # (UserEntry.is_periodic_note) — the same one the journals routes use.
         working_text = source_text
         bridge_error: str | None = None
         bridge_line_hashes: frozenset[str] = frozenset()
-        if self.dsl_bridge is not None:
+        if self.dsl_bridge is not None and not entry.is_periodic_note():
             # Strip checkbox lines before the LLM bridge: the obsidian-tasks
             # adapter owns them (ADR-070). Sending them to the bridge causes
             # double extraction — the LLM sees a task-shaped line and emits an

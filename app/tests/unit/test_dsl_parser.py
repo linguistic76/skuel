@@ -373,6 +373,64 @@ No tasks or habits here, just plain text.
         assert result.value.activity_lines_found == 0
 
 
+class TestPeriodicNoteParseContract:
+    """The periodic-note parse contract (E3, calendar-periodic-notes-arc).
+
+    Recognized entity-creating shapes = checkbox lines + explicit ``@context()``
+    DSL markers, nothing else. A section heading is prose, not a parse
+    instruction — bare lines under ``## Goals`` create nothing; Choices and
+    Principles become entities ONLY via explicit markers.
+    """
+
+    def test_specimen_periodic_note_parses_only_marked_shapes(self):
+        from core.models.enums.entity_enums import EntityType
+        from core.services.dsl.activity_dsl_parser import ActivityDSLParser
+
+        # Specimen SHAPE of a daily periodic note (obsidian-tasks checkbox
+        # with due date + 🆔 join key; compass lines with explicit markers;
+        # unmarked prose including bare lines under a "## Goals" heading).
+        specimen = """\
+## Tasks
+- [ ] Water the garden 📅 2099-01-15 🆔 sk_ab12cd
+
+## Goals
+Get fit someday
+Read more books
+
+## Compass
+I choose to prioritize deep work this week @context(choice)
+Act with patience in every conversation @context(principle)
+
+## Notes
+Reflected on the morning walk. It felt unhurried.
+"""
+        result = ActivityDSLParser().parse_journal(specimen, entry_kind="daily")
+
+        assert result.is_ok
+        parsed = result.value
+
+        # Exactly the three marked lines — nothing inferred from prose or
+        # headings (no Goal from the "## Goals" section, nothing from Notes).
+        assert parsed.activity_lines_found == 3
+        tasks = parsed.get_tasks()
+        assert len(tasks) == 1
+        assert tasks[0].description == "Water the garden"
+        assert tasks[0].vault_id == "sk_ab12cd"
+        assert tasks[0].contexts == [EntityType.TASK]
+
+        choices = parsed.get_choices()
+        assert len(choices) == 1
+        assert "prioritize deep work" in choices[0].description
+
+        principles = parsed.get_principles()
+        assert len(principles) == 1
+        assert "patience" in principles[0].description
+
+        assert parsed.get_goals() == []
+        assert parsed.get_habits() == []
+        assert parsed.get_events() == []
+
+
 class TestErrorHandling:
     """Test error handling and edge cases."""
 

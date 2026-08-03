@@ -348,6 +348,19 @@ is present (explicit `content:` wins). This keeps the note prose — and the
 `- [ ]` checkbox lines a periodic note carries — available to downstream
 processing instead of being discarded.
 
+### Periodic-note parse contract (what creates entities)
+
+For a periodic note (`entry_kind: daily | weekly | monthly` +
+`pipeline: extract_activities`), exactly **two** line shapes create
+entities: checkbox lines (→ Task, obsidian-tasks adapter) and explicit
+`@context()` DSL lines (the only path to Choices/Principles). Unmarked
+prose and section headings create nothing — no heading→domain mapping,
+ever — and the FULL-tier LLM pre-pass is **bypassed for periodic entries**
+(`UserEntry.is_periodic_note()` gate), so both intelligence tiers behave
+identically. The authoritative statement lives in the DSL usage guide:
+[Periodic Notes — The Parse Contract](../dsl/DSL_USAGE_GUIDE.md#periodic-notes--the-parse-contract)
+(ruling E3, `docs/roadmap/calendar-periodic-notes-arc.md`).
+
 ### Example
 
 ```yaml
