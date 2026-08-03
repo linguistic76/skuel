@@ -100,6 +100,12 @@ journal privacy norm does not extend to it (Ruling 2 scope).
    service or a goals-query failure degrades to ungrounded recognition, never an
    error. If the bridge is **absent** (CORE tier / not wired), this is **not an
    error** — skip the pre-pass.
+   *Amendment 2026-08-03 (periodic-notes arc PR 3, ruling E3):* **periodic
+   entries (`UserEntry.is_periodic_note()`) bypass the pre-pass entirely** —
+   entities in daily/weekly/monthly notes come only from checkbox lines +
+   explicit `@context()` markers, never inferred from prose, so both tiers
+   behave identically there. See `docs/roadmap/calendar-periodic-notes-arc.md`
+   and `docs/dsl/DSL_USAGE_GUIDE.md` § Periodic Notes — The Parse Contract.
 3. **Deterministic extraction (Analog layer):**
    `ActivityExtractorService.extract_and_create()` over the working text. The
    parser matches explicit `@context(...)` lines plus, via a second pass,

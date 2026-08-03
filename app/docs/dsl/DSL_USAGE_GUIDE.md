@@ -1,22 +1,24 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2026-07-10
+updated: 2026-08-03
 status: current
 category: dsl
-tags: [dsl, examples, patterns, guide, usage]
+tags: [dsl, examples, patterns, guide, usage, periodic-notes]
 related: [DSL_SPECIFICATION.md, DSL_IMPLEMENTATION.md]
 ---
 
 # SKUEL Activity DSL - Usage Guide
 
 *Practical examples and patterns for writing SKUEL Activity Lines*
-*Last Updated: 2026-07-10*
+*Last Updated: 2026-08-03*
 
 > **Wiring status:** live. Activity Lines in a UserEntry are extracted into
 > real entities via `Pipeline.EXTRACT_ACTIVITIES`
 > (`UserEntryProcessingService.process()`, ADR-069) — with
 > `EXTRACTED_FROM` provenance edges, line-hash idempotency, and an optional
-> FULL-tier LLM pre-pass that tags untagged prose.
+> FULL-tier LLM pre-pass that tags untagged prose. **Periodic notes are the
+> exception:** the pre-pass never runs on them (§ Periodic Notes — The Parse
+> Contract).
 
 ## Quick Start
 
@@ -48,6 +50,62 @@ Most Activity Lines follow this pattern:
 ```markdown
 - [ ] Description @context(type) @when(time) @priority(N)
 ```
+
+---
+
+## Periodic Notes — The Parse Contract
+
+**This is the authoritative statement of what creates entities from a
+periodic note** (a Daily/Weekly/Monthly vault note with `entry_kind:` +
+`pipeline: extract_activities` frontmatter — see the ingestion guide's
+[UserEntry section](../patterns/UNIFIED_INGESTION_GUIDE.md#userentry-yamls-type-user_entry--adr-054)
+for the frontmatter and the derived `ue:{kind}:{user}:{period}` UIDs).
+Settled by ruling E3 of the calendar × periodic-notes arc
+(`docs/roadmap/calendar-periodic-notes-arc.md`) — do not re-litigate.
+
+**Exactly two line shapes create entities. Nothing else, ever:**
+
+1. **Untagged checkbox lines** — a markdown checkbox (`- [ ]` / `- [x]`)
+   carrying no `@context()` tag becomes a **Task** via the obsidian-tasks
+   adapter (`📅` due, `⏳` scheduled, priority emoji, `#tags`, `🆔 sk_*`
+   join key — ADR-070). An untagged checkbox is a Task regardless of which
+   section it sits under.
+2. **Explicit `@context()` DSL lines** — any line carrying `@context(...)`
+   parses as that type. This is the ONLY way prose becomes an entity — and
+   the only way **Choices and Principles** are ever created from a note
+   (per ruling R2 the compass is writing first; marking a line
+   `@context(choice)` / `@context(principle)` is a deliberate act):
+
+   ```markdown
+   I choose to prioritize deep work this week @context(choice)
+   Act with patience in every conversation @context(principle)
+   ```
+
+**Precedence — one vocabulary per line.** A checkbox line that ALSO carries
+`@context(...)` is a DSL line, not an obsidian-tasks line: the explicit
+marker wins and the line parses as the type you declared — so
+`- [ ] … @context(goal)` creates a **Goal**, not a Task. The obsidian-tasks
+vocabulary is **not** interpreted on such a line: `📅`/`⏳`/priority emoji
+and any `🆔 sk_*` token are left as literal description text and `vault_id`
+is not captured, which puts the line outside the ADR-070 checkbox
+round-trip. On a DSL line, express schedule/priority with the DSL's own
+tags (`@when()`, `@priority()`); don't mix the two vocabularies on one
+line.
+
+**What never creates entities:**
+
+- **Unmarked prose.** Reflection text, review answers, intention prose —
+  stored with the note, parsed into nothing.
+- **Section headings.** A heading is prose, not a parse instruction: bare
+  lines under a `## Goals` heading do NOT become Goals. There is no
+  section-heading→domain mapping — ruled out permanently, not deferred.
+- **The FULL-tier LLM pre-pass — gated off for periodic notes.** For other
+  EXTRACT_ACTIVITIES entries the FULL tier runs an LLM bridge that tags
+  untagged prose before parsing. Periodic entries bypass that bridge
+  entirely (`UserEntryProcessingService._run_extract_activities`, gated on
+  `UserEntry.is_periodic_note()`), so **CORE and FULL tier behave
+  identically for periodic notes**: entities are never inferred from your
+  writing, only read from what you explicitly marked.
 
 ---
 

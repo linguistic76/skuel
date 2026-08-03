@@ -35,6 +35,7 @@ from core.constants import MASS_DELETION_MAX_FRACTION, MASS_DELETION_MIN_COUNT
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS
 from core.services.ingestion.config import is_ingestible_path
 from core.services.ingestion.detector import detect_entity_type
 from core.services.ingestion.move_detection import (
@@ -93,7 +94,7 @@ _MINTED_UE_UID = re.compile(r"ue_[0-9a-f]{8}\Z")
 
 # metadata.entry_kind values that derive a periodic uid in
 # build_user_entry_request — such files never honor a prior (rewritten) uid.
-_PERIODIC_ENTRY_KINDS = frozenset({"daily", "weekly", "monthly"})
+# The vocabulary is the model's PERIODIC_NOTE_KINDS (one list, no drift).
 
 
 def _similarity_candidate_content(file_path: Path) -> str | None:
@@ -154,7 +155,7 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
     if frontmatter.get("uid") is not None or frontmatter.get("fulfills_exercise_uid") is not None:
         return None
     metadata = frontmatter.get("metadata")
-    if isinstance(metadata, dict) and metadata.get("entry_kind") in _PERIODIC_ENTRY_KINDS:
+    if isinstance(metadata, dict) and metadata.get("entry_kind") in PERIODIC_NOTE_KINDS:
         return None
     content = frontmatter.get("content", body)
     text = "" if content is None else str(content)

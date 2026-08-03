@@ -10,7 +10,7 @@ derives the week from its UID's last colon segment. Harness mirrors
 from __future__ import annotations
 
 from datetime import date, datetime
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fasthtml.common import fast_app
@@ -74,7 +74,8 @@ def _client(
 
     user_entry = MagicMock()
     user_entry.get_entry = AsyncMock(return_value=Result.ok(entry))
-    user_entry.is_periodic_note = Mock(return_value=True)
+    # Periodic-ness is a model predicate (UserEntry.is_periodic_note) — the
+    # real entry's entry_kind metadata answers it; nothing to mock.
 
     calendar = MagicMock()
     calendar.get_planning_items = AsyncMock(

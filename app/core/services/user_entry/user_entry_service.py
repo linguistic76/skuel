@@ -46,7 +46,7 @@ from core.models.enums.user_enums import UserRole
 from core.models.interaction.interaction import Interaction
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, UserEntry
 from core.models.user_entry.user_entry_dto import UserEntryDTO
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
@@ -76,11 +76,7 @@ if TYPE_CHECKING:
 
 # Re-exported for callers that import ``ShareOutcome`` from this module
 # (the dataclass moved to ``audience_resolver`` during the /upload integration).
-__all__ = ["PERIODIC_NOTE_KINDS", "ShareOutcome", "UserEntryService"]
-
-# The three stored periodic-note kinds (ADR-073: journal *sessions* are never
-# stored; periodic notes are the one deliberate stored journal feature).
-PERIODIC_NOTE_KINDS: frozenset[str] = frozenset({"daily", "weekly", "monthly"})
+__all__ = ["ShareOutcome", "UserEntryService"]
 
 
 class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
@@ -453,14 +449,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
     # =========================================================================
     # PERIODIC NOTES (daily / weekly / monthly journal stubs)
     # =========================================================================
-
-    def is_periodic_note(self, entry: UserEntry) -> bool:
-        """True when the entry is a stored periodic note (daily/weekly/monthly).
-
-        The metadata ``entry_kind`` stamp is the discriminator — routes use this
-        to keep the periodic-note page/save surface off every other entry kind.
-        """
-        return entry.metadata.get("entry_kind") in PERIODIC_NOTE_KINDS
+    # The membership predicate lives on the model (`UserEntry.is_periodic_note`)
+    # — a pure function of the entry, shared by routes, ingestion, and the
+    # EXTRACT_ACTIVITIES bridge gate.
 
     @with_error_handling("ensure_periodic_note")
     async def ensure_periodic_note(
