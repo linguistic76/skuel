@@ -1,7 +1,9 @@
 # Calendar × Periodic Notes Arc — Rulings & Staged Contract
 
 **Status:** STAGED 2026-08-02 — deliberately parked until the calendar act-from arc
-(`docs/roadmap/calendar-act-from-arc.md`, PRs 1–5) completes. The rulings below are
+(`docs/roadmap/calendar-act-from-arc.md`) completes **through PR 6** (PRs 1–5 shipped
+2026-08-02 as #913–#917; PR 6's C6 ruling re-routes the day-cell click and adds the
+Daily-note toolbar buttons — the same surface S2 touches, see Sequencing). The rulings below are
 SETTLED (founder elicitation, 2026-08-02); the scope items are CANDIDATES — the marked
 ones get their own elicitation at pickup. This doc exists so the return path survives
 context loss.
@@ -88,6 +90,10 @@ for the weekly/monthly notes. That is this arc.
 - **S2 — Visible note-doors.** Make the day-cell → daily-note navigation discoverable
   (R5's nearby "Details"-style link or equivalent affordance); keep the existing
   Weekly/Monthly note buttons; audit Today view for the same door.
+  *(Update 2026-08-02: the act-from arc's C6 ruling re-routes day-cell click to
+  `/today/{date}` and adds "Daily note" toolbar buttons to both calendar views while
+  keeping the per-cell date-number links — the calendar side of S2 is largely
+  pre-resolved by act-from PR 6; at pickup, audit the Today view door and any residue.)*
 - **S3 — Weekly note as planning surface** *(elicit mechanics at pickup)*. Designed
   function per R4: the place where next week's intentions become scheduled entities.
   Open: does planning flow through EXTRACT_ACTIVITIES lines, a guided section, or
@@ -117,8 +123,10 @@ for the weekly/monthly notes. That is this arc.
 
 ## Sequencing
 
-1. Calendar act-from arc PRs 1–5 land first (this doc waits; its S1 depends on
-   act-from PR 5 making Milestone truthful, and S2's day-cell work should not collide
-   with act-from PRs 3–4 touching the same components).
+1. ~~Calendar act-from arc PRs 1–5 land first~~ — shipped 2026-08-02 (#913–#917).
+   **This doc now waits for act-from PR 6** (the C6 ruling re-routes the day-cell
+   click to `/today/{date}` and adds the Daily-note toolbar buttons — the exact
+   surface S2 would touch; starting S2 before PR 6 lands would duplicate or collide
+   with it).
 2. At pickup: run the S3/S4/S5 elicitations, then promote candidates to a PR table in
    this doc (act-from arc format: per-PR acceptance against live cases).

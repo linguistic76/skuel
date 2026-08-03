@@ -3,7 +3,8 @@
 **Status:** CONFIRMED 2026-08-02 (founder ruling: "I want the calendar to be a place that
 I act from") — scoped 2026-08-02 after live-graph verification + full code-path read
 (routes → service → query builder → components). This document is the arc's source of
-truth; each PR runs in a fresh context against it.
+truth; each PR runs in a fresh context against it. **PRs 1–5 shipped 2026-08-02
+(#913–#917). C6 ruled at its own elicitation later that day — see C6 and PR table row 6.**
 **Related:** `core/services/calendar_service.py`, `adapters/inbound/calendar_ui.py`,
 `ui/calendar/components.py`, `scripts/detect_bloat.py` (`_CALENDAR_EDIT_SURFACE` PLANNED
 tier), the #623 all-chips-visible ruling, the Monday-start ISO-rail ruling (PERMANENT).
@@ -17,14 +18,16 @@ it truthful (everything that should render, renders, consistently across views) 
 makes it **actable**: completing habits per-day, rescheduling tasks/events — un-staging
 the three PLANNED calendar-edit methods (`quick_create`, `reschedule_item`,
 `record_habit_occurrence`) that have waited since the 2026-07-12 redesign for exactly
-this decision.
+this decision. (Outcome: two were wired in PRs 3–4; `quick_create` was superseded by
+the C6 ruling and is deleted, not wired — see C6.)
 
 ## Founder ruling (2026-08-02 elicitation)
 
 **The calendar is a surface to act from**, not just a temporal overview. This settles
 the arc's center of gravity: the habit-completion loop (PR 3) is the heart; truthful
 display (PRs 1–2) is its prerequisite; reschedule (PR 4) and truthful legend + dead-code
-removal (PR 5) complete it. Quick-add (PR 6) is contract-listed but elicit-before-build.
+removal (PR 5) complete it. Quick-add (PR 6) was elicit-before-build; RULED 2026-08-02
+at elicitation #2 — the settled design is in C6. No further elicitation gates remain.
 
 ## Verified ground truth (2026-08-02, live dev graph + code read)
 
@@ -147,12 +150,108 @@ deletion-campaign protocol; the service's occurrence generator is the one path).
 surface forward pull for free); porting any converter logic first (verified drifted and
 wrong).
 
-**C6 — Quick-add: staged, elicit before build.** `quick_create` stays PLANNED unless
-PR 6 is green-lit at its own elicitation. Open design tension to resolve THEN: day-cell
-click already navigates to the daily note (a loved affordance) — quick-add needs a
-non-conflicting entry point (hover "+" chip? toolbar button + date picker?). Honest
-essentialness read: habit-complete and reschedule are daily-lived; quick-add duplicates
-the existing Create-an-Event page and /tasks forms. Deferral is acceptable and cheap.
+**C6 — Day-click acts: the day lens is the entry point; `quick_create` dies superseded.**
+RULED 2026-08-02 (founder elicitation #2; supersedes the staged-elicit-first text that
+stood here). The entry-point tension resolved by re-routing the click, not by adding a
+new affordance to the grid:
+- **Day-cell click → `/today/{date}`** (the existing day lens from the Today↔Calendar
+  arc) — month grid cells AND week-view day cards, keeping the `closest()` guard so
+  chips/links stay independently clickable. Past days navigate too (reviewing a past
+  day is legitimate; the lens is always meaningful).
+- **Daily-note doors:** the per-cell date-number link to `/journals/daily/{date}` STAYS
+  (the always-nearby door). The Month AND Week toolbars gain a **"Daily note"** button
+  (today's note) beside their period-note button — completing the Daily/Weekly/Monthly
+  family. This pre-resolves the calendar side of periodic-notes S2 (visible note-doors).
+- **Quick-add is TASKS ONLY and lives on the day lens**, not in a calendar modal: an
+  add-a-task affordance on `/today/{date}` creating with `scheduled_date` = viewed day
+  and **no `due_date`** (work-chip semantics — founder: "it's I'll work on it that
+  day"). The affordance is absent on past-day lenses AND the POST refuses past dates
+  server-side. Events keep the Create-an-Event page; the day lens may carry a
+  date-prefilled "Create event for this day" link.
+- **Lens membership widening is C7's scope (PR 7)** — quick-add depends on it: a
+  scheduled-only task must not vanish from the very lens that created it. By the time
+  PR 6 runs, the lens already selects due OR scheduled.
+- **Defer semantics under the widened membership are C7's contract** — the review of
+  this ruling (#918 rounds 2–6) surfaced a coherent respec of the lens's defer, two
+  pieces of which are live defects today independent of C6. **PR 7 lands BEFORE
+  PR 6**; PR 6 verifies the quick-added task's defer against C7's already-landed rules.
+- **`quick_create` is DELETED as superseded, not wired:** it was designed for a
+  calendar-owned modal world — multi-type, and it stamps BOTH `scheduled_date` and
+  `due_date` (contradicting the ruling). Creation belongs to the Today surface through
+  `TasksService`, like the lens's existing complete/defer/star actions. Un-register it
+  from `PLANNED_METHODS` in the same PR — `_CALENDAR_EDIT_SURFACE` empties.
+*Rejected:* a calendar quick-add modal (duplicates existing forms; the day lens IS the
+acting surface); hover "+" chips (grid noise); toolbar-only daily-note access (past
+days' notes would lose their calendar door); inline event creation on the lens
+(duplicates Create-an-Event; tasks are the daily-lived quick capture).
+
+**C7 — Defer speaks the day it was asked from.** Added at #918 rounds 2–6 — the C6
+membership widening exposed that the lens's defer was built for a due-only world
+(`adapters/inbound/today_routes.py:170-175` always mutates `due_date`, inventing one
+from today when absent; `static/js/today.js:234-244` hides the card and toasts success
+BEFORE the POST with no error path). Two of its defects are live TODAY independent of
+C6: overdue anchoring (a 7-days-overdue "Defer tomorrow" lands at six-days-ago and
+never leaves triage) and the recurrence bound (`TasksCoreService._validate_update`
+never rechecks what `TaskCreateRequest` enforces, so a defer can persist
+`due_date >= recurrence_end_date` — C4's reschedule guards exactly this). Ruled:
+- **Lens membership widens to `scheduled_date` OR `due_date`** — the ribbon currently
+  admits tasks only when `due_date == view_date` (`ui/today/orchestrator.py:254-256`),
+  making scheduled-only tasks invisible to the lens (and the dual-surface cases below
+  untestable). Mirrors the calendar's C2 semantics; the triage bar stays due-based —
+  deadline language, not work-plan language. (Moved here from PR 6 at round 7: the
+  widening and the defer respec are one truth and must land together.)
+- The defer POST carries `view_date` AND the card's surface (`source=ribbon|triage`).
+- **Triage defers always move `due_date`** — triage speaks deadline language, even
+  when the task is ALSO scheduled on the viewed day (dual-membership collision:
+  view-date matching alone would move the work date and bounce the task back into
+  triage on refresh). **The server does not trust the label** (round 8): a triage
+  defer is honored only when the freshly fetched task satisfies triage's FULL
+  membership predicate — actually overdue (`due_date < today`) AND passing the SAME
+  status predicate the lens renders by (a completed task's dates still pass the date
+  checks, round 9) — AND the submitted `view_date` IS the current day; otherwise 400.
+  **Guard and render share ONE predicate function** (round 11): `build_context()` and
+  the defer guard call the same code, so they cannot drift. Today that predicate
+  excludes exactly `EntityStatus.COMPLETED` — dated CANCELLED/FAILED tasks render
+  today and therefore remain deferrable; whether they SHOULD render is lens-status
+  truth, out of C7's scope. A stale tab or forged POST must not rewrite a completed
+  task or a future deadline anchored to an arbitrary day. (Ribbon defers apply the
+  same shared predicate: field-equals-`view_date` match on the fresh task PLUS the
+  status rule.)
+- **Ribbon defers move the field(s) equal to `view_date`** (both when both match). A
+  ribbon card exists via a field match by construction; a no-match POST is refused
+  400 (defensive).
+- **New value = `view_date` + span** for every moved field — "Defer tomorrow" means
+  tomorrow, never `old_value + span`.
+- **Refusals:** a move pushing `scheduled_date` past `due_date`, or `due_date`
+  onto/past `recurrence_end_date` (same message family as C4's guards). On ANY
+  non-2xx the client restores the card and shows the message; the rejection path is
+  verified through the UI (headless Chrome), not just at the route.
+- **ALL dual-card interaction state is keyed by (source, uid)** (rounds 7–8): the
+  client keys everything on the task UID alone — the optimistic hide (`deferred[id]`
+  filters BOTH ribbon and triage, `static/js/today.js:30,35-38`), selection
+  (`selectedId`), the drawer (`openTaskId`), and `flatOrder()`/`openTask` resolve the
+  repeated UID by `indexOf`/ribbon-first search (`today.js:26-27,106-129`). For a
+  dual-membership task that means a defer from one surface hides both cards, both
+  rows highlight together, j/k focus breaks on the repeat, and a drawer/keyboard
+  defer loses its originating surface. Key hide, selection, focus, and drawer state
+  by (source, uid): the acted-on card changes; the other card stays intact.
+- **One transport per defer control** (round 11): the drawer's defer button submits
+  TWICE — `:hx-post` (`ui/today/page.py:865-868`) AND its click handler's
+  `deferTask()` → `htmx.ajax()` (`static/js/today.js:243-244`). A pre-existing
+  double-submit; under the fresh-membership guard the second request fails the match
+  and the required non-2xx handler would falsely restore a card whose defer
+  succeeded. Every defer control submits exactly once.
+- **Defer Undo is removed rather than left lying** (round 10): the client posts the
+  mutation immediately, then `undoFlash()` merely clears the local hidden state
+  (`static/js/today.js:243-244, 252-256`) — the card reappears, then vanishes on the
+  next refresh with its date still moved. A truthful Undo needs a server-side inverse
+  surface this arc doesn't build; the deliberate correction paths already exist (C4
+  reschedule from the calendar modal, or defer again from the new day's lens). The
+  post-defer flash keeps its feedback role but offers no Undo for defers. Revisit as
+  its own capability only if lived use misses it.
+*Rejected:* fixing arithmetic/bounds only for quick-added tasks (the defects are
+task-shape-general and live today); view-date-only field selection without the card
+source (round 6's dual-membership collision).
 
 ## Non-goals (this arc)
 
@@ -190,7 +289,14 @@ the gate auto-passes docs PRs without a verdict).
 | 3 | C3 — day-aware habit chips, real completion state, per-day Mark Complete | Clicking "Meditate" on yesterday's cell opens a modal for THAT day; Mark Complete records a completion dated yesterday (verified in graph); the chip turns completed; today's chip completed via /habits also renders completed; future chips offer no completion |
 | 4 | C4 — modal reschedule for tasks/events | Rescheduling a live scheduled task from its modal moves the chip to the new date (graph verified); an event keeps its duration; non-owner UIDs get not-found |
 | 5 | C5 — goals as Milestones (incl. `goal-` in `get_item` + modal); delete dead converters; docstring truth | Setting a `target_date` on live goal "Focus on Van" renders a purple Milestone chip on that day; clicking it opens a working details modal with a View Goal link (non-owner → not-found); `ui/calendar/converters.py` + its test are gone; `calendar_routes.py` docstring matches reality |
-| 6 | C6 — quick-add (OPTIONAL — separate elicitation first) | Elicit entry-point design with founder before any code |
+| 6 | C6 — day-click → day lens; day-lens task quick-add; Daily-note toolbar buttons; delete `quick_create` | Clicking Aug 20 in month AND week views opens `/today/2026-08-20`; adding a task there creates it with `scheduled_date=2026-08-20`, no `due_date`; the task appears on that day's lens immediately AND after a refresh (membership already widened by PR 7), and renders as a work chip on the calendar; deferring it from its ribbon card behaves per C7's already-landed rules (spot-check: `scheduled_date` moves to view+span, no `due_date` invented); a past day's lens offers no add and a forged past-date POST is refused; date numbers still link to daily notes; both toolbars show a Daily note button opening today's note; `quick_create` gone from `CalendarService` AND `PLANNED_METHODS` (`_CALENDAR_EDIT_SURFACE` empty); `./dev bloat` clean |
+| 7 | C7 — lens membership widens to due OR scheduled; source-aware, view-date-anchored defer with full guards (**lands BEFORE PR 6**) | A live scheduled-only task appears on its day's lens (membership widened); deferred 1d from its ribbon card it gets `scheduled_date = view_date+1`, graph-verified, no `due_date` invented; a 7-days-overdue task "Defer tomorrow" from triage gets `due_date` = tomorrow and leaves triage after refresh; a task overdue AND scheduled today moves only the deadline from its triage card and only the work date from its ribbon card — the OTHER surface's card stays visible after the optimistic hide, selecting/opening one card highlights only that card, and j/k traverses both cards correctly (interaction state keyed by source+uid); a triage defer for a task that is NOT actually overdue, or whose `view_date` is not the current day, is refused 400; a defer POST for a task COMPLETED after page load is refused (full membership predicate incl. status, either surface); a defer pushing the work date past the deadline, or a recurring task's deadline onto/past `recurrence_end_date`, is refused and the card visibly returns with the message (UI-verified in headless Chrome); the post-defer flash offers no Undo (the removed control only cleared local state while the persisted date stayed moved); the drawer defer issues exactly ONE request (double transport removed, network-asserted in the UI check); guard and lens render from one shared membership-predicate function (unit-asserted — no independent status list) |
 
 PR 1 → 2 → 3 is the dependency spine (truthful grid → truthful items → actions on
 them); PRs 4 and 5 are independent of each other and can land in either order after 3.
+**PR 7 lands before PR 6**: C7 carries the lens membership widening AND the defer
+respec as one truth (round 7: the widening was moved out of PR 6 so C7's dual-surface
+cases are testable when it lands), and it repairs live defer defects independent of
+C6. PR 6 then closes the arc against an already-truthful lens (ruled after 1–5
+shipped; it re-routes the day-cell click and touches the toolbar both earlier PRs
+shaped).
