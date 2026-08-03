@@ -46,13 +46,13 @@ from ui.primitives import ButtonLink
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
-# Legend / switcher vocabulary — the calendar's five item types, in display order.
-_LEGEND_TYPES: tuple[CalendarItemType, ...] = (
-    CalendarItemType.EVENT,
-    CalendarItemType.TASK_WORK,
-    CalendarItemType.TASK_DEADLINE,
-    CalendarItemType.HABIT,
-    CalendarItemType.MILESTONE,
+# Legend vocabulary — four kinds grouped by Activity-domain pair (periodic-notes
+# arc R1/R2/E1): Tasks+Events dominate the grid; Goals+Habits are milestones +
+# recurrence; Choices+Principles get no swatch — the compass lives in the
+# periodic note, not on the grid. Within each pair, R1's linear domain order.
+_LEGEND_PAIRS: tuple[tuple[str, tuple[CalendarItemType, ...]], ...] = (
+    ("Tasks + Events", (CalendarItemType.TASK, CalendarItemType.EVENT)),
+    ("Goals + Habits", (CalendarItemType.MILESTONE, CalendarItemType.HABIT)),
 )
 
 _WEEKDAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -68,40 +68,64 @@ _NO_BOOST = {"hx-boost": "false"}
 # ============================================================================
 
 
-def create_calendar_legend() -> Div:
-    """Five type swatches (color square + label) doubling as filter controls.
+def _legend_swatch(item_type: CalendarItemType) -> HtmlButton:
+    """One kind-swatch, styled as a visible control (bordered pill).
 
-    Each swatch is a toggle button: click hides/shows that type on the grid,
-    hover spotlights it (dims the others). State + CSS classes live on the
-    ``calendarLegend`` Alpine component bound to the calendar shell
+    The border + hover ring + tooltip make the long-standing filter/spotlight
+    interactivity discoverable — the legend used to LOOK static (periodic-notes
+    arc S1: affordance invisibility was the calendar's recurring disease).
+    """
+    label = item_type.get_label()
+    return HtmlButton(
+        Span(
+            cls="w-[9px] h-[9px] rounded-[3px]",
+            style=f"background-color: {item_type.get_color()}",
+        ),
+        Span(label, cls="text-[11px] font-medium text-muted-foreground"),
+        type="button",
+        title=f"Click to show/hide {label} items · hover to spotlight",
+        aria_label=f"Show or hide {label} items",
+        cls=(
+            "flex items-center gap-1.5 cursor-pointer rounded-full px-2 py-0.5"
+            " border border-border bg-card transition-all hover:bg-accent"
+            " hover:border-muted-foreground/40"
+            " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        ),
+        **{
+            "@click": f"toggleType('{item_type.value}')",
+            "@mouseenter": f"spotlight = '{item_type.value}'",
+            "@mouseleave": "spotlight = null",
+            ":class": f"isHidden('{item_type.value}') && 'opacity-40'",
+            ":aria-pressed": f"String(!isHidden('{item_type.value}'))",
+        },
+    )
+
+
+def create_calendar_legend() -> Div:
+    """Kind swatches doubling as filter controls, grouped by Activity pair.
+
+    Two groups (``_LEGEND_PAIRS``): Tasks+Events and Goals+Habits, each a tiny
+    pair label + bordered swatch buttons. Click hides/shows that kind on the
+    grid, hover spotlights it (dims the others). State + CSS classes live on
+    the ``calendarLegend`` Alpine component bound to the calendar shell
     (``_wrap_calendar_page``), so filters survive HTMX content swaps; the
     hiding itself is pure CSS (``calendar.css``) keyed off ``data-item-type``.
     """
-    swatches = [
-        HtmlButton(
+    groups = [
+        Div(
             Span(
-                cls="w-[9px] h-[9px] rounded-[3px]",
-                style=f"background-color: {item_type.get_color()}",
+                pair_label,
+                cls=(
+                    "text-[10px] uppercase tracking-[0.08em] font-semibold"
+                    " text-muted-foreground/60 whitespace-nowrap"
+                ),
             ),
-            Span(item_type.get_label(), cls="text-[11px] font-medium text-muted-foreground"),
-            type="button",
-            aria_label=f"Show or hide {item_type.get_label()} items",
-            cls=(
-                "flex items-center gap-1.5 cursor-pointer rounded-md px-1 py-0.5 -mx-1"
-                " transition-opacity hover:bg-accent"
-                " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            ),
-            **{
-                "@click": f"toggleType('{item_type.value}')",
-                "@mouseenter": f"spotlight = '{item_type.value}'",
-                "@mouseleave": "spotlight = null",
-                ":class": f"isHidden('{item_type.value}') && 'opacity-40'",
-                ":aria-pressed": f"String(!isHidden('{item_type.value}'))",
-            },
+            *[_legend_swatch(item_type) for item_type in pair_types],
+            cls="flex items-center gap-1.5",
         )
-        for item_type in _LEGEND_TYPES
+        for pair_label, pair_types in _LEGEND_PAIRS
     ]
-    return Div(*swatches, cls="flex items-center gap-3.5 flex-wrap pb-1")
+    return Div(*groups, cls="flex items-center gap-4 flex-wrap pb-1")
 
 
 def create_calendar_header(title: str) -> Div:
@@ -324,7 +348,13 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
     the day has a recorded completion (calendar.css renders them ✓/dimmed).
     """
     color = item.color
-    dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
+    # Due-state cue (periodic-notes arc E1): a due-but-unscheduled task keeps
+    # the Task kind color but swaps its dot for ⏰ (plus the red left accent
+    # from calendar.css via data-due) — urgency is a state, not a kind.
+    if item.is_due:
+        dot = Span("⏰", cls="flex-none text-[10px] leading-none", aria_label="Due")
+    else:
+        dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
     chip_style = f"background-color: {color}1a; border-left: 3px solid {color}"
     interactive: dict[str, str] = {}
     if _opens_detail_modal(item):
@@ -340,6 +370,8 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
         }
     cursor = " cursor-pointer" if interactive else ""
     state_attrs: dict[str, str] = {"data_item_type": item.item_type.value}
+    if item.is_due:
+        state_attrs["data_due"] = "true"
     if _is_completed_occurrence(item):
         state_attrs["data_completed"] = "true"
 
@@ -833,10 +865,7 @@ def create_item_details_modal(item: Any) -> Div:
     # (TasksCoreService._validate_update) and past events — immutable
     # historical records (EventsCoreService._validate_update).
     resched_form = None
-    if item.item_type in (
-        CalendarItemType.TASK_WORK,
-        CalendarItemType.TASK_DEADLINE,
-    ) and not _is_terminal_task(item):
+    if item.item_type == CalendarItemType.TASK and not _is_terminal_task(item):
         resched_form = reschedule_form(
             item.uid,
             with_time=False,
@@ -954,7 +983,7 @@ def create_item_details_modal(item: Any) -> Div:
             **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat
         )
     ]
-    if item.item_type in (CalendarItemType.TASK_WORK, CalendarItemType.TASK_DEADLINE):
+    if item.item_type == CalendarItemType.TASK:
         action_buttons.insert(
             0,
             ButtonLink(

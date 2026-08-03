@@ -33,7 +33,7 @@ def _item() -> CalendarItem:
     return CalendarItem(
         uid=_ITEM_UID,
         source_uid="task_1",
-        item_type=CalendarItemType.TASK_WORK,
+        item_type=CalendarItemType.TASK,
         title="Write essay",
         description="",
         start_time=datetime(2026, 7, 18, 9, 0),
@@ -102,6 +102,6 @@ class TestResponseShape:
         payload = response.json()
         assert payload["uid"] == _ITEM_UID
         assert payload["source_uid"] == "task_1"
-        assert payload["item_type"] == CalendarItemType.TASK_WORK.value
+        assert payload["item_type"] == CalendarItemType.TASK.value
         assert payload["start_time"] == "2026-07-18T09:00:00"
         assert payload["attendee_count"] == 0

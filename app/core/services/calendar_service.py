@@ -686,10 +686,11 @@ class CalendarService:
             start_time = datetime.now()
             end_time = start_time + timedelta(hours=1)
 
-        # A due-date-only task is a deadline marker; a scheduled task is work.
-        # Color communicates the type (per-type palette) so the legend is truthful.
-        is_deadline = task.scheduled_date is None and task.due_date is not None
-        item_type = CalendarItemType.TASK_DEADLINE if is_deadline else CalendarItemType.TASK_WORK
+        # Every task is ONE kind — Task (periodic-notes arc E1). A due-date-only
+        # task carries the due STATE: an all-day chip with the ⏰/red urgency cue,
+        # never a separate legend kind.
+        is_due = task.scheduled_date is None and task.due_date is not None
+        item_type = CalendarItemType.TASK
         color = item_type.get_color()
 
         return CalendarItem(
@@ -700,9 +701,10 @@ class CalendarService:
             item_type=item_type,
             start_time=start_time,
             end_time=end_time,
-            all_day=is_deadline,
+            all_day=is_due,
+            is_due=is_due,
             color=color,
-            icon=item_type.get_icon(),
+            icon="⏰" if is_due else item_type.get_icon(),
             priority=Priority(task.priority).to_numeric() if task.priority else 1,
             tags=list(task.tags),
             metadata={

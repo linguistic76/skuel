@@ -109,7 +109,7 @@ class TestVisTimelineWireShape:
                 CalendarItem(
                     uid="task_1",
                     title="Write tests",
-                    item_type=CalendarItemType.TASK_WORK,
+                    item_type=CalendarItemType.TASK,
                     start_time=datetime(2026, 3, 2, 9, 0),
                     end_time=datetime(2026, 3, 2, 10, 0),
                     source_uid="task_1",

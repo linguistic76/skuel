@@ -126,7 +126,8 @@ async def test_due_only_task_moves_due_date_and_stays_a_deadline() -> None:
     intent = tasks_service.update_task.await_args.args[1]
     assert intent.due_date == date(2026, 8, 20)
     assert intent.scheduled_date is UNSET
-    assert result.value.item_type == CalendarItemType.TASK_DEADLINE
+    assert result.value.item_type == CalendarItemType.TASK
+    assert result.value.is_due is True  # still due-only after the move (E1 state)
 
 
 @pytest.mark.asyncio

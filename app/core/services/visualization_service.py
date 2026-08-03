@@ -160,8 +160,7 @@ class VisualizationService:
     """
 
     ITEM_TYPE_GROUPS: ClassVar[dict[CalendarItemType, str]] = {
-        CalendarItemType.TASK_WORK: "tasks",
-        CalendarItemType.TASK_DEADLINE: "deadlines",
+        CalendarItemType.TASK: "tasks",
         CalendarItemType.EVENT: "events",
         CalendarItemType.HABIT: "habits",
         CalendarItemType.MILESTONE: "milestones",
@@ -704,7 +703,12 @@ class VisualizationService:
     def _calendar_item_to_visjs(self, item: CalendarItem, group_by: str) -> VisTimelineItem:
         """Convert CalendarItem to VisTimelineItem."""
         if group_by == "type":
-            group = self.ITEM_TYPE_GROUPS.get(item.item_type, "other")
+            # Deadlines are a due-STATE of tasks, not a kind (periodic-notes
+            # arc E1) — the timeline bucket re-derives from the state flag.
+            if item.is_due:
+                group = "deadlines"
+            else:
+                group = self.ITEM_TYPE_GROUPS.get(item.item_type, "other")
         elif group_by == "project":
             group = item.project_uid or "no-project"
         else:

@@ -26,6 +26,7 @@ from ui.calendar.components import (
     _items_by_date,
     _opens_detail_modal,
     calendar_nav_cluster,
+    create_calendar_legend,
     create_calendar_toolbar,
     create_day_cell,
     create_item_details_modal,
@@ -169,17 +170,18 @@ def test_modal_offers_no_completion_without_day_stamp() -> None:
 
 
 def _task_item(
-    item_type: CalendarItemType = CalendarItemType.TASK_WORK,
+    is_due: bool = False,
     status: str = "active",
 ) -> CalendarItem:
     return CalendarItem(
         uid="task-task_1",
         source_uid="task_1",
-        item_type=item_type,
+        item_type=CalendarItemType.TASK,
         title="Write report",
         start_time=datetime(2026, 8, 14, 9, 0),
         end_time=datetime(2026, 8, 14, 10, 0),
-        all_day=item_type == CalendarItemType.TASK_DEADLINE,
+        all_day=is_due,
+        is_due=is_due,
         metadata={"status": status},
     )
 
@@ -194,8 +196,8 @@ def test_task_modal_offers_date_only_reschedule() -> None:
     assert 'id="item-schedule-text"' in html
 
 
-def test_deadline_task_modal_also_offers_reschedule() -> None:
-    html = to_xml(create_item_details_modal(_task_item(CalendarItemType.TASK_DEADLINE)))
+def test_due_state_task_modal_also_offers_reschedule() -> None:
+    html = to_xml(create_item_details_modal(_task_item(is_due=True)))
     assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
     assert 'name="new_date"' in html
 
@@ -372,3 +374,49 @@ def test_nav_cluster_without_daily_note_href_has_one_note_button() -> None:
     # Exactly one periodic-note button (each carries a title="Open …").
     assert cluster.count('title="Open ') == 1
     assert "Daily note" in cluster
+
+
+# ---------------------------------------------------------------------------
+# create_calendar_legend — pair-grouped, one Task kind, visible affordance
+# (periodic-notes arc S1/E1)
+# ---------------------------------------------------------------------------
+
+
+def test_legend_groups_four_kinds_by_activity_pair() -> None:
+    html = to_xml(create_calendar_legend())
+    assert "Tasks + Events" in html
+    assert "Goals + Habits" in html
+    # Four kind-swatches, one per legend word — Deadline is dead as a kind.
+    for label in ("Task", "Event", "Milestone", "Habit"):
+        assert f">{label}</span>" in html
+    assert "Deadline" not in html
+    assert html.count("toggleType(") == 4
+    # Choices/Principles never appear (R2 — the compass lives in the note).
+    assert "Choice" not in html
+    assert "Principle" not in html
+
+
+def test_legend_swatches_read_as_controls() -> None:
+    """The filter/spotlight interactivity must be discoverable: real buttons,
+    a border (control styling), and a tooltip naming both behaviors."""
+    html = to_xml(create_calendar_legend())
+    assert html.count("<button") == 4
+    assert "border-border" in html
+    assert html.count("Click to show/hide") == 4
+    assert "hover to spotlight" in html
+
+
+def test_due_state_task_chip_carries_cue_and_task_type() -> None:
+    """A due-but-unscheduled task chip keeps the ONE Task kind for filtering
+    but visibly carries the due state: data-due + ⏰ (E1)."""
+    chip = to_xml(_event_chip(_task_item(is_due=True)))
+    assert 'data-item-type="task"' in chip
+    assert 'data-due="true"' in chip
+    assert "⏰" in chip
+
+
+def test_scheduled_task_chip_has_no_due_cue() -> None:
+    chip = to_xml(_event_chip(_task_item()))
+    assert 'data-item-type="task"' in chip
+    assert "data-due" not in chip
+    assert "⏰" not in chip
