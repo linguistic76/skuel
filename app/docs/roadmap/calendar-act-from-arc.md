@@ -174,6 +174,14 @@ new affordance to the grid:
   refresh. PR 6 widens the lens's day membership to `scheduled_date` OR `due_date`
   (mirroring the calendar's C2 semantics). The triage bar stays due-based — it speaks
   deadline language, not work-plan language.
+- ⚠️ **Defer must move the work date** (Codex, #918 round 2): the lens's defer handler
+  always shifts `due_date`, inventing one from today when absent
+  (`adapters/inbound/today_routes.py:170-175`). Under the widened membership, a
+  deferred scheduled-only task would reappear on its original work date carrying an
+  unintended deadline. PR 6 changes defer to move the date that placed the task on the
+  lens: scheduled tasks defer `scheduled_date`; due-only tasks keep deferring
+  `due_date`; a both-dates task defers its work date and the deadline stands —
+  mirroring PR 4's reschedule semantics (each chip kind moves its own date).
 - **`quick_create` is DELETED as superseded, not wired:** it was designed for a
   calendar-owned modal world — multi-type, and it stamps BOTH `scheduled_date` and
   `due_date` (contradicting the ruling). Creation belongs to the Today surface through
@@ -220,7 +228,7 @@ the gate auto-passes docs PRs without a verdict).
 | 3 | C3 — day-aware habit chips, real completion state, per-day Mark Complete | Clicking "Meditate" on yesterday's cell opens a modal for THAT day; Mark Complete records a completion dated yesterday (verified in graph); the chip turns completed; today's chip completed via /habits also renders completed; future chips offer no completion |
 | 4 | C4 — modal reschedule for tasks/events | Rescheduling a live scheduled task from its modal moves the chip to the new date (graph verified); an event keeps its duration; non-owner UIDs get not-found |
 | 5 | C5 — goals as Milestones (incl. `goal-` in `get_item` + modal); delete dead converters; docstring truth | Setting a `target_date` on live goal "Focus on Van" renders a purple Milestone chip on that day; clicking it opens a working details modal with a View Goal link (non-owner → not-found); `ui/calendar/converters.py` + its test are gone; `calendar_routes.py` docstring matches reality |
-| 6 | C6 — day-click → day lens; day-lens task quick-add (+ lens membership widened to due OR scheduled); Daily-note toolbar buttons; delete `quick_create` | Clicking Aug 20 in month AND week views opens `/today/2026-08-20`; adding a task there creates it with `scheduled_date=2026-08-20`, no `due_date`; the task appears on that day's lens immediately AND after a refresh (lens selects due OR scheduled), and renders as a work chip on the calendar; a past day's lens offers no add and a forged past-date POST is refused; date numbers still link to daily notes; both toolbars show a Daily note button opening today's note; `quick_create` gone from `CalendarService` AND `PLANNED_METHODS` (`_CALENDAR_EDIT_SURFACE` empty); `./dev bloat` clean |
+| 6 | C6 — day-click → day lens; day-lens task quick-add (+ lens membership widened to due OR scheduled); Daily-note toolbar buttons; delete `quick_create` | Clicking Aug 20 in month AND week views opens `/today/2026-08-20`; adding a task there creates it with `scheduled_date=2026-08-20`, no `due_date`; the task appears on that day's lens immediately AND after a refresh (lens selects due OR scheduled), and renders as a work chip on the calendar; deferring that task from its Today card moves `scheduled_date` (no invented `due_date`) and it leaves that day's lens and calendar cell for the deferred day; a past day's lens offers no add and a forged past-date POST is refused; date numbers still link to daily notes; both toolbars show a Daily note button opening today's note; `quick_create` gone from `CalendarService` AND `PLANNED_METHODS` (`_CALENDAR_EDIT_SURFACE` empty); `./dev bloat` clean |
 
 PR 1 → 2 → 3 is the dependency spine (truthful grid → truthful items → actions on
 them); PRs 4 and 5 are independent of each other and can land in either order after 3.
