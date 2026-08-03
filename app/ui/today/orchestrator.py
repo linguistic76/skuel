@@ -31,6 +31,7 @@ from ui.page_contexts import (
     TodayStats,
     TriageItemView,
 )
+from ui.today.membership import is_ribbon_member, is_triage_member
 
 if TYPE_CHECKING:
     from core.models.event.event import Event
@@ -53,10 +54,6 @@ logger = get_logger("skuel.orchestrators.today")
 
 # Days-since-activity threshold for a ribbon to render as "dormant".
 _DORMANCY_DAYS = 7
-
-# How far into the future counts as "today" when filtering tasks/events.
-# A task due later today is still "today"; tasks due tomorrow are not.
-_TODAY_WINDOW = timedelta(days=0)
 
 
 # Canonical kind metadata — matches today.md §2 and handoff/today/today.html.
@@ -251,22 +248,15 @@ class TodayOrchestrator:
             else f"lp-{designation.life_path_uid or user_uid}"
         )
 
-        today_tasks_full = [
-            t for t in all_tasks if t.due_date == view_date and t.status != EntityStatus.COMPLETED
-        ]
+        # Ribbon membership is scheduled OR due == view_date (C7 widening —
+        # mirrors the calendar's C2 semantics; a scheduled-only task must not
+        # be invisible to the very lens that acts on it). Both predicates live
+        # in ui/today/membership.py and are SHARED with the defer guard in
+        # adapters/inbound/today_routes.py — render and guard cannot drift.
+        today_tasks_full = [t for t in all_tasks if is_ribbon_member(t, view_date)]
         # Triage is a present-tense "needs attention now" bar — only surface it on
         # the current day, never while browsing yesterday/tomorrow.
-        triage_tasks_full = (
-            [
-                t
-                for t in all_tasks
-                if t.due_date is not None
-                and t.due_date < today
-                and t.status != EntityStatus.COMPLETED
-            ]
-            if is_today
-            else []
-        )
+        triage_tasks_full = [t for t in all_tasks if is_triage_member(t, today)] if is_today else []
 
         active_goals = [g for g in all_goals if g.status == EntityStatus.ACTIVE]
         rituable_habits = [h for h in all_habits if _parse_hhmm(h.preferred_time) is not None]

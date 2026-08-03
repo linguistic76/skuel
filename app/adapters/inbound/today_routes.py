@@ -5,11 +5,15 @@ Six endpoints, matching ``docs/design-handoff/today/today.md`` §5:
 - ``GET /today`` — full page (TodayOrchestrator → TodayPage → BasePage)
 - ``GET /today/tasks/{uid}/drawer`` — drawer body fragment
 - ``POST /today/tasks/{uid}/complete`` — complete task, 204
-- ``POST /today/tasks/{uid}/defer`` — shift due_date by ``span`` (1d|1w), 204
+- ``POST /today/tasks/{uid}/defer`` — source-aware, view-date-anchored defer
+  (C7): moves the field(s) the card spoke for to ``view_date + span``, 204
 - ``POST /today/tasks/{uid}/star`` — pin/unpin task for user, 204
 - ``POST /today/lifepaths/{uid}/wake`` — clear dormancy, 204
 
 All task routes verify ownership — non-owners get 404 (no UID oracle).
+The defer guard validates against the SAME membership predicates the lens
+renders by (``ui/today/membership.py``) — see C7 in
+``docs/roadmap/calendar-act-from-arc.md``.
 Today is a cross-cutting view; routes are registered via the
 ``create_today_routes`` bootstrap callable, not ``DomainRouteConfig``.
 """
@@ -25,10 +29,19 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from core.models.sentinels import UNSET
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
+from core.utils.neo4j_temporal import convert_neo4j_date
 from core.utils.result_simplified import Result
+from ui.today.membership import (
+    DUE_FIELD,
+    SCHEDULED_FIELD,
+    is_ribbon_member,
+    is_triage_member,
+    ribbon_date_fields,
+)
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -149,15 +162,42 @@ def create_today_routes(
     @rt("/today/tasks/{uid}/defer", methods=["POST"])
     @csrf_protected
     async def today_task_defer(request: Request, uid: str) -> Response:
-        """Shift a task's due_date by ``span`` (``1d`` or ``1w``). 204 on success."""
+        """Defer a task from a day-lens card, anchored to the day it was asked from.
+
+        The POST carries ``span`` (``1d``|``1w``), ``view_date`` (the lens day
+        the card rendered on) and ``source`` (``ribbon``|``triage``). Field
+        selection speaks the card's language: triage always moves ``due_date``
+        (deadline language — even for a task also scheduled on the viewed
+        day); ribbon moves the field(s) equal to ``view_date`` on the freshly
+        fetched task (both when both match). The new value is always
+        ``view_date + span``, never ``old value + span``.
+
+        The server does not trust the label: the fresh task must still satisfy
+        the claimed surface's FULL membership predicate — the same function
+        objects ``build_context()`` renders by (``ui/today/membership.py``) —
+        and a triage defer additionally requires ``view_date`` to be the
+        current day; otherwise 400. Refusals (400, message in body): a move
+        pushing the work date past the deadline, or the deadline onto/past
+        ``recurrence_end_date`` (mirrors C4's reschedule guards). 204 on
+        success, 404 on unknown/unowned.
+        """
         user_uid = require_authenticated_user(request)
 
         form = await request.form()
-        span_raw = form.get("span") or "1d"
-        span_key = str(span_raw).strip()
+        span_key = str(form.get("span") or "1d").strip()
         delta = _DEFER_SPANS.get(span_key)
         if delta is None:
             return Response(f"Invalid span '{span_key}'", status_code=400)
+
+        source = str(form.get("source") or "").strip()
+        if source not in ("ribbon", "triage"):
+            return Response(f"Invalid source '{source}'", status_code=400)
+
+        view_date_raw = str(form.get("view_date") or "").strip()
+        try:
+            view_date = date.fromisoformat(view_date_raw)
+        except ValueError:
+            return Response(f"Invalid view_date '{view_date_raw}'", status_code=400)
 
         ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
         if ownership_error is not None:
@@ -166,12 +206,63 @@ def create_today_routes(
         task_result = await tasks.get_task(uid)
         if task_result.is_error:
             return Response("Task not found", status_code=404)
-
         task = task_result.value
-        base_due = task.due_date if task.due_date is not None else date.today()
-        new_due = base_due + delta
 
-        update = await tasks.update_task(uid, TaskUpdateIntent(due_date=new_due))
+        today = date.today()
+        if source == "triage":
+            # Triage speaks deadline language and only exists on the live
+            # current day — a stale tab or forged POST must not anchor a
+            # deadline to an arbitrary day.
+            if view_date != today:
+                return Response(
+                    "Triage defers only apply to the current day — refresh the page",
+                    status_code=400,
+                )
+            if not is_triage_member(task, today):
+                return Response("Task is no longer in triage — refresh the page", status_code=400)
+            move_fields: tuple[str, ...] = (DUE_FIELD,)
+        else:
+            # A ribbon card exists via a field match by construction — but the
+            # task may have moved or completed since the page loaded, so the
+            # match is re-derived from the FRESH task; no match is refused.
+            if not is_ribbon_member(task, view_date):
+                return Response(
+                    "Task is no longer on this day's lens — refresh the page",
+                    status_code=400,
+                )
+            move_fields = ribbon_date_fields(task, view_date)
+
+        new_value = view_date + delta
+
+        # Moving only the work date must not push it past a standing deadline
+        # (creation forbids due_date < scheduled_date and the update path
+        # doesn't recheck — same guard family as C4's reschedule). When both
+        # fields move they land on the same day, which that ordering allows.
+        moves_scheduled_only = SCHEDULED_FIELD in move_fields and DUE_FIELD not in move_fields
+        if moves_scheduled_only and task.due_date is not None and new_value > task.due_date:
+            return Response(
+                f"Work date would pass the task's deadline ({task.due_date.isoformat()})"
+                " — edit the task to move the deadline",
+                status_code=400,
+            )
+        if DUE_FIELD in move_fields:
+            recurrence_end = convert_neo4j_date(task.recurrence_end_date)
+            if recurrence_end is not None and new_value >= recurrence_end:
+                # Creation forbids due_date on/after recurrence_end_date and
+                # the update path doesn't recheck (C4 guards its reschedule
+                # the same way) — refuse rather than persist a recurrence
+                # window that ends before it starts.
+                return Response(
+                    f"New date is not before the recurrence end ({recurrence_end.isoformat()})"
+                    " — edit the task to change its recurrence",
+                    status_code=400,
+                )
+
+        intent = TaskUpdateIntent(
+            due_date=new_value if DUE_FIELD in move_fields else UNSET,
+            scheduled_date=new_value if SCHEDULED_FIELD in move_fields else UNSET,
+        )
+        update = await tasks.update_task(uid, intent)
         if update.is_error:
             logger.warning(
                 "today.defer failed for task=%s user=%s: %s",
