@@ -48,7 +48,7 @@ dependencies = [
     # until a deliberate migration. See ADR-067 § Pins.
     "deepgram-sdk>=4.8.1,<5.0.0",
     # Security Dependencies
-    "cryptography>=49.0.0",
+    "cryptography>=50.0.0",
     # Vault-agent WS client (ADR-075 B3) — direct dep, not a transitive ride on
     # deepgram/fastmcp; agent/skuel_vault_agent.py + its unit tests import it.
     "websockets>=16.1.1",
