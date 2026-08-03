@@ -259,8 +259,13 @@
       // modal reschedule or deferring again from the new day's lens. Exactly
       // ONE transport per defer control — this fetch is it.
       deferTask(source, id, span) {
-        const t = this.taskBy(source, id);
         const key = this.cardKey(source, id);
+        // A repeat on an already-hidden card (held `d`, double-click) must not
+        // re-post: the first request may already have moved the date, so its
+        // twin would fail the fresh-membership guard and the non-2xx handler
+        // would falsely restore a card whose defer succeeded (Codex #919 P2).
+        if (this.deferred[key]) return Promise.resolve();
+        const t = this.taskBy(source, id);
         this.deferred[key] = span;
         const label = (t && t.label) || id;
         this.showFlash(

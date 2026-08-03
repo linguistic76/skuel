@@ -164,6 +164,16 @@ describe('deferTask transport (C7)', () => {
     expect(c.deferred['triage:t-dual']).toBeUndefined();
     expect(c.flash.msg).toContain('not moved');
   });
+
+  it('repeat defer on an already-hidden card is a no-op (no second POST)', async () => {
+    // Held `d` / double-click: the twin request would fail the fresh-membership
+    // guard and falsely restore a card whose first defer succeeded.
+    const first = c.deferTask('ribbon', 't-work', '1d');
+    const second = c.deferTask('ribbon', 't-work', '1d');
+    await Promise.all([first, second]);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(c.deferred['ribbon:t-work']).toBe('1d');
+  });
 });
 
 describe('undo truthfulness', () => {
