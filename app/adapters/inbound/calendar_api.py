@@ -48,6 +48,9 @@ def create_calendar_api_routes(
                 "start_time": item.start_time.isoformat(),
                 "end_time": item.end_time.isoformat(),
                 "all_day": item.all_day,
+                # Due-STATE of a task (one Task kind — periodic-notes arc E1):
+                # without it, API consumers can't tell due-only from scheduled.
+                "is_due": item.is_due,
                 "color": item.color,
                 "icon": item.icon,
                 "priority": item.priority,
