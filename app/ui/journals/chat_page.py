@@ -13,8 +13,11 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Button, Div, Form, Input, P, Span
 
 from ui.components import Icon
+from ui.journals.week_panel import weekly_period_start
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from core.models.conversation import ConversationSession
     from core.models.user.user import User
     from core.models.user_entry.user_entry import UserEntry
@@ -78,18 +81,35 @@ def JournalsLandingPage(
 def PeriodicNotePage(
     entry: "UserEntry",
     initial_workspace: Any,
+    week_panel: "FT | None" = None,
 ) -> Any:
     """Full-height layout for periodic notes (daily/weekly/monthly).
 
     Uses a compact calendar navigation sidebar instead of the journal session
     sidebar — periodic notes are date-oriented, not pipeline-session-oriented.
+
+    ``week_panel`` — the weekly note's read panel of the week's existing
+    entities (periodic-notes arc S3), rendered as a right column. Only the
+    weekly-note route passes it; daily/monthly pages stay two-column.
     """
-    return Div(
+    columns: list[FT] = [
         _periodic_note_sidebar(entry),
         Div(
             initial_workspace,
             cls="flex-1 flex flex-col overflow-hidden",
         ),
+    ]
+    if week_panel is not None:
+        columns.append(
+            Div(
+                week_panel,
+                cls=(
+                    "w-[300px] flex-shrink-0 border-l border-border bg-slate-50 overflow-y-auto p-4"
+                ),
+            )
+        )
+    return Div(
+        *columns,
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
     )
@@ -117,13 +137,8 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
         prev_label = prev_d.strftime("%a, %b %-d")
         next_label = next_d.strftime("%a, %b %-d")
     elif kind == "weekly":
-        parts = period_key.split("-W")
-        try:
-            year_w = int(parts[0]) if len(parts) > 0 else today.year
-            week_w = int(parts[1]) if len(parts) > 1 else today.isocalendar()[1]
-            ref_date = date.fromisocalendar(year_w, week_w, 1)
-        except ValueError:
-            ref_date = today - timedelta(days=today.weekday())
+        monday = weekly_period_start(period_key)
+        ref_date = monday if monday is not None else today - timedelta(days=today.weekday())
         highlight_dates = {ref_date + timedelta(days=i) for i in range(7)}
         prev_mon = ref_date - timedelta(weeks=1)
         next_mon = ref_date + timedelta(weeks=1)

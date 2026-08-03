@@ -74,7 +74,8 @@ if TYPE_CHECKING:
 class CalendarServiceOperations(Protocol):
     """Calendar aggregation service operations.
 
-    Route consumer: calendar_api.py, calendar_ui.py, visualization_api.py
+    Route consumer: calendar_api.py, calendar_ui.py, visualization_api.py,
+    journals_routes.py (weekly-note read panel)
     Implementation: CalendarService
     """
 
@@ -87,6 +88,19 @@ class CalendarServiceOperations(Protocol):
         include_completed: bool = False,
     ) -> "Result[CalendarData]":
         """Get calendar view for a date range. Returns Result[CalendarData]."""
+        ...
+
+    async def get_planning_items(
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+    ) -> "Result[list[CalendarItem]]":
+        """The range's plannable items — tasks + events + goal Milestones, no habits.
+
+        Weekly-note read-panel producer (periodic-notes arc S3); mirrors the
+        grid's due-OR-scheduled task semantics (act-from arc C2).
+        """
         ...
 
     async def get_item(
