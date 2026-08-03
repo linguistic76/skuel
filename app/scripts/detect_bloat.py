@@ -168,12 +168,6 @@ _EVENTS_SCHEDULING = (
     "UI and a recurrence expansion route, or fold conflicts into "
     "CalendarOptimizationOrchestrator (cross-domain slot view)"
 )
-_CALENDAR_EDIT_SURFACE = (
-    "calendar editing surface staged — quick_create backed the calendar's inline "
-    "quick-add, dropped by the view-only agenda redesign (2026-07-12); the act-from "
-    "arc re-wired record_habit_occurrence (PR 3) and reschedule_item (PR 4); "
-    "quick_create stays staged unless PR 6 is green-lit at its own elicitation"
-)
 _HABIT_EVENT_AUTOMATION = (
     "bulk habit→event automation staged on the LIVE HabitEventScheduler (single-habit "
     "schedule_events_for_habit is routed via orchestration_routes.py); wire bulk-scheduling/"
@@ -542,8 +536,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/events/_scheduling_mixin.py::check_conflicts": _EVENTS_SCHEDULING,
     "core/services/events/_scheduling_mixin.py::create_recurring_instances": (_EVENTS_SCHEDULING),
     "core/services/events/events_search_service.py::get_conflicting": _EVENTS_SCHEDULING,
-    # --- Calendar: editing surface unwired by the view-only agenda redesign ---
-    "core/services/calendar_service.py::quick_create": _CALENDAR_EDIT_SURFACE,
     # --- Events: bulk habit→event automation ---
     "core/services/habit_event_scheduler.py::schedule_events_for_all_habits": (
         _HABIT_EVENT_AUTOMATION

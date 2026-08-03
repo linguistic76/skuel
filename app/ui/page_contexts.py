@@ -274,6 +274,9 @@ class TodayPageContext(TypedDict):
     heading: str  # H1 word: "Today" / "Yesterday" / "Tomorrow" / "Jul 19"
     is_today: bool  # False while browsing another day — hides the NOW marker
     #                 and disables ritual "past" strikethrough (day is not "now")
+    can_quick_add: bool  # True on today/future — gates the day-lens task quick-add
+    #                      affordance (absent on past days; the POST also refuses
+    #                      past dates server-side — act-from arc C6)
     now_hhmm: str  # server clock, user tz
     stats: TodayStats
     triage: list[TriageItemView]

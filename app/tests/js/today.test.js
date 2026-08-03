@@ -176,6 +176,24 @@ describe('deferTask transport (C7)', () => {
   });
 });
 
+describe('quick-add input does not hijack single-key actions (C6)', () => {
+  it('ignores a keydown originating from a text input', async () => {
+    c.selectedKey = 'triage:t-dual';
+    // Typing "d" into the quick-add title field must NOT defer the selected card.
+    c.onKey({ key: 'd', shiftKey: false, target: { tagName: 'INPUT' }, preventDefault() {} });
+    await Promise.resolve();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(c.deferred['triage:t-dual']).toBeUndefined();
+  });
+
+  it('still acts on keystrokes outside a field', async () => {
+    c.selectedKey = 'triage:t-dual';
+    c.onKey({ key: 'd', shiftKey: false, target: { tagName: 'BODY' }, preventDefault() {} });
+    await Promise.resolve();
+    expect(c.deferred['triage:t-dual']).toBe('1d');
+  });
+});
+
 describe('undo truthfulness', () => {
   it('undoFlash no longer resurrects deferred cards', async () => {
     await c.deferTask('ribbon', 't-work', '1d');

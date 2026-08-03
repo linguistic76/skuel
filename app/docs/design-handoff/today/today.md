@@ -3,9 +3,10 @@
 > One-page spec for engineering.  Pairs with `today.html`.
 > Route: `GET /today` → `ui/today.py::render_today(ctx)`
 >
-> `today.html` is the original design mock — a pre-C7 snapshot (uid-keyed
-> state, span-only defer, defer Undo). Where the mock and this doc differ,
-> this doc's §3/§5 are current; the defer protocol is ruled by C7 of
+> `today.html` is the original design mock — a pre-C6/C7 snapshot (uid-keyed
+> state, span-only defer, defer Undo, and no day-lens quick-add). Where the
+> mock and this doc differ, this doc's §3/§5 are current; the day-lens
+> task quick-add is ruled by C6 and the defer protocol by C7 of
 > `docs/roadmap/calendar-act-from-arc.md`.
 
 ---
@@ -176,6 +177,7 @@ HTML has `hx-post` / `hx-get` bindings colocated with each trigger.
 | Trigger                                   | Method · URL                                       | Request       | Response             |
 |-------------------------------------------|----------------------------------------------------|---------------|----------------------|
 | Complete task (drawer button, `x`, drag)  | `POST /today/tasks/{id}/complete`                  | —             | `204` or new ribbon fragment |
+| Quick-add task (day-lens form, C6)        | `POST /today/tasks/quick-add`                      | `title` + `view_date=YYYY-MM-DD` | `HX-Redirect` to the day's lens; `400` on a past/blank/invalid request (creates `scheduled_date`-only, no `due_date`) |
 | Defer task (drawer button, `d`/`⇧D`, drag)| `POST /today/tasks/{id}/defer`                     | `span=1d\|1w` + `source=ribbon\|triage` + `view_date=YYYY-MM-DD` | `204`; `400` + message on any refused move (C7 guards) |
 | Wake dormant LifePath                     | `POST /today/lifepaths/{id}/wake`                  | —             | `outerHTML` swap → active ribbon |
 | Star / pin task (drawer)                  | `POST /today/tasks/{id}/star`                      | —             | `204`                |

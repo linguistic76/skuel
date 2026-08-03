@@ -342,6 +342,10 @@ class TodayOrchestrator:
             "date_label": _date_label(view_date),
             "heading": _heading_label(view_date, today),
             "is_today": is_today,
+            # Quick-add is offered on today and future days only — you plan work
+            # forward, not into a day already gone (act-from arc C6). The POST
+            # backstops this too, so a forged past-date POST is refused.
+            "can_quick_add": view_date >= today,
             "now_hhmm": now.strftime("%H:%M"),
             "stats": stats,
             "triage": triage_views,

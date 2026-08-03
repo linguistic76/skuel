@@ -282,6 +282,22 @@ async def test_build_context_day_lens_targets_other_day() -> None:
 
 
 @pytest.mark.asyncio
+async def test_build_context_can_quick_add_gates_on_past() -> None:
+    """C6: quick-add is offered on today and future days, never a past day."""
+    orch, _ = _build()
+    today = date.today()
+
+    today_ctx = (await orch.build_context("u-mike")).value
+    assert today_ctx["can_quick_add"] is True
+
+    future_ctx = (await orch.build_context("u-mike", today + timedelta(days=3))).value
+    assert future_ctx["can_quick_add"] is True
+
+    past_ctx = (await orch.build_context("u-mike", today - timedelta(days=1))).value
+    assert past_ctx["can_quick_add"] is False
+
+
+@pytest.mark.asyncio
 async def test_build_context_ribbon_admits_scheduled_only_task() -> None:
     """C7 membership widening: scheduled_date == view_date puts a task on the
     ribbon even with NO due_date — it must not be invisible to the very lens

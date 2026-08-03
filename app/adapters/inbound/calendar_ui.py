@@ -145,6 +145,11 @@ def _calendar_shell(
             today_href,
             note_href,
             note_label,
+            # A "Daily note" (today's note) button beside the view's own periodic
+            # note — completing the Daily/Weekly/Monthly family on both toolbars
+            # (act-from arc C6). Per-cell date-number links remain the door to any
+            # specific day's note.
+            daily_note_href=f"/journals/daily/{date.today().isoformat()}",
         ),
         content_loading_placeholder(
             content_route,

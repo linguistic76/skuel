@@ -1,16 +1,19 @@
 """Today surface routes — post-login landing page + HTMX actions.
 
-Six endpoints, matching ``docs/design-handoff/today/today.md`` §5:
+Matching ``docs/design-handoff/today/today.md`` §5:
 
 - ``GET /today`` — full page (TodayOrchestrator → TodayPage → BasePage)
+- ``GET /today/{date_str}`` — the day lens for an arbitrary date (Prev/Next)
 - ``GET /today/tasks/{uid}/drawer`` — drawer body fragment
 - ``POST /today/tasks/{uid}/complete`` — complete task, 204
+- ``POST /today/tasks/quick-add`` — create a task scheduled on the viewed day
+  (C6): ``scheduled_date`` only, no ``due_date``; past days refused; HX-Redirect
 - ``POST /today/tasks/{uid}/defer`` — source-aware, view-date-anchored defer
   (C7): moves the field(s) the card spoke for to ``view_date + span``, 204
 - ``POST /today/tasks/{uid}/star`` — pin/unpin task for user, 204
 - ``POST /today/lifepaths/{uid}/wake`` — clear dormancy, 204
 
-All task routes verify ownership — non-owners get 404 (no UID oracle).
+All uid-scoped task routes verify ownership — non-owners get 404 (no UID oracle).
 The defer guard validates against the SAME membership predicates the lens
 renders by (``ui/today/membership.py``) — see C7 in
 ``docs/roadmap/calendar-act-from-arc.md``.
@@ -23,13 +26,16 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
+from pydantic import ValidationError
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from core.models.enums import EntityStatus
 from core.models.sentinels import UNSET
+from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
@@ -158,6 +164,69 @@ def create_today_routes(
             )
             return Response("Complete failed", status_code=500)
         return Response(status_code=204)
+
+    @rt("/today/tasks/quick-add", methods=["POST"])
+    @csrf_protected
+    async def today_task_quick_add(request: Request) -> Response:
+        """Create a task scheduled on the viewed day (day-lens quick-add, C6).
+
+        TASKS ONLY: creates with ``scheduled_date`` = the viewed day and NO
+        ``due_date`` ("I'll work on it that day" — a work chip, not a deadline;
+        the widened lens membership then renders it on this very day). The viewed
+        day must be today or later: a past day is refused 400 — the day lens hides
+        the affordance on past days (``can_quick_add``), and this is the
+        server-side backstop against a forged/stale past-date POST. On success the
+        response redirects the browser back to the day's lens (``HX-Redirect``) so
+        the new task renders immediately (and survives a manual refresh — it is
+        persisted, not optimistic). Events keep the Create-an-Event page; only
+        tasks are the daily-lived quick capture.
+        """
+        user_uid = require_authenticated_user(request)
+
+        form = await request.form()
+        title = str(form.get("title") or "").strip()
+        if not title:
+            return Response("Task title is required", status_code=400)
+
+        view_date_raw = str(form.get("view_date") or "").strip()
+        try:
+            view_date = date.fromisoformat(view_date_raw)
+        except ValueError:
+            return Response(f"Invalid view_date '{view_date_raw}'", status_code=400)
+
+        if view_date < date.today():
+            return Response(
+                "Cannot add a task to a past day — open today or a future day",
+                status_code=400,
+            )
+
+        # scheduled_date only (no due_date) → a work chip, per C6. The request
+        # model re-runs future-date + length validation; a forged over-long title
+        # surfaces as a clean 400 rather than an unhandled 500.
+        try:
+            create_req = TaskCreateRequest(
+                title=title,
+                scheduled_date=view_date,
+                status=EntityStatus.SCHEDULED,
+            )
+        except ValidationError as exc:
+            logger.info("today.quick_add rejected invalid task for user=%s: %s", user_uid, exc)
+            return Response("Invalid task", status_code=400)
+
+        result = await tasks.core.create_task(create_req, user_uid)
+        if result.is_error:
+            logger.warning(
+                "today.quick_add failed for user=%s: %s",
+                user_uid,
+                result.expect_error().message,
+            )
+            return Response("Could not add the task — try again", status_code=500)
+        # Reload the day's lens so the new work chip renders (and the calendar
+        # picks it up on its next fetch). HX-Redirect drives a full navigation.
+        return Response(
+            status_code=204,
+            headers={"HX-Redirect": f"/today/{view_date.isoformat()}"},
+        )
 
     @rt("/today/tasks/{uid}/defer", methods=["POST"])
     @csrf_protected
