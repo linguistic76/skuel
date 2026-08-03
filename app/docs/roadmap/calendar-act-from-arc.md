@@ -205,11 +205,13 @@ never rechecks what `TaskCreateRequest` enforces, so a defer can persist
   when the task is ALSO scheduled on the viewed day (dual-membership collision:
   view-date matching alone would move the work date and bounce the task back into
   triage on refresh). **The server does not trust the label** (round 8): a triage
-  defer is honored only when the freshly fetched task is actually overdue
-  (`due_date < today`) AND the submitted `view_date` IS the current day — otherwise
-  400. A stale tab or forged POST must not rewrite a future deadline anchored to an
-  arbitrary day. (Ribbon defers self-validate: the field-equals-`view_date` match
-  against the fresh task is the staleness check.)
+  defer is honored only when the freshly fetched task satisfies triage's FULL
+  membership predicate — actually overdue (`due_date < today`) AND not in a terminal
+  status (the lens excludes `EntityStatus.COMPLETED`; a completed task's dates still
+  pass the date checks, round 9) — AND the submitted `view_date` IS the current day;
+  otherwise 400. A stale tab or forged POST must not rewrite a completed task or a
+  future deadline anchored to an arbitrary day. (Ribbon defers apply the same full
+  predicate: field-equals-`view_date` match on the fresh task PLUS the status guard.)
 - **Ribbon defers move the field(s) equal to `view_date`** (both when both match). A
   ribbon card exists via a field match by construction; a no-match POST is refused
   400 (defensive).
@@ -269,7 +271,7 @@ the gate auto-passes docs PRs without a verdict).
 | 4 | C4 — modal reschedule for tasks/events | Rescheduling a live scheduled task from its modal moves the chip to the new date (graph verified); an event keeps its duration; non-owner UIDs get not-found |
 | 5 | C5 — goals as Milestones (incl. `goal-` in `get_item` + modal); delete dead converters; docstring truth | Setting a `target_date` on live goal "Focus on Van" renders a purple Milestone chip on that day; clicking it opens a working details modal with a View Goal link (non-owner → not-found); `ui/calendar/converters.py` + its test are gone; `calendar_routes.py` docstring matches reality |
 | 6 | C6 — day-click → day lens; day-lens task quick-add; Daily-note toolbar buttons; delete `quick_create` | Clicking Aug 20 in month AND week views opens `/today/2026-08-20`; adding a task there creates it with `scheduled_date=2026-08-20`, no `due_date`; the task appears on that day's lens immediately AND after a refresh (membership already widened by PR 7), and renders as a work chip on the calendar; deferring it from its ribbon card behaves per C7's already-landed rules (spot-check: `scheduled_date` moves to view+span, no `due_date` invented); a past day's lens offers no add and a forged past-date POST is refused; date numbers still link to daily notes; both toolbars show a Daily note button opening today's note; `quick_create` gone from `CalendarService` AND `PLANNED_METHODS` (`_CALENDAR_EDIT_SURFACE` empty); `./dev bloat` clean |
-| 7 | C7 — lens membership widens to due OR scheduled; source-aware, view-date-anchored defer with full guards (**lands BEFORE PR 6**) | A live scheduled-only task appears on its day's lens (membership widened); deferred 1d from its ribbon card it gets `scheduled_date = view_date+1`, graph-verified, no `due_date` invented; a 7-days-overdue task "Defer tomorrow" from triage gets `due_date` = tomorrow and leaves triage after refresh; a task overdue AND scheduled today moves only the deadline from its triage card and only the work date from its ribbon card — the OTHER surface's card stays visible after the optimistic hide, selecting/opening one card highlights only that card, and j/k traverses both cards correctly (interaction state keyed by source+uid); a triage defer for a task that is NOT actually overdue, or whose `view_date` is not the current day, is refused 400; a defer pushing the work date past the deadline, or a recurring task's deadline onto/past `recurrence_end_date`, is refused and the card visibly returns with the message (UI-verified in headless Chrome) |
+| 7 | C7 — lens membership widens to due OR scheduled; source-aware, view-date-anchored defer with full guards (**lands BEFORE PR 6**) | A live scheduled-only task appears on its day's lens (membership widened); deferred 1d from its ribbon card it gets `scheduled_date = view_date+1`, graph-verified, no `due_date` invented; a 7-days-overdue task "Defer tomorrow" from triage gets `due_date` = tomorrow and leaves triage after refresh; a task overdue AND scheduled today moves only the deadline from its triage card and only the work date from its ribbon card — the OTHER surface's card stays visible after the optimistic hide, selecting/opening one card highlights only that card, and j/k traverses both cards correctly (interaction state keyed by source+uid); a triage defer for a task that is NOT actually overdue, or whose `view_date` is not the current day, is refused 400; a defer POST for a task COMPLETED after page load is refused (full membership predicate incl. status, either surface); a defer pushing the work date past the deadline, or a recurring task's deadline onto/past `recurrence_end_date`, is refused and the card visibly returns with the message (UI-verified in headless Chrome) |
 
 PR 1 → 2 → 3 is the dependency spine (truthful grid → truthful items → actions on
 them); PRs 4 and 5 are independent of each other and can land in either order after 3.
