@@ -67,12 +67,27 @@ runs:
           const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
           const issueBody = [stamp, body, '', `[Audit run](${runUrl})`].join('\n')
 
-          const open = await github.paginate(github.rest.issues.listForRepo, {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            state: 'open',
-            per_page: 100,
-          })
+          // CLOSED issues are included on purpose. The ordering guard below has to see
+          // the newest recorded state, and `mode: resolve` CLOSES the issue — so an
+          // open-only lookup would give a late-running older revision nothing to compare
+          // against, and it would file a fresh stale issue right after a newer clean run
+          // had resolved the old one.
+          //
+          // Bounded rather than fully paginated: the guard defends against runs minutes
+          // apart, so any marker issue that matters was written moments ago and sorts to
+          // the top of an updated-desc listing. The cap is logged when hit rather than
+          // silently truncating.
+          const PAGES = 5, PER = 100
+          let scanned = []
+          for (let page = 1; page <= PAGES; page++) {
+            const r = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'all', sort: 'updated', direction: 'desc', per_page: PER, page,
+            })
+            scanned = scanned.concat(r.data)
+            if (r.data.length < PER) break
+            if (page === PAGES) core.info(`Scanned the ${PAGES * PER}-issue cap without exhausting the list.`)
+          }
           // The marker string is PUBLIC — it is visible in every issue this action
           // files. listForRepo also returns pull requests. So an untrusted user could
           // open an issue or PR containing the marker and have it selected here:
@@ -83,20 +98,24 @@ runs:
             i && i.body && !i.pull_request &&
             i.user && i.user.login === BOT &&
             i.body.includes(`<!-- ${marker}:`)
-          const prior = open.find(isOurs)
+          const ours = scanned.filter(isOurs)
+          // Only an OPEN issue can be updated or closed...
+          const prior = ours.find(i => i.state === 'open')
 
-          // Ordering guard. The workflow concurrency group gives mutual exclusion but
-          // NOT chronological ordering — GitHub documents order within a group as
-          // arbitrary — so an older revision can execute after a newer one and write
-          // stale state. Each stamp records the revision it describes; refuse to
-          // overwrite a stamp describing a NEWER revision, in both modes.
           const stampMatch = i => (i && i.body && i.body.match(new RegExp(`<!-- ${marker}:([^:]*):(\\d+) -->`))) || null
           const stampedDigest = i => { const m = stampMatch(i); return m ? m[1] : null }
           const stampedRev = i => { const m = stampMatch(i); return m ? Number(m[2]) : 0 }
-          if (prior && revisionTs && stampedRev(prior) > revisionTs) {
+
+          // ...but the ordering guard consults the newest stamp of ANY state. The
+          // workflow concurrency group gives mutual exclusion, not chronological order —
+          // GitHub documents order within a group as arbitrary — so an older revision can
+          // execute last. Refuse to write whenever recorded state describes a NEWER
+          // revision than this run, in both modes, whether that record is open or closed.
+          const newest = ours.reduce((a, b) => (stampedRev(b) > stampedRev(a) ? b : a), ours[0])
+          if (newest && revisionTs && stampedRev(newest) > revisionTs) {
             core.info(
-              `#${prior.number} already describes revision ${stampedRev(prior)}, newer than this run (${revisionTs}). ` +
-              `Refusing to write stale state.`)
+              `#${newest.number} (${newest.state}) already describes revision ${stampedRev(newest)}, ` +
+              `newer than this run (${revisionTs}). Refusing to write stale state.`)
             return
           }
 
