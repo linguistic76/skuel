@@ -93,7 +93,7 @@ GitHub Actions use the official uv setup action:
     enable-cache: true
     cache-dependency-glob: "app/uv.lock"
 
-- run: uv sync
+- run: uv sync --frozen
   working-directory: app
 
 - run: uv run pytest
@@ -101,6 +101,15 @@ GitHub Actions use the official uv setup action:
 ```
 
 Cache key is based on `uv.lock` for reproducible CI builds.
+
+**`--frozen` in CI is not optional.** A bare `uv sync` locks before syncing, so a
+`uv.lock` that has fallen behind `pyproject.toml` is silently re-resolved and
+rewritten in the runner workspace — CI then measures a resolution nobody
+reviewed. `--frozen` installs the committed lock as-is. (`--locked` also refuses
+to rewrite, but *fails* the install step; pick it only where that failure is the
+signal you want. `ci.yml` uses `--frozen` everywhere and lets the dependency
+audit's `uv export --locked` be the one staleness detector.) The Docker build
+uses `--frozen` for the same reason — see `.claude/skills/docker/SKILL.md`.
 
 ## Enforcement: SKUEL016
 

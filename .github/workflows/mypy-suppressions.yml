@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       # The audit's own exit code is the finding signal, and it is captured rather
       # than allowed to fail the step. The script's contract is exactly:

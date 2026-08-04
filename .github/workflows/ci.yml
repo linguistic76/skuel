@@ -127,10 +127,26 @@ jobs:
           path: app/.venv
           key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
 
+      # --frozen: install uv.lock exactly as committed. This is the canonical
+      # note for every `uv sync` in this file (Codex, PR #931).
+      #
+      # A bare `uv sync` LOCKS before syncing — it has neither --locked ("assert
+      # the lock will remain unchanged") nor --frozen ("sync without updating
+      # the lock"). So on a cache miss with uv.lock behind pyproject.toml it
+      # re-resolves and REWRITES the lock in the runner workspace, and every
+      # check below then measures a resolution nobody reviewed.
+      #
+      # --frozen rather than --locked, deliberately: this step is skipped on a
+      # cache hit, and the cache key hashes uv.lock ALONE — so a PR that edits
+      # pyproject.toml without re-locking keeps the same key and can land on a
+      # cache warmed by an earlier PR, skipping the step entirely. --locked here
+      # would therefore be a staleness detector that fires or not depending on
+      # cache state; a gate that goes green on a re-run is worse than no gate.
+      # Staleness is detected once, deterministically, by the pip_audit job.
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       - name: Cache MyPy incremental state
         uses: actions/cache@v4
@@ -238,7 +254,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       # The checks below keep running after one fails (but not if setup itself
       # failed — `steps.fmt.outcome == 'skipped'` in that case), so a PR author
@@ -300,10 +316,21 @@ jobs:
           path: app/.venv
           key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
 
+      # --frozen is load-bearing here, not just consistent with the mypy job
+      # above. `audit_dependencies.sh` runs `uv export --locked` precisely so a
+      # stale lock cannot slip past this security gate — but a bare `uv sync`
+      # would already have rewritten the lock, so that check would pass
+      # VACUOUSLY against the lock uv had just written, and the job would audit
+      # a freshly generated resolution while reporting on the committed one.
+      #
+      # With --frozen the lock is left alone, the script's own check stays the
+      # single staleness detector, and it runs in a step with no cache guard —
+      # so a stale-lock PR fails here every time, inside the audit, rather than
+      # as an opaque setup error or not at all.
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       - name: Audit locked dependencies
         working-directory: app
@@ -342,7 +369,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       - name: Check documentation freshness (critical only)
         id: freshness
@@ -472,7 +499,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       - name: Generate documentation metrics
         working-directory: app
@@ -561,7 +588,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       - name: Run unit tests
         working-directory: app
@@ -600,7 +627,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       - name: Run integration tests
         working-directory: app
@@ -633,7 +660,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       # google-chrome-stable is preinstalled on GitHub ubuntu-latest runners.
       - name: Show Chrome version
