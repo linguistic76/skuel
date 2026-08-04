@@ -104,10 +104,22 @@ jobs:
           path: app/.venv
           key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
 
+      # --frozen is load-bearing, not decoration. A bare `uv sync` LOCKS before syncing,
+      # so on a cache miss with uv.lock behind pyproject.toml it would rewrite the lock —
+      # and the audit would then measure that freshly generated resolution while the
+      # script's own `uv export --locked` staleness check passed vacuously against the
+      # lock uv had just written.
+      #
+      # --frozen rather than --locked deliberately: --locked would fail THIS step, and the
+      # Report step is not `always()`, so a stale lock would produce a red run with no
+      # issue filed — the "lands nowhere" outcome this workflow exists to avoid. With
+      # --frozen the lock is left alone and `audit_dependencies.sh` detects the staleness
+      # itself, which routes it through the normal reporting path (the issue body already
+      # names re-locking as one of the three causes).
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
-        run: uv sync --no-install-project
+        run: uv sync --frozen --no-install-project
 
       # The same script ci.yml's pip_audit job runs — one path, so a finding here
       # and a finding there can never disagree. Captured with `|| rc=$?` rather
@@ -127,7 +139,15 @@ jobs:
           # finding; the output is capped so a pathological run cannot blow the issue
           # body limit, and the cap is applied BEFORE hashing so the digest continues
           # to describe exactly what is rendered.
-          sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt | head -c 30000 > pip-audit-clean.txt
+          # Strip and truncate as two steps, not a pipeline. `sed ... | head -c` is a
+          # SIGPIPE trap: once output exceeds the cap, head exits, sed dies on SIGPIPE
+          # (141), and under `bash -eo pipefail` the step aborts before writing any
+          # outputs — so a pathologically large report would file no issue at all, which
+          # is exactly the case the cap exists to survive. Measured: the pipeline exits
+          # 141 under pipefail with a 100 KB input, and 0 under the plain `bash -e` that
+          # Actions uses by default. It is safe today and one `shell: bash` from not being.
+          sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt > pip-audit-stripped.txt
+          head -c 30000 pip-audit-stripped.txt > pip-audit-clean.txt
           # Build the COMPLETE issue body here — prose included — so the digest below
           # covers everything the reader sees. Splitting dynamic text across the body
           # would put part of it outside change detection.
