@@ -230,6 +230,22 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    asymmetry it documents (JS can prove it measured, Python cannot) stops being true.
 7. Update ADR-067 § 5 and § 6e, and close the accept-mechanism decision in
    `js-dependency-surface.md`.
+
+   **Then sweep every remaining reference — do not work from this list, re-derive it.**
+   The tool names appear in help text and contributor guidance, not just policy docs, and
+   ~23 references exist today:
+
+   ```bash
+   grep -rn "pip-audit\|pip_audit\|npm audit" \
+     --include="*.md" --include="dev" --include="*.py" app docs dev CLAUDE.md
+   ```
+
+   Known live examples to prove the sweep is working: `app/dev:82,281` describe
+   `./dev audit-deps` as pip-audit in user-facing help; `app/CLAUDE.md:613` and
+   `docs/guides/LINTER_GUIDE.md:53` both state that quality check 8 runs
+   `npm audit --audit-level=moderate`. Leaving these pointed at removed paths sends
+   contributors to scanners and semantics that no longer exist — the same
+   documentation-drift failure ADR-067 § 5 was corrected for.
 8. Drop `pip-audit` from `pyproject.toml`; confirm `pip` has left the lock.
 
 ---
