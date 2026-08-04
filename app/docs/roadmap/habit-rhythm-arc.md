@@ -280,7 +280,7 @@ ones in the **habit** domain (`habits_scheduling_service`'s 12/17 split and
   duration (e.g. "20m") — inline on the week chip (`Morning · 20m`), in the
   tooltip on the month chip, which has no room for it (see "What PR 2 found").
   Week-view day columns then order habits into the day's rhythm among tasks
-  and events via the existing sort. **Shipped as #TBD.**
+  and events via the existing sort. **Shipped as #933.**
 - **S3 — Delete `/timelines` (PR 3).** Remove the page, `timeline_routes.py`,
   the timeline endpoints and service methods
   (`get_timeline_data`/`get_tasks_timeline_data`, `format_for_visjs`/
