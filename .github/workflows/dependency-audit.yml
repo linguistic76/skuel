@@ -194,34 +194,47 @@ jobs:
             try { j = JSON.parse(fs.readFileSync("npm-audit.json", "utf8")); } catch (e) {}
             const v = j && j.metadata && j.metadata.vulnerabilities;
             const sha = s => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
-            if (!v) { console.log("aborted|0|none|" + sha("aborted")); process.exit(0); }
-            const n = (v.moderate || 0) + (v.high || 0) + (v.critical || 0);
+            if (!v) { console.log(["aborted", 0, 0, "none", sha("aborted")].join("|")); process.exit(0); }
+            // metadata.vulnerabilities counts PACKAGES, not advisories: npm folds every
+            // advisory for a package into one entry at that package aggregate severity.
+            // The pre-fix undici case is 5 GHSAs but metadata.total === 1, so this number
+            // must never be labelled "advisories".
+            const pkgs = (v.moderate || 0) + (v.high || 0) + (v.critical || 0);
             const names = Object.keys(j.vulnerabilities || {}).sort().join(",") || "none";
-            // The digest must key on advisory IDENTITY, not just the affected package
-            // names: a NEW advisory against an already-listed package, or a severity
-            // change, leaves the name list identical, and the reporting action would
-            // then treat a genuinely new security result as duplicate and stay silent.
-            // via[] entries are objects carrying the GHSA url + per-advisory severity,
-            // or plain strings when the path runs through another package.
+            const SEV = new Set(["moderate", "high", "critical"]);
+            // The digest must key on advisory IDENTITY *and each advisory severity*, not
+            // just the affected package names. A NEW advisory against an already-listed
+            // package leaves the name list identical; and a single advisory changing
+            // severity leaves the package aggregate unchanged whenever another advisory
+            // already holds the maximum. Either way the reporting action would treat a
+            // genuinely new security result as duplicate and stay silent. via[] entries
+            // are objects carrying url + their OWN severity, or plain strings when the
+            // path runs through another package.
+            let advisories = 0;
             const identity = Object.entries(j.vulnerabilities || {}).map(([name, info]) => {
-              const ids = (Array.isArray(info.via) ? info.via : [])
-                .map(x => (typeof x === "string" ? x : (x.url || x.source || x.title || "")))
-                .filter(Boolean).map(String).sort();
+              const ids = (Array.isArray(info.via) ? info.via : []).map(x => {
+                if (typeof x === "string") return x;
+                const sev = String(x.severity || "?").toLowerCase();
+                if (SEV.has(sev)) advisories++;
+                return (x.url || x.source || x.title || "") + "@" + sev;
+              }).filter(Boolean).map(String).sort();
               return name + "@" + (info.severity || "?") + ":" + ids.join("+");
             }).sort().join("\n");
-            const status = n > 0 ? "findings" : "clean";
+            const status = pkgs > 0 ? "findings" : "clean";
             // Hashed inside node so the identity string — which contains arbitrary
             // punctuation — never has to survive a shell field split.
-            console.log(status + "|" + n + "|" + names + "|" + sha(status + "\n" + identity));
+            console.log([status, pkgs, advisories, names, sha(status + "\n" + identity)].join("|"));
           ')
           status=$(echo "$probe" | cut -d'|' -f1)
-          count=$(echo "$probe" | cut -d'|' -f2)
-          names=$(echo "$probe" | cut -d'|' -f3)
-          digest=$(echo "$probe" | cut -d'|' -f4)
-          echo "status=$status"   >> "$GITHUB_OUTPUT"
-          echo "count=$count"     >> "$GITHUB_OUTPUT"
-          echo "packages=$names"  >> "$GITHUB_OUTPUT"
-          echo "digest=$digest"   >> "$GITHUB_OUTPUT"
+          pkgs=$(echo "$probe" | cut -d'|' -f2)
+          advisories=$(echo "$probe" | cut -d'|' -f3)
+          names=$(echo "$probe" | cut -d'|' -f4)
+          digest=$(echo "$probe" | cut -d'|' -f5)
+          echo "status=$status"          >> "$GITHUB_OUTPUT"
+          echo "pkg_count=$pkgs"         >> "$GITHUB_OUTPUT"
+          echo "advisory_count=$advisories" >> "$GITHUB_OUTPUT"
+          echo "packages=$names"         >> "$GITHUB_OUTPUT"
+          echo "digest=$digest"          >> "$GITHUB_OUTPUT"
           echo "npm audit exited $rc; probe says $probe"
 
       - name: Upload audit output
@@ -244,10 +257,15 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             `npm audit --audit-level=moderate` found
-            **${{ steps.audit.outputs.count }}** moderate-or-higher advisories in
+            **${{ steps.audit.outputs.advisory_count }}** moderate-or-higher advisories
+            across **${{ steps.audit.outputs.pkg_count }}** affected package(s) in
             `app/package-lock.json`.
 
             Affected: `${{ steps.audit.outputs.packages }}`
+
+            (npm folds every advisory for a package into one entry at that package's
+            aggregate severity, so `metadata.vulnerabilities` counts packages — the two
+            numbers above are deliberately different things.)
 
             This was measured, not inferred — the JSON report parsed. Full output is
             in the `npm-audit-output` artifact.
@@ -297,7 +315,7 @@ jobs:
         if: steps.audit.outputs.status != 'clean'
         run: |
           if [ '${{ steps.audit.outputs.status }}' = 'findings' ]; then
-            echo "::error::npm audit found ${{ steps.audit.outputs.count }} moderate-or-higher advisories — see the issue."
+            echo "::error::npm audit found ${{ steps.audit.outputs.advisory_count }} moderate-or-higher advisories across ${{ steps.audit.outputs.pkg_count }} package(s) — see the issue."
           else
             echo "::error::npm audit could not produce a report. No findings are implied."
           fi
