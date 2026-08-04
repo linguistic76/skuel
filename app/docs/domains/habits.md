@@ -59,6 +59,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | `HabitDifficulty` | `core.models.enums` | TRIVIAL, EASY, MODERATE, CHALLENGING, HARD | `difficulty` |
 | `CompletionStatus` | `core.models.enums` | DONE, PARTIAL, SKIPPED, MISSED, PAUSED | — (daily tracking) |
 | `RecurrencePattern` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, etc. (10 values) | `recurrence_pattern` |
+| `TimeOfDay` | `core.models.enums` | EARLY_MORNING, MORNING, AFTERNOON, EVENING, NIGHT, LATE_NIGHT, ANYTIME | `preferred_time` |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
 
 **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
@@ -235,7 +236,6 @@ The habit model tracks all four components of the habit loop:
 | `get_overdue(user_uid)` | Override — frequency-window logic, not due-date columns |
 | `get_user_due_today(user_uid)` | Habits due today (frequency-window) |
 | `get_habits_needing_attention(user_uid)` | Broken streaks or declining |
-| `get_habits_by_time_of_day(time, user_uid)` | Morning/afternoon/evening habits |
 | `get_habit_chain_candidates(habit_uid, user_uid)` | Potential habit stacking |
 | `get_knowledge_reinforcement_opportunities(user_uid)` | KU-habit connection opportunities |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
@@ -339,7 +339,7 @@ can_add = proposed_effort <= remaining_capacity
 "After [CURRENT HABIT], I will [NEW HABIT]"
 
 Finds established habits (streak >= 7 days) that can serve as anchors:
-- Same preferred time (or close)
+- Same `TimeOfDay` slot, or both in the routine-anchor pair (MORNING / EVENING)
 - Complementary category (not duplicate)
 - High success rate
 

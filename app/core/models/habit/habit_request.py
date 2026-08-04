@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.habit.habit_update_intent import HabitUpdateIntent
@@ -63,9 +63,12 @@ class HabitCreateRequest(BaseModel):
     target_days_per_week: int = Field(
         default=7, ge=1, le=7, description="Target days per week (1-7)"
     )
-    preferred_time: str | None = Field(
+    preferred_time: TimeOfDay | None = Field(
         default=None,
-        description="Preferred time of day: 'morning', 'afternoon', 'evening', or null for any time",
+        description=(
+            "Time-of-day slot: early_morning, morning, afternoon, evening, night, "
+            "late_night, anytime — or null for no declared slot"
+        ),
     )
     duration_minutes: int | None = Field(
         default=None, ge=1, le=480, description="Expected duration in minutes per occurrence"
@@ -150,7 +153,7 @@ class HabitUpdateRequest(BaseModel):
     # Schedule can be adjusted
     recurrence_pattern: RecurrencePattern | None = None
     target_days_per_week: int | None = Field(default=None, ge=1, le=7)
-    preferred_time: str | None = None
+    preferred_time: TimeOfDay | None = None
     duration_minutes: int | None = Field(default=None, ge=1, le=480)
 
     # Links can be updated
@@ -186,8 +189,8 @@ class HabitUpdateRequest(BaseModel):
         Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
         so the intent carries a true partial patch: an absent field is left untouched, a
         field explicitly set to ``None`` is an explicit clear. Enum fields (polarity,
-        habit_category, habit_difficulty, recurrence_pattern, status, priority) are lowered
-        to their string value to match the persistence boundary.
+        habit_category, habit_difficulty, recurrence_pattern, preferred_time, status,
+        priority) are lowered to their string value to match the persistence boundary.
 
         The four cross-domain UID fields (``linked_knowledge_uids`` / ``linked_goal_uids`` /
         ``linked_principle_uids`` / ``prerequisite_habit_uids``) are graph edges, not node
@@ -224,7 +227,10 @@ class HabitUpdateRequest(BaseModel):
                 self.recurrence_pattern.value if self.recurrence_pattern is not None else None,
             ),
             target_days_per_week=when_set("target_days_per_week", self.target_days_per_week),
-            preferred_time=when_set("preferred_time", self.preferred_time),
+            preferred_time=when_set(
+                "preferred_time",
+                self.preferred_time.value if self.preferred_time is not None else None,
+            ),
             duration_minutes=when_set("duration_minutes", self.duration_minutes),
             cue=when_set("cue", self.cue),
             routine=when_set("routine", self.routine),
@@ -296,7 +302,7 @@ class HabitFilterRequest(BaseModel):
     on_streak: bool | None = None
 
     # Time filters
-    preferred_time: str | None = None
+    preferred_time: TimeOfDay | None = None
     max_duration_minutes: int | None = Field(default=None, ge=1)
 
     # Tag filter

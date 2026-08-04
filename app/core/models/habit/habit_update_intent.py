@@ -43,9 +43,9 @@ class HabitUpdateIntent:
     """The node-property fields a habit update may change (ADR-066). ``UNSET`` = not in
     this update.
 
-    Enum fields (polarity, habit_category, habit_difficulty, recurrence_pattern, status,
-    priority) carry their lowered string value, matching what the persistence boundary
-    stores.
+    Enum fields (polarity, habit_category, habit_difficulty, recurrence_pattern,
+    preferred_time, status, priority) carry their lowered string value, matching what the
+    persistence boundary stores.
     """
 
     # --- Identity / content --------------------------------------------------

@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
+from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.habit.completion import HabitCompletion
 
 # Fixed reference moment for the pure (wall-clock-independent) methods.
@@ -226,22 +227,33 @@ class TestDateMethods:
         assert make_completion().was_completed_on(date(2026, 7, 11)) is False
 
     def test_time_of_day_boundaries(self):
-        # Buckets: [5, 12) morning, [12, 17) afternoon, [17, 21) evening, else night.
+        # The TimeOfDay slots, at every boundary: [0,5) late_night, [5,7) early_morning,
+        # [7,12) morning, [12,17) afternoon, [17,21) evening, [21,24) night.
         expected_by_hour = {
-            0: "night",
-            4: "night",
-            5: "morning",
-            11: "morning",
-            12: "afternoon",
-            16: "afternoon",
-            17: "evening",
-            20: "evening",
-            21: "night",
-            23: "night",
+            0: TimeOfDay.LATE_NIGHT,
+            4: TimeOfDay.LATE_NIGHT,
+            5: TimeOfDay.EARLY_MORNING,
+            6: TimeOfDay.EARLY_MORNING,
+            7: TimeOfDay.MORNING,
+            11: TimeOfDay.MORNING,
+            12: TimeOfDay.AFTERNOON,
+            16: TimeOfDay.AFTERNOON,
+            17: TimeOfDay.EVENING,
+            20: TimeOfDay.EVENING,
+            21: TimeOfDay.NIGHT,
+            23: TimeOfDay.NIGHT,
         }
         for hour, expected in expected_by_hour.items():
             completion = make_completion(completed_at=datetime(2026, 7, 10, hour, 0, 0))
-            assert completion.completion_time_of_day() == expected
+            got = completion.completion_time_of_day()
+            # `==` alone passes for a bare str: TimeOfDay is a StrEnum.
+            assert got is expected, f"hour {hour}: got {got!r}"
+
+    def test_time_of_day_covers_every_hour_with_a_real_slot(self):
+        """No hour falls through to a stringly-typed default."""
+        for hour in range(24):
+            completion = make_completion(completed_at=datetime(2026, 7, 10, hour, 0, 0))
+            assert isinstance(completion.completion_time_of_day(), TimeOfDay)
 
 
 FROZEN_NOW = datetime(2026, 7, 15, 10, 30, 0)  # a Wednesday, mid-week and mid-day

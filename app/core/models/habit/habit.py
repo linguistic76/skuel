@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
-from core.models.enums.scheduling_enums import RecurrencePattern
+from core.models.enums.scheduling_enums import RecurrencePattern, TimeOfDay
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -113,7 +113,9 @@ class Habit(UserOwnedEntity):
     recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
     target_days_per_week: int | None = None  # Habit frequency
-    preferred_time: str | None = None  # Preferred time of day
+    # Habitual time is a fuzzy slot, never a clock time (habit-rhythm arc M3);
+    # consumers needing an hour derive it from TimeOfDay.get_representative_time().
+    preferred_time: TimeOfDay | None = None
 
     # =========================================================================
     # REMINDERS

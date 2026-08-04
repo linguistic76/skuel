@@ -23,6 +23,7 @@ from core.models.enums import (
     Priority,
     RecurrencePattern,
     SELCategory,
+    TimeOfDay,
 )
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.curriculum_enums import LpType, StepDifficulty
@@ -109,7 +110,7 @@ class EntityUpdateRequest(UpdateRequestBase):
     longest_streak: int | None = Field(default=None, ge=0)
     total_completions: int | None = Field(default=None, ge=0)
     target_days_per_week: int | None = Field(default=None, ge=1, le=7)
-    preferred_time: str | None = None
+    preferred_time: TimeOfDay | None = None
 
     # --- GOAL-SPECIFIC ---
     goal_type: GoalType | None = None

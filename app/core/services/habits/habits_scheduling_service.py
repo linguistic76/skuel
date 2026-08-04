@@ -36,7 +36,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.events import HabitCreated, publish_event
-from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern
+from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -76,6 +76,10 @@ EFFORT_BY_DIFFICULTY = {
 
 # Minimum streak to consider habit "established" (for stacking)
 ESTABLISHED_STREAK_DAYS = 7
+
+# The two slots people build named routines around ("morning routine", "evening
+# routine"). Stacking treats a pair drawn from this set as a partial time match.
+_ROUTINE_ANCHOR_SLOTS = frozenset({TimeOfDay.MORNING, TimeOfDay.EVENING})
 
 
 class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
@@ -241,9 +245,12 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             }
         )
 
-    def _analyze_time_distribution(self, habits: list[Habit]) -> dict[str, int]:
+    def _analyze_time_distribution(self, habits: list[Habit]) -> dict[TimeOfDay, int]:
         """
         Analyze how habits are distributed across times of day.
+
+        Every ``TimeOfDay`` slot is a key, so an absent slot reads as zero rather
+        than as a missing bucket. Habits with no declared slot count as ANYTIME.
 
         Args:
             habits: List of active habits
@@ -251,18 +258,14 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         Returns:
             Dict mapping time slot to habit count
         """
-        distribution = {"morning": 0, "afternoon": 0, "evening": 0, "any": 0}
+        distribution = dict.fromkeys(TimeOfDay, 0)
 
         for habit in habits:
-            time_slot = habit.preferred_time or "any"
-            if time_slot in distribution:
-                distribution[time_slot] += 1
-            else:
-                distribution["any"] += 1
+            distribution[habit.preferred_time or TimeOfDay.ANYTIME] += 1
 
         return distribution
 
-    def _suggest_best_time(self, distribution: dict[str, int]) -> str:
+    def _suggest_best_time(self, distribution: dict[TimeOfDay, int]) -> TimeOfDay:
         """
         Suggest best time for new habit based on distribution.
 
@@ -274,10 +277,10 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         Returns:
             Suggested time slot
         """
-        # Exclude "any" from comparison
-        timed_slots = {k: v for k, v in distribution.items() if k != "any"}
+        # ANYTIME is "no slot declared", not a slot to balance into
+        timed_slots = {k: v for k, v in distribution.items() if k is not TimeOfDay.ANYTIME}
         if not timed_slots:
-            return "morning"
+            return TimeOfDay.MORNING
 
         # Return least loaded time slot
         return min(timed_slots, key=make_dict_value_getter(timed_slots))
@@ -598,12 +601,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
 
                 if hour_counts:
                     best_hour = max(hour_counts, key=make_dict_value_getter(hour_counts))
-                    if best_hour < 12:
-                        completion_patterns["best_time"] = "morning"
-                    elif best_hour < 17:
-                        completion_patterns["best_time"] = "afternoon"
-                    else:
-                        completion_patterns["best_time"] = "evening"
+                    completion_patterns["best_time"] = TimeOfDay.from_hour(best_hour)
                     completion_patterns["completion_by_hour"] = hour_counts
 
         # Generate recommendations
@@ -652,7 +650,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     async def suggest_habit_stacking(
         self,
         user_uid: UserUID,
-        new_habit_time: str | None = None,
+        new_habit_time: TimeOfDay | None = None,
         new_habit_category: HabitCategory | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -713,10 +711,10 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                 if habit.preferred_time == new_habit_time:
                     score += 0.4
                     reasons.append(f"Same time slot ({new_habit_time})")
-                elif habit.preferred_time in ["morning", "evening"] and new_habit_time in [
-                    "morning",
-                    "evening",
-                ]:
+                elif (
+                    habit.preferred_time in _ROUTINE_ANCHOR_SLOTS
+                    and new_habit_time in _ROUTINE_ANCHOR_SLOTS
+                ):
                     score += 0.2
                     reasons.append("Similar time of day")
 
@@ -813,7 +811,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             "recurrence_pattern": frequency,
             "target_days_per_week": 7 if frequency == RecurrencePattern.DAILY else 3,
             "duration_minutes": duration_minutes,
-            "preferred_time": capacity_result.value.get("suggested_time", "morning"),
+            "preferred_time": capacity_result.value.get("suggested_time", TimeOfDay.MORNING),
             "source_path_step_uid": path_step_uid,
             "curriculum_practice_type": "daily_review",
             "priority": Priority.HIGH,

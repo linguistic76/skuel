@@ -539,20 +539,22 @@ class HabitEventScheduler:
             elif strategy == SchedulingStrategy.OPTIMAL_TIME:
                 event.start_time = self._get_optimal_time(user_context)
             elif strategy == SchedulingStrategy.FIXED_TIME and habit.preferred_time:
-                # preferred_time is stored as str (e.g. "morning"); parse to time if possible
-                from datetime import datetime as _dt
-
-                try:
-                    event.start_time = _dt.strptime(habit.preferred_time, "%H:%M").time()
-                except ValueError:
-                    event.start_time = None  # Unparseable preferred_time — treat as flexible
+                event.start_time = habit.preferred_time.get_representative_time()
             else:  # FLEXIBLE
                 event.start_time = None  # Any time
 
         return events
 
     def _determine_strategy(self, habit: Habit, _user_context: UserContext) -> SchedulingStrategy:
-        """Determine best scheduling strategy for a habit."""
+        """Determine best scheduling strategy for a habit.
+
+        A declared ``preferred_time`` slot outranks every inference below it — it is
+        the user's own statement of when the habit belongs (habit-rhythm arc M1), so
+        no keystone/category/tag heuristic may overwrite it.
+        """
+        if habit.preferred_time is not None:
+            return SchedulingStrategy.FIXED_TIME
+
         # Keystone habits get optimal time
         if habit.is_keystone:
             return SchedulingStrategy.OPTIMAL_TIME

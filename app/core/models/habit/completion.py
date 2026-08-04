@@ -9,6 +9,8 @@ This is the core business entity that encapsulates all completion-related rules.
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
+from core.models.enums.scheduling_enums import TimeOfDay
+
 from .completion_dto import HabitCompletionDTO
 
 
@@ -160,18 +162,16 @@ class HabitCompletion:
         """Calculate days since this completion."""
         return (datetime.now().date() - self.completed_at.date()).days
 
-    def completion_time_of_day(self) -> str:
-        """Get time of day category for this completion."""
-        hour = self.completed_at.hour
+    def completion_time_of_day(self) -> TimeOfDay:
+        """Which slot of the day this completion landed in.
 
-        if 5 <= hour < 12:
-            return "morning"
-        elif 12 <= hour < 17:
-            return "afternoon"
-        elif 17 <= hour < 21:
-            return "evening"
-        else:
-            return "night"
+        Speaks the one time-of-day vocabulary the habit's own ``preferred_time``
+        uses (habit-rhythm arc M1), so "when I said I would do it" and "when I
+        actually did it" are directly comparable. This used to return a private
+        four-word vocabulary whose boundaries disagreed with ``TimeOfDay`` before
+        07:00 and after midnight.
+        """
+        return TimeOfDay.from_hour(self.completed_at.hour)
 
     def is_streak_eligible(self, previous_completion: "HabitCompletion" | None = None) -> bool:
         """

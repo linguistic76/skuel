@@ -1,10 +1,9 @@
 # Habit Rhythm Arc — Markwhen Resolution & the Time-of-Day Vocabulary
 
-**Status:** 📋 STAGED (2026-08-03) — contract settled in the S5 Markwhen
-exploration (the door `calendar-periodic-notes-arc.md` E4 deliberately left
-open). Rulings M1–M7 below are founder-settled — do not re-litigate.
-Implementation starts on the founder's go signal; PRs then run per the standard
-multi-PR arc workflow (fresh context each).
+**Status:** 🚧 ACTIVE (go signal 2026-08-03) — contract settled in the S5
+Markwhen exploration (the door `calendar-periodic-notes-arc.md` E4 deliberately
+left open). Rulings M1–M7 below are founder-settled — do not re-litigate. PRs
+run per the standard multi-PR arc workflow (fresh context each).
 **Related:** `docs/roadmap/calendar-periodic-notes-arc.md` (E4, R5),
 `docs/roadmap/calendar-act-from-arc.md` (C3 per-day habit completion;
 hourly-grid non-goal), `core/models/habit/habit.py` (scheduling fields),
@@ -123,6 +122,67 @@ named dissolves rather than needing a new ruling.
   carries the markwhen block and lacks `type: user_entry`/`pipeline`
   frontmatter, so monthly notes would not ingest (the Monthly folder is
   empty, so this has never bitten).
+
+## What PR 1 found that this doc did not say (2026-08-03)
+
+Recorded per the arc's standing rule that a PR updates this doc when its fresh
+read contradicts or extends the ground truth.
+
+- **The `"medium"` pollution has a live code writer**, not a stray hand-edit:
+  `activity_domain_converters.py` set `preferred_time=activity.energy_states[0]`
+  — an `@energy()` word into a time field. The upstream door is the LLM DSL
+  bridge (`EXTRACT_ACTIVITIES`), and `@energy` values are unvalidated, so the
+  migration alone would have been re-polluted on the next extraction. PR 1
+  derives the slot from `@when()`'s hour instead; energy still reaches the habit
+  as a tag. Live census: 5 Habit nodes, 0 HabitTemplate nodes, values
+  `evening` / `anytime` / `medium` / null×2 — **no `HH:MM` value has ever been
+  stored**, so the migration had nothing to preserve.
+- **The `%H:%M` parse was unreachable.** `HabitEventScheduler._determine_strategy`
+  only returns `FIXED_TIME` when the config's `default_strategy` is set to it,
+  and the sole constructor uses the default (`OPTIMAL_TIME`). Fixing the parse in
+  place would have been vacuous, so PR 1 also makes a declared slot *select*
+  `FIXED_TIME`, outranking the keystone/category/tag heuristics — otherwise M1's
+  vocabulary never reaches scheduling at all.
+- **`_parse_hhmm` served nothing else.** Its docstring claimed it also handled
+  `reminder_time`; it had exactly two callers, both `preferred_time`. Deleted
+  outright, not split.
+- **HabitTemplate had to move too.** `_spawn_orchestrator._copy_through` copies
+  template fields into the instance **verbatim by name**, so a `str` template
+  field would have written a raw string into the typed instance field with
+  nothing to catch it. `HabitTemplate` / DTO / requests are retyped in PR 1.
+- **`Habit.reminder_time` stays a string.** It is the habit's genuine clock-time
+  field, with its own request/intent/set-clear stack. `preferred_time` is the
+  slot; `reminder_time` is the clock. That split is the answer to "why is one
+  time field an enum and the other not?".
+- **`get_habits_by_time_of_day` never existed.** Documented in `docs/domains/habits.md`
+  and `docs/reference/SEARCH_SERVICE_METHODS.md` since the initial commit, with
+  zero implementations in any commit (`git log --all -S`). Both rows deleted.
+- **`GRAPH_CONTRACT.yaml` does not carry scalar node properties**, so this change
+  produces no contract drift and needs no regeneration.
+
+### Time vocabularies deliberately left alone (DECLINE list)
+
+Seven independent hour→slot bucketings exist, no two agreeing. PR 1 unifies the
+ones in the **habit** domain (`habits_scheduling_service`'s 12/17 split and
+`HabitCompletion.completion_time_of_day`'s 5/12/17/21 split, both now
+`TimeOfDay.from_hour`). The rest are out of scope and are **not** oversights:
+
+- `Reflection.reflection_time_of_day` (5/12/17/21) — Principles domain.
+- `event_event_handler_service` (6/12/17/21) — a log line, never persisted.
+- `schedule_intelligence` (5/12/17/21) — user-context intelligence.
+- `ContextualRecommendation.suggested_time_slot` — **cannot** be unified: it
+  mixes slots with `"now"` / `"later"`.
+- `EnergyProfile.chronotype` (`morning`/`evening`/`neutral`) — a person-type,
+  not a time of day.
+- `SchedulingStrategy.MORNING/EVENING` + `EventSchedulingConfig`'s
+  `morning_start_hour` / `evening_start_hour`, and habit **tags** sniffed for
+  `"morning"` / `"evening"` — scheduler heuristics, now outranked by a declared
+  slot but not deleted.
+- `ContextualHabitCompletionRequest.environmental_factors["time_of_day"]` — a
+  free-form `dict[str, Any]` on a live route, unconstrained by design.
+- `properties(habit)` in the UserContext MEGA-QUERY splats the raw stored
+  string into `entities_rich["habits"]` with no coercion. No consumer reads the
+  key today; a future one must not assume it is a `TimeOfDay`.
 
 ## Scope
 

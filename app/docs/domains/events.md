@@ -47,7 +47,6 @@ Events additionally has an integration sub-service (`EventsHabitIntegrationServi
 | Enum | Import | Values | YAML Field |
 |------|--------|--------|------------|
 | `RecurrencePattern` | `core.models.enums` | NONE, DAILY, WEEKDAYS, WEEKENDS, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, YEARLY, CUSTOM | `recurrence_pattern` |
-| `TimeOfDay` | `core.models.enums` | EARLY_MORNING, MORNING, AFTERNOON, EVENING, NIGHT, LATE_NIGHT, ANYTIME | `preferred_time` |
 | `EnergyLevel` | `core.models.enums` | LOW, MEDIUM, HIGH, VARIABLE | — (scheduling) |
 | `ActivityType` | `core.models.enums` | TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, MEETING, PRACTICE, REVIEW, BREAK, BLOCK, PLACEHOLDER | `event_type` |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |

@@ -5,6 +5,7 @@ Scheduling Enums - Time, Recurrence, and Energy Management
 Enums for scheduling preferences, recurrence patterns, and energy levels.
 """
 
+from datetime import time
 from enum import StrEnum
 
 
@@ -59,7 +60,14 @@ class TimeOfDay(StrEnum):
     """
     Preferred time of day for activities.
 
-    Used for scheduling preferences and habit timing.
+    THE one vocabulary of habitual time (habit-rhythm arc M1/M3): a habit is
+    anchored to a fuzzy *slot*, never to a clock time. Every consumer that needs
+    a concrete hour derives it here — ``get_default_hour`` /
+    ``get_representative_time`` going out, ``from_hour`` coming in — so the
+    hour↔slot mapping exists exactly once.
+
+    Also used for the user's own scheduling preference
+    (``User.preferences.preferred_time_of_day``).
     """
 
     EARLY_MORNING = "early_morning"  # 5:00 - 7:00
@@ -95,6 +103,35 @@ class TimeOfDay(StrEnum):
             TimeOfDay.ANYTIME: 9,
         }
         return defaults.get(self, 9)
+
+    def get_representative_time(self) -> time:
+        """The slot's representative clock time — its default hour, on the hour.
+
+        The single answer to "where in the day does this slot sit?". Callers that
+        must place a slot on a timeline (day spine, habit→event scheduling,
+        calendar chips) derive from this rather than parsing the slot as a clock
+        value; ANYTIME resolves to a stable 09:00 rather than to nothing.
+        """
+        return time(self.get_default_hour(), 0)
+
+    @classmethod
+    def from_hour(cls, hour: int) -> "TimeOfDay":
+        """Classify a clock hour into the slot whose range contains it.
+
+        Inverse of :meth:`get_hour_range` — the one place an observed hour
+        (a completion timestamp, a ``@when()`` datetime) becomes slot
+        vocabulary. Hours outside 0-23 raise, because a caller holding one has a
+        bug rather than a preference.
+        """
+        if not 0 <= hour <= 23:
+            raise ValueError(f"hour must be 0-23, got {hour!r}")
+        for member in cls:
+            if member is cls.ANYTIME:
+                continue  # spans the whole day; only reachable as an explicit choice
+            start, end = member.get_hour_range()
+            if start <= hour < end:
+                return member
+        raise ValueError(f"no TimeOfDay slot covers hour {hour!r}")
 
 
 class EnergyLevel(StrEnum):

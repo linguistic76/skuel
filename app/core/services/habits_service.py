@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import date
 
-from core.models.enums import EntityStatus, RecurrencePattern
+from core.models.enums import EntityStatus, RecurrencePattern, TimeOfDay
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
@@ -483,7 +483,7 @@ class HabitsService(
     async def suggest_habit_stacking(
         self,
         user_uid: UserUID,
-        new_habit_time: str | None = None,
+        new_habit_time: TimeOfDay | None = None,
         new_habit_category: HabitCategory | None = None,
     ) -> Result[list[dict[str, Any]]]:
         return await self.scheduling.suggest_habit_stacking(
