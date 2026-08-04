@@ -1,24 +1,37 @@
 name: File audit issue
 description: >
-  Open (or update) a marker-keyed issue for a scheduled audit finding. Idempotent by
+  Open, update, or close a marker-keyed issue for a scheduled audit. Idempotent by
   content: an unchanged finding set does not generate a new comment, so a daily job
-  does not produce 365 comments on one stale issue.
+  does not produce 365 comments on one stale issue. `mode: resolve` CLOSES the marker's
+  issue — required, because this action only ever looks at OPEN issues, so an issue left
+  open with a stale digest would silently suppress the report of a recurrence.
 
 inputs:
+  mode:
+    description: >
+      `report` (default) opens/updates the marker's issue. `resolve` closes it because the
+      audit no longer reports this condition. In resolve mode `body`/`digest` are ignored.
+    required: false
+    default: report
   marker:
     description: Unique HTML-comment key identifying this audit's issue. Must be stable.
     required: true
   title:
     description: Issue title used when creating a new issue.
-    required: true
+    required: false
+    default: ''
   body:
     description: Issue body (markdown). Must not assert more than the audit measured.
-    required: true
+    required: false
+    default: ''
   digest:
     description: >
       Fingerprint of the current finding set. Stored in the marker so an unchanged
-      result is silent and a CHANGED result still comments on the open issue.
-    required: true
+      result is silent and a CHANGED result still comments on the open issue. It must key
+      on advisory IDENTITY, not just affected package names — a new advisory against an
+      already-listed package must change it.
+    required: false
+    default: ''
   token:
     description: GITHUB_TOKEN with issues:write.
     required: true
@@ -30,6 +43,7 @@ runs:
       with:
         github-token: ${{ inputs.token }}
         script: |
+          const mode    = ${{ toJSON(inputs.mode) }}
           const marker  = ${{ toJSON(inputs.marker) }}
           const title   = ${{ toJSON(inputs.title) }}
           const body    = ${{ toJSON(inputs.body) }}
@@ -49,6 +63,27 @@ runs:
             per_page: 100,
           })
           const prior = open.find(i => i.body && i.body.includes(`<!-- ${marker}:`))
+
+          if (mode === 'resolve') {
+            // The condition cleared. Close the issue rather than leaving it open with a
+            // stale digest: this action only ever inspects OPEN issues, so a stale-open
+            // issue whose stamp happens to match a future recurrence would make that
+            // recurrence silent — the audit would go red with nothing explaining why.
+            if (!prior) {
+              core.info(`Nothing open for ${marker} — nothing to resolve.`)
+              return
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+              body: `The audit no longer reports this condition as of [this run](${runUrl}). Closing.`,
+            })
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+              state: 'closed',
+            })
+            core.info(`Closed #${prior.number}`)
+            return
+          }
 
           if (!prior) {
             const created = await github.rest.issues.create({

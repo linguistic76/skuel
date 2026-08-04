@@ -136,6 +136,17 @@ jobs:
 
             Policy: `app/docs/decisions/ADR-067-dependency-upgrade-policy.md`.
 
+      # Clean run: close any issue this audit left open. Without this the issue stays
+      # open carrying a stale digest, and because the reporting action only inspects
+      # OPEN issues, a later recurrence with the same digest would be silent.
+      - name: Resolve
+        if: steps.audit.outputs.exit_code == '0'
+        uses: ./.github/actions/file-audit-issue
+        with:
+          mode: resolve
+          marker: scheduled-dependency-audit-python
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       # Fail for BOTH findings and an aborted instrument — an audit that could not
       # measure must not read as a green day.
       - name: Fail the job
@@ -178,21 +189,39 @@ jobs:
           cat npm-audit.txt
           probe=$(node -e '
             const fs = require("fs");
+            const crypto = require("crypto");
             let j = null;
             try { j = JSON.parse(fs.readFileSync("npm-audit.json", "utf8")); } catch (e) {}
             const v = j && j.metadata && j.metadata.vulnerabilities;
-            if (!v) { console.log("aborted|0|none"); process.exit(0); }
+            const sha = s => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
+            if (!v) { console.log("aborted|0|none|" + sha("aborted")); process.exit(0); }
             const n = (v.moderate || 0) + (v.high || 0) + (v.critical || 0);
             const names = Object.keys(j.vulnerabilities || {}).sort().join(",") || "none";
-            console.log((n > 0 ? "findings" : "clean") + "|" + n + "|" + names);
+            // The digest must key on advisory IDENTITY, not just the affected package
+            // names: a NEW advisory against an already-listed package, or a severity
+            // change, leaves the name list identical, and the reporting action would
+            // then treat a genuinely new security result as duplicate and stay silent.
+            // via[] entries are objects carrying the GHSA url + per-advisory severity,
+            // or plain strings when the path runs through another package.
+            const identity = Object.entries(j.vulnerabilities || {}).map(([name, info]) => {
+              const ids = (Array.isArray(info.via) ? info.via : [])
+                .map(x => (typeof x === "string" ? x : (x.url || x.source || x.title || "")))
+                .filter(Boolean).map(String).sort();
+              return name + "@" + (info.severity || "?") + ":" + ids.join("+");
+            }).sort().join("\n");
+            const status = n > 0 ? "findings" : "clean";
+            // Hashed inside node so the identity string — which contains arbitrary
+            // punctuation — never has to survive a shell field split.
+            console.log(status + "|" + n + "|" + names + "|" + sha(status + "\n" + identity));
           ')
           status=$(echo "$probe" | cut -d'|' -f1)
           count=$(echo "$probe" | cut -d'|' -f2)
           names=$(echo "$probe" | cut -d'|' -f3)
+          digest=$(echo "$probe" | cut -d'|' -f4)
           echo "status=$status"   >> "$GITHUB_OUTPUT"
           echo "count=$count"     >> "$GITHUB_OUTPUT"
           echo "packages=$names"  >> "$GITHUB_OUTPUT"
-          echo "digest=$(printf '%s' "$status:$names" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest"   >> "$GITHUB_OUTPUT"
           echo "npm audit exited $rc; probe says $probe"
 
       - name: Upload audit output
@@ -242,6 +271,27 @@ jobs:
 
             Usual causes: registry unreachable, or a malformed/absent
             `app/package-lock.json`. Check the `npm-audit-output` artifact and re-run.
+
+      # A successful measurement — findings or clean — resolves any outstanding
+      # "could not run" issue. Note the converse does NOT hold: an aborted run must
+      # leave the findings issue alone, because it proves nothing about findings.
+      - name: Resolve the could-not-run issue
+        if: steps.audit.outputs.status != 'aborted'
+        uses: ./.github/actions/file-audit-issue
+        with:
+          mode: resolve
+          marker: scheduled-dependency-audit-js-aborted
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Clean measurement closes the vulnerabilities issue too. Leaving it open with a
+      # stale digest would make an identical recurrence silent.
+      - name: Resolve the vulnerabilities issue
+        if: steps.audit.outputs.status == 'clean'
+        uses: ./.github/actions/file-audit-issue
+        with:
+          mode: resolve
+          marker: scheduled-dependency-audit-js
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fail the job
         if: steps.audit.outputs.status != 'clean'
