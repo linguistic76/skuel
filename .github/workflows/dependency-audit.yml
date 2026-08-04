@@ -60,6 +60,16 @@ permissions:
   contents: read
   issues: write
 
+# Marker-issue mutation is read-then-write, so two overlapping runs (a manual
+# dispatch racing the cron, or two dispatches) can both complete the lookup before
+# either writes — creating duplicate marker issues, or letting an older findings run
+# reopen state a newer clean run just resolved. Serialize every run of this workflow.
+# cancel-in-progress is FALSE on purpose: cancelling mid-run could leave an issue
+# half-updated, and a cancelled audit is a silently skipped audit.
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
 jobs:
   python_audit:
     name: Python CVE audit
@@ -100,10 +110,21 @@ jobs:
           bash scripts/audit_dependencies.sh > pip-audit.txt 2>&1 || rc=$?
           cat pip-audit.txt
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
-          # Digest the output so an unchanged result does not re-comment. ANSI is
-          # stripped first — colour codes are not part of the finding.
-          digest=$(sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt | sha256sum | cut -c1-16)
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          # Render the exact text the issue will show, then hash THAT — same invariant
+          # as the JS job: "the result changed" and "what we display changed" must be
+          # the same statement. ANSI is stripped because colour is not part of the
+          # finding; the output is capped so a pathological run cannot blow the issue
+          # body limit, and the cap is applied BEFORE hashing so the digest continues
+          # to describe exactly what is rendered.
+          sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt | head -c 30000 > pip-audit-report.txt
+          digest=$(sha256sum pip-audit-report.txt | cut -c1-16)
+          {
+            echo "digest=$digest"
+            echo "report<<__AUDIT_REPORT_EOF__"
+            cat pip-audit-report.txt
+            echo ""
+            echo "__AUDIT_REPORT_EOF__"
+          } >> "$GITHUB_OUTPUT"
           echo "Audit exited $rc"
 
       - name: Upload audit output
@@ -125,9 +146,14 @@ jobs:
           body: |
             `scripts/audit_dependencies.sh` exited non-zero on the scheduled run.
 
+            ```
+            ${{ steps.audit.outputs.report }}
+            ```
+
             **This means findings OR that the audit could not run** — `pip-audit`
             uses a non-zero exit for both, and this job deliberately does not guess
-            which. Read the `pip-audit-output` artifact on the run before acting.
+            which. The block above is the audit output verbatim; the full file is in
+            the `pip-audit-output` artifact.
 
             - Vulnerabilities → upgrade, or record an accepted finding in
               `app/.pip-audit-ignore` with a documented reason.
@@ -187,73 +213,85 @@ jobs:
           rc=0
           npm audit --audit-level=moderate > npm-audit.txt 2>&1 || rc=$?
           cat npm-audit.txt
+          # The probe RENDERS the report that the issue will show, then hashes exactly
+          # that text. The digest is therefore not a hand-built canonicalization of npm
+          # report internals — four review rounds each found a different way for such a
+          # thing to drift from what is actually reported (package names only, then
+          # advisory urls without severities, then unfiltered low entries, then
+          # low-only via strings). Deriving the digest FROM the rendered text makes
+          # "the result changed" and "what we display changed" the same statement by
+          # construction.
+          #
+          # INVARIANT: every dynamic value must live inside audit-report.md. Anything
+          # dynamic placed in the issue body outside this block is invisible to the
+          # digest and can change without notifying anyone.
+          #
+          # (No apostrophes in this block — it is a single-quoted shell string.)
           probe=$(node -e '
             const fs = require("fs");
             const crypto = require("crypto");
+            const sha = s => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
+            const emit = (status, report) => {
+              fs.writeFileSync("audit-report.md", report);
+              console.log(status + "|" + sha(report));
+            };
             let j = null;
             try { j = JSON.parse(fs.readFileSync("npm-audit.json", "utf8")); } catch (e) {}
             const v = j && j.metadata && j.metadata.vulnerabilities;
-            const sha = s => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
-            if (!v) { console.log(["aborted", 0, 0, "none", sha("aborted")].join("|")); process.exit(0); }
+            if (!v) { emit("aborted", "No parseable audit report was produced."); process.exit(0); }
             // --audit-level sets the FAILURE THRESHOLD only; it does not filter the
-            // report, so j.vulnerabilities still carries low/info entries. Everything
-            // below is derived from ONE filtered set, because the digest must key on
-            // exactly what the issue reports: an unfiltered name list would present a
-            // low-only package as "affected" under a moderate-or-higher heading, and an
-            // unfiltered identity would fire a "result changed" comment for a new LOW
-            // advisory while the reported moderate+ picture was unchanged.
+            // report, so j.vulnerabilities still carries low/info entries. Render only
+            // what qualifies — and because the digest is the hash of what is rendered,
+            // that single rule is what keeps low-severity noise from raising a comment.
             const SEV = new Set(["moderate", "high", "critical"]);
             const sevOf = x => String((x && x.severity) || "?").toLowerCase();
-            // A package severity is the MAX over its advisories, so anything with a
-            // qualifying advisory necessarily qualifies here too. (No apostrophes in
-            // this block — it is a single-quoted shell string; one would end it.)
-            const affected = Object.entries(j.vulnerabilities || {}).filter(([, info]) => SEV.has(sevOf(info)));
-            const pkgs = affected.length;
-            const names = affected.map(([name]) => name).sort().join(",") || "none";
-            // The digest keys on advisory IDENTITY *and each advisory severity*. A NEW
-            // advisory against an already-listed package leaves the name list identical;
-            // and one advisory changing severity leaves the package aggregate unchanged
-            // whenever another already holds the maximum. Either way the reporting action
-            // would otherwise treat a genuinely new security result as duplicate and stay
-            // silent. via[] entries are objects carrying url + their OWN severity, or
-            // plain strings naming the package the path runs through.
-            let advisories = 0;
             const all = j.vulnerabilities || {};
-            const identity = affected.map(([name, info]) => {
-              const ids = (Array.isArray(info.via) ? info.via : []).map(x => {
-                if (typeof x === "string") {
-                  // A plain string names the dependency this vulnerability comes
-                  // through. Keep it only when that dependency ITSELF qualifies:
-                  // a package can gain a low-only vulnerable dependency, and
-                  // retaining that string would move the digest and post a
-                  // "result changed" comment while the reported moderate+ set is
-                  // unchanged. The advisory objects themselves live on the entry
-                  // for the package they originate from, so nothing is lost.
-                  return SEV.has(sevOf(all[x])) ? x : "";
-                }
+            // A package severity is the MAX over its advisories, so anything holding a
+            // qualifying advisory necessarily qualifies here too.
+            const affected = Object.entries(all).filter(([, info]) => SEV.has(sevOf(info)));
+            if (!affected.length) { emit("clean", "No moderate-or-higher advisories."); process.exit(0); }
+            let advisories = 0;
+            const rows = affected.map(([name, info]) => {
+              const items = (Array.isArray(info.via) ? info.via : []).map(x => {
+                // A plain string names the dependency the vulnerability comes through;
+                // show it only when that dependency itself qualifies. The advisory
+                // objects live on the entry for the package they originate from, so
+                // nothing is lost by dropping a low-only link.
+                if (typeof x === "string") return SEV.has(sevOf(all[x])) ? "via `" + x + "`" : "";
                 const sev = sevOf(x);
                 if (!SEV.has(sev)) return "";
                 advisories++;
-                return (x.url || x.source || x.title || "") + "@" + sev;
+                return (x.url || x.source || x.title || "") + " (" + sev + ")";
               }).filter(Boolean).map(String).sort();
-              return name + "@" + sevOf(info) + ":" + ids.join("+");
-            }).sort().join("\n");
-            const status = pkgs > 0 ? "findings" : "clean";
-            // Hashed inside node so the identity string — which contains arbitrary
-            // punctuation — never has to survive a shell field split.
-            console.log([status, pkgs, advisories, names, sha(status + "\n" + identity)].join("|"));
+              return "| `" + name + "` | " + sevOf(info) + " | " + items.join("<br>") + " |";
+            }).sort();
+            const report = [
+              "**" + advisories + "** moderate-or-higher advisories across **" +
+                affected.length + "** affected package(s).",
+              "",
+              "| Package | Severity | Advisories |",
+              "|---|---|---|",
+            ].concat(rows).join("\n");
+            emit("findings", report);
           ')
-          status=$(echo "$probe" | cut -d'|' -f1)
-          pkgs=$(echo "$probe" | cut -d'|' -f2)
-          advisories=$(echo "$probe" | cut -d'|' -f3)
-          names=$(echo "$probe" | cut -d'|' -f4)
-          digest=$(echo "$probe" | cut -d'|' -f5)
-          echo "status=$status"          >> "$GITHUB_OUTPUT"
-          echo "pkg_count=$pkgs"         >> "$GITHUB_OUTPUT"
-          echo "advisory_count=$advisories" >> "$GITHUB_OUTPUT"
-          echo "packages=$names"         >> "$GITHUB_OUTPUT"
-          echo "digest=$digest"          >> "$GITHUB_OUTPUT"
-          echo "npm audit exited $rc; probe says $probe"
+          status=$(echo "$probe" | cut -d"|" -f1)
+          digest=$(echo "$probe" | cut -d"|" -f2)
+          summary=$(head -1 audit-report.md)
+          {
+            echo "status=$status"
+            echo "digest=$digest"
+            echo "summary=$summary"
+            # Multi-line output. The delimiter cannot collide with npm report content.
+            # The bare echo is REQUIRED: audit-report.md has no trailing newline, so
+            # without it the delimiter lands on the same line as the last row and the
+            # step fails on an invalid output format.
+            echo "report<<__AUDIT_REPORT_EOF__"
+            cat audit-report.md
+            echo ""
+            echo "__AUDIT_REPORT_EOF__"
+          } >> "$GITHUB_OUTPUT"
+          echo "npm audit exited $rc; status=$status digest=$digest"
+          cat audit-report.md
 
       - name: Upload audit output
         if: always()
@@ -274,16 +312,9 @@ jobs:
           digest: ${{ steps.audit.outputs.digest }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            `npm audit --audit-level=moderate` found
-            **${{ steps.audit.outputs.advisory_count }}** moderate-or-higher advisories
-            across **${{ steps.audit.outputs.pkg_count }}** affected package(s) in
-            `app/package-lock.json`.
+            `npm audit --audit-level=moderate` over `app/package-lock.json`:
 
-            Affected: `${{ steps.audit.outputs.packages }}`
-
-            (npm folds every advisory for a package into one entry at that package's
-            aggregate severity, so `metadata.vulnerabilities` counts packages — the two
-            numbers above are deliberately different things.)
+            ${{ steps.audit.outputs.report }}
 
             This was measured, not inferred — the JSON report parsed. Full output is
             in the `npm-audit-output` artifact.
@@ -291,6 +322,14 @@ jobs:
             Triage order is **ADR-067 § 6a** — in short: `npm ls <pkg>` to find the
             parent, then check for a patched release *inside the range already
             declared* before reaching for a bump or an `overrides` entry.
+
+            <!-- Everything dynamic in this issue lives in the block above, which is
+                 exactly what the digest hashes. Adding a dynamic value outside it
+                 would make that value invisible to change detection. -->
+
+            (Counts above are advisories and affected packages separately: npm folds
+            every advisory for a package into one entry at that package aggregate
+            severity, so they are deliberately different numbers.)
 
       - name: Report an audit that could not run
         if: steps.audit.outputs.status == 'aborted'
@@ -333,7 +372,7 @@ jobs:
         if: steps.audit.outputs.status != 'clean'
         run: |
           if [ '${{ steps.audit.outputs.status }}' = 'findings' ]; then
-            echo "::error::npm audit found ${{ steps.audit.outputs.advisory_count }} moderate-or-higher advisories across ${{ steps.audit.outputs.pkg_count }} package(s) — see the issue."
+            echo "::error::npm audit — ${{ steps.audit.outputs.summary }} See the issue."
           else
             echo "::error::npm audit could not produce a report. No findings are implied."
           fi
