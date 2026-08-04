@@ -81,6 +81,20 @@ ESTABLISHED_STREAK_DAYS = 7
 # routine"). Stacking treats a pair drawn from this set as a partial time match.
 _ROUTINE_ANCHOR_SLOTS = frozenset({TimeOfDay.MORNING, TimeOfDay.EVENING})
 
+# The slots capacity-balancing distributes new habits across, in tie-break order —
+# ties (notably a user with no habits yet) resolve to MORNING.
+#
+# Deliberately NOT the whole enum: EARLY_MORNING / NIGHT / LATE_NIGHT sit at zero
+# for essentially every real schedule, so "least loaded" would always name one of
+# them and the suggestion would be constant regardless of how the day is arranged.
+# ANYTIME is excluded for a different reason — it means "no slot declared", which
+# is not somewhere to put a habit.
+_BALANCEABLE_SLOTS: tuple[TimeOfDay, ...] = (
+    TimeOfDay.MORNING,
+    TimeOfDay.AFTERNOON,
+    TimeOfDay.EVENING,
+)
+
 
 class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     """
@@ -267,9 +281,10 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
 
     def _suggest_best_time(self, distribution: dict[TimeOfDay, int]) -> TimeOfDay:
         """
-        Suggest best time for new habit based on distribution.
+        Suggest the least-loaded waking slot for a new habit.
 
-        Prefers times with fewer existing habits for better balance.
+        Balances only across ``_BALANCEABLE_SLOTS``; ties go to the first of
+        them, so a user with no habits yet is still pointed at MORNING.
 
         Args:
             distribution: Time slot distribution
@@ -277,13 +292,8 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         Returns:
             Suggested time slot
         """
-        # ANYTIME is "no slot declared", not a slot to balance into
-        timed_slots = {k: v for k, v in distribution.items() if k is not TimeOfDay.ANYTIME}
-        if not timed_slots:
-            return TimeOfDay.MORNING
-
-        # Return least loaded time slot
-        return min(timed_slots, key=make_dict_value_getter(timed_slots))
+        loads = {slot: distribution.get(slot, 0) for slot in _BALANCEABLE_SLOTS}
+        return min(_BALANCEABLE_SLOTS, key=make_dict_value_getter(loads))
 
     # ========================================================================
     # SMART SCHEDULING
