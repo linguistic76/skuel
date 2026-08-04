@@ -135,6 +135,30 @@ class TestAppliedTime:
         )
         assert elapsed == timedelta(minutes=45), f"{slot.value}: duration is not the habit's"
 
+    @pytest.mark.parametrize(
+        ("slot", "duration"),
+        [
+            (TimeOfDay.NIGHT, 180),  # 22:00 + 3h
+            (TimeOfDay.NIGHT, 480),  # the form's maximum
+            (TimeOfDay.EVENING, 360),  # 19:00 + 6h
+        ],
+    )
+    def test_a_window_that_would_cross_midnight_stays_ordered(
+        self, scheduler, slot, duration
+    ) -> None:
+        """An event has one date and two clock times, so it cannot span midnight.
+
+        Returning the wrapped clock value put the end before the start on the same
+        day — a negative duration to every consumer, and persisted that way under
+        ``auto_create``.
+        """
+        events = scheduler._apply_scheduling_strategy(
+            [self._event()], _habit(preferred_time=slot, duration_minutes=duration), None
+        )
+        event = events[0]
+        assert event.start_time is not None and event.end_time is not None
+        assert event.end_time > event.start_time, f"{slot.value}+{duration}m: end precedes start"
+
     def test_a_habit_with_no_duration_uses_the_configured_default(self, scheduler) -> None:
         events = scheduler._apply_scheduling_strategy(
             [self._event()], _habit(preferred_time=TimeOfDay.MORNING, duration_minutes=None), None

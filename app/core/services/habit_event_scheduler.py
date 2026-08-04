@@ -111,10 +111,16 @@ class HabitEventScheduler:
             event_date: Event date (default: today) - needed for midnight boundary cases
 
         Returns:
-            End time
+            End time, never earlier than ``start_time``
 
         Note:
-            Handles midnight boundary by combining with date, adding duration, then extracting time.
+            An event carries one ``event_date`` and two clock times, so a window that
+            crosses midnight cannot be represented: returning the wrapped clock value
+            would put the end BEFORE the start on the same day (a 22:00 habit lasting
+            3h ended at 01:00, reading as a negative duration to every consumer).
+            Such a window is clamped to the end of ``event_date`` instead — a
+            truncated window is wrong about length, an inverted one is wrong about
+            direction, and only the second breaks ordering invariants.
         """
         from datetime import datetime
 
@@ -124,6 +130,8 @@ class HabitEventScheduler:
         # Combine date + time, add duration, extract time
         start_dt = datetime.combine(base_date, start_time)
         end_dt = start_dt + timedelta(minutes=duration_minutes)
+        if end_dt.date() > base_date:
+            return time(23, 59)
         return end_dt.time()
 
     # ========================================================================
