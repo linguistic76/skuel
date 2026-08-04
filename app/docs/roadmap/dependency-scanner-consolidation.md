@@ -231,29 +231,31 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
 7. Update ADR-067 § 5 and § 6e, and close the accept-mechanism decision in
    `js-dependency-surface.md`.
 
-   **Then sweep every remaining reference — do not work from this list, re-derive it.**
-   The tool names appear in help text, workflow docs and contributor guidance, not just
-   policy docs. Run from the **repository root** (80 hits today):
+   **Then sweep every remaining reference — do not work from a list, re-derive it.**
+   Run from the **repository root**: 107 hits across 16 files today.
 
    ```bash
-   grep -rn "pip-audit\|pip_audit\|npm audit" \
-     app/dev app/scripts app/CLAUDE.md app/docs/guides app/docs/decisions \
-     app/docs/development .github \
-     --include="*.md" --include="*.yml" --include="*.py" --include="*.sh" --include="dev"
+   grep -rn "pip-audit\|pip_audit\|npm audit" . \
+     --include="*.md" --include="*.yml" --include="*.py" --include="*.sh" --include="dev" \
+     | grep -vE "\.claude/worktrees|node_modules"
    ```
 
-   `.github` is in that list deliberately: `.github/workflows/README.md` alone carries 10
-   descriptions of the old paths, and an earlier draft of this sweep omitted it — the sweep
-   is itself a thing that can be silently incomplete. A whole-repo `grep -rn` instead
-   returns ~567 hits, mostly historical prose in roadmap and arc docs, which is why the
-   scope is the surfaces that *instruct* rather than every mention.
+   **The exclusion filter is the point.** Three drafts of this sweep listed directories to
+   search, and each one was found to be missing a surface — first `.github`, then
+   `docs/security` and `docs/deployment`. An allowlist of directories cannot be verified
+   complete by looking at it; an exclusion of two known-duplicate trees can. (`.claude/
+   worktrees` holds whole copies of the repo, which is why a naive whole-repo grep looks
+   like ~567 hits — 64 of the matching files are the same files seen several times.)
 
-   Four checks that the sweep is working: `.github/workflows/README.md` (10),
-   `app/dev:82,281` describing `./dev audit-deps` as pip-audit in user-facing help,
-   `app/CLAUDE.md:613`, and `docs/guides/LINTER_GUIDE.md:53` — the last two both state that
-   quality check 8 runs `npm audit --audit-level=moderate`. Leaving these pointed at removed
-   paths sends contributors to scanners and semantics that no longer exist, which is the
-   same documentation-drift failure ADR-067 § 5 had to be corrected for.
+   Surfaces this reaches, each one found by a *different* review round, which is the
+   evidence that hand-picked scopes kept failing: `.github/workflows/README.md` (10 hits),
+   `app/dev:82,281` calling `./dev audit-deps` pip-audit in user-facing help,
+   `app/CLAUDE.md:613` and `docs/guides/LINTER_GUIDE.md:53` both stating quality check 8
+   runs `npm audit --audit-level=moderate`, `scripts/run_quality_checks.py:173`,
+   `docs/roadmap/security-hardening-deferred.md` (9), `docs/security/COOKIES_AND_CSRF.md`,
+   and `docs/deployment/DO_MIGRATION_GUIDE.md`. Leaving any of these pointed at removed
+   paths sends contributors to scanners and semantics that no longer exist — the same
+   documentation-drift failure ADR-067 § 5 had to be corrected for.
 8. Drop `pip-audit` from `pyproject.toml`; confirm `pip` has left the lock.
 
 ---
