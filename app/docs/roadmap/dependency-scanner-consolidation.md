@@ -139,6 +139,28 @@ Two consequences to design for rather than discover:
 all-severities for Python, or unify. Either is defensible; drifting into one by accident is
 not. Whatever is chosen belongs in ADR-067 alongside the tooling change (step 7).
 
+### The contract `audit_dependencies.sh` provides today
+
+Four review rounds on this doc each found a different guarantee the migration would have
+dropped. The pattern is the giveaway: a list of *steps* invites omissions, so here is the
+list of *properties* instead, read off all 39 lines of the script. Replacing it means
+preserving each one or dropping it deliberately — and this table is short enough to check
+against the file.
+
+| Guarantee | How it is provided today | On osv-scanner |
+|---|---|---|
+| **The lock matches the manifest** | `uv export --locked` refuses a `uv.lock` behind `pyproject.toml` | **Lost** — scanning `uv.lock` directly happily audits a stale resolution and reports clean for dependencies that are not the ones that would be installed. Re-add with `uv lock --check` before scanning (verified present in uv 0.10.9) |
+| **Dev groups are audited** | `--all-groups`; dev deps run on developer machines and CI, so they count | Confirm osv-scanner reads all groups from `uv.lock`, not just the default group |
+| **The LOCK is audited, not the live venv** | exports from `uv.lock`, never from the installed environment | Native — it reads the lockfile |
+| **Unauditable deps fail, not warn** | `--strict` | Unknown (§ 4) |
+| **OSV, not the PyPI feed** | `--vulnerability-service osv`, chosen deliberately | Native |
+| **Accepted findings, with reasons** | `.pip-audit-ignore` | `[[IgnoredVulns]]`, and better — it has `ignoreUntil` |
+| **Severity threshold** | none for Python; moderate+ for JS elsewhere | Unknown (above) |
+
+The first row is the one with teeth, and it is the same defect class as the `uv sync`
+finding in #931: an audit that measures a resolution which is not the real one produces a
+clean result that means nothing.
+
 ---
 
 ## 5. Migration sketch
@@ -165,7 +187,10 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
 3. Port `.pip-audit-ignore` → `osv-scanner.toml`, giving every entry a `reason` and an
    `ignoreUntil`.
 4. Rewrite `scripts/audit_dependencies.sh` to invoke osv-scanner over both lockfiles; keep
-   the script as the ONE path so CI and `./dev audit-deps` cannot diverge.
+   the script as the ONE path so CI and `./dev audit-deps` cannot diverge. **Walk the
+   contract table in § 4 line by line** and preserve or consciously drop each row — the
+   lock-freshness assertion (`uv lock --check`) is the one that silently produces a
+   meaningless clean result if forgotten.
 
    **Every call site must move together.** Two review rounds on this doc each found a
    consumer the sketch had missed, so here is the full list rather than a third guess —
