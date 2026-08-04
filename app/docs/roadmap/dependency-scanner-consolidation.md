@@ -135,11 +135,24 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    `ignoreUntil`.
 4. Rewrite `scripts/audit_dependencies.sh` to invoke osv-scanner over both lockfiles; keep
    the script as the ONE path so CI and `./dev audit-deps` cannot diverge.
-5. Collapse `dependency-audit.yml` to a single job, and update its header — the
+5. **Migrate the REQUIRED CI job in the same change — this is the step that bites.**
+   `ci.yml`'s `pip_audit` job runs that same script, so step 4 changes it too. Verified
+   2026-08-03, it needs three edits or it breaks:
+   - **Install the binary.** The job sets up only Python + uv, so the moment the script
+     needs `osv-scanner` it fails on *every* matching PR — and it is a **required** check
+     feeding the `gate` job, so that blocks all merges.
+   - **Widen the path filters.** The job triggers on `py || audit`; neither filter mentions
+     `app/package-lock.json` (checked). Once one script scans both lockfiles, a JS-only
+     lock change would silently skip the consolidated check — the same diff-gating blind
+     spot that produced `dependency-audit.yml` in the first place. Add `package-lock.json`,
+     `package.json` and `osv-scanner.toml` to the `audit` filter.
+   - **Rename it.** "Dependency CVE Audit" is fine; the job id `pip_audit` and the
+     `.pip-audit-ignore` reference in `.github/workflows/README.md` are not.
+6. Collapse `dependency-audit.yml` to a single job, and update its header — the
    asymmetry it documents (JS can prove it measured, Python cannot) stops being true.
-6. Update ADR-067 § 5 and § 6e, and close the accept-mechanism decision in
+7. Update ADR-067 § 5 and § 6e, and close the accept-mechanism decision in
    `js-dependency-surface.md`.
-7. Drop `pip-audit` from `pyproject.toml`; confirm `pip` has left the lock.
+8. Drop `pip-audit` from `pyproject.toml`; confirm `pip` has left the lock.
 
 ---
 
