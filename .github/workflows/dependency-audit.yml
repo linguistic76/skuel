@@ -311,9 +311,22 @@ jobs:
             const fs = require("fs");
             const crypto = require("crypto");
             const sha = s => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
+            // Cap the rendered report. A broad incident across many locked packages, or
+            // packages carrying many via advisories, would otherwise produce a body over
+            // the 65536-character GitHub issue limit — and then BOTH issue creation and
+            // the changed-result comment fail, leaving the marker stale and the findings
+            // visible only in the artifact. 60000 leaves room for the stamp, the footer
+            // and the truncation notice. Applied BEFORE hashing, so the digest keeps
+            // describing exactly what gets filed.
+            const LIMIT = 60000;
             const emit = (status, report) => {
-              fs.writeFileSync("audit-report.md", report);
-              console.log(status + "|" + sha(report));
+              const r = report.length > LIMIT
+                ? report.slice(0, LIMIT) +
+                  "\n\n_Truncated at " + LIMIT + " characters. The full report is in the " +
+                  "npm-audit-output artifact on this run._"
+                : report;
+              fs.writeFileSync("audit-report.md", r);
+              console.log(status + "|" + sha(r));
             };
             let j = null;
             try { j = JSON.parse(fs.readFileSync("npm-audit.json", "utf8")); } catch (e) {}
