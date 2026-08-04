@@ -138,17 +138,19 @@ with the intentional pins excluded. The intent stands and the file is correct �
 - **No "Dependency Dashboard" issue exists** — decisive, because `renovate.json` extends
   `:dependencyDashboard`, which opens that issue on the first run.
 
-So nothing is watching for stale dependencies. What *does* fire is narrower than it looks, and is
-diff-triggered rather than continuous:
+So nothing is watching for stale dependencies. What *does* exist is narrower than it looks — and
+only one of the two runs without a human:
 
-| Signal | Covers | Trigger |
-|---|---|---|
-| `pip_audit` CI job | Python CVEs | only when the `py`/`audit` path filters match |
-| `npm audit` (`./dev quality` check 8) | JS CVEs | only a local run — **no CI counterpart** |
+| Signal | Covers | Automated? | Trigger |
+|---|---|---|---|
+| `pip_audit` CI job | Python CVEs | ✅ yes | **diff-triggered** — only when the `py`/`audit` path filters match |
+| `npm audit` (`./dev quality` check 8) | JS CVEs | ❌ **no** | **only a manual local run** — there is no CI counterpart |
 
-Neither is a freshness check — both report *published vulnerabilities*, not staleness — and a CVE
-published against an unchanged lockfile is invisible to a diff-gated job. That is exactly how
-`undici` 7.28.0 sat vulnerable until a manual `./dev quality` caught it (PR #929).
+Neither is a freshness check — both report *published vulnerabilities*, not staleness. And neither
+is reliable against the case that actually bit: a CVE published against a lockfile nobody touched.
+The Python job is diff-gated, so it never fires; the JS check is not automated at all, so it fires
+only if someone happens to run the gate. That is exactly how `undici` 7.28.0 sat vulnerable until a
+manual `./dev quality` caught it (PR #929).
 
 **Before relying on this section, re-check that the claim above is still true.** If Renovate is
 ever installed, add `npm` to `enabledManagers` (§ 6) — the current list omits it, and per the
@@ -220,8 +222,10 @@ in [`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.m
   documentation of reality.
 - ~~Renovate adds PR noise. Mitigated by grouping and PR-only (no auto-merge) mode.~~ **Void as
   written (2026-08-03):** Renovate has never run (§ 5), so it produces neither noise nor updates.
-  The live trade-off is the opposite one — dependency freshness is entirely manual, and the only
-  automated signals are the two diff-triggered CVE audits in § 5.
+  The live trade-off is the opposite one — dependency freshness is entirely manual, and there is
+  exactly **one** automated CVE signal: the `pip_audit` CI job, which is Python-only *and*
+  diff-triggered. The JS audit is **not** automated at all — `npm audit` runs only when someone
+  invokes `./dev quality` locally (§ 5 table, § 6e). Neither is a freshness check.
 
 ### Deferred: TC/UP037 annotation-modernization sweep
 
