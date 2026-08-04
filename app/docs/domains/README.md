@@ -123,8 +123,8 @@ Each activity domain has domain-specific enums beyond the shared `Priority` and 
 |--------|-----------|
 | **Tasks** | Priority, EntityStatus, RecurrencePattern, EnergyLevel |
 | **Goals** | GoalType, GoalTimeframe, MeasurementType, HabitEssentiality |
-| **Habits** | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus, RecurrencePattern |
-| **Events** | RecurrencePattern, TimeOfDay, EnergyLevel, ActivityType |
+| **Habits** | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus, RecurrencePattern, TimeOfDay |
+| **Events** | RecurrencePattern, EnergyLevel, ActivityType |
 | **Choices** | ChoiceType |
 | **Principles** | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
 | **Curriculum** | LpType, StepDifficulty, LearningLevel, KuComplexity, SELCategory |

@@ -100,7 +100,8 @@ _FIELD_LABELS: dict[str, str] = {
 
 _FIELD_HELP: dict[str, str] = {
     "polarity": "'Build' to establish a habit; 'Break' to eliminate one.",
-    "preferred_time": "morning / afternoon / evening — or leave blank for any time.",
+    "preferred_time": "Which block of the day this habit belongs in — not a clock time.",
+    "duration_minutes": "How long one occurrence takes.",
     "cue": "What triggers this habit? (e.g. 'After morning coffee')",
     "routine": "The specific behavior you carry out.",
     "reward": "What immediate benefit do you get from completing it?",

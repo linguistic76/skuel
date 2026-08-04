@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
+from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.templates.relative_offset import RelativeOffset
 
 if TYPE_CHECKING:
@@ -72,7 +73,7 @@ class HabitTemplate(Entity):
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffset | None = None
     target_days_per_week: int | None = None
-    preferred_time: str | None = None
+    preferred_time: TimeOfDay | None = None
 
     # =========================================================================
     # REMINDERS (template-authored defaults)

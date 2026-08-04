@@ -279,7 +279,6 @@ _graph_enrichment_patterns = [
 | `get_by_streak_status` | `(min_streak: int, user_uid: UserUID) -> Result[list[Habit]]` | Filter by streak length |
 | `get_habits_needing_attention` | `(user_uid: UserUID) -> Result[list[Habit]]` | Broken streaks or declining |
 | `get_user_due_today` | `(user_uid: UserUID) -> Result[list[Habit]]` | Habits due today (frequency-window logic) |
-| `get_habits_by_time_of_day` | `(time_of_day: str, user_uid: UserUID) -> Result[list[Habit]]` | Morning/afternoon/evening habits |
 | `get_habit_chain_candidates` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Potential habit stacking |
 | `get_knowledge_reinforcement_opportunities` | `(user_uid: UserUID) -> Result[list[dict]]` | KU-habit connection opportunities |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Habit]]` | Smart prioritization |

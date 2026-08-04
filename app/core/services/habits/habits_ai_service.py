@@ -197,7 +197,7 @@ Keep it under 100 words. Be warm but not over-the-top."""
         context = {
             "name": habit.title,
             "category": habit.habit_category.value if habit.habit_category else "unknown",
-            "preferred_time": habit.preferred_time or "any time",
+            "preferred_time": habit.preferred_time.value if habit.preferred_time else "any time",
             "duration_minutes": habit.duration_minutes,
             "cue": habit.cue or "Not specified",
         }

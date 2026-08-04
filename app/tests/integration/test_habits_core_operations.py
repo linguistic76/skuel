@@ -25,7 +25,7 @@ import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
-from core.models.enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
@@ -433,7 +433,7 @@ class TestHabitsCoreOperations:
             habit_difficulty=HabitDifficulty.CHALLENGING,
             recurrence_pattern=RecurrencePattern.DAILY,
             target_days_per_week=5,
-            preferred_time="morning",
+            preferred_time=TimeOfDay.MORNING,
             duration_minutes=30,
             cue="After waking up",
             routine="30 minutes of yoga",
@@ -449,7 +449,9 @@ class TestHabitsCoreOperations:
         # Assert
         assert result.is_ok
         created = result.value
-        assert created.preferred_time == "morning"
+        # `== "morning"` would also pass for a bare str (TimeOfDay is a StrEnum), so it
+        # cannot tell a coerced slot from one the DTO never converted. `is` can.
+        assert created.preferred_time is TimeOfDay.MORNING
         assert created.duration_minutes == 30
         assert created.target_days_per_week == 5
         assert created.priority == Priority.CRITICAL

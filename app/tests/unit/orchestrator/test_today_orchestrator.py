@@ -11,15 +11,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import EntityStatus, Priority
+from core.models.enums import EntityStatus, Priority, TimeOfDay
 from core.utils.result_simplified import Result
 from ui.today.orchestrator import (
     TodayOrchestrator,
     _date_label,
     _due_label,
     _heading_label,
-    _parse_hhmm,
     _priority_label,
+    _slot_hhmm,
     _task_to_triage,
     _task_to_view,
 )
@@ -378,41 +378,63 @@ async def test_build_context_propagates_tasks_service_failure() -> None:
 
 
 @pytest.mark.asyncio
-async def test_build_context_ritual_sorts_by_time_parses_preferred_time() -> None:
+async def test_build_context_ritual_sorts_by_slot_representative_hour() -> None:
     orch, services = _build()
-    evening_habit = SimpleNamespace(
-        uid="h-evening",
+    night_habit = SimpleNamespace(
+        uid="h-night",
         title="Evening reflect",
-        preferred_time="21:00",
+        preferred_time=TimeOfDay.NIGHT,
         duration_minutes=10,
     )
     morning_habit = SimpleNamespace(
         uid="h-morning",
         title="Morning sit",
-        preferred_time="7:30",  # short form — should still parse
+        preferred_time=TimeOfDay.MORNING,
         duration_minutes=20,
     )
     services["habits_service"].get_user_habits = AsyncMock(
-        return_value=_ok([evening_habit, morning_habit])
+        return_value=_ok([night_habit, morning_habit])
     )
     result = await orch.build_context("u-mike")
     assert not result.is_error
     rituals = result.value["rituals"]
-    assert [r["id"] for r in rituals] == ["h-morning", "h-evening"]
-    assert rituals[0]["time"] == "07:30"
-    assert rituals[1]["time"] == "21:00"
+    assert [r["id"] for r in rituals] == ["h-morning", "h-night"]
+    assert rituals[0]["time"] == "09:00"
+    assert rituals[1]["time"] == "22:00"
 
 
 @pytest.mark.asyncio
-async def test_build_context_skips_habits_without_parseable_preferred_time() -> None:
+async def test_build_context_keeps_every_slot_valued_habit_on_the_spine() -> None:
+    """Every TimeOfDay slot reaches the spine — the old HH:MM gate dropped them all.
+
+    Slot-valued habits (``preferred_time="evening"`` and friends) were silently
+    excluded while the spine parsed ``preferred_time`` as a clock time. Asserting the
+    whole enum, not one member, keeps a future slot from re-opening that hole.
+    """
     orch, services = _build()
-    no_time = SimpleNamespace(
+    habits = [
+        SimpleNamespace(
+            uid=f"h-{slot.value}", title=slot.value, preferred_time=slot, duration_minutes=5
+        )
+        for slot in TimeOfDay
+    ]
+    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok(habits))
+    result = await orch.build_context("u-mike")
+    assert not result.is_error
+    rituals = result.value["rituals"]
+    assert {r["id"] for r in rituals} == {f"h-{slot.value}" for slot in TimeOfDay}
+    by_id = {r["id"]: r["time"] for r in rituals}
+    for slot in TimeOfDay:
+        assert by_id[f"h-{slot.value}"] == f"{slot.get_default_hour():02d}:00"
+
+
+@pytest.mark.asyncio
+async def test_build_context_skips_habits_without_a_slot() -> None:
+    orch, services = _build()
+    no_slot = SimpleNamespace(
         uid="h-untimed", title="Deep work", preferred_time=None, duration_minutes=45
     )
-    bad_time = SimpleNamespace(
-        uid="h-garbled", title="Evening walk", preferred_time="whenever", duration_minutes=20
-    )
-    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([no_time, bad_time]))
+    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([no_slot]))
     result = await orch.build_context("u-mike")
     assert not result.is_error
     assert result.value["rituals"] == []
@@ -423,15 +445,15 @@ async def test_build_context_skips_habits_without_parseable_preferred_time() -> 
 # ---------------------------------------------------------------------------
 
 
-def test_parse_hhmm_variants() -> None:
-    assert _parse_hhmm("07:30") == "07:30"
-    assert _parse_hhmm("7:30") == "07:30"
-    assert _parse_hhmm("21:00:00") == "21:00"
-    assert _parse_hhmm("") is None
-    assert _parse_hhmm(None) is None
-    assert _parse_hhmm("morning") is None
-    assert _parse_hhmm("25:00") is None
-    assert _parse_hhmm("12:61") is None
+def test_slot_hhmm_renders_each_slot_representative_hour() -> None:
+    assert _slot_hhmm(None) is None
+    assert _slot_hhmm(TimeOfDay.EARLY_MORNING) == "06:00"
+    assert _slot_hhmm(TimeOfDay.MORNING) == "09:00"
+    assert _slot_hhmm(TimeOfDay.AFTERNOON) == "14:00"
+    assert _slot_hhmm(TimeOfDay.EVENING) == "19:00"
+    assert _slot_hhmm(TimeOfDay.NIGHT) == "22:00"
+    assert _slot_hhmm(TimeOfDay.LATE_NIGHT) == "02:00"
+    assert _slot_hhmm(TimeOfDay.ANYTIME) == "09:00"
 
 
 @pytest.mark.asyncio
@@ -467,7 +489,7 @@ async def test_habit_ritual_principle_id_comes_from_graph_lookup() -> None:
     habit = SimpleNamespace(
         uid="h-sit",
         title="Morning sit",
-        preferred_time="07:00",
+        preferred_time=TimeOfDay.MORNING,
         duration_minutes=20,
     )
     services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([habit]))

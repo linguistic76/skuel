@@ -13,7 +13,7 @@ from datetime import date, time, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from core.models.enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.habit_enums import HabitCategory
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
@@ -29,6 +29,9 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.ports import EventsOperations, HabitsOperations
     from core.services.user import UserContext
+
+
+_MINUTES_PER_DAY = 24 * 60
 
 
 class SchedulingStrategy(Enum):
@@ -111,10 +114,16 @@ class HabitEventScheduler:
             event_date: Event date (default: today) - needed for midnight boundary cases
 
         Returns:
-            End time
+            End time, never earlier than ``start_time``
 
         Note:
-            Handles midnight boundary by combining with date, adding duration, then extracting time.
+            An event carries one ``event_date`` and two clock times, so a window that
+            crosses midnight cannot be represented: returning the wrapped clock value
+            would put the end BEFORE the start on the same day (a 22:00 habit lasting
+            3h ended at 01:00, reading as a negative duration to every consumer).
+            Such a window is clamped to the end of ``event_date`` instead — a
+            truncated window is wrong about length, an inverted one is wrong about
+            direction, and only the second breaks ordering invariants.
         """
         from datetime import datetime
 
@@ -124,6 +133,8 @@ class HabitEventScheduler:
         # Combine date + time, add duration, extract time
         start_dt = datetime.combine(base_date, start_time)
         end_dt = start_dt + timedelta(minutes=duration_minutes)
+        if end_dt.date() > base_date:
+            return time(23, 59)
         return end_dt.time()
 
     # ========================================================================
@@ -400,6 +411,16 @@ class HabitEventScheduler:
             else:
                 duration_minutes = 30  # Default duration
             minutes += duration_minutes + self.config.buffer_minutes_between_events
+            if minutes >= _MINUTES_PER_DAY:
+                # The routine has run out of day. A routine's events all share one
+                # date, so there is nowhere to put the next habit — stop, rather
+                # than build an out-of-range time(24, ...) and raise.
+                self.logger.info(
+                    "%s routine reached the end of the day after %d habits",
+                    routine_type,
+                    len(routine_events),
+                )
+                break
             current_time = time(minutes // 60, minutes % 60)
 
         self.logger.info("Created %s routine with %d habits", routine_type, len(routine_events))
@@ -530,29 +551,52 @@ class HabitEventScheduler:
     ) -> list[EventDTO]:
         """Apply scheduling strategy to determine event times."""
         strategy = self._determine_strategy(habit, user_context)
+        duration = habit.duration_minutes or self.config.default_duration_minutes
 
         for event in events:
             if strategy == SchedulingStrategy.MORNING:
-                event.start_time = time(self.config.morning_start_hour, 0)
+                start = time(self.config.morning_start_hour, 0)
             elif strategy == SchedulingStrategy.EVENING:
-                event.start_time = time(self.config.evening_start_hour, 0)
+                start = time(self.config.evening_start_hour, 0)
             elif strategy == SchedulingStrategy.OPTIMAL_TIME:
-                event.start_time = self._get_optimal_time(user_context)
-            elif strategy == SchedulingStrategy.FIXED_TIME and habit.preferred_time:
-                # preferred_time is stored as str (e.g. "morning"); parse to time if possible
-                from datetime import datetime as _dt
-
-                try:
-                    event.start_time = _dt.strptime(habit.preferred_time, "%H:%M").time()
-                except ValueError:
-                    event.start_time = None  # Unparseable preferred_time — treat as flexible
+                start = self._get_optimal_time(user_context)
+            elif strategy == SchedulingStrategy.FIXED_TIME and habit.preferred_time is not None:
+                start = habit.preferred_time.get_representative_time()
             else:  # FLEXIBLE
-                event.start_time = None  # Any time
+                start = None  # Any time
+
+            # The end must follow from the start we just chose. The generator stamped
+            # both from a provisional optimal time, so moving only the start left a
+            # stale end — an evening habit ended at mid-morning, i.e. before it began.
+            event.start_time = start
+            event.end_time = (
+                self._calculate_end_time(start, duration, event.event_date)
+                if start is not None
+                else None  # flexible: no committed window, so no end either
+            )
 
         return events
 
     def _determine_strategy(self, habit: Habit, _user_context: UserContext) -> SchedulingStrategy:
-        """Determine best scheduling strategy for a habit."""
+        """Determine best scheduling strategy for a habit.
+
+        A declared ``preferred_time`` slot outranks every inference below it — it is
+        the user's own statement of when the habit belongs (habit-rhythm arc M1), so
+        no keystone/category/tag heuristic may overwrite it.
+
+        ANYTIME is the exception, and it is FLEXIBLE rather than merely "not fixed":
+        it is the explicit *no preference* member, so falling through to the
+        heuristics would let a keystone or category rule pin the habit to a clock
+        time anyway — the user declined to choose one. ``None`` is the different
+        case (nothing said at all) and does fall through to inference. (Rendering is
+        a different question — a chip needs somewhere to sit, so the day spine does
+        place ANYTIME at its representative hour.)
+        """
+        if habit.preferred_time is TimeOfDay.ANYTIME:
+            return SchedulingStrategy.FLEXIBLE
+        if habit.preferred_time is not None:
+            return SchedulingStrategy.FIXED_TIME
+
         # Keystone habits get optimal time
         if habit.is_keystone:
             return SchedulingStrategy.OPTIMAL_TIME

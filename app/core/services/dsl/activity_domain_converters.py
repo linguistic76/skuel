@@ -17,7 +17,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from core.models.choice.choice_request import ChoiceCreateRequest
-from core.models.enums import EntityStatus, RecurrencePattern
+from core.models.enums import EntityStatus, RecurrencePattern, TimeOfDay
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import Domain, EntityType
 from core.models.enums.principle_enums import (
@@ -168,7 +168,19 @@ def activity_to_habit_request(activity: ParsedActivityLine) -> Result[Conversion
         recurrence_pattern=map_repeat_to_recurrence(activity.repeat_pattern)
         or RecurrencePattern.DAILY,
         duration_minutes=activity.duration_minutes or 15,
-        preferred_time=activity.energy_states[0] if activity.energy_states else None,
+        # A habit's slot comes from @when()'s hour, classified into the one
+        # time-of-day vocabulary (habit-rhythm arc M1/M3). This previously took
+        # @energy()'s first state, writing energy words like "medium" into a time
+        # field; energy still reaches the habit as a tag below.
+        #
+        # Only when the author wrote a clock time: a date-only @when() parses to
+        # midnight, and inferring LATE_NIGHT from it would schedule the habit at
+        # 02:00 on the strength of a time nobody stated.
+        preferred_time=(
+            TimeOfDay.from_hour(activity.when.hour)
+            if activity.when is not None and activity.when_has_clock_time
+            else None
+        ),
         linked_knowledge_uids=activity.get_linked_knowledge(),
         linked_goal_uids=activity.get_linked_goals(),
         linked_principle_uids=activity.get_linked_principles(),

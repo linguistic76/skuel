@@ -12,6 +12,7 @@ from pydantic import Field
 
 from core.models.enums import EntityStatus
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
+from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.request_base import UpdateRequestBase
 from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
@@ -40,7 +41,7 @@ class HabitTemplateCreateRequest(TemplateCreateRequest):
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None
     target_days_per_week: int | None = Field(default=None, ge=1, le=7)
-    preferred_time: str | None = None
+    preferred_time: TimeOfDay | None = None
 
     reminder_time: str | None = None
     reminder_days: list[str] = Field(default_factory=list)
@@ -72,7 +73,7 @@ class HabitTemplateUpdateRequest(UpdateRequestBase):
     recurrence_pattern: str | None = None
     recurrence_end_offset: RelativeOffsetDTO | None = None
     target_days_per_week: int | None = Field(default=None, ge=1, le=7)
-    preferred_time: str | None = None
+    preferred_time: TimeOfDay | None = None
 
     reminder_time: str | None = None
     reminder_days: list[str] | None = None

@@ -32,7 +32,7 @@ import pytest
 from fasthtml.common import to_xml
 
 from core.models.choice.choice import Choice
-from core.models.enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
@@ -108,6 +108,8 @@ def habit() -> Habit:
         habit_category=HabitCategory.LEARNING,
         habit_difficulty=HabitDifficulty.EASY,
         recurrence_pattern=RecurrencePattern.DAILY,
+        preferred_time=TimeOfDay.EVENING,
+        duration_minutes=30,
         priority=Priority.HIGH,
         status=EntityStatus.ACTIVE,
         created_at=_now(),
@@ -379,6 +381,33 @@ class TestEditFormPrefill:
         assert "Books, 30 min" in html
         assert 'name="habit_category"' in html
         assert 'name="habit_difficulty"' in html
+
+    def test_habits_form_offers_the_time_of_day_slots_not_a_free_text_box(self, habit) -> None:
+        """The habitual-time field is a slot chooser, on both create and edit.
+
+        It used to be a free-text input, which is how the graph came to hold an
+        energy word in a time field (habit-rhythm arc M1/M3). Asserting every
+        ``TimeOfDay`` member — rather than a sample — keeps a later slot from
+        being added to the enum but missing from the form.
+        """
+        for label, form in (("create", HabitCreateForm()), ("edit", HabitEditForm(habit))):
+            html = to_xml(form)
+            select = re.search(r'<select[^>]*name="preferred_time".*?</select>', html, re.DOTALL)
+            assert select, f"{label}: preferred_time is not rendered as a <select>"
+            block = select.group(0)
+            for slot in TimeOfDay:
+                assert f'value="{slot.value}"' in block, f"{label}: slot {slot.value!r} missing"
+            # Optional field → a blank choice, so "no declared slot" stays reachable.
+            assert 'value=""' in block, f"{label}: no blank option"
+
+    def test_habits_edit_preselects_the_stored_slot_and_duration(self, habit) -> None:
+        html = to_xml(HabitEditForm(habit))
+        assert re.search(r'<option[^>]*value="evening"[^>]*selected', html), (
+            "stored slot not preselected"
+        )
+        assert re.search(r'<input[^>]*name="duration_minutes"[^>]*value="30"', html), (
+            "stored duration not prefilled"
+        )
 
     def test_principles_edit_splits_why_important(self, principle) -> None:
         """Description shows prose only; why_important shows the trailing block."""

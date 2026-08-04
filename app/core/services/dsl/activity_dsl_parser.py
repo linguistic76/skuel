@@ -165,6 +165,11 @@ class ParsedActivityLine:
 
     # Temporal
     when: datetime | None = None  # @when(2025-11-27T09:30)
+    # Did the author write a clock time, or only a date? A date-only @when is
+    # represented as midnight, indistinguishable from a deliberate 00:00 — so a
+    # consumer inferring a time of day from ``when.hour`` must check this first
+    # rather than reading late-night intent into a bare date.
+    when_has_clock_time: bool = False
     scheduled_date: date | None = None  # obsidian-tasks ⏳ scheduled date
     duration_minutes: int | None = None  # @duration(90m)
     repeat_pattern: dict[str, Any] | None = None  # @repeat(daily)
@@ -697,6 +702,8 @@ class ActivityDSLParser:
                 description=description,
                 contexts=contexts,
                 when=when,
+                when_has_clock_time=when is not None
+                and self._when_carries_clock_time(tags.get("when")),
                 priority=priority,
                 duration_minutes=duration,
                 energy_states=energy,
@@ -958,6 +965,9 @@ class ActivityDSLParser:
         - 2025-11-27T09:30 (ISO with T)
         - 2025-11-27 09:30 (ISO with space)
         - 2025-11-27 (date only — midnight; matches obsidian-tasks 📅 granularity)
+
+        The date-only midnight is a representation, not a stated time — ask
+        :meth:`_when_carries_clock_time` before reading a time of day out of it.
         """
         if not value:
             return None
@@ -990,6 +1000,17 @@ class ActivityDSLParser:
 
         self.logger.warning(f"Could not parse @when value: {value}")
         return None
+
+    def _when_carries_clock_time(self, value: str | None) -> bool:
+        """Whether an ``@when()`` value states a clock time as well as a date.
+
+        Only the two datetime forms do; a bare date parses to midnight, and a
+        consumer that treated that as "00:00 was requested" would invent a
+        time-of-day the author never wrote.
+        """
+        if not value:
+            return False
+        return bool(self.ISO_DATETIME_T.match(value) or self.ISO_DATETIME_SPACE.match(value))
 
     def _parse_priority(self, value: str | None) -> int | None:
         """Parse @priority() value (1-5)."""

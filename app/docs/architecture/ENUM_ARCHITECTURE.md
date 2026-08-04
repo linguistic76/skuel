@@ -270,7 +270,7 @@ Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1),
 | ActivityType | activity_enums.py | TASK, HABIT, EVENT, LEARNING, MILESTONE, ... (12) | Calendar, scheduling |
 | EngagementState | activity_enums.py | ENGAGED, OWNED | All 6 Activity Domain instances spawned from a PathStep template; `None` = standalone (not curriculum-spawned) |
 | RecurrencePattern | scheduling_enums.py | NONE, DAILY, WEEKLY, MONTHLY, ... (9+) | Habits, events, reports |
-| TimeOfDay | scheduling_enums.py | EARLY_MORNING, MORNING, ... ANYTIME (7) | Scheduling services |
+| TimeOfDay | scheduling_enums.py | EARLY_MORNING, MORNING, ... ANYTIME (7) | Habits + HabitTemplate (`preferred_time`), HabitCompletion, user scheduling preference (`preferred_time_of_day`) |
 | EnergyLevel | scheduling_enums.py | LOW, MEDIUM, HIGH, VARIABLE | Task/habit scheduling |
 
 ### Per-Domain Enums

@@ -15,7 +15,7 @@ import asyncio
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from core.models.enums import EntityStatus, Priority
+from core.models.enums import EntityStatus, Priority, TimeOfDay
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -106,25 +106,16 @@ def _due_label(d: date | None, today: date) -> str:
     return f"In {delta}d"
 
 
-def _parse_hhmm(value: str | None) -> str | None:
-    """Parse a ``"HH:MM"`` / ``"H:MM"`` / ``"HH:MM:SS"`` string into ``"HH:MM"``.
+def _slot_hhmm(slot: TimeOfDay | None) -> str | None:
+    """Position a habit's time-of-day slot on the day spine as ``"HH:MM"``.
 
-    Habit/event models store time-of-day as a free-form string (``preferred_time``,
-    ``reminder_time``) rather than a typed ``datetime.time``. Day-spine positioning
-    needs a canonical ``HH:MM``; anything unparseable drops off the spine.
+    Habits carry a fuzzy slot, not a clock time (habit-rhythm arc M3), so the spine
+    places them at the slot's representative hour. A habit with no declared slot has
+    no place on a chronological spine and returns ``None``.
     """
-    if not value:
+    if slot is None:
         return None
-    parts = value.strip().split(":")
-    if len(parts) < 2:
-        return None
-    try:
-        hh, mm = int(parts[0]), int(parts[1])
-    except ValueError:
-        return None
-    if not (0 <= hh < 24 and 0 <= mm < 60):
-        return None
-    return f"{hh:02d}:{mm:02d}"
+    return slot.get_representative_time().strftime("%H:%M")
 
 
 def _date_label(today: date) -> str:
@@ -259,7 +250,7 @@ class TodayOrchestrator:
         triage_tasks_full = [t for t in all_tasks if is_triage_member(t, today)] if is_today else []
 
         active_goals = [g for g in all_goals if g.status == EntityStatus.ACTIVE]
-        rituable_habits = [h for h in all_habits if _parse_hhmm(h.preferred_time) is not None]
+        rituable_habits = [h for h in all_habits if h.preferred_time is not None]
         active_principles = [p for p in all_principles if p.status != EntityStatus.ARCHIVED]
 
         # GRAPH-NATIVE: Goal→Principle (GUIDED_BY_PRINCIPLE) and Habit→Principle
@@ -536,15 +527,15 @@ def _build_rituals(
 ) -> list[RitualView]:
     """Time-anchored items for the Day spine.
 
-    Habits contribute when their ``preferred_time`` parses as ``HH:MM``;
-    events contribute when they occur today and carry a ``start_time``.
-    Everything is sorted chronologically.
+    Habits contribute when they declare a ``preferred_time`` slot, positioned at that
+    slot's representative hour; events contribute when they occur today and carry a
+    ``start_time``. Everything is sorted chronologically.
     """
     pmap = habit_principle_map or {}
     rituals: list[RitualView] = []
 
     for h in habits:
-        parsed = _parse_hhmm(h.preferred_time)
+        parsed = _slot_hhmm(h.preferred_time)
         if parsed is None:
             continue
         rituals.append(

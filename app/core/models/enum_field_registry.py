@@ -46,7 +46,7 @@ from core.models.enums.principle_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.enums.scheduling_enums import RecurrencePattern
+from core.models.enums.scheduling_enums import RecurrencePattern, TimeOfDay
 from core.models.enums.user_entry_enums import ExerciseScope, SubmissionModality
 
 ENUM_FIELD_TYPES: dict[str, type[Enum]] = {
@@ -75,6 +75,7 @@ ENUM_FIELD_TYPES: dict[str, type[Enum]] = {
     # Activity lifecycle + scheduling fields (instances and templates)
     "engagement_state": EngagementState,
     "recurrence_pattern": RecurrencePattern,
+    "preferred_time": TimeOfDay,
     # Goal fields
     "goal_type": GoalType,
     "timeframe": GoalTimeframe,
