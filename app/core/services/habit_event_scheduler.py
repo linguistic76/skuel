@@ -13,7 +13,7 @@ from datetime import date, time, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from core.models.enums import Priority, RecurrencePattern
+from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.habit_enums import HabitCategory
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
@@ -538,7 +538,7 @@ class HabitEventScheduler:
                 event.start_time = time(self.config.evening_start_hour, 0)
             elif strategy == SchedulingStrategy.OPTIMAL_TIME:
                 event.start_time = self._get_optimal_time(user_context)
-            elif strategy == SchedulingStrategy.FIXED_TIME and habit.preferred_time:
+            elif strategy == SchedulingStrategy.FIXED_TIME and habit.preferred_time is not None:
                 event.start_time = habit.preferred_time.get_representative_time()
             else:  # FLEXIBLE
                 event.start_time = None  # Any time
@@ -551,8 +551,14 @@ class HabitEventScheduler:
         A declared ``preferred_time`` slot outranks every inference below it — it is
         the user's own statement of when the habit belongs (habit-rhythm arc M1), so
         no keystone/category/tag heuristic may overwrite it.
+
+        ANYTIME is the exception: it is the explicit *no preference* member, so it
+        declares flexibility rather than a slot. Committing a generated event to
+        ANYTIME's representative hour would pin the habit to a time the user
+        specifically declined to choose. (Rendering is a different question — a chip
+        needs somewhere to sit, so the day spine does place ANYTIME at that hour.)
         """
-        if habit.preferred_time is not None:
+        if habit.preferred_time is not None and habit.preferred_time is not TimeOfDay.ANYTIME:
             return SchedulingStrategy.FIXED_TIME
 
         # Keystone habits get optimal time
