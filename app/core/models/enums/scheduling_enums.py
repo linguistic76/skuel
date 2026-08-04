@@ -104,6 +104,26 @@ class TimeOfDay(StrEnum):
         }
         return defaults.get(self, 9)
 
+    def get_label(self) -> str:
+        """Human label for the slot — the word a habit chip SPEAKS.
+
+        The representative hour exists to place a habit in the day's order; it
+        cannot be read back as the slot (MORNING and ANYTIME both resolve to
+        09:00), so any surface naming a habit's time names it from here. One
+        vocabulary end to end (M1), and never a clock time the habit never
+        stated (M3).
+        """
+        labels = {
+            TimeOfDay.EARLY_MORNING: "Early morning",
+            TimeOfDay.MORNING: "Morning",
+            TimeOfDay.AFTERNOON: "Afternoon",
+            TimeOfDay.EVENING: "Evening",
+            TimeOfDay.NIGHT: "Night",
+            TimeOfDay.LATE_NIGHT: "Late night",
+            TimeOfDay.ANYTIME: "Anytime",
+        }
+        return labels.get(self, self.value.replace("_", " ").capitalize())
+
     def get_representative_time(self) -> time:
         """The slot's representative clock time — its default hour, on the hour.
 

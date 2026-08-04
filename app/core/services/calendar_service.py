@@ -47,15 +47,18 @@ from core.models.type_hints import EntityUID, UserUID
 if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
 
+from core.constants import HabitBlock
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import CompletionStatus
+from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
     CalendarItemType,
     CalendarOccurrence,
     CalendarView,
+    habit_block_on,
     parse_calendar_item_uid,
 )
 from core.models.event.event import Event
@@ -92,6 +95,34 @@ logger = get_logger("skuel.services.calendar")
 def _planning_item_start(item: CalendarItem) -> datetime:
     """Chronological sort key for planning-item lists (named — SKUEL012)."""
     return item.start_time
+
+
+def _habit_block_minutes(habit: Habit) -> int:
+    """The habit's block length in minutes — its stated duration, else the default.
+
+    A non-positive stored value counts as unstated: a zero-length block is not a
+    block, and the live graph holds one (a habit saved with
+    ``duration_minutes = 0``), which would otherwise render as a chip with no
+    extent and a "0m" label.
+    """
+    stated = habit.duration_minutes
+    if stated is not None and stated > 0:
+        return stated
+    return HabitBlock.DEFAULT_DURATION_MINUTES
+
+
+def _habit_block_on(habit: Habit, day: date) -> tuple[datetime, datetime]:
+    """The habit's block on ``day``: its slot's representative time + its length.
+
+    THE derivation of a habit's fuzzy block from entity data (habit-rhythm arc
+    M3): ``preferred_time`` says where in the day it belongs, ``duration_minutes``
+    how long it runs. An unstated slot resolves through ``TimeOfDay.ANYTIME``,
+    whose representative time is the one stable fallback hour — so a habit with
+    no stated preference still lands somewhere honest and identical every render.
+    """
+    slot = habit.preferred_time or TimeOfDay.ANYTIME
+    start = datetime.combine(day, slot.get_representative_time())
+    return start, start + timedelta(minutes=_habit_block_minutes(habit))
 
 
 # ============================================================================
@@ -338,9 +369,12 @@ class CalendarService:
     ) -> Result[CalendarItem]:
         """Scope a habit calendar item to one occurrence day.
 
-        Replaces the now()-stamped stub times with the occurrence day (all-day)
-        and records the day + its completion state in ``occurrence_data`` — the
-        contract habit chips and the item-details modal share.
+        Re-dates the habit's block onto that day through ``habit_block_on`` —
+        the same re-dating the grid's occurrence expansion performs — and
+        records the day + its completion state in ``occurrence_data``, the
+        contract habit chips and the item-details modal share. Sharing the
+        re-dating is what keeps a chip and the modal it opens from disagreeing
+        about when the block sits.
 
         Unlike the grid's best-effort ``_fetch_completed_dates``, a failed
         completions read here PROPAGATES: this stamp drives an actionable
@@ -352,13 +386,13 @@ class CalendarService:
             return Result.fail(completions)
         done = any(self._completion_day(c) == on_date for c in completions.value)
         status = CompletionStatus.DONE if done else CompletionStatus.PENDING
-        day_start = datetime.combine(on_date, datetime.min.time())
+        start_time, end_time = habit_block_on(item, on_date)
         return Result.ok(
             replace(
                 item,
-                all_day=True,
-                start_time=day_start,
-                end_time=day_start,
+                all_day=False,
+                start_time=start_time,
+                end_time=end_time,
                 occurrence_data={"date": on_date.isoformat(), "status": status.value},
             )
         )
@@ -844,9 +878,21 @@ class CalendarService:
         )
 
     def _habit_to_calendar_item(self, habit: Habit) -> CalendarItem:
-        """Convert habit to calendar item."""
-        # Habits show up as recurring items
-        now = datetime.now()
+        """Convert habit to calendar item — a fuzzy block, not a clock appointment.
+
+        The block comes from the habit's own data (habit-rhythm arc M3): the
+        ``TimeOfDay`` slot's representative time places it in the day,
+        ``duration_minutes`` gives it length. Before this, both were fabricated —
+        ``start_time`` was the moment of the query and every habit was 30 minutes
+        long — so habit chips said nothing true and clustered wherever the clock
+        happened to be.
+
+        The DATE is today's, and is a placeholder: a habit recurs, so it has no
+        one date. Every projection onto a real day re-dates this block through
+        ``habit_block_on`` — occurrence expansion for the grid, and
+        ``_stamp_habit_occurrence`` for the ``?date=`` modal.
+        """
+        start_time, end_time = _habit_block_on(habit, date.today())
 
         return CalendarItem(
             uid=f"habit-{habit.uid}",
@@ -854,12 +900,18 @@ class CalendarService:
             title=habit.title,
             description=habit.description or "",
             item_type=CalendarItemType.HABIT,
-            start_time=now,
-            end_time=now + timedelta(minutes=30),  # Default 30 min for habits
+            start_time=start_time,
+            end_time=end_time,
             all_day=False,
             color=CalendarItemType.HABIT.get_color(),
             icon=CalendarItemType.HABIT.get_icon(),
             priority=1,
+            # The slot itself, not just its hour: the chip names the habit's
+            # own vocabulary, and 09:00 cannot be read back as MORNING vs
+            # ANYTIME. Passed through UNRESOLVED — the ANYTIME fallback places
+            # an unstated habit, it does not give it a preference it never
+            # stated, and every other habit surface reads null as unstated.
+            time_of_day=habit.preferred_time,
             is_recurring=getattr(habit, "recurrence_pattern", "daily") != "none",
             recurrence_pattern=self._format_recurrence_pattern(habit),
             streak_count=habit.current_streak,

@@ -36,6 +36,7 @@ from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
     CalendarItemType,
+    habit_block_on,
 )
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon, Input
 from ui.feedback import Badge, BadgeT
@@ -244,18 +245,40 @@ def create_calendar_toolbar(
 # ============================================================================
 
 
-def _item_start(item: CalendarItem) -> datetime:
-    """Sort key: an item's start time (chronological ordering within a day)."""
-    return item.start_time
+def _item_order(item: CalendarItem) -> tuple[datetime, str]:
+    """Sort key: start time, then — for habits only — title (ordering within a day).
+
+    Habits need the tiebreak because slots collide by design: MORNING and
+    ANYTIME both resolve to 09:00 and three of the five live habits land there,
+    while nothing upstream orders them — their fetch issues no ``ORDER BY``. On
+    a bare start-time key the day's rhythm would reshuffle between renders, and
+    month and week (separate requests) could disagree with each other.
+
+    Every other kind keeps ``""`` and therefore its insertion order under
+    Python's stable sort — tasks, then events, then goals, each already ordered
+    by its query. Widening the tiebreak to all kinds would silently re-sort
+    them: `_task_to_calendar_item` stamps EVERY scheduled task 09:00 and every
+    due-only task midnight, so they all tie, and they would flip from
+    newest-first to alphabetical with milestones wedged in between.
+    """
+    tiebreak = item.title if item.item_type == CalendarItemType.HABIT else ""
+    return (item.start_time, tiebreak)
 
 
 def _items_by_date(calendar_data: CalendarData) -> dict[date, list[CalendarItem]]:
     """Group calendar items onto their days, expanding recurring habits.
 
-    Non-habit items land on ``start_time.date()``. A habit is a single item stamped
-    at ``now()``, so it is expanded into one all-day chip per generated occurrence
-    (title/color reused from the habit item) — otherwise recurring habits would only
-    show on today, and vanish entirely in months that don't include today.
+    Non-habit items land on ``start_time.date()``. A habit is a single item
+    carrying its block on a placeholder date, so it is expanded into one chip
+    per generated occurrence — otherwise recurring habits would only show on
+    that one date, and vanish entirely in months that don't include it.
+
+    Each expanded chip is RE-DATED onto its occurrence day through
+    ``habit_block_on``, so it keeps the habit's own time of day and duration
+    (habit-rhythm arc S2). Stamping the expansion to midnight instead — as this
+    did while habit times were fabricated — would have clustered every habit at
+    day start no matter how truthful the base item became, because the chips the
+    grid sorts are these, not the base.
 
     Each expanded habit chip is stamped with its occurrence day + status in
     ``occurrence_data`` — that day stamp is what lets the chip open a day-aware
@@ -269,22 +292,21 @@ def _items_by_date(calendar_data: CalendarData) -> dict[date, list[CalendarItem]
     by_date: dict[date, list[CalendarItem]] = {}
     for item in calendar_data.items:
         if item.item_type == CalendarItemType.HABIT:
-            continue  # expanded from occurrences below (the raw item is a now() stub)
+            continue  # expanded from occurrences below (the base carries no real date)
         by_date.setdefault(item.start_time.date(), []).append(item)
 
-    midnight = datetime.min.time()
     for occurrences in calendar_data.occurrences.values():
         for occ in occurrences:
             base = habit_items.get(occ.calendar_item_uid)
             if base is None:
                 continue
-            day_start = datetime.combine(occ.date, midnight)
+            start_time, end_time = habit_block_on(base, occ.date)
             by_date.setdefault(occ.date, []).append(
                 replace(
                     base,
-                    all_day=True,
-                    start_time=day_start,
-                    end_time=day_start,
+                    all_day=False,
+                    start_time=start_time,
+                    end_time=end_time,
                     occurrence_data={
                         "date": occ.date.isoformat(),
                         "status": occ.status.value,
@@ -299,10 +321,66 @@ def _fmt_time(dt: datetime) -> str:
     return dt.strftime("%I:%M %p").lstrip("0")
 
 
+def _duration_label(minutes: int) -> str:
+    """Compact block length — ``20m``, ``1h``, ``1h 30m``."""
+    hours, mins = divmod(minutes, 60)
+    if hours and mins:
+        return f"{hours}h {mins}m"
+    if hours:
+        return f"{hours}h"
+    return f"{mins}m"
+
+
+def _habit_duration_label(item: CalendarItem) -> str | None:
+    """A habit chip's block length (``20m``); ``None`` for every other kind.
+
+    Duration is the load-bearing half of the habit vocabulary — "it is more
+    about duration than time" (habit-rhythm arc M3) — so every habit surface
+    states it: the week chip's own line, the month chip's tooltip, the modal.
+    """
+    if item.item_type != CalendarItemType.HABIT:
+        return None
+    minutes = int((item.end_time - item.start_time).total_seconds() // 60)
+    return _duration_label(minutes) if minutes > 0 else None
+
+
+def _habit_block_label(item: CalendarItem) -> str | None:
+    """A habit chip's block in the habit's own words — ``Morning · 20m``.
+
+    The slot WORD, never a clock time (M3 — slots only). ``start_time`` carries
+    the slot's representative hour because the day's ordering needs a point in
+    time, but that hour must not be shown: MORNING and ANYTIME both resolve to
+    09:00, so "9:00 AM" would tell someone who chose *anytime* that they
+    committed to nine o'clock — the fabricated-habit-time defect this arc
+    exists to end.
+
+    A habit that states no slot gets the duration alone. It is placed at
+    ANYTIME's hour so the day still orders, but naming it "Anytime" would
+    invent a preference the user never expressed — the same fabrication in
+    smaller print, and it would contradict every other surface, which reads a
+    null ``preferred_time`` as unstated. ``None`` for every non-habit kind.
+    """
+    duration = _habit_duration_label(item)
+    if duration is None:
+        return None
+    if item.time_of_day is None:
+        return duration
+    return f"{item.time_of_day.get_label()} · {duration}"
+
+
 def _time_range_label(item: CalendarItem) -> str:
-    """``All day`` for markers, else ``start – end`` (collapsed if equal)."""
+    """``All day`` for markers, a habit's ``slot · length``, else ``start – end``.
+
+    A habit holds a slot and a duration, never a start and an end (M3), so its
+    label states exactly those two facts. A start–end range would read as a
+    clock appointment the habit never made, and would print a next-day hour for
+    a block that runs past midnight.
+    """
     if item.all_day:
         return "All day"
+    block = _habit_block_label(item)
+    if block is not None:
+        return block
     start = _fmt_time(item.start_time)
     end = _fmt_time(item.end_time)
     return f"{start} – {end}" if end != start else start
@@ -399,6 +477,14 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
             **interactive,
         )
 
+    # The month chip's block rides in the TOOLTIP, not beside the title. A
+    # month day column is pinned at ~93px (the grid is min-w-[700px] over 7
+    # columns and pans rather than shrinking), and an inline duration measured
+    # at 375px cut the title box from 47px to 5px — the habit's NAME vanished,
+    # and with it the C3 completion ✓, which calendar.css renders inside
+    # .calendar-item-title::after. The week chip has its own line for the block;
+    # the month grid answers "which habits, and did I do them".
+    block = _habit_block_label(item)
     return Div(
         dot,
         Span(item.title, cls="calendar-item-title flex-1 min-w-0 truncate"),
@@ -407,7 +493,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
             f" text-[11.5px] font-medium leading-[1.5] text-foreground{cursor}"
         ),
         style=chip_style,
-        title=item.title,
+        title=f"{item.title} · {block}" if block is not None else item.title,
         **state_attrs,
         **interactive,
     )
@@ -443,7 +529,7 @@ def create_month_grid(calendar_data: CalendarData, year: int, month: int) -> Div
         iso_year, iso_week, _ = current_date.isocalendar()
         week_cells = []
         for weekday_index in range(7):
-            day_items = sorted(items_by_date.get(current_date, []), key=_item_start)
+            day_items = sorted(items_by_date.get(current_date, []), key=_item_order)
             week_cells.append(
                 create_day_cell(
                     current_date,
@@ -593,7 +679,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
     for offset in range(7):
         day = calendar_data.start_date + timedelta(days=offset)
         is_today = day == date.today()
-        day_items = sorted(items_by_date.get(day, []), key=_item_start)
+        day_items = sorted(items_by_date.get(day, []), key=_item_order)
 
         head_tone = (
             "bg-primary text-primary-foreground"
@@ -730,8 +816,17 @@ def item_schedule_line(item: CalendarItem, *, oob: bool = False) -> P:
     swap by id), so the open modal's schedule flips to the new date instead of
     contradicting the recorded move. Day-stamped habit modals render their own
     occurrence-day line and never OOB-swap this one.
+
+    A habit reaching this line is the UNSTAMPED stub (a hand-typed
+    ``/cal/item-details/habit-X`` with no ``?date=``, or an off-schedule one).
+    It states its block and no date: a habit recurs, so its ``start_time``'s
+    date is a placeholder, and a clock range would name a next-day hour for a
+    block that runs past midnight.
     """
-    if item.all_day:
+    block = _habit_block_label(item)
+    if block is not None:
+        text = block
+    elif item.all_day:
         text = "All Day"
     else:
         text = f"{_format_datetime(item.start_time)} - {_format_datetime(item.end_time)}"
@@ -849,8 +944,14 @@ def create_item_details_modal(item: Any) -> Div:
     # Schedule — a day-stamped habit names its occurrence day; otherwise the
     # item's own times (via item_schedule_line, the reschedule OOB target).
     if occurrence_day is not None:
+        # The day names itself, then the block the habit actually states —
+        # the same "Morning · 20m" the chip shows, off the same stamp, so
+        # opening a chip never contradicts it.
+        day_text = (
+            f"{occurrence_day:%A}, {occurrence_day:%B} {occurrence_day.day}, {occurrence_day.year}"
+        )
         schedule_display = P(
-            f"{occurrence_day:%A}, {occurrence_day:%B} {occurrence_day.day}, {occurrence_day.year}",
+            f"{day_text} · {_time_range_label(item)}",
             cls="text-sm text-foreground",
         )
     else:

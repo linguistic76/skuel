@@ -17,6 +17,7 @@ from typing import Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import CompletionStatus
+from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.type_hints import EntityUID
 
 
@@ -151,6 +152,11 @@ class CalendarItem:
     # Habit-specific
     occurrence_data: dict[str, Any] | None = None
     streak_count: int | None = None
+    # The habit's TimeOfDay slot — the vocabulary a habit chip SPEAKS (M1/M3).
+    # ``start_time`` carries the slot's representative hour so the day orders
+    # correctly; this carries the slot itself, because the hour cannot be
+    # inverted back to it (MORNING and ANYTIME both resolve to 09:00).
+    time_of_day: TimeOfDay | None = None
 
     # Event-specific
     attendee_emails: tuple[str, ...] = ()  # Email addresses of attendees
@@ -167,6 +173,26 @@ class CalendarItem:
 
     # Additional metadata (catch-all for domain-specific fields)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def habit_block_on(item: CalendarItem, day: date) -> tuple[datetime, datetime]:
+    """Re-date a habit's block onto ``day``, keeping its time of day and length.
+
+    A habit calendar item carries a *fuzzy block* — the ``TimeOfDay`` slot's
+    representative time plus the habit's own duration (habit-rhythm arc M3) —
+    stamped on a placeholder date, because a recurring habit has no single date
+    of its own. Both projections that place a habit on a real day re-date it
+    here: the calendar's occurrence expansion (``ui.calendar.components``) and
+    the day stamp behind the ``?date=`` item-details modal
+    (``CalendarService._stamp_habit_occurrence``). One re-dating truth, so a
+    chip and its modal can never disagree about when the block sits or how long
+    it runs.
+
+    A block whose length crosses midnight keeps its full length: the day it is
+    rendered on is the day it STARTS, and the duration is what the chip states.
+    """
+    start = datetime.combine(day, item.start_time.time())
+    return start, start + (item.end_time - item.start_time)
 
 
 @dataclass(frozen=True, kw_only=True)
