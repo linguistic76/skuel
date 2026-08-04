@@ -208,7 +208,6 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 | `calendarLegend` | Calendar legend type filters (toggle hide/show + hover spotlight, localStorage) | `hidden`, `spotlight` |
 | `collapsible(initial)` | Expand/collapse | `expanded` |
 | `chartVis(url, type)` | Chart.js | `chart`, `loading`, `error` |
-| `timelineVis(url)` | Vis.js Timeline | `timeline`, `loading`, `error` |
 | `collapsibleSidebar(key)` | Sidebar collapse + localStorage | reads `Alpine.store(key)` |
 | `relationshipGraph(uid, type)` | Vis.js lateral relationships | `network`, `loading` |
 | `exploreGraph(mode, uid, type)` | Explore sidebar Vis.js graph | `network`, `filter`, `expanded` |

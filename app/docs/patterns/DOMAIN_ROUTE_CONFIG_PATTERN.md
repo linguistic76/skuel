@@ -1011,7 +1011,7 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
   - `register_domain_routes()` function (lines 132-250) - Registration with config-driven factories
   - `create_activity_domain_route_config()` function (lines 253-320) - Activity Domain convenience function
 
-### Current Users (38 files - 93% adoption)
+### Current Users (37 files - 93% adoption)
 
 All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()` in `bootstrap.py` without `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
 
@@ -1055,13 +1055,12 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 31. `/adapters/inbound/admin_routes.py`
 32. `/adapters/inbound/auth_routes.py`
 
-**Graph/Visualization (6):**
+**Graph/Visualization (5):**
 33. `/adapters/inbound/hierarchy_routes.py`
 34. `/adapters/inbound/lateral_routes.py`
 35. `/adapters/inbound/visualization_routes.py`
-36. `/adapters/inbound/timeline_routes.py`
-37. `/adapters/inbound/orchestration_routes.py` (multi-factory)
-38. `/adapters/inbound/advanced_routes.py` (multi-factory)
+36. `/adapters/inbound/orchestration_routes.py` (multi-factory)
+37. `/adapters/inbound/advanced_routes.py` (multi-factory)
 
 **Hubs (2) — registered via DomainRouteConfig but categorized as Section 2 in bootstrap:**
 - `/adapters/inbound/study_routes.py`

@@ -1,9 +1,9 @@
-"""Wire-shape pins for the Chart.js / Vis.js / Frappe Gantt payloads (SoC arc #11).
+"""Wire-shape pins for the Chart.js / Frappe Gantt payloads (SoC arc #11).
 
 ``static/js/skuel.js``'s ``chartVis`` component does ``new Chart(ctx, config)`` on the
-deserialized response body, and the Vis.js timeline / Frappe Gantt views consume their
-payloads the same way. Every key name below is therefore a **public wire contract** with
-a JavaScript consumer, and until this file existed nothing on the Python side observed a
+deserialized response body, and the Frappe Gantt views consume their payloads the same
+way. Every key name below is therefore a **public wire contract** with a JavaScript
+consumer, and until this file existed nothing on the Python side observed a
 rename. ``tests/unit/adapters/test_visualization_api_routes.py`` drives the routes with a
 ``MagicMock`` service and asserts auth/IDOR only — it passes for any payload whatsoever.
 
@@ -14,11 +14,11 @@ Division of labour with MyPy, measured rather than assumed:
   ``ChartJsConfig`` literal instead of ``cast()``-ing a dict into it. Injecting
   ``"bgColor"`` for ``"backgroundColor"`` is ``typeddict-unknown-key`` on the branch and
   was silent before.
-* The **item-level** Vis.js and Gantt keys are *not*, and cannot be: ``VisTimelineConfig``
-  declares ``items``/``groups`` as ``list[dict[str, Any]]`` and the helpers fill them with
-  ``asdict()``. Renaming ``GanttTask.custom_class`` to ``css_class`` consistently changes
-  the emitted Frappe Gantt key and MyPy reports ``Success: no issues found``. That is the
-  gap these assertions exist to cover.
+* The **item-level** Gantt keys are *not*, and cannot be: ``GanttConfig`` declares
+  ``tasks`` as ``list[dict[str, Any]]`` and the helper fills it with ``asdict()``.
+  Renaming ``GanttTask.custom_class`` to ``css_class`` consistently changes the emitted
+  Frappe Gantt key and MyPy reports ``Success: no issues found``. That is the gap these
+  assertions exist to cover.
 """
 
 from __future__ import annotations
@@ -28,12 +28,6 @@ from datetime import datetime
 import pytest
 
 from core.models.enums.goal_enums import MeasurementType
-from core.models.event.calendar_models import (
-    CalendarData,
-    CalendarItem,
-    CalendarItemType,
-    CalendarView,
-)
 from core.models.goal.goal import Goal
 from core.services.visualization_service import VisualizationService
 
@@ -47,10 +41,6 @@ _CHARTJS_DATASET_KEYS = {
     "fill",
     "tension",
 }
-
-# Vis.js Timeline reads these off each DataSet row.
-_VISJS_ITEM_KEYS = {"id", "content", "start", "end", "group", "type", "className", "style", "title"}
-_VISJS_GROUP_KEYS = {"id", "content", "className", "style"}
 
 # Frappe Gantt reads these off each task; `custom_class` is its documented spelling.
 _GANTT_TASK_KEYS = {"id", "name", "start", "end", "progress", "dependencies", "custom_class"}
@@ -100,42 +90,6 @@ class TestChartJsWireShape:
         assert result.is_ok
         for dataset in result.value["data"]["datasets"]:
             assert set(dataset.keys()) == _CHARTJS_DATASET_KEYS
-
-
-class TestVisTimelineWireShape:
-    def test_calendar_items_and_groups_keys(self, service: VisualizationService) -> None:
-        calendar = CalendarData(
-            items=[
-                CalendarItem(
-                    uid="task_1",
-                    title="Write tests",
-                    item_type=CalendarItemType.TASK,
-                    start_time=datetime(2026, 3, 2, 9, 0),
-                    end_time=datetime(2026, 3, 2, 10, 0),
-                    source_uid="task_1",
-                )
-            ],
-            occurrences={},
-            view=CalendarView.WEEK,
-            start_date=datetime(2026, 3, 2).date(),
-            end_date=datetime(2026, 3, 3).date(),
-            metadata={},
-        )
-
-        result = service.format_for_visjs(calendar, group_by="type")
-
-        assert result.is_ok
-        config = result.value
-        assert set(config.keys()) == {"items", "groups", "options"}
-        assert set(config["items"][0].keys()) == _VISJS_ITEM_KEYS
-        assert set(config["groups"][0].keys()) == _VISJS_GROUP_KEYS
-
-    def test_tasks_timeline_item_keys(self, service: VisualizationService) -> None:
-        result = service.format_tasks_for_visjs([_Task("task_1")])
-
-        assert result.is_ok
-        for item in result.value["items"]:
-            assert set(item.keys()) == _VISJS_ITEM_KEYS
 
 
 class TestGanttWireShape:

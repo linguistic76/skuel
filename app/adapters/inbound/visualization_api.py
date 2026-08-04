@@ -6,7 +6,6 @@ FastHTML API routes for visualization data endpoints.
 
 These routes return JSON formatted for:
 - Chart.js (completion, distribution, streak charts)
-- Vis.js Timeline (calendar/task timelines)
 - Frappe Gantt (project planning)
 
 Security:
@@ -21,14 +20,12 @@ Architecture:
     - Alpine.js: /static/js/skuel.js
 """
 
-from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import parse_date_query_param
-from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
+from core.ports.query_types import ChartJsConfig, GanttConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -81,40 +78,6 @@ def create_visualization_api_routes(
         return await vis_service.get_status_distribution_chart_data(user_uid=user_uid)
 
     # =========================================================================
-    # Vis.js Timeline Endpoints
-    # =========================================================================
-
-    @rt("/api/visualizations/timeline")
-    @boundary_handler()
-    async def get_timeline_data(request: Request) -> Result[VisTimelineConfig]:
-        """Get calendar timeline data for Vis.js."""
-        user_uid = require_authenticated_user(request)
-
-        today = date.today()
-        start_date = parse_date_query_param(
-            request.query_params, "start_date", today - timedelta(days=7)
-        )
-        end_date = parse_date_query_param(
-            request.query_params, "end_date", today + timedelta(days=14)
-        )
-        group_by = request.query_params.get("group_by", "type")
-
-        return await vis_service.get_timeline_data(
-            user_uid=user_uid,
-            start_date=start_date,
-            end_date=end_date,
-            group_by=group_by,
-        )
-
-    @rt("/api/visualizations/tasks-timeline")
-    @boundary_handler()
-    async def get_tasks_timeline(request: Request) -> Result[VisTimelineConfig]:
-        """Get tasks-only timeline data for Vis.js."""
-        user_uid = require_authenticated_user(request)
-        project = request.query_params.get("project")
-        return await vis_service.get_tasks_timeline_data(user_uid=user_uid, project=project)
-
-    # =========================================================================
     # Frappe Gantt Endpoints
     # =========================================================================
 
@@ -140,8 +103,6 @@ def create_visualization_api_routes(
             get_priority_distribution,
             get_streak_chart,
             get_status_distribution,
-            get_timeline_data,
-            get_tasks_timeline,
             get_tasks_gantt,
             get_goal_gantt,
         ]

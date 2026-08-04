@@ -17,16 +17,6 @@ const LIBRARIES = [
   // Chart.js
   ["node_modules/chart.js/dist/chart.umd.js", "chart.js/chart.umd.js"],
 
-  // Vis.js Timeline
-  [
-    "node_modules/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js",
-    "vis-timeline/vis-timeline-graph2d.min.js",
-  ],
-  [
-    "node_modules/vis-timeline/styles/vis-timeline-graph2d.min.css",
-    "vis-timeline/vis-timeline-graph2d.min.css",
-  ],
-
   // Frappe Gantt
   [
     "node_modules/frappe-gantt/dist/frappe-gantt.min.js",

@@ -1,9 +1,9 @@
 # Habit Rhythm Arc — Markwhen Resolution & the Time-of-Day Vocabulary
 
-**Status:** 🚧 ACTIVE (go signal 2026-08-03) — contract settled in the S5
-Markwhen exploration (the door `calendar-periodic-notes-arc.md` E4 deliberately
-left open). Rulings M1–M7 below are founder-settled — do not re-litigate. PRs
-run per the standard multi-PR arc workflow (fresh context each).
+**Status:** ✅ COMPLETE (2026-08-04) — shipped as **#927** (PR 1, S1), **#933**
+(PR 2, S2) and **#934** (PR 3, S3). Contract settled in the S5 Markwhen
+exploration (the door `calendar-periodic-notes-arc.md` E4 deliberately left
+open). Rulings M1–M7 below are founder-settled — do not re-litigate.
 **Related:** `docs/roadmap/calendar-periodic-notes-arc.md` (E4, R5),
 `docs/roadmap/calendar-act-from-arc.md` (C3 per-day habit completion;
 hourly-grid non-goal), `core/models/habit/habit.py` (scheduling fields),
@@ -11,9 +11,10 @@ hourly-grid non-goal), `core/models/habit/habit.py` (scheduling fields),
 `core/services/calendar_service.py` (`_habit_to_calendar_item`),
 `core/services/habits/habits_scheduling_service.py`,
 `core/services/habit_event_scheduler.py`, `ui/calendar/components.py`
-(week-view ordering), and the deletion target: `ui/timeline/`,
+(week-view ordering). The deletion target — `ui/timeline/`,
 `adapters/inbound/timeline_routes.py`, the timeline endpoints in
-`adapters/inbound/visualization_api.py`, `static/vendor/vis-timeline/`.
+`adapters/inbound/visualization_api.py`, `static/vendor/vis-timeline/` — no
+longer exists as of #934.
 
 ---
 
@@ -80,8 +81,8 @@ named dissolves rather than needing a new ruling.
 - **No renderer exists anywhere.** The Obsidian vault has no Markwhen plugin
   (blocks render as plain code). The app replaced its Markwhen viewer with
   Vis.js Timeline in January 2026 (`ui/timeline/components.py`); the resulting
-  `/timelines` page is registered but linked from no navigation — an orphaned
-  surface fed by `get_calendar_view`.
+  `/timelines` page was registered but linked from no navigation — an orphaned
+  surface fed by `get_calendar_view`. Deleted in PR 3 (#934).
 - **Habit times were fabricated end to end** (FIXED in PR 2).
   `_habit_to_calendar_item` set `start_time=now` — the moment of the query —
   with a hardcoded 30-minute duration, ignoring the habit's own
@@ -214,7 +215,8 @@ read contradicts or extends the ground truth.
 - **The non-positive-duration guard is load-bearing for a boundary PR 2 does
   not own.** `visualization_service._calendar_item_to_visjs` flips
   `type="range"` → `"point"` with `end: null` when `end_time == start_time`.
-  PR 3 deletes that consumer; don't delete the guard with it.
+  PR 3 deletes that consumer; don't delete the guard with it. *(Honoured in
+  #934 — the consumer went, the guard in `calendar_service.py` stayed.)*
 - **Pre-existing fragility, observed not fixed:** an entity whose Neo4j time is
   *zoned* (`time()` rather than `localtime()`) makes `datetime.combine` produce
   a tz-aware datetime, and the grid's chronological sort then raises
@@ -222,6 +224,49 @@ read contradicts or extends the ground truth.
   whole week. Not reachable through the app's write path (services pass Python
   `time` objects, stored as `LocalTime`); surfaced by seeding a verification
   probe with `time('14:00')`.
+
+## What PR 3 found that this doc did not say (2026-08-04)
+
+Recorded per the arc's standing rule that a PR updates this doc when its fresh
+read contradicts or extends the ground truth.
+
+- **`./dev bloat` was structurally incapable of catching this deletion's
+  orphans.** Its scope is events / service-methods / prompt-templates ONLY, so
+  `ui/patterns/skeleton.py` was never in view: `SkeletonTimeline` going to zero
+  consumers would have reported clean forever. S3's instruction to grep each
+  shared piece by hand was the only working instrument. The same census also
+  showed `SkeletonSidebarItem`, `SkeletonSidebar` and `SkeletonDomainView`
+  already at **zero** consumers — pre-existing, not caused here, left alone.
+  A clean bloat run is not evidence a component library has no dead entries.
+- **`vis-network` and `vis-timeline` look like one family and are not.**
+  `static/vendor/vis-network/` was hand-downloaded in `617e0641b` (v9.1.9) and
+  appears in neither `package.json` nor `copy-vendor-libs.js`, while
+  `vis-timeline` was an npm dependency copied by that script. They also never
+  co-load, so the shared `window.vis` global is not contended. Dropping the npm
+  package could not reach the lateral-relationship or explore graphs — but the
+  shared prefix makes "delete vis-*" look far more dangerous than it was, and
+  a name-based judgement would have got this backwards in either direction.
+- **Deleting a read path can orphan an injected dependency, and nothing
+  reports it.** `calendar_service` was passed into
+  `VisualizationAggregationService` for `get_timeline_data` alone. Once that
+  method went, the constructor parameter had zero readers — invisible to MyPy,
+  to ruff, and to the bloat detector alike (constructor params are not in any
+  detector's scope). Removed here, with `compose.py` and the Gantt integration
+  fixture updated. When deleting a service method, check what its dependencies
+  were injected *for*.
+- **The Gantt half of this surface is orphaned too — and the docs claimed a
+  component that never existed.** `frappe-gantt` is vendored but loaded by no
+  page, and `/api/visualizations/gantt/*` has no UI consumer, so it is the same
+  shape M7 ruled on for `/timelines`. The `chartjs` skill and
+  `ui-development.md` both documented a `ganttVis()` Alpine component;
+  `git`-wide there is no such registration. The false claim is corrected here.
+  **Whether the Gantt surface follows `/timelines` is a founder ruling, not
+  this PR's** — M7 names `/timelines` and nothing else.
+- **`DOMAIN_ROUTE_CONFIG_PATTERN.md`'s route inventory was already wrong.** It
+  claimed 38 files, listed 36 numbered entries (with duplicate and skipped
+  numbers), against 29 modules actually declaring a `DomainRouteConfig`. Only
+  the timeline entry and its section count were corrected; the re-audit is a
+  separate job.
 
 ### Time vocabularies deliberately left alone (DECLINE list)
 
@@ -281,7 +326,7 @@ ones in the **habit** domain (`habits_scheduling_service`'s 12/17 split and
   tooltip on the month chip, which has no room for it (see "What PR 2 found").
   Week-view day columns then order habits into the day's rhythm among tasks
   and events via the existing sort. **Shipped as #933.**
-- **S3 — Delete `/timelines` (PR 3).** Remove the page, `timeline_routes.py`,
+- **S3 — Delete `/timelines` (PR 3).** **Shipped as #934.** Remove the page, `timeline_routes.py`,
   the timeline endpoints and service methods
   (`get_timeline_data`/`get_tasks_timeline_data`, `format_for_visjs`/
   `format_tasks_for_visjs`, `VisTimelineConfig`), the `timelineVis` Alpine
@@ -329,8 +374,31 @@ vault content in this public repo — specimen shapes only.
 | 0 | This doc (docs-only; summon Codex explicitly — the gate auto-passes docs PRs without a verdict) | Doc reflects M1–M7 + the E4 resolution; PR table matches the rulings |
 | 1 ✅ #927 | S1 — `preferred_time: TimeOfDay \| None`; live-value migration; consumer unification (scheduler, scheduling service, Today orchestrator); form + frontmatter authoring | Live graph shows no non-enum `preferred_time` values after migration (the `"medium"` pollution is gone); setting "Meditate" to `morning` + 20m via the habit form persists both; a habit vault file with `preferred_time: evening` frontmatter ingests to `TimeOfDay.EVENING`; a slot-valued habit still appears in Today's rituals/day-spine (the `_parse_hhmm` gate no longer drops it); `./dev quality` green with all three former string interpretations gone |
 | 2 ✅ | S2 — truthful habit chip times + visible duration, preserved through occurrence expansion | MET. Live week view, Thu 2026-08-06 (a NON-today day): `Meditate` renders `Morning · 20m` above a 2:00 PM event and an `Evening · 45m` habit, with nothing earlier than its own slot; a slotless habit renders `15m` at the ANYTIME fallback position; the C3 tick flips the chip (`data-completed`, `::after` = `" ✓"`, opacity 0.55) in week AND month; the `?date=` modal opens on `Monday, August 3, 2026 · Evening · 45m` and Mark Complete OOB-swaps. Headless Chrome at 1280px and 375px. **The chip states the SLOT WORD, not the derived hour** — see "What PR 2 found" |
-| 3 | S3 — delete `/timelines` and its feeding surface | `/timelines` returns 404; timeline endpoints removed from `visualization_api.py`; no dangling imports (`./dev quality` green); `static/vendor/vis-timeline/` gone; `./dev bloat` reports no new dead code; calendar views unaffected in headless Chrome |
+| 3 ✅ #934 | S3 — delete `/timelines` and its feeding surface | MET. `/timelines`, `/api/visualizations/timeline`, `/api/visualizations/tasks-timeline`, `static/css/timeline.css` and both `static/vendor/vis-timeline/` assets all return **404** on the live app; timeline endpoints gone from `visualization_api.py`; `./dev quality` green (MyPy + Pyright + dead-code gate + npm audit) with 8092 unit tests passing; `./dev bloat` unchanged at 120 planned, no new findings; week AND month calendar grids render clean in headless Chrome at 1280px and 375px with PR 2's habit chips intact (`Meditate ✓` / `Morning · 20m` above a 2:00 PM event above `Prep tomorrow` / `Evening · 45m`). **`./dev bloat` could not have caught this PR's orphans** — see "What PR 3 found" |
 
-Suggested order 1 → 2 (2 depends on 1's truthful fields); PR 3 is independent
-and may run any time. Any PR that discovers a contract-breaking surprise
-updates THIS doc in the same PR.
+Order run: 1 → 2 → 3 (2 depended on 1's truthful fields; 3 was independent).
+Any PR that discovers a contract-breaking surprise updates THIS doc in the same
+PR.
+
+## Closure (2026-08-04)
+
+All three PRs merged; M1–M7 are discharged. Habitual time is `TimeOfDay` +
+`duration_minutes` on the Habit entity (M1, M3), the habitual week is seen on
+the calendar week view through the Habits legend filter (M4), the rhythm renders
+as an ordered sequence rather than an hour axis (M5), planned and completed are
+one picture via the act-from C3 tick (M6), Markwhen is retired on the app side
+(M2), and `/timelines` is gone (M7).
+
+Left open by design, each gated on lived use rather than on work:
+
+- **Vault-side cleanup** is the founder's — the monthly template still carries
+  the retired markwhen block and lacks `type: user_entry`/`pipeline`
+  frontmatter. No repo PR; no personal vault content enters this repo.
+- **Habit rows in the weekly-note panel** (A5's backward-review half) remain a
+  follow-up, per Non-goals.
+- **The orphaned Gantt surface** (`/api/visualizations/gantt/*` + the vendored
+  `frappe-gantt`, loaded by no page) is the same shape M7 ruled on, but M7 names
+  `/timelines` only. It needs its own founder ruling — see "What PR 3 found".
+- **The non-positive-duration follow-ups PR 2 named** are still open: the same
+  habit renders `0m` on `/today` and proposes `15` in
+  `habits_scheduling_service`.

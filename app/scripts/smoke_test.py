@@ -113,7 +113,6 @@ _REGISTRY_COMPONENTS = (
     "collapsibleSidebar('k', false)",
     "calendarLegend",
     "chartVis('/x.json', 'bar')",
-    "timelineVis('/x.json')",
     "toastManager",
     "entityPicker",
     "formValidator",

@@ -4,9 +4,8 @@ Visualization Service
 
 Pure adapters for transforming SKUEL data to visualization library formats.
 
-Supports three visualization libraries:
+Supports two visualization libraries:
 - Chart.js: Progress metrics, completion rates, trends
-- Vis.js Timeline: Interactive timeline with grouping
 - Frappe Gantt: Project planning with dependencies
 
 Architecture:
@@ -22,21 +21,16 @@ Usage:
     # Chart.js — pass pre-computed counts
     chart = service.format_completion_chart(completed=[3, 5], total=[5, 7], labels=["Mon", "Tue"])
 
-    # Vis.js Timeline — pass CalendarData from CalendarService
-    timeline = service.format_for_visjs(calendar_data, group_by="type")
-
     # Frappe Gantt — pass Task domain models
     gantt = service.format_for_gantt(tasks, dependencies)
 """
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, ClassVar, Literal
+from typing import Any, Literal
 
 from core.models.enums import EntityStatus, Priority
-from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
 from core.models.goal.goal import Goal
-from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
+from core.ports.query_types import ChartJsConfig, GanttConfig
 from core.utils.logging import get_logger
 from core.utils.palette import SemanticColor
 from core.utils.result_simplified import Errors, Result
@@ -81,45 +75,6 @@ class ChartConfig:
 
 
 # =============================================================================
-# Vis.js Timeline Adapters
-# =============================================================================
-
-
-@dataclass
-class VisTimelineItem:
-    """Vis.js Timeline item structure."""
-
-    id: str
-    content: str
-    start: str  # ISO datetime string
-    end: str | None = None  # ISO datetime string
-    group: str | None = None
-    type: str = "range"  # range, box, point, background
-    className: str = ""  # noqa: N815 (Vis.js API)
-    style: str = ""
-    title: str = ""  # Tooltip
-
-
-@dataclass
-class VisTimelineGroup:
-    """Vis.js Timeline group structure."""
-
-    id: str
-    content: str
-    className: str = ""  # noqa: N815 (Vis.js API)
-    style: str = ""
-
-
-@dataclass
-class VisTimelineData:
-    """Vis.js Timeline data structure."""
-
-    items: list[VisTimelineItem]
-    groups: list[VisTimelineGroup]
-    options: dict[str, Any] = field(default_factory=dict)
-
-
-# =============================================================================
 # Frappe Gantt Adapters
 # =============================================================================
 
@@ -158,13 +113,6 @@ class VisualizationService:
     dependencies — data fetching and aggregation are handled by
     VisualizationAggregationService.
     """
-
-    ITEM_TYPE_GROUPS: ClassVar[dict[CalendarItemType, str]] = {
-        CalendarItemType.TASK: "tasks",
-        CalendarItemType.EVENT: "events",
-        CalendarItemType.HABIT: "habits",
-        CalendarItemType.MILESTONE: "milestones",
-    }
 
     # =========================================================================
     # Chart.js Formatting
@@ -333,125 +281,6 @@ class VisualizationService:
         )
 
         return Result.ok(self._chart_config_to_dict(config))
-
-    # =========================================================================
-    # Vis.js Timeline Formatting
-    # =========================================================================
-
-    def format_for_visjs(
-        self,
-        calendar_data: CalendarData,
-        group_by: Literal["type", "project", "none"] = "type",
-    ) -> Result[VisTimelineConfig]:
-        """
-        Format CalendarData for Vis.js Timeline.
-
-        Args:
-            calendar_data: CalendarData from CalendarService
-            group_by: Grouping strategy (type, project, or none)
-
-        Returns:
-            Vis.js Timeline configuration dict
-        """
-        items: list[VisTimelineItem] = []
-        group_ids: set[str] = set()
-
-        for item in calendar_data.items:
-            vis_item = self._calendar_item_to_visjs(item, group_by)
-            items.append(vis_item)
-            if vis_item.group and vis_item.group not in group_ids:
-                group_ids.add(vis_item.group)
-
-        groups: list[VisTimelineGroup] = []
-        if group_by == "type":
-            groups = self._build_type_groups(group_ids)
-        elif group_by == "project":
-            groups = self._build_project_groups(group_ids)
-
-        data = VisTimelineData(
-            items=items,
-            groups=groups,
-            options={
-                "stack": True,
-                "showCurrentTime": True,
-                "zoomable": True,
-                "moveable": True,
-                "orientation": {"axis": "top", "item": "bottom"},
-                "margin": {"item": {"horizontal": 5, "vertical": 5}},
-            },
-        )
-
-        return Result.ok(self._visjs_data_to_dict(data))
-
-    def format_tasks_for_visjs(
-        self,
-        tasks: list[Any],  # List of Task domain models
-        show_deadlines: bool = True,
-    ) -> Result[VisTimelineConfig]:
-        """
-        Format Task list for Vis.js Timeline.
-
-        Args:
-            tasks: List of Task domain models
-            show_deadlines: Whether to show deadline markers
-
-        Returns:
-            Vis.js Timeline configuration dict
-        """
-        items: list[VisTimelineItem] = []
-
-        for task in tasks:
-            if task.scheduled_date:
-                start_dt = datetime.combine(
-                    task.scheduled_date, datetime.min.time().replace(hour=9)
-                )
-                end_dt = start_dt + timedelta(minutes=task.duration_minutes or 30)
-
-                items.append(
-                    VisTimelineItem(
-                        id=f"{task.uid}_work",
-                        content=task.title,
-                        start=start_dt.isoformat(),
-                        end=end_dt.isoformat(),
-                        group="tasks",
-                        type="range",
-                        className=self._get_priority_class(task.priority),
-                        title=f"{task.title} ({task.duration_minutes}min)",
-                    )
-                )
-
-            if show_deadlines and task.due_date:
-                deadline_dt = datetime.combine(
-                    task.due_date, datetime.min.time().replace(hour=23, minute=59)
-                )
-                items.append(
-                    VisTimelineItem(
-                        id=f"{task.uid}_deadline",
-                        content=f"Due: {task.title}",
-                        start=deadline_dt.isoformat(),
-                        group="deadlines",
-                        type="point",
-                        className="deadline-marker",
-                        title=f"Deadline: {task.title}",
-                    )
-                )
-
-        groups = [
-            VisTimelineGroup(id="tasks", content="Tasks", className="task-group"),
-            VisTimelineGroup(id="deadlines", content="Deadlines", className="deadline-group"),
-        ]
-
-        data = VisTimelineData(
-            items=items,
-            groups=groups,
-            options={
-                "stack": True,
-                "showCurrentTime": True,
-                "zoomable": True,
-            },
-        )
-
-        return Result.ok(self._visjs_data_to_dict(data))
 
     # =========================================================================
     # Frappe Gantt Formatting
@@ -654,7 +483,7 @@ class VisualizationService:
     # =========================================================================
 
     # Each helper returns the TypedDict literal directly. A `cast()` here would
-    # be unchecked by construction: a renamed Chart.js/Vis.js/Gantt key is a
+    # be unchecked by construction: a renamed Chart.js/Gantt key is a
     # breaking wire change (skuel.js hands the payload to `new Chart(ctx, config)`
     # unmodified) that no Python test observes, and under a cast MyPy reported
     # nothing. Returning the literal makes ChartJsData/ChartJsDataset the checker.
@@ -681,14 +510,6 @@ class VisualizationService:
             "options": config.options,
         }
 
-    def _visjs_data_to_dict(self, data: VisTimelineData) -> VisTimelineConfig:
-        """Convert VisTimelineData to a VisTimelineConfig TypedDict for JSON serialization."""
-        return {
-            "items": [asdict(item) for item in data.items],
-            "groups": [asdict(group) for group in data.groups],
-            "options": data.options,
-        }
-
     def _gantt_data_to_dict(self, data: GanttData) -> GanttConfig:
         """Convert GanttData to a GanttConfig TypedDict for JSON serialization."""
         return {
@@ -697,66 +518,8 @@ class VisualizationService:
         }
 
     # =========================================================================
-    # Calendar / Group Conversion Helpers
+    # CSS Class Helpers
     # =========================================================================
-
-    def _calendar_item_to_visjs(self, item: CalendarItem, group_by: str) -> VisTimelineItem:
-        """Convert CalendarItem to VisTimelineItem."""
-        if group_by == "type":
-            # Deadlines are a due-STATE of tasks, not a kind (periodic-notes
-            # arc E1) — the timeline bucket re-derives from the state flag.
-            if item.is_due:
-                group = "deadlines"
-            else:
-                group = self.ITEM_TYPE_GROUPS.get(item.item_type, "other")
-        elif group_by == "project":
-            group = item.project_uid or "no-project"
-        else:
-            group = None
-
-        vis_type = "range" if item.end_time != item.start_time else "point"
-
-        return VisTimelineItem(
-            id=item.uid,
-            content=item.title,
-            start=item.start_time.isoformat(),
-            end=item.end_time.isoformat() if vis_type == "range" else None,
-            group=group,
-            type=vis_type,
-            className=f"item-{item.item_type.value}",
-            style=f"background-color: {item.color};" if item.color else "",
-            title=item.description or item.title,
-        )
-
-    def _build_type_groups(self, group_ids: set[str]) -> list[VisTimelineGroup]:
-        """Build Vis.js groups for type-based grouping."""
-        group_labels = {
-            "tasks": "Tasks",
-            "deadlines": "Deadlines",
-            "events": "Events",
-            "habits": "Habits",
-            "milestones": "Milestones",
-            "other": "Other",
-        }
-        return [
-            VisTimelineGroup(
-                id=gid,
-                content=group_labels.get(gid, gid.title()),
-                className=f"group-{gid}",
-            )
-            for gid in sorted(group_ids)
-        ]
-
-    def _build_project_groups(self, group_ids: set[str]) -> list[VisTimelineGroup]:
-        """Build Vis.js groups for project-based grouping."""
-        return [
-            VisTimelineGroup(
-                id=gid,
-                content="No Project" if gid == "no-project" else gid,
-                className="group-project",
-            )
-            for gid in sorted(group_ids)
-        ]
 
     def _get_priority_class(self, priority: Priority | str) -> str:
         """Get CSS class for priority.

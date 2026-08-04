@@ -1029,7 +1029,6 @@ Animate-pulse shimmer placeholders that mirror the visual shape of the content b
 | `SkeletonCard()` | Single card loading state |
 | `SkeletonList(count=3)` | Hub panels, HTMX fragment containers that load card lists |
 | `SkeletonLines(count=3)` | Inline/panel states (expand-on-click panels, tree nodes, small lists) |
-| `SkeletonTimeline()` | Vis.js Timeline — full date-axis bar + 7 labelled Gantt rows filling `h-[70vh]` |
 | `SkeletonStats()` | Stats/metrics card |
 | `SkeletonTable(rows=5)` | Table loading state |
 | `SkeletonSidebar(domain_count=7)` | Sidebar with domain item rows |

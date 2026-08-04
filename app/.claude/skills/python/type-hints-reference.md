@@ -262,7 +262,7 @@ from core.ports.query_types import (
     ReportSummary, LearningLoopChain, SubmissionChain,
     GroupMemberProgress, ReviewRequestResult, PendingReviewItem,
     # Visualization configs
-    ChartJsConfig, VisTimelineConfig, GanttConfig,
+    ChartJsConfig, GanttConfig,
     # Other output types (protocol return shapes)
     SignInResult, ReviewQueueItem, TeacherDashboardStats,
     KnowledgeSuggestionsResult, KnowledgePrerequisitesResult,

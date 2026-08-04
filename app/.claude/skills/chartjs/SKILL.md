@@ -351,10 +351,9 @@ SKUEL also includes:
 
 | Component | Purpose | Alpine Component |
 |-----------|---------|-----------------|
-| Vis.js Timeline | Interactive timeline | `timelineVis()` |
-| Frappe Gantt | Project planning | `ganttVis()` |
+| Frappe Gantt | Project planning | none — `/api/visualizations/gantt/*` has no UI consumer |
 
-**See:** Timeline and Gantt patterns in this skill's reference docs.
+**See:** Gantt patterns in this skill's reference docs.
 
 ## Additional Resources
 

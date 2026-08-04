@@ -39,7 +39,6 @@ class TestGanttAggregationRoundTrip:
             tasks_service=services.tasks,
             habits_service=None,
             goals_service=services.goals,
-            calendar_service=None,
             visualization_service=VisualizationService(),
         )
 

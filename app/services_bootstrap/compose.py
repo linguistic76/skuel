@@ -842,10 +842,9 @@ async def compose_services(
             tasks_service=activity_services["tasks"],
             habits_service=activity_services["habits"],
             goals_service=activity_services["goals"],
-            calendar_service=calendar_service,
             visualization_service=_vis_formatter,
         )
-        logger.info("✅ Visualization service created (Chart.js/Vis.js adapters)")
+        logger.info("✅ Visualization service created (Chart.js/Gantt adapters)")
 
         # Content enrichment shares the OpenAI adapter from the chat chokepoint
         # (one adapter serves ContentEnrichment, the caller and reports).
