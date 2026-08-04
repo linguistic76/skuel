@@ -106,7 +106,7 @@ run that lands nowhere is indistinguishable from no check at all.
 | Workflow | Cadence | What it does | On failure |
 |---|---|---|---|
 | `mypy-suppressions.yml` | Mondays 06:00 UTC | Finds mypy suppressions that suppress nothing (`scripts/health/mypy_suppressions.py`, `./dev health-mypy`) | Opens/comments on a marker-keyed issue; fails the run |
-| `dependency-audit.yml` | Daily 07:00 UTC | Runs **both** CVE audits — `pip-audit` via `scripts/audit_dependencies.sh` and `npm audit` over `app/package-lock.json` | Opens a marker-keyed issue and fails the job. Silent while the finding set is unchanged, comments when it **changes**, and **closes** the issue once the audit comes back clean |
+| `dependency-audit.yml` | Daily 07:00 UTC | Runs **both** CVE audits — `pip-audit` via `scripts/audit_dependencies.sh` and `npm audit` over `app/package-lock.json` | Fails the job, and maintains **one always-open status issue per ecosystem** whose body is the current state (clean, findings, or could-not-measure). Comments only when the reported content **changes**, so an unchanged result is silent. Issues are written only on default-branch runs |
 
 **Why a schedule rather than a PR check.** Both watch for things that change without a diff. An
 advisory is published against a lockfile nobody touched; a suppression goes dead when *source* is

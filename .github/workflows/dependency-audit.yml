@@ -24,9 +24,14 @@ name: Scheduled Dependency Audit
 # WHY IT OPENS AN ISSUE
 #
 # Same reason mypy-suppressions.yml does: a red scheduled run that lands nowhere
-# is indistinguishable from no check at all. The issue is keyed by a marker and
-# by a digest of the finding set, so an unchanged result stays silent — daily
-# cadence must not mean 365 comments on one stale issue.
+# is indistinguishable from no check at all.
+#
+# There is ONE always-open status issue per ecosystem, never closed. Every run —
+# clean, findings, or could-not-measure — writes the current state through the
+# same path, and a comment is raised only when the reported content changes, so
+# daily cadence does not mean 365 comments. An earlier design closed the issue
+# on a clean run; four review rounds found defects in that one seam, all of them
+# caused by "clean" being a special path that REMOVED state. See the action.
 #
 # WHY IT STAYS OUT OF ci.yml
 #
@@ -122,13 +127,37 @@ jobs:
           # finding; the output is capped so a pathological run cannot blow the issue
           # body limit, and the cap is applied BEFORE hashing so the digest continues
           # to describe exactly what is rendered.
-          sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt | head -c 30000 > pip-audit-report.txt
-          digest=$(sha256sum pip-audit-report.txt | cut -c1-16)
+          sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt | head -c 30000 > pip-audit-clean.txt
+          # Build the COMPLETE issue body here — prose included — so the digest below
+          # covers everything the reader sees. Splitting dynamic text across the body
+          # would put part of it outside change detection.
+          {
+            if [ "$rc" -eq 0 ]; then
+              echo "**No known vulnerabilities.** \`pip-audit\` over the full locked resolution"
+              echo "(all groups, OSV) came back clean."
+            else
+              echo "\`scripts/audit_dependencies.sh\` exited non-zero (\`$rc\`)."
+              echo ""
+              echo "**This means findings OR that the audit could not run** — \`pip-audit\` uses a"
+              echo "non-zero exit for both, and this job deliberately does not guess which."
+              echo ""
+              echo "- Vulnerabilities → upgrade, or record an accepted finding in"
+              echo "  \`app/.pip-audit-ignore\` with a documented reason."
+              echo "- A stale lock (\`uv export --locked\` refuses) → re-lock and commit."
+              echo "- A transient registry/network failure → re-run the workflow."
+            fi
+            echo ""
+            echo '```'
+            cat pip-audit-clean.txt
+            echo '```'
+            echo ""
+            echo "Policy: \`app/docs/decisions/ADR-067-dependency-upgrade-policy.md\`."
+          } > pip-audit-body.md
+          digest=$(sha256sum pip-audit-body.md | cut -c1-16)
           {
             echo "digest=$digest"
             echo "report<<__AUDIT_REPORT_EOF__"
-            cat pip-audit-report.txt
-            echo ""
+            cat pip-audit-body.md
             echo "__AUDIT_REPORT_EOF__"
           } >> "$GITHUB_OUTPUT"
           echo "Audit exited $rc"
@@ -141,45 +170,21 @@ jobs:
           path: app/pip-audit.txt
           retention-days: 30
 
+      # ONE write, every state — see the js_audit job for why there is no resolve path.
+      # Default-branch only: workflow_dispatch accepts --ref, and a branch run would
+      # otherwise stamp the repo-wide marker with that ref's commit timestamp.
       - name: Report
-        if: steps.audit.outputs.exit_code != '0'
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: ./.github/actions/file-audit-issue
         with:
           marker: scheduled-dependency-audit-python
-          title: 'Python dependency audit is failing'
+          title: 'Python dependency audit'
           digest: ${{ steps.audit.outputs.digest }}
           revision_ts: ${{ steps.rev.outputs.ts }}
+          # Do not open an issue just to say "clean" — but once it exists, keep it current.
+          open_if_absent: ${{ steps.audit.outputs.exit_code != '0' }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            `scripts/audit_dependencies.sh` exited non-zero on the scheduled run.
-
-            ```
-            ${{ steps.audit.outputs.report }}
-            ```
-
-            **This means findings OR that the audit could not run** — `pip-audit`
-            uses a non-zero exit for both, and this job deliberately does not guess
-            which. The block above is the audit output verbatim; the full file is in
-            the `pip-audit-output` artifact.
-
-            - Vulnerabilities → upgrade, or record an accepted finding in
-              `app/.pip-audit-ignore` with a documented reason.
-            - A stale lock (`uv export --locked` refuses) → re-lock and commit.
-            - A transient registry/network failure → re-run the workflow.
-
-            Policy: `app/docs/decisions/ADR-067-dependency-upgrade-policy.md`.
-
-      # Clean run: close any issue this audit left open. Without this the issue stays
-      # open carrying a stale digest, and because the reporting action only inspects
-      # OPEN issues, a later recurrence with the same digest would be silent.
-      - name: Resolve
-        if: steps.audit.outputs.exit_code == '0'
-        uses: ./.github/actions/file-audit-issue
-        with:
-          mode: resolve
-          marker: scheduled-dependency-audit-python
-          revision_ts: ${{ steps.rev.outputs.ts }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          body: ${{ steps.audit.outputs.report }}
 
       # Fail for BOTH findings and an aborted instrument — an audit that could not
       # measure must not read as a green day.
@@ -251,7 +256,16 @@ jobs:
             let j = null;
             try { j = JSON.parse(fs.readFileSync("npm-audit.json", "utf8")); } catch (e) {}
             const v = j && j.metadata && j.metadata.vulnerabilities;
-            if (!v) { emit("aborted", "No parseable audit report was produced."); process.exit(0); }
+            const TRIAGE = "\nTriage order is **ADR-067 § 6a**: `npm ls <pkg>` to find the parent, then " +
+              "check for a patched release *inside the range already declared* before reaching for a " +
+              "bump or an `overrides` entry.";
+            if (!v) {
+              emit("aborted", "**The audit could not run.** `npm audit --json` produced no parseable " +
+                "report, so **no claim is made about whether vulnerabilities exist** — this is an " +
+                "instrument failure, not a clean result.\n\nUsual causes: registry unreachable, or a " +
+                "malformed/absent `app/package-lock.json`. See the `npm-audit-output` artifact.");
+              process.exit(0);
+            }
             // --audit-level sets the FAILURE THRESHOLD only; it does not filter the
             // report, so j.vulnerabilities still carries low/info entries. Render only
             // what qualifies — and because the digest is the hash of what is rendered,
@@ -262,7 +276,11 @@ jobs:
             // A package severity is the MAX over its advisories, so anything holding a
             // qualifying advisory necessarily qualifies here too.
             const affected = Object.entries(all).filter(([, info]) => SEV.has(sevOf(info)));
-            if (!affected.length) { emit("clean", "No moderate-or-higher advisories."); process.exit(0); }
+            if (!affected.length) {
+              emit("clean", "**No moderate-or-higher advisories** in `app/package-lock.json`. " +
+                "This was measured, not inferred — the JSON report parsed.");
+              process.exit(0);
+            }
             let advisories = 0;
             const rows = affected.map(([name, info]) => {
               const items = (Array.isArray(info.via) ? info.via : []).map(x => {
@@ -280,11 +298,11 @@ jobs:
             }).sort();
             const report = [
               "**" + advisories + "** moderate-or-higher advisories across **" +
-                affected.length + "** affected package(s).",
+                affected.length + "** affected package(s) in `app/package-lock.json`.",
               "",
               "| Package | Severity | Advisories |",
               "|---|---|---|",
-            ].concat(rows).join("\n");
+            ].concat(rows).concat([TRIAGE]).join("\n");
             emit("findings", report);
           ')
           status=$(echo "$probe" | cut -d"|" -f1)
@@ -316,74 +334,26 @@ jobs:
             app/npm-audit.json
           retention-days: 30
 
-      - name: Report vulnerabilities
-        if: steps.audit.outputs.status == 'findings'
+      # ONE write, every state. The body is entirely the probe's rendered report, so
+      # clean / findings / could-not-measure all travel the same path — which is what
+      # keeps the clean revision stamped and the ordering guard fed.
+      #
+      # Restricted to the default branch: workflow_dispatch accepts --ref, and a branch
+      # run would otherwise stamp the repo-wide marker with that ref's commit timestamp,
+      # letting a branch-only result reject subsequent main-branch audits as stale. A
+      # branch dispatch still RUNS the audit — it just does not write issues.
+      - name: Report
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: ./.github/actions/file-audit-issue
         with:
           marker: scheduled-dependency-audit-js
-          title: 'JS dependency audit found vulnerabilities'
+          title: 'JS dependency audit'
           digest: ${{ steps.audit.outputs.digest }}
           revision_ts: ${{ steps.rev.outputs.ts }}
+          # Do not open an issue just to say "clean" — but once it exists, keep it current.
+          open_if_absent: ${{ steps.audit.outputs.status != 'clean' }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            `npm audit --audit-level=moderate` over `app/package-lock.json`:
-
-            ${{ steps.audit.outputs.report }}
-
-            This was measured, not inferred — the JSON report parsed. Full output is
-            in the `npm-audit-output` artifact.
-
-            Triage order is **ADR-067 § 6a** — in short: `npm ls <pkg>` to find the
-            parent, then check for a patched release *inside the range already
-            declared* before reaching for a bump or an `overrides` entry.
-
-            <!-- Everything dynamic in this issue lives in the block above, which is
-                 exactly what the digest hashes. Adding a dynamic value outside it
-                 would make that value invisible to change detection. -->
-
-            (Counts above are advisories and affected packages separately: npm folds
-            every advisory for a package into one entry at that package aggregate
-            severity, so they are deliberately different numbers.)
-
-      - name: Report an audit that could not run
-        if: steps.audit.outputs.status == 'aborted'
-        uses: ./.github/actions/file-audit-issue
-        with:
-          marker: scheduled-dependency-audit-js-aborted
-          title: 'JS dependency audit could not run'
-          digest: ${{ steps.audit.outputs.digest }}
-          revision_ts: ${{ steps.rev.outputs.ts }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            `npm audit --json` produced no parseable report, so **no claim is made
-            about whether vulnerabilities exist** — this is an instrument failure,
-            not a clean result.
-
-            Usual causes: registry unreachable, or a malformed/absent
-            `app/package-lock.json`. Check the `npm-audit-output` artifact and re-run.
-
-      # A successful measurement — findings or clean — resolves any outstanding
-      # "could not run" issue. Note the converse does NOT hold: an aborted run must
-      # leave the findings issue alone, because it proves nothing about findings.
-      - name: Resolve the could-not-run issue
-        if: steps.audit.outputs.status != 'aborted'
-        uses: ./.github/actions/file-audit-issue
-        with:
-          mode: resolve
-          marker: scheduled-dependency-audit-js-aborted
-          revision_ts: ${{ steps.rev.outputs.ts }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      # Clean measurement closes the vulnerabilities issue too. Leaving it open with a
-      # stale digest would make an identical recurrence silent.
-      - name: Resolve the vulnerabilities issue
-        if: steps.audit.outputs.status == 'clean'
-        uses: ./.github/actions/file-audit-issue
-        with:
-          mode: resolve
-          marker: scheduled-dependency-audit-js
-          revision_ts: ${{ steps.rev.outputs.ts }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          body: ${{ steps.audit.outputs.report }}
 
       - name: Fail the job
         if: steps.audit.outputs.status != 'clean'

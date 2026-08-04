@@ -1,44 +1,60 @@
 name: File audit issue
 description: >
-  Open, update, or close a marker-keyed issue for a scheduled audit. Idempotent by
-  content: an unchanged finding set does not generate a new comment, so a daily job
-  does not produce 365 comments on one stale issue. `mode: resolve` CLOSES the marker's
-  issue — required, because this action only ever looks at OPEN issues, so an issue left
-  open with a stale digest would silently suppress the report of a recurrence.
+  Maintain ONE always-open status issue per marker. Every run writes the current state
+  through the same path — clean, findings, or could-not-measure are all just reports —
+  and a comment is raised only when the reported content CHANGES.
+
+# WHY THERE IS NO OPEN/CLOSE LIFECYCLE
+#
+# An earlier design closed the issue when the audit came back clean. Four consecutive
+# review rounds found defects in that one seam, each fix exposing the next: a
+# read-then-write race, then ordering not being guaranteed within a concurrency group,
+# then closed issues being invisible to the ordering guard, then the clean revision never
+# being stamped at all so the guard had nothing to compare against.
+#
+# Every one of those existed because "clean" was a SPECIAL PATH that removed state.
+# Treating clean as just another report removes the whole class:
+#
+#   - the clean revision is stamped by the same code that stamps findings, so a delayed
+#     older run always has newer state to be rejected against (no tombstone needed);
+#   - the issue is never closed, so an open-only lookup is complete again (no scanning
+#     closed issues, no pagination bound);
+#   - there is one write path, so open and close can no longer interleave wrongly.
+#
+# The cost is one issue that stays open as a status page. If a human closes it, the next
+# run with something to report opens a fresh one — self-healing, and a deliberate human
+# action rather than a race.
 
 inputs:
-  mode:
-    description: >
-      `report` (default) opens/updates the marker's issue. `resolve` closes it because the
-      audit no longer reports this condition. In resolve mode `body`/`digest` are ignored.
-    required: false
-    default: report
   marker:
     description: Unique HTML-comment key identifying this audit's issue. Must be stable.
     required: true
   title:
-    description: Issue title used when creating a new issue.
-    required: false
-    default: ''
+    description: Issue title used when creating the issue.
+    required: true
   body:
-    description: Issue body (markdown). Must not assert more than the audit measured.
-    required: false
-    default: ''
+    description: >
+      The complete rendered report. Must contain every dynamic value — anything dynamic
+      outside it is invisible to the digest and can change without notifying anyone.
+    required: true
   digest:
     description: >
-      Fingerprint of the current finding set. Stored in the marker so an unchanged
-      result is silent and a CHANGED result still comments on the open issue. It must key
-      on advisory IDENTITY, not just affected package names — a new advisory against an
-      already-listed package must change it.
-    required: false
-    default: ''
+      Hash of the rendered body. Drives "did the reported content change?" — it must be
+      derived FROM the rendered text, not from a separate canonicalization.
+    required: true
   revision_ts:
     description: >
       Commit timestamp (epoch seconds) of the revision this result describes. Recorded in
-      the stamp and used to reject writes from a run whose revision is OLDER than the one
-      already recorded — workflow concurrency serializes runs but does not order them.
+      the stamp and used to reject a run whose revision is OLDER than the one already
+      recorded — workflow concurrency serializes runs but does not order them.
+    required: true
+  open_if_absent:
+    description: >
+      Whether to CREATE the issue when none exists. False for a clean result: a repo that
+      has never had a finding should not carry a status issue. Once the issue exists it is
+      kept current in every state, including clean.
     required: false
-    default: '0'
+    default: 'true'
   token:
     description: GITHUB_TOKEN with issues:write.
     required: true
@@ -50,97 +66,52 @@ runs:
       with:
         github-token: ${{ inputs.token }}
         script: |
-          const mode    = ${{ toJSON(inputs.mode) }}
-          const marker  = ${{ toJSON(inputs.marker) }}
-          const title   = ${{ toJSON(inputs.title) }}
-          const body    = ${{ toJSON(inputs.body) }}
-          const digest  = ${{ toJSON(inputs.digest) }}
+          const marker     = ${{ toJSON(inputs.marker) }}
+          const title      = ${{ toJSON(inputs.title) }}
+          const body       = ${{ toJSON(inputs.body) }}
+          const digest     = ${{ toJSON(inputs.digest) }}
           const revisionTs = Number(${{ toJSON(inputs.revision_ts) }}) || 0
+          const openIfAbsent = ${{ toJSON(inputs.open_if_absent) }} !== 'false'
 
           // Issues filed by GITHUB_TOKEN are authored by this identity.
           const BOT = 'github-actions[bot]'
 
-          // The marker carries the digest ("is this the same finding set?") and the
-          // revision it describes ("is this state newer than what is recorded?"), both
-          // answered from the issue itself — no external state to drift.
           const stamp  = `<!-- ${marker}:${digest}:${revisionTs} -->`
           const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-          const issueBody = [stamp, body, '', `[Audit run](${runUrl})`].join('\n')
+          const issueBody = [stamp, body, '', `_Last checked by [this run](${runUrl})._`].join('\n')
 
-          // CLOSED issues are included on purpose. The ordering guard below has to see
-          // the newest recorded state, and `mode: resolve` CLOSES the issue — so an
-          // open-only lookup would give a late-running older revision nothing to compare
-          // against, and it would file a fresh stale issue right after a newer clean run
-          // had resolved the old one.
-          //
-          // Bounded rather than fully paginated: the guard defends against runs minutes
-          // apart, so any marker issue that matters was written moments ago and sorts to
-          // the top of an updated-desc listing. The cap is logged when hit rather than
-          // silently truncating.
-          const PAGES = 5, PER = 100
-          let scanned = []
-          for (let page = 1; page <= PAGES; page++) {
-            const r = await github.rest.issues.listForRepo({
-              owner: context.repo.owner, repo: context.repo.repo,
-              state: 'all', sort: 'updated', direction: 'desc', per_page: PER, page,
-            })
-            scanned = scanned.concat(r.data)
-            if (r.data.length < PER) break
-            if (page === PAGES) core.info(`Scanned the ${PAGES * PER}-issue cap without exhausting the list.`)
-          }
-          // The marker string is PUBLIC — it is visible in every issue this action
-          // files. listForRepo also returns pull requests. So an untrusted user could
-          // open an issue or PR containing the marker and have it selected here:
-          // redirecting updates, failing the action against a PR, or (with the
-          // reproducible digest) suppressing reporting entirely. Only accept a
-          // non-PR issue authored by the workflow identity.
-          const isOurs = i =>
+          // Open-only is COMPLETE here: this action never closes an issue, so its state
+          // can never hide in the closed set.
+          const open = await github.paginate(github.rest.issues.listForRepo, {
+            owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100,
+          })
+          // The marker string is PUBLIC — it appears in every issue this action files —
+          // and listForRepo also returns pull requests. An untrusted user could otherwise
+          // open an issue or PR carrying the marker and have it selected here: redirecting
+          // updates, failing the action against a PR whose token scope is narrower, or,
+          // with the reproducible digest, suppressing reporting entirely.
+          const prior = open.find(i =>
             i && i.body && !i.pull_request &&
             i.user && i.user.login === BOT &&
-            i.body.includes(`<!-- ${marker}:`)
-          const ours = scanned.filter(isOurs)
-          // Only an OPEN issue can be updated or closed...
-          const prior = ours.find(i => i.state === 'open')
+            i.body.includes(`<!-- ${marker}:`))
 
-          const stampMatch = i => (i && i.body && i.body.match(new RegExp(`<!-- ${marker}:([^:]*):(\\d+) -->`))) || null
-          const stampedDigest = i => { const m = stampMatch(i); return m ? m[1] : null }
-          const stampedRev = i => { const m = stampMatch(i); return m ? Number(m[2]) : 0 }
+          const m = prior && prior.body.match(new RegExp(`<!-- ${marker}:([^:]*):(\\d+) -->`))
+          const priorDigest = m ? m[1] : null
+          const priorRev    = m ? Number(m[2]) : 0
 
-          // ...but the ordering guard consults the newest stamp of ANY state. The
-          // workflow concurrency group gives mutual exclusion, not chronological order —
+          // Ordering guard. Concurrency gives mutual exclusion, not chronological order —
           // GitHub documents order within a group as arbitrary — so an older revision can
-          // execute last. Refuse to write whenever recorded state describes a NEWER
-          // revision than this run, in both modes, whether that record is open or closed.
-          const newest = ours.reduce((a, b) => (stampedRev(b) > stampedRev(a) ? b : a), ours[0])
-          if (newest && revisionTs && stampedRev(newest) > revisionTs) {
-            core.info(
-              `#${newest.number} (${newest.state}) already describes revision ${stampedRev(newest)}, ` +
-              `newer than this run (${revisionTs}). Refusing to write stale state.`)
-            return
-          }
-
-          if (mode === 'resolve') {
-            // The condition cleared. Close the issue rather than leaving it open with a
-            // stale digest: this action only ever inspects OPEN issues, so a stale-open
-            // issue whose stamp happens to match a future recurrence would make that
-            // recurrence silent — the audit would go red with nothing explaining why.
-            if (!prior) {
-              core.info(`Nothing open for ${marker} — nothing to resolve.`)
-              return
-            }
-            await github.rest.issues.createComment({
-              owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
-              body: `The audit no longer reports this condition as of [this run](${runUrl}). Closing.`,
-            })
-            await github.rest.issues.update({
-              owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
-              state: 'closed',
-            })
-            core.info(`Closed #${prior.number}`)
+          // execute last. Never overwrite state describing a NEWER revision.
+          if (prior && priorRev > revisionTs) {
+            core.info(`#${prior.number} describes revision ${priorRev}, newer than this run (${revisionTs}). Refusing to write stale state.`)
             return
           }
 
           if (!prior) {
+            if (!openIfAbsent) {
+              core.info(`Nothing to report and no open issue for ${marker} — staying quiet.`)
+              return
+            }
             const created = await github.rest.issues.create({
               owner: context.repo.owner, repo: context.repo.repo, title, body: issueBody,
             })
@@ -148,30 +119,21 @@ runs:
             return
           }
 
-          // Compare the DIGEST only. The stamp also carries the revision timestamp,
-          // which moves with every commit — comparing the whole stamp would make an
-          // unchanged finding set look new on every run and comment daily.
-          if (stampedDigest(prior) === digest) {
-            // Same findings as last time. Saying so again adds nothing. Refresh the
-            // recorded revision silently (a body edit raises no notification) so the
-            // ordering guard keeps comparing against the newest run that examined this.
-            if (stampedRev(prior) !== revisionTs) {
-              await github.rest.issues.update({
-                owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
-                body: issueBody,
-              })
-            }
-            core.info(`#${prior.number} already reports this exact result — staying quiet.`)
-            return
-          }
-
-          await github.rest.issues.createComment({
-            owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
-            body: ['The audit result **changed** since this issue was last updated.', '', issueBody].join('\n'),
-          })
-          // Re-stamp the issue body so the next run compares against the current result.
+          // The body always becomes the current state, so the issue reads as a live
+          // status page rather than a historical alert.
           await github.rest.issues.update({
             owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
             body: issueBody,
           })
-          core.info(`Updated #${prior.number} with a changed result.`)
+
+          // Comment ONLY when the reported content changed. A body edit raises no
+          // notification, so an unchanged result stays silent even at daily cadence.
+          if (priorDigest === digest) {
+            core.info(`#${prior.number} already reports this exact result — updated silently.`)
+            return
+          }
+          await github.rest.issues.createComment({
+            owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+            body: ['The audit result **changed**.', '', body].join('\n'),
+          })
+          core.info(`Commented on #${prior.number} with a changed result.`)
