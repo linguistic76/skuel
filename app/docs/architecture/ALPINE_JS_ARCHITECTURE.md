@@ -35,7 +35,6 @@ curl -sL "https://unpkg.com/alpinejs@X.Y.Z/dist/cdn.min.js" \
   -o static/vendor/alpinejs/alpine.X.Y.Z.min.js
 
 # Update references in:
-# - ui/timeline/components.py
 # - ui/search/components.py
 # - adapters/inbound/askesis_ui.py
 # - adapters/inbound/calendar_routes.py
@@ -136,22 +135,6 @@ Drives the `/search` facet bar: a horizontal filter bar on desktop (with a
 - `updateFilterCount()` - Re-tally active facets (bound to `x-on:change`)
 - `askHref()` - Build the scoped `/askesis?...` URL from live facet inputs
 - `clearFilter(name)` / `clearAllFilters()` - Reset one / all facets
-
-### timelineVis(dataUrl)
-
-Vis.js Timeline integration for the `/timelines` page. Data comes from
-`/api/visualizations/timeline`.
-
-**State:**
-- `loading`: boolean - Loading state
-- `error`: string | null - Load/render failure message
-- `timeline`: object - `vis.Timeline` instance
-
-**Methods:**
-- `loadTimeline(url)` - Fetch JSON and render the timeline
-- `refresh(newUrl)` - Reload from a different data URL
-- `zoomIn()` / `zoomOut()` / `fit()` - Viewport controls
-- `destroy()` - Tear down the `vis.Timeline` instance
 
 ### swipeHandler(totalCards)
 

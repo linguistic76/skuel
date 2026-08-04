@@ -430,11 +430,11 @@ Pages that return complete `Html()` documents (rather than partial HTMX fragment
 # Pass extra_css / extra_scripts to BasePage — they are forwarded to build_head()
 return BasePage(
     content,
-    title="Timeline",
+    title="Calendar",
     page_type=PageType.CUSTOM,
     request=request,
-    extra_css=["/static/vendor/vis-timeline/vis-timeline-graph2d.min.css", "/static/css/timeline.css"],
-    extra_scripts=["/static/vendor/vis-timeline/vis-timeline-graph2d.min.js"],
+    extra_css=["/static/css/calendar.css"],
+    extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
 )
 # extra_scripts are injected before skuel.js so Alpine components can reference page-specific libs
 ```

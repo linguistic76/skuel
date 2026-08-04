@@ -827,7 +827,7 @@ These are purpose-built for specific features. Check `skuel.js` for their full A
 | `relationshipGraph` | Vis.js lateral relationship graphs |
 | `choiceOptions` | Choice domain option management |
 | `insightSwipeActions`, `bulkInsightManager`, `insightDetailModal` | Insight cards |
-| `chartVis`, `timelineVis`, `ganttVis` | Chart.js visualizations |
+| `chartVis` | Chart.js visualizations |
 | `profileFocusHandler` | Profile hub focus navigation |
 | `intelligenceCache` | Client-side caching for intelligence API responses |
 

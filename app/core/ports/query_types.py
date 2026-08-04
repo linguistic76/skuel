@@ -2525,9 +2525,9 @@ class AIInsightsResult(TypedDict, total=False):
 # ============================================================================
 # VISUALIZATION RESULT TYPES
 # ============================================================================
-# Return shapes for the Chart.js / Vis.js-Timeline / Frappe-Gantt payloads
-# produced by VisualizationService (7 formatters), VisualizationAggregationService
-# (8) and InsightStore's 4 hand-built chart configs.
+# Return shapes for the Chart.js / Frappe-Gantt payloads produced by
+# VisualizationService (5 formatters), VisualizationAggregationService (6) and
+# InsightStore's 4 hand-built chart configs.
 #
 # NOT the whole vendor surface — Vis.js *Network* is a separate family with its
 # own wire type in this same file: see RelationshipGraphData above, produced by
@@ -2540,7 +2540,7 @@ class AIInsightsResult(TypedDict, total=False):
 # literals, never `cast()` a dict into them.
 #
 # Inner structures (options, item details) remain dict[str, Any] because
-# they're consumed by Chart.js/Vis.js/Gantt JavaScript libraries.
+# they're consumed by the Chart.js/Gantt JavaScript libraries.
 
 
 class ChartJsDataset(TypedDict, total=False):
@@ -2577,14 +2577,6 @@ class ChartJsConfig(TypedDict, total=False):
 
     type: str
     data: ChartJsData
-    options: dict[str, Any]
-
-
-class VisTimelineConfig(TypedDict, total=False):
-    """Return shape for Vis.js timeline methods (format_for_visjs, get_timeline_data)."""
-
-    items: list[dict[str, Any]]
-    groups: list[dict[str, Any]]
     options: dict[str, Any]
 
 
@@ -3765,7 +3757,6 @@ __all__ = [
     "ChartJsDataset",
     "ChartJsData",
     "ChartJsConfig",
-    "VisTimelineConfig",
     "GanttConfig",
     # Teacher Review Result Types
     "ReportSubmitResult",

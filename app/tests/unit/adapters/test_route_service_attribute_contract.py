@@ -3,13 +3,15 @@ Wiring guard: a route factory may not read a service attribute that does not exi
 
 WHY THIS GUARD EXISTS
 ---------------------
-``adapters/inbound/timeline_routes.py`` shipped two registered endpoints
+``adapters/inbound/timeline_routes.py`` (since deleted with the whole ``/timelines``
+surface — habit-rhythm arc M7) shipped two registered endpoints
 (``/api/tasks/timeline`` and ``/api/tasks/timeline/preview``) whose handlers both
 called ``tasks_service.export_to_markwhen(...)``. ``TasksService`` has never had
 that method — ``git log -S export_to_markwhen`` returns exactly one commit (the
 initial import), and that commit's tree contains the two call sites and no
 definition. Both endpoints raised ``AttributeError`` on every request from the
 day the repository was created, and every gate stayed green for eighteen months.
+The guard outlives the file: it checks every ``DomainRouteConfig`` in the tree.
 
 Three mechanisms that *look* like they should have caught it, and why none did:
 
@@ -26,8 +28,8 @@ Three mechanisms that *look* like they should have caught it, and why none did:
    injects a bare ``MagicMock()``. An unspecced ``MagicMock`` answers *every*
    attribute, so a handler calling a method that exists nowhere is
    indistinguishable from one calling a real method. That test tranche is
-   structurally blind to this defect class — and timeline_routes.py had no tests
-   at all.
+   structurally blind to this defect class — and ``timeline_routes.py`` had no
+   tests at all.
 
 3. **The bloat detector.** ``scripts/detect_bloat.py`` finds *definitions with no
    callers*. This is the mirror image — a *call with no definition* — so no

@@ -277,7 +277,7 @@ async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
 `content_loading_placeholder` is for shell-first page sections (full content areas). For inline HTMX containers and Alpine loading states, use the skeleton components directly:
 
 ```python
-from ui.patterns.skeleton import SkeletonList, SkeletonLines, SkeletonTimeline
+from ui.patterns.skeleton import SkeletonList, SkeletonLines
 ```
 
 | Component | When to use |
@@ -285,7 +285,6 @@ from ui.patterns.skeleton import SkeletonList, SkeletonLines, SkeletonTimeline
 | `content_loading_placeholder` | Shell-first page sections — replaces entire content area on load |
 | `SkeletonList(count=3)` | Hub panels, HTMX containers that load a list of cards |
 | `SkeletonLines(count=3)` | Expand-on-click panels, tree nodes, small inline lists |
-| `SkeletonTimeline()` | Vis.js Timeline loading state — fills `h-[70vh]` with Gantt rows |
 
 **Rule:** Never use `P("Loading...")` or `Span("Loading...")` as a loading placeholder anywhere in UI code.
 

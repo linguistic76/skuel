@@ -77,7 +77,7 @@ ChartDataset(label="Completion Rate (%)", data=rates,
 | Date adapter (time scales) | `static/vendor/chart.js/chartjs-adapter-date-fns.3.min.js` | Included by `chartjs_headers()` only |
 | `chartjs_headers()` | `ui/theme.py` | For fast_app `hdrs=` contexts, NOT BasePage pages |
 | `chartVis` Alpine component | `static/js/skuel.js` (~line 592) | fetch → destroy old → `new Chart`; `refresh(newUrl)`, `destroy()` |
-| `VisualizationService` | `core/services/visualization_service.py` | Pure formatter — Chart.js + Vis.js Timeline + Frappe Gantt |
+| `VisualizationService` | `core/services/visualization_service.py` | Pure formatter — Chart.js + Frappe Gantt |
 | `VisualizationAggregationService` | `core/services/analytics/visualization_aggregation_service.py` | Fetches domain data, delegates formatting; wired in `services_bootstrap/compose.py` |
 | `ChartJsConfig` TypedDict | `core/ports/query_types.py` | Route return type |
 | `SemanticColor` palette | `core/utils/palette.py` | PRIMARY/SUCCESS/WARNING/DANGER/INFO/NEUTRAL + `.ALL` cycle |

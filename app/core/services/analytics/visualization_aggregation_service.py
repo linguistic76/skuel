@@ -4,13 +4,13 @@ Visualization Aggregation Service
 
 Data fetching and aggregation for visualization endpoints.
 
-Fetches data from domain services (tasks, habits, goals, calendar),
+Fetches data from domain services (tasks, habits, goals),
 computes aggregates (completion rates, distributions, streaks),
 then delegates to VisualizationService for formatting.
 
 Separation of concerns:
 - This service: data fetching + aggregation (graph queries + business logic)
-- VisualizationService: pure formatting (Chart.js/Vis.js/Gantt adapters)
+- VisualizationService: pure formatting (Chart.js/Gantt adapters)
 """
 
 from datetime import date, timedelta
@@ -19,7 +19,7 @@ from typing import Any
 
 from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
-from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
+from core.ports.query_types import ChartJsConfig, GanttConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -31,7 +31,7 @@ class VisualizationAggregationService:
     Fetch and aggregate domain data for visualization endpoints.
 
     Owns domain service dependencies for data retrieval. Delegates all
-    chart/timeline/gantt formatting to VisualizationService.
+    chart/gantt formatting to VisualizationService.
     """
 
     def __init__(
@@ -39,13 +39,11 @@ class VisualizationAggregationService:
         tasks_service: Any,
         habits_service: Any,
         goals_service: Any,
-        calendar_service: Any,
         visualization_service: Any,
     ) -> None:
         self.tasks_service = tasks_service
         self.habits_service = habits_service
         self.goals_service = goals_service
-        self.calendar_service = calendar_service
         self.vis = visualization_service
 
     # =========================================================================
@@ -199,53 +197,6 @@ class VisualizationAggregationService:
             return Result.fail(Errors.not_found("No tasks found for status distribution"))
 
         return self.vis.format_distribution_chart(distribution, "Task Status Distribution", "pie")
-
-    # =========================================================================
-    # Vis.js Timeline Aggregation
-    # =========================================================================
-
-    async def get_timeline_data(
-        self,
-        user_uid: UserUID,
-        start_date: date,
-        end_date: date,
-        group_by: str = "type",
-    ) -> Result[VisTimelineConfig]:
-        """Fetch calendar data, then format for Vis.js Timeline."""
-        result = await self.calendar_service.get_calendar_view(
-            user_uid=user_uid,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-        if result.is_error:
-            return result
-
-        return self.vis.format_for_visjs(result.value, group_by)
-
-    async def get_tasks_timeline_data(
-        self,
-        user_uid: UserUID,
-        project: str | None = None,
-    ) -> Result[VisTimelineConfig]:
-        """Fetch tasks (optionally filtered by project), then format for Vis.js Timeline."""
-        today = date.today()
-
-        result = await self.tasks_service.get_user_items_in_range(
-            user_uid=user_uid,
-            start_date=today - timedelta(days=30),
-            end_date=today + timedelta(days=60),
-            include_completed=True,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        tasks = result.value or []
-        if project:
-            tasks = [t for t in tasks if getattr(t, "project", None) == project]
-
-        return self.vis.format_tasks_for_visjs(tasks)
 
     # =========================================================================
     # Frappe Gantt Aggregation

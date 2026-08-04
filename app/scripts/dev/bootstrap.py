@@ -856,10 +856,6 @@ async def _wire_all_routes(
 
     create_visualization_routes(app, rt, services, None)
 
-    from adapters.inbound.timeline_routes import create_timeline_routes
-
-    create_timeline_routes(app, rt, services)
-
     from adapters.inbound.orchestration_routes import create_orchestration_routes
 
     create_orchestration_routes(app, rt, services)

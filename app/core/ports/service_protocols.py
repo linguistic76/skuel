@@ -39,7 +39,6 @@ from core.ports.query_types import (
     SiblingRow,
     SystemHealthStatus,
     SystemInfoResult,
-    VisTimelineConfig,
 )
 from core.utils.result_simplified import Result
 
@@ -140,13 +139,13 @@ class CalendarServiceOperations(Protocol):
 
 @runtime_checkable
 class VisualizationOperations(Protocol):
-    """Chart.js, Vis.js, and Gantt visualization operations.
+    """Chart.js and Gantt visualization operations.
 
     Route consumer: visualization_api.py
     Implementation: VisualizationAggregationService
 
     Async methods only — each fetches domain data and returns a formatted
-    chart/timeline/gantt config. Pure formatting lives in VisualizationService
+    chart/gantt config. Pure formatting lives in VisualizationService
     and is not part of this protocol.
 
     See: core/services/analytics/visualization_aggregation_service.py
@@ -180,24 +179,6 @@ class VisualizationOperations(Protocol):
         days_back: int = 30,
     ) -> Result[ChartJsConfig]:
         """Get task status distribution formatted for Chart.js."""
-        ...
-
-    async def get_timeline_data(
-        self,
-        user_uid: UserUID,
-        start_date: date,
-        end_date: date,
-        group_by: str = "type",
-    ) -> Result[VisTimelineConfig]:
-        """Get calendar timeline data formatted for Vis.js."""
-        ...
-
-    async def get_tasks_timeline_data(
-        self,
-        user_uid: UserUID,
-        project: str | None = None,
-    ) -> Result[VisTimelineConfig]:
-        """Get tasks-only timeline data formatted for Vis.js."""
         ...
 
     async def get_tasks_gantt_data(
