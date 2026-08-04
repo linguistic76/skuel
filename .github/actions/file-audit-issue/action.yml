@@ -1,0 +1,143 @@
+name: File audit issue
+description: >
+  Maintain ONE always-open status issue per marker. Every run writes the current state
+  through the same path — clean, findings, or could-not-measure are all just reports —
+  and a comment is raised only when the reported content CHANGES.
+
+# WHY THERE IS NO OPEN/CLOSE LIFECYCLE
+#
+# An earlier design closed the issue when the audit came back clean. Four consecutive
+# review rounds found defects in that one seam, each fix exposing the next: a
+# read-then-write race, then ordering not being guaranteed within a concurrency group,
+# then closed issues being invisible to the ordering guard, then the clean revision never
+# being stamped at all so the guard had nothing to compare against.
+#
+# Every one of those existed because "clean" was a SPECIAL PATH that removed state.
+# Treating clean as just another report removes the whole class:
+#
+#   - the clean revision is stamped by the same code that stamps findings, so a delayed
+#     older run always has newer state to be rejected against (no tombstone needed);
+#   - the issue is never closed, so an open-only lookup is complete again (no scanning
+#     closed issues, no pagination bound);
+#   - there is one write path, so open and close can no longer interleave wrongly.
+#
+# The cost is one issue that stays open as a status page. If a human closes it, the next
+# run with something to report opens a fresh one — self-healing, and a deliberate human
+# action rather than a race.
+
+inputs:
+  marker:
+    description: Unique HTML-comment key identifying this audit's issue. Must be stable.
+    required: true
+  title:
+    description: Issue title used when creating the issue.
+    required: true
+  body:
+    description: >
+      The complete rendered report. Must contain every dynamic value — anything dynamic
+      outside it is invisible to the digest and can change without notifying anyone.
+    required: true
+  digest:
+    description: >
+      Hash of the rendered body. Drives "did the reported content change?" — it must be
+      derived FROM the rendered text, not from a separate canonicalization.
+    required: true
+  revision_ts:
+    description: >
+      Commit timestamp (epoch seconds) of the revision this result describes. Recorded in
+      the stamp and used to reject a run whose revision is OLDER than the one already
+      recorded — workflow concurrency serializes runs but does not order them.
+    required: true
+  token:
+    description: GITHUB_TOKEN with issues:write.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const marker     = ${{ toJSON(inputs.marker) }}
+          const title      = ${{ toJSON(inputs.title) }}
+          const body       = ${{ toJSON(inputs.body) }}
+          const digest     = ${{ toJSON(inputs.digest) }}
+          const revisionTs = Number(${{ toJSON(inputs.revision_ts) }}) || 0
+
+          // Issues filed by GITHUB_TOKEN are authored by this identity.
+          const BOT = 'github-actions[bot]'
+
+          const stamp  = `<!-- ${marker}:${digest}:${revisionTs} -->`
+          const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+          const issueBody = [stamp, body, '', `_Last checked by [this run](${runUrl})._`].join('\n')
+
+          // Open-only is COMPLETE here: this action never closes an issue, so its state
+          // can never hide in the closed set.
+          const open = await github.paginate(github.rest.issues.listForRepo, {
+            owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100,
+          })
+          // The marker string is PUBLIC — it appears in every issue this action files —
+          // and listForRepo also returns pull requests. An untrusted user could otherwise
+          // open an issue or PR carrying the marker and have it selected here: redirecting
+          // updates, failing the action against a PR whose token scope is narrower, or,
+          // with the reproducible digest, suppressing reporting entirely.
+          const prior = open.find(i =>
+            i && i.body && !i.pull_request &&
+            i.user && i.user.login === BOT &&
+            i.body.includes(`<!-- ${marker}:`))
+
+          const m = prior && prior.body.match(new RegExp(`<!-- ${marker}:([^:]*):(\\d+) -->`))
+          const priorDigest = m ? m[1] : null
+          const priorRev    = m ? Number(m[2]) : 0
+
+          // Ordering guard. Concurrency gives mutual exclusion, not chronological order —
+          // GitHub documents order within a group as arbitrary — so an older revision can
+          // execute last. Never overwrite state describing a NEWER revision.
+          if (prior && priorRev > revisionTs) {
+            core.info(`#${prior.number} describes revision ${priorRev}, newer than this run (${revisionTs}). Refusing to write stale state.`)
+            return
+          }
+
+          if (!prior) {
+            // ALWAYS create, including for a clean result. An "only create when there is
+            // something wrong" hedge is the same state-removing special case that caused
+            // the whole open/close tail: with no issue and a clean run returning early,
+            // the clean revision is never stamped, so a late-running OLDER findings run
+            // finds no guard and files a stale issue. Creating unconditionally means
+            // every run leaves recorded state. The cost is one open issue per ecosystem
+            // reading "no unaccepted findings", which is a status page, and is also
+            // visible proof the audit is running at all.
+            const created = await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo, title, body: issueBody,
+            })
+            core.info(`Opened #${created.data.number}`)
+            return
+          }
+
+          // Comment ONLY when the reported content changed. A body edit raises no
+          // notification, so an unchanged result stays silent even at daily cadence.
+          //
+          // ORDER MATTERS: notify BEFORE persisting the digest. The stamp is what
+          // suppresses re-notification, so writing it first and then failing to comment
+          // would lose that notification permanently — the next run would see a matching
+          // digest and stay quiet about a change nobody was ever told about. Commenting
+          // first means a failure merely leaves the old stamp in place and the next run
+          // retries. The opposite failure (comment lands, body write fails) repeats a
+          // comment, which is the harmless direction.
+          const changed = priorDigest !== digest
+          if (changed) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+              body: ['The audit result **changed**.', '', body].join('\n'),
+            })
+          }
+
+          // Only then does the body become the current state.
+          await github.rest.issues.update({
+            owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+            body: issueBody,
+          })
+          core.info(changed
+            ? `Commented on #${prior.number} with a changed result.`
+            : `#${prior.number} already reports this exact result — updated silently.`)

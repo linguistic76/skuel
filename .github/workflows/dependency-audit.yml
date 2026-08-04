@@ -1,0 +1,461 @@
+name: Scheduled Dependency Audit
+
+# Runs both CVE audits on a clock, independent of any diff.
+#
+# WHY A SCHEDULE AND NOT A PR CHECK
+#
+# A dependency audit's input changes on someone else's clock. An advisory is
+# published against a lockfile nobody touched, so there is no diff to trigger on
+# and no PR to attach to. Both existing audits are blind to exactly that:
+#
+#   - ci.yml's `pip_audit` job is gated on the `py`/`audit` path filters. It is
+#     masked by luck — `py` matches app/**/*.py, so it fires on nearly every PR —
+#     but a quiet stretch with no Python changes is an unwatched stretch.
+#   - `npm audit` is check 8 of ./dev quality and runs NOWHERE in CI. It fires
+#     only if a developer happens to run the local gate.
+#
+# That is not hypothetical. undici 7.28.0 sat in package-lock.json accruing five
+# high advisories with zero file changes, and surfaced only because someone ran
+# ./dev quality by hand (PR #929, ADR-067 § 5). Path-scoping an audit into the
+# js_tests job would NOT have caught it: the `js` filter needs one of
+# static/js/**, tests/js/**, package*.json or vitest.config.js to change, and
+# none did. Only a run that is not gated on a diff catches this class.
+#
+# WHY IT OPENS AN ISSUE
+#
+# Same reason mypy-suppressions.yml does: a red scheduled run that lands nowhere
+# is indistinguishable from no check at all.
+#
+# There is ONE always-open status issue per ecosystem, never closed. Every run —
+# clean, findings, or could-not-measure — writes the current state through the
+# same path, and a comment is raised only when the reported content changes, so
+# daily cadence does not mean 365 comments. An earlier design closed the issue
+# on a clean run; four review rounds found defects in that one seam, all of them
+# caused by "clean" being a special path that REMOVED state. See the action.
+#
+# WHY IT STAYS OUT OF ci.yml
+#
+# ci.yml's jobs feed the `gate` job that branch protection requires. This check
+# is advisory: it must be able to go red without blocking every merge, because
+# an advisory with no upstream fix would otherwise wedge the repo — npm audit has
+# no per-advisory accept mechanism (no .pip-audit-ignore equivalent). Promoting
+# either job to a required check means building that escape hatch first.
+#
+# HONESTY ABOUT WHAT EACH JOB CAN PROVE
+#
+# Neither `npm audit` nor `pip-audit` distinguishes "found vulnerabilities" from
+# "could not run" by exit code alone, and an issue asserting the former when the
+# latter happened would be a false claim generated on a schedule. The JS job
+# therefore probes `npm audit --json`: a parseable report with
+# metadata.vulnerabilities is proof it actually measured. The Python job has no
+# equivalent probe — audit_dependencies.sh is the ONE shared path that the gating
+# pip_audit job also runs, and adding a machine-readable mode to it is a
+# deliberate change to a security-critical script, not a side effect of adding a
+# workflow. So that job's issue says "findings OR the audit could not run" and
+# does not pretend to know which.
+
+on:
+  schedule:
+    # Daily. Advisories land continuously; weekly would mean up to 7 days of
+    # unseen exposure. Offset from mypy-suppressions.yml (Mondays 06:00).
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Marker-issue mutation is read-then-write, so two overlapping runs (a manual
+# dispatch racing the cron, or two dispatches) can both complete the lookup before
+# either writes — creating duplicate marker issues, or letting an older findings run
+# reopen state a newer clean run just resolved. Serialize every run of this workflow.
+# cancel-in-progress is FALSE on purpose: cancelling mid-run could leave an issue
+# half-updated, and a cancelled audit is a silently skipped audit.
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+jobs:
+  python_audit:
+    name: Python CVE audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Ordering key for the marker issue. Concurrency serializes runs but does not
+      # order them, so a result must carry the revision it describes.
+      - name: Record the revision this result describes
+        id: rev
+        run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v4
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      # --frozen is load-bearing, not decoration. A bare `uv sync` LOCKS before syncing,
+      # so on a cache miss with uv.lock behind pyproject.toml it would rewrite the lock —
+      # and the audit would then measure that freshly generated resolution while the
+      # script's own `uv export --locked` staleness check passed vacuously against the
+      # lock uv had just written.
+      #
+      # --frozen rather than --locked deliberately: --locked would fail THIS step, and the
+      # Report step is not `always()`, so a stale lock would produce a red run with no
+      # issue filed — the "lands nowhere" outcome this workflow exists to avoid. With
+      # --frozen the lock is left alone and `audit_dependencies.sh` detects the staleness
+      # itself, which routes it through the normal reporting path (the issue body already
+      # names re-locking as one of the three causes).
+      #
+      # continue-on-error, because a failure here must still be REPORTED. Subsequent
+      # steps carry an implicit success() check, so an unguarded install failure (a
+      # registry blip on a cache miss) would abort the job before the audit ran and skip
+      # the Report step entirely — landing only in the Actions log, which is the exact
+      # failure mode this workflow exists to prevent. Instead the audit step below sees
+      # the outcome and renders it as a could-not-measure result.
+      - name: Install dependencies
+        id: install
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        continue-on-error: true
+        working-directory: app
+        run: uv sync --frozen --no-install-project
+
+      # The same script ci.yml's pip_audit job runs — one path, so a finding here
+      # and a finding there can never disagree. Captured with `|| rc=$?` rather
+      # than a pipeline: Actions runs this under `bash -e`, and piping would make
+      # the step's status belong to the last command in the pipe.
+      - name: Audit locked dependencies
+        id: audit
+        working-directory: app
+        env:
+          # env, not interpolation — see the Fail the job steps. A fixed enum today, but
+          # the rule is applied uniformly so no future value can become shell code.
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+        run: |
+          rc=0
+          install_failed=0
+          if [ "$INSTALL_OUTCOME" = "failure" ]; then
+            install_failed=1
+            # Installation failed, so pip-audit was never available. Say that, rather
+            # than running an audit that would fail for a second, unrelated reason.
+            rc=127
+            echo "Dependency installation (uv sync --frozen) FAILED, so the audit never ran." > pip-audit.txt
+            echo "See the Install dependencies step in the run log." >> pip-audit.txt
+          else
+            bash scripts/audit_dependencies.sh > pip-audit.txt 2>&1 || rc=$?
+          fi
+          cat pip-audit.txt
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          # Render the exact text the issue will show, then hash THAT — same invariant
+          # as the JS job: "the result changed" and "what we display changed" must be
+          # the same statement. ANSI is stripped because colour is not part of the
+          # finding; the output is capped so a pathological run cannot blow the issue
+          # body limit, and the cap is applied BEFORE hashing so the digest continues
+          # to describe exactly what is rendered.
+          # Strip and truncate as two steps, not a pipeline. `sed ... | head -c` is a
+          # SIGPIPE trap: once output exceeds the cap, head exits, sed dies on SIGPIPE
+          # (141), and under `bash -eo pipefail` the step aborts before writing any
+          # outputs — so a pathologically large report would file no issue at all, which
+          # is exactly the case the cap exists to survive. Measured: the pipeline exits
+          # 141 under pipefail with a 100 KB input, and 0 under the plain `bash -e` that
+          # Actions uses by default. It is safe today and one `shell: bash` from not being.
+          sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt > pip-audit-stripped.txt
+          head -c 30000 pip-audit-stripped.txt > pip-audit-clean.txt
+          # Build the COMPLETE issue body here — prose included — so the digest below
+          # covers everything the reader sees. Splitting dynamic text across the body
+          # would put part of it outside change detection.
+          {
+            if [ "$rc" -eq 0 ]; then
+              # NOT "no known vulnerabilities": pip-audit exits zero when every finding
+              # matches an id in .pip-audit-ignore, and this repo currently accepts nine.
+              # The captured output below says how many were ignored, so claiming none
+              # exist would contradict the very block it sits above.
+              echo "**No unaccepted findings.** \`pip-audit\` over the full locked resolution"
+              echo "(all groups, OSV) reported nothing outside \`app/.pip-audit-ignore\`."
+              echo "Accepted findings recorded there are still present — see the ignored"
+              echo "count below."
+            elif [ "$install_failed" -eq 1 ]; then
+              # Distinct wording: the script never ran, so blaming its exit code would
+              # assert something that did not happen.
+              echo "**The audit could not run.** Dependency installation (\`uv sync --frozen\`)"
+              echo "failed, so \`pip-audit\` was never available and was not invoked."
+              echo ""
+              echo "**No claim is made about whether vulnerabilities exist.** Usually a registry"
+              echo "blip on a cache miss — re-run the workflow."
+            else
+              echo "\`scripts/audit_dependencies.sh\` exited non-zero (\`$rc\`)."
+              echo ""
+              echo "**This means findings OR that the audit could not run** — \`pip-audit\` uses a"
+              echo "non-zero exit for both, and this job deliberately does not guess which."
+              echo ""
+              echo "- Vulnerabilities → upgrade, or record an accepted finding in"
+              echo "  \`app/.pip-audit-ignore\` with a documented reason."
+              echo "- A stale lock (\`uv export --locked\` refuses) → re-lock and commit."
+              echo "- A transient registry/network failure → re-run the workflow."
+            fi
+            echo ""
+            echo '```'
+            cat pip-audit-clean.txt
+            echo '```'
+            echo ""
+            echo "Policy: \`app/docs/decisions/ADR-067-dependency-upgrade-policy.md\`."
+          } > pip-audit-body.md
+          digest=$(sha256sum pip-audit-body.md | cut -c1-16)
+          {
+            echo "digest=$digest"
+            echo "report<<__AUDIT_REPORT_EOF__"
+            cat pip-audit-body.md
+            echo "__AUDIT_REPORT_EOF__"
+          } >> "$GITHUB_OUTPUT"
+          echo "Audit exited $rc"
+
+      # ONE write, every state — see the js_audit job for why there is no resolve path.
+      # Default-branch only: workflow_dispatch accepts --ref, and a branch run would
+      # otherwise stamp the repo-wide marker with that ref's commit timestamp.
+      - name: Report
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: ./.github/actions/file-audit-issue
+        with:
+          marker: scheduled-dependency-audit-python
+          title: 'Python dependency audit'
+          digest: ${{ steps.audit.outputs.digest }}
+          revision_ts: ${{ steps.rev.outputs.ts }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: ${{ steps.audit.outputs.report }}
+
+      # Deliberately AFTER Report. Steps carry an implicit success() check, so a transient
+      # artifact-service failure ahead of Report would skip it and leave the status issue
+      # stale — the artifact is a convenience, the issue is the promise.
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-output
+          path: app/pip-audit.txt
+          retention-days: 30
+
+      # Fail for BOTH findings and an aborted instrument — an audit that could not
+      # measure must not read as a green day.
+      # env, not interpolation — see the js_audit job. This value is numeric today, but
+      # the rule is the mechanism, not the current contents.
+      - name: Fail the job
+        if: steps.audit.outputs.exit_code != '0'
+        env:
+          EXIT_CODE: ${{ steps.audit.outputs.exit_code }}
+        run: |
+          echo "::error::Python dependency audit exited $EXIT_CODE — see the issue and the artifact."
+          exit 1
+
+  js_audit:
+    name: JS CVE audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Ordering key for the marker issue — see the python_audit job.
+      - name: Record the revision this result describes
+        id: rev
+        run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Matches ci.yml's js_tests job. Note Node 20 is EOL (2026-04-30) and
+          # caps the tree — ADR-067 § 6c.
+          node-version: '20'
+
+      # No `npm ci`: `npm audit` reads package-lock.json directly, and auditing the
+      # COMMITTED resolution is the point. (A local verification run is different —
+      # there `npm ci` is mandatory before the tests, ADR-067 § 6d.)
+      - name: Audit the committed lockfile
+        id: audit
+        working-directory: app
+        run: |
+          # --json is the SINGLE source of truth for this job's verdict: npm audit's
+          # exit code cannot separate "found vulnerabilities" from "could not reach
+          # the registry", but a parseable report with metadata.vulnerabilities is
+          # proof it actually measured.
+          npm audit --json > npm-audit.json 2>/dev/null || true
+          # The text run is for the artifact only — a human-readable copy. Its exit
+          # code is deliberately NOT part of the verdict; gating on two independent
+          # invocations would let them disagree.
+          rc=0
+          npm audit --audit-level=moderate > npm-audit.txt 2>&1 || rc=$?
+          cat npm-audit.txt
+          # The probe RENDERS the report that the issue will show, then hashes exactly
+          # that text. The digest is therefore not a hand-built canonicalization of npm
+          # report internals — four review rounds each found a different way for such a
+          # thing to drift from what is actually reported (package names only, then
+          # advisory urls without severities, then unfiltered low entries, then
+          # low-only via strings). Deriving the digest FROM the rendered text makes
+          # "the result changed" and "what we display changed" the same statement by
+          # construction.
+          #
+          # INVARIANT: every dynamic value must live inside audit-report.md. Anything
+          # dynamic placed in the issue body outside this block is invisible to the
+          # digest and can change without notifying anyone.
+          #
+          # (No apostrophes in this block — it is a single-quoted shell string.)
+          probe=$(node -e '
+            const fs = require("fs");
+            const crypto = require("crypto");
+            const sha = s => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
+            // Cap the rendered report. A broad incident across many locked packages, or
+            // packages carrying many via advisories, would otherwise produce a body over
+            // the 65536-character GitHub issue limit — and then BOTH issue creation and
+            // the changed-result comment fail, leaving the marker stale and the findings
+            // visible only in the artifact. 60000 leaves room for the stamp, the footer
+            // and the truncation notice. Applied BEFORE hashing, so the digest keeps
+            // describing exactly what gets filed.
+            const LIMIT = 60000;
+            const emit = (status, report) => {
+              const r = report.length > LIMIT
+                ? report.slice(0, LIMIT) +
+                  "\n\n_Truncated at " + LIMIT + " characters. The full report is in the " +
+                  "npm-audit-output artifact on this run._"
+                : report;
+              fs.writeFileSync("audit-report.md", r);
+              console.log(status + "|" + sha(r));
+            };
+            let j = null;
+            try { j = JSON.parse(fs.readFileSync("npm-audit.json", "utf8")); } catch (e) {}
+            const v = j && j.metadata && j.metadata.vulnerabilities;
+            const TRIAGE = "\nTriage order is **ADR-067 § 6a**: `npm ls <pkg>` to find the parent, then " +
+              "check for a patched release *inside the range already declared* before reaching for a " +
+              "bump or an `overrides` entry.";
+            if (!v) {
+              emit("aborted", "**The audit could not run.** `npm audit --json` produced no parseable " +
+                "report, so **no claim is made about whether vulnerabilities exist** — this is an " +
+                "instrument failure, not a clean result.\n\nUsual causes: registry unreachable, or a " +
+                "malformed/absent `app/package-lock.json`. See the `npm-audit-output` artifact.");
+              process.exit(0);
+            }
+            // --audit-level sets the FAILURE THRESHOLD only; it does not filter the
+            // report, so j.vulnerabilities still carries low/info entries. Render only
+            // what qualifies — and because the digest is the hash of what is rendered,
+            // that single rule is what keeps low-severity noise from raising a comment.
+            const SEV = new Set(["moderate", "high", "critical"]);
+            const sevOf = x => String((x && x.severity) || "?").toLowerCase();
+            const all = j.vulnerabilities || {};
+            // A package severity is the MAX over its advisories, so anything holding a
+            // qualifying advisory necessarily qualifies here too.
+            const affected = Object.entries(all).filter(([, info]) => SEV.has(sevOf(info)));
+            if (!affected.length) {
+              emit("clean", "**No moderate-or-higher advisories** in `app/package-lock.json`. " +
+                "This was measured, not inferred — the JSON report parsed.");
+              process.exit(0);
+            }
+            let advisories = 0;
+            const rows = affected.map(([name, info]) => {
+              const items = (Array.isArray(info.via) ? info.via : []).map(x => {
+                // A plain string names the dependency the vulnerability comes through;
+                // show it only when that dependency itself qualifies. The advisory
+                // objects live on the entry for the package they originate from, so
+                // nothing is lost by dropping a low-only link.
+                if (typeof x === "string") return SEV.has(sevOf(all[x])) ? "via `" + x + "`" : "";
+                const sev = sevOf(x);
+                if (!SEV.has(sev)) return "";
+                advisories++;
+                return (x.url || x.source || x.title || "") + " (" + sev + ")";
+              }).filter(Boolean).map(String).sort();
+              // fixAvailable MUST be rendered. When a patched release ships for an
+              // already-reported advisory, the package, severity and advisory ids are all
+              // unchanged — only this field moves. Leaving it out means the digest is
+              // identical and nobody is told the finding just became actionable, which is
+              // precisely when a maintainer wants to hear. It is `true`, `false`, or an
+              // object naming the upgrade.
+              const fix = info.fixAvailable;
+              const fixText = fix && typeof fix === "object"
+                ? "fix: `" + (fix.name || "?") + "@" + (fix.version || "?") + "`" +
+                  (fix.isSemVerMajor ? " (semver-major)" : "")
+                : (fix ? "fix available" : "**no fix available**");
+              return "| `" + name + "` | " + sevOf(info) + " | " + fixText + " | " + items.join("<br>") + " |";
+            }).sort();
+            const report = [
+              "**" + advisories + "** moderate-or-higher advisories across **" +
+                affected.length + "** affected package(s) in `app/package-lock.json`.",
+              "",
+              "| Package | Severity | Fix | Advisories |",
+              "|---|---|---|---|",
+            ].concat(rows).concat([TRIAGE]).join("\n");
+            emit("findings", report);
+          ')
+          status=$(echo "$probe" | cut -d"|" -f1)
+          digest=$(echo "$probe" | cut -d"|" -f2)
+          summary=$(head -1 audit-report.md)
+          {
+            echo "status=$status"
+            echo "digest=$digest"
+            echo "summary=$summary"
+            # Multi-line output. The delimiter cannot collide with npm report content.
+            # The bare echo is REQUIRED: audit-report.md has no trailing newline, so
+            # without it the delimiter lands on the same line as the last row and the
+            # step fails on an invalid output format.
+            echo "report<<__AUDIT_REPORT_EOF__"
+            cat audit-report.md
+            echo ""
+            echo "__AUDIT_REPORT_EOF__"
+          } >> "$GITHUB_OUTPUT"
+          echo "npm audit exited $rc; status=$status digest=$digest"
+          cat audit-report.md
+
+      # ONE write, every state. The body is entirely the probe's rendered report, so
+      # clean / findings / could-not-measure all travel the same path — which is what
+      # keeps the clean revision stamped and the ordering guard fed.
+      #
+      # Restricted to the default branch: workflow_dispatch accepts --ref, and a branch
+      # run would otherwise stamp the repo-wide marker with that ref's commit timestamp,
+      # letting a branch-only result reject subsequent main-branch audits as stale. A
+      # branch dispatch still RUNS the audit — it just does not write issues.
+      - name: Report
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: ./.github/actions/file-audit-issue
+        with:
+          marker: scheduled-dependency-audit-js
+          title: 'JS dependency audit'
+          digest: ${{ steps.audit.outputs.digest }}
+          revision_ts: ${{ steps.rev.outputs.ts }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: ${{ steps.audit.outputs.report }}
+
+      # Deliberately AFTER Report — see the python_audit job. A transient artifact
+      # failure must not be able to skip the issue write.
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-output
+          path: |
+            app/npm-audit.txt
+            app/npm-audit.json
+          retention-days: 30
+
+      # Values reach the shell through env, never by textual interpolation. A `${{ }}`
+      # expression is pasted in BEFORE bash parses, so any backtick or $( ) in the value
+      # is executed as code — and this summary legitimately contains Markdown backticks,
+      # while advisory titles rendered into the report are free text from the advisory
+      # feed. Demonstrated: the interpolated form runs the backticked path and drops it
+      # from the message; a value containing `id` executes it.
+      - name: Fail the job
+        if: steps.audit.outputs.status != 'clean'
+        env:
+          STATUS: ${{ steps.audit.outputs.status }}
+          SUMMARY: ${{ steps.audit.outputs.summary }}
+        run: |
+          if [ "$STATUS" = 'findings' ]; then
+            echo "::error::npm audit — $SUMMARY See the issue."
+          else
+            echo "::error::npm audit could not produce a report. No findings are implied."
+          fi
+          exit 1
