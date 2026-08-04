@@ -329,7 +329,18 @@ class TestAdvancedSearchScoping:
         path must map them back to enum members so SearchResultItem.to_dict()
         (``entity_type.value``) doesn't 500 the unified API."""
         search_router, _service = router
-        request = SearchRequest(query_text="Alpha", entity_types=["task"], user_uid="user_a")
+        request = SearchRequest(
+            query_text="Alpha",
+            # The raw string IS the subject of this test: Pydantic coerces it to
+            # EntityType.TASK and use_enum_values stores it straight back as
+            # "task". The annotation names the accepted INPUT types, and
+            # init_typed=true now enforces it at every construction site — so
+            # this deliberate off-annotation probe needs the suppression. Do not
+            # "fix" it to EntityType.TASK: that lands the identical stored state
+            # (verified) and would leave the string boundary untested.
+            entity_types=["task"],  # type: ignore[list-item]
+            user_uid="user_a",
+        )
 
         result = await search_router.advanced_search(request)
 
