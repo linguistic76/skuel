@@ -97,6 +97,30 @@ uv run python scripts/skills_validator.py
 ./dev quality                                  # full suite (ruff + SKUEL linter + cypher + route audit + mypy)
 ```
 
+## Scheduled workflows (no PR trigger, not status checks)
+
+Two workflows run on a clock instead of on a diff. Neither feeds the `gate` job, so neither can
+block a merge — both are advisory, and both **open an issue** on failure, because a red scheduled
+run that lands nowhere is indistinguishable from no check at all.
+
+| Workflow | Cadence | What it does | On failure |
+|---|---|---|---|
+| `mypy-suppressions.yml` | Mondays 06:00 UTC | Finds mypy suppressions that suppress nothing (`scripts/health/mypy_suppressions.py`, `./dev health-mypy`) | Opens/comments on a marker-keyed issue; fails the run |
+| `dependency-audit.yml` | Daily 07:00 UTC | Runs **both** CVE audits — `pip-audit` via `scripts/audit_dependencies.sh` and `npm audit` over `app/package-lock.json` | Opens a marker-keyed issue, silent while the finding set is unchanged; fails the job |
+
+**Why a schedule rather than a PR check.** Both watch for things that change without a diff. An
+advisory is published against a lockfile nobody touched; a suppression goes dead when *source* is
+fixed, with the config untouched. Path-filtered PR jobs cannot see either. `undici` 7.28.0 sat in
+`app/package-lock.json` accruing five high advisories with zero file changes and surfaced only
+because a developer ran `./dev quality` by hand (PR #929).
+
+**Why `dependency-audit.yml` is not a required check.** `npm audit` has no per-advisory accept
+mechanism (no `.pip-audit-ignore` equivalent), so a gating job would wedge every merge in the repo
+on an advisory with no upstream fix. Promoting it means building that escape hatch first —
+ADR-067 § 6e.
+
+Run either locally: `./dev health-mypy`, and `./dev audit-deps` + `npm audit --audit-level=moderate`.
+
 ## `codex-review.yml`
 
 > ⏸️ **This comment-bot stays DISABLED, and Codex cloud auto-review is also OFF

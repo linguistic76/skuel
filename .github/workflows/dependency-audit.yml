@@ -1,0 +1,254 @@
+name: Scheduled Dependency Audit
+
+# Runs both CVE audits on a clock, independent of any diff.
+#
+# WHY A SCHEDULE AND NOT A PR CHECK
+#
+# A dependency audit's input changes on someone else's clock. An advisory is
+# published against a lockfile nobody touched, so there is no diff to trigger on
+# and no PR to attach to. Both existing audits are blind to exactly that:
+#
+#   - ci.yml's `pip_audit` job is gated on the `py`/`audit` path filters. It is
+#     masked by luck — `py` matches app/**/*.py, so it fires on nearly every PR —
+#     but a quiet stretch with no Python changes is an unwatched stretch.
+#   - `npm audit` is check 8 of ./dev quality and runs NOWHERE in CI. It fires
+#     only if a developer happens to run the local gate.
+#
+# That is not hypothetical. undici 7.28.0 sat in package-lock.json accruing five
+# high advisories with zero file changes, and surfaced only because someone ran
+# ./dev quality by hand (PR #929, ADR-067 § 5). Path-scoping an audit into the
+# js_tests job would NOT have caught it: the `js` filter needs one of
+# static/js/**, tests/js/**, package*.json or vitest.config.js to change, and
+# none did. Only a run that is not gated on a diff catches this class.
+#
+# WHY IT OPENS AN ISSUE
+#
+# Same reason mypy-suppressions.yml does: a red scheduled run that lands nowhere
+# is indistinguishable from no check at all. The issue is keyed by a marker and
+# by a digest of the finding set, so an unchanged result stays silent — daily
+# cadence must not mean 365 comments on one stale issue.
+#
+# WHY IT STAYS OUT OF ci.yml
+#
+# ci.yml's jobs feed the `gate` job that branch protection requires. This check
+# is advisory: it must be able to go red without blocking every merge, because
+# an advisory with no upstream fix would otherwise wedge the repo — npm audit has
+# no per-advisory accept mechanism (no .pip-audit-ignore equivalent). Promoting
+# either job to a required check means building that escape hatch first.
+#
+# HONESTY ABOUT WHAT EACH JOB CAN PROVE
+#
+# Neither `npm audit` nor `pip-audit` distinguishes "found vulnerabilities" from
+# "could not run" by exit code alone, and an issue asserting the former when the
+# latter happened would be a false claim generated on a schedule. The JS job
+# therefore probes `npm audit --json`: a parseable report with
+# metadata.vulnerabilities is proof it actually measured. The Python job has no
+# equivalent probe — audit_dependencies.sh is the ONE shared path that the gating
+# pip_audit job also runs, and adding a machine-readable mode to it is a
+# deliberate change to a security-critical script, not a side effect of adding a
+# workflow. So that job's issue says "findings OR the audit could not run" and
+# does not pretend to know which.
+
+on:
+  schedule:
+    # Daily. Advisories land continuously; weekly would mean up to 7 days of
+    # unseen exposure. Offset from mypy-suppressions.yml (Mondays 06:00).
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  python_audit:
+    name: Python CVE audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v4
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
+        run: uv sync --no-install-project
+
+      # The same script ci.yml's pip_audit job runs — one path, so a finding here
+      # and a finding there can never disagree. Captured with `|| rc=$?` rather
+      # than a pipeline: Actions runs this under `bash -e`, and piping would make
+      # the step's status belong to the last command in the pipe.
+      - name: Audit locked dependencies
+        id: audit
+        working-directory: app
+        run: |
+          rc=0
+          bash scripts/audit_dependencies.sh > pip-audit.txt 2>&1 || rc=$?
+          cat pip-audit.txt
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          # Digest the output so an unchanged result does not re-comment. ANSI is
+          # stripped first — colour codes are not part of the finding.
+          digest=$(sed 's/\x1b\[[0-9;]*m//g' pip-audit.txt | sha256sum | cut -c1-16)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Audit exited $rc"
+
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-output
+          path: app/pip-audit.txt
+          retention-days: 30
+
+      - name: Report
+        if: steps.audit.outputs.exit_code != '0'
+        uses: ./.github/actions/file-audit-issue
+        with:
+          marker: scheduled-dependency-audit-python
+          title: 'Python dependency audit is failing'
+          digest: ${{ steps.audit.outputs.digest }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            `scripts/audit_dependencies.sh` exited non-zero on the scheduled run.
+
+            **This means findings OR that the audit could not run** — `pip-audit`
+            uses a non-zero exit for both, and this job deliberately does not guess
+            which. Read the `pip-audit-output` artifact on the run before acting.
+
+            - Vulnerabilities → upgrade, or record an accepted finding in
+              `app/.pip-audit-ignore` with a documented reason.
+            - A stale lock (`uv export --locked` refuses) → re-lock and commit.
+            - A transient registry/network failure → re-run the workflow.
+
+            Policy: `app/docs/decisions/ADR-067-dependency-upgrade-policy.md`.
+
+      # Fail for BOTH findings and an aborted instrument — an audit that could not
+      # measure must not read as a green day.
+      - name: Fail the job
+        if: steps.audit.outputs.exit_code != '0'
+        run: |
+          echo "::error::Python dependency audit exited ${{ steps.audit.outputs.exit_code }} — see the issue and the artifact."
+          exit 1
+
+  js_audit:
+    name: JS CVE audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Matches ci.yml's js_tests job. Note Node 20 is EOL (2026-04-30) and
+          # caps the tree — ADR-067 § 6c.
+          node-version: '20'
+
+      # No `npm ci`: `npm audit` reads package-lock.json directly, and auditing the
+      # COMMITTED resolution is the point. (A local verification run is different —
+      # there `npm ci` is mandatory before the tests, ADR-067 § 6d.)
+      - name: Audit the committed lockfile
+        id: audit
+        working-directory: app
+        run: |
+          # --json is the SINGLE source of truth for this job's verdict: npm audit's
+          # exit code cannot separate "found vulnerabilities" from "could not reach
+          # the registry", but a parseable report with metadata.vulnerabilities is
+          # proof it actually measured.
+          npm audit --json > npm-audit.json 2>/dev/null || true
+          # The text run is for the artifact only — a human-readable copy. Its exit
+          # code is deliberately NOT part of the verdict; gating on two independent
+          # invocations would let them disagree.
+          rc=0
+          npm audit --audit-level=moderate > npm-audit.txt 2>&1 || rc=$?
+          cat npm-audit.txt
+          probe=$(node -e '
+            const fs = require("fs");
+            let j = null;
+            try { j = JSON.parse(fs.readFileSync("npm-audit.json", "utf8")); } catch (e) {}
+            const v = j && j.metadata && j.metadata.vulnerabilities;
+            if (!v) { console.log("aborted|0|none"); process.exit(0); }
+            const n = (v.moderate || 0) + (v.high || 0) + (v.critical || 0);
+            const names = Object.keys(j.vulnerabilities || {}).sort().join(",") || "none";
+            console.log((n > 0 ? "findings" : "clean") + "|" + n + "|" + names);
+          ')
+          status=$(echo "$probe" | cut -d'|' -f1)
+          count=$(echo "$probe" | cut -d'|' -f2)
+          names=$(echo "$probe" | cut -d'|' -f3)
+          echo "status=$status"   >> "$GITHUB_OUTPUT"
+          echo "count=$count"     >> "$GITHUB_OUTPUT"
+          echo "packages=$names"  >> "$GITHUB_OUTPUT"
+          echo "digest=$(printf '%s' "$status:$names" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+          echo "npm audit exited $rc; probe says $probe"
+
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-output
+          path: |
+            app/npm-audit.txt
+            app/npm-audit.json
+          retention-days: 30
+
+      - name: Report vulnerabilities
+        if: steps.audit.outputs.status == 'findings'
+        uses: ./.github/actions/file-audit-issue
+        with:
+          marker: scheduled-dependency-audit-js
+          title: 'JS dependency audit found vulnerabilities'
+          digest: ${{ steps.audit.outputs.digest }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            `npm audit --audit-level=moderate` found
+            **${{ steps.audit.outputs.count }}** moderate-or-higher advisories in
+            `app/package-lock.json`.
+
+            Affected: `${{ steps.audit.outputs.packages }}`
+
+            This was measured, not inferred — the JSON report parsed. Full output is
+            in the `npm-audit-output` artifact.
+
+            Triage order is **ADR-067 § 6a** — in short: `npm ls <pkg>` to find the
+            parent, then check for a patched release *inside the range already
+            declared* before reaching for a bump or an `overrides` entry.
+
+      - name: Report an audit that could not run
+        if: steps.audit.outputs.status == 'aborted'
+        uses: ./.github/actions/file-audit-issue
+        with:
+          marker: scheduled-dependency-audit-js-aborted
+          title: 'JS dependency audit could not run'
+          digest: ${{ steps.audit.outputs.digest }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            `npm audit --json` produced no parseable report, so **no claim is made
+            about whether vulnerabilities exist** — this is an instrument failure,
+            not a clean result.
+
+            Usual causes: registry unreachable, or a malformed/absent
+            `app/package-lock.json`. Check the `npm-audit-output` artifact and re-run.
+
+      - name: Fail the job
+        if: steps.audit.outputs.status != 'clean'
+        run: |
+          if [ '${{ steps.audit.outputs.status }}' = 'findings' ]; then
+            echo "::error::npm audit found ${{ steps.audit.outputs.count }} moderate-or-higher advisories — see the issue."
+          else
+            echo "::error::npm audit could not produce a report. No findings are implied."
+          fi
+          exit 1

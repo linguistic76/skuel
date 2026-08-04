@@ -75,10 +75,17 @@ commitment — it silently outlives the advisory that motivated it, and nothing 
 Verified 2026-08-03. The asymmetry is not "Python is gated and JS is not" — both have an
 audit tool. The gap is in *where each one runs* and *what happens when it fires*.
 
+> **Update 2026-08-03:** the CI half is closed. `dependency-audit.yml` runs **both** audits on
+> a daily cron, diff-independent, and files an issue on findings. Decision 3 below is resolved
+> — though not the way it was originally framed. The accept-mechanism gap (decision 3's
+> counter-argument) is still open, and is exactly why the new job is advisory rather than a
+> required check.
+
 | | Python | JavaScript |
 |---|---|---|
 | Audit tool | `pip-audit --strict` (`scripts/audit_dependencies.sh`) | `npm audit --audit-level=moderate` |
-| Runs in CI | ✅ `pip_audit` job (`../.github/workflows/ci.yml:279`) | ❌ **no** — `js_tests` runs `npm ci` + vitest only |
+| Runs on PRs | ✅ `pip_audit` job (`../.github/workflows/ci.yml:279`) — **diff-gated** | ❌ **no** — `js_tests` runs `npm ci` + vitest only |
+| Runs on a schedule | ✅ `dependency-audit.yml` daily | ✅ `dependency-audit.yml` daily *(added 2026-08-03)* |
 | Runs locally | `./dev audit-deps` | `./dev quality` check 8 |
 | Accept/ignore mechanism | ✅ `.pip-audit-ignore`, one ID per line with a documented reason | ❌ none |
 | Renovate coverage | ⚠ `pep621` manager — **on paper only; Renovate has never run** | ❌ npm not even in `enabledManagers` |
@@ -86,9 +93,11 @@ audit tool. The gap is in *where each one runs* and *what happens when it fires*
 
 Three consequences worth naming:
 
-- **The JS audit is local-only.** Nothing on the CI gate would have caught this. It surfaced
-  because someone ran `./dev quality` by hand. A contributor who never runs the full local
-  gate can merge a JS advisory without any signal.
+- ~~**The JS audit is local-only.**~~ **CLOSED 2026-08-03** by the daily
+  `dependency-audit.yml`. As written, nothing on the CI gate would have caught this — it
+  surfaced only because someone ran `./dev quality` by hand. Note what did *not* fix it:
+  adding a step to `js_tests` would still have missed this incident, because that job is
+  gated on the `js` path filter and **no file changed at all** (see decision 3).
 - **There is no escape hatch.** Python can accept a finding in `.pip-audit-ignore` with a
   recorded reason. `npm audit` has no per-advisory accept mechanism, so an advisory with no
   upstream fix hard-blocks check 8 — and therefore all of `./dev quality` — until upstream
@@ -163,15 +172,31 @@ These need a founder ruling; none is urgent, all are cheap.
    than leaving decorative config. Until then, dependency freshness is manual.
 2. **Add `npm` to `enabledManagers`?** Only meaningful after (1). If Renovate is enabled,
    adding `npm` is what prevents the next silent lockfile rot.
-3. **Should `npm audit` run in CI?** Adding a step to the existing `js_tests` job is a
-   two-line change and closes the local-only gap. The counter-argument is (2): an advisory
-   with no accept mechanism can block CI with no way to proceed deliberately — so this pairs
-   naturally with deciding what our npm equivalent of `.pip-audit-ignore` is.
+3. ~~**Should `npm audit` run in CI?**~~ **RESOLVED 2026-08-03 — but the proposal above was
+   wrong, and worth recording as such.** It suggested adding a step to `js_tests`. That job is
+   gated on the `js` path filter (`static/js/**`, `tests/js/**`, `package*.json`,
+   `vitest.config.js`), and **this incident changed none of those files** — the lockfile sat
+   still while the advisories were published around it. That placement would have added the
+   *appearance* of coverage while staying blind to the exact failure mode. Diff-gating is the
+   wrong trigger for a check whose input changes on someone else's clock. Shipped instead as
+   `dependency-audit.yml`: a daily cron running **both** audits, diff-independent, filing an
+   issue on findings. The same latent hole existed on the Python side — `pip_audit` is
+   diff-gated too, merely masked because its `py` filter matches nearly every PR — so the
+   scheduled job covers both.
 4. **Pin Node.** An `engines` field or `.nvmrc` costs nothing and makes the §3 ceiling
-   explicit instead of folklore.
+   explicit instead of folklore. **Still open** — deliberately not folded into the
+   scheduled-audit PR, since it changes what every contributor's toolchain must satisfy.
 5. ~~**Extend ADR-067 to the JS surface, or write a sibling ADR?**~~ **RESOLVED 2026-08-03** —
    amended in place. ADR-067's filename was already scope-neutral and its Context always
    intended all dependencies, so § 6 was *added* (never renumbering, since `pyproject.toml`,
    `CLAUDE.md`, and `tests/integration/test_apoc_canary.py` cite its sections by number) and the
    title dropped "& Python". A sibling ADR was rejected: § 5's false claim had to be corrected
    where it lived, and a second doc cannot do that.
+6. **What is our npm equivalent of `.pip-audit-ignore`?** *(New, split out of decision 3.)*
+   Unresolved, and it is the blocker on ever making a dependency audit a **required** check.
+   `npm audit` has no per-advisory accept mechanism, so an advisory with no upstream fix would
+   wedge every merge. Until this exists, `dependency-audit.yml` stays advisory — it files an
+   issue and goes red on its own schedule, and the cost is that a red scheduled run is easier
+   to ignore than a red PR check. Plausible shapes: an allowlist file consumed by a wrapper
+   around `npm audit --json`, or `npm audit --audit-level=high` plus a documented review of
+   what that silently drops.

@@ -138,19 +138,21 @@ with the intentional pins excluded. The intent stands and the file is correct �
 - **No "Dependency Dashboard" issue exists** — decisive, because `renovate.json` extends
   `:dependencyDashboard`, which opens that issue on the first run.
 
-So nothing is watching for stale dependencies. What *does* exist is narrower than it looks — and
-only one of the two runs without a human:
+So nothing is watching for stale dependencies. What *does* exist:
 
 | Signal | Covers | Automated? | Trigger |
 |---|---|---|---|
+| `dependency-audit.yml` | **both** ecosystems | ✅ yes | **daily cron**, independent of any diff — added 2026-08-03 |
 | `pip_audit` CI job | Python CVEs | ✅ yes | **diff-triggered** — only when the `py`/`audit` path filters match |
-| `npm audit` (`./dev quality` check 8) | JS CVEs | ❌ **no** | **only a manual local run** — there is no CI counterpart |
+| `npm audit` (`./dev quality` check 8) | JS CVEs | ❌ **no** | **only a manual local run** |
 
-Neither is a freshness check — both report *published vulnerabilities*, not staleness. And neither
-is reliable against the case that actually bit: a CVE published against a lockfile nobody touched.
-The Python job is diff-gated, so it never fires; the JS check is not automated at all, so it fires
-only if someone happens to run the gate. That is exactly how `undici` 7.28.0 sat vulnerable until a
-manual `./dev quality` caught it (PR #929).
+None of these is a freshness check — all report *published vulnerabilities*, not staleness.
+
+The scheduled job exists because the other two are blind to the case that actually bit: a CVE
+published against a lockfile nobody touched. The `pip_audit` job is diff-gated, so no diff means it
+never fires; `npm audit` is not automated at all, so it fires only if someone happens to run the
+local gate. That is exactly how `undici` 7.28.0 sat vulnerable until a manual `./dev quality` caught
+it (PR #929). Note the scheduled job is **advisory** — deliberately not a required check, see § 6e.
 
 **Before relying on this section, re-check that the claim above is still true.** If Renovate is
 ever installed, add `npm` to `enabledManagers` — the current list omits it, and per the Renovate
@@ -209,10 +211,16 @@ npm run test:js                    # vitest's jsdom environment now exercises th
 ./dev quality                      # full gate
 ```
 
-**6e. Known gaps** (open, not decided here): `npm audit` has no CI counterpart to the `pip_audit`
-job, and no per-advisory accept mechanism equivalent to `.pip-audit-ignore` — so an advisory with
-no upstream fix hard-blocks `./dev quality` with no documented way to proceed deliberately. Tracked
-in [`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md).
+**6e. Known gap: there is no accept mechanism, which is why the audit is advisory.** Python can
+record an accepted finding in `.pip-audit-ignore` with a documented reason. `npm audit` has no
+per-advisory equivalent, so an advisory with **no upstream fix** hard-blocks `./dev quality` check 8
+with no documented way to proceed deliberately.
+
+That is the reason `dependency-audit.yml` (§ 5) is a scheduled, issue-filing job rather than a
+required status check: a reporting job going red is a prompt, but a *gating* job going red on an
+unfixable advisory would wedge every merge in the repo. **Promoting either audit to a required check
+means building the accept mechanism first.** Tracked in
+[`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md).
 
 ---
 
@@ -230,10 +238,13 @@ in [`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.m
   documentation of reality.
 - ~~Renovate adds PR noise. Mitigated by grouping and PR-only (no auto-merge) mode.~~ **Void as
   written (2026-08-03):** Renovate has never run (§ 5), so it produces neither noise nor updates.
-  The live trade-off is the opposite one — dependency freshness is entirely manual, and there is
-  exactly **one** automated CVE signal: the `pip_audit` CI job, which is Python-only *and*
-  diff-triggered. The JS audit is **not** automated at all — `npm audit` runs only when someone
-  invokes `./dev quality` locally (§ 5 table, § 6e). Neither is a freshness check.
+  The live trade-off is the opposite one — dependency **freshness** is entirely manual. What is
+  automated covers **vulnerabilities only**: the daily `dependency-audit.yml` (both ecosystems,
+  diff-independent) plus the diff-gated `pip_audit` CI job. `npm audit` on its own is still not
+  automated — it runs when someone invokes `./dev quality` (§ 5 table). Nothing reports a merely
+  *outdated* dependency.
+- The scheduled audit files an issue rather than blocking a merge. That is deliberate (§ 6e), and
+  the cost is real: a red scheduled run is easy to ignore in a way a red PR check is not.
 
 ### Deferred: TC/UP037 annotation-modernization sweep
 

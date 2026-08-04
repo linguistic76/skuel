@@ -1,0 +1,76 @@
+name: File audit issue
+description: >
+  Open (or update) a marker-keyed issue for a scheduled audit finding. Idempotent by
+  content: an unchanged finding set does not generate a new comment, so a daily job
+  does not produce 365 comments on one stale issue.
+
+inputs:
+  marker:
+    description: Unique HTML-comment key identifying this audit's issue. Must be stable.
+    required: true
+  title:
+    description: Issue title used when creating a new issue.
+    required: true
+  body:
+    description: Issue body (markdown). Must not assert more than the audit measured.
+    required: true
+  digest:
+    description: >
+      Fingerprint of the current finding set. Stored in the marker so an unchanged
+      result is silent and a CHANGED result still comments on the open issue.
+    required: true
+  token:
+    description: GITHUB_TOKEN with issues:write.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const marker  = ${{ toJSON(inputs.marker) }}
+          const title   = ${{ toJSON(inputs.title) }}
+          const body    = ${{ toJSON(inputs.body) }}
+          const digest  = ${{ toJSON(inputs.digest) }}
+
+          // The marker carries the digest so "is this the same finding set?" is answered
+          // from the issue itself — no external state to drift.
+          const stamp  = `<!-- ${marker}:${digest} -->`
+          const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+          const issueBody = [stamp, body, '', `[Audit run](${runUrl})`].join('\n')
+
+          // Search open issues for this marker, ignoring the digest suffix.
+          const open = await github.paginate(github.rest.issues.listForRepo, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            per_page: 100,
+          })
+          const prior = open.find(i => i.body && i.body.includes(`<!-- ${marker}:`))
+
+          if (!prior) {
+            const created = await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo, title, body: issueBody,
+            })
+            core.info(`Opened #${created.data.number}`)
+            return
+          }
+
+          if (prior.body.includes(stamp)) {
+            // Same findings as last time. Saying so again adds nothing.
+            core.info(`#${prior.number} already reports this exact result — staying quiet.`)
+            return
+          }
+
+          await github.rest.issues.createComment({
+            owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+            body: ['The audit result **changed** since this issue was last updated.', '', issueBody].join('\n'),
+          })
+          // Re-stamp the issue body so the next run compares against the current result.
+          await github.rest.issues.update({
+            owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+            body: issueBody,
+          })
+          core.info(`Updated #${prior.number} with a changed result.`)
