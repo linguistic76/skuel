@@ -57,10 +57,15 @@ commitment — it silently outlives the advisory that motivated it, and nothing 
 
 ### Verifying the fix
 
+- **`npm ci` FIRST.** Without it the rest can pass vacuously: `npm audit` reads the lockfile,
+  but `npm run test:js` executes whatever is already in `node_modules` and `./dev quality`
+  never installs. On a lockfile-only diff — a colleague's branch, a revert — the tests would
+  green-light a resolution they never loaded. `npm ci` reinstalls exactly the lockfile, which
+  is what the `js_tests` CI job does.
 - `npm audit --audit-level=moderate` in `app/` — must exit 0 (this is exactly what check 8
   runs).
-- `npm run test:js` — vitest runs in the **jsdom** environment, so the jsdom/undici chain is
-  genuinely exercised rather than merely resolved.
+- `npm run test:js` — vitest runs in the **jsdom** environment, so with the reviewed tree
+  installed the jsdom/undici chain is genuinely exercised rather than merely resolved.
 - `./dev quality` — full gate.
 
 ---

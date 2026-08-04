@@ -195,11 +195,17 @@ field, no `.nvmrc`, no `.node-version`, so local dev Node is unpinned. Staying o
 holds jsdom at `^29`; the day the 7.x undici line stops getting backports, the only fix becomes a
 Node migration. Plan it before the gate is red, not during.
 
-**6d. Verification for any JS dependency change:**
+**6d. Verification for any JS dependency change.** `npm ci` first — **without it this recipe can
+pass vacuously.** `npm audit` reads the lockfile, but `npm run test:js` executes whatever is in
+`node_modules`, and `./dev quality` never installs. In a checkout whose `node_modules` predates the
+change (a colleague's branch, a lockfile-only diff, a revert), the tests would green-light a
+resolution they never loaded. `npm ci` deletes and reinstalls exactly the lockfile — the same step
+the `js_tests` CI job runs.
 
 ```
-npm audit --audit-level=moderate   # what ./dev quality check 8 runs
-npm run test:js                    # vitest's jsdom environment exercises the tree, not just resolves it
+npm ci                             # install the REVIEWED resolution — never skip on a lockfile diff
+npm audit --audit-level=moderate   # what ./dev quality check 8 runs (reads the lockfile)
+npm run test:js                    # vitest's jsdom environment now exercises the installed tree
 ./dev quality                      # full gate
 ```
 
