@@ -61,6 +61,10 @@ def create_calendar_api_routes(
                 "related_uids": item.related_uids,
                 "project_uid": item.project_uid,
                 "streak_count": item.streak_count,
+                # The habit's slot (habit-rhythm arc M1): without it a consumer
+                # would read the representative hour on start_time as a clock
+                # commitment the habit never made.
+                "time_of_day": item.time_of_day.value if item.time_of_day else None,
                 "occurrence_data": item.occurrence_data,
                 "attendee_emails": list(item.attendee_emails),
                 "attendee_count": len(item.attendee_emails),

@@ -82,10 +82,10 @@ named dissolves rather than needing a new ruling.
   Vis.js Timeline in January 2026 (`ui/timeline/components.py`); the resulting
   `/timelines` page is registered but linked from no navigation — an orphaned
   surface fed by `get_calendar_view`.
-- **Habit times are fabricated end to end.** `_habit_to_calendar_item`
-  (`core/services/calendar_service.py:846`) sets `start_time=now` — the moment
-  of the query — with a hardcoded 30-minute duration, ignoring the habit's own
-  `preferred_time` and `duration_minutes`.
+- **Habit times were fabricated end to end** (FIXED in PR 2).
+  `_habit_to_calendar_item` set `start_time=now` — the moment of the query —
+  with a hardcoded 30-minute duration, ignoring the habit's own
+  `preferred_time` and `duration_minutes`. It now derives the block from both.
 - **`preferred_time` is a three-interpretation string.**
   `habit_event_scheduler.py` parses it as `"%H:%M"` clock time;
   `habits_scheduling_service.py` compares slot words ("morning"/"evening");
@@ -100,15 +100,14 @@ named dissolves rather than needing a new ruling.
   MORNING (7–12), AFTERNOON (12–17), EVENING (17–21), NIGHT (21–24),
   LATE_NIGHT (0–5), ANYTIME — each with an hour range and a representative
   hour. M3's ruling maps onto it with no new enum.
-- **The rhythm ordering already exists — but habit expansion bypasses it.**
-  The week view sorts a day's chips chronologically by item start time
-  (`ui/calendar/components.py:248`). However, `_items_by_date` expands each
-  habit occurrence as an `all_day=True` chip re-stamped to midnight
-  (`components.py:281-287`) — so truthful times on the base item alone would
-  still cluster every habit at day start (Codex finding on this PR,
-  code-verified). PR 2 must carry the representative times through occurrence
-  expansion (and the day-aware item-details stamp) for the existing sort to
-  produce the rhythm.
+- **The rhythm ordering already existed — but habit expansion bypassed it**
+  (FIXED in PR 2). Both grids sort a day's chips chronologically by item start
+  time. However, `_items_by_date` expanded each habit occurrence as an
+  `all_day=True` chip re-stamped to midnight — so truthful times on the base
+  item alone would still have clustered every habit at day start (Codex finding
+  on PR 1, code-verified). PR 2 re-dates each occurrence through
+  `habit_block_on`, one re-dating truth shared with the day-aware
+  item-details stamp.
 - **The tick already exists.** Act-from C3 shipped per-day habit completion on
   calendar chips — M6's mechanism is live.
 - **Habit is file-ingestible** (`EntityType.HABIT` ingestion config), so
@@ -160,6 +159,70 @@ read contradicts or extends the ground truth.
 - **`GRAPH_CONTRACT.yaml` does not carry scalar node properties**, so this change
   produces no contract drift and needs no regeneration.
 
+## What PR 2 found that this doc did not say (2026-08-03)
+
+Recorded per the arc's standing rule that a PR updates this doc when its fresh
+read contradicts or extends the ground truth.
+
+- **The chip must speak the SLOT WORD, not the representative hour.** S2 as
+  written stops at deriving `start_time` from the slot; it does not say what the
+  chip *prints*. Printing the derived hour re-fabricates exactly what this arc
+  exists to end: `TimeOfDay.get_default_hour()` maps **MORNING and ANYTIME both
+  to 9**, so "9:00 AM" would tell a founder who chose *anytime* that he
+  committed to nine o'clock, and the clock string is strictly *less* informative
+  than the slot word. The hour is not invertible, so the slot itself now rides
+  on `CalendarItem.time_of_day` and the chip reads `Morning · 20m`. New:
+  `TimeOfDay.get_label()`.
+- **Null is unstated, not "Anytime".** ANYTIME's hour *places* an unstated
+  habit; it must not *name* it. `time_of_day` is passed through unresolved and a
+  slotless habit's chip reads `15m` alone — otherwise the calendar would assert
+  a preference the user never expressed and contradict the two surfaces that
+  already read null as unstated (`ui/activities/habits_views.py` renders no
+  Preferred-Time row; `ui/today/orchestrator.py` drops the habit from the ritual
+  spine). **2 of the 5 live habits carry no `preferred_time` property at all**,
+  so this is the ordinary path.
+- **`duration_minutes = 0` exists in the graph and is not API-creatable.**
+  `habit.pause-and-name` stores `0`, while `HabitCreateRequest` declares
+  `ge=1` — so a test built from the request model cannot reach it. A
+  non-positive duration counts as unstated (a zero-length block is not a
+  block). Not closed by PR 2: the same habit still renders **0m** on
+  `/today` (`ui/today/orchestrator.py`, `int(h.duration_minutes or 0)`) and
+  proposes **15** in `habits_scheduling_service`.
+- **The month chip cannot carry the duration inline.** A month day column is
+  pinned at ~93px (the grid is `min-w-[700px]` over 7 columns and pans rather
+  than shrinking). Measured in headless Chrome at 375px, an inline duration tag
+  cut the habit title box from 47.1px to **5.0px** — the habit's NAME vanished,
+  and with it the C3 completion ✓, which `calendar.css` renders inside
+  `.calendar-item-title::after`. The block rides in the month chip's tooltip;
+  the week chip has its own line for it.
+- **The within-day sort needed a HABIT-ONLY tiebreak.** Slots collide by design
+  and nothing upstream orders habits — their fetch issues no `ORDER BY` — so
+  three live habits at 09:00 would reshuffle between renders, with month and
+  week (separate requests) able to disagree. Widening the tiebreak to *all*
+  kinds silently re-sorted tasks: `_task_to_calendar_item` stamps **every**
+  scheduled task 09:00 and every due-only task midnight, so they all tie and
+  would have flipped from query order to alphabetical with milestones wedged
+  between due tasks. `_item_order`'s secondary key is habits only.
+- **`_stamp_habit_occurrence`'s times had no reader before this PR.** The modal
+  always took the occurrence-day branch, so the stamp's `all_day`/times were
+  inert. They are load-bearing now: the modal states the day *and* the block.
+- **A scheduled Task can never be "an afternoon task."**
+  `_task_to_calendar_item` stamps every scheduled task 09:00 (only a due date
+  gives midnight). The PR 2 acceptance's before-an-afternoon-item case was
+  therefore verified against an **Event** — the one kind carrying a real clock
+  time — plus an evening habit below it.
+- **The non-positive-duration guard is load-bearing for a boundary PR 2 does
+  not own.** `visualization_service._calendar_item_to_visjs` flips
+  `type="range"` → `"point"` with `end: null` when `end_time == start_time`.
+  PR 3 deletes that consumer; don't delete the guard with it.
+- **Pre-existing fragility, observed not fixed:** an entity whose Neo4j time is
+  *zoned* (`time()` rather than `localtime()`) makes `datetime.combine` produce
+  a tz-aware datetime, and the grid's chronological sort then raises
+  `TypeError: can't compare offset-naive and offset-aware datetimes` for the
+  whole week. Not reachable through the app's write path (services pass Python
+  `time` objects, stored as `LocalTime`); surfaced by seeding a verification
+  probe with `time('14:00')`.
+
 ### Time vocabularies deliberately left alone (DECLINE list)
 
 Seven independent hour→slot bucketings exist, no two agreeing. PR 1 unifies the
@@ -180,6 +243,14 @@ ones in the **habit** domain (`habits_scheduling_service`'s 12/17 split and
   slot but not deleted.
 - `ContextualHabitCompletionRequest.environmental_factors["time_of_day"]` — a
   free-form `dict[str, Any]` on a live route, unconstrained by design.
+- `EventSchedulingConfig.default_duration_minutes` (PR 2's decline) — the same
+  30 the calendar now reads from `HabitBlock.DEFAULT_DURATION_MINUTES`, left on
+  its own literal. This list already fences the scheduler's knobs off, and at
+  least five habit-duration defaults exist (15 in `habits_scheduling_service`
+  and the DSL converters, a hardcoded 30 inside `habit_event_scheduler`'s
+  routine builder that bypasses the config field anyway, and the Today
+  orchestrator's `or 0`). Unifying them is a *scheduling* question, not a
+  rendering one.
 - `properties(habit)` in the UserContext MEGA-QUERY splats the raw stored
   string into `entities_rich["habits"]` with no coercion. No consumer reads the
   key today; a future one must not assume it is a `TimeOfDay`.
@@ -203,12 +274,13 @@ ones in the **habit** domain (`habits_scheduling_service`'s 12/17 split and
   `TimeOfDay` representative hour and `end_time` from real
   `duration_minutes`, with ANYTIME/unset falling back to a stable default.
   The truthful times must survive occurrence expansion: `_items_by_date`
-  currently re-stamps expanded habit chips to midnight/`all_day=True`
-  (`components.py:281-287`) — the expansion combines each occurrence date
-  with the habit's representative time instead, and the day-aware
-  item-details stamp keeps working. Chips surface the duration (e.g. "20m").
+  re-stamped expanded habit chips to midnight/`all_day=True` — the expansion
+  combines each occurrence date with the habit's representative time instead,
+  and the day-aware item-details stamp keeps working. Chips surface the
+  duration (e.g. "20m") — inline on the week chip (`Morning · 20m`), in the
+  tooltip on the month chip, which has no room for it (see "What PR 2 found").
   Week-view day columns then order habits into the day's rhythm among tasks
-  and events via the existing sort.
+  and events via the existing sort. **Shipped as #933.**
 - **S3 — Delete `/timelines` (PR 3).** Remove the page, `timeline_routes.py`,
   the timeline endpoints and service methods
   (`get_timeline_data`/`get_tasks_timeline_data`, `format_for_visjs`/
@@ -256,7 +328,7 @@ vault content in this public repo — specimen shapes only.
 |----|-------|------------------------|
 | 0 | This doc (docs-only; summon Codex explicitly — the gate auto-passes docs PRs without a verdict) | Doc reflects M1–M7 + the E4 resolution; PR table matches the rulings |
 | 1 ✅ #927 | S1 — `preferred_time: TimeOfDay \| None`; live-value migration; consumer unification (scheduler, scheduling service, Today orchestrator); form + frontmatter authoring | Live graph shows no non-enum `preferred_time` values after migration (the `"medium"` pollution is gone); setting "Meditate" to `morning` + 20m via the habit form persists both; a habit vault file with `preferred_time: evening` frontmatter ingests to `TimeOfDay.EVENING`; a slot-valued habit still appears in Today's rituals/day-spine (the `_parse_hhmm` gate no longer drops it); `./dev quality` green with all three former string interpretations gone |
-| 2 | S2 — truthful habit chip times + visible duration, preserved through occurrence expansion | In a live week view, "Meditate" (morning, 20m) renders before an afternoon task and after nothing earlier, with "20m" on the chip — verified on a NON-today day (proving expansion carries the time, not just the base item); an ANYTIME habit still renders (stable fallback position); the C3 completion tick still flips the chip and the day-aware modal still opens with its `?date=`; headless-Chrome verified in week AND month views |
+| 2 ✅ | S2 — truthful habit chip times + visible duration, preserved through occurrence expansion | MET. Live week view, Thu 2026-08-06 (a NON-today day): `Meditate` renders `Morning · 20m` above a 2:00 PM event and an `Evening · 45m` habit, with nothing earlier than its own slot; a slotless habit renders `15m` at the ANYTIME fallback position; the C3 tick flips the chip (`data-completed`, `::after` = `" ✓"`, opacity 0.55) in week AND month; the `?date=` modal opens on `Monday, August 3, 2026 · Evening · 45m` and Mark Complete OOB-swaps. Headless Chrome at 1280px and 375px. **The chip states the SLOT WORD, not the derived hour** — see "What PR 2 found" |
 | 3 | S3 — delete `/timelines` and its feeding surface | `/timelines` returns 404; timeline endpoints removed from `visualization_api.py`; no dangling imports (`./dev quality` green); `static/vendor/vis-timeline/` gone; `./dev bloat` reports no new dead code; calendar views unaffected in headless Chrome |
 
 Suggested order 1 → 2 (2 depends on 1's truthful fields); PR 3 is independent

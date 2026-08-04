@@ -649,6 +649,30 @@ class ExerciseTimeEstimate:
 
 
 # ============================================================================
+# HABIT BLOCK (habit-rhythm arc M3)
+# ============================================================================
+
+
+class HabitBlock:
+    """How long a habit's block is DRAWN when the habit itself doesn't say.
+
+    A habit is a fuzzy block — a ``TimeOfDay`` slot plus a duration, never a
+    clock appointment (habit-rhythm arc M3). The slot half needs no constant:
+    ``TimeOfDay.ANYTIME.get_representative_time()`` is the one fallback hour.
+    The duration half does, because ``Habit.duration_minutes`` is optional and
+    a chip still has to have an extent.
+
+    Scoped to the calendar's habit chips (``CalendarService._habit_to_calendar_item``).
+    Several other habit-duration defaults exist (``EventSchedulingConfig``'s 30 for
+    habit→event scheduling, 15 in ``habits_scheduling_service`` and the DSL
+    converters); unifying them is a scheduling question, not a rendering one, and
+    the habit-rhythm arc's DECLINE list fences the scheduler's knobs off.
+    """
+
+    DEFAULT_DURATION_MINUTES: Final = 30
+
+
+# ============================================================================
 # KNOWLEDGE INTENSITY WEIGHTS (core/ports/knowledge_pattern_protocol.py)
 # ============================================================================
 
