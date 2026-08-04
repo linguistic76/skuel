@@ -119,21 +119,29 @@ runs:
             return
           }
 
-          // The body always becomes the current state, so the issue reads as a live
-          // status page rather than a historical alert.
+          // Comment ONLY when the reported content changed. A body edit raises no
+          // notification, so an unchanged result stays silent even at daily cadence.
+          //
+          // ORDER MATTERS: notify BEFORE persisting the digest. The stamp is what
+          // suppresses re-notification, so writing it first and then failing to comment
+          // would lose that notification permanently — the next run would see a matching
+          // digest and stay quiet about a change nobody was ever told about. Commenting
+          // first means a failure merely leaves the old stamp in place and the next run
+          // retries. The opposite failure (comment lands, body write fails) repeats a
+          // comment, which is the harmless direction.
+          const changed = priorDigest !== digest
+          if (changed) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+              body: ['The audit result **changed**.', '', body].join('\n'),
+            })
+          }
+
+          // Only then does the body become the current state.
           await github.rest.issues.update({
             owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
             body: issueBody,
           })
-
-          // Comment ONLY when the reported content changed. A body edit raises no
-          // notification, so an unchanged result stays silent even at daily cadence.
-          if (priorDigest === digest) {
-            core.info(`#${prior.number} already reports this exact result — updated silently.`)
-            return
-          }
-          await github.rest.issues.createComment({
-            owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
-            body: ['The audit result **changed**.', '', body].join('\n'),
-          })
-          core.info(`Commented on #${prior.number} with a changed result.`)
+          core.info(changed
+            ? `Commented on #${prior.number} with a changed result.`
+            : `#${prior.number} already reports this exact result — updated silently.`)

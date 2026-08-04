@@ -215,14 +215,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Audit exited $rc"
 
-      - name: Upload audit output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pip-audit-output
-          path: app/pip-audit.txt
-          retention-days: 30
-
       # ONE write, every state — see the js_audit job for why there is no resolve path.
       # Default-branch only: workflow_dispatch accepts --ref, and a branch run would
       # otherwise stamp the repo-wide marker with that ref's commit timestamp.
@@ -238,6 +230,17 @@ jobs:
           open_if_absent: ${{ steps.audit.outputs.exit_code != '0' }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.audit.outputs.report }}
+
+      # Deliberately AFTER Report. Steps carry an implicit success() check, so a transient
+      # artifact-service failure ahead of Report would skip it and leave the status issue
+      # stale — the artifact is a convenience, the issue is the promise.
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-output
+          path: app/pip-audit.txt
+          retention-days: 30
 
       # Fail for BOTH findings and an aborted instrument — an audit that could not
       # measure must not read as a green day.
@@ -347,14 +350,25 @@ jobs:
                 advisories++;
                 return (x.url || x.source || x.title || "") + " (" + sev + ")";
               }).filter(Boolean).map(String).sort();
-              return "| `" + name + "` | " + sevOf(info) + " | " + items.join("<br>") + " |";
+              // fixAvailable MUST be rendered. When a patched release ships for an
+              // already-reported advisory, the package, severity and advisory ids are all
+              // unchanged — only this field moves. Leaving it out means the digest is
+              // identical and nobody is told the finding just became actionable, which is
+              // precisely when a maintainer wants to hear. It is `true`, `false`, or an
+              // object naming the upgrade.
+              const fix = info.fixAvailable;
+              const fixText = fix && typeof fix === "object"
+                ? "fix: `" + (fix.name || "?") + "@" + (fix.version || "?") + "`" +
+                  (fix.isSemVerMajor ? " (semver-major)" : "")
+                : (fix ? "fix available" : "**no fix available**");
+              return "| `" + name + "` | " + sevOf(info) + " | " + fixText + " | " + items.join("<br>") + " |";
             }).sort();
             const report = [
               "**" + advisories + "** moderate-or-higher advisories across **" +
                 affected.length + "** affected package(s) in `app/package-lock.json`.",
               "",
-              "| Package | Severity | Advisories |",
-              "|---|---|---|",
+              "| Package | Severity | Fix | Advisories |",
+              "|---|---|---|---|",
             ].concat(rows).concat([TRIAGE]).join("\n");
             emit("findings", report);
           ')
@@ -377,16 +391,6 @@ jobs:
           echo "npm audit exited $rc; status=$status digest=$digest"
           cat audit-report.md
 
-      - name: Upload audit output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-audit-output
-          path: |
-            app/npm-audit.txt
-            app/npm-audit.json
-          retention-days: 30
-
       # ONE write, every state. The body is entirely the probe's rendered report, so
       # clean / findings / could-not-measure all travel the same path — which is what
       # keeps the clean revision stamped and the ordering guard fed.
@@ -407,6 +411,18 @@ jobs:
           open_if_absent: ${{ steps.audit.outputs.status != 'clean' }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.audit.outputs.report }}
+
+      # Deliberately AFTER Report — see the python_audit job. A transient artifact
+      # failure must not be able to skip the issue write.
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-output
+          path: |
+            app/npm-audit.txt
+            app/npm-audit.json
+          retention-days: 30
 
       - name: Fail the job
         if: steps.audit.outputs.status != 'clean'
