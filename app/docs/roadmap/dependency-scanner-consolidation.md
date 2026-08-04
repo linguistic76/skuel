@@ -112,6 +112,33 @@ coverage while every dashboard stays green.
 
 **So the migration is gated on a differential measurement, not on reading documentation.**
 
+### The second unknown: severity thresholds, and an asymmetry nobody wrote down
+
+The two ecosystems do **not** apply the same severity policy today (verified 2026-08-03):
+
+| | threshold | where |
+|---|---|---|
+| Python | **none — every severity is reported** | `pip-audit` takes no audit-level; `audit_dependencies.sh` sets only `--strict` |
+| JavaScript | **moderate-or-higher** | `npm audit --audit-level=moderate` (`run_quality_checks.py:173`) and the `SEV` filter in `dependency-audit.yml` |
+
+That asymmetry is undocumented and consolidation forces a decision about it. Whether
+`osv-scanner` can express a minimum severity at all is **not established** — its usage docs
+describe `--config` and `PackageOverrides`, neither of which is a severity threshold.
+
+Two consequences to design for rather than discover:
+
+- If osv-scanner has no threshold, preserving the JS policy means post-filtering its output,
+  which is more work than "point it at both lockfiles".
+- Low-severity JS findings must **not** be parked in `[[IgnoredVulns]]`. That entry means
+  *"we have accepted this specific vulnerability"*; using it to enforce a global severity
+  floor conflates policy with case-by-case acceptance, and the resulting file stops being
+  reviewable — every reader would have to know which entries are real decisions and which
+  are threshold noise.
+
+**Decide the policy explicitly before migrating**: keep moderate-or-higher for JS and
+all-severities for Python, or unify. Either is defensible; drifting into one by accident is
+not. Whatever is chosen belongs in ADR-067 alongside the tooling change (step 7).
+
 ---
 
 ## 5. Migration sketch
@@ -127,9 +154,14 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    using the pre-#929 lockfile (`git show 4041a0025:app/package-lock.json`) as a **positive
    control** — it carries 5 known undici advisories, so a scanner that reports nothing there
    is broken, not clean.
-2. **Establish the unauditable-package behaviour** (§ 4) with a deliberately unresolvable
-   entry. If there is no strict equivalent, that is a finding worth recording here — it may
-   be a reason not to migrate.
+
+   **Diff at matching severity thresholds** (§ 4), or the JS comparison is meaningless:
+   `npm audit` is filtered to moderate-or-higher and osv-scanner may not be, so every
+   low-severity finding would show up as a spurious "new" result and drown the real signal.
+2. **Establish the unauditable-package behaviour AND whether a minimum severity can be
+   expressed** (§ 4), each with a deliberately constructed case. If there is no `--strict`
+   equivalent, or no way to hold the JS threshold at moderate, those are findings worth
+   recording here — either may be a reason not to migrate.
 3. Port `.pip-audit-ignore` → `osv-scanner.toml`, giving every entry a `reason` and an
    `ignoreUntil`.
 4. Rewrite `scripts/audit_dependencies.sh` to invoke osv-scanner over both lockfiles; keep
