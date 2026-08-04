@@ -195,30 +195,38 @@ jobs:
             const v = j && j.metadata && j.metadata.vulnerabilities;
             const sha = s => crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
             if (!v) { console.log(["aborted", 0, 0, "none", sha("aborted")].join("|")); process.exit(0); }
-            // metadata.vulnerabilities counts PACKAGES, not advisories: npm folds every
-            // advisory for a package into one entry at that package aggregate severity.
-            // The pre-fix undici case is 5 GHSAs but metadata.total === 1, so this number
-            // must never be labelled "advisories".
-            const pkgs = (v.moderate || 0) + (v.high || 0) + (v.critical || 0);
-            const names = Object.keys(j.vulnerabilities || {}).sort().join(",") || "none";
+            // --audit-level sets the FAILURE THRESHOLD only; it does not filter the
+            // report, so j.vulnerabilities still carries low/info entries. Everything
+            // below is derived from ONE filtered set, because the digest must key on
+            // exactly what the issue reports: an unfiltered name list would present a
+            // low-only package as "affected" under a moderate-or-higher heading, and an
+            // unfiltered identity would fire a "result changed" comment for a new LOW
+            // advisory while the reported moderate+ picture was unchanged.
             const SEV = new Set(["moderate", "high", "critical"]);
-            // The digest must key on advisory IDENTITY *and each advisory severity*, not
-            // just the affected package names. A NEW advisory against an already-listed
-            // package leaves the name list identical; and a single advisory changing
-            // severity leaves the package aggregate unchanged whenever another advisory
-            // already holds the maximum. Either way the reporting action would treat a
-            // genuinely new security result as duplicate and stay silent. via[] entries
-            // are objects carrying url + their OWN severity, or plain strings when the
-            // path runs through another package.
+            const sevOf = x => String((x && x.severity) || "?").toLowerCase();
+            // A package severity is the MAX over its advisories, so anything with a
+            // qualifying advisory necessarily qualifies here too. (No apostrophes in
+            // this block — it is a single-quoted shell string; one would end it.)
+            const affected = Object.entries(j.vulnerabilities || {}).filter(([, info]) => SEV.has(sevOf(info)));
+            const pkgs = affected.length;
+            const names = affected.map(([name]) => name).sort().join(",") || "none";
+            // The digest keys on advisory IDENTITY *and each advisory severity*. A NEW
+            // advisory against an already-listed package leaves the name list identical;
+            // and one advisory changing severity leaves the package aggregate unchanged
+            // whenever another already holds the maximum. Either way the reporting action
+            // would otherwise treat a genuinely new security result as duplicate and stay
+            // silent. via[] entries are objects carrying url + their OWN severity, or
+            // plain strings naming the package the path runs through.
             let advisories = 0;
-            const identity = Object.entries(j.vulnerabilities || {}).map(([name, info]) => {
+            const identity = affected.map(([name, info]) => {
               const ids = (Array.isArray(info.via) ? info.via : []).map(x => {
                 if (typeof x === "string") return x;
-                const sev = String(x.severity || "?").toLowerCase();
-                if (SEV.has(sev)) advisories++;
+                const sev = sevOf(x);
+                if (!SEV.has(sev)) return "";
+                advisories++;
                 return (x.url || x.source || x.title || "") + "@" + sev;
               }).filter(Boolean).map(String).sort();
-              return name + "@" + (info.severity || "?") + ":" + ids.join("+");
+              return name + "@" + sevOf(info) + ":" + ids.join("+");
             }).sort().join("\n");
             const status = pkgs > 0 ? "findings" : "clean";
             // Hashed inside node so the identity string — which contains arbitrary
