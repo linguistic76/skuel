@@ -218,9 +218,19 @@ jobs:
             // silent. via[] entries are objects carrying url + their OWN severity, or
             // plain strings naming the package the path runs through.
             let advisories = 0;
+            const all = j.vulnerabilities || {};
             const identity = affected.map(([name, info]) => {
               const ids = (Array.isArray(info.via) ? info.via : []).map(x => {
-                if (typeof x === "string") return x;
+                if (typeof x === "string") {
+                  // A plain string names the dependency this vulnerability comes
+                  // through. Keep it only when that dependency ITSELF qualifies:
+                  // a package can gain a low-only vulnerable dependency, and
+                  // retaining that string would move the digest and post a
+                  // "result changed" comment while the reported moderate+ set is
+                  // unchanged. The advisory objects themselves live on the entry
+                  // for the package they originate from, so nothing is lost.
+                  return SEV.has(sevOf(all[x])) ? x : "";
+                }
                 const sev = sevOf(x);
                 if (!SEV.has(sev)) return "";
                 advisories++;
