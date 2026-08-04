@@ -137,10 +137,14 @@ jobs:
       - name: Audit locked dependencies
         id: audit
         working-directory: app
+        env:
+          # env, not interpolation — see the Fail the job steps. A fixed enum today, but
+          # the rule is applied uniformly so no future value can become shell code.
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
         run: |
           rc=0
           install_failed=0
-          if [ "${{ steps.install.outcome }}" = "failure" ]; then
+          if [ "$INSTALL_OUTCOME" = "failure" ]; then
             install_failed=1
             # Installation failed, so pip-audit was never available. Say that, rather
             # than running an audit that would fail for a second, unrelated reason.
@@ -242,10 +246,14 @@ jobs:
 
       # Fail for BOTH findings and an aborted instrument — an audit that could not
       # measure must not read as a green day.
+      # env, not interpolation — see the js_audit job. This value is numeric today, but
+      # the rule is the mechanism, not the current contents.
       - name: Fail the job
         if: steps.audit.outputs.exit_code != '0'
+        env:
+          EXIT_CODE: ${{ steps.audit.outputs.exit_code }}
         run: |
-          echo "::error::Python dependency audit exited ${{ steps.audit.outputs.exit_code }} — see the issue and the artifact."
+          echo "::error::Python dependency audit exited $EXIT_CODE — see the issue and the artifact."
           exit 1
 
   js_audit:
@@ -420,11 +428,20 @@ jobs:
             app/npm-audit.json
           retention-days: 30
 
+      # Values reach the shell through env, never by textual interpolation. A `${{ }}`
+      # expression is pasted in BEFORE bash parses, so any backtick or $( ) in the value
+      # is executed as code — and this summary legitimately contains Markdown backticks,
+      # while advisory titles rendered into the report are free text from the advisory
+      # feed. Demonstrated: the interpolated form runs the backticked path and drops it
+      # from the message; a value containing `id` executes it.
       - name: Fail the job
         if: steps.audit.outputs.status != 'clean'
+        env:
+          STATUS: ${{ steps.audit.outputs.status }}
+          SUMMARY: ${{ steps.audit.outputs.summary }}
         run: |
-          if [ '${{ steps.audit.outputs.status }}' = 'findings' ]; then
-            echo "::error::npm audit — ${{ steps.audit.outputs.summary }} See the issue."
+          if [ "$STATUS" = 'findings' ]; then
+            echo "::error::npm audit — $SUMMARY See the issue."
           else
             echo "::error::npm audit could not produce a report. No findings are implied."
           fi
