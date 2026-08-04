@@ -378,6 +378,36 @@ warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
 disable_error_code = ["method-assign", "type-var", "misc", "arg-type"]
 
 # ============================================================================
+# PYDANTIC-MYPY PLUGIN CONFIGURATION
+# ============================================================================
+# The plugin is loaded in [tool.mypy] above (`plugins = ["pydantic.mypy"]`).
+# Without this section `init_typed` defaults to False, and the plugin
+# synthesises every `BaseModel.__init__` with `Any` for every field — which
+# means NOT ONE constructor call to ANY Pydantic model is type-checked
+# anywhere in the tree. The plugin was carrying only half its weight: it
+# silenced the ~400 false-positive "missing argument" errors on
+# `Field(default=...)` while silently disabling argument checking on the very
+# models it was loaded to help.
+#
+# Enabled 2026-08-03. Measured cost of the flip: exactly ONE error tree-wide
+# across 2043 source files (tests/unit/test_search_visibility_scoping.py, a
+# deliberate raw-string boundary probe — suppressed in place with a reason).
+# Positive control, proving the setting is not inert (run 2026-08-03, both
+# directions): injecting `title=12345` into the `HabitCreateRequest(...)` call
+# in core/services/dsl/activity_domain_converters.py is CAUGHT with
+# init_typed=true (arg-type) and is completely INVISIBLE with it false. The
+# false run reports "Success: no issues found in 2043 source files" with the
+# bad literal sitting in core/ — that is what this codebase looked like before
+# this section existed. Re-run that flip before ever relaxing this setting;
+# a green mypy alone is not evidence the plugin is checking anything.
+#
+# Scope note: `arg-type` is disabled for tests/examples/scripts (block above),
+# so init_typed's reach there is limited to codes that survive that disable
+# (list-item, call-arg, ...). Full enforcement is on the four first-party trees.
+[tool.pydantic-mypy]
+init_typed = true
+
+# ============================================================================
 # PYRIGHT CONFIGURATION
 # ============================================================================
 # Complements MyPy. The differentiator is reportAttributeAccessIssue +
