@@ -602,14 +602,15 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 **See:** `/docs/patterns/linter_rules.md`, `docs/patterns/mypy_pragmatic_strategy.md`
 
-### Dependency & Python Versioning
+### Dependency Versioning (Python + JS)
 
 **Core Principle:** "Latest stable by default — pins are deliberate and documented"
 
 - Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins.
 - **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (conservative driver pin, Bolt-forward-compatible with the calendar-line server; driver version is *decoupled* from server version — ADR-044 + ADR-067 §3) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite).
 - **Neo4j server policy:** latest *published* monthly of the *calendar* line (`YYYY.MM`); pinned exactly in `../infrastructure/docker-compose.yml` (never a floating tag). Bump ~monthly (each monthly is hotfixed only until the next ships); upgrades are forward/in-place, downgrades unsupported. 5.26 LTS is the no-treadmill alternative (ADR-067 §3a).
-- Renovate opens update PRs only (no auto-merge); CI runs `tests/unit/` + `tests/integration/` (Neo4j testcontainer) on Python-file changes — verify locally with `./dev quality` + `./dev test-integration`.
+- ⚠ **Renovate has NEVER run** (0 bot PRs across 920, no Dependency Dashboard issue — ADR-067 §5, corrected 2026-08-03). `renovate.json` is config for an app that was never enabled, so **dependency freshness is manual**. Don't cite Renovate as coverage. CI runs `tests/unit/` + `tests/integration/` (Neo4j testcontainer) on Python-file changes — verify locally with `./dev quality` + `./dev test-integration`.
+- **JS/Node (ADR-067 §6):** on an `npm audit` failure, `npm ls <pkg>` for the parent, then **check for a patched release inside the range already declared** before any bump or `overrides` (an `overrides` entry is a pin and outlives its advisory). `npm audit` is `./dev quality` check 8 and has **no CI counterpart** and no `.pip-audit-ignore` equivalent. **Node 20 is EOL (2026-04-30)** and caps jsdom at `^29`/undici 7.x; the only Node version recorded anywhere is `node-version: '20'` in `../.github/workflows/ci.yml`.
 - Ruff `target-version` is `py314`; TC002/TC003/UP037 are ignored to isolate their ~1024-site deferred sweep (runtime-risky w/ Pydantic/FastHTML — see the `[tool.ruff]` ignore list). Black lags at `py312` (see `[tool.black]`).
 
 **See:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`

@@ -9,13 +9,20 @@ tags: [roadmap, dependencies, security, javascript, node, npm, maintenance]
 **Created:** 2026-08-03
 **Trigger:** `./dev quality` check 8 (npm Audit) went red on `main` at 4041a0025 — 5 high
 GHSAs against `undici` 7.28.0, pulled in transitively by `jsdom`.
-**Authority for the Python half:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
+**Authority:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md` — §§ 1–5 Python,
+**§ 6 JavaScript / Node** (added 2026-08-03; this doc supplied its raw material)
 **Related:** `/docs/roadmap/security-hardening-deferred.md` (item 5A is the pip-audit
 counterpart), `scripts/run_quality_checks.py` (check 8), `scripts/audit_dependencies.sh`
 
 The incident itself was a three-line lockfile bump. What it exposed is that the JS
-dependency surface is governed by **nothing written down** — ADR-067 contains no mention of
-`npm`, `node`, `package.json`, or `audit`, and the automation it describes has never run.
+dependency surface was governed by **nothing written down** — at the time, ADR-067 contained no
+mention of `npm`, `node`, `package.json`, or `audit`, and the automation it described had never
+run.
+
+> **Update 2026-08-03:** the policy half is now closed. ADR-067 gained **§ 6 (JavaScript / Node
+> dependencies)** — triage order, the `overrides`-is-a-pin rule, and the runtime ceiling — and
+> **§ 5 was corrected** to state that Renovate has never run. Open decision 5 below is therefore
+> resolved; the rest stand.
 
 ---
 
@@ -50,10 +57,15 @@ commitment — it silently outlives the advisory that motivated it, and nothing 
 
 ### Verifying the fix
 
+- **`npm ci` FIRST.** Without it the rest can pass vacuously: `npm audit` reads the lockfile,
+  but `npm run test:js` executes whatever is already in `node_modules` and `./dev quality`
+  never installs. On a lockfile-only diff — a colleague's branch, a revert — the tests would
+  green-light a resolution they never loaded. `npm ci` reinstalls exactly the lockfile, which
+  is what the `js_tests` CI job does.
 - `npm audit --audit-level=moderate` in `app/` — must exit 0 (this is exactly what check 8
   runs).
-- `npm run test:js` — vitest runs in the **jsdom** environment, so the jsdom/undici chain is
-  genuinely exercised rather than merely resolved.
+- `npm run test:js` — vitest runs in the **jsdom** environment, so with the reviewed tree
+  installed the jsdom/undici chain is genuinely exercised rather than merely resolved.
 - `./dev quality` — full gate.
 
 ---
@@ -69,8 +81,8 @@ audit tool. The gap is in *where each one runs* and *what happens when it fires*
 | Runs in CI | ✅ `pip_audit` job (`../.github/workflows/ci.yml:279`) | ❌ **no** — `js_tests` runs `npm ci` + vitest only |
 | Runs locally | `./dev audit-deps` | `./dev quality` check 8 |
 | Accept/ignore mechanism | ✅ `.pip-audit-ignore`, one ID per line with a documented reason | ❌ none |
-| Renovate coverage | ✅ `pep621` manager | ❌ npm not in `enabledManagers` |
-| Written policy | ADR-067 | ❌ none |
+| Renovate coverage | ⚠ `pep621` manager — **on paper only; Renovate has never run** | ❌ npm not even in `enabledManagers` |
+| Written policy | ADR-067 §§ 1–5 | ✅ ADR-067 § 6 (added 2026-08-03) |
 
 Three consequences worth naming:
 
@@ -89,8 +101,9 @@ Three consequences worth naming:
 
 ### The larger finding: Renovate has never run
 
-ADR-067 §5 records "Automation: Renovate opens PRs, never auto-merges." That automation is
-**not operating on this repository**. Evidence (2026-08-03):
+ADR-067 §5 *used to* record "Automation: Renovate opens PRs, never auto-merges." That automation
+is **not operating on this repository**, and §5 has since been corrected to say so — it now reads
+"Renovate is CONFIGURED but has never run" and carries the evidence below. Evidence (2026-08-03):
 
 - **0** PRs authored by `renovate`/`dependabot` across **920** PRs sampled (full history).
 - **0** issues by either, across 200 sampled.
@@ -144,10 +157,10 @@ the only consumers.
 
 These need a founder ruling; none is urgent, all are cheap.
 
-1. **Is Renovate meant to be running at all?** If yes, install/enable it — ADR-067 §5
-   currently describes automation that does not exist. If no, ADR-067 §5 should say what
-   actually keeps deps fresh, and `renovate.json` should be deleted rather than left as a
-   decorative config.
+1. **Is Renovate meant to be running at all?** Still open — installing a GitHub App is a
+   founder action. ADR-067 §5 no longer *claims* it runs (corrected 2026-08-03), so the doc is
+   at least honest; the choice is between installing it and deleting `renovate.json` rather
+   than leaving decorative config. Until then, dependency freshness is manual.
 2. **Add `npm` to `enabledManagers`?** Only meaningful after (1). If Renovate is enabled,
    adding `npm` is what prevents the next silent lockfile rot.
 3. **Should `npm audit` run in CI?** Adding a step to the existing `js_tests` job is a
@@ -156,6 +169,9 @@ These need a founder ruling; none is urgent, all are cheap.
    naturally with deciding what our npm equivalent of `.pip-audit-ignore` is.
 4. **Pin Node.** An `engines` field or `.nvmrc` costs nothing and makes the §3 ceiling
    explicit instead of folklore.
-5. **Extend ADR-067 to the JS surface, or write a sibling ADR?** The triage order in §1 is a
-   rule that should bind future changes, and rules belong in `decisions/`, not in a roadmap
-   doc. This file is the raw material for that amendment, not a substitute for it.
+5. ~~**Extend ADR-067 to the JS surface, or write a sibling ADR?**~~ **RESOLVED 2026-08-03** —
+   amended in place. ADR-067's filename was already scope-neutral and its Context always
+   intended all dependencies, so § 6 was *added* (never renumbering, since `pyproject.toml`,
+   `CLAUDE.md`, and `tests/integration/test_apoc_canary.py` cite its sections by number) and the
+   title dropped "& Python". A sibling ADR was rejected: § 5's false claim had to be corrected
+   where it lived, and a second doc cannot do that.
