@@ -48,13 +48,6 @@ inputs:
       the stamp and used to reject a run whose revision is OLDER than the one already
       recorded — workflow concurrency serializes runs but does not order them.
     required: true
-  open_if_absent:
-    description: >
-      Whether to CREATE the issue when none exists. False for a clean result: a repo that
-      has never had a finding should not carry a status issue. Once the issue exists it is
-      kept current in every state, including clean.
-    required: false
-    default: 'true'
   token:
     description: GITHUB_TOKEN with issues:write.
     required: true
@@ -71,7 +64,6 @@ runs:
           const body       = ${{ toJSON(inputs.body) }}
           const digest     = ${{ toJSON(inputs.digest) }}
           const revisionTs = Number(${{ toJSON(inputs.revision_ts) }}) || 0
-          const openIfAbsent = ${{ toJSON(inputs.open_if_absent) }} !== 'false'
 
           // Issues filed by GITHUB_TOKEN are authored by this identity.
           const BOT = 'github-actions[bot]'
@@ -108,10 +100,14 @@ runs:
           }
 
           if (!prior) {
-            if (!openIfAbsent) {
-              core.info(`Nothing to report and no open issue for ${marker} — staying quiet.`)
-              return
-            }
+            // ALWAYS create, including for a clean result. An "only create when there is
+            // something wrong" hedge is the same state-removing special case that caused
+            // the whole open/close tail: with no issue and a clean run returning early,
+            // the clean revision is never stamped, so a late-running OLDER findings run
+            // finds no guard and files a stale issue. Creating unconditionally means
+            // every run leaves recorded state. The cost is one open issue per ecosystem
+            // reading "no unaccepted findings", which is a status page, and is also
+            // visible proof the audit is running at all.
             const created = await github.rest.issues.create({
               owner: context.repo.owner, repo: context.repo.repo, title, body: issueBody,
             })

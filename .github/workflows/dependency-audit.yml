@@ -226,8 +226,6 @@ jobs:
           title: 'Python dependency audit'
           digest: ${{ steps.audit.outputs.digest }}
           revision_ts: ${{ steps.rev.outputs.ts }}
-          # Do not open an issue just to say "clean" — but once it exists, keep it current.
-          open_if_absent: ${{ steps.audit.outputs.exit_code != '0' }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.audit.outputs.report }}
 
@@ -407,8 +405,6 @@ jobs:
           title: 'JS dependency audit'
           digest: ${{ steps.audit.outputs.digest }}
           revision_ts: ${{ steps.rev.outputs.ts }}
-          # Do not open an issue just to say "clean" — but once it exists, keep it current.
-          open_if_absent: ${{ steps.audit.outputs.status != 'clean' }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.audit.outputs.report }}
 
