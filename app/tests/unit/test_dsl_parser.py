@@ -97,6 +97,37 @@ class TestSingleLineParsing:
         activity = result.value
         expected = future_date.replace(hour=0, minute=0, second=0, microsecond=0)
         assert activity.when == expected
+        assert activity.when_has_clock_time is False, (
+            "a bare date parses to midnight; nobody stated a time of day"
+        )
+
+    def test_when_clock_time_flag_tracks_what_the_author_actually_wrote(self):
+        """Midnight-from-a-date and midnight-from-00:00 are the same datetime.
+
+        Only the flag separates them, and habit slot inference turns on it —
+        without it a bare date reads as LATE_NIGHT and schedules at 02:00.
+        """
+        from datetime import timedelta
+
+        day = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        cases = {
+            day: False,
+            f"{day}T00:00": True,
+            f"{day} 00:00": True,
+            f"{day}T09:30": True,
+            f"{day} 09:30": True,
+        }
+        for when_str, expected in cases.items():
+            result = parse_activity_line(f"- [ ] Sit @context(habit) @when({when_str})")
+            assert result.is_ok, when_str
+            assert result.value.when_has_clock_time is expected, when_str
+
+    def test_unparseable_when_carries_no_clock_time(self):
+        result = parse_activity_line("- [ ] Finish report @context(task) @when(Friday)")
+
+        assert result.is_ok
+        assert result.value.when is None
+        assert result.value.when_has_clock_time is False
 
     def test_parse_with_when_unparseable_drops_schedule(self):
         """An unparseable @when value keeps the line but drops the schedule."""

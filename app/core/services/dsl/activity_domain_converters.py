@@ -172,7 +172,15 @@ def activity_to_habit_request(activity: ParsedActivityLine) -> Result[Conversion
         # time-of-day vocabulary (habit-rhythm arc M1/M3). This previously took
         # @energy()'s first state, writing energy words like "medium" into a time
         # field; energy still reaches the habit as a tag below.
-        preferred_time=TimeOfDay.from_hour(activity.when.hour) if activity.when else None,
+        #
+        # Only when the author wrote a clock time: a date-only @when() parses to
+        # midnight, and inferring LATE_NIGHT from it would schedule the habit at
+        # 02:00 on the strength of a time nobody stated.
+        preferred_time=(
+            TimeOfDay.from_hour(activity.when.hour)
+            if activity.when is not None and activity.when_has_clock_time
+            else None
+        ),
         linked_knowledge_uids=activity.get_linked_knowledge(),
         linked_goal_uids=activity.get_linked_goals(),
         linked_principle_uids=activity.get_linked_principles(),
