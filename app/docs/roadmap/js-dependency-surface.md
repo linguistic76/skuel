@@ -9,7 +9,8 @@ tags: [roadmap, dependencies, security, javascript, node, npm, maintenance]
 **Created:** 2026-08-03
 **Trigger:** `./dev quality` check 8 (npm Audit) went red on `main` at 4041a0025 — 5 high
 GHSAs against `undici` 7.28.0, pulled in transitively by `jsdom`.
-**Authority for the Python half:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
+**Authority:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md` — §§ 1–5 Python,
+**§ 6 JavaScript / Node** (added 2026-08-03; this doc supplied its raw material)
 **Related:** `/docs/roadmap/security-hardening-deferred.md` (item 5A is the pip-audit
 counterpart), `scripts/run_quality_checks.py` (check 8), `scripts/audit_dependencies.sh`
 
@@ -75,7 +76,7 @@ audit tool. The gap is in *where each one runs* and *what happens when it fires*
 | Runs in CI | ✅ `pip_audit` job (`../.github/workflows/ci.yml:279`) | ❌ **no** — `js_tests` runs `npm ci` + vitest only |
 | Runs locally | `./dev audit-deps` | `./dev quality` check 8 |
 | Accept/ignore mechanism | ✅ `.pip-audit-ignore`, one ID per line with a documented reason | ❌ none |
-| Renovate coverage | ✅ `pep621` manager | ❌ npm not in `enabledManagers` |
+| Renovate coverage | ⚠ `pep621` manager — **on paper only; Renovate has never run** | ❌ npm not even in `enabledManagers` |
 | Written policy | ADR-067 §§ 1–5 | ✅ ADR-067 § 6 (added 2026-08-03) |
 
 Three consequences worth naming:
@@ -95,8 +96,9 @@ Three consequences worth naming:
 
 ### The larger finding: Renovate has never run
 
-ADR-067 §5 records "Automation: Renovate opens PRs, never auto-merges." That automation is
-**not operating on this repository**. Evidence (2026-08-03):
+ADR-067 §5 *used to* record "Automation: Renovate opens PRs, never auto-merges." That automation
+is **not operating on this repository**, and §5 has since been corrected to say so — it now reads
+"Renovate is CONFIGURED but has never run" and carries the evidence below. Evidence (2026-08-03):
 
 - **0** PRs authored by `renovate`/`dependabot` across **920** PRs sampled (full history).
 - **0** issues by either, across 200 sampled.

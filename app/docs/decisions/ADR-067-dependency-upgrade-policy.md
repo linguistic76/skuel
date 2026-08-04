@@ -153,8 +153,10 @@ only if someone happens to run the gate. That is exactly how `undici` 7.28.0 sat
 manual `./dev quality` caught it (PR #929).
 
 **Before relying on this section, re-check that the claim above is still true.** If Renovate is
-ever installed, add `npm` to `enabledManagers` (§ 6) — the current list omits it, and per the
-Renovate docs `enabledManagers` allows only the listed managers and implicitly disables all others.
+ever installed, add `npm` to `enabledManagers` — the current list omits it, and per the Renovate
+docs `enabledManagers` allows only the listed managers and implicitly disables all others, so
+`package.json` / `package-lock.json` would still never be extracted. (Open decision 2 in
+[`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md).)
 
 ### 6. JavaScript / Node dependencies
 
