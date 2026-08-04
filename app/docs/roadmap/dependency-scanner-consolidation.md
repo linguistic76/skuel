@@ -11,9 +11,8 @@ tags: [roadmap, dependencies, security, tooling, uv, npm, maintenance]
 **Authority:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md` (§ 5 signals, § 6e the JS gap)
 **Related:** `/docs/roadmap/js-dependency-surface.md` (the open decision this would close),
 `/docs/roadmap/security-hardening-deferred.md` item 5 (where `.pip-audit-ignore` was agreed),
-`scripts/audit_dependencies.sh`. The scheduled workflow this doc refers to
-(`.github/workflows/dependency-audit.yml`) lands with **PR #931** — until that merges, the
-references to it below describe a file not yet on `main`.
+`scripts/audit_dependencies.sh`, `../.github/workflows/dependency-audit.yml` (the scheduled
+audit, merged as **#931**)
 
 The question that produced this doc was "uv replaced pip, so why is pip-audit here?" The
 answer is that `pip-audit` is a **scanner**, not an installer, so uv does not obsolete it —
