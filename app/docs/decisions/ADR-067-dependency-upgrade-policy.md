@@ -58,7 +58,7 @@ This ADR records the policy and the structure that enforces it.
 | Interpreter pin | `.python-version` | `3.14` |
 | Container base | `Dockerfile`, `Dockerfile.production` | `python:3.14-slim` |
 | **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003/UP037 suppressed — see Deferred); black: **`py312`** (still intentionally lags) |
-| **Node runtime** | `../.github/workflows/ci.yml` (`setup-node`) — **the only place it is recorded** | `'20'` — ⚠ EOL 2026-04-30; no `engines`, no `.nvmrc`, so local dev is unpinned (§ 6c) |
+| **Node runtime** | **Two** `setup-node` pins that must move together: `../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml` (`js_audit`) | `'20'` — ⚠ EOL 2026-04-30; no `engines`, no `.nvmrc`, so local dev is unpinned (§ 6c) |
 
 ### 3. Intentional pins (exempt from routine upgrades)
 
@@ -191,9 +191,12 @@ Node 20  →  jsdom ^29  →  undici 7.x
 Node 22+ →  jsdom 30   →  undici 8.x   (jsdom 30 engines: ^22.22.2 || ^24.15.0 || >=26.0.0)
 ```
 
-**Node 20 reached end-of-life on 2026-04-30** and the repo is still on it. The only recorded Node
-version anywhere is `node-version: '20'` in `../.github/workflows/ci.yml` — there is no `engines`
-field, no `.nvmrc`, no `.node-version`, so local dev Node is unpinned. Staying on EOL Node is what
+**Node 20 reached end-of-life on 2026-04-30** and the repo is still on it. There is no `engines`
+field, no `.nvmrc` and no `.node-version`, so local dev Node is unpinned and the version is recorded
+**only in two `setup-node` steps that must be bumped together** —
+`../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml`
+(`js_audit`). Moving one without the other leaves the security audit on a different toolchain than
+the tests. Staying on EOL Node is what
 holds jsdom at `^29`; the day the 7.x undici line stops getting backports, the only fix becomes a
 Node migration. Plan it before the gate is red, not during.
 

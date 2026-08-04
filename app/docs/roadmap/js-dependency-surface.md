@@ -131,10 +131,12 @@ change the answer to most of the open decisions below.
 `schedule.json`). The repo is past it. Node 22 is in maintenance until 2027-04-30; Node 24
 until 2028-04-30.
 
-The only recorded Node version anywhere in the repo is `node-version: '20'` in
-`../.github/workflows/ci.yml:661`. There is **no** `engines` field in `app/package.json`, no
+Node is recorded **only in two `setup-node` steps, which must be bumped together**:
+`../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml`
+(`js_audit`, added 2026-08-03). There is **no** `engines` field in `app/package.json`, no
 `.nvmrc`, no `.node-version`, and no Node in either Dockerfile. Local dev Node is therefore
-unpinned and unverified — it happens to work.
+unpinned and unverified — it happens to work. Bumping one workflow and not the other would leave
+the scheduled security audit on a different toolchain than the tests, which is decision 4 below.
 
 Staying on Node 20 imposes a ceiling that is invisible until an advisory lands:
 

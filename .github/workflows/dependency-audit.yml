@@ -116,8 +116,17 @@ jobs:
       # --frozen the lock is left alone and `audit_dependencies.sh` detects the staleness
       # itself, which routes it through the normal reporting path (the issue body already
       # names re-locking as one of the three causes).
+      #
+      # continue-on-error, because a failure here must still be REPORTED. Subsequent
+      # steps carry an implicit success() check, so an unguarded install failure (a
+      # registry blip on a cache miss) would abort the job before the audit ran and skip
+      # the Report step entirely — landing only in the Actions log, which is the exact
+      # failure mode this workflow exists to prevent. Instead the audit step below sees
+      # the outcome and renders it as a could-not-measure result.
       - name: Install dependencies
+        id: install
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        continue-on-error: true
         working-directory: app
         run: uv sync --frozen --no-install-project
 
@@ -130,7 +139,17 @@ jobs:
         working-directory: app
         run: |
           rc=0
-          bash scripts/audit_dependencies.sh > pip-audit.txt 2>&1 || rc=$?
+          install_failed=0
+          if [ "${{ steps.install.outcome }}" = "failure" ]; then
+            install_failed=1
+            # Installation failed, so pip-audit was never available. Say that, rather
+            # than running an audit that would fail for a second, unrelated reason.
+            rc=127
+            echo "Dependency installation (uv sync --frozen) FAILED, so the audit never ran." > pip-audit.txt
+            echo "See the Install dependencies step in the run log." >> pip-audit.txt
+          else
+            bash scripts/audit_dependencies.sh > pip-audit.txt 2>&1 || rc=$?
+          fi
           cat pip-audit.txt
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           # Render the exact text the issue will show, then hash THAT — same invariant
@@ -153,8 +172,22 @@ jobs:
           # would put part of it outside change detection.
           {
             if [ "$rc" -eq 0 ]; then
-              echo "**No known vulnerabilities.** \`pip-audit\` over the full locked resolution"
-              echo "(all groups, OSV) came back clean."
+              # NOT "no known vulnerabilities": pip-audit exits zero when every finding
+              # matches an id in .pip-audit-ignore, and this repo currently accepts nine.
+              # The captured output below says how many were ignored, so claiming none
+              # exist would contradict the very block it sits above.
+              echo "**No unaccepted findings.** \`pip-audit\` over the full locked resolution"
+              echo "(all groups, OSV) reported nothing outside \`app/.pip-audit-ignore\`."
+              echo "Accepted findings recorded there are still present — see the ignored"
+              echo "count below."
+            elif [ "$install_failed" -eq 1 ]; then
+              # Distinct wording: the script never ran, so blaming its exit code would
+              # assert something that did not happen.
+              echo "**The audit could not run.** Dependency installation (\`uv sync --frozen\`)"
+              echo "failed, so \`pip-audit\` was never available and was not invoked."
+              echo ""
+              echo "**No claim is made about whether vulnerabilities exist.** Usually a registry"
+              echo "blip on a cache miss — re-run the workflow."
             else
               echo "\`scripts/audit_dependencies.sh\` exited non-zero (\`$rc\`)."
               echo ""
