@@ -1,17 +1,17 @@
 ---
-title: "ADR-067: Dependency & Python upgrade policy (latest-stable default, documented pins)"
-updated: 2026-06-05
+title: "ADR-067: Dependency upgrade policy (latest-stable default, documented pins)"
+updated: 2026-08-03
 status: current
 category: decisions
-tags: [adr, decisions, dependencies, uv, python, tooling, maintenance]
+tags: [adr, decisions, dependencies, uv, python, javascript, npm, node, tooling, maintenance]
 related: [ADR-044, ADR-049, ADR-063]
 ---
 
-# ADR-067: Dependency & Python upgrade policy (latest-stable default, documented pins)
+# ADR-067: Dependency upgrade policy (latest-stable default, documented pins)
 
 **Status:** Accepted
 
-**Date:** 2026-06-05
+**Date:** 2026-06-05 (amended 2026-08-03 — § 6 added, § 5 corrected)
 
 **Decision Type:** ✅ Pattern/Practice
 
@@ -58,6 +58,7 @@ This ADR records the policy and the structure that enforces it.
 | Interpreter pin | `.python-version` | `3.14` |
 | Container base | `Dockerfile`, `Dockerfile.production` | `python:3.14-slim` |
 | **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003/UP037 suppressed — see Deferred); black: **`py312`** (still intentionally lags) |
+| **Node runtime** | `../.github/workflows/ci.yml` (`setup-node`) — **the only place it is recorded** | `'20'` — ⚠ EOL 2026-04-30; no `engines`, no `.nvmrc`, so local dev is unpinned (§ 6c) |
 
 ### 3. Intentional pins (exempt from routine upgrades)
 
@@ -122,12 +123,86 @@ test for "is this a pin or a stale floor?" is: a pin says **why** and references
 Steps 5–7 are mandatory because **CI runs unit tests only** (not integration tests): a unit-only
 pass proves nothing about a real driver/runtime bump. Verify against local Docker Neo4j.
 
-### 5. Automation: Renovate opens PRs, never auto-merges
+### 5. Automation: Renovate is CONFIGURED but has never run
 
-`renovate.json` is configured to **open update PRs for human review only** (no auto-merge). Given CI
-covers only unit tests (not integration), an unattended merge could ship a runtime break against the
-real database. Renovate groups minor/patch updates, and is explicitly told to **leave the intentional
-pins alone**.
+> **Corrected 2026-08-03.** This section previously asserted that Renovate opens update PRs. It
+> does not. The configuration is real; the automation is not running. Treat dependency freshness
+> as a **manual** responsibility until that changes.
+
+`renovate.json` *describes* PR-only updates for human review (no auto-merge), grouped minor/patch,
+with the intentional pins excluded. The intent stands and the file is correct — but as measured on
+2026-08-03, **no Renovate run has ever happened on this repository**:
+
+- **0** PRs authored by `renovate`/`dependabot` across **920** PRs (full history).
+- **0** issues by either.
+- **No "Dependency Dashboard" issue exists** — decisive, because `renovate.json` extends
+  `:dependencyDashboard`, which opens that issue on the first run.
+
+So nothing is watching for stale dependencies. What *does* fire is narrower than it looks, and is
+diff-triggered rather than continuous:
+
+| Signal | Covers | Trigger |
+|---|---|---|
+| `pip_audit` CI job | Python CVEs | only when the `py`/`audit` path filters match |
+| `npm audit` (`./dev quality` check 8) | JS CVEs | only a local run — **no CI counterpart** |
+
+Neither is a freshness check — both report *published vulnerabilities*, not staleness — and a CVE
+published against an unchanged lockfile is invisible to a diff-gated job. That is exactly how
+`undici` 7.28.0 sat vulnerable until a manual `./dev quality` caught it (PR #929).
+
+**Before relying on this section, re-check that the claim above is still true.** If Renovate is
+ever installed, add `npm` to `enabledManagers` (§ 6) — the current list omits it, and per the
+Renovate docs `enabledManagers` allows only the listed managers and implicitly disables all others.
+
+### 6. JavaScript / Node dependencies
+
+Everything above §5 was written for the Python surface. `app/package.json`, `app/package-lock.json`
+and the Node toolchain are governed by the same **latest-stable-by-default** principle, with the
+rules below. Added 2026-08-03 (PR #929 exposed the omission).
+
+**6a. Triage order for a transitive `npm audit` failure.** Most of the time you stop at step 2.
+
+1. `npm ls <pkg>` — find the parent. A transitive dep is a symptom; the parent is what you control.
+2. **Check for a patched release inside the range already declared.** Compare the parent's declared
+   range (`npm view <parent>@<ver> dependencies.<pkg>`) against what the registry has
+   (`npm view <pkg> versions --json`, `npm view <pkg> dist-tags`). A major line upstream has moved
+   off is often still receiving backports — the fix may already be inside the range you accept.
+3. Read npm's own hint: *"fix available via `npm audit fix`"* means a semver-compatible fix exists.
+   *"requires --force"* or *breaking change* means the in-range option is gone.
+4. Only then consider a parent major bump or an `overrides` entry — and check § 6c first.
+
+**6b. `overrides` is a pin, and carries a pin's obligations.** An `overrides` entry in
+`package.json` forces a transitive version for every consumer and **silently outlives the advisory
+that motivated it** — nothing revisits it. Same rule as § 3: it must say *why* and reference this
+ADR. Prefer an in-range fix (§ 6a step 2) or a parent bump; reach for `overrides` only when neither
+exists.
+
+**6c. Check the runtime ceiling before any parent major bump.** The Node version caps the
+dependency tree, and the cap is invisible until an advisory lands. As of 2026-08-03:
+
+```
+Node 20  →  jsdom ^29  →  undici 7.x
+Node 22+ →  jsdom 30   →  undici 8.x   (jsdom 30 engines: ^22.22.2 || ^24.15.0 || >=26.0.0)
+```
+
+**Node 20 reached end-of-life on 2026-04-30** and the repo is still on it. The only recorded Node
+version anywhere is `node-version: '20'` in `../.github/workflows/ci.yml` — there is no `engines`
+field, no `.nvmrc`, no `.node-version`, so local dev Node is unpinned. Staying on EOL Node is what
+holds jsdom at `^29`; the day the 7.x undici line stops getting backports, the only fix becomes a
+Node migration. Plan it before the gate is red, not during.
+
+**6d. Verification for any JS dependency change:**
+
+```
+npm audit --audit-level=moderate   # what ./dev quality check 8 runs
+npm run test:js                    # vitest's jsdom environment exercises the tree, not just resolves it
+./dev quality                      # full gate
+```
+
+**6e. Known gaps** (open, not decided here): `npm audit` has no CI counterpart to the `pip_audit`
+job, and no per-advisory accept mechanism equivalent to `.pip-audit-ignore` — so an advisory with
+no upstream fix hard-blocks `./dev quality` with no documented way to proceed deliberately. Tracked
+in [`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md).
 
 ---
 
@@ -143,7 +218,10 @@ pins alone**.
 
 - Raising floors on every upgrade means more `pyproject.toml` churn — accepted; the floors are
   documentation of reality.
-- Renovate adds PR noise. Mitigated by grouping and PR-only (no auto-merge) mode.
+- ~~Renovate adds PR noise. Mitigated by grouping and PR-only (no auto-merge) mode.~~ **Void as
+  written (2026-08-03):** Renovate has never run (§ 5), so it produces neither noise nor updates.
+  The live trade-off is the opposite one — dependency freshness is entirely manual, and the only
+  automated signals are the two diff-triggered CVE audits in § 5.
 
 ### Deferred: TC/UP037 annotation-modernization sweep
 
