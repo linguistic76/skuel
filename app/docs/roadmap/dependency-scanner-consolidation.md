@@ -134,6 +134,28 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    `ignoreUntil`.
 4. Rewrite `scripts/audit_dependencies.sh` to invoke osv-scanner over both lockfiles; keep
    the script as the ONE path so CI and `./dev audit-deps` cannot diverge.
+
+   **Every call site must move together.** Two review rounds on this doc each found a
+   consumer the sketch had missed, so here is the full list rather than a third guess —
+   re-derive it before starting, because it will have drifted:
+
+   ```bash
+   grep -rn "npm.*audit\|audit_dependencies\.sh" \
+     app/dev app/scripts/ .github/workflows/ --include="*.py" --include="*.sh" --include="*.yml"
+   ```
+
+   | Call site | Invokes | Note |
+   |---|---|---|
+   | `app/dev:83` (`./dev audit-deps`) | the script | |
+   | `.github/workflows/ci.yml:310` (`pip_audit`) | the script | **required check** — see step 5 |
+   | `.github/workflows/dependency-audit.yml:155` (`python_audit`) | the script | |
+   | `.github/workflows/dependency-audit.yml:289,294` (`js_audit`) | `npm audit` **directly** | must move to the script |
+   | `app/scripts/run_quality_checks.py:173` (`./dev quality` check 8) | `npm audit` **directly** | must move to the script |
+
+   The last two matter most: they bypass the shared script today, so leaving them alone
+   would mean an advisory accepted in `osv-scanner.toml` still fails `./dev quality` and
+   the scheduled JS audit — defeating both the accept mechanism that motivates this
+   migration (§ 2.4) and the single-path property that makes findings agree everywhere.
 5. **Migrate the REQUIRED CI job in the same change — this is the step that bites.**
    `ci.yml`'s `pip_audit` job runs that same script, so step 4 changes it too. Verified
    2026-08-03, it needs three edits or it breaks:
