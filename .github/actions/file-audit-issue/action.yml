@@ -32,6 +32,13 @@ inputs:
       already-listed package must change it.
     required: false
     default: ''
+  revision_ts:
+    description: >
+      Commit timestamp (epoch seconds) of the revision this result describes. Recorded in
+      the stamp and used to reject writes from a run whose revision is OLDER than the one
+      already recorded — workflow concurrency serializes runs but does not order them.
+    required: false
+    default: '0'
   token:
     description: GITHUB_TOKEN with issues:write.
     required: true
@@ -48,21 +55,50 @@ runs:
           const title   = ${{ toJSON(inputs.title) }}
           const body    = ${{ toJSON(inputs.body) }}
           const digest  = ${{ toJSON(inputs.digest) }}
+          const revisionTs = Number(${{ toJSON(inputs.revision_ts) }}) || 0
 
-          // The marker carries the digest so "is this the same finding set?" is answered
-          // from the issue itself — no external state to drift.
-          const stamp  = `<!-- ${marker}:${digest} -->`
+          // Issues filed by GITHUB_TOKEN are authored by this identity.
+          const BOT = 'github-actions[bot]'
+
+          // The marker carries the digest ("is this the same finding set?") and the
+          // revision it describes ("is this state newer than what is recorded?"), both
+          // answered from the issue itself — no external state to drift.
+          const stamp  = `<!-- ${marker}:${digest}:${revisionTs} -->`
           const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
           const issueBody = [stamp, body, '', `[Audit run](${runUrl})`].join('\n')
 
-          // Search open issues for this marker, ignoring the digest suffix.
           const open = await github.paginate(github.rest.issues.listForRepo, {
             owner: context.repo.owner,
             repo: context.repo.repo,
             state: 'open',
             per_page: 100,
           })
-          const prior = open.find(i => i.body && i.body.includes(`<!-- ${marker}:`))
+          // The marker string is PUBLIC — it is visible in every issue this action
+          // files. listForRepo also returns pull requests. So an untrusted user could
+          // open an issue or PR containing the marker and have it selected here:
+          // redirecting updates, failing the action against a PR, or (with the
+          // reproducible digest) suppressing reporting entirely. Only accept a
+          // non-PR issue authored by the workflow identity.
+          const isOurs = i =>
+            i && i.body && !i.pull_request &&
+            i.user && i.user.login === BOT &&
+            i.body.includes(`<!-- ${marker}:`)
+          const prior = open.find(isOurs)
+
+          // Ordering guard. The workflow concurrency group gives mutual exclusion but
+          // NOT chronological ordering — GitHub documents order within a group as
+          // arbitrary — so an older revision can execute after a newer one and write
+          // stale state. Each stamp records the revision it describes; refuse to
+          // overwrite a stamp describing a NEWER revision, in both modes.
+          const stampMatch = i => (i && i.body && i.body.match(new RegExp(`<!-- ${marker}:([^:]*):(\\d+) -->`))) || null
+          const stampedDigest = i => { const m = stampMatch(i); return m ? m[1] : null }
+          const stampedRev = i => { const m = stampMatch(i); return m ? Number(m[2]) : 0 }
+          if (prior && revisionTs && stampedRev(prior) > revisionTs) {
+            core.info(
+              `#${prior.number} already describes revision ${stampedRev(prior)}, newer than this run (${revisionTs}). ` +
+              `Refusing to write stale state.`)
+            return
+          }
 
           if (mode === 'resolve') {
             // The condition cleared. Close the issue rather than leaving it open with a
@@ -93,8 +129,19 @@ runs:
             return
           }
 
-          if (prior.body.includes(stamp)) {
-            // Same findings as last time. Saying so again adds nothing.
+          // Compare the DIGEST only. The stamp also carries the revision timestamp,
+          // which moves with every commit — comparing the whole stamp would make an
+          // unchanged finding set look new on every run and comment daily.
+          if (stampedDigest(prior) === digest) {
+            // Same findings as last time. Saying so again adds nothing. Refresh the
+            // recorded revision silently (a body edit raises no notification) so the
+            // ordering guard keeps comparing against the newest run that examined this.
+            if (stampedRev(prior) !== revisionTs) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: prior.number,
+                body: issueBody,
+              })
+            }
             core.info(`#${prior.number} already reports this exact result — staying quiet.`)
             return
           }

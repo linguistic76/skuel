@@ -78,6 +78,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Ordering key for the marker issue. Concurrency serializes runs but does not
+      # order them, so a result must carry the revision it describes.
+      - name: Record the revision this result describes
+        id: rev
+        run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -142,6 +148,7 @@ jobs:
           marker: scheduled-dependency-audit-python
           title: 'Python dependency audit is failing'
           digest: ${{ steps.audit.outputs.digest }}
+          revision_ts: ${{ steps.rev.outputs.ts }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             `scripts/audit_dependencies.sh` exited non-zero on the scheduled run.
@@ -171,6 +178,7 @@ jobs:
         with:
           mode: resolve
           marker: scheduled-dependency-audit-python
+          revision_ts: ${{ steps.rev.outputs.ts }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # Fail for BOTH findings and an aborted instrument — an audit that could not
@@ -187,6 +195,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Ordering key for the marker issue — see the python_audit job.
+      - name: Record the revision this result describes
+        id: rev
+        run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -310,6 +323,7 @@ jobs:
           marker: scheduled-dependency-audit-js
           title: 'JS dependency audit found vulnerabilities'
           digest: ${{ steps.audit.outputs.digest }}
+          revision_ts: ${{ steps.rev.outputs.ts }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             `npm audit --audit-level=moderate` over `app/package-lock.json`:
@@ -338,6 +352,7 @@ jobs:
           marker: scheduled-dependency-audit-js-aborted
           title: 'JS dependency audit could not run'
           digest: ${{ steps.audit.outputs.digest }}
+          revision_ts: ${{ steps.rev.outputs.ts }}
           token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             `npm audit --json` produced no parseable report, so **no claim is made
@@ -356,6 +371,7 @@ jobs:
         with:
           mode: resolve
           marker: scheduled-dependency-audit-js-aborted
+          revision_ts: ${{ steps.rev.outputs.ts }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # Clean measurement closes the vulnerabilities issue too. Leaving it open with a
@@ -366,6 +382,7 @@ jobs:
         with:
           mode: resolve
           marker: scheduled-dependency-audit-js
+          revision_ts: ${{ steps.rev.outputs.ts }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fail the job
