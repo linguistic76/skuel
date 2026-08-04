@@ -2,7 +2,7 @@
 
 Habit-rhythm arc S2. The habitual week is meant to be *seen* as an ordered
 sequence (M5): a morning habit sits above an afternoon event, an evening habit
-below it. That ordering already existed — ``sorted(..., key=_item_start)`` in
+below it. That ordering already existed — ``sorted(..., key=_item_order)`` in
 both grids — but habit expansion bypassed it, re-stamping every occurrence chip
 to midnight so all habits clustered at day start no matter what the habit said.
 
@@ -239,6 +239,29 @@ def test_habits_sharing_a_slot_render_in_a_stable_order() -> None:
 
     assert forward.index("Meditate") < forward.index("Pause and name")  # title breaks the tie
     assert forward == reversed_
+
+
+def test_same_named_habits_in_the_same_slot_still_order_deterministically() -> None:
+    """Nothing enforces unique habit titles, so title alone is not a total key.
+
+    Two same-named habits are exactly the pair a reader cannot tell apart by
+    position — and they carry different durations and open different ``?date=``
+    modals, so fetch order would swap live controls between renders.
+    """
+    first = _habit_base("habit_a", "Stretch", TimeOfDay.MORNING, 10)
+    second = _habit_base("habit_b", "Stretch", TimeOfDay.MORNING, 40)
+    occurrences = {
+        "habit_a": _daily("habit_a", [NON_TODAY]),
+        "habit_b": _daily("habit_b", [NON_TODAY]),
+    }
+
+    forward = to_xml(create_week_grid(_data([first, second], occurrences)))
+    reversed_ = to_xml(create_week_grid(_data([second, first], occurrences)))
+
+    assert forward == reversed_
+    assert forward.index("Morning \u00b7 10m") < forward.index(
+        "Morning \u00b7 40m"
+    )  # uid breaks it
 
 
 def test_the_tiebreak_never_reorders_non_habit_items() -> None:

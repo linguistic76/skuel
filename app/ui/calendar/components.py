@@ -245,24 +245,31 @@ def create_calendar_toolbar(
 # ============================================================================
 
 
-def _item_order(item: CalendarItem) -> tuple[datetime, str]:
-    """Sort key: start time, then — for habits only — title (ordering within a day).
+def _item_order(item: CalendarItem) -> tuple[datetime, str, str]:
+    """Sort key: start time, then — for habits only — title then uid.
 
-    Habits need the tiebreak because slots collide by design: MORNING and
-    ANYTIME both resolve to 09:00 and three of the five live habits land there,
-    while nothing upstream orders them — their fetch issues no ``ORDER BY``. On
-    a bare start-time key the day's rhythm would reshuffle between renders, and
-    month and week (separate requests) could disagree with each other.
+    Habits need a tiebreak because slots collide by design: MORNING and ANYTIME
+    both resolve to 09:00 and three of the five live habits land there, while
+    nothing upstream orders them — their fetch issues no ``ORDER BY``. On a bare
+    start-time key the day's rhythm would reshuffle between renders, and month
+    and week (separate requests) could disagree with each other.
 
-    Every other kind keeps ``""`` and therefore its insertion order under
+    The uid is what makes the key TOTAL. Nothing enforces unique habit titles,
+    and two same-named habits are exactly the pair a reader cannot tell apart by
+    position — yet they carry different durations and open different ``?date=``
+    modals, so leaving them to fetch order would swap live controls between
+    renders.
+
+    Every other kind keeps ``("", "")`` and therefore its insertion order under
     Python's stable sort — tasks, then events, then goals, each already ordered
     by its query. Widening the tiebreak to all kinds would silently re-sort
     them: `_task_to_calendar_item` stamps EVERY scheduled task 09:00 and every
     due-only task midnight, so they all tie, and they would flip from
     newest-first to alphabetical with milestones wedged in between.
     """
-    tiebreak = item.title if item.item_type == CalendarItemType.HABIT else ""
-    return (item.start_time, tiebreak)
+    if item.item_type != CalendarItemType.HABIT:
+        return (item.start_time, "", "")
+    return (item.start_time, item.title, item.source_uid)
 
 
 def _items_by_date(calendar_data: CalendarData) -> dict[date, list[CalendarItem]]:
