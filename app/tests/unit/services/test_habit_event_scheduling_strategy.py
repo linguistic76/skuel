@@ -10,6 +10,8 @@ event to its representative hour would pin the habit to a time the user
 specifically declined to choose.
 """
 
+from datetime import date, datetime, time, timedelta
+
 import pytest
 
 from core.models.enums import Priority, RecurrencePattern, TimeOfDay
@@ -55,10 +57,23 @@ class TestStrategySelection:
             is SchedulingStrategy.FIXED_TIME
         )
 
-    def test_anytime_is_not_a_declared_slot(self, scheduler) -> None:
-        """ANYTIME means 'no preference' — it must not become a fixed 09:00."""
+    def test_anytime_is_flexible_not_merely_unfixed(self, scheduler) -> None:
+        """ANYTIME means 'no preference', so no heuristic may pin it either.
+
+        Asserting only ``is not FIXED_TIME`` was too weak: it passed while the
+        habit fell through to OPTIMAL_TIME and got pinned to 10:00 anyway.
+        """
         strategy = scheduler._determine_strategy(_habit(preferred_time=TimeOfDay.ANYTIME), None)
-        assert strategy is not SchedulingStrategy.FIXED_TIME
+        assert strategy is SchedulingStrategy.FLEXIBLE
+
+    def test_anytime_beats_the_heuristics_that_would_pin_it(self, scheduler) -> None:
+        for overrides in (
+            {"is_identity_habit": True, "current_streak": 30},
+            {"habit_category": HabitCategory.LEARNING},
+            {"tags": ("evening",)},
+        ):
+            habit = _habit(preferred_time=TimeOfDay.ANYTIME, **overrides)
+            assert scheduler._determine_strategy(habit, None) is SchedulingStrategy.FLEXIBLE
 
     def test_a_slot_outranks_the_category_heuristic(self, scheduler) -> None:
         """Without this the LEARNING rule would overwrite an evening habit with morning."""
@@ -88,16 +103,56 @@ class TestAppliedTime:
     )
     def test_the_event_lands_on_the_slots_representative_hour(self, scheduler, slot, hour) -> None:
         events = scheduler._apply_scheduling_strategy(
-            [EventDTO(uid="event_x", user_uid="u", title="Sit")], _habit(preferred_time=slot), None
+            [self._event()], _habit(preferred_time=slot), None
         )
         assert events[0].start_time is not None
         assert events[0].start_time.hour == hour
         assert events[0].start_time.minute == 0
 
     def test_an_anytime_habit_is_never_pinned_to_a_clock_time(self, scheduler) -> None:
+        """``!= ANYTIME's own hour`` was the weak version — it passed on 10:00."""
         events = scheduler._apply_scheduling_strategy(
-            [EventDTO(uid="event_x", user_uid="u", title="Sit")],
-            _habit(preferred_time=TimeOfDay.ANYTIME),
-            None,
+            [self._event()], _habit(preferred_time=TimeOfDay.ANYTIME), None
         )
-        assert events[0].start_time != TimeOfDay.ANYTIME.get_representative_time()
+        assert events[0].start_time is None
+        assert events[0].end_time is None, "a flexible event must not keep a committed end"
+
+    @pytest.mark.parametrize("slot", [s for s in TimeOfDay if s is not TimeOfDay.ANYTIME])
+    def test_the_end_follows_the_start_that_was_actually_chosen(self, scheduler, slot) -> None:
+        """The generator stamps both times from a provisional 10:00 optimal start.
+
+        Moving only the start left a stale end: an evening habit ran 19:00 to 10:30,
+        finishing nine hours before it began.
+        """
+        events = scheduler._apply_scheduling_strategy(
+            [self._event()], _habit(preferred_time=slot, duration_minutes=45), None
+        )
+        event = events[0]
+        assert event.start_time is not None and event.end_time is not None
+        assert event.end_time > event.start_time, f"{slot.value}: end precedes start"
+        elapsed = datetime.combine(event.event_date, event.end_time) - datetime.combine(
+            event.event_date, event.start_time
+        )
+        assert elapsed == timedelta(minutes=45), f"{slot.value}: duration is not the habit's"
+
+    def test_a_habit_with_no_duration_uses_the_configured_default(self, scheduler) -> None:
+        events = scheduler._apply_scheduling_strategy(
+            [self._event()], _habit(preferred_time=TimeOfDay.MORNING, duration_minutes=None), None
+        )
+        event = events[0]
+        elapsed = datetime.combine(event.event_date, event.end_time) - datetime.combine(
+            event.event_date, event.start_time
+        )
+        assert elapsed == timedelta(minutes=scheduler.config.default_duration_minutes)
+
+    @staticmethod
+    def _event() -> EventDTO:
+        """An event as the generator hands it over: both times from the optimal start."""
+        return EventDTO(
+            uid="event_x",
+            user_uid="u",
+            title="Sit",
+            event_date=date(2026, 8, 10),
+            start_time=time(10, 0),
+            end_time=time(10, 30),
+        )

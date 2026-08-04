@@ -530,18 +530,29 @@ class HabitEventScheduler:
     ) -> list[EventDTO]:
         """Apply scheduling strategy to determine event times."""
         strategy = self._determine_strategy(habit, user_context)
+        duration = habit.duration_minutes or self.config.default_duration_minutes
 
         for event in events:
             if strategy == SchedulingStrategy.MORNING:
-                event.start_time = time(self.config.morning_start_hour, 0)
+                start = time(self.config.morning_start_hour, 0)
             elif strategy == SchedulingStrategy.EVENING:
-                event.start_time = time(self.config.evening_start_hour, 0)
+                start = time(self.config.evening_start_hour, 0)
             elif strategy == SchedulingStrategy.OPTIMAL_TIME:
-                event.start_time = self._get_optimal_time(user_context)
+                start = self._get_optimal_time(user_context)
             elif strategy == SchedulingStrategy.FIXED_TIME and habit.preferred_time is not None:
-                event.start_time = habit.preferred_time.get_representative_time()
+                start = habit.preferred_time.get_representative_time()
             else:  # FLEXIBLE
-                event.start_time = None  # Any time
+                start = None  # Any time
+
+            # The end must follow from the start we just chose. The generator stamped
+            # both from a provisional optimal time, so moving only the start left a
+            # stale end — an evening habit ended at mid-morning, i.e. before it began.
+            event.start_time = start
+            event.end_time = (
+                self._calculate_end_time(start, duration, event.event_date)
+                if start is not None
+                else None  # flexible: no committed window, so no end either
+            )
 
         return events
 
@@ -552,13 +563,17 @@ class HabitEventScheduler:
         the user's own statement of when the habit belongs (habit-rhythm arc M1), so
         no keystone/category/tag heuristic may overwrite it.
 
-        ANYTIME is the exception: it is the explicit *no preference* member, so it
-        declares flexibility rather than a slot. Committing a generated event to
-        ANYTIME's representative hour would pin the habit to a time the user
-        specifically declined to choose. (Rendering is a different question — a chip
-        needs somewhere to sit, so the day spine does place ANYTIME at that hour.)
+        ANYTIME is the exception, and it is FLEXIBLE rather than merely "not fixed":
+        it is the explicit *no preference* member, so falling through to the
+        heuristics would let a keystone or category rule pin the habit to a clock
+        time anyway — the user declined to choose one. ``None`` is the different
+        case (nothing said at all) and does fall through to inference. (Rendering is
+        a different question — a chip needs somewhere to sit, so the day spine does
+        place ANYTIME at its representative hour.)
         """
-        if habit.preferred_time is not None and habit.preferred_time is not TimeOfDay.ANYTIME:
+        if habit.preferred_time is TimeOfDay.ANYTIME:
+            return SchedulingStrategy.FLEXIBLE
+        if habit.preferred_time is not None:
             return SchedulingStrategy.FIXED_TIME
 
         # Keystone habits get optimal time
