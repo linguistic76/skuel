@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from core.services.user import UserContext
 
 
+_MINUTES_PER_DAY = 24 * 60
+
+
 class SchedulingStrategy(Enum):
     """Event scheduling strategies."""
 
@@ -408,6 +411,16 @@ class HabitEventScheduler:
             else:
                 duration_minutes = 30  # Default duration
             minutes += duration_minutes + self.config.buffer_minutes_between_events
+            if minutes >= _MINUTES_PER_DAY:
+                # The routine has run out of day. A routine's events all share one
+                # date, so there is nowhere to put the next habit — stop, rather
+                # than build an out-of-range time(24, ...) and raise.
+                self.logger.info(
+                    "%s routine reached the end of the day after %d habits",
+                    routine_type,
+                    len(routine_events),
+                )
+                break
             current_time = time(minutes // 60, minutes % 60)
 
         self.logger.info("Created %s routine with %d habits", routine_type, len(routine_events))
