@@ -135,18 +135,22 @@ natural assumption, and a wrong one. `skuel.js` holds the **22 shared**
 components; four page-local bundles register one each and are loaded only by
 their own routes:
 
-This is the **canonical page-local inventory** — machine-checked against the
-bundles, and the one place these four are enumerated. Other docs point here
-rather than repeat the list, so there is a single thing to update.
+This is the **canonical page-local inventory** — the one place these four are
+enumerated; other docs point here rather than repeat the list.
+
+Only the **Component** column is machine-checked (it must equal the set of
+components registered outside `skuel.js`). The path columns are ordinary prose
+and can rot — note that the file emitting `Script(src=…)` is usually *not* the
+renderer that mounts the component, which is easy to get backwards.
 
 <!-- alpine-registry:page-local:begin -->
 
-| Component | Bundle | Loaded by |
-|-----------|--------|-----------|
-| `today` | `static/js/today.js` | `ui/today/page.py` |
-| `exploreReading` | `static/js/explore-reading.js` | `ui/explore/reading_plan.py` |
-| `kuReading` | `static/js/ku-reading.js` | `ui/explore/ku_detail.py` |
-| `pathstep` | `static/js/ps-detail.js` | `ui/explore/ps_detail.py` |
+| Component | Bundle | `Script(src=…)` emitted by | Mounted by |
+|-----------|--------|---------------------------|------------|
+| `today` | `static/js/today.js` | `ui/today/page.py:78` | `ui/today/page.py` |
+| `exploreReading` | `static/js/explore-reading.js` | `adapters/inbound/explore_ui.py:277` | `ui/explore/reading_plan.py` |
+| `kuReading` | `static/js/ku-reading.js` | `adapters/inbound/learning_loop_routes.py:169` | `ui/explore/ku_detail.py` |
+| `pathstep` | `static/js/ps-detail.js` | `adapters/inbound/learning_loop_routes.py:332` | `ui/explore/ps_detail.py` |
 
 <!-- alpine-registry:page-local:end -->
 

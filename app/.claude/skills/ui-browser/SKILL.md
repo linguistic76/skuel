@@ -200,7 +200,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ## SKUEL Component Architecture
 
-All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
+Named Alpine components live in a `/static/js/` bundle, never inline in a template. `skuel.js` holds the 22 **shared** ones:
 
 <!-- alpine-registry:begin -->
 
@@ -243,7 +243,7 @@ Div(
 )
 ```
 
-**Adding new components:** Define in `skuel.js` inside the `alpine:init` event listener, not inline in templates.
+**Adding new components:** define inside the `alpine:init` listener of a `/static/js/` bundle, never inline in a template. Use `skuel.js` when more than one page needs the component; add a page-local bundle when exactly one surface does (see the [page-local inventory](../../../docs/architecture/ALPINE_JS_ARCHITECTURE.md#available-components)). State that lives and dies with a single element needs no registered component at all — an inline `x-data="{ open: false }"` object is correct there.
 
 ---
 
@@ -355,7 +355,7 @@ HTMX enhances HTML — use semantic elements, not div soup:
 
 <!-- ❌ Alpine inline component (use skuel.js instead) -->
 <script>Alpine.data('myWidget', ...)</script>  <!-- In template -->
-<!-- ✅ Add to skuel.js -->
+<!-- ✅ Add to a /static/js/ bundle: skuel.js if shared, page-local if one surface -->
 
 <!-- ❌ Re-processing swapped content from an htmx:load listener: HTMX already
      processes hx-* attributes on swap, and Alpine 3's MutationObserver
