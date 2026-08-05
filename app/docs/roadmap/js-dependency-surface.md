@@ -202,3 +202,9 @@ These need a founder ruling; none is urgent, all are cheap.
    to ignore than a red PR check. Plausible shapes: an allowlist file consumed by a wrapper
    around `npm audit --json`, or `npm audit --audit-level=high` plus a documented review of
    what that silently drops.
+
+   **A third shape would close this for free:** `osv-scanner.toml` supports
+   `[[IgnoredVulns]]` with `id`, `reason` and `ignoreUntil`, for *both* ecosystems — so
+   consolidating on one scanner would supply the missing mechanism rather than build it.
+   See [`/docs/roadmap/dependency-scanner-consolidation.md`](dependency-scanner-consolidation.md),
+   which treats this decision as its headline motivation.
