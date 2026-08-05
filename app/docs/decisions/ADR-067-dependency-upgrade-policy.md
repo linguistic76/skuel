@@ -11,7 +11,7 @@ related: [ADR-044, ADR-049, ADR-063]
 
 **Status:** Accepted
 
-**Date:** 2026-06-05 (amended 2026-08-05 — Renovate now live, § 5 + drawbacks updated; 2026-08-03 — § 6 added, § 5 corrected)
+**Date:** 2026-06-05 (amended 2026-08-05 — Renovate now live, § 5 + drawbacks updated, § 4 CI-coverage corrected: CI runs integration tests since #701; 2026-08-03 — § 6 added, § 5 corrected)
 
 **Decision Type:** ✅ Pattern/Practice
 
@@ -31,8 +31,9 @@ principle was stated but never *operationalized* for dependencies:
   invocation.
 - The only versioning rule that existed was an inline comment pinning the neo4j driver. The
   rationale for the deepgram cap lived nowhere.
-- CI runs **unit tests only** (not integration tests), so a careless bump can pass CI and break only
-  at runtime against a real database. Upgrades need a *local* verification ritual, written down.
+- CI ran **unit tests only** at the time (the integration tier was added later — 2026-07-18, #701), so
+  a careless bump could pass CI and break only at runtime against a real database. That is why upgrades
+  need a *local* verification ritual, written down (§ 4).
 
 This ADR records the policy and the structure that enforces it.
 
@@ -117,11 +118,14 @@ test for "is this a pin or a stale floor?" is: a pin says **why** and references
 4. uv sync                    # install onto the pinned interpreter
 5. uv run python -c "import main"   # boot smoke test (import the app)
 6. ./dev quality              # ruff + SKUEL lint + mypy + pyright + cypher + skills
-7. ./dev test-integration     # LOCAL Docker Neo4j — the layer CI does not cover
+7. ./dev test-integration     # LOCAL Docker Neo4j — same suite CI's integration_tests job runs
 ```
 
-Steps 5–7 are mandatory because **CI runs unit tests only** (not integration tests): a unit-only
-pass proves nothing about a real driver/runtime bump. Verify against local Docker Neo4j.
+Run steps 5–7 locally before opening the PR — they are the fast pre-push check for an upgrade you are
+making by hand. **CI also runs the integration tier** (since 2026-07-18, #701): the `integration_tests`
+job runs `pytest tests/integration/` against a testcontainer Neo4j on any `py`/`cypher` change — a
+lockfile bump counts — using the same command as step 7. So CI backstops you, but a real driver/runtime
+bump is exactly what you want to see green locally first.
 
 ### 5. Automation: Renovate is LIVE — it opens update PRs; scheduled audits cover vulnerabilities
 
@@ -238,7 +242,7 @@ means building the accept mechanism first.** Tracked in
 
 - "Latest stable" is now a checkable state, not an aspiration: `./dev deps` answers it in one line.
 - The two pins are explained once, in code comments *and* here — no more archaeology.
-- The upgrade ritual encodes the "CI covers unit tests only" reality so bumps are verified where it matters (integration layer).
+- The upgrade ritual verifies bumps at the integration layer locally, where driver/runtime breaks surface — a fast pre-push check ahead of the `integration_tests` CI job (added 2026-07-18) that also gates them.
 
 **Negative / trade-offs**
 
