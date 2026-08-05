@@ -233,7 +233,7 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 
 The table above is the complete **shared** registry — all 22 components in `skuel.js`. It is machine-checked: `tests/unit/docs/test_alpine_docs_registry.py` fails if this table names a component `skuel.js` no longer registers, or omits one it does.
 
-`skuel.js` is not the only registrar. Four page-local bundles register one component each, loaded only by their own routes: `today.js` (`today`), `explore-reading.js` (`exploreReading`), `ku-reading.js` (`kuReading`), `ps-detail.js` (`pathstep`) — 26 in total. Grep `Alpine.data('` across `/static/js/*.js` for the source of truth; grepping `skuel.js` alone under-reports.
+`skuel.js` is not the only registrar. Four page-local bundles register one component each, loaded only by their own routes — 26 in total. They are enumerated once, in [ALPINE_JS_ARCHITECTURE.md § Available Components](../../../docs/architecture/ALPINE_JS_ARCHITECTURE.md#available-components), which is machine-checked; this file deliberately does not repeat the list. Grep `Alpine.data('` across `/static/js/*.js` for the source of truth; grepping `skuel.js` alone under-reports.
 
 **Usage in FastHTML:**
 ```python

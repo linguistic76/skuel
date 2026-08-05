@@ -115,6 +115,14 @@ PLACEHOLDERS = frozenset({"componentName", "myComponent", "myWidget"})
 REGION_BEGIN = "<!-- alpine-registry:begin -->"
 REGION_END = "<!-- alpine-registry:end -->"
 
+# Page-local inventories carry their own marker: they must equal the page-local
+# set, NOT skuel.js, so they cannot share the shared-table markers.
+PAGE_LOCAL_BEGIN = "<!-- alpine-registry:page-local:begin -->"
+PAGE_LOCAL_END = "<!-- alpine-registry:page-local:end -->"
+
+# The single doc that enumerates the page-local bundles. Others link to it.
+PAGE_LOCAL_INVENTORY = ALPINE_ARCHITECTURE
+
 # x-data="name(...)", x_data="name(...)", "x-data": "name(...)".
 #
 # The `[rRbBuUfF]{0,2}` allows a Python string prefix before the quote. FastHTML
@@ -188,36 +196,47 @@ def _registry() -> frozenset[str]:
 
 
 def _skuel_js_registry() -> frozenset[str]:
-    """The shared registry only — what the doc tables enumerate."""
+    """The shared registry only — what the shared doc tables enumerate."""
     return _registrars()[SKUEL_JS]
 
 
-def _iter_marked_regions(text: str) -> list[list[str]]:
-    """Return the line-lists of each <!-- alpine-registry --> region."""
+def _page_local_registry() -> frozenset[str]:
+    """Components registered by a page-local bundle rather than skuel.js."""
+    return _registry() - _skuel_js_registry()
+
+
+def _iter_marked_regions(
+    text: str, begin: str = REGION_BEGIN, end: str = REGION_END
+) -> list[list[str]]:
+    """Return the line-lists of each marked region.
+
+    The shared and page-local markers are scanned independently, so a region of
+    one kind never swallows the other.
+    """
     regions: list[list[str]] = []
     current: list[str] | None = None
     for line in text.splitlines():
-        if REGION_BEGIN in line:
-            assert current is None, "nested alpine-registry:begin"
+        if begin in line:
+            assert current is None, f"nested {begin}"
             current = []
-        elif REGION_END in line:
-            assert current is not None, "alpine-registry:end without begin"
+        elif end in line:
+            assert current is not None, f"{end} without {begin}"
             regions.append(current)
             current = None
         elif current is not None:
             current.append(line)
-    assert current is None, "unclosed alpine-registry:begin"
+    assert current is None, f"unclosed {begin}"
     return regions
 
 
-def _components_in_regions(text: str) -> set[str]:
+def _components_in_regions(text: str, begin: str = REGION_BEGIN, end: str = REGION_END) -> set[str]:
     """Component names from the FIRST column of tables in marked regions.
 
     Later columns document state fields (`expanded`, `sortBy`, `filters`), which
     are not components — reading them would produce noise, not coverage.
     """
     found: set[str] = set()
-    for region in _iter_marked_regions(text):
+    for region in _iter_marked_regions(text, begin, end):
         for line in region:
             stripped = line.strip()
             if not stripped.startswith("|"):
@@ -425,4 +444,40 @@ def test_no_doc_anywhere_names_a_dead_component(
         f"docs name Alpine components ({shape}) that no static/js bundle "
         f"registers: {offenders}. Either the component was deleted (repoint the "
         f"example to a live one) or the name never existed (delete the example)."
+    )
+
+
+def test_page_local_inventory_matches_the_bundles_exactly() -> None:
+    """The page-local inventory must equal the non-skuel.js components.
+
+    Codex found this gap: the three shapes in
+    ``test_no_doc_anywhere_names_a_dead_component`` only see mounts, definitions
+    and mount directives, and the shared-table checks measure against
+    ``skuel.js``. So the page-local names — ``today``, ``exploreReading``,
+    ``kuReading``, ``pathstep`` — sat in ordinary prose tables that nothing
+    checked. Rename ``pathstep`` and every inventory listing it would have gone
+    stale with the whole suite green, while this module's docstring claimed
+    deletions break the build.
+
+    Equality, not containment, so both directions fail loudly: a renamed or
+    deleted bundle component breaks the row that names it, and a NEW page-local
+    bundle breaks the build until it is documented.
+
+    One doc owns this list. The others link to it rather than repeat it, so
+    there is exactly one place to update — duplicated inventories were the
+    drift surface in the first place.
+    """
+    documented = _components_in_regions(
+        PAGE_LOCAL_INVENTORY.read_text(encoding="utf-8"), PAGE_LOCAL_BEGIN, PAGE_LOCAL_END
+    )
+    assert documented, (
+        f"{PAGE_LOCAL_INVENTORY.relative_to(APP_ROOT)} has no {PAGE_LOCAL_BEGIN} "
+        f"region — the page-local inventory is no longer machine-checked."
+    )
+    assert documented == _page_local_registry(), (
+        f"{PAGE_LOCAL_INVENTORY.relative_to(APP_ROOT)} page-local inventory is "
+        f"out of sync with static/js/. Missing: "
+        f"{sorted(_page_local_registry() - documented)}; "
+        f"listed but not registered by any bundle: "
+        f"{sorted(documented - _page_local_registry())}."
     )

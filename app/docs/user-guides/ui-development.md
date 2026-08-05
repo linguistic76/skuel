@@ -878,10 +878,11 @@ components in `skuel.js`. Both tables are machine-checked by
 `skuel.js` fails the build until these rows follow.
 
 Four more components live in page-local bundles rather than `skuel.js`, loaded
-only by their own routes — `today` (`today.js`), `exploreReading`
-(`explore-reading.js`), `kuReading` (`ku-reading.js`), `pathstep`
-(`ps-detail.js`) — for 26 in total. Add to `skuel.js` when more than one page
-needs the component; otherwise keep it page-local.
+only by their own routes, for 26 in total. They are enumerated once — in
+[ALPINE_JS_ARCHITECTURE.md § Available Components](../architecture/ALPINE_JS_ARCHITECTURE.md#available-components),
+which is machine-checked — so this guide does not repeat the list. Add to
+`skuel.js` when more than one page needs the component; otherwise keep it
+page-local.
 
 Calendar note: the calendar's Alpine component was renamed from calendarPage to
 `calendarLegend` in #621, when the legend became the type filter. Its old sibling

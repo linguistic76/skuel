@@ -135,12 +135,20 @@ natural assumption, and a wrong one. `skuel.js` holds the **22 shared**
 components; four page-local bundles register one each and are loaded only by
 their own routes:
 
-| Bundle | Component | Loaded by |
-|--------|-----------|-----------|
-| `static/js/today.js` | `today` | `ui/today/page.py` |
-| `static/js/explore-reading.js` | `exploreReading` | `ui/explore/reading_plan.py` |
-| `static/js/ku-reading.js` | `kuReading` | `ui/explore/ku_detail.py` |
-| `static/js/ps-detail.js` | `pathstep` | `ui/explore/ps_detail.py` |
+This is the **canonical page-local inventory** — machine-checked against the
+bundles, and the one place these four are enumerated. Other docs point here
+rather than repeat the list, so there is a single thing to update.
+
+<!-- alpine-registry:page-local:begin -->
+
+| Component | Bundle | Loaded by |
+|-----------|--------|-----------|
+| `today` | `static/js/today.js` | `ui/today/page.py` |
+| `exploreReading` | `static/js/explore-reading.js` | `ui/explore/reading_plan.py` |
+| `kuReading` | `static/js/ku-reading.js` | `ui/explore/ku_detail.py` |
+| `pathstep` | `static/js/ps-detail.js` | `ui/explore/ps_detail.py` |
+
+<!-- alpine-registry:page-local:end -->
 
 Put a component in `skuel.js` when more than one page needs it; a page-local
 bundle keeps single-surface behaviour off every other page's critical path.
