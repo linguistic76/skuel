@@ -533,8 +533,8 @@ Three PRs, in dependency order. This ADR is B1 of the Stage-2 sub-arc following 
 - **Integration test with an in-process fake agent**: a fake WS peer speaking the exact
   envelope (handshake + four ops) against a temp directory, driving a full sync — listing →
   fetch → mirror → smart ingest → deletion valve → outbound write-back — and a
-  revoked-device negative path. (This lands in `tests/integration/`, so CI's
-  `integration_tests` job runs it — and it runs locally per the testing posture.)
+  revoked-device negative path. (Shipped as `tests/unit/test_local_agent_transport.py` — an
+  in-process end-to-end proof with no sockets or live DB, so CI's `unit_tests` job runs it.)
 
 ---
 
