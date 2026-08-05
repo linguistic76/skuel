@@ -33,8 +33,8 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | Facade | `/core/services/choices_service.py` |
 | Config | `CHOICES_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/choice_events.py` |
-| UI Routes | `/adapters/inbound/choices_ui.py` |
-| View Components | `/ui/activities/choices_views.py` (form: `ui/activities/choices_form.py`) |
+| UI Routes | `/adapters/inbound/choice_ui.py` |
+| View Components | `/ui/choices/views.py` |
 
 ## Domain Enums
 
@@ -89,7 +89,7 @@ Created via `create_common_sub_services()` factory in facade `__init__` (intelli
 | `title` | `str` | Choice/decision title |
 | `description` | `str` | Choice description |
 | `choice_type` | `ChoiceType` | Binary, Multiple, Ranking, Strategic, Operational |
-| `status` | `EntityStatus` | Inherited from `UserOwnedEntity`; there is no Choice-specific status enum. Defaults to `DRAFT` (`ChoiceDTO`). Members in `core/models/enums/entity_enums.py` |
+| `status` | `ChoiceStatus` | Pending, Decided, Implemented, Evaluated |
 | `priority` | `Priority` | Low, Medium, High, Critical |
 | `domain` | `Domain` | Personal, Business, Health, Finance, Social |
 | `options` | `list[ChoiceOptionDTO]` | Available options (see below) |
@@ -158,34 +158,33 @@ Read-focused UI at `/choices` is planned. API routes remain active.
 
 ## Options at Creation
 
-### Where options are entered
+> **The `choiceOptions()` Alpine component described here until August 2026 no
+> longer exists.** It was deleted in `327f26623` (2026-03-28) along with 11 other
+> Alpine components, and the `ui/choices/` directory it was mounted from is gone
+> — choices UI now lives in `adapters/inbound/choices_ui.py`. The dynamic
+> add/remove option entry UX it provided was never rebuilt.
+>
+> How options actually reach a choice today was **deliberately not documented in
+> the same change**: the create paths diverge (the generated API route converts
+> nested `options`, `ChoicesCoreService.create_choice()` does not), and that
+> divergence needs tracing with tests rather than a prose claim. See the
+> follow-up issue.
 
-**There is currently no web path for entering choice options.** Traced, not
-inferred — each of these was checked against source:
+### Server-Side Parsing
 
-| Layer | State |
-|-------|-------|
-| `ChoiceCreateRequest.options` | Exists, `list[ChoiceOptionRequest]` (`core/models/choice/choice_request.py`) |
-| Create/edit form | Excludes it — `ui/activities/choices_form.py`'s own docstring says the nested `options` list and free-text list fields are dropped |
-| `/choices/detail` | Renders existing options; registers no add/update/remove endpoint |
-| Service methods | `add_option` / `update_option` / `remove_option` exist (`core/services/choices/_option_management_mixin.py`) but **no HTTP route exposes them** |
-| `ChoicesCoreService._validate_create` | Defines "at least 2 options" and "BINARY needs exactly 2" — but nothing on the create path calls it |
+The `_parse_options_from_form()` helper in `/adapters/inbound/choices_ui.py`:
+- Parses `options[0].title`, `options[0].description`, etc.
+- Validates minimum 2 options (returns 400 if fewer)
+- Converts to `ChoiceOptionCreateRequest` objects
 
-So options reach a choice only through whatever populates the request model
-directly. **Verify the specific path before relying on it**; this doc previously
-asserted three different answers here and each was wrong.
+### Static Option Lists
 
-The last two rows are latent defects, not documentation gaps — unreachable
-validation and unexposed service methods. Neither is fixed here (this was a
-docs-only change).
+Choice types and domains are module-level constants in `choices_ui.py` (not service calls):
 
-> **Historical note.** This section previously documented a `choiceOptions()`
-> Alpine component with add/remove/validate methods, mounted on a create form in
-> `ui/choices/views.py`. None of that exists: the component was deleted in
-> `327f26623` (2026-03-28) along with 11 other Alpine components, and the
-> `ui/choices/` directory is gone — choices UI lives in
-> `adapters/inbound/choices_ui.py`. The dynamic two-option-minimum entry UX it
-> described was never rebuilt.
+```python
+CHOICE_TYPES = ["binary", "multiple", "ranking", "strategic", "operational"]
+DOMAINS = ["personal", "business", "health", "finance", "social"]
+```
 
 ### List-Page Stats
 
@@ -194,11 +193,6 @@ List-page stats (counts + average satisfaction) are computed directly from the f
 ## Code Examples
 
 ### Create Choice with Options
-
-> ⚠️ **The `options=` below are dropped.** `ChoiceCreateRequest` accepts them, but
-> `ChoicesCoreService.create_choice()` never passes them into
-> `ChoiceDTO.create_choice`, so the returned `choice.options` is empty. See the
-> table above. Use `add_option()` afterwards, as shown below, until that is fixed.
 
 ```python
 from core.models.choice.choice_request import (
@@ -235,9 +229,18 @@ result = await choices_service.create_choice(choice_request, user_uid)
 choice = result.value
 ```
 
-### Add Options
+### Make a Decision
 
-Because create drops them, this is currently the only way options reach a choice:
+```python
+result = await choices_service.make_decision(
+    choice_uid=choice.uid,
+    selected_option_uid=choice.options[0].uid,
+    decision_rationale="Best fit for hypermedia-driven architecture",
+    confidence=0.85,
+)
+```
+
+### Add Option Later
 
 ```python
 result = await choices_service.add_option(
@@ -246,21 +249,6 @@ result = await choices_service.add_option(
     description="React-based with SSR",
     feasibility_score=0.7,
     risk_level=0.4,
-)
-choice = result.value  # Result[Choice] — the updated choice
-```
-
-### Make a Decision
-
-Re-read the choice after adding options; do not index the value returned by
-`create_choice`, which has none.
-
-```python
-result = await choices_service.make_decision(
-    choice_uid=choice.uid,
-    selected_option_uid=choice.options[0].uid,
-    decision_rationale="Best fit for hypermedia-driven architecture",
-    confidence=0.85,
 )
 ```
 
@@ -316,7 +304,7 @@ Choices support full decision lifecycle:
 | Method | Description |
 |--------|-------------|
 | `search(query, user_uid)` | Text search across title, description |
-| `get_by_status(status, user_uid)` | Filter by `EntityStatus` |
+| `get_by_status(status, user_uid)` | Filter by ChoiceStatus |
 | `get_by_category(category, user_uid)` | Filter by category field |
 | `get_by_relationship(related_uid, rel, dir)` | Graph traversal |
 | `graph_aware_faceted_search(request)` | Unified search with graph context |
