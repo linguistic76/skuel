@@ -61,7 +61,7 @@ What is checked
    ``skuel.js`` **exactly** — both directions. Omissions fail, so a newly added
    shared component must be documented; and page-local names fail too, so those
    tables cannot quietly become mixed shared/page-local registries (check 2
-   alone would allow it, since it measures against the 26-component union).
+   alone would allow it, since it measures against the full union).
 """
 
 from __future__ import annotations
@@ -300,8 +300,13 @@ def test_comments_do_not_register_components() -> None:
         "alsoGhost",
         "ghostComponent",
     ]
-    # And the real bundles still resolve to the full registry after stripping.
-    assert len(_registry()) == 26
+    # And stripping does not erase real registrations: every bundle that
+    # registers anything still contributes after comments are removed. Counted,
+    # not pinned to a number — hard-coding the total would make every legitimate
+    # component addition fail this test, defeating the "a new bundle is picked
+    # up automatically" property the rest of the module depends on.
+    assert _registry() >= _skuel_js_registry()
+    assert all(names for names in _registrars().values())
 
 
 def test_smoke_fixture_matches_skuel_js() -> None:
@@ -346,7 +351,7 @@ def test_docs_claiming_completeness_match_the_shared_registry_exactly(doc: Path)
 
     Both directions are needed, and the second is not symmetry for its own sake.
     ``test_marked_registry_tables_list_only_live_components`` measures against the
-    26-component union, so a page-local name like ``today`` in a *shared* table
+    full union, so a page-local name like ``today`` in a *shared* table
     passes it; checking only for omissions here would let these tables quietly
     become mixed shared/page-local registries while still advertising themselves
     as the complete shared set.
