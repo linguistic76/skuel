@@ -31,11 +31,15 @@ automatically.
 
 What is checked
 ---------------
-1. Every ``x-data="name(...)"`` in *any* doc under ``docs/``, ``.claude/skills/``
-   or ``CLAUDE.md`` names a live component (or a documented teaching
-   placeholder). Tree-wide, because a stale mount is equally broken wherever it
-   sits — four docs outside the original three were teaching deleted or
-   never-existing components.
+1. Every named component reference in *any* doc under ``docs/``,
+   ``.claude/skills/`` or ``CLAUDE.md`` is live (or a documented teaching
+   placeholder). Two shapes, because a doc can name a component **without ever
+   mounting it**: ``x-data="name(...)"`` mounts, and ``Alpine.data('name', …)``
+   definitions. Checking mounts alone left a copy-paste ``swipeHandler`` recipe
+   in ``patterns-reference.md`` passing CI while the architecture doc stated
+   touch/swipe had no live successor. Tree-wide, because a stale example is
+   equally broken wherever it sits — five docs outside the original three were
+   teaching deleted or never-existing components.
 2. Every component named in the first column of a table inside an
    ``<!-- alpine-registry:begin -->`` region is live. Only the first column is
    read: later columns hold state-field names (``expanded``, ``sortBy``), which
@@ -98,6 +102,8 @@ REGION_END = "<!-- alpine-registry:end -->"
 _X_DATA_RE = re.compile(r"""x[-_]data["']?\s*[:=]\s*["']\s*([A-Za-z_]\w*)""")
 
 _ALPINE_DATA_RE = re.compile(r"Alpine\.data\(\s*'([^']+)'")
+# Doc-side variant: prose/snippets use either quote style.
+_ALPINE_DATA_DOC_RE = re.compile(r"""Alpine\.data\(\s*['"]([A-Za-z_]\w*)['"]""")
 _BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 _LEADING_IDENT_RE = re.compile(r"^([A-Za-z_]\w*)")
 
@@ -229,27 +235,35 @@ def test_marked_regions_are_present(doc: Path) -> None:
     )
 
 
-def test_no_doc_anywhere_mounts_a_dead_component() -> None:
-    """Tree-wide: every x-data mount in every doc names a live component.
+@pytest.mark.parametrize(
+    ("shape", "pattern"),
+    [("x-data mount", _X_DATA_RE), ("Alpine.data definition", _ALPINE_DATA_DOC_RE)],
+)
+def test_no_doc_anywhere_names_a_dead_component(shape: str, pattern: re.Pattern[str]) -> None:
+    """Tree-wide, both shapes: every component a doc names must be live.
 
     Deliberately not limited to the three Alpine-specific docs. Scoping it that
     way is what let `choiceOptions` and `focusTrapModal` (both deleted in
     327f26623) survive in docs/domains/ and docs/ui/, and let `exerciseForm` and
     `insightActionConfirmation` — names that never existed in any commit — sit in
     docs/patterns/ as copyable examples.
+
+    Both shapes are needed. A doc can hand out a deleted component as a
+    copy-paste ``Alpine.data('swipeHandler', …)`` recipe and never mount it, so a
+    mount-only check reports clean on it forever.
     """
     registry = _registry()
     offenders: dict[str, list[str]] = {}
     for doc in _all_doc_files():
         bad = {
             name
-            for name in _X_DATA_RE.findall(doc.read_text(encoding="utf-8", errors="ignore"))
+            for name in pattern.findall(doc.read_text(encoding="utf-8", errors="ignore"))
             if name not in registry and name not in PLACEHOLDERS
         }
         if bad:
             offenders[str(doc.relative_to(APP_ROOT))] = sorted(bad)
     assert not offenders, (
-        "docs mount Alpine components that no static/js bundle registers: "
-        f"{offenders}. Either the component was deleted (repoint the example to a "
-        f"live one) or the name never existed (delete the example)."
+        f"docs name Alpine components ({shape}) that no static/js bundle "
+        f"registers: {offenders}. Either the component was deleted (repoint the "
+        f"example to a live one) or the name never existed (delete the example)."
     )

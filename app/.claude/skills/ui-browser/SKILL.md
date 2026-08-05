@@ -387,7 +387,8 @@ HTMX enhances HTML — use semantic elements, not div soup:
 
 | File | Purpose |
 |------|---------|
-| `/static/js/skuel.js` | All Alpine.data() components |
+| `/static/js/skuel.js` | The 22 **shared** Alpine.data() components |
+| `/static/js/{today,explore-reading,ku-reading,ps-detail}.js` | Page-local bundles, 1 component each (26 total) |
 | `/static/vendor/alpinejs/alpine.3.14.8.min.js` | Alpine.js (self-hosted) |
 | `/ui/layouts/base_page.py` | HTMX + Alpine included automatically |
 
