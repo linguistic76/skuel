@@ -248,7 +248,7 @@ means building the accept mechanism first.** Tracked in
   mode. **Live again as of 2026-08-05** (§ 5): after a stretch where Renovate never ran — during which
   the real trade-off was the opposite, that freshness was entirely manual — the Mend App is installed
   and opens grouped PRs. Expect a burst on each run (up to `prConcurrentLimit: 5`), and each bump still
-  needs the § 4 local verification before merge, since CI runs unit tests only.
+  needs a local verification pass before merge (§ 4).
 - The scheduled audit files an issue rather than blocking a merge. That is deliberate (§ 6e), and
   the cost is real: a red scheduled run is easy to ignore in a way a red PR check is not.
 
