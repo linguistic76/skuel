@@ -524,7 +524,9 @@ All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS).
 | Server Communication | HTMX | Form submissions, loading |
 | Pure Presentation | FastHTML | HTML generation |
 
-**Key Files:** `/static/js/skuel.js` (ALL Alpine.data() components), `/static/vendor/alpinejs/alpine.3.14.8.min.js`
+**Key Files:** `/static/js/skuel.js` (the 22 **shared** Alpine.data() components — NOT all of them; 4 more live in page-local bundles `today.js`, `explore-reading.js`, `ku-reading.js`, `ps-detail.js`, 26 total), `/static/vendor/alpinejs/alpine.3.14.8.min.js`
+
+⚠ **Upgrading Alpine/HTMX touches two files:** the version constant in `ui/theme.py` **and** the versioned filename in `static/service-worker.js`'s `PRECACHE_URLS` — plus a `CACHE_VERSION` bump. `install` calls `cache.addAll()`, which rejects wholesale on a single 404, so a missed precache entry breaks service-worker install for every PWA client.
 
 ### PWA Mobile Strategy
 

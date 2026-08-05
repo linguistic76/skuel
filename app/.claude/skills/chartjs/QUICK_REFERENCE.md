@@ -95,7 +95,7 @@ ChartDataset(label="Completion Rate (%)", data=rates,
 | "Chart is not defined" (silent error state) | BasePage builds its own `<head>` — pass `extra_scripts=["/static/vendor/chart.js/chart.umd.js"]`; `chartjs_headers()` won't reach it |
 | Canvas-reuse error on re-render | `chartVis` already destroys before recreating (`loadChart`); on element removal Alpine calls its `destroy()`. Don't hand-roll a second `new Chart` on the same canvas |
 | Chart dead after HTMX swap | Alpine auto-initializes swapped-in `x-data` trees — never call `htmx.process()`/`Alpine.initTree` from `htmx:load` (known loop bug) |
-| Component "not defined" at page load | `Alpine.data()` registrations live in `alpine:init` in `skuel.js`, not DOMContentLoaded — add new components there |
+| Component "not defined" at page load | `Alpine.data()` registrations must run in an `alpine:init` listener, not DOMContentLoaded — register there, in `skuel.js` if shared or a page-local bundle if one surface needs it |
 | Time axis renders as category labels | Time scales need the date-fns adapter script; `extra_scripts` callers must add it explicitly |
 | Chart collapses to 0 height | Configs set `maintainAspectRatio: False` — keep explicit `width`/`height` attrs on the `Canvas` (or a sized container) |
 | `create_chart_view()` from older skill docs | Doesn't exist in the codebase — use the `_chart_card` Canvas + `chartVis` pattern above |

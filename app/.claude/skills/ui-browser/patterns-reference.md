@@ -418,21 +418,29 @@ Div(
 </div>
 ```
 
-### Touch Swipe Handler
+### Touch Swipe
 
-```javascript
-Alpine.data('swipeHandler', (totalCards) => ({
-    currentIndex: 0,
-    touchStartX: 0,
-    handleTouchStart(event) {
-        this.touchStartX = event.changedTouches[0].screenX;
-    },
-    handleTouchEnd(event) {
-        const delta = event.changedTouches[0].screenX - this.touchStartX;
-        if (delta < -50 && this.currentIndex < totalCards - 1) this.currentIndex++;
-        if (delta > 50 && this.currentIndex > 0) this.currentIndex--;
-    }
-}));
+> **No swipe component ships today.** `swipeHandler` was deleted as dead code in
+> `327f26623` (2026-03-28) and nothing in the tree binds `touchstart`. This is a
+> recipe to write, not a component to mount — inline, since the state does not
+> outlive the element. Only register it in `skuel.js` if a second surface needs it.
+
+```html
+<div x-data="{
+        currentIndex: 0,
+        touchStartX: 0,
+        totalCards: 3,
+        onStart(e) { this.touchStartX = e.changedTouches[0].screenX; },
+        onEnd(e) {
+            const delta = e.changedTouches[0].screenX - this.touchStartX;
+            if (delta < -50 && this.currentIndex < this.totalCards - 1) this.currentIndex++;
+            if (delta >  50 && this.currentIndex > 0) this.currentIndex--;
+        }
+     }"
+     @touchstart="onStart($event)"
+     @touchend="onEnd($event)">
+  <!-- cards, shown by x-show="currentIndex === n" -->
+</div>
 ```
 
 ### Event Modifiers

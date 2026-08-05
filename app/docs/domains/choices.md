@@ -156,39 +156,19 @@ The Choices domain publishes domain events for cross-service communication:
 
 Read-focused UI at `/choices` is planned. API routes remain active.
 
-## Dynamic Options at Creation (January 2026)
+## Options at Creation
 
-Choices require **at least 2 options** at creation time, managed via Alpine.js for a dynamic UX.
-
-### Alpine.js Component
-
-The `choiceOptions()` component in `/static/js/skuel.js`:
-
-```javascript
-Alpine.data('choiceOptions', function() {
-    return {
-        options: [
-            { title: '', description: '' },
-            { title: '', description: '' }
-        ],
-        addOption() { this.options.push({ title: '', description: '' }); },
-        removeOption(index) { if (this.options.length > 2) this.options.splice(index, 1); },
-        canRemove() { return this.options.length > 2; },
-        isValid() {
-            if (this.options.length < 2) return false;
-            return this.options.every(o => o.title.trim() && o.description.trim());
-        }
-    };
-});
-```
-
-### Form Integration
-
-The Create form in `/ui/choices/views.py`:
-- Wraps form with `x-data="choiceOptions()"`
-- Uses `x-for` to render dynamic option inputs
-- Uses `x-model` and `x-bind:name` for form field binding
-- Disables submit when `!isValid()`
+> **The `choiceOptions()` Alpine component described here until August 2026 no
+> longer exists.** It was deleted in `327f26623` (2026-03-28) along with 11 other
+> Alpine components, and the `ui/choices/` directory it was mounted from is gone
+> — choices UI now lives in `adapters/inbound/choices_ui.py`. The dynamic
+> add/remove option entry UX it provided was never rebuilt.
+>
+> How options actually reach a choice today was **deliberately not documented in
+> the same change**: the create paths diverge (the generated API route converts
+> nested `options`, `ChoicesCoreService.create_choice()` does not), and that
+> divergence needs tracing with tests rather than a prose claim. See the
+> follow-up issue.
 
 ### Server-Side Parsing
 

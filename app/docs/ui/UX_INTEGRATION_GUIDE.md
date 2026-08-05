@@ -180,34 +180,72 @@ Div(
 
 ---
 
-## Focus Trap Modal Integration
+## Modal Integration
 
-### Replace Existing Modals
+### Use the shared AlpineModal wrapper
 
-Update modal components to use `focusTrapModal`:
+Do not hand-roll the backdrop, transition and click-out on every modal — use
+`AlpineModal` from `ui/patterns/modal.py`. State stays yours; the wrapper owns
+the chrome.
 
 ```python
-# Old modal:
-Div(
-    **{"x-data": "{ isOpen: false }"},
-    Button("Open", **{"@click": "isOpen = true"}),
-    Div(
-        **{"x-show": "isOpen"},
-        # Modal content
-    ),
-)
+from ui.patterns.modal import AlpineModal
 
-# New modal with focus trap:
 Div(
-    **{"x-data": "focusTrapModal(false)"},
-    Button("Open", **{"@click": "open()"}),
-    Div(
-        **{"x-show": "isOpen", "@keydown": "handleKeydown($event)", "x-ref": "modal"},
+    Button("Open", **{"@click": "isOpen = true"}),
+    AlpineModal(
         # Modal content
-        Button("Close", **{"@click": "close()"}),
+        Button("Close", **{"@click": "isOpen = false"}),
+        show="isOpen",
+        close="isOpen = false",
     ),
+    **{"x-data": "{ isOpen: false }"},
 )
 ```
+
+Pass `close="close()"` instead when the modal is backed by a registry component
+that needs to do more than flip a boolean — `insightDetailModal(uid)` is the
+worked example in `skuel.js`.
+
+### Focus trapping
+
+`AlpineModal` does **not** trap focus for you. The capability still exists, but
+as a plain utility rather than an Alpine component: `static/js/focus_trap.js`
+is loaded on every page by `build_head()` (`ui/layouts/base_page.py`) and
+exposes `window.SKUEL.FocusTrap`.
+
+**No modal in the tree currently wires it up**, so there is no worked example
+here to copy — read `focus_trap.js`'s own header for the constructor options
+(`onEscape`, `initialFocus`, `restoreFocus`, `allowEscape`) and its usage block.
+
+Four constraints, each verified against the source, that an integration must
+satisfy. They are listed rather than pre-solved because an untested snippet for
+an unused capability is how this guide went stale in the first place:
+
+1. **Resolve the element by `id`.** `AlpineModal` accepts `id` but emits no
+   `x-ref`, so there is no `$refs` entry; the constructor throws on a missing
+   element (`"FocusTrap requires an element"`).
+2. **Activate after the modal is visible.** `x-show` has not revealed the
+   subtree on the same tick, and a trap over a hidden subtree finds nothing
+   focusable.
+3. **Route every dismissal through one path.** `AlpineModal` uses its `close`
+   expression for click-out, so `close="isOpen = false"` would hide the modal
+   without deactivating the trap — leaving it intercepting Tab against an
+   invisible element.
+4. **Pass `onEscape`.** Without it, `_handleKeydown` falls through to a bare
+   `deactivate()` (`focus_trap.js`), which drops the trap but leaves the modal
+   open — the opposite of the checklist above, which says Escape closes modals.
+
+`$nextTick` matters: `x-show` has not revealed the modal on the same tick, and a
+focus trap over a hidden subtree finds nothing focusable.
+
+> **Historical note.** This section previously told readers to replace modals
+> with a `focusTrapModal(false)` Alpine component providing `open()` /
+> `close()` / `handleKeydown($event)`. That component was deleted in
+> `327f26623` (2026-03-28), and the inline `{ isOpen: false }` it labelled the
+> "old" pattern is in fact the current one. Only the Alpine wrapper went — the
+> underlying `FocusTrap` utility above survived and is still shipped on every
+> page.
 
 ---
 
@@ -458,9 +496,14 @@ Form(
 
 ### Adding New Modals
 
-Always use:
+Always use the shared wrapper, with the state declared on the parent:
 ```python
-Div(**{"x-data": "focusTrapModal(false)", "x-ref": "modal"})
+from ui.patterns.modal import AlpineModal
+
+Div(
+    AlpineModal(*content, show="isOpen", close="isOpen = false"),
+    **{"x-data": "{ isOpen: false }"},
+)
 ```
 
 ### Adding New List Views

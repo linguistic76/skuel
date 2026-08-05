@@ -200,7 +200,9 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ## SKUEL Component Architecture
 
-All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
+Named Alpine components live in a `/static/js/` bundle, never inline in a template. `skuel.js` holds the 22 **shared** ones:
+
+<!-- alpine-registry:begin -->
 
 | Component | Purpose | Key State |
 |-----------|---------|-----------|
@@ -216,8 +218,22 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 | `entityPicker()` | Entity UID picker with search | query, results |
 | `formValidator()` | Client-side form validation | field errors |
 | `hierarchyTree()` | Tree view: expand/collapse, keyboard nav, drag-drop | node state |
+| `domainFilter` | Client-side list sort + filter presets | `sortBy`, `filterPreset`, `showAll` |
+| `bulkInsightManager` | Multi-select + bulk actions on insight cards | `selectedUids`, `selectAllChecked` |
+| `insightDetailModal(uid)` | Insight detail modal | `isOpen`, `loading` |
+| `insightFiltersDebounced(filters)` | Insight filter form, navigates on apply | `filters`, `loading` |
+| `profileFocusHandler(uid)` | Scrolls the focused profile entity into view | `focusUid` |
+| `exploreSearch(tag)` | Explore sidebar tag/text search | `query`, `activeTag`, `moreFilters` |
+| `revisionForm` | Revision feedback-point form | `points`, `categories` |
+| `batchTranscribe` | Admin batch transcription console | job/progress state |
+| `userFolderTranscribe` | User vault `je_in`→`je_out` transcription | job/progress state |
+| `submit(dest, portfolio, teacherDisabled)` | Submit page destination + uploader | `dest`, `file`, `sent` |
 
-Table is non-exhaustive — `skuel.js` also registers `domainFilter`, `bulkInsightManager`, `insightDetailModal`, `intelligenceCache`, `profileFocusHandler`, `insightFiltersDebounced`, `exploreSearch`, `revisionForm`, `batchTranscribe`, `userFolderTranscribe`, `submit`. Grep `Alpine.data('` in `/static/js/skuel.js` for the authoritative list.
+<!-- alpine-registry:end -->
+
+The table above is the complete **shared** registry — all 22 components in `skuel.js`. It is machine-checked: `tests/unit/docs/test_alpine_docs_registry.py` fails if this table names a component `skuel.js` no longer registers, or omits one it does.
+
+`skuel.js` is not the only registrar. Four page-local bundles register one component each, loaded only by their own routes — 26 in total. They are enumerated once, in [ALPINE_JS_ARCHITECTURE.md § Available Components](../../../docs/architecture/ALPINE_JS_ARCHITECTURE.md#available-components), which is machine-checked; this file deliberately does not repeat the list. Grep `Alpine.data('` across `/static/js/*.js` for the source of truth; grepping `skuel.js` alone under-reports.
 
 **Usage in FastHTML:**
 ```python
@@ -227,7 +243,7 @@ Div(
 )
 ```
 
-**Adding new components:** Define in `skuel.js` inside the `alpine:init` event listener, not inline in templates.
+**Adding new components:** define inside the `alpine:init` listener of a `/static/js/` bundle, never inline in a template. Use `skuel.js` when more than one page needs the component; add a page-local bundle when exactly one surface does (see the [page-local inventory](../../../docs/architecture/ALPINE_JS_ARCHITECTURE.md#available-components)). State that lives and dies with a single element needs no registered component at all — an inline `x-data="{ open: false }"` object is correct there.
 
 ---
 
@@ -339,7 +355,7 @@ HTMX enhances HTML — use semantic elements, not div soup:
 
 <!-- ❌ Alpine inline component (use skuel.js instead) -->
 <script>Alpine.data('myWidget', ...)</script>  <!-- In template -->
-<!-- ✅ Add to skuel.js -->
+<!-- ✅ Add to a /static/js/ bundle: skuel.js if shared, page-local if one surface -->
 
 <!-- ❌ Re-processing swapped content from an htmx:load listener: HTMX already
      processes hx-* attributes on swap, and Alpine 3's MutationObserver
@@ -371,7 +387,8 @@ HTMX enhances HTML — use semantic elements, not div soup:
 
 | File | Purpose |
 |------|---------|
-| `/static/js/skuel.js` | All Alpine.data() components |
+| `/static/js/skuel.js` | The 22 **shared** Alpine.data() components |
+| `/static/js/{today,explore-reading,ku-reading,ps-detail}.js` | Page-local bundles, 1 component each (26 total) |
 | `/static/vendor/alpinejs/alpine.3.14.8.min.js` | Alpine.js (self-hosted) |
 | `/ui/layouts/base_page.py` | HTMX + Alpine included automatically |
 

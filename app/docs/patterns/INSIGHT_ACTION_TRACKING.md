@@ -454,34 +454,35 @@ async def test_history_filter():
 
 ### With Confirmation Dialog
 
-Add confirmation dialog with notes textarea:
+Add a confirmation dialog with a notes textarea. This is a **sketch, not a
+shipped component** — `insightActionConfirmation` has never existed in any
+commit. Written as an inline `x-data` object it needs no registration, which is
+the right call for one-off state (see ALPINE_JS_ARCHITECTURE.md § HTMX + Alpine
+Collaboration — register a named component only when the state outlives one
+element, and then in `skuel.js` only if more than one page needs it):
 
-```javascript
-Alpine.data('insightActionConfirmation', function(insightUid, actionType) {
-    return {
-        showDialog: false,
-        notes: '',
-
-        confirm: function() {
-            const endpoint = actionType === 'dismiss'
-                ? `/api/insights/${insightUid}/dismiss`
-                : `/api/insights/${insightUid}/action`;
-
-            fetch(endpoint, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({notes: this.notes})
-            }).then(() => {
-                this.showDialog = false;
-                window.location.reload();
-            });
-        }
-    };
-});
-```
+Use `window.SKUEL.postJson()`, **not** a raw `fetch`. Both
+`/api/insights/{uid}/dismiss` and `/api/insights/{uid}/action` are
+`@csrf_protected` (`adapters/inbound/insights_api.py`), which requires an
+`X-CSRF-Token` header or a `csrf_token` field. HTMX adds that header on its own
+requests; a hand-rolled `fetch` does not, so the POST returns 403 — and a bare
+`.then()` would reload the page as though it had succeeded, hiding the failure.
+`postJson` sets the header from the `csrf_token` cookie and rejects on any
+non-2xx, so the error surfaces.
 
 ```html
-<div x-data="insightActionConfirmation('insight_123', 'dismiss')">
+<div x-data="{
+        showDialog: false,
+        notes: '',
+        confirm() {
+            window.SKUEL.postJson('/api/insights/insight_123/dismiss', { notes: this.notes })
+                .then(() => {
+                    this.showDialog = false;
+                    window.location.reload();
+                })
+                .catch((err) => window.SKUEL.announce('Dismiss failed: ' + err.message, 'assertive'));
+        }
+     }">
     <button @click="showDialog = true">Dismiss</button>
 
     <dialog x-show="showDialog">
@@ -492,6 +493,9 @@ Alpine.data('insightActionConfirmation', function(insightUid, actionType) {
     </dialog>
 </div>
 ```
+
+Swap the endpoint for `/api/insights/{uid}/action` when the action is not a
+dismissal.
 
 ### With Undo Functionality
 
