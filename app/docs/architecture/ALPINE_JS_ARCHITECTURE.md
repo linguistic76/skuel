@@ -35,10 +35,24 @@ curl -sL "https://unpkg.com/alpinejs@X.Y.Z/dist/cdn.min.js" \
   -o static/vendor/alpinejs/alpine.X.Y.Z.min.js
 ```
 
-Then update `ALPINE_VERSION` in `ui/theme.py` — that constant is the **only**
-place the version is written. `skuel_headers()` interpolates it into the one
-`<script>` tag the whole app serves, so no page or route needs editing. Update
-this file + CLAUDE.md for the prose references.
+Then update the version in **two** places — no page or route needs editing, but
+both of these do:
+
+1. **`ALPINE_VERSION` in `ui/theme.py`.** `skuel_headers()` interpolates it into
+   the single `<script>` tag the whole app serves.
+2. **`PRECACHE_URLS` in `static/service-worker.js`**, which hardcodes the
+   *versioned* filename — **and bump `CACHE_VERSION` in the same file.** The PWA
+   precache is not optional bookkeeping: `install` calls `cache.addAll()`, which
+   rejects **wholesale** if any single URL 404s, so a stale entry pointing at the
+   old filename breaks service-worker installation for every client. Without the
+   `CACHE_VERSION` bump, already-installed clients keep serving the old Alpine
+   indefinitely. The file says so itself at the top.
+
+Finally update this file + CLAUDE.md for the prose references.
+
+> The same two-place rule applies to **HTMX** (`HTMX_VERSION` in `ui/theme.py`
+> plus its own `PRECACHE_URLS` entry), and to any other vendored asset whose
+> filename carries a version.
 
 ## Core Philosophy
 
