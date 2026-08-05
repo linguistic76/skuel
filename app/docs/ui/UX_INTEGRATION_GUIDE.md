@@ -214,33 +214,27 @@ as a plain utility rather than an Alpine component: `static/js/focus_trap.js`
 is loaded on every page by `build_head()` (`ui/layouts/base_page.py`) and
 exposes `window.SKUEL.FocusTrap`.
 
-`AlpineModal` takes an `id` but does not emit an `x-ref`, so resolve the element
-by that `id` — there is no `$refs` entry to reach for:
+**No modal in the tree currently wires it up**, so there is no worked example
+here to copy — read `focus_trap.js`'s own header for the constructor options
+(`onEscape`, `initialFocus`, `restoreFocus`, `allowEscape`) and its usage block.
 
-Pass `close="close()"`, **not** `close="isOpen = false"`. `AlpineModal` uses that
-expression for its click-out, so a bare assignment hides the modal without ever
-deactivating the trap — which then keeps intercepting Tab and focus against an
-invisible element. Every dismissal path must route through the one method:
+Four constraints, each verified against the source, that an integration must
+satisfy. They are listed rather than pre-solved because an untested snippet for
+an unused capability is how this guide went stale in the first place:
 
-```python
-AlpineModal(*content, show="isOpen", close="close()", id="confirm-modal")
-```
-
-```html
-<div x-data="{
-        isOpen: false,
-        trap: null,
-        open() {
-            this.isOpen = true;
-            this.trap = new SKUEL.FocusTrap(document.getElementById('confirm-modal'));
-            this.$nextTick(() => this.trap.activate());
-        },
-        close() { this.trap?.deactivate(); this.trap = null; this.isOpen = false; }
-     }">
-  <button @click="open()">Open</button>
-  <!-- any in-modal close button must also call close(), never isOpen = false -->
-</div>
-```
+1. **Resolve the element by `id`.** `AlpineModal` accepts `id` but emits no
+   `x-ref`, so there is no `$refs` entry; the constructor throws on a missing
+   element (`"FocusTrap requires an element"`).
+2. **Activate after the modal is visible.** `x-show` has not revealed the
+   subtree on the same tick, and a trap over a hidden subtree finds nothing
+   focusable.
+3. **Route every dismissal through one path.** `AlpineModal` uses its `close`
+   expression for click-out, so `close="isOpen = false"` would hide the modal
+   without deactivating the trap — leaving it intercepting Tab against an
+   invisible element.
+4. **Pass `onEscape`.** Without it, `_handleKeydown` falls through to a bare
+   `deactivate()` (`focus_trap.js`), which drops the trap but leaves the modal
+   open — the opposite of the checklist above, which says Escape closes modals.
 
 `$nextTick` matters: `x-show` has not revealed the modal on the same tick, and a
 focus trap over a hidden subtree finds nothing focusable.
