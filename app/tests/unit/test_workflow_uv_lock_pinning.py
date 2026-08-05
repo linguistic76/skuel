@@ -79,7 +79,7 @@ See: PR #935, docs/guides/UV_GUIDE.md § Freezing the lock in CI
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePath, PurePosixPath
 
 import yaml
 
@@ -450,6 +450,7 @@ def _collect_from_shell(
     workdir: Path,
     root: Path,
     seen: set[Path],
+    inputs: set[Path],
 ) -> list[UvInvocation]:
     """uv invocations in a shell fragment, descending into scripts it runs."""
     found: list[UvInvocation] = []
@@ -471,17 +472,20 @@ def _collect_from_shell(
             continue
 
         script = _resolve_script(name, written, args, workdir, root)
-        if script is not None and script not in seen:
-            seen.add(script)
-            found.extend(
-                _collect_from_shell(
-                    script.read_text(encoding="utf-8", errors="replace"),
-                    origin=str(script.relative_to(root)),
-                    workdir=workdir,
-                    root=root,
-                    seen=seen,
+        if script is not None:
+            inputs.add(script)
+            if script not in seen:
+                seen.add(script)
+                found.extend(
+                    _collect_from_shell(
+                        script.read_text(encoding="utf-8", errors="replace"),
+                        origin=str(script.relative_to(root)),
+                        workdir=workdir,
+                        root=root,
+                        seen=seen,
+                        inputs=inputs,
+                    )
                 )
-            )
     return found
 
 
@@ -517,8 +521,20 @@ def _resolve_script(
     return None
 
 
-def audit_workflow(path: Path, root: Path = REPO_ROOT) -> list[JobUvUsage]:
-    """Census of uv usage and UV_FROZEN declarations, one entry per job."""
+def audit_workflow(
+    path: Path, root: Path = REPO_ROOT, inputs: set[Path] | None = None
+) -> list[JobUvUsage]:
+    """Census of uv usage and UV_FROZEN declarations, one entry per job.
+
+    ``inputs``, if given, collects every file this read — the workflow, the
+    shell scripts it follows, the composite actions it expands. The CI path
+    filter that decides whether this guard runs at all must cover all of them
+    (see ``test_every_file_this_guard_reads_triggers_the_job_that_runs_it``).
+    """
+    if inputs is not None:
+        inputs.add(path)
+    else:
+        inputs = set()
     document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     workflow_declared, workflow_value = _env_value(document, "UV_FROZEN")
     workflow_defaults = (document.get("defaults") or {}).get("run") or {}
@@ -553,6 +569,7 @@ def audit_workflow(path: Path, root: Path = REPO_ROOT) -> list[JobUvUsage]:
                         workdir=workdir,
                         root=root,
                         seen=seen,
+                        inputs=inputs,
                     )
                 )
             # Local composite actions run their steps inside this job, under
@@ -560,7 +577,7 @@ def audit_workflow(path: Path, root: Path = REPO_ROOT) -> list[JobUvUsage]:
             uses = step.get("uses")
             if isinstance(uses, str) and uses.startswith("./"):
                 invocations.extend(
-                    _collect_from_composite(root / uses[2:], root, seen, str(step_name))
+                    _collect_from_composite(root / uses[2:], root, seen, str(step_name), inputs)
                 )
 
         usages.append(
@@ -577,7 +594,7 @@ def audit_workflow(path: Path, root: Path = REPO_ROOT) -> list[JobUvUsage]:
 
 
 def _collect_from_composite(
-    action_dir: Path, root: Path, seen: set[Path], step_name: str
+    action_dir: Path, root: Path, seen: set[Path], step_name: str, inputs: set[Path]
 ) -> list[UvInvocation]:
     """uv invocations inside a local composite action's own steps."""
     for filename in ("action.yml", "action.yaml"):
@@ -587,6 +604,7 @@ def _collect_from_composite(
     else:
         return []
 
+    inputs.add(manifest)
     document = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
     found: list[UvInvocation] = []
     for step in (document.get("runs") or {}).get("steps") or []:
@@ -600,6 +618,7 @@ def _collect_from_composite(
                 workdir=workdir,
                 root=root,
                 seen=seen,
+                inputs=inputs,
             )
         )
     return found
@@ -718,6 +737,55 @@ def test_workflows_are_reachable_from_the_test_tree() -> None:
     usages = _audit_all()
     assert usages, f"No jobs parsed out of {WORKFLOWS_DIR}"
     assert {u.workflow for u in usages} >= {"ci.yml", "dependency-audit.yml"}
+
+
+def _py_filter_patterns() -> list[str]:
+    """The path globs that decide whether ci.yml's `unit_tests` job runs."""
+    document = yaml.safe_load((WORKFLOWS_DIR / "ci.yml").read_text(encoding="utf-8"))
+    for step in document["jobs"]["changes"]["steps"]:
+        filters = (step.get("with") or {}).get("filters")
+        if filters:
+            patterns = yaml.safe_load(filters)["py"]
+            assert isinstance(patterns, list) and patterns
+            return [str(p) for p in patterns]
+    raise AssertionError("ci.yml's `changes` job has no paths-filter step")
+
+
+def test_every_file_this_guard_reads_triggers_the_job_that_runs_it() -> None:
+    """A guard that does not RUN on the change that breaks it protects nothing.
+
+    `unit_tests` is gated on ci.yml's `py` path filter, and the CI gate accepts
+    a skipped job as green. So every file this guard reads — the workflows, the
+    shell scripts it follows, the composite actions it expands — has to be in
+    that filter, or a PR touching only that file sails past in silence. This
+    already happened twice: the filter listed `.github/workflows/ci.yml` alone
+    (so dependency-audit.yml was unguarded), and then still omitted
+    `app/scripts/audit_dependencies.sh`, whose --locked is the ONLY thing
+    keeping the CVE-audit jobs out of rule 1 (Codex P1, PR #959).
+
+    Asserting coverage rather than listing it is the point: the guard follows
+    whatever the workflows invoke, so the filter is derived from what was
+    actually read. Add a script to a workflow and this fails until the filter
+    catches up — including through PR #932's osv-scanner rename.
+    """
+    inputs: set[Path] = set()
+    for path in _workflow_paths(WORKFLOWS_DIR):
+        audit_workflow(path, inputs=inputs)
+
+    patterns = _py_filter_patterns()
+    relative = sorted(str(p.relative_to(REPO_ROOT)) for p in inputs)
+    assert relative, "collected no inputs — the traversal recorded nothing"
+
+    uncovered = [rel for rel in relative if not any(PurePath(rel).full_match(p) for p in patterns)]
+    assert not uncovered, (
+        "These files are read by this guard but do not match ci.yml's `py` path "
+        "filter, so a PR touching only them would skip `unit_tests` — and the CI "
+        "gate treats a skip as green:\n"
+        + "".join(f"    {rel}\n" for rel in uncovered)
+        + f"  py filter patterns: {patterns}\n"
+        "  Fix: add a pattern covering them to the `py` filter in ci.yml. Prefer a "
+        "class ('app/scripts/**/*.sh') over a name, so a rename cannot re-open this."
+    )
 
 
 def test_uv_lock_is_pinned_in_every_workflow_job() -> None:
