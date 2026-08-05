@@ -102,14 +102,38 @@ GitHub Actions use the official uv setup action:
 
 Cache key is based on `uv.lock` for reproducible CI builds.
 
-**`--frozen` in CI is not optional.** A bare `uv sync` locks before syncing, so a
-`uv.lock` that has fallen behind `pyproject.toml` is silently re-resolved and
-rewritten in the runner workspace — CI then measures a resolution nobody
-reviewed. `--frozen` installs the committed lock as-is. (`--locked` also refuses
-to rewrite, but *fails* the install step; pick it only where that failure is the
-signal you want. `ci.yml` uses `--frozen` everywhere and lets the dependency
-audit's `uv export --locked` be the one staleness detector.) The Docker build
-uses `--frozen` for the same reason — see `.claude/skills/docker/SKILL.md`.
+### Freezing the lock in CI
+
+**A bare `uv sync` locks before syncing.** If `uv.lock` has fallen behind
+`pyproject.toml`, uv silently re-resolves and rewrites it in the runner
+workspace — CI then measures a resolution nobody reviewed.
+
+**`uv run` does the same thing.** This is the part that's easy to miss: pinning
+only the install step leaves the hole open one step later, because `uv run`
+locks and syncs before it runs your command. `uv run --frozen` is "Run without
+updating the `uv.lock` file."
+
+So `ci.yml` sets **`UV_FROZEN: "1"` at the job level** rather than flagging each
+invocation — one setting covers `sync`, `run`, and any uv command a future step
+adds. A hand-maintained list of flags goes stale the first time someone adds a
+step.
+
+**The one exception: `UV_FROZEN` conflicts with an explicit `--locked`.**
+
+```
+error: the argument `--locked` cannot be used with `UV_FROZEN` (environment variable)
+```
+
+uv exits 2 — it is a hard conflict, not a precedence rule. So the `pip_audit`
+job deliberately does *not* set `UV_FROZEN`: `scripts/audit_dependencies.sh`
+runs `uv export --locked` and `uv run --locked`, and that `--locked` is the
+single staleness detector guarding the CVE gate. That job pins its sync with an
+explicit `--frozen` flag instead.
+
+Rule of thumb: **`--frozen` installs the committed lock as-is; `--locked`
+asserts the lock is already current and *fails* if it isn't.** Reach for
+`--locked` only where that failure is the signal you want. The Docker build uses
+`--frozen` for the same reason — see `.claude/skills/docker/SKILL.md`.
 
 ## Enforcement: SKUEL016
 

@@ -108,6 +108,18 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    # Pin every uv command in this job to the committed lock. See the canonical
+    # note on the install step below; the short version is that `uv sync` is not
+    # the only command that re-locks — `uv run` does too, so flagging the sync
+    # alone would leave the hole open one step later (Codex, PR #935).
+    #
+    # Job-level env rather than a flag per invocation: this job has ~20 `uv run`
+    # calls across the file and enumerating them is the kind of hand-maintained
+    # list that goes stale the first time someone adds a step.
+    #
+    # NOT set on pip_audit — see that job for why it would break the CVE gate.
+    env:
+      UV_FROZEN: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -232,6 +244,11 @@ jobs:
     # bulk-upsert templates) since 2026-07, so this filter is load-bearing.
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
     runs-on: ubuntu-latest
+    # Pin every uv command in this job to the committed lock (see the mypy job
+    # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
+    # the install step alone would not hold. Not set on pip_audit.
+    env:
+      UV_FROZEN: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -297,6 +314,14 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.audit == 'true'
     runs-on: ubuntu-latest
+    # NO `env: UV_FROZEN` here, unlike every other uv job above — and this is
+    # load-bearing, not an oversight. `audit_dependencies.sh` runs
+    # `uv export --locked` and `uv run --locked`, and uv treats UV_FROZEN as a
+    # hard CONFLICT with an explicit --locked:
+    #   error: the argument `--locked` cannot be used with `UV_FROZEN`
+    # (exit 2, verified on uv 0.10.9). Setting it here would take the required
+    # CVE gate red on every run. This job pins its one sync with an explicit
+    # --frozen flag instead, and the script's own --locked stays the detector.
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -345,6 +370,11 @@ jobs:
       contents: read
       pull-requests: write  # allow the "Comment on PR" step to post results
 
+    # Pin every uv command in this job to the committed lock (see the mypy job
+    # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
+    # the install step alone would not hold. Not set on pip_audit.
+    env:
+      UV_FROZEN: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -485,6 +515,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
+    # Pin every uv command in this job to the committed lock (see the mypy job
+    # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
+    # the install step alone would not hold. Not set on pip_audit.
+    env:
+      UV_FROZEN: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -566,6 +601,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    # Pin every uv command in this job to the committed lock (see the mypy job
+    # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
+    # the install step alone would not hold. Not set on pip_audit.
+    env:
+      UV_FROZEN: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -605,6 +645,11 @@ jobs:
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25  # testcontainer startup can hang on daemon issues; suite itself is ~2-4 min
+    # Pin every uv command in this job to the committed lock (see the mypy job
+    # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
+    # the install step alone would not hold. Not set on pip_audit.
+    env:
+      UV_FROZEN: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -638,6 +683,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
+    # Pin every uv command in this job to the committed lock (see the mypy job
+    # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
+    # the install step alone would not hold. Not set on pip_audit.
+    env:
+      UV_FROZEN: "1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
