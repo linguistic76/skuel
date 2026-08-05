@@ -5,7 +5,7 @@
     ":dependencyDashboard",
     ":semanticCommits"
   ],
-  "description": "SKUEL dependency upgrade policy — see app/docs/decisions/ADR-067-dependency-upgrade-policy.md. PR-only: CI runs no pytest, so a human verifies every bump locally (./dev quality + ./dev test-integration) before merge.",
+  "description": "SKUEL dependency upgrade policy — see app/docs/decisions/ADR-067-dependency-upgrade-policy.md. PR-only, no auto-merge; verify every bump locally (./dev quality + ./dev test-integration) before merge. CI runs unit + integration tests (testcontainer Neo4j) on py/cypher changes as a backstop.",
   "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile"],
   "automerge": false,
   "prConcurrentLimit": 5,
