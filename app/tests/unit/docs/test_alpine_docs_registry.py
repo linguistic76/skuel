@@ -103,9 +103,16 @@ REGION_BEGIN = "<!-- alpine-registry:begin -->"
 REGION_END = "<!-- alpine-registry:end -->"
 
 # x-data="name(...)", x_data="name(...)", "x-data": "name(...)".
+#
+# The `[rRbBuUfF]{0,2}` allows a Python string prefix before the quote. FastHTML
+# docs interpolate constructor args, so `**{"x-data": f"chartVis('{url}', 'bar')"}`
+# is the COMMON first-party form — 8 sites across the chartjs and vis-network
+# skills. Requiring a bare quote missed every one of them, so a rename of
+# chartVis or relationshipGraph would have left those examples stale and green.
+#
 # The value must START with an identifier, so inline object literals
 # (x-data="{ open: false }") correctly do not match.
-_X_DATA_RE = re.compile(r"""x[-_]data["']?\s*[:=]\s*["']\s*([A-Za-z_]\w*)""")
+_X_DATA_RE = re.compile(r"""x[-_]data["']?\s*[:=]\s*[rRbBuUfF]{0,2}["']\s*([A-Za-z_]\w*)""")
 
 # One pattern, two inputs. Against JS it runs on comment-STRIPPED source (so a
 # prose mention cannot register); against docs it runs on raw text (so a prose

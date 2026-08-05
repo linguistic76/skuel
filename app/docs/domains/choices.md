@@ -160,17 +160,24 @@ Read-focused UI at `/choices` is planned. API routes remain active.
 
 ### Where options are entered
 
-`ChoiceCreateRequest.options` exists as a `list[ChoiceOptionRequest]`
-(`core/models/choice/choice_request.py`), but **the web form does not collect
-it.** `GET|POST /choices/create` is rendered by `FormGenerator` via
-`ui/activities/choices_form.py`, whose own docstring records that the nested
-`options` list and the free-text list fields are excluded; the form carries no
-Alpine component beyond the default `formValidator`. Options are added on the
-**detail page** after the choice exists.
+**There is currently no web path for entering choice options.** Traced, not
+inferred — each of these was checked against source:
 
-> Do not infer the minimum-option rule from `ChoicesCoreService._validate_create`
-> — it defines "at least 2 options" and "BINARY needs exactly 2", but nothing on
-> the choice create path calls it. Verify before relying on either rule.
+| Layer | State |
+|-------|-------|
+| `ChoiceCreateRequest.options` | Exists, `list[ChoiceOptionRequest]` (`core/models/choice/choice_request.py`) |
+| Create/edit form | Excludes it — `ui/activities/choices_form.py`'s own docstring says the nested `options` list and free-text list fields are dropped |
+| `/choices/detail` | Renders existing options; registers no add/update/remove endpoint |
+| Service methods | `add_option` / `update_option` / `remove_option` exist (`core/services/choices/_option_management_mixin.py`) but **no HTTP route exposes them** |
+| `ChoicesCoreService._validate_create` | Defines "at least 2 options" and "BINARY needs exactly 2" — but nothing on the create path calls it |
+
+So options reach a choice only through whatever populates the request model
+directly. **Verify the specific path before relying on it**; this doc previously
+asserted three different answers here and each was wrong.
+
+The last two rows are latent defects, not documentation gaps — unreachable
+validation and unexposed service methods. Neither is fixed here (this was a
+docs-only change).
 
 > **Historical note.** This section previously documented a `choiceOptions()`
 > Alpine component with add/remove/validate methods, mounted on a create form in
