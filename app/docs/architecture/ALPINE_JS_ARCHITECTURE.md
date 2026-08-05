@@ -77,25 +77,25 @@ FastHTML's `fast_app()` includes HTMX 2.0.7 by default. When different pages use
 - Multiple clicks required for navigation to work
 - Inconsistent behavior across page types
 
-### The Solution: Explicit Html Documents
+### The Solution: One Emitter
 
-All pages must return complete `Html(...)` documents with explicit headers including HTMX 1.9.10:
+Consistency is structural, not a convention pages have to follow.
+`ui/theme.py:skuel_headers()` is the **only** place in the tree that emits the
+HTMX or Alpine `<script>` tag, and `build_head()` is the only way a page gets
+them — so no page *can* pin a different version. `HTMX_VERSION` and
+`ALPINE_VERSION` in that module are the single source for both.
 
-```python
-from fasthtml.common import Html, Head, Body, Script
+Pages therefore do not hand-assemble `Head()`. A page that does gets no HTMX, no
+Alpine, no `skuel.js` and no compiled CSS. See § *There is no second path* below,
+and CLAUDE.md § UI Component Pattern.
 
-def my_page():
-    return Html(
-        Head(
-            # HTMX - MUST be 1.9.10 for consistency
-            Script(src="https://unpkg.com/htmx.org@1.9.10"),
-            # Alpine.js - self-hosted
-            Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
-            # ... other headers
-        ),
-        Body(content),
-    )
-```
+> This section previously prescribed the opposite — every page returning its own
+> `Html(...)` with hand-written `<script>` tags, and HTMX pulled from
+> `unpkg.com`. Both are now wrong: nothing is LOADED from a CDN at runtime (see
+> the Version Matrix below — HTMX and Alpine are vendored under
+> `/static/vendor/`; the `curl` above downloads FROM unpkg in order to vendor a
+> new version, which is not the same thing), and hand-built heads were the very
+> failure mode the single emitter removed.
 
 ### Version Matrix
 
@@ -280,11 +280,10 @@ app, rt = fast_app(
 
 ### There is no second path
 
-Pages do **not** hand-write the Alpine `<script>` tag. `ui/theme.py:skuel_headers()`
-is the only place in the tree that emits it, and `build_head()` is the only way a
-page gets it — see CLAUDE.md § UI Component Pattern ("Never hand-assemble `<link>`
-tags"). A page that assembles its own `Head()` gets no Alpine, no `skuel.js`, and
-no compiled CSS.
+The single-emitter rule is stated under *HTMX Version Standardization* above and
+applies identically to Alpine: `skuel_headers()` emits the tag, `build_head()`
+delivers it, and a page that assembles its own `Head()` gets no Alpine, no
+`skuel.js` and no compiled CSS.
 
 This section previously documented a "standalone page" pattern for Timeline and
 Search that hand-inlined the vendored path. Both surfaces now go through
