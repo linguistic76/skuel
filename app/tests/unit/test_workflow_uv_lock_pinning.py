@@ -69,9 +69,33 @@ evidence has to survive two separate ways of not being uv's:
     would mark the job ``--locked`` while nothing pinned the lock at all
     (Codex, PR #959). Only uv's own option region counts.
 
-Both cuts are deliberately conservative — they can drop real pin evidence,
-never invent it. Likewise only shell scripts are followed; a uv call shelled
-out from a Python script is not seen, and fails in that same loud direction.
+Both cuts can drop real pin evidence, never invent it — but "conservative" is
+NOT the same as safe. Dropping pin evidence also disables rule 2, so a command
+that would exit 2 under ``UV_FROZEN`` passes unnoticed. There is no reading
+that is safe for both rules at once.
+
+WHAT THIS GUARD REFUSES TO GUESS  (rule 0)
+
+Hence the mechanism that ends the regress: rather than growing a shell-and-CLI
+parser one special case at a time, anything that cannot be classified with
+confidence is REPORTED, not skipped. Four review rounds each found a fresh
+syntax the previous parse mishandled (`env -u X uv sync`, `bash -c 'uv sync'`,
+`uv run --with requests --locked …`), every one silently — which is the
+signature of an approximation, not of a bug. So:
+
+  * A bare ``uv`` token in another command's arguments — a wrapper whose
+    options cannot be skipped without an arity table for that wrapper — is
+    reported as unreadable.
+  * A ``--frozen``/``--locked`` that falls outside uv's option region behind an
+    ambiguous boundary (``--opt value`` is indistinguishable from
+    ``--flag CHILD``) is reported as ambiguous, with the ``--opt=value`` fix.
+
+The claim is therefore not "this parses shell correctly" — it is "this reads
+the shapes it can and refuses the rest". Refusals are finite and actionable;
+an arity table for uv and for every wrapper would be a second, drifting copy of
+someone else's CLI. ``sh -c`` payloads ARE parsed, since that is exact rather
+than approximate. The one surface still unreached is uv shelled out from a
+Python script, which fails in the loud direction.
 
 See: PR #935, docs/guides/UV_GUIDE.md § Freezing the lock in CI
 """
@@ -327,16 +351,25 @@ def _command_name(tokens: list[str]) -> tuple[str | None, str, list[str]]:
 # --------------------------------------------------------------------------
 
 
-def _uv_option_region(args: list[str]) -> tuple[str | None, tuple[str, ...]]:
-    """uv's own subcommand, and the tokens that are uv's own options.
+def _uv_option_region(args: list[str]) -> tuple[str | None, tuple[str, ...], bool]:
+    """uv's subcommand, the tokens that are uv's OWN options, and ambiguity.
 
     `uv run [OPTIONS] COMMAND [ARGS]` — everything after COMMAND belongs to the
     CHILD. Verified on uv 0.10.9: `uv run python -c '…' --locked` hands
-    `--locked` to Python, and uv still syncs unfrozen. Reading a child's flag
-    as uv's would mark the job `--locked` and EXCUSE it from rule 1, so the
-    region is cut at the first non-flag token after the subcommand and never
-    extended past it. Cutting early is safe (it only loses pin evidence, which
-    fails loudly); cutting late is the silent direction.
+    `--locked` to Python and uv still syncs unfrozen, so crediting it to uv
+    would EXCUSE the job from rule 1. The region is therefore cut at the first
+    non-flag token after the subcommand.
+
+    But that cut cannot tell a child command from an OPTION VALUE without
+    knowing every uv option's arity — in `uv run --with requests --locked …`
+    the cut lands on `requests` and drops a `--locked` that really is uv's.
+    Cutting early is not simply "safe": losing pin evidence also disables
+    rule 2, so a command that WILL exit 2 under UV_FROZEN would pass unnoticed.
+
+    So the boundary reports whether it is ambiguous — the token before the cut
+    is a valueless-looking flag — and the caller refuses to guess rather than
+    silently choosing a reading. An arity table would be a second, drifting
+    copy of uv's CLI; refusing is stable across uv versions.
     """
     subcommand: str | None = None
     sub_index = -1
@@ -346,12 +379,32 @@ def _uv_option_region(args: list[str]) -> tuple[str | None, tuple[str, ...]]:
             break
 
     if subcommand is None or subcommand not in _SUBCOMMANDS_WITH_CHILD:
-        return subcommand, tuple(args)
+        return subcommand, tuple(args), False
 
     for index in range(sub_index + 1, len(args)):
         if not args[index].startswith("-"):
-            return subcommand, tuple(args[:index])
-    return subcommand, tuple(args)
+            previous = args[index - 1]
+            # `--opt value CHILD` vs `--flag CHILD`: indistinguishable without
+            # arity. `--opt=value` is self-delimiting, so it is not ambiguous.
+            ambiguous = previous.startswith("-") and "=" not in previous
+            return subcommand, tuple(args[:index]), ambiguous
+    return subcommand, tuple(args), False
+
+
+@dataclass(frozen=True)
+class UnreadableUv:
+    """A uv command this guard could not classify.
+
+    Never silently dropped. Every shape that reaches here — a wrapper whose
+    options it cannot skip, a shell payload it cannot recover — would
+    otherwise make a uv-using job read as uv-free, which is the silent
+    direction. A refusal is a finite, actionable answer; a parser that keeps
+    growing special cases is not.
+    """
+
+    origin: str
+    rendered: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -362,6 +415,7 @@ class UvInvocation:
     rendered: str
     subcommand: str | None
     option_region: tuple[str, ...]  # the tokens that belong to uv, not a child
+    ambiguous_pin: bool = False  # a pin flag sits outside an unresolvable boundary
 
     @property
     def _flags(self) -> set[str]:
@@ -399,6 +453,7 @@ class JobUvUsage:
     workflow: str
     job_id: str
     invocations: tuple[UvInvocation, ...]
+    unreadable: tuple[UnreadableUv, ...]
     frozen_scope: str | None  # "workflow" / "job" — where UV_FROZEN was declared
     frozen_value: str | None
     step_frozen: tuple[str, ...]  # step names declaring UV_FROZEN (never sufficient)
@@ -444,6 +499,24 @@ def _env_value(container: object, key: str) -> tuple[bool, str | None]:
     return True, "" if raw is None else str(raw)
 
 
+def _dash_c_payload(args: list[str]) -> str | None:
+    """The command STRING from `sh -c '…'` — shell source, not a file path.
+
+    getopt clustering is real (`bash -lc '…'`), so any short-option bundle
+    ending in `c` counts, as does the glued `-c'…'` form.
+    """
+    for index, token in enumerate(args):
+        if not token.startswith("-") or token.startswith("--"):
+            continue
+        letters = token[1:]
+        if letters.endswith("c"):
+            return args[index + 1] if index + 1 < len(args) else ""
+        head, sep, rest = letters.partition("c")
+        if sep and head.isalpha():
+            return rest
+    return None
+
+
 def _collect_from_shell(
     text: str,
     origin: str,
@@ -451,6 +524,7 @@ def _collect_from_shell(
     root: Path,
     seen: set[Path],
     inputs: set[Path],
+    unreadable: list[UnreadableUv],
 ) -> list[UvInvocation]:
     """uv invocations in a shell fragment, descending into scripts it runs."""
     found: list[UvInvocation] = []
@@ -460,16 +534,25 @@ def _collect_from_shell(
             continue
 
         if name == "uv":
-            subcommand, region = _uv_option_region(args)
+            subcommand, region, ambiguous = _uv_option_region(args)
             found.append(
                 UvInvocation(
                     origin=origin,
                     rendered=" ".join([name, *args]),
                     subcommand=subcommand,
                     option_region=region,
+                    ambiguous_pin=ambiguous and any(a in _PIN_FLAGS for a in args[len(region) :]),
                 )
             )
             continue
+
+        if name in _INTERPRETERS:
+            payload = _dash_c_payload(args)
+            if payload is not None:
+                found.extend(
+                    _collect_from_shell(payload, origin, workdir, root, seen, inputs, unreadable)
+                )
+                continue
 
         script = _resolve_script(name, written, args, workdir, root)
         if script is not None:
@@ -484,8 +567,24 @@ def _collect_from_shell(
                         root=root,
                         seen=seen,
                         inputs=inputs,
+                        unreadable=unreadable,
                     )
                 )
+            continue
+
+        # A bare `uv` token sitting in some other command's arguments means a
+        # wrapper whose options this guard could not skip (`env -u X uv sync`
+        # leaves `-u` as the command name). Prose never reaches here: an echoed
+        # mention is one quoted token, not the bare word.
+        if "uv" in args:
+            unreadable.append(
+                UnreadableUv(
+                    origin=origin,
+                    rendered=" ".join(tokens),
+                    reason=f"uv is invoked through {name!r}, whose options this "
+                    "guard cannot skip without an arity table for it",
+                )
+            )
     return found
 
 
@@ -550,6 +649,7 @@ def audit_workflow(
         )
 
         invocations: list[UvInvocation] = []
+        unreadable: list[UnreadableUv] = []
         step_frozen: list[str] = []
         seen: set[Path] = set()
 
@@ -570,6 +670,7 @@ def audit_workflow(
                         root=root,
                         seen=seen,
                         inputs=inputs,
+                        unreadable=unreadable,
                     )
                 )
             # Local composite actions run their steps inside this job, under
@@ -577,7 +678,9 @@ def audit_workflow(
             uses = step.get("uses")
             if isinstance(uses, str) and uses.startswith("./"):
                 invocations.extend(
-                    _collect_from_composite(root / uses[2:], root, seen, str(step_name), inputs)
+                    _collect_from_composite(
+                        root / uses[2:], root, seen, str(step_name), inputs, unreadable
+                    )
                 )
 
         usages.append(
@@ -585,6 +688,7 @@ def audit_workflow(
                 workflow=path.name,
                 job_id=str(job_id),
                 invocations=tuple(invocations),
+                unreadable=tuple(unreadable),
                 frozen_scope=("job" if job_declared else "workflow" if workflow_declared else None),
                 frozen_value=job_value if job_declared else workflow_value,
                 step_frozen=tuple(step_frozen),
@@ -594,7 +698,12 @@ def audit_workflow(
 
 
 def _collect_from_composite(
-    action_dir: Path, root: Path, seen: set[Path], step_name: str, inputs: set[Path]
+    action_dir: Path,
+    root: Path,
+    seen: set[Path],
+    step_name: str,
+    inputs: set[Path],
+    unreadable: list[UnreadableUv],
 ) -> list[UvInvocation]:
     """uv invocations inside a local composite action's own steps.
 
@@ -631,6 +740,7 @@ def _collect_from_composite(
                     root=root,
                     seen=seen,
                     inputs=inputs,
+                    unreadable=unreadable,
                 )
             )
         uses = step.get("uses")
@@ -638,7 +748,7 @@ def _collect_from_composite(
             inner = step.get("name") or uses or f"step {index + 1}"
             found.extend(
                 _collect_from_composite(
-                    root / uses[2:], root, seen, f"{step_name} -> {inner}", inputs
+                    root / uses[2:], root, seen, f"{step_name} -> {inner}", inputs, unreadable
                 )
             )
     return found
@@ -659,6 +769,35 @@ def _render(invocations: tuple[UvInvocation, ...], limit: int = 4) -> str:
 def violations(usage: JobUvUsage) -> list[str]:
     """Every way ``usage`` breaks the invariant, as ready-to-print messages."""
     problems: list[str] = []
+
+    # Rule 0. Before any verdict: refuse the shapes this guard cannot read,
+    # rather than reporting a clean result over a command it never saw.
+    problems.extend(
+        f"{usage.label}: a uv command this guard cannot classify [{item.origin}].\n"
+        f"      {item.rendered}\n"
+        f"    Why: {item.reason}.\n"
+        "    Left unread it would make this job look uv-free, so no rule would\n"
+        "    apply and the lock would go unpinned in silence.\n"
+        "    Fix: invoke uv directly (`uv sync --frozen …`) so the command is\n"
+        "    plainly visible in the workflow."
+        for item in usage.unreadable
+    )
+
+    ambiguous = tuple(i for i in usage.invocations if i.ambiguous_pin)
+    if ambiguous:
+        problems.append(
+            f"{usage.label}: cannot tell whether --frozen/--locked belongs to uv or "
+            "to the command uv runs.\n"
+            f"{_render(ambiguous)}\n"
+            "    `uv run [OPTIONS] COMMAND [ARGS]` ends uv's options at COMMAND, and\n"
+            "    a bare `--opt value` pair is indistinguishable from `--flag COMMAND`\n"
+            "    without an arity table for every uv option — which would be a second,\n"
+            "    drifting copy of uv's CLI. Guessing either way is wrong: read it as\n"
+            "    uv's and rule 1 excuses an unpinned job; read it as the child's and\n"
+            "    rule 2 misses a command that exits 2 under UV_FROZEN.\n"
+            "    Fix: write uv's options in `--opt=value` form, which is\n"
+            "    self-delimiting, or move the pin to a job-level UV_FROZEN."
+        )
 
     if usage.step_frozen:
         problems.append(
@@ -713,7 +852,10 @@ def violations(usage: JobUvUsage) -> list[str]:
             f"{_render(usage.invocations)}"
         )
 
-    if not usage.uses_uv and usage.frozen_declared:
+    # Not `elif`: rules 1-3 are independent. But rule 4 is gated on rule 0 —
+    # "never invokes uv" is a claim the guard cannot make about a job holding a
+    # command it could not read.
+    if not usage.uses_uv and not usage.unreadable and usage.frozen_declared:
         problems.append(
             f"{usage.label}: declares UV_FROZEN (at {usage.frozen_scope} level) but "
             "never invokes uv.\n"
@@ -1070,9 +1212,14 @@ def test_control_uv_flags_before_the_child_command_still_count(tmp_path: Path) -
     `uv run --quiet --locked pip-audit --strict` is the real shape inside
     audit_dependencies.sh — `--locked` precedes the child, so it is uv's.
     """
-    subcommand, region = _uv_option_region(["run", "--quiet", "--locked", "pip-audit", "--strict"])
+    subcommand, region, ambiguous = _uv_option_region(
+        ["run", "--quiet", "--locked", "pip-audit", "--strict"]
+    )
     assert subcommand == "run"
     assert region == ("run", "--quiet", "--locked")
+    # The cut follows a flag, so the boundary is ambiguous — but no pin flag
+    # lies beyond it, so nothing is reported. Ambiguity alone is not a finding.
+    assert ambiguous
 
 
 def test_control_a_global_option_value_cannot_pose_as_the_subcommand() -> None:
@@ -1080,7 +1227,7 @@ def test_control_a_global_option_value_cannot_pose_as_the_subcommand() -> None:
 
     Picking it would make the region span the child's args again.
     """
-    subcommand, region = _uv_option_region(
+    subcommand, region, _ = _uv_option_region(
         ["--directory", "app", "run", "python", "x.py", "--locked"]
     )
     assert subcommand == "run"
@@ -1100,6 +1247,123 @@ jobs:
     steps:
       - uses: ./.github/actions/outer
 """
+
+
+def test_control_uv_behind_an_unskippable_wrapper_is_reported(tmp_path: Path) -> None:
+    """`env -u UNUSED uv sync` — stripping `env` leaves `-u` as the command.
+
+    Skipping a wrapper's options needs an arity table per wrapper. Rather than
+    grow one (and miss `timeout 60 uv sync` next), the guard reports what it
+    cannot read. Silent before (Codex, PR #959).
+    """
+    for wrapper in ("env -u UNUSED uv sync", "timeout 60 uv sync"):
+        problems = _problems(
+            tmp_path,
+            f"""
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: {wrapper}
+""",
+        )
+        assert len(problems) == 1, wrapper
+        assert "cannot classify" in problems[0], wrapper
+
+
+def test_control_shell_dash_c_payloads_are_parsed(tmp_path: Path) -> None:
+    """`bash -c 'uv sync'` is shell source, not a path to resolve.
+
+    `-c` is exact, so this one is parsed rather than refused — including the
+    clustered `-lc` form, which getopt really does accept.
+    """
+    for command in ("bash -c 'uv sync'", "sh -lc 'uv run pytest tests/'"):
+        problems = _problems(
+            tmp_path,
+            f"""
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {command}
+""",
+        )
+        assert len(problems) == 1, command
+        assert "invokes uv without pinning" in problems[0], command
+
+
+def test_control_ambiguous_pin_flag_is_reported_not_guessed(tmp_path: Path) -> None:
+    """`uv run --with requests --locked python …` — is `requests` the child?
+
+    Without uv's option arity, `--opt value CHILD` and `--flag CHILD` look
+    identical. Guessing is wrong either way: read `--locked` as uv's and rule 1
+    excuses an unpinned job; read it as the child's and rule 2 misses a command
+    that exits 2 under UV_FROZEN — which is what this job would do.
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: uv run --with requests --locked python -c pass
+""",
+    )
+    assert len(problems) == 1
+    assert "cannot tell whether --frozen/--locked belongs to uv" in problems[0]
+
+
+def test_control_self_delimiting_options_are_not_ambiguous(tmp_path: Path) -> None:
+    """The documented fix must actually clear the report.
+
+    `--with=requests` is self-delimiting, so `python` is unmistakably the child
+    and `--locked` unmistakably uv's — which makes this a rule 2 conflict, the
+    real defect the ambiguity was hiding.
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: uv run --with=requests --locked python -c pass
+""",
+    )
+    assert len(problems) == 1
+    assert "cannot be used with `UV_FROZEN`" in problems[0]
+
+
+def test_control_ordinary_uv_commands_are_never_reported_as_ambiguous(
+    tmp_path: Path,
+) -> None:
+    """Rule 0 must not fire on the shapes these workflows actually use.
+
+    `uv run --quiet --locked pip-audit --strict` cuts after a flag too, but no
+    pin flag lies beyond the cut, so there is nothing to be ambiguous about.
+    """
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  cve:
+    runs-on: ubuntu-latest
+    steps:
+      - run: uv sync --frozen --no-install-project
+      - run: uv run --quiet --locked pip-audit --strict --disable-pip
+      - run: uv run --frozen pytest tests/unit/ -x
+""",
+        )
+        == []
+    )
 
 
 def test_control_nested_composite_actions_are_recursed_into(tmp_path: Path) -> None:
