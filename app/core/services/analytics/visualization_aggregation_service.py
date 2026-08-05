@@ -256,8 +256,13 @@ class VisualizationAggregationService:
         if goal_result.is_error:
             return Result.fail(goal_result)
 
-        # Tasks fulfilling the goal traverse (Task)-[:FULFILLS_GOAL]->(Goal);
         # get_tasks_for_goal returns full Task models, which format_goal_gantt needs.
+        # ⚠ It does NOT traverse (Task)-[:FULFILLS_GOAL]->(Goal) — it does a property
+        # scan on Task.fulfills_goal_uid. The two writers disagree: the API/form path
+        # writes the property, the ingestion door writes only the edge, so every
+        # vault-ingested task is invisible here. Tracked as D3 in
+        # docs/roadmap/gantt-visualization-surface.md. The integration test cannot
+        # catch this — its fixture uses the property-writing API path.
         # get_tasks_for_goal is NOT user-scoped (find_by on fulfills_goal_uid only), so
         # filter to the authenticated owner — a foreign task linked to this goal UID must
         # not leak its title/dates/status into the response (user-owned read invariant).

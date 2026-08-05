@@ -241,7 +241,7 @@ async def tasks_dashboard(request) -> Any:
 - ✅ Journals — `render_inline_error()` for report loading, download auth, file-not-found errors (2026-03-19)
 - ✅ Exercises — `render_error_banner()` for dashboard errors; `render_inline_error()` for edit/view not-found (2026-03-19)
 - ✅ Habits — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact errors (2026-03-19)
-- ✅ Goals — `render_error_banner()` for full-page not-found; `render_inline_error()` for gantt view (2026-03-19)
+- ✅ Goals — `render_error_banner()` for full-page not-found (2026-03-19; the gantt-view half was removed with `goals_ui.py`'s rebuild in `ed8cbeadf`, 2026-03-30)
 - ✅ Calendar — `render_inline_error()` for reschedule validation errors (2026-03-19)
 - ✅ Activities — `render_inline_error()` for preview card loading failures (2026-03-19)
 - ✅ Form Submissions — `render_error_banner()` for full-page errors; `EmptyState` for empty form data (2026-03-19)
