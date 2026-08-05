@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Ordering key for the marker issue. Concurrency serializes runs but does not
       # order them, so a result must carry the revision it describes.
@@ -261,7 +261,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Ordering key for the marker issue — see the python_audit job.
       - name: Record the revision this result describes
