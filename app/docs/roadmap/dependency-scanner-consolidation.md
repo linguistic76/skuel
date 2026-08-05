@@ -235,17 +235,21 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    Run from the **repository root**: 107 hits across 16 files today.
 
    ```bash
-   grep -rn "pip-audit\|pip_audit\|npm audit" . \
-     --include="*.md" --include="*.yml" --include="*.py" --include="*.sh" --include="dev" \
-     | grep -vE "\.claude/worktrees|node_modules"
+   git grep -n "pip-audit\|pip_audit\|npm audit" -- '*.md' '*.yml' '*.py' '*.sh' 'app/dev'
    ```
 
-   **The exclusion filter is the point.** Three drafts of this sweep listed directories to
-   search, and each one was found to be missing a surface — first `.github`, then
-   `docs/security` and `docs/deployment`. An allowlist of directories cannot be verified
-   complete by looking at it; an exclusion of two known-duplicate trees can. (`.claude/
-   worktrees` holds whole copies of the repo, which is why a naive whole-repo grep looks
-   like ~567 hits — 64 of the matching files are the same files seen several times.)
+   **`git grep`, not `grep -r`, and that is the whole point.** Four drafts of this sweep
+   got the scope wrong in four different ways: an allowlist of directories missing
+   `.github`, then missing `docs/security` and `docs/deployment`, then a whole-repo
+   `grep -r` that descends into `.claude/worktrees` (whole copies of the repo) and
+   `app/.venv` — where `pip-audit` ships its own source, contributing 100+ matches of pure
+   noise on any machine that has run `uv sync`.
+
+   A migration surface is by definition a **tracked file**, so the tool that only sees
+   tracked files cannot get this wrong. No exclusion list to maintain, no dependence on
+   which `grep` is installed — note that a `grep` honouring `.gitignore` (ugrep, ripgrep)
+   and GNU `grep` give materially different counts here, so a `grep -r` instruction is not
+   even reproducible between contributors.
 
    Surfaces this reaches, each one found by a *different* review round, which is the
    evidence that hand-picked scopes kept failing: `.github/workflows/README.md` (10 hits),
