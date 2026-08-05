@@ -323,7 +323,7 @@ def test_validate_task_form_data_missing_title():
 
 ### Core Files
 - `/adapters/inbound/tasks_ui.py` - Reference implementation (all patterns)
-- `/adapters/inbound/goals_ui.py` - Calendar-enabled variant, `render_error_banner()` for full-page + `render_inline_error()` for gantt
+- `/adapters/inbound/goals_ui.py` - `render_error_banner()` for full-page not-found on create/edit
 - `/adapters/inbound/choices_ui.py` - Form validation example
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
 - `/adapters/inbound/learning_loop_routes.py` - HTMX fragments with `render_inline_error()` preserving target IDs
@@ -378,7 +378,7 @@ def test_validate_task_form_data_missing_title():
 - ✅ UserEntry (`user_entry_ui.py`) — `render_inline_error()` for journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
 - ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
 - ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
-- ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found; `render_inline_error()` for gantt view
+- ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found
 - ✅ KU (`ku_ui.py`) — error banner on Ku list failure, logging for bookmark failures
 - ✅ Admin (`admin_dashboard_ui.py`) — `render_error_banner()` for user-not-found; warning banners for stats, system status
 - ✅ Insights (`insights_ui.py`) — error banner on insights/stats load failure, load-more endpoint

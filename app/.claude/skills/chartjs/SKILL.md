@@ -6,6 +6,15 @@ allowed-tools: Read, Grep, Glob
 
 # Chart.js: Data Visualization for SKUEL
 
+> ⚠ **STALE CODE EXAMPLES (flagged 2026-08-04, not yet rewritten).** Every snippet
+> in this skill that imports `ui.goals.visualization` — `create_chart_view`,
+> `create_visualization_dashboard`, and the `include_charts` / `include_timeline` /
+> `include_gantt` kwargs — refers to a module deleted in `ed8cbeadf` (2026-03-30).
+> None of those symbols exists anywhere in the tree. **Do not copy those snippets.**
+> The live patterns are `_chart_card` (`ui/insights/components.py:247-265`) and the
+> radar at `ui/lifepath/alignment.py:94-116`. The "Loading Chart.js" note below and
+> the component table near the end ARE accurate.
+
 ## Core Philosophy
 
 > "Data becomes insight through visualization. Charts tell the story that numbers cannot."
@@ -18,7 +27,7 @@ In SKUEL, Chart.js visualizes the 6 activity domains (Tasks, Goals, Habits, Even
 | **Aggregate** | Query + compute per-period counts | `VisualizationAggregationService` |
 | **Format** | Transform aggregates to Chart.js JSON | `VisualizationService` (pure, no domain deps) |
 | **Render** | Alpine component loads chart | `chartVis()` in skuel.js |
-| **Container** | FastHTML generates HTML | `create_chart_view()` |
+| **Container** | FastHTML generates HTML | a page-local card helper, e.g. `_chart_card()` in `ui/insights/components.py` |
 
 **The Rule:** All chart rendering goes through Alpine.js components. No inline JavaScript.
 
@@ -353,7 +362,10 @@ SKUEL also includes:
 |-----------|---------|-----------------|
 | Frappe Gantt | Project planning | none — `/api/visualizations/gantt/*` has no UI consumer |
 
-**See:** Gantt patterns in this skill's reference docs.
+**See:** `docs/roadmap/gantt-visualization-surface.md` — the Gantt surface is
+STAGED (founder ruling 2026-08-04), and that doc holds its verified map, its ten
+correctness defects, and the ordered path to wiring it. There are no Gantt
+patterns in this skill's reference files.
 
 ## Additional Resources
 

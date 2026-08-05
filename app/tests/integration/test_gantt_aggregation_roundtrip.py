@@ -12,9 +12,15 @@ that was never implemented:
   an unhandled ``AttributeError`` → 500 on ``GET /api/visualizations/gantt/goal/{uid}``.
 
 The fixes route through real methods: ``relationships.get_related_uids("prerequisite_tasks", uid)``
-(the generic DEPENDS_ON reader) and ``tasks_service.get_tasks_for_goal(uid)`` (the
-canonical FULFILLS_GOAL reader returning Task models). A mocked service can't catch
-either bug — the only proof is data flowing through real Neo4j, which is what these do.
+(the generic DEPENDS_ON reader) and ``tasks_service.get_tasks_for_goal(uid)``, which returns
+Task models. A mocked service can't catch either bug — the only proof is data flowing
+through real Neo4j, which is what these do.
+
+COVERAGE BOUND (deliberate, not silent): ``get_tasks_for_goal`` is NOT a FULFILLS_GOAL
+*edge* reader despite its name — it property-scans ``Task.fulfills_goal_uid``. The fixture
+below links via ``fulfills_goal_uid=goal.uid`` (the API writer, which writes the property),
+so these tests are structurally blind to vault-ingested tasks, which carry only the edge.
+See D3 in ``docs/roadmap/gantt-visualization-surface.md``.
 """
 
 from datetime import date, timedelta

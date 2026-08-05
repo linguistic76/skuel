@@ -254,14 +254,22 @@ read contradicts or extends the ground truth.
   detector's scope). Removed here, with `compose.py` and the Gantt integration
   fixture updated. When deleting a service method, check what its dependencies
   were injected *for*.
-- **The Gantt half of this surface is orphaned too — and the docs claimed a
-  component that never existed.** `frappe-gantt` is vendored but loaded by no
-  page, and `/api/visualizations/gantt/*` has no UI consumer, so it is the same
-  shape M7 ruled on for `/timelines`. The `chartjs` skill and
-  `ui-development.md` both documented a `ganttVis()` Alpine component;
-  `git`-wide there is no such registration. The false claim is corrected here.
-  **Whether the Gantt surface follows `/timelines` is a founder ruling, not
-  this PR's** — M7 names `/timelines` and nothing else.
+- **The Gantt half of this surface is unwired too** — `/api/visualizations/gantt/*`
+  has no UI consumer. **Whether it follows `/timelines` is a founder ruling, not
+  this PR's**; M7 names `/timelines` and nothing else.
+  **⚠ CORRECTED 2026-08-04 — this PR published two false claims here, now
+  superseded by `docs/roadmap/gantt-visualization-surface.md`:**
+  (1) it said the docs "claimed a component that never existed" and that
+  "`git`-wide there is no such registration" — **false**: `ganttVis` was
+  registered at `static/js/skuel.js:749` from `15e148778` until `327f26623`
+  deleted it. The docs were describing real code that was deleted out from under
+  them, so the `chartjs`/`ui-development.md` edits made here were corrections to
+  *stale* claims, not to invented ones.
+  (2) it said `frappe-gantt` "is vendored" — **false**: `327f26623` moved the
+  assets into `_shelved/` (R100, byte-identical) and `ed8cbeadf` deleted them;
+  the npm package is not installed either. The lesson: *"no such registration
+  today"* is not *"never existed"* — a name-grep of the working tree cannot see
+  a deletion, and `git log --all -S"<sym>"` is the instrument that can.
 - **`DOMAIN_ROUTE_CONFIG_PATTERN.md`'s route inventory was already wrong.** It
   claimed 38 files, listed 36 numbered entries (with duplicate and skipped
   numbers), against 29 modules actually declaring a `DomainRouteConfig`. Only
@@ -396,9 +404,11 @@ Left open by design, each gated on lived use rather than on work:
   frontmatter. No repo PR; no personal vault content enters this repo.
 - **Habit rows in the weekly-note panel** (A5's backward-review half) remain a
   follow-up, per Non-goals.
-- **The orphaned Gantt surface** (`/api/visualizations/gantt/*` + the vendored
-  `frappe-gantt`, loaded by no page) is the same shape M7 ruled on, but M7 names
-  `/timelines` only. It needs its own founder ruling — see "What PR 3 found".
+- **The unwired Gantt surface** (`/api/visualizations/gantt/*`, no UI consumer)
+  needed its own founder ruling. **RULED 2026-08-04: STAGED, not deleted** — it
+  is kept for future development. See `docs/roadmap/gantt-visualization-surface.md`
+  for the verified map, the ten correctness defects, and the ordered wiring path.
+  It is no longer an open item on this arc.
 - **The non-positive-duration follow-ups PR 2 named** are still open: the same
   habit renders `0m` on `/today` and proposes `15` in
   `habits_scheduling_service`.

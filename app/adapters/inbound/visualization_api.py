@@ -16,8 +16,11 @@ Security:
 Architecture:
     - Aggregation: core/services/analytics/visualization_aggregation_service.py
     - Formatting: core/services/visualization_service.py
-    - Components: /components/visualization_components.py
-    - Alpine.js: /static/js/skuel.js
+    - Alpine.js: chartVis in /static/js/skuel.js (Chart.js only)
+
+None of these six endpoints has a UI consumer today. The Chart.js pages build their
+own containers (see ui/insights/components.py); the two Gantt endpoints are a STAGED
+surface — see docs/roadmap/gantt-visualization-surface.md.
 """
 
 from typing import TYPE_CHECKING, Any
