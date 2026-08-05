@@ -254,7 +254,7 @@ FormGenerator.from_model(
 By default, every form gets `x-data="formValidator"` and `@submit="validate($event)"`. Override or disable via `form_attrs`:
 
 ```python
-# Use a different Alpine component (must be registered in static/js/skuel.js).
+# Use a different Alpine component (must be registered in a /static/js/ bundle).
 # Clear @submit too: the default is "validate($event)", and a component that
 # does not implement validate() throws "validate is not defined" on submit.
 # revisionForm exposes points / categories / addPoint(), not validate.

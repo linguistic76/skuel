@@ -458,7 +458,8 @@ Add a confirmation dialog with a notes textarea. This is a **sketch, not a
 shipped component** — `insightActionConfirmation` has never existed in any
 commit. Written as an inline `x-data` object it needs no registration, which is
 the right call for one-off state (see ALPINE_JS_ARCHITECTURE.md § HTMX + Alpine
-Collaboration — reach for `skuel.js` only when the state outlives one element):
+Collaboration — register a named component only when the state outlives one
+element, and then in `skuel.js` only if more than one page needs it):
 
 Use `window.SKUEL.postJson()`, **not** a raw `fetch`. Both
 `/api/insights/{uid}/dismiss` and `/api/insights/{uid}/action` are

@@ -133,10 +133,10 @@ ui/
 There are **26** components, and `skuel.js` is **not** the only registrar — a
 natural assumption, and a wrong one. `skuel.js` holds the **22 shared**
 components; four page-local bundles register one each and are loaded only by
-their own routes:
+their own routes.
 
-This is the **canonical page-local inventory** — the one place these four are
-enumerated; other docs point here rather than repeat the list.
+The table below is the **canonical page-local inventory** — the one place those
+four are enumerated; other docs point here rather than repeat the list.
 
 Only the **Component** column is machine-checked (it must equal the set of
 components registered outside `skuel.js`). The path columns are ordinary prose
@@ -306,7 +306,8 @@ deleted in #934.
 
 ## Adding New Components
 
-1. **Define in skuel.js:**
+1. **Define in a `/static/js/` bundle** — `skuel.js` if more than one page needs
+   it, otherwise a page-local bundle (see the inventory above):
 
 > ⚠️ Register inside `alpine:init`, **never** `DOMContentLoaded`. Alpine loads `defer` and starts via `queueMicrotask` — it walks the DOM *before* `DOMContentLoaded` fires. Components registered in `DOMContentLoaded` are still undefined when Alpine initializes initial server-rendered `x-data`, throwing "`<component> is not defined`" on hard load (hx-boost navigation masks it via `htmx:load` re-init). See #468.
 
@@ -366,9 +367,11 @@ Div(
 )
 ```
 
-Reach for `skuel.js` only when the state outlives one element or the logic is
-worth a name. A spinner with no other behaviour is better served by HTMX alone —
-`hx_indicator="#save-spinner"` plus the `htmx-indicator` class, no Alpine at all.
+Register a named component only when the state outlives one element or the logic
+is worth a name — and then in `skuel.js` **only if more than one page needs it**;
+otherwise a page-local bundle, per the rule above. A spinner with no other
+behaviour is better served by HTMX alone — `hx_indicator="#save-spinner"` plus the
+`htmx-indicator` class, no Alpine at all.
 
 ## Migration History
 
