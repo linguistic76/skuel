@@ -6,7 +6,7 @@
     ":semanticCommits"
   ],
   "description": "SKUEL dependency upgrade policy — see app/docs/decisions/ADR-067-dependency-upgrade-policy.md. PR-only: CI runs no pytest, so a human verifies every bump locally (./dev quality + ./dev test-integration) before merge.",
-  "enabledManagers": ["pep621", "github-actions", "dockerfile"],
+  "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile"],
   "automerge": false,
   "prConcurrentLimit": 5,
   "prHourlyLimit": 0,
@@ -31,6 +31,25 @@
     {
       "description": "INTENTIONAL PINS (ADR-067 § Pins) — neo4j driver must match the server/APOC line (ADR-044); deepgram 5.x+ is a breaking rewrite. Bump only via a deliberate migration, never a routine PR.",
       "matchPackageNames": ["neo4j", "deepgram-sdk"],
+      "enabled": false
+    },
+    {
+      "description": "Group routine JS minor/patch bumps into one reviewable PR, mirroring pep621.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "js minor/patch"
+    },
+    {
+      "description": "Major JS bumps get their own PR — same reasoning as pep621 majors.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "groupName": null
+    },
+    {
+      "description": "TEMPORARY CAP, not an intentional pin (ADR-067 § 6c): jsdom 30 requires Node ^22.22.2 || ^24.15.0 || >=26, and CI still runs Node 20 (EOL 2026-04-30). A major bump here would open a PR that cannot pass CI. DELETE this rule as part of the Node bump — the jsdom major is the point of that migration, since it moves undici off the 7.x backport line.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["jsdom"],
+      "matchUpdateTypes": ["major"],
       "enabled": false
     }
   ]
