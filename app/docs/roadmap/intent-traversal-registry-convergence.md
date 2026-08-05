@@ -51,7 +51,7 @@ The audit found the intent side is **mostly aspirational**: every activity-domai
 ## Guardrails (lessons already paid for)
 
 - **Don't mechanically patch the doc in isolation** — it describes behavior; a find-replace leaves false claims (see `feedback_mechanical_doc_rename_unsound`). Phase 0 is a genuine rewrite-to-reality, not a rename.
-- **Verify every behavioral claim against code or defer it.** Phases 1–2 must be proven on live Neo4j; CI runs no pytest.
+- **Verify every behavioral claim against code or defer it.** Phases 1–2 must be proven on live Neo4j.
 - **`CONFLICTS_WITH_GOAL` is written nowhere** — do not resurrect it; if a "conflict" lens is wanted, it needs a real edge a writer produces first.
 - **Doc + dead code + plan move together** — pruning the dead `QueryIntent` clauses, correcting the doc, and proving the registry source are one arc, not three drive-by edits.
 

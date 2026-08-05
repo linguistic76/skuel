@@ -20,7 +20,7 @@ This file pins that contract two ways:
   mechanism-B ``(entity, GraphContext)`` shape, surfaces a registry edge, and filters a
   non-registry edge (negative control).
 
-CI runs no pytest — run on local Docker Neo4j.
+Runs in CI (``integration_tests``) and locally via ``./dev test-integration`` (Docker Neo4j).
 See: /docs/roadmap/intent-traversal-registry-convergence.md
 """
 

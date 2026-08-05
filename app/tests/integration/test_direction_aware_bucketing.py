@@ -17,7 +17,7 @@ NET-NEW behaviour that the fold adds and the retired flat builder never had:
 
 Cross-domain breadth (all 9 domains through the folded path) is covered by
 ``test_intent_traversal_registry_source`` + the ``test_convergence_*`` suite; this file
-focuses on the bucketing mechanics. CI runs no pytest — run on local Docker Neo4j.
+focuses on the bucketing mechanics. Runs in CI (``integration_tests``) and locally via ``./dev test-integration``.
 See: /docs/roadmap/intent-traversal-registry-convergence.md
 """
 

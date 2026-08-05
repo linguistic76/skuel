@@ -3,7 +3,7 @@ ConversationService unit tests — owner-private discussion store (ADR-078).
 
 Covers: props→model conversion for sessions/turns, the not-found mapping on a
 non-owner (backend None → 404-not-403), id minting + kind pass-through, and the
-revisit-list / delete report semantics. Backend is mocked (CI runs unit only;
+revisit-list / delete report semantics. Backend is mocked (unit tier;
 the owner-visibility + delete-completeness behaviours are integration guards 1/2
 against a live Docker Neo4j).
 """
