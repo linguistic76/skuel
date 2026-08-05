@@ -596,7 +596,14 @@ def audit_workflow(
 def _collect_from_composite(
     action_dir: Path, root: Path, seen: set[Path], step_name: str, inputs: set[Path]
 ) -> list[UvInvocation]:
-    """uv invocations inside a local composite action's own steps."""
+    """uv invocations inside a local composite action's own steps.
+
+    Composite actions nest: a local action may itself `uses:` another local
+    action, up to 10 deep. Handling only `run` steps here would let an
+    unpinned `uv run` in an INNER action produce no invocations for the
+    calling job at all — so the job reads as uv-free and rule 1 never applies.
+    ``seen`` doubles as the cycle guard, since A -> B -> A is expressible.
+    """
     for filename in ("action.yml", "action.yaml"):
         manifest = action_dir / filename
         if manifest.is_file():
@@ -605,22 +612,35 @@ def _collect_from_composite(
         return []
 
     inputs.add(manifest)
+    if manifest in seen:
+        return []
+    seen.add(manifest)
+
     document = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
     found: list[UvInvocation] = []
-    for step in (document.get("runs") or {}).get("steps") or []:
-        if not isinstance(step, dict) or not step.get("run"):
+    for index, step in enumerate((document.get("runs") or {}).get("steps") or []):
+        if not isinstance(step, dict):
             continue
-        workdir = root / (step.get("working-directory") or ".")
-        found.extend(
-            _collect_from_shell(
-                str(step["run"]),
-                origin=f"{manifest.relative_to(root)} (via {step_name!r})",
-                workdir=workdir,
-                root=root,
-                seen=seen,
-                inputs=inputs,
+        if step.get("run"):
+            workdir = root / (step.get("working-directory") or ".")
+            found.extend(
+                _collect_from_shell(
+                    str(step["run"]),
+                    origin=f"{manifest.relative_to(root)} (via {step_name!r})",
+                    workdir=workdir,
+                    root=root,
+                    seen=seen,
+                    inputs=inputs,
+                )
             )
-        )
+        uses = step.get("uses")
+        if isinstance(uses, str) and uses.startswith("./"):
+            inner = step.get("name") or uses or f"step {index + 1}"
+            found.extend(
+                _collect_from_composite(
+                    root / uses[2:], root, seen, f"{step_name} -> {inner}", inputs
+                )
+            )
     return found
 
 
@@ -1065,6 +1085,52 @@ def test_control_a_global_option_value_cannot_pose_as_the_subcommand() -> None:
     )
     assert subcommand == "run"
     assert "--locked" not in region
+
+
+def _write_composite(tmp_path: Path, name: str, steps: str) -> None:
+    path = tmp_path / ".github" / "actions" / name / "action.yml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"runs:\n  using: composite\n  steps:\n{steps}", encoding="utf-8")
+
+
+_COMPOSITE_JOB = """
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/outer
+"""
+
+
+def test_control_nested_composite_actions_are_recursed_into(tmp_path: Path) -> None:
+    """A local composite may `uses:` another local composite, up to 10 deep.
+
+    Stopping at `run` steps would hide the inner action's uv entirely: the job
+    reads as uv-free, rule 1 never applies, and the change to
+    `.github/actions/**` triggers this test while it sees nothing (Codex,
+    PR #959).
+    """
+    _write_composite(tmp_path, "outer", "    - uses: ./.github/actions/inner\n")
+    _write_composite(
+        tmp_path, "inner", "    - run: uv run python app/scripts/report.py\n      shell: bash\n"
+    )
+    problems = _problems(tmp_path, _COMPOSITE_JOB)
+    assert len(problems) == 1
+    assert "invokes uv without pinning" in problems[0]
+    assert "inner/action.yml" in problems[0]
+
+
+def test_control_composite_action_cycles_terminate(tmp_path: Path) -> None:
+    """A -> B -> A is expressible; the traversal must not recurse forever."""
+    _write_composite(
+        tmp_path,
+        "outer",
+        "    - uses: ./.github/actions/inner\n    - run: uv sync\n      shell: bash\n",
+    )
+    _write_composite(tmp_path, "inner", "    - uses: ./.github/actions/outer\n")
+    problems = _problems(tmp_path, _COMPOSITE_JOB)
+    assert len(problems) == 1
+    assert "invokes uv without pinning" in problems[0]
 
 
 def test_control_yaml_suffix_workflows_are_audited(tmp_path: Path) -> None:
