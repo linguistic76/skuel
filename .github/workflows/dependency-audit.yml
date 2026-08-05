@@ -273,7 +273,7 @@ jobs:
         with:
           # Matches ci.yml's js_tests job. Note Node 20 is EOL (2026-04-30) and
           # caps the tree — ADR-067 § 6c.
-          node-version: '20'
+          node-version: '24'
 
       # No `npm ci`: `npm audit` reads package-lock.json directly, and auditing the
       # COMMITTED resolution is the point. (A local verification run is different —
