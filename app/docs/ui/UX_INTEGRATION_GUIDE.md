@@ -217,8 +217,13 @@ exposes `window.SKUEL.FocusTrap`.
 `AlpineModal` takes an `id` but does not emit an `x-ref`, so resolve the element
 by that `id` — there is no `$refs` entry to reach for:
 
+Pass `close="close()"`, **not** `close="isOpen = false"`. `AlpineModal` uses that
+expression for its click-out, so a bare assignment hides the modal without ever
+deactivating the trap — which then keeps intercepting Tab and focus against an
+invisible element. Every dismissal path must route through the one method:
+
 ```python
-AlpineModal(*content, show="isOpen", close="isOpen = false", id="confirm-modal")
+AlpineModal(*content, show="isOpen", close="close()", id="confirm-modal")
 ```
 
 ```html
@@ -230,8 +235,11 @@ AlpineModal(*content, show="isOpen", close="isOpen = false", id="confirm-modal")
             this.trap = new SKUEL.FocusTrap(document.getElementById('confirm-modal'));
             this.$nextTick(() => this.trap.activate());
         },
-        close() { this.trap?.deactivate(); this.isOpen = false; }
+        close() { this.trap?.deactivate(); this.trap = null; this.isOpen = false; }
      }">
+  <button @click="open()">Open</button>
+  <!-- any in-modal close button must also call close(), never isOpen = false -->
+</div>
 ```
 
 `$nextTick` matters: `x-show` has not revealed the modal on the same tick, and a

@@ -156,17 +156,23 @@ The Choices domain publishes domain events for cross-service communication:
 
 Read-focused UI at `/choices` is planned. API routes remain active.
 
-## Dynamic Options at Creation (January 2026)
+## Options at Creation
 
 ### Where options are entered
 
-**Not at create time.** `ChoiceCreateRequest` exposes no nested option fields —
-options and other list fields are added on the **detail page** after the choice
-exists. The create/edit forms (`GET|POST /choices/create`, `/choices/edit`) are
-rendered by `FormGenerator` via `ui/activities/choices_form.py`, and carry no
-Alpine component of their own beyond the default `formValidator`.
+Distinguish the **API shape** from the **web form** — they differ, and only the
+form lost a capability.
 
-Choices also enter via YAML upload, which supplies options directly.
+**The request model does accept options at create time.**
+`ChoiceCreateRequest.options` is a `list[ChoiceOptionRequest]`
+(`core/models/choice/choice_request.py`), and the **at least 2 options** rule is
+enforced on create in `ChoicesCoreService` — with `BINARY` requiring exactly 2.
+YAML upload and direct API creation both use that path; do not route around it.
+
+**The web form does not collect them.** `GET|POST /choices/create` is rendered by
+`FormGenerator` via `ui/activities/choices_form.py`, which emits no nested-option
+inputs and carries no Alpine component beyond the default `formValidator`.
+Options are added on the **detail page** after the choice exists.
 
 > **Historical note.** This section previously documented a `choiceOptions()`
 > Alpine component with add/remove/validate methods, mounted on a create form in
