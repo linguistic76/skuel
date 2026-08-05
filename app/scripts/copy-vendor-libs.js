@@ -17,14 +17,18 @@ const LIBRARIES = [
   // Chart.js
   ["node_modules/chart.js/dist/chart.umd.js", "chart.js/chart.umd.js"],
 
-  // Frappe Gantt
+  // Frappe Gantt. 1.x ships no minified build: dist/ is .es.js / .umd.js / .css,
+  // where 0.6.1 had .min.js / .min.css. The UMD build is the one a <script> tag
+  // can load without a bundler. Note ensureDir() below creates the destination
+  // BEFORE the source is checked, so a stale path here fails into an empty
+  // directory that looks like a successful copy.
   [
-    "node_modules/frappe-gantt/dist/frappe-gantt.min.js",
-    "frappe-gantt/frappe-gantt.min.js",
+    "node_modules/frappe-gantt/dist/frappe-gantt.umd.js",
+    "frappe-gantt/frappe-gantt.umd.js",
   ],
   [
-    "node_modules/frappe-gantt/dist/frappe-gantt.min.css",
-    "frappe-gantt/frappe-gantt.min.css",
+    "node_modules/frappe-gantt/dist/frappe-gantt.css",
+    "frappe-gantt/frappe-gantt.css",
   ],
 ];
 
