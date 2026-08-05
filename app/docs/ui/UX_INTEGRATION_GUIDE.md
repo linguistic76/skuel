@@ -212,13 +212,30 @@ worked example in `skuel.js`.
 `AlpineModal` does **not** trap focus for you. The capability still exists, but
 as a plain utility rather than an Alpine component: `static/js/focus_trap.js`
 is loaded on every page by `build_head()` (`ui/layouts/base_page.py`) and
-exposes `window.SKUEL.FocusTrap`. Instantiate it against the modal element:
+exposes `window.SKUEL.FocusTrap`.
 
-```javascript
-const trap = new SKUEL.FocusTrap(this.$refs.modal);
-trap.activate();   // on open
-trap.deactivate(); // on close
+`AlpineModal` takes an `id` but does not emit an `x-ref`, so resolve the element
+by that `id` — there is no `$refs` entry to reach for:
+
+```python
+AlpineModal(*content, show="isOpen", close="isOpen = false", id="confirm-modal")
 ```
+
+```html
+<div x-data="{
+        isOpen: false,
+        trap: null,
+        open() {
+            this.isOpen = true;
+            this.trap = new SKUEL.FocusTrap(document.getElementById('confirm-modal'));
+            this.$nextTick(() => this.trap.activate());
+        },
+        close() { this.trap?.deactivate(); this.isOpen = false; }
+     }">
+```
+
+`$nextTick` matters: `x-show` has not revealed the modal on the same tick, and a
+focus trap over a hidden subtree finds nothing focusable.
 
 > **Historical note.** This section previously told readers to replace modals
 > with a `focusTrapModal(false)` Alpine component providing `open()` /

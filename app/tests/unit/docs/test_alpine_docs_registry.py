@@ -101,21 +101,54 @@ REGION_END = "<!-- alpine-registry:end -->"
 # (x-data="{ open: false }") correctly do not match.
 _X_DATA_RE = re.compile(r"""x[-_]data["']?\s*[:=]\s*["']\s*([A-Za-z_]\w*)""")
 
-_ALPINE_DATA_RE = re.compile(r"Alpine\.data\(\s*'([^']+)'")
-# Doc-side variant: prose/snippets use either quote style.
-_ALPINE_DATA_DOC_RE = re.compile(r"""Alpine\.data\(\s*['"]([A-Za-z_]\w*)['"]""")
+# One pattern, two inputs. Against JS it runs on comment-STRIPPED source (so a
+# prose mention cannot register); against docs it runs on raw text (so a prose
+# mention IS a finding). The safety difference lives in the input, not here.
+#
+# Deliberately NOT anchored to line-start: today.js registers mid-line via
+# `if (window.Alpine) window.Alpine.data('today', …)`, and an anchor would
+# silently drop a live component.
+_ALPINE_DATA_RE = re.compile(r"""Alpine\.data\(\s*['"]([A-Za-z_]\w*)['"]""")
 _BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 _LEADING_IDENT_RE = re.compile(r"^([A-Za-z_]\w*)")
+
+
+def _strip_js_comments(source: str) -> str:
+    """Drop ``/* … */`` blocks and whole-line ``//`` comments.
+
+    Every page-local bundle carries a JSDoc header that *names* its component in
+    prose — ``* Registers Alpine.data('today', factory)``. Matching raw source
+    counts those as registrations, so deleting the executable call while leaving
+    the comment would keep a dead component in the registry and let stale docs
+    pass. That is the fail-OPEN direction, which is the one that matters for a
+    guard.
+
+    Every such header here is a ``/** … */`` JSDoc block, so block-stripping is
+    what actually closes the hole. Line comments are stripped only when ``//``
+    begins the line, so a ``https://`` inside a string can never truncate real
+    code and produce a phantom *missing* registration.
+
+    Known limit, stated rather than papered over: a **trailing** ``code(); //
+    Alpine.data('x')`` would still be counted. The pattern cannot be anchored to
+    line-start to fix that, because ``today.js`` registers mid-line via ``if
+    (window.Alpine) window.Alpine.data('today', …)`` and an anchor would silently
+    drop a live component — trading a contrived fail-open for a real one.
+    ``test_comments_do_not_register_components`` pins the behaviour both ways.
+    """
+    without_blocks = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+    return re.sub(r"^\s*//.*$", "", without_blocks, flags=re.MULTILINE)
 
 
 def _registrars() -> dict[Path, frozenset[str]]:
     """Map each static/js bundle to the components it registers.
 
     Globbed, not hard-coded: a new page-local bundle is covered the day it lands.
+    Comments are stripped first — see ``_strip_js_comments``.
     """
     found: dict[Path, frozenset[str]] = {}
     for js in sorted(JS_DIR.glob("*.js")):
-        names = frozenset(_ALPINE_DATA_RE.findall(js.read_text(encoding="utf-8")))
+        source = _strip_js_comments(js.read_text(encoding="utf-8"))
+        names = frozenset(_ALPINE_DATA_RE.findall(source))
         if names:
             found[js] = names
     return found
@@ -179,6 +212,35 @@ def _all_doc_files() -> list[Path]:
     return files
 
 
+def test_comments_do_not_register_components() -> None:
+    """A prose mention must not keep a deleted component alive.
+
+    The fail-OPEN direction is the one that matters: if the JSDoc header
+    ``* Registers Alpine.data('today', factory)`` counted, then deleting the
+    executable call while leaving the comment would keep ``today`` in the
+    registry and let every stale doc pass. Both directions are pinned, so this
+    cannot pass vacuously.
+    """
+    comment_only = """
+    /**
+     * Registers Alpine.data('ghostComponent', factory); pair with x-data.
+     */
+    // Alpine.data('alsoGhost', factory);
+    """
+    assert _ALPINE_DATA_RE.findall(_strip_js_comments(comment_only)) == []
+    # Positive control: the same names in executable position ARE found, so the
+    # assertion above is testing comment-stripping and not a broken regex.
+    executable = (
+        "Alpine.data('ghostComponent', f);\nif (window.Alpine) window.Alpine.data('alsoGhost', f);"
+    )
+    assert sorted(_ALPINE_DATA_RE.findall(_strip_js_comments(executable))) == [
+        "alsoGhost",
+        "ghostComponent",
+    ]
+    # And the real bundles still resolve to the full registry after stripping.
+    assert len(_registry()) == 26
+
+
 def test_smoke_fixture_matches_skuel_js() -> None:
     """The anchor itself must be honest before the docs are measured against it."""
     assert _assert_registry_in_sync() is None
@@ -237,7 +299,7 @@ def test_marked_regions_are_present(doc: Path) -> None:
 
 @pytest.mark.parametrize(
     ("shape", "pattern"),
-    [("x-data mount", _X_DATA_RE), ("Alpine.data definition", _ALPINE_DATA_DOC_RE)],
+    [("x-data mount", _X_DATA_RE), ("Alpine.data definition", _ALPINE_DATA_RE)],
 )
 def test_no_doc_anywhere_names_a_dead_component(shape: str, pattern: re.Pattern[str]) -> None:
     """Tree-wide, both shapes: every component a doc names must be live.
