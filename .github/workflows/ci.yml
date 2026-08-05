@@ -92,6 +92,8 @@ jobs:
               - 'app/tests/js/**'
               - 'app/package.json'
               - 'app/package-lock.json'
+              - 'app/.nvmrc'
+              - 'app/.npmrc'
               - 'app/vitest.config.js'
               - '.github/workflows/ci.yml'
             audit:
@@ -735,7 +737,12 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 24 (LTS). Range, not bare '24', so setup-node cannot select an
+          # older cached 24.0–24.14 (check-latest is false) below jsdom 30's
+          # ^24.15.0 floor — mirrors engines.node exactly. Moves in lockstep with
+          # dependency-audit.yml's js_audit job (ADR-067 § 2 / § 6c). Keeps jsdom
+          # on 30 / undici on 8.x.
+          node-version: '^24.15.0'
           cache: npm
           cache-dependency-path: app/package-lock.json
 

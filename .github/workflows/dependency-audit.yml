@@ -271,9 +271,11 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          # Matches ci.yml's js_tests job. Note Node 20 is EOL (2026-04-30) and
-          # caps the tree — ADR-067 § 6c.
-          node-version: '20'
+          # Matches ci.yml's js_tests job — the two pins move together (ADR-067
+          # § 2 / § 6c). Range mirrors engines.node (^24.15.0), so setup-node
+          # cannot pick a cached 24.0–24.14 below jsdom 30's floor. Node 24 (LTS)
+          # keeps jsdom on 30 / undici on 8.x.
+          node-version: '^24.15.0'
 
       # No `npm ci`: `npm audit` reads package-lock.json directly, and auditing the
       # COMMITTED resolution is the point. (A local verification run is different —
