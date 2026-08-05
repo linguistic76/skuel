@@ -278,7 +278,7 @@ Ku does not), so building Option B now adds fields no consumer reads, for zero f
 3. Audit the Ku-search graph-enrichment path for the widened `cross_domain_relationship_types` —
    confirm surfacing prerequisite edges in search results is intended, not an accidental side effect.
 4. Add a real-Neo4j round-trip + negative control (seed `PREREQUISITE_FOR`, assert both buckets
-   populate with correct orientation; CI runs no pytest — verify on local Docker Neo4j).
+   populate with correct orientation — verify on local Docker Neo4j).
 
 **Enable when**: A consumer reads a Ku's prerequisite/dependent Kus as *separate* buckets.
 

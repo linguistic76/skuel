@@ -336,7 +336,7 @@ back off the ledger when PR-3 wires them.
 
 ## Sequenced implementation plan
 
-Each PR is independently shippable and verified on live Neo4j (CI runs no pytest).
+Each PR is independently shippable and verified on live Neo4j.
 
 1. **PR-1 — `EXTRACT_ACTIVITIES` pipeline (Decision 1).**
    Enum value + dispatch branch + `_run_extract_activities`; repoint

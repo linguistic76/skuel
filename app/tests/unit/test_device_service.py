@@ -4,7 +4,7 @@ DeviceService unit tests — pairing-code lifecycle + enrollment (ADR-075 B2).
 Covers: code minting (hashed storage, TTL), enrollment happy path, the
 no-oracle invalid/expired code shape, single-use burn ordering (validation
 before redemption), duplicate-pubkey guard, and revocation semantics.
-Backend is mocked (CI runs unit tests only).
+Backend is mocked (unit tier).
 """
 
 from __future__ import annotations

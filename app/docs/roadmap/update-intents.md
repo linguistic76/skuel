@@ -309,7 +309,7 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
   that must move together (`core/ports/base_service_interface.py`, the 6 `*_core_service.py`).
 - `uv run pytest` for the domain's service tests + status-transition / edge-sync tests.
 - Confirm `_post_update` events still fire on the intent path for status transitions — verify against
-  local Docker Neo4j or the `neo4j-cypher` MCP (CI runs no pytest).
+  local Docker Neo4j or the `neo4j-cypher` MCP.
 - Codex clean. Tick the table row so the next context starts from accurate state.
 
 ## Out of scope
