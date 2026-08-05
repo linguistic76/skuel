@@ -1,6 +1,6 @@
 ---
 title: JS/Node Dependency Surface — Audit Triage, Coverage Gaps, and the Node 20 Runway
-updated: 2026-08-03
+updated: 2026-08-05
 category: roadmap
 tags: [roadmap, dependencies, security, javascript, node, npm, maintenance]
 ---
@@ -23,6 +23,10 @@ run.
 > dependencies)** — triage order, the `overrides`-is-a-pin rule, and the runtime ceiling — and
 > **§ 5 was corrected** to state that Renovate has never run. Open decision 5 below is therefore
 > resolved; the rest stand.
+>
+> **Update 2026-08-05:** Renovate is now **live** — the Mend-hosted App was installed and un-silenced,
+> `npm` was added to `enabledManagers` (#941), and the first run opened PRs #942–#946 plus a Dependency
+> Dashboard (#947). Open decisions **1 and 2 are resolved**; §§ 2–3 and decisions 4 & 6 stand.
 
 ---
 
@@ -88,7 +92,7 @@ audit tool. The gap is in *where each one runs* and *what happens when it fires*
 | Runs on a schedule | ✅ `dependency-audit.yml` daily | ✅ `dependency-audit.yml` daily *(added 2026-08-03)* |
 | Runs locally | `./dev audit-deps` | `./dev quality` check 8 |
 | Accept/ignore mechanism | ✅ `.pip-audit-ignore`, one ID per line with a documented reason | ❌ none |
-| Renovate coverage | ⚠ `pep621` manager — **on paper only; Renovate has never run** | ❌ npm not even in `enabledManagers` |
+| Renovate coverage | ✅ `pep621` manager — **live since 2026-08-05** | ✅ `npm` added to `enabledManagers` (2026-08-05, #941) |
 | Written policy | ADR-067 §§ 1–5 | ✅ ADR-067 § 6 (added 2026-08-03) |
 
 Three consequences worth naming:
@@ -102,26 +106,28 @@ Three consequences worth naming:
   recorded reason. `npm audit` has no per-advisory accept mechanism, so an advisory with no
   upstream fix hard-blocks check 8 — and therefore all of `./dev quality` — until upstream
   ships or the dependency is dropped. We were one unfixable advisory away from that.
-- **Renovate does not cover npm.** `renovate.json` sets
-  `"enabledManagers": ["pep621", "github-actions", "dockerfile"]`, and per the Renovate docs
-  that list *"allow[s] only certain package managers and implicitly disable[s] all others."*
-  `app/package.json` and `app/package-lock.json` are never extracted, so the
-  `lockFileMaintenance` Monday run never touches them either.
+- ~~**Renovate does not cover npm.**~~ **RESOLVED 2026-08-05.** `renovate.json` now sets
+  `"enabledManagers": ["pep621", "npm", "github-actions", "dockerfile"]` (#941), so
+  `app/package.json` / `app/package-lock.json` are extracted and the `lockFileMaintenance` Monday
+  run covers them. As originally written the list omitted `npm`, and per the Renovate docs the
+  allowlist *"allow[s] only certain package managers and implicitly disable[s] all others"* — which
+  is why the first js-minor/patch PR (#943) only appeared once `npm` was added.
 
-### The larger finding: Renovate has never run
+### The larger finding: Renovate was never running — now it is (resolved 2026-08-05)
 
-ADR-067 §5 *used to* record "Automation: Renovate opens PRs, never auto-merges." That automation
-is **not operating on this repository**, and §5 has since been corrected to say so — it now reads
-"Renovate is CONFIGURED but has never run" and carries the evidence below. Evidence (2026-08-03):
+For most of this repo's history Renovate was configured but **never ran**. The 2026-08-03 evidence
+that established this:
 
 - **0** PRs authored by `renovate`/`dependabot` across **920** PRs sampled (full history).
 - **0** issues by either, across 200 sampled.
-- **No "Dependency Dashboard" issue exists** — decisive, because `renovate.json` extends
+- **No "Dependency Dashboard" issue existed** — decisive, because `renovate.json` extends
   `:dependencyDashboard`, which opens that issue on the first run.
 
-So `renovate.json` is configuration for an app that has never been installed or enabled. This
-is worth confirming before any work in §4 is planned around it — enabling Renovate would
-change the answer to most of the open decisions below.
+**Resolved 2026-08-05.** The Mend-hosted Renovate App was installed. It first ran in Mend **Silent
+mode** (a portal setting, not in `renovate.json`) — which computes updates but pushes nothing to
+GitHub, so the repo-side signals above briefly still read "never ran." Turning Silent off produced
+the missing artifacts immediately: the **Dependency Dashboard** issue (#947) and grouped PRs
+(#942–#946). Enabling Renovate resolved decisions 1 and 2 below.
 
 ---
 
@@ -168,12 +174,11 @@ the only consumers.
 
 These need a founder ruling; none is urgent, all are cheap.
 
-1. **Is Renovate meant to be running at all?** Still open — installing a GitHub App is a
-   founder action. ADR-067 §5 no longer *claims* it runs (corrected 2026-08-03), so the doc is
-   at least honest; the choice is between installing it and deleting `renovate.json` rather
-   than leaving decorative config. Until then, dependency freshness is manual.
-2. **Add `npm` to `enabledManagers`?** Only meaningful after (1). If Renovate is enabled,
-   adding `npm` is what prevents the next silent lockfile rot.
+1. ~~**Is Renovate meant to be running at all?**~~ **RESOLVED 2026-08-05 — yes.** The Mend-hosted
+   Renovate App was installed and un-silenced; `renovate.json` is no longer decorative config.
+   Dependency freshness is now automated as reviewable PRs (no auto-merge).
+2. ~~**Add `npm` to `enabledManagers`?**~~ **RESOLVED 2026-08-05 (#941).** `npm` is in the manager
+   list, so the JS lockfile is now watched — closing the silent-rot gap this doc was written around.
 3. ~~**Should `npm audit` run in CI?**~~ **RESOLVED 2026-08-03 — but the proposal above was
    wrong, and worth recording as such.** It suggested adding a step to `js_tests`. That job is
    gated on the `js` path filter (`static/js/**`, `tests/js/**`, `package*.json`,
