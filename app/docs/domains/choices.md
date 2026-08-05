@@ -160,19 +160,17 @@ Read-focused UI at `/choices` is planned. API routes remain active.
 
 ### Where options are entered
 
-Distinguish the **API shape** from the **web form** — they differ, and only the
-form lost a capability.
+`ChoiceCreateRequest.options` exists as a `list[ChoiceOptionRequest]`
+(`core/models/choice/choice_request.py`), but **the web form does not collect
+it.** `GET|POST /choices/create` is rendered by `FormGenerator` via
+`ui/activities/choices_form.py`, whose own docstring records that the nested
+`options` list and the free-text list fields are excluded; the form carries no
+Alpine component beyond the default `formValidator`. Options are added on the
+**detail page** after the choice exists.
 
-**The request model does accept options at create time.**
-`ChoiceCreateRequest.options` is a `list[ChoiceOptionRequest]`
-(`core/models/choice/choice_request.py`), and the **at least 2 options** rule is
-enforced on create in `ChoicesCoreService` — with `BINARY` requiring exactly 2.
-YAML upload and direct API creation both use that path; do not route around it.
-
-**The web form does not collect them.** `GET|POST /choices/create` is rendered by
-`FormGenerator` via `ui/activities/choices_form.py`, which emits no nested-option
-inputs and carries no Alpine component beyond the default `formValidator`.
-Options are added on the **detail page** after the choice exists.
+> Do not infer the minimum-option rule from `ChoicesCoreService._validate_create`
+> — it defines "at least 2 options" and "BINARY needs exactly 2", but nothing on
+> the choice create path calls it. Verify before relying on either rule.
 
 > **Historical note.** This section previously documented a `choiceOptions()`
 > Alpine component with add/remove/validate methods, mounted on a create form in
