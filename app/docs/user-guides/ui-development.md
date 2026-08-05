@@ -765,13 +765,29 @@ Div(
     **{"x-data": "{ open: false }"},
 )
 
-# Filter list
+# Filter a rendered list client-side, no round trip
 Div(
-    Input(
-        placeholder="Search...",
-        **{"x-model": "search", "@input.debounce.300ms": "filterResults()"},
+    Select(
+        Option("All", value="all"),
+        Option("Overdue", value="overdue"),
+        Option("High priority", value="high_priority"),
+        **{"x-model": "filterPreset"},
     ),
-    **{"x-data": "taskFilter()"},  # Component defined in /static/js/skuel.js
+    *[
+        Div(
+            task.title,
+            # matchesFilter(status, isOverdue, isHighPriority, isThisWeek).
+            # json.dumps() — NOT an f-string: Python's True renders as "True",
+            # which Alpine evaluates as an undefined identifier, not a boolean.
+            **{
+                "x-show": "matchesFilter("
+                f"{json.dumps(task.status.value)}, "
+                f"{json.dumps(task.uid in overdue_uids)}, false, false)"
+            },
+        )
+        for task in tasks
+    ],
+    **{"x-data": "domainFilter()"},  # Component defined in /static/js/skuel.js
 )
 ```
 
@@ -783,53 +799,87 @@ All Alpine.js `x-data` component definitions live in `/static/js/skuel.js`.
 
 #### Tier 1 — Commonly Needed
 
+<!-- alpine-registry:begin -->
+
 | Component | Usage | What it does |
 |-----------|-------|-------------|
-| `collapsibleSidebar` | `x-data="collapsibleSidebar('profile')"` | Sidebar collapse/expand with localStorage persistence. Pass a `storageKey` to remember state. |
-| `accessibleModal` | `x-data="accessibleModal({ isOpen: false })"` | WCAG-compliant modal with focus trapping, Escape to close, and backdrop click handling. |
+| `collapsible` | `x-data="collapsible(true)"` | Expand/collapse one section. `expanded` + `toggle()`. The smallest useful component. |
+| `collapsibleSidebar` | `x-data="collapsibleSidebar('profile')"` | Sidebar collapse/expand with localStorage persistence. Pass a `storageKey` to remember state; instances sharing a key share an `Alpine.store`. |
 | `searchFilters` | `x-data="searchFilters()"` | Search input + filter dropdowns with debounced HTMX requests. |
-| `loadingButton` | `x-data="loadingButton()"` | Disables button and shows spinner on click until HTMX response arrives. |
+| `domainFilter` | `x-data="domainFilter()"` | Client-side sort + filter presets over an already-rendered list. `sortBy`, `filterPreset`, `matchesFilter(...)`, `toggleShowAll()`. |
 | `formValidator` | `x-data="formValidator()"` | Client-side validation with per-field error display. Validates on blur and submit. |
+| `chartVis` | `x-data="chartVis('/api/x.json', 'bar')"` | Chart.js chart from a JSON endpoint. Models the load explicitly: `loading`, `error`, `chart`. |
 | `toastManager` | `x-data="toastManager"` | Toast notification stack. Triggered by `X-Toast-Message`/`X-Toast-Type` HTMX response headers or a `$dispatch('toast', { message, type })` event. Methods: `show(message, type, duration)`, `dismiss(id)`, auto-dismiss. |
 
+<!-- alpine-registry:end -->
+
+**Modals are not in this table.** Use the `AlpineModal` FastHTML wrapper
+(`ui/patterns/modal.py`) — it renders the backdrop, transitions and click-out
+for you and takes plain Alpine expressions. The modal's *state* is whatever
+component wraps it, often an inline `{ isOpen: false }`.
+
+**Button loading state is not in this table either.** It is HTMX-native: point
+`hx_indicator` at an element carrying the `htmx-indicator` class. Reach for
+Alpine only when you need to disable or relabel the control as well, and then an
+inline `x-data="{ busy: false }"` driven by `x-on:htmx:before-request` is enough.
+
 ```python
-# Example: accessible modal with Alpine.js x-show + Tailwind
+# Example: confirm modal via the shared AlpineModal wrapper
+from ui.patterns.modal import AlpineModal
+
 Div(
-    Div(
+    Button("Delete…", **{"@click": "isOpen = true"}),
+    AlpineModal(
+        H3("Delete?"),
+        P("This cannot be undone."),
         Div(
-            H3("Delete?"),
-            P("This cannot be undone."),
-            Div(
-                Button("Cancel", cls=ButtonT.ghost, **{"@click": "isOpen = false"}),
-                Button("Delete", cls=ButtonT.destructive, hx_delete="/api/items/123"),
-                cls="flex gap-2 justify-end mt-4",
-            ),
-            cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
-            **{"@click.stop": ""},
+            Button("Cancel", cls=ButtonT.ghost, **{"@click": "isOpen = false"}),
+            Button("Delete", cls=ButtonT.destructive, hx_delete="/api/items/123"),
+            cls="flex gap-2 justify-end mt-4",
         ),
-        cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
-        **{"@click": "isOpen = false"},
+        show="isOpen",
+        close="isOpen = false",
+        max_width="max-w-lg",
     ),
-    x_data="accessibleModal({ isOpen: false })",
-    x_show="isOpen",
-    x_cloak=True,
+    **{"x-data": "{ isOpen: false }"},
 )
 ```
+
+`AlpineModal` owns the backdrop, the `x-transition`, the `x-cloak` and the
+click-out-to-close — pass `show`/`close` as Alpine expressions and it wires the
+rest. When the modal needs behaviour beyond a boolean (lazy-loading its body,
+for instance), back it with a registry component and pass `close="close()"`;
+`insightDetailModal(uid)` is the worked example in `skuel.js`.
 
 #### Tier 2 — Domain-Specific
 
 These are purpose-built for specific features. Check `skuel.js` for their full API before using.
 
+<!-- alpine-registry:begin -->
+
 | Component | Domain |
 |-----------|--------|
-| `calendarPage`, `calendarModal` | Calendar views |
+| `calendarLegend` | Calendar views — legend swatches double as type filters |
 | `hierarchyTree` | Goal/KU hierarchy tree views |
 | `relationshipGraph` | Vis.js lateral relationship graphs |
-| `choiceOptions` | Choice domain option management |
-| `insightSwipeActions`, `bulkInsightManager`, `insightDetailModal` | Insight cards |
-| `chartVis` | Chart.js visualizations |
+| `exploreGraph`, `exploreSearch` | Explore sidebar — graph + tag/text search |
+| `entityPicker` | Searchable cross-domain UID picker (pairs with `EntityPicker`) |
+| `bulkInsightManager`, `insightDetailModal`, `insightFiltersDebounced` | Insight cards |
 | `profileFocusHandler` | Profile hub focus navigation |
-| `intelligenceCache` | Client-side caching for intelligence API responses |
+| `revisionForm` | Revision feedback points |
+| `submit`, `batchTranscribe`, `userFolderTranscribe` | Submission + transcription surfaces |
+| `offlineIndicator` | PWA offline banner |
+
+<!-- alpine-registry:end -->
+
+Tier 1 and Tier 2 together are the complete registry — 22 components. Both tables
+are machine-checked by `tests/unit/docs/test_alpine_docs_registry.py`; a component
+deleted from `skuel.js` fails the build until these rows follow.
+
+Calendar note: the calendar's Alpine component was renamed from calendarPage to
+`calendarLegend` in #621, when the legend became the type filter. Its old sibling
+calendarModal was deleted in `327f26623`; calendar modals now use the shared
+`AlpineModal` wrapper.
 
 ---
 

@@ -202,6 +202,8 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 
+<!-- alpine-registry:begin -->
+
 | Component | Purpose | Key State |
 |-----------|---------|-----------|
 | `searchFilters()` | Search filter bar (nous/subtopic faucets, Ask href) | `entityType`, `showAdvanced` |
@@ -216,8 +218,20 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 | `entityPicker()` | Entity UID picker with search | query, results |
 | `formValidator()` | Client-side form validation | field errors |
 | `hierarchyTree()` | Tree view: expand/collapse, keyboard nav, drag-drop | node state |
+| `domainFilter` | Client-side list sort + filter presets | `sortBy`, `filterPreset`, `showAll` |
+| `bulkInsightManager` | Multi-select + bulk actions on insight cards | `selectedUids`, `selectAllChecked` |
+| `insightDetailModal(uid)` | Insight detail modal | `isOpen`, `loading` |
+| `insightFiltersDebounced(filters)` | Insight filter form, navigates on apply | `filters`, `loading` |
+| `profileFocusHandler(uid)` | Scrolls the focused profile entity into view | `focusUid` |
+| `exploreSearch(tag)` | Explore sidebar tag/text search | `query`, `activeTag`, `moreFilters` |
+| `revisionForm` | Revision feedback-point form | `points`, `categories` |
+| `batchTranscribe` | Admin batch transcription console | job/progress state |
+| `userFolderTranscribe` | User vault `je_in`→`je_out` transcription | job/progress state |
+| `submit(dest, portfolio, teacherDisabled)` | Submit page destination + uploader | `dest`, `file`, `sent` |
 
-Table is non-exhaustive — `skuel.js` also registers `domainFilter`, `bulkInsightManager`, `insightDetailModal`, `intelligenceCache`, `profileFocusHandler`, `insightFiltersDebounced`, `exploreSearch`, `revisionForm`, `batchTranscribe`, `userFolderTranscribe`, `submit`. Grep `Alpine.data('` in `/static/js/skuel.js` for the authoritative list.
+<!-- alpine-registry:end -->
+
+The table above is the **complete** registry — all 22 components. It is machine-checked: `tests/unit/docs/test_alpine_docs_registry.py` fails if this table names a component `skuel.js` no longer registers, or omits one it does. Grep `Alpine.data('` in `/static/js/skuel.js` for the source of truth.
 
 **Usage in FastHTML:**
 ```python
