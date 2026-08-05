@@ -1,6 +1,6 @@
 ---
 title: "ADR-067: Dependency upgrade policy (latest-stable default, documented pins)"
-updated: 2026-08-03
+updated: 2026-08-05
 status: current
 category: decisions
 tags: [adr, decisions, dependencies, uv, python, javascript, npm, node, tooling, maintenance]
@@ -11,7 +11,7 @@ related: [ADR-044, ADR-049, ADR-063]
 
 **Status:** Accepted
 
-**Date:** 2026-06-05 (amended 2026-08-03 — § 6 added, § 5 corrected)
+**Date:** 2026-06-05 (amended 2026-08-05 — Renovate now live, § 5 + drawbacks updated; 2026-08-03 — § 6 added, § 5 corrected)
 
 **Decision Type:** ✅ Pattern/Practice
 
@@ -123,42 +123,47 @@ test for "is this a pin or a stale floor?" is: a pin says **why** and references
 Steps 5–7 are mandatory because **CI runs unit tests only** (not integration tests): a unit-only
 pass proves nothing about a real driver/runtime bump. Verify against local Docker Neo4j.
 
-### 5. Automation: Renovate is CONFIGURED but has never run
+### 5. Automation: Renovate is LIVE — it opens update PRs; scheduled audits cover vulnerabilities
 
-> **Corrected 2026-08-03.** This section previously asserted that Renovate opens update PRs. It
-> does not. The configuration is real; the automation is not running. Treat dependency freshness
-> as a **manual** responsibility until that changes.
+> **Updated 2026-08-05.** Renovate is now running. History: this section once asserted Renovate
+> opened PRs; a **2026-08-03** correction found the automation had never actually run (`renovate.json`
+> was config for an app nobody had installed); on **2026-08-05** the Mend-hosted Renovate GitHub App
+> was installed and un-silenced, and it now opens PRs. Dependency freshness is no longer a purely
+> manual responsibility.
 
-`renovate.json` *describes* PR-only updates for human review (no auto-merge), grouped minor/patch,
-with the intentional pins excluded. The intent stands and the file is correct — but as measured on
-2026-08-03, **no Renovate run has ever happened on this repository**:
+`renovate.json` describes PR-only updates for human review (no auto-merge), grouped minor/patch, with
+the intentional pins excluded. As of **2026-08-05** that intent is operating:
 
-- **0** PRs authored by `renovate`/`dependabot` across **920** PRs (full history).
-- **0** issues by either.
-- **No "Dependency Dashboard" issue exists** — decisive, because `renovate.json` extends
-  `:dependencyDashboard`, which opens that issue on the first run.
+- The **Mend-hosted Renovate App** is installed (plan: Community/Free, Renovate v44.12.0). Run logs
+  live at the Mend developer portal (`developer.mend.io/github/linguistic76/skuel`), not in the repo.
+- It first defaulted to **Silent mode** — a *Mend-portal* setting, **not** in `renovate.json`, that
+  computes updates but pushes nothing to GitHub, staging them in the portal for manual "Create/Rebase."
+  That is why a first repo-side check still saw 0 PRs and no Dependency Dashboard. Silent was turned
+  **off** the same day.
+- With Silent off, the first run opened grouped PRs (**#942–#946**) and the **Dependency Dashboard**
+  issue (**#947**) — the `:dependencyDashboard` artifact whose earlier absence had been the decisive
+  proof the app had never run.
 
-So nothing is watching for stale dependencies. What *does* exist:
+So Renovate now watches for stale dependencies and proposes bumps as reviewable PRs. It sits alongside
+a **vulnerability** layer, which reports *published CVEs* rather than staleness:
 
 | Signal | Covers | Automated? | Trigger |
 |---|---|---|---|
-| `dependency-audit.yml` | **both** ecosystems | ✅ yes | **daily cron**, independent of any diff — added 2026-08-03 |
+| Renovate PRs | **both** ecosystems — **freshness** | ✅ yes | Mend App schedule; PR-only, no auto-merge — **live 2026-08-05** |
+| `dependency-audit.yml` | **both** ecosystems — CVEs | ✅ yes | **daily cron**, independent of any diff — added 2026-08-03 |
 | `pip_audit` CI job | Python CVEs | ✅ yes | **diff-triggered** — only when the `py`/`audit` path filters match |
 | `npm audit` (`./dev quality` check 8) | JS CVEs | ❌ **no** | **only a manual local run** |
 
-None of these is a freshness check — all report *published vulnerabilities*, not staleness.
+The scheduled audit still earns its place: it catches what Renovate does not — a CVE published against
+a lockfile nobody touched. The `pip_audit` job is diff-gated, so no diff means it never fires; the local
+`npm audit` fires only if someone runs the gate by hand. That is exactly how `undici` 7.28.0 sat
+vulnerable until a manual `./dev quality` caught it (PR #929). The scheduled job is **advisory** —
+deliberately not a required check, see § 6e.
 
-The scheduled job exists because the other two are blind to the case that actually bit: a CVE
-published against a lockfile nobody touched. The `pip_audit` job is diff-gated, so no diff means it
-never fires; `npm audit` is not automated at all, so it fires only if someone happens to run the
-local gate. That is exactly how `undici` 7.28.0 sat vulnerable until a manual `./dev quality` caught
-it (PR #929). Note the scheduled job is **advisory** — deliberately not a required check, see § 6e.
-
-**Before relying on this section, re-check that the claim above is still true.** If Renovate is
-ever installed, add `npm` to `enabledManagers` — the current list omits it, and per the Renovate
-docs `enabledManagers` allows only the listed managers and implicitly disables all others, so
-`package.json` / `package-lock.json` would still never be extracted. (Open decision 2 in
-[`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md).)
+`npm` is in `enabledManagers` as of **2026-08-05** (#941), so `package.json` / `package-lock.json` are
+now extracted; without it the Renovate docs' allowlist semantics (only the listed managers run) would
+have left the JS tree unmanaged. (Was open decision 2 in
+[`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md); now resolved.)
 
 ### 6. JavaScript / Node dependencies
 
@@ -239,13 +244,11 @@ means building the accept mechanism first.** Tracked in
 
 - Raising floors on every upgrade means more `pyproject.toml` churn — accepted; the floors are
   documentation of reality.
-- ~~Renovate adds PR noise. Mitigated by grouping and PR-only (no auto-merge) mode.~~ **Void as
-  written (2026-08-03):** Renovate has never run (§ 5), so it produces neither noise nor updates.
-  The live trade-off is the opposite one — dependency **freshness** is entirely manual. What is
-  automated covers **vulnerabilities only**: the daily `dependency-audit.yml` (both ecosystems,
-  diff-independent) plus the diff-gated `pip_audit` CI job. `npm audit` on its own is still not
-  automated — it runs when someone invokes `./dev quality` (§ 5 table). Nothing reports a merely
-  *outdated* dependency.
+- Renovate adds PR noise — mitigated by grouping (minor/patch batched) and PR-only, no-auto-merge
+  mode. **Live again as of 2026-08-05** (§ 5): after a stretch where Renovate never ran — during which
+  the real trade-off was the opposite, that freshness was entirely manual — the Mend App is installed
+  and opens grouped PRs. Expect a burst on each run (up to `prConcurrentLimit: 5`), and each bump still
+  needs the § 4 local verification before merge, since CI runs unit tests only.
 - The scheduled audit files an issue rather than blocking a merge. That is deliberate (§ 6e), and
   the cost is real: a red scheduled run is easy to ignore in a way a red PR check is not.
 
