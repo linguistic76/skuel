@@ -197,9 +197,14 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    re-derive it before starting, because it will have drifted:
 
    ```bash
-   grep -rn "npm.*audit\|audit_dependencies\.sh" \
-     app/dev app/scripts/ .github/workflows/ --include="*.py" --include="*.sh" --include="*.yml"
+   git grep -n "npm.*audit\|audit_dependencies\.sh" -- \
+     'app/dev' 'app/scripts/*' '.github/workflows/*'
    ```
+
+   `git grep` here for the same reason as step 7: `--include` globs cannot match the
+   extensionless `app/dev` wrapper, so a `grep -r` form silently omits the very call site
+   the table below cites — and `./dev audit-deps` drifting while CI moves is exactly the
+   one-path invariant this step exists to protect.
 
    | Call site | Invokes | Note |
    |---|---|---|
