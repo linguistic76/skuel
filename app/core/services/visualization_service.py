@@ -334,10 +334,12 @@ class VisualizationService:
         data = GanttData(
             tasks=gantt_tasks,
             options={
+                # frappe-gantt 1.x removed `popup_trigger` and `custom_popup_html`;
+                # popups are configured with a `popup` callback, which cannot be
+                # expressed in a JSON payload. Emitting the dead keys would advertise
+                # a contract the library no longer honours.
                 "view_mode": "Week",
                 "date_format": "YYYY-MM-DD",
-                "popup_trigger": "click",
-                "custom_popup_html": None,
                 "language": "en",
             },
         )
@@ -532,17 +534,24 @@ class VisualizationService:
         return f"priority-{value}"
 
     def _get_gantt_class(self, task: Any) -> str:
-        """Get CSS class for Gantt task based on status and priority."""
-        classes = []
+        """Get the CSS class for a Gantt task bar — exactly ONE, never a list.
+
+        frappe-gantt 1.x applies this with ``classList.add(task.custom_class)``
+        (``src/bar.js``), and ``classList.add`` raises ``InvalidCharacterError`` on a
+        token containing whitespace. 0.6.1 tolerated the space-separated
+        ``"in-progress priority-high"`` this used to return; 1.x throws on it, taking
+        the whole chart down rather than degrading.
+
+        Status wins because it is the bar's primary visual state; priority is the
+        fallback so a task with no distinguishing status still carries information.
+        """
         status = getattr(task, "status", EntityStatus.DRAFT)
         if status == EntityStatus.COMPLETED:
-            classes.append("completed")
-        elif status == EntityStatus.ACTIVE:
-            classes.append("in-progress")
-        elif status == EntityStatus.BLOCKED:
-            classes.append("blocked")
+            return "completed"
+        if status == EntityStatus.ACTIVE:
+            return "in-progress"
+        if status == EntityStatus.BLOCKED:
+            return "blocked"
 
         priority = getattr(task, "priority", Priority.MEDIUM)
-        classes.append(self._get_priority_class(priority))
-
-        return " ".join(classes)
+        return self._get_priority_class(priority)

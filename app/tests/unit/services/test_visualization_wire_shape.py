@@ -29,7 +29,7 @@ import pytest
 
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
-from core.services.visualization_service import VisualizationService
+from core.services.visualization_service import EntityStatus, Priority, VisualizationService
 
 # Chart.js reads these off each entry of config.data.datasets.
 _CHARTJS_DATASET_KEYS = {
@@ -61,8 +61,10 @@ class _Task:
         self.due_date = datetime(2026, 3, 5).date()
         self.duration_minutes = 45
         self.actual_minutes = 0
-        self.priority = None
-        self.status = None
+        # Annotated rather than inferred: the parametrised custom_class pin assigns real
+        # enum members, and bare `= None` would infer these as `None`-typed.
+        self.priority: Priority | None = None
+        self.status: EntityStatus | None = None
         self.start_date = datetime(2026, 3, 2).date()
 
 
@@ -125,3 +127,43 @@ class TestGanttWireShape:
         assert len(config["tasks"]) == 3  # goal bar + task + milestone
         for task in config["tasks"]:
             assert set(task.keys()) == _GANTT_TASK_KEYS
+
+    @pytest.mark.parametrize(
+        "status",
+        [
+            None,
+            EntityStatus.DRAFT,
+            EntityStatus.ACTIVE,
+            EntityStatus.COMPLETED,
+            EntityStatus.BLOCKED,
+        ],
+    )
+    @pytest.mark.parametrize("priority", [None, Priority.LOW, Priority.MEDIUM, Priority.HIGH])
+    def test_custom_class_is_a_single_token(
+        self, service: VisualizationService, status: EntityStatus | None, priority: Priority | None
+    ) -> None:
+        """``custom_class`` must never contain whitespace, for EVERY reachable state.
+
+        frappe-gantt 1.x applies it with ``classList.add(task.custom_class)``
+        (``src/bar.js``), which raises ``InvalidCharacterError`` on a token containing a
+        space — taking the whole chart down rather than degrading. 0.6.1 tolerated the
+        space-separated ``"in-progress priority-high"`` this used to emit, so the bump to
+        1.2.2 turned a harmless string into a crash.
+
+        This is a VALUE pin, unlike the key-name pins above, and it exists because
+        nothing caught that change: the switch from two classes to one broke no test.
+        Parametrised over the whole status x priority grid rather than one example,
+        because the fallback branch is only reachable when status contributes nothing.
+        """
+        task = _Task("task_1")
+        task.status = status
+        task.priority = priority
+
+        result = service.format_for_gantt([task], {})
+
+        assert result.is_ok
+        emitted = result.value["tasks"][0]["custom_class"]
+        assert emitted, "custom_class must not be empty — the bar would carry no state"
+        assert emitted.split() == [emitted], (
+            f"custom_class {emitted!r} contains whitespace; classList.add would throw"
+        )
