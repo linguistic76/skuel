@@ -44,13 +44,6 @@
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["major"],
       "groupName": null
-    },
-    {
-      "description": "TEMPORARY CAP, not an intentional pin (ADR-067 § 6c): jsdom 30 requires Node ^22.22.2 || ^24.15.0 || >=26, and CI still runs Node 20 (EOL 2026-04-30). A major bump here would open a PR that cannot pass CI. DELETE this rule as part of the Node bump — the jsdom major is the point of that migration, since it moves undici off the 7.x backport line.",
-      "matchManagers": ["npm"],
-      "matchPackageNames": ["jsdom"],
-      "matchUpdateTypes": ["major"],
-      "enabled": false
     }
   ]
 }

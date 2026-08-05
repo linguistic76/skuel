@@ -59,7 +59,7 @@ This ADR records the policy and the structure that enforces it.
 | Interpreter pin | `.python-version` | `3.14` |
 | Container base | `Dockerfile`, `Dockerfile.production` | `python:3.14-slim` |
 | **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003/UP037 suppressed — see Deferred); black: **`py312`** (still intentionally lags) |
-| **Node runtime** | **Two** `setup-node` pins that must move together: `../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml` (`js_audit`) | `'20'` — ⚠ EOL 2026-04-30; no `engines`, no `.nvmrc`, so local dev is unpinned (§ 6c) |
+| **Node runtime** | **Two** `setup-node` pins that must move together — `../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml` (`js_audit`) — plus `app/package.json` `engines.node`, `app/.nvmrc`, and `app/.npmrc` (`engine-strict=true`) for local dev | `^24.15.0` (Node 24 LTS Krypton, at jsdom-30's floor; `.nvmrc` = `24`, enforced by engine-strict) — keeps jsdom on 30 / undici on 8.x (§ 6c) |
 
 ### 3. Intentional pins (exempt from routine upgrades)
 
@@ -193,21 +193,30 @@ ADR. Prefer an in-range fix (§ 6a step 2) or a parent bump; reach for `override
 exists.
 
 **6c. Check the runtime ceiling before any parent major bump.** The Node version caps the
-dependency tree, and the cap is invisible until an advisory lands. As of 2026-08-03:
+dependency tree, and the cap is invisible until an advisory lands:
 
 ```
-Node 20  →  jsdom ^29  →  undici 7.x
-Node 22+ →  jsdom 30   →  undici 8.x   (jsdom 30 engines: ^22.22.2 || ^24.15.0 || >=26.0.0)
+Node 20  →  jsdom ^29  →  undici 7.x   (EOL 2026-04-30 — migrated away 2026-08-05)
+Node 24  →  jsdom 30   →  undici 8.x   (jsdom 30 engines: ^22.22.2 || ^24.15.0 || >=26.0.0)
 ```
 
-**Node 20 reached end-of-life on 2026-04-30** and the repo is still on it. There is no `engines`
-field, no `.nvmrc` and no `.node-version`, so local dev Node is unpinned and the version is recorded
-**only in two `setup-node` steps that must be bumped together** —
+**The repo runs Node 24 (LTS Krypton) as of 2026-08-05**, having migrated off end-of-life Node 20.
+The version is now pinned in **four places that must move together**: the two `setup-node` steps —
 `../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml`
-(`js_audit`). Moving one without the other leaves the security audit on a different toolchain than
-the tests. Staying on EOL Node is what
-holds jsdom at `^29`; the day the 7.x undici line stops getting backports, the only fix becomes a
-Node migration. Plan it before the gate is red, not during.
+(`js_audit`), both `node-version: '^24.15.0'` — plus `app/package.json` `engines.node` (the same
+`^24.15.0` — the Node 24 LTS line at jsdom-30's floor; the caret excludes non-LTS 25.x, which jsdom
+30 does not support) and `app/.nvmrc` (`24`) for local dev. The `setup-node` steps use the range
+rather than a bare `'24'` on purpose: with the default `check-latest: false`, `'24'` can select an
+older cached `24.0–24.14` below jsdom's floor, so the CI pins mirror `engines.node` exactly.
+
+`.nvmrc` names the line, not a floor — nvm has no caret syntax, and `nvm use` can resolve a bare `24`
+to an already-installed `24.0–24.14`. So `app/.npmrc` sets **`engine-strict=true`**, which hard-fails
+`npm ci` / `npm install` on any Node below `engines.node` instead of silently installing and testing
+under an engine-mismatched runtime. That makes the `^24.15.0` floor authoritative for **every** local
+path, not just nvm, and is the real backstop behind the pins above. Bumping the workflows without the
+local-dev pins (or vice versa) leaves contributors on a different toolchain than CI. The Node 24 floor is what unlocked jsdom 30 and moved undici onto the
+8.x line. Before any future parent major bump, re-check this ceiling — a dependency that needs a
+newer Node forces a runtime migration, so plan it before the gate is red, not during.
 
 **6d. Verification for any JS dependency change.** `npm ci` first — **without it this recipe can
 pass vacuously.** `npm audit` reads the lockfile, but `npm run test:js` executes whatever is in

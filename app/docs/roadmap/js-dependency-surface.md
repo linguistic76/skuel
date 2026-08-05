@@ -27,6 +27,14 @@ run.
 > **Update 2026-08-05:** Renovate is now **live** — the Mend-hosted App was installed and un-silenced,
 > `npm` was added to `enabledManagers` (#941), and the first run opened PRs #942–#946 plus a Dependency
 > Dashboard (#947). Open decisions **1 and 2 are resolved**; §§ 2–3 and decisions 4 & 6 stand.
+>
+> **Update 2026-08-05 (Node runway traversed):** the repo moved **off EOL Node 20 to Node 24 (LTS
+> Krypton)** — `node-version '^24.15.0'` in both `ci.yml` and `dependency-audit.yml`, an `engines.node`
+> `"^24.15.0"` field (the Node 24 LTS line at jsdom-30's floor) in `app/package.json`, a new `app/.nvmrc`,
+> and a new `app/.npmrc` with `engine-strict=true` so `npm ci` hard-fails below the floor on any local path
+> (nvm can only pin the line, not the floor). `jsdom` went `^29.1.1 → ^30.0.1` and
+> undici `7.29.0 → 8.10.0` (off the 7.x backport line). This **resolves § 3 and decision 4** (superseding
+> the "decision 4 stands" note just above, written earlier the same day); decision 6 stands.
 
 ---
 
@@ -133,6 +141,12 @@ the missing artifacts immediately: the **Dependency Dashboard** issue (#947) and
 
 ## 3. The Node 20 runway
 
+> **Update 2026-08-05 — runway traversed.** The repo moved to **Node 24 (LTS Krypton)**: `node-version
+> '^24.15.0'` in both workflows, `engines.node "^24.15.0"` + `app/.nvmrc` for local dev, `jsdom ^29.1.1 → ^30.0.1`,
+> undici `7.29.0 → 8.10.0`. The ceiling described below is now the *former* Node-20 ceiling — kept as the
+> rationale for why the migration happened. The migration followed the sketch at the end of this section,
+> except the target was **24** (LTS, EOL 2028-04-30), not 22.
+
 **Node 20 reached end-of-life on 2026-04-30** (verified against `nodejs/Release`
 `schedule.json`). The repo is past it. Node 22 is in maintenance until 2027-04-30; Node 24
 until 2028-04-30.
@@ -190,9 +204,10 @@ These need a founder ruling; none is urgent, all are cheap.
    issue on findings. The same latent hole existed on the Python side — `pip_audit` is
    diff-gated too, merely masked because its `py` filter matches nearly every PR — so the
    scheduled job covers both.
-4. **Pin Node.** An `engines` field or `.nvmrc` costs nothing and makes the §3 ceiling
-   explicit instead of folklore. **Still open** — deliberately not folded into the
-   scheduled-audit PR, since it changes what every contributor's toolchain must satisfy.
+4. ~~**Pin Node.**~~ **RESOLVED 2026-08-05.** Landed with the Node 20 → 24 migration:
+   `app/package.json` now declares `engines.node "^24.15.0"` (the Node 24 LTS line at jsdom-30's floor),
+   `app/.nvmrc` pins `24`, and `app/.npmrc` sets `engine-strict=true` so `npm ci` refuses to run below the
+   floor — the §3 ceiling is enforced rather than folklore, and local dev agrees with CI.
 5. ~~**Extend ADR-067 to the JS surface, or write a sibling ADR?**~~ **RESOLVED 2026-08-03** —
    amended in place. ADR-067's filename was already scope-neutral and its Context always
    intended all dependencies, so § 6 was *added* (never renumbering, since `pyproject.toml`,
