@@ -33,14 +33,26 @@ What is checked
 ---------------
 1. Every named component reference in *any* first-party doc under ``docs/``,
    ``.claude/skills/`` or ``CLAUDE.md`` is live (or a documented teaching
-   placeholder). Two shapes, because a doc can name a component **without ever
-   mounting it**: ``x-data="name(...)"`` mounts, and ``Alpine.data('name', …)``
-   definitions. Checking mounts alone left a copy-paste ``swipeHandler`` recipe
-   in ``patterns-reference.md`` passing CI while the architecture doc stated
+   placeholder). **Three shapes**, because a doc can name a component without
+   ever mounting it: ``x-data="name(...)"`` mounts (including the f-string form
+   FastHTML docs favour), ``Alpine.data('name', …)`` definitions, and prose that
+   *instructs* a mount. Mount-only checking left a copy-paste ``swipeHandler``
+   recipe in ``patterns-reference.md`` green while the architecture doc said
    touch/swipe had no live successor. Both ``.md`` and ``.html`` — the Today
    design handoff is HTML and mounts ``x-data="today()"``. Tree-wide, because a
    stale example is equally broken wherever it sits — five docs outside the
    original three were teaching deleted or never-existing components.
+
+   Each shape was added only after grepping the corpus for it. Enumerating the
+   shapes already seen, instead of measuring which occur, produced four
+   successive coverage gaps here (HTML files, recipes, f-string mounts, prose
+   directives). The corpus is the specification.
+
+   **Known limit:** free prose that names a component *without* mentioning
+   ``x-data`` is not checked. Distinguishing component names from method names
+   (``toggle()``, ``validate()``) in open prose has no reliable signal — the
+   attempt produced 61/30/42 candidates per doc. Marked registry regions
+   (check 2) exist to cover that case deliberately.
 2. Every component named in the first column of a table inside an
    ``<!-- alpine-registry:begin -->`` region is live. Only the first column is
    read: later columns hold state-field names (``expanded``, ``sortBy``), which
@@ -56,6 +68,7 @@ from __future__ import annotations
 
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -122,6 +135,8 @@ _X_DATA_RE = re.compile(r"""x[-_]data["']?\s*[:=]\s*[rRbBuUfF]{0,2}["']\s*([A-Za
 # `if (window.Alpine) window.Alpine.data('today', …)`, and an anchor would
 # silently drop a live component.
 _ALPINE_DATA_RE = re.compile(r"""Alpine\.data\(\s*['"]([A-Za-z_]\w*)['"]""")
+# Backticked `name(...)` call — used only on lines that also mention x-data.
+_PROSE_CALL_RE = re.compile(r"`([a-z][A-Za-z0-9]*)\([^`]*\)`")
 _BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 _LEADING_IDENT_RE = re.compile(r"^([A-Za-z_]\w*)")
 
@@ -345,12 +360,43 @@ def test_marked_regions_are_present(doc: Path) -> None:
     )
 
 
+def _names_in_prose_directives(text: str) -> list[str]:
+    """Components named in prose that *instructs* an x-data mount.
+
+    Catches ``3. `x-data` must call `relationshipGraph(uid, entityType, depth)` ``
+    — an instruction to mount a component, written without ever mounting it, so
+    neither of the other two shapes sees it.
+
+    Narrow on purpose: only lines that mention ``x-data`` **and** backtick a
+    ``name(...)`` call. Scanning every backticked call corpus-wide is what this
+    module rejected early, because method names (``toggle()``, ``validate()``)
+    are indistinguishable from component names in free prose — it produced
+    61/30/42 candidates per doc. This rule was measured before being added: it
+    matches exactly one line in the whole corpus, naming a live component, with
+    zero false positives.
+    """
+    names: list[str] = []
+    for line in text.splitlines():
+        if "x-data" not in line and "x_data" not in line:
+            continue
+        if _X_DATA_RE.search(line):
+            continue  # a real mount — the mount shape owns it
+        names.extend(_PROSE_CALL_RE.findall(line))
+    return names
+
+
 @pytest.mark.parametrize(
-    ("shape", "pattern"),
-    [("x-data mount", _X_DATA_RE), ("Alpine.data definition", _ALPINE_DATA_RE)],
+    ("shape", "extract"),
+    [
+        ("x-data mount", _X_DATA_RE.findall),
+        ("Alpine.data definition", _ALPINE_DATA_RE.findall),
+        ("prose x-data directive", _names_in_prose_directives),
+    ],
 )
-def test_no_doc_anywhere_names_a_dead_component(shape: str, pattern: re.Pattern[str]) -> None:
-    """Tree-wide, both shapes: every component a doc names must be live.
+def test_no_doc_anywhere_names_a_dead_component(
+    shape: str, extract: Callable[[str], list[str]]
+) -> None:
+    """Tree-wide, every shape: each component a doc names must be live.
 
     Deliberately not limited to the three Alpine-specific docs. Scoping it that
     way is what let `choiceOptions` and `focusTrapModal` (both deleted in
@@ -358,16 +404,19 @@ def test_no_doc_anywhere_names_a_dead_component(shape: str, pattern: re.Pattern[
     `insightActionConfirmation` — names that never existed in any commit — sit in
     docs/patterns/ as copyable examples.
 
-    Both shapes are needed. A doc can hand out a deleted component as a
-    copy-paste ``Alpine.data('swipeHandler', …)`` recipe and never mount it, so a
-    mount-only check reports clean on it forever.
+    All three shapes are needed, and each was added only after the corpus proved
+    it occurs: a deleted component can be handed out as a copy-paste
+    ``Alpine.data('swipeHandler', …)`` recipe that is never mounted, or named in
+    an instruction to mount it. Enumerating the shapes I had already seen, rather
+    than grepping for the shapes present, is what caused three successive
+    coverage gaps here (HTML files, recipes, f-string mounts).
     """
     registry = _registry()
     offenders: dict[str, list[str]] = {}
     for doc in _all_doc_files():
         bad = {
             name
-            for name in pattern.findall(doc.read_text(encoding="utf-8", errors="ignore"))
+            for name in extract(doc.read_text(encoding="utf-8", errors="ignore"))
             if name not in registry and name not in PLACEHOLDERS
         }
         if bad:
