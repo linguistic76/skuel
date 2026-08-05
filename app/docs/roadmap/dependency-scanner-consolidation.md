@@ -222,8 +222,13 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    - **Widen the path filters.** The job triggers on `py || audit`; neither filter mentions
      `app/package-lock.json` (checked). Once one script scans both lockfiles, a JS-only
      lock change would silently skip the consolidated check — the same diff-gating blind
-     spot that produced `dependency-audit.yml` in the first place. Add `package-lock.json`,
-     `package.json` and `osv-scanner.toml` to the `audit` filter.
+     spot that produced `dependency-audit.yml` in the first place. Add
+     `app/package-lock.json`, `app/package.json` and `app/osv-scanner.toml` to the `audit`
+     filter — **`app/`-prefixed**, because `dorny/paths-filter` evaluates from the
+     repository root and every existing pattern in that file is already rooted there
+     (`app/scripts/audit_dependencies.sh`, `app/.pip-audit-ignore`). Bare filenames would
+     silently match nothing, so a JS-only lockfile change would still skip the audit this
+     step exists to widen.
    - **Rename it.** "Dependency CVE Audit" is fine; the job id `pip_audit` and the
      `.pip-audit-ignore` reference in `.github/workflows/README.md` are not.
 6. Collapse `dependency-audit.yml` to a single job, and update its header — the
