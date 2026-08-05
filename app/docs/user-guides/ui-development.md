@@ -791,11 +791,14 @@ Div(
 )
 ```
 
-All Alpine.js `x-data` component definitions live in `/static/js/skuel.js`.
+Named Alpine components live in a `/static/js/` bundle — `skuel.js` for the 22
+shared ones, or a page-local bundle for the 4 single-surface ones.
 
 ### Alpine.js Component Registry
 
-**Rule:** All `Alpine.data()` definitions must go in `/static/js/skuel.js` — never define components inline in Python templates.
+**Rule:** every `Alpine.data()` definition belongs in a `/static/js/` bundle — never inline in a Python template. Which bundle depends on reach: `skuel.js` for anything more than one page uses; a page-local bundle (see [the page-local inventory](../architecture/ALPINE_JS_ARCHITECTURE.md#available-components)) when exactly one surface needs it, so single-page behaviour stays off every other page's critical path.
+
+One-off state that lives and dies with a single element does not need a registered component at all — an inline `x-data="{ open: false }"` object is the right call there.
 
 #### Tier 1 — Commonly Needed
 

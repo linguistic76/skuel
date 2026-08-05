@@ -460,19 +460,26 @@ commit. Written as an inline `x-data` object it needs no registration, which is
 the right call for one-off state (see ALPINE_JS_ARCHITECTURE.md § HTMX + Alpine
 Collaboration — reach for `skuel.js` only when the state outlives one element):
 
+Use `window.SKUEL.postJson()`, **not** a raw `fetch`. Both
+`/api/insights/{uid}/dismiss` and `/api/insights/{uid}/action` are
+`@csrf_protected` (`adapters/inbound/insights_api.py`), which requires an
+`X-CSRF-Token` header or a `csrf_token` field. HTMX adds that header on its own
+requests; a hand-rolled `fetch` does not, so the POST returns 403 — and a bare
+`.then()` would reload the page as though it had succeeded, hiding the failure.
+`postJson` sets the header from the `csrf_token` cookie and rejects on any
+non-2xx, so the error surfaces.
+
 ```html
 <div x-data="{
         showDialog: false,
         notes: '',
         confirm() {
-            fetch('/api/insights/insight_123/dismiss', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notes: this.notes })
-            }).then(() => {
-                this.showDialog = false;
-                window.location.reload();
-            });
+            window.SKUEL.postJson('/api/insights/insight_123/dismiss', { notes: this.notes })
+                .then(() => {
+                    this.showDialog = false;
+                    window.location.reload();
+                })
+                .catch((err) => window.SKUEL.announce('Dismiss failed: ' + err.message, 'assertive'));
         }
      }">
     <button @click="showDialog = true">Dismiss</button>
