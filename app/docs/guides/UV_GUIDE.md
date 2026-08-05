@@ -135,6 +135,15 @@ asserts the lock is already current and *fails* if it isn't.** Reach for
 `--locked` only where that failure is the signal you want. The Docker build uses
 `--frozen` for the same reason — see `.claude/skills/docker/SKILL.md`.
 
+**This is enforced, not remembered.** `tests/unit/test_workflow_uv_lock_pinning.py`
+parses every job in `../.github/workflows/` and fails on any of four shapes: a
+uv-using job with no `UV_FROZEN`; a `--locked` job that sets it anyway (exit 2);
+a `--locked` job whose own uv commands lack `--frozen` (the original defect); and
+`UV_FROZEN` left on a job that no longer runs uv. It keys on **whether the job
+passes `--locked`**, not on job names, and follows the shell scripts a job runs —
+so both `--locked` jobs are recognised through `audit_dependencies.sh` and the
+guard survives that script being renamed or replaced.
+
 ## Enforcement: SKUEL016
 
 The SKUEL linter rule **SKUEL016** catches stale Poetry references anywhere in the codebase:

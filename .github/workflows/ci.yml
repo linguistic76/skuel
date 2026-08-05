@@ -60,7 +60,13 @@ jobs:
               # trigger the unit-test drift guard that rejects it.
               - 'app/docs/reference/GRAPH_CONTRACT.yaml'
               - 'app/docs/reference/BASESERVICE_METHOD_INDEX.md'
-              - '.github/workflows/ci.yml'
+              # EVERY workflow, not just ci.yml (unlike the filters below):
+              # tests/unit/test_workflow_uv_lock_pinning.py reads all of them.
+              # Scoped to ci.yml, a PR touching only dependency-audit.yml or
+              # mypy-suppressions.yml would skip unit_tests — and the gate
+              # accepts skips, so the guard would go silently unrun on exactly
+              # the change that can break it.
+              - '.github/workflows/**'
             docs:
               - 'app/docs/**'
               - 'app/.claude/skills/**'
