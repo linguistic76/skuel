@@ -31,22 +31,25 @@ automatically.
 
 What is checked
 ---------------
-1. Every named component reference in *any* doc under ``docs/``,
+1. Every named component reference in *any* first-party doc under ``docs/``,
    ``.claude/skills/`` or ``CLAUDE.md`` is live (or a documented teaching
    placeholder). Two shapes, because a doc can name a component **without ever
    mounting it**: ``x-data="name(...)"`` mounts, and ``Alpine.data('name', …)``
    definitions. Checking mounts alone left a copy-paste ``swipeHandler`` recipe
    in ``patterns-reference.md`` passing CI while the architecture doc stated
-   touch/swipe had no live successor. Tree-wide, because a stale example is
-   equally broken wherever it sits — five docs outside the original three were
-   teaching deleted or never-existing components.
+   touch/swipe had no live successor. Both ``.md`` and ``.html`` — the Today
+   design handoff is HTML and mounts ``x-data="today()"``. Tree-wide, because a
+   stale example is equally broken wherever it sits — five docs outside the
+   original three were teaching deleted or never-existing components.
 2. Every component named in the first column of a table inside an
    ``<!-- alpine-registry:begin -->`` region is live. Only the first column is
    read: later columns hold state-field names (``expanded``, ``sortBy``), which
    are not components.
-3. The two docs that *claim* to list the whole shared registry actually list
-   exactly ``skuel.js``'s components — so a newly added shared component also
-   fails the build until it is documented.
+3. The two docs that *claim* to list the whole shared registry match
+   ``skuel.js`` **exactly** — both directions. Omissions fail, so a newly added
+   shared component must be documented; and page-local names fail too, so those
+   tables cannot quietly become mixed shared/page-local registries (check 2
+   alone would allow it, since it measures against the 26-component union).
 """
 
 from __future__ import annotations
@@ -85,8 +88,11 @@ ALPINE_DOCS = (UI_DEVELOPMENT, ALPINE_ARCHITECTURE, UI_BROWSER_SKILL)
 # as teaching patterns and says so, rather than claiming to be a full index.
 COMPLETE_REGISTRY_DOCS = (UI_DEVELOPMENT, UI_BROWSER_SKILL)
 
-# Roots scanned by the tree-wide x-data check.
+# Roots scanned by the tree-wide component-reference check.
 DOC_ROOTS = (APP_ROOT / "docs", APP_ROOT / ".claude" / "skills", APP_ROOT / "CLAUDE.md")
+
+# Vendored upstream reference docs — not SKUEL's claims. See _all_doc_files().
+VENDORED_DOCS = APP_ROOT / "docs" / "llms.txt"
 
 # Generic names in "how to add a component" examples. These are intentionally
 # NOT registry components — they stand in for whatever the reader is writing.
@@ -203,12 +209,28 @@ def _components_in_regions(text: str) -> set[str]:
 
 
 def _all_doc_files() -> list[Path]:
+    """First-party docs that can carry an Alpine snippet.
+
+    ``.html`` as well as ``.md``: ``docs/design-handoff/today/today.html`` is a
+    copyable design handoff that mounts ``x-data="today()"``, and a Markdown-only
+    glob left it unchecked while the module claimed to cover any doc under
+    ``docs/``. Rename or delete ``today`` and that file would have gone stale
+    silently.
+
+    ``docs/llms.txt/`` is excluded: vendored upstream reference material
+    (FastHTML, MonsterUI, DaisyUI, shad4fast). Their examples are not SKUEL's
+    claims, and holding third-party docs to SKUEL's registry would be wrong as
+    well as noisy.
+    """
     files: list[Path] = []
     for root in DOC_ROOTS:
         if root.is_file():
             files.append(root)
-        elif root.is_dir():
-            files.extend(sorted(root.rglob("*.md")))
+            continue
+        for pattern in ("*.md", "*.html"):
+            files.extend(
+                path for path in sorted(root.rglob(pattern)) if VENDORED_DOCS not in path.parents
+            )
     return files
 
 
@@ -278,13 +300,32 @@ def test_marked_registry_tables_list_only_live_components(doc: Path) -> None:
 
 
 @pytest.mark.parametrize("doc", COMPLETE_REGISTRY_DOCS, ids=lambda p: p.name)
-def test_docs_claiming_completeness_are_complete(doc: Path) -> None:
-    """A new shared component must be documented, not just an old one removed."""
-    missing = _skuel_js_registry() - _components_in_regions(doc.read_text(encoding="utf-8"))
+def test_docs_claiming_completeness_match_the_shared_registry_exactly(doc: Path) -> None:
+    """These tables must equal skuel.js — no omissions, and no page-local entries.
+
+    Both directions are needed, and the second is not symmetry for its own sake.
+    ``test_marked_registry_tables_list_only_live_components`` measures against the
+    26-component union, so a page-local name like ``today`` in a *shared* table
+    passes it; checking only for omissions here would let these tables quietly
+    become mixed shared/page-local registries while still advertising themselves
+    as the complete shared set.
+    """
+    documented = _components_in_regions(doc.read_text(encoding="utf-8"))
+    shared = _skuel_js_registry()
+
+    missing = shared - documented
     assert not missing, (
         f"{doc.relative_to(APP_ROOT)} claims to list the complete shared registry "
         f"but omits: {sorted(missing)}. Add a row, or drop the completeness claim "
         f"and remove the doc from COMPLETE_REGISTRY_DOCS."
+    )
+
+    foreign = documented - shared
+    assert not foreign, (
+        f"{doc.relative_to(APP_ROOT)} lists {sorted(foreign)} in a table that "
+        f"claims to be the complete SHARED registry, but those are not in "
+        f"skuel.js. Page-local components belong in the prose note about their "
+        f"own bundles, not in the shared table."
     )
 
 
