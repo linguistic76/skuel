@@ -180,34 +180,53 @@ Div(
 
 ---
 
-## Focus Trap Modal Integration
+## Modal Integration
 
-### Replace Existing Modals
+### Use the shared AlpineModal wrapper
 
-Update modal components to use `focusTrapModal`:
+Do not hand-roll the backdrop, transition and click-out on every modal — use
+`AlpineModal` from `ui/patterns/modal.py`. State stays yours; the wrapper owns
+the chrome.
 
 ```python
-# Old modal:
-Div(
-    **{"x-data": "{ isOpen: false }"},
-    Button("Open", **{"@click": "isOpen = true"}),
-    Div(
-        **{"x-show": "isOpen"},
-        # Modal content
-    ),
-)
+from ui.patterns.modal import AlpineModal
 
-# New modal with focus trap:
 Div(
-    **{"x-data": "focusTrapModal(false)"},
-    Button("Open", **{"@click": "open()"}),
-    Div(
-        **{"x-show": "isOpen", "@keydown": "handleKeydown($event)", "x-ref": "modal"},
+    Button("Open", **{"@click": "isOpen = true"}),
+    AlpineModal(
         # Modal content
-        Button("Close", **{"@click": "close()"}),
+        Button("Close", **{"@click": "isOpen = false"}),
+        show="isOpen",
+        close="isOpen = false",
     ),
+    **{"x-data": "{ isOpen: false }"},
 )
 ```
+
+Pass `close="close()"` instead when the modal is backed by a registry component
+that needs to do more than flip a boolean — `insightDetailModal(uid)` is the
+worked example in `skuel.js`.
+
+### Focus trapping
+
+`AlpineModal` does **not** trap focus for you. The capability still exists, but
+as a plain utility rather than an Alpine component: `static/js/focus_trap.js`
+is loaded on every page by `build_head()` (`ui/layouts/base_page.py`) and
+exposes `window.SKUEL.FocusTrap`. Instantiate it against the modal element:
+
+```javascript
+const trap = new SKUEL.FocusTrap(this.$refs.modal);
+trap.activate();   // on open
+trap.deactivate(); // on close
+```
+
+> **Historical note.** This section previously told readers to replace modals
+> with a `focusTrapModal(false)` Alpine component providing `open()` /
+> `close()` / `handleKeydown($event)`. That component was deleted in
+> `327f26623` (2026-03-28), and the inline `{ isOpen: false }` it labelled the
+> "old" pattern is in fact the current one. Only the Alpine wrapper went — the
+> underlying `FocusTrap` utility above survived and is still shipped on every
+> page.
 
 ---
 
@@ -458,9 +477,14 @@ Form(
 
 ### Adding New Modals
 
-Always use:
+Always use the shared wrapper, with the state declared on the parent:
 ```python
-Div(**{"x-data": "focusTrapModal(false)", "x-ref": "modal"})
+from ui.patterns.modal import AlpineModal
+
+Div(
+    AlpineModal(*content, show="isOpen", close="isOpen = false"),
+    **{"x-data": "{ isOpen: false }"},
+)
 ```
 
 ### Adding New List Views

@@ -158,37 +158,23 @@ Read-focused UI at `/choices` is planned. API routes remain active.
 
 ## Dynamic Options at Creation (January 2026)
 
-Choices require **at least 2 options** at creation time, managed via Alpine.js for a dynamic UX.
+### Where options are entered
 
-### Alpine.js Component
+**Not at create time.** `ChoiceCreateRequest` exposes no nested option fields —
+options and other list fields are added on the **detail page** after the choice
+exists. The create/edit forms (`GET|POST /choices/create`, `/choices/edit`) are
+rendered by `FormGenerator` via `ui/activities/choices_form.py`, and carry no
+Alpine component of their own beyond the default `formValidator`.
 
-The `choiceOptions()` component in `/static/js/skuel.js`:
+Choices also enter via YAML upload, which supplies options directly.
 
-```javascript
-Alpine.data('choiceOptions', function() {
-    return {
-        options: [
-            { title: '', description: '' },
-            { title: '', description: '' }
-        ],
-        addOption() { this.options.push({ title: '', description: '' }); },
-        removeOption(index) { if (this.options.length > 2) this.options.splice(index, 1); },
-        canRemove() { return this.options.length > 2; },
-        isValid() {
-            if (this.options.length < 2) return false;
-            return this.options.every(o => o.title.trim() && o.description.trim());
-        }
-    };
-});
-```
-
-### Form Integration
-
-The Create form in `/ui/choices/views.py`:
-- Wraps form with `x-data="choiceOptions()"`
-- Uses `x-for` to render dynamic option inputs
-- Uses `x-model` and `x-bind:name` for form field binding
-- Disables submit when `!isValid()`
+> **Historical note.** This section previously documented a `choiceOptions()`
+> Alpine component with add/remove/validate methods, mounted on a create form in
+> `ui/choices/views.py`. None of that exists: the component was deleted in
+> `327f26623` (2026-03-28) along with 11 other Alpine components, and the
+> `ui/choices/` directory is gone — choices UI lives in
+> `adapters/inbound/choices_ui.py`. The dynamic two-option-minimum entry UX it
+> described was never rebuilt.
 
 ### Server-Side Parsing
 

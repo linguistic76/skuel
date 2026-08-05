@@ -254,10 +254,10 @@ FormGenerator.from_model(
 By default, every form gets `x-data="formValidator"` and `@submit="validate($event)"`. Override or disable via `form_attrs`:
 
 ```python
-# Use a different Alpine component
+# Use a different Alpine component (must be registered in static/js/skuel.js)
 FormGenerator.from_model(
     ...,
-    form_attrs={"x-data": "exerciseForm"},
+    form_attrs={"x-data": "revisionForm"},
 )
 
 # Disable Alpine entirely

@@ -872,9 +872,16 @@ These are purpose-built for specific features. Check `skuel.js` for their full A
 
 <!-- alpine-registry:end -->
 
-Tier 1 and Tier 2 together are the complete registry — 22 components. Both tables
-are machine-checked by `tests/unit/docs/test_alpine_docs_registry.py`; a component
-deleted from `skuel.js` fails the build until these rows follow.
+Tier 1 and Tier 2 together are the complete **shared** registry — the 22
+components in `skuel.js`. Both tables are machine-checked by
+`tests/unit/docs/test_alpine_docs_registry.py`; a component deleted from
+`skuel.js` fails the build until these rows follow.
+
+Four more components live in page-local bundles rather than `skuel.js`, loaded
+only by their own routes — `today` (`today.js`), `exploreReading`
+(`explore-reading.js`), `kuReading` (`ku-reading.js`), `pathstep`
+(`ps-detail.js`) — for 26 in total. Add to `skuel.js` when more than one page
+needs the component; otherwise keep it page-local.
 
 Calendar note: the calendar's Alpine component was renamed from calendarPage to
 `calendarLegend` in #621, when the legend became the type filter. Its old sibling

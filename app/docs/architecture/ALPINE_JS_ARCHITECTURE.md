@@ -112,7 +112,11 @@ def my_page():
 
 ```
 static/js/
-└── skuel.js          # Central Alpine.data() component definitions (~2600 lines, 22 components)
+├── skuel.js          # SHARED Alpine.data() components (~2600 lines, 22 of the 26)
+├── today.js          # page-local: today
+├── explore-reading.js  # page-local: exploreReading
+├── ku-reading.js     # page-local: kuReading
+└── ps-detail.js      # page-local: pathstep
 
 ui/
 ├── calendar/               # FastHTML + Alpine directives
@@ -126,8 +130,23 @@ ui/
 
 ## Available Components
 
-All components are defined in `/static/js/skuel.js` using `Alpine.data()`. There are
-**22**. The four below are the ones worth reading as patterns; for the complete list see
+There are **26** components, and `skuel.js` is **not** the only registrar — a
+natural assumption, and a wrong one. `skuel.js` holds the **22 shared**
+components; four page-local bundles register one each and are loaded only by
+their own routes:
+
+| Bundle | Component | Loaded by |
+|--------|-----------|-----------|
+| `static/js/today.js` | `today` | `ui/today/page.py` |
+| `static/js/explore-reading.js` | `exploreReading` | `ui/explore/reading_plan.py` |
+| `static/js/ku-reading.js` | `kuReading` | `ui/explore/ku_detail.py` |
+| `static/js/ps-detail.js` | `pathstep` | `ui/explore/ps_detail.py` |
+
+Put a component in `skuel.js` when more than one page needs it; a page-local
+bundle keeps single-surface behaviour off every other page's critical path.
+
+The four below are the shared ones worth reading as patterns; for the full
+shared list see
 [@ui-browser](../../.claude/skills/ui-browser/SKILL.md#skuel-component-architecture),
 whose table is machine-checked against the registry.
 

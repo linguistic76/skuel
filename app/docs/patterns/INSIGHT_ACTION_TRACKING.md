@@ -454,34 +454,27 @@ async def test_history_filter():
 
 ### With Confirmation Dialog
 
-Add confirmation dialog with notes textarea:
+Add a confirmation dialog with a notes textarea. This is a **sketch, not a
+shipped component** — `insightActionConfirmation` has never existed in any
+commit. Written as an inline `x-data` object it needs no registration, which is
+the right call for one-off state (see ALPINE_JS_ARCHITECTURE.md § HTMX + Alpine
+Collaboration — reach for `skuel.js` only when the state outlives one element):
 
-```javascript
-Alpine.data('insightActionConfirmation', function(insightUid, actionType) {
-    return {
+```html
+<div x-data="{
         showDialog: false,
         notes: '',
-
-        confirm: function() {
-            const endpoint = actionType === 'dismiss'
-                ? `/api/insights/${insightUid}/dismiss`
-                : `/api/insights/${insightUid}/action`;
-
-            fetch(endpoint, {
+        confirm() {
+            fetch('/api/insights/insight_123/dismiss', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({notes: this.notes})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes: this.notes })
             }).then(() => {
                 this.showDialog = false;
                 window.location.reload();
             });
         }
-    };
-});
-```
-
-```html
-<div x-data="insightActionConfirmation('insight_123', 'dismiss')">
+     }">
     <button @click="showDialog = true">Dismiss</button>
 
     <dialog x-show="showDialog">
@@ -492,6 +485,9 @@ Alpine.data('insightActionConfirmation', function(insightUid, actionType) {
     </dialog>
 </div>
 ```
+
+Swap the endpoint for `/api/insights/{uid}/action` when the action is not a
+dismissal.
 
 ### With Undo Functionality
 
