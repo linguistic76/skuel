@@ -35,5 +35,23 @@ fi
 # --vulnerability-service osv: pip-audit defaults to PyPI's advisory feed;
 # OSV is the aggregate upstream (PYSEC + GHSA + more), so select it
 # explicitly — the documented coverage, not the default (Codex, PR #797).
-uv run --locked pip-audit --strict --disable-pip --vulnerability-service osv \
+#
+# --quiet suppresses uv's OWN progress, and it is load-bearing rather than
+# cosmetic. CI caches the venv built with `uv sync --no-install-project`, so
+# `uv run` reinstalls the project and emits lines like "Installed 1 package in
+# 4ms" ahead of the audit verdict. dependency-audit.yml renders this output into
+# a status issue and hashes it to decide whether the result CHANGED — and those
+# millisecond timings are nondeterministic (6 local runs gave 2 distinct values;
+# the first live CI run gave different ones again), so the digest moves whenever
+# they do and posts a "result changed" comment about a result that did not
+# change. The damage is not the noise: a spurious change-notification is
+# indistinguishable from a real one, so it trains the reader to ignore the exact
+# signal the issue exists to carry. Observed on that workflow's first live run
+# (issue #938).
+#
+# It does not hide failures: `uv export --locked` above already carries --quiet
+# and still refuses a stale lock loudly ("error: The lockfile at `uv.lock` needs
+# to be updated", exit 2 — verified), and pip-audit's own findings are the child
+# process's output, untouched by uv's verbosity flag.
+uv run --quiet --locked pip-audit --strict --disable-pip --vulnerability-service osv \
   -r "$REQ" ${IGNORE_ARGS[@]+"${IGNORE_ARGS[@]}"}
