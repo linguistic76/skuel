@@ -55,14 +55,23 @@ takes over and demands ``UV_FROZEN``. No name to update either way.
 
 DIRECTION OF ERROR
 
-Evidence for ``--locked`` is only ever taken from COMMAND POSITION, never from
-a substring match. That direction is deliberate. Over-detecting ``--locked``
-(e.g. from ``echo "run uv export --locked"``, which these workflows really do
-contain) would EXCUSE a job from rule 1 and silently reopen the hole.
-Under-detecting it makes the guard demand ``UV_FROZEN`` on a job that would
-then exit 2 — wrong, but loudly and immediately wrong. Only shell scripts are
-followed; a uv call shelled out from a Python script is not seen, and would
-fail in that loud direction.
+Over-detecting ``--locked`` EXCUSES a job from rule 1 and silently reopens the
+hole; under-detecting it demands a ``UV_FROZEN`` that fails loudly. So pin
+evidence has to survive two separate ways of not being uv's:
+
+  * Wrong COMMAND. ``echo "- A stale lock (\\`uv export --locked\\` refuses)"``
+    is prose these workflows really do contain. Commands are recovered by
+    quote-aware tokenization and only the command NAME counts, so an echoed
+    ``--locked`` is never evidence.
+  * Wrong ARGUMENT OWNER. ``uv run [OPTIONS] COMMAND [ARGS]`` — uv's options
+    stop at the child. On uv 0.10.9, ``uv run python -c '…' --locked`` hands
+    ``--locked`` to Python and uv still syncs unfrozen, so crediting it to uv
+    would mark the job ``--locked`` while nothing pinned the lock at all
+    (Codex, PR #959). Only uv's own option region counts.
+
+Both cuts are deliberately conservative — they can drop real pin evidence,
+never invent it. Likewise only shell scripts are followed; a uv call shelled
+out from a Python script is not seen, and fails in that same loud direction.
 
 See: PR #935, docs/guides/UV_GUIDE.md § Freezing the lock in CI
 """
@@ -71,7 +80,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any
 
 import yaml
 
@@ -97,6 +105,31 @@ _PIN_FLAGS = frozenset({"--frozen", "--locked"})
 _LOCK_SAFE_SUBCOMMANDS = frozenset(
     {"pip", "python", "tool", "venv", "cache", "self", "auth", "help", "version"}
 )
+
+# Every uv subcommand, so the option region can be located by name rather than
+# by "first token without a dash" — which a global option's VALUE would win
+# (`uv --directory app run …` would read `app` as the subcommand).
+_UV_SUBCOMMANDS = _LOCK_SAFE_SUBCOMMANDS | {
+    "run",
+    "init",
+    "add",
+    "remove",
+    "sync",
+    "lock",
+    "export",
+    "tree",
+    "build",
+    "publish",
+    "format",
+}
+
+# `uv run [OPTIONS] COMMAND [ARGS]` — uv's options STOP at the child command.
+_SUBCOMMANDS_WITH_CHILD = frozenset({"run"})
+
+# Unambiguous lock-touching subcommand names, used as a backstop: if one of
+# these appears anywhere in uv's own option region, the command touches the
+# lock no matter which token was picked as the subcommand.
+_LOCK_TOUCHING_SUBCOMMANDS = frozenset({"sync", "run", "lock", "export", "add", "remove", "tree"})
 
 # Leading tokens that precede the real command name in a command position.
 _COMMAND_PREFIXES = frozenset(
@@ -294,6 +327,33 @@ def _command_name(tokens: list[str]) -> tuple[str | None, str, list[str]]:
 # --------------------------------------------------------------------------
 
 
+def _uv_option_region(args: list[str]) -> tuple[str | None, tuple[str, ...]]:
+    """uv's own subcommand, and the tokens that are uv's own options.
+
+    `uv run [OPTIONS] COMMAND [ARGS]` — everything after COMMAND belongs to the
+    CHILD. Verified on uv 0.10.9: `uv run python -c '…' --locked` hands
+    `--locked` to Python, and uv still syncs unfrozen. Reading a child's flag
+    as uv's would mark the job `--locked` and EXCUSE it from rule 1, so the
+    region is cut at the first non-flag token after the subcommand and never
+    extended past it. Cutting early is safe (it only loses pin evidence, which
+    fails loudly); cutting late is the silent direction.
+    """
+    subcommand: str | None = None
+    sub_index = -1
+    for index, token in enumerate(args):
+        if not token.startswith("-") and token in _UV_SUBCOMMANDS:
+            subcommand, sub_index = token, index
+            break
+
+    if subcommand is None or subcommand not in _SUBCOMMANDS_WITH_CHILD:
+        return subcommand, tuple(args)
+
+    for index in range(sub_index + 1, len(args)):
+        if not args[index].startswith("-"):
+            return subcommand, tuple(args[:index])
+    return subcommand, tuple(args)
+
+
 @dataclass(frozen=True)
 class UvInvocation:
     """One `uv ...` command found in a job, with where it came from."""
@@ -301,20 +361,35 @@ class UvInvocation:
     origin: str  # "step 'Install dependencies'" or "scripts/audit_dependencies.sh"
     rendered: str
     subcommand: str | None
-    flags: frozenset[str]
+    option_region: tuple[str, ...]  # the tokens that belong to uv, not a child
+
+    @property
+    def _flags(self) -> set[str]:
+        return {t for t in self.option_region if t.startswith("-")}
+
+    @property
+    def _words(self) -> set[str]:
+        return {t for t in self.option_region if not t.startswith("-")}
 
     @property
     def locked(self) -> bool:
-        return "--locked" in self.flags
+        return "--locked" in self._flags
 
     @property
     def touches_lock(self) -> bool:
-        return self.subcommand is not None and self.subcommand not in _LOCK_SAFE_SUBCOMMANDS
+        if self._words & _LOCK_TOUCHING_SUBCOMMANDS:
+            return True
+        if self.subcommand is not None:
+            return self.subcommand not in _LOCK_SAFE_SUBCOMMANDS
+        # A positional we don't recognise is a subcommand uv grew after this
+        # was written: assume it locks. Only `uv --version`-shaped commands,
+        # with no positional at all, are treated as lock-free.
+        return bool(self._words)
 
     @property
     def pinned(self) -> bool:
         """Carries its own instruction not to rewrite the lock."""
-        return bool(_PIN_FLAGS & self.flags)
+        return bool(_PIN_FLAGS & self._flags)
 
 
 @dataclass(frozen=True)
@@ -358,9 +433,11 @@ class JobUvUsage:
         return (self.frozen_value or "").strip().lower() in _ENABLED_VALUES
 
 
-def _env_value(container: Any, key: str) -> tuple[bool, str | None]:
+def _env_value(container: object, key: str) -> tuple[bool, str | None]:
     """(declared, value-as-string) for ``key`` in a mapping's ``env:`` block."""
-    env = container.get("env") if isinstance(container, dict) else None
+    if not isinstance(container, dict):
+        return False, None
+    env = container.get("env")
     if not isinstance(env, dict) or key not in env:
         return False, None
     raw = env[key]
@@ -382,12 +459,13 @@ def _collect_from_shell(
             continue
 
         if name == "uv":
+            subcommand, region = _uv_option_region(args)
             found.append(
                 UvInvocation(
                     origin=origin,
                     rendered=" ".join([name, *args]),
-                    subcommand=next((a for a in args if not a.startswith("-")), None),
-                    flags=frozenset(a for a in args if a.startswith("-")),
+                    subcommand=subcommand,
+                    option_region=region,
                 )
             )
             continue
@@ -607,8 +685,17 @@ def violations(usage: JobUvUsage) -> list[str]:
     return problems
 
 
+def _workflow_paths(directory: Path) -> list[Path]:
+    """Every workflow file GitHub Actions would run.
+
+    Both suffixes: Actions discovers `.yml` AND `.yaml`, so a `*.yml` glob
+    would let `foo.yaml` carry a bare `uv run` past this guard entirely.
+    """
+    return sorted(p for p in directory.iterdir() if p.suffix in (".yml", ".yaml"))
+
+
 def _audit_all() -> list[JobUvUsage]:
-    return [u for path in sorted(WORKFLOWS_DIR.glob("*.yml")) for u in audit_workflow(path)]
+    return [u for path in _workflow_paths(WORKFLOWS_DIR) for u in audit_workflow(path)]
 
 
 # --------------------------------------------------------------------------
@@ -865,6 +952,76 @@ jobs:
     assert len(problems) == 1
     assert "carry no --frozen/--locked of their own" in problems[0]
     assert "uv sync --no-install-project" in problems[0]
+
+
+def test_control_child_command_flags_are_not_uv_flags(tmp_path: Path) -> None:
+    """`uv run python x.py --locked` gives `--locked` to PYTHON, not to uv.
+
+    Verified on uv 0.10.9 (`uv run [OPTIONS] [COMMAND]`): the child receives
+    it and uv still syncs unfrozen. Crediting it to uv is the silent failure —
+    the job reads as `--locked`, rule 2 excuses it from UV_FROZEN, and nothing
+    pins the lock at all.
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: uv run python scripts/census.py --locked --frozen
+""",
+    )
+    assert len(problems) == 1
+    assert "invokes uv without pinning" in problems[0]
+
+
+def test_control_uv_flags_before_the_child_command_still_count(tmp_path: Path) -> None:
+    """The complement: uv's OWN options must not be cut away with the child's.
+
+    `uv run --quiet --locked pip-audit --strict` is the real shape inside
+    audit_dependencies.sh — `--locked` precedes the child, so it is uv's.
+    """
+    subcommand, region = _uv_option_region(["run", "--quiet", "--locked", "pip-audit", "--strict"])
+    assert subcommand == "run"
+    assert region == ("run", "--quiet", "--locked")
+
+
+def test_control_a_global_option_value_cannot_pose_as_the_subcommand() -> None:
+    """`uv --directory app run …` — `app` is a VALUE, not the subcommand.
+
+    Picking it would make the region span the child's args again.
+    """
+    subcommand, region = _uv_option_region(
+        ["--directory", "app", "run", "python", "x.py", "--locked"]
+    )
+    assert subcommand == "run"
+    assert "--locked" not in region
+
+
+def test_control_yaml_suffix_workflows_are_audited(tmp_path: Path) -> None:
+    """GitHub Actions runs `.yaml` too; a `*.yml` glob would skip it silently."""
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    body = """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: uv run pytest tests/unit/
+"""
+    (workflows / "a.yml").write_text(body, encoding="utf-8")
+    (workflows / "b.yaml").write_text(body, encoding="utf-8")
+    (workflows / "README.md").write_text("not a workflow\n", encoding="utf-8")
+
+    assert [p.name for p in _workflow_paths(workflows)] == ["a.yml", "b.yaml"]
+    flagged = [
+        u.label
+        for path in _workflow_paths(workflows)
+        for u in audit_workflow(path, root=tmp_path)
+        if violations(u)
+    ]
+    assert flagged == ["a.yml::build", "b.yaml::build"]
 
 
 def test_control_lock_free_uv_subcommands_do_not_need_pinning(tmp_path: Path) -> None:
