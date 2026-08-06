@@ -893,7 +893,19 @@ HABITS_CONFIG = DomainRelationshipConfig(
         # Incoming: Other → Habit
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_PREREQUISITE_HABIT,
-            "Entity",
+            # "Habit", not the generic "Entity": every READER of this edge already
+            # restricts the target to :Habit (the rich-context query, the
+            # `include_prerequisite_habits` block in domain_queries.py, and planning,
+            # which loads each target through get_habit()). While the spec said
+            # "Entity", a same-user Task or Goal UID in `prerequisite_habit_uids`
+            # passed batch validation and wrote an edge nothing could ever use.
+            # Narrowing here makes the EXISTING validator enforce what the readers
+            # already assume, rather than bolting a second, hand-written label check
+            # onto the one create path. Habits are :Entity:Habit, so reads are
+            # unaffected; matches how EMBODIES_PRINCIPLE / SUPPORTS_GOAL below already
+            # name their domain label. (Reported by Codex on #965, whose habit-create
+            # path became this edge's first writer.)
+            "Habit",
             "outgoing",
             "prerequisite_habits",
             "prerequisite_habits",

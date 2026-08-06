@@ -336,8 +336,6 @@ class ChoicesCoreService(
 
         # Edges are written — only now announce the choice. ChoiceCreated drives the
         # user-context rebuild, which reads those edges back out of the graph.
-        # Edges are written — only now announce the choice. ChoiceCreated drives the
-        # user-context rebuild, which reads those edges back out of the graph.
         await self._publish_created(choice)
 
         # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
