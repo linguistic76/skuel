@@ -14,7 +14,7 @@ name: Codex Review Gate
 # Codex is ADVISORY — the gate requires its review was *considered*, never that
 # it was *agreed with*. Claude (the LLM) arbitrates what is actually true and
 # clears the gate by:
-#   1. reading the Codex review (via scripts/request_codex_review.sh <PR#>),
+#   1. reading the Codex review (via app/scripts/request_codex_review.sh <PR#>),
 #   2. posting a short "Codex consideration" note (accept / reject + why),
 #   3. applying the label:  gh pr edit <PR#> --add-label codex-considered
 # A new commit drops the label (changed code must be re-considered).
@@ -99,7 +99,7 @@ jobs:
             } else if (hasPythonFiles) {
               // Python files changed: Codex review is required even if not yet requested.
               state = 'failure';
-              description = 'Python files changed — run scripts/request_codex_review.sh to summon Codex before merging.';
+              description = 'Python files changed — run app/scripts/request_codex_review.sh to summon Codex before merging.';
             } else {
               // Docs/tooling only: no Codex request → gate passes.
               state = 'success';
