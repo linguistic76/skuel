@@ -213,7 +213,7 @@ status **`Codex Review Gate`**, operating in **two tiers**:
 - Gate is 🔴 **RED** immediately when the PR opens, regardless of whether `@codex review`
   was posted.
 - Clears to 🟢 **GREEN** only when the **`codex-considered`** label is applied.
-- Run `scripts/request_codex_review.sh <PR#>` to summon Codex and wait for its verdict.
+- Run `app/scripts/request_codex_review.sh <PR#>` to summon Codex and wait for its verdict.
 
 **Tier 2 — Docs/tooling only (no `.py` files):**
 - A PR with **no `@codex review` request** → 🟢 **GREEN automatically** (no friction).
