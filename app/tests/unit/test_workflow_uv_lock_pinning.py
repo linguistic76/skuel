@@ -86,9 +86,15 @@ signature of an approximation, not of a bug. So:
   * A bare ``uv`` token in another command's arguments — a wrapper whose
     options cannot be skipped without an arity table for that wrapper — is
     reported as unreadable.
-  * A ``--frozen``/``--locked`` that falls outside uv's option region behind an
-    ambiguous boundary (``--opt value`` is indistinguishable from
-    ``--flag CHILD``) is reported as ambiguous, with the ``--opt=value`` fix.
+  * A ``--frozen``/``--locked`` whose owner cannot be settled is reported, with
+    the ``--opt=value`` fix. One discriminator covers BOTH places a positional
+    gets interpreted — ``--opt value`` is indistinguishable from
+    ``--flag POSITIONAL`` at the child boundary (``uv run --with requests
+    --locked …``) and at the subcommand scan (``uv --directory sync run …``,
+    where ``sync`` is a directory name that is also a subcommand).
+
+That leaves every positional this guard interprets — command name, subcommand,
+child boundary, script path — either parsed exactly or refused.
 
 The claim is therefore not "this parses shell correctly" — it is "this reads
 the shapes it can and refuses the rest". Refusals are finite and actionable;
@@ -104,6 +110,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePath, PurePosixPath
+from typing import NamedTuple
 
 import yaml
 
@@ -126,8 +133,15 @@ _PIN_FLAGS = frozenset({"--frozen", "--locked"})
 # treated as lock-touching. The allowlist is deliberately the SHORT side: a
 # subcommand wrongly listed here silently drops a job out of rule 3, while one
 # wrongly omitted only demands a --frozen that was already harmless.
+#
+# NOT `version`, despite the name reading like a query. `uv version [VALUE]`
+# WRITES the version, and its own `--frozen` is documented as "Update the
+# version without re-locking the project" — so the mutating form re-locks
+# (Codex, PR #959). Telling it from the read-only form needs option arity, and
+# arity is exactly what this guard refuses to model, so both forms count as
+# lock-touching: `uv version` in a --locked job must carry --frozen.
 _LOCK_SAFE_SUBCOMMANDS = frozenset(
-    {"pip", "python", "tool", "venv", "cache", "self", "auth", "help", "version"}
+    {"pip", "python", "tool", "venv", "cache", "self", "auth", "help"}
 )
 
 # Every uv subcommand, so the option region can be located by name rather than
@@ -145,6 +159,7 @@ _UV_SUBCOMMANDS = _LOCK_SAFE_SUBCOMMANDS | {
     "build",
     "publish",
     "format",
+    "version",
 }
 
 # `uv run [OPTIONS] COMMAND [ARGS]` — uv's options STOP at the child command.
@@ -351,7 +366,16 @@ def _command_name(tokens: list[str]) -> tuple[str | None, str, list[str]]:
 # --------------------------------------------------------------------------
 
 
-def _uv_option_region(args: list[str]) -> tuple[str | None, tuple[str, ...], bool]:
+class _UvParse(NamedTuple):
+    """How much of a `uv …` command this guard could settle."""
+
+    subcommand: str | None
+    option_region: tuple[str, ...]
+    uncertain: tuple[str, ...]  # tokens whose owner could not be determined
+    reason: str  # "" when nothing is uncertain
+
+
+def _uv_option_region(args: list[str]) -> _UvParse:
     """uv's subcommand, the tokens that are uv's OWN options, and ambiguity.
 
     `uv run [OPTIONS] COMMAND [ARGS]` — everything after COMMAND belongs to the
@@ -366,29 +390,63 @@ def _uv_option_region(args: list[str]) -> tuple[str | None, tuple[str, ...], boo
     Cutting early is not simply "safe": losing pin evidence also disables
     rule 2, so a command that WILL exit 2 under UV_FROZEN would pass unnoticed.
 
-    So the boundary reports whether it is ambiguous — the token before the cut
-    is a valueless-looking flag — and the caller refuses to guess rather than
+    So the boundary reports whether it is ambiguous — the token before it is a
+    valueless-looking flag — and the caller refuses to guess rather than
     silently choosing a reading. An arity table would be a second, drifting
     copy of uv's CLI; refusing is stable across uv versions.
+
+    The SAME discriminator applies to the subcommand itself, which is the
+    other place a positional gets interpreted: in
+    `uv --directory sync run python x.py --locked`, `sync` is `--directory`'s
+    value, but it is also a subcommand name — so the scan matched it, the
+    region swallowed the child's `--locked`, and the job was credited as
+    --locked and excused from rule 1 (Codex, PR #959).
     """
+
+    def _value_of_a_flag(index: int) -> bool:
+        """Could ``args[index]`` be the preceding option's value?
+
+        `--opt value` and `--flag positional` are indistinguishable without
+        arity. `--opt=value` is self-delimiting, so it settles the question.
+        """
+        if index == 0:
+            return False
+        previous = args[index - 1]
+        return previous.startswith("-") and "=" not in previous
+
     subcommand: str | None = None
     sub_index = -1
     for index, token in enumerate(args):
         if not token.startswith("-") and token in _UV_SUBCOMMANDS:
+            if _value_of_a_flag(index):
+                # The whole region is suspect: if this token is really an
+                # option's value, the true subcommand lies further right and
+                # every flag after it may belong to a child.
+                return _UvParse(
+                    token,
+                    tuple(args),
+                    tuple(args),
+                    f"{token!r} was read as the subcommand, but it directly follows "
+                    f"{args[index - 1]!r} and may be that option's value instead",
+                )
             subcommand, sub_index = token, index
             break
 
     if subcommand is None or subcommand not in _SUBCOMMANDS_WITH_CHILD:
-        return subcommand, tuple(args), False
+        return _UvParse(subcommand, tuple(args), (), "")
 
     for index in range(sub_index + 1, len(args)):
         if not args[index].startswith("-"):
-            previous = args[index - 1]
-            # `--opt value CHILD` vs `--flag CHILD`: indistinguishable without
-            # arity. `--opt=value` is self-delimiting, so it is not ambiguous.
-            ambiguous = previous.startswith("-") and "=" not in previous
-            return subcommand, tuple(args[:index]), ambiguous
-    return subcommand, tuple(args), False
+            if _value_of_a_flag(index):
+                return _UvParse(
+                    subcommand,
+                    tuple(args[:index]),
+                    tuple(args[index:]),
+                    f"uv's options were cut at {args[index]!r}, but that may be "
+                    f"{args[index - 1]!r}'s value rather than the command uv runs",
+                )
+            return _UvParse(subcommand, tuple(args[:index]), (), "")
+    return _UvParse(subcommand, tuple(args), (), "")
 
 
 @dataclass(frozen=True)
@@ -415,7 +473,18 @@ class UvInvocation:
     rendered: str
     subcommand: str | None
     option_region: tuple[str, ...]  # the tokens that belong to uv, not a child
-    ambiguous_pin: bool = False  # a pin flag sits outside an unresolvable boundary
+    uncertain: tuple[str, ...] = ()  # tokens whose owner could not be settled
+    uncertain_reason: str = ""
+
+    @property
+    def ambiguous_pin(self) -> bool:
+        """A --frozen/--locked sits where ownership could not be settled.
+
+        Ambiguity alone is not a finding — `uv run --quiet --locked pip-audit`
+        cuts after a flag too. It only matters when a PIN flag is the token in
+        doubt, because that is what decides rules 1 and 2.
+        """
+        return any(t in _PIN_FLAGS for t in self.uncertain)
 
     @property
     def _flags(self) -> set[str]:
@@ -534,14 +603,15 @@ def _collect_from_shell(
             continue
 
         if name == "uv":
-            subcommand, region, ambiguous = _uv_option_region(args)
+            parsed = _uv_option_region(args)
             found.append(
                 UvInvocation(
                     origin=origin,
                     rendered=" ".join([name, *args]),
-                    subcommand=subcommand,
-                    option_region=region,
-                    ambiguous_pin=ambiguous and any(a in _PIN_FLAGS for a in args[len(region) :]),
+                    subcommand=parsed.subcommand,
+                    option_region=parsed.option_region,
+                    uncertain=parsed.uncertain,
+                    uncertain_reason=parsed.reason,
                 )
             )
             continue
@@ -783,21 +853,21 @@ def violations(usage: JobUvUsage) -> list[str]:
         for item in usage.unreadable
     )
 
-    ambiguous = tuple(i for i in usage.invocations if i.ambiguous_pin)
-    if ambiguous:
-        problems.append(
-            f"{usage.label}: cannot tell whether --frozen/--locked belongs to uv or "
-            "to the command uv runs.\n"
-            f"{_render(ambiguous)}\n"
-            "    `uv run [OPTIONS] COMMAND [ARGS]` ends uv's options at COMMAND, and\n"
-            "    a bare `--opt value` pair is indistinguishable from `--flag COMMAND`\n"
-            "    without an arity table for every uv option — which would be a second,\n"
-            "    drifting copy of uv's CLI. Guessing either way is wrong: read it as\n"
-            "    uv's and rule 1 excuses an unpinned job; read it as the child's and\n"
-            "    rule 2 misses a command that exits 2 under UV_FROZEN.\n"
-            "    Fix: write uv's options in `--opt=value` form, which is\n"
-            "    self-delimiting, or move the pin to a job-level UV_FROZEN."
-        )
+    problems.extend(
+        f"{usage.label}: cannot tell whether --frozen/--locked belongs to uv or to "
+        f"the command uv runs [{item.origin}].\n"
+        f"      {item.rendered}\n"
+        f"    Why: {item.uncertain_reason}.\n"
+        "    A bare `--opt value` pair is indistinguishable from `--flag POSITIONAL`\n"
+        "    without an arity table for every uv option — which would be a second,\n"
+        "    drifting copy of uv's CLI. Guessing either way is wrong: read it as\n"
+        "    uv's and rule 1 excuses an unpinned job; read it as the child's and\n"
+        "    rule 2 misses a command that exits 2 under UV_FROZEN.\n"
+        "    Fix: write uv's options in `--opt=value` form, which is\n"
+        "    self-delimiting, or move the pin to a job-level UV_FROZEN."
+        for item in usage.invocations
+        if item.ambiguous_pin
+    )
 
     if usage.step_frozen:
         problems.append(
@@ -1212,14 +1282,14 @@ def test_control_uv_flags_before_the_child_command_still_count(tmp_path: Path) -
     `uv run --quiet --locked pip-audit --strict` is the real shape inside
     audit_dependencies.sh — `--locked` precedes the child, so it is uv's.
     """
-    subcommand, region, ambiguous = _uv_option_region(
-        ["run", "--quiet", "--locked", "pip-audit", "--strict"]
-    )
+    parsed = _uv_option_region(["run", "--quiet", "--locked", "pip-audit", "--strict"])
+    subcommand, region, ambiguous = parsed.subcommand, parsed.option_region, parsed.uncertain
     assert subcommand == "run"
     assert region == ("run", "--quiet", "--locked")
-    # The cut follows a flag, so the boundary is ambiguous — but no pin flag
-    # lies beyond it, so nothing is reported. Ambiguity alone is not a finding.
-    assert ambiguous
+    # The cut follows a flag, so `pip-audit --strict` is the uncertain tail —
+    # but no PIN flag is in it, so nothing is reported. Ambiguity alone is not
+    # a finding, only ambiguity about a --frozen/--locked.
+    assert ambiguous == ("pip-audit", "--strict")
 
 
 def test_control_a_global_option_value_cannot_pose_as_the_subcommand() -> None:
@@ -1227,7 +1297,7 @@ def test_control_a_global_option_value_cannot_pose_as_the_subcommand() -> None:
 
     Picking it would make the region span the child's args again.
     """
-    subcommand, region, _ = _uv_option_region(
+    subcommand, region, _, _ = _uv_option_region(
         ["--directory", "app", "run", "python", "x.py", "--locked"]
     )
     assert subcommand == "run"
@@ -1316,6 +1386,55 @@ jobs:
     )
     assert len(problems) == 1
     assert "cannot tell whether --frozen/--locked belongs to uv" in problems[0]
+
+
+def test_control_global_option_value_naming_a_subcommand_is_reported(
+    tmp_path: Path,
+) -> None:
+    """`uv --directory sync run python x.py --locked` — `sync` is a DIRECTORY.
+
+    It is also a subcommand name, so the scan matched it, the region ran to the
+    end of the args, and the child's `--locked` was credited to uv — excusing
+    an unpinned job. The same discriminator that guards the child boundary
+    guards the subcommand scan (Codex, PR #959).
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: uv --directory sync run python x.py --locked
+""",
+    )
+    assert len(problems) == 1
+    assert "cannot tell whether --frozen/--locked belongs to uv" in problems[0]
+    assert "may be that option's value instead" in problems[0]
+
+
+def test_control_uv_version_is_lock_touching(tmp_path: Path) -> None:
+    """`uv version <VALUE>` WRITES the version, and writing re-locks.
+
+    uv's own help gives it away: `--frozen` is "Update the version without
+    re-locking the project". Classifying `version` as lock-safe let it rewrite
+    uv.lock inside a --locked job, making the staleness check vacuous — the
+    #935 defect in a second costume (Codex, PR #959).
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: uv version 1.2.3
+      - run: uv export --locked --format requirements.txt
+""",
+    )
+    assert len(problems) == 1
+    assert "carry no --frozen/--locked of their own" in problems[0]
+    assert "uv version 1.2.3" in problems[0]
 
 
 def test_control_self_delimiting_options_are_not_ambiguous(tmp_path: Path) -> None:
