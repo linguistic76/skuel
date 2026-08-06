@@ -183,6 +183,17 @@ plus the connected-account "About Codex" footer (not the cosmetic prompt).
 footer means it worked; a "create a Codex account / connect to github" reply with
 no verdict means it's off, disconnected, or weekly-usage-limited.
 
+> ⚠️ **That footer is not a statement of this repo's configuration.** It lists
+> "Open a pull request for review" among the triggers on *every* Codex comment —
+> identical boilerplate whatever the account's auto-review setting is. Read it as
+> "Codex supports these triggers", not "these triggers are enabled here". The
+> repo's own behaviour is the authority, and it says otherwise: across #949,
+> #957, #959, #960, #961 and #962, **no Codex review has ever appeared on PR
+> open** — every one followed a human `@codex review` by 2–5 minutes. #962 is a
+> clean control: opened with all checks running, it drew nothing until summoned.
+> Mistaking a capability list for a configuration is how the `codex-review.yml`
+> header went stale for ~2.5 months.
+
 Optional — confirm the trigger comment was authored by a **User**, not a bot
 (the whole reliability hinge):
 

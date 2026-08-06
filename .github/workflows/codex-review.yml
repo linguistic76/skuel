@@ -28,6 +28,10 @@ name: Codex Auto-Review
 #    Preference" dropdown ("On PR open") is NOT the switch — it only picks WHEN
 #    auto-review would fire and has no "off" option. Mistaking it for the switch
 #    is exactly how this header came to claim auto-review was on (see History).
+#    ⚠️ Nor is Codex's own comment footer evidence: it lists "Open a pull request
+#    for review" among the triggers on EVERY Codex comment, boilerplate that is
+#    identical whatever the account's setting. Behaviour beats both — see
+#    ./README.md -> "Manually requesting a Codex review".
 #
 # 3. The ONLY working trigger is a manual `@codex review` authored by the
 #    connected human account: `gh pr comment <PR#> --body "@codex review"` posts
