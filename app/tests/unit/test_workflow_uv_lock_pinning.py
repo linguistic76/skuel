@@ -412,6 +412,14 @@ def _shell_commands(text: str) -> list[_ShellCommand]:
                     _node_text(node, src),
                 )
             )
+        elif node.type == "variable_assignment" and (
+            node.parent is None or node.parent.type not in ("command", "declaration_command")
+        ):
+            # A bare `UV_FROZEN=0` statement. Because the job's env is already
+            # EXPORTED, reassigning it re-exports the new value — verified:
+            # `UV_FROZEN=1 bash -c 'UV_FROZEN=0; printenv UV_FROZEN'` prints 0.
+            text = _node_text(node, src)
+            found.append(_ShellCommand("assignment", None, "", [], (text,), text))
         elif node.type == "file_redirect":
             destination = node.child_by_field_name("destination")
             found.append(
@@ -767,23 +775,29 @@ def _collect_from_shell(
                 )
             continue
 
-        # A shell-level `UV_FROZEN=…` overrides the job's env for this one
-        # command — `UV_FROZEN=0 uv sync` re-locks under a job pinned to "1".
-        # Rejected outright, like the step-level form: a per-invocation pin
-        # does not hold for the next command someone adds (PR #931).
-        refused.extend(
-            RefusedCommand(
-                origin=origin,
-                rendered=" ".join(tokens),
-                headline="UV_FROZEN is set for a single command",
-                reason=f"{assignment!r} overrides the job's env for this command "
-                "only, and uv reads the VALUE — `UV_FROZEN=0` disables the pin "
-                'even under a job-level `UV_FROZEN: "1"`',
-                fix="delete the assignment and rely on the job-level env",
+        # UV_FROZEN must not appear in executable shell AT ALL — not as a
+        # command prefix, a bare assignment, an `export`, a `printf -v`, a
+        # `read`, or anything invented later. Enumerating the mechanisms is
+        # what put this dimension in three separate review rounds; the NAME is
+        # the thing worth guarding, and it occurs zero times in this repo's
+        # shell today, so the rule costs nothing.
+        #
+        # It genuinely overrides the job: the job's env is exported, so
+        # reassignment re-exports the new value, and uv reads the VALUE —
+        # `UV_FROZEN=1 bash -c 'UV_FROZEN=0; printenv UV_FROZEN'` prints 0.
+        if any("UV_FROZEN" in word for word in (written, *args, *assignments)):
+            refused.append(
+                RefusedCommand(
+                    origin=origin,
+                    rendered=command.rendered,
+                    headline="UV_FROZEN is written inside a shell command",
+                    reason="whatever the mechanism, this reassigns a variable the job "
+                    "already exports, so uv sees the new value while this guard reads "
+                    "the job's `env:` and reports it pinned",
+                    fix="set UV_FROZEN only in the job's `env:` block",
+                )
             )
-            for assignment in assignments
-            if assignment.partition("=")[0] == "UV_FROZEN"
-        )
+            continue
 
         if name is None:
             continue
@@ -1710,7 +1724,7 @@ jobs:
 """,
     )
     assert len(problems) == 1
-    assert "UV_FROZEN is set for a single command" in problems[0]
+    assert "UV_FROZEN is written inside a shell command" in problems[0]
 
 
 def test_control_command_local_override_is_caught_through_a_script(
@@ -1739,7 +1753,7 @@ jobs:
 """,
     )
     assert len(problems) == 1
-    assert "UV_FROZEN is set for a single command" in problems[0]
+    assert "UV_FROZEN is written inside a shell command" in problems[0]
 
 
 def test_control_unrelated_env_prefixes_are_still_ignored(tmp_path: Path) -> None:
@@ -1894,6 +1908,44 @@ jobs:
     assert any("could not parse" in p for p in problems), problems
 
 
+def test_control_every_route_to_assigning_uv_frozen_is_refused(tmp_path: Path) -> None:
+    """The NAME is guarded, not the mechanism — three rounds' worth of routes.
+
+    Each of these reassigns a variable the job already exports, so bash
+    re-exports the new value and uv reads it. Verified, not assumed::
+
+        $ UV_FROZEN=1 bash -c 'UV_FROZEN=0;         printenv UV_FROZEN'  -> 0
+        $ UV_FROZEN=1 bash -c 'printf -v UV_FROZEN 0; printenv UV_FROZEN' -> 0
+        $ UV_FROZEN=1 bash -c 'read UV_FROZEN <<< 0; printenv UV_FROZEN'  -> 0
+
+    `printf` and `read` are on the state-neutral whitelist for their ordinary
+    use, which is exactly why guarding verbs was not enough (Codex, PR #959).
+    """
+    for mutation in (
+        "UV_FROZEN=0",  # bare assignment statement
+        "UV_FROZEN=0 uv sync --frozen",  # command prefix
+        "printf -v UV_FROZEN 0",  # whitelisted verb, state-mutating mode
+        "read UV_FROZEN <<< 0",  # ditto
+        'eval "UV_FROZEN=0"',  # not enumerable at all
+    ):
+        problems = _problems(
+            tmp_path,
+            f"""
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: |
+          {mutation}
+          uv sync --no-install-project
+""",
+        )
+        assert problems, f"{mutation} passed clean"
+        assert any("UV_FROZEN" in p for p in problems), mutation
+
+
 def test_control_export_of_uv_frozen_is_refused(tmp_path: Path) -> None:
     """`export UV_FROZEN=0` unpins every later command in the step.
 
@@ -1938,8 +1990,10 @@ jobs:
       - run: uv sync --no-install-project
 """,
     )
-    assert len(problems) == 1
-    assert "$GITHUB_ENV" in problems[0]
+    # Two true reports, from two independent rules: the NAME appears in shell,
+    # and a $GITHUB_ENV write could carry it even when the name is computed.
+    assert any("UV_FROZEN is written inside a shell command" in p for p in problems)
+    assert any("$GITHUB_ENV" in p for p in problems)
 
 
 def test_control_cd_before_a_script_refuses_rather_than_skips(tmp_path: Path) -> None:
