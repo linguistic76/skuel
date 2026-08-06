@@ -19,18 +19,20 @@ from core.events import publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.events.habit_events import HabitCreated, HabitUpdated
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
+from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -397,51 +399,77 @@ class HabitsCoreService(
         value that lands a habit in the unfiltered ``contributing_habits`` catch-all.
         REQUIRES_PREREQUISITE_HABIT carries no properties in the registry, so it gets none.
 
-        OWNERSHIP: every target UID is request input, so each is checked before it
-        becomes an edge — see ``_drop_cross_user_targets``.
+        ADMISSION: every target UID is request input, so each is checked for OWNER and
+        for KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
+        declared labels come from the field names: ``linked_principle_uids`` means
+        Principles. ``linked_knowledge_uids`` declares none, because it legitimately
+        reaches both Kus and PathSteps (the context query reads ``habit_applied_knowledge``
+        through ``TRAINS_KU|USES_KU`` as well as directly), and pinning one label there
+        would refuse half of what the field is for.
 
         A failure is logged, not propagated — the habit itself is created. Mirrors
         ``TasksCoreService.create_task`` and ``ChoicesCoreService.create_choice``.
         """
         habit_uid = habit.uid
-        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
+        candidates: list[LinkEdge] = []
 
-        relationships.extend(
-            (
-                habit_uid,
-                knowledge_uid,
-                RelationshipName.REINFORCES_KNOWLEDGE.value,
-                {"skill_level": "beginner", "proficiency_gain_rate": 0.1},
+        candidates.extend(
+            LinkEdge(
+                (
+                    habit_uid,
+                    knowledge_uid,
+                    RelationshipName.REINFORCES_KNOWLEDGE.value,
+                    {"skill_level": "beginner", "proficiency_gain_rate": 0.1},
+                ),
+                other_uid=knowledge_uid,
             )
             for knowledge_uid in request.linked_knowledge_uids
         )
-        relationships.extend(
-            (
-                habit_uid,
-                principle_uid,
-                RelationshipName.EMBODIES_PRINCIPLE.value,
-                {"embodiment_strength": 1.0},
+        candidates.extend(
+            LinkEdge(
+                (
+                    habit_uid,
+                    principle_uid,
+                    RelationshipName.EMBODIES_PRINCIPLE.value,
+                    {"embodiment_strength": 1.0},
+                ),
+                other_uid=principle_uid,
+                required_label=NeoLabel.PRINCIPLE.value,
             )
             for principle_uid in request.linked_principle_uids
         )
-        relationships.extend(
-            (
-                habit_uid,
-                goal_uid,
-                RelationshipName.SUPPORTS_GOAL.value,
-                {"weight": 1.0, "essentiality": "supporting"},
+        candidates.extend(
+            LinkEdge(
+                (
+                    habit_uid,
+                    goal_uid,
+                    RelationshipName.SUPPORTS_GOAL.value,
+                    {"weight": 1.0, "essentiality": "supporting"},
+                ),
+                other_uid=goal_uid,
+                required_label=NeoLabel.GOAL.value,
             )
             for goal_uid in request.linked_goal_uids
         )
-        relationships.extend(
-            (habit_uid, prereq_uid, RelationshipName.REQUIRES_PREREQUISITE_HABIT.value, None)
+        candidates.extend(
+            LinkEdge(
+                (habit_uid, prereq_uid, RelationshipName.REQUIRES_PREREQUISITE_HABIT.value, None),
+                other_uid=prereq_uid,
+                required_label=NeoLabel.HABIT.value,
+            )
             for prereq_uid in request.prerequisite_habit_uids
         )
 
-        if not relationships:
+        if not candidates:
             return
 
-        relationships = await self._drop_cross_user_targets(habit, relationships)
+        relationships = await keep_permitted_link_edges(
+            self.backend,
+            candidates=candidates,
+            subject_uid=habit_uid,
+            owner_uid=habit.user_uid,
+            logger=self.logger,
+        )
         if not relationships:
             return
 
@@ -453,63 +481,6 @@ class HabitsCoreService(
                 habit_uid,
                 batch_result.error,
             )
-
-    async def _drop_cross_user_targets(
-        self,
-        habit: Habit,
-        relationships: list[tuple[str, str, str, Neo4jProperties | None]],
-    ) -> list[tuple[str, str, str, Neo4jProperties | None]]:
-        """Refuse edges whose target belongs to a different user.
-
-        Every target UID here came from the request body, and
-        ``create_relationships_batch`` validates LABELS, not ownership — so without this
-        a caller could link their habit to another user's goal, principle or habit. Two
-        ways that costs something: the caller's own context read walks
-        ``(habit)-[:SUPPORTS_GOAL]->(goal)`` and would return the victim's goal title,
-        and the victim's principle-alignment reads walk incoming EMBODIES_PRINCIPLE and
-        would pick up the caller's habit. (Reported by Codex on #965; the sibling of the
-        HAS_SUBGOAL check in ``GoalsCoreService._write_hierarchy_edge``.)
-
-        The rule is expressed against the DATA, not a list of entity types: an OWNED
-        target must count this habit's user among its owners, and a target owned by
-        nobody is shared content (Ku, PathStep, LearningPath) and is allowed. Ownership
-        is resolved from all three spellings the graph uses — ``user_uid``,
-        ``owner_uid`` and the ``OWNS`` edge — because reading only the first treats
-        another user's PERSONAL Exercise as shared (``Exercise`` is ``Curriculum``, not
-        ``UserOwnedEntity``). Hand-listing which target kinds are user-owned would be a
-        table that rots the moment a type changes tier; ``linked_knowledge_uids``
-        legitimately points at shared Kus and must keep working.
-
-        Fail-closed on the edge only: the habit itself is the caller's own and is kept.
-        A lookup failure drops the batch rather than writing it unchecked.
-        """
-        target_uids = sorted({target_uid for _src, target_uid, _rel, _props in relationships})
-        owners_result = await self.backend.get_owner_uids_batch(target_uids)
-        if owners_result.is_error:
-            self.logger.warning(
-                "Skipping %d link edges for habit %s: owner lookup failed: %s",
-                len(relationships),
-                habit.uid,
-                owners_result.error,
-            )
-            return []
-
-        owners = owners_result.value
-        kept = [
-            relationship
-            for relationship in relationships
-            if habit.user_uid in owners.get(relationship[1], [habit.user_uid])
-        ]
-
-        refused = len(relationships) - len(kept)
-        if refused:
-            self.logger.warning(
-                "Refusing %d cross-user link edge(s) for habit %s (user %s)",
-                refused,
-                habit.uid,
-                habit.user_uid,
-            )
-        return kept
 
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
     async def update_habit(

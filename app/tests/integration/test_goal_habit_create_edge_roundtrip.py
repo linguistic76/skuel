@@ -348,6 +348,41 @@ class TestGoalHierarchyEdgeRoundTrip:
             "user_uid, so an absent entry was read as 'shared content'"
         )
 
+    async def test_a_same_user_non_habit_cannot_support_the_goal(
+        self, goals_service, neo4j_driver, test_user_uid
+    ) -> None:
+        """``supporting_habit_uids`` holding the caller's own GOAL must write nothing.
+
+        Ownership cannot catch this — the node is the caller's. Nor can the registry:
+        the supplied UID becomes the edge SOURCE, and the batch validator keys its
+        target-label rule off the source's own config, which permits SUPPORTS_GOAL from
+        a Goal. The edge would then be read back under ``supporting_habits`` as if it
+        were a habit. (Codex, #965.)
+        """
+        other = await goals_service.create_goal(goal_request(title="Not a habit"), test_user_uid)
+        assert other.is_ok
+
+        goal = await goals_service.create_goal(
+            goal_request(
+                title="Goal with a bogus supporter", supporting_habit_uids=[other.value.uid]
+            ),
+            test_user_uid,
+        )
+        assert goal.is_ok, "the caller's own goal is legitimate and is created"
+
+        async with neo4j_driver.session() as session:
+            row = await (
+                await session.run(
+                    "MATCH ()-[r:SUPPORTS_GOAL]->(g {uid: $goal}) RETURN count(r) AS n",
+                    goal=goal.value.uid,
+                )
+            ).single()
+
+        assert row["n"] == 0, (
+            "a non-Habit node was linked as a supporting habit — it would be reported "
+            "under supporting_habits and corrupt planning and progress context"
+        )
+
     async def test_parentless_goal_gets_no_hierarchy_edge(
         self, goals_service, neo4j_driver, test_user_uid
     ) -> None:

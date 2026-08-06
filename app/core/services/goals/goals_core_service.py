@@ -22,7 +22,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Final
 
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
@@ -37,6 +37,7 @@ from core.events.goal_events import (
 )
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
@@ -46,6 +47,7 @@ from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
+from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -418,45 +420,67 @@ class GoalsCoreService(
         so a goal linked at creation is indistinguishable from one linked afterwards.
         ``essentiality`` is load-bearing for the tier reads (see the Habits sibling).
 
-        OWNERSHIP: every target UID is request input, checked before it becomes an edge —
-        see ``HabitsCoreService._drop_cross_user_targets`` for the reasoning; this is the
-        same rule expressed against the same batch lookup. (Reported by Codex on #965.)
+        ADMISSION: every request-supplied UID is checked for OWNER and for KIND before it
+        becomes an edge — see ``keep_permitted_link_edges``. Note each ``other_uid``
+        below: for ``supporting_habit_uids`` the supplied UID is the edge's SOURCE, so
+        reading the target position would check this goal against itself and leave that
+        list unguarded. The declared labels come from the field names;
+        ``required_knowledge_uids`` declares none because it legitimately reaches both
+        Kus and PathSteps. (Reported by Codex on #965.)
         """
-        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
+        candidates: list[LinkEdge] = []
 
-        relationships.extend(
-            (
-                goal.uid,
-                knowledge_uid,
-                RelationshipName.REQUIRES_KNOWLEDGE.value,
-                {"proficiency_required": "intermediate", "priority": 1},
+        candidates.extend(
+            LinkEdge(
+                (
+                    goal.uid,
+                    knowledge_uid,
+                    RelationshipName.REQUIRES_KNOWLEDGE.value,
+                    {"proficiency_required": "intermediate", "priority": 1},
+                ),
+                other_uid=knowledge_uid,
             )
             for knowledge_uid in request.required_knowledge_uids
         )
-        relationships.extend(
-            (
-                goal.uid,
-                principle_uid,
-                RelationshipName.GUIDED_BY_PRINCIPLE.value,
-                {"alignment_strength": 1.0},
+        candidates.extend(
+            LinkEdge(
+                (
+                    goal.uid,
+                    principle_uid,
+                    RelationshipName.GUIDED_BY_PRINCIPLE.value,
+                    {"alignment_strength": 1.0},
+                ),
+                other_uid=principle_uid,
+                required_label=NeoLabel.PRINCIPLE.value,
             )
             for principle_uid in request.guiding_principle_uids
         )
         # INCOMING: (habit)-[:SUPPORTS_GOAL]->(goal) — habit first, per GOAPS_CONFIG.
-        relationships.extend(
-            (
-                habit_uid,
-                goal.uid,
-                RelationshipName.SUPPORTS_GOAL.value,
-                {"weight": 1.0, "essentiality": "supporting"},
+        # The habit is therefore the edge's SOURCE and the checked endpoint.
+        candidates.extend(
+            LinkEdge(
+                (
+                    habit_uid,
+                    goal.uid,
+                    RelationshipName.SUPPORTS_GOAL.value,
+                    {"weight": 1.0, "essentiality": "supporting"},
+                ),
+                other_uid=habit_uid,
+                required_label=NeoLabel.HABIT.value,
             )
             for habit_uid in request.supporting_habit_uids
         )
 
-        if not relationships:
+        if not candidates:
             return
 
-        relationships = await self._drop_cross_user_edges(goal, relationships)
+        relationships = await keep_permitted_link_edges(
+            self.backend,
+            candidates=candidates,
+            subject_uid=goal.uid,
+            owner_uid=goal.user_uid,
+            logger=self.logger,
+        )
         if not relationships:
             return
 
@@ -468,58 +492,6 @@ class GoalsCoreService(
                 goal.uid,
                 batch_result.error,
             )
-
-    async def _drop_cross_user_edges(
-        self,
-        goal: Goal,
-        relationships: list[tuple[str, str, str, Neo4jProperties | None]],
-    ) -> list[tuple[str, str, str, Neo4jProperties | None]]:
-        """Refuse edges whose OTHER end belongs to a different user.
-
-        Sibling of ``HabitsCoreService._drop_cross_user_targets``, and the endpoint it
-        checks is "whichever end is not this goal" — because ``SUPPORTS_GOAL`` is written
-        incoming, so for that list the request-supplied UID is the edge's SOURCE. Checking
-        only ``relationship[1]`` here would leave the habit list unguarded.
-
-        Same data-driven rule: an OWNED endpoint must count this goal's user among its
-        owners; one owned by nobody is shared content (Ku and friends) and is allowed.
-        Ownership is resolved from ``user_uid``, ``owner_uid`` AND the ``OWNS`` edge —
-        reading only the first would treat another user's PERSONAL Exercise as shared,
-        and ``REQUIRES_KNOWLEDGE`` accepts any ``:Entity`` target. Fail-closed — a lookup
-        failure drops the batch rather than writing it unchecked.
-        """
-        other_ends = {
-            source_uid if source_uid != goal.uid else target_uid
-            for source_uid, target_uid, _rel, _props in relationships
-        }
-        owners_result = await self.backend.get_owner_uids_batch(sorted(other_ends))
-        if owners_result.is_error:
-            self.logger.warning(
-                "Skipping %d link edges for goal %s: owner lookup failed: %s",
-                len(relationships),
-                goal.uid,
-                owners_result.error,
-            )
-            return []
-
-        owners = owners_result.value
-
-        def _is_own(relationship: tuple[str, str, str, Neo4jProperties | None]) -> bool:
-            source_uid, target_uid = relationship[0], relationship[1]
-            other = source_uid if source_uid != goal.uid else target_uid
-            return goal.user_uid in owners.get(other, [goal.user_uid])
-
-        kept = [relationship for relationship in relationships if _is_own(relationship)]
-
-        refused = len(relationships) - len(kept)
-        if refused:
-            self.logger.warning(
-                "Refusing %d cross-user link edge(s) for goal %s (user %s)",
-                refused,
-                goal.uid,
-                goal.user_uid,
-            )
-        return kept
 
     async def _publish_created(self, goal: Goal) -> None:
         """Announce a newly created goal: GoalCreated + the ADR-074 embedding refresh.

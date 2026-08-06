@@ -897,6 +897,17 @@ class RelationshipCrudOperations(Protocol):
         """Create multiple relationships in a single transaction."""
         ...
 
+    async def get_node_labels_batch(
+        self, uids: builtins.list[str]
+    ) -> ResultType[dict[str, builtins.list[str]]]:
+        """Labels of many nodes in one query (uid -> labels); missing UIDs are absent.
+
+        Create paths that turn request-supplied UIDs into edges use this to check the
+        KIND of each endpoint, which the registry validator cannot do for them when the
+        request supplies the edge's source.
+        """
+        ...
+
     async def get_owner_uids_batch(
         self, uids: builtins.list[str]
     ) -> ResultType[dict[str, builtins.list[str]]]:

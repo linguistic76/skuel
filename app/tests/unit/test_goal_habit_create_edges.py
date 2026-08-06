@@ -153,6 +153,10 @@ class StubBackend:
         # a None owner, which would read as "owned by nobody" and be refused.
         self.owners: dict[str, str] = {}
         self.shared: set[str] = set()
+        # uid -> Neo4j labels, for the link-target KIND check. Absent uids default to
+        # carrying every label the link lists accept, so tests that are not ABOUT the
+        # kind check are unaffected by it.
+        self.labels: dict[str, list[str]] = {}
 
     async def create(self, entity: Any) -> Result[Any]:
         props = to_neo4j_node(entity)
@@ -185,6 +189,14 @@ class StubBackend:
         """
         return Result.ok(
             {uid: [self.owners.get(uid, USER_UID)] for uid in uids if uid not in self.shared}
+        )
+
+    async def get_node_labels_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        """uid -> labels. Every UID carries whatever ``labels`` says, defaulting to the
+        four kinds the link lists accept, so the KIND check passes unless a test stages
+        a specific wrong one."""
+        return Result.ok(
+            {uid: self.labels.get(uid, ["Entity", "Habit", "Goal", "Principle"]) for uid in uids}
         )
 
     async def create_hierarchy_relationship(
@@ -487,8 +499,13 @@ class TestGoalLinkEdgesAreWritten:
     async def test_shared_knowledge_is_still_linkable(
         self, goal_core: GoalsCoreService, goal_backend: StubBackend
     ) -> None:
-        """Positive control: Kus carry no user_uid and must not be refused."""
+        """Positive control: a Ku is owned by nobody and is a Ku, not a Habit/Goal.
+
+        Both halves of the guard must let it through — ``required_knowledge_uids``
+        declares no required label precisely because it reaches Kus and PathSteps.
+        """
         goal_backend.shared.add("ku:shared")
+        goal_backend.labels["ku:shared"] = ["Entity", "Ku"]
 
         result = await goal_core.create_goal(
             make_goal_request(required_knowledge_uids=["ku:shared"]), USER_UID
@@ -498,6 +515,42 @@ class TestGoalLinkEdgesAreWritten:
         assert [t for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"], (
             "a shared Ku was refused as a goal's required knowledge"
         )
+
+    async def test_a_non_habit_supporting_uid_is_refused(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """``supporting_habit_uids`` must hold Habits, even same-user ones.
+
+        The registry cannot enforce this: the supplied UID becomes the edge's SOURCE,
+        and the batch validator keys its target rule off the source's own config — so a
+        same-user Goal there validates, and then reports as a habit under
+        ``supporting_habits``, corrupting planning and progress context. (Codex, #965.)
+        """
+        goal_backend.labels["goal:not-a-habit"] = ["Entity", "Goal"]
+
+        result = await goal_core.create_goal(
+            make_goal_request(supporting_habit_uids=["goal:not-a-habit"]), USER_UID
+        )
+
+        assert result.is_ok, "the caller's own goal is legitimate and should be created"
+        assert [t for t in goal_backend.batched if t[2] == "SUPPORTS_GOAL"] == [], (
+            "a non-Habit UID was written under supporting_habit_uids"
+        )
+
+    async def test_a_real_habit_still_supports_the_goal(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """Positive control for the kind check on the INCOMING list."""
+        goal_backend.labels["habit:mine"] = ["Entity", "Habit"]
+
+        result = await goal_core.create_goal(
+            make_goal_request(supporting_habit_uids=["habit:mine"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_goal failed: {result.error}"
+        written = [t for t in goal_backend.batched if t[2] == "SUPPORTS_GOAL"]
+        assert written, "a genuine Habit was refused as a supporting habit"
+        assert written[0][0] == "habit:mine", "the habit must be the edge SOURCE"
 
     async def test_link_edges_precede_the_event(
         self, goal_core: GoalsCoreService, goal_backend: StubBackend, event_bus: InMemoryEventBus

@@ -407,6 +407,20 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         return Result.ok({record["uid"]: record["labels"] for record in records})
 
+    async def get_node_labels_batch(
+        self, uids: builtins.list[str]
+    ) -> Result[dict[str, builtins.list[str]]]:
+        """Labels of many nodes in ONE query (uid -> labels); missing UIDs are absent.
+
+        Public face of ``_get_node_labels_batch``, which the batch validator already
+        uses internally. Exposed because a create path turning request UIDs into edges
+        has to check the KIND of each endpoint itself: the registry validator keys its
+        target-label rule off the SOURCE's domain config, so it cannot express "the UIDs
+        in this particular request list must be Habits" when the request supplies the
+        edge's source.
+        """
+        return await self._get_node_labels_batch(uids)
+
     @safe_backend_operation("get_owner_uids_batch")
     async def get_owner_uids_batch(
         self, uids: builtins.list[str]
