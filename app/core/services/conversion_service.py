@@ -249,7 +249,6 @@ class ConversionServiceV2:
         extra_fields: dict[str, Any] = {}
         if schema.options:
             # Convert ChoiceOptionRequest list to ChoiceOption tuple
-            # (ChoiceOptionCreateRequest is a different, unused model — not this one)
             options = []
             for i, opt_req in enumerate(schema.options):
                 option_uid = f"{uid}_option_{i}" if uid else f"option_{i}"

@@ -148,39 +148,3 @@ class ChoiceDecisionRequest(BaseModel):
     )
     confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence level")
     decided_at: datetime | None = Field(default=None, description="Decision timestamp")
-
-
-class ChoiceOptionCreateRequest(BaseModel):
-    """Request model for creating a choice option (standalone API endpoint)."""
-
-    title: str = Field(..., min_length=1, max_length=200, description="Option title")
-    description: str = Field(..., min_length=1, max_length=1000, description="Option description")
-    feasibility_score: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Feasibility score (0-1)"
-    )
-    risk_level: float = Field(default=0.5, ge=0.0, le=1.0, description="Risk level (0-1)")
-    potential_impact: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Potential impact (0-1)"
-    )
-    resource_requirement: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Resource requirement (0-1)"
-    )
-    estimated_duration: int | None = Field(
-        default=None, ge=1, description="Estimated duration in minutes"
-    )
-    dependencies: list[str] = Field(default_factory=list, description="Dependency UIDs")
-    tags: list[str] = Field(default_factory=list, description="Tags for categorization")
-
-
-class ChoiceOptionUpdateRequest(BaseModel):
-    """Request model for updating a choice option."""
-
-    title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = Field(default=None, min_length=1, max_length=1000)
-    feasibility_score: float | None = Field(default=None, ge=0.0, le=1.0)
-    risk_level: float | None = Field(default=None, ge=0.0, le=1.0)
-    potential_impact: float | None = Field(default=None, ge=0.0, le=1.0)
-    resource_requirement: float | None = Field(default=None, ge=0.0, le=1.0)
-    estimated_duration: int | None = Field(default=None, ge=1)
-    dependencies: list[str] | None = None
-    tags: list[str] | None = None
