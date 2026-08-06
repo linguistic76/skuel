@@ -51,6 +51,9 @@ REPO="linguistic76/skuel"
 PR="${1:-}"
 DEADLINE="${2:-1200}"
 POLL_INTERVAL=30
+# Absolute, so every follow-up command this script PRINTS is runnable from the
+# caller's cwd — the repo root and app/ both document invoking this script.
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 if [[ -z "$PR" || ! "$PR" =~ ^[0-9]+$ ]]; then
   echo "usage: $0 <pr-number> [deadline-seconds]" >&2
@@ -185,13 +188,11 @@ post_clean_consideration() {
 # status actually goes green. Applied ONLY after a real CLEAN verdict was read
 # (never on timeout).
 apply_label() {
-  local script_dir
-  script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-  if "$script_dir/apply_codex_considered.sh" "$PR"; then
+  if "$SCRIPT_DIR/apply_codex_considered.sh" "$PR"; then
     return 0
   fi
   echo "✗ codex-considered NOT confirmed green — re-run when ready:" >&2
-  echo "  scripts/apply_codex_considered.sh $PR" >&2
+  echo "  $SCRIPT_DIR/apply_codex_considered.sh $PR" >&2
   return 1
 }
 
@@ -237,7 +238,7 @@ case $RC in
   2)
     echo "→ Codex returned findings (above). READ them, then either address them"
     echo "  or write a PR-side accept/reject consideration note, and apply the label"
-    echo "  deliberately (race-safe): scripts/apply_codex_considered.sh $PR"
+    echo "  deliberately (race-safe): $SCRIPT_DIR/apply_codex_considered.sh $PR"
     exit 2
     ;;
   4)
@@ -251,7 +252,7 @@ case $RC in
     echo "  Re-run this script to keep waiting, or check the PR shortly. Apply"
     echo "  codex-considered ONLY after reading a real verdict. If Codex is genuinely"
     echo "  down and you must proceed, that is a deliberate call — add a consideration"
-    echo "  note saying so, then: scripts/apply_codex_considered.sh $PR"
+    echo "  note saying so, then: $SCRIPT_DIR/apply_codex_considered.sh $PR"
     exit 3
     ;;
 esac
