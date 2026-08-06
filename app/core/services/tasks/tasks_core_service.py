@@ -100,10 +100,12 @@ class TasksCoreService(
 
     # No _validate_create hook: Tasks have no creation-time business rule.
     #
-    # There was one — "High/Critical priority tasks must have a due date" — but it had
-    # never executed (create_task persists via _create_and_convert, which bypasses
-    # CrudOperationsMixin.create, the hook's only caller), and it contradicted two live
-    # producers of exactly that shape:
+    # There was one — "High/Critical priority tasks must have a due date" — but at the
+    # time it was deleted (#963) it had never executed: create_task then persisted via
+    # _create_and_convert, which bypassed CrudOperationsMixin.create, the hook's only
+    # caller. Both doors now run that caller (see ``create`` below), so the hook is
+    # reachable and resolves to the inherited no-op BY CHOICE, not by accident — the
+    # rule contradicted two live producers of exactly that shape:
     #   - the Activity DSL: @priority(1|2) maps to CRITICAL/HIGH while due_date is set
     #     only when @when() is present, so undated urgent tasks are ordinary DSL output
     #     (core/services/dsl/activity_domain_converters.py)
@@ -200,6 +202,77 @@ class TasksCoreService(
         )
         return Result.ok(enrichment)
 
+    async def create(self, entity: Task) -> Result[Task]:
+        """Persist, then announce — THE create primitive for Tasks.
+
+        Both doors land here: the generated CRUD route (via ``TasksService.create``) and
+        ``create_task`` below. Before this, only ``create_task`` published anything, so a
+        task created through ``POST /api/tasks/create`` invalidated no user context and
+        was never embedded — the route calls ``service.create(entity)`` on the FACADE,
+        which resolved to ``CrudOperationsMixin.create`` and went straight to
+        ``backend.create``.
+
+        Tasks declare no ``_validate_create`` hook (see the comment above ``_validate_update``
+        — the rule that lived there was deleted in #963 as contradicting the DSL and
+        GoalTaskGenerator), so unlike Goals, Habits, Events and Choices there is no
+        validation to reach here. What this primitive reconciles is the EVENT half.
+
+        Args:
+            entity: Task to create
+
+        Returns:
+            Result containing created Task
+
+        Events Published:
+            - TaskCreated: when the task is successfully created
+            - TaskEmbeddingRequested (ADR-074): post-persist embedding refresh
+        """
+        result = await self._create_validated(entity)
+        if result.is_error:
+            return result
+
+        await self._publish_created(result.value)
+        return result
+
+    async def _create_validated(self, entity: Task) -> Result[Task]:
+        """Persist, publishing NOTHING.
+
+        Split out from ``create`` so ``create_task`` can finish writing the task's graph
+        edges before any event announces the task exists — see ``_publish_created`` for
+        why that ordering is load-bearing. Named for the shape it shares with the other
+        five Activity Domains: it is the seam that runs ``_validate_create``, which for
+        Tasks resolves to the inherited no-op.
+        """
+        return await super().create(entity)
+
+    async def _publish_created(self, task: Task) -> None:
+        """Announce a newly created task: TaskCreated + the ADR-074 embedding refresh.
+
+        ORDERING: call this only once the task's graph edges are written. ``TaskCreated``
+        is subscribed to ``invalidate_context`` (services_bootstrap/_event_wiring.py),
+        which debounces 100ms and then rebuilds the user context — and the rebuild reads
+        both ``(task)-[:HAS_SUBTASK]->(subtask)`` and ``(task)-[:APPLIES_KNOWLEDGE]->()``
+        back out of the graph (adapters/persistence/neo4j/user_context_queries.py).
+        Publishing before ``create_relationships_batch`` and
+        ``create_subtask_relationship`` finish lets the rebuild observe a task with no
+        edges and cache that empty result for the full 300s TTL
+        (``UserContext.cache_ttl_seconds``). The later KnowledgeAppliedInTask events are
+        wired only to substance handlers and do NOT invalidate the context, so nothing
+        corrects it. (Same inversion Codex reported on #960.)
+        """
+        event = TaskCreated(
+            task_uid=task.uid,
+            user_uid=task.user_uid,
+            title=task.title,
+            priority=task.priority or "medium",
+            # NOTE: Task domain not stored - could infer from related goal/knowledge
+            domain=None,
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.TASK, task, self.logger)
+
     @with_error_handling("create_task", error_type="database")
     async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
         """
@@ -217,11 +290,9 @@ class TasksCoreService(
         if validation.is_error:
             return Result.fail(validation)
 
-        # Build a frozen Task from the request, apply inference enrichment
+        # Build a frozen Task from the request and apply inference enrichment
         # functionally (ADR-065 — typed TaskInferenceResult, no DTO mutation
-        # inside intelligence services), then translate to TaskDTO at the
-        # persistence boundary. TaskDTO remains the single write encoder
-        # (ADR-035 three-tier).
+        # inside intelligence services).
         task_draft = Task.from_request(task_request, user_uid=user_uid)
 
         if self.ku_inference_service:
@@ -232,7 +303,10 @@ class TasksCoreService(
             if enrichment is not None:
                 task_draft = dataclasses.replace(task_draft, **enrichment.as_kwargs())
 
-        create_result = await self._create_and_convert(task_draft.to_dto().to_dict(), TaskDTO, Task)
+        # Persist, but hold the events back until the edges below are written (see
+        # _publish_created). NOT _create_and_convert, which reaches backend.create
+        # directly and so bypasses the one primitive both doors must share.
+        create_result = await self._create_validated(task_draft)
         if create_result.is_error:
             return create_result
         task = create_result.value
@@ -283,16 +357,23 @@ class TasksCoreService(
             explicit_knowledge_count,
         )
 
-        # Publish TaskCreated event
-        event = TaskCreated(
-            task_uid=task.uid,
-            user_uid=task.user_uid,
-            title=task.title,
-            priority=task.priority or "medium",
-            # NOTE: Task domain not stored - could infer from related goal/knowledge
-            domain=None,
-        )
-        await publish_event(self.event_bus, event, self.logger)
+        # Create parent-child relationship if parent_task_uid specified (2026-01-30).
+        # Before TaskCreated, not after: the context rebuild the event triggers reads
+        # HAS_SUBTASK, so announcing first caches a task whose subtask edge does not
+        # exist yet (see _publish_created).
+        if task_request.parent_uid:
+            subtask_result = await self.create_subtask_relationship(
+                parent_uid=task_request.parent_uid,
+                subtask_uid=task.uid,
+                progress_weight=task_request.progress_weight,
+            )
+            if subtask_result.is_error:
+                self.logger.warning(
+                    f"Failed to create subtask relationship for {task.uid}: {subtask_result.error}"
+                )
+
+        # Every edge is written — only now announce the task.
+        await self._publish_created(task)
 
         # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
         if task_request.applies_knowledge_uids:
@@ -321,21 +402,6 @@ class TasksCoreService(
                     task_priority=task.priority or "medium",
                 )
             await publish_event(self.event_bus, knowledge_event, self.logger)
-
-        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-        await publish_embedding_requested(self.event_bus, EntityType.TASK, task, self.logger)
-
-        # Create parent-child relationship if parent_task_uid specified (2026-01-30)
-        if task_request.parent_uid:
-            subtask_result = await self.create_subtask_relationship(
-                parent_uid=task_request.parent_uid,
-                subtask_uid=task.uid,
-                progress_weight=task_request.progress_weight,
-            )
-            if subtask_result.is_error:
-                self.logger.warning(
-                    f"Failed to create subtask relationship for {task.uid}: {subtask_result.error}"
-                )
 
         return Result.ok(task)
 

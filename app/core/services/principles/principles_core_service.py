@@ -83,10 +83,12 @@ class PrinciplesCoreService(
 
     # No _validate_create hook: Principles have no creation-time business rule.
     #
-    # There were two — statement >= 10 chars, description >= 20 chars — but neither had
-    # ever executed (create_principle persists backend-direct, bypassing
-    # CrudOperationsMixin.create, the hook's only caller), and both were stricter than
-    # the contract the edge actually publishes:
+    # There were two — statement >= 10 chars, description >= 20 chars — but at the time
+    # they were deleted (#963) neither had ever executed: create_principle then persisted
+    # backend-direct, bypassing CrudOperationsMixin.create, the hook's only caller. Both
+    # doors now run that caller (see ``create`` below), so the hook is reachable and
+    # resolves to the inherited no-op BY CHOICE, not by accident — both rules were
+    # stricter than the contract the edge actually publishes:
     #   - PrincipleCreateRequest declares statement min_length=1, deliberately; a short
     #     principle ("Be kind") is a legitimate one
     #   - the Activity DSL sets statement = the whole activity description, so any short
@@ -202,6 +204,63 @@ class PrinciplesCoreService(
         """
         return await self.get(principle_uid)
 
+    async def create(self, entity: Principle) -> Result[Principle]:
+        """Persist, then announce — THE create primitive for Principles.
+
+        Both doors land here: the generated CRUD route (via ``PrinciplesService.create``)
+        and ``create_principle`` below. Before this, only ``create_principle`` published
+        anything, so a principle created through ``POST /api/principles/create``
+        invalidated no user context and was never embedded — the route calls
+        ``service.create(entity)`` on the FACADE, which resolved to
+        ``CrudOperationsMixin.create`` and went straight to ``backend.create``.
+
+        Principles declare no ``_validate_create`` hook (see the comment above
+        ``_validate_update`` — both rules were deleted in #963 as stricter than
+        ``PrincipleCreateRequest``'s deliberate ``min_length=1``), so unlike Goals,
+        Habits, Events and Choices there is no validation to reach here. What this
+        primitive reconciles is the EVENT half.
+
+        No ordering split (``_create_validated`` / ``_publish_created``) as Choices and
+        Tasks need: ``create_principle`` writes no graph edges after persisting, so there
+        is nothing the context rebuild could observe too early.
+
+        Args:
+            entity: Principle to create
+
+        Returns:
+            Result containing created Principle
+
+        Events Published:
+            - PrincipleCreated: when the principle is successfully created
+            - PrincipleEmbeddingRequested (ADR-074): post-persist embedding refresh
+        """
+        result: Result[Principle] = await super().create(entity)
+        if result.is_error:
+            return result
+
+        principle = result.value
+
+        from core.events import PrincipleCreated
+
+        event = PrincipleCreated(
+            principle_uid=principle.uid,
+            user_uid=principle.user_uid,
+            principle_label=principle.title,
+            # principle_category and strength are nullable on the MODEL while
+            # PrincipleCreated declares both as non-optional str. PrincipleCreateRequest
+            # defaults them, so the request door always fills them in — but this
+            # primitive now runs for hand-built entities too (the generated route, the
+            # DSL's short "@context(principle)" lines), where a bare ``.value`` raises.
+            category=principle.principle_category.value if principle.principle_category else "",
+            strength=principle.strength.value if principle.strength else "",
+        )
+        await publish_event(self.event_bus, event, logger)
+
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.PRINCIPLE, principle, logger)
+
+        return result
+
     @with_error_handling("create_principle", error_type="database")
     async def create_principle(
         self, request: PrincipleCreateRequest, user_uid: UserUID
@@ -249,23 +308,12 @@ class PrinciplesCoreService(
             created_at=datetime.now(),
         )
 
-        result = await self.backend.create(principle)
+        # Persist and announce through the one primitive the generated CRUD route also
+        # reaches (see ``create``). NOT backend.create directly, which is what left the
+        # route door publishing nothing.
+        result = await self.create(principle)
         if result.is_error:
             return result
-
-        from core.events import PrincipleCreated
-
-        event = PrincipleCreated(
-            principle_uid=principle.uid,
-            user_uid=user_uid,
-            principle_label=request.title,
-            category=request.principle_category.value,
-            strength=request.strength.value,
-        )
-        await publish_event(self.event_bus, event, logger)
-
-        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-        await publish_embedding_requested(self.event_bus, EntityType.PRINCIPLE, principle, logger)
 
         logger.info(f"Created principle: {request.title}")
         return result

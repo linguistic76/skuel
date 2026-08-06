@@ -14,13 +14,11 @@ PROVIDES (Methods for Other Mixins):
     - _to_domain_model: Convert backend data to domain model
     - _to_domain_models: Bulk convert backend data to domain models
     - _validate_required_user_uid: Validate presence of user_uid
-    - _create_and_convert: Create entity and convert to domain model
 
 Methods:
     - _to_domain_model: Convert backend data to domain model
     - _to_domain_models: Bulk convert backend data to domain models
     - _validate_required_user_uid: Validate presence of user_uid
-    - _create_and_convert: Create entity and convert to domain model
 """
 
 from __future__ import annotations
@@ -118,41 +116,13 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
             )
         return Result.ok(None)
 
-    async def _create_and_convert(
-        self,
-        data: dict[str, Any],
-        dto_class: type[DTOProtocol],
-        model_class: type[T],
-    ) -> Result[T]:
-        """
-        Create entity in backend and convert to domain model.
-
-        Consolidates the common pattern:
-        1. Call backend.create(data)
-        2. Check for errors
-        3. Convert result to domain model
-
-        Args:
-            data: Dictionary data to create (typically from dto.to_dict())
-            dto_class: DTO class for conversion
-            model_class: Domain model class for conversion
-
-        Returns:
-            Result containing created domain model
-
-        Example:
-            dto = TaskDTO(uid=..., title=..., ...)
-            result = await self._create_and_convert(dto.to_dict(), TaskDTO, Task)
-            if result.is_error:
-                return result
-            task = result.value
-        """
-        create_result = await self.backend.create(data)
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        model = self._to_domain_model(create_result.value, dto_class, model_class)
-        return Result.ok(model)
+    # _create_and_convert is DELETED (August 2026). It persisted a DTO property dict and
+    # re-converted the backend's return value, and its last caller was
+    # TasksCoreService.create_task — the sixth and final Activity Domain create path to
+    # route through the shared, event-publishing ``create()`` primitive instead. Reaching
+    # backend.create by that side road is exactly what let a create door skip
+    # _validate_create and publish nothing; there is no caller left and no shape that
+    # wants one. Persist the ENTITY via CrudOperationsMixin.create.
 
 
 # ============================================================================

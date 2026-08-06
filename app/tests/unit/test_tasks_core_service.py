@@ -158,8 +158,11 @@ async def test_create_task_success(
     core_service, mock_backend, sample_task_request, sample_task_dto
 ):
     """Test successful task creation."""
-    # Setup - service calls backend.create() (generic BackendOperations method)
-    mock_backend.create.return_value = Result.ok(sample_task_dto.to_dict())
+    # Setup - service calls backend.create() (generic BackendOperations method), which
+    # returns the DOMAIN MODEL: UniversalNeo4jBackend._create_node ends in
+    # from_neo4j_node(props, entity_class). Returning raw props here would only work
+    # because the old create path re-converted them via _create_and_convert.
+    mock_backend.create.return_value = Result.ok(Task.from_dto(sample_task_dto))
 
     # Execute
     result = await core_service.create_task(sample_task_request, user_uid="user_demo")
@@ -464,8 +467,8 @@ async def test_create_update_delete_workflow(
     core_service, mock_backend, sample_task_request, sample_task_dto
 ):
     """Test complete workflow: create, update, delete."""
-    # Create - service uses backend.create()
-    mock_backend.create.return_value = Result.ok(sample_task_dto.to_dict())
+    # Create - service uses backend.create(), which returns the domain model
+    mock_backend.create.return_value = Result.ok(Task.from_dto(sample_task_dto))
     create_result = await core_service.create_task(sample_task_request, user_uid="user_demo")
     assert create_result.is_ok
     task_uid = create_result.value.uid

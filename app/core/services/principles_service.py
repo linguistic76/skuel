@@ -546,6 +546,22 @@ class PrinciplesService(
     # CORE CRUD OPERATIONS - Delegate to PrinciplesCoreService
     # ========================================================================
 
+    async def create(self, entity: Principle) -> Result[Principle]:
+        """Override the inherited CRUD create (generated JSON route, no ownership check).
+
+        Routes the entity through the one event-firing create path
+        (``PrinciplesCoreService.create``). The inherited base ``create`` went straight to
+        ``backend.create``: the core sub-service is the delegated attribute ``self.core``,
+        which this facade does NOT inherit, so its ``create`` override was never in this
+        class's MRO. The generated route therefore published neither PrincipleCreated nor
+        the ADR-074 embedding request — a principle created through
+        ``POST /api/principles/create`` invalidated no user context and was never embedded.
+
+        Mirrors the ``update`` override below, which reconciles the same two doors on the
+        update path.
+        """
+        return await self.core.create(entity)
+
     async def create_principle(
         self, request: PrincipleCreateRequest, user_uid: UserUID
     ) -> Result[Principle]:

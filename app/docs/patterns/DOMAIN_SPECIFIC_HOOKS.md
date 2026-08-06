@@ -82,9 +82,10 @@ class GoalsService(...):
 ```
 
 **2. The domain door bypasses `create()` entirely.** `create_goal` / `create_habit` /
-`create_choice` persisted through `_create_and_convert` (which calls `backend.create`
-directly), and `create_principle` called `backend.create` itself. None of them entered
-the template method, so no hook ran on the app's *primary* create path.
+`create_choice` / `create_task` persisted through `_create_and_convert` (which called
+`backend.create` directly — the helper was deleted once its last caller left), and
+`create_principle` called `backend.create` itself. None of them entered the template
+method, so no hook ran on the app's *primary* create path.
 
 Fix — make the core's `create()` THE create primitive and have the domain method build
 its entity and hand it over:
@@ -99,9 +100,16 @@ Building the entity with the **same converter the route uses** is the other half
 the two doors drifting on which request fields they carry.
 
 **Before trusting any hook, check both.** "The rule is written" is not "the rule runs" —
-every Activity Domain hook in this codebase was unreachable until #960 and its follow-up.
-Pinned by `tests/unit/test_choice_create_path_parity.py` and
-`tests/unit/test_activity_create_validation_reach.py`.
+every Activity Domain hook in this codebase was unreachable until #960 and its follow-ups.
+Pinned by `tests/unit/test_choice_create_path_parity.py`,
+`tests/unit/test_activity_create_validation_reach.py`, and — for Tasks and Principles,
+which have no hook left to reach but shared the same broken routing —
+`tests/unit/test_task_principle_create_event_reach.py`.
+
+The same MRO hole costs something even where no rule survives: the facade's inherited
+`create()` published no `*Created` event and no ADR-074 embedding request either, so an
+entity created through the generated route invalidated no user context and was never
+embedded. All six domains now route both doors through the core's `create()`.
 
 ### Reachability is not correctness
 

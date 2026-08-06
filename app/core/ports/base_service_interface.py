@@ -184,25 +184,6 @@ class ConversionOperations(Protocol[T]):
         """
         ...
 
-    async def _create_and_convert(
-        self,
-        data: dict[str, Any],
-        dto_class: type[Any],
-        model_class: type[T],
-    ) -> Result[T]:
-        """
-        Create entity in backend and convert to domain model.
-
-        Args:
-            data: Dictionary data to create (typically from dto.to_dict())
-            dto_class: DTO class for conversion
-            model_class: Domain model class for conversion
-
-        Returns:
-            Result containing created domain model
-        """
-        ...
-
 
 @runtime_checkable
 class CrudOperations(Protocol[T, U]):
