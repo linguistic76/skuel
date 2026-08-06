@@ -374,13 +374,56 @@ class HabitsCoreService(
             return create_result
 
         created = create_result.value
-        await self._write_link_edges(created, habit_request)
+        written_knowledge_uids = await self._write_link_edges(created, habit_request)
 
         # Edges are written — only now announce the habit.
         await self._publish_created(created)
+
+        # Knowledge substance (mirrors create_task / create_choice): the ONLY path to
+        # PsService.handle_knowledge_built_into_habit, which increments
+        # times_built_into_habits. Published from the WRITTEN uids, never the requested
+        # ones — a refused or dangling link must not claim knowledge was built into a
+        # habit when no edge exists. (Reported by Codex on #965.)
+        await self._publish_knowledge_substance(created, written_knowledge_uids)
         return Result.ok(created)
 
-    async def _write_link_edges(self, habit: Habit, request: HabitCreateRequest) -> None:
+    async def _publish_knowledge_substance(self, habit: Habit, knowledge_uids: list[str]) -> None:
+        """Announce knowledge built into this habit — single event for 1, bulk for 2+.
+
+        Same shape as ``TasksCoreService.create_task`` and
+        ``HabitsLearningService.create_habit_with_learning_alignment``, which was the
+        only publisher until ``create_habit`` started writing these edges at all.
+        """
+        if not knowledge_uids:
+            return
+
+        from core.events.knowledge_substance_events import (
+            KnowledgeBuiltIntoHabit,
+            KnowledgeBulkBuiltIntoHabit,
+        )
+
+        frequency = get_enum_value(habit.recurrence_pattern) if habit.recurrence_pattern else None
+
+        event: KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit
+        if len(knowledge_uids) == 1:
+            event = KnowledgeBuiltIntoHabit(
+                knowledge_uid=knowledge_uids[0],
+                habit_uid=habit.uid,
+                user_uid=habit.user_uid,
+                habit_title=habit.title,
+                frequency=frequency,
+            )
+        else:
+            event = KnowledgeBulkBuiltIntoHabit(
+                knowledge_uids=tuple(knowledge_uids),
+                habit_uid=habit.uid,
+                user_uid=habit.user_uid,
+                habit_title=habit.title,
+                frequency=frequency,
+            )
+        await publish_event(self.event_bus, event, self.logger)
+
+    async def _write_link_edges(self, habit: Habit, request: HabitCreateRequest) -> list[str]:
         """GRAPH-NATIVE: turn the request's four link lists into edges, in one batch.
 
         Each list names a registered, READ relationship that nothing was writing at
@@ -403,13 +446,17 @@ class HabitsCoreService(
         value that lands a habit in the unfiltered ``contributing_habits`` catch-all.
         REQUIRES_PREREQUISITE_HABIT carries no properties in the registry, so it gets none.
 
-        ADMISSION: every target UID is request input, so each is checked for OWNER and
-        for KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
+        ADMISSION: every target UID is request input, so each is checked for existence,
+        OWNER and KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
         declared labels come from the field names: ``linked_principle_uids`` means
-        Principles. ``linked_knowledge_uids`` declares none, because it legitimately
-        reaches both Kus and PathSteps (the context query reads ``habit_applied_knowledge``
-        through ``TRAINS_KU|USES_KU`` as well as directly), and pinning one label there
-        would refuse half of what the field is for.
+        Principles. ``linked_knowledge_uids`` declares the KNOWLEDGE_LABELS pair, because
+        it legitimately reaches both Kus and PathSteps (the context query resolves a
+        PathStep through ``TRAINS_KU|USES_KU``).
+
+        Returns:
+            The knowledge UIDs actually WRITTEN — the caller announces substance from
+            these, never from what was requested, so a refused or dangling link cannot
+            claim knowledge was built into a habit when no edge exists.
 
         A failure is logged, not propagated — the habit itself is created. Mirrors
         ``TasksCoreService.create_task`` and ``ChoicesCoreService.create_choice``.
@@ -466,7 +513,7 @@ class HabitsCoreService(
         )
 
         if not candidates:
-            return
+            return []
 
         relationships = await keep_permitted_link_edges(
             self.backend,
@@ -476,7 +523,7 @@ class HabitsCoreService(
             logger=self.logger,
         )
         if not relationships:
-            return
+            return []
 
         batch_result = await self.backend.create_relationships_batch(relationships)
         if batch_result.is_error:
@@ -486,6 +533,16 @@ class HabitsCoreService(
                 habit_uid,
                 batch_result.error,
             )
+            # The batch is all-or-nothing, so a failure means NOTHING was written.
+            # Reporting the admitted uids here would announce substance for edges that
+            # do not exist.
+            return []
+
+        return [
+            target_uid
+            for _src, target_uid, rel_type, _props in relationships
+            if rel_type == RelationshipName.REINFORCES_KNOWLEDGE.value
+        ]
 
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
     async def update_habit(

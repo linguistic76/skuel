@@ -64,15 +64,25 @@ observe an entity with no edges and cache that for the full 300s TTL, with no
 later event to correct it. Regression guard for the inversion Codex caught on
 #960, now asserted for two more domains.
 
-OWNERSHIP (every link target is request input)
-----------------------------------------------
-Turning a user-supplied UID into an edge without checking who owns it lets one
-user link their entity to another's, so every write below is guarded. The rule is
-expressed against the DATA — a target carrying a ``user_uid`` must carry the
-creator's, one with none is shared content (``user_uid`` lives on
-``UserOwnedEntity``, so Ku and friends have none) and is allowed. That keeps
-``linked_knowledge_uids`` / ``required_knowledge_uids`` working, which a blunt
-"every target must be mine" rule would break.
+ADMISSION (every link endpoint is request input)
+------------------------------------------------
+A user-supplied UID becomes an edge only if it passes ``keep_permitted_link_edges``
+on three counts — it EXISTS, its OWNER is the creator or nobody, and its KIND is
+one the field accepts.
+
+Ownership is expressed against the DATA rather than a list of user-owned types,
+and reads all three spellings the graph uses (``user_uid`` on UserOwnedEntity,
+``owner_uid`` on Exercise and Group, the ``OWNS`` edge). "Owned by nobody" means
+shared content and is ALLOWED — that is what keeps the knowledge lists working,
+and a blunt "every endpoint must be mine" rule would break them.
+
+Kind is declared per field and is mandatory: ``supporting_habit_uids`` means
+Habits, the knowledge lists mean Ku or PathStep. An optional check is an opt-out,
+and an opt-out is what let an arbitrary Entity through twice.
+
+Existence matters because ``create_relationships_batch`` is all-or-nothing and its
+failure is logged, not propagated: one stale UID would otherwise discard every
+valid link in the same request while the create still reported success.
 
 DOOR ASYMMETRY (deliberate, asserted below)
 -------------------------------------------
@@ -1113,6 +1123,120 @@ class TestHabitLinkEdgesCheckOwnership:
         assert habit_backend.batched == [], (
             "edges were written unchecked after the ownership lookup failed"
         )
+
+
+@pytest.mark.asyncio
+class TestHabitKnowledgeSubstance:
+    """Writing REINFORCES_KNOWLEDGE must also announce the substance it represents.
+
+    ``KnowledgeBuiltIntoHabit`` / its bulk variant are the ONLY path to
+    ``PsService.handle_knowledge_built_into_habit``, which increments
+    ``times_built_into_habits``. ``create_task`` and ``create_choice`` publish their
+    equivalents; until ``create_habit`` started writing these edges the omission was
+    free, because there were no edges for the metric to disagree with. (Codex, #965.)
+    """
+
+    async def test_single_knowledge_link_publishes_the_single_event(
+        self, habit_core: HabitsCoreService, event_bus: InMemoryEventBus
+    ) -> None:
+        from core.events.knowledge_substance_events import KnowledgeBuiltIntoHabit
+
+        result = await habit_core.create_habit(
+            make_habit_request(linked_knowledge_uids=["ku:a"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_habit failed: {result.error}"
+        published = [
+            e for e in event_bus.get_event_history() if isinstance(e, KnowledgeBuiltIntoHabit)
+        ]
+        assert len(published) == 1, f"expected 1 KnowledgeBuiltIntoHabit, got {len(published)}"
+        assert published[0].knowledge_uid == "ku:a"
+        assert published[0].habit_uid == result.value.uid
+
+    async def test_multiple_links_publish_the_bulk_event(
+        self, habit_core: HabitsCoreService, event_bus: InMemoryEventBus
+    ) -> None:
+        from core.events.knowledge_substance_events import (
+            KnowledgeBuiltIntoHabit,
+            KnowledgeBulkBuiltIntoHabit,
+        )
+
+        await habit_core.create_habit(
+            make_habit_request(linked_knowledge_uids=["ku:a", "ku:b"]), USER_UID
+        )
+
+        history = event_bus.get_event_history()
+        bulk = [e for e in history if isinstance(e, KnowledgeBulkBuiltIntoHabit)]
+        singles = [e for e in history if isinstance(e, KnowledgeBuiltIntoHabit)]
+        assert len(bulk) == 1, f"expected 1 bulk event, got {len(bulk)}"
+        assert set(bulk[0].knowledge_uids) == {"ku:a", "ku:b"}
+        assert singles == [], "the bulk path must not also fire per-item events"
+
+    async def test_a_refused_link_announces_no_substance(
+        self, habit_core: HabitsCoreService, habit_backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """Substance follows the WRITTEN edges, never the requested ones.
+
+        A link the guard refuses leaves no edge, so claiming knowledge was built into
+        a habit would make ``times_built_into_habits`` disagree with the graph — the
+        exact staleness this event exists to prevent.
+        """
+        from core.events.knowledge_substance_events import (
+            KnowledgeBuiltIntoHabit,
+            KnowledgeBulkBuiltIntoHabit,
+        )
+
+        habit_backend.labels["task:not-knowledge"] = ["Entity", "Task"]
+
+        result = await habit_core.create_habit(
+            make_habit_request(linked_knowledge_uids=["task:not-knowledge"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_habit failed: {result.error}"
+        assert [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit)
+        ] == [], "substance was announced for a link that was never written"
+
+    async def test_a_failed_batch_announces_no_substance(
+        self, habit_core: HabitsCoreService, habit_backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """The batch is all-or-nothing: a failure means nothing was written."""
+        from core.events.knowledge_substance_events import (
+            KnowledgeBuiltIntoHabit,
+            KnowledgeBulkBuiltIntoHabit,
+        )
+
+        async def _refuse(*_args: Any, **_kwargs: Any) -> Result[int]:
+            return Result.fail("batch validation failed")
+
+        habit_backend.create_relationships_batch = _refuse  # type: ignore[method-assign]
+
+        await habit_core.create_habit(make_habit_request(linked_knowledge_uids=["ku:a"]), USER_UID)
+
+        assert [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit)
+        ] == [], "substance was announced although the batch wrote nothing"
+
+    async def test_a_linkless_habit_announces_nothing(
+        self, habit_core: HabitsCoreService, event_bus: InMemoryEventBus
+    ) -> None:
+        """Positive control: no knowledge links, no substance event."""
+        from core.events.knowledge_substance_events import (
+            KnowledgeBuiltIntoHabit,
+            KnowledgeBulkBuiltIntoHabit,
+        )
+
+        await habit_core.create_habit(make_habit_request(), USER_UID)
+
+        assert [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit)
+        ] == []
 
 
 @pytest.mark.asyncio
