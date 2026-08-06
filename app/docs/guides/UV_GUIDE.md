@@ -135,6 +135,29 @@ asserts the lock is already current and *fails* if it isn't.** Reach for
 `--locked` only where that failure is the signal you want. The Docker build uses
 `--frozen` for the same reason — see `.claude/skills/docker/SKILL.md`.
 
+**This is enforced, not remembered.** `tests/unit/test_workflow_uv_lock_pinning.py`
+parses every job in `../.github/workflows/` and fails on any of four shapes: a
+uv-using job with no `UV_FROZEN`; a `--locked` job that sets it anyway (exit 2);
+a `--locked` job whose own uv commands lack `--frozen` (the original defect); and
+`UV_FROZEN` left on a job that no longer runs uv. It keys on **whether the job
+passes `--locked`**, not on job names, and follows the shell scripts a job runs —
+so both `--locked` jobs are recognised through `audit_dependencies.sh` and the
+guard survives that script being renamed or replaced.
+
+Two things follow from that, if you are editing a workflow:
+
+- **`UV_FROZEN` belongs in the job's `env:` block and nowhere else.** A step-level
+  `env:`, a command prefix (`UV_FROZEN=0 uv sync`), an `export`, or a write to
+  `$GITHUB_ENV` all override it in a scope the job cannot see, and all four are
+  rejected. uv reads the **value**, so `UV_FROZEN=0` disables the pin — it is not
+  merely redundant.
+- **uv must be plainly visible.** The guard parses bash properly
+  (`tree-sitter-bash`) but refuses what parsing cannot settle: uv behind a wrapper
+  whose options it cannot skip, a `--locked` it cannot attribute to uv rather than
+  to the child (`uv run --with requests --locked …` — write `--opt=value`), a
+  script that does not resolve, and any command verb it does not recognise. If it
+  refuses your step, the message names the shape and the fix.
+
 ## Enforcement: SKUEL016
 
 The SKUEL linter rule **SKUEL016** catches stale Poetry references anywhere in the codebase:

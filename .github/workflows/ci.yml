@@ -60,7 +60,20 @@ jobs:
               # trigger the unit-test drift guard that rejects it.
               - 'app/docs/reference/GRAPH_CONTRACT.yaml'
               - 'app/docs/reference/BASESERVICE_METHOD_INDEX.md'
-              - '.github/workflows/ci.yml'
+              # The uv.lock pinning guard's inputs (tests/unit/
+              # test_workflow_uv_lock_pinning.py). It reads EVERY workflow, not
+              # just ci.yml (unlike the filters below), and follows what those
+              # workflows invoke: the shell scripts and the local composite
+              # actions. All three are transitive inputs — the guard's verdict
+              # changes when any of them does. Scoped narrower, a PR touching
+              # only one would skip unit_tests, and the gate accepts skips, so
+              # the guard would go silently unrun on exactly the change that
+              # breaks it. Patterns are CLASSES, not names, so PR #932's
+              # osv-scanner rename of audit_dependencies.sh cannot re-open it.
+              # Coverage is asserted by the guard itself, not maintained here.
+              - '.github/workflows/**'
+              - '.github/actions/**'
+              - 'app/scripts/**/*.sh'
             docs:
               - 'app/docs/**'
               - 'app/.claude/skills/**'
