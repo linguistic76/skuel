@@ -114,6 +114,8 @@ dev = [
     "types-pyyaml>=6.0.12.20260518",
     "vulture>=2.16",
     "pip-audit>=2.10.1",
+    "tree-sitter>=0.26.0",
+    "tree-sitter-bash>=0.25.1",
 ]
 
 [build-system]

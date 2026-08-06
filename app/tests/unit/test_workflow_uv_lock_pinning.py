@@ -60,9 +60,9 @@ hole; under-detecting it demands a ``UV_FROZEN`` that fails loudly. So pin
 evidence has to survive two separate ways of not being uv's:
 
   * Wrong COMMAND. ``echo "- A stale lock (\\`uv export --locked\\` refuses)"``
-    is prose these workflows really do contain. Commands are recovered by
-    quote-aware tokenization and only the command NAME counts, so an echoed
-    ``--locked`` is never evidence.
+    is prose these workflows really do contain. Commands come from a real bash
+    parse and only the command NAME counts, so an echoed ``--locked`` is never
+    evidence.
   * Wrong ARGUMENT OWNER. ``uv run [OPTIONS] COMMAND [ARGS]`` — uv's options
     stop at the child. On uv 0.10.9, ``uv run python -c '…' --locked`` hands
     ``--locked`` to Python and uv still syncs unfrozen, so crediting it to uv
@@ -74,45 +74,65 @@ NOT the same as safe. Dropping pin evidence also disables rule 2, so a command
 that would exit 2 under ``UV_FROZEN`` passes unnoticed. There is no reading
 that is safe for both rules at once.
 
-WHAT THIS GUARD REFUSES TO GUESS  (rule 0)
+PARSE WHAT IS SYNTAX; REFUSE WHAT IS NOT  (rule 0)
 
-Hence the mechanism that ends the regress: rather than growing a shell-and-CLI
-parser one special case at a time, anything that cannot be classified with
-confidence is REPORTED, not skipped. Four review rounds each found a fresh
-syntax the previous parse mishandled (`env -u X uv sync`, `bash -c 'uv sync'`,
-`uv run --with requests --locked …`), every one silently — which is the
-signature of an approximation, not of a bug. So:
+Seven review rounds produced fourteen findings, and sorting them settles how
+this is built. They fell into two kinds:
 
-  * A bare ``uv`` token in another command's arguments — a wrapper whose
-    options cannot be skipped without an arity table for that wrapper — is
-    reported as unreadable.
-  * A ``--frozen``/``--locked`` whose owner cannot be settled is reported, with
-    the ``--opt=value`` fix. One discriminator covers BOTH places a positional
-    gets interpreted — ``--opt value`` is indistinguishable from
-    ``--flag POSITIONAL`` at the child boundary (``uv run --with requests
-    --locked …``) and at the subcommand scan (``uv --directory sync run …``,
-    where ``sync`` is a directory name that is also a subcommand).
+  * SYNTAX — which token is the command. A hand-written tokenizer got this
+    wrong in four rounds (``env -u X uv sync``, ``bash -c 'uv sync'``,
+    ``uv --directory sync run …``), every time silently, and separately
+    invented 21 phantom commands out of this repo's own workflows by
+    mis-splitting ``$(…)`` concatenation, ``NAME+=(…)``, ``for`` and
+    ``[[ … ]]``. This is a solved problem and is not solved here: the bash
+    grammar parses it (tree-sitter-bash, MIT). Measured on these workflows,
+    that took the command vocabulary from 47 names to 24 — every phantom gone
+    — while finding the same 30 uv invocations.
 
-That leaves every positional this guard interprets — command name, subcommand,
-child boundary, script path — either parsed exactly or refused.
+  * NOT SYNTAX — what a command MEANS. No parser answers whether ``--locked``
+    is uv's or the child's, what ``env -u`` does to a wrapper's argv, or what
+    ``UV_FROZEN`` is worth at runtime. Guessing here is what reopened the hole
+    each round, so these are REPORTED, never assumed:
 
-The claim is therefore not "this parses shell correctly" — it is "this reads
-the shapes it can and refuses the rest". Refusals are finite and actionable;
-an arity table for uv and for every wrapper would be a second, drifting copy of
-someone else's CLI. ``sh -c`` payloads ARE parsed, since that is exact rather
-than approximate. The one surface still unreached is uv shelled out from a
-Python script, which fails in the loud direction.
+      - a bare ``uv`` inside another command's arguments (an unskippable
+        wrapper);
+      - a ``--frozen``/``--locked`` whose owner cannot be settled — ``--opt
+        value`` is indistinguishable from ``--flag POSITIONAL``, at the child
+        boundary AND at the subcommand scan; the fix is ``--opt=value``;
+      - an unrecognised command VERB, because the whitelist is the only part
+        that fails closed on a shell feature nobody modelled;
+      - ``export``/``declare`` of anything, a write to ``$GITHUB_ENV``, a
+        command-local ``UV_FROZEN=``, or a step-level ``env:`` — four separate
+        scopes that override the job's, none of them visible in a command name;
+      - a script that does not resolve, including after a ``cd`` moved the
+        working directory;
+      - a region the grammar itself rejects.
+
+The claim is therefore not "this understands your shell" — it is "this parses
+the syntax and refuses the semantics it cannot settle". Refusals are finite and
+actionable; an arity table for uv and for every wrapper would be a second,
+drifting copy of someone else's CLI. On the real workflows the refusal count is
+zero, so none of it is noise today.
+
+Still unreached, and documented rather than claimed: uv shelled out from a
+PYTHON script, and a whitelisted verb that writes ``$GITHUB_ENV`` internally.
+Both need a workflow author to hide an env change inside a program, and both
+fail in the loud direction if the guard is ever wrong about them.
 
 See: PR #935, docs/guides/UV_GUIDE.md § Freezing the lock in CI
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path, PurePath, PurePosixPath
 from typing import NamedTuple
 
+import tree_sitter_bash
 import yaml
+from tree_sitter import Language, Node, Parser
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
@@ -201,183 +221,214 @@ _COMMAND_PREFIXES = frozenset(
 # Unquoted characters that end one command position and begin another.
 _SEPARATORS = frozenset({"\n", ";", "&", "|", "(", ")", "{", "}", "<", ">"})
 
+# Redirections whose TARGET changes what later steps see. GitHub Actions reads
+# $GITHUB_ENV after each step and exports it to the next, so `echo "UV_FROZEN=0"
+# >> $GITHUB_ENV` unpins every following step — an env scope that has nothing to
+# do with shell syntax and that no amount of parsing would reveal.
+_ENV_MUTATING_TARGETS = ("GITHUB_ENV",)
+
+# Command verbs that cannot change what uv sees: they touch neither the
+# environment of later commands nor the working directory. This is a WHITELIST,
+# and that direction is the point — an unrecognised verb is REFUSED, so a shell
+# feature nobody modelled (`export`, `source`, `pushd`, `eval`, and whatever
+# comes next) fails closed instead of passing silently. Adding a verb here is a
+# semantic judgement about that one verb, not a new special case in a parser.
+#
+# Deliberately absent: export, unset, source, ., eval, pushd, popd, exec, cd.
+_STATE_NEUTRAL_VERBS = frozenset(
+    {
+        "echo",
+        "printf",
+        "cat",
+        "head",
+        "tail",
+        "tee",
+        "cut",
+        "sed",
+        "awk",
+        "grep",
+        "sort",
+        "uniq",
+        "wc",
+        "tr",
+        "jq",
+        "date",
+        "sha256sum",
+        "dirname",
+        "basename",
+        "mktemp",
+        "mkdir",
+        "rm",
+        "cp",
+        "mv",
+        "ls",
+        "touch",
+        "chmod",
+        "find",
+        "sleep",
+        "true",
+        "false",
+        "exit",
+        "return",
+        "test",
+        "[",
+        "[[",
+        "trap",
+        "read",
+        "shift",
+        "git",
+        "npm",
+        "node",
+        "npx",
+        "python",
+        "python3",
+        "pip",
+        "docker",
+        "curl",
+        "wget",
+        "tar",
+        "unzip",
+        "google-chrome-stable",
+        "sudo",
+    }
+)
+
 
 # --------------------------------------------------------------------------
 # Shell parsing
 #
-# A substring scan cannot answer this question: these workflows contain
-# `echo "- A stale lock (\`uv export --locked\` refuses)"` inside a run block,
-# and `echo "  Run locally: uv run python scripts/docs_freshness.py"` in
-# another. Both would read as uv invocations — and the first would read as
-# `--locked` evidence, excusing its job from the guard. So commands are
-# recovered by quote-aware tokenization and only the command NAME counts.
+# A hand-written tokenizer got this wrong in four separate review rounds, each
+# time silently (`env -u X uv sync`, `bash -c 'uv sync'`, `uv --directory sync
+# run …`). It also mis-split four real shell constructs — `$(…)` concatenation,
+# `NAME+=(…)` array assignment, `for` loops, `|` inside `[[ … ]]` — inventing
+# 21 phantom "commands" out of the repo's own workflows.
+#
+# So the grammar is not approximated here: tree-sitter-bash parses it. Measured
+# on this repo's workflows, that takes the command vocabulary from 47 names to
+# 24 — every phantom gone — while finding the same 30 uv invocations. What a
+# parser CANNOT settle (which flags are uv's, what a wrapper does to the
+# environment) is refused instead, by the rules below.
 # --------------------------------------------------------------------------
+
+# GitHub Actions interpolates `${{ … }}` before the shell ever runs, so leaving
+# it in the source is asking bash to parse something bash never sees — the only
+# two parse errors across every workflow, both of them ours to fix, not the
+# grammar's.
+_ACTIONS_EXPRESSION = re.compile(r"\$\{\{.*?\}\}", re.DOTALL)
+
+# `export`/`declare`/`local`/`readonly` are a distinct grammar node, never a
+# `command` — so the verb whitelist would never see them. They are the shapes
+# that mutate the environment, so they are named here explicitly.
+_DECLARATION_KEYWORDS = frozenset({"export", "declare", "local", "readonly", "typeset"})
+
+
+@lru_cache(maxsize=1)
+def _bash_parser() -> Parser:
+    return Parser(Language(tree_sitter_bash.language()))
+
+
+class _ShellCommand(NamedTuple):
+    """One node of a parsed shell fragment, in the terms this guard reasons in."""
+
+    kind: str  # "command" | "declaration" | "redirect" | "unparsed"
+    name: str | None  # command basename, e.g. "uv"
+    written: str  # command as written, e.g. "./scripts/foo.sh"
+    argv: list[str]  # arguments, unquoted
+    assignments: tuple[str, ...]  # NAME=VALUE prefixes on this command
+    rendered: str  # the source text, for messages
+
+
+def _node_text(node: Node, src: bytes) -> str:
+    return src[node.start_byte : node.end_byte].decode("utf8", "replace")
+
+
+def _word(node: Node, src: bytes) -> str:
+    """A shell word with its quoting removed, as the command would receive it."""
+    text = _node_text(node, src)
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in ("'", '"'):
+        return text[1:-1]
+    return text
+
+
+def _shell_commands(text: str) -> list[_ShellCommand]:
+    """Every command, declaration, redirection and unparsable region, in order.
+
+    Commands inside `$(…)`, backticks, pipelines, loops and conditionals are
+    all reached: they are `command` nodes wherever they sit in the tree.
+    """
+    src = _ACTIONS_EXPRESSION.sub("ACTIONS_EXPR", text).encode()
+    found: list[_ShellCommand] = []
+
+    def visit(node: Node) -> None:
+        if node.type == "ERROR":
+            # Refused, not skipped: a region the grammar could not parse may
+            # hold anything, including a uv command.
+            found.append(_ShellCommand("unparsed", None, "", [], (), _node_text(node, src)))
+            return
+        if node.type == "command":
+            name_node = node.child_by_field_name("name")
+            assignments = tuple(
+                _node_text(c, src) for c in node.named_children if c.type == "variable_assignment"
+            )
+            argv = [
+                _word(c, src)
+                for c in node.named_children
+                if c.type not in ("command_name", "variable_assignment", "file_redirect")
+            ]
+            written = _word(name_node, src) if name_node is not None else ""
+            found.append(
+                _ShellCommand(
+                    "command",
+                    PurePosixPath(written).name if written else None,
+                    written,
+                    argv,
+                    assignments,
+                    _node_text(node, src),
+                )
+            )
+        elif node.type == "declaration_command":
+            words = [_node_text(c, src) for c in node.children]
+            found.append(
+                _ShellCommand(
+                    "declaration",
+                    words[0] if words else None,
+                    words[0] if words else "",
+                    words[1:],
+                    tuple(w for w in words[1:] if "=" in w),
+                    _node_text(node, src),
+                )
+            )
+        elif node.type == "file_redirect":
+            destination = node.child_by_field_name("destination")
+            found.append(
+                _ShellCommand(
+                    "redirect",
+                    None,
+                    _word(destination, src) if destination is not None else "",
+                    [],
+                    (),
+                    _node_text(node, src),
+                )
+            )
+        for child in node.children:
+            visit(child)
+
+    visit(_bash_parser().parse(src).root_node)
+    return found
 
 
 def _split_commands(text: str) -> list[list[str]]:
-    """Every command position in a shell fragment, as a list of tokens.
-
-    Quote-, escape-, comment- and substitution-aware; descends into ``$(...)``
-    and backticks (a command there is still a command). Never raises: a
-    fragment this cannot parse degrades to extra command boundaries, which
-    costs recall of uv calls, not soundness of ``--locked`` evidence.
-    """
-    commands: list[list[str]] = []
-    tokens: list[str] = []
-    token = ""
-    started = False  # token has begun (so "" from `''` is preserved)
-    quote: str | None = None
-    # Quote state to restore when a $(...) / `...` substitution closes.
-    substitutions: list[str | None] = []
-
-    def end_token() -> None:
-        nonlocal token, started
-        if started:
-            tokens.append(token)
-        token = ""
-        started = False
-
-    def end_command() -> None:
-        nonlocal tokens
-        end_token()
-        if tokens:
-            commands.append(tokens)
-        tokens = []
-
-    i = 0
-    length = len(text)
-    while i < length:
-        char = text[i]
-
-        if quote == "'":
-            if char == "'":
-                quote = None
-            else:
-                token += char
-            i += 1
-            continue
-
-        if char == "\\":
-            # Line continuation: both characters vanish (uv commands in
-            # audit_dependencies.sh wrap across lines this way).
-            if i + 1 < length and text[i + 1] == "\n":
-                i += 2
-                continue
-            if i + 1 < length:
-                token += text[i + 1]
-                started = True
-                i += 2
-                continue
-            i += 1
-            continue
-
-        # Command substitution is live inside double quotes too.
-        if char == "$" and i + 1 < length and text[i + 1] == "(":
-            substitutions.append(quote)
-            quote = None
-            end_command()
-            i += 2
-            continue
-        if char == "`":
-            if substitutions:
-                quote = substitutions.pop()
-            else:
-                substitutions.append(quote)
-                quote = None
-            end_command()
-            i += 1
-            continue
-
-        if quote == '"':
-            if char == '"':
-                quote = None
-            else:
-                token += char
-                started = True
-            i += 1
-            continue
-
-        if char in ("'", '"'):
-            quote = char
-            started = True
-            i += 1
-            continue
-
-        if char == "#" and not started:
-            while i < length and text[i] != "\n":
-                i += 1
-            continue
-
-        if char == ")" and substitutions:
-            quote = substitutions.pop()
-            end_command()
-            i += 1
-            continue
-
-        if char in _SEPARATORS:
-            end_command()
-            i += 1
-            continue
-
-        if char.isspace():
-            end_token()
-            i += 1
-            continue
-
-        token += char
-        started = True
-        i += 1
-
-    end_command()
-    return commands
+    """Command positions as token lists — `[name, *argv]` for each command."""
+    return [
+        [c.written, *c.argv] for c in _shell_commands(text) if c.kind == "command" and c.written
+    ]
 
 
 def _command_name(tokens: list[str]) -> tuple[str | None, str, list[str]]:
-    """``(basename, written form, arguments)``, past assignments and wrappers.
-
-    The written form is kept alongside the basename because it is the only one
-    that resolves: ``./scripts/foo.sh`` has to stay a path.
-    """
-    name, written, args, _ = _parse_command(tokens)
-    return name, written, args
-
-
-def _env_assignments(tokens: list[str]) -> tuple[str, ...]:
-    """The ``NAME=VALUE`` prefixes a command carries, in written order."""
-    return _parse_command(tokens)[3]
-
-
-def _parse_command(tokens: list[str]) -> tuple[str | None, str, list[str], tuple[str, ...]]:
-    """Split a command position into wrappers, assignments, name and arguments.
-
-    The assignments are RETURNED, not just skipped: `UV_FROZEN=0 uv sync`
-    overrides a job-level pin for that one command, and discarding it made the
-    audit credit the job's `UV_FROZEN: "1"` to an invocation that ran without
-    it (Codex, PR #959).
-    """
-    assignments: list[str] = []
-    rest = list(tokens)
-    while rest:
-        head = rest[0]
-        if head in _COMMAND_PREFIXES:
-            rest = rest[1:]
-            continue
-        # NAME=value prefix (`MISSING=$(uv run ...)` splits before this, but
-        # `FOO=1 uv sync` does not).
-        name, sep, _ = head.partition("=")
-        if (
-            sep
-            and name
-            and (name[0].isalpha() or name[0] == "_")
-            and name.replace("_", "a").isalnum()
-        ):
-            assignments.append(head)
-            rest = rest[1:]
-            continue
-        break
-    if not rest:
-        return None, "", [], tuple(assignments)
-    return PurePosixPath(rest[0]).name, rest[0], rest[1:], tuple(assignments)
+    """``(basename, written form, arguments)`` for an already-split command."""
+    if not tokens:
+        return None, "", []
+    return PurePosixPath(tokens[0]).name, tokens[0], tokens[1:]
 
 
 # --------------------------------------------------------------------------
@@ -621,8 +672,57 @@ def _collect_from_shell(
 ) -> list[UvInvocation]:
     """uv invocations in a shell fragment, descending into scripts it runs."""
     found: list[UvInvocation] = []
-    for tokens in _split_commands(text):
-        name, written, args, assignments = _parse_command(tokens)
+    # A `cd` earlier in the fragment moves the ground under every later script
+    # path. Rather than model shell cwd state, the fragment stops trusting its
+    # own resolution from that point on (Codex, PR #959).
+    cwd_moved = False
+    for command in _shell_commands(text):
+        tokens = [command.written, *command.argv]
+        name, written, args = command.name, command.written, command.argv
+        assignments = command.assignments
+
+        if command.kind == "unparsed":
+            refused.append(
+                RefusedCommand(
+                    origin=origin,
+                    rendered=command.rendered[:120],
+                    headline="a shell fragment the bash grammar could not parse",
+                    reason="an unparsable region may hold anything, including a uv "
+                    "command, so it is reported rather than assumed empty",
+                    fix="rewrite the fragment as valid bash",
+                )
+            )
+            continue
+
+        if command.kind == "declaration":
+            refused.append(
+                RefusedCommand(
+                    origin=origin,
+                    rendered=command.rendered,
+                    headline=f"an environment declaration ({name!r})",
+                    reason="`export`/`declare` change the environment of every LATER "
+                    "command in the step, so a UV_FROZEN set here would override the "
+                    "job's env for uv commands this guard reads as pinned",
+                    fix="set UV_FROZEN only in the job's `env:` block",
+                )
+            )
+            continue
+
+        if command.kind == "redirect":
+            if any(t in command.written for t in _ENV_MUTATING_TARGETS):
+                refused.append(
+                    RefusedCommand(
+                        origin=origin,
+                        rendered=command.rendered,
+                        headline="a step writes $GITHUB_ENV",
+                        reason="GitHub Actions exports $GITHUB_ENV to every LATER step, "
+                        "so a UV_FROZEN written here silently overrides the job's env "
+                        "for uv commands this guard reads as pinned",
+                        fix="set UV_FROZEN only in the job's `env:` block, and do not "
+                        "write it to $GITHUB_ENV",
+                    )
+                )
+            continue
 
         # A shell-level `UV_FROZEN=…` overrides the job's env for this one
         # command — `UV_FROZEN=0 uv sync` re-locks under a job pinned to "1".
@@ -667,7 +767,7 @@ def _collect_from_shell(
                 )
                 continue
 
-        script = _resolve_script(name, written, args, workdir, root)
+        script = None if cwd_moved else _resolve_script(name, written, args, workdir, root)
         if script is not None:
             inputs.add(script)
             if script not in seen:
@@ -696,6 +796,50 @@ def _collect_from_shell(
                     rendered=" ".join(tokens),
                     reason=f"uv is invoked through {name!r}, whose options this "
                     "guard cannot skip without an arity table for it",
+                )
+            )
+            continue
+
+        if name in _INTERPRETERS:
+            refused.append(
+                RefusedCommand(
+                    origin=origin,
+                    rendered=" ".join(tokens),
+                    headline="a shell invocation this guard cannot follow",
+                    reason=f"{name!r} runs something that does not resolve to a file in "
+                    "this repo"
+                    + (
+                        ", because an earlier `cd` moved the working directory" if cwd_moved else ""
+                    ),
+                    fix="invoke the script by a path that resolves from the step's "
+                    "`working-directory`, without an intervening `cd`",
+                )
+            )
+            continue
+
+        if name not in _STATE_NEUTRAL_VERBS:
+            if name == "set" and not {"-a", "+a", "allexport"} & set(args):
+                # Shell OPTIONS (`set -euo pipefail`) touch neither env nor cwd.
+                # `set -a` would, by exporting every later assignment, so it is
+                # the one form that stays refused.
+                continue
+            if name == "cd":
+                # Not a finding on its own: audit_dependencies.sh opens with a
+                # `cd`, and it resolves no further scripts. It only invalidates
+                # what comes after.
+                cwd_moved = True
+                continue
+            refused.append(
+                RefusedCommand(
+                    origin=origin,
+                    rendered=" ".join(tokens),
+                    headline=f"an unrecognised command verb ({name!r})",
+                    reason="this guard accepts only verbs it knows cannot change uv's "
+                    "environment or working directory, so anything else — `export`, "
+                    "`source`, `eval`, `pushd`, or something newer — fails closed "
+                    "instead of passing while it quietly moves the ground",
+                    fix=f"if {name!r} genuinely cannot affect UV_FROZEN or the working "
+                    "directory, add it to _STATE_NEUTRAL_VERBS with that judgement",
                 )
             )
     return found
@@ -843,6 +987,23 @@ def _collect_from_composite(
     for index, step in enumerate((document.get("runs") or {}).get("steps") or []):
         if not isinstance(step, dict):
             continue
+        # A composite step's own `env:` overrides the CALLING job's, exactly as
+        # a workflow step's does. audit_workflow() has always rejected the
+        # workflow-step form; applying it only there was the same one-layer-away
+        # miss as the path filter and the recursion (Codex, PR #959).
+        declared, value = _env_value(step, "UV_FROZEN")
+        if declared:
+            refused.append(
+                RefusedCommand(
+                    origin=f"{manifest.relative_to(root)} (via {step_name!r})",
+                    rendered=f"env: UV_FROZEN: {value!r}",
+                    headline="UV_FROZEN is set on a composite action's step",
+                    reason="a composite step's env overrides the calling job's for that "
+                    "step, so this pin neither matches nor is visible from the job that "
+                    "carries the invariant",
+                    fix="delete it; the calling job's `env:` is the one place this belongs",
+                )
+            )
         if step.get("run"):
             workdir = root / (step.get("working-directory") or ".")
             found.extend(
@@ -1564,6 +1725,157 @@ jobs:
     )
     assert len(problems) == 1
     assert "which uv reads as OFF" in problems[0]
+
+
+def test_the_bash_grammar_invents_no_phantom_commands() -> None:
+    """The four constructs a hand-written tokenizer mis-split, all real.
+
+    Each produced a phantom "command" — `/..`, `IGNORE_ARGS+=`, the loop
+    VARIABLE, the tail of a `[[ … ]]` test — and a verb whitelist judging
+    phantoms is unusable. Every line here is lifted from this repo's own
+    workflows or audit_dependencies.sh.
+    """
+    verbs = {
+        c.name
+        for c in _shell_commands(
+            'cd "$(dirname "$0")/.."\n'
+            'IGNORE_ARGS+=(--ignore-vuln "$id")\n'
+            "for r in $a $b; do echo $r; done\n"
+            "[[ $r == success || $r == cancelled ]] && echo ok\n"
+        )
+        if c.kind == "command"
+    }
+    assert verbs == {"cd", "dirname", "echo"}, verbs
+
+
+def test_actions_expressions_are_not_parsed_as_bash() -> None:
+    """`${{ … }}` is interpolated by the runner before the shell sees it.
+
+    Left in, it is the only thing in any workflow the grammar cannot parse —
+    and an unparsable region is refused, so this would fail two real jobs.
+    """
+    commands = _shell_commands('x="${{ steps.a.outputs.b }}"\nuv sync --frozen\n')
+    assert not [c for c in commands if c.kind == "unparsed"]
+    assert [c.name for c in commands if c.kind == "command"] == ["uv"]
+
+
+def test_control_unparsable_shell_is_refused(tmp_path: Path) -> None:
+    """A region the grammar rejects may hold anything, including uv."""
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: "for ((\\n"
+""",
+    )
+    assert any("could not parse" in p for p in problems), problems
+
+
+def test_control_export_of_uv_frozen_is_refused(tmp_path: Path) -> None:
+    """`export UV_FROZEN=0` unpins every later command in the step.
+
+    `export` is a `declaration_command` in the grammar, never a `command`, so
+    the verb whitelist would never have seen it (Codex, PR #959).
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: |
+          export UV_FROZEN=0
+          uv sync --no-install-project
+""",
+    )
+    assert len(problems) == 1
+    assert "environment declaration" in problems[0]
+
+
+def test_control_writing_uv_frozen_to_github_env_is_refused(tmp_path: Path) -> None:
+    """The Actions-native override, which no bash parser would reveal.
+
+    `echo "UV_FROZEN=0" >> $GITHUB_ENV` is idiomatic GitHub Actions: the runner
+    exports it to every LATER step. The verb is `echo`, so only the redirection
+    TARGET gives it away.
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: echo "UV_FROZEN=0" >> $GITHUB_ENV
+      - run: uv sync --no-install-project
+""",
+    )
+    assert len(problems) == 1
+    assert "$GITHUB_ENV" in problems[0]
+
+
+def test_control_cd_before_a_script_refuses_rather_than_skips(tmp_path: Path) -> None:
+    """`cd app && bash scripts/a.sh` moved the ground under resolution.
+
+    The script did not resolve, so it was skipped and its unpinned `uv sync`
+    yielded no invocation at all — the job read as uv-free (Codex, PR #959).
+    A bare `cd` with no later resolution stays silent: audit_dependencies.sh
+    opens with one.
+    """
+    script = tmp_path / "app" / "scripts" / "a.sh"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("uv sync --no-install-project\n", encoding="utf-8")
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: cd app && bash scripts/a.sh
+""",
+    )
+    assert len(problems) == 1
+    assert "cannot follow" in problems[0]
+
+
+def test_control_composite_step_env_is_refused(tmp_path: Path) -> None:
+    """A composite step's `env:` overrides the CALLING job's.
+
+    audit_workflow() has always rejected the workflow-step form; applying it
+    only there was the same one-layer-away miss as the path filter and the
+    recursion (Codex, PR #959).
+    """
+    action = tmp_path / ".github" / "actions" / "report" / "action.yml"
+    action.parent.mkdir(parents=True, exist_ok=True)
+    action.write_text(
+        "runs:\n  using: composite\n  steps:\n    - run: uv sync\n      shell: bash\n"
+        '      env:\n        UV_FROZEN: "0"\n',
+        encoding="utf-8",
+    )
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - uses: ./.github/actions/report
+""",
+    )
+    assert any("composite action's step" in p for p in problems), problems
 
 
 def test_control_uv_version_is_lock_touching(tmp_path: Path) -> None:
