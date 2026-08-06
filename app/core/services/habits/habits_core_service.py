@@ -470,12 +470,15 @@ class HabitsCoreService(
         would pick up the caller's habit. (Reported by Codex on #965; the sibling of the
         HAS_SUBGOAL check in ``GoalsCoreService._write_hierarchy_edge``.)
 
-        The rule is expressed against the DATA, not a list of entity types: a target
-        that carries a ``user_uid`` must carry this habit's, and a target with none is
-        shared content (Ku, PathStep, LearningPath — ``user_uid`` lives on
-        ``UserOwnedEntity``) and is allowed. Hand-listing which of the four target kinds
-        are user-owned would be a table that rots the moment a type changes tier;
-        ``linked_knowledge_uids`` legitimately points at shared Kus and must keep working.
+        The rule is expressed against the DATA, not a list of entity types: an OWNED
+        target must count this habit's user among its owners, and a target owned by
+        nobody is shared content (Ku, PathStep, LearningPath) and is allowed. Ownership
+        is resolved from all three spellings the graph uses — ``user_uid``,
+        ``owner_uid`` and the ``OWNS`` edge — because reading only the first treats
+        another user's PERSONAL Exercise as shared (``Exercise`` is ``Curriculum``, not
+        ``UserOwnedEntity``). Hand-listing which target kinds are user-owned would be a
+        table that rots the moment a type changes tier; ``linked_knowledge_uids``
+        legitimately points at shared Kus and must keep working.
 
         Fail-closed on the edge only: the habit itself is the caller's own and is kept.
         A lookup failure drops the batch rather than writing it unchecked.
@@ -495,7 +498,7 @@ class HabitsCoreService(
         kept = [
             relationship
             for relationship in relationships
-            if owners.get(relationship[1], habit.user_uid) == habit.user_uid
+            if habit.user_uid in owners.get(relationship[1], [habit.user_uid])
         ]
 
         refused = len(relationships) - len(kept)

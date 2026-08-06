@@ -14,15 +14,28 @@ Goals  ``parent_goal_uid`` set the ``Goal.fulfills_goal_uid`` node property and
        the create form had just given a parent. The reader is exercised here
        directly, not simulated with a hand-written MATCH.
 
+       Goals' own three link lists (required knowledge / guiding principles /
+       supporting habits) were dropped the same way.
+
 Habits The four link lists (knowledge / principles / goals / prerequisite habits)
        were dropped entirely. All four name relationships HABITS_CONFIG declares
        and live code reads.
 
-Direction matters and is asserted: all four Habit specs are declared ``outgoing``
+Direction matters and is asserted. All four Habit specs are declared ``outgoing``
 from the habit, and the goal hierarchy is ``(parent)-[:HAS_SUBGOAL]->(child)``
-with the inverse ``SUBGOAL_OF`` written alongside. An edge written backwards
-persists perfectly and reads back empty — which is the failure mode a
+with the inverse ``SUBGOAL_OF`` written alongside — but Goals' ``supporting_habits``
+is declared INCOMING, so the habit is the source there. An edge written backwards
+persists perfectly and reads back empty, which is the failure mode a
 direction-blind assertion would miss.
+
+Ownership is asserted here rather than only in the unit suite because the rule is
+about DATA the stub cannot model. Every link endpoint is request input, so a
+cross-user UID must be refused — and ownership is spelled three ways
+(``user_uid`` on UserOwnedEntity, ``owner_uid`` on Exercise and Group, and the
+``OWNS`` edge). Reading one spelling makes another user's PERSONAL exercise look
+like shared content. The counterpart control matters just as much: a Ku carries
+none of the three and MUST stay linkable, so "owned by nobody" has to mean
+allowed, not refused.
 """
 
 import pytest
@@ -268,6 +281,71 @@ class TestGoalHierarchyEdgeRoundTrip:
         assert [r["target_uid"] for r in incoming.value] == ["habit_goal_link_abc"], (
             "supporting_habit_uids did not produce (habit)-[:SUPPORTS_GOAL]->(goal) — "
             f"an outgoing edge here would be invisible to every tier read: {incoming.value}"
+        )
+
+    @pytest.mark.parametrize(
+        ("uid", "ownership_clause", "owns_edge"),
+        [
+            pytest.param(
+                "exercise_owner_prop",
+                "e.owner_uid = 'user_test_victim'",
+                False,
+                id="owner_uid-property",
+            ),
+            pytest.param(
+                "exercise_owns_edge", "e.title = 'Private drill'", True, id="OWNS-edge-only"
+            ),
+        ],
+    )
+    async def test_another_users_exercise_is_not_mistaken_for_shared(
+        self, goals_service, neo4j_driver, test_user_uid, uid, ownership_clause, owns_edge
+    ) -> None:
+        """Ownership is spelled three ways; reading only ``user_uid`` leaks the other two.
+
+        ``Exercise`` is ``Curriculum``, NOT ``UserOwnedEntity`` — a PERSONAL exercise
+        carries ``owner_uid`` (and an ``OWNS`` edge), no ``user_uid``. A guard that
+        treats "no user_uid" as "shared content" therefore links another user's private
+        exercise, and REQUIRES_KNOWLEDGE accepts any ``:Entity`` target, so the goal
+        context query would hand back its uid and title. (Codex, #965.)
+
+        Both spellings are exercised because either alone would let the other through.
+        """
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MERGE (u:User {uid: 'user_test_victim'}) ON CREATE SET u.created_at = datetime()"
+            )
+            await session.run(
+                f"MERGE (e:Entity:Exercise {{uid: $uid}}) "
+                f"ON CREATE SET e.entity_type = 'exercise', e.title = 'Private drill', "
+                f"{ownership_clause}",
+                uid=uid,
+            )
+            if owns_edge:
+                await session.run(
+                    "MATCH (u:User {uid: 'user_test_victim'}), (e {uid: $uid}) "
+                    "MERGE (u)-[:OWNS]->(e)",
+                    uid=uid,
+                )
+
+        goal = await goals_service.create_goal(
+            goal_request(title="Goal citing a private exercise", required_knowledge_uids=[uid]),
+            test_user_uid,
+        )
+        assert goal.is_ok, "the caller's own goal is legitimate and is created"
+
+        async with neo4j_driver.session() as session:
+            row = await (
+                await session.run(
+                    "MATCH (g {uid: $goal})-[r:REQUIRES_KNOWLEDGE]->(e {uid: $target}) "
+                    "RETURN count(r) AS n",
+                    goal=goal.value.uid,
+                    target=uid,
+                )
+            ).single()
+
+        assert row["n"] == 0, (
+            "another user's private exercise was linked — its ownership is not spelled "
+            "user_uid, so an absent entry was read as 'shared content'"
         )
 
     async def test_parentless_goal_gets_no_hierarchy_edge(

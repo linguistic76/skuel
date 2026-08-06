@@ -408,30 +408,51 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         return Result.ok({record["uid"]: record["labels"] for record in records})
 
     @safe_backend_operation("get_owner_uids_batch")
-    async def get_owner_uids_batch(self, uids: builtins.list[str]) -> Result[dict[str, str]]:
-        """Owner of each node, for many nodes in ONE query (uid -> user_uid).
+    async def get_owner_uids_batch(
+        self, uids: builtins.list[str]
+    ) -> Result[dict[str, builtins.list[str]]]:
+        """Owners of each node, for many nodes in ONE query (uid -> owning user UIDs).
 
-        For callers that turn user-supplied UIDs into edges: the target of an edge is
+        For callers that turn user-supplied UIDs into edges: the other end of an edge is
         request input, so a create path that trusts it will happily link one user's
         entity to another's.
 
-        Only USER-OWNED nodes appear in the map. ``user_uid`` lives on
-        ``UserOwnedEntity``, so shared content (Ku, PathStep, LearningPath) has none and
-        is simply absent — the same convention ``_get_node_labels_batch`` uses for
-        missing nodes. That absence is meaningful, not a gap: it lets a caller express
-        "must match if owned, allowed if shared" without hand-listing which entity types
-        are user-owned, which is a list that would silently rot as types are added.
+        Ownership is spelled THREE ways in this graph, and reading only one of them is
+        how a check like that leaks:
+
+        - ``n.user_uid`` — ``UserOwnedEntity`` (the 6 activity domains, UserEntry, ...)
+        - ``n.owner_uid`` — ``Exercise`` and ``Group``, which are NOT UserOwnedEntity;
+          a PERSONAL exercise read through ``user_uid`` alone looks unowned
+        - ``(:User)-[:OWNS]->(n)`` — the canonical edge, written for exercises, revised
+          exercises, form submissions, feedback and groups
+
+        Only nodes with at least one of the three appear in the map. Genuinely shared
+        content — Ku, PathStep, LearningPath — has no ownership property and is reached
+        by no OWNS edge, so it is simply absent, the same convention
+        ``_get_node_labels_batch`` uses for missing nodes. That absence is meaningful,
+        not a gap: it lets a caller express "must match if owned, allowed if shared"
+        without hand-listing which entity types are user-owned — a list that would
+        silently rot as types are added, which is exactly how the ``owner_uid`` family
+        was missed the first time.
+
+        A list rather than one value because ownership is asked as a MEMBERSHIP question:
+        the caller must be among the owners, not equal to whichever spelling was read
+        first.
         """
         # NOT :Content — same G13 shadow-uid guard as _get_node_labels_batch.
         query = """
         UNWIND $uids AS uid
-        MATCH (n {uid: uid}) WHERE NOT n:Content AND n.user_uid IS NOT NULL
-        RETURN uid, n.user_uid AS user_uid
+        MATCH (n {uid: uid}) WHERE NOT n:Content
+        OPTIONAL MATCH (owner:User)-[:OWNS]->(n)
+        WITH uid, n, collect(DISTINCT owner.uid) AS owns_uids
+        WITH uid, [o IN owns_uids + [n.user_uid, n.owner_uid] WHERE o IS NOT NULL] AS owners
+        WHERE size(owners) > 0
+        RETURN uid, owners
         """
 
         records = await self._run_records(query, {"uids": uids})
 
-        return Result.ok({record["uid"]: record["user_uid"] for record in records})
+        return Result.ok({record["uid"]: list(record["owners"]) for record in records})
 
     @safe_backend_operation("create_relationship")
     async def create_relationship(

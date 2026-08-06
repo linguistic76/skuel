@@ -481,9 +481,12 @@ class GoalsCoreService(
         incoming, so for that list the request-supplied UID is the edge's SOURCE. Checking
         only ``relationship[1]`` here would leave the habit list unguarded.
 
-        Same data-driven rule: an endpoint carrying a ``user_uid`` must carry this goal's;
-        one with none is shared content (Ku and friends) and is allowed. Fail-closed — a
-        lookup failure drops the batch rather than writing it unchecked.
+        Same data-driven rule: an OWNED endpoint must count this goal's user among its
+        owners; one owned by nobody is shared content (Ku and friends) and is allowed.
+        Ownership is resolved from ``user_uid``, ``owner_uid`` AND the ``OWNS`` edge —
+        reading only the first would treat another user's PERSONAL Exercise as shared,
+        and ``REQUIRES_KNOWLEDGE`` accepts any ``:Entity`` target. Fail-closed — a lookup
+        failure drops the batch rather than writing it unchecked.
         """
         other_ends = {
             source_uid if source_uid != goal.uid else target_uid
@@ -504,7 +507,7 @@ class GoalsCoreService(
         def _is_own(relationship: tuple[str, str, str, Neo4jProperties | None]) -> bool:
             source_uid, target_uid = relationship[0], relationship[1]
             other = source_uid if source_uid != goal.uid else target_uid
-            return owners.get(other, goal.user_uid) == goal.user_uid
+            return goal.user_uid in owners.get(other, [goal.user_uid])
 
         kept = [relationship for relationship in relationships if _is_own(relationship)]
 

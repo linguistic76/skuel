@@ -175,15 +175,16 @@ class StubBackend:
         self.trace.append("edges_written")
         return Result.ok(len(list(relationships)))
 
-    async def get_owner_uids_batch(self, uids: Any) -> Result[dict[str, str]]:
-        """uid -> owner, mirroring the real query's contract.
+    async def get_owner_uids_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        """uid -> owning user UIDs, mirroring the real query's contract.
 
-        Habits check link targets through this before batching. Same-user is the
-        DEFAULT so the edge tests exercise the writing path; tests populate ``owners``
-        to stage a cross-user target and ``shared`` to stage unowned content.
+        Create paths check link endpoints through this before batching. Same-user is
+        the DEFAULT so the edge tests exercise the writing path; tests populate
+        ``owners`` to stage another user's entity and ``shared`` to stage content that
+        no ownership property or OWNS edge reaches.
         """
         return Result.ok(
-            {uid: self.owners.get(uid, USER_UID) for uid in uids if uid not in self.shared}
+            {uid: [self.owners.get(uid, USER_UID)] for uid in uids if uid not in self.shared}
         )
 
     async def create_hierarchy_relationship(
@@ -972,7 +973,7 @@ class TestHabitLinkEdgesCheckOwnership:
     ) -> None:
         """Fail CLOSED: an unreadable owner map must not fall through to an unchecked write."""
 
-        async def _fail(*_args: Any, **_kwargs: Any) -> Result[dict[str, str]]:
+        async def _fail(*_args: Any, **_kwargs: Any) -> Result[dict[str, list[str]]]:
             return Result.fail("owner lookup unavailable")
 
         habit_backend.get_owner_uids_batch = _fail  # type: ignore[method-assign]
