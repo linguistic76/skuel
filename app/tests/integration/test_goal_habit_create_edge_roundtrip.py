@@ -485,6 +485,54 @@ class TestHabitLinkEdgeRoundTrip:
             "through, or it breaks the most common habit link"
         )
 
+    async def test_a_non_habit_prerequisite_is_rejected(
+        self, habits_service, neo4j_driver, test_user_uid
+    ) -> None:
+        """``prerequisite_habit_uids`` must hold Habits — a Task UID writes nothing.
+
+        Every reader restricts REQUIRES_PREREQUISITE_HABIT targets to ``:Habit``, so a
+        same-user Task UID used to pass batch validation (the registry said the generic
+        ``Entity``) and write an edge nothing could ever use. Enforced by narrowing the
+        registry spec, so the EXISTING validator catches it rather than a second
+        hand-written check on this one path. (Codex, #965.)
+
+        Asserted at the graph, not on the return value: the batch is all-or-nothing and
+        its failure is logged rather than propagated, so a passing ``create_habit`` says
+        nothing about what was written.
+        """
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MERGE (t:Entity:Task {uid: 'task_not_a_habit'}) "
+                "ON CREATE SET t.entity_type = 'task', t.title = 'Not a habit', "
+                "t.user_uid = $user",
+                user=test_user_uid,
+            )
+
+        result = await habits_service.create_habit(
+            HabitCreateRequest(
+                title="Habit with a bogus prerequisite",
+                recurrence_pattern=RecurrencePattern.DAILY,
+                target_days_per_week=7,
+                prerequisite_habit_uids=["task_not_a_habit"],
+            ),
+            test_user_uid,
+        )
+        assert result.is_ok, "the habit itself is legitimate and is created"
+
+        async with neo4j_driver.session() as session:
+            row = await (
+                await session.run(
+                    "MATCH (h {uid: $uid})-[r:REQUIRES_PREREQUISITE_HABIT]->() "
+                    "RETURN count(r) AS n",
+                    uid=result.value.uid,
+                )
+            ).single()
+
+        assert row["n"] == 0, (
+            "a REQUIRES_PREREQUISITE_HABIT edge was written to a non-Habit target — "
+            "every reader filters on :Habit, so the edge is silently unusable"
+        )
+
     async def test_linkless_habit_creates_no_edges(
         self, habits_service, neo4j_driver, test_user_uid
     ) -> None:
