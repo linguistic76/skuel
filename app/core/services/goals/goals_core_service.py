@@ -19,8 +19,9 @@ Responsibilities:
 
 import dataclasses
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ from core.events.goal_events import (
 )
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
@@ -45,10 +47,22 @@ from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
+from core.services.mixins.link_edge_guard import (
+    KNOWLEDGE_LABELS,
+    LinkEdge,
+    keep_permitted_link_edges,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
+
+# Weight the entity door stamps on HAS_SUBGOAL. The generated CRUD route converts the
+# request to a Goal before calling create(), and progress_weight is an EDGE property that
+# no Goal field carries — so the route door cannot forward what the client sent. Pinned to
+# GoalCreateRequest.progress_weight's own default so the two doors agree on every request
+# that leaves it unset; test_goal_habit_create_edges.py asserts that agreement.
+DEFAULT_PROGRESS_WEIGHT: Final = 1.0
 
 
 class GoalsCoreService(
@@ -268,11 +282,16 @@ class GoalsCoreService(
     # ========================================================================
 
     async def create(self, entity: Goal) -> Result[Goal]:
-        """Validate, persist, then announce — THE create primitive for Goals.
+        """Validate, persist, link, then announce — THE create primitive for Goals.
 
         Both doors land here: the generated CRUD route (via ``GoalsService.create``) and
         ``create_goal``. ``super().create`` runs ``_validate_create`` (timeline
         consistency), so the rule cannot be reached by one door and missed by the other.
+
+        The hierarchy edge is written here rather than in ``create_goal`` for the same
+        reason: ``Goal.fulfills_goal_uid`` is carried by the ENTITY, so both doors can
+        write it, and putting the write on the request door alone would have re-opened
+        the door-parity gap #963 closed.
 
         Args:
             entity: Goal to create
@@ -286,11 +305,209 @@ class GoalsCoreService(
               rather than in ``create_goal`` so route-created goals are embedded too —
               they previously were not.
         """
-        result: Result[Goal] = await super().create(entity)
+        return await self._create_with_hierarchy(entity, progress_weight=DEFAULT_PROGRESS_WEIGHT)
+
+    async def _create_with_hierarchy(
+        self,
+        entity: Goal,
+        *,
+        progress_weight: float,
+        request: "GoalCreateRequest | None" = None,
+    ) -> Result[Goal]:
+        """The one create path: validate + persist, write the edges, then announce.
+
+        ``progress_weight`` is a property of the HAS_SUBGOAL EDGE, not of ``Goal``, so it
+        cannot ride on the entity — only the request door can supply a non-default. It is
+        a parameter here rather than a second create path so that the edge has exactly one
+        write site. ``request`` is likewise present only for the request door: the three
+        link lists are edge-typed and reach no ``Goal`` field, so the entity door has
+        nothing to pass (``None``, and no link edges written).
+        """
+        result: Result[Goal] = await self._create_validated(entity)
         if result.is_error:
             return result
 
         goal: Goal = result.value  # Type hint to help MyPy
+        await self._write_hierarchy_edge(goal, progress_weight)
+        if request is not None:
+            await self._write_link_edges(goal, request)
+        await self._publish_created(goal)
+        return result
+
+    async def _create_validated(self, entity: Goal) -> Result[Goal]:
+        """Validate and persist, publishing NOTHING.
+
+        Split out from ``create`` so the hierarchy edge below is written before any event
+        announces the goal exists — see ``_publish_created`` for why that ordering is
+        load-bearing. Mirrors ``ChoicesCoreService._create_validated``.
+        """
+        return await super().create(entity)
+
+    async def _write_hierarchy_edge(self, goal: Goal, progress_weight: float) -> None:
+        """Write (parent)-[:HAS_SUBGOAL {progress_weight}]->(goal) when the goal has a parent.
+
+        ``Goal.fulfills_goal_uid`` (the request's ``parent_goal_uid``) is a node PROPERTY,
+        and every hierarchy READER goes to the edge instead: ``GET /api/goals/children`` /
+        ``/parent`` / ``/hierarchy`` traverse HAS_SUBGOAL via ``get_children_raw``, the
+        user-context MEGA-QUERY collects ``sub_goals`` from it, and the GOAPS registry
+        resolves ``parent_goal`` / ``sub_goals`` from SUBGOAL_OF. Setting the property
+        alone — all creation did until now — left every one of those reads empty for a
+        goal the create form's own Hierarchy section had just given a parent.
+
+        OWNERSHIP: the parent must belong to the same user. ``parent_goal_uid`` is
+        attacker-controlled request input, and the hierarchy backend matches on UID and
+        label alone — so without this check a caller could point a new goal at ANOTHER
+        user's goal and have the edge written. The victim's context rebuild starts from
+        the goals they OWN and traverses ``HAS_SUBGOAL`` without filtering the child's
+        owner, so the attacker's goal would surface in the victim's cached context. The
+        one pre-existing door onto this same write, ``POST /api/goals/add-child``, already
+        verifies BOTH endpoints (``_register_add_child_route``); creation must not be a way
+        around that. (Reported by Codex on #965.)
+
+        A failure is logged, not propagated: the goal itself is legitimate and is created
+        either way — only the edge is refused. Tasks' equivalent call makes the same
+        choice for its own failures.
+        """
+        if not goal.fulfills_goal_uid:
+            return
+
+        parent_result = await self.get(goal.fulfills_goal_uid)
+        if parent_result.is_error:
+            self.logger.warning(
+                "Skipping subgoal edge for %s: parent %s not found",
+                goal.uid,
+                goal.fulfills_goal_uid,
+            )
+            return
+        if parent_result.value.user_uid != goal.user_uid:
+            self.logger.warning(
+                "Refusing cross-user subgoal edge: goal %s (user %s) named parent %s "
+                "owned by a different user",
+                goal.uid,
+                goal.user_uid,
+                goal.fulfills_goal_uid,
+            )
+            return
+
+        edge_result = await self.create_subgoal_relationship(
+            parent_uid=goal.fulfills_goal_uid,
+            subgoal_uid=goal.uid,
+            progress_weight=progress_weight,
+        )
+        if edge_result.is_error:
+            self.logger.warning(
+                "Failed to create subgoal relationship %s -> %s: %s",
+                goal.fulfills_goal_uid,
+                goal.uid,
+                edge_result.error,
+            )
+
+    async def _write_link_edges(self, goal: Goal, request: "GoalCreateRequest") -> None:
+        """GRAPH-NATIVE: turn the request's three link lists into edges, in one batch.
+
+        Each names a registered, READ relationship that nothing was writing at creation
+        (GOAPS_CONFIG in core/models/relationship_registry.py):
+
+        - ``required_knowledge_uids``  → REQUIRES_KNOWLEDGE, OUTGOING (``knowledge`` key)
+        - ``guiding_principle_uids``   → GUIDED_BY_PRINCIPLE, OUTGOING (``principles``)
+        - ``supporting_habit_uids``    → SUPPORTS_GOAL, **INCOMING** (``supporting_habits``)
+
+        DIRECTION is not uniform here, unlike Habits' four: ``SUPPORTS_GOAL`` is declared
+        incoming, so the HABIT is the source and the goal the target. Writing it the
+        other way round persists an edge that every reader misses.
+
+        Readers: the user-context MEGA-QUERY collects ``required_knowledge`` from
+        ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOAPS habit tiers
+        (``contributing_habits`` and the essentiality-filtered buckets) resolve from
+        SUPPORTS_GOAL. Properties are the defaults of the existing single-link writers —
+        ``link_goal_to_knowledge`` / ``link_goal_to_principle`` / ``link_goal_to_habit`` —
+        so a goal linked at creation is indistinguishable from one linked afterwards.
+        ``essentiality`` is load-bearing for the tier reads (see the Habits sibling).
+
+        ADMISSION: every request-supplied UID is checked for OWNER and for KIND before it
+        becomes an edge — see ``keep_permitted_link_edges``. Note each ``other_uid``
+        below: for ``supporting_habit_uids`` the supplied UID is the edge's SOURCE, so
+        reading the target position would check this goal against itself and leave that
+        list unguarded. The declared labels come from the field names;
+        ``required_knowledge_uids`` means Kus (KNOWLEDGE_LABELS). (Codex, #965.)
+        """
+        candidates: list[LinkEdge] = []
+
+        candidates.extend(
+            LinkEdge(
+                (
+                    goal.uid,
+                    knowledge_uid,
+                    RelationshipName.REQUIRES_KNOWLEDGE.value,
+                    {"proficiency_required": "intermediate", "priority": 1},
+                ),
+                other_uid=knowledge_uid,
+                allowed_labels=KNOWLEDGE_LABELS,
+            )
+            for knowledge_uid in request.required_knowledge_uids
+        )
+        candidates.extend(
+            LinkEdge(
+                (
+                    goal.uid,
+                    principle_uid,
+                    RelationshipName.GUIDED_BY_PRINCIPLE.value,
+                    {"alignment_strength": 1.0},
+                ),
+                other_uid=principle_uid,
+                allowed_labels=frozenset({NeoLabel.PRINCIPLE.value}),
+            )
+            for principle_uid in request.guiding_principle_uids
+        )
+        # INCOMING: (habit)-[:SUPPORTS_GOAL]->(goal) — habit first, per GOAPS_CONFIG.
+        # The habit is therefore the edge's SOURCE and the checked endpoint.
+        candidates.extend(
+            LinkEdge(
+                (
+                    habit_uid,
+                    goal.uid,
+                    RelationshipName.SUPPORTS_GOAL.value,
+                    {"weight": 1.0, "essentiality": "supporting"},
+                ),
+                other_uid=habit_uid,
+                allowed_labels=frozenset({NeoLabel.HABIT.value}),
+            )
+            for habit_uid in request.supporting_habit_uids
+        )
+
+        if not candidates:
+            return
+
+        relationships = await keep_permitted_link_edges(
+            self.backend,
+            candidates=candidates,
+            subject_uid=goal.uid,
+            owner_uid=goal.user_uid,
+            logger=self.logger,
+        )
+        if not relationships:
+            return
+
+        batch_result = await self.backend.create_relationships_batch(relationships)
+        if batch_result.is_error:
+            self.logger.warning(
+                "Failed to create %d link relationships for goal %s: %s",
+                len(relationships),
+                goal.uid,
+                batch_result.error,
+            )
+
+    async def _publish_created(self, goal: Goal) -> None:
+        """Announce a newly created goal: GoalCreated + the ADR-074 embedding refresh.
+
+        ORDERING: call this only once the goal's hierarchy edge is written. ``GoalCreated``
+        is subscribed to ``invalidate_context`` (services_bootstrap/_event_wiring.py),
+        which debounces and then rebuilds the user context — and the rebuild collects
+        ``sub_goals`` by traversing ``(goal)-[:HAS_SUBGOAL]->(subgoal)``. Publishing before
+        the edge is written lets the rebuild observe the parent with one subgoal missing
+        and cache that for the full 300s TTL, with no later event to correct it.
+        (Same inversion Codex reported on #960 for Choices.)
+        """
         event = GoalCreated(
             goal_uid=goal.uid,
             user_uid=goal.user_uid,
@@ -304,8 +521,6 @@ class GoalsCoreService(
 
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
-
-        return result
 
     async def create_goal(
         self, goal_request: "GoalCreateRequest", user_uid: UserUID
@@ -326,11 +541,11 @@ class GoalsCoreService(
         ``strategies``, ``success_criteria``, ``tags``, ``unit_of_measurement`` and
         ``why_important`` — so the two doors persisted different goals from one request.
 
-        Still not carried by EITHER door, because they are not ``Goal`` properties:
         ``progress_weight`` and the three edge-typed uid lists (``required_knowledge_uids``,
-        ``supporting_habit_uids``, ``guiding_principle_uids``). ``progress_weight`` belongs
-        on the HAS_SUBGOAL edge — see ``create_subgoal_relationship``, which Tasks' create
-        path calls and this one does not yet.
+        ``guiding_principle_uids``, ``supporting_habit_uids``) are forwarded here because
+        only this door still has the request: all four are EDGE-shaped, so none reaches the
+        entity the route door builds. The HAS_SUBGOAL edge itself, whose parent DOES ride on
+        the entity, is written by the shared path for both doors.
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "goal creation")
@@ -348,7 +563,9 @@ class GoalsCoreService(
             user_uid=user_uid,
             status=EntityStatus.ACTIVE,
         )
-        return await self.create(goal)
+        return await self._create_with_hierarchy(
+            goal, progress_weight=goal_request.progress_weight, request=goal_request
+        )
 
     @with_error_handling("update_goal", error_type="database", uid_param="uid")
     async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:

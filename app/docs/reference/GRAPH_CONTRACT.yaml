@@ -343,7 +343,7 @@ relationships:
       - config: Habit
         roles: [prerequisite]
         definitions:
-          - {direction: outgoing, target: Entity, context_field: prerequisite_habits, method: prerequisite_habits, ingestion_field: connections.prerequisite_habits}
+          - {direction: outgoing, target: Habit, context_field: prerequisite_habits, method: prerequisite_habits, ingestion_field: connections.prerequisite_habits}
   ENABLES_HABIT:
     contract:
       - config: Habit
