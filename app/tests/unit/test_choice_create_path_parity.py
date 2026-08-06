@@ -90,13 +90,18 @@ class StubChoicesBackend:
 
     def __init__(self) -> None:
         self.created: list[dict[str, Any]] = []
+        # Ordered trace of side effects, so tests can assert *sequence*, not just
+        # occurrence — the knowledge-edge/event ordering below is load-bearing.
+        self.trace: list[str] = []
 
     async def create(self, entity: Any) -> Result[Choice]:
         props = to_neo4j_node(entity)
         self.created.append(dict(props))
+        self.trace.append("node_created")
         return Result.ok(from_neo4j_node(props, Choice))
 
     async def create_relationships_batch(self, relationships: Any) -> Result[bool]:
+        self.trace.append("knowledge_edges_written")
         return Result.ok(True)
 
     def __getattr__(self, name: str):
@@ -494,6 +499,57 @@ class TestDoorsAgree:
         assert door_a.is_error is should_fail, (
             f"expected is_error={should_fail}, got {door_a.is_error} "
             f"({door_a.error if door_a.is_error else 'accepted'})"
+        )
+
+
+@pytest.mark.asyncio
+class TestKnowledgeEdgesPrecedeTheEvent:
+    """`ChoiceCreated` must not fire until the choice's graph edges are written.
+
+    `ChoiceCreated` is subscribed to `invalidate_context`, which debounces 100ms and
+    then rebuilds the user context — and the rebuild reads `choice_knowledge_informed`
+    back out of the graph. Announcing the choice before `create_relationships_batch`
+    completes lets the rebuild observe zero INFORMED_BY_KNOWLEDGE edges and cache that
+    for the full 300s TTL; the later KnowledgeInformedChoice events reach only substance
+    handlers and never invalidate the context, so nothing corrects it.
+
+    Regression guard for the ordering inversion Codex caught on #960.
+    """
+
+    async def test_edges_are_written_before_choice_created(
+        self, core: ChoicesCoreService, backend: StubChoicesBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        published: list[str] = []
+
+        def _record(event: ChoiceCreated) -> None:
+            published.append("choice_created")
+            backend.trace.append("choice_created_published")
+
+        event_bus.subscribe(ChoiceCreated, _record)
+
+        result = await core.create_choice(
+            make_request(informed_by_knowledge_uids=["ku_a", "ku_b"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_choice failed: {result.error}"
+        assert published, "ChoiceCreated was never published"
+        assert backend.trace.index("knowledge_edges_written") < backend.trace.index(
+            "choice_created_published"
+        ), (
+            "ChoiceCreated fired BEFORE the knowledge edges were written — a context "
+            f"rebuild would cache a choice with no edges. Order was: {backend.trace}"
+        )
+
+    async def test_route_door_still_publishes_without_edges(
+        self, facade: ChoicesService, event_bus: InMemoryEventBus
+    ) -> None:
+        """Positive control: deferring the publish must not lose it on the door that
+        writes no knowledge edges at all."""
+        result = await facade.create(make_choice())
+
+        assert result.is_ok, f"create failed: {result.error}"
+        assert [e for e in event_bus.get_event_history() if isinstance(e, ChoiceCreated)], (
+            "the route door stopped publishing ChoiceCreated"
         )
 
 

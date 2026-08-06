@@ -239,12 +239,35 @@ class ChoicesCoreService(
             - ChoiceCreated: when the choice is successfully created
             - EmbeddingRequested (ADR-074): post-persist embedding refresh
         """
-        result = await super().create(entity)
+        result = await self._create_validated(entity)
         if result.is_error:
             return result
 
-        choice = result.value
+        await self._publish_created(result.value)
+        return result
 
+    async def _create_validated(self, entity: Choice) -> Result[Choice]:
+        """Validate and persist, publishing NOTHING.
+
+        Split out from ``create`` so ``create_choice`` can finish writing the
+        choice's graph edges before any event announces the choice exists — see
+        ``_publish_created`` for why that ordering is load-bearing.
+        """
+        return await super().create(entity)
+
+    async def _publish_created(self, choice: Choice) -> None:
+        """Announce a newly created choice: ChoiceCreated + the ADR-074 embedding refresh.
+
+        ORDERING: call this only once the choice's graph edges are written.
+        ``ChoiceCreated`` is subscribed to ``invalidate_context``
+        (services_bootstrap/_event_wiring.py), which debounces 100ms and then rebuilds
+        the user context — and the rebuild reads ``choice_knowledge_informed`` back out
+        of the graph. Publishing before ``create_relationships_batch`` finishes lets the
+        rebuild observe a choice with no INFORMED_BY_KNOWLEDGE edges and cache that empty
+        result for the full 300s TTL. The later KnowledgeInformedChoice events are wired
+        only to substance handlers and do NOT invalidate the context, so nothing corrects
+        it. (Reported by Codex on #960.)
+        """
         event = ChoiceCreated(
             choice_uid=choice.uid,
             user_uid=choice.user_uid,
@@ -260,8 +283,6 @@ class ChoicesCoreService(
 
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.CHOICE, choice, self.logger)
-
-        return result
 
     async def create_choice(
         self, choice_request: ChoiceCreateRequest, user_uid: UserUID
@@ -289,9 +310,10 @@ class ChoicesCoreService(
         uid = UIDGenerator.generate_uid("choice", choice_request.title)
         entity = ConversionServiceV2.choice_create_to_pure(choice_request, uid, user_uid=user_uid)
 
-        # Validated, event-firing create (see `create` above) — NOT _create_and_convert,
-        # which bypasses _validate_create entirely.
-        create_result = await self.create(entity)
+        # Validate + persist, but hold the events back until the knowledge edges below
+        # are written (see _publish_created). NOT _create_and_convert, which bypasses
+        # _validate_create entirely.
+        create_result = await self._create_validated(entity)
         if create_result.is_error:
             return create_result
 
@@ -312,9 +334,11 @@ class ChoicesCoreService(
                     f"for choice {choice.uid}: {batch_result.error}"
                 )
 
-        # ChoiceCreated and the ADR-074 embedding refresh are published by `create`
-        # above — the one place both doors pass through. Re-publishing here would
-        # double-fire them for this door.
+        # Edges are written — only now announce the choice. ChoiceCreated drives the
+        # user-context rebuild, which reads those edges back out of the graph.
+        # Edges are written — only now announce the choice. ChoiceCreated drives the
+        # user-context rebuild, which reads those edges back out of the graph.
+        await self._publish_created(choice)
 
         # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
         if choice_request.informed_by_knowledge_uids:
