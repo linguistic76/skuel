@@ -28,12 +28,14 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
+from core.services.conversion_service import ConversionServiceV2
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
+from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.models.choice.choice_request import (
@@ -99,9 +101,17 @@ class ChoicesCoreService(
         Validate choice creation with business rules.
 
         Business Rules:
-        1. Choice must have at least 2 options to be meaningful
-        2. Binary choices must have exactly 2 options
+        1. Options are OPTIONAL at creation, but a supplied set must hold at least 2
+        2. Binary choices, once they carry options, must carry exactly 2
         3. Strategic choices require detailed description (50+ characters)
+
+        Options are optional at creation because that is how choices are really made:
+        the UI create form deliberately omits the nested options list (they are added
+        on the detail page via ``add_option``), and DSL activity ingestion creates
+        choices from a single line of prose with no options at all. Requiring 2 up
+        front would reject every choice those doors make. The ">= 2 options" floor is
+        an invariant of a choice that HAS options — enforced here on what was supplied,
+        and by ``remove_option`` / ``_validate_update`` from then on.
 
         Args:
             choice: Choice domain model being created
@@ -114,25 +124,27 @@ class ChoicesCoreService(
         if not isinstance(choice, Choice):
             return Result.ok(None)
 
-        # Business Rule 1: Minimum options
-        if not choice.options or len(choice.options) < 2:
-            return Result.fail(
-                Errors.validation(
-                    message="Choice must have at least 2 options to be meaningful",
-                    field="options",
-                    value=len(choice.options) if choice.options else 0,
+        # A draft with no options yet is legal — rules 1 and 2 govern a supplied set.
+        if choice.options:
+            # Business Rule 1: a single option is not a choice
+            if len(choice.options) < 2:
+                return Result.fail(
+                    Errors.validation(
+                        message="A choice with options must have at least 2 to be meaningful",
+                        field="options",
+                        value=len(choice.options),
+                    )
                 )
-            )
 
-        # Business Rule 2: Binary choice option count
-        if choice.choice_type == ChoiceType.BINARY and len(choice.options) != 2:
-            return Result.fail(
-                Errors.validation(
-                    message="Binary choices must have exactly 2 options",
-                    field="options",
-                    value=len(choice.options),
+            # Business Rule 2: Binary choice option count
+            if choice.choice_type == ChoiceType.BINARY and len(choice.options) != 2:
+                return Result.fail(
+                    Errors.validation(
+                        message="Binary choices must have exactly 2 options",
+                        field="options",
+                        value=len(choice.options),
+                    )
                 )
-            )
 
         # Business Rule 3: Strategic choices need detail
         if choice.choice_type == ChoiceType.STRATEGIC and (
@@ -198,6 +210,80 @@ class ChoicesCoreService(
 
         return Result.ok(None)  # All validations passed
 
+    async def create(self, entity: Choice) -> Result[Choice]:
+        """THE Choices create primitive: validate → persist → publish.
+
+        Both create doors land here, so the domain's creation rules cannot be
+        skipped by picking one door over the other:
+
+        - the generated CRUD route (``CRUDRouteFactory``) converts its schema to a
+          ``Choice`` and calls ``ChoicesService.create``, which delegates here;
+        - ``create_choice`` below converts its request to a ``Choice`` and calls this.
+
+        ``super().create`` is what runs ``_validate_create`` (a supplied option set
+        holds >= 2, BINARY carries exactly 2, STRATEGIC needs a 50+ char description)
+        — those rules are only ever reached through ``CrudOperationsMixin.create``.
+        Persisting via ``_create_and_convert`` instead, as ``create_choice`` used to,
+        goes straight to ``backend.create`` and silently skips every one of them.
+
+        Mirrors the same ``create`` override in the Goals, Habits and Events core
+        services.
+
+        Args:
+            entity: Choice to create
+
+        Returns:
+            Result containing created Choice
+
+        Events Published:
+            - ChoiceCreated: when the choice is successfully created
+            - EmbeddingRequested (ADR-074): post-persist embedding refresh
+        """
+        result = await self._create_validated(entity)
+        if result.is_error:
+            return result
+
+        await self._publish_created(result.value)
+        return result
+
+    async def _create_validated(self, entity: Choice) -> Result[Choice]:
+        """Validate and persist, publishing NOTHING.
+
+        Split out from ``create`` so ``create_choice`` can finish writing the
+        choice's graph edges before any event announces the choice exists — see
+        ``_publish_created`` for why that ordering is load-bearing.
+        """
+        return await super().create(entity)
+
+    async def _publish_created(self, choice: Choice) -> None:
+        """Announce a newly created choice: ChoiceCreated + the ADR-074 embedding refresh.
+
+        ORDERING: call this only once the choice's graph edges are written.
+        ``ChoiceCreated`` is subscribed to ``invalidate_context``
+        (services_bootstrap/_event_wiring.py), which debounces 100ms and then rebuilds
+        the user context — and the rebuild reads ``choice_knowledge_informed`` back out
+        of the graph. Publishing before ``create_relationships_batch`` finishes lets the
+        rebuild observe a choice with no INFORMED_BY_KNOWLEDGE edges and cache that empty
+        result for the full 300s TTL. The later KnowledgeInformedChoice events are wired
+        only to substance handlers and do NOT invalidate the context, so nothing corrects
+        it. (Reported by Codex on #960.)
+        """
+        event = ChoiceCreated(
+            choice_uid=choice.uid,
+            user_uid=choice.user_uid,
+            choice_description=choice.description or choice.title,
+            # Choice.domain is nullable (the model guards it the same way in
+            # `category`), and this primitive now runs for hand-built entities from
+            # the generated route too — not just for requests, whose domain always
+            # defaults. ChoiceCreated.domain is a non-optional str.
+            domain=choice.domain.value if choice.domain else "",
+            urgency=choice.priority or "medium",
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.CHOICE, choice, self.logger)
+
     async def create_choice(
         self, choice_request: ChoiceCreateRequest, user_uid: UserUID
     ) -> Result[Choice]:
@@ -216,22 +302,21 @@ class ChoicesCoreService(
         if validation.is_error:
             return Result.fail(validation)
 
-        # Create DTO from request using entity factory method
-        dto = ChoiceDTO.create_choice(
-            user_uid=user_uid,
-            title=choice_request.title,
-            description=choice_request.description,
-            priority=choice_request.priority,
-            domain=choice_request.domain,
-            decision_deadline=choice_request.decision_deadline,
-        )
+        # Build the entity with the SAME converter the generated CRUD route uses, so
+        # the two doors cannot drift on which request fields survive. Hand-listing
+        # them onto ChoiceDTO.create_choice is what dropped options, choice_type,
+        # decision_criteria, constraints, stakeholders and tags here: the factory
+        # takes **kwargs, so every omission was silent.
+        uid = UIDGenerator.generate_uid("choice", choice_request.title)
+        entity = ConversionServiceV2.choice_create_to_pure(choice_request, uid, user_uid=user_uid)
 
-        # Create choice in backend (use generic create, not domain-specific create_choice)
-        create_result = await self._create_and_convert(dto.to_dict(), ChoiceDTO, Choice)
+        # Validate + persist, but hold the events back until the knowledge edges below
+        # are written (see _publish_created). NOT _create_and_convert, which bypasses
+        # _validate_create entirely.
+        create_result = await self._create_validated(entity)
         if create_result.is_error:
             return create_result
 
-        # _create_and_convert returns domain model
         choice = create_result.value
 
         # GRAPH-NATIVE: Create (Choice)-[:INFORMED_BY_KNOWLEDGE]->(Ku) edges in a
@@ -249,15 +334,11 @@ class ChoicesCoreService(
                     f"for choice {choice.uid}: {batch_result.error}"
                 )
 
-        # Publish ChoiceCreated event (event-driven architecture)
-        event = ChoiceCreated(
-            choice_uid=choice.uid,
-            user_uid=choice.user_uid,
-            choice_description=choice.description or choice.title,
-            domain=choice.domain.value,
-            urgency=choice.priority or "medium",
-        )
-        await publish_event(self.event_bus, event, self.logger)
+        # Edges are written — only now announce the choice. ChoiceCreated drives the
+        # user-context rebuild, which reads those edges back out of the graph.
+        # Edges are written — only now announce the choice. ChoiceCreated drives the
+        # user-context rebuild, which reads those edges back out of the graph.
+        await self._publish_created(choice)
 
         # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
         if choice_request.informed_by_knowledge_uids:
@@ -284,9 +365,6 @@ class ChoicesCoreService(
                     choice_title=choice.title,
                 )
             await publish_event(self.event_bus, knowledge_event, self.logger)
-
-        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-        await publish_embedding_requested(self.event_bus, EntityType.CHOICE, choice, self.logger)
 
         return Result.ok(choice)
 

@@ -602,37 +602,17 @@ class BaseService(
     # ========================================================================
     # DOMAIN-SPECIFIC HOOKS (Optional)
     # ========================================================================
-
-    def _validate_create(self, entity: T) -> Result[None]:
-        """
-        Optional hook for domain-specific creation validation.
-
-        Override in subclasses to add entity-specific business rules.
-
-        Args:
-            entity: The entity being created
-
-        Returns:
-            Result.ok(None) if valid, Result.fail() if validation fails
-        """
-        return Result.ok(None)
-
-    def _validate_update(self, current: T, updates: U) -> Result[None]:
-        """
-        Optional hook for domain-specific update validation.
-
-        Override in subclasses to add entity-specific business rules. Receives the typed
-        update value ``U`` (a ``*UpdateIntent`` for Activity Domains, ``RawChanges``
-        otherwise); read ``updates.to_changes()`` to inspect the proposed fields.
-
-        Args:
-            current: The current entity state
-            updates: Typed update value being applied
-
-        Returns:
-            Result.ok(None) if valid, Result.fail() if validation fails
-        """
-        return Result.ok(None)
+    # _validate_create / _validate_update are declared ONCE, on CrudOperationsMixin
+    # (which this class inherits) — the same class that invokes them. BaseService
+    # used to re-declare both as identical no-ops, shadowing the mixin's; a domain
+    # reading either declaration had no way to tell which one `create()` would call.
+    # One hook, one owner, next to its caller.
+    #
+    # Overriding the hook only binds the class that declares the override. A facade
+    # that delegates to a sub-service (self.core) does NOT inherit that sub-service's
+    # override, so the hook stays a no-op on the facade — see ChoicesService.create,
+    # which routes the generated CRUD route into ChoicesCoreService.create for
+    # exactly this reason.
 
     def _validate_prerequisites(
         self,
