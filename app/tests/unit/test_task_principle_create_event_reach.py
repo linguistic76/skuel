@@ -47,20 +47,21 @@ things happened — "both happened" passes against the bug.
 
 Principles need no such split: ``create_principle`` writes no edges after persisting.
 
-WHAT IS DELIBERATELY NOT CLAIMED HERE
--------------------------------------
-Field-carriage parity between the two doors. Measured, they still disagree, for reasons
-that predate this change and live in ``ConversionServiceV2``, not in the create path:
+FIELD-CARRIAGE PARITY (was NOT claimed here; now closed)
+--------------------------------------------------------
+This suite originally recorded two measured divergences it did not fix, so the silence
+would not read as parity. Both are now closed:
 
-  - Tasks: the route converter sets ``Task.reinforces_habit_uid`` as a node PROPERTY
-    (the model documents it as derived-from-edge and never persisted) while writing no
-    REINFORCES_HABIT edge; ``create_task`` does the opposite.
-  - Principles: ``create_principle`` merges ``why_important`` into ``description``;
-    the route converter drops it.
+  - Tasks: the route converter set ``Task.reinforces_habit_uid`` as a node PROPERTY (the
+    model documents it as derived-from-edge) while writing no REINFORCES_HABIT edge, and
+    ``parent_uid`` was dropped by the mapper with no HAS_SUBTASK edge either. Both are now
+    written as edges by the shared create path — see ``test_task_create_edges.py``, which
+    also covers the admission guard those request-supplied UIDs needed.
+  - Principles: ``create_principle`` merged ``why_important`` into ``description`` while
+    the route converter dropped it. Fixed in ``principle_create_to_pure`` and asserted by
+    ``TestPrincipleDoorsPersistTheSameDescription`` at the bottom of this file.
 
-Asserting agreement would fail on both counts and would be asserting something this
-change does not fix. They are recorded here so the next reader does not mistake the
-silence for parity.
+What this file still owns is the EVENT half: which door announces what, and in what order.
 
 No Neo4j: the backend is stubbed, so what is under test is the service wiring — which
 is exactly where the defect lived.
@@ -82,10 +83,11 @@ from core.events.task_events import TaskCreated
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
-from core.models.principle.principle import Principle
+from core.models.principle.principle import Principle, split_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
+from core.services.conversion_service import ConversionServiceV2
 from core.services.principles.principles_core_service import PrinciplesCoreService
 from core.services.principles_service import PrinciplesService
 from core.services.tasks.tasks_core_service import TasksCoreService
@@ -136,6 +138,28 @@ class StubBackend:
     ) -> Result[bool]:
         self.trace.append("subtask_edge_written")
         return Result.ok(True)
+
+    # ------------------------------------------------------------------
+    # Added when the create path started writing its request-supplied UIDs
+    # through an admission guard. The ``__getattr__`` guard below correctly
+    # refused all three calls — a create path reaching an unmodelled backend
+    # method is exactly what this stub exists to catch. They are modelled to
+    # SUCCEED and permit everything, because this suite is about which events
+    # fire and in what order; what the guard REFUSES is asserted in
+    # ``test_task_create_edges.py``.
+    # ------------------------------------------------------------------
+
+    async def get(self, uid: str) -> Result[Any]:
+        """Resolve the hierarchy parent as an entity owned by the same user."""
+        return Result.ok(self._model(uid=uid, user_uid=USER_UID, title="Parent"))
+
+    async def get_owner_uids_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        """Every link endpoint belongs to the creating user."""
+        return Result.ok({uid: [USER_UID] for uid in uids})
+
+    async def get_node_labels_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        """Every link endpoint carries whichever kind its field declares."""
+        return Result.ok({uid: ["Entity", "Habit", "Ku"] for uid in uids})
 
     def __getattr__(self, name: str):
         async def _unexpected(*args: Any, **kwargs: Any):
@@ -433,12 +457,17 @@ class TestTaskEdgesPrecedeTheEvent:
         )
 
         assert result.is_ok, f"create_task failed: {result.error}"
-        assert tasks_backend.trace == [
-            "node_created",
+        # The two edge writes are unordered WITH RESPECT TO EACH OTHER — nothing reads
+        # either until the event triggers the rebuild, so their relative order is an
+        # implementation detail (it flipped when the hierarchy write moved onto the shared
+        # create path). What is load-bearing is that BOTH precede the announcement, so the
+        # assertion pins the boundary rather than the internal order.
+        assert tasks_backend.trace[0] == "node_created"
+        assert tasks_backend.trace[-1] == "task_created_published"
+        assert set(tasks_backend.trace[1:-1]) == {
             "knowledge_edges_written",
             "subtask_edge_written",
-            "task_created_published",
-        ], f"unexpected create sequence: {tasks_backend.trace}"
+        }, f"unexpected create sequence: {tasks_backend.trace}"
 
     async def test_the_knowledge_batch_still_carries_every_edge(
         self, tasks_core: TasksCoreService, tasks_backend: StubBackend
@@ -746,3 +775,85 @@ class TestBothDomainsUseTheSharedShape:
         """
         assert TasksCoreService not in TasksService.__mro__
         assert PrinciplesCoreService not in PrinciplesService.__mro__
+
+
+# ============================================================================
+# PRINCIPLES — CARRIAGE PARITY
+# ============================================================================
+
+
+@pytest.mark.asyncio
+class TestPrincipleDoorsPersistTheSameDescription:
+    """``why_important`` must survive BOTH doors, or one request yields two principles.
+
+    ``Principle`` has no ``why_important`` field. ``create_principle`` folds it into
+    ``description`` behind the canonical marker (``merge_why_important``), and
+    ``split_why_important`` is what recovers it — it is read back by the detail view and
+    is one of the four fields Principles search scores over. The route converter dropped
+    it outright, because ``create_to_pure`` filters by EXACT field name, so the motivation
+    the create form collected was lost the moment the request arrived through JSON.
+
+    Fixed in the CONVERTER, which is the only place it can live: by the time the shared
+    create primitive sees an entity, the description is already built.
+    """
+
+    async def test_request_door_merges_it_into_the_description(
+        self, principles_core: PrinciplesCoreService
+    ) -> None:
+        """The behaviour the route door had to match — pinned as the reference."""
+        result = await principles_core.create_principle(
+            make_principle_request(why_important="It keeps blast radius small"), USER_UID
+        )
+
+        assert result.is_ok, f"create_principle failed: {result.error}"
+        _prose, why = split_why_important(result.value.description)
+        assert why == "It keeps blast radius small"
+
+    def test_route_converter_merges_it_too(self) -> None:
+        """RED before the fix: the converter dropped ``why_important`` entirely."""
+        entity = ConversionServiceV2.principle_create_to_pure(
+            make_principle_request(why_important="It keeps blast radius small"),
+            "principle:door-a",
+            user_uid=USER_UID,
+        )
+
+        _prose, why = split_why_important(entity.description)
+        assert why == "It keeps blast radius small", (
+            "the generated CRUD route's converter dropped why_important, so the two "
+            "principle doors persisted different descriptions from one request"
+        )
+
+    async def test_both_doors_agree(self, principles_core: PrinciplesCoreService) -> None:
+        """Assert AGREEMENT rather than a hand-copied expected string: what matters is
+        that one request cannot produce two different principles."""
+        request = make_principle_request(why_important="It keeps blast radius small")
+
+        door_b = await principles_core.create_principle(request, USER_UID)
+        door_a = ConversionServiceV2.principle_create_to_pure(
+            request, "principle:door-a", user_uid=USER_UID
+        )
+
+        assert door_a.description == door_b.value.description
+
+    def test_the_prose_is_preserved_alongside_it(self) -> None:
+        """A merge, not a replacement — the description the user wrote must survive."""
+        request = make_principle_request(
+            description="Prefer many small reversible changes over one large one",
+            why_important="It keeps blast radius small",
+        )
+
+        entity = ConversionServiceV2.principle_create_to_pure(
+            request, "principle:door-a", user_uid=USER_UID
+        )
+
+        prose, _why = split_why_important(entity.description)
+        assert prose == "Prefer many small reversible changes over one large one"
+
+    def test_a_request_without_it_is_untouched(self) -> None:
+        """No marker appended when there is nothing to append — otherwise every
+        principle's description grows a trailing separator."""
+        entity = ConversionServiceV2.principle_create_to_pure(
+            make_principle_request(), "principle:door-a", user_uid=USER_UID
+        )
+
+        assert entity.description == "Prefer many small reversible changes over one large one"

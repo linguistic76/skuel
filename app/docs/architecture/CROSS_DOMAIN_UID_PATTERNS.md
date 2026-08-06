@@ -14,16 +14,19 @@ related:
 
 ## The Rule
 
-Every cross-domain UID field on an entity falls into exactly one of two categories:
+Every cross-domain UID field on an entity falls into exactly one of three categories:
 
 | Category | Storage | Populated | Authority |
 |----------|---------|-----------|-----------|
 | **Structural anchor** | Persisted node property (via DTO) | At creation time | Property IS the source of truth |
-| **Enrichment link** | Not persisted — `DERIVED FROM EDGE` | At read time (batch enrich step) | Graph edge is the source of truth |
+| **Enrichment link** | Never a property — `DERIVED FROM EDGE` + skip-set | At read time (batch enrich step) | Graph edge is the source of truth |
+| **Edge carrier** | Never a property — skip-set | Set on the entity at CREATE, read back from the edge | Graph edge is the source of truth |
 
 **Structural anchor** — the UID encodes a permanent relationship the entity *is defined by*: hierarchy membership, spawn-time origin, scheduling appointment. It must survive restarts, queries, and graph traversal without a round-trip to read an edge.
 
-**Enrichment link** — the UID is a scoring or analytics convenience read off a graph edge. The field is absent from the DTO so it is never written to Neo4j. It is populated by a dedicated enrich step (e.g., `enrich_habits_with_goal_links()`) only when the scoring path needs it.
+**Enrichment link** — the UID is a scoring or analytics convenience read off a graph edge. It is populated by a dedicated enrich step (e.g., `enrich_habits_with_goal_links()`) only when the scoring path needs it, and nothing writes it.
+
+**Edge carrier** — the same non-persistence as an enrichment link, but the create path *reads* the field to decide which edge to write (`Task.parent_uid` → HAS_SUBTASK, `Task.reinforces_habit_uid` → REINFORCES_HABIT). This exists because the generated CRUD route hands the service an ENTITY and no request: a link the entity cannot carry is a link that door can never write. It is not "sometimes persisted" — the property never exists in either direction; only the create-time *input* differs.
 
 Confusing the two produces either stale denormalized data (writing what should be derived) or phantom traversal (reading a field that was never populated).
 
@@ -57,7 +60,11 @@ Confusing the two produces either stale denormalized data (writing what should b
 | Event | `reinforces_habit_uid` | `(Event)-[:REINFORCES_HABIT]->(Habit)` | `enrich_events_with_habit_links()` |
 | Event | `contributes_to_goal_uid` | `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` | `enrich_events_with_goal_links()` |
 
-**How to identify an enrichment link in the code:** the field carries a `# DERIVED FROM EDGE` comment and is absent from the domain's DTO. Writing it has no persistent effect — the graph edge is the single source of truth.
+**How to identify an enrichment link in the code:** the field carries a `# DERIVED FROM EDGE` comment and its name is in `RELATIONSHIP_SKIP_FIELDS` (`adapters/persistence/neo4j/neo4j_mapper.py`). The graph edge is the single source of truth.
+
+⚠ **Absence from the DTO is NOT what makes a field unpersistable** — that was the stated test here until 2026-08-06, and it was wrong. Only `create_*` paths that persist `to_dto().to_dict()` are covered by it; the generated CRUD route (`CRUDRouteFactory._register_create_route`) converts the request and persists the **ENTITY**, so `to_neo4j_node` reads the dataclass field directly. `reinforces_habit_uid` was landing as a junk node property on every task and event created through `POST /api/{tasks,events}/create`, while no edge was written. The skip-set entry is what actually enforces the rule; the DTO's silence merely hid the gap.
+
+**On Tasks, `reinforces_habit_uid` is derived on READ but is the edge's INPUT on CREATE.** It rides on the `Task` because the generated route hands the service an entity and no request — a link the entity cannot carry is a link that door can never write — and `TasksCoreService._write_link_edges` turns it into the REINFORCES_HABIT edge for both doors. Events do not (yet) do this: their route door still drops the link.
 
 ---
 
@@ -131,7 +138,8 @@ Pattern: **graph edge to the containing entity + property for the sub-entity sel
 Before adding a field, decide:
 
 1. **Is this the entity's permanent identity or origin?** → structural anchor: add to model + DTO + write at creation.
-2. **Is this a scoring signal read off a graph edge that already exists?** → enrichment link: add `DERIVED FROM EDGE` comment to model only; absent from DTO; populate in the scoring enrich step.
-3. **Is this a many-to-many relationship with metadata?** → pure graph edge, no UID field at all.
+2. **Is this a scoring signal read off a graph edge that already exists?** → enrichment link: add `DERIVED FROM EDGE` comment to the model, add the name to `RELATIONSHIP_SKIP_FIELDS`, populate in the scoring enrich step.
+3. **Does a create REQUEST supply it, and does the graph own it?** → edge carrier: as (2), plus set it on the entity in both `from_request` and the `ConversionServiceV2` converter, and write the edge on the domain's shared `create()` primitive so both doors do it once. Every request-supplied endpoint must pass `keep_permitted_link_edges` (exists / owner / kind) before it becomes an edge.
+4. **Is this a many-to-many relationship with metadata?** → pure graph edge, no UID field at all. A list-typed request field can only take this shape: it reaches no model field, so the generated route cannot carry it and the request door owns it alone.
 
-A field that is "sometimes persisted and sometimes derived" is a design error — pick one.
+A field that is "sometimes persisted and sometimes derived" is a design error — pick one. Adding the name to `RELATIONSHIP_SKIP_FIELDS` is what makes (2) and (3) enforceable rather than aspirational, and it is keyed on the NAME — census every dataclass carrying it before adding an entry.

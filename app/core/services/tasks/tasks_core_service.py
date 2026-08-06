@@ -20,9 +20,9 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -31,6 +31,7 @@ from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
@@ -41,8 +42,19 @@ from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
+from core.services.mixins.link_edge_guard import (
+    KNOWLEDGE_LABELS,
+    LinkEdge,
+    keep_permitted_link_edges,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+
+# The HAS_SUBTASK edge's weight when the caller cannot supply one. It is a property of
+# the EDGE, not of Task, so the entity door has nothing to pass — same value
+# TaskCreateRequest.progress_weight defaults to, so the two doors agree on an unweighted
+# subtask. Mirrors GoalsCoreService.DEFAULT_PROGRESS_WEIGHT.
+DEFAULT_PROGRESS_WEIGHT: Final = 1.0
 
 
 class TasksCoreService(
@@ -203,7 +215,7 @@ class TasksCoreService(
         return Result.ok(enrichment)
 
     async def create(self, entity: Task) -> Result[Task]:
-        """Persist, then announce — THE create primitive for Tasks.
+        """Persist, link, then announce — THE create primitive for Tasks.
 
         Both doors land here: the generated CRUD route (via ``TasksService.create``) and
         ``create_task`` below. Before this, only ``create_task`` published anything, so a
@@ -215,7 +227,15 @@ class TasksCoreService(
         Tasks declare no ``_validate_create`` hook (see the comment above ``_validate_update``
         — the rule that lived there was deleted in #963 as contradicting the DSL and
         GoalTaskGenerator), so unlike Goals, Habits, Events and Choices there is no
-        validation to reach here. What this primitive reconciles is the EVENT half.
+        validation to reach here. What this primitive reconciles is the EVENT half — and,
+        since #966, the two ENTITY-CARRIED links below.
+
+        ``parent_uid`` and ``reinforces_habit_uid`` are written here rather than in
+        ``create_task`` because both ride on the Task, so both doors can write them.
+        Leaving them on the request door alone is what made ``POST /api/tasks/create``
+        lose them entirely: the mapper skips ``parent_uid``, so a subtask created through
+        the API had no parent at ALL, and ``reinforces_habit_uid`` landed as a node
+        property no reader consults instead of an edge (both measured 2026-08-05).
 
         Args:
             entity: Task to create
@@ -227,23 +247,233 @@ class TasksCoreService(
             - TaskCreated: when the task is successfully created
             - TaskEmbeddingRequested (ADR-074): post-persist embedding refresh
         """
-        result = await self._create_validated(entity)
+        return await self._create_with_links(entity, progress_weight=DEFAULT_PROGRESS_WEIGHT)
+
+    async def _create_with_links(
+        self,
+        entity: Task,
+        *,
+        progress_weight: float,
+        request: TaskCreateRequest | None = None,
+    ) -> Result[Task]:
+        """The one create path: persist, write every edge, then announce.
+
+        ``progress_weight`` is a property of the HAS_SUBTASK EDGE, not of ``Task``, so it
+        cannot ride on the entity — only the request door can supply a non-default. It is
+        a parameter here rather than a second create path so the edge has exactly one
+        write site. ``request`` is likewise present only for the request door: the two
+        knowledge lists are edge-typed and reach no ``Task`` field, so the entity door has
+        nothing to pass (``None``, and no knowledge edges written).
+
+        Mirrors ``GoalsCoreService._create_with_hierarchy``, with one difference that
+        cost a RED test: BOTH of Tasks' entity-carried links are RELATIONSHIP_SKIP_FIELDS,
+        so they DO NOT SURVIVE THE ROUND-TRIP. ``backend.create`` returns
+        ``from_neo4j_node(props, Task)`` over the properties it wrote, and the mapper
+        dropped these two on the way in — so ``result.value.parent_uid`` is always None.
+        They are read off the INPUT entity and passed down explicitly. Goals is not a
+        guide here: ``Goal.fulfills_goal_uid`` is a real node column, so its round-trip
+        keeps it.
+        """
+        result: Result[Task] = await self._create_validated(entity)
         if result.is_error:
             return result
 
-        await self._publish_created(result.value)
+        task: Task = result.value
+        await self._write_hierarchy_edge(task, entity.parent_uid, progress_weight)
+        written_knowledge_uids = await self._write_link_edges(
+            task, entity.reinforces_habit_uid, request
+        )
+
+        # Every edge is written — only now announce the task.
+        await self._publish_created(task)
+        await self._publish_knowledge_substance(task, written_knowledge_uids)
         return result
 
     async def _create_validated(self, entity: Task) -> Result[Task]:
         """Persist, publishing NOTHING.
 
-        Split out from ``create`` so ``create_task`` can finish writing the task's graph
-        edges before any event announces the task exists — see ``_publish_created`` for
-        why that ordering is load-bearing. Named for the shape it shares with the other
+        Split out from ``create`` so ``_create_with_links`` can finish writing the task's
+        graph edges before any event announces the task exists — see ``_publish_created``
+        for why that ordering is load-bearing. Named for the shape it shares with the other
         five Activity Domains: it is the seam that runs ``_validate_create``, which for
         Tasks resolves to the inherited no-op.
         """
         return await super().create(entity)
+
+    async def _write_hierarchy_edge(
+        self, task: Task, parent_uid: str | None, progress_weight: float
+    ) -> None:
+        """Write (parent)-[:HAS_SUBTASK {progress_weight}]->(task) when the task has a parent.
+
+        ``parent_uid`` is a parameter rather than read off ``task`` because the persisted
+        task cannot carry it — see ``_create_with_links``.
+
+        ``Task.parent_uid`` reaches no node property at all: the mapper's
+        RELATIONSHIP_SKIP_FIELDS drops it precisely because the hierarchy belongs in the
+        graph. Until this write existed on the shared path, only ``create_task`` created
+        the edge — so a subtask created through ``POST /api/tasks/create`` had no parent in
+        the property AND no parent in the graph, invisible to every hierarchy reader
+        (``get_subtasks`` / ``get_parent_task`` / ``get_task_hierarchy`` via
+        ``get_children_raw``, the user-context MEGA-QUERY's HAS_SUBTASK collection, and the
+        completion propagation in ``check_and_complete_parent``).
+
+        OWNERSHIP: the parent must belong to the same user. ``parent_uid`` is
+        attacker-controlled request input and ``create_hierarchy_relationship`` matches on
+        UID and label alone — no owner filter — so without this check a caller could point
+        a new task at ANOTHER user's task and have the edge written. The victim's context
+        rebuild starts from the tasks they OWN and traverses HAS_SUBTASK without filtering
+        the child's owner, so the attacker's task would surface in the victim's cached
+        context, and ``auto_complete_parent_if_ready`` would let it hold their parent task
+        open. The pre-existing door onto this same write, ``POST /api/tasks/add-child``,
+        verifies BOTH endpoints (``_register_add_child_route`` loops over parent and child);
+        creation must not be a way around that. Goals' sibling
+        ``_write_hierarchy_edge`` makes the same check for the same reason (Codex, #965) —
+        Tasks' door was writing this edge unguarded before now.
+
+        A failure is logged, not propagated: the task itself is legitimate and is created
+        either way — only the edge is refused.
+        """
+        if not parent_uid:
+            return
+
+        parent_result = await self.get(parent_uid)
+        if parent_result.is_error:
+            self.logger.warning(
+                "Skipping subtask edge for %s: parent %s not found",
+                task.uid,
+                parent_uid,
+            )
+            return
+        if parent_result.value.user_uid != task.user_uid:
+            self.logger.warning(
+                "Refusing cross-user subtask edge: task %s (user %s) named parent %s "
+                "owned by a different user",
+                task.uid,
+                task.user_uid,
+                parent_uid,
+            )
+            return
+
+        edge_result = await self.create_subtask_relationship(
+            parent_uid=parent_uid,
+            subtask_uid=task.uid,
+            progress_weight=progress_weight,
+        )
+        if edge_result.is_error:
+            self.logger.warning(
+                "Failed to create subtask relationship %s -> %s: %s",
+                parent_uid,
+                task.uid,
+                edge_result.error,
+            )
+
+    async def _write_link_edges(
+        self, task: Task, habit_uid: str | None, request: TaskCreateRequest | None
+    ) -> list[str]:
+        """GRAPH-NATIVE: turn the task's cross-domain links into edges, in one batch.
+
+        Three registered relationships, from two different sources:
+
+        - ``Task.reinforces_habit_uid`` → REINFORCES_HABIT — from the ENTITY, so BOTH
+          doors write it. Passed in as ``habit_uid`` rather than read off ``task``,
+          which cannot carry it once persisted (see ``_create_with_links``). The route
+          converter was setting this field and the mapper was
+          persisting it as a node PROPERTY, which no reader consults: every reader of the
+          name resolves it from the edge (``get_habit_links_for_tasks`` for Tasks, the
+          registry's ``habit_context``). It is now skipped by the mapper and written here.
+        - ``applies_knowledge_uids``   → APPLIES_KNOWLEDGE  (request only)
+        - ``prerequisite_knowledge_uids`` → REQUIRES_KNOWLEDGE (request only)
+
+        All three are declared ``outgoing`` from the task, so the task is the source of
+        every tuple. Edge properties are ``None``, matching both the pre-existing create
+        writes and the update path's ``_sync_relationship_edges``, so a task linked at
+        creation is indistinguishable from one linked afterwards.
+
+        ADMISSION: every one of these UIDs is request input, so each is checked for
+        existence, OWNER and KIND before it becomes an edge — see
+        ``keep_permitted_link_edges``. The knowledge lists were previously written
+        unguarded, which #965 recorded as the same defect class it fixed for Goals and
+        Habits; they are guarded here because they share this batch. The declared labels
+        come from the field names: ``reinforces_habit_uid`` means a Habit, the knowledge
+        lists mean Kus (KNOWLEDGE_LABELS — see there for why the atom and not the PathStep).
+
+        Returns:
+            The APPLIES_KNOWLEDGE uids actually WRITTEN — the caller announces substance
+            from these, never from what was requested, so a refused or dangling link
+            cannot claim knowledge was applied when no edge exists.
+
+        A failure is logged, not propagated — the task itself is created.
+        """
+        candidates: list[LinkEdge] = []
+
+        if habit_uid:
+            candidates.append(
+                LinkEdge(
+                    (
+                        task.uid,
+                        habit_uid,
+                        RelationshipName.REINFORCES_HABIT.value,
+                        None,
+                    ),
+                    other_uid=habit_uid,
+                    allowed_labels=frozenset({NeoLabel.HABIT.value}),
+                )
+            )
+
+        if request is not None:
+            candidates.extend(
+                LinkEdge(
+                    (task.uid, knowledge_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None),
+                    other_uid=knowledge_uid,
+                    allowed_labels=KNOWLEDGE_LABELS,
+                )
+                for knowledge_uid in request.applies_knowledge_uids
+            )
+            candidates.extend(
+                LinkEdge(
+                    (task.uid, knowledge_uid, RelationshipName.REQUIRES_KNOWLEDGE.value, None),
+                    other_uid=knowledge_uid,
+                    allowed_labels=KNOWLEDGE_LABELS,
+                )
+                for knowledge_uid in request.prerequisite_knowledge_uids
+            )
+
+        if not candidates:
+            return []
+
+        relationships = await keep_permitted_link_edges(
+            self.backend,
+            candidates=candidates,
+            subject_uid=task.uid,
+            owner_uid=task.user_uid,
+            logger=self.logger,
+        )
+        if not relationships:
+            return []
+
+        batch_result = await self.backend.create_relationships_batch(relationships)
+        if batch_result.is_error:
+            self.logger.warning(
+                "Failed to create %d link relationships for task %s: %s",
+                len(relationships),
+                task.uid,
+                batch_result.error,
+            )
+            # The batch is all-or-nothing, so a failure means NOTHING was written.
+            # Reporting the admitted uids here would announce substance for edges that
+            # do not exist.
+            return []
+
+        # DEDUPED: the batch MERGEs, so a UID repeated in the request yields ONE edge —
+        # but the bulk substance event UNWINDs what it is given, crediting the knowledge
+        # once per row. dict.fromkeys keeps the order. (Habits' sibling, #965.)
+        return list(
+            dict.fromkeys(
+                target_uid
+                for _src, target_uid, rel_type, _props in relationships
+                if rel_type == RelationshipName.APPLIES_KNOWLEDGE.value
+            )
+        )
 
     async def _publish_created(self, task: Task) -> None:
         """Announce a newly created task: TaskCreated + the ADR-074 embedding refresh.
@@ -253,8 +483,8 @@ class TasksCoreService(
         which debounces 100ms and then rebuilds the user context — and the rebuild reads
         both ``(task)-[:HAS_SUBTASK]->(subtask)`` and ``(task)-[:APPLIES_KNOWLEDGE]->()``
         back out of the graph (adapters/persistence/neo4j/user_context_queries.py).
-        Publishing before ``create_relationships_batch`` and
-        ``create_subtask_relationship`` finish lets the rebuild observe a task with no
+        Publishing before ``_write_hierarchy_edge`` and ``_write_link_edges``
+        finish lets the rebuild observe a task with no
         edges and cache that empty result for the full 300s TTL
         (``UserContext.cache_ttl_seconds``). The later KnowledgeAppliedInTask events are
         wired only to substance handlers and do NOT invalidate the context, so nothing
@@ -273,10 +503,56 @@ class TasksCoreService(
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.TASK, task, self.logger)
 
+    async def _publish_knowledge_substance(self, task: Task, knowledge_uids: list[str]) -> None:
+        """Announce applied knowledge: single-item for 1 Ku, bulk for 2+.
+
+        Driven by the uids ``_write_link_edges`` actually WROTE, never by what the request
+        asked for. The substance pipeline credits knowledge per uid it is handed, so
+        announcing a refused, dangling or cross-user link would claim a task applied
+        knowledge that no APPLIES_KNOWLEDGE edge backs. (Habits' sibling, #965.)
+
+        Published AFTER ``TaskCreated``, as before: these reach only substance handlers
+        and do not invalidate the user context, so they carry no ordering constraint of
+        their own — but they must not precede the announcement of the task they describe.
+        """
+        if not knowledge_uids:
+            return
+
+        from core.events.knowledge_substance_events import (
+            KnowledgeAppliedInTask,
+            KnowledgeBulkAppliedInTask,
+        )
+
+        knowledge_event: KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask
+        if len(knowledge_uids) == 1:
+            knowledge_event = KnowledgeAppliedInTask(
+                knowledge_uid=knowledge_uids[0],
+                task_uid=task.uid,
+                user_uid=task.user_uid,
+                task_title=task.title,
+                task_priority=task.priority or "medium",
+            )
+        else:
+            knowledge_event = KnowledgeBulkAppliedInTask(
+                knowledge_uids=tuple(knowledge_uids),
+                task_uid=task.uid,
+                user_uid=task.user_uid,
+                task_title=task.title,
+                task_priority=task.priority or "medium",
+            )
+        await publish_event(self.event_bus, knowledge_event, self.logger)
+
     @with_error_handling("create_task", error_type="database")
     async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
         """
         Create a task with automatic knowledge inference.
+
+        Builds the entity, then hands it to the one create primitive. ``progress_weight``
+        and the two knowledge lists are forwarded because only this door still has the
+        request: all three are EDGE-shaped, so none reaches the entity the route door
+        builds. The HAS_SUBTASK and REINFORCES_HABIT edges, whose endpoints DO ride on the
+        entity, are written by the shared path for both doors — writing them here as well
+        would double-write them.
 
         Args:
             task_request: Task creation request
@@ -303,48 +579,13 @@ class TasksCoreService(
             if enrichment is not None:
                 task_draft = dataclasses.replace(task_draft, **enrichment.as_kwargs())
 
-        # Persist, but hold the events back until the edges below are written (see
-        # _publish_created). NOT _create_and_convert, which reaches backend.create
-        # directly and so bypasses the one primitive both doors must share.
-        create_result = await self._create_validated(task_draft)
-        if create_result.is_error:
-            return create_result
-        task = create_result.value
-
-        # GRAPH-NATIVE: Create relationship edges in graph (not stored on Task/DTO)
-        # Create knowledge relationships from request using batch operation for performance
-        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
-
-        if task_request.applies_knowledge_uids:
-            relationships.extend(
-                (task.uid, knowledge_uid, RelationshipName.APPLIES_KNOWLEDGE.value, None)
-                for knowledge_uid in task_request.applies_knowledge_uids
-            )
-
-        # Habit reinforcement: graph edge, not a property (Task)-[:REINFORCES_HABIT]->(Habit)
-        if task_request.reinforces_habit_uid:
-            relationships.append(
-                (
-                    task.uid,
-                    task_request.reinforces_habit_uid,
-                    RelationshipName.REINFORCES_HABIT.value,
-                    None,
-                )
-            )
-
-        if task_request.prerequisite_knowledge_uids:
-            relationships.extend(
-                (task.uid, knowledge_uid, RelationshipName.REQUIRES_KNOWLEDGE.value, None)
-                for knowledge_uid in task_request.prerequisite_knowledge_uids
-            )
-
-        # Create all relationships in single batch operation (10x faster than loops)
-        if relationships:
-            batch_result = await self.backend.create_relationships_batch(relationships)
-            if batch_result.is_error:
-                self.logger.warning(
-                    f"Failed to create {len(relationships)} relationships for task {task.uid}: {batch_result.error}"
-                )
+        result = await self._create_with_links(
+            task_draft,
+            progress_weight=task_request.progress_weight,
+            request=task_request,
+        )
+        if result.is_error:
+            return result
 
         # Log creation with knowledge enhancement
         explicit_knowledge_count = len(task_request.applies_knowledge_uids) + len(
@@ -353,57 +594,11 @@ class TasksCoreService(
 
         self.logger.info(
             "Created task '%s' with knowledge enhancement: explicit=%d",
-            task.title,
+            result.value.title,
             explicit_knowledge_count,
         )
 
-        # Create parent-child relationship if parent_task_uid specified (2026-01-30).
-        # Before TaskCreated, not after: the context rebuild the event triggers reads
-        # HAS_SUBTASK, so announcing first caches a task whose subtask edge does not
-        # exist yet (see _publish_created).
-        if task_request.parent_uid:
-            subtask_result = await self.create_subtask_relationship(
-                parent_uid=task_request.parent_uid,
-                subtask_uid=task.uid,
-                progress_weight=task_request.progress_weight,
-            )
-            if subtask_result.is_error:
-                self.logger.warning(
-                    f"Failed to create subtask relationship for {task.uid}: {subtask_result.error}"
-                )
-
-        # Every edge is written — only now announce the task.
-        await self._publish_created(task)
-
-        # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
-        if task_request.applies_knowledge_uids:
-            from core.events.knowledge_substance_events import (
-                KnowledgeAppliedInTask,
-                KnowledgeBulkAppliedInTask,
-            )
-
-            ku_uids = task_request.applies_knowledge_uids
-            if len(ku_uids) == 1:
-                knowledge_event: KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask = (
-                    KnowledgeAppliedInTask(
-                        knowledge_uid=ku_uids[0],
-                        task_uid=task.uid,
-                        user_uid=task.user_uid,
-                        task_title=task.title,
-                        task_priority=task.priority or "medium",
-                    )
-                )
-            else:
-                knowledge_event = KnowledgeBulkAppliedInTask(
-                    knowledge_uids=tuple(ku_uids),
-                    task_uid=task.uid,
-                    user_uid=task.user_uid,
-                    task_title=task.title,
-                    task_priority=task.priority or "medium",
-                )
-            await publish_event(self.event_bus, knowledge_event, self.logger)
-
-        return Result.ok(task)
+        return result
 
     # ========================================================================
     # READ OPERATIONS

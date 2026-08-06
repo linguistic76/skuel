@@ -102,12 +102,18 @@ class Task(UserOwnedEntity):
     # =========================================================================
     fulfills_goal_uid: str | None = None  # TASK -> GOAL
     source_path_step_uid: str | None = None  # TASK -> PS
-    # DERIVED FROM EDGE — never persisted. The Task↔Habit link is the graph edge
-    # (Task)-[:REINFORCES_HABIT]->(Habit); this field is absent from TaskDTO so it
-    # is never written to Neo4j. It is populated at fetch time (e.g. by the
-    # prioritization path) from the edge so pure scorers can read it. Writing it
-    # has no persistent effect — the edge is the single source of truth.
-    reinforces_habit_uid: str | None = None  # DERIVED — see note above
+    # EDGE-BACKED, never a node property. The Task↔Habit link is the graph edge
+    # (Task)-[:REINFORCES_HABIT]->(Habit), which is the single source of truth; the
+    # mapper's RELATIONSHIP_SKIP_FIELDS keeps this field out of the node. On READ it is
+    # derived — populated at fetch time (e.g. by the prioritization path) from the edge
+    # so pure scorers can see it. On CREATE it is the edge's INPUT: both doors carry it
+    # on the entity and TasksCoreService writes the edge from it.
+    #
+    # The DTO's silence is why this needed the skip-set. The old note here said the field
+    # "is absent from TaskDTO so it is never written to Neo4j" — true of the DTO, false of
+    # the route door, which persists the ENTITY (#966). Absence from one serializer is not
+    # a persistence guarantee.
+    reinforces_habit_uid: str | None = None  # EDGE-BACKED — see note above
 
     # =========================================================================
     # PROGRESS IMPACT
@@ -277,9 +283,15 @@ class Task(UserOwnedEntity):
     def from_request(cls, request: "TaskCreateRequest", *, user_uid: "UserUID") -> "Task":
         """Construct a frozen Task from a validated TaskCreateRequest.
 
-        Only fields persisted as node properties live on Task; relationship-typed
-        request fields (``applies_knowledge_uids``, ``reinforces_habit_uid``,
-        etc.) are written as graph edges by the service layer after construction.
+        Relationship-typed request fields are written as graph edges by the service
+        layer after construction, never as node properties. Two of them nonetheless
+        ride on the Task — ``parent_uid`` and ``reinforces_habit_uid`` — because the
+        generated CRUD route hands the service an ENTITY and no request, so a link the
+        entity cannot carry is a link that door can never write. The mapper's
+        RELATIONSHIP_SKIP_FIELDS keeps both out of the node; ``TasksCoreService.create``
+        turns them into HAS_SUBTASK and REINFORCES_HABIT. The list-typed fields
+        (``applies_knowledge_uids``, ``prerequisite_knowledge_uids``) reach no Task field
+        and stay request-only.
 
         The result is handed to the backend as the ENTITY, not as
         ``self.to_dto().to_dict()``: ``create_task`` now persists through the shared
@@ -310,6 +322,7 @@ class Task(UserOwnedEntity):
             recurrence_pattern=request.recurrence_pattern,
             recurrence_end_date=request.recurrence_end_date,
             fulfills_goal_uid=request.fulfills_goal_uid,
+            reinforces_habit_uid=request.reinforces_habit_uid,
             goal_progress_contribution=request.goal_progress_contribution,
             knowledge_mastery_check=request.knowledge_mastery_check,
             habit_streak_maintainer=request.habit_streak_maintainer,

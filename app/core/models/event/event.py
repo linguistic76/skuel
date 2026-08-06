@@ -101,11 +101,17 @@ class Event(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     source_path_step_uid: str | None = None  # EVENT -> PS
-    # DERIVED FROM EDGE — never persisted. The Event↔Habit link is the graph edge
-    # (Event)-[:REINFORCES_HABIT]->(Habit); this field is absent from EventDTO so
-    # it is never written to Neo4j. It is populated at fetch time (scoring,
-    # analytics, grouping) from the edge via enrich_events_with_habit_links so
-    # pure readers can use it. The edge is the single source of truth.
+    # DERIVED FROM EDGE — never a node property. The Event↔Habit link is the graph edge
+    # (Event)-[:REINFORCES_HABIT]->(Habit), the single source of truth; the mapper's
+    # RELATIONSHIP_SKIP_FIELDS keeps this field out of the node. It is populated at fetch
+    # time (scoring, analytics, grouping) from the edge via enrich_events_with_habit_links
+    # so pure readers can use it.
+    #
+    # Absence from EventDTO used to be the whole argument for "never written", and it was
+    # not enough: the generated CRUD route converts the request and persists the ENTITY,
+    # so ``POST /api/events/create`` wrote this as a property no reader consults while
+    # writing no edge. ``EventsService.create_event`` — the request door — writes the edge
+    # and is unaffected. (Measured with Tasks' identical defect; see task.py.)
     reinforces_habit_uid: str | None = None  # DERIVED — see note above
     # DERIVED FROM EDGE — never persisted. The Event→Goal link is the graph edge
     # (Event)-[:CONTRIBUTES_TO_GOAL]->(Goal); populated at fetch time via
