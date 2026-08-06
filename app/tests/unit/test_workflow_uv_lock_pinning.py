@@ -343,11 +343,25 @@ def _node_text(node: Node, src: bytes) -> str:
 
 
 def _word(node: Node, src: bytes) -> str:
-    """A shell word with its quoting removed, as the command would receive it."""
+    """A shell word with its quoting removed, as the command would receive it.
+
+    Concatenation is joined, not left raw: bash hands `--loc"ked"` to uv as
+    `--locked`, and a guard that read it as the literal `--loc"ked"` would miss
+    a pin flag it was looking straight at (Codex, PR #959). Only QUOTING is
+    resolved here — an expansion stays visible as `$…`, because what it expands
+    to is not a question about syntax.
+    """
+    if node.type == "concatenation":
+        return "".join(_word(child, src) for child in node.children)
     text = _node_text(node, src)
     if len(text) >= 2 and text[0] == text[-1] and text[0] in ("'", '"'):
         return text[1:-1]
     return text
+
+
+def _is_dynamic(word: str) -> bool:
+    """Does this argument's value depend on something only the shell knows?"""
+    return "$" in word or "`" in word
 
 
 def _shell_commands(text: str) -> list[_ShellCommand]:
@@ -443,6 +457,7 @@ class _UvParse(NamedTuple):
     option_region: tuple[str, ...]
     uncertain: tuple[str, ...]  # tokens whose owner could not be determined
     reason: str  # "" when nothing is uncertain
+    dynamic: tuple[str, ...] = ()  # option-position words the shell computes
 
 
 def _uv_option_region(args: list[str]) -> _UvParse:
@@ -484,6 +499,26 @@ def _uv_option_region(args: list[str]) -> _UvParse:
         previous = args[index - 1]
         return previous.startswith("-") and "=" not in previous
 
+    def _dynamic_options(region: tuple[str, ...]) -> tuple[str, ...]:
+        """Computed words sitting where a FLAG could sit, inside uv's options.
+
+        `uv export --output-file $REQ` is fine: $REQ follows a valueless-looking
+        flag, so it reads as that flag's value — and both real audit jobs do
+        exactly this. `uv export "$PIN"` is not: nothing says $PIN is not
+        `--locked`, and uv would then exit 2 under UV_FROZEN with this guard
+        reporting clean. Same discriminator as the two ambiguity checks.
+        """
+        return tuple(
+            word
+            for position, word in enumerate(region)
+            if _is_dynamic(word)
+            and not (
+                position > 0
+                and region[position - 1].startswith("-")
+                and "=" not in region[position - 1]
+            )
+        )
+
     subcommand: str | None = None
     sub_index = -1
     for index, token in enumerate(args):
@@ -503,7 +538,7 @@ def _uv_option_region(args: list[str]) -> _UvParse:
             break
 
     if subcommand is None or subcommand not in _SUBCOMMANDS_WITH_CHILD:
-        return _UvParse(subcommand, tuple(args), (), "")
+        return _UvParse(subcommand, tuple(args), (), "", _dynamic_options(tuple(args)))
 
     for index in range(sub_index + 1, len(args)):
         if not args[index].startswith("-"):
@@ -514,9 +549,16 @@ def _uv_option_region(args: list[str]) -> _UvParse:
                     tuple(args[index:]),
                     f"uv's options were cut at {args[index]!r}, but that may be "
                     f"{args[index - 1]!r}'s value rather than the command uv runs",
+                    _dynamic_options(tuple(args[:index])),
                 )
-            return _UvParse(subcommand, tuple(args[:index]), (), "")
-    return _UvParse(subcommand, tuple(args), (), "")
+            return _UvParse(
+                subcommand,
+                tuple(args[:index]),
+                (),
+                "",
+                _dynamic_options(tuple(args[:index])),
+            )
+    return _UvParse(subcommand, tuple(args), (), "", _dynamic_options(tuple(args)))
 
 
 @dataclass(frozen=True)
@@ -550,6 +592,7 @@ class UvInvocation:
     option_region: tuple[str, ...]  # the tokens that belong to uv, not a child
     uncertain: tuple[str, ...] = ()  # tokens whose owner could not be settled
     uncertain_reason: str = ""
+    dynamic: tuple[str, ...] = ()  # option-position words the shell computes
 
     @property
     def ambiguous_pin(self) -> bool:
@@ -755,6 +798,7 @@ def _collect_from_shell(
                     option_region=parsed.option_region,
                     uncertain=parsed.uncertain,
                     uncertain_reason=parsed.reason,
+                    dynamic=parsed.dynamic,
                 )
             )
             continue
@@ -1053,6 +1097,21 @@ def violations(usage: JobUvUsage) -> list[str]:
         "    Unhandled, this job's lock goes unpinned while the guard reports clean.\n"
         f"    Fix: {item.fix}."
         for item in usage.refused
+    )
+
+    problems.extend(
+        f"{usage.label}: a uv option is computed by the shell, so this guard cannot "
+        f"see what uv receives [{item.origin}].\n"
+        f"      {item.rendered}\n"
+        f"    Computed in option position: {', '.join(item.dynamic)}.\n"
+        "    Nothing rules out its expanding to --locked or --frozen. Read as an\n"
+        "    ordinary argument, rule 2 misses a command that exits 2 under\n"
+        "    UV_FROZEN; read as a pin, rule 1 excuses an unpinned job.\n"
+        "    Fix: write uv's own options literally. A computed VALUE is fine —\n"
+        "    `--output-file $REQ` reads as that flag's value, which is why both\n"
+        "    audit jobs pass."
+        for item in usage.invocations
+        if item.dynamic
     )
 
     problems.extend(
@@ -1513,9 +1572,8 @@ def test_control_a_global_option_value_cannot_pose_as_the_subcommand() -> None:
 
     Picking it would make the region span the child's args again.
     """
-    subcommand, region, _, _ = _uv_option_region(
-        ["--directory", "app", "run", "python", "x.py", "--locked"]
-    )
+    parsed = _uv_option_region(["--directory", "app", "run", "python", "x.py", "--locked"])
+    subcommand, region = parsed.subcommand, parsed.option_region
     assert subcommand == "run"
     assert "--locked" not in region
 
@@ -1746,6 +1804,66 @@ def test_the_bash_grammar_invents_no_phantom_commands() -> None:
         if c.kind == "command"
     }
     assert verbs == {"cd", "dirname", "echo"}, verbs
+
+
+def test_quote_concatenation_is_resolved_to_what_uv_receives() -> None:
+    """`--loc"ked"` IS `--locked` — bash strips the quotes before uv sees it.
+
+    Pure syntax, so it is parsed rather than refused. Reading the raw token
+    would have missed a pin flag in plain sight (Codex, PR #959).
+    """
+    (command,) = [
+        c for c in _shell_commands("uv export --loc\"ked\" --form'at' x") if c.name == "uv"
+    ]
+    assert command.argv == ["export", "--locked", "--format", "x"]
+
+
+def test_control_shell_computed_uv_option_is_refused(tmp_path: Path) -> None:
+    """`uv export "$PIN"` — nothing says $PIN is not `--locked`.
+
+    Not syntax: no parser resolves it. Under a job pinned to "1" uv would exit
+    2, and the guard reported clean.
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: |
+          PIN=--locked
+          uv export "$PIN" --format requirements.txt
+""",
+    )
+    assert len(problems) == 1
+    assert "computed by the shell" in problems[0]
+
+
+def test_control_a_computed_option_value_is_not_refused(tmp_path: Path) -> None:
+    """The shape both real audit jobs use, which must stay silent.
+
+    `--output-file $REQ` puts the expansion where a flag's VALUE goes, not
+    where a flag goes. Refusing it would redden the CVE gate on main — the
+    exact outcome this guard exists to prevent.
+    """
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  cve:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          REQ=$(mktemp)
+          uv export --locked --format requirements.txt --output-file "$REQ"
+""",
+        )
+        == []
+    )
 
 
 def test_actions_expressions_are_not_parsed_as_bash() -> None:
