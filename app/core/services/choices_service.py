@@ -428,6 +428,24 @@ class ChoicesService(
     # Note: Simple delegations (get_choice, get_user_choices, get_user_items_in_range)
     # delegated via explicit methods below.
 
+    async def create(self, entity: Choice) -> Result[Choice]:
+        """Override the inherited CRUD create (generated JSON route, no ownership check).
+
+        Routes the entity through the one validated, event-firing create path
+        (``ChoicesCoreService.create``). The inherited base ``create`` resolved
+        ``_validate_create`` to the base no-op: the Choices creation rules (a supplied
+        option set holds >= 2, BINARY carries exactly 2, STRATEGIC needs a 50+ char
+        description) live on
+        ``ChoicesCoreService``, which this facade holds as the delegated attribute
+        ``self.core`` and does NOT inherit — so that override was never in this
+        class's MRO. The generated route therefore persisted the options its
+        converter had carefully built without ever checking them, and published no
+        ChoiceCreated event.
+
+        Same reconciliation as ``update``/``update_for_user`` below.
+        """
+        return await self.core.create(entity)
+
     async def create_choice(
         self, choice_request: ChoiceCreateRequest, user_uid: UserUID
     ) -> Result[Choice]:

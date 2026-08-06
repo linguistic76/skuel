@@ -143,64 +143,112 @@ Each option in `options` list:
 
 The Choices domain publishes domain events for cross-service communication:
 
+Payloads below are the dataclass fields, minus the `occurred_at` / `metadata`
+every event carries.
+
 | Event | Trigger | Data |
 |-------|---------|------|
-| `ChoiceCreated` | Choice created | `choice_uid`, `user_uid`, `title` |
-| `ChoiceUpdated` | Choice modified | `choice_uid`, `user_uid`, `changed_fields` |
-| `ChoiceMade` | Decision selected | `choice_uid`, `user_uid`, `selected_option_uid` |
-| `ChoiceOutcomeRecorded` | Outcome evaluated | `choice_uid`, `user_uid`, `satisfaction_score` |
+| `ChoiceCreated` | Choice created — from `ChoicesCoreService.create`, so both create doors fire it | `choice_uid`, `user_uid`, `choice_description`, `domain`, `urgency` |
+| `ChoiceUpdated` | Choice modified, incl. option add/update/remove | `choice_uid`, `user_uid`, `updated_fields` |
+| `ChoiceMade` | Decision selected | `choice_uid`, `user_uid`, `selected_option`, `confidence` |
+| `ChoiceOutcomeRecorded` | Outcome evaluated | `choice_uid`, `user_uid`, `outcome_quality`, `lessons_learned` |
 
 **Event handling:** `ChoiceEventHandlerService` subscribes to `ChoiceOutcomeRecorded` (outcome quality analysis, principle alignment correlation) and `ChoiceMade` (decision pattern tracking, confidence analysis, insight persistence). Other services subscribe for UserContext invalidation.
 
 ## UI Routes
 
-Read-focused UI at `/choices` is planned. API routes remain active.
+Live in `adapters/inbound/choices_ui.py`: list `/choices` and detail
+`/choices/detail` (registered via `create_activity_ui_routes`), plus
+`GET|POST /choices/create` and `GET|POST /choices/edit` rendered by
+`ui/activities/choices_form.py`.
 
 ## Options at Creation
 
-> **The `choiceOptions()` Alpine component described here until August 2026 no
-> longer exists.** It was deleted in `327f26623` (2026-03-28) along with 11 other
-> Alpine components, and the `ui/choices/` directory it was mounted from is gone
-> — choices UI now lives in `adapters/inbound/choices_ui.py`. The dynamic
-> add/remove option entry UX it provided was never rebuilt.
->
-> How options actually reach a choice today was **deliberately not documented in
-> the same change**: the create paths diverge (the generated API route converts
-> nested `options`, `ChoicesCoreService.create_choice()` does not), and that
-> divergence needs tracing with tests rather than a prose claim. See the
-> follow-up issue.
+**Options are optional at creation. A supplied set must hold at least 2, and a
+BINARY choice that carries options must carry exactly 2.**
 
-### Server-Side Parsing
+Both create doors carry nested `options` and enforce that rule identically — they
+did not always, see *History* below.
 
-The `_parse_options_from_form()` helper in `/adapters/inbound/choices_ui.py`:
-- Parses `options[0].title`, `options[0].description`, etc.
-- Validates minimum 2 options (returns 400 if fewer)
-- Converts to `ChoiceOptionCreateRequest` objects
+### The two doors
 
-### Static Option Lists
+| Door | Path | Options | Rules |
+|------|------|---------|-------|
+| API — generated CRUD route | `CRUDRouteFactory` → `ConversionServiceV2.choice_create_to_pure` → `ChoicesService.create` | carried | enforced |
+| Facade — UI form, DSL, learning guidance | `ChoicesService.create_choice` → `ChoicesCoreService.create_choice` | carried | enforced |
 
-Choice types and domains are module-level constants in `choices_ui.py` (not service calls):
+Both converge on `ChoicesCoreService.create`, the one create primitive: it calls
+`CrudOperationsMixin.create` (which is what runs `_validate_create`), then
+publishes `ChoiceCreated` and the ADR-074 embedding refresh. `ChoicesService.create`
+exists solely to route the generated route into it — the same reconciliation
+`ChoicesService.update`/`update_for_user` make on the update path.
 
-```python
-CHOICE_TYPES = ["binary", "multiple", "ranking", "strategic", "operational"]
-DOMAINS = ["personal", "business", "health", "finance", "social"]
-```
+Both doors build the entity through the **same converter**
+(`ConversionServiceV2.choice_create_to_pure`), so neither can quietly drop a
+request field the other keeps.
+
+### Why optional, not required
+
+`_validate_create` reads "at least 2" as a property of a choice that *has*
+options, not a precondition for creating one, because three live doors create
+optionless choices on purpose:
+
+- **The create form** (`ui/activities/choices_form.py`) omits the nested `options`
+  list and every free-text list field — they hit the FormGenerator list-input bug
+  and belong on the detail page. Options are added afterwards via `add_option`.
+- **DSL activity ingestion** (`core/services/dsl/activity_domain_converters.py`)
+  builds a `ChoiceCreateRequest` from one line of prose with no options, and infers
+  `BINARY` from keywords like "should i" / "whether" — so optionless BINARY drafts
+  are normal and must be accepted.
+- **Learning guidance** (`ChoicesLearningService`) creates from a request that need
+  not carry options.
+
+Requiring 2 up front would reject every choice those doors make. The `>= 2` floor
+is enforced from then on by `remove_option` and `_validate_update`.
+
+`STRATEGIC` choices additionally require a 50+ character description — a rule that
+only became reachable when the create paths were reconciled.
+
+The dynamic add/remove option entry UX once provided by the `choiceOptions()`
+Alpine component (deleted in `327f26623`, 2026-03-28, with the `ui/choices/`
+directory) has not been rebuilt; `add_option` on the detail page is the path.
+
+### History
+
+Until this reconciliation the two doors disagreed, and neither validated:
+
+- The API door's converter built `ChoiceOption` values and persisted them, but
+  `_validate_create` resolved to the base no-op — the rules live on
+  `ChoicesCoreService`, which the facade holds as the delegated attribute
+  `self.core` and does **not** inherit, so the override was never in the facade's
+  MRO. That door also published no `ChoiceCreated` event.
+- The facade door hand-listed fields onto `ChoiceDTO.create_choice`, which takes
+  `**kwargs` — so `options`, `choice_type`, `decision_criteria`, `constraints`,
+  `stakeholders` and `tags` were all dropped in silence. It persisted through
+  `_create_and_convert`, which calls `backend.create` directly and never enters
+  `CrudOperationsMixin.create`, so no rule ran there either.
+
+Pinned by `tests/unit/test_choice_create_path_parity.py`.
 
 ### List-Page Stats
 
-List-page stats (counts + average satisfaction) are computed directly from the fetched choice list in `ui/activities/choices_views.py` (`StatsGrid`); per-choice outcome data (`actual_outcome`, `satisfaction_score`, `lessons_learned`) renders on the detail page.
+List-page stats (counts + average satisfaction) are computed directly from the fetched choice list in `ui/activities/choices_views.py` (`ChoiceStatsBar`, rendered via `StatsGrid`); per-choice outcome data (`actual_outcome`, `satisfaction_score`, `lessons_learned`) renders on the detail page.
 
 ## Code Examples
 
 ### Create Choice with Options
 
+The nested option model is `ChoiceOptionRequest`. (`ChoiceOptionCreateRequest`
+also exists in the same module but is unused — passing it here raises
+`ValidationError`.)
+
 ```python
 from core.models.choice.choice_request import (
     ChoiceCreateRequest,
-    ChoiceOptionCreateRequest
+    ChoiceOptionRequest,
 )
-from core.models.choice.choice import ChoiceType
 from core.models.enums import Domain, Priority
+from core.models.enums.choice_enums import ChoiceType
 
 # Create request with options
 choice_request = ChoiceCreateRequest(
@@ -210,15 +258,15 @@ choice_request = ChoiceCreateRequest(
     domain=Domain.TECH,
     priority=Priority.HIGH,
     options=[
-        ChoiceOptionCreateRequest(
+        ChoiceOptionRequest(
             title="FastHTML",
             description="Python-native, hypermedia-driven"
         ),
-        ChoiceOptionCreateRequest(
+        ChoiceOptionRequest(
             title="Django",
             description="Full-featured, batteries included"
         ),
-        ChoiceOptionCreateRequest(
+        ChoiceOptionRequest(
             title="Flask",
             description="Minimal, flexible"
         ),
@@ -227,7 +275,11 @@ choice_request = ChoiceCreateRequest(
 
 result = await choices_service.create_choice(choice_request, user_uid)
 choice = result.value
+assert len(choice.options) == 3  # carried through both create doors
 ```
+
+Omitting `options` is equally valid — the create form and DSL ingestion both do —
+and yields a draft whose options are added later via `add_option`.
 
 ### Make a Decision
 
