@@ -238,9 +238,7 @@ List-page stats (counts + average satisfaction) are computed directly from the f
 
 ### Create Choice with Options
 
-The nested option model is `ChoiceOptionRequest`. (`ChoiceOptionCreateRequest`
-also exists in the same module but is unused — passing it here raises
-`ValidationError`.)
+The nested option model is `ChoiceOptionRequest`.
 
 ```python
 from core.models.choice.choice_request import (
