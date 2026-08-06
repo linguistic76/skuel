@@ -337,10 +337,39 @@ class GoalsCoreService(
         alone — all creation did until now — left every one of those reads empty for a
         goal the create form's own Hierarchy section had just given a parent.
 
-        A failure is logged, not propagated: the goal itself is created, and Tasks'
-        equivalent call makes the same choice.
+        OWNERSHIP: the parent must belong to the same user. ``parent_goal_uid`` is
+        attacker-controlled request input, and the hierarchy backend matches on UID and
+        label alone — so without this check a caller could point a new goal at ANOTHER
+        user's goal and have the edge written. The victim's context rebuild starts from
+        the goals they OWN and traverses ``HAS_SUBGOAL`` without filtering the child's
+        owner, so the attacker's goal would surface in the victim's cached context. The
+        one pre-existing door onto this same write, ``POST /api/goals/add-child``, already
+        verifies BOTH endpoints (``_register_add_child_route``); creation must not be a way
+        around that. (Reported by Codex on #965.)
+
+        A failure is logged, not propagated: the goal itself is legitimate and is created
+        either way — only the edge is refused. Tasks' equivalent call makes the same
+        choice for its own failures.
         """
         if not goal.fulfills_goal_uid:
+            return
+
+        parent_result = await self.get(goal.fulfills_goal_uid)
+        if parent_result.is_error:
+            self.logger.warning(
+                "Skipping subgoal edge for %s: parent %s not found",
+                goal.uid,
+                goal.fulfills_goal_uid,
+            )
+            return
+        if parent_result.value.user_uid != goal.user_uid:
+            self.logger.warning(
+                "Refusing cross-user subgoal edge: goal %s (user %s) named parent %s "
+                "owned by a different user",
+                goal.uid,
+                goal.user_uid,
+                goal.fulfills_goal_uid,
+            )
             return
 
         edge_result = await self.create_subgoal_relationship(

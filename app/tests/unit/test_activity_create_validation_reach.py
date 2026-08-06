@@ -121,6 +121,15 @@ class StubBackend:
     async def create_relationships_batch(self, relationships: Any) -> Result[bool]:
         return Result.ok(True)
 
+    async def get(self, uid: str) -> Result[Any]:
+        """Resolve any UID to an entity owned by ``USER_UID``.
+
+        Goals read the parent through this before writing the hierarchy edge, to
+        refuse a cross-user link. Same-user keeps this suite on the linking path;
+        the refusal itself is asserted in ``test_goal_habit_create_edges.py``.
+        """
+        return Result.ok(self._model(uid=uid, user_uid=USER_UID, title="Existing"))
+
     async def create_hierarchy_relationship(
         self, parent_uid: str, child_uid: str, forward_props: dict[str, Any] | None = None
     ) -> Result[bool]:

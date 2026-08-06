@@ -132,6 +132,16 @@ class StubBackend:
         self.trace.append("node_created")
         return Result.ok(from_neo4j_node(props, self._model))
 
+    async def get(self, uid: str) -> Result[Any]:
+        """Resolve any UID to an entity owned by ``USER_UID``.
+
+        Goals read the parent here to check ownership before writing the hierarchy
+        edge. Same-user is the DEFAULT so the edge tests exercise the linking path;
+        ``TestGoalHierarchyEdgeChecksOwnership`` overrides this to return a
+        different owner, which is the case the guard exists for.
+        """
+        return Result.ok(self._model(uid=uid, user_uid=USER_UID, title="Existing"))
+
     async def create_relationships_batch(self, relationships: Any) -> Result[int]:
         self.batched.extend(relationships)
         self.trace.append("edges_written")
@@ -333,6 +343,76 @@ class TestGoalHierarchyEdgeIsWritten:
         assert [e for e in event_bus.get_event_history() if isinstance(e, GoalCreated)], (
             "GoalCreated was swallowed when the edge write failed"
         )
+
+
+@pytest.mark.asyncio
+class TestGoalHierarchyEdgeChecksOwnership:
+    """``parent_goal_uid`` is attacker-controlled input; the edge must not cross users.
+
+    The hierarchy backend matches on UID and label alone, and the victim's context
+    rebuild starts from the goals they OWN and traverses HAS_SUBGOAL without filtering
+    the child's owner — so a cross-user edge injects the attacker's goal into the
+    victim's cached context. The one pre-existing door onto this write,
+    ``POST /api/goals/add-child``, already verifies BOTH endpoints; creation must not
+    be a way around it. (Codex, #965.)
+    """
+
+    async def test_refuses_a_parent_owned_by_another_user(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        async def _other_users_goal(uid: str) -> Result[Goal]:
+            return Result.ok(Goal(uid=uid, user_uid="user:victim", title="Victim's goal"))
+
+        goal_backend.get = _other_users_goal  # type: ignore[method-assign]
+
+        result = await goal_core.create_goal(
+            make_goal_request(parent_goal_uid="goal:victims"), USER_UID
+        )
+
+        assert result.is_ok, "the attacker's own goal is legitimate and should be created"
+        assert goal_backend.hierarchy == [], (
+            "a cross-user HAS_SUBGOAL edge was written — the attacker's goal would "
+            "surface in the victim's user context"
+        )
+
+    async def test_still_links_when_the_parent_is_the_same_user(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """Positive control: the guard must not refuse the legitimate case.
+
+        Without this, an ownership check that refused EVERY parent would pass the
+        test above.
+        """
+
+        async def _own_goal(uid: str) -> Result[Goal]:
+            return Result.ok(Goal(uid=uid, user_uid=USER_UID, title="My other goal"))
+
+        goal_backend.get = _own_goal  # type: ignore[method-assign]
+
+        result = await goal_core.create_goal(
+            make_goal_request(parent_goal_uid=PARENT_GOAL), USER_UID
+        )
+
+        assert result.is_ok, f"create_goal failed: {result.error}"
+        assert goal_backend.hierarchy, "the owner's own parent was refused"
+        assert goal_backend.hierarchy[0][0] == PARENT_GOAL
+
+    async def test_missing_parent_writes_no_edge_and_still_creates(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """A dangling parent UID is refused as an edge, not as a create."""
+
+        async def _not_found(uid: str) -> Result[Goal]:
+            return Result.fail("not found")
+
+        goal_backend.get = _not_found  # type: ignore[method-assign]
+
+        result = await goal_core.create_goal(
+            make_goal_request(parent_goal_uid="goal:ghost"), USER_UID
+        )
+
+        assert result.is_ok, f"a dangling parent failed the whole create: {result.error}"
+        assert goal_backend.hierarchy == []
 
 
 @pytest.mark.asyncio

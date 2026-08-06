@@ -301,6 +301,15 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
      as habit_applied_knowledge
 
+// Prerequisites arrive two ways. The incoming ENABLES_HABIT / PREREQUISITE_FOR pair is
+// what this query has always matched; REQUIRES_PREREQUISITE_HABIT (outgoing) is the
+// CANONICAL vocabulary — it is what HABITS_CONFIG declares in
+// prerequisite_relationship_names, what PrerequisiteChecker and HabitsPlanningService
+// read via the `prerequisite_habits` key, and what path_aware_types already documents
+// this `prerequisites` field as carrying. Habit creation became its first writer (#965),
+// which is when the omission started costing something. The pattern comprehension
+// mirrors habit_applied_knowledge above; the reduce dedupes a habit linked both ways
+// (pure Cypher — APOC stays scoped to apoc.meta.*).
 OPTIONAL MATCH (prereq_habit:Habit)-[:ENABLES_HABIT|PREREQUISITE_FOR]->(habit)
 WHERE habit IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
@@ -309,7 +318,17 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
-     collect(DISTINCT {uid: prereq_habit.uid, title: prereq_habit.title}) as habit_prerequisites
+     collect(DISTINCT {uid: prereq_habit.uid, title: prereq_habit.title}) +
+     [(habit)-[:REQUIRES_PREREQUISITE_HABIT]->(rp:Habit) | {uid: rp.uid, title: rp.title}]
+     as habit_prerequisites_raw
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata,
+     habit, habit_linked_goals, habit_applied_knowledge,
+     reduce(acc = [], p IN habit_prerequisites_raw |
+            CASE WHEN p IN acc THEN acc ELSE acc + p END) as habit_prerequisites
 
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,

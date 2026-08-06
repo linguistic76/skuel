@@ -170,6 +170,52 @@ class TestGoalHierarchyEdgeRoundTrip:
         assert row is not None, "no HAS_SUBGOAL edge between the two goals"
         assert row["weight"] == 0.25
 
+    async def test_another_users_goal_cannot_become_a_parent(
+        self, goals_service, neo4j_driver, test_user_uid
+    ) -> None:
+        """A cross-user HAS_SUBGOAL edge must never reach the graph.
+
+        ``parent_goal_uid`` is request input and the hierarchy backend matches on UID
+        and label alone. The victim's context rebuild starts from the goals they OWN
+        and traverses HAS_SUBGOAL without filtering the child's owner, so this edge
+        would inject the attacker's goal into the victim's cached context.
+        ``POST /api/goals/add-child`` — the pre-existing door onto the same write —
+        already verifies both endpoints. (Codex, #965.)
+        """
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MERGE (u:User {uid: 'user_test_victim'}) ON CREATE SET u.created_at = datetime()"
+            )
+        victim = await goals_service.create_goal(
+            goal_request(title="Victim's private goal"), "user_test_victim"
+        )
+        assert victim.is_ok, f"victim goal create failed: {victim.error}"
+
+        attacker = await goals_service.create_goal(
+            goal_request(title="Attacker's goal", parent_goal_uid=victim.value.uid),
+            test_user_uid,
+        )
+        assert attacker.is_ok, "the attacker's own goal is legitimate and is created"
+
+        async with neo4j_driver.session() as session:
+            row = await (
+                await session.run(
+                    "MATCH (p {uid: $parent})-[r:HAS_SUBGOAL]->(c {uid: $child}) "
+                    "RETURN count(r) AS n",
+                    parent=victim.value.uid,
+                    child=attacker.value.uid,
+                )
+            ).single()
+
+        assert row["n"] == 0, (
+            "a cross-user HAS_SUBGOAL edge was written — the attacker's goal is now "
+            "reachable from the victim's owned goal"
+        )
+
+        children = await goals_service.get_subentities(victim.value.uid)
+        assert children.is_ok
+        assert children.value == [], "the victim's children read exposes the attacker's goal"
+
     async def test_parentless_goal_gets_no_hierarchy_edge(
         self, goals_service, neo4j_driver, test_user_uid
     ) -> None:
@@ -269,6 +315,62 @@ class TestHabitLinkEdgeRoundTrip:
         assert row is not None, "no SUPPORTS_GOAL edge was written"
         assert row["essentiality"] == "supporting"
         assert row["weight"] == 1.0
+
+    async def test_prerequisite_edge_reaches_the_rich_user_context(
+        self, habits_service, user_service, neo4j_driver, test_user_uid
+    ) -> None:
+        """The canonical prerequisite edge must be visible to the context rebuild.
+
+        The MEGA-QUERY collected prerequisites only through the incoming
+        ``ENABLES_HABIT|PREREQUISITE_FOR`` pair, while ``REQUIRES_PREREQUISITE_HABIT``
+        (outgoing) is what HABITS_CONFIG declares canonical, what PrerequisiteChecker
+        reads, and what ``path_aware_types`` already documents this field as carrying.
+        Nothing wrote that edge until habit creation did, so the omission was free —
+        and it is the reader `HabitCreated` drives. (Codex, #965.)
+        """
+        from core.models.user.user import User
+
+        await _create_node(
+            neo4j_driver, "habit_ctx_prereq_abc", "Entity:Habit", "habit", "Wake at six"
+        )
+
+        result = await habits_service.create_habit(
+            HabitCreateRequest(
+                title="Morning run",
+                recurrence_pattern=RecurrencePattern.DAILY,
+                target_days_per_week=7,
+                prerequisite_habit_uids=["habit_ctx_prereq_abc"],
+            ),
+            test_user_uid,
+        )
+        assert result.is_ok, f"create_habit failed: {result.error}"
+
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (u:User {uid: $user}), (h {uid: $habit}) MERGE (u)-[:OWNS]->(h)",
+                user=test_user_uid,
+                habit=result.value.uid,
+            )
+
+        context = await user_service.context_builder.build_rich_user_context(
+            test_user_uid, User(uid=test_user_uid, title="Edge tester")
+        )
+        assert context.is_ok, f"build_rich_user_context failed: {context.error}"
+
+        habit_entry = next(
+            (
+                entry
+                for entry in context.value.entities_rich.get("habits", [])
+                if entry["entity"]["uid"] == result.value.uid
+            ),
+            None,
+        )
+        assert habit_entry is not None, "the newly created habit is absent from entities_rich"
+        prereq_uids = [p["uid"] for p in habit_entry["graph_context"]["prerequisites"]]
+        assert "habit_ctx_prereq_abc" in prereq_uids, (
+            "REQUIRES_PREREQUISITE_HABIT is invisible to the rich context — the rebuild "
+            f"HabitCreated triggers would cache empty prerequisites. Got: {prereq_uids}"
+        )
 
     async def test_linkless_habit_creates_no_edges(
         self, habits_service, neo4j_driver, test_user_uid
