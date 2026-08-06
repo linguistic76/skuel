@@ -338,6 +338,24 @@ def _command_name(tokens: list[str]) -> tuple[str | None, str, list[str]]:
     The written form is kept alongside the basename because it is the only one
     that resolves: ``./scripts/foo.sh`` has to stay a path.
     """
+    name, written, args, _ = _parse_command(tokens)
+    return name, written, args
+
+
+def _env_assignments(tokens: list[str]) -> tuple[str, ...]:
+    """The ``NAME=VALUE`` prefixes a command carries, in written order."""
+    return _parse_command(tokens)[3]
+
+
+def _parse_command(tokens: list[str]) -> tuple[str | None, str, list[str], tuple[str, ...]]:
+    """Split a command position into wrappers, assignments, name and arguments.
+
+    The assignments are RETURNED, not just skipped: `UV_FROZEN=0 uv sync`
+    overrides a job-level pin for that one command, and discarding it made the
+    audit credit the job's `UV_FROZEN: "1"` to an invocation that ran without
+    it (Codex, PR #959).
+    """
+    assignments: list[str] = []
     rest = list(tokens)
     while rest:
         head = rest[0]
@@ -353,12 +371,13 @@ def _command_name(tokens: list[str]) -> tuple[str | None, str, list[str]]:
             and (name[0].isalpha() or name[0] == "_")
             and name.replace("_", "a").isalnum()
         ):
+            assignments.append(head)
             rest = rest[1:]
             continue
         break
     if not rest:
-        return None, "", []
-    return PurePosixPath(rest[0]).name, rest[0], rest[1:]
+        return None, "", [], tuple(assignments)
+    return PurePosixPath(rest[0]).name, rest[0], rest[1:], tuple(assignments)
 
 
 # --------------------------------------------------------------------------
@@ -450,8 +469,8 @@ def _uv_option_region(args: list[str]) -> _UvParse:
 
 
 @dataclass(frozen=True)
-class UnreadableUv:
-    """A uv command this guard could not classify.
+class RefusedCommand:
+    """A command this guard declines to interpret, rather than guess at.
 
     Never silently dropped. Every shape that reaches here — a wrapper whose
     options it cannot skip, a shell payload it cannot recover — would
@@ -463,6 +482,11 @@ class UnreadableUv:
     origin: str
     rendered: str
     reason: str
+    headline: str = "a uv command this guard cannot classify"
+    fix: str = (
+        "invoke uv directly (`uv sync --frozen …`) so the command is plainly "
+        "visible in the workflow"
+    )
 
 
 @dataclass(frozen=True)
@@ -522,7 +546,7 @@ class JobUvUsage:
     workflow: str
     job_id: str
     invocations: tuple[UvInvocation, ...]
-    unreadable: tuple[UnreadableUv, ...]
+    refused: tuple[RefusedCommand, ...]
     frozen_scope: str | None  # "workflow" / "job" — where UV_FROZEN was declared
     frozen_value: str | None
     step_frozen: tuple[str, ...]  # step names declaring UV_FROZEN (never sufficient)
@@ -593,12 +617,31 @@ def _collect_from_shell(
     root: Path,
     seen: set[Path],
     inputs: set[Path],
-    unreadable: list[UnreadableUv],
+    refused: list[RefusedCommand],
 ) -> list[UvInvocation]:
     """uv invocations in a shell fragment, descending into scripts it runs."""
     found: list[UvInvocation] = []
     for tokens in _split_commands(text):
-        name, written, args = _command_name(tokens)
+        name, written, args, assignments = _parse_command(tokens)
+
+        # A shell-level `UV_FROZEN=…` overrides the job's env for this one
+        # command — `UV_FROZEN=0 uv sync` re-locks under a job pinned to "1".
+        # Rejected outright, like the step-level form: a per-invocation pin
+        # does not hold for the next command someone adds (PR #931).
+        refused.extend(
+            RefusedCommand(
+                origin=origin,
+                rendered=" ".join(tokens),
+                headline="UV_FROZEN is set for a single command",
+                reason=f"{assignment!r} overrides the job's env for this command "
+                "only, and uv reads the VALUE — `UV_FROZEN=0` disables the pin "
+                'even under a job-level `UV_FROZEN: "1"`',
+                fix="delete the assignment and rely on the job-level env",
+            )
+            for assignment in assignments
+            if assignment.partition("=")[0] == "UV_FROZEN"
+        )
+
         if name is None:
             continue
 
@@ -620,7 +663,7 @@ def _collect_from_shell(
             payload = _dash_c_payload(args)
             if payload is not None:
                 found.extend(
-                    _collect_from_shell(payload, origin, workdir, root, seen, inputs, unreadable)
+                    _collect_from_shell(payload, origin, workdir, root, seen, inputs, refused)
                 )
                 continue
 
@@ -637,7 +680,7 @@ def _collect_from_shell(
                         root=root,
                         seen=seen,
                         inputs=inputs,
-                        unreadable=unreadable,
+                        refused=refused,
                     )
                 )
             continue
@@ -647,8 +690,8 @@ def _collect_from_shell(
         # leaves `-u` as the command name). Prose never reaches here: an echoed
         # mention is one quoted token, not the bare word.
         if "uv" in args:
-            unreadable.append(
-                UnreadableUv(
+            refused.append(
+                RefusedCommand(
                     origin=origin,
                     rendered=" ".join(tokens),
                     reason=f"uv is invoked through {name!r}, whose options this "
@@ -719,7 +762,7 @@ def audit_workflow(
         )
 
         invocations: list[UvInvocation] = []
-        unreadable: list[UnreadableUv] = []
+        refused: list[RefusedCommand] = []
         step_frozen: list[str] = []
         seen: set[Path] = set()
 
@@ -740,7 +783,7 @@ def audit_workflow(
                         root=root,
                         seen=seen,
                         inputs=inputs,
-                        unreadable=unreadable,
+                        refused=refused,
                     )
                 )
             # Local composite actions run their steps inside this job, under
@@ -749,7 +792,7 @@ def audit_workflow(
             if isinstance(uses, str) and uses.startswith("./"):
                 invocations.extend(
                     _collect_from_composite(
-                        root / uses[2:], root, seen, str(step_name), inputs, unreadable
+                        root / uses[2:], root, seen, str(step_name), inputs, refused
                     )
                 )
 
@@ -758,7 +801,7 @@ def audit_workflow(
                 workflow=path.name,
                 job_id=str(job_id),
                 invocations=tuple(invocations),
-                unreadable=tuple(unreadable),
+                refused=tuple(refused),
                 frozen_scope=("job" if job_declared else "workflow" if workflow_declared else None),
                 frozen_value=job_value if job_declared else workflow_value,
                 step_frozen=tuple(step_frozen),
@@ -773,7 +816,7 @@ def _collect_from_composite(
     seen: set[Path],
     step_name: str,
     inputs: set[Path],
-    unreadable: list[UnreadableUv],
+    refused: list[RefusedCommand],
 ) -> list[UvInvocation]:
     """uv invocations inside a local composite action's own steps.
 
@@ -810,7 +853,7 @@ def _collect_from_composite(
                     root=root,
                     seen=seen,
                     inputs=inputs,
-                    unreadable=unreadable,
+                    refused=refused,
                 )
             )
         uses = step.get("uses")
@@ -818,7 +861,7 @@ def _collect_from_composite(
             inner = step.get("name") or uses or f"step {index + 1}"
             found.extend(
                 _collect_from_composite(
-                    root / uses[2:], root, seen, f"{step_name} -> {inner}", inputs, unreadable
+                    root / uses[2:], root, seen, f"{step_name} -> {inner}", inputs, refused
                 )
             )
     return found
@@ -843,14 +886,12 @@ def violations(usage: JobUvUsage) -> list[str]:
     # Rule 0. Before any verdict: refuse the shapes this guard cannot read,
     # rather than reporting a clean result over a command it never saw.
     problems.extend(
-        f"{usage.label}: a uv command this guard cannot classify [{item.origin}].\n"
+        f"{usage.label}: {item.headline} [{item.origin}].\n"
         f"      {item.rendered}\n"
         f"    Why: {item.reason}.\n"
-        "    Left unread it would make this job look uv-free, so no rule would\n"
-        "    apply and the lock would go unpinned in silence.\n"
-        "    Fix: invoke uv directly (`uv sync --frozen …`) so the command is\n"
-        "    plainly visible in the workflow."
-        for item in usage.unreadable
+        "    Unhandled, this job's lock goes unpinned while the guard reports clean.\n"
+        f"    Fix: {item.fix}."
+        for item in usage.refused
     )
 
     problems.extend(
@@ -879,10 +920,10 @@ def violations(usage: JobUvUsage) -> list[str]:
             '    Fix: move it to the job\'s own `env:` block as `UV_FROZEN: "1"`.'
         )
 
-    if usage.passes_locked and usage.frozen_declared:
+    if usage.passes_locked and usage.frozen_enabled:
         problems.append(
             f"{usage.label}: passes an explicit --locked AND declares UV_FROZEN "
-            f"(at {usage.frozen_scope} level). uv rejects that combination:\n"
+            f"(at {usage.frozen_scope} level, {usage.frozen_value!r}). uv rejects that:\n"
             "        error: the argument `--locked` cannot be used with `UV_FROZEN`\n"
             "    (exit 2) — so this job would go red on every run.\n"
             "    Fix: drop UV_FROZEN here and pin the sync with an explicit --frozen\n"
@@ -925,7 +966,21 @@ def violations(usage: JobUvUsage) -> list[str]:
     # Not `elif`: rules 1-3 are independent. But rule 4 is gated on rule 0 —
     # "never invokes uv" is a claim the guard cannot make about a job holding a
     # command it could not read.
-    if not usage.uses_uv and not usage.unreadable and usage.frozen_declared:
+    # Rule 2 keys on the VALUE now that uv's semantics are measured
+    # (UV_FROZEN=1 conflicts with --locked; UV_FROZEN=0 does not), so a
+    # declared-but-off pin would otherwise slip past every rule in a --locked
+    # job. Rule 1 already names the value in the non-locked case.
+    if usage.frozen_declared and not usage.frozen_enabled and usage.passes_locked:
+        problems.append(
+            f"{usage.label}: declares UV_FROZEN at {usage.frozen_scope} level as "
+            f"{usage.frozen_value!r}, which uv reads as OFF.\n"
+            "    Measured on uv 0.10.9: `UV_FROZEN=1` conflicts with --locked,\n"
+            "    `UV_FROZEN=0` does not — so this neither pins anything nor\n"
+            "    conflicts. It is config that reads as protection and is not.\n"
+            "    Fix: delete it. A --locked job pins its sync with --frozen."
+        )
+
+    if not usage.uses_uv and not usage.refused and usage.frozen_declared:
         problems.append(
             f"{usage.label}: declares UV_FROZEN (at {usage.frozen_scope} level) but "
             "never invokes uv.\n"
@@ -1411,6 +1466,104 @@ jobs:
     assert len(problems) == 1
     assert "cannot tell whether --frozen/--locked belongs to uv" in problems[0]
     assert "may be that option's value instead" in problems[0]
+
+
+def test_control_command_local_uv_frozen_override_is_rejected(tmp_path: Path) -> None:
+    """`UV_FROZEN=0 uv sync` under a job pinned to "1" re-locks anyway.
+
+    Measured on uv 0.10.9, uv reads the VALUE, not the presence:
+        UV_FROZEN=1 uv export --locked  -> error: cannot be used with UV_FROZEN
+        UV_FROZEN=0 uv export --locked  -> runs clean
+    So `0` genuinely disables the pin. Stripping the assignment as noise made
+    the audit credit the job-level pin to a command that ran without it
+    (Codex, PR #959).
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: UV_FROZEN=0 uv sync --no-install-project
+""",
+    )
+    assert len(problems) == 1
+    assert "UV_FROZEN is set for a single command" in problems[0]
+
+
+def test_control_command_local_override_is_caught_through_a_script(
+    tmp_path: Path,
+) -> None:
+    """...including when it prefixes a wrapper rather than uv itself.
+
+    `UV_FROZEN=0 bash scripts/x.sh` exports the override to every uv command
+    inside the script. Checking only uv-headed commands would be the same
+    one-layer-away miss as rounds 2, 3 and 5.
+    """
+    script = tmp_path / "app" / "scripts" / "build.sh"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("uv sync --no-install-project\n", encoding="utf-8")
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - working-directory: app
+        run: UV_FROZEN=0 bash scripts/build.sh
+""",
+    )
+    assert len(problems) == 1
+    assert "UV_FROZEN is set for a single command" in problems[0]
+
+
+def test_control_unrelated_env_prefixes_are_still_ignored(tmp_path: Path) -> None:
+    """Only UV_FROZEN matters — `FOO=1 uv sync` must not be reported."""
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: FOO=1 CI=true uv sync --no-install-project
+""",
+        )
+        == []
+    )
+
+
+def test_control_disabled_frozen_in_a_locked_job_is_reported(tmp_path: Path) -> None:
+    """`UV_FROZEN: "0"` alongside --locked pins nothing AND conflicts with nothing.
+
+    Rule 2 keys on the value now that uv's semantics are measured, so without
+    this check a declared-but-off pin would slip past every rule in a --locked
+    job while reading, to a human, as protection.
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  cve:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "0"
+    steps:
+      - run: uv sync --frozen --no-install-project
+      - run: uv export --locked --format requirements.txt
+""",
+    )
+    assert len(problems) == 1
+    assert "which uv reads as OFF" in problems[0]
 
 
 def test_control_uv_version_is_lock_touching(tmp_path: Path) -> None:
