@@ -897,6 +897,15 @@ class RelationshipCrudOperations(Protocol):
         """Create multiple relationships in a single transaction."""
         ...
 
+    async def get_owner_uids_batch(self, uids: builtins.list[str]) -> ResultType[dict[str, str]]:
+        """Owner of each node, for many nodes in one query (uid -> user_uid).
+
+        Only user-owned nodes appear: shared content (Ku, PathStep, LearningPath)
+        carries no ``user_uid`` and is absent. Callers turning request-supplied UIDs
+        into edges use this to refuse cross-user targets.
+        """
+        ...
+
     async def create_extracted_from_links(
         self, entry_uid: str, links: builtins.list[tuple[str, str, str | None]]
     ) -> ResultType[int]:

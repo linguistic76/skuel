@@ -125,6 +125,14 @@ class StubBackend:
         self.batched: list[tuple[str, str, str, dict[str, Any] | None]] = []
         # (parent_uid, child_uid, forward_props) as handed to the hierarchy writer
         self.hierarchy: list[tuple[str, str, dict[str, Any] | None]] = []
+        # uid -> owning user, for the link-target ownership check. A uid absent from
+        # this dict resolves to USER_UID (the same user); mapping one elsewhere stages
+        # another user's entity. ``shared`` models content that carries no user_uid at
+        # all (Ku, PathStep, LP) — the real query omits those rows via
+        # `n.user_uid IS NOT NULL`, so the stub must omit them too rather than report
+        # a None owner, which would read as "owned by nobody" and be refused.
+        self.owners: dict[str, str] = {}
+        self.shared: set[str] = set()
 
     async def create(self, entity: Any) -> Result[Any]:
         props = to_neo4j_node(entity)
@@ -146,6 +154,17 @@ class StubBackend:
         self.batched.extend(relationships)
         self.trace.append("edges_written")
         return Result.ok(len(list(relationships)))
+
+    async def get_owner_uids_batch(self, uids: Any) -> Result[dict[str, str]]:
+        """uid -> owner, mirroring the real query's contract.
+
+        Habits check link targets through this before batching. Same-user is the
+        DEFAULT so the edge tests exercise the writing path; tests populate ``owners``
+        to stage a cross-user target and ``shared`` to stage unowned content.
+        """
+        return Result.ok(
+            {uid: self.owners.get(uid, USER_UID) for uid in uids if uid not in self.shared}
+        )
 
     async def create_hierarchy_relationship(
         self, parent_uid: str, child_uid: str, forward_props: dict[str, Any] | None = None
@@ -692,6 +711,104 @@ class TestHabitLinkEdgesAreWritten:
         )
 
         assert result.is_ok, f"a failed edge batch failed the whole create: {result.error}"
+
+
+@pytest.mark.asyncio
+class TestHabitLinkEdgesCheckOwnership:
+    """Every link target is request input; none may cross a user boundary.
+
+    ``create_relationships_batch`` validates LABELS, not ownership. Without this
+    guard a caller could link their habit to another user's goal — whose title their
+    own context read would then return — or to another user's principle, which the
+    victim's alignment reads (incoming EMBODIES_PRINCIPLE) would pick the caller's
+    habit up from. Sibling of the HAS_SUBGOAL check on Goals. (Codex, #965.)
+    """
+
+    @pytest.mark.parametrize(
+        ("field", "relationship"),
+        [
+            ("linked_goal_uids", RelationshipName.SUPPORTS_GOAL),
+            ("linked_principle_uids", RelationshipName.EMBODIES_PRINCIPLE),
+            ("prerequisite_habit_uids", RelationshipName.REQUIRES_PREREQUISITE_HABIT),
+        ],
+    )
+    async def test_refuses_a_target_owned_by_another_user(
+        self,
+        habit_core: HabitsCoreService,
+        habit_backend: StubBackend,
+        field: str,
+        relationship: RelationshipName,
+    ) -> None:
+        habit_backend.owners["target:victims"] = "user:victim"
+
+        result = await habit_core.create_habit(
+            make_habit_request(**{field: ["target:victims"]}), USER_UID
+        )
+
+        assert result.is_ok, "the caller's own habit is legitimate and should be created"
+        assert edges_of(habit_backend, relationship) == [], (
+            f"{field} wrote a cross-user {relationship.value} edge"
+        )
+
+    async def test_shared_knowledge_is_still_linkable(
+        self, habit_core: HabitsCoreService, habit_backend: StubBackend
+    ) -> None:
+        """Kus carry no ``user_uid`` — an owner-absent target must NOT be refused.
+
+        This is the case a "check every target belongs to me" rule gets wrong: Ku is
+        shared content, and refusing it would break the single most common link.
+        """
+        habit_backend.shared.add("ku:shared")
+
+        result = await habit_core.create_habit(
+            make_habit_request(linked_knowledge_uids=["ku:shared"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_habit failed: {result.error}"
+        assert edges_of(habit_backend, RelationshipName.REINFORCES_KNOWLEDGE), (
+            "a shared Ku was refused as a link target — user_uid lives on "
+            "UserOwnedEntity, so shared content legitimately has no owner"
+        )
+
+    async def test_only_the_offending_edge_is_dropped(
+        self, habit_core: HabitsCoreService, habit_backend: StubBackend
+    ) -> None:
+        """One bad target must not cost the caller their legitimate links."""
+        habit_backend.owners["goal:victims"] = "user:victim"
+
+        result = await habit_core.create_habit(
+            make_habit_request(
+                linked_goal_uids=["goal:victims", "goal:mine"],
+                linked_knowledge_uids=["ku:mine"],
+            ),
+            USER_UID,
+        )
+
+        assert result.is_ok, f"create_habit failed: {result.error}"
+        goal_targets = {t[1] for t in edges_of(habit_backend, RelationshipName.SUPPORTS_GOAL)}
+        assert goal_targets == {"goal:mine"}, f"expected only the owned goal, got {goal_targets}"
+        assert edges_of(habit_backend, RelationshipName.REINFORCES_KNOWLEDGE), (
+            "an unrelated, legitimate knowledge link was dropped too"
+        )
+
+    async def test_owner_lookup_failure_writes_nothing(
+        self, habit_core: HabitsCoreService, habit_backend: StubBackend
+    ) -> None:
+        """Fail CLOSED: an unreadable owner map must not fall through to an unchecked write."""
+
+        async def _fail(*_args: Any, **_kwargs: Any) -> Result[dict[str, str]]:
+            return Result.fail("owner lookup unavailable")
+
+        habit_backend.get_owner_uids_batch = _fail  # type: ignore[method-assign]
+
+        result = await habit_core.create_habit(
+            make_habit_request(linked_goal_uids=["goal:mine"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_habit failed: {result.error}"
+        assert habit_backend.batched == [], (
+            "edges were written unchecked after the ownership lookup failed"
+        )
 
 
 @pytest.mark.asyncio

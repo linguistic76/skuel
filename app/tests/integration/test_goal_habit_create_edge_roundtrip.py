@@ -372,6 +372,65 @@ class TestHabitLinkEdgeRoundTrip:
             f"HabitCreated triggers would cache empty prerequisites. Got: {prereq_uids}"
         )
 
+    async def test_another_users_entities_cannot_be_linked(
+        self, habits_service, neo4j_driver, test_user_uid
+    ) -> None:
+        """Cross-user link targets must be refused, while the shared Ku still links.
+
+        Both halves matter. The refusal is the security property; the shared Ku is the
+        reason the rule is written against the DATA (does this target carry a
+        ``user_uid`` at all?) rather than a hand-listed set of user-owned types — Kus
+        carry none, and a blunt "every target must be mine" rule would break the most
+        common link of the four. (Codex, #965.)
+        """
+        # Victim-owned goal and principle; a shared Ku with no user_uid at all.
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MERGE (g:Entity:Goal {uid: 'goal_victim_owned'}) "
+                "ON CREATE SET g.entity_type = 'goal', g.title = 'Victim goal', "
+                "g.user_uid = 'user_test_victim' "
+                "MERGE (p:Entity:Principle {uid: 'principle_victim_owned'}) "
+                "ON CREATE SET p.entity_type = 'principle', p.title = 'Victim principle', "
+                "p.user_uid = 'user_test_victim'"
+            )
+        await _create_node(neo4j_driver, "ku_shared_link", "Entity:Ku", "ku", "Deep Work")
+
+        result = await habits_service.create_habit(
+            HabitCreateRequest(
+                title="Mixed links",
+                recurrence_pattern=RecurrencePattern.DAILY,
+                target_days_per_week=7,
+                linked_goal_uids=["goal_victim_owned"],
+                linked_principle_uids=["principle_victim_owned"],
+                linked_knowledge_uids=["ku_shared_link"],
+            ),
+            test_user_uid,
+        )
+        assert result.is_ok, "the caller's own habit is legitimate and is created"
+
+        for relationship in (
+            RelationshipName.SUPPORTS_GOAL,
+            RelationshipName.EMBODIES_PRINCIPLE,
+        ):
+            edges = await habits_service.backend.get_relationships(
+                result.value.uid, rel_type=relationship, direction="outgoing"
+            )
+            assert edges.is_ok
+            assert edges.value == [], (
+                f"a cross-user {relationship.value} edge reached the graph: {edges.value}"
+            )
+
+        knowledge = await habits_service.backend.get_relationships(
+            result.value.uid,
+            rel_type=RelationshipName.REINFORCES_KNOWLEDGE,
+            direction="outgoing",
+        )
+        assert knowledge.is_ok
+        assert [r["target_uid"] for r in knowledge.value] == ["ku_shared_link"], (
+            "the shared Ku was refused — the ownership rule must let unowned content "
+            "through, or it breaks the most common habit link"
+        )
+
     async def test_linkless_habit_creates_no_edges(
         self, habits_service, neo4j_driver, test_user_uid
     ) -> None:

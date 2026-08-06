@@ -368,13 +368,13 @@ class HabitsCoreService(
             return create_result
 
         created = create_result.value
-        await self._write_link_edges(created.uid, habit_request)
+        await self._write_link_edges(created, habit_request)
 
         # Edges are written — only now announce the habit.
         await self._publish_created(created)
         return Result.ok(created)
 
-    async def _write_link_edges(self, habit_uid: str, request: HabitCreateRequest) -> None:
+    async def _write_link_edges(self, habit: Habit, request: HabitCreateRequest) -> None:
         """GRAPH-NATIVE: turn the request's four link lists into edges, in one batch.
 
         Each list names a registered, READ relationship that nothing was writing at
@@ -397,9 +397,13 @@ class HabitsCoreService(
         value that lands a habit in the unfiltered ``contributing_habits`` catch-all.
         REQUIRES_PREREQUISITE_HABIT carries no properties in the registry, so it gets none.
 
+        OWNERSHIP: every target UID is request input, so each is checked before it
+        becomes an edge — see ``_drop_cross_user_targets``.
+
         A failure is logged, not propagated — the habit itself is created. Mirrors
         ``TasksCoreService.create_task`` and ``ChoicesCoreService.create_choice``.
         """
+        habit_uid = habit.uid
         relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
 
         relationships.extend(
@@ -437,6 +441,10 @@ class HabitsCoreService(
         if not relationships:
             return
 
+        relationships = await self._drop_cross_user_targets(habit, relationships)
+        if not relationships:
+            return
+
         batch_result = await self.backend.create_relationships_batch(relationships)
         if batch_result.is_error:
             self.logger.warning(
@@ -445,6 +453,60 @@ class HabitsCoreService(
                 habit_uid,
                 batch_result.error,
             )
+
+    async def _drop_cross_user_targets(
+        self,
+        habit: Habit,
+        relationships: list[tuple[str, str, str, Neo4jProperties | None]],
+    ) -> list[tuple[str, str, str, Neo4jProperties | None]]:
+        """Refuse edges whose target belongs to a different user.
+
+        Every target UID here came from the request body, and
+        ``create_relationships_batch`` validates LABELS, not ownership — so without this
+        a caller could link their habit to another user's goal, principle or habit. Two
+        ways that costs something: the caller's own context read walks
+        ``(habit)-[:SUPPORTS_GOAL]->(goal)`` and would return the victim's goal title,
+        and the victim's principle-alignment reads walk incoming EMBODIES_PRINCIPLE and
+        would pick up the caller's habit. (Reported by Codex on #965; the sibling of the
+        HAS_SUBGOAL check in ``GoalsCoreService._write_hierarchy_edge``.)
+
+        The rule is expressed against the DATA, not a list of entity types: a target
+        that carries a ``user_uid`` must carry this habit's, and a target with none is
+        shared content (Ku, PathStep, LearningPath — ``user_uid`` lives on
+        ``UserOwnedEntity``) and is allowed. Hand-listing which of the four target kinds
+        are user-owned would be a table that rots the moment a type changes tier;
+        ``linked_knowledge_uids`` legitimately points at shared Kus and must keep working.
+
+        Fail-closed on the edge only: the habit itself is the caller's own and is kept.
+        A lookup failure drops the batch rather than writing it unchecked.
+        """
+        target_uids = sorted({target_uid for _src, target_uid, _rel, _props in relationships})
+        owners_result = await self.backend.get_owner_uids_batch(target_uids)
+        if owners_result.is_error:
+            self.logger.warning(
+                "Skipping %d link edges for habit %s: owner lookup failed: %s",
+                len(relationships),
+                habit.uid,
+                owners_result.error,
+            )
+            return []
+
+        owners = owners_result.value
+        kept = [
+            relationship
+            for relationship in relationships
+            if owners.get(relationship[1], habit.user_uid) == habit.user_uid
+        ]
+
+        refused = len(relationships) - len(kept)
+        if refused:
+            self.logger.warning(
+                "Refusing %d cross-user link edge(s) for habit %s (user %s)",
+                refused,
+                habit.uid,
+                habit.user_uid,
+            )
+        return kept
 
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
     async def update_habit(
