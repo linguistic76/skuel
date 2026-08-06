@@ -145,7 +145,10 @@ draws Codex's cosmetic "create a Codex account" reply, not a substantive review
 (confirmed across PRs #12–#15). Hence the trigger is now commented out. Kept for
 re-enablement only.
 
-- Triggers on `opened` / `reopened` / `ready_for_review` / `synchronize`.
+The bullets below describe the workflow **as it would behave if re-enabled** — the
+`pull_request:` trigger is commented out, so none of it runs today:
+
+- Would trigger on `opened` / `reopened` / `ready_for_review` / `synchronize`.
 - A `sleep 30` + per-PR `concurrency: cancel-in-progress` debounces bursts — a
   flurry of pushes collapses to one trigger.
 - Job guard `if: github.event_name == 'pull_request' && …draft == false` — runs
