@@ -21,7 +21,8 @@ import dataclasses
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Final
 
-from core.models.type_hints import UserUID
+from core.models.relationship_names import RelationshipName
+from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
@@ -300,13 +301,21 @@ class GoalsCoreService(
         """
         return await self._create_with_hierarchy(entity, progress_weight=DEFAULT_PROGRESS_WEIGHT)
 
-    async def _create_with_hierarchy(self, entity: Goal, *, progress_weight: float) -> Result[Goal]:
-        """The one create path: validate + persist, write the hierarchy edge, then announce.
+    async def _create_with_hierarchy(
+        self,
+        entity: Goal,
+        *,
+        progress_weight: float,
+        request: "GoalCreateRequest | None" = None,
+    ) -> Result[Goal]:
+        """The one create path: validate + persist, write the edges, then announce.
 
         ``progress_weight`` is a property of the HAS_SUBGOAL EDGE, not of ``Goal``, so it
         cannot ride on the entity — only the request door can supply a non-default. It is
         a parameter here rather than a second create path so that the edge has exactly one
-        write site.
+        write site. ``request`` is likewise present only for the request door: the three
+        link lists are edge-typed and reach no ``Goal`` field, so the entity door has
+        nothing to pass (``None``, and no link edges written).
         """
         result: Result[Goal] = await self._create_validated(entity)
         if result.is_error:
@@ -314,6 +323,8 @@ class GoalsCoreService(
 
         goal: Goal = result.value  # Type hint to help MyPy
         await self._write_hierarchy_edge(goal, progress_weight)
+        if request is not None:
+            await self._write_link_edges(goal, request)
         await self._publish_created(goal)
         return result
 
@@ -385,6 +396,128 @@ class GoalsCoreService(
                 edge_result.error,
             )
 
+    async def _write_link_edges(self, goal: Goal, request: "GoalCreateRequest") -> None:
+        """GRAPH-NATIVE: turn the request's three link lists into edges, in one batch.
+
+        Each names a registered, READ relationship that nothing was writing at creation
+        (GOAPS_CONFIG in core/models/relationship_registry.py):
+
+        - ``required_knowledge_uids``  → REQUIRES_KNOWLEDGE, OUTGOING (``knowledge`` key)
+        - ``guiding_principle_uids``   → GUIDED_BY_PRINCIPLE, OUTGOING (``principles``)
+        - ``supporting_habit_uids``    → SUPPORTS_GOAL, **INCOMING** (``supporting_habits``)
+
+        DIRECTION is not uniform here, unlike Habits' four: ``SUPPORTS_GOAL`` is declared
+        incoming, so the HABIT is the source and the goal the target. Writing it the
+        other way round persists an edge that every reader misses.
+
+        Readers: the user-context MEGA-QUERY collects ``required_knowledge`` from
+        ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOAPS habit tiers
+        (``contributing_habits`` and the essentiality-filtered buckets) resolve from
+        SUPPORTS_GOAL. Properties are the defaults of the existing single-link writers —
+        ``link_goal_to_knowledge`` / ``link_goal_to_principle`` / ``link_goal_to_habit`` —
+        so a goal linked at creation is indistinguishable from one linked afterwards.
+        ``essentiality`` is load-bearing for the tier reads (see the Habits sibling).
+
+        OWNERSHIP: every target UID is request input, checked before it becomes an edge —
+        see ``HabitsCoreService._drop_cross_user_targets`` for the reasoning; this is the
+        same rule expressed against the same batch lookup. (Reported by Codex on #965.)
+        """
+        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
+
+        relationships.extend(
+            (
+                goal.uid,
+                knowledge_uid,
+                RelationshipName.REQUIRES_KNOWLEDGE.value,
+                {"proficiency_required": "intermediate", "priority": 1},
+            )
+            for knowledge_uid in request.required_knowledge_uids
+        )
+        relationships.extend(
+            (
+                goal.uid,
+                principle_uid,
+                RelationshipName.GUIDED_BY_PRINCIPLE.value,
+                {"alignment_strength": 1.0},
+            )
+            for principle_uid in request.guiding_principle_uids
+        )
+        # INCOMING: (habit)-[:SUPPORTS_GOAL]->(goal) — habit first, per GOAPS_CONFIG.
+        relationships.extend(
+            (
+                habit_uid,
+                goal.uid,
+                RelationshipName.SUPPORTS_GOAL.value,
+                {"weight": 1.0, "essentiality": "supporting"},
+            )
+            for habit_uid in request.supporting_habit_uids
+        )
+
+        if not relationships:
+            return
+
+        relationships = await self._drop_cross_user_edges(goal, relationships)
+        if not relationships:
+            return
+
+        batch_result = await self.backend.create_relationships_batch(relationships)
+        if batch_result.is_error:
+            self.logger.warning(
+                "Failed to create %d link relationships for goal %s: %s",
+                len(relationships),
+                goal.uid,
+                batch_result.error,
+            )
+
+    async def _drop_cross_user_edges(
+        self,
+        goal: Goal,
+        relationships: list[tuple[str, str, str, Neo4jProperties | None]],
+    ) -> list[tuple[str, str, str, Neo4jProperties | None]]:
+        """Refuse edges whose OTHER end belongs to a different user.
+
+        Sibling of ``HabitsCoreService._drop_cross_user_targets``, and the endpoint it
+        checks is "whichever end is not this goal" — because ``SUPPORTS_GOAL`` is written
+        incoming, so for that list the request-supplied UID is the edge's SOURCE. Checking
+        only ``relationship[1]`` here would leave the habit list unguarded.
+
+        Same data-driven rule: an endpoint carrying a ``user_uid`` must carry this goal's;
+        one with none is shared content (Ku and friends) and is allowed. Fail-closed — a
+        lookup failure drops the batch rather than writing it unchecked.
+        """
+        other_ends = {
+            source_uid if source_uid != goal.uid else target_uid
+            for source_uid, target_uid, _rel, _props in relationships
+        }
+        owners_result = await self.backend.get_owner_uids_batch(sorted(other_ends))
+        if owners_result.is_error:
+            self.logger.warning(
+                "Skipping %d link edges for goal %s: owner lookup failed: %s",
+                len(relationships),
+                goal.uid,
+                owners_result.error,
+            )
+            return []
+
+        owners = owners_result.value
+
+        def _is_own(relationship: tuple[str, str, str, Neo4jProperties | None]) -> bool:
+            source_uid, target_uid = relationship[0], relationship[1]
+            other = source_uid if source_uid != goal.uid else target_uid
+            return owners.get(other, goal.user_uid) == goal.user_uid
+
+        kept = [relationship for relationship in relationships if _is_own(relationship)]
+
+        refused = len(relationships) - len(kept)
+        if refused:
+            self.logger.warning(
+                "Refusing %d cross-user link edge(s) for goal %s (user %s)",
+                refused,
+                goal.uid,
+                goal.user_uid,
+            )
+        return kept
+
     async def _publish_created(self, goal: Goal) -> None:
         """Announce a newly created goal: GoalCreated + the ADR-074 embedding refresh.
 
@@ -429,12 +562,11 @@ class GoalsCoreService(
         ``strategies``, ``success_criteria``, ``tags``, ``unit_of_measurement`` and
         ``why_important`` — so the two doors persisted different goals from one request.
 
-        ``progress_weight`` is forwarded here because only this door still has the request:
-        it is an EDGE property, so it never reaches the entity the route door builds. The
-        HAS_SUBGOAL edge itself is written by the shared path for both doors.
-
-        Still not carried by EITHER door: the three edge-typed uid lists
-        (``required_knowledge_uids``, ``supporting_habit_uids``, ``guiding_principle_uids``).
+        ``progress_weight`` and the three edge-typed uid lists (``required_knowledge_uids``,
+        ``guiding_principle_uids``, ``supporting_habit_uids``) are forwarded here because
+        only this door still has the request: all four are EDGE-shaped, so none reaches the
+        entity the route door builds. The HAS_SUBGOAL edge itself, whose parent DOES ride on
+        the entity, is written by the shared path for both doors.
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "goal creation")
@@ -452,7 +584,9 @@ class GoalsCoreService(
             user_uid=user_uid,
             status=EntityStatus.ACTIVE,
         )
-        return await self._create_with_hierarchy(goal, progress_weight=goal_request.progress_weight)
+        return await self._create_with_hierarchy(
+            goal, progress_weight=goal_request.progress_weight, request=goal_request
+        )
 
     @with_error_handling("update_goal", error_type="database", uid_param="uid")
     async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:

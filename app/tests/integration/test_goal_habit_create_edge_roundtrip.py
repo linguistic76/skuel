@@ -216,6 +216,60 @@ class TestGoalHierarchyEdgeRoundTrip:
         assert children.is_ok
         assert children.value == [], "the victim's children read exposes the attacker's goal"
 
+    async def test_link_lists_round_trip_in_the_registry_direction(
+        self, goals_service, neo4j_driver, test_user_uid
+    ) -> None:
+        """The three link lists persist — with SUPPORTS_GOAL pointing INTO the goal.
+
+        Direction is the whole risk here: GOAPS_CONFIG declares ``supporting_habits``
+        incoming, so the habit is the source. An edge written the other way persists
+        perfectly and is invisible to every tier read. (Codex, #965.)
+        """
+        await _create_node(neo4j_driver, "ku_goal_link_abc", "Entity:Ku", "ku", "Systems")
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MERGE (p:Entity:Principle {uid: 'principle_goal_link_abc'}) "
+                "ON CREATE SET p.entity_type = 'principle', p.title = 'Consistency', "
+                "p.user_uid = $user "
+                "MERGE (h:Entity:Habit {uid: 'habit_goal_link_abc'}) "
+                "ON CREATE SET h.entity_type = 'habit', h.title = 'Daily review', "
+                "h.user_uid = $user",
+                user=test_user_uid,
+            )
+
+        goal = await goals_service.create_goal(
+            goal_request(
+                title="Linked goal",
+                required_knowledge_uids=["ku_goal_link_abc"],
+                guiding_principle_uids=["principle_goal_link_abc"],
+                supporting_habit_uids=["habit_goal_link_abc"],
+            ),
+            test_user_uid,
+        )
+        assert goal.is_ok, f"create_goal failed: {goal.error}"
+
+        for relationship, target in (
+            (RelationshipName.REQUIRES_KNOWLEDGE, "ku_goal_link_abc"),
+            (RelationshipName.GUIDED_BY_PRINCIPLE, "principle_goal_link_abc"),
+        ):
+            edges = await goals_service.backend.get_relationships(
+                goal.value.uid, rel_type=relationship, direction="outgoing"
+            )
+            assert edges.is_ok, f"{relationship.value} read failed: {edges.error}"
+            assert [r["target_uid"] for r in edges.value] == [target], (
+                f"{relationship.value} did not round-trip: {edges.value}"
+            )
+
+        # SUPPORTS_GOAL is INCOMING: the habit is the source.
+        incoming = await goals_service.backend.get_relationships(
+            goal.value.uid, rel_type=RelationshipName.SUPPORTS_GOAL, direction="incoming"
+        )
+        assert incoming.is_ok
+        assert [r["target_uid"] for r in incoming.value] == ["habit_goal_link_abc"], (
+            "supporting_habit_uids did not produce (habit)-[:SUPPORTS_GOAL]->(goal) — "
+            f"an outgoing edge here would be invisible to every tier read: {incoming.value}"
+        )
+
     async def test_parentless_goal_gets_no_hierarchy_edge(
         self, goals_service, neo4j_driver, test_user_uid
     ) -> None:

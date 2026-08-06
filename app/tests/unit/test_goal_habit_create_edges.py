@@ -31,6 +31,14 @@ Goals
     is a property of the HAS_SUBGOAL edge, which ``create_subgoal_relationship``
     writes and ``POST /api/goals/hierarchy/child`` already accepts.
 
+    ``required_knowledge_uids``, ``guiding_principle_uids`` and
+    ``supporting_habit_uids`` were dropped by both doors for the same reason, and
+    name read relationships GOAPS_CONFIG declares: the MEGA-QUERY collects
+    ``required_knowledge`` from ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the habit
+    tiers (``contributing_habits`` plus the essentiality-filtered buckets) resolve
+    from SUPPORTS_GOAL. Their direction is NOT uniform — SUPPORTS_GOAL is declared
+    incoming, so the habit is the source and the goal the target.
+
 Habits
     ``linked_knowledge_uids``, ``linked_principle_uids``, ``linked_goal_uids`` and
     ``prerequisite_habit_uids`` were dropped by both doors — none is a ``Habit``
@@ -56,14 +64,26 @@ observe an entity with no edges and cache that for the full 300s TTL, with no
 later event to correct it. Regression guard for the inversion Codex caught on
 #960, now asserted for two more domains.
 
+OWNERSHIP (every link target is request input)
+----------------------------------------------
+Turning a user-supplied UID into an edge without checking who owns it lets one
+user link their entity to another's, so every write below is guarded. The rule is
+expressed against the DATA — a target carrying a ``user_uid`` must carry the
+creator's, one with none is shared content (``user_uid`` lives on
+``UserOwnedEntity``, so Ku and friends have none) and is allowed. That keeps
+``linked_knowledge_uids`` / ``required_knowledge_uids`` working, which a blunt
+"every target must be mine" rule would break.
+
 DOOR ASYMMETRY (deliberate, asserted below)
 -------------------------------------------
 Goals' hierarchy edge is written on the SHARED path, so both doors write it:
-``fulfills_goal_uid`` rides on the entity. Habits' four lists cannot work that
-way — none is a ``Habit`` field, so the converter drops them before the generated
-CRUD route ever reaches ``create(entity)``. ``create_habit`` is the only door that
-still holds them, and ``TestHabitRouteDoorCannotCarryLinks`` pins that as a known
-limit of the request model rather than a silent gap.
+``fulfills_goal_uid`` rides on the entity. The seven LINK lists (three on Goals,
+four on Habits) cannot work that way — none is a field of its domain model, so
+the converter drops them before the generated CRUD route ever reaches
+``create(entity)``. ``create_goal`` / ``create_habit`` are the only doors that
+still hold them, pinned by ``TestGoalLinkEdgesAreWritten.test_route_door_writes_
+no_link_edges`` and ``TestHabitRouteDoorCannotCarryLinks`` as a known limit of the
+generated route rather than a silent gap.
 
 No Neo4j: the backend is stubbed, so what is under test is the service wiring —
 which is exactly where the defect lived.
@@ -85,7 +105,7 @@ from core.models.goal.goal_request import GoalCreateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.relationship_names import RelationshipName
-from core.models.relationship_registry import HABITS_CONFIG
+from core.models.relationship_registry import GOAPS_CONFIG, HABITS_CONFIG
 from core.services.goals import goals_core_service as goals_module
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals_service import GoalsService
@@ -361,6 +381,162 @@ class TestGoalHierarchyEdgeIsWritten:
         assert result.is_ok, f"a refused hierarchy edge failed the whole create: {result.error}"
         assert [e for e in event_bus.get_event_history() if isinstance(e, GoalCreated)], (
             "GoalCreated was swallowed when the edge write failed"
+        )
+
+
+@pytest.mark.asyncio
+class TestGoalLinkEdgesAreWritten:
+    """``GoalCreateRequest``'s three link lists must become edges too.
+
+    Same defect as the Habit lists, and the same census: each names a registered,
+    read relationship. ``required_knowledge`` is collected by the user-context
+    MEGA-QUERY off ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOAPS habit tiers
+    resolve from SUPPORTS_GOAL. (Codex, #965.)
+    """
+
+    @pytest.mark.parametrize(
+        ("field", "relationship", "method_key", "expected_props"),
+        [
+            (
+                "required_knowledge_uids",
+                RelationshipName.REQUIRES_KNOWLEDGE,
+                "knowledge",
+                {"proficiency_required": "intermediate", "priority": 1},
+            ),
+            (
+                "guiding_principle_uids",
+                RelationshipName.GUIDED_BY_PRINCIPLE,
+                "principles",
+                {"alignment_strength": 1.0},
+            ),
+            (
+                "supporting_habit_uids",
+                RelationshipName.SUPPORTS_GOAL,
+                "supporting_habits",
+                {"weight": 1.0, "essentiality": "supporting"},
+            ),
+        ],
+    )
+    async def test_list_becomes_edges_in_the_registry_direction(
+        self,
+        goal_core: GoalsCoreService,
+        goal_backend: StubBackend,
+        field: str,
+        relationship: RelationshipName,
+        method_key: str,
+        expected_props: dict[str, Any],
+    ) -> None:
+        """RED before the fix: all three lists were dropped by both doors.
+
+        Direction is read off GOAPS_CONFIG rather than hand-asserted, because it is
+        NOT uniform here: SUPPORTS_GOAL is declared incoming, so for that list the
+        habit is the edge SOURCE and the goal the target. Writing it like the other
+        two would persist an edge every reader misses.
+        """
+        spec = GOAPS_CONFIG.get_relationship_by_method(method_key)
+        assert spec is not None, f"GOAPS_CONFIG has no '{method_key}' relationship"
+        assert spec.relationship == relationship
+
+        result = await goal_core.create_goal(
+            make_goal_request(**{field: ["target:one", "target:two"]}), USER_UID
+        )
+        assert result.is_ok, f"create_goal failed: {result.error}"
+
+        written = [t for t in goal_backend.batched if t[2] == relationship.value]
+        assert len(written) == 2, (
+            f"{field} produced {len(written)} {relationship.value} edges, expected 2 — "
+            f"batched: {goal_backend.batched}"
+        )
+        assert all(t[3] == expected_props for t in written), (
+            f"{relationship.value} properties differ from the single-link writer's "
+            f"defaults {expected_props!r}: {[t[3] for t in written]}"
+        )
+
+        goal_uid = result.value.uid
+        if spec.direction == "incoming":
+            assert {t[0] for t in written} == {"target:one", "target:two"}
+            assert {t[1] for t in written} == {goal_uid}, (
+                f"'{method_key}' is declared incoming, so the goal must be the edge "
+                "TARGET — writing it as the source orphans the edge"
+            )
+        else:
+            assert {t[0] for t in written} == {goal_uid}
+            assert {t[1] for t in written} == {"target:one", "target:two"}
+
+    async def test_refuses_cross_user_link_targets(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """Including on the INCOMING list, where the supplied UID is the edge source."""
+        goal_backend.owners["habit:victims"] = "user:victim"
+        goal_backend.owners["principle:victims"] = "user:victim"
+
+        result = await goal_core.create_goal(
+            make_goal_request(
+                supporting_habit_uids=["habit:victims"],
+                guiding_principle_uids=["principle:victims"],
+            ),
+            USER_UID,
+        )
+
+        assert result.is_ok, "the caller's own goal is legitimate and should be created"
+        assert goal_backend.batched == [], (
+            f"cross-user link edges were written: {goal_backend.batched}"
+        )
+
+    async def test_shared_knowledge_is_still_linkable(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """Positive control: Kus carry no user_uid and must not be refused."""
+        goal_backend.shared.add("ku:shared")
+
+        result = await goal_core.create_goal(
+            make_goal_request(required_knowledge_uids=["ku:shared"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_goal failed: {result.error}"
+        assert [t for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"], (
+            "a shared Ku was refused as a goal's required knowledge"
+        )
+
+    async def test_link_edges_precede_the_event(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """Same ordering contract as the hierarchy edge — the context rebuild reads
+        ``required_knowledge`` straight back out of the graph."""
+
+        def _record(_event: GoalCreated) -> None:
+            goal_backend.trace.append("goal_created_published")
+
+        event_bus.subscribe(GoalCreated, _record)
+
+        await goal_core.create_goal(make_goal_request(required_knowledge_uids=["ku:a"]), USER_UID)
+
+        assert goal_backend.trace.index("edges_written") < goal_backend.trace.index(
+            "goal_created_published"
+        ), f"GoalCreated fired before the link edges. Order was: {goal_backend.trace}"
+
+    async def test_route_door_writes_no_link_edges(
+        self, goal_facade: GoalsService, goal_backend: StubBackend
+    ) -> None:
+        """The entity door has no request to read them from — documented, not silent.
+
+        Unlike the hierarchy edge (whose parent rides on the entity), these three are
+        edge-typed and reach no ``Goal`` field, so the converter drops them first.
+        """
+        from core.services.conversion_service import ConversionServiceV2
+
+        entity = ConversionServiceV2.goal_create_to_pure(
+            make_goal_request(required_knowledge_uids=["ku:a"]),
+            "goal:door-a",
+            user_uid=USER_UID,
+            status=EntityStatus.ACTIVE,
+        )
+        result = await goal_facade.create(entity)
+
+        assert result.is_ok, f"DOOR A create failed: {result.error}"
+        assert goal_backend.batched == [], (
+            "the entity door wrote link edges — if the converter now carries the lists, "
+            "this suite's asymmetry note is stale"
         )
 
 
