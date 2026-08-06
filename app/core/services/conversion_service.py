@@ -223,6 +223,10 @@ class ConversionServiceV2:
         ``create_to_pure`` filters by exact field name, so the generic pass dropped the
         parent on every goal created through this converter.
         """
+        # boundary: dataclass-kwargs — splatted into Goal(**...), so the values are
+        # genuinely heterogeneous (str uid here, plus whatever the caller passes in
+        # kwargs: UserUID, EntityStatus, ...). Narrowing would have to enumerate
+        # every Goal field type.
         extra_fields: dict[str, Any] = {}
         if schema.parent_goal_uid:
             extra_fields["fulfills_goal_uid"] = schema.parent_goal_uid
