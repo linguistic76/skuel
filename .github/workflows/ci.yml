@@ -790,8 +790,8 @@ jobs:
         run: python scripts/audit_content_boundary.py
 
   # Always-on aggregator. This is the single status to mark required in branch
-  # protection. Passes when required jobs succeeded OR were legitimately skipped
-  # (path not touched); fails only on a real failure/cancellation.
+  # protection. Passes when every required job succeeded OR was legitimately
+  # skipped (path not touched); fails on ANY other result value.
   gate:
     name: CI Gate
     needs: [changes, mypy, lint, pip_audit, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests]
@@ -800,22 +800,42 @@ jobs:
     steps:
       - name: Verify required jobs
         run: |
-          changes_result="${{ needs.changes.result }}"
-          mypy_result="${{ needs.mypy.result }}"
-          lint_result="${{ needs.lint.result }}"
-          pip_audit_result="${{ needs.pip_audit.result }}"
-          docs_result="${{ needs.validate_documentation.result }}"
-          unit_tests_result="${{ needs.unit_tests.result }}"
-          integration_tests_result="${{ needs.integration_tests.result }}"
-          smoke_result="${{ needs.smoke.result }}"
-          content_boundary_result="${{ needs.content_boundary.result }}"
-          js_tests_result="${{ needs.js_tests.result }}"
-          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  pip_audit=$pip_audit_result  docs=$docs_result  unit_tests=$unit_tests_result  integration_tests=$integration_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result  js_tests=$js_tests_result"
-          # 'success' and 'skipped' pass; 'failure' and 'cancelled' fail the gate.
-          for r in "$changes_result" "$mypy_result" "$lint_result" "$pip_audit_result" "$docs_result" "$unit_tests_result" "$integration_tests_result" "$smoke_result" "$content_boundary_result" "$js_tests_result"; do
-            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
-              echo "::error::A required CI job did not pass (result=$r)"
-              exit 1
-            fi
+          results=(
+            "changes=${{ needs.changes.result }}"
+            "mypy=${{ needs.mypy.result }}"
+            "lint=${{ needs.lint.result }}"
+            "pip_audit=${{ needs.pip_audit.result }}"
+            "validate_documentation=${{ needs.validate_documentation.result }}"
+            "unit_tests=${{ needs.unit_tests.result }}"
+            "integration_tests=${{ needs.integration_tests.result }}"
+            "smoke=${{ needs.smoke.result }}"
+            "content_boundary=${{ needs.content_boundary.result }}"
+            "js_tests=${{ needs.js_tests.result }}"
+          )
+          echo "${results[*]}"
+          # ALLOW-LIST: only 'success' and 'skipped' pass — 'skipped' is a job
+          # whose path filter did not match, and must stay green or docs-only
+          # PRs deadlock. EVERYTHING else fails: 'failure', 'cancelled', an
+          # empty result (a job that never reported), and any value GitHub adds
+          # later. The previous check was a deny-list over the two known bad
+          # literals, so when the 2026-08-06 Actions outage killed `changes`
+          # with the undocumented result 'abandoned' — skipping every gated job
+          # — the gate greenlighted zero coverage (PR #967). The failing job
+          # and its literal value are named so the next unknown result
+          # diagnoses itself from this step's log.
+          failed=0
+          for entry in "${results[@]}"; do
+            job="${entry%%=*}"
+            result="${entry#*=}"
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "::error::Required job '${job}' did not pass: needs.${job}.result='${result}' (only 'success' or 'skipped' may pass the gate)"
+                failed=1
+                ;;
+            esac
           done
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
           echo "CI Gate passed — all required jobs succeeded or were skipped."

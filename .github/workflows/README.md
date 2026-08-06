@@ -80,8 +80,13 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 - **`js_tests`** runs the vitest suite over `static/js/` (`npm run test:js`,
   same as `./dev test-js`). Path-filtered like `cypher`: a JS-only PR skips
   every py-gated job but must still exercise the JS under test.
-- **`gate` ("CI Gate")** always runs and passes when required jobs succeeded or
-  were skipped; fails only on a real failure/cancellation. **It is the single
+- **`gate` ("CI Gate")** always runs and passes only when every required job's
+  result is `success` or `skipped`; any other value fails, naming the job and
+  the literal result. An allow-list, deliberately: the old deny-list over
+  `failure`/`cancelled` admitted the undocumented result `abandoned` during the
+  2026-08-06 Actions outage and greenlighted a PR with every test job skipped
+  (PR #967). Exercised by `app/tests/unit/test_ci_gate_result_allowlist.py`,
+  which runs the shipped step under substituted results. **It is the single
   required status check** — required checks must report on every PR, and a
   path-filtered job alone would deadlock a PR it doesn't run on.
 
