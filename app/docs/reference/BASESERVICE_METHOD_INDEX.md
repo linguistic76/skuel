@@ -203,7 +203,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 61
+**Facade-specific public methods:** 62
 
 | Method | Async |
 |--------|-------|
@@ -218,6 +218,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `check_goal_capacity()` | ✅ |
 | `complete_goal()` | ✅ |
 | `complete_milestone()` | ✅ |
+| `create()` | ✅ |
 | `create_goal()` | ✅ |
 | `create_goal_milestone()` | ✅ |
 | `create_goal_with_context()` | ✅ |
@@ -273,7 +274,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### HabitsService
 
-**Facade-specific public methods:** 75
+**Facade-specific public methods:** 76
 
 | Method | Async |
 |--------|-------|
@@ -284,6 +285,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `check_habit_capacity()` | ✅ |
 | `complete_habit_with_quality()` | ✅ |
 | `complete_with_goal_impacts()` | ✅ |
+| `create()` | ✅ |
 | `create_habit()` | ✅ |
 | `create_habit_from_learning_goal()` | ✅ |
 | `create_habit_from_path_step()` | ✅ |
@@ -357,7 +359,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### EventsService
 
-**Facade-specific public methods:** 56
+**Facade-specific public methods:** 57
 
 | Method | Async |
 |--------|-------|
@@ -369,6 +371,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `complete_event_with_cascade()` | ✅ |
 | `complete_event_with_quality()` | ✅ |
 | `count_events()` | ✅ |
+| `create()` | ✅ |
 | `create_event()` | ✅ |
 | `create_event_with_context()` | ✅ |
 | `create_learning_path_schedule()` | ✅ |

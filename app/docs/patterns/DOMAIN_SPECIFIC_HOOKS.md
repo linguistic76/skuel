@@ -1,13 +1,13 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-03-24
+updated: 2026-08-06
 category: patterns
 related_skills: []
 related_docs: []
 ---
 
 # Domain-Specific Hooks Pattern
-**Date**: 2026-01-17 (post-lifecycle hooks: 2026-03-24)
+**Date**: 2026-01-17 (post-lifecycle hooks: 2026-03-24; hook reachability: 2026-08-06)
 **Status**: ✅ Active Pattern
 
 ## Overview
@@ -30,7 +30,7 @@ class CrudOperationsMixin:
     async def create(self, entity: T) -> Result[T]:
         # Step 1: Call pre-operation validation hook (sync)
         validation = self._validate_create(entity)
-        if validation:
+        if validation.is_error:
             return Result.fail(validation)
 
         # Step 2: Proceed with creation
@@ -41,14 +41,84 @@ class CrudOperationsMixin:
         return result
 
     # Pre-operation hook (sync, default no-op)
-    def _validate_create(self, entity: T) -> Result[None] | None:
+    def _validate_create(self, entity: T) -> Result[None]:
         """Override to add domain-specific validation."""
-        return None
+        return Result.ok(None)
 
     # Post-lifecycle hook (async, default no-op)
     async def _post_create(self, entity: T, result: Result[T]) -> None:
         """Override to publish events, etc."""
 ```
+
+The hooks return `Result[None]`, always — never a bare `None`. The caller branches on
+`.is_error`, so a hook that returned `None` would raise on the next line, and one that
+returned a truthy-but-ok `Result` would be read correctly only because `.is_error` is
+what is checked. `CrudOperationsMixin` is the sole owner of both declarations: it
+declares them and it invokes them. `BaseService` used to re-declare identical no-ops,
+which meant a domain reading either copy could not tell which one `create()` would call;
+those were removed in #960.
+
+## ⚠ A hook only binds the class that declares it
+
+**`create()` is the only caller of `_validate_create` — so an override is dead unless
+the object the caller holds has that override in its MRO.** Two ways to lose it, both of
+which happened in SKUEL and both of which are silent:
+
+**1. The facade doesn't inherit its sub-service.** The generated CRUD route calls
+`service.create(entity)` where `service` is the `{Domain}Service` FACADE, but the rules
+live on `{Domain}CoreService`, which the facade holds as the delegated ATTRIBUTE
+`self.core`. Delegation is not inheritance: the override was never in the facade's MRO,
+so `create()` resolved `_validate_create` to the mixin's no-op and the route persisted
+whatever it was handed.
+
+Fix — route the facade's `create` into the core's, exactly as the update path already
+does:
+
+```python
+class GoalsService(...):
+    async def create(self, entity: Goal) -> Result[Goal]:
+        """Route the generated CRUD route into the one validated create path."""
+        return await self.core.create(entity)
+```
+
+**2. The domain door bypasses `create()` entirely.** `create_goal` / `create_habit` /
+`create_choice` persisted through `_create_and_convert` (which calls `backend.create`
+directly), and `create_principle` called `backend.create` itself. None of them entered
+the template method, so no hook ran on the app's *primary* create path.
+
+Fix — make the core's `create()` THE create primitive and have the domain method build
+its entity and hand it over:
+
+```python
+async def create_goal(self, request: GoalCreateRequest, user_uid: UserUID) -> Result[Goal]:
+    goal = ConversionServiceV2.goal_create_to_pure(request, uid, user_uid=user_uid, ...)
+    return await self.create(goal)   # validates, persists, publishes
+```
+
+Building the entity with the **same converter the route uses** is the other half: it stops
+the two doors drifting on which request fields they carry.
+
+**Before trusting any hook, check both.** "The rule is written" is not "the rule runs" —
+every Activity Domain hook in this codebase was unreachable until #960 and its follow-up.
+Pinned by `tests/unit/test_choice_create_path_parity.py` and
+`tests/unit/test_activity_create_validation_reach.py`.
+
+### Reachability is not correctness
+
+A dormant rule has never been executed, so nothing has ever tested whether it agrees with
+the layers around it. Wiring one up is therefore two changes, not one — and the second is
+where the damage is. Census who creates the entity *before* switching a rule on:
+
+- **Goals** said `target_date <= start_date` → reject, while `GoalCreateRequest` validates
+  the same pair with `allow_equal=True` and defaults `start_date` to today. Enabling it
+  as written would have made the service refuse a same-day goal the API accepts.
+- **Tasks** required a due date on HIGH/CRITICAL tasks, but the Activity DSL emits exactly
+  that shape (`@priority(1|2)` with no `@when()`), as does `GoalTaskGenerator`. Deleted.
+- **Principles** required `statement` ≥ 10 chars against a request model that declares
+  `min_length=1`, and the DSL passes prose straight through. Deleted.
+
+Three of five dormant rules were wrong about their own domain. That is the base rate to
+expect, not an unlucky sample.
 
 ### Template Method Pattern
 
@@ -59,7 +129,7 @@ class CrudOperationsMixin:
 
 **Pre-Operation Hooks** (sync): `_validate_create()` and `_validate_update()`
 - Run BEFORE the backend operation
-- Return `None` if valid, `Result.fail()` if invalid
+- Return `Result.ok(None)` if valid, `Result.fail()` if invalid
 - Use for business rule enforcement
 
 **Post-Lifecycle Hooks** (async): `_post_create()`, `_post_update()`, `_post_delete()`
@@ -73,22 +143,24 @@ class CrudOperationsMixin:
 
 Domain-specific hooks allow each service to enforce its own business rules without modifying the base CRUD logic.
 
-**Example**: Tasks service validates high-priority tasks must have due dates
+**Example**: Goals service validates that a goal's timeline is coherent
 
 ```python
-class TasksCoreService(BaseService[TasksOperations, Task]):
-    def _validate_create(self, task: Task) -> Result[None] | None:
-        """Validate task creation with business rules."""
-        # Business Rule: High-priority tasks must have due dates
-        if task.priority.to_numeric() >= 3 and not task.due_date:  # HIGH=3, CRITICAL=4
+class GoalsCoreService(BaseService[GoalsOperations, Goal]):
+    def _validate_create(self, goal: Goal) -> Result[None]:
+        """Validate goal creation with business rules."""
+        # Business Rule: target date must not PRECEDE start date.
+        # Equal is legal — GoalCreateRequest validates the same pair with
+        # allow_equal=True, and the two layers must not disagree.
+        if goal.target_date and goal.start_date and goal.target_date < goal.start_date:
             return Result.fail(
                 Errors.validation(
-                    message="High-priority tasks must have a due date",
-                    field="due_date",
-                    value=None,
+                    message="Target date cannot be before start date",
+                    field="target_date",
+                    value=goal.target_date.isoformat(),
                 )
             )
-        return None
+        return Result.ok(None)
 ```
 
 ### 2. **Pre-Operation Validation**
@@ -189,7 +261,7 @@ async def create(self, entity: T) -> Result[T]:
 
 ## Hook Method Signatures
 
-### `_validate_create(entity: T) -> Result[None] | None`
+### `_validate_create(entity: T) -> Result[None]`
 
 **Purpose**: Validate entity before creation
 
@@ -197,7 +269,7 @@ async def create(self, entity: T) -> Result[T]:
 - `entity`: The domain model being created (type `T` bound to `DomainModelProtocol`)
 
 **Returns**:
-- `None`: Validation passed, proceed with creation
+- `Result.ok(None)`: Validation passed, proceed with creation
 - `Result.fail(error)`: Validation failed, return error to caller
 
 **When Called**: Before `backend.create()` in `BaseService.create()`
@@ -308,31 +380,24 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
 ### Active Implementation
 
-**Activity Domain Services** (all 6 use BaseService hooks):
+**Activity Domain Services** — four of six declare a creation hook; two deliberately do not:
 
-**TasksCoreService** (`/core/services/tasks/tasks_core_service.py`)
-- `_validate_create()`: High-priority tasks must have due dates
-- `_validate_update()`: Terminal state protection, overdue task priority protection
+| Service | `_validate_create()` | `_validate_update()` |
+|---------|----------------------|----------------------|
+| **ChoicesCoreService** | A supplied option set holds ≥ 2; BINARY carries exactly 2; STRATEGIC needs a 50+ char description. Options are OPTIONAL at creation — see `docs/domains/choices.md` | Decision immutability in ACTIVE/COMPLETED; option-count floor |
+| **GoalsCoreService** | `target_date` must not PRECEDE `start_date` (equal is legal — matches the request model's `allow_equal=True`) | Achievement-state immutability; date ordering |
+| **HabitsCoreService** | DAILY habits cannot target > 7 days/week | Streak preservation on archive (bypassable via the transient `force_archive`); frequency consistency |
+| **EventsCoreService** | Duration sanity, 5–720 minutes | Past-event immutability (notes/tags/quality_score exempt); duration sanity |
+| **TasksCoreService** | *(none — deleted; the rule contradicted the DSL and GoalTaskGenerator)* | Terminal-state protection; overdue-priority protection |
+| **PrinciplesCoreService** | *(none — deleted; the length floors were stricter than the request model)* | Declared, but `update_principle` is backend-direct and does not invoke it |
 
-**GoalsCoreService** (`/core/services/goals/goals_core_service.py`)
-- `_validate_create()`: Goal timeframe validation
-- `_validate_update()`: Progress bounds checking
-
-**HabitsCoreService** (`/core/services/habits/habits_core_service.py`)
-- `_validate_create()`: Frequency validation
-- `_validate_update()`: Streak protection rules
-
-**ChoicesCoreService** (`/core/services/choices/choices_core_service.py`)
-- `_validate_create()`: Options and criteria validation
-- `_validate_update()`: Decision state transitions
-
-**EventsCoreService** (`/core/services/events/events_core_service.py`)
-- `_validate_create()`: Date/time validation
-- `_validate_update()`: Recurrence rule validation
-
-**PrinciplesCoreService** (`/core/services/principles/principles_core_service.py`)
-- `_validate_create()`: Category validation
-- `_validate_update()`: Strength bounds checking
+**Scope note on the three surviving creation rules.** Each guards the ENTITY and each sits
+behind a stricter request edge (`GoalCreateRequest` rejects a past target date and enforces
+the same ordering; `HabitCreateRequest` bounds its field at `ge=1, le=7`;
+`EventCreateRequest` has no `duration_minutes` field at all). None of them fires for an HTTP
+caller — Pydantic returns a 422 first. What they backstop is every caller that hands
+`create(entity)` an entity it assembled itself. That is a real surface, but do not describe
+these as API-level validation.
 
 **FormTemplateService** (`/core/services/forms/form_template_service.py`)
 - `_post_create()`: Publishes `FormTemplateCreated` event
@@ -356,7 +421,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 
 ### 1. **Optional, Not Required**
 
-Services are **not required** to override hooks. Default implementation returns `None` (everything valid).
+Services are **not required** to override hooks. Default implementation returns `Result.ok(None)` (everything valid).
 
 **Philosophy**: "Only add validation when business rules require it"
 
@@ -375,7 +440,7 @@ Each hook method has one job: validate and return error or None.
 
 **Anti-pattern** (Don't do this):
 ```python
-def _validate_create(self, entity: T) -> Result[None] | None:
+def _validate_create(self, entity: T) -> Result[None]:
     # ❌ WRONG - Don't modify entity in validation
     entity.status = "pending"
 
@@ -385,7 +450,7 @@ def _validate_create(self, entity: T) -> Result[None] | None:
     # ✅ CORRECT - Only validate
     if entity.amount <= 0:
         return Result.fail(Errors.validation("Amount must be positive"))
-    return None
+    return Result.ok(None)
 ```
 
 **Post-hook anti-pattern** (Don't do this):
@@ -411,7 +476,8 @@ async def _post_create(self, entity: T, result: Result[T]) -> None:
 
 ## Example: Adding Validation to a New Service
 
-Let's say we want to add validation to `TasksCoreService`:
+Illustrative only — `TasksCoreService` deliberately declares **no** creation hook
+(see the inventory above). This shows the shape you would write, not code that exists:
 
 ```python
 from core.services.base_service import BaseService
@@ -420,7 +486,7 @@ from datetime import date
 
 class TasksCoreService(BaseService[TasksOperations, Task]):
 
-    def _validate_create(self, task: Task) -> Result[None] | None:
+    def _validate_create(self, task: Task) -> Result[None]:
         """Validate task creation."""
         # Business rule: Due date cannot be in the past
         if task.due_date and task.due_date < date.today():
@@ -432,16 +498,7 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
                 )
             )
 
-        # Business rule: High-priority tasks must have a due date
-        if task.priority == Priority.HIGH and not task.due_date:
-            return Result.fail(
-                Errors.validation(
-                    message="High-priority tasks must have a due date",
-                    field="due_date"
-                )
-            )
-
-        return None  # All validations passed
+        return Result.ok(None)  # All validations passed
 
     def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
         """Validate task updates."""
@@ -486,10 +543,10 @@ class ExpenseCreateRequest(BaseModel):
     amount: float  # Type validation: must be float
 
 # Layer 2: Domain Hook (Service layer)
-def _validate_create(self, expense: ExpensePure) -> Result[None] | None:
+def _validate_create(self, expense: ExpensePure) -> Result[None]:
     if expense.amount <= 0:  # Business rule: must be positive
         return Result.fail(Errors.validation("Amount must be positive"))
-    return None
+    return Result.ok(None)
 
 # Layer 3: Database (Neo4j constraint)
 # CREATE CONSTRAINT FOR (e:Expense) REQUIRE e.amount IS NOT NULL
@@ -515,15 +572,22 @@ Generic CRUD logic written once in `BaseService`, reused by all domains.
 Hook methods are simple, focused functions that are easy to unit test:
 
 ```python
-def test_validate_create_rejects_high_priority_without_due_date():
-    service = TasksCoreService(backend)
-    task = Task(priority=Priority.CRITICAL, due_date=None, ...)
+def test_validate_create_rejects_inverted_timeline():
+    service = GoalsCoreService(backend)
+    goal = Goal(start_date=date.today(), target_date=date.today() - timedelta(days=1), ...)
 
-    result = service._validate_create(task)
+    result = service._validate_create(goal)
 
-    assert result is not None
     assert result.is_error
-    assert "High-priority tasks must have a due date" in result.error.message
+    assert result.expect_error().details["field"] == "target_date"
+
+
+def test_validate_create_allows_a_same_day_goal():
+    """The bound, not just the rejection — this is what disagreed with the API edge."""
+    service = GoalsCoreService(backend)
+    goal = Goal(start_date=date.today(), target_date=date.today(), ...)
+
+    assert service._validate_create(goal).is_ok
 ```
 
 ### 4. **Clear Error Messages**
@@ -534,9 +598,9 @@ Validation failures return structured errors with field names, making debugging 
 {
     "error": {
         "code": "VALIDATION_ERROR",
-        "message": "High-priority tasks must have a due date",
-        "field": "due_date",
-        "value": null
+        "message": "Target date cannot be before start date",
+        "field": "target_date",
+        "value": "2026-08-04"
     }
 }
 ```
@@ -552,9 +616,9 @@ Adding validation to an existing service doesn't require changes to routes or ot
 Base implementation has `# noqa: ARG002` comment:
 
 ```python
-def _validate_create(self, entity: T) -> Result[None] | None:  # noqa: ARG002
+def _validate_create(self, entity: T) -> Result[None]:  # noqa: ARG002
     """Default implementation - no validation."""
-    return None
+    return Result.ok(None)
 ```
 
 **Why**: Parameters are intentionally unused in base class (template method pattern). Subclasses use them when they override.
@@ -565,7 +629,7 @@ def _validate_create(self, entity: T) -> Result[None] | None:  # noqa: ARG002
 
 - **Template Method Pattern**: Design pattern where algorithm structure is defined in base class
 - **Result Error Propagation**: Uses `Result.fail(result)` for cross-type error propagation
-- **Result[T] Pattern**: All validation returns Result[None] or None
+- **Result[T] Pattern**: All validation returns `Result[None]`
 - **Error Factories**: Uses `Errors.validation()` for structured errors
 - **Event-Driven Architecture**: `/docs/patterns/event_driven_architecture.md`
 

@@ -211,6 +211,22 @@ class HabitsService(
     # ========================================================================
 
     # Core CRUD delegations
+    async def create(self, entity: Habit) -> Result[Habit]:
+        """Override the inherited CRUD create (generated JSON route, no ownership check).
+
+        Routes the entity through the one validated, event-firing create path
+        (``HabitsCoreService.create``). The inherited base ``create`` resolved
+        ``_validate_create`` to the ``CrudOperationsMixin`` no-op: the Habits creation
+        rule (DAILY-frequency consistency) lives on ``HabitsCoreService``, which this
+        facade holds as the delegated attribute ``self.core`` and does NOT inherit — so
+        that override was never in this class's MRO. The generated route therefore
+        persisted habits unchecked, and published neither HabitCreated nor the ADR-074
+        embedding request.
+
+        Same reconciliation ``ChoicesService.create`` makes (#960).
+        """
+        return await self.core.create(entity)
+
     async def create_habit(
         self, habit_request: HabitCreateRequest, user_uid: UserUID
     ) -> Result[Habit]:

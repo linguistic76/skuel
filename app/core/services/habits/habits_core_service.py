@@ -13,7 +13,6 @@ Responsibilities:
 """
 
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Any
 
 from core.events import publish_event
@@ -258,8 +257,11 @@ class HabitsCoreService(
     # ========================================================================
 
     async def create(self, entity: Habit) -> Result[Habit]:
-        """
-        Create a habit and publish HabitCreated event.
+        """Validate, persist, then announce — THE create primitive for Habits.
+
+        Both doors land here: the generated CRUD route (via ``HabitsService.create``) and
+        ``create_habit``. ``super().create`` runs ``_validate_create`` (DAILY-frequency
+        consistency), so the rule cannot be reached by one door and missed by the other.
 
         Args:
             entity: Habit to create
@@ -268,26 +270,31 @@ class HabitsCoreService(
             Result containing created Habit
 
         Events Published:
-            - HabitCreated: When habit is successfully created
+            - HabitCreated: when the habit is successfully created
+            - HabitEmbeddingRequested (ADR-074): post-persist embedding refresh. Fired here
+              rather than in ``create_habit`` so route-created habits are embedded too —
+              they previously were not.
         """
-        # Call parent create
         result = await super().create(entity)
+        if result.is_error:
+            return result
 
-        # Publish HabitCreated event
-        if result.is_ok:
-            habit = result.value
-            event = HabitCreated(
-                habit_uid=habit.uid,
-                user_uid=habit.user_uid,
-                title=habit.title,
-                frequency=get_enum_value(habit.recurrence_pattern)
-                if habit.recurrence_pattern
-                else "daily",
-                domain=get_enum_value(habit.habit_category)
-                if habit.habit_category
-                else None,  # Habit uses 'habit_category', not 'domain'
-            )
-            await publish_event(self.event_bus, event, self.logger)
+        habit = result.value
+        event = HabitCreated(
+            habit_uid=habit.uid,
+            user_uid=habit.user_uid,
+            title=habit.title,
+            frequency=get_enum_value(habit.recurrence_pattern)
+            if habit.recurrence_pattern
+            else "daily",
+            domain=get_enum_value(habit.habit_category)
+            if habit.habit_category
+            else None,  # Habit uses 'habit_category', not 'domain'
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.HABIT, habit, self.logger)
 
         return result
 
@@ -303,57 +310,27 @@ class HabitsCoreService(
 
         Returns:
             Result containing created Habit
+
+        Builds the entity with the SAME converter the generated CRUD route uses, then
+        hands it to the one create primitive. The previous hand-listed ``HabitDTO(...)``
+        dropped ``priority`` and ``tags``, so the two doors persisted different habits
+        from the same request.
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "habit creation")
         if validation.is_error:
             return Result.fail(validation)
 
-        # Create DTO from request with all fields
-        dto = HabitDTO(
-            uid=UIDGenerator.generate_random_uid("habit"),
+        from core.services.conversion_service import ConversionServiceV2
+
+        # status=ACTIVE is the door's contribution — the request carries no status field.
+        habit = ConversionServiceV2.habit_create_to_pure(
+            habit_request,
+            UIDGenerator.generate_random_uid("habit"),
             user_uid=user_uid,
-            title=habit_request.title,
-            description=habit_request.description,
-            polarity=habit_request.polarity,
-            habit_category=habit_request.habit_category,
-            habit_difficulty=habit_request.habit_difficulty,
-            recurrence_pattern=habit_request.recurrence_pattern,
-            target_days_per_week=habit_request.target_days_per_week,
-            preferred_time=habit_request.preferred_time,
-            duration_minutes=habit_request.duration_minutes,
-            cue=habit_request.cue,
-            routine=habit_request.routine,
-            reward=habit_request.reward,
-            is_identity_habit=habit_request.is_identity_habit,
-            reinforces_identity=habit_request.reinforces_identity,
             status=EntityStatus.ACTIVE,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
         )
-
-        # Create habit via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), HabitDTO, Habit)
-        if result.is_error:
-            return result
-        habit = result.value
-
-        # Publish HabitCreated event
-        event = HabitCreated(
-            habit_uid=habit.uid,
-            user_uid=habit.user_uid,
-            title=habit.title,
-            frequency=get_enum_value(habit.recurrence_pattern)
-            if habit.recurrence_pattern
-            else "daily",
-            domain=get_enum_value(habit.habit_category) if habit.habit_category else None,
-        )
-        await publish_event(self.event_bus, event, self.logger)
-
-        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-        await publish_embedding_requested(self.event_bus, EntityType.HABIT, habit, self.logger)
-
-        return Result.ok(habit)
+        return await self.create(habit)
 
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
     async def update_habit(

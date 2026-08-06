@@ -221,6 +221,22 @@ class EventsService(
     async def count_events(self, filters: dict[str, Any] | None = None) -> Result[int]:
         return await self.core.count_events(filters)
 
+    async def create(self, entity: Event) -> Result[Event]:
+        """Override the inherited CRUD create (generated JSON route, no ownership check).
+
+        Routes the entity through the one validated, event-firing create path
+        (``EventsCoreService.create``) — the path ``create_event`` below already uses.
+        The inherited base ``create`` resolved ``_validate_create`` to the
+        ``CrudOperationsMixin`` no-op: the Events creation rule (duration sanity, 5-720
+        minutes) lives on ``EventsCoreService``, which this facade holds as the delegated
+        attribute ``self.core`` and does NOT inherit — so that override was never in this
+        class's MRO. The generated route therefore persisted events unchecked, and
+        published neither CalendarEventCreated nor the ADR-074 embedding request.
+
+        Same reconciliation ``ChoicesService.create`` makes (#960).
+        """
+        return await self.core.create(entity)
+
     async def create_event(self, request: EventCreateRequest, user_uid: UserUID) -> Result[Event]:
         """Create an event from a validated request."""
         validation = self.core._validate_required_user_uid(user_uid, "event creation")
