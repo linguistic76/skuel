@@ -350,6 +350,7 @@ class _ShellCommand(NamedTuple):
     argv: list[str]  # arguments, unquoted
     assignments: tuple[str, ...]  # NAME=VALUE prefixes on this command
     rendered: str  # the source text, for messages
+    local_function: bool = False  # defined in this fragment, body already read
 
 
 def _node_text(node: Node, src: bytes) -> str:
@@ -387,6 +388,20 @@ def _shell_commands(text: str) -> list[_ShellCommand]:
     src = _ACTIONS_EXPRESSION.sub(_ACTIONS_MARKER, text).encode()
     found: list[_ShellCommand] = []
 
+    # A function defined in this fragment is not an unknown verb: its body is
+    # right here and every command in it is visited below. Without this, a
+    # workflow defining `f() { … }` was told to add `f` to a whitelist of
+    # PROGRAMS — advice that is simply wrong.
+    defined: set[str] = set()
+    pending = [parsed_root := _bash_parser().parse(src).root_node]
+    while pending:
+        node = pending.pop()
+        if node.type == "function_definition":
+            name_node = node.child_by_field_name("name")
+            if name_node is not None:
+                defined.add(_node_text(name_node, src))
+        pending.extend(node.children)
+
     def visit(node: Node) -> None:
         if node.type == "ERROR":
             # Refused, not skipped: a region the grammar could not parse may
@@ -412,6 +427,7 @@ def _shell_commands(text: str) -> list[_ShellCommand]:
                     argv,
                     assignments,
                     _node_text(node, src),
+                    written in defined,
                 )
             )
         elif node.type == "declaration_command":
@@ -449,7 +465,7 @@ def _shell_commands(text: str) -> list[_ShellCommand]:
         for child in node.children:
             visit(child)
 
-    visit(_bash_parser().parse(src).root_node)
+    visit(parsed_root)
     return found
 
 
@@ -909,7 +925,7 @@ def _collect_from_shell(
             )
             continue
 
-        if name not in _STATE_NEUTRAL_VERBS:
+        if name not in _STATE_NEUTRAL_VERBS and not command.local_function:
             if name == "set" and not {"-a", "+a", "allexport"} & set(args):
                 # Shell OPTIONS (`set -euo pipefail`) touch neither env nor cwd.
                 # `set -a` would, by exporting every later assignment, so it is
@@ -1991,6 +2007,49 @@ jobs:
         )
         assert problems, f"{mutation} passed clean"
         assert any("UV_FROZEN" in p for p in problems), mutation
+
+
+def test_a_locally_defined_function_is_not_an_unknown_verb(tmp_path: Path) -> None:
+    """Its body is in the same fragment and every command in it is visited.
+
+    Found by auditing my own predictions rather than by review: calling a
+    function defined in the step produced a refusal advising the author to add
+    their function to a whitelist of PROGRAMS — wrong advice, and noise on a
+    correct workflow. The real finding underneath (an unpinned `uv sync`) was
+    reported either way, so this is message quality, not a hole.
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          install_deps() { uv sync --no-install-project; }
+          install_deps
+""",
+    )
+    assert len(problems) == 1
+    assert "invokes uv without pinning" in problems[0]
+
+    # …and the body is still read: an env mutation hidden inside is caught.
+    hidden = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: |
+          unpin() { export UV_FROZEN=0; }
+          unpin
+          uv sync --no-install-project
+""",
+    )
+    assert any("environment declaration" in p for p in hidden), hidden
 
 
 def test_control_actions_expression_in_a_uv_option_is_refused(tmp_path: Path) -> None:
