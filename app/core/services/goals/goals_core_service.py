@@ -116,7 +116,13 @@ class GoalsCoreService(
         Validate goal creation with business rules.
 
         Business Rules:
-        1. Target date must be after start date (timeline consistency)
+        1. Target date must not precede start date (timeline consistency)
+
+        A same-day goal is legal. ``GoalCreateRequest`` validates the same pair with
+        ``validate_date_after("target_date", "start_date", allow_equal=True)`` and defaults
+        ``start_date`` to ``date.today()``, so "finish this today" is a shape the API
+        deliberately accepts; this hook rejected it until the rule was reachable, which
+        would have made the two layers disagree the moment it started running.
 
         Args:
             goal: Goal domain model being created
@@ -125,11 +131,12 @@ class GoalsCoreService(
             None if valid, Result.fail() with validation error if invalid
         """
 
-        # Business Rule: Target date must be after start date
-        if goal.target_date and goal.start_date and goal.target_date <= goal.start_date:
+        # Business Rule: Target date must not precede start date (equal is allowed —
+        # same bound as the request model's allow_equal=True).
+        if goal.target_date and goal.start_date and goal.target_date < goal.start_date:
             return Result.fail(
                 Errors.validation(
-                    message="Target date must be after start date",
+                    message="Target date cannot be before start date",
                     field="target_date",
                     value=goal.target_date.isoformat(),
                 )
@@ -261,8 +268,11 @@ class GoalsCoreService(
     # ========================================================================
 
     async def create(self, entity: Goal) -> Result[Goal]:
-        """
-        Create a goal and publish GoalCreated event.
+        """Validate, persist, then announce — THE create primitive for Goals.
+
+        Both doors land here: the generated CRUD route (via ``GoalsService.create``) and
+        ``create_goal``. ``super().create`` runs ``_validate_create`` (timeline
+        consistency), so the rule cannot be reached by one door and missed by the other.
 
         Args:
             entity: Goal to create
@@ -271,24 +281,29 @@ class GoalsCoreService(
             Result containing created Goal
 
         Events Published:
-            - GoalCreated: When goal is successfully created
+            - GoalCreated: when the goal is successfully created
+            - GoalEmbeddingRequested (ADR-074): post-persist embedding refresh. Fired here
+              rather than in ``create_goal`` so route-created goals are embedded too —
+              they previously were not.
         """
-        # Call parent create
         result: Result[Goal] = await super().create(entity)
+        if result.is_error:
+            return result
 
-        # Publish GoalCreated event
-        if result.is_ok:
-            goal: Goal = result.value  # Type hint to help MyPy
-            event = GoalCreated(
-                goal_uid=goal.uid,
-                user_uid=goal.user_uid,
-                title=goal.title,
-                domain=get_enum_value(goal.domain) if goal.domain else None,
-                target_date=datetime.combine(goal.target_date, datetime.min.time())
-                if goal.target_date
-                else None,
-            )
-            await publish_event(self.event_bus, event, self.logger)
+        goal: Goal = result.value  # Type hint to help MyPy
+        event = GoalCreated(
+            goal_uid=goal.uid,
+            user_uid=goal.user_uid,
+            title=goal.title,
+            domain=get_enum_value(goal.domain) if goal.domain else None,
+            target_date=datetime.combine(goal.target_date, datetime.min.time())
+            if goal.target_date
+            else None,
+        )
+        await publish_event(self.event_bus, event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
 
         return result
 
@@ -304,54 +319,36 @@ class GoalsCoreService(
 
         Returns:
             Result containing created Goal
+
+        Builds the entity with the SAME converter the generated CRUD route uses, then
+        hands it to the one create primitive. The previous hand-listed ``GoalDTO(...)``
+        silently dropped six request fields the route door kept — ``potential_obstacles``,
+        ``strategies``, ``success_criteria``, ``tags``, ``unit_of_measurement`` and
+        ``why_important`` — so the two doors persisted different goals from one request.
+
+        Still not carried by EITHER door, because they are not ``Goal`` properties:
+        ``progress_weight`` and the three edge-typed uid lists (``required_knowledge_uids``,
+        ``supporting_habit_uids``, ``guiding_principle_uids``). ``progress_weight`` belongs
+        on the HAS_SUBGOAL edge — see ``create_subgoal_relationship``, which Tasks' create
+        path calls and this one does not yet.
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "goal creation")
         if validation.is_error:
             return Result.fail(validation)
 
-        # Create DTO from request with all fields
-        # Set status to ACTIVE so goal appears in default list view
-        dto = GoalDTO(
-            uid=UIDGenerator.generate_random_uid("goal"),
+        from core.services.conversion_service import ConversionServiceV2
+
+        # status=ACTIVE so the goal appears in the default list view; the request
+        # carries no status field, so this is the door's contribution, not a default
+        # the converter could supply.
+        goal = ConversionServiceV2.goal_create_to_pure(
+            goal_request,
+            UIDGenerator.generate_random_uid("goal"),
             user_uid=user_uid,
-            title=goal_request.title,
-            description=goal_request.description,
-            vision_statement=goal_request.vision_statement,
-            goal_type=goal_request.goal_type,
-            domain=goal_request.domain,
-            timeframe=goal_request.timeframe,
-            measurement_type=goal_request.measurement_type,
-            target_value=goal_request.target_value,
-            start_date=goal_request.start_date,
-            target_date=goal_request.target_date,
-            fulfills_goal_uid=goal_request.parent_goal_uid,
-            priority=goal_request.priority,
             status=EntityStatus.ACTIVE,
         )
-
-        # Create goal via backend and convert to domain model (uses BaseService helper)
-        result = await self._create_and_convert(dto.to_dict(), GoalDTO, Goal)
-        if result.is_error:
-            return result
-        goal = result.value
-
-        # Publish GoalCreated event
-        event = GoalCreated(
-            goal_uid=goal.uid,
-            user_uid=goal.user_uid,
-            title=goal.title,
-            domain=get_enum_value(goal.domain) if goal.domain else None,
-            target_date=datetime.combine(goal.target_date, datetime.min.time())
-            if goal.target_date
-            else None,
-        )
-        await publish_event(self.event_bus, event, self.logger)
-
-        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-        await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
-
-        return Result.ok(goal)
+        return await self.create(goal)
 
     @with_error_handling("update_goal", error_type="database", uid_param="uid")
     async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:

@@ -300,42 +300,47 @@ class TestPrinciplesCoreOperations:
     # VALIDATION TESTS (2 tests)
     # ==========================================================================
 
-    async def test_validation_statement_too_short(self, principles_service, test_user_uid):
-        """Test that short statements are rejected."""
-        # Arrange - Statement < 10 characters
+    async def test_short_statement_is_allowed(self, principles_service, test_user_uid):
+        """A short principle statement is legal — "Be kind" is a principle.
+
+        This asserted the opposite until the ``statement >= 10 characters`` rule was
+        deleted. It had never executed (``create_principle`` persists backend-direct,
+        bypassing ``CrudOperationsMixin.create``, the hook's only caller), and it was
+        stricter than the contract the edge publishes: ``PrincipleCreateRequest``
+        declares ``statement`` with ``min_length=1``, and the Activity DSL sets
+        ``statement`` to the whole activity description, so short prose lines would
+        have started being refused.
+
+        Length bounds belong to the request model, not this layer.
+        """
         principle = Principle(
-            uid="principle.invalid_short",
+            uid="principle.short_statement",
             user_uid=test_user_uid,
-            title="Invalid",
-            statement="Too short",  # Only 9 characters
+            title="Be kind",
+            statement="Be kind",  # 7 characters — what the DSL emits for a short line
             principle_category=PrincipleCategory.PERSONAL,
         )
 
-        # Act
         result = await principles_service.create(principle)
 
-        # Assert - Should fail validation
-        assert result.is_error
-        assert "statement" in result.error.message.lower() or "10" in result.error.message
+        assert result.is_ok, f"a short principle statement was refused: {result.error}"
+        assert result.value.statement == "Be kind"
 
-    async def test_validation_description_too_short(self, principles_service, test_user_uid):
-        """Test that short descriptions are rejected."""
-        # Arrange - Description < 20 characters
+    async def test_short_description_is_allowed(self, principles_service, test_user_uid):
+        """Same ruling as above for the ``description >= 20 characters`` rule."""
         principle = Principle(
-            uid="principle.invalid_desc",
+            uid="principle.short_desc",
             user_uid=test_user_uid,
-            title="Invalid Description",
+            title="Valid Title",
             statement="This is a valid statement with more than ten characters",
-            description="Too short desc",  # Only 15 characters
+            description="Too short desc",  # 14 characters
             principle_category=PrincipleCategory.PERSONAL,
         )
 
-        # Act
         result = await principles_service.create(principle)
 
-        # Assert - Should fail validation
-        assert result.is_error
-        assert "description" in result.error.message.lower() or "20" in result.error.message
+        assert result.is_ok, f"a short principle description was refused: {result.error}"
+        assert result.value.description == "Too short desc"
 
     # ==========================================================================
     # BUSINESS LOGIC TESTS (3 tests)

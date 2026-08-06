@@ -30,6 +30,7 @@ from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.goal.goal import Goal
 from core.services.goals.goals_core_service import GoalsCoreService
+from core.utils.result_simplified import ErrorCategory
 
 
 @pytest.mark.asyncio
@@ -365,7 +366,7 @@ class TestGoalsCoreOperations:
             assert result.value.goal_type == goal_type
 
     async def test_date_validation(self, goals_service, test_user_uid):
-        """Test that target date must be after start date."""
+        """Test that target date must not precede start date."""
         # Arrange - Create goal with invalid dates (target before start)
         today = date.today()
         invalid_goal = Goal(
@@ -382,9 +383,39 @@ class TestGoalsCoreOperations:
         # Act
         result = await goals_service.create(invalid_goal)
 
-        # Assert - Should fail validation
+        # Assert - Should fail validation.
+        # Bound to the error's SHAPE, not its prose: this previously asserted the
+        # substring "after start date" and broke when the message was reworded, even
+        # though the behaviour under test was unchanged.
         assert result.is_error
-        assert "after start date" in result.error.message.lower()
+        assert result.expect_error().category == ErrorCategory.VALIDATION
+        assert result.expect_error().details["field"] == "target_date"
+
+    async def test_same_day_goal_is_allowed(self, goals_service, test_user_uid):
+        """A goal that starts and ends today is legal — the bound is `<`, not `<=`.
+
+        Pins the semantics against the request model, which validates the same pair
+        with ``allow_equal=True``. The two layers disagreed until the creation hook
+        became reachable.
+        """
+        today = date.today()
+        same_day_goal = Goal(
+            uid="goal.same_day",
+            user_uid=test_user_uid,
+            title="Same Day Goal",
+            description="Starts and finishes today",
+            goal_type=GoalType.OUTCOME,
+            domain=Domain.PERSONAL,
+            start_date=today,
+            target_date=today,
+        )
+
+        result = await goals_service.create(same_day_goal)
+
+        assert result.is_ok, (
+            "a same-day goal was refused — the service rule is stricter than "
+            f"GoalCreateRequest's allow_equal=True: {result.error}"
+        )
 
     async def test_goal_with_progress_tracking(self, goals_service, test_user_uid):
         """Test creating a goal with progress tracking fields."""
