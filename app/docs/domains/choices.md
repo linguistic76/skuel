@@ -224,9 +224,9 @@ Until this reconciliation the two doors disagreed, and neither validated:
   MRO. That door also published no `ChoiceCreated` event.
 - The facade door hand-listed fields onto `ChoiceDTO.create_choice`, which takes
   `**kwargs` — so `options`, `choice_type`, `decision_criteria`, `constraints`,
-  `stakeholders` and `tags` were all dropped in silence. It persisted through
-  `_create_and_convert`, which calls `backend.create` directly and never enters
-  `CrudOperationsMixin.create`, so no rule ran there either.
+  `stakeholders` and `tags` were all dropped in silence. It persisted through the
+  since-deleted `_create_and_convert`, which called `backend.create` directly and
+  never entered `CrudOperationsMixin.create`, so no rule ran there either.
 
 Pinned by `tests/unit/test_choice_create_path_parity.py`.
 
