@@ -113,7 +113,7 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `priority` | `Priority` | Low, Medium, High, Urgent (indexed) |
 | `project` | `str?` | Project grouping |
 | `tags` | `tuple[str, ...]` | Tags for categorization |
-| `parent_uid` | `str?` | Parent task UID |
+| `parent_uid` | `str?` | Parent task UID. NOT a node property — an *edge carrier*: `RELATIONSHIP_SKIP_FIELDS` drops it and `TasksCoreService.create` writes `(parent)-[:HAS_SUBTASK]->(task)` from it, for both create doors |
 | `recurrence_pattern` | `RecurrencePattern?` | Daily, Weekly, etc. |
 
 ## Relationships

@@ -72,6 +72,15 @@ RELATIONSHIP_SKIP_FIELDS = {
     "children",
     "parent",
     # Task/Event/Habit relationships
+    # Carried by BOTH the Task and Event dataclasses, and documented on both as
+    # DERIVED FROM EDGE — the link is (Task|Event)-[:REINFORCES_HABIT]->(Habit).
+    # Neither docstring's "never written to Neo4j" was true before this entry: it
+    # rested on the field being absent from the DTO, and the generated CRUD route
+    # persists the ENTITY, so ``POST /api/{tasks,events}/create`` wrote it as a node
+    # property that no reader consults. The create path now writes the EDGE instead
+    # (TasksCoreService._write_link_edges); the update path already split this field
+    # off the property patch (TasksService._split_relationship_intent).
+    "reinforces_habit_uid",
     "depends_on_uids",
     "blocks_uids",
     "blocked_by_uids",

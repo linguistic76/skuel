@@ -45,7 +45,7 @@ from core.models.group.group import Group
 from core.models.group.group_request import GroupCreateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.principle.principle import Principle
+from core.models.principle.principle import Principle, merge_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
@@ -249,8 +249,25 @@ class ConversionServiceV2:
 
         List → tuple coercion (key_behaviors, tags) is generic in create_to_pure;
         request-only fields (decision_criteria) are filtered there too.
+
+        ``why_important`` needs a hand-mapping: ``Principle`` has no such field, and
+        ``create_principle`` folds it into ``description`` behind the canonical marker
+        (``merge_why_important``, whose inverse ``split_why_important`` is what recovers
+        it for display and search). The generic pass filters by exact field name, so it
+        dropped the motivation entirely — and the two principle doors persisted different
+        descriptions from one request. Merging here rather than in the create primitive is
+        the only place it CAN live: by the time the primitive sees an entity the
+        description is already built. (Goals need no equivalent — ``why_important`` is a
+        real ``Goal`` field the generic pass carries.)
         """
-        return cls.create_to_pure(schema, Principle, uid, **kwargs)
+        extra_fields: dict[str, Any] = {}
+        if schema.why_important:
+            extra_fields["description"] = merge_why_important(
+                schema.description, schema.why_important
+            )
+
+        extra_fields.update(kwargs)
+        return cls.create_to_pure(schema, Principle, uid, **extra_fields)
 
     # --- Choice Conversions --
     @classmethod

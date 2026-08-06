@@ -173,7 +173,10 @@ without extra queries.
 
 Activity Domain models use a different pattern for cross-domain UID fields. For example,
 `Task.reinforces_habit_uid` and `Habit.supports_goal_uid` are marked `# DERIVED FROM EDGE`
-— they are populated by an enrich step at read time and never stored as node properties.
+— they are read back by an enrich step at read time and never stored as node properties
+(the mapper's `RELATIONSHIP_SKIP_FIELDS` enforces this). `Task.reinforces_habit_uid` is
+additionally the *input* the create path writes its edge from — see
+`CROSS_DOMAIN_UID_PATTERNS.md § edge carrier` — but the property still never exists.
 The Exercise/PathStep dual-write is a deliberate divergence from this pattern: an anchored
 PERSONAL exercise is 1:1 with its PathStep and is queried from both directions in the learning
 loop, so the cost of materialising the reverse pointer at write time is worth the simpler reads.

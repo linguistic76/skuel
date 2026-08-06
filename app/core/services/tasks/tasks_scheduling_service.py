@@ -162,11 +162,19 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
                     )
                 )
 
-        # Build the frozen Task end-to-end (ADR-035/ADR-065). from_request carries
-        # the single-UID learning fields (fulfills_goal_uid, goal_progress_contribution,
-        # knowledge_mastery_check, habit_streak_maintainer); relationship-typed request
-        # fields (reinforces_habit_uid, applies_knowledge_uids, …) become graph edges
-        # in the batch below.
+        # Build the frozen Task end-to-end (ADR-035/ADR-065). from_request carries the
+        # single-UID learning fields (fulfills_goal_uid, goal_progress_contribution,
+        # knowledge_mastery_check, habit_streak_maintainer); the list-typed relationship
+        # fields (applies_knowledge_uids, …) reach no Task field and become graph edges in
+        # the batch below.
+        #
+        # from_request ALSO carries parent_uid and reinforces_habit_uid, but neither is
+        # persisted — both are in RELATIONSHIP_SKIP_FIELDS. They exist on the entity so
+        # TasksCoreService.create can write their edges, and this method reaches
+        # backend.create directly rather than through that primitive, so it must write
+        # its own REINFORCES_HABIT edge (below) and writes NO HAS_SUBTASK edge at all —
+        # the same silent-create gap #966 recorded for this method and its sibling at
+        # :325, tracked separately.
         task_model = Task.from_request(task_data, user_uid=user_context.user_uid)
 
         # Create task in backend

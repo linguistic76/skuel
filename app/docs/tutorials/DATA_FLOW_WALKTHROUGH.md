@@ -179,6 +179,7 @@ def task_create_request_to_dto(
         tags=request.tags or [],
         # Single UID fields (stored as properties)
         fulfills_goal_uid=request.fulfills_goal_uid,
+        # NOT stored as a property — see the note below this block
         reinforces_habit_uid=request.reinforces_habit_uid,
         # Metadata fields
         goal_progress_contribution=request.goal_progress_contribution,
@@ -186,6 +187,13 @@ def task_create_request_to_dto(
         habit_streak_maintainer=request.habit_streak_maintainer,
     )
 ```
+
+> ⚠ **Illustrative, and behind the code.** Since #966 `create_task` builds a frozen
+> `Task` via `Task.from_request` and persists the ENTITY, not a DTO dict. And
+> `reinforces_habit_uid` is *not* a node property in either shape: it is in
+> `RELATIONSHIP_SKIP_FIELDS`, and `TasksCoreService.create` writes
+> `(Task)-[:REINFORCES_HABIT]->(Habit)` from it. `parent_uid` is the same shape
+> (HAS_SUBTASK). See `docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md § edge carrier`.
 
 **Why convert to DTO?**
 1. **Mutability**: DTOs can be modified during service operations
