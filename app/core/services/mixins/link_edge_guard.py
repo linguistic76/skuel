@@ -35,8 +35,9 @@ its edges are refused.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Final, Protocol
 
+from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jProperties
 from core.utils.result_simplified import Result
 
@@ -45,6 +46,13 @@ if TYPE_CHECKING:
 
 # (from_uid, to_uid, relationship_type, properties) — the batch writer's tuple.
 EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
+
+# What a "knowledge" link list may point at. Both Goals' ``required_knowledge_uids`` and
+# Habits' ``linked_knowledge_uids`` accept either, and the readers bear that out: the
+# rich-context query collects a habit's applied knowledge from the target directly when
+# it is a Ku, and through ``TRAINS_KU|USES_KU`` when it is a PathStep. Shared here so the
+# two lists cannot drift into disagreeing about what knowledge is.
+KNOWLEDGE_LABELS: Final = frozenset({NeoLabel.KU.value, NeoLabel.PATH_STEP.value})
 
 
 class _EndpointReader(Protocol):
@@ -63,15 +71,17 @@ class LinkEdge:
         edge: the tuple handed to ``create_relationships_batch``.
         other_uid: the request-supplied end — NOT always ``edge[1]``, because an
             incoming spec puts the supplied UID in the source position.
-        required_label: Neo4j label the far end must carry (e.g. ``"Habit"``), or None
-            where the field legitimately accepts several kinds — a goal's
-            ``required_knowledge_uids`` reaches Kus and PathSteps alike, and pinning one
-            label there would refuse half of what it is for.
+        allowed_labels: the kinds this request field accepts, e.g. ``{"Habit"}`` for
+            ``supporting_habit_uids`` or ``{"Ku", "PathStep"}`` for a knowledge list.
+            A SET rather than one label because some fields legitimately take several
+            — and REQUIRED, with no "any kind" default, because an opt-out is the
+            escape hatch that lets an arbitrary Entity through the moment a new list
+            forgets to declare itself.
     """
 
     edge: EdgeTuple
     other_uid: str
-    required_label: str | None = None
+    allowed_labels: frozenset[str]
 
 
 # Returns a plain list, not Result[...]: this is a pure filter, not a fallible
@@ -88,13 +98,18 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
 ) -> list[EdgeTuple]:
     """Return the candidate edges whose far end this owner may legitimately link.
 
-    An edge is kept when BOTH hold:
+    An edge is kept when ALL THREE hold:
 
+    - the far end EXISTS. This matters because ``create_relationships_batch`` is
+      all-or-nothing: one stale UID fails the whole batch, and since that failure is
+      logged rather than propagated, every valid link in the same request vanishes
+      silently while the create reports success. (A labelless node fails the kind
+      check below too; the branch is separate so the log names the real cause.)
     - the far end is owned by ``owner_uid``, or is owned by nobody. Ownership is read
       through ``get_owner_uids_batch``, which resolves all three spellings the graph
       uses (``user_uid``, ``owner_uid``, the ``OWNS`` edge); "owned by nobody" means
       shared content — a Ku carries none of the three and must stay linkable.
-    - the far end carries ``required_label``, when the write site declared one.
+    - the far end carries one of ``allowed_labels``.
 
     Args:
         backend: the domain backend (its two batched endpoint reads).
@@ -135,21 +150,35 @@ async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note
     labels = labels_result.value
 
     kept: list[EdgeTuple] = []
+    missing = 0
     cross_user = 0
     wrong_kind = 0
 
     for candidate in candidates:
-        # An absent owner entry means "owned by nobody" — shared content, allowed.
+        # An absent LABELS entry means the node does not exist — absence here is
+        # existence, unlike the owners map, whose absence legitimately means "owned by
+        # nobody". Split from the kind check below, which would also reject a labelless
+        # node, only so the log says which of the two it was: "you named something that
+        # is gone" and "you named the wrong kind of thing" are different fixes.
+        node_labels = labels.get(candidate.other_uid)
+        if node_labels is None:
+            missing += 1
+            continue
         if owner_uid not in owners.get(candidate.other_uid, [owner_uid]):
             cross_user += 1
             continue
-        if candidate.required_label is not None and candidate.required_label not in labels.get(
-            candidate.other_uid, []
-        ):
+        if candidate.allowed_labels.isdisjoint(node_labels):
             wrong_kind += 1
             continue
         kept.append(candidate.edge)
 
+    if missing:
+        logger.warning(
+            "Dropping %d link edge(s) for %s naming a UID that resolves to no node — "
+            "the batch is all-or-nothing, so one stale UID would lose every valid link",
+            missing,
+            subject_uid,
+        )
     if cross_user:
         logger.warning(
             "Refusing %d cross-user link edge(s) for %s (user %s)",

@@ -32,7 +32,11 @@ from core.ports.query_types import HabitStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
-from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
+from core.services.mixins.link_edge_guard import (
+    KNOWLEDGE_LABELS,
+    LinkEdge,
+    keep_permitted_link_edges,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -422,6 +426,7 @@ class HabitsCoreService(
                     {"skill_level": "beginner", "proficiency_gain_rate": 0.1},
                 ),
                 other_uid=knowledge_uid,
+                allowed_labels=KNOWLEDGE_LABELS,
             )
             for knowledge_uid in request.linked_knowledge_uids
         )
@@ -434,7 +439,7 @@ class HabitsCoreService(
                     {"embodiment_strength": 1.0},
                 ),
                 other_uid=principle_uid,
-                required_label=NeoLabel.PRINCIPLE.value,
+                allowed_labels=frozenset({NeoLabel.PRINCIPLE.value}),
             )
             for principle_uid in request.linked_principle_uids
         )
@@ -447,7 +452,7 @@ class HabitsCoreService(
                     {"weight": 1.0, "essentiality": "supporting"},
                 ),
                 other_uid=goal_uid,
-                required_label=NeoLabel.GOAL.value,
+                allowed_labels=frozenset({NeoLabel.GOAL.value}),
             )
             for goal_uid in request.linked_goal_uids
         )
@@ -455,7 +460,7 @@ class HabitsCoreService(
             LinkEdge(
                 (habit_uid, prereq_uid, RelationshipName.REQUIRES_PREREQUISITE_HABIT.value, None),
                 other_uid=prereq_uid,
-                required_label=NeoLabel.HABIT.value,
+                allowed_labels=frozenset({NeoLabel.HABIT.value}),
             )
             for prereq_uid in request.prerequisite_habit_uids
         )

@@ -47,7 +47,11 @@ from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
-from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
+from core.services.mixins.link_edge_guard import (
+    KNOWLEDGE_LABELS,
+    LinkEdge,
+    keep_permitted_link_edges,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -439,6 +443,7 @@ class GoalsCoreService(
                     {"proficiency_required": "intermediate", "priority": 1},
                 ),
                 other_uid=knowledge_uid,
+                allowed_labels=KNOWLEDGE_LABELS,
             )
             for knowledge_uid in request.required_knowledge_uids
         )
@@ -451,7 +456,7 @@ class GoalsCoreService(
                     {"alignment_strength": 1.0},
                 ),
                 other_uid=principle_uid,
-                required_label=NeoLabel.PRINCIPLE.value,
+                allowed_labels=frozenset({NeoLabel.PRINCIPLE.value}),
             )
             for principle_uid in request.guiding_principle_uids
         )
@@ -466,7 +471,7 @@ class GoalsCoreService(
                     {"weight": 1.0, "essentiality": "supporting"},
                 ),
                 other_uid=habit_uid,
-                required_label=NeoLabel.HABIT.value,
+                allowed_labels=frozenset({NeoLabel.HABIT.value}),
             )
             for habit_uid in request.supporting_habit_uids
         )

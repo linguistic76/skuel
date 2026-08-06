@@ -383,6 +383,41 @@ class TestGoalHierarchyEdgeRoundTrip:
             "under supporting_habits and corrupt planning and progress context"
         )
 
+    async def test_a_dangling_uid_does_not_lose_the_valid_links(
+        self, goals_service, neo4j_driver, test_user_uid
+    ) -> None:
+        """One stale UID must not take the request's valid links down with it.
+
+        ``create_relationships_batch`` validates ALL before creating ANY, and this
+        create logs its failure rather than propagating it — so a single nonexistent
+        UID would silently discard every other link while the create still returned
+        success. Not an attack: a deleted Ku still named in a form does this.
+        Asserted at the graph, since the return value cannot show it. (Codex, #965.)
+        """
+        await _create_node(neo4j_driver, "ku_still_here", "Entity:Ku", "ku", "Systems")
+
+        goal = await goals_service.create_goal(
+            goal_request(
+                title="Goal with one stale link",
+                required_knowledge_uids=["ku_deleted_long_ago", "ku_still_here"],
+            ),
+            test_user_uid,
+        )
+        assert goal.is_ok, f"create_goal failed: {goal.error}"
+
+        async with neo4j_driver.session() as session:
+            rows = await (
+                await session.run(
+                    "MATCH (g {uid: $goal})-[:REQUIRES_KNOWLEDGE]->(k) RETURN k.uid AS uid",
+                    goal=goal.value.uid,
+                )
+            ).values()
+
+        assert [row[0] for row in rows] == ["ku_still_here"], (
+            "the live knowledge link was lost — a dangling UID in an all-or-nothing "
+            f"batch discards every valid link alongside it. Got: {rows}"
+        )
+
     async def test_parentless_goal_gets_no_hierarchy_edge(
         self, goals_service, neo4j_driver, test_user_uid
     ) -> None:

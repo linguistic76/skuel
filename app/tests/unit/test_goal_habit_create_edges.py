@@ -155,8 +155,11 @@ class StubBackend:
         self.shared: set[str] = set()
         # uid -> Neo4j labels, for the link-target KIND check. Absent uids default to
         # carrying every label the link lists accept, so tests that are not ABOUT the
-        # kind check are unaffected by it.
+        # kind check are unaffected by it. ``missing`` stages a UID that resolves to NO
+        # node — the real labels query simply omits those, and the guard reads that
+        # absence as "does not exist".
         self.labels: dict[str, list[str]] = {}
+        self.missing: set[str] = set()
 
     async def create(self, entity: Any) -> Result[Any]:
         props = to_neo4j_node(entity)
@@ -196,7 +199,11 @@ class StubBackend:
         four kinds the link lists accept, so the KIND check passes unless a test stages
         a specific wrong one."""
         return Result.ok(
-            {uid: self.labels.get(uid, ["Entity", "Habit", "Goal", "Principle"]) for uid in uids}
+            {
+                uid: self.labels.get(uid, ["Entity", "Habit", "Goal", "Principle", "Ku"])
+                for uid in uids
+                if uid not in self.missing
+            }
         )
 
     async def create_hierarchy_relationship(
@@ -514,6 +521,73 @@ class TestGoalLinkEdgesAreWritten:
         assert result.is_ok, f"create_goal failed: {result.error}"
         assert [t for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"], (
             "a shared Ku was refused as a goal's required knowledge"
+        )
+
+    async def test_a_non_knowledge_uid_is_refused(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """``required_knowledge_uids`` accepts Ku and PathStep — not any Entity.
+
+        The knowledge lists take a SET of kinds rather than opting out of the check,
+        because "several kinds are valid" is not "anything is". A same-user Task here
+        would be reported as required knowledge by goal context and planning.
+        (Codex, #965.)
+        """
+        goal_backend.labels["task:not-knowledge"] = ["Entity", "Task"]
+
+        result = await goal_core.create_goal(
+            make_goal_request(required_knowledge_uids=["task:not-knowledge"]), USER_UID
+        )
+
+        assert result.is_ok, "the caller's own goal is legitimate and should be created"
+        assert [t for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"] == [], (
+            "a non-knowledge UID was written as required knowledge"
+        )
+
+    @pytest.mark.parametrize("label", ["Ku", "PathStep"])
+    async def test_both_knowledge_kinds_are_accepted(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend, label: str
+    ) -> None:
+        """Positive control: a knowledge list must take BOTH kinds.
+
+        Narrowing it to Ku alone would silently refuse PathStep links, which the
+        rich-context reader resolves through ``TRAINS_KU|USES_KU``.
+        """
+        goal_backend.labels["knowledge:one"] = ["Entity", label]
+        goal_backend.shared.add("knowledge:one")
+
+        result = await goal_core.create_goal(
+            make_goal_request(required_knowledge_uids=["knowledge:one"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_goal failed: {result.error}"
+        assert [t for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"], (
+            f"a {label} was refused as required knowledge"
+        )
+
+    async def test_a_dangling_uid_does_not_lose_the_valid_links(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """A UID that resolves to no node must be dropped, not batched.
+
+        ``create_relationships_batch`` validates ALL before creating ANY, and its
+        failure here is logged rather than propagated — so one stale UID would take
+        every valid link in the same request down with it while the create still
+        reported success. (Codex, #965.)
+        """
+        goal_backend.missing.add("ku:deleted")
+        goal_backend.labels["ku:real"] = ["Entity", "Ku"]
+        goal_backend.shared.add("ku:real")
+
+        result = await goal_core.create_goal(
+            make_goal_request(required_knowledge_uids=["ku:deleted", "ku:real"]), USER_UID
+        )
+
+        assert result.is_ok, f"create_goal failed: {result.error}"
+        targets = {t[1] for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"}
+        assert targets == {"ku:real"}, (
+            f"expected only the live UID to be batched, got {targets} — a dangling UID "
+            "in the batch fails it wholesale and silently loses the valid links"
         )
 
     async def test_a_non_habit_supporting_uid_is_refused(
