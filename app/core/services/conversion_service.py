@@ -260,6 +260,10 @@ class ConversionServiceV2:
         description is already built. (Goals need no equivalent — ``why_important`` is a
         real ``Goal`` field the generic pass carries.)
         """
+        # boundary: dataclass-kwargs — splatted into Principle(**...), so the values are
+        # genuinely heterogeneous (str | None description here, plus whatever the caller
+        # passes in kwargs: UserUID, EntityStatus, ...). Narrowing would have to enumerate
+        # every Principle field type. Same boundary the goal converter above documents.
         extra_fields: dict[str, Any] = {}
         if schema.why_important:
             extra_fields["description"] = merge_why_important(

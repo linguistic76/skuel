@@ -90,6 +90,7 @@ from core.events.task_events import TaskCreated
 from core.models.enums import Priority
 from core.models.event.event_request import EventCreateRequest
 from core.models.relationship_names import RelationshipName
+from core.models.relationship_registry import TASKS_CONFIG
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
 from core.services.conversion_service import ConversionServiceV2
@@ -606,6 +607,63 @@ class TestTaskKnowledgeLinks:
             RelationshipName.REQUIRES_KNOWLEDGE.value,
             RelationshipName.REINFORCES_HABIT.value,
         }
+
+    @pytest.mark.parametrize(
+        ("field", "method_key"),
+        [
+            ("applies_knowledge_uids", "knowledge"),
+            ("prerequisite_knowledge_uids", "prerequisite_knowledge"),
+        ],
+    )
+    async def test_edge_agrees_with_the_registry(
+        self, core: TasksCoreService, backend: StubBackend, field: str, method_key: str
+    ) -> None:
+        """Direction comes from TASKS_CONFIG, not from a hand-copied table.
+
+        The create path names its relationships literally, and every assertion above
+        spells the tuple out as ``(task, target, REL, None)`` — which is a second copy of
+        the same guess. #965's Habits sibling learned this the hard way: direction is NOT
+        uniform within a domain (Goals' ``supporting_habits`` is declared INCOMING), and
+        an edge written backwards persists perfectly and reads back empty. Deriving the
+        expectation from the registry means a rename or a direction flip on the READ side
+        breaks this test instead of silently orphaning the write.
+        """
+        spec = TASKS_CONFIG.get_relationship_by_method(method_key)
+        assert spec is not None, f"TASKS_CONFIG has no '{method_key}' relationship"
+
+        result = await core.create_task(make_request(**{field: [KU_ONE]}), USER_UID)
+        assert result.is_ok, f"create_task failed: {result.error}"
+
+        written = edges_of(backend, spec.relationship)
+        assert written, (
+            f"{field} wrote no {spec.relationship.value} edge — the registry reads "
+            f"'{method_key}' from that relationship"
+        )
+        assert spec.direction == "outgoing", (
+            f"'{method_key}' is declared {spec.direction}; the create path writes the "
+            "task as the edge SOURCE, so a non-outgoing spec means the write and the "
+            "read now point opposite ways"
+        )
+        assert written[0][0] == result.value.uid
+
+    async def test_habit_edge_agrees_with_the_registry(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """Same, for the entity-carried habit link. Its Task-side spec declares the target
+        label as ``Entity``, which is exactly why the KIND check cannot be delegated to
+        the registry — but the DIRECTION is the registry's to declare."""
+        spec = TASKS_CONFIG.get_relationship_by_method("habits")
+        assert spec is not None, "TASKS_CONFIG has no 'habits' relationship"
+        assert spec.relationship == RelationshipName.REINFORCES_HABIT
+        assert spec.direction == "outgoing"
+
+        result = await core.create_task(make_request(reinforces_habit_uid=HABIT_UID), USER_UID)
+        assert result.is_ok
+
+        written = edges_of(backend, spec.relationship)
+        assert written, "no REINFORCES_HABIT edge"
+        assert written[0][0] == result.value.uid, "the task must be the edge SOURCE"
+        assert written[0][1] == HABIT_UID
 
     async def test_shared_knowledge_is_still_linkable(
         self, core: TasksCoreService, backend: StubBackend
