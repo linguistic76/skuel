@@ -742,6 +742,44 @@ def _dash_c_payload(args: list[str]) -> str | None:
     return None
 
 
+def _env_scope_refusals(
+    container: object, scope: str, *, frozen_allowed: bool
+) -> list[RefusedCommand]:
+    """Lock env vars declared at one scope that do not belong there.
+
+    Four call sites because GitHub Actions has four env scopes — workflow, job,
+    workflow step, composite step — but ONE definition, and that is the point.
+    Writing this check per scope is what let UV_FROZEN reach composite steps
+    unguarded (round 7) and then let UV_LOCKED reach them unguarded again
+    (round 11): the same miss, at the same layer, twice. Adding a name to
+    _LOCK_ENV_VARS now covers every scope by construction.
+
+    ``frozen_allowed`` is the one real difference: a job- or workflow-level
+    UV_FROZEN is the mechanism this invariant MANDATES. At step level it is
+    rejected, because a per-step pin does not hold for the next step added.
+    """
+    refusals: list[RefusedCommand] = []
+    for variable in _LOCK_ENV_VARS:
+        declared, value = _env_value(container, variable)
+        if not declared or (variable == "UV_FROZEN" and frozen_allowed):
+            continue
+        if variable == "UV_LOCKED":
+            refusals.append(_uv_locked_refusal(scope, value))
+        else:
+            refusals.append(
+                RefusedCommand(
+                    origin=scope,
+                    rendered=f"env: UV_FROZEN: {value!r}",
+                    headline="UV_FROZEN is set on a single step",
+                    reason="a step's env overrides the calling job's for that step "
+                    "alone, so the pin is invisible to the job that carries the "
+                    "invariant and does not cover the next step someone adds",
+                    fix="move it to the job's own `env:` block",
+                )
+            )
+    return refusals
+
+
 def _uv_locked_refusal(scope: str, value: str | None) -> RefusedCommand:
     """UV_LOCKED declared as configuration — the third mechanism, and a trap.
 
@@ -1003,8 +1041,6 @@ def audit_workflow(
     workflow_declared, workflow_value = _env_value(document, "UV_FROZEN")
     workflow_defaults = (document.get("defaults") or {}).get("run") or {}
 
-    workflow_locked = _env_value(document, "UV_LOCKED")
-
     usages: list[JobUvUsage] = []
     for job_id, job in (document.get("jobs") or {}).items():
         if not isinstance(job, dict):
@@ -1017,12 +1053,8 @@ def audit_workflow(
 
         invocations: list[UvInvocation] = []
         refused: list[RefusedCommand] = []
-        for scope, (declared, value) in (
-            ("workflow", workflow_locked),
-            ("job", _env_value(job, "UV_LOCKED")),
-        ):
-            if declared:
-                refused.append(_uv_locked_refusal(f"{scope}-level env", value))
+        refused.extend(_env_scope_refusals(document, "workflow-level env", frozen_allowed=True))
+        refused.extend(_env_scope_refusals(job, "job-level env", frozen_allowed=True))
         step_frozen: list[str] = []
         seen: set[Path] = set()
 
@@ -1033,9 +1065,9 @@ def audit_workflow(
             if _env_value(step, "UV_FROZEN")[0]:
                 step_frozen.append(str(step_name))
             refused.extend(
-                _uv_locked_refusal(f"step {step_name!r}", value)
-                for declared, value in [_env_value(step, "UV_LOCKED")]
-                if declared
+                r
+                for r in _env_scope_refusals(step, f"step {step_name!r}", frozen_allowed=True)
+                if r.headline != "UV_FROZEN is set on a single step"
             )
 
             workdir = root / (step.get("working-directory") or default_workdir or ".")
@@ -1108,23 +1140,15 @@ def _collect_from_composite(
     for index, step in enumerate((document.get("runs") or {}).get("steps") or []):
         if not isinstance(step, dict):
             continue
-        # A composite step's own `env:` overrides the CALLING job's, exactly as
-        # a workflow step's does. audit_workflow() has always rejected the
-        # workflow-step form; applying it only there was the same one-layer-away
-        # miss as the path filter and the recursion (Codex, PR #959).
-        declared, value = _env_value(step, "UV_FROZEN")
-        if declared:
-            refused.append(
-                RefusedCommand(
-                    origin=f"{manifest.relative_to(root)} (via {step_name!r})",
-                    rendered=f"env: UV_FROZEN: {value!r}",
-                    headline="UV_FROZEN is set on a composite action's step",
-                    reason="a composite step's env overrides the calling job's for that "
-                    "step, so this pin neither matches nor is visible from the job that "
-                    "carries the invariant",
-                    fix="delete it; the calling job's `env:` is the one place this belongs",
-                )
+        # A composite step's env overrides the CALLING job's — same scope class
+        # as a workflow step, so the same one definition covers it.
+        refused.extend(
+            _env_scope_refusals(
+                step,
+                f"{manifest.relative_to(root)} (via {step_name!r})",
+                frozen_allowed=False,
             )
+        )
         if step.get("run"):
             workdir = root / (step.get("working-directory") or ".")
             found.extend(
@@ -2212,7 +2236,38 @@ jobs:
       - uses: ./.github/actions/report
 """,
     )
-    assert any("composite action's step" in p for p in problems), problems
+    assert any("UV_FROZEN is set on a single step" in p for p in problems), problems
+
+
+def test_control_uv_locked_in_a_composite_step_is_refused(tmp_path: Path) -> None:
+    """The fifth recurrence of one fix left undone one layer away.
+
+    Round 7 caught UV_FROZEN reaching composite steps unguarded. Round 10 added
+    UV_LOCKED at workflow, job and workflow-step scope — and missed composite
+    steps, the SAME layer, so round 11 reported it. The duplication was the
+    defect: `_env_scope_refusals()` is now one definition over all four scopes,
+    and adding a name to _LOCK_ENV_VARS covers every one of them.
+    """
+    action = tmp_path / ".github" / "actions" / "report" / "action.yml"
+    action.parent.mkdir(parents=True, exist_ok=True)
+    action.write_text(
+        "runs:\n  using: composite\n  steps:\n    - run: uv sync\n      shell: bash\n"
+        '      env:\n        UV_LOCKED: "1"\n',
+        encoding="utf-8",
+    )
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - uses: ./.github/actions/report
+""",
+    )
+    assert any("UV_LOCKED is declared" in p for p in problems), problems
 
 
 def test_control_uv_version_is_lock_touching(tmp_path: Path) -> None:
