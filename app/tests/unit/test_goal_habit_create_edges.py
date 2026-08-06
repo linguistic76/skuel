@@ -554,25 +554,45 @@ class TestGoalLinkEdgesAreWritten:
             "a non-knowledge UID was written as required knowledge"
         )
 
-    @pytest.mark.parametrize("label", ["Ku", "PathStep"])
-    async def test_both_knowledge_kinds_are_accepted(
-        self, goal_core: GoalsCoreService, goal_backend: StubBackend, label: str
+    async def test_a_ku_is_accepted_as_knowledge(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
     ) -> None:
-        """Positive control: a knowledge list must take BOTH kinds.
-
-        Narrowing it to Ku alone would silently refuse PathStep links, which the
-        rich-context reader resolves through ``TRAINS_KU|USES_KU``.
-        """
-        goal_backend.labels["knowledge:one"] = ["Entity", label]
-        goal_backend.shared.add("knowledge:one")
+        """Positive control: the atom is what a knowledge list is for."""
+        goal_backend.labels["ku:one"] = ["Entity", "Ku"]
+        goal_backend.shared.add("ku:one")
 
         result = await goal_core.create_goal(
-            make_goal_request(required_knowledge_uids=["knowledge:one"]), USER_UID
+            make_goal_request(required_knowledge_uids=["ku:one"]), USER_UID
         )
 
         assert result.is_ok, f"create_goal failed: {result.error}"
         assert [t for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"], (
-            f"a {label} was refused as required knowledge"
+            "a Ku was refused as required knowledge"
+        )
+
+    async def test_a_pathstep_is_not_accepted_as_knowledge(
+        self, goal_core: GoalsCoreService, goal_backend: StubBackend
+    ) -> None:
+        """The create doors write the ATOM, not the composition.
+
+        A PathStep target reads back fine — the rich-context query expands it through
+        ``TRAINS_KU|USES_KU`` — but the substance pipeline has no inverse:
+        ``increment_substance`` credits the node it is given and fans OUT to composing
+        PathSteps, so a PathStep would be credited while every atom it teaches stayed
+        untouched, contradicting what the reader reports. Narrowing the WRITE keeps the
+        two halves agreeing; edges written by other paths still resolve. (Codex, #965.)
+        """
+        goal_backend.labels["ps:composed"] = ["Entity", "PathStep"]
+        goal_backend.shared.add("ps:composed")
+
+        result = await goal_core.create_goal(
+            make_goal_request(required_knowledge_uids=["ps:composed"]), USER_UID
+        )
+
+        assert result.is_ok, "the caller's own goal is legitimate and should be created"
+        assert [t for t in goal_backend.batched if t[2] == "REQUIRES_KNOWLEDGE"] == [], (
+            "a PathStep was written as required knowledge — the substance pipeline "
+            "cannot resolve it to the atoms the reader would report"
         )
 
     async def test_a_dangling_uid_does_not_lose_the_valid_links(
@@ -1220,6 +1240,32 @@ class TestHabitKnowledgeSubstance:
             for e in event_bus.get_event_history()
             if isinstance(e, KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit)
         ] == [], "substance was announced although the batch wrote nothing"
+
+    async def test_a_repeated_uid_is_counted_once(
+        self, habit_core: HabitsCoreService, event_bus: InMemoryEventBus
+    ) -> None:
+        """A UID repeated in the request must not credit the same knowledge twice.
+
+        The batch MERGEs, so the graph holds ONE edge — but the bulk event UNWINDs
+        whatever it is given and ``batch_increment_substance`` increments once per row,
+        so one habit would count several times for a single connection. (Codex, #965.)
+        """
+        from core.events.knowledge_substance_events import (
+            KnowledgeBuiltIntoHabit,
+            KnowledgeBulkBuiltIntoHabit,
+        )
+
+        await habit_core.create_habit(
+            make_habit_request(linked_knowledge_uids=["ku:a", "ku:a"]), USER_UID
+        )
+
+        history = event_bus.get_event_history()
+        bulk = [e for e in history if isinstance(e, KnowledgeBulkBuiltIntoHabit)]
+        singles = [e for e in history if isinstance(e, KnowledgeBuiltIntoHabit)]
+
+        assert bulk == [], f"a single distinct UID must not take the bulk path: {bulk}"
+        assert len(singles) == 1, f"expected 1 substance event, got {len(singles)}"
+        assert singles[0].knowledge_uid == "ku:a"
 
     async def test_a_linkless_habit_announces_nothing(
         self, habit_core: HabitsCoreService, event_bus: InMemoryEventBus

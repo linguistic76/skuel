@@ -47,12 +47,20 @@ if TYPE_CHECKING:
 # (from_uid, to_uid, relationship_type, properties) — the batch writer's tuple.
 EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
 
-# What a "knowledge" link list may point at. Both Goals' ``required_knowledge_uids`` and
-# Habits' ``linked_knowledge_uids`` accept either, and the readers bear that out: the
-# rich-context query collects a habit's applied knowledge from the target directly when
-# it is a Ku, and through ``TRAINS_KU|USES_KU`` when it is a PathStep. Shared here so the
-# two lists cannot drift into disagreeing about what knowledge is.
-KNOWLEDGE_LABELS: Final = frozenset({NeoLabel.KU.value, NeoLabel.PATH_STEP.value})
+# What a "knowledge" link list may point at: the ATOM only. Both Goals'
+# ``required_knowledge_uids`` and Habits' ``linked_knowledge_uids`` document themselves as
+# KnowledgeUnit UIDs, and the substance pipeline is Ku-centric by construction —
+# ``KuBackend.increment_substance`` takes a ku_uid, credits it, and fans OUT to the
+# PathSteps composing it. It has no inverse, so a PathStep UID would credit the PathStep
+# and leave every atom it teaches untouched, while the context reader (which DOES expand a
+# PathStep through ``TRAINS_KU|USES_KU``) reported those atoms as reinforced. Writing
+# atoms keeps the two halves agreeing, and the fan-out still credits the PathStep.
+#
+# This narrows what the CREATE doors write, not what the readers accept: PathStep-targeted
+# knowledge edges from other writers keep resolving as before. Neither create form offers
+# these fields — both omit list-typed links by design — so no UI flow narrows.
+# Shared so the two lists cannot drift into disagreeing about what knowledge is.
+KNOWLEDGE_LABELS: Final = frozenset({NeoLabel.KU.value})
 
 
 class _EndpointReader(Protocol):

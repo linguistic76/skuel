@@ -449,9 +449,8 @@ class HabitsCoreService(
         ADMISSION: every target UID is request input, so each is checked for existence,
         OWNER and KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
         declared labels come from the field names: ``linked_principle_uids`` means
-        Principles. ``linked_knowledge_uids`` declares the KNOWLEDGE_LABELS pair, because
-        it legitimately reaches both Kus and PathSteps (the context query resolves a
-        PathStep through ``TRAINS_KU|USES_KU``).
+        Principles, ``linked_knowledge_uids`` means Kus (KNOWLEDGE_LABELS — see there for
+        why the atom and not the PathStep).
 
         Returns:
             The knowledge UIDs actually WRITTEN — the caller announces substance from
@@ -538,11 +537,17 @@ class HabitsCoreService(
             # do not exist.
             return []
 
-        return [
-            target_uid
-            for _src, target_uid, rel_type, _props in relationships
-            if rel_type == RelationshipName.REINFORCES_KNOWLEDGE.value
-        ]
+        # DEDUPED: the batch MERGEs, so a UID repeated in the request yields ONE edge —
+        # but the bulk substance event UNWINDs what it is given, incrementing
+        # times_built_into_habits once per row. Without this, one habit could count
+        # several times for a single knowledge connection. dict.fromkeys keeps the order.
+        return list(
+            dict.fromkeys(
+                target_uid
+                for _src, target_uid, rel_type, _props in relationships
+                if rel_type == RelationshipName.REINFORCES_KNOWLEDGE.value
+            )
+        )
 
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
     async def update_habit(

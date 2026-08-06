@@ -429,8 +429,7 @@ class GoalsCoreService(
         below: for ``supporting_habit_uids`` the supplied UID is the edge's SOURCE, so
         reading the target position would check this goal against itself and leave that
         list unguarded. The declared labels come from the field names;
-        ``required_knowledge_uids`` declares none because it legitimately reaches both
-        Kus and PathSteps. (Reported by Codex on #965.)
+        ``required_knowledge_uids`` means Kus (KNOWLEDGE_LABELS). (Codex, #965.)
         """
         candidates: list[LinkEdge] = []
 
