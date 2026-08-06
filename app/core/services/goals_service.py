@@ -331,6 +331,22 @@ class GoalsService(
         result = await self.update_goal(uid, GoalUpdateIntent(status=EntityStatus.CANCELLED.value))
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
+    async def create(self, entity: Goal) -> Result[Goal]:
+        """Override the inherited CRUD create (generated JSON route, no ownership check).
+
+        Routes the entity through the one validated, event-firing create path
+        (``GoalsCoreService.create``). The inherited base ``create`` resolved
+        ``_validate_create`` to the ``CrudOperationsMixin`` no-op: the Goals creation rule
+        (target date must not precede start date) lives on ``GoalsCoreService``, which
+        this facade holds as the delegated attribute ``self.core`` and does NOT inherit —
+        so that override was never in this class's MRO. The generated route therefore
+        persisted goals unchecked, and published neither GoalCreated nor the ADR-074
+        embedding request.
+
+        Same reconciliation ``ChoicesService.create`` makes (#960).
+        """
+        return await self.core.create(entity)
+
     async def create_goal(self, goal_request: GoalCreateRequest, user_uid: UserUID) -> Result[Goal]:
         return await self.core.create_goal(goal_request, user_uid)
 

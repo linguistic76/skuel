@@ -81,44 +81,19 @@ class PrinciplesCoreService(
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, principle: Principle) -> Result[None]:
-        """
-        Validate principle creation with business rules.
-
-        Business Rules:
-        1. Principle statement validation: Label must be meaningful (at least 10 characters)
-        2. Description validation: Description must be substantial (at least 20 characters)
-
-        Args:
-            principle: Principle domain model being created
-
-        Returns:
-            None if valid, Result.fail() with validation error if invalid
-        """
-        assert isinstance(principle, Principle)
-        # Business Rule 1: Statement must be meaningful
-        # Principles guide behavior - vague principles aren't useful
-        if not principle.statement or len(principle.statement.strip()) < 10:
-            return Result.fail(
-                Errors.validation(
-                    message="Principle statement must be at least 10 characters and meaningful",
-                    field="statement",
-                    value=principle.statement,
-                )
-            )
-
-        # Business Rule 2: Description must be substantial (if provided)
-        # Forces thoughtful articulation of the principle
-        if principle.description and len(principle.description.strip()) < 20:
-            return Result.fail(
-                Errors.validation(
-                    message="Principle description must be at least 20 characters to ensure thoughtful articulation",
-                    field="description",
-                    value=principle.description,
-                )
-            )
-
-        return Result.ok(None)  # All validations passed
+    # No _validate_create hook: Principles have no creation-time business rule.
+    #
+    # There were two — statement >= 10 chars, description >= 20 chars — but neither had
+    # ever executed (create_principle persists backend-direct, bypassing
+    # CrudOperationsMixin.create, the hook's only caller), and both were stricter than
+    # the contract the edge actually publishes:
+    #   - PrincipleCreateRequest declares statement min_length=1, deliberately; a short
+    #     principle ("Be kind") is a legitimate one
+    #   - the Activity DSL sets statement = the whole activity description, so any short
+    #     @context(principle) line would have started being refused
+    #
+    # Length bounds on statement/description are the request model's to state
+    # (min_length/max_length), not this layer's.
 
     def _validate_update(self, current: Principle, updates: PrincipleUpdateIntent) -> Result[None]:
         """

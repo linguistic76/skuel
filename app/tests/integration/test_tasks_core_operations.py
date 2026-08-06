@@ -338,24 +338,36 @@ class TestTasksCoreOperations:
             assert result.is_ok
             assert result.value.priority == priority
 
-    async def test_high_priority_requires_due_date(self, tasks_service, test_user_uid):
-        """Test that high/critical priority tasks must have due dates."""
-        # Arrange - Create high priority task without due date
-        invalid_task = Task(
-            uid="task.invalid_high_priority",
+    async def test_high_priority_without_due_date_is_allowed(self, tasks_service, test_user_uid):
+        """Priority and due_date are independent — an undated urgent task is legal.
+
+        This asserted the opposite until the "High/Critical priority must have a due
+        date" rule was deleted. That rule had never executed (``create_task`` persists
+        via ``_create_and_convert``, bypassing ``CrudOperationsMixin.create``, the hook's
+        only caller), and it contradicted two live producers of exactly this shape:
+        the Activity DSL emits it for ``@priority(1|2)`` with no ``@when()``, and
+        GoalTaskGenerator mints undated HIGH/CRITICAL tasks.
+
+        What IS enforced on due_date lives at the request edge (``TaskCreateRequest``:
+        future-date validation, and ``due_date >= scheduled_date``).
+        """
+        # Arrange - high priority, no due date: ordinary DSL output
+        task = Task(
+            uid="task.high_priority_undated",
             user_uid=test_user_uid,
-            title="Invalid High Priority Task",
+            title="Undated High Priority Task",
             description="High priority without due date",
             priority=Priority.HIGH,
-            due_date=None,  # Invalid: high priority requires due date
+            due_date=None,
         )
 
         # Act
-        result = await tasks_service.create(invalid_task)
+        result = await tasks_service.create(task)
 
-        # Assert - Should fail validation
-        assert result.is_error
-        assert "must have a due date" in result.error.message.lower()
+        # Assert
+        assert result.is_ok, f"an undated HIGH-priority task was refused: {result.error}"
+        assert result.value.priority == Priority.HIGH
+        assert result.value.due_date is None
 
     async def test_task_with_time_tracking(self, tasks_service, test_user_uid):
         """Test creating a task with duration estimates and tracking."""

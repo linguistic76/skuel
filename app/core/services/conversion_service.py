@@ -216,8 +216,24 @@ class ConversionServiceV2:
     def goal_create_to_pure(
         cls, schema: GoalCreateRequest, uid: str | None = None, **kwargs: Any
     ) -> Goal:
-        """Convert GoalCreateRequest to Goal using generic method."""
-        return cls.create_to_pure(schema, Goal, uid, **kwargs)
+        """Convert GoalCreateRequest to Goal using generic method.
+
+        ``parent_goal_uid`` needs a hand-mapping: the request and the model spell the
+        same hierarchy link differently (``Goal.fulfills_goal_uid``), and
+        ``create_to_pure`` filters by exact field name, so the generic pass dropped the
+        parent on every goal created through this converter.
+        """
+        # boundary: dataclass-kwargs — splatted into Goal(**...), so the values are
+        # genuinely heterogeneous (str uid here, plus whatever the caller passes in
+        # kwargs: UserUID, EntityStatus, ...). Narrowing would have to enumerate
+        # every Goal field type.
+        extra_fields: dict[str, Any] = {}
+        if schema.parent_goal_uid:
+            extra_fields["fulfills_goal_uid"] = schema.parent_goal_uid
+
+        # Merge kwargs (includes user_uid) with extra_fields
+        extra_fields.update(kwargs)
+        return cls.create_to_pure(schema, Goal, uid, **extra_fields)
 
     # NOTE: Finance (expense/budget) conversions REMOVED (ADR-052 Phase 5) — native
     # expense/budget module demolished; only the invoice module survives.

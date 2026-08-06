@@ -98,33 +98,20 @@ class TasksCoreService(
     # DOMAIN-SPECIFIC VALIDATION HOOKS
     # ========================================================================
 
-    def _validate_create(self, task: Task) -> Result[None]:
-        """
-        Validate task creation with business rules.
-
-        Business Rules:
-        1. High/Critical priority tasks must have due dates (urgency requires deadline)
-        2. Due dates cannot be in the past (enforced at API layer, double-checked here)
-
-        Args:
-            task: Task domain model being created
-
-        Returns:
-            None if valid, Result.fail() with validation error if invalid
-        """
-        # Business Rule 1: High-priority tasks must have due dates
-        if (
-            task.priority and Priority(task.priority).to_numeric() >= 3 and not task.due_date
-        ):  # HIGH=3, CRITICAL=4
-            return Result.fail(
-                Errors.validation(
-                    message="High-priority tasks must have a due date",
-                    field="due_date",
-                    value=None,
-                )
-            )
-
-        return Result.ok(None)  # All validations passed
+    # No _validate_create hook: Tasks have no creation-time business rule.
+    #
+    # There was one — "High/Critical priority tasks must have a due date" — but it had
+    # never executed (create_task persists via _create_and_convert, which bypasses
+    # CrudOperationsMixin.create, the hook's only caller), and it contradicted two live
+    # producers of exactly that shape:
+    #   - the Activity DSL: @priority(1|2) maps to CRITICAL/HIGH while due_date is set
+    #     only when @when() is present, so undated urgent tasks are ordinary DSL output
+    #     (core/services/dsl/activity_domain_converters.py)
+    #   - GoalTaskGenerator: mints HIGH ("Learn: ...") and CRITICAL tasks with no due date
+    #
+    # Priority and due_date are independent in this domain. What IS enforced on due_date
+    # lives at the request edge (TaskCreateRequest: validate_future_date, and
+    # due_date >= scheduled_date), not here.
 
     def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
         """
