@@ -19,7 +19,7 @@ Responsibilities:
 
 import dataclasses
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from core.models.type_hints import UserUID
 
@@ -49,6 +49,13 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
+
+# Weight the entity door stamps on HAS_SUBGOAL. The generated CRUD route converts the
+# request to a Goal before calling create(), and progress_weight is an EDGE property that
+# no Goal field carries — so the route door cannot forward what the client sent. Pinned to
+# GoalCreateRequest.progress_weight's own default so the two doors agree on every request
+# that leaves it unset; test_goal_habit_create_edges.py asserts that agreement.
+DEFAULT_PROGRESS_WEIGHT: Final = 1.0
 
 
 class GoalsCoreService(
@@ -268,11 +275,16 @@ class GoalsCoreService(
     # ========================================================================
 
     async def create(self, entity: Goal) -> Result[Goal]:
-        """Validate, persist, then announce — THE create primitive for Goals.
+        """Validate, persist, link, then announce — THE create primitive for Goals.
 
         Both doors land here: the generated CRUD route (via ``GoalsService.create``) and
         ``create_goal``. ``super().create`` runs ``_validate_create`` (timeline
         consistency), so the rule cannot be reached by one door and missed by the other.
+
+        The hierarchy edge is written here rather than in ``create_goal`` for the same
+        reason: ``Goal.fulfills_goal_uid`` is carried by the ENTITY, so both doors can
+        write it, and putting the write on the request door alone would have re-opened
+        the door-parity gap #963 closed.
 
         Args:
             entity: Goal to create
@@ -286,11 +298,75 @@ class GoalsCoreService(
               rather than in ``create_goal`` so route-created goals are embedded too —
               they previously were not.
         """
-        result: Result[Goal] = await super().create(entity)
+        return await self._create_with_hierarchy(entity, progress_weight=DEFAULT_PROGRESS_WEIGHT)
+
+    async def _create_with_hierarchy(self, entity: Goal, *, progress_weight: float) -> Result[Goal]:
+        """The one create path: validate + persist, write the hierarchy edge, then announce.
+
+        ``progress_weight`` is a property of the HAS_SUBGOAL EDGE, not of ``Goal``, so it
+        cannot ride on the entity — only the request door can supply a non-default. It is
+        a parameter here rather than a second create path so that the edge has exactly one
+        write site.
+        """
+        result: Result[Goal] = await self._create_validated(entity)
         if result.is_error:
             return result
 
         goal: Goal = result.value  # Type hint to help MyPy
+        await self._write_hierarchy_edge(goal, progress_weight)
+        await self._publish_created(goal)
+        return result
+
+    async def _create_validated(self, entity: Goal) -> Result[Goal]:
+        """Validate and persist, publishing NOTHING.
+
+        Split out from ``create`` so the hierarchy edge below is written before any event
+        announces the goal exists — see ``_publish_created`` for why that ordering is
+        load-bearing. Mirrors ``ChoicesCoreService._create_validated``.
+        """
+        return await super().create(entity)
+
+    async def _write_hierarchy_edge(self, goal: Goal, progress_weight: float) -> None:
+        """Write (parent)-[:HAS_SUBGOAL {progress_weight}]->(goal) when the goal has a parent.
+
+        ``Goal.fulfills_goal_uid`` (the request's ``parent_goal_uid``) is a node PROPERTY,
+        and every hierarchy READER goes to the edge instead: ``GET /api/goals/children`` /
+        ``/parent`` / ``/hierarchy`` traverse HAS_SUBGOAL via ``get_children_raw``, the
+        user-context MEGA-QUERY collects ``sub_goals`` from it, and the GOAPS registry
+        resolves ``parent_goal`` / ``sub_goals`` from SUBGOAL_OF. Setting the property
+        alone — all creation did until now — left every one of those reads empty for a
+        goal the create form's own Hierarchy section had just given a parent.
+
+        A failure is logged, not propagated: the goal itself is created, and Tasks'
+        equivalent call makes the same choice.
+        """
+        if not goal.fulfills_goal_uid:
+            return
+
+        edge_result = await self.create_subgoal_relationship(
+            parent_uid=goal.fulfills_goal_uid,
+            subgoal_uid=goal.uid,
+            progress_weight=progress_weight,
+        )
+        if edge_result.is_error:
+            self.logger.warning(
+                "Failed to create subgoal relationship %s -> %s: %s",
+                goal.fulfills_goal_uid,
+                goal.uid,
+                edge_result.error,
+            )
+
+    async def _publish_created(self, goal: Goal) -> None:
+        """Announce a newly created goal: GoalCreated + the ADR-074 embedding refresh.
+
+        ORDERING: call this only once the goal's hierarchy edge is written. ``GoalCreated``
+        is subscribed to ``invalidate_context`` (services_bootstrap/_event_wiring.py),
+        which debounces and then rebuilds the user context — and the rebuild collects
+        ``sub_goals`` by traversing ``(goal)-[:HAS_SUBGOAL]->(subgoal)``. Publishing before
+        the edge is written lets the rebuild observe the parent with one subgoal missing
+        and cache that for the full 300s TTL, with no later event to correct it.
+        (Same inversion Codex reported on #960 for Choices.)
+        """
         event = GoalCreated(
             goal_uid=goal.uid,
             user_uid=goal.user_uid,
@@ -304,8 +380,6 @@ class GoalsCoreService(
 
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
-
-        return result
 
     async def create_goal(
         self, goal_request: "GoalCreateRequest", user_uid: UserUID
@@ -326,11 +400,12 @@ class GoalsCoreService(
         ``strategies``, ``success_criteria``, ``tags``, ``unit_of_measurement`` and
         ``why_important`` — so the two doors persisted different goals from one request.
 
-        Still not carried by EITHER door, because they are not ``Goal`` properties:
-        ``progress_weight`` and the three edge-typed uid lists (``required_knowledge_uids``,
-        ``supporting_habit_uids``, ``guiding_principle_uids``). ``progress_weight`` belongs
-        on the HAS_SUBGOAL edge — see ``create_subgoal_relationship``, which Tasks' create
-        path calls and this one does not yet.
+        ``progress_weight`` is forwarded here because only this door still has the request:
+        it is an EDGE property, so it never reaches the entity the route door builds. The
+        HAS_SUBGOAL edge itself is written by the shared path for both doors.
+
+        Still not carried by EITHER door: the three edge-typed uid lists
+        (``required_knowledge_uids``, ``supporting_habit_uids``, ``guiding_principle_uids``).
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "goal creation")
@@ -348,7 +423,7 @@ class GoalsCoreService(
             user_uid=user_uid,
             status=EntityStatus.ACTIVE,
         )
-        return await self.create(goal)
+        return await self._create_with_hierarchy(goal, progress_weight=goal_request.progress_weight)
 
     @with_error_handling("update_goal", error_type="database", uid_param="uid")
     async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:

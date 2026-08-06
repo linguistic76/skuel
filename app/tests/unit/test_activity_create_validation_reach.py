@@ -111,6 +111,7 @@ class StubBackend:
     def __init__(self, model: type) -> None:
         self._model = model
         self.created: list[dict[str, Any]] = []
+        self.hierarchy: list[tuple[str, str, dict[str, Any] | None]] = []
 
     async def create(self, entity: Any) -> Result[Any]:
         props = to_neo4j_node(entity)
@@ -118,6 +119,20 @@ class StubBackend:
         return Result.ok(from_neo4j_node(props, self._model))
 
     async def create_relationships_batch(self, relationships: Any) -> Result[bool]:
+        return Result.ok(True)
+
+    async def create_hierarchy_relationship(
+        self, parent_uid: str, child_uid: str, forward_props: dict[str, Any] | None = None
+    ) -> Result[bool]:
+        """Goals now write the HAS_SUBGOAL edge as part of creation.
+
+        Added when that write landed: the ``__getattr__`` guard below correctly
+        refused the new call, since a create path reaching an unmodelled backend
+        method is exactly what this stub exists to catch. What the EDGE must
+        contain is asserted in ``test_goal_habit_create_edges.py``; this suite
+        only needs the call to succeed so the rules under test stay in view.
+        """
+        self.hierarchy.append((parent_uid, child_uid, forward_props))
         return Result.ok(True)
 
     def __getattr__(self, name: str):

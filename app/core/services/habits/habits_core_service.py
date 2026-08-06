@@ -23,7 +23,8 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.habit.habit_update_intent import HabitUpdateIntent
-from core.models.type_hints import UserUID
+from core.models.relationship_names import RelationshipName
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
@@ -275,11 +276,36 @@ class HabitsCoreService(
               rather than in ``create_habit`` so route-created habits are embedded too —
               they previously were not.
         """
-        result = await super().create(entity)
+        result = await self._create_validated(entity)
         if result.is_error:
             return result
 
-        habit = result.value
+        await self._publish_created(result.value)
+        return result
+
+    async def _create_validated(self, entity: Habit) -> Result[Habit]:
+        """Validate and persist, publishing NOTHING.
+
+        Split out from ``create`` so ``create_habit`` can finish writing the habit's
+        link edges before any event announces the habit exists — see ``_publish_created``
+        for why that ordering is load-bearing. Mirrors
+        ``ChoicesCoreService._create_validated``.
+        """
+        return await super().create(entity)
+
+    async def _publish_created(self, habit: Habit) -> None:
+        """Announce a newly created habit: HabitCreated + the ADR-074 embedding refresh.
+
+        ORDERING: call this only once the habit's link edges are written. ``HabitCreated``
+        is subscribed to ``invalidate_context`` (services_bootstrap/_event_wiring.py),
+        which debounces and then rebuilds the user context — and the rebuild reads those
+        very edges back out of the graph: ``habit_linked_goals`` traverses
+        ``SUPPORTS_GOAL`` and ``habit_applied_knowledge`` traverses
+        ``REINFORCES_KNOWLEDGE`` (adapters/persistence/neo4j/user_context_queries.py).
+        Publishing first lets the rebuild observe a habit with no links and cache that for
+        the full 300s TTL, with no later event to correct it. (Same inversion Codex
+        reported on #960 for Choices.)
+        """
         event = HabitCreated(
             habit_uid=habit.uid,
             user_uid=habit.user_uid,
@@ -295,8 +321,6 @@ class HabitsCoreService(
 
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.HABIT, habit, self.logger)
-
-        return result
 
     async def create_habit(
         self, habit_request: HabitCreateRequest, user_uid: UserUID
@@ -315,6 +339,12 @@ class HabitsCoreService(
         hands it to the one create primitive. The previous hand-listed ``HabitDTO(...)``
         dropped ``priority`` and ``tags``, so the two doors persisted different habits
         from the same request.
+
+        The four link lists are written here as graph edges (see ``_write_link_edges``),
+        and — unlike Goals' hierarchy edge — they CANNOT be written by the generated CRUD
+        route: none of them is a ``Habit`` field, so the converter drops them before that
+        door ever reaches ``create(entity)``. This door is the only one that still holds
+        them.
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "habit creation")
@@ -330,7 +360,91 @@ class HabitsCoreService(
             user_uid=user_uid,
             status=EntityStatus.ACTIVE,
         )
-        return await self.create(habit)
+
+        # Validate + persist, holding the events back until the link edges below are
+        # written (see _publish_created).
+        create_result = await self._create_validated(habit)
+        if create_result.is_error:
+            return create_result
+
+        created = create_result.value
+        await self._write_link_edges(created.uid, habit_request)
+
+        # Edges are written — only now announce the habit.
+        await self._publish_created(created)
+        return Result.ok(created)
+
+    async def _write_link_edges(self, habit_uid: str, request: HabitCreateRequest) -> None:
+        """GRAPH-NATIVE: turn the request's four link lists into edges, in one batch.
+
+        Each list names a registered, READ relationship that nothing was writing at
+        creation (HABITS_CONFIG in core/models/relationship_registry.py):
+
+        - ``linked_knowledge_uids``  → REINFORCES_KNOWLEDGE (``knowledge`` key)
+        - ``linked_principle_uids``  → EMBODIES_PRINCIPLE (``principles`` key)
+        - ``linked_goal_uids``       → SUPPORTS_GOAL (``supported_goals`` key)
+        - ``prerequisite_habit_uids``→ REQUIRES_PREREQUISITE_HABIT (``prerequisite_habits``)
+
+        All four specs are declared ``outgoing`` from the habit, so the habit is the
+        source of every tuple.
+
+        The edge PROPERTIES are the defaults of the existing single-link writers, so a
+        habit linked at creation is indistinguishable from one linked afterwards through
+        ``HabitsService.link_habit_to_knowledge`` / ``link_habit_to_principle`` /
+        ``GoalsService.link_goal_to_habit``. ``essentiality`` in particular is load-bearing:
+        the GOAPS registry resolves the ``essential`` / ``critical`` / ``optional`` habit
+        tiers by filtering SUPPORTS_GOAL on that exact property, and ``supporting`` is the
+        value that lands a habit in the unfiltered ``contributing_habits`` catch-all.
+        REQUIRES_PREREQUISITE_HABIT carries no properties in the registry, so it gets none.
+
+        A failure is logged, not propagated — the habit itself is created. Mirrors
+        ``TasksCoreService.create_task`` and ``ChoicesCoreService.create_choice``.
+        """
+        relationships: list[tuple[str, str, str, Neo4jProperties | None]] = []
+
+        relationships.extend(
+            (
+                habit_uid,
+                knowledge_uid,
+                RelationshipName.REINFORCES_KNOWLEDGE.value,
+                {"skill_level": "beginner", "proficiency_gain_rate": 0.1},
+            )
+            for knowledge_uid in request.linked_knowledge_uids
+        )
+        relationships.extend(
+            (
+                habit_uid,
+                principle_uid,
+                RelationshipName.EMBODIES_PRINCIPLE.value,
+                {"embodiment_strength": 1.0},
+            )
+            for principle_uid in request.linked_principle_uids
+        )
+        relationships.extend(
+            (
+                habit_uid,
+                goal_uid,
+                RelationshipName.SUPPORTS_GOAL.value,
+                {"weight": 1.0, "essentiality": "supporting"},
+            )
+            for goal_uid in request.linked_goal_uids
+        )
+        relationships.extend(
+            (habit_uid, prereq_uid, RelationshipName.REQUIRES_PREREQUISITE_HABIT.value, None)
+            for prereq_uid in request.prerequisite_habit_uids
+        )
+
+        if not relationships:
+            return
+
+        batch_result = await self.backend.create_relationships_batch(relationships)
+        if batch_result.is_error:
+            self.logger.warning(
+                "Failed to create %d link relationships for habit %s: %s",
+                len(relationships),
+                habit_uid,
+                batch_result.error,
+            )
 
     @with_error_handling("update_habit", error_type="database", uid_param="uid")
     async def update_habit(
