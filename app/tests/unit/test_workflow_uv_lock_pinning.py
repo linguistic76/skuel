@@ -148,6 +148,13 @@ _INTERPRETERS = frozenset({"bash", "sh", "zsh", "dash", "ksh", "source", "."})
 # Per-command ways to say "do not touch uv.lock".
 _PIN_FLAGS = frozenset({"--frozen", "--locked"})
 
+# BOTH env vars uv binds to those flags — `uv sync --help` reports
+# `env: UV_FROZEN` and `env: UV_LOCKED`. Guarding only UV_FROZEN narrowed a
+# family to one member, which is the mistake this arc kept making. Neither name
+# appears in any run block, script or composite action in this repo, so
+# covering both costs nothing.
+_LOCK_ENV_VARS = ("UV_FROZEN", "UV_LOCKED")
+
 # uv subcommands that provably do not read or rewrite the project lock. Every
 # other subcommand — sync, run, export, lock, add, remove, tree, build — is
 # treated as lock-touching. The allowlist is deliberately the SHORT side: a
@@ -316,6 +323,13 @@ _STATE_NEUTRAL_VERBS = frozenset(
 # grammar's.
 _ACTIONS_EXPRESSION = re.compile(r"\$\{\{.*?\}\}", re.DOTALL)
 
+# The substitute KEEPS the `$`. `${{ matrix.pin }}` is resolved by the runner,
+# so its value is exactly as unknown to this guard as `$PIN` is — replacing it
+# with a bare word made `uv sync ${{ matrix.pin }}` read as a static argument
+# and pass clean, though it expands to `--locked` and exits 2 under UV_FROZEN
+# (Codex, PR #959).
+_ACTIONS_MARKER = "$ACTIONS_EXPR"
+
 # `export`/`declare`/`local`/`readonly` are a distinct grammar node, never a
 # `command` — so the verb whitelist would never see them. They are the shapes
 # that mutate the environment, so they are named here explicitly.
@@ -370,7 +384,7 @@ def _shell_commands(text: str) -> list[_ShellCommand]:
     Commands inside `$(…)`, backticks, pipelines, loops and conditionals are
     all reached: they are `command` nodes wherever they sit in the tree.
     """
-    src = _ACTIONS_EXPRESSION.sub("ACTIONS_EXPR", text).encode()
+    src = _ACTIONS_EXPRESSION.sub(_ACTIONS_MARKER, text).encode()
     found: list[_ShellCommand] = []
 
     def visit(node: Node) -> None:
@@ -712,6 +726,26 @@ def _dash_c_payload(args: list[str]) -> str | None:
     return None
 
 
+def _uv_locked_refusal(scope: str, value: str | None) -> RefusedCommand:
+    """UV_LOCKED declared as configuration — the third mechanism, and a trap.
+
+    `uv sync --help` binds `--locked` to UV_LOCKED just as `--frozen` binds to
+    UV_FROZEN, so this is `--locked` by another spelling: it CONFLICTS with the
+    UV_FROZEN the invariant mandates (exit 2), and it asserts rather than pins,
+    so it cannot stand in for UV_FROZEN either. No workflow here declares it.
+    """
+    return RefusedCommand(
+        origin=scope,
+        rendered=f"env: UV_LOCKED: {value!r}",
+        headline="UV_LOCKED is declared as environment",
+        reason="uv binds UV_LOCKED to `--locked`, which is a hard conflict with the "
+        "UV_FROZEN this invariant requires, and which asserts the lock is current "
+        "rather than refusing to rewrite it",
+        fix="delete it; pin with a job-level UV_FROZEN, or pass --locked explicitly "
+        "on the commands that should assert freshness",
+    )
+
+
 def _collect_from_shell(
     text: str,
     origin: str,
@@ -785,12 +819,12 @@ def _collect_from_shell(
         # It genuinely overrides the job: the job's env is exported, so
         # reassignment re-exports the new value, and uv reads the VALUE —
         # `UV_FROZEN=1 bash -c 'UV_FROZEN=0; printenv UV_FROZEN'` prints 0.
-        if any("UV_FROZEN" in word for word in (written, *args, *assignments)):
+        if any(var in word for word in (written, *args, *assignments) for var in _LOCK_ENV_VARS):
             refused.append(
                 RefusedCommand(
                     origin=origin,
                     rendered=command.rendered,
-                    headline="UV_FROZEN is written inside a shell command",
+                    headline="a uv lock env var is written inside a shell command",
                     reason="whatever the mechanism, this reassigns a variable the job "
                     "already exports, so uv sees the new value while this guard reads "
                     "the job's `env:` and reports it pinned",
@@ -953,6 +987,8 @@ def audit_workflow(
     workflow_declared, workflow_value = _env_value(document, "UV_FROZEN")
     workflow_defaults = (document.get("defaults") or {}).get("run") or {}
 
+    workflow_locked = _env_value(document, "UV_LOCKED")
+
     usages: list[JobUvUsage] = []
     for job_id, job in (document.get("jobs") or {}).items():
         if not isinstance(job, dict):
@@ -965,6 +1001,12 @@ def audit_workflow(
 
         invocations: list[UvInvocation] = []
         refused: list[RefusedCommand] = []
+        for scope, (declared, value) in (
+            ("workflow", workflow_locked),
+            ("job", _env_value(job, "UV_LOCKED")),
+        ):
+            if declared:
+                refused.append(_uv_locked_refusal(f"{scope}-level env", value))
         step_frozen: list[str] = []
         seen: set[Path] = set()
 
@@ -974,6 +1016,11 @@ def audit_workflow(
             step_name = step.get("name") or step.get("uses") or f"step {index + 1}"
             if _env_value(step, "UV_FROZEN")[0]:
                 step_frozen.append(str(step_name))
+            refused.extend(
+                _uv_locked_refusal(f"step {step_name!r}", value)
+                for declared, value in [_env_value(step, "UV_LOCKED")]
+                if declared
+            )
 
             workdir = root / (step.get("working-directory") or default_workdir or ".")
             if step.get("run"):
@@ -1724,7 +1771,7 @@ jobs:
 """,
     )
     assert len(problems) == 1
-    assert "UV_FROZEN is written inside a shell command" in problems[0]
+    assert "lock env var is written inside a shell command" in problems[0]
 
 
 def test_control_command_local_override_is_caught_through_a_script(
@@ -1753,7 +1800,7 @@ jobs:
 """,
     )
     assert len(problems) == 1
-    assert "UV_FROZEN is written inside a shell command" in problems[0]
+    assert "lock env var is written inside a shell command" in problems[0]
 
 
 def test_control_unrelated_env_prefixes_are_still_ignored(tmp_path: Path) -> None:
@@ -1946,6 +1993,65 @@ jobs:
         assert any("UV_FROZEN" in p for p in problems), mutation
 
 
+def test_control_actions_expression_in_a_uv_option_is_refused(tmp_path: Path) -> None:
+    """`uv sync ${{ matrix.pin }}` — the runner expands it, this guard cannot.
+
+    Substituting it with a bare word made it read as a static argument, so a
+    `matrix.pin` of `--locked` passed clean while uv exited 2 under UV_FROZEN.
+    The marker now carries the `$` that says "computed", which is what it is
+    (Codex, PR #959).
+    """
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: uv sync ${{ matrix.pin }}
+""",
+    )
+    assert len(problems) == 1
+    assert "computed by the shell" in problems[0]
+
+
+def test_control_uv_locked_env_is_refused_at_every_scope(tmp_path: Path) -> None:
+    """UV_FROZEN was one of TWO env vars uv binds to the locking flags.
+
+    `uv sync --help` reports `env: UV_FROZEN` AND `env: UV_LOCKED`. Guarding
+    one name narrowed a family to a single member — the mistake this arc kept
+    repeating. UV_LOCKED is `--locked` by another spelling, so it conflicts
+    with the UV_FROZEN the invariant mandates.
+    """
+    job_env = """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+      UV_LOCKED: "1"
+    steps:
+      - run: uv sync --frozen --no-install-project
+"""
+    in_shell = """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: |
+          UV_LOCKED=1
+          uv sync --no-install-project
+"""
+    for body, expected in ((job_env, "UV_LOCKED is declared"), (in_shell, "lock env var")):
+        problems = _problems(tmp_path, body)
+        assert problems, body
+        assert any(expected in p for p in problems), problems
+
+
 def test_control_export_of_uv_frozen_is_refused(tmp_path: Path) -> None:
     """`export UV_FROZEN=0` unpins every later command in the step.
 
@@ -1992,7 +2098,7 @@ jobs:
     )
     # Two true reports, from two independent rules: the NAME appears in shell,
     # and a $GITHUB_ENV write could carry it even when the name is computed.
-    assert any("UV_FROZEN is written inside a shell command" in p for p in problems)
+    assert any("lock env var is written inside a shell command" in p for p in problems)
     assert any("$GITHUB_ENV" in p for p in problems)
 
 
