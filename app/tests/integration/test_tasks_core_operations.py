@@ -342,9 +342,10 @@ class TestTasksCoreOperations:
         """Priority and due_date are independent — an undated urgent task is legal.
 
         This asserted the opposite until the "High/Critical priority must have a due
-        date" rule was deleted. That rule had never executed (``create_task`` persists
-        via ``_create_and_convert``, bypassing ``CrudOperationsMixin.create``, the hook's
-        only caller), and it contradicted two live producers of exactly this shape:
+        date" rule was deleted. That rule had never executed — ``create_task`` then
+        persisted via ``_create_and_convert``, bypassing ``CrudOperationsMixin.create``,
+        the hook's only caller (both doors run it now) — and it contradicted two live
+        producers of exactly this shape:
         the Activity DSL emits it for ``@priority(1|2)`` with no ``@when()``, and
         GoalTaskGenerator mints undated HIGH/CRITICAL tasks.
 

@@ -754,6 +754,23 @@ class TasksService(
     # EXPLICIT CORE METHODS (custom logic)
     # ========================================================================
 
+    async def create(self, entity: Task) -> Result[Task]:
+        """Override the inherited CRUD create (generated JSON route, no ownership check).
+
+        Routes the entity through the one event-firing create path
+        (``TasksCoreService.create``). The inherited base ``create`` went straight to
+        ``backend.create``: the core sub-service is the delegated attribute ``self.core``,
+        which this facade does NOT inherit, so its ``create`` override was never in this
+        class's MRO. The generated route therefore published neither TaskCreated nor the
+        ADR-074 embedding request — a task created through ``POST /api/tasks/create``
+        invalidated no user context and was never embedded.
+
+        Same reconciliation ``ChoicesService.create`` makes (#960), and Goals, Habits and
+        Events after it (#963). Tasks were held back there because they have no
+        ``_validate_create`` rule to reach; the event half of the defect survived.
+        """
+        return await self.core.create(entity)
+
     async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
         """
         Create a task with automatic knowledge inference.

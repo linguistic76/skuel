@@ -281,10 +281,13 @@ class Task(UserOwnedEntity):
         request fields (``applies_knowledge_uids``, ``reinforces_habit_uid``,
         etc.) are written as graph edges by the service layer after construction.
 
-        Persistence goes through ``self.to_dto().to_dict()`` (ADR-035 three-tier
-        contract). This factory exists so the create path stays frozen-domain
-        end-to-end up to the persistence boundary — inference enrichment is
-        applied via ``dataclasses.replace`` on the result, not via DTO mutation.
+        The result is handed to the backend as the ENTITY, not as
+        ``self.to_dto().to_dict()``: ``create_task`` now persists through the shared
+        ``TasksCoreService.create`` primitive so the generated CRUD route and the
+        request door cannot diverge on events. This factory exists so the create path
+        stays frozen-domain end-to-end up to the persistence boundary — inference
+        enrichment is applied via ``dataclasses.replace`` on the result, not via DTO
+        mutation.
         """
         from core.models.type_hints import EntityUID
         from core.utils.uid_generator import UIDGenerator

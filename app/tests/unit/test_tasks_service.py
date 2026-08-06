@@ -13,6 +13,8 @@ import pytest
 
 from core.models.enums import EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
+from core.models.task.task import Task
+from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks_service import TasksService
@@ -61,8 +63,10 @@ def mock_tasks_backend() -> Any:
         # Relationship fields removed - now queried via UnifiedRelationshipService
     }
 
-    # Generic BackendOperations methods (TasksCoreService uses these)
-    backend.create = AsyncMock(return_value=Result.ok(task_dict))
+    # Generic BackendOperations methods (TasksCoreService uses these).
+    # create returns the DOMAIN MODEL, as UniversalNeo4jBackend._create_node does via
+    # from_neo4j_node — the create path no longer re-converts the backend's return value.
+    backend.create = AsyncMock(return_value=Result.ok(Task.from_dto(TaskDTO.from_dict(task_dict))))
     backend.get = AsyncMock(return_value=Result.ok(task_dict))
     backend.update = AsyncMock(return_value=Result.ok(task_dict))
     backend.delete = AsyncMock(return_value=Result.ok(True))

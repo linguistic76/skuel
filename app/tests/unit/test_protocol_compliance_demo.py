@@ -43,7 +43,6 @@ class TestProtocolComplianceDemonstration:
         protocol_methods = [
             "_to_domain_model",
             "_to_domain_models",
-            "_create_and_convert",
         ]
 
         mismatches = []

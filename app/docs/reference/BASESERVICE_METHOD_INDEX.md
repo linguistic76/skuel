@@ -137,7 +137,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### TasksService
 
-**Facade-specific public methods:** 57
+**Facade-specific public methods:** 58
 
 | Method | Async |
 |--------|-------|
@@ -149,6 +149,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `check_prerequisites()` | ✅ |
 | `complete_task()` | ✅ |
 | `complete_task_with_cascade()` | ✅ |
+| `create()` | ✅ |
 | `create_semantic_knowledge_relationship()` | ✅ |
 | `create_subtask_relationship()` | ✅ |
 | `create_task()` | ✅ |
@@ -476,7 +477,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### PrinciplesService
 
-**Facade-specific public methods:** 50
+**Facade-specific public methods:** 51
 
 | Method | Async |
 |--------|-------|
@@ -487,6 +488,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `assess_principle_learning_alignment()` | ✅ |
 | `batch_analyze_principle_adoption()` | ✅ |
 | `calculate_principle_integrity()` | ✅ |
+| `create()` | ✅ |
 | `create_principle()` | ✅ |
 | `create_principle_expression()` | ✅ |
 | `create_principle_link()` | ✅ |

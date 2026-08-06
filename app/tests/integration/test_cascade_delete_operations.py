@@ -38,9 +38,16 @@ class TestCascadeDeleteTrue:
 
     @pytest_asyncio.fixture
     async def task_backend(self, neo4j_driver, clean_neo4j):
-        """Create Task backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](
-            neo4j_driver, "Entity", Curriculum, default_filters={"entity_type": "task"}
+        """Create Task backend with clean database.
+
+        Parameterized on ``Task``, not ``Curriculum``: this backend is handed to
+        ``TasksCoreService``, whose ``create(entity: Task) -> Result[Task]`` now reads
+        the returned entity to build the TaskCreated payload. A Curriculum-typed backend
+        deserializes the created node into a Curriculum, which has no ``user_uid`` — the
+        mismatch was invisible only while nothing touched the return value.
+        """
+        return UniversalNeo4jBackend[Task](
+            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
         )
 
     @pytest_asyncio.fixture
