@@ -145,14 +145,19 @@ draws Codex's cosmetic "create a Codex account" reply, not a substantive review
 (confirmed across PRs #12–#15). Hence the trigger is now commented out. Kept for
 re-enablement only.
 
-- Triggers on `opened` / `reopened` / `ready_for_review` / `synchronize`.
+The bullets below describe the workflow **as it would behave if re-enabled** — the
+`pull_request:` trigger is commented out, so none of it runs today:
+
+- Would trigger on `opened` / `reopened` / `ready_for_review` / `synchronize`.
 - A `sleep 30` + per-PR `concurrency: cancel-in-progress` debounces bursts — a
   flurry of pushes collapses to one trigger.
 - Job guard `if: github.event_name == 'pull_request' && …draft == false` — runs
   only on real PR events (skips drafts) and **no-ops on the manual
   `workflow_dispatch`**, which has no PR/issue context.
-- Uses the built-in `GITHUB_TOKEN` with `pull-requests: write` (sufficient for
-  the `issues.createComment` call — proven on PR #11; no PAT needed).
+- Uses the built-in `GITHUB_TOKEN` with `pull-requests: write` — enough to
+  **post** the comment (the `issues.createComment` call worked on PR #11), but
+  not enough to **get a review** (next bullet). So "no PAT needed" is true only
+  of posting; a re-enable that actually produces reviews does need one.
 - A bot-authored `@codex review` (this workflow's `GITHUB_TOKEN` →
   `github-actions[bot]`) yields ONLY Codex's cosmetic "create a Codex account"
   line and **no real review** — a bot comment isn't attributed to the connected
@@ -177,6 +182,17 @@ plus the connected-account "About Codex" footer (not the cosmetic prompt).
 **Reading the result:** a verdict + the "Your team has set up Codex to review…"
 footer means it worked; a "create a Codex account / connect to github" reply with
 no verdict means it's off, disconnected, or weekly-usage-limited.
+
+> ⚠️ **That footer is not a statement of this repo's configuration.** It lists
+> "Open a pull request for review" among the triggers on *every* Codex comment —
+> identical boilerplate whatever the account's auto-review setting is. Read it as
+> "Codex supports these triggers", not "these triggers are enabled here". The
+> repo's own behaviour is the authority, and it says otherwise: across #949,
+> #957, #959, #960, #961 and #962, **no Codex review has ever appeared on PR
+> open** — every one followed a human `@codex review` by 2–5 minutes. #962 is a
+> clean control: opened with all checks running, it drew nothing until summoned.
+> Mistaking a capability list for a configuration is how the `codex-review.yml`
+> header went stale for ~2.5 months.
 
 Optional — confirm the trigger comment was authored by a **User**, not a bot
 (the whole reliability hinge):

@@ -1,36 +1,67 @@
 name: Codex Auto-Review
 
 # ============================================================================
-# ⏸️  This comment-bot is DISABLED — and as of 2026-05-25 it is also REDUNDANT,
-#     because Codex CLOUD AUTO-REVIEW is now ON in the dashboard. Kept only for
-#     reference / possible future use. This repo is gated by CI Gate (+ Kody).
+# ⏸️  This comment-bot is DISABLED, and Codex CLOUD AUTO-REVIEW is OFF as well
+#     (dashboard, 2026-05-25). Consequence: NOTHING requests a Codex review
+#     automatically — a human must post `@codex review`. An opened PR with green
+#     checks is NOT in review. Kept only for reference / possible future use.
+#     This repo is gated by CI Gate (+ Codex Review Gate, + Kody on demand).
 #
 # 1. THIS comment-bot (still off). When `@codex review` is posted by
 #    `github-actions[bot]`, Codex replies with only the cosmetic "create a Codex
 #    account / connect to github" line and NO real review — a bot-posted comment
 #    isn't attributed to the connected account. So it added noise without
-#    producing reviews; its `pull_request:` trigger stays commented out. (If ever
-#    needed, the fix is to post with a PAT secret so the author is `linguistic76`,
-#    not the bot — but auto-review below makes that unnecessary.)
+#    producing reviews; its `pull_request:` trigger stays commented out. That
+#    reason stands on its own and does NOT depend on auto-review: the bot is off
+#    because it does not work, not because something else covers PR-open.
+#    Nothing covers PR-open. (The technical fix would be posting with a PAT
+#    secret so the author is `linguistic76` rather than the bot — but re-enabling
+#    is a real behaviour change, not a doc fix. Both AI reviewers were
+#    deliberately consolidated to on-demand-only in #52; that is the standing
+#    decision, and the honest cost of it is that review coverage is not
+#    automatic. See PR_WORKFLOW.md -> "Who reviews — and which one is the gate".)
 #
-# 2. Codex CLOUD AUTO-REVIEW (the dashboard feature) is now ON (2026-05-25, on a
-#    paid ChatGPT plan): at chatgpt.com/codex/cloud/settings/code-review the
-#    "Personal Review Trigger Preference" = "On PR open" and `linguistic76/skuel`'s
-#    "Auto code review" = "Review my PRs", so Codex auto-reviews every PR you open.
-#    A manual `@codex review` (posted by the human account, e.g. via `gh`) also
-#    works — that's the re-review path after pushing more commits.
+# 2. Codex CLOUD AUTO-REVIEW (the dashboard feature) is OFF: at
+#    chatgpt.com/codex/cloud/settings/code-review the "Personal auto review
+#    preferences" toggle is off and `linguistic76/skuel`'s "Auto code review" =
+#    "Follow personal preferences" (-> off). ⚠️ The "Personal Review Trigger
+#    Preference" dropdown ("On PR open") is NOT the switch — it only picks WHEN
+#    auto-review would fire and has no "off" option. Mistaking it for the switch
+#    is exactly how this header came to claim auto-review was on (see History).
+#    ⚠️ Nor is Codex's own comment footer evidence: it lists "Open a pull request
+#    for review" among the triggers on EVERY Codex comment, boilerplate that is
+#    identical whatever the account's setting. Behaviour beats both — see
+#    ./README.md -> "Manually requesting a Codex review".
 #
-# Codex posts PR reviews/comments, never a status check, so nothing here is
-# required in branch protection (that remains "CI Gate"). To turn auto-review
-# OFF, change the dashboard trigger preference / repo option. See ./README.md ->
-# "One-time dashboard steps" and "Manually requesting a Codex review".
+# 3. The ONLY working trigger is a manual `@codex review` authored by the
+#    connected human account: `gh pr comment <PR#> --body "@codex review"` posts
+#    as `linguistic76`. That is also the re-review path after pushing commits.
+#
+# Codex posts PR reviews/comments, never a status check, so this workflow is not
+# required in branch protection; the required checks are "CI Gate" and "Codex
+# Review Gate" (codex-gate.yml). To turn cloud auto-review back ON, flip the
+# personal toggle or set the repo's "Auto code review" to "Review my PRs" — a
+# dashboard change, unrelated to this file. See ./README.md -> "One-time
+# dashboard steps" and "Manually requesting a Codex review".
+#
+# History (why this header was wrong): auto-review was briefly ON earlier on
+# 2026-05-25 (#45, paid-plan trial), then turned back off the same day (#52) to
+# consolidate both reviewers to on-demand. #52 updated README.md, AGENTS.md,
+# PR_WORKFLOW.md and kodus-config.yml but not this file, so this header went on
+# claiming "auto-review is ON, therefore this bot is REDUNDANT" until 2026-08-05
+# — and that stale claim caused a PR to be treated as already under review when
+# no review had been requested (#961). Re-verified 2026-08-05 across PRs #949,
+# #957, #959, #960, #961: every Codex post follows a human `@codex review` by
+# 2-5 minutes, and #949 sat open for ~6 hours with no review until one was
+# summoned by hand.
 # ============================================================================
 
 on:
-  # ⏸️ DISABLED: comment-bot trigger off — it produced only cosmetic responses
-  #    (see header), and Codex cloud auto-review (dashboard, "On PR open") now
-  #    covers PR-open reviews, so this bot is redundant. Re-enable (with a PAT, not
-  #    GITHUB_TOKEN) by uncommenting the two lines below only if ever needed.
+  # ⏸️ DISABLED: comment-bot trigger off — under GITHUB_TOKEN it produced only
+  #    cosmetic responses and no real reviews (see header). Cloud auto-review is
+  #    off too, so nothing replaces it: PR-open reviews are NOT covered, and a
+  #    human `@codex review` is the only trigger. Uncommenting the two lines
+  #    below is a behaviour change and needs a PAT (not GITHUB_TOKEN) to work.
   # pull_request:
   #   types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
