@@ -20,6 +20,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED** — comment-bot trigger off (cosmetic-only: a bot-posted `@codex review` draws only the "create a Codex account" prompt; see below) |
 | **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **On-demand only** — manual `@codex review` from a human account (auto-review OFF, 2026-05-25: dashboard "Personal auto review preferences" off + repo "Follow personal preferences") |
 | **Codex Review Gate** | `codex-gate.yml` (commit status) | This repo | ✅ status check (**required**) | **Two-tier:** (1) **Python files changed** → RED until `codex-considered` label applied, regardless of whether `@codex review` was posted; (2) **docs/tooling only** → RED only when a human posted `@codex review` and it isn't yet considered. Cleared on new commits. See below. |
+| **Strip Codex Footer** | `strip-codex-footer.yml` | This repo | Nothing — edits Codex's own summary comments in place (no status check) | Every PR comment authored by `chatgpt-codex-connector[bot]` — removes the boilerplate "About Codex in GitHub" `<details>` footer. See below. |
 
 ### ⚠️ Codex does not appear in `gh pr checks`
 
@@ -184,15 +185,20 @@ gh pr comment <PR#> --body "@codex review"   # authored as linguistic76 (a User)
 
 Verified on **PR #43** (2026-05-25): Codex replied with a substantive verdict
 plus the connected-account "About Codex" footer (not the cosmetic prompt).
-**Reading the result:** a verdict + the "Your team has set up Codex to review…"
-footer means it worked; a "create a Codex account / connect to github" reply with
-no verdict means it's off, disconnected, or weekly-usage-limited.
+**Reading the result:** a substantive verdict — findings, or "Didn't find any
+major issues" — means it worked; a "create a Codex account / connect to github"
+reply with no verdict means it's off, disconnected, or weekly-usage-limited.
+(Codex also appends an "About Codex in GitHub" footer to every summary, but
+`strip-codex-footer.yml` removes it moments after posting — so don't read the
+footer's *absence* as the cosmetic-reply failure mode; the verdict is the signal.
+The original footer stays visible in the comment's edit history.)
 
 > ⚠️ **That footer is not a statement of this repo's configuration.** It lists
-> "Open a pull request for review" among the triggers on *every* Codex comment —
-> identical boilerplate whatever the account's auto-review setting is. Read it as
-> "Codex supports these triggers", not "these triggers are enabled here". The
-> repo's own behaviour is the authority, and it says otherwise: across #949,
+> "Open a pull request for review" among the triggers on *every* Codex summary —
+> identical boilerplate whatever the account's auto-review setting is (which is
+> why `strip-codex-footer.yml` deletes it). Read it as "Codex supports these
+> triggers", not "these triggers are enabled here". The repo's own behaviour is
+> the authority, and it says otherwise: across #949,
 > #957, #959, #960, #961 and #962, **no Codex review has ever appeared on PR
 > open** — every one followed a human `@codex review` by 2–5 minutes. #962 is a
 > clean control: opened with all checks running, it drew nothing until summoned.
@@ -260,6 +266,26 @@ admin-bypass (`enforce_admins=false`), so a RED gate is a strong, visible signal
 audit trail, not an unbreakable lock — fitting "truth rests with Claude, who clears
 it." Set `enforce_admins=true` for a hard lock (also blocks legitimate bypasses,
 e.g. a Kody billing failure).
+
+## `strip-codex-footer.yml` — de-boilerplate Codex summaries
+
+Every Codex review summary ends with the same collapsed `<details>` block
+("Your team has set up Codex to review pull requests in this repo… Reviews are
+triggered when you …") — byte-identical on every summary regardless of the
+account's settings, with no OpenAI toggle to disable it. Collapsed for humans,
+but ~700 chars of repeated noise for every agent reading PR conversations via
+the API. This workflow fires on each PR comment authored by
+`chatgpt-codex-connector[bot]` and edits the comment in place, removing just
+that block.
+
+What it deliberately leaves alone: the verdict line (the clean-signature grep
+in `request_codex_review.sh` reads it), the `**Reviewed commit:**` line, and
+inline review comments (their one-line "Useful? React with 👍 / 👎." footer).
+It cannot loop: it triggers on `created` only, and a stripped comment no longer
+contains the marker. It cannot affect the Codex Review Gate: `codex-gate.yml`
+scans only *human*-authored comments for `@codex review` (bot comments are
+excluded there precisely because this footer contains that literal string).
+The pre-edit body remains in the comment's edit-history dropdown.
 
 ## Verifying / re-enabling a reviewer
 
