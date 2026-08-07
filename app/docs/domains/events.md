@@ -148,6 +148,8 @@ Two fields are populated from graph edges at read time rather than stored as Neo
 
 Both helpers live in `core/services/events/_habit_links.py` and `_goal_links.py` respectively and are called by `EventsSearchService.get_prioritized()` before scoring so the priority scorer can read them.
 
+On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, and the shared create primitive (`EventsCoreService._write_link_edges`) turns it into the `REINFORCES_HABIT` edge for both create doors — the generated CRUD route and `create_event`. The request-only `milestone_celebration_for_goal` becomes `CELEBRATES_GOAL` in the same batch. Every request-supplied UID passes `keep_permitted_link_edges` (exists / owner / kind), and a refused link is logged, never fatal to the event. See `docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md` § edge carrier.
+
 ## Cross-Domain Mappings
 
 | Field | Target Label | Relationships |
