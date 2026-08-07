@@ -411,7 +411,7 @@ Routes registered directly with `@rt()` decorators inside the factory function. 
 
 **Current adopters (Section 2):** `home_routes.py`, `today_routes.py`, `settings_routes.py`, `journals_routes.py`, `vault_routes.py`, `device_routes.py`, `templates_ui.py`, `ps_engagement_routes.py`, `groups_hub_routes.py`, `learning_paths_ui.py`, `picker_routes.py`, `self_checkin_routes.py`. Sections 3 and 4 (`admin_dashboard_ui.py`, `analytics_api.py`, `user_pins_api.py`, `user_profile_ui.py`, `pwa_routes.py`) are manual by construction and sit outside the adoption denominator.
 
-**Note:** "stable and unlikely to grow" has not held — this set is the largest of the three and absorbs new surfaces by default. `submissions_hub_routes.py`, listed here until 2026-08-04, was deleted when ADR-054 folded submissions into `user_entry_routes.py`.
+**Note:** "stable and unlikely to grow" has not held — this is the largest of the two non-default groups (12 files to Pattern B's 3) and absorbs new surfaces by default. `submissions_hub_routes.py`, listed here until 2026-08-04, was deleted when ADR-054 folded submissions into `user_entry_routes.py`.
 
 **Do not use for new entity domains** — reach for DomainRouteConfig instead.
 
