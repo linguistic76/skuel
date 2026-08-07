@@ -67,6 +67,23 @@ caches an edgeless task, and the later substance events reach only substance han
 nothing corrects it. The tests assert the SEQUENCE via an ordered trace: an assertion that
 merely finds both an edge write and an event passes against the inversion.
 
+THE SCHEDULING DOORS (fifth chapter)
+------------------------------------
+``TasksSchedulingService`` held the last two create paths that reached ``backend.create``
+directly: ``create_task_with_context`` (DOOR C) and ``create_task_from_path_step``
+(DOOR D). Neither published ``TaskCreated`` (no user-context invalidation — the comment
+in DOOR C claiming "TaskCreated event is published by TasksCoreService" was FALSE for
+that path) nor the ADR-074 embedding request; DOOR C wrote its edges with NO admission
+guard and spelled the principle edge with the raw string ``"ALIGNED_WITH"`` — a name the
+registry does not know, so the all-or-nothing batch refused every edge in any request
+naming a principle. Both doors now delegate to the primitive; DOOR C keeps only its
+context-prerequisite gate.
+
+Routing DOOR C through the primitive is also what forced the request's last two link
+lists — ``aligned_principle_uids`` → ALIGNED_WITH_PRINCIPLE and
+``prerequisite_task_uids`` → BLOCKED_BY — into ``_write_link_edges``, which closes a
+second silent gap: ``create_task`` (DOOR B) had been DROPPING both lists entirely.
+
 No Neo4j: the backend is stubbed, so what is under test is the service wiring — which is
 exactly where the defect lived.
 """
@@ -82,6 +99,7 @@ from adapters.persistence.neo4j.neo4j_mapper import (
     from_neo4j_node,
     to_neo4j_node,
 )
+from core.events.embedding_events import TaskEmbeddingRequested
 from core.events.knowledge_substance_events import (
     KnowledgeAppliedInTask,
     KnowledgeBulkAppliedInTask,
@@ -95,7 +113,9 @@ from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
 from core.services.conversion_service import ConversionServiceV2
 from core.services.tasks.tasks_core_service import TasksCoreService
+from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.tasks_service import TasksService
+from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
 
 USER_UID = "user:edges"
@@ -104,6 +124,8 @@ PARENT_TASK = "task:parent"
 HABIT_UID = "habit:morning-pages"
 KU_ONE = "ku.python.decorators"
 KU_TWO = "ku.python.generators"
+PRINCIPLE_UID = "principle:deep-work"
+PREREQ_TASK = "task:read-the-paper"
 
 
 # ============================================================================
@@ -144,8 +166,9 @@ class StubBackend:
         self.owners: dict[str, str] = {}
         self.shared: set[str] = set()
         # uid -> Neo4j labels, for the KIND check. Absent uids default to carrying every
-        # label these fields accept, so tests that are not ABOUT the kind check are
-        # unaffected. ``missing`` stages a UID resolving to NO node.
+        # label these fields accept (habit, knowledge, principle, prerequisite-task), so
+        # tests that are not ABOUT the kind check are unaffected. ``missing`` stages a
+        # UID resolving to NO node.
         self.labels: dict[str, list[str]] = {}
         self.missing: set[str] = set()
         # Owner reported by ``get`` for the hierarchy parent, and whether it resolves.
@@ -188,7 +211,7 @@ class StubBackend:
         """uid -> labels, defaulting to every kind these fields accept."""
         return Result.ok(
             {
-                uid: self.labels.get(uid, ["Entity", "Habit", "Ku"])
+                uid: self.labels.get(uid, ["Entity", "Habit", "Ku", "Principle", "Task"])
                 for uid in uids
                 if uid not in self.missing
             }
@@ -264,6 +287,23 @@ def facade(backend: StubBackend, event_bus: InMemoryEventBus) -> TasksService:
         graph_intel=_Inert(),
         event_bus=event_bus,
     )
+
+
+@pytest.fixture
+def scheduling(backend: StubBackend, core: TasksCoreService) -> TasksSchedulingService:
+    """DOORS C and D — the context-gated and curriculum creates, primitive-routed."""
+    return TasksSchedulingService(backend=backend, core=core)
+
+
+def make_context(**overrides: Any) -> UserContext:
+    """A user context that PASSES DOOR C's prerequisite gate for these fixtures."""
+    defaults: dict[str, Any] = {
+        "user_uid": USER_UID,
+        "prerequisites_completed": {KU_ONE, KU_TWO},
+        "completed_task_uids": {PREREQ_TASK},
+    }
+    defaults.update(overrides)
+    return UserContext(**defaults)
 
 
 def make_request(**overrides: Any) -> TaskCreateRequest:
@@ -588,7 +628,7 @@ class TestEventHabitUidIsNotAProperty:
 class TestTaskKnowledgeLinks:
     """The two request-only lists, and the admission guard they had been missing."""
 
-    async def test_both_lists_go_out_in_one_batch(
+    async def test_every_list_goes_out_in_one_batch(
         self, core: TasksCoreService, backend: StubBackend
     ) -> None:
         result = await core.create_task(
@@ -596,6 +636,8 @@ class TestTaskKnowledgeLinks:
                 reinforces_habit_uid=HABIT_UID,
                 applies_knowledge_uids=[KU_ONE],
                 prerequisite_knowledge_uids=[KU_TWO],
+                aligned_principle_uids=[PRINCIPLE_UID],
+                prerequisite_task_uids=[PREREQ_TASK],
             ),
             USER_UID,
         )
@@ -606,6 +648,8 @@ class TestTaskKnowledgeLinks:
             RelationshipName.APPLIES_KNOWLEDGE.value,
             RelationshipName.REQUIRES_KNOWLEDGE.value,
             RelationshipName.REINFORCES_HABIT.value,
+            RelationshipName.ALIGNED_WITH_PRINCIPLE.value,
+            RelationshipName.BLOCKED_BY.value,
         }
 
     @pytest.mark.parametrize(
@@ -613,6 +657,8 @@ class TestTaskKnowledgeLinks:
         [
             ("applies_knowledge_uids", "knowledge"),
             ("prerequisite_knowledge_uids", "prerequisite_knowledge"),
+            ("aligned_principle_uids", "principles"),
+            ("prerequisite_task_uids", "blocked_by"),
         ],
     )
     async def test_edge_agrees_with_the_registry(
@@ -731,6 +777,87 @@ class TestTaskKnowledgeLinks:
 
         assert result.is_ok
         assert "edge_batch_failed" in backend.trace
+
+
+@pytest.mark.asyncio
+class TestTaskPrincipleAndPrerequisiteTaskLinks:
+    """The request's last two link lists, which DOOR B had been dropping entirely.
+
+    ``aligned_principle_uids`` and ``prerequisite_task_uids`` are request fields the
+    update path already treats as edges, yet ``create_task`` wrote neither. Their one
+    writer was ``create_task_with_context`` — unguarded, and spelling the principle
+    edge ``"ALIGNED_WITH"``, which no registry entry and no reader knows. They join
+    the shared batch here with the same admission checks as the rest.
+    """
+
+    async def test_a_principle_owned_by_another_user_is_refused(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        backend.owners[PRINCIPLE_UID] = OTHER_USER
+
+        result = await core.create_task(
+            make_request(aligned_principle_uids=[PRINCIPLE_UID]), USER_UID
+        )
+
+        assert result.is_ok, "the task itself is the caller's own and must still be created"
+        assert edges_of(backend, RelationshipName.ALIGNED_WITH_PRINCIPLE) == []
+
+    async def test_a_prerequisite_task_owned_by_another_user_is_refused(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """The same cross-tenant class #965 closed for Goals and Habits: an unchecked
+        BLOCKED_BY edge would let a caller chain their task onto a victim's."""
+        backend.owners[PREREQ_TASK] = OTHER_USER
+
+        result = await core.create_task(
+            make_request(prerequisite_task_uids=[PREREQ_TASK]), USER_UID
+        )
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.BLOCKED_BY) == []
+
+    async def test_a_uid_that_is_not_a_principle_is_refused(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        backend.labels[PRINCIPLE_UID] = ["Entity", "Goal"]
+
+        result = await core.create_task(
+            make_request(aligned_principle_uids=[PRINCIPLE_UID]), USER_UID
+        )
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.ALIGNED_WITH_PRINCIPLE) == []
+
+    async def test_a_uid_that_is_not_a_task_is_refused(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        backend.labels[PREREQ_TASK] = ["Entity", "Goal"]
+
+        result = await core.create_task(
+            make_request(prerequisite_task_uids=[PREREQ_TASK]), USER_UID
+        )
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.BLOCKED_BY) == []
+
+    async def test_neither_list_announces_knowledge_substance(
+        self, core: TasksCoreService, event_bus: InMemoryEventBus
+    ) -> None:
+        """Alignment and blocking are not knowledge application — only
+        APPLIES_KNOWLEDGE credits substance."""
+        await core.create_task(
+            make_request(
+                aligned_principle_uids=[PRINCIPLE_UID],
+                prerequisite_task_uids=[PREREQ_TASK],
+            ),
+            USER_UID,
+        )
+
+        assert not [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask)
+        ]
 
 
 class TestTaskModelCarriesNoLists:
@@ -916,3 +1043,206 @@ class TestEdgesPrecedeTheEvent:
         await facade.create(route_entity(make_request()))
 
         assert len([e for e in event_bus.get_event_history() if isinstance(e, TaskCreated)]) == 1
+
+
+# ============================================================================
+# THE SCHEDULING DOORS
+# ============================================================================
+
+
+@pytest.mark.asyncio
+class TestContextDoorReachesThePrimitive:
+    """DOOR C — ``create_task_with_context``: the context-prerequisite gate, then the
+    primitive. Before this change it reached ``backend.create`` directly: no
+    ``TaskCreated`` (its own comment claiming TasksCoreService published it was false
+    for this path), no embedding request, no admission guard, and a principle edge
+    spelled ``"ALIGNED_WITH"`` — unknown to the registry, so the all-or-nothing batch
+    refused every edge in any request naming a principle.
+    """
+
+    async def test_every_edge_precedes_the_event(
+        self, scheduling: TasksSchedulingService, backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        record_task_created(event_bus, backend)
+
+        result = await scheduling.create_task_with_context(
+            make_request(
+                reinforces_habit_uid=HABIT_UID,
+                applies_knowledge_uids=[KU_ONE],
+                aligned_principle_uids=[PRINCIPLE_UID],
+                prerequisite_task_uids=[PREREQ_TASK],
+            ),
+            make_context(),
+        )
+
+        assert result.is_ok, f"create_task_with_context failed: {result.error}"
+        assert backend.trace == [
+            "node_created",
+            "link_edges_written",
+            "task_created_published",
+        ]
+
+    async def test_the_principle_edge_bears_the_registered_name(
+        self, scheduling: TasksSchedulingService, backend: StubBackend
+    ) -> None:
+        """RED before the fix twice over: the old door wrote ``"ALIGNED_WITH"``, which
+        no reader resolves (every consumer matches ALIGNED_WITH_PRINCIPLE) — and which
+        the registry-validating batch would have refused wholesale at runtime."""
+        result = await scheduling.create_task_with_context(
+            make_request(aligned_principle_uids=[PRINCIPLE_UID]), make_context()
+        )
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.ALIGNED_WITH_PRINCIPLE) == [
+            (result.value.uid, PRINCIPLE_UID, "ALIGNED_WITH_PRINCIPLE", None)
+        ]
+        assert "ALIGNED_WITH" not in {edge[2] for edge in backend.batched}
+
+    async def test_prerequisite_tasks_become_blocked_by_edges(
+        self, scheduling: TasksSchedulingService, backend: StubBackend
+    ) -> None:
+        result = await scheduling.create_task_with_context(
+            make_request(prerequisite_task_uids=[PREREQ_TASK]), make_context()
+        )
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.BLOCKED_BY) == [
+            (result.value.uid, PREREQ_TASK, "BLOCKED_BY", None)
+        ]
+
+    async def test_the_task_is_announced_and_embedding_requested(
+        self, scheduling: TasksSchedulingService, event_bus: InMemoryEventBus
+    ) -> None:
+        """The two announcements this door never made: TaskCreated drives the user's
+        context invalidation, TaskEmbeddingRequested (ADR-074) gets the task embedded."""
+        await scheduling.create_task_with_context(make_request(), make_context())
+
+        history = event_bus.get_event_history()
+        assert len([e for e in history if isinstance(e, TaskCreated)]) == 1
+        assert len([e for e in history if isinstance(e, TaskEmbeddingRequested)]) == 1
+
+    async def test_a_cross_user_link_is_refused_but_the_task_created(
+        self, scheduling: TasksSchedulingService, backend: StubBackend
+    ) -> None:
+        """The admission guard this door lacked — its edges were written from request
+        UIDs with no exists/owner/kind check."""
+        backend.owners[PRINCIPLE_UID] = OTHER_USER
+
+        result = await scheduling.create_task_with_context(
+            make_request(aligned_principle_uids=[PRINCIPLE_UID]), make_context()
+        )
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.ALIGNED_WITH_PRINCIPLE) == []
+
+    async def test_a_missing_knowledge_prerequisite_blocks_the_create(
+        self, scheduling: TasksSchedulingService, backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """The gate is what this door ADDS to the primitive — it must still hold, and
+        it must refuse BEFORE anything persists or publishes."""
+        result = await scheduling.create_task_with_context(
+            make_request(prerequisite_knowledge_uids=[KU_ONE]),
+            make_context(prerequisites_completed=set()),
+        )
+
+        assert result.is_error
+        assert backend.trace == [], "a refused create persisted something"
+        assert not [e for e in event_bus.get_event_history() if isinstance(e, TaskCreated)]
+
+    async def test_an_incomplete_task_prerequisite_blocks_the_create(
+        self, scheduling: TasksSchedulingService, backend: StubBackend
+    ) -> None:
+        result = await scheduling.create_task_with_context(
+            make_request(prerequisite_task_uids=[PREREQ_TASK]),
+            make_context(completed_task_uids=set()),
+        )
+
+        assert result.is_error
+        assert backend.trace == []
+
+    async def test_substance_follows_the_written_uids(
+        self, scheduling: TasksSchedulingService, backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """Inherited from the primitive: a refused knowledge link announces nothing."""
+        backend.owners[KU_ONE] = OTHER_USER
+
+        await scheduling.create_task_with_context(
+            make_request(applies_knowledge_uids=[KU_ONE]), make_context()
+        )
+
+        assert not [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask)
+        ]
+
+
+@pytest.mark.asyncio
+class TestCurriculumDoorReachesThePrimitive:
+    """DOOR D — ``create_task_from_path_step``: hand-builds the entity (curriculum
+    linkage rides on ``source_path_step_uid``, which no request carries) and hands it
+    to the primitive's entity door. Before this change it reached ``backend.create``
+    directly: a curriculum task invisible to the user's cached context for its full
+    300s TTL, and never embedded.
+    """
+
+    async def test_the_task_is_announced_after_persist(
+        self, scheduling: TasksSchedulingService, backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        record_task_created(event_bus, backend)
+
+        result = await scheduling.create_task_from_path_step(
+            step_uid="ps.python.decorators",
+            task_title="Practice: decorators",
+            knowledge_uids=[KU_ONE],
+            user_uid=USER_UID,
+        )
+
+        assert result.is_ok, f"create_task_from_path_step failed: {result.error}"
+        assert backend.trace == ["node_created", "task_created_published"]
+
+    async def test_embedding_is_requested(
+        self, scheduling: TasksSchedulingService, event_bus: InMemoryEventBus
+    ) -> None:
+        await scheduling.create_task_from_path_step(
+            step_uid="ps.python.decorators",
+            task_title="Practice: decorators",
+            knowledge_uids=[],
+            user_uid=USER_UID,
+        )
+
+        history = event_bus.get_event_history()
+        assert len([e for e in history if isinstance(e, TaskEmbeddingRequested)]) == 1
+
+    async def test_the_curriculum_linkage_is_a_node_property(
+        self, scheduling: TasksSchedulingService, backend: StubBackend
+    ) -> None:
+        """``source_path_step_uid`` is the reason this door builds an entity at all."""
+        await scheduling.create_task_from_path_step(
+            step_uid="ps.python.decorators",
+            task_title="Practice: decorators",
+            knowledge_uids=[],
+            user_uid=USER_UID,
+        )
+
+        assert backend.created[0]["source_path_step_uid"] == "ps.python.decorators"
+
+    async def test_knowledge_uids_write_no_edges_yet(
+        self, scheduling: TasksSchedulingService, backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """The documented deferral, pinned so its closure is a deliberate change: the
+        primitive writes knowledge edges only from a create REQUEST, and this door has
+        none — so the list must produce neither edges nor substance."""
+        await scheduling.create_task_from_path_step(
+            step_uid="ps.python.decorators",
+            task_title="Practice: decorators",
+            knowledge_uids=[KU_ONE, KU_TWO],
+            user_uid=USER_UID,
+        )
+
+        assert backend.batched == []
+        assert not [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask)
+        ]
