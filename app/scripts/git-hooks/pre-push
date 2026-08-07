@@ -42,7 +42,9 @@ commit_count=0
 # Build the combined diff across every ref being pushed, and count commits
 # so we can print a meaningful summary on success.
 diff_text=""
-while read -r local_ref local_sha remote_ref remote_sha; do
+# stdin per pushed ref: <local_ref> <local_sha> <remote_ref> <remote_sha> —
+# only the SHAs matter here; the two ref names are discarded positionally.
+while read -r _ local_sha _ remote_sha; do
   [[ -z "$local_sha" ]] && continue
   [[ "$local_sha" == "$zero_sha" ]] && continue  # branch deletion
 

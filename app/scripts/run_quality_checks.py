@@ -177,15 +177,11 @@ def main():
     ):
         all_passed = False
 
-    # 9. ShellCheck (all tracked *.sh; warning severity — style notes stay advisory)
-    shell_scripts = subprocess.run(
-        ["git", "ls-files", "*.sh"],
-        capture_output=True,
-        text=True,
-        cwd=Path(__file__).parent.parent,
-    ).stdout.splitlines()
-    if shell_scripts and not run_command(
-        ["uv", "run", "shellcheck", "--severity=warning", *shell_scripts],
+    # 9. ShellCheck (tracked *.sh + shebang-detected extensionless scripts; warning
+    # severity — style notes stay advisory). Discovery lives in shellcheck_tracked.py,
+    # shared with the CI lint job so local and CI coverage cannot drift.
+    if not run_command(
+        ["uv", "run", "python", "scripts/shellcheck_tracked.py"],
         "ShellCheck (shell scripts)",
         check=False,
     ):

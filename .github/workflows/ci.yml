@@ -74,6 +74,15 @@ jobs:
               - '.github/workflows/**'
               - '.github/actions/**'
               - 'app/scripts/**/*.sh'
+              # ShellCheck (lint job) covers extensionless shell programs too,
+              # discovered by shebang (scripts/shellcheck_tracked.py). These are
+              # the location classes those live in; without them a hooks-only or
+              # dev-only PR would skip the lint job and dodge the shell gate.
+              - 'app/dev'
+              - 'app/scripts/dev/**'
+              - 'app/scripts/git-hooks/**'
+              - 'app/scripts/hooks/**'
+              - 'app/.claude/hooks/**'
             docs:
               - 'app/docs/**'
               - 'app/.claude/skills/**'
@@ -315,6 +324,13 @@ jobs:
         if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
         working-directory: app
         run: uv run python scripts/audit_route_security.py
+
+      # Same discovery + severity as ./dev quality check 9 — shellcheck-py (dev
+      # group) vendors the binary, so no apt install step is needed here.
+      - name: ShellCheck (tracked shell scripts)
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/shellcheck_tracked.py
 
   # Dependency CVE audit (security-hardening-deferred.md item 5A): pip-audit
   # over the full locked resolution (uv export with hashes, all groups) via
