@@ -54,7 +54,7 @@ Benefits:
 """
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any, Protocol, TypedDict, TypeVar, cast
 
 from pydantic import BaseModel
@@ -270,8 +270,11 @@ class CRUDRouteFactory[T]:
         self.allow_dict_fallback = allow_dict_fallback
         self.prometheus_metrics = prometheus_metrics
         # Resolve the request-door primitive NOW: a config naming a method the
-        # service does not expose is a wiring bug, not a per-request condition.
-        self.request_create: Callable[..., Any] | None = None
+        # service does not expose is a wiring bug, not a per-request condition. The
+        # declared signature is the binding's contract — (validated request, session
+        # user) -> Result[entity] — so the handler's await and Result handling are
+        # checker-validated even though getattr resolves the method dynamically.
+        self.request_create: Callable[[BaseModel, UserUID], Awaitable[Result[T]]] | None = None
         if request_create_method is not None:
             method = getattr(service, request_create_method, None)
             if not callable(method):
@@ -409,7 +412,7 @@ class CRUDRouteFactory[T]:
             # primitive (validate -> persist -> edges -> events). The entity path below
             # cannot carry request-only link fields, so a bound domain never walks it.
             if request_create is not None:
-                result = cast("Result[T]", await request_create(schema, user_uid))
+                result = await request_create(schema, user_uid)
                 if not result.is_error:
                     # T is unbound here; every bound domain returns an entity with a uid.
                     created_uid = getattr(result.value, "uid", "?")
