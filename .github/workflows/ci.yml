@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload MyPy output on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mypy-output
           path: app/mypy_output.txt
@@ -625,7 +625,7 @@ jobs:
           cat docs_metrics.md
 
       - name: Upload metrics artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: documentation-metrics
           path: app/docs_metrics.md
