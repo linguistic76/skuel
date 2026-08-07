@@ -57,7 +57,7 @@ def render_ku_mastery_section(
                 "@click": f"mastery = '{level_id}'",
                 ":class": (
                     f"mastery === '{level_id}' "
-                    "? 'bg-card text-foreground shadow-sm' "
+                    "? 'bg-card text-foreground shadow-xs' "
                     ": 'text-muted-foreground hover:text-foreground'"
                 ),
             },
@@ -102,7 +102,7 @@ def render_ku_mastery_section(
                         cls=(
                             "w-full rounded-lg border border-border bg-card px-3.5 py-2.5 "
                             "text-[14px] leading-relaxed placeholder:text-muted-foreground/70 "
-                            "focus:outline-none resize-none"
+                            "focus:outline-hidden resize-none"
                         ),
                         **{"x-model": "note"},
                     ),
@@ -115,7 +115,7 @@ def render_ku_mastery_section(
                     cls=(
                         "mt-4 inline-flex items-center gap-2 bg-foreground text-background "
                         "rounded-lg px-4 py-2.5 text-[14px] font-semibold "
-                        "hover:opacity-90 focus:outline-none"
+                        "hover:opacity-90 focus:outline-hidden"
                     ),
                 ),
                 cls="border border-border rounded-xl p-5 sm:p-6 bg-card",

@@ -130,13 +130,13 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 |--------|---------|------------|
 | **Tailwind utilities** | flex, p-4, grid, etc. | scanned + compiled to `output.css` |
 | **Semantic variables** | `--primary`, `--background`, `--card`, etc. | SKUEL-owned in `static/css/input.css` |
-| **Color tokens** | `text-error`, `bg-success`, `bg-base-200`, `text-base-content` | concrete tokens in `tailwind.config.js` |
+| **Color tokens** | `text-error`, `bg-success`, `bg-base-200`, `text-base-content` | concrete tokens in `input.css` `@theme inline` (Tailwind v4 CSS-first) |
 
 **All pages load CSS through `build_head()` / `skuel_headers()`** (in `ui/theme.py`) — never hand-assemble `<link>` tags. Two layout functions:
 - `BasePage()` — authenticated pages (navbar + chrome)
 - `AuthPage()` — unauthenticated pages (login, register — no navbar)
 
-**Dark mode is class-based** — `darkMode: 'class'` in `tailwind.config.js` with a `.dark` class toggled on the root element (not DaisyUI `data-theme`).
+**Dark mode is class-based** — `@custom-variant dark (&:where(.dark, .dark *))` in `input.css` with a `.dark` class toggled on the root element (not DaisyUI `data-theme`).
 
 **Global border radius:** `radii="sm"` (2px/4px) — set in `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible across all components (buttons, inputs, cards, modals).
 
@@ -212,9 +212,8 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 |------|---------|
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
 | `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides |
-| `/static/css/input.css` | Tailwind entry + SKUEL-owned semantic CSS variables (`--primary`, `--background`, `--card`, …) |
+| `/static/css/input.css` | Tailwind v4 CSS-first config (the whole config — `@source` scanning + inline safelist, `@custom-variant dark`, `@theme inline` color tokens) + SKUEL-owned semantic CSS variables (`--primary`, `--background`, `--card`, …) |
 | `/static/css/output.css` | Compiled Tailwind CLI output — **the production CSS asset** (ADR-071) |
-| `tailwind.config.js` | `darkMode: 'class'`; concrete color tokens (`text-error`, `bg-success`, `bg-base-200`, `text-base-content`) |
 | `ui/components/` | **SKUEL-owned component layer (ADR-071 complete)** — pure Tailwind + Alpine.js. Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
 | `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). `ui/buttons.py`/`ui/cards.py`/`ui/text.py` deleted (PR E). |
 

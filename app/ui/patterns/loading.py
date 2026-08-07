@@ -37,10 +37,10 @@ def content_loading_placeholder(
     skeleton = Div(
         Span(loading_text, cls="sr-only"),
         Div(
-            Div(cls="h-4 bg-muted rounded w-3/4"),
-            Div(cls="h-4 bg-muted rounded w-full"),
-            Div(cls="h-4 bg-muted rounded w-5/6"),
-            Div(cls="h-4 bg-muted rounded w-2/3"),
+            Div(cls="h-4 bg-muted rounded-sm w-3/4"),
+            Div(cls="h-4 bg-muted rounded-sm w-full"),
+            Div(cls="h-4 bg-muted rounded-sm w-5/6"),
+            Div(cls="h-4 bg-muted rounded-sm w-2/3"),
             cls="animate-pulse space-y-3 py-6 px-1",
         ),
     )

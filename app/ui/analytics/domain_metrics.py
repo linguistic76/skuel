@@ -58,7 +58,7 @@ def render_tasks_metrics(metrics: dict) -> Any:
                     ],
                     cls=(TableT.striped,),
                 ),
-                cls="bg-background shadow-sm p-4 mb-4",
+                cls="bg-background shadow-xs p-4 mb-4",
             )
             if metrics.get("priority_distribution")
             else ""
@@ -100,7 +100,7 @@ def render_habits_metrics(metrics: dict) -> Any:
                     )
                     for habit_name, days in metrics.get("current_streaks", {}).items()
                 ],
-                cls="bg-background shadow-sm p-4",
+                cls="bg-background shadow-xs p-4",
             )
             if metrics.get("current_streaks")
             else ""
@@ -171,5 +171,5 @@ def render_generic_metrics(metrics: dict) -> Any:
             ],
             cls=(TableT.striped,),
         ),
-        cls="bg-background shadow-sm p-4",
+        cls="bg-background shadow-xs p-4",
     )

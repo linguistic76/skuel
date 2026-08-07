@@ -29,12 +29,12 @@ def SkeletonCard() -> Div:
     """
     return Card(
         # Title skeleton
-        Div(cls="h-6 bg-secondary rounded w-3/4 animate-pulse"),
+        Div(cls="h-6 bg-secondary rounded-sm w-3/4 animate-pulse"),
         # Content line 1
-        Div(cls="h-4 bg-secondary rounded w-full mt-2 animate-pulse"),
+        Div(cls="h-4 bg-secondary rounded-sm w-full mt-2 animate-pulse"),
         # Content line 2
-        Div(cls="h-4 bg-secondary rounded w-5/6 mt-2 animate-pulse"),
-        cls="bg-background shadow-sm p-4",
+        Div(cls="h-4 bg-secondary rounded-sm w-5/6 mt-2 animate-pulse"),
+        cls="bg-background shadow-xs p-4",
     )
 
 
@@ -63,25 +63,25 @@ def SkeletonStats() -> Div:
         Div(
             # Stat 1
             Div(
-                Div(cls="h-4 bg-secondary rounded w-16 animate-pulse"),
-                Div(cls="h-8 bg-secondary rounded w-12 mt-2 animate-pulse"),
+                Div(cls="h-4 bg-secondary rounded-sm w-16 animate-pulse"),
+                Div(cls="h-8 bg-secondary rounded-sm w-12 mt-2 animate-pulse"),
                 cls="flex flex-col items-center",
             ),
             # Stat 2
             Div(
-                Div(cls="h-4 bg-secondary rounded w-16 animate-pulse"),
-                Div(cls="h-8 bg-secondary rounded w-12 mt-2 animate-pulse"),
+                Div(cls="h-4 bg-secondary rounded-sm w-16 animate-pulse"),
+                Div(cls="h-8 bg-secondary rounded-sm w-12 mt-2 animate-pulse"),
                 cls="flex flex-col items-center",
             ),
             # Stat 3
             Div(
-                Div(cls="h-4 bg-secondary rounded w-16 animate-pulse"),
-                Div(cls="h-8 bg-secondary rounded w-12 mt-2 animate-pulse"),
+                Div(cls="h-4 bg-secondary rounded-sm w-16 animate-pulse"),
+                Div(cls="h-8 bg-secondary rounded-sm w-12 mt-2 animate-pulse"),
                 cls="flex flex-col items-center",
             ),
             cls="flex justify-around w-full",
         ),
-        cls="bg-background shadow-sm p-6",
+        cls="bg-background shadow-xs p-6",
     )
 
 
@@ -97,25 +97,25 @@ def SkeletonTable(rows: int = 5) -> Div:
     return Card(
         # Table header
         Div(
-            Div(cls="h-4 bg-secondary rounded w-24 animate-pulse"),
-            Div(cls="h-4 bg-secondary rounded w-32 animate-pulse"),
-            Div(cls="h-4 bg-secondary rounded w-20 animate-pulse"),
+            Div(cls="h-4 bg-secondary rounded-sm w-24 animate-pulse"),
+            Div(cls="h-4 bg-secondary rounded-sm w-32 animate-pulse"),
+            Div(cls="h-4 bg-secondary rounded-sm w-20 animate-pulse"),
             cls="flex justify-between border-b border-border pb-3",
         ),
         # Table rows
         Div(
             *[
                 Div(
-                    Div(cls="h-4 bg-secondary rounded w-24 animate-pulse"),
-                    Div(cls="h-4 bg-secondary rounded w-32 animate-pulse"),
-                    Div(cls="h-4 bg-secondary rounded w-20 animate-pulse"),
+                    Div(cls="h-4 bg-secondary rounded-sm w-24 animate-pulse"),
+                    Div(cls="h-4 bg-secondary rounded-sm w-32 animate-pulse"),
+                    Div(cls="h-4 bg-secondary rounded-sm w-20 animate-pulse"),
                     cls="flex justify-between py-3 border-b border-border/50",
                 )
                 for _ in range(rows)
             ],
             cls="divide-y divide-border/50",
         ),
-        cls="bg-background shadow-sm p-4",
+        cls="bg-background shadow-xs p-4",
     )
 
 
@@ -129,7 +129,7 @@ def SkeletonSidebarItem() -> Div:
         # Icon + Name
         Div(
             Div(cls="size-5 bg-secondary rounded-full animate-pulse"),
-            Div(cls="h-4 bg-secondary rounded w-24 animate-pulse"),
+            Div(cls="h-4 bg-secondary rounded-sm w-24 animate-pulse"),
             cls="flex items-center gap-3",
         ),
         # Badges (count, status)
@@ -154,7 +154,7 @@ def SkeletonSidebar(domain_count: int = 7) -> Div:
     return Div(
         # Header
         Div(
-            Div(cls="h-6 bg-secondary rounded w-32 animate-pulse mb-4"),
+            Div(cls="h-6 bg-secondary rounded-sm w-32 animate-pulse mb-4"),
             cls="mb-6",
         ),
         # Domain items
@@ -175,12 +175,12 @@ def SkeletonDomainView() -> Div:
     return Div(
         # Summary card
         Div(
-            Div(cls="h-6 bg-secondary rounded w-32 animate-pulse mb-4"),
+            Div(cls="h-6 bg-secondary rounded-sm w-32 animate-pulse mb-4"),
             Div(
                 *[
                     Div(
-                        Div(cls="h-8 bg-secondary rounded w-12 animate-pulse"),
-                        Div(cls="h-4 bg-secondary rounded w-16 animate-pulse mt-2"),
+                        Div(cls="h-8 bg-secondary rounded-sm w-12 animate-pulse"),
+                        Div(cls="h-4 bg-secondary rounded-sm w-16 animate-pulse mt-2"),
                         cls="text-center",
                     )
                     for _ in range(3)
@@ -190,7 +190,7 @@ def SkeletonDomainView() -> Div:
             cls="p-6 rounded-xl border-2 border-border bg-muted/50 mb-6",
         ),
         # Items list header
-        Div(cls="h-5 bg-secondary rounded w-40 animate-pulse mb-4"),
+        Div(cls="h-5 bg-secondary rounded-sm w-40 animate-pulse mb-4"),
         # Item list
         SkeletonList(count=5),
     )
@@ -208,7 +208,7 @@ def SkeletonLines(count: int = 3) -> Div:
     widths = ["w-3/4", "w-full", "w-5/6", "w-2/3", "w-4/5"]
     return Div(
         *[
-            Div(cls=f"h-4 bg-muted rounded {widths[i % len(widths)]} animate-pulse")
+            Div(cls=f"h-4 bg-muted rounded-sm {widths[i % len(widths)]} animate-pulse")
             for i in range(count)
         ],
         cls="space-y-2 py-2",

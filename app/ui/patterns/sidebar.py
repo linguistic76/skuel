@@ -44,8 +44,8 @@ if TYPE_CHECKING:
 # w-64=256px, w-80=320px, w-96=384px. Collapse leaves 12px (w-12) visible.
 _SIDEBAR_WIDTH_CONFIG: dict[str, tuple[str, str]] = {
     "w-64": ("lg:ml-64", "-translate-x-52"),  # 256-48=208px offset
-    "w-80": ("lg:ml-80", "-translate-x-[308px]"),  # 320-12=308px offset
-    "w-96": ("lg:ml-96", "-translate-x-[372px]"),  # 384-12=372px offset
+    "w-80": ("lg:ml-80", "translate-x-[-308px]"),  # 320-12=308px offset
+    "w-96": ("lg:ml-96", "translate-x-[-372px]"),  # 384-12=372px offset
 }
 _SIDEBAR_MARGIN_MAP: dict[str, str] = {k: v[0] for k, v in _SIDEBAR_WIDTH_CONFIG.items()}
 
@@ -497,7 +497,7 @@ def SidebarPage(
                 # margin class, and lg:ml-64 sorts after lg:ml-12 in the
                 # compiled CSS — without the ! the collapsed margin never wins
                 # and content never reflows into the freed space.
-                ":class": "collapsed ? 'lg:!ml-12' : ''",
+                ":class": "collapsed ? 'lg:ml-12!' : ''",
             },
         ),
         **wrapper_attrs,

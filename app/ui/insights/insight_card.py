@@ -220,9 +220,9 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
     return Div(
         Div(
             # Impact dot indicator
-            Div(cls=f"size-2 rounded-full {dot_color} flex-shrink-0"),
+            Div(cls=f"size-2 rounded-full {dot_color} shrink-0"),
             # Title (truncated)
-            Span(insight.title, cls="line-clamp-1 text-sm font-medium text-foreground flex-grow"),
+            Span(insight.title, cls="line-clamp-1 text-sm font-medium text-foreground grow"),
             # Badges
             Row(*badges, gap=1),
             cls="flex items-center gap-3",

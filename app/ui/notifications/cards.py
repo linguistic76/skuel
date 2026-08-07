@@ -102,7 +102,7 @@ def render_notification_card(notif: dict[str, Any]) -> Div:
             ),
             cls="p-4",
         ),
-        cls=f"card {bg_cls} shadow-sm {read_cls}",
+        cls=f"card {bg_cls} shadow-xs {read_cls}",
         id=f"notif-{notif['uid']}",
     )
 

@@ -59,7 +59,7 @@ def DryRunPreviewComponent(preview: Any) -> FT:
             IconStat("To Create", len(files_to_create), "➕", "text-success"),
             IconStat("To Update", len(files_to_update), "🔄", "text-warning"),
             IconStat("To Skip", len(files_to_skip), "⏭️", "text-muted-foreground"),
-            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg mb-4 w-full",
+            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow-sm rounded-lg mb-4 w-full",
         ),
         # Relationship stats
         (

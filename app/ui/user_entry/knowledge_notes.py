@@ -102,7 +102,7 @@ def _entry_row(row: KnowledgeEntryGroundingRow) -> Any:
             ),
             chips_section,
         ),
-        cls="bg-background shadow-sm mb-2",
+        cls="bg-background shadow-xs mb-2",
         id=f"knowledge-entry-{uid}",
     )
 

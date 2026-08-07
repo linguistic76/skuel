@@ -144,7 +144,7 @@ def create_teaching_api_routes(
 
         return Div(
             P("Feedback submitted successfully.", cls="text-sm text-green-600 font-medium"),
-            cls="p-3 bg-green-50 rounded border border-green-200",
+            cls="p-3 bg-green-50 rounded-sm border border-green-200",
         )
 
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
@@ -199,7 +199,7 @@ def create_teaching_api_routes(
                     cls=(ButtonT.ghost, "mt-1"),
                     size="sm",
                 ),
-                cls="p-3 bg-amber-50 rounded border border-amber-200",
+                cls="p-3 bg-amber-50 rounded-sm border border-amber-200",
             )
 
         # Fallback: report-only revision (no exercise context)
@@ -214,7 +214,7 @@ def create_teaching_api_routes(
 
         return Div(
             P("Revision requested.", cls="text-sm text-amber-600 font-medium"),
-            cls="p-3 bg-amber-50 rounded border border-amber-200",
+            cls="p-3 bg-amber-50 rounded-sm border border-amber-200",
         )
 
     @rt("/api/reports/{report_uid}/download", methods=["GET"])
@@ -271,7 +271,7 @@ def create_teaching_api_routes(
 
         return Div(
             P("Submission approved.", cls="text-sm text-green-600 font-medium"),
-            cls="p-3 bg-green-50 rounded border border-green-200",
+            cls="p-3 bg-green-50 rounded-sm border border-green-200",
         )
 
     @rt("/api/teaching/review/{uid}", methods=["GET"])

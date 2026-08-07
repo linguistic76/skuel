@@ -238,7 +238,7 @@ def _quick_add(view_date: date) -> FT:
             cls=(
                 "flex-1 min-w-0 h-10 px-3 rounded-md border border-border bg-card "
                 "text-sm text-foreground placeholder:text-muted-foreground "
-                "focus:outline-none focus:shadow-focus"
+                "focus:outline-hidden focus:shadow-focus"
             ),
         ),
         Button(
@@ -248,7 +248,7 @@ def _quick_add(view_date: date) -> FT:
             cls=(
                 "inline-flex items-center gap-1.5 h-10 px-4 rounded-md shrink-0 "
                 "bg-foreground text-background text-sm font-semibold "
-                "hover:opacity-90 focus:outline-none focus:shadow-focus"
+                "hover:opacity-90 focus:outline-hidden focus:shadow-focus"
             ),
         ),
         hx_post="/today/tasks/quick-add",
@@ -359,7 +359,7 @@ def _task_row(*, is_triage: bool) -> FT:
     open_btn = Button(
         Icon("play", size=12),
         type="button",
-        cls="w-7 h-7 rounded flex-none flex items-center justify-center",
+        cls="w-7 h-7 rounded-sm flex-none flex items-center justify-center",
         **{
             ":class": (
                 f"selectedKey === {row_key_expr} "
@@ -415,7 +415,7 @@ def _triage_bar() -> FT:
         Div(
             Icon("alert-triangle", size=13),
             cls=(
-                "w-[22px] h-[22px] rounded bg-destructive/15 text-destructive "
+                "w-[22px] h-[22px] rounded-sm bg-destructive/15 text-destructive "
                 "flex items-center justify-center"
             ),
         ),
@@ -455,7 +455,7 @@ def _triage_bar() -> FT:
         list_body,
         cls=(
             "mb-7 rounded-lg border border-destructive/40 "
-            "bg-gradient-to-b from-destructive/5 to-transparent "
+            "bg-linear-to-b from-destructive/5 to-transparent "
             "px-[18px] py-3.5 shadow-[0_1px_2px_rgba(220,38,38,0.08)]"
         ),
         role="region",
@@ -485,7 +485,7 @@ def _lifepath_ribbons() -> FT:
 def _dormant_ribbon() -> FT:
     inner = Div(
         Div(
-            cls="w-1.5 h-5.5 rounded-sm",
+            cls="w-1.5 h-5.5 rounded-xs",
             **{":style": "`background:${lp.color};opacity:.4`"},
         ),
         Div(
@@ -495,7 +495,7 @@ def _dormant_ribbon() -> FT:
                     "dormant",
                     cls=(
                         "ml-2 inline-block text-[10px] font-semibold uppercase "
-                        "tracking-[0.08em] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                        "tracking-[0.08em] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground"
                     ),
                 ),
                 cls="text-[13px] font-semibold text-foreground",
@@ -516,8 +516,8 @@ def _dormant_ribbon() -> FT:
             "Wake this path",
             type="button",
             cls=(
-                "bg-transparent border border-border px-3 py-1.5 rounded text-xs font-medium "
-                "text-foreground hover:bg-muted focus:outline-none focus:shadow-focus"
+                "bg-transparent border border-border px-3 py-1.5 rounded-sm text-xs font-medium "
+                "text-foreground hover:bg-muted focus:outline-hidden focus:shadow-focus"
             ),
             **{
                 ":hx-post": "`/today/lifepaths/${lp.id}/wake`",
@@ -535,7 +535,7 @@ def _dormant_ribbon() -> FT:
 
 def _active_ribbon() -> FT:
     ribbon_header = Header(
-        Div(cls="w-1.5 h-6 rounded-sm", **{":style": "`background:${lp.color}`"}),
+        Div(cls="w-1.5 h-6 rounded-xs", **{":style": "`background:${lp.color}`"}),
         Div(
             Div(
                 H2(
@@ -728,8 +728,8 @@ def _flash_toast() -> FT:
             type="button",
             cls=(
                 "bg-transparent border border-background/20 text-background "
-                "px-2.5 py-1 rounded text-[11px] font-semibold uppercase tracking-wider "
-                "hover:bg-background/10 focus:outline-none focus:shadow-focus"
+                "px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider "
+                "hover:bg-background/10 focus:outline-hidden focus:shadow-focus"
             ),
             **{"x-show": "flash?.action === 'undo'", "@click": "undoFlash()"},
         ),
@@ -820,20 +820,20 @@ def _drawer_toolbar() -> FT:
         Span(**{"x-html": "openTaskIconHtml()"}),
         Span(**{"x-text": "seed.kinds[openTask.kind]?.label || openTask.kind"}),
         cls=(
-            "inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10.5px] "
+            "inline-flex items-center gap-1.5 px-2 py-1 rounded-sm text-[10.5px] "
             "font-semibold uppercase tracking-[0.08em] bg-muted text-muted-foreground"
         ),
     )
     star_btn = Button(
         Icon("star", size=14),
         type="button",
-        cls="w-7 h-7 rounded hover:bg-muted flex items-center justify-center",
+        cls="w-7 h-7 rounded-sm hover:bg-muted flex items-center justify-center",
         **{":hx-post": "`/today/tasks/${openTask.id}/star`", "aria-label": "Star"},
     )
     close_btn = Button(
         Icon("x", size=14),
         type="button",
-        cls="w-7 h-7 rounded hover:bg-muted flex items-center justify-center",
+        cls="w-7 h-7 rounded-sm hover:bg-muted flex items-center justify-center",
         **{"@click": "closeDrawer()", "aria-label": "Close drawer"},
     )
     return Div(
@@ -899,7 +899,7 @@ def _drawer_primary_action() -> FT:
             "mt-4 w-full inline-flex items-center justify-center gap-2 "
             "px-4 py-2.5 rounded-md bg-foreground text-background "
             "text-sm font-semibold hover:opacity-90 "
-            "focus:outline-none focus:shadow-focus"
+            "focus:outline-hidden focus:shadow-focus"
         ),
         **{
             "@click": "completeTask(openTask.id); closeDrawer()",
@@ -919,7 +919,7 @@ def _drawer_secondary_actions() -> FT:
             cls=(
                 "px-3 py-2 rounded-md border border-border bg-card "
                 "text-sm font-medium hover:bg-muted "
-                "focus:outline-none focus:shadow-focus"
+                "focus:outline-hidden focus:shadow-focus"
             ),
             **{
                 "@click": (

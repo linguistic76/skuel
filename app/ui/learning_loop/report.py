@@ -136,7 +136,7 @@ def render_submission_history_row(item: dict) -> Any:
             delete_button,
             cls="flex items-center gap-4",
         ),
-        cls="bg-background shadow-sm mb-2",
+        cls="bg-background shadow-xs mb-2",
         id=f"submission-row-{uid}",
     )
 
@@ -1064,7 +1064,7 @@ def render_progress_report_card(report: Any) -> Any:
             content_section,
             cls="p-4",
         ),
-        cls="bg-background shadow-sm mb-3",
+        cls="bg-background shadow-xs mb-3",
     )
 
 

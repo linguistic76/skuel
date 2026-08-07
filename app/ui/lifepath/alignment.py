@@ -37,7 +37,7 @@ def render_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
         Div(
             Span(rec.get("title", ""), cls="font-medium"),
             P(rec.get("description", ""), cls="text-sm text-muted-foreground"),
-            cls="p-3 bg-muted rounded mb-2",
+            cls="p-3 bg-muted rounded-sm mb-2",
         )
         for rec in recommendations[:5]
     ]

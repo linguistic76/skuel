@@ -59,7 +59,7 @@ def render_activity_report_request_card():
                 },
             ),
         ),
-        cls="bg-background shadow-sm mb-6",
+        cls="bg-background shadow-xs mb-6",
     )
 
 

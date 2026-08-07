@@ -205,7 +205,7 @@ LIBRARY_DEFAULT_SORT = SearchSortOrder.CREATED_DESC.value
 # fuller styling in Row 1).
 DROPDOWN_CLS = (
     "text-sm border border-border rounded-md px-2 py-1.5 bg-background "
-    "text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+    "text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
 )
 
 # Every named control in the library facet bar. Used to build the NOUS
@@ -399,7 +399,7 @@ def render_explore_search_panel(
                     placeholder="Search knowledge units and path steps...",
                     autocomplete="off",
                     cls="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg "
-                    "bg-background focus:outline-none focus:ring-1 focus:ring-primary "
+                    "bg-background focus:outline-hidden focus:ring-1 focus:ring-primary "
                     "focus:border-primary",
                     x_model="query",
                     x_ref="searchInput",

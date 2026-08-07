@@ -70,7 +70,7 @@ def render_exercise_view(exercise: Any, required_knowledge: list | None = None) 
             CardBody(
                 Pre(
                     Code(exercise.instructions, cls="text-sm"),
-                    cls="bg-muted p-4 rounded overflow-x-auto",
+                    cls="bg-muted p-4 rounded-sm overflow-x-auto",
                 ),
             ),
             cls="mb-4",
@@ -106,7 +106,7 @@ def render_exercise_view(exercise: Any, required_knowledge: list | None = None) 
                 ),
                 Pre(
                     Code(example_prompt, cls="text-sm"),
-                    cls="bg-muted p-4 rounded overflow-x-auto",
+                    cls="bg-muted p-4 rounded-sm overflow-x-auto",
                 ),
             ),
             cls="mb-4",

@@ -66,7 +66,7 @@ def _nav_link(item: NavItem, active_page: str) -> A:
     is_active = item.page_key == active_page
     active_cls = "bg-accent text-accent-foreground"
     inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-    cls = f"rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary {active_cls if is_active else inactive_cls}"
+    cls = f"rounded-md px-3 py-2 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary {active_cls if is_active else inactive_cls}"
     return A(item.label, href=item.href, cls=cls)
 
 
@@ -217,7 +217,7 @@ def _admin_right_section(current_user: str) -> Div:
             Icon("log-out", cls="size-4", aria_hidden="true"),
             Span("Sign out"),
             href="/logout",
-            cls="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent",
+            cls="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded-sm hover:bg-accent",
         ),
         cls="flex items-center gap-2",
     )
@@ -229,12 +229,12 @@ def _auth_buttons() -> Div:
         A(
             "Login",
             href="/login",
-            cls="text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded hover:bg-accent",
+            cls="text-sm text-muted-foreground hover:text-foreground px-3 py-2 rounded-sm hover:bg-accent",
         ),
         A(
             "Sign Up",
             href="/register",
-            cls="text-sm bg-primary text-primary-foreground px-3 py-2 rounded hover:bg-primary/90",
+            cls="text-sm bg-primary text-primary-foreground px-3 py-2 rounded-sm hover:bg-primary/90",
         ),
         cls="flex items-center gap-2",
     )
@@ -303,7 +303,7 @@ def create_navbar(
                 A(
                     Span("SKUEL", cls="text-lg font-bold text-primary"),
                     href="/",
-                    cls="inline-flex items-center justify-center px-2 py-1 rounded hover:bg-accent",
+                    cls="inline-flex items-center justify-center px-2 py-1 rounded-sm hover:bg-accent",
                 ),
                 Div(
                     _admin_right_section(current_user or "") if current_user else Div(),
@@ -359,7 +359,7 @@ def create_navbar(
             A(
                 "SKUEL",
                 href="/explore" if is_authenticated else "/",
-                cls="text-sm font-bold text-primary px-2 py-1 rounded hover:bg-accent",
+                cls="text-sm font-bold text-primary px-2 py-1 rounded-sm hover:bg-accent",
             ),
             # Center: desktop nav links
             desktop_links,

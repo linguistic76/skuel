@@ -42,7 +42,7 @@ class BadgeT(StrEnum):
     success = "success"
     warning = "warning"
     error = "error"
-    outline = "outline"
+    outline = "outline-solid"
 
 
 # Badge color classes (Tailwind utilities)
@@ -56,7 +56,7 @@ _BADGE_COLORS: dict[str, str] = {
     "success": "bg-green-100 text-green-800 border-green-200",
     "warning": "bg-yellow-100 text-yellow-800 border-yellow-200",
     "error": "bg-red-100 text-red-800 border-red-200",
-    "outline": "bg-transparent text-foreground border-border",
+    "outline-solid": "bg-transparent text-foreground border-border",
 }
 
 

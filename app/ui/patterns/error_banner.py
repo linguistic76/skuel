@@ -98,7 +98,7 @@ def render_error_banner(
         content.append(
             Details(
                 Summary("Technical Details (Dev Mode)", cls="cursor-pointer text-sm mt-2"),
-                P(technical_details, cls="text-sm mt-2 font-mono bg-secondary p-2 rounded"),
+                P(technical_details, cls="text-sm mt-2 font-mono bg-secondary p-2 rounded-sm"),
                 cls="mt-2",
             )
         )

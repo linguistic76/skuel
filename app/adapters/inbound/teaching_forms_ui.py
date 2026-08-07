@@ -182,7 +182,7 @@ def create_teaching_forms_ui_routes(
                         cls=ButtonT.primary,
                         size="sm",
                     ),
-                    card_attrs={"cls": "bg-background shadow-sm mb-2"},
+                    card_attrs={"cls": "bg-background shadow-xs mb-2"},
                 )
             )
 
@@ -291,7 +291,7 @@ def create_teaching_forms_ui_routes(
                         cls=ButtonT.ghost,
                         size="sm",
                     ),
-                    card_attrs={"cls": "bg-background shadow-sm mb-2"},
+                    card_attrs={"cls": "bg-background shadow-xs mb-2"},
                 )
             )
 

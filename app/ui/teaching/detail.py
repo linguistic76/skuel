@@ -55,7 +55,7 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
                     detail.exercise_instructions,
                     cls="text-sm text-muted-foreground whitespace-pre-wrap mt-1",
                 ),
-                cls="p-3 bg-muted/50 rounded",
+                cls="p-3 bg-muted/50 rounded-sm",
             ),
             cls="mb-3",
         )
@@ -83,13 +83,13 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
                 ),
                 Div(
                     P(display_content, cls="text-sm font-mono break-all"),
-                    cls="mt-1 p-3 bg-muted/50 rounded border border-border select-all",
+                    cls="mt-1 p-3 bg-muted/50 rounded-sm border border-border select-all",
                 ),
                 cls="p-4 bg-muted/20 border-t",
             ),
             cls="p-4",
         ),
-        cls="bg-background shadow-sm mb-4",
+        cls="bg-background shadow-xs mb-4",
     )
 
 
@@ -166,7 +166,7 @@ def render_review_panel_inline(uid: str, detail: dict[str, Any], history: list[E
                                 id=f"feedback_file_{dom_id}",
                                 accept=".md",
                                 required=True,
-                                cls="block w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer",
+                                cls="block w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded-sm file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer",
                             ),
                             cls="mb-4",
                         ),
@@ -179,7 +179,7 @@ def render_review_panel_inline(uid: str, detail: dict[str, Any], history: list[E
                     ),
                     cls="p-4",
                 ),
-                cls="bg-background shadow-sm mb-2",
+                cls="bg-background shadow-xs mb-2",
             ),
             # Request revision + approve
             Card(
@@ -286,7 +286,7 @@ def render_review_panel_inline(uid: str, detail: dict[str, Any], history: list[E
                     ),
                     cls="p-4",
                 ),
-                cls="bg-background shadow-sm",
+                cls="bg-background shadow-xs",
             ),
             Div(id=f"inline-result-{dom_id}", cls="mt-3"),
         )
@@ -348,11 +348,11 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
                     cls="text-muted-foreground ml-1 inline-block transition-transform duration-200",
                     **{":class": "open && 'rotate-90'"},
                 ),
-                cls="flex gap-2 items-center flex-shrink-0",
+                cls="flex gap-2 items-center shrink-0",
             ),
             cls="flex items-center justify-between gap-4",
         ),
-        cls="px-4 py-3 bg-background border border-border rounded cursor-pointer hover:bg-muted/50 transition-colors select-none",
+        cls="px-4 py-3 bg-background border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition-colors select-none",
         **{"@click": "open = !open"},
         hx_get=f"/api/teaching/review/{item.uid}/panel",
         hx_target=f"#panel-{dom_id}",
@@ -550,5 +550,5 @@ def render_class_member_row(item: ClassMember) -> Div:
             cls=ButtonT.ghost,
             size="sm",
         ),
-        card_attrs={"cls": "bg-background shadow-sm mb-2"},
+        card_attrs={"cls": "bg-background shadow-xs mb-2"},
     )

@@ -110,7 +110,7 @@ def HabitCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#habit-{safe_id(habit.uid)}",
         hx_swap="outerHTML",
-        cls=(ButtonT.default, "rounded"),
+        cls=(ButtonT.default, "rounded-sm"),
         size="sm",
         title=f"Mark as {new_status}",
     )

@@ -50,7 +50,7 @@ def _ingestion_card(
                 cls="space-y-4",
             ),
         ),
-        cls="bg-background shadow-sm border border-border",
+        cls="bg-background shadow-xs border border-border",
     )
 
 
@@ -99,7 +99,7 @@ function showLoading(btnEl) {
     _ingesting = true;
     const statusEl = document.getElementById('ingest-status');
     statusEl.innerHTML = `
-        <div class="flex items-center gap-3 rounded-lg border border-base-300 bg-base-200 p-4 text-sm shadow-sm">
+        <div class="flex items-center gap-3 rounded-lg border border-base-300 bg-base-200 p-4 text-sm shadow-xs">
             <span class="inline-block animate-spin rounded-full border-2 border-current border-t-transparent w-4 h-4 text-muted-foreground"></span>
             <span>Ingesting...</span>
         </div>`;
@@ -374,7 +374,7 @@ def build_ingestion_dashboard(vault_path: str) -> Any:
                 ),
             ),
             id="ingest-details-card",
-            cls="bg-background shadow-sm border border-border mt-3 hidden",
+            cls="bg-background shadow-xs border border-border mt-3 hidden",
         ),
         NotStr(_INGESTION_SCRIPT),
     )

@@ -52,7 +52,7 @@ def render_filters_section() -> Any:
         CardBody(
             _build_filter_form(),
         ),
-        cls="bg-background shadow-sm mb-6",
+        cls="bg-background shadow-xs mb-6",
     )
 
 
@@ -120,7 +120,7 @@ def render_batch_transcription_panel(
             Label("Audio Input Directory"),
             Code(
                 "",
-                cls="block text-sm font-mono bg-muted rounded px-2 py-1 mt-1",
+                cls="block text-sm font-mono bg-muted rounded-sm px-2 py-1 mt-1",
                 **{"x-text": "inputDir"},
             ),
             cls="mb-3",
@@ -129,7 +129,7 @@ def render_batch_transcription_panel(
             Label("Output Directory"),
             Code(
                 "",
-                cls="block text-sm font-mono bg-muted rounded px-2 py-1 mt-1",
+                cls="block text-sm font-mono bg-muted rounded-sm px-2 py-1 mt-1",
                 **{"x-text": "outputDir"},
             ),
             P(
@@ -193,7 +193,7 @@ def render_batch_transcription_panel(
                     cls="text-xs text-muted-foreground mt-3",
                 ),
             ),
-            cls="bg-background shadow-sm mb-4",
+            cls="bg-background shadow-xs mb-4",
         ),
         _render_batch_results(),
         **{"x-data": component_name},

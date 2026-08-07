@@ -39,7 +39,7 @@ def render_feedback_submission_form(submission_uid: str) -> Any:
                         id="feedback_file",
                         accept=".md",
                         required=True,
-                        cls="block w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer",
+                        cls="block w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded-sm file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer",
                     ),
                     cls="mb-4",
                 ),
@@ -52,7 +52,7 @@ def render_feedback_submission_form(submission_uid: str) -> Any:
             ),
             Div(id="review-result", cls="mt-4"),
         ),
-        cls="bg-background shadow-sm mb-3",
+        cls="bg-background shadow-xs mb-3",
     )
 
 
@@ -91,7 +91,7 @@ def render_revision_request_form(submission_uid: str) -> Any:
                 hx_swap="innerHTML",
             ),
         ),
-        cls="bg-background shadow-sm",
+        cls="bg-background shadow-xs",
     )
 
 
@@ -122,7 +122,7 @@ def render_waiting_actions(submission_uid: str) -> Any:
             ),
             Div(id="review-result", cls="mt-4"),
         ),
-        cls="bg-background shadow-sm",
+        cls="bg-background shadow-xs",
     )
 
 
@@ -192,7 +192,7 @@ def render_submission_metadata(submission: Any, template: Any | None) -> Div:
                 cls="py-2",
             ),
         )
-    return Div(*meta_items, cls="border border-border rounded p-4 mb-6")
+    return Div(*meta_items, cls="border border-border rounded-sm p-4 mb-6")
 
 
 def render_form_responses_section(
@@ -203,5 +203,5 @@ def render_form_responses_section(
     return Div(
         P("Responses", cls="text-base font-semibold mb-3"),
         render_form_data_detail(form_data, form_schema),
-        cls="border border-border rounded p-4",
+        cls="border border-border rounded-sm p-4",
     )

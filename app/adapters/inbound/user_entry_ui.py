@@ -731,7 +731,7 @@ def create_user_entry_ui_routes(
                     cls="mt-4",
                 ),
             ),
-            cls="bg-background shadow-sm",
+            cls="bg-background shadow-xs",
         )
 
         # Responses section (ADR-069) — EntryReports pointing at this entry,

@@ -60,7 +60,7 @@ def render_queue_item(item: QueueItem) -> Div:
             cls=ButtonT.primary,
             size="sm",
         ),
-        card_attrs={"cls": "bg-background shadow-sm mb-2"},
+        card_attrs={"cls": "bg-background shadow-xs mb-2"},
     )
 
 
@@ -92,7 +92,7 @@ def render_student_summary_card(item: StudentSummary) -> Div:
             ),
             cls="flex gap-2",
         ),
-        card_attrs={"cls": "bg-background shadow-sm mb-2"},
+        card_attrs={"cls": "bg-background shadow-xs mb-2"},
     )
 
 
@@ -104,7 +104,7 @@ def render_student_name_row(student_name: str, student_uid: str) -> Div:
             href=f"/teaching/students/{student_uid}",
             cls="text-base font-medium text-foreground hover:text-primary transition-colors no-underline",
         ),
-        cls="px-4 py-3 bg-background border border-border rounded mb-2 hover:bg-muted/50 transition-colors",
+        cls="px-4 py-3 bg-background border border-border rounded-sm mb-2 hover:bg-muted/50 transition-colors",
     )
 
 
@@ -135,5 +135,5 @@ def render_class_card(item: ClassSummary) -> Div:
             cls=ButtonT.primary,
             size="sm",
         ),
-        card_attrs={"cls": "bg-background shadow-sm mb-2"},
+        card_attrs={"cls": "bg-background shadow-xs mb-2"},
     )

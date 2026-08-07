@@ -28,5 +28,5 @@ def SettingToggle(name: str, description: str, enabled: bool = True) -> Div:
             cls="flex justify-between items-center",
         ),
         P(description, cls="text-sm text-muted-foreground mt-1"),
-        cls="p-3 border border-border rounded cursor-pointer hover:bg-muted",
+        cls="p-3 border border-border rounded-sm cursor-pointer hover:bg-muted",
     )

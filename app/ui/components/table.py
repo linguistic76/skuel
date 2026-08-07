@@ -55,7 +55,7 @@ def Th(*c: Any, cls: str | tuple = "", **kwargs: Any) -> Any:  # boundary: fasth
     return fh.Th(
         *c,
         cls=_cls(
-            "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+            "h-12 px-4 text-left align-middle font-medium text-muted-foreground has-[[role=checkbox]]:pr-0",
             cls,
         ),
         **kwargs,
@@ -63,7 +63,7 @@ def Th(*c: Any, cls: str | tuple = "", **kwargs: Any) -> Any:  # boundary: fasth
 
 
 def Td(*c: Any, cls: str | tuple = "", **kwargs: Any) -> Any:  # boundary: fasthtml-elements
-    return fh.Td(*c, cls=_cls("p-4 align-middle [&:has([role=checkbox])]:pr-0", cls), **kwargs)
+    return fh.Td(*c, cls=_cls("p-4 align-middle has-[[role=checkbox]]:pr-0", cls), **kwargs)
 
 
 def TableFromLists(

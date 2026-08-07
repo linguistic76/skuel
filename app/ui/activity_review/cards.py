@@ -47,7 +47,7 @@ def render_queue_item(item: dict[str, Any]) -> Any:
                 cls=ButtonT.primary,
                 size="sm",
             ),
-            cls="bg-background shadow-sm mb-3 p-4",
+            cls="bg-background shadow-xs mb-3 p-4",
         ),
     )
 

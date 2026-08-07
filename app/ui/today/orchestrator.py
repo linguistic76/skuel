@@ -12,7 +12,7 @@ See ``docs/design-handoff/today/today.md`` for the design spec and
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus, Priority, TimeOfDay
@@ -481,12 +481,15 @@ def _build_ribbon(
     ``_DORMANCY_DAYS``. One LifePath per user is a design invariant, so
     this produces exactly one ribbon (callers wrap it in a length-1 list).
     """
-    now = datetime.now()
+    now = datetime.now(UTC)
     touched_ats: list[datetime] = []
     for t in all_tasks:
         touched = t.updated_at or t.created_at
         if isinstance(touched, datetime):
-            touched_ats.append(touched)
+            # Task stamps have mixed provenance — naive values are UTC by
+            # convention (see core/utils/timestamp_helpers.parse_iso_utc);
+            # normalizing keeps max() and the subtraction below TypeError-free.
+            touched_ats.append(touched if touched.tzinfo else touched.replace(tzinfo=UTC))
     last_touched_at: datetime | None = max(touched_ats) if touched_ats else None
 
     dormant = False

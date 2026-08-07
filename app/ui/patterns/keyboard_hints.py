@@ -14,7 +14,7 @@ from fasthtml.common import Div, Kbd, Span
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
-_KBD_CLS = "px-1.5 py-0.5 border border-border rounded bg-muted text-[11px]"
+_KBD_CLS = "px-1.5 py-0.5 border border-border rounded-sm bg-muted text-[11px]"
 
 
 def keyboard_hint(label: str, *keys: str) -> FT:

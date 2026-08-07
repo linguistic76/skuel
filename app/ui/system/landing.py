@@ -59,7 +59,7 @@ def render_login_landing_page() -> Any:
                 ),
                 cls="max-w-md",
             ),
-            cls="hidden lg:flex lg:w-1/2 flex-col justify-center px-16 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800",
+            cls="hidden lg:flex lg:w-1/2 flex-col justify-center px-16 bg-linear-to-br from-blue-600 via-blue-700 to-indigo-800",
         ),
         # Right side: Login form
         Div(

@@ -23,21 +23,21 @@ __all__ = [
 _INPUT_BASE = (
     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm "
     "ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium "
-    "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 "
+    "placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 "
     "focus-visible:ring-ring focus-visible:ring-offset-2 "
     "disabled:cursor-not-allowed disabled:opacity-50"
 )
 
 _TEXTAREA_BASE = (
     "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm "
-    "ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none "
+    "ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden "
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 "
     "disabled:cursor-not-allowed disabled:opacity-50"
 )
 
 _SELECT_BASE = (
     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm "
-    "ring-offset-background focus-visible:outline-none focus-visible:ring-2 "
+    "ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 "
     "focus-visible:ring-ring focus-visible:ring-offset-2 "
     "disabled:cursor-not-allowed disabled:opacity-50"
 )
@@ -225,7 +225,9 @@ def LabelCheckbox(
     checkbox_id = str(kwargs.pop("id", kwargs.get("name", "checkbox")))
     return Div(
         Div(
-            fh.Input(type="checkbox", cls="h-4 w-4 rounded border-input", id=checkbox_id, **kwargs),
+            fh.Input(
+                type="checkbox", cls="h-4 w-4 rounded-sm border-input", id=checkbox_id, **kwargs
+            ),
             Label(label, cls="ml-2", fr=checkbox_id),
             cls="flex items-center",
         ),
@@ -235,7 +237,7 @@ def LabelCheckbox(
 
 def Checkbox(cls: str = "", **kwargs: Any) -> Any:
     """Standalone checkbox input (no label). Use LabelCheckbox when a label is needed."""
-    return fh.Input(type="checkbox", cls=_cls("h-4 w-4 rounded border-input", cls), **kwargs)
+    return fh.Input(type="checkbox", cls=_cls("h-4 w-4 rounded-sm border-input", cls), **kwargs)
 
 
 def Switch(cls: str = "", checked: bool = False, **kwargs: Any) -> Any:

@@ -131,7 +131,7 @@ class TestHealthBridge:
 
     def test_health_bg_class_invalid(self) -> None:
         result = get_health_bg_class("invalid")
-        assert result == "bg-background border-border shadow-sm"
+        assert result == "bg-background border-border shadow-xs"
 
     def test_health_dot_class_valid(self) -> None:
         result = get_health_dot_class("healthy")

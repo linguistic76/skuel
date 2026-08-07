@@ -9,7 +9,7 @@ __all__ = ["Card", "CardBody", "CardFooter", "CardHeader", "CardTitle"]
 
 def Card(*c: Any, cls: str | tuple = "", **kwargs: Any) -> Any:  # boundary: fasthtml-elements
     return Div(
-        *c, cls=_cls("rounded-lg border bg-card text-card-foreground shadow-sm", cls), **kwargs
+        *c, cls=_cls("rounded-lg border bg-card text-card-foreground shadow-xs", cls), **kwargs
     )
 
 

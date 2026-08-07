@@ -72,7 +72,7 @@ def RelationshipGraphView(
             Div(
                 Div(
                     id=f"network-{entity_uid}",
-                    cls="w-full h-96 border border-border rounded",
+                    cls="w-full h-96 border border-border rounded-sm",
                 ),
                 **{
                     "x-data": f"relationshipGraph('{entity_uid}', '{entity_type}', {depth})",
