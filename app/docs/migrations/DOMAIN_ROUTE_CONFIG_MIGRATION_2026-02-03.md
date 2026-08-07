@@ -589,6 +589,10 @@ Consider extending pattern for:
 
 ### Remaining Migrations
 
+> **Snapshot as of 2026-02-03 — not a live backlog.** The lists below are kept unedited as the historical record of what Phase 3 left outstanding. They have not been maintained since, and are wrong about the present in both directions: three of the files named here have been deleted (`graphql_routes.py` #814, `monitoring_routes.py` #803, `timeline_routes.py` #934), while several entries filed under "Potentially Feasible" or "Complex/Leave As-Is" did migrate (`search_routes.py`, `hierarchy_routes.py`, `orchestration_routes.py`, `advanced_routes.py`). Two more — `assessment_routes.py` and `user_routes.py` — were never added to the repository in any commit, so parts of this list were aspirational rather than descriptive even in February. `lateral_routes.py` did not migrate and is now documented as Pattern B (Orchestrator-Driven) rather than a pending migration. The "90%+ adoption" target was never grounded in a stated denominator; measured adoption is 71% of bootstrap Section 2 as of 2026-08-04.
+>
+> **Current state:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` § Current Users.
+
 Consider migrating 14 remaining files (currently "justified exceptions"):
 
 **Migrated in Phase 6 (2):**
@@ -960,6 +964,8 @@ async def page_route(request: Request) -> Any:
 ---
 
 ### Remaining Migrations
+
+> **Snapshot as of 2026-02-03 — not a live backlog.** Same caveat as the Phase 3 list above; kept unedited as a historical record. Current state: `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` § Current Users.
 
 After Phase 4, **12 files remain** not using DomainRouteConfig.
 
