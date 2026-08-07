@@ -116,6 +116,9 @@ dev = [
     "pip-audit>=2.10.1",
     "tree-sitter>=0.26.0",
     "tree-sitter-bash>=0.25.1",
+    # Vendors the official ShellCheck binary as a wheel — `uv run shellcheck` works
+    # with no system package, same toolchain locally and in CI. Backs quality check 9.
+    "shellcheck-py>=0.11.0.1",
 ]
 
 [build-system]
