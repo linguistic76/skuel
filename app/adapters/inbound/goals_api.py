@@ -219,25 +219,6 @@ def create_goals_api_routes(
             parsed.value, ctx_result.value, check_capacity
         )
 
-    @rt("/api/goals/create-with-learning-scheduling", methods=["POST"])
-    @csrf_protected
-    @boundary_handler()
-    async def goal_create_with_learning_scheduling(request: Request) -> Result[Goal]:
-        """Create a goal aligned with the user's active learning paths.
-
-        Body: GoalCreateRequest JSON
-        """
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, GoalCreateRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        ctx_result = await fetch_context(user_uid)
-        if ctx_result.is_error:
-            return Result.fail(ctx_result)
-        return await goals_service.create_goal_with_learning_scheduling(
-            parsed.value, None, ctx_result.value
-        )
-
     # ================================================================
     # CROSS-DOMAIN LINKS + KNOWLEDGE INTELLIGENCE
     # ================================================================
@@ -290,7 +271,6 @@ def create_goals_api_routes(
         goals_achievable,
         goals_advancing,
         goal_create_with_scheduling,
-        goal_create_with_learning_scheduling,
         *link_routes,
         knowledge_patterns_route,
     ]

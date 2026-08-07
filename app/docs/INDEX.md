@@ -423,6 +423,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Description |
 |----------|---------|-------------|
+| [The learning-aligned create verb](roadmap/learning-aligned-create-verb.md) | 2026-08-06 | Ideas preserved from the deleted LearningAlignmentBridge create half: act-on-a-learning-recommendation and LP→calendar schedule, with the primitive/template build surface to use when either becomes a lived need; census of remaining dict-door creates (GoalTaskGenerator, HabitEventScheduler) |
 | [Feedback-Loop UX — Design & Choices (Arc 1)](roadmap/feedback-loop-ux-arc.md) | 2026-08-01 | The teacher↔student exchange made correct, legible, and threaded: C1 report-visibility convergence on student `OWNS` (`ASSESSMENT_OF` deleted), C2 needs-review single source, C3 human report titles, C4 Shared-With-Me context join, C5 `/exchange` thread view |
 | [Feedback-Loop UX — Design & Choices (Arc 2)](roadmap/feedback-loop-ux-arc2.md) | 2026-08-01 | "Where do I stand?" in both directions: C1 GradeBook 3→1 per-exercise lines, C2 student waiting/source chips, C3 teacher Waiting-for-resubmit queue view, C4 Shared-With-Me filters + inbox identity |
 | [BGE Embeddings Migration (ADR-083 Arc 3)](roadmap/bge-embeddings-migration.md) | 2026-07-24 | Cutover from OpenAI to BGE-M3 embeddings: factory swap + `EMBEDDINGS_PROVIDER` env var, `EMBEDDING_VERSION` v3→v4, `HF_API_TOKEN`, batch re-embed; no index rebuild (both 1024-dim); independent of Arc 2 |

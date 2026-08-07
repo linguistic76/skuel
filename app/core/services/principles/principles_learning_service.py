@@ -157,7 +157,6 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             service=self,
             backend_get=self.backend.get,
             backend_get_user=self.backend.get_user_principles,
-            backend_create=self.backend.create_principle,
             domain=Domain.PRINCIPLES,
             entity_name="principle",
             alignment_scorer=_calculate_virtue_embodiment_score,

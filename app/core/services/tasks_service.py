@@ -249,7 +249,7 @@ class TasksService(
     - Core CRUD: get_task, get_user_tasks, list_tasks, update_task, delete_task
     - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized, etc.
     - Progress: check_prerequisites, unblock_task_if_ready, record_task_completion, etc.
-    - Scheduling: create_task_with_context, create_task_with_learning_context, etc.
+    - Scheduling: create_task_with_context, create_task_from_path_step, etc.
     - Learning: get_learning_relevant_tasks, get_next_learning_task, suggest_learning_aligned_tasks
     - Analytics: analyze_learning_patterns, generate_task_insights, etc.
 
@@ -683,16 +683,6 @@ class TasksService(
         self, task_data: TaskCreateRequest, user_context: UserContext
     ) -> Result[Task]:
         return await self.scheduling.create_task_with_context(task_data, user_context)
-
-    async def create_task_with_learning_context(
-        self,
-        task_request: TaskCreateRequest,
-        learning_position: LpPosition | None = None,
-        context: UserContext | None = None,
-    ) -> Result[Task]:
-        return await self.scheduling.create_task_with_learning_context(
-            task_request, learning_position, context
-        )
 
     async def create_tasks_from_learning_path(
         self, learning_path_uid: str, _user_context: UserContext

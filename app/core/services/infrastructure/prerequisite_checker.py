@@ -14,8 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypedDict
 
-from core.utils.result_simplified import Errors, Result
-
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
 
@@ -100,15 +98,6 @@ class PrerequisiteChecker:
             context=user_context,
         )
         score = result.score  # 0.0-1.0
-
-        # For validation (Scheduling)
-        validation = PrerequisiteChecker.validate_prerequisites(
-            required_knowledge_uids=["ku.python"],
-            required_task_uids=["task.setup"],
-            context=user_context,
-        )
-        if validation.is_error:
-            return validation  # Propagate error
     """
 
     @staticmethod
@@ -180,58 +169,6 @@ class PrerequisiteChecker:
             missing_tasks=tuple(missing_tasks),
             blocking_reasons=tuple(blocking_reasons),
         )
-
-    @staticmethod
-    def validate_prerequisites(
-        required_knowledge_uids: list[str] | None,
-        required_task_uids: list[str] | None,
-        context: UserContext | None,
-        mastery_threshold: float = DEFAULT_MASTERY_THRESHOLD,
-    ) -> Result[None]:
-        """
-        Validate prerequisites - returns Result for use in creation flows.
-
-        This wraps check_prerequisites() for scheduling/creation validation.
-
-        Args:
-            required_knowledge_uids: Knowledge UIDs that must be mastered (or None)
-            required_task_uids: Task UIDs that must be completed (or None)
-            context: User context (if None, validation is skipped)
-            mastery_threshold: Minimum mastery level (default 0.7)
-
-        Returns:
-            Result.ok(None) if valid, Result.fail() with missing prerequisites
-        """
-        # Skip validation if no context provided
-        if context is None:
-            return Result.ok(None)
-
-        # Normalize None to empty lists
-        knowledge_uids = required_knowledge_uids or []
-        task_uids = required_task_uids or []
-
-        # No prerequisites = valid
-        if not knowledge_uids and not task_uids:
-            return Result.ok(None)
-
-        result = PrerequisiteChecker.check_prerequisites(
-            required_knowledge_uids=knowledge_uids,
-            required_task_uids=task_uids,
-            context=context,
-            mastery_threshold=mastery_threshold,
-        )
-
-        if result.is_ready:
-            return Result.ok(None)
-
-        # Build error message
-        errors: list[str] = []
-        if result.missing_knowledge:
-            errors.append(f"Missing prerequisite knowledge: {', '.join(result.missing_knowledge)}")
-        if result.missing_tasks:
-            errors.append(f"Missing prerequisite tasks: {', '.join(result.missing_tasks)}")
-
-        return Result.fail(Errors.validation("; ".join(errors)))
 
     @staticmethod
     def calculate_readiness_score(

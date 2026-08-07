@@ -21,12 +21,10 @@ and learning path integration for goal creation.
 - Timeline suggestions based on velocity
 - Goal sequencing optimization
 - Schedule-aware recommendations
-- Learning path integration
 
 **Methods:**
 - check_goal_capacity(): Can user handle another active goal?
 - create_goal_with_context(): Context-validated goal creation
-- create_goal_with_learning_context(): Create with learning alignment
 - suggest_goal_timeline(): Recommend target date based on complexity
 - adjust_target_date_from_velocity(): Recalibrate based on progress
 - get_schedule_aware_next_goal(): Best goal to focus on now
@@ -37,11 +35,10 @@ and learning path integration for goal creation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.events import GoalCreated, publish_event
-from core.models.enums import Domain, EntityStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
@@ -50,15 +47,14 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import LearningAlignmentBridge
 from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_value_getter
 
 if TYPE_CHECKING:
-    from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.goals.goals_core_service import GoalsCoreService
     from core.services.goals.goals_progress_service import GoalsProgressService
     from core.services.user.unified_user_context import UserContext
 
@@ -205,6 +201,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     def __init__(
         self,
         backend: GoalsOperations,
+        core: GoalsCoreService,
         progress_service: GoalsProgressService | None = None,
         event_bus: EventBusOperations | None = None,
     ) -> None:
@@ -213,22 +210,16 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
         Args:
             backend: Protocol-based backend for goal operations
+            core: GoalsCoreService — THE create primitive; the context door
+                delegates its create step to it (same sibling-injection shape as
+                TasksSchedulingService)
             progress_service: For analyzing velocity/progress (optional)
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "goals.scheduling")
+        self.core = core
         self.progress = progress_service
         self.event_bus = event_bus
-
-        # Initialize LearningAlignmentBridge for curriculum integration
-        self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
-            service=self,
-            backend_get=self.backend.get,
-            backend_get_user=self.backend.get_user_goals,
-            backend_create=self.backend.create_goal,
-            domain=Domain.GOALS,
-            entity_name="goal",
-        )
 
     # ========================================================================
     # CAPACITY MANAGEMENT
@@ -465,107 +456,21 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
                     f"Goal has {len(inactive_habits)} supporting habits that aren't active"
                 )
 
-        # Step 4: Create goal via backend
-        request_dict = goal_data.model_dump()
-        request_dict["user_uid"] = user_context.user_uid
-
-        # Set default target date if not provided
-        if not request_dict.get("target_date"):
+        # Step 4: Default the target date, then create through THE create primitive.
+        # This step used to hand goal_data.model_dump() to the dict-based
+        # backend.create_goal alias — a door that resolves to create(entity), so
+        # every call through POST /api/goals/create-with-scheduling persisted a
+        # corrupt uid-less node and then errored (fixed 2026-08-06). The primitive
+        # builds the frozen Goal, writes the request's link edges through the
+        # admission guard, and publishes GoalCreated after they exist — so no local
+        # event publish here.
+        if not goal_data.target_date:
             default_days = DEFAULT_DAYS_BY_TIMEFRAME.get(goal_data.timeframe, 90)
-            request_dict["target_date"] = date.today() + timedelta(days=default_days)
-
-        create_result = await self.backend.create_goal(request_dict)
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        goal = self._to_domain_model(create_result.value, GoalDTO, Goal)
-
-        # Step 5: Publish event
-        event = GoalCreated(
-            goal_uid=goal.uid,
-            user_uid=goal.user_uid,
-            title=goal.title,
-            domain=goal.domain.value if goal.domain else None,
-            target_date=datetime.combine(goal.target_date, datetime.min.time())
-            if goal.target_date
-            else None,
-            is_milestone=goal.goal_type == GoalType.MILESTONE,
-            parent_goal_uid=goal.parent_goal_uid,
-        )
-        await publish_event(self.event_bus, event, self.logger)
-
-        self.logger.info(
-            f"Created goal '{goal.title}' for user {user_context.user_uid} "
-            f"(type={goal.goal_type.value if goal.goal_type else 'unknown'}, timeframe={goal.timeframe.value if goal.timeframe else 'unknown'})"
-        )
-
-        return Result.ok(goal)
-
-    @with_error_handling("create_goal_with_learning_context", error_type="database")
-    async def create_goal_with_learning_context(
-        self,
-        goal_data: GoalCreateRequest,
-        learning_position: LpPosition | None,
-        user_context: UserContext,
-    ) -> Result[Goal]:
-        """
-        Create a goal aligned with learning path.
-
-        Combines capacity checking with learning alignment assessment.
-
-        Args:
-            goal_data: Goal creation request
-            learning_position: User's learning path position
-            user_context: User context for validation
-
-        Returns:
-            Result containing created goal with learning alignment
-        """
-        # Check capacity first
-        capacity_result = await self.check_goal_capacity(
-            user_uid=user_context.user_uid,
-            proposed_type=goal_data.goal_type,
-            proposed_timeframe=goal_data.timeframe,
-            proposed_priority=goal_data.priority,
-        )
-        if capacity_result.is_error:
-            return Result.fail(capacity_result)
-
-        if not capacity_result.value.can_add_goal:
-            return Result.fail(
-                Errors.validation(
-                    message="Goal capacity exceeded. Archive or complete some goals first.",
-                    field="capacity",
-                )
+            goal_data = goal_data.model_copy(
+                update={"target_date": date.today() + timedelta(days=default_days)}
             )
 
-        # Use LearningAlignmentBridge for creation
-        custom_fields = {"user_uid": user_context.user_uid}
-
-        result = await self.learning_helper.create_with_learning_alignment(
-            request=goal_data,
-            learning_position=learning_position,
-            context=user_context,
-            custom_fields=custom_fields,
-        )
-
-        if result.is_ok:
-            goal = result.value
-            # Publish event
-            event = GoalCreated(
-                goal_uid=goal.uid,
-                user_uid=goal.user_uid,
-                title=goal.title,
-                domain=goal.domain.value if goal.domain else None,
-                target_date=datetime.combine(goal.target_date, datetime.min.time())
-                if goal.target_date
-                else None,
-                is_milestone=goal.goal_type == GoalType.MILESTONE,
-                parent_goal_uid=goal.parent_goal_uid,
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-        return result
+        return await self.core.create_goal(goal_data, user_context.user_uid)
 
     # ========================================================================
     # TIMELINE INTELLIGENCE

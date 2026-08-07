@@ -20,7 +20,7 @@ Event completed → CalendarEventCompleted event → LessonPracticeService.handl
     → Publish KnowledgePracticed event
 
 APPLIES_KNOWLEDGE is THE Event→Ku edge (EVENTS_CONFIG registry, Edge-YAML
-`connections.applies_knowledge`, create_study_session). The seeds below MERGE
+`connections.applies_knowledge`, link_event_to_knowledge). The seeds below MERGE
 the same edge the real writers write — a seed-and-match guard: if the read in
 find_kus_practiced_by_event drifts to an unwritten edge again (the former
 [:PRACTICES], 2026-07-10 audit), these tests fail.
@@ -139,7 +139,7 @@ class TestEventKuPracticeFlow:
 
         # Create graph relationships: (Event)-[:APPLIES_KNOWLEDGE]->(KU) —
         # the canonical writer-backed Event→Ku edge (matches EVENTS_CONFIG,
-        # Edge-YAML ingestion, and create_study_session).
+        # Edge-YAML ingestion, and the link_event_to_knowledge facade).
         async with neo4j_driver.session() as session:
             for ku in kus:
                 await session.run(

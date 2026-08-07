@@ -142,15 +142,16 @@ class TestHabitsServiceCompletion:
 
 class TestHabitsServiceOrchestration:
     @pytest.mark.asyncio
-    async def test_create_habit_with_context_delegates_to_learning(
+    async def test_create_habit_with_context_creates_via_core_primitive(
         self, habits_service: HabitsService
     ) -> None:
-        """create_habit_with_context delegates to learning.create_habit_with_learning_alignment."""
+        """create_habit_with_context creates via core.create_habit — THE create
+        primitive (events, guarded link edges). The create step used to run through
+        the learning bridge's dict-based create, which persisted a corrupt uid-less
+        node and then errored (deleted 2026-08-06)."""
         mock_habit = Mock()
         mock_habit.uid = "habit_abc"
-        habits_service.learning.create_habit_with_learning_alignment = AsyncMock(
-            return_value=Result.ok(mock_habit)
-        )
+        habits_service.core.create_habit = AsyncMock(return_value=Result.ok(mock_habit))
 
         habit_data = Mock()
         habit_data.linked_goal_uids = None
@@ -163,16 +164,14 @@ class TestHabitsServiceOrchestration:
         result = await habits_service.create_habit_with_context(habit_data, user_context)
 
         assert result.is_ok
-        habits_service.learning.create_habit_with_learning_alignment.assert_called_once_with(
-            habit_data, None
-        )
+        habits_service.core.create_habit.assert_called_once_with(habit_data, "user_test")
 
     @pytest.mark.asyncio
-    async def test_create_habit_with_context_propagates_learning_error(
+    async def test_create_habit_with_context_propagates_create_error(
         self, habits_service: HabitsService
     ) -> None:
-        """create_habit_with_context propagates error from learning sub-service."""
-        habits_service.learning.create_habit_with_learning_alignment = AsyncMock(
+        """create_habit_with_context propagates error from the create primitive."""
+        habits_service.core.create_habit = AsyncMock(
             return_value=Result.fail(Errors.database("query", "DB error"))
         )
 

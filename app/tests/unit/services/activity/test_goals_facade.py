@@ -82,15 +82,16 @@ class TestGoalsServiceCreate:
 
 class TestGoalsServiceOrchestration:
     @pytest.mark.asyncio
-    async def test_create_goal_with_context_no_prereqs_calls_learning(
+    async def test_create_goal_with_context_no_prereqs_calls_core_primitive(
         self, goals_service: GoalsService
     ) -> None:
-        """create_goal_with_context with no prereqs calls learning sub-service."""
+        """create_goal_with_context with no prereqs creates via core.create_goal —
+        THE create primitive (events, guarded link edges). The create step used to
+        run through the learning bridge's dict-based create, which persisted a
+        corrupt uid-less node and then errored (deleted 2026-08-06)."""
         mock_goal = Mock()
         mock_goal.uid = "goal_abc"
-        goals_service.learning.create_goal_with_learning_integration = AsyncMock(
-            return_value=Result.ok(mock_goal)
-        )
+        goals_service.core.create_goal = AsyncMock(return_value=Result.ok(mock_goal))
 
         goal_data = Mock()
         goal_data.required_knowledge_uids = None
@@ -104,9 +105,7 @@ class TestGoalsServiceOrchestration:
         result = await goals_service.create_goal_with_context(goal_data, user_context)
 
         assert result.is_ok
-        goals_service.learning.create_goal_with_learning_integration.assert_called_once_with(
-            goal_data, None
-        )
+        goals_service.core.create_goal.assert_called_once_with(goal_data, "user_test")
 
     @pytest.mark.asyncio
     async def test_create_goal_with_context_missing_prereqs_fails_validation(
@@ -124,8 +123,8 @@ class TestGoalsServiceOrchestration:
         result = await goals_service.create_goal_with_context(goal_data, user_context)
 
         assert result.is_error
-        # Learning service should NOT be called
-        goals_service.learning.create_goal_with_learning_integration.assert_not_called()
+        # The create primitive should NOT be reached
+        goals_service.core.create_goal.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_create_goal_with_context_inactive_habit_fails_validation(
@@ -143,14 +142,14 @@ class TestGoalsServiceOrchestration:
         result = await goals_service.create_goal_with_context(goal_data, user_context)
 
         assert result.is_error
-        goals_service.learning.create_goal_with_learning_integration.assert_not_called()
+        goals_service.core.create_goal.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_create_goal_with_context_propagates_learning_error(
+    async def test_create_goal_with_context_propagates_create_error(
         self, goals_service: GoalsService
     ) -> None:
-        """create_goal_with_context propagates failure from learning sub-service."""
-        goals_service.learning.create_goal_with_learning_integration = AsyncMock(
+        """create_goal_with_context propagates failure from the create primitive."""
+        goals_service.core.create_goal = AsyncMock(
             return_value=Result.fail(Errors.database("query", "DB error"))
         )
 

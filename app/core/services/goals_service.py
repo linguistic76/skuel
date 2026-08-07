@@ -201,7 +201,7 @@ class GoalsService(
     Delegations (explicit methods):
     - Core: get_goal, get_user_goals, get_user_items_in_range, activate/pause/complete/archive
     - Progress: calculate_goal_progress_with_context, complete_milestone, etc.
-    - Learning: create_goal_with_learning_integration, assess_goal_learning_alignment, etc.
+    - Learning: assess_goal_learning_alignment, suggest_learning_aligned_goals, etc.
     - Search: get_upcoming, get_overdue, get_active, etc.
     - Intelligence: get_goal_progress_dashboard, etc.
     - Scheduling: check_goal_capacity, suggest_goal_timeline, assess_goal_achievability, etc.
@@ -412,12 +412,6 @@ class GoalsService(
         return await self.progress.get_goal_milestones(uid)
 
     # Learning delegations
-    async def create_goal_with_learning_integration(
-        self, goal_request: GoalCreateRequest, learning_position: LpPosition | None = None
-    ) -> Result[Goal]:
-        return await self.learning.create_goal_with_learning_integration(
-            goal_request, learning_position
-        )
 
     async def assess_goal_learning_alignment(
         self, goal_uid: str, learning_position: LpPosition
@@ -533,16 +527,6 @@ class GoalsService(
             goal_data, user_context, check_capacity
         )
 
-    async def create_goal_with_learning_scheduling(
-        self,
-        goal_data: GoalCreateRequest,
-        learning_position: LpPosition | None,
-        user_context: UserContext,
-    ) -> Result[Goal]:
-        return await self.scheduling.create_goal_with_learning_context(
-            goal_data, learning_position, user_context
-        )
-
     def __init__(
         self,
         backend: GoalsOperations,
@@ -621,8 +605,11 @@ class GoalsService(
         self.event_handler: GoalEventHandlerService = common.event_handler
 
         # January 2026: Scheduling service for capacity and timeline management
+        # Holds core so its create door runs through THE create primitive
+        # (events, embedding request, guarded link edges) instead of backend dicts.
         self.scheduling = GoalsSchedulingService(
             backend=backend,
+            core=self.core,
             progress_service=self.progress,
             event_bus=event_bus,
         )

@@ -61,7 +61,6 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
             service=self,
             backend_get=self.backend.get_task,
             backend_get_user=self.backend.get_user_tasks,
-            backend_create=self.backend.create_task,
             domain=Domain.TASKS,
             entity_name="task",
         )

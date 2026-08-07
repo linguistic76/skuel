@@ -390,9 +390,10 @@ class HabitsCoreService(
     async def _publish_knowledge_substance(self, habit: Habit, knowledge_uids: list[str]) -> None:
         """Announce knowledge built into this habit — single event for 1, bulk for 2+.
 
-        Same shape as ``TasksCoreService.create_task`` and
-        ``HabitsLearningService.create_habit_with_learning_alignment``, which was the
-        only publisher until ``create_habit`` started writing these edges at all.
+        Same shape as ``TasksCoreService.create_task``. The learning bridge's
+        create wrapper was the only publisher until ``create_habit`` started writing
+        these edges at all; that wrapper was deleted 2026-08-06 (broken dict-door
+        create), leaving this the one publisher.
         """
         if not knowledge_uids:
             return

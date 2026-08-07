@@ -38,7 +38,11 @@ result = PrerequisiteChecker.check_prerequisites(
 | `missing_tasks` | `tuple[str, ...]` | task UIDs not yet completed |
 | `blocking_reasons` | `tuple[str, ...]` | human-readable, capped (default 3) |
 
-`validate_prerequisites(...)` wraps the same call for Result-based flows (scheduling, creation).
+There is deliberately no Result-returning wrapper: `validate_prerequisites(...)` was
+deleted 2026-08-06 with its one caller (the learning bridge's create half — see
+`/docs/roadmap/learning-aligned-create-verb.md`). Creation-time prerequisite gates
+live in the context doors (`create_task_with_context` and siblings), which check
+UserContext sets directly and then create through the domain's core primitive.
 
 ## `build_learning_requirements` → `LearningRequirements`
 

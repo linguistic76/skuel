@@ -49,7 +49,7 @@ class _OrchestrationMixin:
         This method orchestrates multiple checks:
         1. Knowledge prerequisites validation
         2. Habit availability validation
-        3. Goal creation via learning service
+        3. Goal creation via the core create primitive (events, guarded link edges)
         4. Context invalidation
         """
         # Check knowledge prerequisites
@@ -84,8 +84,12 @@ class _OrchestrationMixin:
                     )
                 )
 
-        # Create goal through learning service (handles DTO creation)
-        result = await self.learning.create_goal_with_learning_integration(goal_data, None)
+        # Gates hold — the core primitive does everything else: builds the frozen
+        # Goal, writes the request's link edges through the admission guard, and
+        # publishes GoalCreated after they exist. (This step used to run through the
+        # learning bridge's dict-based create, which persisted a corrupt uid-less
+        # node and then errored — deleted 2026-08-06.)
+        result = await self.core.create_goal(goal_data, user_context.user_uid)
         if result.is_error:
             return result
 

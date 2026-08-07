@@ -13,17 +13,13 @@ This service handles:
 - Curriculum-based task creation
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.models.enums import Domain, EntityStatus, Priority
-from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.lp_position import LpPosition
-from core.models.pathways.path_step import PathStep
-from core.models.task.task_dto import TaskDTO
+from core.models.enums import EntityStatus, Priority
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
@@ -89,47 +85,6 @@ def user_context() -> UserContext:
         completed_task_uids={"task:completed_1"},
         active_goal_uids={"goal:learn_python"},
         active_habit_uids={"habit:daily_code"},
-    )
-
-
-@pytest.fixture
-def learning_position() -> LpPosition:
-    """Create sample learning position."""
-    # Create path steps (Entity with entity_type=PATH_STEP)
-    step1 = PathStep(
-        uid="ps:python_fundamentals",
-        title="Python Fundamentals",
-        intent="Learn Python basics",
-        knowledge_uids=("ku.python.basics",),
-        mastery_threshold=0.8,
-        estimated_hours=10.0,
-    )
-    step2 = PathStep(
-        uid="ps:python_advanced",
-        title="Python Advanced",
-        intent="Master advanced Python concepts",
-        knowledge_uids=("ku.python.advanced",),
-        mastery_threshold=0.85,
-        estimated_hours=20.0,
-    )
-
-    # Create learning path (LearningPath)
-    path = LearningPath(
-        uid="lp:python_mastery",
-        title="Python Mastery",
-        description="Master Python programming",
-        domain=Domain.TECH,
-        metadata={"steps": [step1, step2]},
-    )
-
-    return LpPosition(
-        user_uid="user_123",
-        active_paths=[path],
-        current_steps={"lp:python_mastery": step1},
-        completed_step_uids=set(),
-        next_recommended=["ps:python_advanced"],
-        generated_at=datetime.now(),
-        readiness_scores={"ps:python_advanced": 0.8},
     )
 
 
@@ -218,49 +173,6 @@ async def test_create_task_with_context_incomplete_task_prerequisites(
 
     # Verify
     assert result.is_error  # Should fail validation
-
-
-# ============================================================================
-# LEARNING CONTEXT CREATION TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_create_task_with_learning_context(
-    scheduling_service, mock_backend, task_request, learning_position
-):
-    """Test task creation with learning path context."""
-    # Setup
-    created_dto = TaskDTO.create_task(
-        user_uid="user_123", title=task_request.title, priority=task_request.priority
-    )
-    created_dto.uid = "task:learning_123"
-    mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
-
-    # Execute
-    result = await scheduling_service.create_task_with_learning_context(
-        task_request, learning_position
-    )
-
-    # Verify
-    assert result.is_ok
-    task = result.value
-    assert task.title == task_request.title
-
-
-@pytest.mark.asyncio
-async def test_create_task_without_learning_context(scheduling_service, mock_backend, task_request):
-    """Test task creation without learning position."""
-    # Setup
-    created_dto = TaskDTO.create_task(user_uid="user_123", title=task_request.title)
-    created_dto.uid = "task:no_context"
-    mock_backend.create_task.return_value = Result.ok(created_dto.to_dict())
-
-    # Execute - no learning position
-    result = await scheduling_service.create_task_with_learning_context(task_request, None)
-
-    # Verify
-    assert result.is_ok
 
 
 # ============================================================================

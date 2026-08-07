@@ -243,7 +243,6 @@ Goals track which habits are essential for achievement:
 |--------|-------------|
 | `check_goal_capacity(user_uid)` | Can user handle another active goal? |
 | `create_goal_with_context(data, context)` | Context-validated goal creation |
-| `create_goal_with_learning_context(data, pos, context)` | Create with learning alignment |
 | `suggest_goal_timeline(user_uid, type, timeframe)` | Recommend target date based on history |
 | `assess_goal_achievability(goal_uid, context)` | Can goal be achieved by target date? |
 | `get_schedule_aware_next_goal(context)` | Best goal to focus on now |
