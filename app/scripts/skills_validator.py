@@ -424,6 +424,16 @@ def validate_backlinks(skills: list[dict], project_root: Path) -> list[Validatio
     return errors
 
 
+def _progress(message: str = "") -> None:
+    """Progress narration goes to stderr — stdout is the report channel.
+
+    CI's Generate Metrics job runs `--json > skills.json` and json.load()s the
+    result; any narration on stdout corrupts it (broke every main push until
+    2026-08-07).
+    """
+    print(message, file=sys.stderr)
+
+
 def run_validation(project_root: Path) -> ValidationReport:
     """Run all validation checks and generate report."""
     skills_dir = project_root / ".claude" / "skills"
@@ -440,77 +450,77 @@ def run_validation(project_root: Path) -> ValidationReport:
     # Run all validation checks
     all_errors: list[ValidationError] = []
 
-    print("Running validation checks...")
-    print()
+    _progress("Running validation checks...")
+    _progress()
 
     # Check 1: Skill directories exist
-    print("1. Checking skill directories...")
+    _progress("1. Checking skill directories...")
     errors = validate_skill_directories(skills, skills_dir)
     all_errors.extend(errors)
     if errors:
-        print(f"   ❌ Found {len(errors)} error(s)")
+        _progress(f"   ❌ Found {len(errors)} error(s)")
     else:
-        print("   ✅ All skill directories exist")
+        _progress("   ✅ All skill directories exist")
 
     # Check 2: Required files present (SKILL.md hard; size-aware split nudge)
-    print("2. Checking required files...")
+    _progress("2. Checking required files...")
     errors = validate_required_files(skills, skills_dir)
     all_errors.extend(errors)
     file_errors = [e for e in errors if e.severity == "error"]
     file_warnings = [e for e in errors if e.severity == "warning"]
     if file_errors:
-        print(f"   ❌ Found {len(file_errors)} error(s)")
+        _progress(f"   ❌ Found {len(file_errors)} error(s)")
     elif file_warnings:
-        print(f"   ⚠️  {len(file_warnings)} oversized SKILL.md(s) (consider splitting)")
+        _progress(f"   ⚠️  {len(file_warnings)} oversized SKILL.md(s) (consider splitting)")
     else:
-        print("   ✅ All SKILL.md files present and right-sized")
+        _progress("   ✅ All SKILL.md files present and right-sized")
 
     # Check 3: No circular dependencies
-    print("3. Checking for circular dependencies...")
+    _progress("3. Checking for circular dependencies...")
     errors = validate_no_cycles(skills)
     all_errors.extend(errors)
     if errors:
-        print(f"   ❌ Found {len(errors)} cycle(s)")
+        _progress(f"   ❌ Found {len(errors)} cycle(s)")
     else:
-        print("   ✅ No circular dependencies")
+        _progress("   ✅ No circular dependencies")
 
     # Check 4: Primary docs exist
-    print("4. Checking primary documentation...")
+    _progress("4. Checking primary documentation...")
     errors = validate_primary_docs(skills, project_root)
     all_errors.extend(errors)
     if errors:
-        print(f"   ❌ Found {len(errors)} error(s)")
+        _progress(f"   ❌ Found {len(errors)} error(s)")
     else:
-        print("   ✅ All primary docs exist")
+        _progress("   ✅ All primary docs exist")
 
     # Check 5: Documentation backlinks
-    print("5. Checking documentation backlinks...")
+    _progress("5. Checking documentation backlinks...")
     errors = validate_backlinks(skills, project_root)
     all_errors.extend(errors)
     if errors:
-        print(f"   ⚠️  Found {len(errors)} warning(s)")
+        _progress(f"   ⚠️  Found {len(errors)} warning(s)")
     else:
-        print("   ✅ All backlinks present")
+        _progress("   ✅ All backlinks present")
 
     # Check 6: Registry completeness (every skill dir is registered)
-    print("6. Checking registry completeness...")
+    _progress("6. Checking registry completeness...")
     errors = validate_registry_completeness(skills, skills_dir)
     all_errors.extend(errors)
     if errors:
-        print(f"   ❌ Found {len(errors)} unregistered skill director(ies)")
+        _progress(f"   ❌ Found {len(errors)} unregistered skill director(ies)")
     else:
-        print("   ✅ Every skill directory is registered")
+        _progress("   ✅ Every skill directory is registered")
 
     # Check 7: related_skills references resolve to real skills
-    print("7. Checking related_skills references...")
+    _progress("7. Checking related_skills references...")
     errors = validate_related_skills_references(skills_dir, project_root)
     all_errors.extend(errors)
     if errors:
-        print(f"   ⚠️  Found {len(errors)} stale reference(s)")
+        _progress(f"   ⚠️  Found {len(errors)} stale reference(s)")
     else:
-        print("   ✅ All related_skills references resolve")
+        _progress("   ✅ All related_skills references resolve")
 
-    print()
+    _progress()
 
     total_checks = 7
 
