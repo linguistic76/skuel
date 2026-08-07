@@ -73,15 +73,19 @@ jobs:
               # Coverage is asserted by the guard itself, not maintained here.
               - '.github/workflows/**'
               - '.github/actions/**'
-              - 'app/scripts/**/*.sh'
-              # ShellCheck (lint job) covers extensionless shell programs too,
-              # discovered by shebang (scripts/shellcheck_tracked.py). These are
-              # the location classes those live in; without them a hooks-only or
-              # dev-only PR would skip the lint job and dodge the shell gate.
+              # All of scripts/, not just its *.sh (which the pinning guard
+              # above needs — this is a superset): ShellCheck (lint job)
+              # discovers shell scripts by shebang as well as suffix (see
+              # scripts/shellcheck_tracked.py), and path filters cannot read
+              # file contents, so the conventional homes of shell programs
+              # trigger wholesale — scripts/, the dev entrypoint, the hook
+              # dirs. A shell script landed outside every class here would
+              # dodge only its OWN PR's lint run: the check scans ALL tracked
+              # files, so the next py-touching PR catches it. Unconditional
+              # lint was considered and rejected — the docs-only skip is a
+              # deliberate design of this filter block.
+              - 'app/scripts/**'
               - 'app/dev'
-              - 'app/scripts/dev/**'
-              - 'app/scripts/git-hooks/**'
-              - 'app/scripts/hooks/**'
               - 'app/.claude/hooks/**'
             docs:
               - 'app/docs/**'
