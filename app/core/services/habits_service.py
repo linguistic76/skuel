@@ -356,13 +356,6 @@ class HabitsService(
             knowledge_uid, user_context, frequency
         )
 
-    async def create_habit_with_learning_alignment(
-        self, habit_request: HabitCreateRequest, learning_position: LpPosition | None = None
-    ) -> Result[Habit]:
-        return await self.learning.create_habit_with_learning_alignment(
-            habit_request, learning_position
-        )
-
     async def suggest_learning_supporting_habits(
         self, learning_position: LpPosition, habit_category: str | None = None
     ) -> Result[list[dict[str, Any]]]:
@@ -471,16 +464,6 @@ class HabitsService(
     ) -> Result[Habit]:
         return await self.scheduling.create_habit_with_context(
             habit_data, user_context, check_capacity
-        )
-
-    async def create_habit_with_learning_scheduling_context(
-        self,
-        habit_data: HabitCreateRequest,
-        learning_position: LpPosition | None,
-        user_context: UserContext,
-    ) -> Result[Habit]:
-        return await self.scheduling.create_habit_with_learning_context(
-            habit_data, learning_position, user_context
         )
 
     async def suggest_habit_frequency(
@@ -617,8 +600,11 @@ class HabitsService(
             backend=backend,
             relationship_service=self.relationships,
         )
+        # Holds core so its create doors run through THE create primitive
+        # (events, embedding request, guarded link edges) instead of backend dicts.
         self.scheduling = HabitsSchedulingService(
             backend=backend,
+            core=self.core,
             completions_service=self.completions,
             event_bus=event_bus,
         )

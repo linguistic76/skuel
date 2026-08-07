@@ -314,7 +314,6 @@ Unlike tasks which require knowledge mastery, habits require **prerequisite habi
 |--------|-------------|
 | `check_habit_capacity(user_uid)` | Can user handle another habit? (effort load check) |
 | `create_habit_with_context(data, context)` | Context-validated habit creation with capacity checking |
-| `create_habit_with_learning_context(data, position, context)` | Create habit aligned with learning path |
 | `suggest_habit_frequency(user_uid, category)` | Recommend optimal frequency based on history |
 | `optimize_habit_schedule(habit_uid, context)` | Suggest schedule adjustments based on patterns |
 | `suggest_habit_stacking(user_uid)` | Find established habits to stack with (James Clear pattern) |

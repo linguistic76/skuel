@@ -3,28 +3,34 @@ Learning Alignment Bridge - Generic Learning Operations Pattern
 ================================================================
 
 Eliminates duplication across learning services by providing generic
-implementations for learning alignment operations.
+implementations for learning alignment READ operations.
 
 **The Problem:**
 All learning services (Goals, Habits, Events, Choices) had identical
 implementations of learning alignment methods:
-- create_X_with_learning_alignment() (~65 lines each)
 - get_learning_supporting_X() (~57 lines each)
 - suggest_learning_aligned_X() (~72 lines each)
 - assess_X_learning_alignment() (~55 lines each)
 
-Total duplication: ~723 LOC across 4 services
-
 **The Solution:**
-Single generic helper that handles the common pattern, reducing
-each learning service's methods from ~267 LOC → ~12 LOC.
+Single generic helper that handles the common pattern once.
+
+**Deliberately absent: creation.** The bridge once carried
+``create_with_learning_alignment`` (+ a batch variant), wired to dict-based
+``backend.create_{domain}`` doors. Those doors resolve through
+``UniversalNeo4jBackend.__getattr__`` to ``create(entity)`` — which expects a
+DOMAIN MODEL — so every call persisted a corrupt uid-less node and then errored
+on the read-back; no route ever reached the seven wrappers that called it, and
+its create-time "alignment" was a log line. Deleted 2026-08-06. Creation
+belongs to each domain's core primitive (``TasksCoreService.create_task`` et
+al.), which publishes events, requests embeddings, and admission-guards link
+edges — see /docs/roadmap/learning-aligned-create-verb.md for the create-verb
+ideas this half carried and where to build them instead.
 """
 
 from collections.abc import Awaitable, Callable
 from operator import itemgetter
 from typing import Any, TypeVar
-
-from pydantic import BaseModel
 
 from core.models.enums import Domain, Priority
 from core.models.pathways.lp_position import LpPosition
@@ -42,49 +48,31 @@ Request = TypeVar("Request")  # Request type (GoalCreateRequest, etc.)
 
 class LearningAlignmentBridge[T, DTO, Request]:
     """
-    Generic helper for learning alignment operations across all domains.
+    Generic helper for learning alignment READ operations across all domains.
 
-    This helper eliminates ~267 lines of duplicated code in each
-    learning service's learning alignment methods.
+    Three shared operations, each replacing a near-identical copy in every
+    learning service:
 
-    **Pattern Before (Goals, Habits, etc. all identical):**
+    - ``get_learning_supporting_entities`` — the user's entities, filtered and
+      sorted by learning relevance against their LpPosition
+    - ``suggest_learning_aligned_entities`` — suggestion dicts generated from
+      the active learning paths (current step, path completion, outcomes)
+    - ``assess_learning_alignment`` — a structured alignment assessment for
+      one existing entity
+
+    **Pattern (Goals, Habits, etc. all identical):**
     ```python
-    async def create_X_with_learning_alignment(self, request, learning_position):
-        # Create DTO from request (20 lines)
-        dto = XDTO.create(...)
-        dto.field1 = request.field1
-        # ... 15 more fields
-
-        # Create via backend (5 lines)
-        result = await self.backend.create_X(dto.to_dict())
-        if result.is_error:
-            return result
-
-        # Convert to domain model (5 lines)
-        created_dto = XDTO.from_dict(result.value)
-        entity = X.from_dto(created_dto)
-
-        # Apply learning alignment (20 lines)
-        if learning_position:
-            alignment = learning_position.assess_X_alignment(...)
-            self.logger.info(...)
-
-        return Result.ok(entity)
-    ```
-
-    **Pattern After (Using Helper):**
-    ```python
-    async def create_X_with_learning_alignment(self, request, learning_position):
-        return await self.learning_helper.create_with_learning_alignment(
-            request=request, learning_position=learning_position
+    async def assess_X_learning_alignment(self, x_uid, learning_position):
+        return await self.learning_helper.assess_learning_alignment(
+            entity_uid=x_uid, learning_position=learning_position
         )
     ```
-
-    **65 lines → 3 lines (95% reduction)**
 
     SKUEL Architecture:
     - Uses BaseService for DTO conversion
     - Leverages LpPosition for alignment assessment
+    - Reads and assesses ONLY — creation goes through each domain's core
+      primitive (see the module docstring for why the create half was deleted)
     """
 
     def __init__(
@@ -92,12 +80,10 @@ class LearningAlignmentBridge[T, DTO, Request]:
         service: BaseService,
         backend_get: Callable[[EntityUID], Awaitable[Result[Any]]],
         backend_get_user: Callable[[UserUID], Awaitable[Result[Any]]],
-        backend_create: Callable[[dict[str, Any]], Awaitable[Result[Any]]],
         domain: Domain,
         entity_name: str,  # "goal", "habit", "event", "choice"
         # Optional custom hooks for domain-specific logic
         alignment_scorer: Callable[[T, LpPosition], float] | None = None,
-        prerequisite_validator: Callable[[Request, Any], Result[None]] | None = None,
         suggestion_filter: Callable[[dict[str, Any], Any], bool] | None = None,
         embodiment_scorer: Callable[[T, LpPosition], dict[str, Any]] | None = None,
     ) -> None:
@@ -108,11 +94,9 @@ class LearningAlignmentBridge[T, DTO, Request]:
             service: The learning service (provides backend, BaseService helpers).
             backend_get: Backend method to fetch a single entity by UID.
             backend_get_user: Backend method to fetch all entities for a user.
-            backend_create: Backend method to create an entity from a dict.
             domain: Domain enum for categorization (e.g., Domain.GOALS).
             entity_name: Human-readable entity name for logging (e.g., "goal").
             alignment_scorer: Optional custom scorer for learning alignment.
-            prerequisite_validator: Optional validator for prerequisites (called before creation).
             suggestion_filter: Optional filter for suggestions (applied to generated suggestions).
             embodiment_scorer: Optional scorer for embodiment data (merged into assessment).
 
@@ -124,7 +108,6 @@ class LearningAlignmentBridge[T, DTO, Request]:
         self.backend = service.backend
         self._backend_get = backend_get
         self._backend_get_user = backend_get_user
-        self._backend_create = backend_create
 
         # Derive dto_class and model_class from service config (fail-fast)
         dto_class = service.dto_class
@@ -143,193 +126,8 @@ class LearningAlignmentBridge[T, DTO, Request]:
 
         # Custom hooks for domain-specific logic
         self._alignment_scorer = alignment_scorer
-        self._prerequisite_validator = prerequisite_validator
         self._suggestion_filter = suggestion_filter
         self._embodiment_scorer = embodiment_scorer
-
-    async def create_with_learning_alignment(
-        self,
-        request: Request,
-        learning_position: LpPosition | None = None,
-        context: Any = None,
-        custom_fields: dict[str, Any] | None = None,
-    ) -> Result[T]:
-        """
-        Generic implementation of create_X_with_learning_alignment() pattern.
-
-        Handles the complete learning-aligned entity creation flow:
-        1. Validate prerequisites (if custom validator provided)
-        2. Create DTO from request
-        3. Merge custom fields (if provided)
-        4. Create entity via backend
-        5. Convert to domain model
-        6. Apply learning position alignment if provided
-        7. Return domain model
-
-        This single implementation replaces identical code in:
-        - GoalsLearningService.create_goal_with_learning_integration()
-        - HabitsLearningService.create_habit_with_learning_alignment()
-
-        Args:
-            request: Entity creation request (GoalCreateRequest, HabitCreateRequest, etc.),
-            learning_position: Optional user's learning path position
-            context: Additional context for custom validators (e.g., UserContext for Tasks)
-            custom_fields: Optional domain-specific fields to merge into request dict
-
-        Returns:
-            Result containing created domain model with learning alignment,
-
-        Example:
-            ```python
-            # In GoalsLearningService.__init__:
-            self.learning_helper = LearningAlignmentBridge[
-                Goal, GoalDTO, GoalCreateRequest
-            ](
-                service=self,
-                backend_get=self.backend.get_goal,
-                backend_get_user=self.backend.get_user_goals,
-                backend_create=self.backend.create_goal,
-                domain=Domain.GOALS,
-                entity_name="goal",
-            )
-
-            # In create_goal_with_learning_integration():
-            return await self.learning_helper.create_with_learning_alignment(
-                request=goal_request, learning_position=learning_position
-            )
-            ```
-        """
-        self.logger.debug(f"Creating {self.entity_name} with learning alignment")
-
-        # Step 0: Call prerequisite validator if provided (sync function)
-        if self._prerequisite_validator:
-            validation_result = self._prerequisite_validator(request, context)
-            if validation_result.is_error:
-                return Result.fail(validation_result)
-
-        # Step 1: Create entity via backend
-        # Convert request to dict for backend
-        # Pydantic models have model_dump(), fallback to __dict__ for other types
-        request_dict = request.model_dump() if isinstance(request, BaseModel) else request.__dict__
-
-        # Merge custom fields if provided
-        if custom_fields:
-            request_dict.update(custom_fields)
-
-        create_result = await self._backend_create(request_dict)
-        if create_result.is_error:
-            return create_result
-
-        # Step 2: Convert to domain model using BaseService helper
-        entity = self.service._to_domain_model(
-            create_result.value, self.dto_class, self.model_class
-        )
-
-        # Step 3: Apply learning position alignment if provided
-        if learning_position:
-            # Get entity description for alignment assessment
-            entity_desc = str(
-                getattr(entity, "description", None)
-                or getattr(entity, "title", "")
-                or getattr(entity, "name", "")
-            )
-            entity_title = str(getattr(entity, "title", "") or getattr(entity, "name", ""))
-
-            # Assess alignment using appropriate learning position method
-            try:
-                # Try goal-style assessment
-                alignment = learning_position.assess_goal_alignment(
-                    entity_desc, str(getattr(entity, "domain", self.domain).value)
-                )
-
-                self.logger.info(
-                    f"{self.entity_name.capitalize()} '{entity_title}' created with learning integration: "
-                    f"support={alignment.get('learning_path_support', 0.0):.2f}, "
-                    f"timeline={alignment.get('recommended_timeline', 'N/A')}, "
-                    f"paths={len(alignment.get('supporting_paths', []))}"
-                )
-            except (AttributeError, KeyError):  # fmt: skip
-                # Fallback to habit-style suggestions
-                try:
-                    alignment_suggestions = learning_position.suggest_habit_alignment(entity_desc)
-                    self.logger.info(
-                        f"{self.entity_name.capitalize()} '{entity_title}' created with learning alignment: "
-                        f"{len(alignment_suggestions)} suggestions from {len(learning_position.active_paths)} paths"
-                    )
-                except (AttributeError, KeyError, ValueError, TypeError) as e:
-                    self.logger.warning(f"Could not assess learning alignment: {e}")
-
-        return Result.ok(entity)
-
-    async def create_batch_with_learning_alignment(
-        self,
-        requests: list[Request],
-        learning_position: LpPosition | None = None,
-        context: Any = None,
-        custom_fields_per_request: list[dict[str, Any]] | None = None,
-    ) -> Result[list[T]]:
-        """
-        Create multiple entities with learning alignment in batch.
-
-        Useful for batch operations like creating multiple events for a learning path schedule.
-
-        Args:
-            requests: List of creation requests
-            learning_position: Optional learning path position
-            context: Optional context for validation
-            custom_fields_per_request: Optional list of custom fields per request (must match requests length)
-
-        Returns:
-            Result containing list of created entities
-
-        Example:
-            ```python
-            # In EventsLearningService:
-            requests = [EventCreateRequest(...) for _ in range(12)]
-            custom_fields = [{"source_path_step_uid": ps_uid} for _ in range(12)]
-
-            result = await self.learning_helper.create_batch_with_learning_alignment(
-                requests=requests,
-                custom_fields_per_request=custom_fields,
-            )
-            ```
-        """
-        self.logger.debug(
-            f"Creating batch of {len(requests)} {self.entity_name}s with learning alignment"
-        )
-
-        # Validate that custom_fields_per_request matches requests if provided
-        if custom_fields_per_request and len(custom_fields_per_request) != len(requests):
-            return Result.fail(
-                Errors.validation(
-                    f"custom_fields_per_request length ({len(custom_fields_per_request)}) "
-                    f"must match requests length ({len(requests)})"
-                )
-            )
-
-        # Create each entity using single creation method
-        created_entities = []
-        for i, request in enumerate(requests):
-            custom_fields = custom_fields_per_request[i] if custom_fields_per_request else None
-
-            result = await self.create_with_learning_alignment(
-                request, learning_position, context, custom_fields
-            )
-
-            if result.is_error:
-                # Return error on first failure
-                self.logger.warning(
-                    f"Batch creation failed at index {i}/{len(requests)}: {result.error}"
-                )
-                return Result.fail(result)
-
-            created_entities.append(result.value)
-
-        self.logger.info(
-            f"Created {len(created_entities)} {self.entity_name}s in batch with learning alignment"
-        )
-
-        return Result.ok(created_entities)
 
     async def get_learning_supporting_entities(
         self, user_uid: UserUID, learning_position: LpPosition

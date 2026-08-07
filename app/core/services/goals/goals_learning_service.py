@@ -5,17 +5,14 @@ Goals Learning Service
 Handles goal-learning path integration and knowledge-aware operations.
 
 Responsibilities:
-- Create goals with learning integration
 - Assess learning alignment
 - Suggest learning-aligned goals
 - Track learning contributions to goals
 - Identify goals needing habits or blocked by knowledge
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from core.events import GoalCreated, publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
@@ -40,7 +37,6 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     Learning path integration service for goals.
 
     Handles:
-    - Creating goals with learning context
     - Assessing learning alignment
     - Suggesting learning-aligned goals
     - Tracking learning contributions
@@ -87,51 +83,9 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
             service=self,
             backend_get=self.backend.get_goal,
             backend_get_user=self.backend.get_user_goals,
-            backend_create=self.backend.create_goal,
             domain=Domain.GOALS,
             entity_name="goal",
         )
-
-    # ========================================================================
-    # LEARNING-AWARE GOAL CREATION
-    # ========================================================================
-
-    async def create_goal_with_learning_integration(
-        self, goal_request: GoalCreateRequest, learning_position: LpPosition | None = None
-    ) -> Result[Goal]:
-        """
-        Create a goal integrated with user's learning path progression.
-
-        This method applies knowledge-first thinking: How does the user's learning
-        path position frame this goal creation?
-
-        Args:
-            goal_request: Goal creation request,
-            learning_position: User's learning path position context
-
-        Returns:
-            Result containing created Goal with learning path integration
-        """
-        # Use LearningAlignmentBridge (consolidation)
-        result = await self.learning_helper.create_with_learning_alignment(
-            request=goal_request, learning_position=learning_position
-        )
-
-        # Publish GoalCreated event
-        if result.is_ok:
-            goal = result.value
-            event = GoalCreated(
-                goal_uid=goal.uid,
-                user_uid=goal.user_uid,
-                title=goal.title,
-                domain=goal.domain.value,
-                target_date=datetime.combine(goal.target_date, datetime.min.time())
-                if goal.target_date
-                else None,
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-        return result
 
     # ========================================================================
     # LEARNING ALIGNMENT ASSESSMENT

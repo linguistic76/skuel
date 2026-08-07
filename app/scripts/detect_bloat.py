@@ -475,9 +475,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/habits_service.py::get_habits_by_frequency": _HABITS_DUE_TODAY,
     # --- Habits: scheduling-aware creation ---
     "core/services/habits_service.py::create_habit_with_scheduling_context": (_HABITS_SCHED_CREATE),
-    "core/services/habits_service.py::create_habit_with_learning_scheduling_context": (
-        _HABITS_SCHED_CREATE
-    ),
     # --- Habits: goal/Ku orchestration ---
     "core/services/habits/_orchestration_mixin.py::complete_with_goal_impacts": (
         _HABITS_ORCHESTRATION

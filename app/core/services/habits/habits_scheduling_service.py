@@ -4,8 +4,8 @@ Habits Scheduling Service - Smart Habit Scheduling and Capacity Management
 
 Extracted following EventsSchedulingService pattern (January 2026).
 
-**Purpose:** Smart habit scheduling, frequency optimization, capacity management,
-and learning path integration.
+**Purpose:** Smart habit scheduling, frequency optimization, and capacity
+management.
 
 **Pattern Source:** EventsSchedulingService + TasksSchedulingService
 
@@ -18,11 +18,9 @@ and learning path integration.
 - Habit capacity checking (can user handle another habit?)
 - Frequency optimization (best days/times from history)
 - Habit stacking suggestions (James Clear pattern)
-- Learning path integration for practice habits
 
 **Methods:**
 - create_habit_with_context(): Context-validated habit creation
-- create_habit_with_learning_context(): Create from curriculum
 - check_habit_capacity(): Can user handle another habit?
 - optimize_habit_schedule(): Find best days/times
 - suggest_habit_frequency(): Recommend frequency
@@ -35,26 +33,25 @@ from __future__ import annotations
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
-from core.events import HabitCreated, publish_event
-from core.models.enums import Domain, EntityStatus, Priority, RecurrencePattern, TimeOfDay
+from core.models.enums import EntityStatus, EntityType, Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import LearningAlignmentBridge
 from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_value_getter
+from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.habits.habits_completion_service import HabitsCompletionService
+    from core.services.habits.habits_core_service import HabitsCoreService
     from core.services.user.unified_user_context import UserContext
 
 
@@ -138,6 +135,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     def __init__(
         self,
         backend: HabitsOperations,
+        core: HabitsCoreService,
         completions_service: HabitsCompletionService | None = None,
         event_bus: EventBusOperations | None = None,
     ) -> None:
@@ -146,22 +144,16 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
 
         Args:
             backend: Protocol-based backend for habit operations
+            core: HabitsCoreService — THE create primitive; both create doors here
+                delegate to it (same sibling-injection shape as
+                TasksSchedulingService)
             completions_service: For analyzing completion patterns (optional)
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "habits.scheduling")
+        self.core = core
         self.completions = completions_service
         self.event_bus = event_bus
-
-        # Initialize LearningAlignmentBridge for curriculum integration
-        self.learning_helper = LearningAlignmentBridge[Habit, HabitDTO, HabitCreateRequest](
-            service=self,
-            backend_get=self.backend.get_habit,
-            backend_get_user=self.backend.get_user_habits,
-            backend_create=self.backend.create_habit,
-            domain=Domain.HABITS,
-            entity_name="habit",
-        )
 
     # ========================================================================
     # CAPACITY MANAGEMENT
@@ -369,93 +361,14 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                         )
                     )
 
-        # Step 3: Create habit via backend
-        request_dict = habit_data.model_dump()
-        request_dict["user_uid"] = user_context.user_uid
-
-        create_result = await self.backend.create_habit(request_dict)
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        habit = self._to_domain_model(create_result.value, HabitDTO, Habit)
-
-        # Step 4: Publish event
-        event = HabitCreated(
-            habit_uid=habit.uid,
-            user_uid=habit.user_uid,
-            title=habit.title,
-            frequency=habit.recurrence_pattern if habit.recurrence_pattern else "daily",
-            domain=None,
-        )
-        await publish_event(self.event_bus, event, self.logger)
-
-        self.logger.info(
-            f"Created habit '{habit.title}' for user {user_context.user_uid} "
-            f"(difficulty={habit.habit_difficulty.value if habit.habit_difficulty else 'unknown'}, duration={habit.duration_minutes}min)"
-        )
-
-        return Result.ok(habit)
-
-    @with_error_handling("create_habit_with_learning_context", error_type="database")
-    async def create_habit_with_learning_context(
-        self,
-        habit_data: HabitCreateRequest,
-        learning_position: LpPosition | None,
-        user_context: UserContext,
-    ) -> Result[Habit]:
-        """
-        Create a habit aligned with learning path.
-
-        Combines capacity checking with learning alignment assessment.
-
-        Args:
-            habit_data: Habit creation request
-            learning_position: User's learning path position
-            user_context: User context for validation
-
-        Returns:
-            Result containing created habit with learning alignment
-        """
-        # Check capacity first
-        capacity_result = await self.check_habit_capacity(
-            user_uid=user_context.user_uid,
-            proposed_difficulty=habit_data.habit_difficulty,
-            proposed_duration=habit_data.duration_minutes or 15,
-        )
-        if capacity_result.is_error:
-            return Result.fail(capacity_result)
-
-        if not capacity_result.value["can_add_habit"]:
-            return Result.fail(
-                Errors.validation(
-                    message="Habit capacity exceeded. Archive some habits first.",
-                    field="capacity",
-                )
-            )
-
-        # Use LearningAlignmentBridge for creation
-        custom_fields = {"user_uid": user_context.user_uid}
-
-        result = await self.learning_helper.create_with_learning_alignment(
-            request=habit_data,
-            learning_position=learning_position,
-            context=user_context,
-            custom_fields=custom_fields,
-        )
-
-        if result.is_ok:
-            habit = result.value
-            # Publish event
-            event = HabitCreated(
-                habit_uid=habit.uid,
-                user_uid=habit.user_uid,
-                title=habit.title,
-                frequency=habit.recurrence_pattern if habit.recurrence_pattern else "daily",
-                domain=None,
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-        return result
+        # Step 3: Gates hold — create through THE create primitive. This step used
+        # to hand habit_data.model_dump() to the dict-based backend.create_habit
+        # alias — a door that resolves to create(entity), so every call persisted a
+        # corrupt uid-less node and then errored (fixed 2026-08-06). The primitive
+        # builds the frozen Habit, writes the request's link edges through the
+        # admission guard, and publishes HabitCreated after they exist — so no
+        # local event publish here.
+        return await self.core.create_habit(habit_data, user_context.user_uid)
 
     # ========================================================================
     # FREQUENCY OPTIMIZATION
@@ -811,44 +724,39 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                 )
             )
 
-        # Create habit for learning practice
-        habit_dict = {
-            "user_uid": user_context.user_uid,
-            "name": f"Practice: {path_step_uid}",
-            "description": f"Daily practice to master path step {path_step_uid}",
-            "category": HabitCategory.LEARNING,
-            "difficulty": HabitDifficulty.MODERATE,
-            "recurrence_pattern": frequency,
-            "target_days_per_week": 7 if frequency == RecurrencePattern.DAILY else 3,
-            "duration_minutes": duration_minutes,
-            "preferred_time": capacity_result.value.get("suggested_time", TimeOfDay.MORNING),
-            "source_path_step_uid": path_step_uid,
-            "curriculum_practice_type": "daily_review",
-            "priority": Priority.HIGH,
-            "tags": ["learning", "practice", "curriculum"],
-        }
-
-        create_result = await self.backend.create_habit(habit_dict)
-        if create_result.is_error:
-            return Result.fail(create_result)
-
-        habit = self._to_domain_model(create_result.value, HabitDTO, Habit)
-
-        # Publish event
-        event = HabitCreated(
-            habit_uid=habit.uid,
-            user_uid=habit.user_uid,
-            title=habit.title,
-            frequency=frequency.value,
-            domain=None,
+        # Build the frozen Habit with curriculum linkage and hand it to THE create
+        # primitive's entity door — the same shape as Tasks'
+        # create_task_from_path_step. This used to hand a dict to the dict-based
+        # backend.create_habit alias with DTO-era key names ("name", "category",
+        # "difficulty") and no uid, so every call persisted a corrupt node and then
+        # errored (fixed 2026-08-06). The primitive publishes HabitCreated and the
+        # ADR-074 embedding request.
+        habit_model = Habit(
+            uid=EntityUID(UIDGenerator.generate_random_uid("habit")),
+            entity_type=EntityType.HABIT,
+            user_uid=user_context.user_uid,
+            title=f"Practice: {path_step_uid}",
+            description=f"Daily practice to master path step {path_step_uid}",
+            habit_category=HabitCategory.LEARNING,
+            habit_difficulty=HabitDifficulty.MODERATE,
+            recurrence_pattern=frequency,
+            target_days_per_week=7 if frequency == RecurrencePattern.DAILY else 3,
+            duration_minutes=duration_minutes,
+            preferred_time=capacity_result.value.get("suggested_time", TimeOfDay.MORNING),
+            source_path_step_uid=path_step_uid,
+            curriculum_practice_type="daily_review",
+            priority=Priority.HIGH.value,
+            tags=("learning", "practice", "curriculum"),
         )
-        await publish_event(self.event_bus, event, self.logger)
+
+        result = await self.core.create(habit_model)
+        if result.is_error:
+            return result
 
         self.logger.info(
-            f"Created learning practice habit '{habit.title}' from step {path_step_uid}"
+            "Created learning practice habit %s from step %s", result.value.uid, path_step_uid
         )
-
-        return Result.ok(habit)
+        return result
 
     # ========================================================================
     # CALENDAR ANALYSIS (Habit-Focused)

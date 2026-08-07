@@ -74,7 +74,6 @@ from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
-    from core.models.pathways.lp_position import LpPosition
     from core.ports.domain_protocols import EventsOperations
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
@@ -151,7 +150,7 @@ class EventsService(
     Delegations (explicit methods):
     - Core CRUD: get_event, get_user_events, find_events, count_events
     - Habits: get_events_for_habit, get_habit_reinforcement_events, etc.
-    - Learning: get_learning_events, create_study_session, create_learning_path_schedule
+    - Learning: get_learning_events, suggest_spaced_repetition_events
     - Search: get_calendar_events, get_upcoming, get_overdue, etc.
     - Intelligence: analyze_event_performance, etc.
     - Scheduling: optimize_recurring_schedule, create_recurring_events
@@ -509,18 +508,6 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.learning.get_learning_events(user_uid, days_ahead)
 
-    async def create_study_session(
-        self,
-        user_uid: UserUID,
-        knowledge_uids: list[str],
-        event_date: date,
-        duration_minutes: int = 60,
-        title: str | None = None,
-    ) -> Result[Event]:
-        return await self.learning.create_study_session(
-            user_uid, knowledge_uids, event_date, duration_minutes, title
-        )
-
     async def suggest_spaced_repetition_events(
         self,
         _user_uid: UserUID,
@@ -530,17 +517,6 @@ class EventsService(
     ) -> Result[list[dict[str, Any]]]:
         return await self.learning.suggest_spaced_repetition_events(
             _user_uid, knowledge_uid, mastery_level, days_to_schedule
-        )
-
-    async def create_learning_path_schedule(
-        self,
-        user_uid: UserUID,
-        learning_path_uid: str,
-        _learning_position: LpPosition,
-        study_hours_per_week: int = 5,
-    ) -> Result[list[Event]]:
-        return await self.learning.create_learning_path_schedule(
-            user_uid, learning_path_uid, _learning_position, study_hours_per_week
         )
 
     # Search delegations
@@ -749,8 +725,7 @@ class EventsService(
     # - Habits: get_events_for_habit, get_habit_reinforcement_events, get_at_risk_habit_events,
     # complete_event_with_quality, miss_habit_event, create_recurring_events_for_habit,
     # get_next_habit_events
-    # - Learning: get_learning_events, create_study_session,
-    # suggest_spaced_repetition_events, create_learning_path_schedule
+    # - Learning: get_learning_events, suggest_spaced_repetition_events
     # - Search: get_calendar_events, get_upcoming, get_overdue,
     # get_active, get_events_in_range
     # - Intelligence: analyze_event_performance, analyze_upcoming_events

@@ -5,7 +5,6 @@ Habits Learning Service
 Handles habit-learning path integration and knowledge-aware operations.
 
 Responsibilities:
-- Learning-aligned habit creation
 - Learning path habit suggestions
 - Knowledge reinforcement tracking
 - Learning impact assessment
@@ -14,7 +13,6 @@ Responsibilities:
 
 from typing import Any
 
-from core.events import HabitCreated, publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.enums.habit_enums import HabitCategory
@@ -79,7 +77,6 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
             service=self,
             backend_get=self.backend.get_habit,
             backend_get_user=self.backend.get_user_habits,
-            backend_create=self.backend.create_habit,
             domain=Domain.HABITS,
             entity_name="habit",
         )
@@ -185,69 +182,6 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
     # LEARNING PATH ALIGNMENT
     # ========================================================================
-
-    async def create_habit_with_learning_alignment(
-        self, habit_request: HabitCreateRequest, learning_position: LpPosition | None = None
-    ) -> Result[Habit]:
-        """
-        Create a habit aligned with user's learning path progression.
-
-        This method applies knowledge-first thinking: How does the user's learning
-        path position frame this habit creation?
-
-        Args:
-            habit_request: Habit creation request,
-            learning_position: User's learning path position context
-
-        Returns:
-            Result containing created Habit with learning path alignment
-        """
-        # Use LearningAlignmentBridge (consolidation)
-        result = await self.learning_helper.create_with_learning_alignment(
-            request=habit_request, learning_position=learning_position
-        )
-
-        # Publish HabitCreated event
-        if result.is_ok:
-            habit = result.value
-            event = HabitCreated(
-                habit_uid=habit.uid,
-                user_uid=habit.user_uid,
-                title=habit.title,
-                frequency=habit.recurrence_pattern or "daily",
-                domain=None,  # Habit model doesn't have domain field
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-            # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
-            if habit_request.linked_knowledge_uids:
-                from core.events.knowledge_substance_events import (
-                    KnowledgeBuiltIntoHabit,
-                    KnowledgeBulkBuiltIntoHabit,
-                )
-
-                ku_uids = habit_request.linked_knowledge_uids
-                if len(ku_uids) == 1:
-                    knowledge_event: KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit = (
-                        KnowledgeBuiltIntoHabit(
-                            knowledge_uid=ku_uids[0],
-                            habit_uid=habit.uid,
-                            user_uid=habit.user_uid,
-                            habit_title=habit.title,
-                            frequency=habit.recurrence_pattern,
-                        )
-                    )
-                else:
-                    knowledge_event = KnowledgeBulkBuiltIntoHabit(
-                        knowledge_uids=tuple(ku_uids),
-                        habit_uid=habit.uid,
-                        user_uid=habit.user_uid,
-                        habit_title=habit.title,
-                        frequency=habit.recurrence_pattern,
-                    )
-                await publish_event(self.event_bus, knowledge_event, self.logger)
-
-        return result
 
     async def suggest_learning_supporting_habits(
         self, learning_position: LpPosition, habit_category: str | None = None

@@ -3,12 +3,10 @@ Tasks Scheduling Service - Scheduling and Recurrence
 =====================================================
 
 Clean rewrite following CLAUDE.md patterns.
-Handles task scheduling, context-aware creation, and learning path integration.
+Handles task scheduling and context-aware creation.
 
 **Responsibilities:**
 - Context-aware task creation
-- Learning path integration
-- Task suggestions and generation
 - Curriculum-based task creation
 
 **Dependencies:**
@@ -25,55 +23,22 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.services.tasks.tasks_core_service import TasksCoreService
 
-from core.models.enums import Domain, EntityStatus, EntityType, Priority
-from core.models.pathways.lp_position import LpPosition
+from core.models.enums import EntityStatus, EntityType, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
-from core.services.infrastructure import PrerequisiteChecker
-from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-# ========================================================================
-# CUSTOM VALIDATOR FOR TASKS DOMAIN
-# ========================================================================
-
-
-def _validate_task_prerequisites(
-    request: TaskCreateRequest, context: UserContext | None
-) -> Result[None]:
-    """
-    Validate task prerequisites against user's completed knowledge/tasks.
-
-    Delegates to PrerequisiteChecker for unified logic.
-
-    Args:
-        request: Task creation request
-        context: User context with completed_knowledge_uids and completed_task_uids
-
-    Returns:
-        Result.ok() if valid, Result.fail() with missing prerequisites
-    """
-    # Extract prerequisite UIDs from request
-    applies_knowledge_uids = getattr(request, "applies_knowledge_uids", None)
-    prerequisite_task_uids = getattr(request, "prerequisite_task_uids", None)
-
-    return PrerequisiteChecker.validate_prerequisites(
-        required_knowledge_uids=list(applies_knowledge_uids) if applies_knowledge_uids else None,
-        required_task_uids=list(prerequisite_task_uids) if prerequisite_task_uids else None,
-        context=context,
-    )
-
 
 class TasksSchedulingService(BaseService["TasksOperations", Task]):
     """
-    Task scheduling and learning path integration.
+    Task scheduling and context-aware creation.
     """
 
     # ========================================================================
@@ -103,17 +68,6 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         """
         super().__init__(backend=backend, service_name="tasks.scheduling")
         self.core = core
-
-        # Initialize LearningAlignmentBridge with prerequisite validator
-        self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
-            service=self,
-            backend_get=self.backend.get,
-            backend_get_user=self.backend.get_user_tasks,
-            backend_create=self.backend.create_task,
-            domain=Domain.TECH,
-            entity_name="task",
-            prerequisite_validator=_validate_task_prerequisites,
-        )
 
     # ========================================================================
     # CONTEXT-AWARE CREATION
@@ -178,31 +132,6 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         # task (TaskCreated → context invalidation, then the embedding request) only
         # after its edges exist.
         return await self.core.create_task(task_data, user_context.user_uid)
-
-    @with_error_handling("create_task_with_learning_context", error_type="database")
-    async def create_task_with_learning_context(
-        self,
-        task_request: TaskCreateRequest,
-        learning_position: LpPosition | None = None,
-        context: UserContext | None = None,
-    ) -> Result[Task]:
-        """
-        Create a task enhanced with learning path position context.
-
-        Uses LearningAlignmentBridge with prerequisite validation.
-
-        Args:
-            task_request: Task creation request,
-            learning_position: User's learning path position context,
-            context: User context for prerequisite validation
-
-        Returns:
-            Result containing created Task with learning path enhancement
-        """
-        # Use LearningAlignmentBridge with prerequisite validator
-        return await self.learning_helper.create_with_learning_alignment(
-            request=task_request, learning_position=learning_position, context=context
-        )
 
     # ========================================================================
     # CURRICULUM-BASED TASK CREATION

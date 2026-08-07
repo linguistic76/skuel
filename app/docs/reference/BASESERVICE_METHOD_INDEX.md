@@ -137,7 +137,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### TasksService
 
-**Facade-specific public methods:** 58
+**Facade-specific public methods:** 57
 
 | Method | Async |
 |--------|-------|
@@ -156,7 +156,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_task_dependency()` | ✅ |
 | `create_task_from_path_step()` | ✅ |
 | `create_task_with_context()` | ✅ |
-| `create_task_with_learning_context()` | ✅ |
 | `create_tasks_from_learning_path()` | ✅ |
 | `delete_task()` | ✅ |
 | `delete_task_dependency()` | ✅ |
@@ -204,7 +203,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 62
+**Facade-specific public methods:** 60
 
 | Method | Async |
 |--------|-------|
@@ -223,8 +222,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_goal()` | ✅ |
 | `create_goal_milestone()` | ✅ |
 | `create_goal_with_context()` | ✅ |
-| `create_goal_with_learning_integration()` | ✅ |
-| `create_goal_with_learning_scheduling()` | ✅ |
 | `create_goal_with_scheduling_context()` | ✅ |
 | `create_semantic_goal_relationship()` | ✅ |
 | `create_subgoal_relationship()` | ✅ |
@@ -275,7 +272,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### HabitsService
 
-**Facade-specific public methods:** 76
+**Facade-specific public methods:** 74
 
 | Method | Async |
 |--------|-------|
@@ -291,8 +288,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_habit_from_learning_goal()` | ✅ |
 | `create_habit_from_path_step()` | ✅ |
 | `create_habit_with_context()` | ✅ |
-| `create_habit_with_learning_alignment()` | ✅ |
-| `create_habit_with_learning_scheduling_context()` | ✅ |
 | `create_habit_with_scheduling_context()` | ✅ |
 | `create_semantic_skill_relationship()` | ✅ |
 | `create_subhabit_relationship()` | ✅ |
@@ -360,7 +355,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### EventsService
 
-**Facade-specific public methods:** 57
+**Facade-specific public methods:** 55
 
 | Method | Async |
 |--------|-------|
@@ -375,11 +370,9 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create()` | ✅ |
 | `create_event()` | ✅ |
 | `create_event_with_context()` | ✅ |
-| `create_learning_path_schedule()` | ✅ |
 | `create_recurring_events()` | ✅ |
 | `create_recurring_events_for_habit()` | ✅ |
 | `create_recurring_instances()` | ✅ |
-| `create_study_session()` | ✅ |
 | `create_subevent_relationship()` | ✅ |
 | `create_user_event_relationship()` | ✅ |
 | `find_events()` | ✅ |

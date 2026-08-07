@@ -253,8 +253,12 @@ class _OrchestrationMixin:
             if habit_data.linked_goal_uids and goal_uid in habit_data.linked_goal_uids
         ]
 
-        # Create habit through learning service (handles DTO creation)
-        result = await self.learning.create_habit_with_learning_alignment(habit_data, None)
+        # Gates hold — the core primitive does everything else: builds the frozen
+        # Habit, writes the request's link edges through the admission guard, and
+        # publishes HabitCreated after they exist. (This step used to run through the
+        # learning bridge's dict-based create, which persisted a corrupt uid-less
+        # node and then errored — deleted 2026-08-06.)
+        result = await self.core.create_habit(habit_data, user_context.user_uid)
         if result.is_error:
             return result
 

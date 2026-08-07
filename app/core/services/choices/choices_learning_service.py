@@ -69,7 +69,6 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
             service=self,
             backend_get=self.backend.get,
             backend_get_user=self.backend.get_user_choices,
-            backend_create=self.backend.create_choice,
             domain=Domain.CHOICES,
             entity_name="choice",
         )
