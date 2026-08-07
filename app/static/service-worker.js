@@ -23,7 +23,7 @@
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v6';
+const CACHE_VERSION = 'skuel-v7';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

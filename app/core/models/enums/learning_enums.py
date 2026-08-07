@@ -517,7 +517,7 @@ class ContentType(StrEnum):
             ContentType.EXERCISE: ("exercise", "workout", "problem", "activity"),
             ContentType.ASSESSMENT: ("assessment", "test", "quiz", "exam", "evaluation"),
             ContentType.RESOURCE: ("resource", "tool", "material", "link"),
-            ContentType.SUMMARY: ("summary", "overview", "recap", "outline-solid", "brief"),
+            ContentType.SUMMARY: ("summary", "overview", "recap", "outline", "brief"),
             ContentType.TUTORIAL: ("tutorial", "walkthrough", "lesson", "guide", "how-to"),
         }
         return synonyms.get(self, ())
