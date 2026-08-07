@@ -90,7 +90,7 @@ jobs:
         run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
