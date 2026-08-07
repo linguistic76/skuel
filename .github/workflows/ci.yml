@@ -45,7 +45,7 @@ jobs:
 
       - name: Detect changed paths
         id: filter
-        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad  # v3.0.4 (pinned: third-party action)
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3 (pinned: third-party action)
         with:
           # On push, diff only the pushed commits (ignored on pull_request,
           # where the PR base is used). Without this, pushes to any long-lived
