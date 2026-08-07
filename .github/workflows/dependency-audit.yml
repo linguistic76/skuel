@@ -238,7 +238,7 @@ jobs:
       # stale — the artifact is a convenience, the issue is the promise.
       - name: Upload audit output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pip-audit-output
           path: app/pip-audit.txt
@@ -435,7 +435,7 @@ jobs:
       # failure must not be able to skip the issue write.
       - name: Upload audit output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: npm-audit-output
           path: |
