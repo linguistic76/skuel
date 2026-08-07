@@ -8,11 +8,12 @@ Runs all code quality checks in sequence:
 2. Ruff linting
 3. SKUEL linting (consolidated architecture + patterns)
 4. Cypher query validation
-5. Route security audit
-6. Skills validation (.claude/skills/*/SKILL.md structure)
+5. Route security audit (5b: raw headers audit)
+6. Skills validation (6b: content-boundary guard)
 7. Dead-code gate
 8. npm audit (JS dependency vulnerabilities)
-9. MyPy + Pyright type checking (optional)
+9. ShellCheck on tracked shell scripts (--severity=warning)
+10. MyPy + Pyright type checking (optional)
 
 `./dev typecheck-strict` runs only Pyright. See [tool.pyright] in pyproject.toml.
 
@@ -136,7 +137,7 @@ def main():
     ):
         all_passed = False
 
-    # 6. Raw Headers Audit (advisory: H1/H2 outside approved files; Html(Head()) is blocking)
+    # 5b. Raw Headers Audit (advisory: H1/H2 outside approved files; Html(Head()) is blocking)
     if not run_command(
         ["uv", "run", "python", "scripts/audit_raw_headers.py"],
         "Raw Headers Audit",
@@ -144,7 +145,7 @@ def main():
     ):
         all_passed = False
 
-    # 7. Skills Validation (.claude/skills/*/SKILL.md structure; fails on errors, not warnings)
+    # 6. Skills Validation (.claude/skills/*/SKILL.md structure; fails on errors, not warnings)
     if not run_command(
         ["uv", "run", "python", "scripts/skills_validator.py"],
         "Skills Validation",
@@ -152,7 +153,7 @@ def main():
     ):
         all_passed = False
 
-    # 7b. Content-boundary guard (no proprietary vault content tracked in this PUBLIC repo)
+    # 6b. Content-boundary guard (no proprietary vault content tracked in this PUBLIC repo)
     if not run_command(
         ["uv", "run", "python", "scripts/audit_content_boundary.py"],
         "Content-Boundary Guard",
@@ -176,7 +177,17 @@ def main():
     ):
         all_passed = False
 
-    # 9. Type Checking (optional - slow)
+    # 9. ShellCheck (tracked *.sh + shebang-detected extensionless scripts; warning
+    # severity — style notes stay advisory). Discovery lives in shellcheck_tracked.py,
+    # shared with the CI lint job so local and CI coverage cannot drift.
+    if not run_command(
+        ["uv", "run", "python", "scripts/shellcheck_tracked.py"],
+        "ShellCheck (shell scripts)",
+        check=False,
+    ):
+        all_passed = False
+
+    # 10. Type Checking (optional - slow)
     if not args.fast:
         print("\n💡 Running type checks (slow). Use --fast to skip.")
 

@@ -50,8 +50,7 @@ fi
 
 TOK=""
 acquire_token() {
-  local i
-  for i in 1 2 3; do
+  for _ in 1 2 3; do
     TOK=$(gh auth token 2>/dev/null) && [[ -n "$TOK" ]] && return 0
     sleep 2
   done
@@ -59,8 +58,8 @@ acquire_token() {
 }
 
 gh_retry() {
-  local i out
-  for i in 1 2 3; do
+  local out
+  for _ in 1 2 3; do
     out=$(GH_TOKEN="$TOK" gh "$@" 2>&1) && { printf '%s' "$out"; return 0; }
     if [[ "$out" == *"401"* || "$out" == *"Requires authentication"* ]]; then
       sleep 5
