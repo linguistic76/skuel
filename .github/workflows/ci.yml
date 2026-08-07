@@ -768,7 +768,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # Node 24 (LTS). Range, not bare '24', so setup-node cannot select an
           # older cached 24.0–24.14 (check-latest is false) below jsdom 30's
