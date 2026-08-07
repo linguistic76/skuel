@@ -385,13 +385,13 @@ def create_{domain}_ui_routes(
 
 SKUEL has three distinct route wiring patterns. Choose deliberately — mixing them without reason creates cognitive load.
 
-### Pattern A: DomainRouteConfig (default — 79% of route files)
+### Pattern A: DomainRouteConfig (default — 37 of the 52 route modules in bootstrap Section 2)
 
 Declarative config object + `register_domain_routes()`. Soft-fails when primary service is absent (logs a warning, skips registration).
 
 **Use when:** Standard entity domain with a primary service + optional related services, and distinct `*_api.py` / `*_ui.py` factories.
 
-**Examples:** Every Activity Domain, Ku, PathStep, LearningPath, Exercises, Forms, Finance, Ingestion, Journals, Upload.
+**Examples:** Every Activity Domain, Ku, PathStep, LearningPath, Exercises, Forms, UserEntry, Finance, Ingestion, Transcription. Full list in § Current Users.
 
 ### Pattern B: Orchestrator-Driven (3 files)
 
@@ -403,13 +403,15 @@ Route factory creates or receives an orchestrator object that encapsulates cross
 
 **Do not add new files here** unless DomainRouteConfig genuinely cannot express the coordination needed.
 
-### Pattern C: Manual `@rt()` (4 files)
+### Pattern C: Manual `@rt()` (12 files in bootstrap Section 2)
 
 Routes registered directly with `@rt()` decorators inside the factory function. No config object. Service-missing behavior is ad-hoc per file.
 
 **Use when:** The routes are structural (auth flow, PWA shell, settings page) and don't map to an entity domain. These are stable and unlikely to grow.
 
-**Current adopters:** `home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`.
+**Current adopters (Section 2):** `home_routes.py`, `today_routes.py`, `settings_routes.py`, `journals_routes.py`, `vault_routes.py`, `device_routes.py`, `templates_ui.py`, `ps_engagement_routes.py`, `groups_hub_routes.py`, `learning_paths_ui.py`, `picker_routes.py`, `self_checkin_routes.py`. Sections 3 and 4 (`admin_dashboard_ui.py`, `analytics_api.py`, `user_pins_api.py`, `user_profile_ui.py`, `pwa_routes.py`) are manual by construction and sit outside the adoption denominator.
+
+**Note:** "stable and unlikely to grow" has not held — this set is the largest of the three and absorbs new surfaces by default. `submissions_hub_routes.py`, listed here until 2026-08-04, was deleted when ADR-054 folded submissions into `user_entry_routes.py`.
 
 **Do not use for new entity domains** — reach for DomainRouteConfig instead.
 
@@ -1011,9 +1013,13 @@ DomainRouteConfig operates at the **Adapter Layer** - it wires API/UI to the app
   - `register_domain_routes()` function (lines 132-250) - Registration with config-driven factories
   - `create_activity_domain_route_config()` function (lines 253-320) - Activity Domain convenience function
 
-### Current Users (37 files - 93% adoption)
+### Current Users (40 files)
 
-All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()` in `bootstrap.py` without `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
+40 route modules bind a module-level `DomainRouteConfig`. 37 are wired in Section 2 of `_wire_all_routes()` in `bootstrap.py`; the 3 Infrastructure ones are wired in Section 1. Registration is unguarded — the soft-fail in `register_domain_routes()` handles missing services — with one exception: `askesis_routes.py` sits behind `if services.askesis is not None:`.
+
+Configs are constructed three ways: `DomainRouteConfig(...)` directly (28 files), `create_activity_domain_route_config()` (6 Activity files), and `make_pathstep_template_route_config()` (6 PS-template files).
+
+**Adoption:** 37 of the 52 route modules in bootstrap Section 2 use the pattern — **71%**. Section 2 ("ENTITY DOMAIN ROUTES") is the only non-circular denominator available: Section 1 is infrastructure, Section 3 is manual by design, Section 4 is the PWA shell. See § Route Wiring Patterns for what the other 15 use instead.
 
 **Activity (6):**
 1. `/adapters/inbound/tasks_routes.py`
@@ -1027,53 +1033,57 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 7. `/adapters/inbound/ku_routes.py`
 8. `/adapters/inbound/exercises_routes.py`
 9. `/adapters/inbound/revised_exercises_routes.py`
-10. `/adapters/inbound/pathways_routes.py` - LP + PS routes
-11. `/adapters/inbound/askesis_routes.py`
+10. `/adapters/inbound/pathways_routes.py` - LP routes
+11. `/adapters/inbound/path_steps_routes.py` - PS routes; `PS_CONFIG` is registered by `pathways_routes.py`, so bootstrap never imports this module directly
+12. `/adapters/inbound/askesis_routes.py`
 
-**Submissions/Forms/Journals (4):**
-14. `/adapters/inbound/submissions_routes.py`
-15. `/adapters/inbound/journals_routes.py` (standalone journal domain)
-16. `/adapters/inbound/form_templates_routes.py`
-17. `/adapters/inbound/form_submissions_routes.py`
+**PS + Activity Templates (6) — all via `make_pathstep_template_route_config()`:**
+13. `/adapters/inbound/pathstep_task_templates_routes.py`
+14. `/adapters/inbound/pathstep_goal_templates_routes.py`
+15. `/adapters/inbound/pathstep_habit_templates_routes.py`
+16. `/adapters/inbound/pathstep_event_templates_routes.py`
+17. `/adapters/inbound/pathstep_choice_templates_routes.py`
+18. `/adapters/inbound/pathstep_principle_templates_routes.py`
 
-**Other Domains (13):**
-17. `/adapters/inbound/finance_routes.py`
-18. `/adapters/inbound/lifepath_routes.py`
-19. `/adapters/inbound/context_routes.py`
-20. `/adapters/inbound/insights_routes.py` (multi-factory)
-21. `/adapters/inbound/search_routes.py`
-22. `/adapters/inbound/analytics_routes.py`
-23. `/adapters/inbound/calendar_routes.py`
-24. `/adapters/inbound/ingestion_routes.py`
-25. `/adapters/inbound/notifications_routes.py`
-26. `/adapters/inbound/groups_routes.py`
-27. `/adapters/inbound/teaching_routes.py`
-28. `/adapters/inbound/transcription_routes.py`
+**Forms / User Entry (3):**
+19. `/adapters/inbound/user_entry_routes.py` (ADR-054 — unified submissions + journals surface)
+20. `/adapters/inbound/form_templates_routes.py`
+21. `/adapters/inbound/form_submissions_routes.py`
 
-**Infrastructure (3):**
-30. `/adapters/inbound/system_routes.py`
-31. `/adapters/inbound/admin_routes.py`
-32. `/adapters/inbound/auth_routes.py`
+**Other Domains (12):**
+22. `/adapters/inbound/finance_routes.py`
+23. `/adapters/inbound/lifepath_routes.py`
+24. `/adapters/inbound/context_routes.py`
+25. `/adapters/inbound/insights_routes.py` (multi-factory)
+26. `/adapters/inbound/search_routes.py`
+27. `/adapters/inbound/analytics_routes.py`
+28. `/adapters/inbound/calendar_routes.py`
+29. `/adapters/inbound/ingestion_routes.py`
+30. `/adapters/inbound/notifications_routes.py`
+31. `/adapters/inbound/groups_routes.py`
+32. `/adapters/inbound/teaching_routes.py`
+33. `/adapters/inbound/transcription_routes.py`
 
-**Graph/Visualization (5):**
-33. `/adapters/inbound/hierarchy_routes.py`
-34. `/adapters/inbound/lateral_routes.py`
-35. `/adapters/inbound/visualization_routes.py`
-36. `/adapters/inbound/orchestration_routes.py` (multi-factory)
-37. `/adapters/inbound/advanced_routes.py` (multi-factory)
+**Infrastructure (3) — wired in bootstrap Section 1, not Section 2:**
+34. `/adapters/inbound/system_routes.py`
+35. `/adapters/inbound/admin_routes.py`
+36. `/adapters/inbound/auth_routes.py`
 
-**Hubs (2) — registered via DomainRouteConfig but categorized as Section 2 in bootstrap:**
-- `/adapters/inbound/study_routes.py`
-- `/adapters/inbound/curriculum_hub_routes.py`
+**Graph/Visualization (4):**
+37. `/adapters/inbound/hierarchy_routes.py`
+38. `/adapters/inbound/visualization_routes.py`
+39. `/adapters/inbound/orchestration_routes.py` (multi-factory)
+40. `/adapters/inbound/advanced_routes.py` (multi-factory)
 
-### Justified Exceptions (2 files)
+### Justified Exceptions (1 file)
 
 Files with legitimate complexity or minimal overhead warranting custom patterns:
 
-- `graphql_routes.py` - Needs full `services` container for cross-domain GraphQL context (signature normalized)
-- `metrics_routes.py` - Single endpoint, minimal overhead
+- `metrics_routes.py` - Single endpoint (35 lines), minimal overhead; wired in Section 1
 
 **Note:** `ai_routes.py` was refactored (2026-03-23) to use its own config-driven pattern (`AIRouteSpec` dataclass + signature template factories), reducing 36 hand-written closures to a declarative spec list. Not DomainRouteConfig, but achieves the same goal of configuration over code.
+
+**This is not an exhaustive list of non-adopters** — it never was, which is how the old "93% adoption" figure stayed plausible. 15 further route modules in Section 2 register routes without DomainRouteConfig: 3 via Pattern B and 12 via Pattern C (§ Route Wiring Patterns). `_wire_all_routes()` is the enumeration; this section only records the ones whose deviation was argued rather than inherited.
 
 ## Common Patterns and Conventions
 
@@ -1293,6 +1303,8 @@ Zero runtime overhead - routes are registered once at application startup.
 - graphql_routes.py: signature normalized only (needs full services container)
 
 **Summary:** 42 of 46 route files use DomainRouteConfig or equivalent config-driven patterns (91% adoption). 4 non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator). ai_routes.py was refactored (2026-03-23) to use AIRouteSpec config-driven generation. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
+
+> **Snapshot as of the phase-9 era (2026-03) — not the live census.** These figures predate the deletion of `graphql_routes.py` (#814), and "or equivalent config-driven patterns" was a looser definition with no stated file list, which is how they diverged from reality unnoticed. The live census is § Current Users: 40 DomainRouteConfig files, 71% of bootstrap Section 2 (measured 2026-08-04).
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory

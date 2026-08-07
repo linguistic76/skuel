@@ -275,6 +275,19 @@ read contradicts or extends the ground truth.
   numbers), against 29 modules actually declaring a `DomainRouteConfig`. Only
   the timeline entry and its section count were corrected; the re-audit is a
   separate job.
+  **Re-audit done 2026-08-04.** The real census is **40** files, not 29 — the
+  `grep -c "DomainRouteConfig("` used here is blind to the two convenience
+  factories that *return* a config (`create_activity_domain_route_config`, 6
+  files; `make_pathstep_template_route_config`, 6 files) while counting the
+  factory helper `_pathstep_template_routes_helpers.py` itself as an adopter:
+  twelve missed, one false positive, so the figure quoted above undercounted
+  by 11. The list named three deleted files (`submissions_routes.py`,
+  `study_routes.py`, `curriculum_hub_routes.py`) and two modules that never
+  used the pattern (`journals_routes.py`, `lateral_routes.py`). "93% adoption"
+  had no stated denominator and only survived by counting `graphql_routes.py`,
+  deleted in #814; measured adoption is **71%** of bootstrap Section 2. A
+  second, conflicting figure ("79% of route files") sat 600 lines up in the
+  same document.
 
 ### Time vocabularies deliberately left alone (DECLINE list)
 
