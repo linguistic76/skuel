@@ -78,8 +78,9 @@ RELATIONSHIP_SKIP_FIELDS = {
     # rested on the field being absent from the DTO, and the generated CRUD route
     # persists the ENTITY, so ``POST /api/{tasks,events}/create`` wrote it as a node
     # property that no reader consults. The create path now writes the EDGE instead
-    # (TasksCoreService._write_link_edges); the update path already split this field
-    # off the property patch (TasksService._split_relationship_intent).
+    # (TasksCoreService._write_link_edges / EventsCoreService._write_link_edges); the
+    # update path already split this field off the property patch
+    # (TasksService._split_relationship_intent, EventsService's sibling).
     "reinforces_habit_uid",
     "depends_on_uids",
     "blocks_uids",
@@ -91,6 +92,14 @@ RELATIONSHIP_SKIP_FIELDS = {
     "supports_goal_uids",
     "supported_by_uids",
     "milestone_uids",
+    # Carried by Event only (asserted by census test) and documented as DERIVED FROM
+    # EDGE — the link is (Event)-[:CONTRIBUTES_TO_GOAL]->(Goal), populated at fetch
+    # time by enrich_events_with_goal_links. Unlike reinforces_habit_uid above there
+    # was no LIVE property leak — no create request carries the field, so no door
+    # could set it — but any writer persisting an ENRICHED Event would have leaked
+    # it; this entry makes the docstring's "never persisted" enforced rather than
+    # incidental.
+    "contributes_to_goal_uid",
     # Domain relationships
     "domain_uids",
     "used_by_uids",

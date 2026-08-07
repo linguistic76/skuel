@@ -232,61 +232,17 @@ class EventsService(
         class's MRO. The generated route therefore persisted events unchecked, and
         published neither CalendarEventCreated nor the ADR-074 embedding request.
 
-        Same reconciliation ``ChoicesService.create`` makes (#960).
+        Same reconciliation ``ChoicesService.create`` makes (#960). Since the create
+        primitive also writes the entity-carried REINFORCES_HABIT edge
+        (``EventsCoreService._write_link_edges``), this door no longer drops
+        ``reinforces_habit_uid`` — the route converter sets it on the entity.
         """
         return await self.core.create(entity)
 
     async def create_event(self, request: EventCreateRequest, user_uid: UserUID) -> Result[Event]:
-        """Create an event from a validated request."""
-        validation = self.core._validate_required_user_uid(user_uid, "event creation")
-        if validation.is_error:
-            return Result.fail(validation)
-
-        from core.utils.uid_generator import UIDGenerator
-
-        event = Event(
-            uid=UIDGenerator.generate_uid("event", request.title),
-            user_uid=user_uid,
-            title=request.title,
-            description=request.description,
-            event_date=request.event_date,
-            start_time=request.start_time,
-            end_time=request.end_time,
-            event_type=request.event_type,
-            visibility=request.visibility,
-            location=request.location,
-            is_online=request.is_online,
-            meeting_url=request.meeting_url,
-            tags=tuple(request.tags),
-            priority=request.priority,
-            attendee_emails=tuple(request.attendee_emails),
-            max_attendees=request.max_attendees,
-            recurrence_pattern=request.recurrence_pattern,
-            recurrence_end_date=request.recurrence_end_date,
-            reminder_minutes=request.reminder_minutes,
-            habit_completion_quality=request.habit_completion_quality,
-            knowledge_retention_check=request.knowledge_retention_check,
-        )
-        created = await self.core.create(event)
-        if created.is_error:
-            return created
-
-        # Cross-domain linkages are graph edges, not properties — write them
-        # after node creation: (Event)-[:CELEBRATES_GOAL]->(Goal) and
-        # (Event)-[:REINFORCES_HABIT]->(Habit).
-        if request.milestone_celebration_for_goal:
-            edge = await self.relationships.create_relationship(
-                "celebrated_goals", created.value.uid, request.milestone_celebration_for_goal
-            )
-            if edge.is_error:
-                return Result.fail(edge)
-        if request.reinforces_habit_uid:
-            edge = await self.relationships.create_relationship(
-                "habits", created.value.uid, request.reinforces_habit_uid
-            )
-            if edge.is_error:
-                return Result.fail(edge)
-        return created
+        """Create an event from a validated request (the request door — lives on core,
+        beside the create primitive that writes its edges)."""
+        return await self.core.create_event(request, user_uid)
 
     # ------------------------------------------------------------------------
     # Update path (ADR-066 typed update contract)

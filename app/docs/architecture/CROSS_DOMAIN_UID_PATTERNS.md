@@ -64,7 +64,7 @@ Confusing the two produces either stale denormalized data (writing what should b
 
 ⚠ **Absence from the DTO is NOT what makes a field unpersistable** — that was the stated test here until 2026-08-06, and it was wrong. Only `create_*` paths that persist `to_dto().to_dict()` are covered by it; the generated CRUD route (`CRUDRouteFactory._register_create_route`) converts the request and persists the **ENTITY**, so `to_neo4j_node` reads the dataclass field directly. `reinforces_habit_uid` was landing as a junk node property on every task and event created through `POST /api/{tasks,events}/create`, while no edge was written. The skip-set entry is what actually enforces the rule; the DTO's silence merely hid the gap.
 
-**On Tasks, `reinforces_habit_uid` is derived on READ but is the edge's INPUT on CREATE.** It rides on the `Task` because the generated route hands the service an entity and no request — a link the entity cannot carry is a link that door can never write — and `TasksCoreService._write_link_edges` turns it into the REINFORCES_HABIT edge for both doors. Events do not (yet) do this: their route door still drops the link.
+**On Tasks and Events, `reinforces_habit_uid` is derived on READ but is the edge's INPUT on CREATE.** It rides on the entity because the generated route hands the service an entity and no request — a link the entity cannot carry is a link that door can never write — and `TasksCoreService._write_link_edges` / `EventsCoreService._write_link_edges` turn it into the REINFORCES_HABIT edge for both doors. Links the entity genuinely cannot carry (`milestone_celebration_for_goal` → CELEBRATES_GOAL) stay request-door-only, written by the same guarded batch when the request is present.
 
 ---
 
