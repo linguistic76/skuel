@@ -261,9 +261,10 @@ class TasksCoreService(
         ``progress_weight`` is a property of the HAS_SUBTASK EDGE, not of ``Task``, so it
         cannot ride on the entity — only the request door can supply a non-default. It is
         a parameter here rather than a second create path so the edge has exactly one
-        write site. ``request`` is likewise present only for the request door: the two
-        knowledge lists are edge-typed and reach no ``Task`` field, so the entity door has
-        nothing to pass (``None``, and no knowledge edges written).
+        write site. ``request`` is likewise present only for the request door: the
+        request's link lists (knowledge, principles, prerequisite tasks) are edge-typed
+        and reach no ``Task`` field, so the entity door has nothing to pass (``None``,
+        and no list edges written).
 
         Mirrors ``GoalsCoreService._create_with_hierarchy``, with one difference that
         cost a RED test: BOTH of Tasks' entity-carried links are RELATIONSHIP_SKIP_FIELDS,
@@ -372,7 +373,7 @@ class TasksCoreService(
     ) -> list[str]:
         """GRAPH-NATIVE: turn the task's cross-domain links into edges, in one batch.
 
-        Three registered relationships, from two different sources:
+        Five registered relationships, from two different sources:
 
         - ``Task.reinforces_habit_uid`` → REINFORCES_HABIT — from the ENTITY, so BOTH
           doors write it. Passed in as ``habit_uid`` rather than read off ``task``,
@@ -383,11 +384,23 @@ class TasksCoreService(
           registry's ``habit_context``). It is now skipped by the mapper and written here.
         - ``applies_knowledge_uids``   → APPLIES_KNOWLEDGE  (request only)
         - ``prerequisite_knowledge_uids`` → REQUIRES_KNOWLEDGE (request only)
+        - ``aligned_principle_uids``   → ALIGNED_WITH_PRINCIPLE (request only)
+        - ``prerequisite_task_uids``   → BLOCKED_BY (request only)
 
-        All three are declared ``outgoing`` from the task, so the task is the source of
+        All five are declared ``outgoing`` from the task, so the task is the source of
         every tuple. Edge properties are ``None``, matching both the pre-existing create
         writes and the update path's ``_sync_relationship_edges``, so a task linked at
         creation is indistinguishable from one linked afterwards.
+
+        The last two joined when ``create_task_with_context`` was routed through this
+        primitive: ``create_task`` had silently DROPPED both request lists, and the
+        context door — the one writer they had — spelled the principle edge with the
+        raw string ``"ALIGNED_WITH"``, a name the relationship registry does not know.
+        ``create_relationships_batch`` validates every tuple against the registry and
+        is all-or-nothing, so any request naming a principle lost its habit, knowledge
+        and prerequisite-task edges along with it, as a logged warning on a create that
+        reported success. Every reader resolves principles from ALIGNED_WITH_PRINCIPLE
+        (the user-context MEGA-QUERY, the registry's ``aligned_principles``).
 
         ADMISSION: every one of these UIDs is request input, so each is checked for
         existence, OWNER and KIND before it becomes an edge — see
@@ -395,7 +408,9 @@ class TasksCoreService(
         unguarded, which #965 recorded as the same defect class it fixed for Goals and
         Habits; they are guarded here because they share this batch. The declared labels
         come from the field names: ``reinforces_habit_uid`` means a Habit, the knowledge
-        lists mean Kus (KNOWLEDGE_LABELS — see there for why the atom and not the PathStep).
+        lists mean Kus (KNOWLEDGE_LABELS — see there for why the atom and not the
+        PathStep), ``aligned_principle_uids`` means Principles, and
+        ``prerequisite_task_uids`` means the caller's own Tasks.
 
         Returns:
             The APPLIES_KNOWLEDGE uids actually WRITTEN — the caller announces substance
@@ -436,6 +451,22 @@ class TasksCoreService(
                     allowed_labels=KNOWLEDGE_LABELS,
                 )
                 for knowledge_uid in request.prerequisite_knowledge_uids
+            )
+            candidates.extend(
+                LinkEdge(
+                    (task.uid, principle_uid, RelationshipName.ALIGNED_WITH_PRINCIPLE.value, None),
+                    other_uid=principle_uid,
+                    allowed_labels=frozenset({NeoLabel.PRINCIPLE.value}),
+                )
+                for principle_uid in request.aligned_principle_uids
+            )
+            candidates.extend(
+                LinkEdge(
+                    (task.uid, prerequisite_uid, RelationshipName.BLOCKED_BY.value, None),
+                    other_uid=prerequisite_uid,
+                    allowed_labels=frozenset({NeoLabel.TASK.value}),
+                )
+                for prerequisite_uid in request.prerequisite_task_uids
             )
 
         if not candidates:
@@ -548,11 +579,12 @@ class TasksCoreService(
         Create a task with automatic knowledge inference.
 
         Builds the entity, then hands it to the one create primitive. ``progress_weight``
-        and the two knowledge lists are forwarded because only this door still has the
-        request: all three are EDGE-shaped, so none reaches the entity the route door
-        builds. The HAS_SUBTASK and REINFORCES_HABIT edges, whose endpoints DO ride on the
-        entity, are written by the shared path for both doors — writing them here as well
-        would double-write them.
+        and the request's four link lists (two knowledge, principles, prerequisite tasks)
+        are forwarded because only this door still has the request: all five are
+        EDGE-shaped, so none reaches the entity the route door builds. The HAS_SUBTASK
+        and REINFORCES_HABIT edges, whose endpoints DO ride on the entity, are written by
+        the shared path for both doors — writing them here as well would double-write
+        them.
 
         Args:
             task_request: Task creation request

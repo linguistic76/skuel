@@ -29,6 +29,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
+from core.services.tasks.tasks_core_service import TasksCoreService
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
@@ -158,20 +159,39 @@ class BiDirectionalDemo:
             async def create(
                 self, model: Task
             ) -> Result[
-                dict[str, Any]
-            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksSchedulingService awaits it
+                Task
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksCoreService awaits it
                 task_data = model.to_dto().to_dict()
                 task_data.setdefault("created_at", datetime.now().isoformat())
                 self.tasks[model.uid] = task_data
-                return Result.ok(task_data)
+                # The real backend returns the round-tripped DOMAIN MODEL
+                return Result.ok(model)
 
             async def create_relationships_batch(
                 self, relationships: list[tuple[str, str, str, dict[str, Any] | None]]
             ) -> Result[
                 int
-            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksSchedulingService awaits it
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksCoreService awaits it
                 self.edges.extend(relationships)
                 return Result.ok(len(relationships))
+
+            async def get_owner_uids_batch(
+                self, uids: list[str]
+            ) -> Result[
+                dict[str, list[str]]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; the admission guard awaits it
+                # Empty map = every UID owned by nobody (shared) → linkable
+                return Result.ok({})
+
+            async def get_node_labels_batch(
+                self, uids: list[str]
+            ) -> Result[
+                dict[str, list[str]]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; the admission guard awaits it
+                # Every UID carries every label the link fields accept
+                return Result.ok(
+                    {uid: ["Entity", "Habit", "Ku", "Principle", "Task"] for uid in uids}
+                )
 
             async def get(
                 self, task_id: str
@@ -203,7 +223,9 @@ class BiDirectionalDemo:
 
         print("2. Injecting protocol into service")
 
-        service = TasksSchedulingService(backend=backend)
+        service = TasksSchedulingService(
+            backend=backend, core=TasksCoreService(backend=backend, event_bus=None)
+        )
         print("   ✓ Service created with protocol injection")
 
         print("3. Service operations through protocol")

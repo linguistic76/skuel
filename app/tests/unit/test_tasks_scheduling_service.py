@@ -25,6 +25,7 @@ from core.models.pathways.lp_position import LpPosition
 from core.models.pathways.path_step import PathStep
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
+from core.services.tasks.tasks_core_service import TasksCoreService
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
@@ -34,11 +35,20 @@ from core.utils.result_simplified import Errors, Result
 # ============================================================================
 
 
+async def _echo_create(entity: Any) -> Result[Any]:
+    """Persist by echoing the entity, as the real backend returns the created model.
+
+    Round-trip fidelity (fields dropped by the mapper) is pinned in
+    ``test_task_create_edges.py``; this suite is about the scheduling flows.
+    """
+    return Result.ok(entity)
+
+
 @pytest.fixture
 def mock_backend() -> Any:
     """Create a mock tasks backend."""
     backend = Mock()
-    backend.create = AsyncMock()
+    backend.create = AsyncMock(side_effect=_echo_create)
     backend.create_task = AsyncMock()
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
@@ -46,13 +56,27 @@ def mock_backend() -> Any:
     backend.create_relationships_batch = AsyncMock(
         return_value=Result.ok(0)
     )  # Batch relationship creation
+    # Admission guard reads (keep_permitted_link_edges): every UID resolves, is owned
+    # by nobody (shared → linkable), and carries every label the link fields accept.
+    backend.get_owner_uids_batch = AsyncMock(return_value=Result.ok({}))
+
+    async def _all_labels(uids: Any) -> Result[dict[str, list[str]]]:
+        return Result.ok({uid: ["Entity", "Habit", "Ku", "Principle", "Task"] for uid in uids})
+
+    backend.get_node_labels_batch = AsyncMock(side_effect=_all_labels)
     return backend
 
 
 @pytest.fixture
-def scheduling_service(mock_backend) -> TasksSchedulingService:
+def core_service(mock_backend) -> TasksCoreService:
+    """THE create primitive both scheduling doors delegate to."""
+    return TasksCoreService(backend=mock_backend, event_bus=None)
+
+
+@pytest.fixture
+def scheduling_service(mock_backend, core_service) -> TasksSchedulingService:
     """Create TasksSchedulingService instance."""
-    return TasksSchedulingService(backend=mock_backend)
+    return TasksSchedulingService(backend=mock_backend, core=core_service)
 
 
 @pytest.fixture
@@ -129,16 +153,17 @@ def task_request() -> TaskCreateRequest:
 # ============================================================================
 
 
-def test_init_with_backend(mock_backend):
+def test_init_with_backend(mock_backend, core_service):
     """Test service initialization with required backend."""
-    service = TasksSchedulingService(backend=mock_backend)
+    service = TasksSchedulingService(backend=mock_backend, core=core_service)
     assert service.backend == mock_backend
+    assert service.core is core_service
 
 
 def test_init_without_backend():
     """Test service initialization fails without backend."""
     with pytest.raises(ValueError, match=r"tasks\.scheduling backend is REQUIRED"):
-        TasksSchedulingService(backend=None)
+        TasksSchedulingService(backend=None, core=Mock())
 
 
 # ============================================================================
@@ -150,30 +175,19 @@ def test_init_without_backend():
 async def test_create_task_with_context_success(
     scheduling_service, mock_backend, task_request, user_context
 ):
-    """Test successful context-aware task creation."""
-    # Setup
-    created_dto = TaskDTO.create_task(
-        user_uid="user_123",
-        title=task_request.title,
-        priority=task_request.priority,
-        due_date=task_request.due_date,
-    )
-    created_dto.uid = "task:new_123"
+    """Test successful context-aware task creation.
 
-    mock_backend.create.return_value = Result.ok(created_dto.to_dict())
-
-    # Execute
+    Runs through TasksCoreService.create_task (THE create primitive), so the persist
+    lands on backend.create and the request's link lists go out as guarded edges —
+    the wiring itself is pinned in test_task_create_edges.py.
+    """
     result = await scheduling_service.create_task_with_context(task_request, user_context)
 
     # Verify
     assert result.is_ok
     task = result.value
     assert task.title == task_request.title
-    # Relationship fields (prerequisite_knowledge_uids, etc.) removed from Task model
-    # These are now stored as graph relationships and queried via UnifiedRelationshipService
-
-    # Note: Context invalidation now happens via event-driven architecture
-    # TaskCreated events trigger user_service.invalidate_context() in bootstrap
+    mock_backend.create.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -257,25 +271,11 @@ async def test_create_task_without_learning_context(scheduling_service, mock_bac
 @pytest.mark.asyncio
 async def test_create_task_from_path_step(scheduling_service, mock_backend):
     """Test creating a task from a path step."""
-    # Setup
-    created_dto = TaskDTO(
-        uid="task:curriculum_123",
-        user_uid="user_123",
-        title="Practice Python fundamentals",
-        source_path_step_uid="ps:python_fundamentals",
-        knowledge_mastery_check=True,
-        status=EntityStatus.DRAFT.value,
-        priority=Priority.MEDIUM.value,
-        created_at=datetime.now(),
-    )
-    mock_backend.create.return_value = Result.ok(created_dto.to_dict())
-
-    # Execute
     result = await scheduling_service.create_task_from_path_step(
         step_uid="ps:python_fundamentals",
         task_title="Practice Python fundamentals",
         knowledge_uids=["ku.python.basics"],
-        _user_uid="user_123",
+        user_uid="user_123",
     )
 
     # Verify
@@ -283,18 +283,22 @@ async def test_create_task_from_path_step(scheduling_service, mock_backend):
     task = result.value
     assert task.source_path_step_uid == "ps:python_fundamentals"
     assert task.knowledge_mastery_check is True
+    assert task.status == EntityStatus.DRAFT
+    assert task.priority == Priority.MEDIUM
     # applies_knowledge_uids removed - query via UnifiedRelationshipService
 
 
 @pytest.mark.asyncio
 async def test_create_curriculum_task_backend_error(scheduling_service, mock_backend):
     """Test curriculum task creation with backend error."""
-    # Setup: create_task_from_path_step calls backend.create() (not create_task)
-    mock_backend.create.return_value = Result.fail(Errors.database("create_task", "Database error"))
+    # The primitive's persist seam is backend.create; a failure there propagates.
+    mock_backend.create = AsyncMock(
+        return_value=Result.fail(Errors.database("create_task", "Database error"))
+    )
 
     # Execute
     result = await scheduling_service.create_task_from_path_step(
-        step_uid="ps:test", task_title="Test Task", knowledge_uids=["ku.test"], _user_uid="user_123"
+        step_uid="ps:test", task_title="Test Task", knowledge_uids=["ku.test"], user_uid="user_123"
     )
 
     # Verify

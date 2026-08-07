@@ -363,7 +363,9 @@ class TasksService(
         # Domain-specific sub-services
         self.learning: TasksLearningService = common.learning
         self.progress = TasksProgressService(backend=backend, event_bus=event_bus)
-        self.scheduling = TasksSchedulingService(backend=backend)
+        # Holds core so its two create doors run through THE create primitive
+        # (events, embedding request, guarded link edges) instead of backend.create.
+        self.scheduling = TasksSchedulingService(backend=backend, core=self.core)
         self.planning = TasksPlanningService(
             backend=backend,
             cross_domain_query=cross_domain_query,
@@ -708,10 +710,10 @@ class TasksService(
         )
 
     async def create_task_from_path_step(
-        self, step_uid: str, task_title: str, knowledge_uids: list[str], _user_uid: UserUID
+        self, step_uid: str, task_title: str, knowledge_uids: list[str], user_uid: UserUID
     ) -> Result[Task]:
         return await self.scheduling.create_task_from_path_step(
-            step_uid, task_title, knowledge_uids, _user_uid
+            step_uid, task_title, knowledge_uids, user_uid
         )
 
     # Planning delegations

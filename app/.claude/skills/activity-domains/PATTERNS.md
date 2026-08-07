@@ -80,7 +80,12 @@ __all__ = ["create_tasks_routes"]
 # 1. In tasks_service.py __init__:
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 
-self.scheduling = TasksSchedulingService(backend=backend)
+# Sibling injection: a sub-service that CREATES entities receives the core
+# sub-service so its creates run through THE create primitive (events, embedding
+# request, guarded link edges) — construct it AFTER self.core. Same shape as
+# HabitsPatternService(habits_core=...). Sub-services with no create path take
+# only the backend.
+self.scheduling = TasksSchedulingService(backend=backend, core=self.core)
 
 # 2. Add delegation in TasksService facade:
 async def get_scheduling_recommendations(self, *args: Any, **kwargs: Any) -> Any:

@@ -249,9 +249,12 @@ result = await progress.complete_task_with_cascade(task_uid, user_context)
 
 **Example:**
 ```python
-from core.services.tasks import TasksSchedulingService
+from core.services.tasks import TasksCoreService, TasksSchedulingService
 
-scheduling = TasksSchedulingService(backend=backend)
+# Tasks' scheduling service holds the core sibling: both of its create doors
+# delegate to THE create primitive (TasksCoreService.create/create_task) so every
+# task gets the same guarded edges, TaskCreated event, and embedding request.
+scheduling = TasksSchedulingService(backend=backend, core=core_service)
 result = await scheduling.create_task_with_context(request, user_context)
 ```
 
