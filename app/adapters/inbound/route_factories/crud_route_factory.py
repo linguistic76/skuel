@@ -276,7 +276,9 @@ class CRUDRouteFactory[T]:
         # checker-validated even though getattr resolves the method dynamically.
         self.request_create: Callable[[BaseModel, UserUID], Awaitable[Result[T]]] | None = None
         if request_create_method is not None:
-            method = getattr(service, request_create_method, None)
+            method: Callable[[BaseModel, UserUID], Awaitable[Result[T]]] | None = getattr(
+                service, request_create_method, None
+            )
             if not callable(method):
                 raise ValueError(
                     f"request_create_method '{request_create_method}' does not resolve "
