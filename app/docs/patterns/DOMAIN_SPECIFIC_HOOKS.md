@@ -64,12 +64,13 @@ those were removed in #960.
 the object the caller holds has that override in its MRO.** Two ways to lose it, both of
 which happened in SKUEL and both of which are silent:
 
-**1. The facade doesn't inherit its sub-service.** The generated CRUD route calls
-`service.create(entity)` where `service` is the `{Domain}Service` FACADE, but the rules
-live on `{Domain}CoreService`, which the facade holds as the delegated ATTRIBUTE
-`self.core`. Delegation is not inheritance: the override was never in the facade's MRO,
-so `create()` resolved `_validate_create` to the mixin's no-op and the route persisted
-whatever it was handed.
+**1. The facade doesn't inherit its sub-service.** The entity door is
+`service.create(entity)` on the `{Domain}Service` FACADE (until it was bound to the
+request door, the generated CRUD route entered there too), but the rules live on
+`{Domain}CoreService`, which the facade holds as the delegated ATTRIBUTE `self.core`.
+Delegation is not inheritance: the override was never in the facade's MRO, so `create()`
+resolved `_validate_create` to the mixin's no-op and the door persisted whatever it was
+handed.
 
 Fix — route the facade's `create` into the core's, exactly as the update path already
 does:
@@ -77,7 +78,7 @@ does:
 ```python
 class GoalsService(...):
     async def create(self, entity: Goal) -> Result[Goal]:
-        """Route the generated CRUD route into the one validated create path."""
+        """Route the entity door into the one validated create path."""
         return await self.core.create(entity)
 ```
 
@@ -96,8 +97,9 @@ async def create_goal(self, request: GoalCreateRequest, user_uid: UserUID) -> Re
     return await self.create(goal)   # validates, persists, publishes
 ```
 
-Building the entity with the **same converter the route uses** is the other half: it stops
-the two doors drifting on which request fields they carry.
+Building the entity with the **same converter** is the other half: one conversion site
+means the doors cannot drift on which request fields they carry. (Since the generated
+route was bound to the request door, the domain method IS the only conversion site.)
 
 **Before trusting any hook, check both.** "The rule is written" is not "the rule runs" —
 every Activity Domain hook in this codebase was unreachable until #960 and its follow-ups.
@@ -109,7 +111,10 @@ which have no hook left to reach but shared the same broken routing —
 The same MRO hole costs something even where no rule survives: the facade's inherited
 `create()` published no `*Created` event and no ADR-074 embedding request either, so an
 entity created through the generated route invalidated no user context and was never
-embedded. All six domains now route both doors through the core's `create()`.
+embedded. All six domains now route both doors through the core's `create()` — and the
+generated route no longer walks the entity door at all: it is bound to the request-door
+primitive via `CRUDRouteConfig.request_create_method`, so the request's edge-only link
+fields ride too (`tests/unit/test_route_create_via_primitive.py`).
 
 ### Reachability is not correctness
 

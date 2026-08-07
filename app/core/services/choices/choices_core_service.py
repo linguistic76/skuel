@@ -216,8 +216,9 @@ class ChoicesCoreService(
         Both create doors land here, so the domain's creation rules cannot be
         skipped by picking one door over the other:
 
-        - the generated CRUD route (``CRUDRouteFactory``) converts its schema to a
-          ``Choice`` and calls ``ChoicesService.create``, which delegates here;
+        - the entity door (``ChoicesService.create``) delegates here — the generated
+          CRUD route entered that way until it was bound to ``create_choice``
+          (``CRUDRouteConfig.request_create_method``);
         - ``create_choice`` below converts its request to a ``Choice`` and calls this.
 
         ``super().create`` is what runs ``_validate_create`` (a supplied option set
@@ -274,7 +275,7 @@ class ChoicesCoreService(
             choice_description=choice.description or choice.title,
             # Choice.domain is nullable (the model guards it the same way in
             # `category`), and this primitive now runs for hand-built entities from
-            # the generated route too — not just for requests, whose domain always
+            # the entity door too — not just for requests, whose domain always
             # defaults. ChoiceCreated.domain is a non-optional str.
             domain=choice.domain.value if choice.domain else "",
             urgency=choice.priority or "medium",
@@ -302,8 +303,9 @@ class ChoicesCoreService(
         if validation.is_error:
             return Result.fail(validation)
 
-        # Build the entity with the SAME converter the generated CRUD route uses, so
-        # the two doors cannot drift on which request fields survive. Hand-listing
+        # Build the entity with the SAME converter the generated CRUD route used when
+        # it converted for itself (it now enters here), so the doors cannot drift
+        # on which request fields survive. Hand-listing
         # them onto ChoiceDTO.create_choice is what dropped options, choice_type,
         # decision_criteria, constraints, stakeholders and tags here: the factory
         # takes **kwargs, so every omission was silent.

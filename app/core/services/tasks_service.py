@@ -747,7 +747,7 @@ class TasksService(
     # ========================================================================
 
     async def create(self, entity: Task) -> Result[Task]:
-        """Override the inherited CRUD create (generated JSON route, no ownership check).
+        """Override the inherited CRUD create — the ENTITY door.
 
         Routes the entity through the one event-firing create path
         (``TasksCoreService.create``). The inherited base ``create`` went straight to
@@ -760,6 +760,11 @@ class TasksService(
         Same reconciliation ``ChoicesService.create`` makes (#960), and Goals, Habits and
         Events after it (#963). Tasks were held back there because they have no
         ``_validate_create`` rule to reach; the event half of the defect survived.
+
+        The generated JSON route entered here until it was bound to
+        ``create_task`` (the request door — ``CRUDRouteConfig.request_create_method``),
+        so its request-only link fields could ride; this door remains for in-process
+        callers that hand the CRUD surface an entity they built themselves.
         """
         return await self.core.create(entity)
 

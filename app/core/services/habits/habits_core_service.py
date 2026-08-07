@@ -266,8 +266,9 @@ class HabitsCoreService(
     async def create(self, entity: Habit) -> Result[Habit]:
         """Validate, persist, then announce — THE create primitive for Habits.
 
-        Both doors land here: the generated CRUD route (via ``HabitsService.create``) and
-        ``create_habit``. ``super().create`` runs ``_validate_create`` (DAILY-frequency
+        Both doors land here: the entity door (``HabitsService.create``) and ``create_habit``
+        — which the generated CRUD route enters through, since it was bound to the
+        request door (``CRUDRouteConfig.request_create_method``). ``super().create`` runs ``_validate_create`` (DAILY-frequency
         consistency), so the rule cannot be reached by one door and missed by the other.
 
         Args:
@@ -341,16 +342,17 @@ class HabitsCoreService(
         Returns:
             Result containing created Habit
 
-        Builds the entity with the SAME converter the generated CRUD route uses, then
-        hands it to the one create primitive. The previous hand-listed ``HabitDTO(...)``
+        Builds the entity with the SAME converter the generated CRUD route used when it
+        converted for itself (the route now enters here), then hands it to the one
+        create primitive. The previous hand-listed ``HabitDTO(...)``
         dropped ``priority`` and ``tags``, so the two doors persisted different habits
         from the same request.
 
         The four link lists are written here as graph edges (see ``_write_link_edges``),
-        and — unlike Goals' hierarchy edge — they CANNOT be written by the generated CRUD
-        route: none of them is a ``Habit`` field, so the converter drops them before that
-        door ever reaches ``create(entity)``. This door is the only one that still holds
-        them.
+        and — unlike Goals' hierarchy edge — they CANNOT be written by the entity door:
+        none of them is a ``Habit`` field, so no entity can carry them into
+        ``create(entity)``. This door is the only one that holds them — and the
+        generated route enters through it since it was bound here.
         """
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "habit creation")

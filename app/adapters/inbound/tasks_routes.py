@@ -33,6 +33,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
     create_schema=TaskCreateRequest,
     update_schema=TaskUpdateRequest,
     uid_prefix="task",
+    request_create_method="create_task",
     supports_goal_filter=True,
     supports_habit_filter=True,
     api_related_services={

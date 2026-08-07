@@ -36,6 +36,7 @@ PRINCIPLES_CONFIG = create_activity_domain_route_config(
     create_schema=PrincipleCreateRequest,
     update_schema=PrincipleUpdateRequest,
     uid_prefix="principle",
+    request_create_method="create_principle",
     supports_goal_filter=True,
     supports_habit_filter=False,
     api_related_services={

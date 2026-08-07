@@ -331,6 +331,7 @@ def test_factory_produces_correct_structure():
     """create_activity_domain_route_config returns a fully populated DomainRouteConfig."""
     cfg = create_activity_domain_route_config(
         domain_name="tasks",
+        request_create_method="create_task",
         primary_service_attr="tasks",
         api_factory=_noop_api_factory,
         ui_factory=_noop_ui_factory,
@@ -354,6 +355,7 @@ def test_factory_produces_correct_structure():
     assert cfg.crud.create_schema is _FakeCreateSchema
     assert cfg.crud.update_schema is _FakeUpdateSchema
     assert cfg.crud.uid_prefix == "task"
+    assert cfg.crud.request_create_method == "create_task"
     assert cfg.crud.prometheus_metrics_attr == "prometheus_metrics"
 
     # Query sub-config
@@ -369,6 +371,7 @@ def test_factory_auto_adds_user_service():
     """user_service is auto-added to api_related_services when missing."""
     cfg = create_activity_domain_route_config(
         domain_name="goals",
+        request_create_method="create_task",
         primary_service_attr="goals",
         api_factory=_noop_api_factory,
         create_schema=_FakeCreateSchema,
@@ -388,6 +391,7 @@ def test_factory_does_not_duplicate_user_service():
     """user_service is NOT duplicated when already present."""
     cfg = create_activity_domain_route_config(
         domain_name="goals",
+        request_create_method="create_task",
         primary_service_attr="goals",
         api_factory=_noop_api_factory,
         create_schema=_FakeCreateSchema,
@@ -404,6 +408,7 @@ def test_factory_threads_prometheus_metrics_attr():
     """prometheus_metrics_attr is threaded through to CRUDRouteConfig."""
     cfg = create_activity_domain_route_config(
         domain_name="habits",
+        request_create_method="create_task",
         primary_service_attr="habits",
         api_factory=_noop_api_factory,
         create_schema=_FakeCreateSchema,
@@ -446,6 +451,7 @@ def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
 
     config = create_activity_domain_route_config(
         domain_name="tasks",
+        request_create_method="create_task",
         primary_service_attr="tasks",
         api_factory=api_factory,
         create_schema=_FakeCreateSchema,

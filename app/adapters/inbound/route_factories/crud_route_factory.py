@@ -198,6 +198,7 @@ class CRUDRouteFactory[T]:
         entity_converter: Callable[[BaseModel, str, str], Any] | None = None,
         allow_dict_fallback: bool = False,
         prometheus_metrics: Any | None = None,
+        request_create_method: str | None = None,
     ) -> None:
         """
         Initialize CRUD route factory.
@@ -242,6 +243,14 @@ class CRUDRouteFactory[T]:
                                Only set to True for rapid prototyping or entities with flexible schemas.
             prometheus_metrics: PrometheusMetrics instance for HTTP instrumentation.
                               If provided, all routes will be instrumented with request count, latency, and error metrics.
+            request_create_method: Name of a request-door create primitive on the
+                              service — ``(create_schema, user_uid) -> Result[T]``.
+                              When set, the create route hands the VALIDATED REQUEST to
+                              that method instead of converting to an entity and calling
+                              ``service.create(entity)`` — so request-only link fields
+                              (which no entity field can carry) become edges instead of
+                              being accepted and silently dropped. All six Activity
+                              Domains bind this; resolution is fail-fast at construction.
         """
         self.service = service
         self.domain = domain_name
@@ -260,6 +269,18 @@ class CRUDRouteFactory[T]:
         self.entity_converter = entity_converter
         self.allow_dict_fallback = allow_dict_fallback
         self.prometheus_metrics = prometheus_metrics
+        # Resolve the request-door primitive NOW: a config naming a method the
+        # service does not expose is a wiring bug, not a per-request condition.
+        self.request_create: Callable[..., Any] | None = None
+        if request_create_method is not None:
+            method = getattr(service, request_create_method, None)
+            if not callable(method):
+                raise ValueError(
+                    f"request_create_method '{request_create_method}' does not resolve "
+                    f"to a callable on {type(service).__name__} — the {domain_name} "
+                    f"create route cannot be bound to its request-door primitive"
+                )
+            self.request_create = method
 
         # Validate require_role configuration
         if require_role and not user_service_getter:
@@ -363,6 +384,7 @@ class CRUDRouteFactory[T]:
         domain = self.domain
         entity_converter = self.entity_converter
         allow_dict_fallback = self.allow_dict_fallback
+        request_create = self.request_create
         factory = self  # Capture self for nested function
 
         async def create(request: Request) -> Result[T]:
@@ -379,12 +401,23 @@ class CRUDRouteFactory[T]:
             # Pydantic validation
             schema = create_schema.model_validate(body)
 
-            # Generate UID
-            uid = f"{uid_prefix}:{uuid.uuid4().hex[:12]}"
-
             # Extract user_uid from session (FAIL-FAST: raises 401 if not authenticated)
             user_uid = require_authenticated_user(request)
             logger.debug(f"Creating {domain} with user_uid={user_uid}")
+
+            # Request-door binding: hand the validated request to the domain's create
+            # primitive (validate -> persist -> edges -> events). The entity path below
+            # cannot carry request-only link fields, so a bound domain never walks it.
+            if request_create is not None:
+                result = cast("Result[T]", await request_create(schema, user_uid))
+                if not result.is_error:
+                    # T is unbound here; every bound domain returns an entity with a uid.
+                    created_uid = getattr(result.value, "uid", "?")
+                    logger.info(f"Created {domain}: {created_uid} for user {user_uid}")
+                return result
+
+            # Generate UID
+            uid = f"{uid_prefix}:{uuid.uuid4().hex[:12]}"
 
             # Convert schema to entity using injected converter or registry
             if entity_converter:

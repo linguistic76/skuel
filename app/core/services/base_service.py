@@ -610,9 +610,10 @@ class BaseService(
     #
     # Overriding the hook only binds the class that declares the override. A facade
     # that delegates to a sub-service (self.core) does NOT inherit that sub-service's
-    # override, so the hook stays a no-op on the facade — see ChoicesService.create,
-    # which routes the generated CRUD route into ChoicesCoreService.create for
-    # exactly this reason.
+    # override, so the hook stays a no-op on the facade — see ChoicesService.create
+    # (the entity door), which delegates to ChoicesCoreService.create for exactly
+    # this reason; the generated route itself now binds to the request door
+    # (CRUDRouteConfig.request_create_method).
 
     def _validate_prerequisites(
         self,

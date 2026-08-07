@@ -33,6 +33,7 @@ GOALS_CONFIG = create_activity_domain_route_config(
     create_schema=GoalCreateRequest,
     update_schema=GoalUpdateRequest,
     uid_prefix="goal",
+    request_create_method="create_goal",
     supports_goal_filter=False,
     supports_habit_filter=False,
     api_related_services={"user_service": "user", "principles_service": "principles"},

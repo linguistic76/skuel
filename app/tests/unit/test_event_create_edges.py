@@ -22,10 +22,11 @@ WHAT WAS DROPPED (measured 2026-08-06, route door, before this change)
 
 DOOR ASYMMETRY (deliberate, asserted below)
 -------------------------------------------
-``milestone_celebration_for_goal`` (→ CELEBRATES_GOAL) reaches no ``Event`` field, so the
-converter drops it before the route door reaches ``create(entity)`` — a link the entity
-cannot carry is a link that door can never write. It stays request-door-only, forwarded
-into the same guarded batch. ``practices_knowledge_uids`` / ``executes_tasks`` are
+``milestone_celebration_for_goal`` (→ CELEBRATES_GOAL) reaches no ``Event`` field, so
+no entity can carry it into ``create(entity)`` — a link the entity cannot carry is a link
+the ENTITY door can never write. Only the request door holds it, forwarded into the same
+guarded batch — and the generated route sits on that door since it was bound to
+``create_event`` (``request_create_method``). ``practices_knowledge_uids`` / ``executes_tasks`` are
 accepted by the request and have NEVER produced edges from ``create_event``; that stays
 true and is pinned here as a known gap rather than a silent one.
 
@@ -215,7 +216,8 @@ def core(backend: StubBackend, event_bus: InMemoryEventBus) -> EventsCoreService
 
 @pytest.fixture
 def facade(backend: StubBackend, event_bus: InMemoryEventBus) -> EventsService:
-    """The object ``CRUDRouteFactory`` calls ``.create(entity)`` on."""
+    """The ENTITY door (``.create(entity)``) — the generated route entered here
+    until it was bound to the request door (``request_create_method``)."""
     return EventsService(
         backend=backend,
         graph_intel=_Inert(),
@@ -254,7 +256,7 @@ def edges_of(backend: StubBackend, rel: RelationshipName) -> list[tuple[str, str
 class TestEventHabitEdgeIsWritten:
     """The defect itself: the route door must write REINFORCES_HABIT from the entity."""
 
-    async def test_route_door_writes_the_edge(
+    async def test_entity_door_writes_the_edge(
         self, core: EventsCoreService, backend: StubBackend
     ) -> None:
         """RED before the fix: the route path wrote no edge at all — the value was
@@ -347,11 +349,13 @@ class TestEventCelebratedGoalEdge:
         assert spec.relationship == RelationshipName.CELEBRATES_GOAL
         assert spec.direction == "outgoing"
 
-    async def test_the_route_door_cannot_carry_it(
+    async def test_the_entity_door_cannot_carry_it(
         self, core: EventsCoreService, backend: StubBackend
     ) -> None:
         """The converter filters by exact field name and ``Event`` has no such field —
-        pinned as a known limit of the generated route rather than a silent gap."""
+        pinned as a structural limit of the ENTITY door rather than a silent gap. The
+        generated route no longer walks this door: bound to ``create_event``, it is a
+        request-door caller and carries the edge (test_route_create_via_primitive)."""
         entity = route_entity(make_request(milestone_celebration_for_goal=GOAL_UID))
         result = await core.create(entity)
 
@@ -502,7 +506,7 @@ class TestEdgesPrecedeTheEvent:
             "calendar_event_created_published",
         ]
 
-    async def test_route_door_writes_the_edge_first(
+    async def test_entity_door_writes_the_edge_first(
         self, core: EventsCoreService, backend: StubBackend, event_bus: InMemoryEventBus
     ) -> None:
         record_calendar_event_created(event_bus, backend)
@@ -584,7 +588,7 @@ class TestFacadeDelegates:
             "CELEBRATES_GOAL",
         }
 
-    async def test_route_door_create_writes_the_habit_edge(
+    async def test_entity_door_create_writes_the_habit_edge(
         self, facade: EventsService, backend: StubBackend
     ) -> None:
         """The full route-door path: ``CRUDRouteFactory`` → ``EventsService.create`` →

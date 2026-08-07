@@ -221,7 +221,7 @@ class EventsService(
         return await self.core.count_events(filters)
 
     async def create(self, entity: Event) -> Result[Event]:
-        """Override the inherited CRUD create (generated JSON route, no ownership check).
+        """Override the inherited CRUD create — the ENTITY door.
 
         Routes the entity through the one validated, event-firing create path
         (``EventsCoreService.create``) — the path ``create_event`` below already uses.
@@ -236,6 +236,11 @@ class EventsService(
         primitive also writes the entity-carried REINFORCES_HABIT edge
         (``EventsCoreService._write_link_edges``), this door no longer drops
         ``reinforces_habit_uid`` — the route converter sets it on the entity.
+
+        The generated JSON route entered here until it was bound to
+        ``create_event`` (the request door — ``CRUDRouteConfig.request_create_method``),
+        so its request-only link fields could ride; this door remains for in-process
+        callers that hand the CRUD surface an entity they built themselves.
         """
         return await self.core.create(entity)
 

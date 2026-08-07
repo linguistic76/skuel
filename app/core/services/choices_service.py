@@ -429,7 +429,7 @@ class ChoicesService(
     # delegated via explicit methods below.
 
     async def create(self, entity: Choice) -> Result[Choice]:
-        """Override the inherited CRUD create (generated JSON route, no ownership check).
+        """Override the inherited CRUD create — the ENTITY door.
 
         Routes the entity through the one validated, event-firing create path
         (``ChoicesCoreService.create``). The inherited base ``create`` resolved
@@ -443,6 +443,11 @@ class ChoicesService(
         ChoiceCreated event.
 
         Same reconciliation as ``update``/``update_for_user`` below.
+
+        The generated JSON route entered here until it was bound to
+        ``create_choice`` (the request door — ``CRUDRouteConfig.request_create_method``),
+        so its request-only link fields could ride; this door remains for in-process
+        callers that hand the CRUD surface an entity they built themselves.
         """
         return await self.core.create(entity)
 

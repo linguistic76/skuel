@@ -91,9 +91,10 @@ Goals' hierarchy edge is written on the SHARED path, so both doors write it:
 four on Habits) cannot work that way — none is a field of its domain model, so
 the converter drops them before the generated CRUD route ever reaches
 ``create(entity)``. ``create_goal`` / ``create_habit`` are the only doors that
-still hold them, pinned by ``TestGoalLinkEdgesAreWritten.test_route_door_writes_
-no_link_edges`` and ``TestHabitRouteDoorCannotCarryLinks`` as a known limit of the
-generated route rather than a silent gap.
+still hold them, pinned by ``TestGoalLinkEdgesAreWritten.test_entity_door_writes_
+no_link_edges`` and ``TestHabitEntityDoorCannotCarryLinks`` as a structural limit of
+the entity door rather than a silent gap (the generated route now enters through the
+request door, which carries them).
 
 No Neo4j: the backend is stubbed, so what is under test is the service wiring —
 which is exactly where the defect lived.
@@ -263,7 +264,8 @@ def goal_core(goal_backend: StubBackend, event_bus: InMemoryEventBus) -> GoalsCo
 
 @pytest.fixture
 def goal_facade(goal_backend: StubBackend, event_bus: InMemoryEventBus) -> GoalsService:
-    """DOOR A — the object ``CRUDRouteFactory`` calls ``.create(entity)`` on."""
+    """DOOR A — the ENTITY door (``.create(entity)``); the generated route entered
+    here until it was bound to the request door (``request_create_method``)."""
     return GoalsService(
         backend=goal_backend,
         graph_intel=_Inert(),
@@ -313,7 +315,7 @@ class TestGoalHierarchyEdgeIsWritten:
         assert parent_uid == PARENT_GOAL
         assert child_uid == result.value.uid
 
-    async def test_route_door_writes_the_edge_too(
+    async def test_entity_door_writes_the_edge_too(
         self, goal_facade: GoalsService, goal_backend: StubBackend
     ) -> None:
         """Both doors, or the parity #963 closed re-opens on the next field.
@@ -367,11 +369,11 @@ class TestGoalHierarchyEdgeIsWritten:
             f"a goal with no parent still wrote a hierarchy edge: {goal_backend.hierarchy}"
         )
 
-    async def test_route_door_default_weight_matches_the_request_model(self) -> None:
+    async def test_entity_door_default_weight_matches_the_request_model(self) -> None:
         """The two doors must agree on the weight for an unset ``progress_weight``.
 
-        The generated route converts the request to an entity before calling
-        ``create()``, so it cannot forward what the client sent; it stamps
+        The entity door receives a ready ``Goal``, and ``progress_weight`` rides on
+        no Goal field — so this door cannot know what a client asked for; it stamps
         ``DEFAULT_PROGRESS_WEIGHT``. Asserted against the request model's own
         default rather than a hand-copied ``1.0``, so drifting either one breaks
         here instead of silently splitting the doors.
@@ -673,7 +675,7 @@ class TestGoalLinkEdgesAreWritten:
             "goal_created_published"
         ), f"GoalCreated fired before the link edges. Order was: {goal_backend.trace}"
 
-    async def test_route_door_writes_no_link_edges(
+    async def test_entity_door_writes_no_link_edges(
         self, goal_facade: GoalsService, goal_backend: StubBackend
     ) -> None:
         """The entity door has no request to read them from — documented, not silent.
@@ -840,7 +842,8 @@ def habit_core(habit_backend: StubBackend, event_bus: InMemoryEventBus) -> Habit
 
 @pytest.fixture
 def habit_facade(habit_backend: StubBackend, event_bus: InMemoryEventBus) -> HabitsService:
-    """DOOR A — the object ``CRUDRouteFactory`` calls ``.create(entity)`` on."""
+    """DOOR A — the ENTITY door (``.create(entity)``); the generated route entered
+    here until it was bound to the request door (``request_create_method``)."""
     return HabitsService(
         backend=habit_backend,
         graph_intel=_Inert(),
@@ -1327,7 +1330,7 @@ class TestHabitEdgesPrecedeTheEvent:
             "a linkless habit stopped publishing HabitCreated"
         )
 
-    async def test_route_door_still_publishes(
+    async def test_entity_door_still_publishes(
         self, habit_facade: HabitsService, event_bus: InMemoryEventBus
     ) -> None:
         """The entity door writes no link edges; it must still announce the habit."""
@@ -1352,7 +1355,7 @@ class TestHabitEdgesPrecedeTheEvent:
 
 
 @pytest.mark.asyncio
-class TestHabitRouteDoorCannotCarryLinks:
+class TestHabitEntityDoorCannotCarryLinks:
     """The generated CRUD route structurally cannot write the four link edges.
 
     Not an oversight to fix by mirroring Goals: ``CRUDRouteFactory`` converts the
@@ -1380,7 +1383,7 @@ class TestHabitRouteDoorCannotCarryLinks:
             "(as GoalsCoreService.create does for fulfills_goal_uid)"
         )
 
-    async def test_route_door_writes_no_link_edges(
+    async def test_entity_door_writes_no_link_edges(
         self, habit_facade: HabitsService, habit_backend: StubBackend
     ) -> None:
         """Documents the current, asserted limit — not an endorsement of it."""

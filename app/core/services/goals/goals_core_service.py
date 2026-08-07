@@ -57,9 +57,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
-# Weight the entity door stamps on HAS_SUBGOAL. The generated CRUD route converts the
-# request to a Goal before calling create(), and progress_weight is an EDGE property that
-# no Goal field carries — so the route door cannot forward what the client sent. Pinned to
+# Weight the entity door stamps on HAS_SUBGOAL. progress_weight is an EDGE property that
+# no Goal field carries, so a caller handing create() a ready entity cannot supply one;
+# the generated route, bound to create_goal, forwards the client's value. Pinned to
 # GoalCreateRequest.progress_weight's own default so the two doors agree on every request
 # that leaves it unset; test_goal_habit_create_edges.py asserts that agreement.
 DEFAULT_PROGRESS_WEIGHT: Final = 1.0
@@ -284,8 +284,9 @@ class GoalsCoreService(
     async def create(self, entity: Goal) -> Result[Goal]:
         """Validate, persist, link, then announce — THE create primitive for Goals.
 
-        Both doors land here: the generated CRUD route (via ``GoalsService.create``) and
-        ``create_goal``. ``super().create`` runs ``_validate_create`` (timeline
+        Both doors land here: the entity door (``GoalsService.create``) and ``create_goal``
+        — which the generated CRUD route enters through, since it was bound to the
+        request door (``CRUDRouteConfig.request_create_method``). ``super().create`` runs ``_validate_create`` (timeline
         consistency), so the rule cannot be reached by one door and missed by the other.
 
         The hierarchy edge is written here rather than in ``create_goal`` for the same
@@ -535,16 +536,18 @@ class GoalsCoreService(
         Returns:
             Result containing created Goal
 
-        Builds the entity with the SAME converter the generated CRUD route uses, then
-        hands it to the one create primitive. The previous hand-listed ``GoalDTO(...)``
+        Builds the entity with the SAME converter the generated CRUD route used when it
+        converted for itself (the route now enters here), then hands it to the one
+        create primitive. The previous hand-listed ``GoalDTO(...)``
         silently dropped six request fields the route door kept — ``potential_obstacles``,
         ``strategies``, ``success_criteria``, ``tags``, ``unit_of_measurement`` and
         ``why_important`` — so the two doors persisted different goals from one request.
 
         ``progress_weight`` and the three edge-typed uid lists (``required_knowledge_uids``,
         ``guiding_principle_uids``, ``supporting_habit_uids``) are forwarded here because
-        only this door still has the request: all four are EDGE-shaped, so none reaches the
-        entity the route door builds. The HAS_SUBGOAL edge itself, whose parent DOES ride on
+        only this door has the request: all four are EDGE-shaped, so none rides an entity
+        and the entity door cannot carry them. Since the generated route was bound
+        here, every external create has them. The HAS_SUBGOAL edge itself, whose parent DOES ride on
         the entity, is written by the shared path for both doors.
         """
         # Validate user_uid (uses BaseService helper)
