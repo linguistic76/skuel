@@ -110,10 +110,14 @@ class Event(UserOwnedEntity):
     # Absence from EventDTO used to be the whole argument for "never written", and it was
     # not enough: the generated CRUD route converts the request and persists the ENTITY,
     # so ``POST /api/events/create`` wrote this as a property no reader consults while
-    # writing no edge. ``EventsService.create_event`` — the request door — writes the edge
-    # and is unaffected. (Measured with Tasks' identical defect; see task.py.)
+    # writing no edge. Like Tasks (see task.py), the field is now the edge's INPUT on
+    # CREATE: the shared create primitive (``EventsCoreService._write_link_edges``) turns
+    # it into the REINFORCES_HABIT edge for BOTH doors. Note it does not survive the
+    # persistence round-trip — the mapper skips it, so it must be read off the INPUT
+    # entity, never off ``backend.create``'s return.
     reinforces_habit_uid: str | None = None  # DERIVED — see note above
-    # DERIVED FROM EDGE — never persisted. The Event→Goal link is the graph edge
+    # DERIVED FROM EDGE — never persisted (enforced by the mapper's
+    # RELATIONSHIP_SKIP_FIELDS). The Event→Goal link is the graph edge
     # (Event)-[:CONTRIBUTES_TO_GOAL]->(Goal); populated at fetch time via
     # enrich_events_with_goal_links for scoring. The edge is the single source of truth.
     contributes_to_goal_uid: str | None = None  # DERIVED — see note above

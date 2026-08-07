@@ -569,8 +569,9 @@ class TestEventHabitUidIsNotAProperty:
     RELATIONSHIP_SKIP_FIELDS fixes both — this pins the second one, since a skip-set entry
     is global and its blast radius is the census, not the domain that motivated it.
 
-    Events' request door (``EventsService.create_event``) writes the edge and is
-    unaffected; wiring the Events ROUTE door to write it too is not attempted here.
+    The Events ROUTE door has since been wired to write the edge too — its create
+    primitive mirrors Tasks' (``EventsCoreService._write_link_edges``), covered by
+    ``test_event_create_edges.py``.
     """
 
     def test_the_route_converter_no_longer_persists_it(self) -> None:

@@ -31,17 +31,21 @@ from core.events.calendar_event_events import (
 from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.event.event_request import EventType
+from core.models.event.event_request import EventCreateRequest, EventType
 from core.models.event.event_update_intent import EventUpdateIntent
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
+from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -309,8 +313,16 @@ class EventsCoreService(
     # ========================================================================
 
     async def create(self, entity: Event) -> Result[Event]:
-        """
-        Create a calendar event and publish CalendarEventCreated event.
+        """Persist, link, then announce — THE create primitive for Events.
+
+        Both doors land here: the generated CRUD route (via ``EventsService.create``)
+        and ``create_event`` below. ``reinforces_habit_uid`` rides on the ``Event``, so
+        it is written as the REINFORCES_HABIT edge on this shared path for both doors.
+        Leaving that write on the request door alone is what made
+        ``POST /api/events/create`` lose the link entirely: since #967 the mapper skips
+        the field as a node property (it is DERIVED FROM EDGE), and nothing on the route
+        path wrote the edge — the value was simply dropped (measured 2026-08-06; Tasks'
+        identical defect, fixed the same way).
 
         Args:
             entity: Event to create
@@ -319,30 +331,198 @@ class EventsCoreService(
             Result containing created Event
 
         Events Published:
-            - CalendarEventCreated: When event is successfully created
+            - CalendarEventCreated: when the event is successfully created
+            - EventEmbeddingRequested (ADR-074): post-persist embedding refresh
         """
-        # Call parent create
-        result = await super().create(entity)
+        return await self._create_with_links(entity, request=None)
 
-        # Publish CalendarEventCreated event
-        if result.is_ok:
-            event = result.value
-            domain_event = CalendarEventCreated(
-                event_uid=event.uid,
-                user_uid=event.user_uid,
-                title=event.title,
-                event_date=event.event_date or date.today(),
-                # Canonical member, not the former lowercase "meeting" literal:
-                # EventAdapter compares against EventType's UPPERCASE members.
-                # (get_enum_value was a no-op here — event_type is a str field.)
-                calendar_event_type=event.event_type or EventType.MEETING,
-            )
-            await publish_event(self.event_bus, domain_event, self.logger)
+    async def _create_with_links(
+        self, entity: Event, *, request: EventCreateRequest | None
+    ) -> Result[Event]:
+        """The one create path: persist, write every edge, then announce.
 
-            # Post-persist embedding refresh (ADR-074) — the background worker embeds async
-            await publish_embedding_requested(self.event_bus, EntityType.EVENT, event, self.logger)
+        ``request`` is present only for the request door:
+        ``milestone_celebration_for_goal`` is edge-shaped (CELEBRATES_GOAL) and reaches
+        no ``Event`` field, so the entity door has nothing to pass (``None``, and no
+        goal edge written).
 
+        Mirrors ``TasksCoreService._create_with_links``, including its trap:
+        ``reinforces_habit_uid`` is a RELATIONSHIP_SKIP_FIELD, so it DOES NOT SURVIVE
+        THE ROUND-TRIP — ``backend.create`` returns ``from_neo4j_node`` over the
+        properties it wrote, and the mapper dropped the field on the way in. It is read
+        off the INPUT entity and passed down explicitly.
+        """
+        result: Result[Event] = await self._create_validated(entity)
+        if result.is_error:
+            return result
+
+        event = result.value
+        await self._write_link_edges(event, entity.reinforces_habit_uid, request)
+
+        # Every edge is written — only now announce the event.
+        await self._publish_created(event)
         return result
+
+    async def _create_validated(self, entity: Event) -> Result[Event]:
+        """Persist, publishing NOTHING.
+
+        Split out from ``create`` so ``_create_with_links`` can finish writing the
+        event's graph edges before any domain event announces it exists — see
+        ``_publish_created`` for why that ordering is load-bearing. Runs
+        ``_validate_create`` (duration sanity) via the inherited CRUD create. Mirrors
+        ``ChoicesCoreService._create_validated``.
+        """
+        return await super().create(entity)
+
+    async def _write_link_edges(
+        self, event: Event, habit_uid: str | None, request: EventCreateRequest | None
+    ) -> None:
+        """GRAPH-NATIVE: turn the event's cross-domain links into edges, in one batch.
+
+        Two registered relationships, from two different sources:
+
+        - ``Event.reinforces_habit_uid`` → REINFORCES_HABIT — from the ENTITY, so BOTH
+          doors write it. Passed in as ``habit_uid`` rather than read off ``event``,
+          which cannot carry it once persisted (see ``_create_with_links``).
+        - ``request.milestone_celebration_for_goal`` → CELEBRATES_GOAL — request door
+          only; the ``Event`` carries no such field, so the route door can never write
+          it (a link the entity cannot carry is a link that door cannot write).
+
+        ADMISSION: both UIDs are request input, so each is checked for existence, OWNER
+        and KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
+        declared kinds come from the field names, because the registry cannot check
+        them: Events' REINFORCES_HABIT spec declares its target label as ``Entity``, so
+        the batch would admit a Goal as a habit. The request door previously wrote both
+        edges through ``UnifiedRelationshipService`` with no owner or kind check — the
+        cross-tenant defect class #965 recorded.
+
+        A failure is logged, not propagated — the event itself is legitimate and is
+        created either way. This DELIBERATELY changes the request door's contract,
+        which used to fail the whole create on a bad edge: the Activity Domains now
+        agree that a refused link never kills the entity it decorates (Tasks, Goals and
+        Habits already behaved this way), and the two Events doors no longer disagree
+        on whether a bad habit UID kills the event.
+
+        ``practices_knowledge_uids`` / ``executes_tasks`` reach no edge here — the
+        request door has always dropped them; the unit suite pins that as a known gap
+        rather than a silent one.
+        """
+        candidates: list[LinkEdge] = []
+
+        if habit_uid:
+            candidates.append(
+                LinkEdge(
+                    (event.uid, habit_uid, RelationshipName.REINFORCES_HABIT.value, None),
+                    other_uid=habit_uid,
+                    allowed_labels=frozenset({NeoLabel.HABIT.value}),
+                )
+            )
+        if request is not None and request.milestone_celebration_for_goal:
+            goal_uid = request.milestone_celebration_for_goal
+            candidates.append(
+                LinkEdge(
+                    (event.uid, goal_uid, RelationshipName.CELEBRATES_GOAL.value, None),
+                    other_uid=goal_uid,
+                    allowed_labels=frozenset({NeoLabel.GOAL.value}),
+                )
+            )
+
+        if not candidates:
+            return
+
+        relationships = await keep_permitted_link_edges(
+            self.backend,
+            candidates=candidates,
+            subject_uid=event.uid,
+            owner_uid=event.user_uid,
+            logger=self.logger,
+        )
+        if not relationships:
+            return
+
+        batch_result = await self.backend.create_relationships_batch(relationships)
+        if batch_result.is_error:
+            self.logger.warning(
+                "Failed to create %d link relationships for event %s: %s",
+                len(relationships),
+                event.uid,
+                batch_result.error,
+            )
+
+    async def _publish_created(self, event: Event) -> None:
+        """Announce a newly created event: CalendarEventCreated + the ADR-074 embedding
+        refresh.
+
+        ORDERING: call this only once the event's graph edges are written.
+        ``CalendarEventCreated`` is subscribed to ``invalidate_context``
+        (services_bootstrap/_event_wiring.py), which debounces and then rebuilds the
+        user context — and the rebuild reads ``(event)-[:REINFORCES_HABIT]->(:Habit)``
+        back out of the graph (adapters/persistence/neo4j/user_context_queries.py). The
+        old request door wrote its edges AFTER the publish, so the rebuild could observe
+        an event with no links and cache that empty result for the full TTL — the same
+        inversion Codex reported on #960, closed for Tasks in #967.
+        """
+        domain_event = CalendarEventCreated(
+            event_uid=event.uid,
+            user_uid=event.user_uid,
+            title=event.title,
+            event_date=event.event_date or date.today(),
+            # Canonical member, not the former lowercase "meeting" literal:
+            # EventAdapter compares against EventType's UPPERCASE members.
+            # (get_enum_value was a no-op here — event_type is a str field.)
+            calendar_event_type=event.event_type or EventType.MEETING,
+        )
+        await publish_event(self.event_bus, domain_event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.EVENT, event, self.logger)
+
+    async def create_event(self, request: EventCreateRequest, user_uid: UserUID) -> Result[Event]:
+        """Create an event from a validated request — the request door.
+
+        Moved from the facade (which now delegates) so the door sits beside the
+        primitive it feeds, as ``create_goal`` / ``create_habit`` / ``create_task`` do
+        in their domains. ``reinforces_habit_uid`` is set ON the entity so the shared
+        path writes the habit edge for this door exactly as it does for the route door;
+        only ``milestone_celebration_for_goal`` is forwarded via ``request``, because it
+        is edge-shaped and reaches no ``Event`` field.
+
+        Args:
+            request: Validated event creation request
+            user_uid: User UID (REQUIRED — fail-fast on None)
+
+        Returns:
+            Result containing created Event
+        """
+        validation = self._validate_required_user_uid(user_uid, "event creation")
+        if validation.is_error:
+            return Result.fail(validation)
+
+        event = Event(
+            uid=UIDGenerator.generate_uid("event", request.title),
+            user_uid=user_uid,
+            title=request.title,
+            description=request.description,
+            event_date=request.event_date,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            event_type=request.event_type,
+            visibility=request.visibility,
+            location=request.location,
+            is_online=request.is_online,
+            meeting_url=request.meeting_url,
+            tags=tuple(request.tags),
+            priority=request.priority,
+            attendee_emails=tuple(request.attendee_emails),
+            max_attendees=request.max_attendees,
+            recurrence_pattern=request.recurrence_pattern,
+            recurrence_end_date=request.recurrence_end_date,
+            reminder_minutes=request.reminder_minutes,
+            habit_completion_quality=request.habit_completion_quality,
+            knowledge_retention_check=request.knowledge_retention_check,
+            reinforces_habit_uid=request.reinforces_habit_uid,
+        )
+        return await self._create_with_links(event, request=request)
 
     @with_error_handling("update_event", error_type="database", uid_param="uid")
     async def update_event(self, uid: str, intent: EventUpdateIntent) -> Result[Event]:
