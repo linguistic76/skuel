@@ -1,0 +1,82 @@
+name: Strip Codex Footer
+
+# ============================================================================
+# Removes the "About Codex in GitHub" boilerplate footer from Codex review
+# summary comments, moments after each one lands.
+#
+# WHY: every Codex review summary ends with the same collapsed <details>
+# block ("Your team has set up Codex to review pull requests in this repo…
+# Reviews are triggered when you …"). It is byte-identical on every summary
+# regardless of the account's settings (verified 2026-08-07 across the 21 most
+# recent), and OpenAI exposes no toggle to drop it — the dashboard settings
+# control whether reviews FIRE, not what the comments contain. The block is
+# collapsed for humans but is ~700 chars of noise for every agent that reads
+# PR conversations through the API (request_codex_review.sh prints bodies
+# verbatim), repeated on every review in perpetuity.
+#
+# WHAT IT DOES NOT TOUCH:
+#   - the verdict itself — request_codex_review.sh greps the body for the
+#     clean signature ("didn't find any … issues"), which is the comment's
+#     FIRST line, never the footer;
+#   - the "**Reviewed commit:** `sha`" line — informative, kept;
+#   - inline review comments (pull_request_review_comment) — their footer is
+#     the one-line "Useful? React with 👍 / 👎." and is left alone;
+#   - the Codex Review Gate — codex-gate.yml only greps HUMAN comments for
+#     "@codex review" (bot authors are excluded there precisely because this
+#     footer contains that literal string), and an edit does not re-fire its
+#     issue_comment:[created] trigger.
+#
+# SAFETY: only comments authored by chatgpt-codex-connector[bot] that contain
+# the footer marker are edited, and the body is re-fetched at run time so a
+# racing edit is never clobbered with a stale payload. A stripped comment no
+# longer matches the marker, and the trigger is [created] only, so no edit
+# loop is possible. GitHub keeps the pre-edit body in the comment's edit
+# history (the "edited" dropdown) — nothing is destroyed.
+# ============================================================================
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  strip:
+    name: Strip footer
+    # Only PR comments authored by the Codex connector can carry the footer;
+    # a skipped job costs no runner time.
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.user.login == 'chatgpt-codex-connector[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove the About-Codex footer block
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const id = context.payload.comment.id;
+            // Re-fetch: the run can start well after the event, and PATCHing
+            // the payload body would silently revert any interim edit.
+            const { data: comment } = await github.rest.issues.getComment({
+              owner, repo, comment_id: id,
+            });
+            const body = comment.body || '';
+            const FOOTER =
+              /\s*<details>\s*<summary>[^<]*About Codex in GitHub<\/summary>[\s\S]*?<\/details>\s*/;
+            if (!FOOTER.test(body)) {
+              core.info('No About-Codex footer — nothing to strip.');
+              return;
+            }
+            const stripped = body.replace(FOOTER, '\n').trim();
+            if (!stripped) {
+              // Footer-only comment: the API rejects an empty body, and an
+              // empty comment would be more confusing than the boilerplate.
+              core.info('Comment is footer-only — leaving it untouched.');
+              return;
+            }
+            await github.rest.issues.updateComment({
+              owner, repo, comment_id: id, body: stripped,
+            });
+            core.info(`Stripped footer from ${comment.html_url}`);
