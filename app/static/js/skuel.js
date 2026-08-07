@@ -2323,14 +2323,14 @@
                     // the hardcoded light-mode colours it used to inline.
                     var overlay = document.createElement('div');
                     overlay.id = 'explore-graph-overlay';
-                    overlay.className = 'fixed inset-0 z-[9999]';
+                    overlay.className = 'fixed inset-0 z-9999';
                     overlay.setAttribute('role', 'dialog');
                     overlay.setAttribute('aria-modal', 'true');
                     overlay.setAttribute('aria-label', 'Expanded relationship graph');
 
                     // Backdrop
                     var backdrop = document.createElement('div');
-                    backdrop.className = 'absolute inset-0 bg-black/50 backdrop-blur-sm';
+                    backdrop.className = 'absolute inset-0 bg-black/50 backdrop-blur-xs';
                     backdrop.addEventListener('click', function() { self.collapseGraph(); });
                     overlay.appendChild(backdrop);
 
@@ -2413,13 +2413,13 @@
                     row.className = 'flex gap-2 mb-2 items-start';
                     row.setAttribute('data-fp-idx', idx);
                     row.innerHTML =
-                        '<select name="fp_category_' + idx + '" class="text-sm border rounded px-2 py-1 w-36">' +
+                        '<select name="fp_category_' + idx + '" class="text-sm border rounded-sm px-2 py-1 w-36">' +
                         this.categories.map(function(c) {
                             return '<option value="' + c.value + '">' + c.label + '</option>';
                         }).join('') +
                         '</select>' +
                         '<input type="text" name="fp_detail_' + idx + '" placeholder="Specific feedback..." ' +
-                        'class="text-sm border rounded px-2 py-1 flex-1" required />' +
+                        'class="text-sm border rounded-sm px-2 py-1 flex-1" required />' +
                         '<button type="button" class="text-xs text-destructive hover:text-destructive/80 px-1" ' +
                         'onclick="this.parentElement.remove()">✕</button>';
                     this.$refs.fpRows.appendChild(row);

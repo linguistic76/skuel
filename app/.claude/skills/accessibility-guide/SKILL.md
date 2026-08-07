@@ -113,7 +113,7 @@ Does this element perform an action (same page)?
 | UI components | 3:1 | Buttons, form borders, icons |
 | Graphics (meaningful) | 3:1 | Chart elements, diagrams |
 
-**SKUEL Semantic Color Tokens** (defined in `tailwind.config.js` / `static/css/input.css`):
+**SKUEL Semantic Color Tokens** (defined in `static/css/input.css` — Tailwind v4 CSS-first config):
 - `text-base-content` on `bg-base-100` - Always passes (designed for contrast)
 - `text-primary` on `bg-base-100` - Checked in theme
 - `text-error` on `bg-error` - High contrast for alerts

@@ -10,14 +10,14 @@ __all__ = ["Button", "ButtonT"]
 # Universal base classes applied to every button regardless of variant or size.
 _BTN_BASE = (
     "inline-flex items-center justify-center font-medium transition-colors "
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "
+    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring "
     "disabled:pointer-events-none disabled:opacity-50"
 )
 
 # Named size tokens. Injected via the size= kwarg so they never conflict with
 # style-variant classes in the cls tuple (Tailwind has no runtime class override).
 _BTN_SIZES: dict[str, str] = {
-    "xs": "h-7 px-2 text-xs rounded",
+    "xs": "h-7 px-2 text-xs rounded-sm",
     "sm": "h-8 px-3 text-sm rounded-md",
     "md": "h-9 px-4 py-2 rounded-md text-sm",
     "lg": "h-11 px-8 rounded-md",
@@ -48,7 +48,7 @@ class ButtonT(StrEnum):
     link = "text-primary underline-offset-4 hover:underline"
 
     # Size convenience constants — prefer size= kwarg over composing these in cls.
-    xs = "h-7 px-2 text-xs rounded"
+    xs = "h-7 px-2 text-xs rounded-sm"
     sm = "h-8 px-3 text-sm rounded-md"
     lg = "h-11 px-8 rounded-md"
     xl = "h-12 px-10 text-base rounded-md"

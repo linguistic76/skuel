@@ -141,7 +141,7 @@ def render_assistant_message(
     return Div(
         Div(
             "A",
-            cls="w-[30px] h-[30px] rounded-full bg-foreground text-background flex items-center justify-center text-sm font-bold flex-shrink-0",
+            cls="w-[30px] h-[30px] rounded-full bg-foreground text-background flex items-center justify-center text-sm font-bold shrink-0",
         ),
         Div(*content_nodes, cls="flex-1 min-w-0"),
         cls="flex gap-4 px-7 py-4",
@@ -192,7 +192,7 @@ def _sidebar(username: str, learning_scope_label: str) -> Any:
         ),
         # Static width=274px matches sidebarOpen=true default — prevents layout flash
         style="width:274px;",
-        cls="bg-slate-50 border-r border-slate-100 flex-shrink-0 overflow-hidden transition-all duration-300",
+        cls="bg-slate-50 border-r border-slate-100 shrink-0 overflow-hidden transition-all duration-300",
         **{":style": "{ width: sidebarOpen ? '274px' : '62px' }"},
     )
 
@@ -216,7 +216,7 @@ def _sb_new_chat_btn() -> Any:
         Button(
             Icon("square-pen", size=17, cls="text-slate-600 shrink-0"),
             Span("New chat", cls="text-[14px] font-semibold text-foreground"),
-            cls="w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px] border border-border bg-background hover:bg-slate-50 transition-colors shadow-sm",
+            cls="w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px] border border-border bg-background hover:bg-slate-50 transition-colors shadow-xs",
             type="button",
         ),
         cls="px-3 pb-3",
@@ -230,7 +230,7 @@ def _sb_search_field() -> Any:
             Input(
                 type="search",
                 placeholder="Search chats",
-                cls="flex-1 bg-transparent border-none outline-none text-[13.5px] text-foreground placeholder:text-muted-foreground",
+                cls="flex-1 bg-transparent border-none outline-hidden text-[13.5px] text-foreground placeholder:text-muted-foreground",
             ),
             cls="flex items-center gap-2 h-[38px] rounded-[9px] px-3 bg-slate-100",
         ),
@@ -406,7 +406,7 @@ def _top_bar(model_options: list[tuple[str, str]]) -> Any:
             _icon_ghost_btn("more-horizontal", "More options"),
             cls="flex items-center gap-1",
         ),
-        cls="flex items-center justify-between px-5 flex-shrink-0 border-b border-border",
+        cls="flex items-center justify-between px-5 shrink-0 border-b border-border",
         style="height:56px;",
     )
 
@@ -425,7 +425,7 @@ def _model_select(model_options: list[tuple[str, str]]) -> Any:
         aria_label="Model",
         cls=(
             "text-[13px] text-muted-foreground bg-transparent border border-border"
-            " rounded-[8px] px-2 py-1 outline-none cursor-pointer"
+            " rounded-[8px] px-2 py-1 outline-hidden cursor-pointer"
         ),
         **{"x-model": "selectedModel"},
     )
@@ -444,7 +444,7 @@ def _composer_area(
             ),
             cls="max-w-[768px] mx-auto w-full px-4",
         ),
-        cls="flex-shrink-0 pb-4 pt-2",
+        cls="shrink-0 pb-4 pt-2",
     )
 
 
@@ -484,7 +484,7 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
         aria_label="Scope answer to a NOUS topic",
         cls=(
             "text-[13px] text-muted-foreground bg-transparent border border-border"
-            " rounded-[18px] px-2.5 py-1.5 outline-none cursor-pointer max-w-[160px]"
+            " rounded-[18px] px-2.5 py-1.5 outline-hidden cursor-pointer max-w-[160px]"
         ),
         **{"x-model": "selectedNous"},
     )
@@ -525,7 +525,7 @@ def _nous_subtopic_scope_select(nous_subtopic_map: dict[str, list[str]]) -> Any:
         aria_label="Scope answer to a NOUS sub-topic",
         cls=(
             "text-[13px] text-muted-foreground bg-transparent border border-border"
-            " rounded-[18px] px-2.5 py-1.5 outline-none cursor-pointer max-w-[160px]"
+            " rounded-[18px] px-2.5 py-1.5 outline-hidden cursor-pointer max-w-[160px]"
             " disabled:opacity-60 disabled:cursor-not-allowed"
         ),
         **{"x-model": "selectedNousSubtopic", ":disabled": "!selectedNous"},
@@ -596,7 +596,7 @@ def _composer_form(
             placeholder="Ask about your learning…",
             name="message",
             rows=1,
-            cls="w-full border-none outline-none bg-transparent resize-none text-[15px] leading-[1.6] text-foreground placeholder:text-muted-foreground",
+            cls="w-full border-none outline-hidden bg-transparent resize-none text-[15px] leading-[1.6] text-foreground placeholder:text-muted-foreground",
             style="max-height:200px; overflow:hidden;",
             oninput="this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,200)+'px'",
             required=True,
@@ -728,7 +728,7 @@ def _source_card(n: int, source: dict) -> Any:
             (
                 P(
                     snippet,
-                    cls="text-[12.5px] text-muted-foreground leading-[1.5] line-clamp-2 mt-0.5",
+                    cls="text-[12.5px] text-muted-foreground leading-normal line-clamp-2 mt-0.5",
                 )
                 if snippet
                 else None

@@ -56,7 +56,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
             IconStat("Successful", successful, "✅", "text-success"),
             IconStat("Failed", failed, "❌", "text-error" if failed > 0 else ""),
             IconStat("Duration", f"{duration:.1f}s", "⏱️"),
-            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg mb-4 w-full",
+            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow-sm rounded-lg mb-4 w-full",
         ),
         # Incremental ingestion stats (if present)
         (
@@ -65,7 +65,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
                 Div(
                     IconStat("Files Skipped", files_skipped, "⏭️", "text-info"),
                     IconStat("Efficiency", f"{ingestion_efficiency:.1f}%", "🎯", "text-success"),
-                    cls="grid grid-cols-2 gap-4 shadow rounded-lg mb-4 w-full",
+                    cls="grid grid-cols-2 gap-4 shadow-sm rounded-lg mb-4 w-full",
                 ),
             )
             if has_incremental_stats
@@ -77,7 +77,7 @@ def IngestionResultsSummary(stats: Any) -> FT:
             IconStat("Nodes Created", nodes_created, "🔵"),
             IconStat("Nodes Updated", nodes_updated, "🔄"),
             IconStat("Edges Created", relationships_created, "🔗"),
-            cls="grid grid-cols-3 gap-4 shadow rounded-lg mb-4 w-full",
+            cls="grid grid-cols-3 gap-4 shadow-sm rounded-lg mb-4 w-full",
         ),
         # Errors table (if any)
         ErrorsTable(errors) if errors else None,

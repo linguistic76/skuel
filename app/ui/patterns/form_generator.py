@@ -456,7 +456,7 @@ class FormGenerator:
                     Div(*fields, cls="space-y-4"),
                     cls=(
                         "rounded-lg border border-border bg-card "
-                        f"text-card-foreground shadow-sm p-6 {stripe_cls}"
+                        f"text-card-foreground shadow-xs p-6 {stripe_cls}"
                     ),
                 )
             )

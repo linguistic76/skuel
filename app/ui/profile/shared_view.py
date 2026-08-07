@@ -127,7 +127,7 @@ def SharedItemCard(item: SharedWithMeItem) -> Any:
             ),
             cls="p-4",
         ),
-        cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
+        cls="bg-muted shadow-xs hover:shadow-md transition-shadow",
     )
 
 

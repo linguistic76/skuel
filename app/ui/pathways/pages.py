@@ -331,7 +331,7 @@ def path_detail_content(path_uid: str, detail: dict[str, Any]) -> Any:
                     hx_post=f"/api/pathways/enroll/{path_uid}",
                     hx_target="#main-content",
                 ),
-                cls="flex-shrink-0",
+                cls="shrink-0",
             ),
             cls="flex items-start justify-between mb-8",
         ),

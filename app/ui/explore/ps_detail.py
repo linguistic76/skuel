@@ -227,7 +227,7 @@ def _bookmark_btn(uid: str) -> "FT":
         cls=(
             "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md "
             "text-[12px] font-semibold border transition-colors "
-            "focus:outline-none focus:shadow-focus"
+            "focus:outline-hidden focus:shadow-focus"
         ),
         **{
             "@click": "toggleBookmark()",
@@ -282,7 +282,7 @@ def _action_bar(uid: str) -> "FT":
         # Progress bar
         Div(
             Div(
-                cls="h-full rounded-full bg-strength-core transition-[width] duration-[350ms] ease-out",
+                cls="h-full rounded-full bg-strength-core transition-[width] duration-350 ease-out",
                 **{":style": "'width:' + progressPct + '%'"},
             ),
             cls="h-[5px] rounded-full bg-border overflow-hidden mb-3.5",
@@ -332,7 +332,7 @@ def _action_bar(uid: str) -> "FT":
                         "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
                         "bg-primary text-primary-foreground "
                         "text-[13.5px] font-semibold hover:opacity-90 "
-                        "focus:outline-none focus:shadow-focus whitespace-nowrap"
+                        "focus:outline-hidden focus:shadow-focus whitespace-nowrap"
                     ),
                     **{
                         "x-show": "status !== 'read'",
@@ -348,7 +348,7 @@ def _action_bar(uid: str) -> "FT":
                         "inline-flex items-center gap-1.5 px-4 py-[9px] rounded-lg "
                         "border border-border bg-card "
                         "text-[13px] font-semibold text-foreground/80 "
-                        "hover:bg-muted focus:outline-none focus:shadow-focus"
+                        "hover:bg-muted focus:outline-hidden focus:shadow-focus"
                     ),
                     **{
                         "x-show": "status === 'read'",
@@ -751,7 +751,7 @@ def _deps_accordion() -> "FT":
                         ),
                         Span(
                             "",
-                            cls="font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em]",
+                            cls="font-mono text-[10.5px] font-semibold uppercase tracking-wider",
                             **{
                                 "x-text": "dep.status === 'met' ? 'Completed' : 'Blocked'",
                                 ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-destructive'",
@@ -768,10 +768,10 @@ def _deps_accordion() -> "FT":
             cls="px-5 pb-[18px]",
             **{
                 "x-show": "depsOpen",
-                "x-transition:enter": "transition ease-out duration-[180ms]",
+                "x-transition:enter": "transition ease-out duration-180",
                 "x-transition:enter-start": "opacity-0",
                 "x-transition:enter-end": "opacity-100",
-                "x-transition:leave": "transition ease-in duration-[120ms]",
+                "x-transition:leave": "transition ease-in duration-120",
                 "x-transition:leave-start": "opacity-100",
                 "x-transition:leave-end": "opacity-0",
             },

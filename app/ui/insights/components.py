@@ -214,7 +214,7 @@ def render_insight_card_with_checkbox(insight: Any) -> Any:
                 **{"@change": f"toggleSelection('{insight.uid}')"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                 **{":checked": f"isSelected('{insight.uid}')"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
             ),
-            cls="mr-3 flex-shrink-0 mt-1",
+            cls="mr-3 shrink-0 mt-1",
         ),
         # Insight card (right side)
         Div(
@@ -260,6 +260,6 @@ def _chart_card(data_url: str, chart_type: str) -> Any:
         ),
         **{
             "x-data": f"chartVis('{data_url}', '{chart_type}')",
-            "class": "bg-background p-4 rounded-lg shadow",
+            "class": "bg-background p-4 rounded-lg shadow-sm",
         },
     )

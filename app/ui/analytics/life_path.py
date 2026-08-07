@@ -112,8 +112,8 @@ def _render_domain_contribution_bar(domain: str, contribution: float) -> Any:
             cls="flex justify-between mb-1",
         ),
         Div(
-            Div(cls="bg-primary h-2 rounded", style=f"width: {bar_width}"),
-            cls="bg-muted h-2 rounded overflow-hidden",
+            Div(cls="bg-primary h-2 rounded-sm", style=f"width: {bar_width}"),
+            cls="bg-muted h-2 rounded-sm overflow-hidden",
         ),
     )
 
@@ -126,5 +126,5 @@ def _render_gap_item(gap: dict[str, Any]) -> Any:
     return Div(
         Span(title, cls="font-medium"),
         Span(f"({substance:.1f} substance)", cls="ml-2 text-muted-foreground text-sm"),
-        cls="p-2 bg-error/10 rounded",
+        cls="p-2 bg-error/10 rounded-sm",
     )

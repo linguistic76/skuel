@@ -3,7 +3,7 @@
  * =====================
  *
  * Core styles for SKUEL application.
- * Typography is configured in tailwind.config.js via @tailwindcss/typography.
+ * Tailwind theme/config lives in static/css/input.css (v4 CSS-first).
  *
  * Structure:
  * 1. Layout utilities

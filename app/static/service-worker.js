@@ -5,6 +5,10 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
+// Bumped v6 -> v7 for the Tailwind v3 -> v4 migration: output.css is not in
+// PRECACHE_URLS but cacheFirst() below caches every /static/ fetch into
+// STATIC_CACHE, so the regenerated output.css at the same URL needs a version
+// bump or PWA clients keep the v3 stylesheet indefinitely.
 // Bumped v5 -> v6 to purge the stale static cache holding the pre-redesign
 // search.css + skuel.js (the /search facets moved from a left rail back to a
 // horizontal bar with a "More filters" disclosure + mobile filter drawer).
@@ -19,7 +23,7 @@
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v6';
+const CACHE_VERSION = 'skuel-v7';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

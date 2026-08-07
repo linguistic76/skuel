@@ -76,7 +76,7 @@ def render_inline_form_template(
                 cls="space-y-1 mt-2",
             ),
             x_show="showSharing",
-            cls="space-y-2 mt-2 p-3 border border-border rounded",
+            cls="space-y-2 mt-2 p-3 border border-border rounded-sm",
         ),
     )
 

@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 _QUICK_LINK_CLS = (
     ButtonT.ghost,
-    "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+    "bg-background shadow-xs p-4 hover:shadow-md transition-shadow h-auto no-underline",
 )
 
 #: (emoji, label, href) for the overview quick-action grid.

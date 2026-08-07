@@ -1001,13 +1001,13 @@ def create_example_routes(app, rt, services):
 
 **Rule:** Prefer the `ui/components/` wrappers (`Button`, `Card`, `Badge`) and Tailwind utilities (`flex`, `gap-4`, `text-sm`) over custom CSS. Only add to `main.css` for things Tailwind cannot express (animations, HTMX states, CSS custom properties).
 
-**CSS variable ownership:** SKUEL owns its semantic CSS variables in `input.css` (the shadcn/ui token pattern), mapped to Tailwind colors in `tailwind.config.js`. DaisyUI — which previously generated these — is removed.
+**CSS variable ownership:** SKUEL owns its semantic CSS variables in `input.css` (the shadcn/ui token pattern), mapped to Tailwind colors in the same file's `@theme inline` block (Tailwind v4 CSS-first config — there is no `tailwind.config.js`). DaisyUI — which previously generated these — is removed.
 
 **Global border radius:** `radii="sm"` (2px/4px) — configured in both `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible. **Do not change** without updating both files.
 
 **Theme compatibility:** When adding new styles, always use the semantic token classes (e.g., `bg-background`, `text-foreground`, `text-muted-foreground`) so they adapt to theme switching — never raw `text-gray-*` or bespoke hex.
 
-**Rebuilding CSS:** After changing Tailwind classes or `input.css`, regenerate `output.css` (a **required build step** — missing classes are invisible at Python-edit time; the `tailwind.config.js` safelist covers dynamic class strings):
+**Rebuilding CSS:** After changing Tailwind classes or `input.css`, regenerate `output.css` (a **required build step** — missing classes are invisible at Python-edit time; the `@source inline(...)` directives in `input.css` cover runtime-composed class strings like `f"gap-{n}"`):
 
 ```bash
 ./dev css-build            # one-time build  (wraps: npm run css:build)

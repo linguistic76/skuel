@@ -122,7 +122,7 @@ def PrincipleCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#principle-{safe_id(principle.uid)}",
         hx_swap="outerHTML",
-        cls=(ButtonT.default, "rounded"),
+        cls=(ButtonT.default, "rounded-sm"),
         size="sm",
         title=f"Mark as {new_status}",
     )

@@ -92,7 +92,7 @@ def EventCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#event-{safe_id(event.uid)}",
         hx_swap="outerHTML",
-        cls=(ButtonT.default, "rounded"),
+        cls=(ButtonT.default, "rounded-sm"),
         size="sm",
         title=f"Mark as {new_status}",
     )

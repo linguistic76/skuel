@@ -155,7 +155,7 @@ class AdminUIComponents:
             # Actions
             Div(*actions, cls="flex flex-wrap gap-2") if actions else None,
             id=f"user-card-{uid_css}",
-            cls="bg-background shadow-sm p-4 border border-border",
+            cls="bg-background shadow-xs p-4 border border-border",
         )
 
     @staticmethod
@@ -172,7 +172,7 @@ class AdminUIComponents:
         if not users:
             return Card(
                 EmptyState(title="No users found"),
-                cls="bg-background shadow-sm",
+                cls="bg-background shadow-xs",
             )
 
         def _user_cell_render(k: str, v: object) -> Any:

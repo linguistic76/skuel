@@ -542,7 +542,7 @@ def create_teaching_ui_routes(
         back_arrow = A(
             Icon("arrow-left", size=18),
             href=f"/teaching/students/{uid}",
-            cls="p-1.5 rounded hover:bg-accent transition-colors inline-flex items-center",
+            cls="p-1.5 rounded-sm hover:bg-accent transition-colors inline-flex items-center",
             aria_label="Back to student overview",
         )
 

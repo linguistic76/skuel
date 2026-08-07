@@ -90,7 +90,7 @@ def _legend_swatch(item_type: CalendarItemType) -> HtmlButton:
             "flex items-center gap-1.5 cursor-pointer rounded-full px-2 py-0.5"
             " border border-border bg-card transition-all hover:bg-accent"
             " hover:border-muted-foreground/40"
-            " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            " focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
         ),
         **{
             "@click": f"toggleType('{item_type.value}')",
@@ -497,7 +497,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
         Span(item.title, cls="calendar-item-title flex-1 min-w-0 truncate"),
         cls=(
             "calendar-item flex items-center gap-1.5 px-[7px] py-0.5 rounded-md"
-            f" text-[11.5px] font-medium leading-[1.5] text-foreground{cursor}"
+            f" text-[11.5px] font-medium leading-normal text-foreground{cursor}"
         ),
         style=chip_style,
         title=f"{item.title} · {block}" if block is not None else item.title,
@@ -1032,7 +1032,7 @@ def create_item_details_modal(item: Any) -> Div:
             attendee_badges = [
                 Span(
                     email,
-                    cls="px-2 py-1 bg-background border border-info/20 text-info rounded text-xs mr-1 mb-1",
+                    cls="px-2 py-1 bg-background border border-info/20 text-info rounded-sm text-xs mr-1 mb-1",
                 )
                 for email in islice(item.attendee_emails, 5)
             ]

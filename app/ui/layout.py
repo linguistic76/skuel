@@ -190,8 +190,8 @@ def FlexItem(
         cls: Additional CSS classes
         **kwargs: Additional HTML attributes
     """
-    grow_cls = "flex-grow" if grow else ""
-    shrink_cls = "flex-shrink" if shrink else "flex-shrink-0"
+    grow_cls = "grow" if grow else ""
+    shrink_cls = "shrink" if shrink else "shrink-0"
     base_cls = f"{grow_cls} {shrink_cls} min-w-0 overflow-hidden".strip()
     full_cls = f"{base_cls} {cls}".strip() if cls else base_cls
     return Div(*c, cls=full_cls, **kwargs)

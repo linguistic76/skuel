@@ -163,7 +163,7 @@ def _article_header(
             Span(
                 Icon("info", cls="w-3 h-3"),
                 " Knowledge",
-                cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase text-muted-foreground",
+                cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-widest uppercase text-muted-foreground",
             ),
             cls="flex flex-wrap items-center gap-2.5 mb-3",
         ),

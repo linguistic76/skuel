@@ -1026,7 +1026,7 @@ def _render_result_card(result: dict) -> Any:
     return Div(
         Card(
             *card_body_items,
-            cls="bg-background shadow-sm hover:shadow-md transition-shadow border border-border p-6",
+            cls="bg-background shadow-xs hover:shadow-md transition-shadow border border-border p-6",
         )
     )
 
@@ -1149,7 +1149,7 @@ def _render_pagination(response: SearchResponse) -> Any:
     # variant; the sm geometry string mirrors ui.components.Button size="sm".
     btn_sm = (
         "inline-flex items-center justify-center font-medium transition-colors h-8 px-3 "
-        "text-sm rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        "text-sm rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
     )
 
     def page_link(

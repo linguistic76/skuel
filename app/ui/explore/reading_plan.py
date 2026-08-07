@@ -142,7 +142,7 @@ def _greeting_header(plan: dict[str, Any]) -> "FT":
     return Header(
         Div(
             date_label,
-            cls="font-mono text-[11px] font-medium tracking-[0.1em] uppercase text-muted-foreground",
+            cls="font-mono text-[11px] font-medium tracking-widest uppercase text-muted-foreground",
         ),
         H2(
             Span(**{"x-text": "greeting()"}),
@@ -184,7 +184,7 @@ def _hero_article(plan: dict[str, Any]) -> "FT":
             Span(
                 Span(cls="w-[7px] h-[7px] rounded-full bg-green-500 flex-none"),
                 featured.get("status_label", "Ready now"),
-                cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase text-green-700",
+                cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-widest uppercase text-green-700",
             ),
             Span("·", cls="text-[11px] text-muted-foreground/70"),
             Span(
@@ -198,7 +198,7 @@ def _hero_article(plan: dict[str, Any]) -> "FT":
         H2(
             title,
             id="featured-title",
-            cls="text-[clamp(28px,6vw,40px)] font-bold tracking-[-0.025em] leading-[1.04]",
+            cls="text-[clamp(28px,6vw,40px)] font-bold tracking-tight leading-[1.04]",
         ),
         # Excerpt
         P(
@@ -209,7 +209,7 @@ def _hero_article(plan: dict[str, Any]) -> "FT":
         _why_now_panel(featured) if featured.get("why_now") else Div(),
         # CTA row
         _hero_actions(uid, minutes),
-        cls="border border-border rounded-xl p-5 sm:p-7 shadow-sm mb-7 sm:mb-9",
+        cls="border border-border rounded-xl p-5 sm:p-7 shadow-xs mb-7 sm:mb-9",
         role="region",
         **{"aria-labelledby": "featured-title"},
     )
@@ -292,7 +292,7 @@ def _hero_actions(uid: str, minutes: int) -> "FT":
             cls=(
                 "inline-flex items-center gap-2.5 bg-foreground text-background "
                 "rounded-lg px-5 py-3 text-[14.5px] font-semibold "
-                "hover:opacity-90 focus:outline-none focus-visible:ring-2"
+                "hover:opacity-90 focus:outline-hidden focus-visible:ring-2"
             ),
         ),
         Span(
@@ -305,7 +305,7 @@ def _hero_actions(uid: str, minutes: int) -> "FT":
             cls=(
                 "ml-auto w-[38px] h-[38px] border border-border bg-card rounded-lg "
                 "flex items-center justify-center hover:bg-muted "
-                "focus:outline-none focus-visible:ring-2"
+                "focus:outline-hidden focus-visible:ring-2"
             ),
             **{
                 "@click": f"toggleSave('{uid}')",
@@ -346,7 +346,7 @@ def _thread_rail(plan: dict[str, Any]) -> "FT":
             *cards,
             cls=(
                 "flex gap-3 overflow-x-auto -mx-4 px-4 pb-1.5 "
-                "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                "scrollbar-none [&::-webkit-scrollbar]:hidden"
             ),
             role="list",
         ),
@@ -382,7 +382,7 @@ def _thread_card(ku: dict[str, Any]) -> "FT":
             "flex-none w-[min(74vw,228px)] min-h-[150px] flex flex-col gap-2.5 "
             "p-4 border border-border rounded-xl bg-card "
             "hover:border-muted-foreground/40 transition-colors "
-            "focus:outline-none focus-visible:ring-2"
+            "focus:outline-hidden focus-visible:ring-2"
         ),
     )
 
@@ -439,7 +439,7 @@ def _in_progress_row(r: dict[str, Any]) -> "FT":
         cls=(
             "w-full flex items-center gap-3.5 px-4 py-3.5 border border-border "
             "rounded-xl bg-card hover:border-muted-foreground/40 transition-colors "
-            "focus:outline-none focus-visible:ring-2"
+            "focus:outline-hidden focus-visible:ring-2"
         ),
     )
 
@@ -469,7 +469,7 @@ def _path_step_section(plan: dict[str, Any]) -> "FT":
             _ps_header(ps),
             _ps_ku_list(ps),
             _ps_capabilities(ps),
-            cls="border border-border rounded-xl overflow-hidden shadow-sm",
+            cls="border border-border rounded-xl overflow-hidden shadow-xs",
         ),
         cls="mb-7 sm:mb-9",
         role="region",
@@ -487,7 +487,7 @@ def _ps_header(ps: dict[str, Any]) -> "FT":
         Span(
             Icon("layers", cls="w-3 h-3"),
             " Path step",
-            cls="inline-flex items-center gap-1.5 font-mono text-[10px] font-medium tracking-[0.1em] uppercase text-primary rounded-md px-2.5 py-1 bg-primary/8",
+            cls="inline-flex items-center gap-1.5 font-mono text-[10px] font-medium tracking-widest uppercase text-primary rounded-md px-2.5 py-1 bg-primary/8",
         ),
         H3(
             ps.get("title", ""),
@@ -521,7 +521,7 @@ def _ps_ku_list(ps: dict[str, Any]) -> "FT":
     return Div(
         Div(
             f"Built from {units_total} ideas",
-            cls="font-mono text-[10px] font-medium tracking-[0.1em] uppercase text-muted-foreground/70 mb-3",
+            cls="font-mono text-[10px] font-medium tracking-widest uppercase text-muted-foreground/70 mb-3",
         ),
         Div(*rows, cls="flex flex-col gap-0.5"),
         cls="p-4 sm:p-[19px]",
@@ -555,7 +555,7 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
         row_cls = "px-3 py-2.5 border rounded-lg bg-primary/5 border-primary/20"
         meta = Span(
             "reading now",
-            cls="font-mono text-[10.5px] font-medium tracking-[0.05em] uppercase text-primary whitespace-nowrap",
+            cls="font-mono text-[10.5px] font-medium tracking-wider uppercase text-primary whitespace-nowrap",
         )
     else:  # upcoming
         node = Span(
@@ -580,7 +580,7 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
         ),
         meta,
         href=f"/explore/read/{uid}",
-        cls=f"flex items-start gap-3 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 {row_cls}",
+        cls=f"flex items-start gap-3 rounded-lg transition-colors focus:outline-hidden focus-visible:ring-2 {row_cls}",
     )
 
 
@@ -596,7 +596,7 @@ def _ps_capabilities(ps: dict[str, Any]) -> "FT":
         Div(
             Span(
                 "What this step adds",
-                cls="font-mono text-[10px] font-medium tracking-[0.1em] uppercase text-muted-foreground/70",
+                cls="font-mono text-[10px] font-medium tracking-widest uppercase text-muted-foreground/70",
             ),
             Span("varies by step", cls="text-[11px] text-muted-foreground/60"),
             cls="flex items-baseline justify-between gap-2.5 mb-3",
@@ -625,7 +625,7 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
 
     base_cls = (
         "text-left flex items-start gap-3 p-3 bg-card border border-muted "
-        "rounded-xl focus:outline-none focus-visible:ring-2"
+        "rounded-xl focus:outline-hidden focus-visible:ring-2"
     )
     locked_cls = "cursor-not-allowed opacity-60" if locked else "hover:border-muted-foreground/30"
 
@@ -647,12 +647,12 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
                 ),
                 Span(
                     label,
-                    cls=f"font-mono text-[9.5px] font-medium tracking-[0.06em] uppercase rounded px-1.5 py-0.5 {label_cls}",
+                    cls=f"font-mono text-[9.5px] font-medium tracking-[0.06em] uppercase rounded-sm px-1.5 py-0.5 {label_cls}",
                 ),
                 Span(
                     Icon("lock", cls="w-2.5 h-2.5"),
                     " locked",
-                    cls="inline-flex items-center gap-1 font-mono text-[9.5px] text-muted-foreground bg-muted rounded px-1.5 py-0.5",
+                    cls="inline-flex items-center gap-1 font-mono text-[9.5px] text-muted-foreground bg-muted rounded-sm px-1.5 py-0.5",
                 )
                 if locked
                 else Div(),
@@ -708,7 +708,7 @@ def _related_row(k: dict[str, Any]) -> "FT":
                 Span(k.get("title", ""), cls="text-[14.5px] font-semibold text-foreground"),
                 Span(
                     kind,
-                    cls="font-mono text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5",
+                    cls="font-mono text-[10px] text-muted-foreground bg-muted rounded-sm px-1.5 py-0.5",
                 )
                 if kind
                 else Div(),
@@ -727,7 +727,7 @@ def _related_row(k: dict[str, Any]) -> "FT":
         href=f"/explore/read/{k.get('uid', '')}",
         cls=(
             "w-full flex items-start gap-3.5 p-3.5 rounded-xl border border-transparent "
-            "hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2"
+            "hover:bg-muted/50 transition-colors focus:outline-hidden focus-visible:ring-2"
         ),
     )
 

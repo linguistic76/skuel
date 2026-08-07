@@ -42,7 +42,7 @@ def render_weekly_life_summary(summary_data: dict[str, Any]) -> Any:
         Card(
             SectionHeader("Summary"),
             P(summary_text, cls="text-muted-foreground"),
-            cls="bg-background shadow-sm mb-6 p-6",
+            cls="bg-background shadow-xs mb-6 p-6",
         ),
         _render_knowledge_layer_card(layer0_knowledge),
         _render_reflection_layer_card(layer2_reflection),

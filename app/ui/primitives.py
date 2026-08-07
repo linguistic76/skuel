@@ -63,7 +63,7 @@ def icon_tile(
 
 
 _SECTION_LABEL_CLS = (
-    "block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]"
+    "block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-[9px]"
 )
 
 
@@ -98,7 +98,7 @@ def primary_btn(
     """
     base = (
         "flex items-center gap-2 bg-foreground text-background text-[14px] font-semibold "
-        "px-[18px] py-[11px] rounded-[9px] shadow-sm hover:opacity-90 transition-opacity"
+        "px-[18px] py-[11px] rounded-[9px] shadow-xs hover:opacity-90 transition-opacity"
     )
     return Button(
         Icon(icon, cls="w-4 h-4 flex-none"),

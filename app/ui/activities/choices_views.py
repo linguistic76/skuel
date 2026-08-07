@@ -106,7 +106,7 @@ def ChoiceCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#choice-{safe_id(choice.uid)}",
         hx_swap="outerHTML",
-        cls=(ButtonT.default, "rounded"),
+        cls=(ButtonT.default, "rounded-sm"),
         size="sm",
         title=f"Mark as {new_status}",
     )

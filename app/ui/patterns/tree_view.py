@@ -91,7 +91,7 @@ def TreeView(
             id=f"tree-root-{root_uid}",
             cls="tree-view",
         ),
-        cls=f"tree-container focus:outline-none {cls}".strip(),
+        cls=f"tree-container focus:outline-hidden {cls}".strip(),
         tabindex="0",  # Make focusable for keyboard nav
         **{
             "x-data": f"hierarchyTree({config_str})",
@@ -185,7 +185,7 @@ def _render_tree_node(
         **{
             "x-on:dblclick": f"startEdit('{uid}')",
         },
-        cls="flex-grow text-sm cursor-text hover:bg-muted px-1 rounded node-title",
+        cls="grow text-sm cursor-text hover:bg-muted px-1 rounded-sm node-title",
         **{"data-uid": uid},
     )
 
@@ -213,7 +213,7 @@ def _render_tree_node(
     # Node content row
     node_content = Div(
         *content_elements,
-        cls="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted group",
+        cls="flex items-center gap-2 py-1 px-2 rounded-sm hover:bg-muted group",
         style=f"padding-left: {indent}px",
         **drag_attrs,
     )

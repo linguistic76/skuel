@@ -116,7 +116,7 @@ def render_chain_fragment(chain_data: dict[str, Any]) -> Div:
                     f"Blocks {entity['blocks_count']} entities",
                     cls="text-xs text-muted-foreground ml-6",
                 ),
-                cls="mb-2 p-2 rounded",
+                cls="mb-2 p-2 rounded-sm",
             )
             entity_cards.append(entity_card)
 

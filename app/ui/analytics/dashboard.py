@@ -125,7 +125,7 @@ def render_analytics_result(report: Any) -> Any:
 def render_markdown_view(markdown_content: str) -> Any:
     """Render markdown content, toggled by Alpine showMarkdown state."""
     return Card(
-        Div(markdown_content, cls="prose max-w-none whitespace-pre-wrap"),
-        cls="bg-background shadow-sm p-6 mt-4",
+        Div(markdown_content, cls="whitespace-pre-wrap leading-relaxed text-foreground"),
+        cls="bg-background shadow-xs p-6 mt-4",
         **{"x-show": "showMarkdown", "x-cloak": True},
     )

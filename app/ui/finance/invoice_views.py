@@ -347,15 +347,15 @@ class InvoiceViews:
                     newItem.innerHTML = `
                         <div class="col-span-6">
                             <input type="text" name="items[${lineItemCount}][description]" placeholder="Description" required
-                                class="w-full px-2 py-1 border border-border rounded text-sm" />
+                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
                         </div>
                         <div class="col-span-2">
                             <input type="number" name="items[${lineItemCount}][quantity]" placeholder="Qty" step="0.01" min="0.01" required
-                                class="w-full px-2 py-1 border border-border rounded text-sm" />
+                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
                         </div>
                         <div class="col-span-3">
                             <input type="number" name="items[${lineItemCount}][unit_price]" placeholder="Unit $" step="0.01" min="0" required
-                                class="w-full px-2 py-1 border border-border rounded text-sm" />
+                                class="w-full px-2 py-1 border border-border rounded-sm text-sm" />
                         </div>
                         <div class="col-span-1">
                             <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-sm">X</button>
@@ -380,7 +380,7 @@ class InvoiceViews:
                     name=f"items[{index}][description]",
                     placeholder="Description",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded text-sm",
+                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-6",
             ),
@@ -392,7 +392,7 @@ class InvoiceViews:
                     step="0.01",
                     min="0.01",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded text-sm",
+                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-2",
             ),
@@ -404,7 +404,7 @@ class InvoiceViews:
                     step="0.01",
                     min="0",
                     required=True,
-                    cls="w-full px-2 py-1 border border-border rounded text-sm",
+                    cls="w-full px-2 py-1 border border-border rounded-sm text-sm",
                 ),
                 cls="col-span-3",
             ),

@@ -57,9 +57,7 @@ def JournalsLandingPage(
         Div(
             render_right_panel(is_founder=is_founder),
             upload_form_script(),
-            cls=(
-                "w-[320px] flex-shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"
-            ),
+            cls=("w-[320px] shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"),
         ),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
@@ -103,9 +101,7 @@ def PeriodicNotePage(
         columns.append(
             Div(
                 week_panel,
-                cls=(
-                    "w-[300px] flex-shrink-0 border-l border-border bg-slate-50 overflow-y-auto p-4"
-                ),
+                cls=("w-[300px] shrink-0 border-l border-border bg-slate-50 overflow-y-auto p-4"),
             )
         )
     return Div(
@@ -207,7 +203,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
             ),
             cls="flex items-center justify-between px-3 py-3 border-t border-border",
         ),
-        cls="w-[220px] flex-shrink-0 border-r border-border bg-slate-50 flex flex-col",
+        cls="w-[220px] shrink-0 border-r border-border bg-slate-50 flex flex-col",
     )
 
 
@@ -327,7 +323,7 @@ def journal_sidebar(user: "User", sessions: "list[ConversationSession] | None" =
         ),
         style="width:274px;",
         cls=(
-            "bg-slate-50 border-r border-slate-100 flex-shrink-0 overflow-hidden"
+            "bg-slate-50 border-r border-slate-100 shrink-0 overflow-hidden"
             " transition-all duration-300"
         ),
         **{":style": "{ width: sidebarOpen ? '274px' : '62px' }"},
@@ -361,7 +357,7 @@ def _sb_new_journal_btn() -> Any:
             cls=(
                 "w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px]"
                 " border border-border bg-background hover:bg-slate-50"
-                " transition-colors shadow-sm no-underline"
+                " transition-colors shadow-xs no-underline"
             ),
         ),
         cls="px-3 pb-3",
@@ -464,8 +460,8 @@ def DiscussionRow(session: "ConversationSession") -> Any:
                 name="title",
                 value=title,
                 cls=(
-                    "flex-1 min-w-0 text-[13.5px] px-2 py-1 rounded border border-border"
-                    " bg-background outline-none focus:border-foreground/40"
+                    "flex-1 min-w-0 text-[13.5px] px-2 py-1 rounded-sm border border-border"
+                    " bg-background outline-hidden focus:border-foreground/40"
                 ),
                 **{"x-ref": "titleInput", "@keydown.escape": "editing = false"},
             ),
@@ -483,7 +479,7 @@ def DiscussionRow(session: "ConversationSession") -> Any:
 def _DiscussionRowActions(sid: str, title: str) -> Any:
     """Hover-revealed rename / export / delete controls for a discussion row."""
     btn = (
-        "w-6 h-6 flex items-center justify-center rounded text-muted-foreground"
+        "w-6 h-6 flex items-center justify-center rounded-sm text-muted-foreground"
         " hover:bg-slate-200 hover:text-foreground opacity-0 group-hover:opacity-100"
         " transition-opacity"
     )
@@ -643,7 +639,7 @@ def _landing_text_form(
                     rows="5",
                     required=True,
                     cls=(
-                        "w-full border-none outline-none bg-transparent resize-none"
+                        "w-full border-none outline-hidden bg-transparent resize-none"
                         " text-[15px] leading-[1.6] text-foreground"
                         " placeholder:text-muted-foreground"
                     ),
@@ -667,7 +663,7 @@ def _landing_text_form(
                 _landing_source_panel(shelf_books) if is_founder else None,
                 cls=(
                     "border border-border rounded-[20px] px-[18px] pt-4 pb-3"
-                    " bg-background shadow-sm"
+                    " bg-background shadow-xs"
                 ),
             ),
             P(

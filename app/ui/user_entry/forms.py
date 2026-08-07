@@ -181,7 +181,7 @@ def render_upload_form(
                 title_extra=Span(
                     "Coming soon",
                     cls=(
-                        "text-[10px] font-bold uppercase tracking-[0.05em] "
+                        "text-[10px] font-bold uppercase tracking-wider "
                         "text-amber-800 bg-amber-100 px-[7px] py-[2px] rounded-full"
                     ),
                 )
@@ -210,7 +210,7 @@ def render_upload_form(
         dragover_handler="onDragOver($event)",
         dragleave_handler="onDragLeave($event)",
         active_expr="dragOver",
-        cls="py-[38px] transition-[border-color,background-color] duration-[160ms] ease-linear",
+        cls="py-[38px] transition-[border-color,background-color] duration-160 ease-linear",
     )
 
     # File card (filled state)

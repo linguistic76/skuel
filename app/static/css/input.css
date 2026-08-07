@@ -1,8 +1,106 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss' source(none);
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap');
+/* Class scanning — FastHTML emits Tailwind classes from Python source, so
+   auto-detection is disabled (source(none)) and scanning is pinned to the
+   class-bearing trees (the v3 `content` globs). Paths resolve relative to
+   this file. */
+@source "../../ui/**/*.py";
+@source "../../adapters/inbound/**/*.py";
+@source "../../core/**/*.py";
+@source "../js/*.js";
+
+/* Runtime-composed classes (f"gap-{n}", f"grid-cols-{cols}", f"items-{align}",
+   f"max-w-{size}" in ui/layout.py and friends) are not statically scannable —
+   force-generate them. The v3 regex safelist equivalent. */
+@source inline("gap-{0,1,2,3,4,5,6,8,10,12,16}");
+@source inline("grid-cols-{1,2,3,4,5,6}");
+@source inline("items-{start,center,end,stretch,baseline}");
+@source inline("max-w-{sm,md,lg,xl,2xl,3xl,4xl,5xl,6xl,7xl}");
+
+/* darkMode: 'class' — html.dark is toggled by dark_mode_script (ui/theme.py). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `inline` makes utilities embed these values directly (bg-primary →
+   background-color: hsl(var(--primary))), matching what v3 emitted — the
+   runtime vars below stay the single dark-mode switch point. */
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Base semantic tokens — components reference these via bg-primary, bg-card
+     etc. Values are hsl() wrappers over CSS vars owned by this file (ADR-071:
+     SKUEL owns these; DaisyUI removed). */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  /* Priority accents — mirrors main.css .border-priority-* oklch values.
+     Used on Today ribbons for dot indicators and optional fills. */
+  --color-priority-high: oklch(0.65 0.2 25);
+  --color-priority-medium: oklch(0.75 0.15 85);
+  --color-priority-low: oklch(0.7 0.15 145);
+
+  /* Principle strength accents — oklch analogues of palette.py StrengthColor. */
+  --color-strength-core: oklch(0.55 0.22 295);
+  --color-strength-strong: oklch(0.55 0.2 255);
+  --color-strength-developing: oklch(0.6 0.15 165);
+
+  /* Semantic status + base surface tokens — formerly supplied by DaisyUI
+     (ADR-071 follow-up). Concrete values so existing utilities — text-error,
+     bg-success/10, bg-base-200, text-base-content/70 — keep compiling, with
+     opacity modifiers applied via color-mix. AA text contrast on white. */
+  --color-error: #dc2626; /* red-600 */
+  --color-success: #16a34a; /* green-600 */
+  --color-warning: #d97706; /* amber-600 */
+  --color-info: #2563eb; /* blue-600 */
+  --color-base-200: #f3f4f6; /* subtle surface (gray-100) */
+  --color-base-300: #e5e7eb; /* borders / dividers (gray-200) */
+  --color-base-content: #1f2937; /* body text (gray-800) */
+
+  /* Soft 2px ring matching hsl(var(--ring) / 0.2) — used as focus ring. */
+  --shadow-focus: 0 0 0 2px hsl(var(--ring) / 0.2);
+}
+
+/*
+  The default border color changed to `currentcolor` in Tailwind CSS v4; this
+  compatibility rule keeps bare `border` utilities rendering gray-200 as they
+  did with v3. Removing it requires an explicit border color utility on every
+  element that relies on the default.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* v4 preflight no longer sets cursor: pointer on buttons — restore the v3
+   affordance. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
 
 @layer base {
   :root {
@@ -70,14 +168,4 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
-}
-
-@layer utilities {
-  /* Text truncation utilities */
-  .truncate-1 { @apply line-clamp-1; }
-  .truncate-2 { @apply line-clamp-2; }
-  .truncate-3 { @apply line-clamp-3; }
-
-  /* Flex overflow fix */
-  .flex-safe { @apply min-w-0 overflow-hidden; }
 }

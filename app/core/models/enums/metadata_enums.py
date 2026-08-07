@@ -362,7 +362,7 @@ class HealthStatus(StrEnum):
             HealthStatus.HEALTHY: "bg-green-50 border-green-500",
             HealthStatus.WARNING: "bg-yellow-50 border-yellow-500",
             HealthStatus.CRITICAL: "bg-red-50 border-red-500",
-        }.get(self, "bg-background border-border shadow-sm")
+        }.get(self, "bg-background border-border shadow-xs")
 
     def get_dot_class(self) -> str:
         """Get Tailwind dot background class for health status."""

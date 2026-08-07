@@ -58,7 +58,7 @@ def HubCard(card: HubCardData) -> A:
         ),
         P(card.description, cls="text-sm text-muted-foreground"),
         href=card.href,
-        cls="bg-card border border-border rounded-[12px] p-[22px] shadow-sm hover:shadow-md transition-shadow block",
+        cls="bg-card border border-border rounded-[12px] p-[22px] shadow-xs hover:shadow-md transition-shadow block",
     )
 
 
@@ -152,7 +152,7 @@ def HubContainer(card: HubCardData) -> A:
             cls="flex justify-end mt-4",
         ),
         href=card.href,
-        cls="bg-background rounded-xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow block border border-border/50",
+        cls="bg-background rounded-xl p-6 sm:p-8 shadow-xs hover:shadow-md transition-shadow block border border-border/50",
     )
 
 

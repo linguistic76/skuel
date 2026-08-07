@@ -112,7 +112,7 @@ def _panel_row(item: "CalendarItem") -> A:
     day_label = day.strftime("%a %-d")
     return A(
         Span(
-            cls="w-2 h-2 rounded-full flex-shrink-0",
+            cls="w-2 h-2 rounded-full shrink-0",
             style=f"background-color: {item.color};",
         ),
         Span(item.title, cls="flex-1 min-w-0 truncate text-[13px] text-foreground"),

@@ -112,7 +112,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
                 Div(
                     Span(
                         category_label,
-                        cls="text-xs font-medium px-2 py-0.5 rounded",
+                        cls="text-xs font-medium px-2 py-0.5 rounded-sm",
                         style=f"background-color: {category_color}20; color: {category_color}",
                     ),
                     P(detail, cls="text-sm mt-1"),

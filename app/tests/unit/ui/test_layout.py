@@ -180,14 +180,14 @@ class TestFlexItem:
     def test_default(self) -> None:
         result = FlexItem("child")
         rendered = str(result)
-        assert "flex-shrink" in rendered
+        assert "shrink" in rendered
         assert "min-w-0" in rendered
         assert "overflow-hidden" in rendered
 
     def test_grow(self) -> None:
         result = FlexItem("child", grow=True)
-        assert "flex-grow" in str(result)
+        assert "grow" in str(result)
 
     def test_no_shrink(self) -> None:
         result = FlexItem("child", shrink=False)
-        assert "flex-shrink-0" in str(result)
+        assert "shrink-0" in str(result)

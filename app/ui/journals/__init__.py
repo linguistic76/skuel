@@ -45,7 +45,7 @@ def ModelControl(model: str, model_options: "list[tuple[str, str]] | None") -> A
         aria_label="Model",
         cls=(
             "text-[13px] text-muted-foreground bg-transparent border border-border"
-            " rounded-[8px] px-2 py-1 outline-none cursor-pointer"
+            " rounded-[8px] px-2 py-1 outline-hidden cursor-pointer"
         ),
     )
 
@@ -112,7 +112,7 @@ def _AiBubble(label: str, text: str) -> Any:
             "J",
             cls=(
                 "w-[30px] h-[30px] rounded-full bg-foreground text-background"
-                " flex items-center justify-center text-sm font-bold flex-shrink-0"
+                " flex items-center justify-center text-sm font-bold shrink-0"
             ),
         ),
         # Content
@@ -299,7 +299,7 @@ def _Composer(
                 rows="3",
                 required=True,
                 cls=(
-                    "w-full border-none outline-none bg-transparent resize-none"
+                    "w-full border-none outline-hidden bg-transparent resize-none"
                     " text-[15px] leading-[1.6] text-foreground"
                     " placeholder:text-muted-foreground"
                 ),
@@ -378,7 +378,7 @@ def _Composer(
                 ),
                 cls="flex items-center justify-between gap-3 mt-2",
             ),
-            cls=("border border-border rounded-[25px] px-[18px] pt-3 pb-3 bg-background shadow-sm"),
+            cls=("border border-border rounded-[25px] px-[18px] pt-3 pb-3 bg-background shadow-xs"),
         ),
         id="journal-composer",
         hx_post="/journals/follow-up",
@@ -400,7 +400,7 @@ def _Composer(
             "if(s){s.scrollTop=s.scrollHeight;}"
             "}"
         ),
-        cls="border-t border-border px-6 py-4 bg-background flex-shrink-0",
+        cls="border-t border-border px-6 py-4 bg-background shrink-0",
         # ``busy`` is the visual mirror of hx-sync: true while EITHER the follow-up
         # or the Save request is in flight (both bubble their htmx events to this
         # form), disabling both the send and Save buttons until it settles.
@@ -563,7 +563,7 @@ def Stage3Fragment(
                 summon_canon=summon_canon,
                 summon_vault=summon_vault,
             ),
-            cls="flex-shrink-0",
+            cls="shrink-0",
         ),
         id="journal-workspace",
         cls="flex flex-col h-full",
@@ -731,7 +731,7 @@ def FileOutputFragment(
             # Saved banner + download
             Div(
                 Div(
-                    Icon("file-check", size=18, cls="text-green-600 flex-shrink-0"),
+                    Icon("file-check", size=18, cls="text-green-600 shrink-0"),
                     Div(
                         P(
                             "Your file is automatically saved in your Journal Output folder.",
@@ -762,7 +762,7 @@ def FileOutputFragment(
                     "J",
                     cls=(
                         "w-[30px] h-[30px] rounded-full bg-foreground text-background"
-                        " flex items-center justify-center text-sm font-bold flex-shrink-0"
+                        " flex items-center justify-center text-sm font-bold shrink-0"
                     ),
                 ),
                 Div(
@@ -862,7 +862,7 @@ def FollowUpErrorFragment(message: str) -> Any:
     from ui.components import Icon
 
     return Div(
-        Icon("alert-circle", size=15, cls="text-destructive flex-shrink-0"),
+        Icon("alert-circle", size=15, cls="text-destructive shrink-0"),
         P(message, cls="text-sm text-destructive"),
         cls="flex items-center gap-2 py-3 px-1 text-destructive",
     )
@@ -911,7 +911,7 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
                     cls=(
                         "w-full border border-border rounded-[16px] px-[18px] py-4"
                         " bg-background text-[15px] leading-[1.7] text-foreground"
-                        " resize-y outline-none focus:border-foreground/30"
+                        " resize-y outline-hidden focus:border-foreground/30"
                     ),
                 ),
                 Div(
@@ -1038,7 +1038,7 @@ def _suggestion_row(item: "SuggestedActivity") -> Any:
                 item.domain,
                 cls=(
                     "text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5"
-                    " rounded-[4px] bg-foreground/10 text-foreground/70 flex-shrink-0"
+                    " rounded-[4px] bg-foreground/10 text-foreground/70 shrink-0"
                 ),
             ),
             Button(
@@ -1060,7 +1060,7 @@ def _suggestion_row(item: "SuggestedActivity") -> Any:
         ),
         P(
             item.dsl_line,
-            cls="text-[12px] font-mono leading-snug text-foreground/80 break-words",
+            cls="text-[12px] font-mono leading-snug text-foreground/80 wrap-break-word",
         ),
         cls="rounded-[10px] border border-border bg-background px-3 py-2",
         **{"x-data": alpine_data},  # boundary: fasthtml-elements

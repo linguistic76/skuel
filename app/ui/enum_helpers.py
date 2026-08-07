@@ -121,7 +121,7 @@ def get_essentiality_styled(essentiality: str) -> tuple[str, str, str]:
 def get_health_bg_class(status: str) -> str:
     """Get background/border classes for a domain health status."""
     return _enum_method(
-        status, HealthStatus, "get_bg_class", "bg-background border-border shadow-sm"
+        status, HealthStatus, "get_bg_class", "bg-background border-border shadow-xs"
     )
 
 
