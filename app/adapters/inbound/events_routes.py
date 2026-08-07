@@ -33,6 +33,7 @@ EVENTS_CONFIG = create_activity_domain_route_config(
     create_schema=EventCreateRequest,
     update_schema=EventUpdateRequest,
     uid_prefix="event",
+    request_create_method="create_event",
     supports_goal_filter=False,
     supports_habit_filter=True,
     api_related_services={

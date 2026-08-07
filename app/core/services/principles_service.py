@@ -547,7 +547,7 @@ class PrinciplesService(
     # ========================================================================
 
     async def create(self, entity: Principle) -> Result[Principle]:
-        """Override the inherited CRUD create (generated JSON route, no ownership check).
+        """Override the inherited CRUD create — the ENTITY door.
 
         Routes the entity through the one event-firing create path
         (``PrinciplesCoreService.create``). The inherited base ``create`` went straight to
@@ -559,6 +559,11 @@ class PrinciplesService(
 
         Mirrors the ``update`` override below, which reconciles the same two doors on the
         update path.
+
+        The generated JSON route entered here until it was bound to
+        ``create_principle`` (the request door — ``CRUDRouteConfig.request_create_method``),
+        so its request-only link fields could ride; this door remains for in-process
+        callers that hand the CRUD surface an entity they built themselves.
         """
         return await self.core.create(entity)
 

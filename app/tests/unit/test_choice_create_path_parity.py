@@ -144,11 +144,13 @@ def core(backend: StubChoicesBackend, event_bus: InMemoryEventBus) -> ChoicesCor
 
 @pytest.fixture
 def facade(backend: StubChoicesBackend, event_bus: InMemoryEventBus) -> ChoicesService:
-    """DOOR A's service — the object CRUDRouteFactory calls ``.create(entity)`` on.
+    """DOOR A's service — the ENTITY door (``.create(entity)``).
 
     ``services.choices`` is bound to the ChoicesService FACADE in
     services_bootstrap/_activity_services.py, so the facade — not the core
-    sub-service — is what the generated route reaches.
+    sub-service — is what the generated route reached until it was bound to the
+    request door (``request_create_method``); the entity door remains live for
+    in-process callers.
     """
     return ChoicesService(
         backend=backend,
@@ -332,7 +334,7 @@ class TestDoorBValidates:
 
 @pytest.mark.asyncio
 class TestDoorAValidates:
-    """``ChoicesService.create(entity)`` is what CRUDRouteFactory calls."""
+    """``ChoicesService.create(entity)`` — the entity door (formerly the route's path)."""
 
     async def test_rejects_fewer_than_two_options(self, facade: ChoicesService) -> None:
         """RED before the fix: the facade resolved _validate_create to the base no-op."""
@@ -540,7 +542,7 @@ class TestKnowledgeEdgesPrecedeTheEvent:
             f"rebuild would cache a choice with no edges. Order was: {backend.trace}"
         )
 
-    async def test_route_door_still_publishes_without_edges(
+    async def test_entity_door_still_publishes_without_edges(
         self, facade: ChoicesService, event_bus: InMemoryEventBus
     ) -> None:
         """Positive control: deferring the publish must not lose it on the door that

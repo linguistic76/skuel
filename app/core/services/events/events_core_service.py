@@ -315,8 +315,9 @@ class EventsCoreService(
     async def create(self, entity: Event) -> Result[Event]:
         """Persist, link, then announce — THE create primitive for Events.
 
-        Both doors land here: the generated CRUD route (via ``EventsService.create``)
-        and ``create_event`` below. ``reinforces_habit_uid`` rides on the ``Event``, so
+        Both doors land here: the entity door (``EventsService.create``) and
+        ``create_event`` below — which the generated CRUD route enters through, since
+        it was bound to the request door (``CRUDRouteConfig.request_create_method``). ``reinforces_habit_uid`` rides on the ``Event``, so
         it is written as the REINFORCES_HABIT edge on this shared path for both doors.
         Leaving that write on the request door alone is what made
         ``POST /api/events/create`` lose the link entirely: since #967 the mapper skips
@@ -385,8 +386,9 @@ class EventsCoreService(
           doors write it. Passed in as ``habit_uid`` rather than read off ``event``,
           which cannot carry it once persisted (see ``_create_with_links``).
         - ``request.milestone_celebration_for_goal`` → CELEBRATES_GOAL — request door
-          only; the ``Event`` carries no such field, so the route door can never write
-          it (a link the entity cannot carry is a link that door cannot write).
+          only; the ``Event`` carries no such field, so the ENTITY door can never write
+          it (a link the entity cannot carry is a link that door cannot write) —
+          HTTP callers sit on the request door since the route was bound here.
 
         ADMISSION: both UIDs are request input, so each is checked for existence, OWNER
         and KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
@@ -483,7 +485,7 @@ class EventsCoreService(
         Moved from the facade (which now delegates) so the door sits beside the
         primitive it feeds, as ``create_goal`` / ``create_habit`` / ``create_task`` do
         in their domains. ``reinforces_habit_uid`` is set ON the entity so the shared
-        path writes the habit edge for this door exactly as it does for the route door;
+        path writes the habit edge for this door exactly as it does for the entity door;
         only ``milestone_celebration_for_goal`` is forwarded via ``request``, because it
         is edge-shaped and reaches no ``Event`` field.
 

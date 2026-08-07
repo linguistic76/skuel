@@ -207,8 +207,9 @@ class PrinciplesCoreService(
     async def create(self, entity: Principle) -> Result[Principle]:
         """Persist, then announce — THE create primitive for Principles.
 
-        Both doors land here: the generated CRUD route (via ``PrinciplesService.create``)
-        and ``create_principle`` below. Before this, only ``create_principle`` published
+        Both doors land here: the entity door (``PrinciplesService.create``) and
+        ``create_principle`` below — which the generated CRUD route enters through,
+        since it was bound to the request door (``CRUDRouteConfig.request_create_method``). Before this, only ``create_principle`` published
         anything, so a principle created through ``POST /api/principles/create``
         invalidated no user context and was never embedded — the route calls
         ``service.create(entity)`` on the FACADE, which resolved to
@@ -249,7 +250,7 @@ class PrinciplesCoreService(
             # principle_category and strength are nullable on the MODEL while
             # PrincipleCreated declares both as non-optional str. PrincipleCreateRequest
             # defaults them, so the request door always fills them in — but this
-            # primitive now runs for hand-built entities too (the generated route, the
+            # primitive now runs for hand-built entities too (the entity door, the
             # DSL's short "@context(principle)" lines), where a bare ``.value`` raises.
             category=principle.principle_category.value if principle.principle_category else "",
             strength=principle.strength.value if principle.strength else "",
@@ -308,9 +309,9 @@ class PrinciplesCoreService(
             created_at=datetime.now(),
         )
 
-        # Persist and announce through the one primitive the generated CRUD route also
-        # reaches (see ``create``). NOT backend.create directly, which is what left the
-        # route door publishing nothing.
+        # Persist and announce through the one primitive the entity door also reaches
+        # (see ``create``). NOT backend.create directly, which is what left the
+        # generated route publishing nothing.
         result = await self.create(principle)
         if result.is_error:
             return result

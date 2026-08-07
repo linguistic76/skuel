@@ -42,7 +42,8 @@ DOOR ASYMMETRY (deliberate, asserted below)
 ``prerequisite_knowledge_uids``) cannot work that way — none is a ``Task`` field, so the
 converter drops them before the route reaches ``create(entity)``. ``create_task`` is the
 only door that still holds them, pinned by ``TestTaskModelCarriesNoLists`` and
-``TestTaskRouteDoorCannotCarryLists`` as a known limit of the generated route rather than
+``TestTaskEntityDoorCannotCarryLists`` as a structural limit of the entity door (the
+generated route now enters through the request door, which carries them) rather than
 a silent gap.
 
 ADMISSION (every endpoint is request input)
@@ -280,7 +281,8 @@ def core(backend: StubBackend, event_bus: InMemoryEventBus) -> TasksCoreService:
 
 @pytest.fixture
 def facade(backend: StubBackend, event_bus: InMemoryEventBus) -> TasksService:
-    """DOOR A — the object ``CRUDRouteFactory`` calls ``.create(entity)`` on."""
+    """DOOR A — the ENTITY door (``.create(entity)``); the generated route entered
+    here until it was bound to the request door (``request_create_method``)."""
     return TasksService(
         backend=backend,
         cross_domain_query=_Inert(),
@@ -345,7 +347,7 @@ class TestTaskHierarchyEdgeIsWritten:
         assert parent_uid == PARENT_TASK
         assert child_uid == result.value.uid
 
-    async def test_route_door_writes_the_edge_too(
+    async def test_entity_door_writes_the_edge_too(
         self, facade: TasksService, backend: StubBackend
     ) -> None:
         """RED before the fix: the route door wrote NO edge and the mapper dropped the
@@ -380,7 +382,7 @@ class TestTaskHierarchyEdgeIsWritten:
         _parent, _child, props = backend.hierarchy[0]
         assert props == {"progress_weight": 0.25}
 
-    async def test_route_door_default_weight_matches_the_request_model(
+    async def test_entity_door_default_weight_matches_the_request_model(
         self, facade: TasksService, backend: StubBackend
     ) -> None:
         """The entity door has no weight to pass, so its default must equal the one the
@@ -453,7 +455,7 @@ class TestTaskHierarchyEdgeChecksOwnership:
         assert result.is_ok
         assert backend.hierarchy == []
 
-    async def test_the_route_door_is_guarded_too(
+    async def test_the_entity_door_is_guarded_too(
         self, facade: TasksService, backend: StubBackend
     ) -> None:
         """Both doors reach one write site, so both inherit the check — the point of
@@ -484,7 +486,7 @@ class TestTaskHabitEdgeIsWritten:
         habit_edges = edges_of(backend, RelationshipName.REINFORCES_HABIT)
         assert habit_edges == [(result.value.uid, HABIT_UID, "REINFORCES_HABIT", None)]
 
-    async def test_route_door_writes_the_edge_too(
+    async def test_entity_door_writes_the_edge_too(
         self, facade: TasksService, backend: StubBackend
     ) -> None:
         """RED before the fix: the route door wrote a node PROPERTY and no edge."""
@@ -862,7 +864,8 @@ class TestTaskPrincipleAndPrerequisiteTaskLinks:
 
 
 class TestTaskModelCarriesNoLists:
-    """The deliberate limit of the generated route, pinned so it is not silent.
+    """The structural limit of the ENTITY door, pinned so it is not silent — the
+    generated route left this door when it was bound to ``create_task``.
 
     ``progress_weight`` and the two knowledge lists are not ``Task`` fields, so the
     converter drops them and no entity can carry them. Unlike the two fields this change
@@ -879,10 +882,10 @@ class TestTaskModelCarriesNoLists:
 
 
 @pytest.mark.asyncio
-class TestTaskRouteDoorCannotCarryLists:
+class TestTaskEntityDoorCannotCarryLists:
     """The route door's half of the limit above, at the wiring level."""
 
-    async def test_route_door_writes_no_knowledge_edges(
+    async def test_entity_door_writes_no_knowledge_edges(
         self, facade: TasksService, backend: StubBackend
     ) -> None:
         entity = route_entity(
@@ -1014,7 +1017,7 @@ class TestEdgesPrecedeTheEvent:
             "task_created_published",
         ]
 
-    async def test_route_door_writes_every_edge_first(
+    async def test_entity_door_writes_every_edge_first(
         self, facade: TasksService, backend: StubBackend, event_bus: InMemoryEventBus
     ) -> None:
         record_task_created(event_bus, backend)

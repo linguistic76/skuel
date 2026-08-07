@@ -218,11 +218,12 @@ def tasks_core(tasks_backend: StubBackend, event_bus: InMemoryEventBus) -> Tasks
 
 @pytest.fixture
 def tasks_facade(tasks_backend: StubBackend, event_bus: InMemoryEventBus) -> TasksService:
-    """DOOR A's service — the object CRUDRouteFactory calls ``.create(entity)`` on.
+    """DOOR A's service — the ENTITY door (``.create(entity)``).
 
     ``services.tasks`` is bound to the TasksService FACADE in
     services_bootstrap/_activity_services.py, so the facade — not the core sub-service —
-    is what the generated route reaches.
+    is what the generated route reached until it was bound to the request door
+    (``request_create_method``); the entity door remains live for in-process callers.
     """
     return TasksService(
         backend=tasks_backend,
@@ -249,7 +250,8 @@ def principles_core(
 def principles_facade(
     principles_backend: StubBackend, event_bus: InMemoryEventBus
 ) -> PrinciplesService:
-    """DOOR A's service — what CRUDRouteFactory calls ``.create(entity)`` on."""
+    """DOOR A's service — the ENTITY door (``.create(entity)``); the generated route
+    entered here until bound to the request door (``request_create_method``)."""
     return PrinciplesService(
         backend=principles_backend,
         graph_intel=_Inert(),
@@ -320,8 +322,8 @@ def embedding_requests(bus: InMemoryEventBus, entity_type: EntityType) -> list[A
 
 
 @pytest.mark.asyncio
-class TestTasksRouteDoorAnnounces:
-    """``TasksService.create(entity)`` is what CRUDRouteFactory calls."""
+class TestTasksEntityDoorAnnounces:
+    """``TasksService.create(entity)`` — the entity door (formerly the route's path)."""
 
     async def test_publishes_task_created(
         self, tasks_facade: TasksService, event_bus: InMemoryEventBus
@@ -488,7 +490,7 @@ class TestTaskEdgesPrecedeTheEvent:
             f"the batch lost an edge kind: {edge_names}"
         )
 
-    async def test_route_door_still_publishes_without_edges(
+    async def test_entity_door_still_publishes_without_edges(
         self, tasks_facade: TasksService, event_bus: InMemoryEventBus
     ) -> None:
         """Positive control: deferring the publish must not lose it on the door that
@@ -591,8 +593,8 @@ class TestTasksRequestDoorStillAnnouncesExactlyOnce:
 
 
 @pytest.mark.asyncio
-class TestPrinciplesRouteDoorAnnounces:
-    """``PrinciplesService.create(entity)`` is what CRUDRouteFactory calls."""
+class TestPrinciplesEntityDoorAnnounces:
+    """``PrinciplesService.create(entity)`` — the entity door (formerly the route's path)."""
 
     async def test_publishes_principle_created(
         self, principles_facade: PrinciplesService, event_bus: InMemoryEventBus
@@ -751,14 +753,14 @@ class TestBothDomainsUseTheSharedShape:
         for service in (TasksCoreService, PrinciplesCoreService):
             assert "create" in vars(service), (
                 f"{service.__name__} no longer declares create() — its domain method "
-                "and the generated CRUD route share no publishing primitive again"
+                "and the entity door share no publishing primitive again"
             )
 
     def test_facades_declare_the_create_override(self) -> None:
         for facade in (TasksService, PrinciplesService):
             assert "create" in vars(facade), (
-                f"{facade.__name__} no longer declares create() — the generated route "
-                "resolves it to CrudOperationsMixin.create and publishes nothing "
+                f"{facade.__name__} no longer declares create() — the entity door "
+                "resolves to CrudOperationsMixin.create and publishes nothing "
                 "(the core is the delegated attribute self.core, not a base class)"
             )
 

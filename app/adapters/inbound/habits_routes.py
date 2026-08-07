@@ -33,6 +33,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
     create_schema=HabitCreateRequest,
     update_schema=HabitUpdateRequest,
     uid_prefix="habit",
+    request_create_method="create_habit",
     supports_goal_filter=False,
     supports_habit_filter=False,
     api_related_services={"principles_service": "principles"},

@@ -80,6 +80,14 @@ class CRUDRouteConfig:
     # Explicit converter: (schema, uid, user_uid) -> domain_model.
     # When None, CRUDRouteFactory falls back to ConversionServiceV2.CONVERTER_REGISTRY.
     entity_converter: Callable[..., Any] | None = None
+    # Name of the request-door create primitive on the primary service —
+    # (create_schema, user_uid) -> Result[entity]. When set, the create route calls it
+    # with the VALIDATED REQUEST instead of converting to an entity, so request-only
+    # link fields become edges instead of silently dropping. A string (not a callable)
+    # because configs are module-level statics built before services exist; resolved
+    # fail-fast at CRUDRouteFactory construction. Activity Domains: REQUIRED (see
+    # create_activity_domain_route_config). Non-activity domains: None = entity path.
+    request_create_method: str | None = None
 
 
 @dataclass(frozen=True)
@@ -243,6 +251,7 @@ def register_domain_routes(
             user_service_getter=crud_user_service_getter,
             entity_converter=config.crud.entity_converter,
             prometheus_metrics=prometheus_metrics,
+            request_create_method=config.crud.request_create_method,
         ).register_routes(app, rt)
 
     if config.query:
@@ -300,6 +309,7 @@ def create_activity_domain_route_config(
     create_schema: type,
     update_schema: type,
     uid_prefix: str,
+    request_create_method: str,
     ui_factory: Callable[..., list[Any] | None] | None = None,
     supports_goal_filter: bool = False,
     supports_habit_filter: bool = False,
@@ -314,6 +324,10 @@ def create_activity_domain_route_config(
     - scope=USER_OWNED
     - CRUD + Query + Intelligence factories
     - user_service in api_related_services (Query factory needs it)
+    - a REQUIRED request_create_method: every Activity Domain's create route goes
+      through its request-door primitive (``create_task``, ``create_goal``, …) —
+      the entity path drops the request-only link fields these domains carry, so
+      an activity config without a binding would reopen that silent-drop door.
 
     See: /docs/patterns/ROUTE_FACTORIES.md, /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
@@ -332,6 +346,7 @@ def create_activity_domain_route_config(
             update_schema=update_schema,
             uid_prefix=uid_prefix,
             prometheus_metrics_attr=prometheus_metrics_attr,
+            request_create_method=request_create_method,
         ),
         query=QueryRouteConfig(
             supports_goal_filter=supports_goal_filter,

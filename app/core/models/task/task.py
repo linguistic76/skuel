@@ -111,7 +111,7 @@ class Task(UserOwnedEntity):
     #
     # The DTO's silence is why this needed the skip-set. The old note here said the field
     # "is absent from TaskDTO so it is never written to Neo4j" — true of the DTO, false of
-    # the route door, which persists the ENTITY (#966). Absence from one serializer is not
+    # the entity door, which persists the ENTITY (#966). Absence from one serializer is not
     # a persistence guarantee.
     reinforces_habit_uid: str | None = None  # EDGE-BACKED — see note above
 
@@ -286,8 +286,9 @@ class Task(UserOwnedEntity):
         Relationship-typed request fields are written as graph edges by the service
         layer after construction, never as node properties. Two of them nonetheless
         ride on the Task — ``parent_uid`` and ``reinforces_habit_uid`` — because the
-        generated CRUD route hands the service an ENTITY and no request, so a link the
-        entity cannot carry is a link that door can never write. The mapper's
+        ENTITY door (``service.create(entity)``, where the generated CRUD route entered
+        before it was bound to ``create_task``) has no request, so a link the entity
+        cannot carry is a link that door can never write. The mapper's
         RELATIONSHIP_SKIP_FIELDS keeps both out of the node; ``TasksCoreService.create``
         turns them into HAS_SUBTASK and REINFORCES_HABIT. The list-typed fields
         (``applies_knowledge_uids``, ``prerequisite_knowledge_uids``) reach no Task field
@@ -295,8 +296,8 @@ class Task(UserOwnedEntity):
 
         The result is handed to the backend as the ENTITY, not as
         ``self.to_dto().to_dict()``: ``create_task`` now persists through the shared
-        ``TasksCoreService.create`` primitive so the generated CRUD route and the
-        request door cannot diverge on events. This factory exists so the create path
+        ``TasksCoreService.create`` primitive so the entity door and the request door
+        cannot diverge on events. This factory exists so the create path
         stays frozen-domain end-to-end up to the persistence boundary — inference
         enrichment is applied via ``dataclasses.replace`` on the result, not via DTO
         mutation.

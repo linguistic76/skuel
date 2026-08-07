@@ -217,8 +217,9 @@ class TasksCoreService(
     async def create(self, entity: Task) -> Result[Task]:
         """Persist, link, then announce — THE create primitive for Tasks.
 
-        Both doors land here: the generated CRUD route (via ``TasksService.create``) and
-        ``create_task`` below. Before this, only ``create_task`` published anything, so a
+        Both doors land here: the entity door (``TasksService.create``) and ``create_task``
+        below — which the generated CRUD route enters through, since it was bound to
+        the request door (``CRUDRouteConfig.request_create_method``). Before this, only ``create_task`` published anything, so a
         task created through ``POST /api/tasks/create`` invalidated no user context and
         was never embedded — the route calls ``service.create(entity)`` on the FACADE,
         which resolved to ``CrudOperationsMixin.create`` and went straight to
@@ -580,8 +581,9 @@ class TasksCoreService(
 
         Builds the entity, then hands it to the one create primitive. ``progress_weight``
         and the request's four link lists (two knowledge, principles, prerequisite tasks)
-        are forwarded because only this door still has the request: all five are
-        EDGE-shaped, so none reaches the entity the route door builds. The HAS_SUBTASK
+        are forwarded because only this door has the request: all five are EDGE-shaped,
+        so none rides an entity and the entity door cannot carry them. Since the
+        generated route was bound here, every external create comes through this door. The HAS_SUBTASK
         and REINFORCES_HABIT edges, whose endpoints DO ride on the entity, are written by
         the shared path for both doors — writing them here as well would double-write
         them.

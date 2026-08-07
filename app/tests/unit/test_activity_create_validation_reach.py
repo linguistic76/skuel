@@ -48,8 +48,9 @@ All three guard the ENTITY, and each sits behind a STRICTER request edge:
 ``EventCreateRequest`` has no duration field to set. So none of them fires for an
 HTTP caller — Pydantic refuses those bodies with a 422 before the service is
 reached. What they backstop is every caller that hands ``create(entity)`` an
-entity it assembled itself, which is what the generated route does after
-conversion and what in-process callers do directly.
+entity it assembled itself — in-process callers today; the generated route did
+this too, after conversion, until it was bound to the request door
+(``request_create_method``).
 
 The tests below therefore drive the entity door. That is a statement about where
 the MRO hole cost something, NOT a claim that the API ever accepted bad JSON.
@@ -219,11 +220,13 @@ def goals_core(goals_backend: StubBackend, event_bus: InMemoryEventBus) -> Goals
 
 @pytest.fixture
 def goals_facade(goals_backend: StubBackend, event_bus: InMemoryEventBus) -> GoalsService:
-    """The object CRUDRouteFactory calls ``.create(entity)`` on.
+    """The ENTITY door (``.create(entity)``).
 
     ``services.goals`` is bound to the GoalsService FACADE in
     services_bootstrap/_activity_services.py, so the facade — not the core
-    sub-service — is what the generated route reaches.
+    sub-service — is what the generated route reached until it was bound to the
+    request door (``request_create_method``); the entity door remains live for
+    in-process callers.
     """
     return GoalsService(
         backend=goals_backend,
@@ -234,7 +237,7 @@ def goals_facade(goals_backend: StubBackend, event_bus: InMemoryEventBus) -> Goa
 
 
 @pytest.mark.asyncio
-class TestGoalsRouteDoorValidates:
+class TestGoalsEntityDoorValidates:
     """DOOR A — the generated CRUD route, reached via the facade."""
 
     async def test_inverted_timeline_is_refused(self, goals_facade: GoalsService) -> None:
@@ -294,7 +297,7 @@ class TestGoalsRuleAgreesWithItsRequestEdge:
 
         assert verdict.is_error, "the hook stopped catching an inverted timeline"
 
-    async def test_route_door_publishes_goal_created(
+    async def test_entity_door_publishes_goal_created(
         self, goals_facade: GoalsService, event_bus: InMemoryEventBus
     ) -> None:
         """RED before the fix: the route door published nothing at all."""
@@ -448,7 +451,7 @@ def habits_facade(habits_backend: StubBackend, event_bus: InMemoryEventBus) -> H
 
 
 @pytest.mark.asyncio
-class TestHabitsRouteDoorValidates:
+class TestHabitsEntityDoorValidates:
     """DOOR A — the route hand-builds the entity, so the edge's le=7 does not apply."""
 
     async def test_impossible_daily_target_is_refused(self, habits_facade: HabitsService) -> None:
@@ -487,7 +490,7 @@ class TestHabitsRouteDoorValidates:
         )
         assert result.is_ok, f"route door refused a valid habit: {result.error}"
 
-    async def test_route_door_publishes_habit_created(
+    async def test_entity_door_publishes_habit_created(
         self, habits_facade: HabitsService, event_bus: InMemoryEventBus
     ) -> None:
         """RED before the fix: the route door published nothing at all."""
@@ -550,7 +553,7 @@ def events_facade(events_backend: StubBackend, event_bus: InMemoryEventBus) -> E
 
 
 @pytest.mark.asyncio
-class TestEventsRouteDoorValidates:
+class TestEventsEntityDoorValidates:
     """DOOR A — ``create_event`` already routed through core; the route door did not."""
 
     @pytest.mark.parametrize("duration", [1, 4, 721, 2000])
@@ -595,7 +598,7 @@ class TestEventsRouteDoorValidates:
         )
         assert result.is_ok, f"route door refused a {duration}-minute event: {result.error}"
 
-    async def test_route_door_publishes_calendar_event_created(
+    async def test_entity_door_publishes_calendar_event_created(
         self, events_facade: EventsService, event_bus: InMemoryEventBus
     ) -> None:
         """RED before the fix: the route door published nothing at all."""

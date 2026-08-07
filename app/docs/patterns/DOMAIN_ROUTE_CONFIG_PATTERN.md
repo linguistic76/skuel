@@ -75,6 +75,11 @@ class CRUDRouteConfig:
     require_role: UserRole | None = None
     role_gates_reads: bool = True    # When False, get/list skip role check
     user_service_attr: str | None = None  # Services container attr for user_service_getter
+    # Request-door binding: name of the create primitive on the primary service.
+    # When set, POST /create hands the VALIDATED REQUEST to it instead of
+    # converting to an entity — required for every Activity Domain (their
+    # requests carry edge-only link fields no entity can carry).
+    request_create_method: str | None = None
 
 @dataclass(frozen=True)
 class QueryRouteConfig:
@@ -100,6 +105,8 @@ def create_activity_domain_route_config(
     create_schema: type,
     update_schema: type,
     uid_prefix: str,
+    request_create_method: str,   # REQUIRED — e.g. "create_task"; binds POST /create
+                                  # to the request-door primitive so link fields ride
     ui_factory: Callable[..., list[Any]] | None = None,
     supports_goal_filter: bool = False,
     supports_habit_filter: bool = False,
@@ -276,6 +283,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
     create_schema={Domain}CreateRequest,
     update_schema={Domain}UpdateRequest,
     uid_prefix="{domain_prefix}",  # e.g., "task", "goal", "habit"
+    request_create_method="create_{domain_singular}",  # e.g., "create_task" — REQUIRED
     supports_goal_filter=False,  # True if domain relates to goals
     supports_habit_filter=False,  # True if domain relates to habits
     api_related_services={
@@ -602,6 +610,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
     create_schema=HabitCreateRequest,
     update_schema=HabitUpdateRequest,
     uid_prefix="habit",
+    request_create_method="create_habit",
     api_related_services={
         # Format: {kwarg_name: container_attr}
         # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)

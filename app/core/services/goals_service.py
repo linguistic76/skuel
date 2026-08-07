@@ -332,7 +332,7 @@ class GoalsService(
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def create(self, entity: Goal) -> Result[Goal]:
-        """Override the inherited CRUD create (generated JSON route, no ownership check).
+        """Override the inherited CRUD create — the ENTITY door.
 
         Routes the entity through the one validated, event-firing create path
         (``GoalsCoreService.create``). The inherited base ``create`` resolved
@@ -344,6 +344,11 @@ class GoalsService(
         embedding request.
 
         Same reconciliation ``ChoicesService.create`` makes (#960).
+
+        The generated JSON route entered here until it was bound to
+        ``create_goal`` (the request door — ``CRUDRouteConfig.request_create_method``),
+        so its request-only link fields could ride; this door remains for in-process
+        callers that hand the CRUD surface an entity they built themselves.
         """
         return await self.core.create(entity)
 

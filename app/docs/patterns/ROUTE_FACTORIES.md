@@ -103,6 +103,15 @@ crud_factory.register_routes(app, rt)
 | `scope` | ContentScope | USER_OWNED | Content ownership model (USER_OWNED or SHARED) |
 | `require_role` | UserRole | None | Required role (overrides scope when set) |
 | `base_path` | str | `/api/{domain}` | Custom base path |
+| `request_create_method` | str | None | Name of a request-door create primitive on the service (`(create_schema, user_uid) -> Result[T]`). When set, the create route hands the VALIDATED REQUEST to that method instead of converting to an entity and calling `service.create(entity)`. Resolved fail-fast at construction. All six Activity Domains bind this (`create_task`, `create_goal`, …) so request-only link fields become edges instead of being accepted and silently dropped. |
+
+**Create body → request door vs entity path.** With `request_create_method` set, the
+create route is a request-door caller: Pydantic validates the body, then the domain's
+primitive runs (validate → persist → admission-guarded edges → `*Created` + ADR-074
+embedding events). Without it, the route converts the schema (via `entity_converter` or
+the `CONVERTER_REGISTRY`) and calls `service.create(entity)` — fine for domains whose
+requests carry no edge-only fields, silent field loss for domains whose requests do.
+Guarded by `tests/unit/test_route_create_via_primitive.py`.
 
 **Update body → typed update value (ADR-066).** The update route validates the body with
 `update_schema`, then builds the service's update value generically: if the validated
