@@ -269,7 +269,7 @@ jobs:
         run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # Matches ci.yml's js_tests job — the two pins move together (ADR-067
           # § 2 / § 6c). Range mirrors engines.node (^24.15.0), so setup-node
