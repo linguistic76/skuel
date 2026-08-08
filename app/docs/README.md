@@ -44,7 +44,7 @@ tags: [documentation, index, hub, architecture, patterns]
 | **[dsl/](dsl/)** | Activity DSL specification | [DSL Specification](dsl/DSL_SPECIFICATION.md), [DSL Usage Guide](dsl/DSL_USAGE_GUIDE.md) |
 | **[guides/](guides/)** | Step-by-step implementation guides | [Event-Driven Migration](guides/EVENT_DRIVEN_MIGRATION_GUIDE.md), [UI Components](guides/SHARED_UI_COMPONENTS_GUIDE.md) |
 | **[reference/](reference/)** | Templates, checklists | [Protocol Reference](reference/PROTOCOL_REFERENCE.md) |
-| **[intelligence/](intelligence/)** | AI features roadmap | [Intelligence Roadmap](intelligence/INTELLIGENCE_ROADMAP.md) |
+| **[intelligence/](intelligence/)** | Intelligence services & AI features | [Intelligence Services Index](intelligence/INTELLIGENCE_SERVICES_INDEX.md) |
 | **[technical_debt/](technical_debt/)** | Known limitations | [MyPy Backend Limitations](technical_debt/MYPY_BACKEND_LIMITATIONS.md) |
 | **[domains/](domains/)** | Domain-specific documentation | Individual domain guides |
 | **[migrations/](migrations/)** | Migration guides | Schema and data migrations |

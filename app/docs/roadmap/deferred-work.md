@@ -15,7 +15,7 @@ The following three features have dedicated design documents in `/docs/intellige
 not premature ideas — they are fully designed but correctly deferred until enough data exists
 to make them meaningful.
 
-**See**: `/docs/intelligence/INTELLIGENCE_ROADMAP.md` — master overview of the intelligence layer.
+**See**: `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` — the authoritative index of the intelligence layer.
 
 ---
 
@@ -105,7 +105,6 @@ completed the same KU" social signals.
    when consistently ≥ 10.
 2. Add WebSocket session tracking to `SessionBackend` (groundwork exists in `core/auth/`).
 3. Replace full `build_rich()` calls with incremental delta queries for unchanged domains.
-4. See `/docs/intelligence/REALTIME_INTELLIGENCE_ROADMAP.md` for full implementation steps.
 
 **Enable when**: 10+ daily active users sustained over 2+ weeks.
 
