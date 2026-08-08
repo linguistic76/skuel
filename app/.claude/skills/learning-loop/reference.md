@@ -549,7 +549,7 @@ the same method.
 
 **LLM generation flow:**
 ```
-1. Call `context_builder.build_rich(user_uid, time_period=...)` — MEGA_QUERY with
+1. Call `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY with
    activity window; `context.entities_rich` covers all 6 Activity Domains;
    `context.knowledge_units_rich`, `context.enrolled_paths_rich`,
    `context.active_path_steps_rich` cover the Curriculum track

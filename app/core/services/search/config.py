@@ -123,14 +123,7 @@ SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
     # CURRICULUM DOMAINS (4) - Content-rich entities
     # =========================================================================
     EntityType.PATH_STEP: SearchFieldConfig(
-        # Matches PsCoreService._search_fields = ["title", "content", "tags"]
-        # Note: tags is stored as array but searched as text (JSON string match)
-        text_fields=("title", "content", "tags"),
-        array_fields=(),  # Future: add proper array search for tags
-        filter_fields=("domain", "complexity", "learning_level", "status"),
-        order_by="quality_score",
-    ),
-    EntityType.PATH_STEP: SearchFieldConfig(
+        # Matches PsCoreService._config.search_fields = ("title", "intent", "description").
         text_fields=("title", "intent", "description"),
         array_fields=(),
         filter_fields=("domain", "status"),
