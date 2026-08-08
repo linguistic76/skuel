@@ -36,6 +36,10 @@ NEVER_SCAN_DIR_PARTS = {
     ".claude",
     "notebooks",
     "examples",
+    # The project venv lives in-tree at app/.venv (uv's default, and where CI's
+    # cache step restores it) — without this, site-packages floods the dead
+    # list with thousands of third-party "modules" and buries every real one.
+    ".venv",
 }
 
 # Directory parts excluded from SUBJECTS (won't appear in dead list)

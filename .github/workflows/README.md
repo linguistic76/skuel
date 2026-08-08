@@ -110,13 +110,14 @@ uv run python scripts/skills_validator.py
 
 ## Scheduled workflows (no PR trigger, not status checks)
 
-Two workflows run on a clock instead of on a diff. Neither feeds the `gate` job, so neither can
-block a merge — both are advisory, and both **open an issue** on failure, because a red scheduled
+Three workflows run on a clock instead of on a diff. None feeds the `gate` job, so none can
+block a merge — all are advisory, and all **file an issue** on failure, because a red scheduled
 run that lands nowhere is indistinguishable from no check at all.
 
 | Workflow | Cadence | What it does | On failure |
 |---|---|---|---|
 | `mypy-suppressions.yml` | Mondays 06:00 UTC | Finds mypy suppressions that suppress nothing (`scripts/health/mypy_suppressions.py`, `./dev health-mypy`) | Opens/comments on a marker-keyed issue; fails the run |
+| `weekly-janitor.yml` | Mondays 06:30 UTC | Runs the four `./dev health` checks (dead modules, dead doc links, stale names, cross-references) plus the full advisory bloat report (`detect_bloat.py`, no `--check`) with its PLANNED-tier aging summary | Fails the job on health-check findings or an aborted bloat run (bloat *findings* never fail it — the WARNING tier already gates PRs via `--check`), and maintains **one always-open status issue** (same `file-audit-issue` action as the dependency audit). Issues are written only on default-branch runs |
 | `dependency-audit.yml` | Daily 07:00 UTC | Runs the consolidated CVE audit — osv-scanner over `app/uv.lock` + `app/package-lock.json` via `scripts/audit_dependencies.sh` (same script as the required `dep_audit` job) | Fails the job, and maintains **one always-open status issue** whose body is the current state (clean, findings, or could-not-measure — the script's three-state exit contract). Comments only when the reported content **changes**, so an unchanged result is silent. Issues are written only on default-branch runs |
 
 **Why a schedule rather than a PR check.** Both watch for things that change without a diff. An
@@ -132,7 +133,7 @@ The PR-side gate is `dep_audit` in `ci.yml` (required, same script). The histori
 `app/osv-scanner.toml` accepts findings for both ecosystems with reasons + `ignoreUntil` expiries
 (ADR-067 § 6e).
 
-Run either locally: `./dev health-mypy`, and `./dev audit-deps`.
+Run any of them locally: `./dev health-mypy`, `./dev health` + `./dev bloat`, and `./dev audit-deps`.
 
 ## `codex-review.yml`
 

@@ -33,7 +33,10 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   visible completion to-do list that never fails --check. Stale markings
   (subject became live) are themselves reported. There is deliberately no
   PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
-  audited, and there is no field scanner to audit with.
+  audited, and there is no field scanner to audit with. Each examined tier
+  also prints an aging summary (entry count + oldest ISO date extracted
+  best-effort from reason prose; entries with no parseable date are counted
+  as undated, never dropped) so backlog age is visible, not remembered.
 
 Advisory by default (exit 0). ``--check`` exits 1 on surviving WARNING
 findings — wired as ./dev quality check 7 and the CI lint job's dead-code
@@ -49,9 +52,11 @@ Usage:
 import argparse
 import ast
 import json
+import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import ClassVar, NamedTuple
@@ -2083,8 +2088,106 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
 
 
 # ============================================================================
+# PLANNED-tier aging — backlog size + oldest embedded date, best-effort
+# ============================================================================
+
+_ISO_DATE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+
+
+@dataclass(frozen=True)
+class PlannedAging:
+    """Aging summary for one PLANNED registry.
+
+    Registry reasons carry decision dates as prose ("Mike ruled PLANNED
+    2026-06-13"), not structure — the registries are deliberately NOT
+    restructured for this, so extraction is best-effort by design. The
+    ``undated`` count keeps the no-silent-caps rule: an entry whose reason
+    yields no parseable ISO date is counted, never dropped.
+    """
+
+    tier: str
+    entries: int
+    dated: int
+    undated: int
+    oldest: date | None
+
+    def to_json(self) -> dict[str, object]:
+        return {
+            "tier": self.tier,
+            "entries": self.entries,
+            "dated": self.dated,
+            "undated": self.undated,
+            "oldest": self.oldest.isoformat() if self.oldest else None,
+        }
+
+
+def summarize_planned_aging(tier: str, registry: dict[str, str]) -> PlannedAging:
+    """Count a PLANNED registry and extract its oldest embedded ISO date.
+
+    A reason may carry several dates (original ruling plus a later
+    re-ruling); an entry ages from its OLDEST date — staging time is measured
+    from the first decision, not the latest touch-up. Regex hits that are not
+    real calendar dates (e.g. "2026-13-40") are discarded; an entry with no
+    surviving date lands in the undated count.
+    """
+    oldest: date | None = None
+    dated = 0
+    for reason in registry.values():
+        entry_dates: list[date] = []
+        for candidate in _ISO_DATE.findall(reason):
+            try:
+                entry_dates.append(date.fromisoformat(candidate))
+            except ValueError:
+                continue
+        if not entry_dates:
+            continue
+        dated += 1
+        entry_oldest = min(entry_dates)
+        if oldest is None or entry_oldest < oldest:
+            oldest = entry_oldest
+    return PlannedAging(
+        tier=tier,
+        entries=len(registry),
+        dated=dated,
+        undated=len(registry) - dated,
+        oldest=oldest,
+    )
+
+
+def json_document(findings: list[Finding], aging: list[PlannedAging]) -> dict[str, object]:
+    """The --json document. weekly-janitor.yml reads ``.findings`` and
+    ``.planned_aging`` with jq — renaming either key breaks the scheduled
+    report silently."""
+    return {
+        "findings": [f.to_json() for f in findings],
+        "planned_aging": [a.to_json() for a in aging],
+    }
+
+
+# ============================================================================
 # Reporting
 # ============================================================================
+
+
+def print_planned_aging(summaries: list[PlannedAging]) -> None:
+    if not summaries:
+        return
+    print(
+        f"\n{Colors.BOLD}◷ PLANNED-tier aging (backlog size + oldest embedded date){Colors.RESET}"
+    )
+    today = date.today()
+    for summary in summaries:
+        if summary.oldest is None:
+            oldest_note = "no parseable date in any reason"
+        else:
+            age_days = (today - summary.oldest).days
+            oldest_note = f"oldest {summary.oldest.isoformat()} ({age_days} days ago)"
+        undated_note = f", {summary.undated} undated" if summary.undated else ""
+        print(f"  {summary.tier}: {summary.entries} entries — {oldest_note}{undated_note}")
+    print(
+        f"  {Colors.DIM}dates extracted best-effort from reason prose (YYYY-MM-DD); "
+        f"an entry without one is counted as undated, never dropped.{Colors.RESET}"
+    )
 
 
 def _print_finding(finding: Finding) -> None:
@@ -2397,10 +2500,22 @@ def main() -> int:
         if not args.as_json:
             print_template_report(template_findings)
 
+    # Aging summaries follow the same scoping as the analyses: each mode
+    # reports only the registries it examined (templates ride the full
+    # report, mirroring the analyze_planned_templates gate above).
+    aging: list[PlannedAging] = []
+    if check_events:
+        aging.append(summarize_planned_aging("PLANNED_EVENTS", PLANNED_EVENTS))
+    if check_methods:
+        aging.append(summarize_planned_aging("PLANNED_METHODS", PLANNED_METHODS))
+    if check_events and check_methods:
+        aging.append(summarize_planned_aging("PLANNED_TEMPLATES", PLANNED_TEMPLATES))
+
     if args.as_json:
-        print(json.dumps([f.to_json() for f in findings], indent=2))
+        print(json.dumps(json_document(findings, aging), indent=2))
 
     if not args.as_json:
+        print_planned_aging(aging)
         print_limitations(codebase, usage, methods)
         warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
         planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]

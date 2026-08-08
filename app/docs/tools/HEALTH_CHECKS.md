@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-07-30
+updated: 2026-08-07
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -26,7 +26,13 @@ Five automated checks that prevent codebase drift — the kind that accumulates 
 ./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
 
-All five exit non-zero when issues are found, so they can be used in CI.
+All five exit non-zero when issues are found, so they can be used in CI —
+and all five now ARE: the first four run weekly via
+`.github/workflows/weekly-janitor.yml` (Mondays 06:30 UTC, together with the
+full bloat report), which maintains an always-open status issue and fails
+its run on findings; `health-mypy` has its own weekly workflow
+(`mypy-suppressions.yml`, Mondays 06:00 UTC). Both are advisory — neither
+feeds the CI gate.
 
 **`health-mypy` is deliberately outside `./dev health`.** The first four are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
 
@@ -364,7 +370,7 @@ Once a rename has been fully applied to ALL code and docs and the scanner report
 | Monthly maintenance | Catch slow drift |
 | Before cutting a release | Ensure docs are accurate |
 
-The first four scripts are fast enough to run on every commit if desired (a few seconds each). `mypy_suppressions.py` is not — it runs a full type check per suppression, so it has a weekly CI schedule (`.github/workflows/mypy-suppressions.yml`) and is worth running locally when editing `[tool.mypy]` config.
+The first four scripts are fast enough to run on every commit if desired (a few seconds each); since 2026-08 they run weekly regardless via `.github/workflows/weekly-janitor.yml`, so drift no longer waits for someone to remember. `mypy_suppressions.py` runs a full type check per suppression, so it has its own weekly CI schedule (`.github/workflows/mypy-suppressions.yml`) and is worth running locally when editing `[tool.mypy]` config.
 
 ---
 
