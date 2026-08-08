@@ -20,9 +20,11 @@ This directory contains roadmaps for search intelligence features - both impleme
 - **[INTELLIGENCE_ROADMAP.md](./INTELLIGENCE_ROADMAP.md)** - Master roadmap and philosophy
 
 ### ✅ Production Features (Implemented)
-- Query intent parsing + facet suggestions — `SearchQueryParser`
-  (`core/models/search/query_parser.py`) + Cypher property faceting, consumed by
-  SearchRouter's intelligent search (`POST /api/search/intelligent`)
+- Query parsing + semantic-filter extraction — `SearchQueryParser`
+  (`core/models/search/query_parser.py`) extracts typed filters (priority/status/domain)
+  and routes each domain through ownership-scoped faceted search; consumed by
+  SearchRouter's intelligent search (`POST /api/search/intelligent`). No facet
+  *suggestions* are returned — that was the deleted heuristic service's claim.
 - Search-event logging (Discovery Analytics Phase 1, 2026-07-10) — every
   external search → `search.executed` → `:SearchEvent` node
 
