@@ -134,7 +134,7 @@ Activity:
 
 **Reprocessing path:** COMPLETED → SUBMITTED and FAILED → SUBMITTED are valid transitions
 for content-processing entities (UserEntry). Used by
-`SubmissionsProcessingService.reprocess_submission()` to retry or re-evaluate submissions.
+`UserEntryProcessingService.reprocess_submission()` to retry or re-evaluate submissions.
 Non-submission entity types can't use this path — they don't have SUBMITTED in their
 `valid_statuses()`.
 
@@ -317,8 +317,8 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 | Enum | Values | Purpose |
 |------|--------|---------|
-| Pipeline | NONE, TRANSCRIBE, TRANSCRIBE_AND_STRUCTURE, LLM_SUMMARY, EXTRACT_ACTIVITIES, TEACHER_REVIEW | User entry processing dispatch. Replaces `ProcessorType`. |
-| ReportSource | HUMAN, LLM, HYBRID, AUTOMATIC | Provenance of a report. Replaces `ProcessorType`. |
+| Pipeline | NONE, TRANSCRIBE, TRANSCRIBE_AND_STRUCTURE, LLM_SUMMARY, EXTRACT_ACTIVITIES, TEACHER_REVIEW | User entry processing dispatch. Replaces ProcessorType. |
+| ReportSource | HUMAN, LLM, HYBRID, AUTOMATIC | Provenance of a report. Replaces ProcessorType. |
 | SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `UserEntry.modality` (set at creation). Orthogonal to `Pipeline` (what processes) — modality is *how* the submission was created. |
 | ExerciseScope | PERSONAL, ASSIGNED, ASSESSMENT, CURRICULUM | Exercise scope (user's own / teacher-assigned / formal test / content-vault-authored). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
 | EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `UserEntry.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |

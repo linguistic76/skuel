@@ -352,7 +352,7 @@ The entity types used in Askesis intelligence:
 
 ## Feedback Services (March 2026)
 
-The former `ActivityReviewService` was split into two focused services:
+The former ActivityReviewService was split into two focused services:
 
 | Service | Protocol | `services.` attr | Responsibility |
 |---------|----------|-----------------|----------------|

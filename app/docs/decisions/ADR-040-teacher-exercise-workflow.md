@@ -14,10 +14,10 @@
 SKUEL needs teachers to assign work to students and review submissions. The pieces exist but aren't unified:
 
 - `ReportType.ASSIGNMENT` — exists, no special workflow
-- `ProcessorType.HUMAN` — exists, no implementation
+- ProcessorType.HUMAN — exists, no implementation
 - `MEMBER_OF` relationship — exists in enum, pre-wired in `UserRelationshipService`, no Group nodes
 - `Visibility.TEAM` — exists, unused
-- `SubmissionsSharingService` — sharing infrastructure works, but only for post-completion manual sharing
+- SubmissionsSharingService — sharing infrastructure works, but only for post-completion manual sharing
 
 Two changes unify these into a coherent architecture:
 1. **Group** — new entity for teacher-student class management
@@ -44,12 +44,12 @@ Group uses Three-Tier type system (Pattern A): Pydantic request → GroupDTO →
 Exercise provides fields for both personal and teacher-assigned workflows:
 - `scope: ExerciseScope` — PERSONAL (default) or ASSIGNED
 - `due_date: date | None` — only for ASSIGNED scope
-- ~~`processor_type: ProcessorType` — LLM, HUMAN, or HYBRID~~ — **never implemented; withdrawn 2026-07-28**
+- ~~processor_type: ProcessorType — LLM, HUMAN, or HYBRID~~ — **never implemented; withdrawn 2026-07-28**
 - `group_uid: str | None` — target group for ASSIGNED scope
 
 > **Amendment (2026-07-28): the `processor_type` clause is withdrawn.**
 > It was never implemented on `Exercise` — the entity has no such field, and the
-> `ProcessorType` enum it named no longer exists (ADR-054 split it into
+> ProcessorType enum it named no longer exists (ADR-054 split it into
 > `Pipeline` + `ReportSource`; `scripts/health/stale_names.py` already flags the
 > name as stale). The only surviving fragment was
 > `ExerciseCreateRequest.processor_type`, a Pydantic field that

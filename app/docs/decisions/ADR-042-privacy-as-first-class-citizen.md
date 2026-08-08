@@ -165,7 +165,7 @@ This handles group membership changes naturally: new members can see shared cont
 
 ### 8. UnifiedSharingService — sharing as cross-cutting concern
 
-`SHARES_WITH` and `SHARED_WITH_GROUP` management is extracted from `SubmissionsSharingService` into a `UnifiedSharingService` that any domain can call. Sharing is not owned by the submissions domain.
+`SHARES_WITH` and `SHARED_WITH_GROUP` management is extracted from SubmissionsSharingService into a `UnifiedSharingService` that any domain can call. Sharing is not owned by the submissions domain.
 
 ```
 UnifiedSharingService
@@ -245,7 +245,7 @@ Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls t
 - ⚠️ Service-layer access control must be enforced consistently — any gap in enforcement breaks the guarantee
 
 ### Neutral Consequences
-- ℹ️ `SubmissionsSharingService` is absorbed into `UnifiedSharingService` — sharing logic centralised
+- ℹ️ SubmissionsSharingService is absorbed into `UnifiedSharingService` — sharing logic centralised
 - ℹ️ `ACTIVITY_REPORT` model gains additional fields (annotation, revision, share_version)
 - ℹ️ Group sharing adds `SHARED_WITH_GROUP` relationship type to Neo4j schema
 
@@ -267,7 +267,7 @@ Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls t
 - `UnifiedSharingService`: `core/services/sharing/unified_sharing_service.py` (new)
 - `ActivityReport` model: `core/models/activity_report/activity_report.py` (rename from `ai_feedback.py`)
 - `UnifiedSharingService` protocol: `core/ports/sharing_protocols.py` (new)
-- Existing: `core/services/submissions/submissions_sharing_service.py` → absorbed into UnifiedSharingService
+- Existing: core/services/submissions/submissions_sharing_service.py → absorbed into UnifiedSharingService
 
 ### Neo4j Schema Changes
 

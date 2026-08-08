@@ -81,8 +81,12 @@ RENAMED: dict[str, str] = {
     "active_principles_rich": 'entities_rich["principles"]',
     "activity_rich": "entities_rich",
     "populate_rich_fields": "populate_entities_rich",
-    # build_rich() parameter rename (Mar 2026)
-    "time_period=": "window=",
+    # build_rich() parameter rename (Mar 2026). Deliberately NOT a bare "time_period="
+    # key: only UserContextBuilder.build_rich() renamed the parameter — time_period is
+    # still live elsewhere (the {time_period} placeholder in
+    # core/prompts/templates/activity_feedback.md and its render examples, and
+    # ProgressReportGenerator.generate(time_period=...)).
+    "build_rich(user_uid, time_period": "build_rich(user_uid, window",
     # Method renames (Submissions rename, Feb 2026)
     "list_reports": "list_submissions",
     "get_recent_reports": "get_recent_submissions",
@@ -90,7 +94,7 @@ RENAMED: dict[str, str] = {
     "class Feedback(": "class EntryReport(",
     # Old import paths (post ku/ monolith dissolution, Feb 2026)
     "from core.models.ku.ku_enums import": "from core.models.enums.entity_enums import (or domain-specific enums file)",
-    "from core.models.ku import": "from core.models.<domain> import  (ku/ monolith deleted)",
+    "from core.models.ku import": "from core.models.ku.ku import Ku / from core.models.ku.ku_dto import KuDTO (package __init__ does not re-export)",
     # Old report domain imports (Reports→Submissions, Feb 2026)
     "from core.services.reports": "from core.services.report or core.services.user_entry",
     "from core.models.reports": "from core.models.report or core.models.user_entry",
@@ -153,7 +157,8 @@ DELETED: dict[str, str] = {
     "DrawerLayout": "deleted — use SidebarPage from ui.patterns.sidebar",
     "create_drawer_layout": "deleted — use SidebarPage from ui.patterns.sidebar",
     # Deleted directories referenced as import paths
-    "core.models.ku.": "core/models/ku/ monolith deleted — use domain-specific paths",
+    # (core/models/ku/ is a LIVE package — ku.py, ku_dto.py. Only the old ku_enums
+    #  module is gone; the RENAMED "from core.models.ku.ku_enums import" rule covers it.)
     "components.tasks": "components/ deleted — use ui.tasks.views",
     "components.goals": "components/ deleted — use ui.goals.views",
     "components.habits": "components/ deleted — use ui.habits.views",
@@ -183,7 +188,37 @@ _DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
 # The scanner's own documentation necessarily names tracked identifiers as
 # examples (sample output, the "What's tracked" table) — skip it to avoid
 # permanent self-flagging noise.
-SKIP_FILES = {ROOT / "docs" / "tools" / "HEALTH_CHECKS.md"}
+SKIP_FILES = {
+    ROOT / "docs" / "tools" / "HEALTH_CHECKS.md",
+    # docs/migrations/ — wholly-historical migration records: their code blocks
+    # document the OLD state being migrated away from, which is the point of the
+    # document. Rewriting them would falsify history.
+    ROOT / "docs" / "migrations" / "ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md",
+    ROOT / "docs" / "migrations" / "DOMAINCONFIG_MIGRATION_COMPLETE.md",
+    ROOT / "docs" / "migrations" / "DOMAIN_BACKENDS_POSITION_2_COMPLETE_2026-03-01.md",
+    ROOT / "docs" / "migrations" / "DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md",
+    ROOT / "docs" / "migrations" / "LIFEPATH_DOCUMENTATION_UPDATES_2026-02-03.md",
+    ROOT / "docs" / "migrations" / "PROFILE_HUB_MODERNIZATION_2026-02-01.md",
+    ROOT / "docs" / "migrations" / "SEL_ROUTES_MIGRATION_2026-02-03.md",
+    ROOT / "docs" / "migrations" / "SEL_UX_MODERNIZATION_2026-02-03.md",
+    ROOT / "docs" / "migrations" / "assignments-refactoring-2026-01-25.md",
+    ROOT / "docs" / "migrations" / "health-score-enum-improvement-2026-01-25.md",
+    # ADRs whose subject IS the old identifiers: ADR-041 records the KuType/KuStatus
+    # unification decision itself; ADR-054 records the ProcessorType/EXERCISE_SUBMISSION
+    # collapse into UserEntry. Their before/after tables must keep the old names.
+    ROOT / "docs" / "decisions" / "ADR-041-unified-ku-model.md",
+    ROOT / "docs" / "decisions" / "ADR-054-user-entry-unified-submissions.md",
+    # User guide that demonstrates this scanner's output with real tracked names.
+    ROOT / "docs" / "user-guides" / "documentation-freshness.md",
+    # Troubleshooting guide keyed on the VERBATIM old import errors users search
+    # for (`ImportError ... 'ui.daisy_components'`) — the old name is the lookup
+    # key, and the ❌ WRONG code blocks intentionally show the dead imports.
+    ROOT / "docs" / "TROUBLESHOOTING.md",
+    # Skill whose flagged lines are a "Historical references to X now point to Y"
+    # index — naming the retired identifiers (ProcessorType, ...) is the section's
+    # whole purpose, same rationale as the ADR before/after tables above.
+    ROOT / ".claude" / "skills" / "learning-loop" / "SKILL.md",
+}
 
 
 def get_scan_targets() -> list[Path]:

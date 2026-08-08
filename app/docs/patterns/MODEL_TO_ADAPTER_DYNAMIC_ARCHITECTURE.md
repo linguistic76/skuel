@@ -183,7 +183,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 | Backend | Methods moved from |
 |---------|-------------------|
 | `KuBackend` | `ku_organization_service.py` — 7 ORGANIZES methods |
-| `SubmissionsBackend` | `submissions_sharing_service.py` — 8 SHARES_WITH methods |
+| `SubmissionsBackend` | submissions_sharing_service.py — 8 SHARES_WITH methods |
 | `LpBackend` | `lp_progress_service.py` — 2 mastery progress queries |
 | `ExerciseBackend` | `exercise_service.py` — 3 curriculum link methods |
 

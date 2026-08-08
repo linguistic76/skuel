@@ -63,7 +63,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 | `HUB` | Left (w-64) | Flexible | Multi-domain dashboards (Admin Dashboard) |
 | `CUSTOM` | STANDARD + custom layout | Flexible | Complex layouts |
 
-**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation.
+**Evolution (2026-02-01):** Profile Hub migrated from legacy ProfileLayout to `STANDARD` page type with custom sidebar implementation.
 
 **Evolution (2026-02-06):** Activity Domains moved from profile sidebar to navbar avatar dropdown.
 

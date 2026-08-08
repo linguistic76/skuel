@@ -404,7 +404,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> EntryReport -> Revis
 
 ### Pipeline and ReportSource (supersede ProcessorType)
 
-`ProcessorType` was a single enum doing two jobs: classifying how a submission was processed AND labeling who generated a report. ADR-054 splits those into two purpose-built enums.
+ProcessorType was a single enum doing two jobs: classifying how a submission was processed AND labeling who generated a report. ADR-054 splits those into two purpose-built enums.
 
 | Enum | Applies to | Values | Purpose |
 |------|-----------|--------|---------|
@@ -413,7 +413,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> EntryReport -> Revis
 
 Both `Pipeline` and `ReportSource` live in `core/models/enums/pipeline.py`. `SubmissionModality` and `EnrichmentMode` live in `core/models/enums/user_entry_enums.py` (formerly `submissions_enums.py`) — both still load-bearing.
 
-`ProcessorType` has been removed from the codebase. Legacy aliases ensure old serialized data continues to read: the ingestion alias map redirects legacy string values onto the new enums.
+ProcessorType has been removed from the codebase. Legacy aliases ensure old serialized data continues to read: the ingestion alias map redirects legacy string values onto the new enums.
 
 ### RevisedExercise — Four-Phase Learning Loop
 

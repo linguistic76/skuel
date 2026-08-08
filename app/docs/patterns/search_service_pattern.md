@@ -183,11 +183,11 @@ from core.services.search.config import SEARCH_FIELD_CONFIG, get_search_fields
 from core.models.enums.entity_enums import EntityType
 
 # Get text search fields for an EntityType
-fields = get_search_fields(EntityType.CURRICULUM)  # ('title', 'content', 'tags')
+fields = get_search_fields(EntityType.PATH_STEP)  # ('title', 'content', 'tags')
 fields = get_search_fields(EntityType.TASK)  # ('title', 'description')
 
 # Full config includes text_fields, array_fields, filter_fields, order_by
-config = SEARCH_FIELD_CONFIG[EntityType.CURRICULUM]
+config = SEARCH_FIELD_CONFIG[EntityType.PATH_STEP]
 # SearchFieldConfig(
 #     text_fields=('title', 'content', 'tags'),
 #     array_fields=(),
@@ -207,7 +207,7 @@ from core.models.search_request import SearchRequest
 
 request = SearchRequest(
     query_text="machine learning",
-    entity_types=[EntityType.CURRICULUM, EntityType.TASK],
+    entity_types=[EntityType.PATH_STEP, EntityType.TASK],
     connected_to_uid="ku.python-basics",
     connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
     tags_contain=["python"],

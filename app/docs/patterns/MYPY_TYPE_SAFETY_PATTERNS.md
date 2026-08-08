@@ -76,25 +76,21 @@ def create_reports_api_routes(
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.reports.reports_core_service import SubmissionsCoreService
-    from core.services.reports.reports_processing_service import SubmissionsProcessingService
-    from core.services.reports.reports_search_service import SubmissionsSearchService
-    from core.services.reports.reports_submission_service import ReportSubmissionService
+    from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
+    from core.services.user_entry.user_entry_service import UserEntryService
 
-def create_reports_api_routes(
+def create_user_entry_api_routes(
     _app: Any,
     rt: Any,
-    report_service: "ReportSubmissionService",              # Type-safe
-    processing_service: "SubmissionsProcessingService",         # Type-safe
-    reports_query_service: "SubmissionsSearchService | None" = None,
-    reports_core_service: "SubmissionsCoreService | None" = None,
+    entry_service: "UserEntryService",                      # Type-safe
+    processing_service: "UserEntryProcessingService",       # Type-safe
 ) -> list[Any]:
-    """Create report API routes."""
+    """Create UserEntry API routes."""
 
     @rt("/api/submissions/categorize")
     async def categorize_route(request, uid: str) -> Result[Any]:
         # ✅ No error - mypy knows the return type
-        return await reports_core_service.categorize_report(uid, category)
+        return await processing_service.reprocess_submission(uid)
 ```
 
 **Benefits:**
