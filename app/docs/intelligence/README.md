@@ -20,8 +20,8 @@ This directory contains roadmaps for search intelligence features - both impleme
 - **[INTELLIGENCE_ROADMAP.md](./INTELLIGENCE_ROADMAP.md)** - Master roadmap and philosophy
 
 ### ✅ Production Features (Implemented)
-- Query intent analysis + facet suggestions — `SearchIntelligenceService`
-  (`core/services/search/search_intelligence_service.py`), consumed by
+- Query intent parsing + facet suggestions — `SearchQueryParser`
+  (`core/models/search/query_parser.py`) + Cypher property faceting, consumed by
   SearchRouter's intelligent search (`POST /api/search/intelligent`)
 - Search-event logging (Discovery Analytics Phase 1, 2026-07-10) — every
   external search → `search.executed` → `:SearchEvent` node
@@ -88,7 +88,7 @@ Don't implement intelligence "because it's cool." Implement it because:
 Do you want to implement an intelligence feature?
 │
 ├─ Is it PRODUCTION (✅)?
-│  └─ It's already done! See search_intelligence_api.py
+│  └─ It's already done! See search_routes.py + SearchRouter
 │
 ├─ Is it FUTURE_VISION (🔮)?
 │  │
@@ -196,7 +196,6 @@ If you're adding a NEW intelligence feature:
 ### ✅ BaseAnalyticsService Pattern
 - Generic, reusable query understanding
 - Composition over duplication
-- Saved 264 lines in SearchIntelligenceService
 - **Lesson:** Build reusable foundations
 
 ### ✅ Production vs Future Separation

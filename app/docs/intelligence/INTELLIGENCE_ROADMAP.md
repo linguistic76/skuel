@@ -30,7 +30,7 @@ Intelligence without data is fantasy. Intelligence without users is premature op
 
 | Surface | Service | Capability |
 |---------|---------|------------|
-| `POST /api/search/intelligent` | SearchIntelligenceService (via SearchRouter) | Query intent analysis (learn/practice/discover) + semantic filter extraction |
+| `POST /api/search/intelligent` | `SearchRouter.intelligent_search` (`SearchQueryParser`) | Query intent parsing (priority/status/domain) + semantic filter extraction |
 | `/search` body-chunk layer (#538) | Neo4jVectorSearchService | Lesson-body semantic hits fold into faceted results |
 | `search.executed` → `:SearchEvent` | SearchEventRecorder | Search behavioral log (Discovery Analytics Phase 1) |
 
@@ -146,9 +146,9 @@ BEFORE implementing intelligence features, ensure:
 
 ### Production Intelligence
 ```
-/core/services/search/search_intelligence_service.py
-/core/services/intelligence/base_intelligence_service.py
-/adapters/inbound/search_intelligence_api.py (2 real, 4 future)
+/core/orchestrator/search_router.py     # THE search orchestrator (intent parse, faceting, ranking)
+/core/models/search/query_parser.py     # SearchQueryParser — Analog intent/token parsing
+/core/models/search/scoring.py          # unified score_* result ranking
 ```
 
 ### Future Vision Documentation
@@ -172,7 +172,6 @@ All mock responses now include:
 
 ### What Worked
 ✅ `BaseAnalyticsService` - Generic, reusable query understanding
-✅ Composition pattern - SearchIntelligenceService composes Base, saves 264 lines
 ✅ Clear separation - Real vs Future clearly marked
 
 ### What Didn't Work

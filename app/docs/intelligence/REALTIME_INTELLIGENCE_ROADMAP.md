@@ -150,8 +150,8 @@ async def predict_next_queries(
     # Analyze query progression in session
     previous_queries = [q["query"] for q in session["queries"]]
 
-    # Use SearchIntelligenceService to understand intent
-    current_intent = self.search_intelligence.analyze_query_intent(current_query)
+    # Use SearchRouter's SearchQueryParser to understand intent
+    current_intent = self.search_router.parse_query_intent(current_query)
 
     # Predict natural progression
     if current_intent["primary_intent"] == "learn":
@@ -178,7 +178,7 @@ async def predict_next_queries(
 |---------|--------|---------|
 | SessionTrackingService | ❌ Doesn't exist | Yes |
 | AdaptiveRankingService | ❌ Doesn't exist | Yes |
-| SearchIntelligenceService | ✅ Exists | No |
+| SearchRouter / SearchQueryParser | ✅ Exists | No |
 | UnifiedUserContext | ✅ Exists | No |
 
 ---

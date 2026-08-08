@@ -15,16 +15,6 @@ if TYPE_CHECKING:
 from core.ports.base_protocols import HasPriority, HasToNumeric
 
 
-def get_intent_score(item: tuple[str, float]) -> float:
-    """
-    Get intent score from (intent_name, score) tuple.
-
-    Used for finding the maximum scoring intent in query analysis.
-    Example: max(intent_scores.items(), key=get_intent_score)
-    """
-    return item[1]
-
-
 def get_result_score(scored_result: tuple[Any, float]) -> float:
     """
     Get score from (result, score) tuple.

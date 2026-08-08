@@ -233,8 +233,7 @@ This led to:
 ├── metrics_calculators.py            # Domain-specific path-aware metrics functions
 ├── pattern_analyzer.py               # Phase 3: Pattern detection
 ├── trend_analyzer.py                 # Phase 4: Trend classification
-├── path_aware_analyzer.py            # Cascade impact + path-strength recommendations
-└── query_intelligence_service.py     # Query intelligence (intent, facets, ranking)
+└── path_aware_analyzer.py            # Cascade impact + path-strength recommendations
 
 /core/models/shared/
 └── dual_track.py                     # DualTrackResult[L] generic model

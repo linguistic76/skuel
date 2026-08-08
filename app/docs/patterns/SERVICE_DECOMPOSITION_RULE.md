@@ -149,7 +149,6 @@ re-open a row only if the file itself starts causing pain.
 |------|-------|----------|
 | `core/services/ps_service.py` | 1085 | 91 methods, 78 thin (86%) + 101-line `__init__` — canonical pure-delegation facade |
 | `core/services/tasks_service.py` | 1087 | 49/61 methods thin; already has `_OrchestrationMixin`; only 2 fat methods — fails the 4+ coherence test |
-| `core/services/intelligence/query_intelligence_service.py` | 666 | Already internally decomposed: `IntentScorer` / `FacetDetector` / `ResultRanker` + thin orchestrator |
 | `core/services/ps/ps_intelligence_service.py` | 621 | Pattern-conformant (`_CoreIntelligenceMixin` + `BaseAnalyticsService`); single coherent readiness/practice theme |
 | `core/services/lp/lp_intelligence_service.py` | ~580 | Post-split shell (judged 2026-07-24, after `_path_analysis_mixin` extraction): remainder is thin sub-service delegation + the ~125-line adaptive block (below the 250 floor) — coherent as-is |
 

@@ -212,7 +212,8 @@ class _SearchMixin[T: DomainModelProtocol]:
 
         Note:
             - Case-sensitive substring match (no full-text index)
-            - For semantic search, use SearchIntelligenceService
+            - For semantic search, use the vector path (Neo4jVectorSearchService,
+              FULL tier only) via SearchRouter's semantic boost
             - For faceted search, use find_by() with filters
         """
         df_clause = self._default_filter_clause()
