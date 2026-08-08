@@ -47,9 +47,10 @@ uv run python scripts/detect_bloat.py --json      # findings as JSON (progress �
 uv run python scripts/detect_bloat.py --check     # exit 1 on surviving WARNINGs
 ```
 
-Advisory by default (exit 0). `--check` exists but is **not** wired into
-`./dev quality` — gating is a deliberate future decision, made possible by the
-recorded false-positive audit (PR #272).
+Advisory by default (exit 0). `--check` **is** wired into `./dev quality`
+(check 7, the dead-code gate) and the CI lint job — gating became possible
+once the recorded false-positive audit passed (PR #272). Staged work belongs
+in the PLANNED tiers, which never fail `--check`.
 
 ## Design rules
 
