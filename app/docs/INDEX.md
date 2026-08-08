@@ -371,8 +371,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Lines |
 |----------|---------|-------|
-| [Discovery Analytics Implementation Roadmap](intelligence/DISCOVERY_ANALYTICS_ROADMAP.md) | 2025-11-27 | 210 |
-| [Semantic Analysis Implementation Roadmap](intelligence/SEMANTIC_ANALYSIS_ROADMAP.md) | 2025-11-27 | 153 |
+| [Discovery Analytics Implementation Roadmap](roadmap/DISCOVERY_ANALYTICS_ROADMAP.md) | 2025-11-27 | 210 |
+| [Semantic Analysis Implementation Roadmap](roadmap/SEMANTIC_ANALYSIS_ROADMAP.md) | 2025-11-27 | 153 |
 | [Resources/ Reference Library — Ingestion Roadmap](roadmap/resources-reference-library.md) | 2026-07-08 | 100 |
 | [Canon — Book-as-Journaling-Companion](roadmap/canon-journaling-companion.md) | 2026-07-08 | 126 |
 

@@ -581,7 +581,7 @@ class AdminAnalyticsComponents:
     """Analytics components for admin dashboard."""
 
     # Phase-2 discovery analytics (clustering, temporal patterns) unlock at this
-    # :SearchEvent volume — see /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md
+    # :SearchEvent volume — see /docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md
     PHASE_2_EVENT_TRIGGER: ClassVar[int] = 1000
 
     @staticmethod

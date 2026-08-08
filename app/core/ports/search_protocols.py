@@ -830,7 +830,7 @@ class SupportsTagSearch(Protocol):
 # :SearchEvent is a plain infrastructure node (like :ContentChunk/:AuthEvent),
 # NOT an EntityType. The recorder writes one node per search.executed event;
 # the gap reader aggregates them (read-only) for content-gap analysis.
-# See: /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md
+# See: /docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md
 
 
 class SearchEventBackendOperations(Protocol):

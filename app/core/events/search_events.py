@@ -11,7 +11,7 @@ Event Catalog:
 Subscribers:
 - SearchEventRecorder (persists :SearchEvent nodes for discovery analytics —
   content-gap analysis now, clustering/temporal/CTR once 1000+ events exist;
-  see /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md)
+  see /docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md)
 """
 
 from dataclasses import dataclass

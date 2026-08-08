@@ -588,7 +588,7 @@ discovery-analytics phases.
   CORE and FULL; the subscriber is an in-process event-bus handler, not a
   background worker.
 
-**See:** `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md` (node schema,
+**See:** `/docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md` (node schema,
 gap aggregation, deferred phases).
 
 ---
