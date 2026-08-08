@@ -76,19 +76,20 @@ def create_reports_api_routes(
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from core.models.user_entry.user_entry import UserEntry
     from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
 
 def create_user_entry_api_routes(
-    _app: Any,
-    rt: Any,
+    _app: Any,                                              # FastHTML boundary
+    rt: Any,                                                # FastHTML boundary
     processing_service: "UserEntryProcessingService",       # Type-safe
 ) -> list[Any]:
     """Create UserEntry API routes."""
 
     @rt("/api/submissions/reprocess")
-    async def reprocess_route(request, entry: Any) -> Result[Any]:
-        # ✅ No error — mypy checks .process() against the string-annotated
-        # service even though its import is TYPE_CHECKING-only
+    async def reprocess_route(request, entry: "UserEntry") -> "Result[UserEntry]":
+        # ✅ No error — process() is typed Result[UserEntry] via the
+        # string-annotated service, so mypy validates the return concretely
         return await processing_service.process(entry, force=True)
 ```
 

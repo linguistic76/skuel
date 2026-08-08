@@ -86,6 +86,10 @@ RENAMED: dict[str, str] = {
     # still live elsewhere (the {time_period} placeholder in
     # core/prompts/templates/activity_feedback.md and its render examples, and
     # ProgressReportGenerator.generate(time_period=...)).
+    # LIMITATION (Codex, PR #986): this is a best-effort single-line literal — the
+    # per-line substring matcher cannot relate `build_rich(` and `time_period` across
+    # keyword spellings (`user_uid=...`) or multiline calls, so those slip through.
+    # Context-aware matching needs the scanner redesign tracked on #983.
     "build_rich(user_uid, time_period": "build_rich(user_uid, window",
     # Method renames (Submissions rename, Feb 2026)
     "list_reports": "list_submissions",
