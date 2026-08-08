@@ -133,8 +133,8 @@ Activity:
 ```
 
 **Reprocessing path:** COMPLETED → SUBMITTED and FAILED → SUBMITTED are valid transitions
-for content-processing entities (UserEntry). Used by
-`UserEntryProcessingService.process(entry, force=True)` to retry or re-evaluate submissions.
+for content-processing entities (UserEntry) — re-submitting a processed entry so it can be
+run through its pipeline again to retry or re-evaluate it.
 Non-submission entity types can't use this path — they don't have SUBMITTED in their
 `valid_statuses()`.
 
