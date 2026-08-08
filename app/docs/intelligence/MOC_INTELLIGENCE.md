@@ -55,7 +55,7 @@ MOC provides the **learner-directed exploration path** parallel to the **teacher
 | PS | Linear | Structured curriculum | Teacher-directed |
 | MOC | Graph | Free exploration | Learner-directed |
 
-Progress is tracked on the organizing entity itself (a KU in the canonical case), unified across both paths.
+The same knowledge node is reachable via both the PS (linear) and MOC (graph) paths. The shared organizing node carries **no** progress field of its own (a `Ku` has none; a `moc: true` UserEntry has none) — per-user learning progress is maintained by the learning-state / progress services (`PsProgressService`, `LpProgressService`, `user_progress_recorder_service`), not intrinsically on the organizing Entity.
 
 ---
 
