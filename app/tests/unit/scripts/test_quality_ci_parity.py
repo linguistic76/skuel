@@ -144,17 +144,14 @@ def gate_required_job_ids(workflow: dict) -> list[str]:
 OUTPUT_CAPTURE = re.compile(r'echo\s+"?([A-Za-z_]+)=true"?\s*>>\s*"?\$GITHUB_OUTPUT"?')
 
 # `if:` conditions that keep a check enforced on gating PR runs (Codex,
-# PR #981 round 5). A step gated on anything else — event_name, refs, inputs —
-# can be skipped on PRs while the job stays green, so it earns no credit.
-# Step level: the see-every-violation guards. Job level: the path filters
-# (skipped-when-unrelated is the gate's deliberate contract). Conservative by
-# construction: every &&/|| clause must match, unknown shapes fail closed.
+# PR #981 rounds 5-6). A step gated on anything else — event_name, refs,
+# inputs — can be skipped on PRs while the job stays green, so it earns no
+# credit. Step level: only the see-every-violation guards are safe.
 SAFE_STEP_IF_CLAUSES = (
     re.compile(r"^!cancelled\(\)$"),
     re.compile(r"^success\(\)$"),
     re.compile(r"^steps\.[\w-]+\.outcome\s*!=\s*'skipped'$"),
 )
-SAFE_JOB_IF_CLAUSES = (re.compile(r"^needs\.changes\.outputs\.[\w-]+\s*==\s*'true'$"),)
 
 
 def preserves_pr_enforcement(condition: object, patterns: tuple[re.Pattern[str], ...]) -> bool:
@@ -167,6 +164,69 @@ def preserves_pr_enforcement(condition: object, patterns: tuple[re.Pattern[str],
     return all(
         any(pattern.match(clause) for pattern in patterns) for clause in clauses
     )
+
+
+# Job level: path filters are the gate's deliberate skipped-when-unrelated
+# contract — but only when the job keys on filters that COVER the check's
+# inputs. `needs.changes.outputs.docs` on the mypy job would credit MyPy
+# while a Python-only PR skips the job entirely (Codex, PR #981 round 6).
+JOB_FILTER_CLAUSE = re.compile(r"^needs\.changes\.outputs\.([\w-]+)\s*==\s*'true'$")
+
+# ALWAYS_ON: a job with no `if:` runs on every PR — covers any check.
+ALWAYS_ON = frozenset({"*"})
+
+# check identifier -> filters that must ALL be present in the job's OR-chain
+# for the check to be enforced whenever its inputs change. New quality checks
+# fail closed: an unmapped identifier earns no CI credit, and the parity
+# assertion then names it — add the mapping alongside the CI step.
+REQUIRED_FILTERS: dict[str, frozenset[str]] = {
+    "ruff format --check": frozenset({"py"}),
+    "ruff check": frozenset({"py"}),
+    "mypy": frozenset({"py"}),
+    "pyright": frozenset({"py"}),
+    "scripts/lint_skuel.py --strict": frozenset({"py"}),
+    # Lints standalone .cypher files AND py-embedded Cypher — needs both doors.
+    "scripts/cypher_linter.py --errors-only --strict": frozenset({"py", "cypher"}),
+    "scripts/audit_route_security.py": frozenset({"py"}),
+    "scripts/audit_raw_headers.py": frozenset({"py"}),
+    "scripts/detect_bloat.py --check": frozenset({"py"}),
+    "scripts/shellcheck_tracked.py": frozenset({"py"}),
+    # Lockfiles ride the py filter; osv-scanner.toml + the JS lockfile ride audit.
+    "scripts/audit_dependencies.sh": frozenset({"py", "audit"}),
+    "scripts/audit_content_boundary.py": frozenset({"py"}),
+    "scripts/skills_validator.py": frozenset({"docs"}),
+}
+
+
+def job_filter_names(condition: object) -> frozenset[str] | None:
+    """The changes-filter outputs a job's `if:` ORs over, or None if unsafe.
+
+    Only pure OR-chains of `needs.changes.outputs.X == 'true'` qualify: an
+    `&&` of two filters runs the job only when BOTH areas changed, which
+    skips single-area PRs, so it fails closed like any unknown shape.
+    """
+    if condition is None:
+        return ALWAYS_ON
+    text = str(condition).strip()
+    text = text.removeprefix("${{").removesuffix("}}").strip()
+    if "&&" in text:
+        return None
+    names: set[str] = set()
+    for clause in text.split("||"):
+        match = JOB_FILTER_CLAUSE.match(clause.strip())
+        if match is None:
+            return None
+        names.add(match.group(1))
+    return frozenset(names)
+
+
+def filters_cover_check(identifier: str, job_filters: frozenset[str] | None) -> bool:
+    if job_filters is None:
+        return False
+    if job_filters == ALWAYS_ON:
+        return identifier in REQUIRED_FILTERS
+    required = REQUIRED_FILTERS.get(identifier)
+    return required is not None and required <= job_filters
 
 
 def has_failure_chokepoint(job: dict, output_name: str) -> bool:
@@ -206,7 +266,8 @@ def ci_check_set() -> set[str]:
     checks: set[str] = set()
     for job_id in gate_required_job_ids(workflow):
         job = workflow["jobs"][job_id]
-        if not preserves_pr_enforcement(job.get("if"), SAFE_JOB_IF_CLAUSES):
+        job_filters = job_filter_names(job.get("if"))
+        if job_filters is None:
             continue
         job_suppressed = job.get("continue-on-error") is True
         for step in job.get("steps", []):
@@ -227,6 +288,8 @@ def ci_check_set() -> set[str]:
                 command, or_else, fallback = stripped.partition("||")
                 identifier = canonical_check(command.split())
                 if identifier is None:
+                    continue
+                if not filters_cover_check(identifier, job_filters):
                     continue
                 if "|" in command and not pipefail_active:
                     continue
