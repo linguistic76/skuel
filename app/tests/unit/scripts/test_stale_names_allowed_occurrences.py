@@ -5,14 +5,16 @@ The whole-file suppressor (``SKIP_FILES``) has its own audit in
 PR #986 called for after the earlier "bulk-add files to SKIP_FILES to force the count
 to 0" pass was reverted:
 
-  * ``ALLOWED_OCCURRENCES`` — one identifier at one LINE, in one otherwise-scanned doc.
-    The earlier draft of exactly this shipped without an audit and was reverted with the
-    bulk-add; the mechanism is sound, the missing audit was the defect. This file is that
-    audit. It is line-anchored, not merely (file, identifier)-keyed: Codex (PR #988)
-    showed the coarser key would silently suppress a *second*, genuinely-stale mention of
-    an already-allowed identifier while the audit stayed green — the identity-scoping trap
-    the suppression audit was built to catch. Anchoring on the line closes it: any hit not
-    at an allowed line is reported.
+  * ``ALLOWED_OCCURRENCES`` — a COUNTED set of hits for one identifier at one LINE, in one
+    otherwise-scanned doc. The earlier draft of exactly this shipped without an audit and
+    was reverted with the bulk-add; the mechanism is sound, the missing audit was the
+    defect. This file is that audit. It is line-anchored AND count-pinned, not merely
+    (file, identifier)-keyed: Codex (PR #988) showed the coarser key would silently
+    suppress a *second*, genuinely-stale mention of an already-allowed identifier — whether
+    it lands on a different line, or as an extra hit on the *same* line (two inline spans) —
+    while the audit stayed green. That is the identity-scoping trap the suppression audit
+    was built to catch. Anchoring on (line, count) closes both: any hit not at an allowed
+    line, and any hit beyond the allowed count on an allowed line, is reported.
   * ``SCAN_EXCLUDE_DIRS`` — a whole frozen-archive subtree (``docs/migrations/``), out
     of remit like ``docs/roadmap/done/``.
 
@@ -26,6 +28,7 @@ human to re-justify or delete it.
 from __future__ import annotations
 
 import sys
+from collections import Counter
 from pathlib import Path
 
 # scripts/ has no __init__.py — add it to sys.path for import (matches test_lint_skuel.py
@@ -40,19 +43,26 @@ def _scan_target_strs() -> set[str]:
     return {str(p.relative_to(sn.ROOT)) for p in sn.get_scan_targets()}
 
 
-def _raw_occurrences(path: Path) -> set[tuple[int, str]]:
-    """Every (line, identifier) the scanner raw-matches in ``path`` (pre-allowlist)."""
-    return {(lineno, old) for lineno, old, _replacement, _kind in sn.scan_file(path)}
+def _raw_counts(path: Path) -> Counter[tuple[int, str]]:
+    """How many times the scanner raw-matches each (line, identifier) in ``path``.
+
+    Kept as counts, not a set: a physical line can name one identifier more than once
+    (two inline-code spans), and the count is exactly what the allowlist must pin.
+    """
+    return Counter((lineno, old) for lineno, old, _replacement, _kind in sn.scan_file(path))
 
 
 def _dead_allow_entries() -> list[str]:
-    """Every ALLOWED_OCCURRENCES entry that suppresses nothing, with why.
+    """Every ALLOWED_OCCURRENCES entry whose count does not match reality, with why.
 
-    Two ways an entry can be dead, both the same rubber-stamp defect:
+    An entry is dead / mis-scoped when:
       * the file is not a live scan target (moved, or itself excluded/skipped), so the
         allow can never fire; or
-      * that identifier does not raw-match at that exact line — the line moved (a doc
-        edit shifted it) or the entry was mis-typed, so removing it would surface no hit.
+      * the audited count does not equal the raw hit count at that exact line — the line
+        moved, the entry was mis-typed, or the number of same-line mentions changed. Under
+        AND over both count: allowing 2 where 1 exists is a standing over-grant that will
+        swallow the next same-line hit; allowing 1 where 2 exist leaves one reported (good)
+        but means the entry is not describing reality (fix the count).
     """
     targets = _scan_target_strs()
     dead: list[str] = []
@@ -60,11 +70,12 @@ def _dead_allow_entries() -> list[str]:
         if rel_path not in targets:
             dead.append(f"{rel_path}: not a live scan target — allow can never fire")
             continue
-        raw = _raw_occurrences(sn.ROOT / rel_path)
+        raw = _raw_counts(sn.ROOT / rel_path)
         dead.extend(
-            f"{rel_path}:{lineno} {identifier!r} raw-matches nothing at that line — dead anchor"
-            for (lineno, identifier) in entries
-            if (lineno, identifier) not in raw
+            f"{rel_path}:{lineno} {identifier!r} allows {allow.hits} but raw-matches "
+            f"{raw[(lineno, identifier)]} at that line — re-anchor / fix the count"
+            for (lineno, identifier), allow in entries.items()
+            if raw[(lineno, identifier)] != allow.hits
         )
     return dead
 
@@ -103,10 +114,21 @@ def test_every_allowed_entry_carries_a_rationale() -> None:
     blank = [
         f"{rel_path}:{lineno} {identifier}"
         for rel_path, entries in sn.ALLOWED_OCCURRENCES.items()
-        for (lineno, identifier), rationale in entries.items()
-        if not rationale.strip()
+        for (lineno, identifier), allow in entries.items()
+        if not allow.why.strip()
     ]
     assert blank == [], f"ALLOWED_OCCURRENCES entries with an empty rationale: {blank}"
+
+
+def test_every_allowed_count_is_at_least_one() -> None:
+    """A grant that covers zero hits is meaningless — count must be a positive integer."""
+    bad = [
+        f"{rel_path}:{lineno} {identifier} hits={allow.hits}"
+        for rel_path, entries in sn.ALLOWED_OCCURRENCES.items()
+        for (lineno, identifier), allow in entries.items()
+        if allow.hits < 1
+    ]
+    assert bad == [], f"ALLOWED_OCCURRENCES entries with a non-positive count: {bad}"
 
 
 # ── SCAN_EXCLUDE_DIRS: real-data audit ───────────────────────────────────────
@@ -144,32 +166,80 @@ def test_no_scan_target_lives_under_an_excluded_dir() -> None:
 # ── Mechanism logic: synthetic, proves the guards bite even with empty real data ──
 
 
-def test_is_allowed_occurrence_is_scoped_to_one_line_and_one_identifier(monkeypatch) -> None:
-    """The allow exempts ONLY the named (line, identifier) — never a whole file."""
-    monkeypatch.setitem(sn.ALLOWED_OCCURRENCES, "docs/example.md", {(18, "KuType"): "why"})
-    assert sn._is_allowed_occurrence("docs/example.md", 18, "KuType") is True
-    # The SAME identifier on a DIFFERENT line is still reported — the line-anchoring that
-    # closes the (file, identifier) blind spot Codex flagged (PR #988).
-    assert sn._is_allowed_occurrence("docs/example.md", 19, "KuType") is False
+def test_allowed_count_is_scoped_to_one_line_and_one_identifier(monkeypatch) -> None:
+    """The allow exempts ONLY the named (line, identifier), and only up to its count."""
+    monkeypatch.setitem(
+        sn.ALLOWED_OCCURRENCES, "docs/example.md", {(18, "KuType"): sn.Allow("why")}
+    )
+    assert sn._allowed_count("docs/example.md", 18, "KuType") == 1
+    # The SAME identifier on a DIFFERENT line is still reported — line-anchoring closes the
+    # (file, identifier) blind spot Codex flagged (PR #988, round 1).
+    assert sn._allowed_count("docs/example.md", 19, "KuType") == 0
     # A different identifier at the SAME line is still scanned.
-    assert sn._is_allowed_occurrence("docs/example.md", 18, "KuStatus") is False
+    assert sn._allowed_count("docs/example.md", 18, "KuStatus") == 0
     # The same occurrence in a DIFFERENT file is still scanned.
-    assert sn._is_allowed_occurrence("docs/other.md", 18, "KuType") is False
+    assert sn._allowed_count("docs/other.md", 18, "KuType") == 0
+
+
+def test_allow_count_defaults_to_one() -> None:
+    """The common single-mention case needs no explicit count."""
+    assert sn.Allow("why").hits == 1
+    assert sn.Allow("why", hits=2).hits == 2
 
 
 def test_dead_allow_audit_bites(monkeypatch) -> None:
     """Prove the positive-control audit fails on a dead entry — otherwise it is theatre."""
     # Branch A: file is not a scan target at all.
-    monkeypatch.setitem(sn.ALLOWED_OCCURRENCES, "docs/does-not-exist.md", {(1, "KuType"): "x"})
+    monkeypatch.setitem(
+        sn.ALLOWED_OCCURRENCES, "docs/does-not-exist.md", {(1, "KuType"): sn.Allow("x")}
+    )
     assert any("does-not-exist" in problem for problem in _dead_allow_entries())
 
     # Branch B: a real scan target, but a (line, identifier) that raw-matches nothing
     # there — covers both a moved line and a never-tracked identifier.
     a_real_target = str(next(iter(sn.get_scan_targets())).relative_to(sn.ROOT))
     monkeypatch.setitem(
-        sn.ALLOWED_OCCURRENCES, a_real_target, {(999_999, "ThisIdentifierIsNotTracked"): "x"}
+        sn.ALLOWED_OCCURRENCES,
+        a_real_target,
+        {(999_999, "ThisIdentifierIsNotTracked"): sn.Allow("x")},
     )
     assert any("ThisIdentifierIsNotTracked" in problem for problem in _dead_allow_entries())
+
+
+def test_count_mismatch_audit_bites(monkeypatch) -> None:
+    """A count that over- or under-states the real hits at the anchor is a finding.
+
+    This is the same-line defect Codex flagged (PR #988, round 2): a single physical line
+    can name one identifier twice (two inline spans). Pinning the count means a grant of 1
+    where 2 exist — or 2 where 1 exists — fails the audit instead of silently absorbing the
+    extra. Built on a synthetic file so it does not depend on live doc content.
+    """
+    fixture = sn.ROOT / "docs" / "example.md"  # not real; we drive scan_file via monkeypatch
+
+    def fake_scan(_path: Path) -> list[tuple[int, str, str, str]]:
+        # Two raw hits for KuType at line 42 (as two inline spans would produce).
+        return [(42, "KuType", "EntityType", "renamed"), (42, "KuType", "EntityType", "renamed")]
+
+    monkeypatch.setattr(sn, "scan_file", fake_scan)
+    monkeypatch.setattr(sn, "get_scan_targets", lambda: [fixture])
+
+    # Under-count: allow 1 where 2 exist.
+    monkeypatch.setitem(
+        sn.ALLOWED_OCCURRENCES, "docs/example.md", {(42, "KuType"): sn.Allow("why")}
+    )
+    assert any("42" in problem and "KuType" in problem for problem in _dead_allow_entries())
+
+    # Exact count clears it.
+    monkeypatch.setitem(
+        sn.ALLOWED_OCCURRENCES, "docs/example.md", {(42, "KuType"): sn.Allow("why", hits=2)}
+    )
+    assert _dead_allow_entries() == []
+
+    # Over-count: allow 3 where 2 exist — a standing over-grant.
+    monkeypatch.setitem(
+        sn.ALLOWED_OCCURRENCES, "docs/example.md", {(42, "KuType"): sn.Allow("why", hits=3)}
+    )
+    assert any("42" in problem and "KuType" in problem for problem in _dead_allow_entries())
 
 
 def test_under_excluded_dir_matches_subtree_not_siblings() -> None:
