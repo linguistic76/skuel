@@ -1,4 +1,4 @@
-# MOC Intelligence (KU-Based Architecture)
+# MOC Intelligence (Emergent Identity, KU-Canonical)
 
 **Last Updated:** January 20, 2026 · **Code-accuracy audit:** August 8, 2026 (removed a fictional `MocNavigationService`/`MOCService` architecture; see below)
 
@@ -8,7 +8,7 @@
 
 **MOC no longer has a dedicated intelligence service.**
 
-MOC is NOT a separate entity - it IS a Knowledge Unit (KU) that organizes other KUs via ORGANIZES relationships. A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity).
+MOC is NOT a separate entity or service — it is **emergent identity**: any `Entity` with outgoing `ORGANIZES` edges *is* a MOC (CLAUDE.md). No flag, no `entity_type` — the outgoing edges alone confer MOC identity. The **canonical** case is a Knowledge Unit (KU) that organizes other KUs (the learner-directed knowledge map); PathSteps also carry `ORGANIZES` edges (managed by `PsOrganizationService`, see below). This doc keeps the KU framing because the KU knowledge-map is the primary use case, but nothing about MOC identity is KU-only.
 
 ## Previous Architecture (Deleted)
 
@@ -55,7 +55,7 @@ MOC provides the **learner-directed exploration path** parallel to the **teacher
 | PS | Linear | Structured curriculum | Teacher-directed |
 | MOC | Graph | Free exploration | Learner-directed |
 
-Progress is tracked on the KU itself, unified across both paths.
+Progress is tracked on the organizing entity itself (a KU in the canonical case), unified across both paths.
 
 ---
 
