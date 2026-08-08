@@ -1,6 +1,6 @@
 ---
 title: Bloat Detection
-updated: 2026-06-10
+updated: 2026-08-07
 status: current
 category: tools
 tags: [dead-code, events, services, vulture, ast, maintenance]
@@ -43,14 +43,19 @@ and frontmatter mapping, which is cross-file dataflow.
 ./dev bloat-methods       # service methods only
 
 uv run python scripts/detect_bloat.py --verbose   # + unresolved/suppressed site lists
-uv run python scripts/detect_bloat.py --json      # findings as JSON (progress → stderr)
+uv run python scripts/detect_bloat.py --json      # {"findings": [...], "planned_aging": [...]} (progress → stderr)
 uv run python scripts/detect_bloat.py --check     # exit 1 on surviving WARNINGs
 ```
 
 Advisory by default (exit 0). `--check` **is** wired into `./dev quality`
 (check 7, the dead-code gate) and the CI lint job — gating became possible
 once the recorded false-positive audit passed (PR #272). Staged work belongs
-in the PLANNED tiers, which never fail `--check`.
+in the PLANNED tiers, which never fail `--check`. The full advisory report
+also runs on a clock: `.github/workflows/weekly-janitor.yml` (Mondays 06:30
+UTC) runs it alongside the four `./dev health` checks and renders the
+PLANNED-tier aging plus any WARNING findings into an always-open status
+issue — a rot detector that relies on human memory contradicts its own
+purpose.
 
 ## Design rules
 
@@ -99,6 +104,34 @@ template id are invisible to the liveness check, so such an entry stays
 listed until removed by hand. The template backlog appears on full runs
 only — the scoped `--events-only` / `--methods-only` modes isolate their
 own analysis.
+
+## PLANNED-tier aging
+
+A backlog is only honest if its age is visible, so every run summarizes each
+examined registry: **entry count + oldest embedded ISO date + undated
+count** — printed as the `◷ PLANNED-tier aging` block in the text report and
+emitted as the `planned_aging` array in `--json` (one object per tier:
+`tier`, `entries`, `dated`, `undated`, `oldest`).
+
+Registry reasons carry decision dates as prose (`"Mike ruled PLANNED
+2026-06-13"`), not structure — the registries are deliberately **not**
+restructured for this, so extraction is best-effort by design: a `YYYY-MM-DD`
+regex over the reason string, with non-calendar hits (e.g. `2026-13-40`)
+discarded. Two rules keep it honest:
+
+- **An entry ages from its OLDEST date.** A reason carrying an original
+  staging date plus a later re-ruling measures from the first decision, not
+  the latest touch-up.
+- **No silent caps.** An entry whose reason yields no parseable date is
+  counted in the `undated` figure, never dropped — a tier reading "84
+  undated" is telling you the extraction's blind spot, not hiding it.
+
+Tier scoping mirrors the analyses: `--events-only` summarizes
+`PLANNED_EVENTS` only, `--methods-only` summarizes `PLANNED_METHODS` only,
+and the full report adds `PLANNED_TEMPLATES` (same gate as the template
+backlog itself). The weekly janitor workflow (below) renders this summary
+into its status issue, so backlog aging is reviewed on a clock instead of
+remembered.
 
 ## Event analysis (pure AST)
 

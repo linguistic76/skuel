@@ -12,6 +12,7 @@ Two layers:
 
 import ast
 import sys
+from datetime import date
 from pathlib import Path
 from typing import cast
 
@@ -28,12 +29,15 @@ from detect_bloat import (  # type: ignore[import-not-found]
     DispatchKnowledge,
     EventUniverse,
     EventUsageCollector,
+    Finding,
     ParsedCodebase,
     VultureScan,
     analyze_events,
     analyze_methods,
+    json_document,
     measure_vulture_blind_spot,
     run_vulture,
+    summarize_planned_aging,
 )
 
 # ============================================================================
@@ -499,6 +503,100 @@ def test_stale_planned_method_marking_is_reported(monkeypatch):
     stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["now_live_method"]
     assert stale[0].severity is BloatSeverity.INFO
+
+
+# ============================================================================
+# PLANNED-TIER AGING — backlog size + oldest embedded date, best-effort
+# ============================================================================
+
+
+def test_aging_extracts_oldest_date_across_entries():
+    summary = summarize_planned_aging(
+        "PLANNED_TEST",
+        {
+            "a": "staged surface (Mike ruled PLANNED 2026-06-13)",
+            "b": "staged twin (Mike ruled PLANNED 2026-06-12); revisited 2026-07-25",
+            "c": "no date in this reason at all",
+        },
+    )
+    assert summary.entries == 3
+    assert summary.dated == 2
+    assert summary.undated == 1
+    assert summary.oldest == date(2026, 6, 12)
+
+
+def test_aging_entry_ages_from_its_oldest_date_not_its_latest():
+    # A reason carrying an original staging date plus a later re-ruling ages
+    # from the FIRST decision — staging time, not latest touch-up.
+    summary = summarize_planned_aging(
+        "PLANNED_TEST", {"a": "re-ruled 2026-07-25; originally staged 2026-06-10"}
+    )
+    assert summary.oldest == date(2026, 6, 10)
+
+
+def test_aging_discards_impossible_dates_but_still_counts_the_entry():
+    # A regex hit that is not a calendar date must not poison the summary,
+    # and the entry must not vanish (no silent caps): it counts as undated.
+    summary = summarize_planned_aging("PLANNED_TEST", {"a": "see run 2026-13-40 for context"})
+    assert summary.entries == 1
+    assert summary.dated == 0
+    assert summary.undated == 1
+    assert summary.oldest is None
+
+
+def test_aging_empty_registry_is_zero_not_error():
+    summary = summarize_planned_aging("PLANNED_TEST", {})
+    assert summary.entries == 0
+    assert summary.dated == 0
+    assert summary.undated == 0
+    assert summary.oldest is None
+
+
+def test_aging_json_shape_is_pinned_for_the_janitor_workflow():
+    # weekly-janitor.yml reads these keys with jq — a rename breaks the
+    # scheduled report without failing anything here unless pinned.
+    doc = summarize_planned_aging("PLANNED_TEST", {"a": "ruled 2026-06-13"}).to_json()
+    assert doc == {
+        "tier": "PLANNED_TEST",
+        "entries": 1,
+        "dated": 1,
+        "undated": 0,
+        "oldest": "2026-06-13",
+    }
+
+
+def test_json_document_top_level_keys_are_pinned_for_the_janitor_workflow():
+    finding = Finding(
+        kind="event-never-published",
+        severity=BloatSeverity.WARNING,
+        subject="AlphaEvent",
+        file="core/events/x.py",
+        line=1,
+        detail="synthetic",
+    )
+    aging = summarize_planned_aging("PLANNED_TEST", {})
+    doc = json_document([finding], [aging])
+    assert sorted(doc) == ["findings", "planned_aging"]
+    findings = cast("list[dict[str, object]]", doc["findings"])
+    assert findings[0]["severity"] == "warning"
+
+
+def test_live_registries_summarize_cleanly():
+    # Sentinel over the live registries: counts add up, and PLANNED_METHODS
+    # (whose reasons carry "Mike ruled" dates) yields a real, past oldest
+    # date. Deliberately no exact-count/date pins — entries come and go with
+    # wiring campaigns; the invariants are what must hold.
+    for tier, registry in [
+        ("PLANNED_EVENTS", detect_bloat.PLANNED_EVENTS),
+        ("PLANNED_METHODS", detect_bloat.PLANNED_METHODS),
+        ("PLANNED_TEMPLATES", detect_bloat.PLANNED_TEMPLATES),
+    ]:
+        summary = summarize_planned_aging(tier, registry)
+        assert summary.entries == len(registry)
+        assert summary.dated + summary.undated == summary.entries
+    methods = summarize_planned_aging("PLANNED_METHODS", detect_bloat.PLANNED_METHODS)
+    assert methods.oldest is not None
+    assert methods.oldest <= date.today()
 
 
 # ============================================================================

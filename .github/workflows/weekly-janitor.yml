@@ -1,0 +1,259 @@
+name: Weekly Janitor
+
+# Runs the rot detectors on a clock: the four `./dev health` checks plus the
+# full bloat report (`scripts/detect_bloat.py`, no --check). Until this
+# workflow, both ran ONLY on manual invocation — a rot detector that relies on
+# human memory contradicts its own purpose.
+#
+# WHY THIS IS SCHEDULED AND NOT A PR CHECK
+#
+# Rot is rarely attributable to the diff that causes it: a doc link dies when
+# its TARGET moves, a module goes dead when its last IMPORTER leaves, a doc
+# example goes stale when the identifier it names is renamed elsewhere. The
+# file that rots is not the file that changed, so path-filtered PR jobs cannot
+# see the dangerous half — the same reasoning as mypy-suppressions.yml. And
+# none of these findings are urgent: the strict subset that should block a
+# merge already does (`detect_bloat.py --check` is the CI lint job's dead-code
+# gate). Drift here accrues over weeks, so weekly is the right cadence.
+#
+# It stays OUT of ci.yml deliberately: that workflow's path-scoped jobs all
+# feed the `gate` job that branch protection requires, and everything here is
+# advisory.
+#
+# WHY IT FILES AN ISSUE
+#
+# Same reason mypy-suppressions.yml and dependency-audit.yml do: a red
+# scheduled run that lands nowhere is indistinguishable from no check at all —
+# which is exactly the failure mode this workflow exists to fix. Like
+# dependency-audit.yml it maintains ONE always-open status issue via
+# .github/actions/file-audit-issue (see that action for why there is no
+# open/close lifecycle), commenting only when the reported content changes.
+#
+# WHAT IS DELIBERATELY NOT HERE
+#
+# scripts/health/mypy_suppressions.py — it has its own weekly workflow
+# (mypy-suppressions.yml, Mondays 06:00 UTC) because it costs one mypy run per
+# (block, code) pair; duplicating it would double that spend for no signal.
+
+on:
+  schedule:
+    # Mondays 06:30 UTC — offset from mypy-suppressions.yml (Mondays 06:00)
+    # and dependency-audit.yml (daily 07:00).
+    - cron: '30 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Marker-issue mutation is read-then-write, so two overlapping runs (a manual
+# dispatch racing the cron) could both complete the lookup before either
+# writes. Serialize; never cancel mid-run — a cancelled janitor run is a
+# silently skipped one.
+concurrency:
+  group: weekly-janitor
+  cancel-in-progress: false
+
+jobs:
+  janitor:
+    name: Health checks + bloat report
+    runs-on: ubuntu-latest
+    # Pin every uv command to the committed lock — `uv run` re-locks just like
+    # `uv sync` (see ci.yml's mypy job for the full note). Safe here: nothing
+    # in this job passes an explicit --locked, the one thing UV_FROZEN
+    # conflicts with.
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Ordering key for the marker issue. Concurrency serializes runs but
+      # does not order them, so a result must carry the revision it describes.
+      - name: Record the revision this result describes
+        id: rev
+        run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v6
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
+        run: uv sync --frozen --no-install-project
+
+      # The four health checks are exactly what `./dev health` runs (same
+      # scripts, same flags — no flags); the bloat report is `./dev bloat`.
+      # Everything is captured with `|| rc=$?` rather than a pipeline: Actions
+      # runs this under `bash -eo pipefail`, and piping would hand the step's
+      # status to the last command in the pipe.
+      - name: Run the health checks and the bloat report
+        id: janitor
+        working-directory: app
+        run: |
+          failed=""
+
+          for check in dead_modules:scripts/health/dead_modules.py \
+                       dead_doc_links:scripts/health/dead_doc_links.py \
+                       stale_names:scripts/health/stale_names.py \
+                       cross_references:scripts/validate_cross_references.py; do
+            name="${check%%:*}"
+            script="${check#*:}"
+            rc=0
+            uv run python "$script" > "${name}.out" 2>&1 || rc=$?
+            cat "${name}.out"
+            echo "$rc" > "${name}.rc"
+            if [ "$rc" -ne 0 ]; then
+              failed="$failed $name"
+            fi
+          done
+
+          # Full bloat report, advisory by contract: its FINDINGS never fail
+          # this workflow (the WARNING tier already gates PRs via --check in
+          # the CI lint job; PLANNED/UNVERIFIED/INFO are backlog, not defects).
+          # Only an instrument abort — a crash, nonzero without --check — is a
+          # failing section: an audit that could not measure must not read as
+          # a green week (mypy-suppressions.yml's reasoning).
+          bloat_rc=0
+          uv run python scripts/detect_bloat.py --json > bloat.json 2> bloat_progress.txt || bloat_rc=$?
+          cat bloat_progress.txt
+          if [ "$bloat_rc" -ne 0 ]; then
+            failed="$failed bloat_report_aborted"
+          fi
+
+          # Render the exact text the issue will show, then hash THAT: "the
+          # result changed" and "what we display changed" must be the same
+          # statement. ANSI is stripped because colour is not part of the
+          # finding; each section is capped so the combined body stays under
+          # the 65536-character issue limit. Strip and truncate as two steps,
+          # not a pipeline — `sed | head -c` is a SIGPIPE trap under pipefail
+          # (see PR #931).
+          for name in dead_modules dead_doc_links stale_names cross_references; do
+            sed 's/\x1b\[[0-9;]*m//g' "${name}.out" > "${name}.stripped"
+            head -c 6000 "${name}.stripped" > "${name}.clean"
+            if [ "$(wc -c < "${name}.stripped")" -gt 6000 ]; then
+              echo "" >> "${name}.clean"
+              echo "_Truncated at 6000 characters — full output in the janitor-output artifact on this run._" >> "${name}.clean"
+            fi
+          done
+
+          # Build the COMPLETE issue body here — prose included — so the
+          # digest covers everything the reader sees.
+          {
+            if [ -z "$failed" ]; then
+              echo "**All four codebase health checks passed**"
+              echo "(\`dead_modules\`, \`dead_doc_links\`, \`stale_names\`, \`cross_references\` —"
+              echo "the same checks \`./dev health\` runs)."
+            else
+              echo "**Failing sections:** \`${failed# }\`"
+              echo ""
+              echo "Reproduce locally with \`./dev health\` (or the individual targets:"
+              echo "\`./dev health-modules\` / \`health-links\` / \`health-names\` / \`health-xref\`)."
+              for name in dead_modules dead_doc_links stale_names cross_references; do
+                rc=$(cat "${name}.rc")
+                if [ "$rc" -ne 0 ]; then
+                  echo ""
+                  echo "### ${name} (exit $rc)"
+                  echo ""
+                  echo '```'
+                  cat "${name}.clean"
+                  echo '```'
+                fi
+              done
+            fi
+            echo ""
+            echo "### Bloat report (advisory — findings never fail this workflow)"
+            echo ""
+            if [ "$bloat_rc" -ne 0 ] || ! jq empty bloat.json 2>/dev/null; then
+              echo "**The bloat report aborted** (exit \`$bloat_rc\`). No findings are"
+              echo "implied — see the run log and the janitor-output artifact."
+            else
+              echo "PLANNED-tier backlog aging (dates extracted best-effort from reason prose"
+              echo "in \`scripts/detect_bloat.py\`; undated entries are counted, never dropped):"
+              echo ""
+              jq -r '.planned_aging[] | "- **\(.tier)**: \(.entries) entries — oldest embedded date \(.oldest // "none parseable"), \(.undated) undated"' bloat.json
+              echo ""
+              warning_count=$(jq '[.findings[] | select(.severity == "warning")] | length' bloat.json)
+              if [ "$warning_count" -eq 0 ]; then
+                echo "No structurally-dead (WARNING) findings."
+              else
+                echo "**${warning_count} structurally-dead (WARNING) finding(s)** — the PR-side"
+                echo "\`--check\` gate (CI lint job / \`./dev quality\`) fails on these too:"
+                echo ""
+                jq -r '.findings[] | select(.severity == "warning") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json > warnings.txt
+                head -c 6000 warnings.txt
+                if [ "$(wc -c < warnings.txt)" -gt 6000 ]; then
+                  echo ""
+                  echo "_Truncated at 6000 characters — full findings in the janitor-output artifact._"
+                fi
+              fi
+            fi
+            echo ""
+            echo "Docs: \`app/docs/tools/HEALTH_CHECKS.md\` + \`app/docs/tools/BLOAT_DETECTION.md\`."
+          } > janitor-body.md
+          digest=$(sha256sum janitor-body.md | cut -c1-16)
+          {
+            echo "digest=$digest"
+            echo "failed=${failed# }"
+            echo "report<<__JANITOR_REPORT_EOF__"
+            cat janitor-body.md
+            echo "__JANITOR_REPORT_EOF__"
+          } >> "$GITHUB_OUTPUT"
+          echo "Janitor sections failed: '${failed# }'"
+
+      # ONE write, every state — clean / findings / aborted all travel the
+      # same path (see the action for why there is no open/close lifecycle).
+      # Default-branch only: workflow_dispatch accepts --ref, and a branch run
+      # would otherwise stamp the repo-wide marker with that ref's commit
+      # timestamp. A branch dispatch still RUNS the checks — it just does not
+      # write issues.
+      - name: Report
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: ./.github/actions/file-audit-issue
+        with:
+          marker: weekly-janitor
+          title: 'Weekly janitor: codebase health'
+          digest: ${{ steps.janitor.outputs.digest }}
+          revision_ts: ${{ steps.rev.outputs.ts }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: ${{ steps.janitor.outputs.report }}
+
+      # Deliberately AFTER Report. Steps carry an implicit success() check, so
+      # a transient artifact-service failure ahead of Report would skip it and
+      # leave the status issue stale — the artifact is a convenience, the
+      # issue is the promise.
+      - name: Upload janitor output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: janitor-output
+          path: |
+            app/*.out
+            app/bloat.json
+            app/bloat_progress.txt
+            app/janitor-body.md
+          retention-days: 30
+
+      # Fail for BOTH health-check findings and an aborted bloat instrument —
+      # a week the janitor could not measure must not read as a green week.
+      # env, not interpolation: a `${{ }}` expression is pasted in BEFORE bash
+      # parses, so any backtick or $( ) in a value would execute as code.
+      - name: Fail the job on failing sections
+        if: steps.janitor.outputs.failed != ''
+        env:
+          FAILED: ${{ steps.janitor.outputs.failed }}
+        run: |
+          echo "::error::Weekly janitor found failing sections: $FAILED — see the status issue and the janitor-output artifact."
+          exit 1
