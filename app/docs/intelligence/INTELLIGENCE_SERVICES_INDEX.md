@@ -201,7 +201,7 @@ All **9** domain intelligence services (6 Activity + KU/PS/LP) *implement* this 
 **IntelligenceRouteFactory Security (January 2026):**
 - **Content scope** via `scope` parameter (default: `ContentScope.USER_OWNED`)
 - Activity Domains verify entity ownership before returning context/insights
-- Shared content (KU, PS, LP) uses `scope=ContentScope.SHARED`
+- Shared curriculum content uses `scope=ContentScope.SHARED` — of the curriculum domains only **PS and LP** actually register the factory at this scope (KU is protocol-conformant but unwired, so no KU factory bypasses ownership; see above)
 - Returns 404 (not 403) to prevent UID enumeration attacks
 
 ```python
