@@ -1,41 +1,78 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-03-21
+updated: 2026-08-08
 category: intelligence
 status: current
 related_skills:
 - base-ai-service
 - base-analytics-service
 tracking: conceptual
-last_reviewed: 2026-03-21
+last_reviewed: 2026-08-08
 review_frequency: annual
 ---
 # Intelligence Services - Master Index
 
-**Last Updated:** March 21, 2026
+**Last Updated:** March 21, 2026 · **Last Audited:** August 8, 2026
+
+> **Code-accuracy audit — 2026-08-08.** Every service, protocol, count, and ADR reference below
+> was re-verified against the codebase. Corrections made this pass:
+> - **MOC removed as an intelligence domain.** `MocIntelligenceService` was deleted in the
+>   January-2026 KU-based MOC refactoring (see [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md)); no
+>   `MocIntelligenceService`/`MOCService`/`MocNavigationService` class exists. MOC is emergent
+>   identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `CURRICULUM_GROUPING_PATTERNS.md`).
+> - **Counts reconciled.** The inventory now lists **16** analytics/core-side services (was internally "14" and "11" in
+>   different sections). **11** extend `BaseAnalyticsService`; **9** domain services implement the
+>   `IntelligenceRouteFactory` 3-method protocol (was stated as "10"), of which **8** actually have
+>   routes generated — KU conforms to the protocol but `KU_CONFIG` doesn't wire the factory.
+> - **Added three services the index omitted:** `KnowledgeHealthService` (corpus-level
+>   `BaseAnalyticsService`, ADR-080 H1), `LifePathIntelligenceService` (lightweight
+>   recommendation logic, not a `BaseAnalyticsService`), and `CrossDomainAnalyticsService`
+>   (event-driven cross-domain analytics, wired every tier). Added a scope-boundary note so the
+>   count excludes infrastructure/query/facade services rather than silently omitting them.
+> - **`DomainIntelligenceOperations`/`IntelligenceOperations` are largely aspirational.** Of the
+>   7 domain-protocol methods only `get_performance_analytics` is universal; 3 have no
+>   implementation at all and a 4th (`get_learning_velocity`) only a non-conforming one outside the
+>   per-domain classes. What the domain services uniformly satisfy is the separate 3-method
+>   route-factory surface. The "all services implement protocol methods" claims were qualified.
+> - **AI tier is wired, not "future."** The `BaseAIService` layer is constructed in FULL tier
+>   (`services_bootstrap/_ai_wiring.py`, 10 subclasses) — the "for future use" language was stale.
+>   The **16** total is the analytics/core-side inventory; the wired AI tier is documented and
+>   counted separately.
+> - Protocol method counts (Knowledge=4, Domain=7, composed=11) verified accurate.
 
 ## Overview
 
-SKUEL's intelligence layer provides graph-based analytics and insights across all entity types. The unified architecture uses a **two-tier design** (ADR-030):
+SKUEL's intelligence layer provides graph-based analytics and insights across all entity types. The unified architecture uses a **two-tier design** (ADR-024):
 
-- **`BaseAnalyticsService`** - Graph analytics with NO AI dependencies (all 10 domain services extend this)
-- **`BaseAIService`** - Optional AI-powered features (LLM, embeddings) for future use
+- **`BaseAnalyticsService`** - Graph analytics with NO AI dependencies (all domain intelligence services extend this)
+- **`BaseAIService`** - Optional AI-powered features (LLM, embeddings), **wired in FULL tier** (ADR-043) — enhances, never required
 
 The app functions fully without any LLM dependencies - AI services enhance but are not required.
 
-**Total Intelligence Services:** 14
+**Total Intelligence Services:** 16 — *analytics/core-side inventory* (the `BaseAnalyticsService`, specialized-graph, cross-domain, and lightweight-recommendation services below). The parallel **wired AI tier** (`BaseAIService` subclasses, FULL tier) is counted separately — see below.
 - **Activity Domains:** 6 (Tasks, Goals, Habits, Events, Choices, Principles)
 - **Shared Knowledge:** 1 (ActivityKnowledgeIntelligenceService — serves all 6 activity domains)
-- **Curriculum Domains:** 4 (KU, PS, LP, MOC)
+- **Curriculum Domains:** 3 (KU, PS, LP)
+- **Corpus Analytics:** 1 (KnowledgeHealthService — whole-subgraph structural gauge, ADR-080 Horizon 1)
+- **Cross-Domain Analytics:** 1 (CrossDomainAnalyticsService — event-driven, wired every tier; `analytics_api.py` endpoints for learning-velocity / productivity / habit-consistency / dashboard)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
 - **Specialized Graph:** 1 (ZPDService - curriculum ZPD graph analytics — FULL tier only)
+- **LifePath:** 1 (LifePathIntelligenceService — lightweight recommendation logic, **not** a `BaseAnalyticsService`)
+
+Of these, **11 extend `BaseAnalyticsService`** (6 Activity + 3 Curriculum + shared ActivityKnowledge + corpus KnowledgeHealth). UserContext uses a modular package, Askesis a custom facade, ZPDService a specialized graph service, and CrossDomainAnalyticsService and LifePath are plain classes.
+
+**Scope of this count (to keep it stable):** it lists the services that *produce* domain / cross-domain / corpus analytics, intelligence, or recommendations. It deliberately **excludes** (a) pure infrastructure — `GraphIntelligenceService` (graph queries, in the Dependencies table below); (b) query plumbing — `CrossDomainQueryService`; and (c) the `AnalyticsService` **facade** (`core/services/analytics_service.py`), which aggregates/exposes the services above (e.g. `analyze_knowledge_subgraph_health()`) rather than being a distinct producer.
+
+**Wired AI tier (FULL tier only, ADR-043).** A parallel layer of **10 `BaseAIService` subclasses** is constructed in `services_bootstrap/_ai_wiring.py` when `INTELLIGENCE_TIER=full` — 6 Activity (`TasksAIService` … `PrinciplesAIService`), 2 Curriculum (`PsAIService`, `LpAIService`), and 2 cross-cutting (`AskesisAIService`, `ContextAwareAIService`). These enhance the analytics services with LLM/embedding features and are `None` in CORE tier. They are **not** counted in the 16 above (which is the analytics/core-side inventory); see [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) for the AI-tier reference.
+
+**MOC has no intelligence service.** MOC is emergent identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`). The old `MocIntelligenceService` was deleted in the January-2026 KU-based refactoring; a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 **Note:** Finance is a standalone bookkeeping domain (no intelligence service).
 
-**ZPDService** (`core/services/zpd/zpd_service.py`) is a specialized curriculum graph analytics service, distinct from the 10 `BaseAnalyticsService` subclasses. It does NOT extend `BaseAnalyticsService` — it delegates Neo4j queries to `ZPDBackend` (`adapters/persistence/neo4j/zpd_backend.py`) and computes Zone of Proximal Development assessments from the results. Only available in FULL tier; gracefully degrades (returns empty assessment) when curriculum engagement relationships are absent.
+**ZPDService** (`core/services/zpd/zpd_service.py`) is a specialized curriculum graph analytics service, distinct from the `BaseAnalyticsService` subclasses. It does NOT extend `BaseAnalyticsService` — it delegates Neo4j queries to `ZPDBackend` (`adapters/persistence/neo4j/zpd_backend.py`) and computes Zone of Proximal Development assessments from the results. Only available in FULL tier; gracefully degrades (returns empty assessment) when curriculum engagement relationships are absent.
 
-**KnowledgeHealthService** (`core/services/analytics/knowledge_health_service.py`, ADR-080 Horizon 1) is a **corpus-level** `BaseAnalyticsService` — it *does* extend the base (no AI, CORE-tier safe), but unlike the 10 per-domain services it reports on the **whole knowledge subgraph** (Ku / PathStep / LearningPath / Exercise) rather than one entity type, and takes no `user_uid`. It consumes raw structural facts from `KnowledgeHealthBackend` (`adapters/persistence/neo4j/backends/curriculum_backends.py`) and derives coverage ratios, a composite **GDS-readiness score**, and human-readable **authoring-guidance flags** (orphan Kus, near-empty prerequisite DAG, missing ORGANIZES/MOC hierarchy). Surfaced via the `AnalyticsService` facade (`analyze_knowledge_subgraph_health()`), admin `/admin/knowledge-health`, `./dev knowledge-health [--json]`, and 6 knowledge-scoped Prometheus gauges (fed by the existing 5-min graph-health poller — no new worker). **A corpus/authoring gauge deliberately excludes user-generated data** (learner-state telemetry edges, PERSONAL/ASSIGNED/ASSESSMENT exercises) and matches knowledge nodes by `entity_type`, not domain label, so user activity never inflates the structural signal.
+**KnowledgeHealthService** (`core/services/analytics/knowledge_health_service.py`, ADR-080 Horizon 1) is a **corpus-level** `BaseAnalyticsService` — it *does* extend the base (no AI, CORE-tier safe), but unlike the 9 per-domain services it reports on the **whole knowledge subgraph** (Ku / PathStep / LearningPath / Exercise) rather than one entity type, and takes no `user_uid`. It consumes raw structural facts from `KnowledgeHealthBackend` (`adapters/persistence/neo4j/backends/curriculum_backends.py`) and derives coverage ratios, a composite **GDS-readiness score**, and human-readable **authoring-guidance flags** (orphan Kus, near-empty prerequisite DAG, missing ORGANIZES/MOC hierarchy). Surfaced via the `AnalyticsService` facade (`analyze_knowledge_subgraph_health()`), admin `/admin/knowledge-health`, `./dev knowledge-health [--json]`, and 6 knowledge-scoped Prometheus gauges (fed by the existing 5-min graph-health poller — no new worker). **A corpus/authoring gauge deliberately excludes user-generated data** (learner-state telemetry edges, PERSONAL/ASSIGNED/ASSESSMENT exercises) and matches knowledge nodes by `entity_type`, not domain label, so user activity never inflates the structural signal.
 
 ## Quick Start
 
@@ -60,7 +97,7 @@ The app functions fully without any LLM dependencies - AI services enhance but a
 
 ## Architecture Pattern
 
-All domain intelligence services (10 of 11) follow the `BaseAnalyticsService` pattern (ADR-024, updated January 2026). Services >350 lines are decomposed into focused mixins (April 2026):
+All domain intelligence services follow the `BaseAnalyticsService` pattern (ADR-024, updated January 2026) — 11 subclasses in total (see Overview). Services >350 lines are decomposed into focused mixins (April 2026):
 
 ```python
 # Compact service (≤350 lines) — single inheritance
@@ -114,7 +151,7 @@ The naming reflects a semantic distinction:
 - `*IntelligenceService` = Graph analytics (NO AI) - the critical path
 - `*AIService` = LLM/embeddings features (OPTIONAL) - the enhancement layer
 
-All 10 domain intelligence services correctly extend `BaseAnalyticsService` - the name "Intelligence" describes what users get (actionable insights), while `BaseAnalyticsService` describes how it's implemented (graph queries + Python).
+All 9 domain intelligence services correctly extend `BaseAnalyticsService` (as do the shared `ActivityKnowledgeIntelligenceService` and corpus-level `KnowledgeHealthService`) - the name "Intelligence" describes what users get (actionable insights), while `BaseAnalyticsService` describes how it's implemented (graph queries + Python).
 
 **Benefits:**
 - Standardized initialization and logging
@@ -136,18 +173,22 @@ Split into focused ISP protocols (March 2026):
 | Protocol | Methods | Implementor |
 |----------|---------|-------------|
 | `KnowledgeIntelligenceOperations` | 4 — `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_knowledge_prerequisites`, `get_learning_opportunities` | `ActivityKnowledgeIntelligenceService` (shared singleton) |
-| `DomainIntelligenceOperations` | 7 — `find_similar_content`, `search_by_features`, `get_learning_velocity`, `get_behavioral_insights`, `get_performance_analytics`, `get_cross_domain_opportunities`, `get_ai_insights` | Per-domain intelligence services |
-| `IntelligenceOperations` | 11 (composed) | Backward-compatible union of both |
+| `DomainIntelligenceOperations` | 7 — `find_similar_content`, `search_by_features`, `get_learning_velocity`, `get_behavioral_insights`, `get_performance_analytics`, `get_cross_domain_opportunities`, `get_ai_insights` | Per-domain intelligence services (**largely aspirational — see note**) |
+| `IntelligenceOperations` | 11 (composed) | Backward-compatible union of both (**not fully implemented by any service**) |
+
+> **⚠️ `DomainIntelligenceOperations` (and therefore the composed `IntelligenceOperations`) is largely aspirational.** Of its 7 methods only `get_performance_analytics` is implemented across all domains. `find_similar_content` exists on LP only and `get_behavioral_insights` on Tasks only. Three — `search_by_features`, `get_cross_domain_opportunities`, and `get_ai_insights` — have **no implementation anywhere**. `get_learning_velocity` has no *conforming per-domain* implementation, but a live variant exists on `CrossDomainAnalyticsService` (`core/services/cross_domain_analytics_service.py`, signature `days_back=30` — not a per-domain intelligence class). The protocol is exported from `core/ports/` but never used as a runtime type. The contract the domain services *actually* satisfy is the 3-method route-factory surface below — which the code deliberately keeps as its **own separate** protocol (see the `IntelligenceOperations` docstring in `core/ports/intelligence_protocols.py`).
 
 ### Route Factory Protocol (`adapters/inbound/route_factories/intelligence_route_factory.py`)
 
-All 10 domain intelligence services implement this separate 3-method protocol for automatic route generation via `IntelligenceRouteFactory`:
+All **9** domain intelligence services (6 Activity + KU/PS/LP) *implement* this separate 3-method protocol:
 
 | Method | Returns | Purpose |
 |--------|---------|---------|
 | `get_with_context(uid, depth=2)` | `Result[tuple[T, GraphContext]]` | Entity with full graph neighborhood |
 | `get_performance_analytics(user_uid, period_days=30)` | `Result[dict]` | User-specific analytics (or overall stats for shared content) |
 | `get_domain_insights(uid, min_confidence=0.7)` | `Result[dict]` | Domain-specific intelligence and recommendations |
+
+**Protocol conformance vs. route rollout are distinct.** All 9 services implement the three methods, but only **8** actually have routes generated by `IntelligenceRouteFactory` — the 6 Activity domains (via `create_activity_domain_route_config()`, which defaults `intelligence=IntelligenceRouteConfig()`) plus PS and LP (which set it explicitly at `ContentScope.SHARED`). **KU is the exception:** `KU_CONFIG` (`adapters/inbound/ku_routes.py`) does **not** set an `IntelligenceRouteConfig`, so no `IntelligenceRouteFactory` is wired and the generic `/api/ku/context|analytics|insights` routes are **not** generated. The **three route-factory methods** (`get_with_context` / `get_performance_analytics` / `get_domain_insights`) therefore have no HTTP surface for KU. **This is scoped to those three methods only — `KuIntelligenceService` itself is not unused:** its `assess_mastery_dual_track` is invoked by the Ku mastery-checkin route (`POST /explore/ku/{uid}/mastery-checkin` → `ExploreOrchestrator.assess_ku_mastery`).
 
 **Implementation Pattern:**
 ```python
@@ -164,7 +205,7 @@ All 10 domain intelligence services implement this separate 3-method protocol fo
 # Edge vocabulary comes from the domain config's cross_domain_relationship_types.
 ```
 
-**Routes Generated by IntelligenceRouteFactory:**
+**Routes Generated by IntelligenceRouteFactory** (for the 8 wired domains — 6 Activity + PS + LP; **not** KU, see above):
 - `GET /api/{domain}/context?uid=...&depth=2`
 - `GET /api/{domain}/analytics?period_days=30` (user_uid from session)
 - `GET /api/{domain}/insights?uid=...&min_confidence=0.7`
@@ -172,7 +213,7 @@ All 10 domain intelligence services implement this separate 3-method protocol fo
 **IntelligenceRouteFactory Security (January 2026):**
 - **Content scope** via `scope` parameter (default: `ContentScope.USER_OWNED`)
 - Activity Domains verify entity ownership before returning context/insights
-- Shared content (KU, PS, LP, MOC) uses `scope=ContentScope.SHARED`
+- Shared curriculum content uses `scope=ContentScope.SHARED` — of the curriculum domains only **PS and LP** actually register the factory at this scope (KU is protocol-conformant but unwired, so no KU factory bypasses ownership; see above)
 - Returns 404 (not 403) to prevent UID enumeration attacks
 
 ```python
@@ -202,20 +243,23 @@ async def analytics_route(request, period_days: int = 30) -> Result[Any]:
 async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Result[Any]:
 ```
 
-**Rollout Status (January 2026 - COMPLETE):**
+**Rollout Status (current):**
 
-| Service | Protocol Methods | Orchestrator | Status |
-|---------|------------------|--------------|--------|
-| TasksIntelligenceService | ✅ | ✅ | Complete |
-| GoalsIntelligenceService | ✅ | ✅ (pilot) | Complete |
-| HabitsIntelligenceService | ✅ | ✅ | Complete |
-| EventsIntelligenceService | ✅ | ✅ | Complete |
-| ChoicesIntelligenceService | ✅ | ✅ | Complete |
-| PrinciplesIntelligenceService | ✅ | ✅ | Complete |
-| KuIntelligenceService | ✅ | ✅ | Complete |
-| PsIntelligenceService | ✅ | ✅ | Complete |
-| LpIntelligenceService | ✅ | ✅ | Complete |
-| MocIntelligenceService | ✅ | ✅ | Complete |
+| Service | Protocol Methods | Routes wired (`IntelligenceRouteFactory`) |
+|---------|------------------|-------------------------------------------|
+| TasksIntelligenceService | ✅ | ✅ |
+| GoalsIntelligenceService | ✅ | ✅ |
+| HabitsIntelligenceService | ✅ | ✅ |
+| EventsIntelligenceService | ✅ | ✅ |
+| ChoicesIntelligenceService | ✅ | ✅ |
+| PrinciplesIntelligenceService | ✅ | ✅ |
+| KuIntelligenceService | ✅ | ❌ — `KU_CONFIG` sets no `IntelligenceRouteConfig` |
+| PsIntelligenceService | ✅ | ✅ |
+| LpIntelligenceService | ✅ | ✅ |
+
+*"Protocol Methods ✅" = the class implements `get_with_context` / `get_performance_analytics` / `get_domain_insights`. "Routes wired" = an `IntelligenceRouteFactory` is registered so the generic `/api/{domain}/context|analytics|insights` routes exist — 8 of the 9 (KU conforms but is not wired; see the Route Factory Protocol section). Goals additionally has a pilot per-domain orchestrator (`create_goals_intelligence_routes`, `adapters/inbound/orchestration_routes.py`).*
+
+*(The former `MocIntelligenceService` row was removed — the service was deleted in the January-2026 KU-based MOC refactoring; MOC is emergent, see Overview.)*
 
 **Bug Fixes & Improvements (January 2026):**
 - SUCCESS_RATE UNIT INCONSISTENCY: Fixed in `GoalsIntelligenceService` (Habit.success_rate is 0.0-1.0)
@@ -447,7 +491,9 @@ from core.services.intelligence import (
 | **Choices** | [CHOICES_INTELLIGENCE.md](./CHOICES_INTELLIGENCE.md) | ~679 | Decision support, outcome analysis |
 | **Principles** | [PRINCIPLES_INTELLIGENCE.md](./PRINCIPLES_INTELLIGENCE.md) | ~1,324 | Alignment analysis, conflict detection |
 
-### Shared Knowledge Intelligence (2)
+### Shared Knowledge Intelligence (1 service + 1 pattern engine)
+
+*(Counts as **1** in the Overview tally — `ActivityKnowledgeIntelligenceService` is the service; `KnowledgePatternAnalyzer` is a shared pattern engine it and the activity domains consume, not a standalone intelligence service.)*
 
 | Service | Location | Lines | Key Focus |
 |---------|----------|-------|-----------|
@@ -462,14 +508,15 @@ from core.services.intelligence import (
 
 ---
 
-### Curriculum (4)
+### Curriculum (3)
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
 | **KU** | [KU_INTELLIGENCE.md](./KU_INTELLIGENCE.md) | ~390 | Semantic recommendations, knowledge substance, per-user substance (January 2026) |
 | **PS** | [PS_INTELLIGENCE.md](./PS_INTELLIGENCE.md) | ~394 | Readiness checks, practice completeness |
 | **LP** | [LP_INTELLIGENCE.md](./LP_INTELLIGENCE.md) | 378 (facade) + 2,467 (sub-services) | Learning state analysis, content recommendations, adaptive sequencing |
-| **MOC** | [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md) | ~777 | Navigation recommendations, coverage analysis, cross-domain bridges (January 2026) |
+
+**MOC has no intelligence service** — it is emergent identity (any `Entity` with `ORGANIZES` edges); a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 ---
 
@@ -609,15 +656,15 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ KuIntelligenceService (2026-01-08, updated 2026-01-18)
 - ✅ PsIntelligenceService (2026-01-06, updated 2026-01-18)
 - ✅ LpIntelligenceService (2026-01-08, updated 2026-01-18)
-- ✅ MocIntelligenceService (2026-01-11, updated 2026-01-18)
+- ~~MocIntelligenceService (2026-01-11)~~ — **subsequently deleted** in the KU-based MOC refactoring (late January 2026); MOC is now emergent (see [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md)).
 
 **Architecture Update (2026-01-18):**
 - `BaseIntelligenceService` (old) → Replaced by `BaseAnalyticsService` + `BaseAIService`
-- All 10 domain services now extend `BaseAnalyticsService` (NO AI deps)
-- `BaseAIService` available for future AI-powered features
+- All domain services now extend `BaseAnalyticsService` (NO AI deps) — 9 today (was 10 before MOC's service was removed)
+- `BaseAIService` introduced as the optional AI tier (since wired in FULL tier — 10 subclasses; see Overview)
 
 **IntelligenceOperations Protocol Rollout (2026-01-17):**
-- ✅ All 10 domain services implement protocol methods
+- ✅ All domain services implement the **3-method route-factory surface** (`get_with_context` / `get_performance_analytics` / `get_domain_insights`) — 9 today (was 10 before MOC's service was removed). ⚠️ This does **not** mean they implement the 7-method `DomainIntelligenceOperations` / 11-method composed `IntelligenceOperations`: those are largely aspirational (only `get_performance_analytics` is universal — see the protocol note above).
 - ✅ GraphContextLoader pattern consistent across all services
 - ✅ Bug fixes applied (success_rate units, is_on_track(), progress guards)
 
@@ -701,11 +748,10 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Quality assessment and similarity search
 
 **MOC (Maps of Content):**
-- Navigation recommendations based on shared content (January 2026)
-- Content coverage analysis (KU, LP, Principle metrics)
-- Cross-domain bridge strength calculation (40% count + 60% diversity)
-- Section hierarchy depth analysis
-- Event-driven coverage health assessment
+- No dedicated intelligence service (emergent identity — any `Entity` with `ORGANIZES` edges).
+- ORGANIZES relationships are managed by `PsOrganizationService` (`core/services/ps/ps_organization_service.py`); MOC edges are authored via ingestion (`core/services/ingestion/moc_links.py`, `moc: true` frontmatter).
+- MOC navigation is surfaced through UserContext (`active_moc_uids`, `recently_viewed_moc_uids`); a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`.
+- The former `MocIntelligenceService` (navigation/coverage/bridge analytics) was deleted in the January-2026 KU-based refactoring. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 ### Meta Intelligence
 
@@ -775,13 +821,16 @@ else:
 
 ## Architecture Summary
 
-**Total Intelligence Services:** 11
-- 10 extend `BaseAnalyticsService` (unified pattern, NO AI deps)
+**Total Intelligence Services (analytics/core-side):** 16 (see Overview for the full breakdown + scope boundary)
+- 11 extend `BaseAnalyticsService` (unified pattern, NO AI deps): 6 Activity + 3 Curriculum (KU/PS/LP) + shared ActivityKnowledge + corpus KnowledgeHealth
 - 1 uses modular package architecture (UserContext)
+- 1 custom facade (Askesis) · 1 specialized graph service (ZPDService, FULL tier) · 1 cross-domain analytics service (CrossDomainAnalyticsService) · 1 lightweight recommendation service (LifePath)
 
-**Total Lines of Intelligence Code:** ~9,900+
+**Plus a parallel wired AI tier** of 10 `BaseAIService` subclasses (FULL tier only, ADR-043; `services_bootstrap/_ai_wiring.py`), counted separately — see Overview.
+
+**Lines of Intelligence Code** (approximate — `tracking: conceptual`):
 - Activity Domains: ~4,434 lines
-- Curriculum Domains: ~4,013 lines (facade + sub-services + MOC)
+- Curriculum Domains: KU/PS/LP facades + sub-services (the former ~790-line MOC service was deleted)
 - Meta Intelligence: ~3,124 lines (modular package)
 
 **Intelligence Philosophy:**
@@ -793,12 +842,12 @@ else:
 
 **January 2026 Achievements:**
 - Complete intelligence architecture unification across all domains with BaseAnalyticsService pattern (ADR-024, ADR-030)
-- Comprehensive documentation for all 11 services (6 Activity + 4 Curriculum + 1 Meta)
-- Full migration including KU, LP, and MOC domains
+- Comprehensive documentation for all 11 services as of January 2026 (6 Activity + 4 Curriculum + 1 Meta) — MOC's service was deleted later that month; see the Overview for today's inventory
+- Full migration including KU, LP, and MOC domains (MOC's intelligence service was subsequently removed)
 - Shared utilities consolidation (5-phase consolidation reducing ~640 lines of duplicated helper code)
 - **KU-Activity Integration Enhancement** (January 11, 2026): Per-user substance calculation via `calculate_user_substance()` and new `/api/ku/{uid}/my-context` endpoint
 - **Finance Domain Simplification** (January 17, 2026): Finance reverted to standalone bookkeeping domain (no intelligence service)
-- **IntelligenceOperations Protocol Rollout** (January 17, 2026): All 9 domain services implement standardized protocol with GraphContextLoader pattern, enabling automatic route generation via IntelligenceRouteFactory
+- **IntelligenceOperations Protocol Rollout** (January 17, 2026): domain services implement the standardized route-factory protocol, enabling automatic route generation via IntelligenceRouteFactory. *(Since superseded: the `GraphContextLoader` pattern was later deleted — see the mechanism-B note at the end of this file; and route generation covers 8 of the 9 domains — KU is protocol-conformant but unwired.)*
 - **Dual-Track Assessment Pattern** (January 18, 2026 - ADR-030): All 6 Activity Domain intelligence services now support dual-track assessment comparing user self-assessment (vision) with system measurement (action) for perception gap analysis
 - **Complete Substance Data Pipeline** (March 21, 2026): All 6 activity channels (Tasks, Habits, Events, Choices, Principles) now flow real data through UserContext into `calculate_user_substance()`. Principles added as 6th channel (0.07/principle, max 0.15). Total capped at 1.0. Journals deferred (submissions, not activities).
 - **Protocol Alignment** (March 21, 2026): Monolithic `IntelligenceOperations` (11 methods) split into `KnowledgeIntelligenceOperations` (4, shared) + `DomainIntelligenceOperations` (7, per-domain). Composed `IntelligenceOperations` kept for backward compatibility.
