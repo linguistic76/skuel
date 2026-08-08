@@ -352,7 +352,11 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
     Scan one .md file for stale names inside code blocks.
 
     Returns list of (line_no, old_identifier, replacement, kind)
-    where kind is "renamed" or "deleted".
+    where kind is "renamed" or "deleted". One tuple is emitted per MATCH, not per line:
+    a line naming an identifier twice (``KuType = KuType`` in a fenced block, or two inline
+    ```KuType``` spans) yields two tuples. Counting every match — via ``finditer``,
+    not ``search`` — is what lets ALLOWED_OCCURRENCES pin a truthful per-line hit count, so a
+    newly-added repeat on an already-allowed line is not silently absorbed (Codex, PR #988).
     """
     try:
         content = md_file.read_text(encoding="utf-8", errors="ignore")
@@ -372,12 +376,16 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
             lineno = first_line + j
 
             for old, new in RENAMED.items():
-                if _RENAMED_PATTERNS[old].search(seg_line):
-                    issues.append((lineno, old, new, "renamed"))
+                issues.extend(
+                    (lineno, old, new, "renamed")
+                    for _match in _RENAMED_PATTERNS[old].finditer(seg_line)
+                )
 
             for deleted, reason in DELETED.items():
-                if _DELETED_PATTERNS[deleted].search(seg_line):
-                    issues.append((lineno, deleted, reason, "deleted"))
+                issues.extend(
+                    (lineno, deleted, reason, "deleted")
+                    for _match in _DELETED_PATTERNS[deleted].finditer(seg_line)
+                )
 
     return issues
 
