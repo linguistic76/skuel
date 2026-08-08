@@ -170,7 +170,10 @@ def ci_check_set() -> set[str]:
     (Codex, PR #981): steps under `continue-on-error: true` and lines whose
     exit status is `||`-suppressed get no credit — unless the suppression is
     the capture-to-GITHUB_OUTPUT pattern AND an unsuppressed downstream
-    chokepoint step fails the job on that output.
+    chokepoint step fails the job on that output. A piped command (`mypy . |
+    tee`) is only credited once `set -o pipefail` appeared earlier in its run
+    block — without it Bash returns the LAST command's status and the check's
+    failure is swallowed.
     """
     workflow = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
     checks: set[str] = set()
@@ -182,13 +185,19 @@ def ci_check_set() -> set[str]:
             if not isinstance(run_block, str):
                 continue
             step_suppressed = job_suppressed or step.get("continue-on-error") is True
+            pipefail_active = False
             for line in run_block.splitlines():
                 stripped = line.strip()
                 if not stripped or stripped.startswith(("#", "echo")):
                     continue
+                if stripped.startswith("set ") and "pipefail" in stripped:
+                    pipefail_active = True
+                    continue
                 command, or_else, fallback = stripped.partition("||")
                 identifier = canonical_check(command.split())
                 if identifier is None:
+                    continue
+                if "|" in command and not pipefail_active:
                     continue
                 if not step_suppressed and not or_else:
                     checks.add(identifier)
