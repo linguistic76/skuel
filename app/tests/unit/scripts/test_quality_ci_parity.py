@@ -242,12 +242,22 @@ def filters_cover_check(identifier: str, job_filters: frozenset[str] | None) -> 
     return required is not None and required <= job_filters
 
 
+# A chokepoint's `if:` may only OR output-fired clauses of this shape —
+# an event guard or an && (e.g. `github.event_name == 'push' && …`) could
+# skip the failure step on PRs, silently converting capture into swallow
+# (Codex, PR #981 round 9).
+CHOKEPOINT_IF_CLAUSE = re.compile(r"^steps\.[\w-]+\.outputs\.[\w-]+\s*==\s*'true'$")
+
+
 def has_failure_chokepoint(job: dict, output_name: str) -> bool:
     """True if some unsuppressed step in the job reds it on this output.
 
-    The chokepoint must reference `outputs.<name>` (in its `if:` or its run
-    body) and be able to fail (`exit 1` in its run) — validate_documentation's
-    "Fail if critical issues found" step is the canonical shape.
+    The chokepoint must be able to fail (`exit 1` in its run) and must be
+    guaranteed to run on PRs when the output is set: either no `if:` at all
+    (run body reads the output and decides), or a pure OR-chain of
+    `steps.X.outputs.Y == 'true'` clauses, one of them this output —
+    validate_documentation's "Fail if critical issues found" step is the
+    canonical shape.
     """
     for step in job.get("steps", []):
         if step.get("continue-on-error") is True:
@@ -255,8 +265,18 @@ def has_failure_chokepoint(job: dict, output_name: str) -> bool:
         run_block = step.get("run")
         if not isinstance(run_block, str) or "exit 1" not in run_block:
             continue
-        haystack = str(step.get("if", "")) + run_block
-        if f"outputs.{output_name}" in haystack:
+        condition = step.get("if")
+        if condition is None:
+            if f"outputs.{output_name}" in run_block:
+                return True
+            continue
+        text = str(condition).strip().removeprefix("${{").removesuffix("}}").strip()
+        if "&&" in text:
+            continue
+        clauses = [clause.strip() for clause in text.split("||")]
+        if all(CHOKEPOINT_IF_CLAUSE.match(clause) for clause in clauses) and any(
+            f"outputs.{output_name}" in clause for clause in clauses
+        ):
             return True
     return False
 
