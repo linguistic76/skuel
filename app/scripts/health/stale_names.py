@@ -13,6 +13,15 @@ Fence boundaries come from ``scripts/health/markdown_fences``, the CommonMark-ba
 walker shared with ``dead_doc_links.py``. See ``extract_code_segments`` for the two
 coordinate rules it fixed.
 
+Three exemption tiers, narrowest first — each audited so an exemption that hides
+nothing is itself a finding (SKUEL026 discipline):
+
+  * ``ALLOWED_OCCURRENCES`` — one identifier, in one otherwise-scanned doc. The
+    surgical tier: an ADR before/after table, a searchable import-error string.
+  * ``SCAN_EXCLUDE_DIRS`` — a whole frozen-archive subtree (``docs/migrations/``),
+    out of remit like ``docs/roadmap/done/``. A scope decision, not a suppression.
+  * ``SKIP_FILES`` — one whole file, the scanner's own documentation. Stays narrow.
+
 Usage:
     uv run python scripts/health/stale_names.py
     uv run python scripts/health/stale_names.py --verbose
@@ -192,20 +201,70 @@ _DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
 # The scanner's own documentation necessarily names tracked identifiers as
 # examples (sample output, the "What's tracked" table) — skip it to avoid
 # permanent self-flagging noise.
+#
+# SKIP_FILES is a WHOLE-FILE blind spot and must stay narrow: exactly the one
+# doc whose subject is the scanner itself. Its blast radius is audited by
+# tests/unit/scripts/test_stale_names_suppression.py — every hidden hit must sit
+# under a heading that documents the scanner. Do NOT add maintained docs here to
+# force the count down; that is the "no suppressions to hit a number" anti-pattern
+# (reverted in PR #986). Use ALLOWED_OCCURRENCES (below) for an intentional
+# identifier in an otherwise-scanned doc, or SCAN_EXCLUDE_DIRS for a frozen archive.
 SKIP_FILES = {
     ROOT / "docs" / "tools" / "HEALTH_CHECKS.md",
 }
 
+# ── Excluded directories (frozen archives) ───────────────────────────────────
+# Whole subtrees that are point-in-time records, never maintained docs. Their code
+# blocks legitimately name the OLD state being migrated away from — that IS the
+# document. Scanning them is category error, exactly as with docs/roadmap/done/
+# (finished plans that left the live folder). This is a SCOPE decision, not a
+# suppression: an archive is out of the scanner's remit, not a live doc we chose
+# to hide. Audited by tests/unit/scripts/test_stale_names_allowed_occurrences.py
+# (the dir must exist AND actually contain tracked identifiers — a dead exclusion
+# is a finding).
+SCAN_EXCLUDE_DIRS = {
+    ROOT / "docs" / "migrations",  # ## Migrations archive (docs/INDEX.md) — dated, COMPLETE records
+}
+
+# ── Occurrence-level allowlist (audited) ─────────────────────────────────────
+# {relative_path: {old_identifier: rationale}} — exempts ONLY the named identifiers
+# in that one maintained doc, leaving every OTHER identifier in the file still
+# scanned. This is the surgical alternative to SKIP_FILES: it does not blind the
+# whole file, so a genuinely-stale name elsewhere in the same doc is still caught.
+#
+# Use it for a doc that is otherwise current but MUST name a retired identifier in
+# a specific place — an ADR's before/after table, TROUBLESHOOTING's verbatim
+# import-error strings users search for, a doc that demonstrates this scanner.
+#
+# Every entry is audited (tests/unit/scripts/test_stale_names_allowed_occurrences.py):
+# the file must be a live scan target, each identifier must match ≥1 real hit
+# (a dead allow is a finding, SKUEL026-style), and each must carry a rationale.
+ALLOWED_OCCURRENCES: dict[str, dict[str, str]] = {}
+
+
+def _under_excluded_dir(path: Path) -> bool:
+    """True if ``path`` lives inside any SCAN_EXCLUDE_DIRS subtree."""
+    return any(excluded in path.parents for excluded in SCAN_EXCLUDE_DIRS)
+
+
+def _is_allowed_occurrence(rel_path: str, identifier: str) -> bool:
+    """True if ``identifier`` is an audited intentional mention in ``rel_path``.
+
+    ``rel_path`` is the forward-slash path relative to ROOT (matches the keys in
+    ALLOWED_OCCURRENCES and the display path used throughout the scanner).
+    """
+    return identifier in ALLOWED_OCCURRENCES.get(rel_path, {})
+
 
 def get_scan_targets() -> list[Path]:
-    """Collect all .md files from SCAN_DIRS, minus SKIP_FILES."""
+    """Collect all .md files from SCAN_DIRS, minus SKIP_FILES and frozen archives."""
     result: list[Path] = []
     for target in SCAN_DIRS:
         if target.is_file() and target.suffix == ".md":
             result.append(target)
         elif target.is_dir():
             result.extend(sorted(target.rglob("*.md")))
-    return [p for p in result if p not in SKIP_FILES]
+    return [p for p in result if p not in SKIP_FILES and not _under_excluded_dir(p)]
 
 
 def extract_code_segments(content: str) -> list[tuple[int, str]]:
@@ -338,8 +397,10 @@ def main() -> int:
 
     for md_file in md_files:
         issues = scan_file(md_file)
+        rel = md_file.relative_to(ROOT)
         for lineno, old, new, kind in issues:
-            rel = md_file.relative_to(ROOT)
+            if _is_allowed_occurrence(str(rel), old):
+                continue  # audited intentional mention — see ALLOWED_OCCURRENCES
             all_issues.append((rel, lineno, old, new, kind))
             if args.verbose:
                 print(f"  [{kind}] {rel}:{lineno}  {old}")

@@ -330,6 +330,24 @@ This script is only as useful as its RENAMED/DELETED tables. **Update it wheneve
 
 **Matching semantics:** keys refuse alphanumeric neighbors — `PageHead` does NOT fire on `PageHeader` — but underscore adjacency still matches, so deleted snake_case names are caught inside derived symbols (`sel_routes` fires on `create_sel_routes`). Keys ending in a non-word character (e.g. the trailing dot in `core.models.ku.`) prefix-match, so deleted-package paths work as before.
 
+### When an old identifier is intentional
+
+Some docs must name a retired identifier — an ADR's before/after table, an import-error string users search for verbatim, a doc that demonstrates this scanner. Three exemption tiers exist, narrowest first; **every tier is audited so an exemption that hides nothing is a finding** (`test_stale_names_allowed_occurrences.py`, the SKUEL026 discipline). Reach for the narrowest that fits — never widen a whole file to force the count down (reverted in PR #986).
+
+- **`ALLOWED_OCCURRENCES`** — one identifier, one otherwise-scanned doc. Every OTHER identifier in that file is still scanned, so a genuinely-stale name elsewhere in the same doc is still caught. Each entry needs a rationale and must match ≥1 real hit:
+
+  ```python
+  ALLOWED_OCCURRENCES: dict[str, dict[str, str]] = {
+      "docs/decisions/ADR-0XX-example.md": {
+          "LegacyType": "before/after table — the ADR's subject IS this rename",
+      },
+  }
+  ```
+
+- **`SCAN_EXCLUDE_DIRS`** — a whole frozen-archive subtree whose code blocks document the OLD state by design. `docs/migrations/` (the dated, `COMPLETE` migration records) is excluded here, a scope decision on par with `docs/roadmap/done/` — an archive is out of remit, not a live doc we chose to hide.
+
+- **`SKIP_FILES`** — one whole file, kept to exactly the scanner's own documentation (this file), audited section-by-section by `test_stale_names_suppression.py`.
+
 ### When to add a RENAMED entry
 
 ```python
