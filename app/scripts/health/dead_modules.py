@@ -360,7 +360,9 @@ def main() -> int:
         print()
 
     if staged_found:
-        print(f"{Colors.CYAN}Staged modules (registered in STAGED_MODULES, not dead):{Colors.RESET}")
+        print(
+            f"{Colors.CYAN}Staged modules (registered in STAGED_MODULES, not dead):{Colors.RESET}"
+        )
         for p, reason in staged_found:
             print(f"  {p.relative_to(ROOT)} — {reason}")
         print()
