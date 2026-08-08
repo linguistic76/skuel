@@ -15,7 +15,7 @@ the lock (273 → 259 packages), and the severity policy unified to **all severi
 dispositioned** (ruled by Mike; recorded in ADR-067 § 6e). This doc stays as the migration's design
 record.
 **Authority:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md` (§ 5 signals, § 6e the JS gap)
-**Related:** `/docs/roadmap/js-dependency-surface.md` (the open decision this would close),
+**Related:** `/docs/roadmap/done/js-dependency-surface.md` (the open decision this would close),
 `/docs/roadmap/security-hardening-deferred.md` item 5 (where `.pip-audit-ignore` was agreed),
 `scripts/audit_dependencies.sh`, `../.github/workflows/dependency-audit.yml` (the scheduled
 audit, merged as **#931**)

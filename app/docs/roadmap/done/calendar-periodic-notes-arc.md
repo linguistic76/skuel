@@ -74,7 +74,7 @@ for the weekly/monthly notes. That is this arc.
   the act-from arc's hourly-time-grid non-goal anticipated it).
   *(Resolved 2026-08-03: the S5 exploration ran and ruled RETIREMENT — no markwhen
   parsing/rendering ever; habitual time becomes Habit entity data instead. See
-  `docs/roadmap/habit-rhythm-arc.md`, rulings M1–M7.)*
+  `docs/roadmap/done/habit-rhythm-arc.md`, rulings M1–M7.)*
 
 ## Verified ground truth (2026-08-02 code read + live graph + vault specimens)
 
@@ -175,7 +175,7 @@ for the weekly/monthly notes. That is this arc.
   the recognized-shape contract where the docs architecture homes it (DSL usage guide
   or ingestion guide § periodic notes — cross-linked both ways).
 - **S5 — Markwhen: DEFERRED** (E4). Recorded; out of arc. *(Since resolved —
-  see `docs/roadmap/habit-rhythm-arc.md`.)*
+  see `docs/roadmap/done/habit-rhythm-arc.md`.)*
 
 ## Non-goals
 
