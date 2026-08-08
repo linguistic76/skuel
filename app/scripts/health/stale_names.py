@@ -267,7 +267,191 @@ class Allow(NamedTuple):
 # exact line EXACTLY ``hits`` times (a moved line, wrong count, or dead entry is a
 # finding, SKUEL026-style — and forces the anchor to be re-verified), and each must
 # carry a rationale.
-ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {}
+#
+# Per-file rationales (shared by every entry in that file — the reason a given doc names
+# retired identifiers is uniform within it: a changelog, a before/after table, a frozen
+# migration record). Each was verified per-example against the doc, 2026-08 (#983).
+_adr040 = "decision Context + struck-through withdrawn processor_type clause + amendment naming the retired ProcessorType (self-notes the scanner flags it)"
+_adr041 = (
+    "ADR-041 before/after record of the KuType/KuStatus -> EntityType/EntityStatus unification"
+)
+_adr042 = "ADR-042 records sharing extracted from SubmissionsSharingService into UnifiedSharingService -- the before-state"
+_adr043 = (
+    "decision-time bootstrap gating snapshot -- all three named services have since been renamed"
+)
+_adr054 = "ADR-054 before/after record of the ProcessorType/EXERCISE_SUBMISSION/JE_* -> UserEntry collapse"
+_askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
+_askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
+_entity_arch = "'Pipeline and ReportSource (supersede ProcessorType)' explainer -- names the retired enum to document its replacement"
+_freshness = "demonstrates this scanner by naming tracked (renamed/deleted) identifiers as examples"
+_intel_index = "'KnowledgePatternAnalyzer generalized from AnalyticsEngine' -- provenance of the generalization"
+_m2a = "'Methods moved from' provenance table -- names the source file the methods migrated from"
+_m_actui = "migration record -- test snippets using KuStatus as it stood pre-EntityStatus rename"
+_m_assign = "migration record -- __all__ export snapshot naming ProcessorType"
+_m_backends = "migration record -- 'Files Modified'/'Why it stays' tables naming the pre-migration service files"
+_m_domcfg = "migration record -- Before/After config blocks with KuStatus.COMPLETED.value pre-EntityStatus rename"
+_m_health = "migration record -- enum inventory/table naming KuStatus pre-EntityStatus rename"
+_m_lifepath = "migration record -- module inventory naming sel_routes.py (since deleted)"
+_m_profile = "migration record -- narrates migrating off the legacy ProfileLayout"
+_m_routecfg = (
+    "migration record -- as-built 'Key Patterns' naming create_drawer_layout (since deleted)"
+)
+_m_selroutes = "migration record -- sel_routes.py / create_drawer_layout name the modules being migrated/deleted"
+_m_selux = "migration record -- sel_routes verification/procedure commands from the migration"
+_ref_ll = "learning-loop service table note: 'the former JournalOutputService was deleted'"
+_skill_ll = "learning-loop historical-references index -- names retired identifiers to map them to successors"
+_three_tier = (
+    "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
+)
+_trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
+_ui_comp = "'Evolution (2026-02-01)' note recording migration off the legacy ProfileLayout"
+
+ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
+    ".claude/skills/learning-loop/SKILL.md": {
+        (32, "ProcessorType"): Allow(_skill_ll),
+        (44, "ProcessorType"): Allow(_skill_ll),
+    },
+    ".claude/skills/learning-loop/reference.md": {
+        (741, "JournalOutputService"): Allow(_ref_ll),
+    },
+    "docs/TROUBLESHOOTING.md": {
+        (128, "daisy_components"): Allow(_trouble, hits=2),
+        (130, "daisy_components"): Allow(_trouble),
+        (135, "daisy_components"): Allow(_trouble),
+        (135, "from ui.daisy_components import"): Allow(_trouble),
+    },
+    "docs/architecture/ASKESIS_ARCHITECTURE.md": {
+        (437, "activity_rich"): Allow(_askesis_arch),
+        (438, "ActivityDataReader"): Allow(_askesis_arch),
+        (439, "ActivityReviewService"): Allow(_askesis_arch),
+    },
+    "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
+        (407, "ProcessorType"): Allow(_entity_arch),
+        (416, "ProcessorType"): Allow(_entity_arch),
+    },
+    "docs/decisions/ADR-040-teacher-exercise-workflow.md": {
+        (17, "ProcessorType"): Allow(_adr040),
+        (20, "SubmissionsSharingService"): Allow(_adr040),
+        (47, "ProcessorType"): Allow(_adr040),
+        (52, "ProcessorType"): Allow(_adr040),
+    },
+    "docs/decisions/ADR-041-unified-ku-model.md": {
+        (18, "KuStatus"): Allow(_adr041),
+        (18, "KuType"): Allow(_adr041),
+        (35, "KuStatus"): Allow(_adr041),
+        (36, "KuStatus"): Allow(_adr041),
+        (38, "KuStatus"): Allow(_adr041),
+        (39, "KuStatus"): Allow(_adr041),
+        (40, "KuStatus"): Allow(_adr041),
+        (50, "KuStatus"): Allow(_adr041),
+        (50, "KuType"): Allow(_adr041),
+        (51, "KuStatus"): Allow(_adr041),
+        (78, "KuStatus"): Allow(_adr041),
+        (78, "KuType"): Allow(_adr041),
+    },
+    "docs/decisions/ADR-042-privacy-as-first-class-citizen.md": {
+        (168, "SubmissionsSharingService"): Allow(_adr042),
+        (248, "SubmissionsSharingService"): Allow(_adr042),
+        (270, "submissions_sharing_service"): Allow(_adr042),
+    },
+    "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
+        (36, "JournalOutputService"): Allow(_adr043),
+    },
+    "docs/decisions/ADR-054-user-entry-unified-submissions.md": {
+        (98, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (98, "EntityType.JE_INPUT"): Allow(_adr054),
+        (99, "EntityType.JE_OUTPUT"): Allow(_adr054),
+        (138, "ProcessorType"): Allow(_adr054),
+        (143, "ProcessorType"): Allow(_adr054),
+        (146, "ProcessorType"): Allow(_adr054),
+        (148, "ProcessorType"): Allow(_adr054),
+        (304, "ProcessorType"): Allow(_adr054),
+        (362, "ProcessorType"): Allow(_adr054),
+        (413, "ProcessorType"): Allow(_adr054),
+        (494, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (508, "ProcessorType"): Allow(_adr054),
+    },
+    "docs/intelligence/ASKESIS_INTELLIGENCE.md": {
+        (355, "ActivityReviewService"): Allow(_askesis_intel),
+    },
+    "docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md": {
+        (457, "AnalyticsEngine"): Allow(_intel_index),
+    },
+    "docs/migrations/ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md": {
+        (279, "KuStatus"): Allow(_m_actui),
+        (280, "KuStatus"): Allow(_m_actui),
+        (284, "KuStatus"): Allow(_m_actui),
+    },
+    "docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md": {
+        (27, "KuStatus"): Allow(_m_domcfg),
+        (40, "KuStatus"): Allow(_m_domcfg),
+        (152, "KuStatus"): Allow(_m_domcfg),
+        (160, "KuStatus"): Allow(_m_domcfg),
+        (280, "KuStatus"): Allow(_m_domcfg),
+        (308, "KuStatus"): Allow(_m_domcfg),
+    },
+    "docs/migrations/DOMAIN_BACKENDS_POSITION_2_COMPLETE_2026-03-01.md": {
+        (34, "submissions_sharing_service"): Allow(_m_backends),
+        (58, "submissions_sharing_service"): Allow(_m_backends),
+        (147, "progress_feedback_generator"): Allow(_m_backends),
+        (148, "activity_review_service.py"): Allow(_m_backends),
+        (159, "submissions_sharing_service"): Allow(_m_backends),
+    },
+    "docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md": {
+        (713, "create_drawer_layout"): Allow(_m_routecfg),
+        (766, "create_drawer_layout"): Allow(_m_routecfg),
+        (884, "create_drawer_layout"): Allow(_m_routecfg),
+        (906, "create_drawer_layout"): Allow(_m_routecfg),
+    },
+    "docs/migrations/LIFEPATH_DOCUMENTATION_UPDATES_2026-02-03.md": {
+        (95, "sel_routes"): Allow(_m_lifepath),
+        (106, "sel_routes"): Allow(_m_lifepath),
+    },
+    "docs/migrations/PROFILE_HUB_MODERNIZATION_2026-02-01.md": {
+        (13, "ProfileLayout"): Allow(_m_profile),
+        (55, "ProfileLayout"): Allow(_m_profile),
+        (118, "ProfileLayout"): Allow(_m_profile),
+    },
+    "docs/migrations/SEL_ROUTES_MIGRATION_2026-02-03.md": {
+        (30, "sel_routes"): Allow(_m_selroutes),
+        (40, "sel_routes"): Allow(_m_selroutes),
+        (67, "sel_routes"): Allow(_m_selroutes),
+        (90, "sel_routes"): Allow(_m_selroutes),
+        (95, "sel_routes"): Allow(_m_selroutes),
+        (178, "create_drawer_layout"): Allow(_m_selroutes),
+        (378, "sel_routes"): Allow(_m_selroutes),
+        (381, "sel_routes"): Allow(_m_selroutes),
+        (391, "sel_routes"): Allow(_m_selroutes),
+        (397, "sel_routes"): Allow(_m_selroutes, hits=2),
+    },
+    "docs/migrations/SEL_UX_MODERNIZATION_2026-02-03.md": {
+        (158, "sel_routes"): Allow(_m_selux),
+        (217, "sel_routes"): Allow(_m_selux),
+        (380, "sel_routes"): Allow(_m_selux, hits=2),
+        (389, "sel_routes"): Allow(_m_selux),
+    },
+    "docs/migrations/assignments-refactoring-2026-01-25.md": {
+        (58, "ProcessorType"): Allow(_m_assign),
+    },
+    "docs/migrations/health-score-enum-improvement-2026-01-25.md": {
+        (131, "KuStatus"): Allow(_m_health),
+        (196, "KuStatus"): Allow(_m_health),
+    },
+    "docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md": {
+        (186, "submissions_sharing_service"): Allow(_m2a),
+    },
+    "docs/patterns/UI_COMPONENT_PATTERNS.md": {
+        (66, "ProfileLayout"): Allow(_ui_comp),
+    },
+    "docs/patterns/three_tier_type_system.md": {
+        (926, "KuType"): Allow(_three_tier),
+        (927, "KuStatus"): Allow(_three_tier),
+    },
+    "docs/user-guides/documentation-freshness.md": {
+        (127, "KuTaskCreateRequest"): Allow(_freshness),
+        (128, "ProfileLayout"): Allow(_freshness),
+    },
+}
 
 
 def _allowed_count(rel_path: str, lineno: int, identifier: str) -> int:

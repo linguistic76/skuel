@@ -190,20 +190,20 @@ def test_count_mismatch_audit_bites(monkeypatch) -> None:
     monkeypatch.setattr(sn, "scan_file", fake_scan)
     monkeypatch.setattr(sn, "get_scan_targets", lambda: [fixture])
 
+    # Replace the whole allowlist (setattr, not setitem) so the synthetic file is the ONLY
+    # entry the audit sees — otherwise the real entries look dead against the fixture-only
+    # scan targets this test installs.
+    def only(entry: dict[tuple[int, str], sn.Allow]) -> None:
+        monkeypatch.setattr(sn, "ALLOWED_OCCURRENCES", {"docs/example.md": entry})
+
     # Under-count: allow 1 where 2 exist.
-    monkeypatch.setitem(
-        sn.ALLOWED_OCCURRENCES, "docs/example.md", {(42, "KuType"): sn.Allow("why")}
-    )
+    only({(42, "KuType"): sn.Allow("why")})
     assert any("42" in problem and "KuType" in problem for problem in _dead_allow_entries())
 
     # Exact count clears it.
-    monkeypatch.setitem(
-        sn.ALLOWED_OCCURRENCES, "docs/example.md", {(42, "KuType"): sn.Allow("why", hits=2)}
-    )
+    only({(42, "KuType"): sn.Allow("why", hits=2)})
     assert _dead_allow_entries() == []
 
     # Over-count: allow 3 where 2 exist — a standing over-grant.
-    monkeypatch.setitem(
-        sn.ALLOWED_OCCURRENCES, "docs/example.md", {(42, "KuType"): sn.Allow("why", hits=3)}
-    )
+    only({(42, "KuType"): sn.Allow("why", hits=3)})
     assert any("42" in problem and "KuType" in problem for problem in _dead_allow_entries())
