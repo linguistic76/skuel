@@ -83,12 +83,6 @@ class Filters:
     """Typed filters for list queries."""
     status: str
     sort_by: str
-
-@dataclass
-class CalendarParams:
-    """Typed params for calendar view."""
-    calendar_view: str
-    current_date: date
 ```
 
 **Benefits:**

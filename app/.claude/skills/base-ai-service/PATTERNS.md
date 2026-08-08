@@ -178,7 +178,7 @@ Combine AI insights with graph analytics.
 ```python
 from typing import Any, ClassVar
 
-from core.models.ku.ku import Ku
+from core.models.ku import Ku
 from core.services.base_ai_service import BaseAIService
 from core.ports import KuOperations
 from core.utils.result_simplified import Result
@@ -266,7 +266,7 @@ Efficiently process multiple items.
 ```python
 from typing import ClassVar
 
-from core.models.ku.ku import Ku
+from core.models.ku import Ku
 from core.services.base_ai_service import BaseAIService
 from core.ports import KuOperations
 from core.utils.result_simplified import Errors, Result

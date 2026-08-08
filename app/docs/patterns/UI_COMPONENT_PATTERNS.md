@@ -63,7 +63,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 | `HUB` | Left (w-64) | Flexible | Multi-domain dashboards (Admin Dashboard) |
 | `CUSTOM` | STANDARD + custom layout | Flexible | Complex layouts |
 
-**Evolution (2026-02-01):** Profile Hub migrated from legacy ProfileLayout to `STANDARD` page type with custom sidebar implementation.
+**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation.
 
 **Evolution (2026-02-06):** Activity Domains moved from profile sidebar to navbar avatar dropdown.
 
@@ -747,58 +747,6 @@ Button("Delete",
 
 ---
 
-## Navigation Components
-
-### Navbar
-
-```python
-Navbar(
-    NavbarStart(
-        A("SKUEL", href="/", cls="text-xl font-bold")
-    ),
-    NavbarCenter(
-        Menu(
-            MenuItem(A("Dashboard", href="/", cls="active")),
-            MenuItem(A("Tasks", href="/tasks")),
-            MenuItem(A("Goals", href="/goals")),
-            horizontal=True
-        )
-    ),
-    NavbarEnd(
-        Button("Logout", cls=ButtonT.ghost, size="sm")
-    )
-)
-```
-
-### Tabs
-
-`Tabs()` delegates to `ui.components.nav.TabContainer` — each argument is a `(label, content)` tuple:
-
-```python
-Tabs(
-    ("All", task_list_panel),
-    ("Active", active_panel),
-    ("Completed", completed_panel),
-    active_tab=0,
-)
-```
-
-### Dropdown
-
-```python
-Dropdown(
-    DropdownTrigger(Button("Options", cls=ButtonT.ghost)),
-    DropdownContent(
-        MenuItem(A("Edit", href="#")),
-        MenuItem(A("Duplicate", href="#")),
-        MenuItem(A("Delete", href="#", cls="text-error")),
-    ),
-    end=True  # Align to right
-)
-```
-
----
-
 ## Data Display
 
 ### Tables
@@ -1168,12 +1116,6 @@ class Filters:
     """Typed filters for list queries."""
     status: str
     sort_by: str
-
-@dataclass
-class CalendarParams:
-    """Typed params for calendar view."""
-    calendar_view: str
-    current_date: date
 ```
 
 #### 2. Parsing Helpers
@@ -1185,18 +1127,6 @@ def parse_filters(request) -> Filters:
         status=request.query_params.get("filter_status", "active"),
         sort_by=request.query_params.get("sort_by", "default"),
     )
-
-def parse_calendar_params(request) -> CalendarParams:
-    """Extract calendar view parameters."""
-    calendar_view = request.query_params.get("calendar_view", "month")
-    date_str = request.query_params.get("date", "")
-
-    try:
-        current_date = date.fromisoformat(date_str) if date_str else date.today()
-    except ValueError:
-        current_date = date.today()
-
-    return CalendarParams(calendar_view=calendar_view, current_date=current_date)
 ```
 
 #### 3. Error Banner Component
@@ -1236,7 +1166,6 @@ async def tasks_dashboard(request) -> Any:
 
     # Parse using helpers
     filters = parse_filters(request)
-    calendar_params = parse_calendar_params(request)
 
     # Get data with Result[T]
     filtered_result = await get_filtered_tasks(user_uid, filters.status, filters.sort_by)

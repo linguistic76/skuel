@@ -225,7 +225,6 @@ async def tasks_dashboard(request) -> Any:
     # Parse query parameters (typed)
     view = request.query_params.get("view", "list")
     filters = parse_task_filters(request)
-    calendar_params = parse_calendar_params(request)
 
     # Fetch filtered data
     filtered_result = await get_filtered_tasks(
@@ -255,15 +254,7 @@ async def tasks_dashboard(request) -> Any:
     tasks, stats = filtered_result.value
 
     # Render appropriate view
-    if view == "list":
-        content = TasksViewComponents.render_list_view(ctx=page_ctx)
-    elif view == "calendar":
-        content = TasksViewComponents.render_calendar_view(
-            tasks,
-            calendar_params.calendar_view,
-            calendar_params.current_date,
-        )
-    elif view == "analytics":
+    if view == "analytics":
         content = TasksViewComponents.render_analytics_view(tasks, stats)
     else:
         content = TasksViewComponents.render_list_view(ctx=page_ctx)
@@ -277,10 +268,10 @@ async def tasks_dashboard(request) -> Any:
 ```
 
 **Key Features:**
-- Typed parameters (parse_task_filters, parse_calendar_params)
+- Typed parameters (parse_task_filters)
 - Error check BEFORE .value access
 - Error banner with navigation (tabs still visible)
-- Multi-view support (list/calendar/analytics)
+- Multi-view support (list/analytics)
 - BasePage for consistency
 
 ---
@@ -576,49 +567,7 @@ async def tasks_dashboard(request):
 
 ---
 
-### Example 2: Goals Calendar View (Calendar-Specific)
-**File:** `/adapters/inbound/goals_ui.py:180-250`
-
-```python
-# Calendar-specific typed params
-@dataclass
-class CalendarParams:
-    calendar_view: str  # "day", "week", "month"
-    current_date: date
-
-def parse_calendar_params(request) -> CalendarParams:
-    calendar_view = request.query_params.get("calendar_view", "month")
-    date_str = request.query_params.get("date", "")
-
-    try:
-        current_date = date.fromisoformat(date_str) if date_str else date.today()
-    except ValueError:
-        current_date = date.today()
-
-    return CalendarParams(calendar_view, current_date)
-
-# Calendar view route
-@rt("/goals/view/calendar")
-async def goals_view_calendar(request):
-    calendar_params = parse_calendar_params(request)
-
-    goals_result = await get_all_goals(user_uid)
-    if goals_result.is_error:
-        return render_error_banner(f"Failed: {goals_result.error}")
-
-    # Render calendar with current_date and calendar_view
-    return render_calendar_view(
-        goals_result.value,
-        calendar_params.calendar_view,
-        calendar_params.current_date,
-    )
-```
-
-**Pattern:** Calendar-specific typed params with date parsing
-
----
-
-### Example 3: Form Validation (Choices)
+### Example 2: Form Validation (Choices)
 **File:** `/adapters/inbound/choices_ui.py` (create handler)
 
 Bespoke `validate_*_form_data()` functions are gone. Form validation is

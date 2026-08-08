@@ -675,7 +675,7 @@ from core.services.ingestion import validate_relationship_targets
 
 result = await validate_relationship_targets(
     entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
-    relationship_config=ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config,
+    relationship_config=ENTITY_CONFIGS[EntityType.CURRICULUM].relationship_config,
     write_backend=write_backend,
     # Optional: same-sync UIDs grouped by the labels each node will carry — a
     # target counts as valid before it lands in the graph only under the label

@@ -434,9 +434,9 @@ principles_rich = entities_rich.get("principles", [])
 | **June 2026** | Tier gate hardened to fail-secure: if `intelligence_tier` or `user_service` is `None` at route time, AI access is denied (previously silently bypassed) |
 | **February 2026** | Reports → Submissions + Reports rename; Processing Domains now: Submissions, Journals, Reports |
 | **March 2026** | `_load_askesis_and_context` closure extracted from route layer into `AskesisService.load_askesis_context()` — returns `AskesisContext` dataclass; `user_service` removed from route wiring; `askesis_core_service` wired into `AskesisDeps` |
-| **March 2026** | `entities_rich` unification: `active_task_rich`, `active_goal_rich`, etc. → single `entities_rich` dict; activity_rich removed |
-| **March 2026** | ActivityDataReader absorbed into `UserContext.build_rich()` — no longer a separate service |
-| **March 2026** | ActivityReviewService split into `ActivityReportService` + `ReviewQueueService` |
+| **March 2026** | `entities_rich` unification: `active_task_rich`, `active_goal_rich`, etc. → single `entities_rich` dict; `activity_rich` removed |
+| **March 2026** | `ActivityDataReader` absorbed into `UserContext.build_rich()` — no longer a separate service |
+| **March 2026** | `ActivityReviewService` split into `ActivityReportService` + `ReviewQueueService` |
 | **March 2026** | EntityType renames: `AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → SUBMISSION_FEEDBACK` |
 | **March 2026** | All intelligence routes switched to `get_rich_unified_context()` — ensures `entities_rich` is populated |
 | **March 2026** | `AskesisDeps` typed dataclass replaces positional kwargs; `create_askesis_service()` factory in `askesis_factory.py` handles bootstrap construction |

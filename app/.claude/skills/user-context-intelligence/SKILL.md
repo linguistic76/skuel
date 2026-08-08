@@ -235,8 +235,8 @@ intelligence = factory.create(context)
 plan = await intelligence.get_ready_to_work_on_today()
 
 # ✅ For report generation (ProgressReportGenerator, ActivityReportService)
-context = await builder.build_rich(user_uid, window="7d")
-# context.entities_rich populated for all 6 Activity Domains
+context = await builder.build_rich(user_uid, time_period="7d")
+# context.activity_rich populated; active_*_rich unchanged
 ```
 
 **When standard context is enough:** API ownership checks, ActivityReport display, lightweight profile data — `build()` is sufficient and ~3× faster.

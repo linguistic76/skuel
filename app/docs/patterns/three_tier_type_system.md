@@ -923,8 +923,8 @@ Does the domain have 3+ business logic methods?
 ```
 
 **Key enum renames (February 2026):**
-- KuType -> `EntityType` (15 values)
-- KuStatus -> `EntityStatus` (14 values)
+- `KuType` -> `EntityType` (15 values)
+- `KuStatus` -> `EntityStatus` (14 values)
 - `ku_enums.py` was deleted and split into 8 domain-specific enum files (Feb 2026); EntityType/EntityStatus live in `entity_enums.py`
 - `ku_type` field and Neo4j property renamed to `entity_type` (March 2026); `parent_ku_uid` renamed to `parent_entity_uid`
 
