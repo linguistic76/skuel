@@ -109,9 +109,11 @@ class PrinciplesCoreService(
 
         Note: ``update_principle`` is backend-direct and does not invoke this hook (the
         rules are stale — Rule 1 keys on ``label`` not ``title``; Rule 3's ``strength_order``
-        casing never matches; Rule 4's ``modification_reason`` field exists nowhere). Reforming
-        these rules onto the intent is tracked separately; the hook is retained for the base
-        ``update`` contract and reads ``updates.to_changes()`` to stay type-consistent.
+        casing never matches; Rule 4's ``modification_reason`` field exists nowhere). Reform
+        (or deletion per the create-rules precedent above) is tracked live in
+        ``docs/roadmap/deferred-work.md`` § Principles ``_validate_update`` Reform; the hook
+        is retained for the base ``update`` contract and reads ``updates.to_changes()`` to
+        stay type-consistent.
 
         Args:
             current: Current principle state
@@ -338,8 +340,10 @@ class PrinciplesCoreService(
         (``principles_api`` via ``core.update``) sends ``{"status": ...}``, which triggers
         no rule. Routing through ``super().update`` would activate the unsatisfiable
         modification-reason gate and block CORE/STRONG description edits — a regression.
-        Reforming ``_validate_update`` onto the intent is Phase-7 work (see
-        ``docs/roadmap/done/update-intents.md``); until then this path preserves exact behavior.
+        Reforming ``_validate_update`` onto the intent is tracked live in
+        ``docs/roadmap/deferred-work.md`` § Principles ``_validate_update`` Reform (extracted
+        from the archived ``docs/roadmap/done/update-intents.md`` Phase-7 notes); until then
+        this path preserves exact behavior.
 
         Args:
             principle_uid: UID of the principle

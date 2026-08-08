@@ -382,6 +382,27 @@ need, not a data threshold.
 
 ---
 
+## Principles `_validate_update` Reform (or Deletion)
+
+Extracted 2026-08-07 from [`done/update-intents.md`](done/update-intents.md) Phase-7 notes
+("Reforming these rules onto the intent is tracked separately") — this register is that
+tracking; it previously existed only in code docstrings and the archive.
+
+`PrinciplesCoreService._validate_update` is stale in three of its four rules (keys on
+`label` not `title`; the strength rule's casing never matches; the well-established rule
+demands a `modification_reason` field that exists nowhere — **unsatisfiable**), yet it is
+still live on the base `update` contract. `update_principle` deliberately bypasses it
+backend-direct, because routing through `super().update` would activate the unsatisfiable
+gate and block CORE/STRONG description edits. Resolution is a ruling, not just work: reform
+the rules onto the intent (making both paths validate identically), or delete the hook per
+the create-rules precedent in the same file (#963 — length bounds belong to the request
+model). Either way the two-path behavioral split ends.
+
+**Enable when**: next substantive touch of the Principles update path — do not let a new
+caller reach the base `update` contract before this is resolved.
+
+---
+
 ## Tasks/Events Edge-Clear on Edit (`""` → None)
 
 Extracted 2026-08-07 from [`done/update-intents.md`](done/update-intents.md) Phase 7 notes,
