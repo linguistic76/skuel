@@ -1253,11 +1253,7 @@ async def compose_services(
         # cycle without a circular import.
         unified_ingestion.user_entry_processor = user_entry_processor
 
-        user_entry_assessment = AssessmentService(
-            backend=user_entry_backend,
-            report_backend=entry_report_backend,
-            event_bus=event_bus,
-        )
+        user_entry_assessment = AssessmentService(backend=user_entry_backend)
 
         # Vault bridge — ADR-070 bidirectional Obsidian ↔ SKUEL sync.
         # One descriptor-driven reconciler serves BOTH vaults: the admin content

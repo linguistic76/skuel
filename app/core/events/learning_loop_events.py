@@ -124,25 +124,6 @@ class RevisedExerciseCreated(BaseEvent):
 
 
 @dataclass(frozen=True)
-class AssessmentCreated(BaseEvent):
-    """Published when a teacher creates an assessment for a student.
-
-    Relocated from ``submission_events.py`` during ADR-054 pre-6b sweep;
-    ``submission_uid`` → ``entity_uid`` since the subject is an
-    EntryReport, not a submission.
-    """
-
-    entity_uid: str
-    teacher_uid: str
-    subject_uid: str
-    metadata: dict[str, Any] | None = None
-
-    @property
-    def event_type(self) -> str:
-        return "assessment.created"
-
-
-@dataclass(frozen=True)
 class ActivitySnapshotAccessed(BaseEvent):
     """Published when an admin accesses a user's activity snapshot for review.
 

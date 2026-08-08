@@ -178,7 +178,6 @@ from core.events.learning_events import (
 # Learning loop events (ADR-054 — relocated from submission_events.py)
 from core.events.learning_loop_events import (
     ActivitySnapshotAccessed,
-    AssessmentCreated,
     EntryReportGenerated,
     ReportSubmitted,
     RevisedExerciseCreated,
@@ -233,7 +232,6 @@ from core.events.user_events import (
 __all__ = [
     # Learning loop events
     "ActivitySnapshotAccessed",
-    "AssessmentCreated",
     "EntryReportGenerated",
     "ReportSubmitted",
     "RevisedExerciseCreated",
@@ -363,7 +361,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "entry_report.generated": EntryReportGenerated,
     "user_entry.approved": UserEntryApproved,
     "user_entry.revision_requested": UserEntryRevisionRequested,
-    "assessment.created": AssessmentCreated,
     "activity.snapshot_accessed": ActivitySnapshotAccessed,
     "revised_exercise.created": RevisedExerciseCreated,
     # Chunk embedding events (async background generation for RAG)
@@ -554,7 +551,6 @@ LEARNING_LOOP_EVENTS = [
     ReportSubmitted,
     EntryReportGenerated,
     UserEntryApproved,
-    AssessmentCreated,
     ActivitySnapshotAccessed,
     UserEntryRevisionRequested,
     RevisedExerciseCreated,

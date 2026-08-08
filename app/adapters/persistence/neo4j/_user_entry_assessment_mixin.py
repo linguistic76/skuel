@@ -69,9 +69,8 @@ class _UserEntryAssessmentMixin:
 
         Ownership is THE visibility anchor: every report about a student's
         work carries ``(student)-[:OWNS]->(report)`` — written atomically by
-        ``create_report_node`` (teacher/AI review) and
-        ``create_assessment_node`` (teacher assessments) — so one read covers
-        both creation paths.
+        ``create_report_node`` (teacher/AI review) — so this one read surfaces
+        all received feedback.
 
         PRIVATE reports are excluded: a self-owned journal reflection
         (``_persist_entry_response``, ``visibility='private'``) is the
