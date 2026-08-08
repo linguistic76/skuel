@@ -438,7 +438,7 @@ class UserEntryProcessingService:
 
         # --- Bridge pre-pass (optional Digital enhancement) ------------------
         # Periodic notes (daily/weekly/monthly) NEVER take the bridge: the
-        # periodic-note parse contract (E3, docs/roadmap/
+        # periodic-note parse contract (E3, docs/roadmap/done/
         # calendar-periodic-notes-arc.md) rules that entities come ONLY from
         # checkbox lines + explicit @context() markers — never inferred from
         # prose — so both tiers behave identically for periodic entries. The

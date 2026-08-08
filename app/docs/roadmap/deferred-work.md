@@ -341,6 +341,18 @@ repo; the item lives here so the arc's archive can stay closed.
 
 ---
 
+## Calendar Periodic-Notes Arc Follow-up — Monthly-Note Panel Parity
+
+Extracted 2026-08-07 from [`done/calendar-periodic-notes-arc.md`](done/calendar-periodic-notes-arc.md)
+(all four PRs shipped 2026-08-03): the weekly note got its read-only planning panel; the
+monthly note deliberately did not — "monthly-note panel parity is a follow-up, not in-scope,"
+gated on lived use. This register is that tracking; it previously existed only in the archive.
+
+**Enable when**: lived monthly-note use wants the same panel the weekly note has — product
+need, not a data threshold.
+
+---
+
 ## Tasks/Events Edge-Clear on Edit (`""` → None)
 
 Extracted 2026-08-07 from [`done/update-intents.md`](done/update-intents.md) Phase 7 notes,

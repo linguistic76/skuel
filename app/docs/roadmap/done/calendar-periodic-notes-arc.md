@@ -190,7 +190,8 @@ for the weekly/monthly notes. That is this arc.
 - App-side quick-add on the weekly note (E2 — the vault plans; the day lens already
   owns task quick-add per act-from C6).
 - Habits in the weekly panel v1; monthly-note panel parity (follow-ups gated on
-  lived use).
+  lived use — both tracked live in `../deferred-work.md`: § Habit-Rhythm Arc
+  Follow-ups and § Calendar Periodic-Notes Arc Follow-up respectively).
 - Re-litigating Monday-start / ISO-week rail (PERMANENT) or any act-from arc choice.
 - Background/watcher-based ingestion (ADR-070 Decision 9 stands — sync is
   human-initiated).
