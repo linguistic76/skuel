@@ -23,6 +23,7 @@ are flagged as stale (the SKUEL026 discipline: an exemption must exempt).
 """
 
 import ast
+import re
 from pathlib import Path
 
 import yaml
@@ -138,22 +139,62 @@ def gate_required_job_ids(workflow: dict) -> list[str]:
     return list(needs) if isinstance(needs, list) else [needs]
 
 
+# `<command> || echo "name_failed=true" >> $GITHUB_OUTPUT` — the deferred-fail
+# capture used by validate_documentation so a PR comment can report first.
+OUTPUT_CAPTURE = re.compile(r'echo\s+"?([A-Za-z_]+)=true"?\s*>>\s*"?\$GITHUB_OUTPUT"?')
+
+
+def has_failure_chokepoint(job: dict, output_name: str) -> bool:
+    """True if some unsuppressed step in the job reds it on this output.
+
+    The chokepoint must reference `outputs.<name>` (in its `if:` or its run
+    body) and be able to fail (`exit 1` in its run) — validate_documentation's
+    "Fail if critical issues found" step is the canonical shape.
+    """
+    for step in job.get("steps", []):
+        if step.get("continue-on-error") is True:
+            continue
+        run_block = step.get("run")
+        if not isinstance(run_block, str) or "exit 1" not in run_block:
+            continue
+        haystack = str(step.get("if", "")) + run_block
+        if f"outputs.{output_name}" in haystack:
+            return True
+    return False
+
+
 def ci_check_set() -> set[str]:
-    """Every check invoked by a `run:` line of a gate-required CI job."""
+    """Every ENFORCED check of a gate-required CI job.
+
+    A command only counts as a CI home when its failure can red the job
+    (Codex, PR #981): steps under `continue-on-error: true` and lines whose
+    exit status is `||`-suppressed get no credit — unless the suppression is
+    the capture-to-GITHUB_OUTPUT pattern AND an unsuppressed downstream
+    chokepoint step fails the job on that output.
+    """
     workflow = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
     checks: set[str] = set()
     for job_id in gate_required_job_ids(workflow):
         job = workflow["jobs"][job_id]
+        job_suppressed = job.get("continue-on-error") is True
         for step in job.get("steps", []):
             run_block = step.get("run")
             if not isinstance(run_block, str):
                 continue
+            step_suppressed = job_suppressed or step.get("continue-on-error") is True
             for line in run_block.splitlines():
                 stripped = line.strip()
                 if not stripped or stripped.startswith(("#", "echo")):
                     continue
-                identifier = canonical_check(stripped.split())
-                if identifier is not None:
+                command, or_else, fallback = stripped.partition("||")
+                identifier = canonical_check(command.split())
+                if identifier is None:
+                    continue
+                if not step_suppressed and not or_else:
+                    checks.add(identifier)
+                    continue
+                capture = OUTPUT_CAPTURE.search(fallback)
+                if capture and has_failure_chokepoint(job, capture.group(1)):
                     checks.add(identifier)
     return checks
 
