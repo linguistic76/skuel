@@ -30,9 +30,9 @@ KU analytics are handled by `KuIntelligenceService`. There is **no MOC service o
 |---------|---------------------------|
 | MOC identity | Emergent — any `Entity` with outgoing `ORGANIZES` edges (no flag, no service). See `CLAUDE.md` and [`CURRICULUM_GROUPING_PATTERNS.md`](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md). |
 | Authoring MOC edges | Ingestion — `moc: true` frontmatter → `ORGANIZES {order}` edges (`core/services/ingestion/moc_links.py`). |
-| ORGANIZES operations (create/read/reorder, navigation) | `PsOrganizationService` (`core/services/ps/ps_organization_service.py`) + the `PsService` facade, registered by `adapters/inbound/path_steps_api.py`: `organize` / `unorganize` / `reorder` / `get_organized_children` / `is_organizer` / `get_organization_view` / `find_organizers` / `list_root_organizers` / `get_navigation`. PathStep-scoped. |
-| MOC navigation surface | UserContext (`active_moc_uids`, `recently_viewed_moc_uids`), consumed by Askesis (`core/services/askesis/context_retriever.py`). |
-| KU/MOC analytics | `KuIntelligenceService` — a Ku that organizes others is analyzed as a Ku. |
+| ORGANIZES operations (create/read/reorder) | `PsOrganizationService` (`core/services/ps/ps_organization_service.py`) + the `PsService` facade. **8** have routes in `adapters/inbound/path_steps_api.py`: `organize` / `unorganize` / `reorder` / `get_organized_children` / `is_organizer` / `get_organization_view` / `find_organizers` / `list_root_organizers`. `get_navigation` exists on the service but is **not** route-registered (service-only). PathStep-scoped. |
+| MOC navigation surface | UserContext `active_moc_uids` / `recently_viewed_moc_uids` (consumed by Askesis, `core/services/askesis/context_retriever.py`) — **user-owned organizers only**: the query is `(user)-[:OWNS]->(moc:Entity)-[:ORGANIZES]->` (`adapters/persistence/neo4j/user_context_queries.py`), so shared KU/PathStep MOCs (the canonical curriculum case) do **not** appear here; only a user's own ORGANIZES-bearing entities do. |
+| KU/MOC analytics | `KuIntelligenceService` is the KU analytics service (a Ku that organizes others would be analyzed as a Ku), but it is currently **dormant** — no route or consumer invokes it (see the INDEX's Route Factory Protocol section). Corpus-level KU structural health is separately reported by `KnowledgeHealthService`. |
 
 > **Prior fiction (corrected 2026-08-08 audit).** Earlier revisions described a `MOCService` →
 > `MocNavigationService` → `KuService` **class stack** (files `core/services/moc_service.py`,
