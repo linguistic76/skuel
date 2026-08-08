@@ -143,6 +143,31 @@ def gate_required_job_ids(workflow: dict) -> list[str]:
 # capture used by validate_documentation so a PR comment can report first.
 OUTPUT_CAPTURE = re.compile(r'echo\s+"?([A-Za-z_]+)=true"?\s*>>\s*"?\$GITHUB_OUTPUT"?')
 
+# `if:` conditions that keep a check enforced on gating PR runs (Codex,
+# PR #981 round 5). A step gated on anything else — event_name, refs, inputs —
+# can be skipped on PRs while the job stays green, so it earns no credit.
+# Step level: the see-every-violation guards. Job level: the path filters
+# (skipped-when-unrelated is the gate's deliberate contract). Conservative by
+# construction: every &&/|| clause must match, unknown shapes fail closed.
+SAFE_STEP_IF_CLAUSES = (
+    re.compile(r"^!cancelled\(\)$"),
+    re.compile(r"^success\(\)$"),
+    re.compile(r"^steps\.[\w-]+\.outcome\s*!=\s*'skipped'$"),
+)
+SAFE_JOB_IF_CLAUSES = (re.compile(r"^needs\.changes\.outputs\.[\w-]+\s*==\s*'true'$"),)
+
+
+def preserves_pr_enforcement(condition: object, patterns: tuple[re.Pattern[str], ...]) -> bool:
+    """True when a GitHub `if:` cannot skip the check on a gating PR run."""
+    if condition is None:
+        return True
+    text = str(condition).strip()
+    text = text.removeprefix("${{").removesuffix("}}").strip()
+    clauses = [clause.strip() for clause in re.split(r"&&|\|\|", text)]
+    return all(
+        any(pattern.match(clause) for pattern in patterns) for clause in clauses
+    )
+
 
 def has_failure_chokepoint(job: dict, output_name: str) -> bool:
     """True if some unsuppressed step in the job reds it on this output.
@@ -173,16 +198,22 @@ def ci_check_set() -> set[str]:
     chokepoint step fails the job on that output. A piped command (`mypy . |
     tee`) is only credited once `set -o pipefail` appeared earlier in its run
     block — without it Bash returns the LAST command's status and the check's
-    failure is swallowed.
+    failure is swallowed. Job/step `if:` conditions must be enforcement-
+    preserving (path filters / keep-running guards); anything else — e.g.
+    `github.event_name == 'push'` — skips the check on PR runs, so no credit.
     """
     workflow = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
     checks: set[str] = set()
     for job_id in gate_required_job_ids(workflow):
         job = workflow["jobs"][job_id]
+        if not preserves_pr_enforcement(job.get("if"), SAFE_JOB_IF_CLAUSES):
+            continue
         job_suppressed = job.get("continue-on-error") is True
         for step in job.get("steps", []):
             run_block = step.get("run")
             if not isinstance(run_block, str):
+                continue
+            if not preserves_pr_enforcement(step.get("if"), SAFE_STEP_IF_CLAUSES):
                 continue
             step_suppressed = job_suppressed or step.get("continue-on-error") is True
             pipefail_active = False
@@ -217,8 +248,9 @@ def test_every_quality_check_has_a_ci_home() -> None:
         f"{QUALITY_RUNNER.name} — the AST extractor regressed, not the check list."
     )
     assert len(ci) >= MIN_CI_CHECKS, (
-        f"Extraction floor: only {len(ci)} checks parsed from ci.yml — "
-        "the YAML extractor regressed, not the workflow."
+        f"Extraction floor: only {len(ci)} enforced checks credited from ci.yml — "
+        "either the YAML extractor regressed, or a gate-required job lost PR "
+        "enforcement wholesale (event-gated `if:`, continue-on-error, …)."
     )
 
     missing = quality - ci - set(DELIBERATELY_LOCAL_ONLY)
