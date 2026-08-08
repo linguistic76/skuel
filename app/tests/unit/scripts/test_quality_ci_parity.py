@@ -40,17 +40,27 @@ DELIBERATELY_LOCAL_ONLY: dict[str, str] = {}
 MIN_QUALITY_CHECKS = 10
 MIN_CI_CHECKS = 10
 
+# Flags that change what a script ENFORCES, not how it prints. These are part
+# of the check's identity: CI dropping --check from detect_bloat.py (advisory,
+# exit 0 on WARNINGs) or --strict from a linter is enforcement drift even
+# though the script path still matches (Codex, PR #981). Presentation flags
+# (--quiet, --json) and fix-mode variants stay out — they don't move the gate.
+GATE_AFFECTING_FLAGS = frozenset({"--check", "--strict", "--errors-only"})
+
 
 def canonical_check(tokens: list[str]) -> str | None:
     """Map a command's tokens to a stable check identifier, or None.
 
-    Identifier is the scripts/ path when one is present (the script IS the
-    check), else the bare tool invocation (ruff keeps its subcommand; flag
-    variants like --check/--fix are the same check).
+    Identifier is the scripts/ path plus its gate-affecting flags (sorted)
+    when a script is present — the script AND its enforcement mode are the
+    check. Bare tools (ruff/mypy/pyright) keep flag-free identifiers: ruff's
+    --check/--fix split is quality's fix-mode branch, not enforcement drift,
+    and including it would false-fail on the auto-fix variant.
     """
     for token in tokens:
         if token.startswith("scripts/") and token.endswith((".py", ".sh")):
-            return token
+            gate_flags = sorted(GATE_AFFECTING_FLAGS.intersection(tokens))
+            return " ".join([token, *gate_flags])
     if "ruff" in tokens:
         index = tokens.index("ruff")
         subcommand = tokens[index + 1] if index + 1 < len(tokens) else ""
