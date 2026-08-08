@@ -430,13 +430,26 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Journals Discussion-First — Design & Choices](roadmap/journals-discussion-first.md) | 2026-07-12 | Discussion as a fundamental Journals mode: two doors (chat/files) converging into one grounded conversation; sources live from message one; canon shelf checkboxes; real storage reconciled with ADR-073 |
 | [Deferred Work](roadmap/deferred-work.md) | 2026-03-04 | Intelligence features and decision points deferred until data/business prerequisites exist |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | 2026-07-27 | The security hardening backlog — see its Priority Order table for current status (most items now shipped or closed) |
-| [ZPDService — Design & Architecture](roadmap/done/zpd-service-architecture.md) | 2026-03-09 | ZPDService + ZPDBackend architecture: ZPDAssessment, graph traversal, readiness scores, behavioral enrichment |
 | [Conversation Neo4j Persistence — Deferred](roadmap/conversation-neo4j-persistence-deferred.md) | 2026-03-05 | Neo4j schema for persisted conversation sessions and turns; cross-session continuity design |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | 2026-03-05 | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
 | [Learning Loop Cross-Domain Search](roadmap/learning-loop-cross-domain-search.md) | 2026-03-07 | Level 3 roadmap: cross-loop graph traversal search, EntryReport/ActivityReport search |
 | [Askesis Semantic Intelligence](roadmap/askesis-semantic-intelligence.md) | 2026-03-12 | Deferred enhancements: learning-aware search, PS bundle semantic enrichment, conversation persistence, gap analysis fallback |
 | **[Askesis Tool-Selection Queries — why not text2cypher](roadmap/askesis-tool-selection-queries.md)** | **2026-05-26** | **Why SKUEL does not adopt `langchain-neo4j`'s `text2cypher` (`GraphCypherQAChain`) — multi-tenancy, SKUEL001/021, determinism — plus the design sketch for the safe alternative (LLM picks a vetted tool + typed args; `user_uid` injected server-side). Status: not scheduled. Read before proposing LLM-generated Cypher.** |
 | [Tables — Custom Design](roadmap/tables-custom-design.md) | 2026-03-14 | 3 tables deferred from TableFromDicts migration: hardcoded rows, headerless layout, dynamic columns |
+
+### Completed (`docs/roadmap/done/`)
+
+*Finished plans, moved out of the live folder when nothing in them remained open (see CLAUDE.md § Documentation Architecture). Records, not work.*
+
+| Document | Completed | Description |
+|----------|-----------|-------------|
+| [ZPDService — Design & Architecture](roadmap/done/zpd-service-architecture.md) | 2026-03 | ZPDService + ZPDBackend architecture: ZPDAssessment, graph traversal, readiness scores, behavioral enrichment — implemented |
+| [W-Series Docs/Skills Review](roadmap/done/w-series-docs-skills-review.md) | 2026-05-26 | Docs-only sweep from the W1 implementation thread, 9 files |
+| [Typed Update Intents migration](roadmap/done/update-intents.md) | 2026-06-05 | ADR-066 phased execution: all six Activity Domains on frozen `*UpdateIntent`, base parameterized over `U`, every alternative deleted |
+| [Calendar Periodic-Notes Arc](roadmap/done/calendar-periodic-notes-arc.md) | 2026-08-03 | All four PRs shipped the day the arc was confirmed |
+| [Habit-Rhythm Arc](roadmap/done/habit-rhythm-arc.md) | 2026-08-04 | M1–M7 shipped (#927/#933/#934); open follow-ups extracted to [Deferred Work](roadmap/deferred-work.md) |
+| [One Dependency Scanner (osv-scanner)](roadmap/done/dependency-scanner-consolidation.md) | 2026-08-07 | pip-audit + npm audit retired for one measured scanner over both lockfiles (#978) |
+| [JS/Node Dependency Surface](roadmap/done/js-dependency-surface.md) | 2026-08-07 | The undici-incident review: all six decisions resolved (Renovate live, Node 24, accept mechanism via #978) |
 
 ## Examples
 
