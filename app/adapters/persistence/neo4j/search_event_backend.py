@@ -12,7 +12,7 @@ Write path: SearchRouter publishes `search.executed` → SearchEventRecorder
 (core/services/search_event_recorder.py) → record_search_event here.
 Read path: content-gap aggregation for the admin surface.
 
-See: /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md
+See: /docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md
 """
 
 from __future__ import annotations

@@ -69,7 +69,7 @@ The factory automatically creates these intelligence routes:
 | `learning_intelligence_api.py` | 1,966 | Paths Context, Analytics |
 | `events_intelligence_api.py` | 1,436 | Learning Insights, Scheduling |
 | `principles_intelligence_api.py` | 996 | (patterns to analyze) |
-| `search_intelligence_api.py` | 818 | (patterns to analyze) |
+| `search_intelligence_api.py` *(removed 2026-08, #990)* | 818 | (deleted — heuristic search-intelligence layer retired) |
 | Others | ~5,000 | Various intelligence patterns |
 
 ### Common Patterns Identified
@@ -436,7 +436,7 @@ def create_habits_intelligence_routes(app, rt, habits_intelligence_service):
 | learning_intelligence_api.py | 1,966 | ~80% |
 | events_intelligence_api.py | 1,436 | ~80% |
 | principles_intelligence_api.py | 996 | ~80% |
-| search_intelligence_api.py | 818 | ~80% |
+| search_intelligence_api.py *(removed 2026-08)* | 818 | ~80% |
 | Others | ~5,000 | ~80% |
 | **Total** | **~15,000** | **~80%** |
 
@@ -451,7 +451,7 @@ def create_habits_intelligence_routes(app, rt, habits_intelligence_service):
 | learning_intelligence_api.py | ~350 | -1,616 lines (82%) |
 | events_intelligence_api.py | ~250 | -1,186 lines (83%) |
 | principles_intelligence_api.py | ~200 | -796 lines (80%) |
-| search_intelligence_api.py | ~150 | -668 lines (82%) |
+| search_intelligence_api.py *(removed 2026-08, #990)* | — | file deleted |
 | Others | ~1,000 | -4,000 lines (80%) |
 | **Total** | **~2,800** | **-12,200 lines (81%)** |
 

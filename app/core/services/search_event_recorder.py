@@ -11,7 +11,7 @@ isolates handler errors, so a recorder failure can never break a search.
 Tier-independent — a plain graph write, no AI dependency (ADR-043 untouched).
 
 Backend: SearchEventBackend.record_search_event
-See: /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md
+See: /docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md
 """
 
 from __future__ import annotations

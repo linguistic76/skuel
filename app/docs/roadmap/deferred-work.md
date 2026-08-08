@@ -11,11 +11,12 @@ that do not yet exist. Each item has an explicit trigger condition.
 
 ## Shelved Intelligence Features
 
-The following three features have dedicated design documents in `/docs/intelligence/`. They are
-not premature ideas — they are fully designed but correctly deferred until enough data exists
-to make them meaningful.
+The three features below are shelved — not premature ideas, but fully scoped and correctly
+deferred until enough data exists to make them meaningful. Semantic Analysis and Discovery
+Analytics have dedicated roadmap documents in `/docs/roadmap/`; Real-time Intelligence's
+roadmap was retired, so its trigger-gated note lives inline below.
 
-**See**: `/docs/intelligence/INTELLIGENCE_ROADMAP.md` — master overview of the intelligence layer.
+**See**: `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` — the authoritative index of the intelligence layer.
 
 ---
 
@@ -53,7 +54,7 @@ recipe was buried outright, One Path Forward ruling, same date):
    the entry-enrichment capability is the fuel arc).
 
 **Enable when** (residue): entry-enrichment ships and engagement edges exist — then
-revisit semantic pool expansion (see `SEMANTIC_ANALYSIS_ROADMAP.md`).
+revisit semantic pool expansion (see [`SEMANTIC_ANALYSIS_ROADMAP.md`](SEMANTIC_ANALYSIS_ROADMAP.md)).
 
 ---
 
@@ -82,7 +83,7 @@ than 1,000 logged searches, clustering and usage-weighted ranking are noise.
 2. Query clustering + temporal patterns over the logged events.
 3. Usage-aware ranking — requires click-tracking (not collected in Phase 1) and a ranking
    integration design pass (no `SearchRankingService` exists; scoring lives in SearchRouter).
-4. See `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md`.
+4. See `/docs/roadmap/DISCOVERY_ANALYTICS_ROADMAP.md`.
 
 **Enable when**: 1,000+ search events logged in Neo4j.
 
@@ -105,7 +106,6 @@ completed the same KU" social signals.
    when consistently ≥ 10.
 2. Add WebSocket session tracking to `SessionBackend` (groundwork exists in `core/auth/`).
 3. Replace full `build_rich()` calls with incremental delta queries for unchanged domains.
-4. See `/docs/intelligence/REALTIME_INTELLIGENCE_ROADMAP.md` for full implementation steps.
 
 **Enable when**: 10+ daily active users sustained over 2+ weeks.
 
