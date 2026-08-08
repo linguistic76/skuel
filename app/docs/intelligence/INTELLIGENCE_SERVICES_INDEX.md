@@ -1,41 +1,61 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-03-21
+updated: 2026-08-08
 category: intelligence
 status: current
 related_skills:
 - base-ai-service
 - base-analytics-service
 tracking: conceptual
-last_reviewed: 2026-03-21
+last_reviewed: 2026-08-08
 review_frequency: annual
 ---
 # Intelligence Services - Master Index
 
-**Last Updated:** March 21, 2026
+**Last Updated:** March 21, 2026 · **Last Audited:** August 8, 2026
+
+> **Code-accuracy audit — 2026-08-08.** Every service, protocol, count, and ADR reference below
+> was re-verified against the codebase. Corrections made this pass:
+> - **MOC removed as an intelligence domain.** `MocIntelligenceService` was deleted in the
+>   January-2026 KU-based MOC refactoring (see [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md)); no
+>   `MocIntelligenceService`/`MOCService`/`MocNavigationService` class exists. MOC is emergent
+>   identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `CURRICULUM_GROUPING_PATTERNS.md`).
+> - **Counts reconciled.** The inventory now lists **15** services (was internally "14" and "11" in
+>   different sections). **11** extend `BaseAnalyticsService`; **9** domain services implement the
+>   `IntelligenceRouteFactory` 3-method protocol (was stated as "10").
+> - **Added two services the index omitted:** `KnowledgeHealthService` (corpus-level
+>   `BaseAnalyticsService`, ADR-080 H1) and `LifePathIntelligenceService` (lightweight
+>   recommendation logic, not a `BaseAnalyticsService`).
+> - Protocol method counts (Knowledge=4, Domain=7, composed=11) verified accurate.
 
 ## Overview
 
-SKUEL's intelligence layer provides graph-based analytics and insights across all entity types. The unified architecture uses a **two-tier design** (ADR-030):
+SKUEL's intelligence layer provides graph-based analytics and insights across all entity types. The unified architecture uses a **two-tier design** (ADR-024):
 
-- **`BaseAnalyticsService`** - Graph analytics with NO AI dependencies (all 10 domain services extend this)
+- **`BaseAnalyticsService`** - Graph analytics with NO AI dependencies (all domain intelligence services extend this)
 - **`BaseAIService`** - Optional AI-powered features (LLM, embeddings) for future use
 
 The app functions fully without any LLM dependencies - AI services enhance but are not required.
 
-**Total Intelligence Services:** 14
+**Total Intelligence Services:** 15
 - **Activity Domains:** 6 (Tasks, Goals, Habits, Events, Choices, Principles)
 - **Shared Knowledge:** 1 (ActivityKnowledgeIntelligenceService — serves all 6 activity domains)
-- **Curriculum Domains:** 4 (KU, PS, LP, MOC)
+- **Curriculum Domains:** 3 (KU, PS, LP)
+- **Corpus Analytics:** 1 (KnowledgeHealthService — whole-subgraph structural gauge, ADR-080 Horizon 1)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
 - **Specialized Graph:** 1 (ZPDService - curriculum ZPD graph analytics — FULL tier only)
+- **LifePath:** 1 (LifePathIntelligenceService — lightweight recommendation logic, **not** a `BaseAnalyticsService`)
+
+Of these, **11 extend `BaseAnalyticsService`** (6 Activity + 3 Curriculum + shared ActivityKnowledge + corpus KnowledgeHealth). UserContext uses a modular package, Askesis a custom facade, ZPDService a specialized graph service, and LifePath plain recommendation logic.
+
+**MOC has no intelligence service.** MOC is emergent identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`). The old `MocIntelligenceService` was deleted in the January-2026 KU-based refactoring; a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 **Note:** Finance is a standalone bookkeeping domain (no intelligence service).
 
-**ZPDService** (`core/services/zpd/zpd_service.py`) is a specialized curriculum graph analytics service, distinct from the 10 `BaseAnalyticsService` subclasses. It does NOT extend `BaseAnalyticsService` — it delegates Neo4j queries to `ZPDBackend` (`adapters/persistence/neo4j/zpd_backend.py`) and computes Zone of Proximal Development assessments from the results. Only available in FULL tier; gracefully degrades (returns empty assessment) when curriculum engagement relationships are absent.
+**ZPDService** (`core/services/zpd/zpd_service.py`) is a specialized curriculum graph analytics service, distinct from the `BaseAnalyticsService` subclasses. It does NOT extend `BaseAnalyticsService` — it delegates Neo4j queries to `ZPDBackend` (`adapters/persistence/neo4j/zpd_backend.py`) and computes Zone of Proximal Development assessments from the results. Only available in FULL tier; gracefully degrades (returns empty assessment) when curriculum engagement relationships are absent.
 
-**KnowledgeHealthService** (`core/services/analytics/knowledge_health_service.py`, ADR-080 Horizon 1) is a **corpus-level** `BaseAnalyticsService` — it *does* extend the base (no AI, CORE-tier safe), but unlike the 10 per-domain services it reports on the **whole knowledge subgraph** (Ku / PathStep / LearningPath / Exercise) rather than one entity type, and takes no `user_uid`. It consumes raw structural facts from `KnowledgeHealthBackend` (`adapters/persistence/neo4j/backends/curriculum_backends.py`) and derives coverage ratios, a composite **GDS-readiness score**, and human-readable **authoring-guidance flags** (orphan Kus, near-empty prerequisite DAG, missing ORGANIZES/MOC hierarchy). Surfaced via the `AnalyticsService` facade (`analyze_knowledge_subgraph_health()`), admin `/admin/knowledge-health`, `./dev knowledge-health [--json]`, and 6 knowledge-scoped Prometheus gauges (fed by the existing 5-min graph-health poller — no new worker). **A corpus/authoring gauge deliberately excludes user-generated data** (learner-state telemetry edges, PERSONAL/ASSIGNED/ASSESSMENT exercises) and matches knowledge nodes by `entity_type`, not domain label, so user activity never inflates the structural signal.
+**KnowledgeHealthService** (`core/services/analytics/knowledge_health_service.py`, ADR-080 Horizon 1) is a **corpus-level** `BaseAnalyticsService` — it *does* extend the base (no AI, CORE-tier safe), but unlike the 9 per-domain services it reports on the **whole knowledge subgraph** (Ku / PathStep / LearningPath / Exercise) rather than one entity type, and takes no `user_uid`. It consumes raw structural facts from `KnowledgeHealthBackend` (`adapters/persistence/neo4j/backends/curriculum_backends.py`) and derives coverage ratios, a composite **GDS-readiness score**, and human-readable **authoring-guidance flags** (orphan Kus, near-empty prerequisite DAG, missing ORGANIZES/MOC hierarchy). Surfaced via the `AnalyticsService` facade (`analyze_knowledge_subgraph_health()`), admin `/admin/knowledge-health`, `./dev knowledge-health [--json]`, and 6 knowledge-scoped Prometheus gauges (fed by the existing 5-min graph-health poller — no new worker). **A corpus/authoring gauge deliberately excludes user-generated data** (learner-state telemetry edges, PERSONAL/ASSIGNED/ASSESSMENT exercises) and matches knowledge nodes by `entity_type`, not domain label, so user activity never inflates the structural signal.
 
 ## Quick Start
 
@@ -60,7 +80,7 @@ The app functions fully without any LLM dependencies - AI services enhance but a
 
 ## Architecture Pattern
 
-All domain intelligence services (10 of 11) follow the `BaseAnalyticsService` pattern (ADR-024, updated January 2026). Services >350 lines are decomposed into focused mixins (April 2026):
+All domain intelligence services follow the `BaseAnalyticsService` pattern (ADR-024, updated January 2026) — 11 subclasses in total (see Overview). Services >350 lines are decomposed into focused mixins (April 2026):
 
 ```python
 # Compact service (≤350 lines) — single inheritance
@@ -114,7 +134,7 @@ The naming reflects a semantic distinction:
 - `*IntelligenceService` = Graph analytics (NO AI) - the critical path
 - `*AIService` = LLM/embeddings features (OPTIONAL) - the enhancement layer
 
-All 10 domain intelligence services correctly extend `BaseAnalyticsService` - the name "Intelligence" describes what users get (actionable insights), while `BaseAnalyticsService` describes how it's implemented (graph queries + Python).
+All 9 domain intelligence services correctly extend `BaseAnalyticsService` (as do the shared `ActivityKnowledgeIntelligenceService` and corpus-level `KnowledgeHealthService`) - the name "Intelligence" describes what users get (actionable insights), while `BaseAnalyticsService` describes how it's implemented (graph queries + Python).
 
 **Benefits:**
 - Standardized initialization and logging
@@ -141,7 +161,7 @@ Split into focused ISP protocols (March 2026):
 
 ### Route Factory Protocol (`adapters/inbound/route_factories/intelligence_route_factory.py`)
 
-All 10 domain intelligence services implement this separate 3-method protocol for automatic route generation via `IntelligenceRouteFactory`:
+All 9 domain intelligence services (6 Activity + KU/PS/LP) implement this separate 3-method protocol for automatic route generation via `IntelligenceRouteFactory`:
 
 | Method | Returns | Purpose |
 |--------|---------|---------|
@@ -172,7 +192,7 @@ All 10 domain intelligence services implement this separate 3-method protocol fo
 **IntelligenceRouteFactory Security (January 2026):**
 - **Content scope** via `scope` parameter (default: `ContentScope.USER_OWNED`)
 - Activity Domains verify entity ownership before returning context/insights
-- Shared content (KU, PS, LP, MOC) uses `scope=ContentScope.SHARED`
+- Shared content (KU, PS, LP) uses `scope=ContentScope.SHARED`
 - Returns 404 (not 403) to prevent UID enumeration attacks
 
 ```python
@@ -215,7 +235,8 @@ async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Resu
 | KuIntelligenceService | ✅ | ✅ | Complete |
 | PsIntelligenceService | ✅ | ✅ | Complete |
 | LpIntelligenceService | ✅ | ✅ | Complete |
-| MocIntelligenceService | ✅ | ✅ | Complete |
+
+*(The former `MocIntelligenceService` row was removed — the service was deleted in the January-2026 KU-based MOC refactoring; MOC is emergent, see Overview.)*
 
 **Bug Fixes & Improvements (January 2026):**
 - SUCCESS_RATE UNIT INCONSISTENCY: Fixed in `GoalsIntelligenceService` (Habit.success_rate is 0.0-1.0)
@@ -447,7 +468,9 @@ from core.services.intelligence import (
 | **Choices** | [CHOICES_INTELLIGENCE.md](./CHOICES_INTELLIGENCE.md) | ~679 | Decision support, outcome analysis |
 | **Principles** | [PRINCIPLES_INTELLIGENCE.md](./PRINCIPLES_INTELLIGENCE.md) | ~1,324 | Alignment analysis, conflict detection |
 
-### Shared Knowledge Intelligence (2)
+### Shared Knowledge Intelligence (1 service + 1 pattern engine)
+
+*(Counts as **1** in the Overview tally — `ActivityKnowledgeIntelligenceService` is the service; `KnowledgePatternAnalyzer` is a shared pattern engine it and the activity domains consume, not a standalone intelligence service.)*
 
 | Service | Location | Lines | Key Focus |
 |---------|----------|-------|-----------|
@@ -462,14 +485,15 @@ from core.services.intelligence import (
 
 ---
 
-### Curriculum (4)
+### Curriculum (3)
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
 | **KU** | [KU_INTELLIGENCE.md](./KU_INTELLIGENCE.md) | ~390 | Semantic recommendations, knowledge substance, per-user substance (January 2026) |
 | **PS** | [PS_INTELLIGENCE.md](./PS_INTELLIGENCE.md) | ~394 | Readiness checks, practice completeness |
 | **LP** | [LP_INTELLIGENCE.md](./LP_INTELLIGENCE.md) | 378 (facade) + 2,467 (sub-services) | Learning state analysis, content recommendations, adaptive sequencing |
-| **MOC** | [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md) | ~777 | Navigation recommendations, coverage analysis, cross-domain bridges (January 2026) |
+
+**MOC has no intelligence service** — it is emergent identity (any `Entity` with `ORGANIZES` edges); a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 ---
 
@@ -609,15 +633,15 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ KuIntelligenceService (2026-01-08, updated 2026-01-18)
 - ✅ PsIntelligenceService (2026-01-06, updated 2026-01-18)
 - ✅ LpIntelligenceService (2026-01-08, updated 2026-01-18)
-- ✅ MocIntelligenceService (2026-01-11, updated 2026-01-18)
+- ~~MocIntelligenceService (2026-01-11)~~ — **subsequently deleted** in the KU-based MOC refactoring (late January 2026); MOC is now emergent (see [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md)).
 
 **Architecture Update (2026-01-18):**
 - `BaseIntelligenceService` (old) → Replaced by `BaseAnalyticsService` + `BaseAIService`
-- All 10 domain services now extend `BaseAnalyticsService` (NO AI deps)
+- All domain services now extend `BaseAnalyticsService` (NO AI deps) — 9 today (was 10 before MOC's service was removed)
 - `BaseAIService` available for future AI-powered features
 
 **IntelligenceOperations Protocol Rollout (2026-01-17):**
-- ✅ All 10 domain services implement protocol methods
+- ✅ All domain services implement protocol methods (9 today; was 10 before MOC's service was removed)
 - ✅ GraphContextLoader pattern consistent across all services
 - ✅ Bug fixes applied (success_rate units, is_on_track(), progress guards)
 
@@ -701,11 +725,10 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Quality assessment and similarity search
 
 **MOC (Maps of Content):**
-- Navigation recommendations based on shared content (January 2026)
-- Content coverage analysis (KU, LP, Principle metrics)
-- Cross-domain bridge strength calculation (40% count + 60% diversity)
-- Section hierarchy depth analysis
-- Event-driven coverage health assessment
+- No dedicated intelligence service (emergent identity — any `Entity` with `ORGANIZES` edges).
+- ORGANIZES relationships are managed by `PsOrganizationService` (`core/services/ps/ps_organization_service.py`); MOC edges are authored via ingestion (`core/services/ingestion/moc_links.py`, `moc: true` frontmatter).
+- MOC navigation is surfaced through UserContext (`active_moc_uids`, `recently_viewed_moc_uids`); a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`.
+- The former `MocIntelligenceService` (navigation/coverage/bridge analytics) was deleted in the January-2026 KU-based refactoring. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 ### Meta Intelligence
 
@@ -775,13 +798,14 @@ else:
 
 ## Architecture Summary
 
-**Total Intelligence Services:** 11
-- 10 extend `BaseAnalyticsService` (unified pattern, NO AI deps)
+**Total Intelligence Services:** 15 (see Overview for the full breakdown)
+- 11 extend `BaseAnalyticsService` (unified pattern, NO AI deps): 6 Activity + 3 Curriculum (KU/PS/LP) + shared ActivityKnowledge + corpus KnowledgeHealth
 - 1 uses modular package architecture (UserContext)
+- 1 custom facade (Askesis) · 1 specialized graph service (ZPDService, FULL tier) · 1 lightweight recommendation service (LifePath)
 
-**Total Lines of Intelligence Code:** ~9,900+
+**Lines of Intelligence Code** (approximate — `tracking: conceptual`):
 - Activity Domains: ~4,434 lines
-- Curriculum Domains: ~4,013 lines (facade + sub-services + MOC)
+- Curriculum Domains: KU/PS/LP facades + sub-services (the former ~790-line MOC service was deleted)
 - Meta Intelligence: ~3,124 lines (modular package)
 
 **Intelligence Philosophy:**
@@ -793,8 +817,8 @@ else:
 
 **January 2026 Achievements:**
 - Complete intelligence architecture unification across all domains with BaseAnalyticsService pattern (ADR-024, ADR-030)
-- Comprehensive documentation for all 11 services (6 Activity + 4 Curriculum + 1 Meta)
-- Full migration including KU, LP, and MOC domains
+- Comprehensive documentation for all 11 services as of January 2026 (6 Activity + 4 Curriculum + 1 Meta) — MOC's service was deleted later that month; see the Overview for today's inventory
+- Full migration including KU, LP, and MOC domains (MOC's intelligence service was subsequently removed)
 - Shared utilities consolidation (5-phase consolidation reducing ~640 lines of duplicated helper code)
 - **KU-Activity Integration Enhancement** (January 11, 2026): Per-user substance calculation via `calculate_user_substance()` and new `/api/ku/{uid}/my-context` endpoint
 - **Finance Domain Simplification** (January 17, 2026): Finance reverted to standalone bookkeeping domain (no intelligence service)
