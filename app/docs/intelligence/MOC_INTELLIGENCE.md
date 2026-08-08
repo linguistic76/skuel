@@ -1,6 +1,6 @@
 # MOC Intelligence (KU-Based Architecture)
 
-**Last Updated:** January 20, 2026
+**Last Updated:** January 20, 2026 · **Code-accuracy audit:** August 8, 2026 (removed a fictional `MocNavigationService`/`MOCService` architecture; see below)
 
 ---
 
@@ -20,41 +20,21 @@ The old `MocIntelligenceService` (~790 lines) was deleted as part of the KU-base
 - Section hierarchy analysis
 - Practice integration assessment
 
-These capabilities are now handled through:
-
-1. **KU Intelligence** - `KuIntelligenceService` handles all KU analytics
-2. **MOC Navigation Service** - `MocNavigationService` handles MOC-specific navigation operations
+KU analytics are handled by `KuIntelligenceService`. There is **no MOC service of any kind** — the KU-based refactoring removed `MocIntelligenceService` outright and did **not** replace it with a facade.
 
 ## Current Architecture
 
-```
-MOCService (thin facade)
-└── MocNavigationService (all MOC operations)
-    └── KuService (underlying KU CRUD)
-```
+**There is no `MOCService`, `MocNavigationService`, or `KuOrganizationService`.** MOC is not a service layer — it is emergent identity: any `Entity` with outgoing `ORGANIZES` edges *is* a MOC. What used to be "MOC operations" is now distributed across the ORGANIZES edge and existing services:
 
-### Key Files
+| Concern | Where it lives (verified) |
+|---------|---------------------------|
+| MOC identity | Emergent — any `Entity` with outgoing `ORGANIZES` edges (no flag, no service). See `CLAUDE.md` and [`CURRICULUM_GROUPING_PATTERNS.md`](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md). |
+| Authoring MOC edges | Ingestion — `moc: true` frontmatter → `ORGANIZES {order}` edges (`core/services/ingestion/moc_links.py`). |
+| ORGANIZES relationships on PathSteps | `PsOrganizationService` (`core/services/ps/ps_organization_service.py`) — hierarchical previous/next-sibling navigation over the ORGANIZES order. |
+| MOC navigation surface | UserContext (`active_moc_uids`, `recently_viewed_moc_uids`), consumed by Askesis (`core/services/askesis/context_retriever.py`). |
+| KU/MOC analytics | `KuIntelligenceService` — a Ku that organizes others is analyzed as a Ku. |
 
-| Component | File |
-|-----------|------|
-| MOC Facade | `/core/services/moc_service.py` |
-| Navigation Service | `/core/services/moc/moc_navigation_service.py` |
-| MOC Domain Docs | `/docs/domains/moc.md` |
-
-### MOC Navigation Operations
-
-The `MocNavigationService` provides:
-
-| Method | Purpose |
-|--------|---------|
-| `is_moc(ku_uid)` | Check if KU has ORGANIZES relationships |
-| `get_moc_view(ku_uid, depth)` | Get hierarchical view of organized KUs |
-| `organize(parent_uid, child_uid, order)` | Create ORGANIZES relationship |
-| `unorganize(parent_uid, child_uid)` | Remove ORGANIZES relationship |
-| `reorder(parent_uid, child_uid, new_order)` | Change order position |
-| `find_mocs_containing(ku_uid)` | Find parent MOCs for a KU |
-| `list_root_mocs(limit)` | List top-level MOC KUs |
-| `get_organized_children(ku_uid)` | Get direct children |
+> **Prior fiction (removed 2026-08-08 audit):** earlier revisions of this doc described a `MOCService` → `MocNavigationService` → `KuService` stack with methods `is_moc` / `get_moc_view` / `organize` / `list_root_mocs` / etc. **None of those classes, files, or methods exist** — they were never built. The table above reflects the actual code.
 
 ## Two Paths to Knowledge
 
