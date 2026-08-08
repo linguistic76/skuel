@@ -1,5 +1,10 @@
 # P3 — Ephemeral by Default, *Save this Chat* to Persist (both doors)
 
+> **✅ Confirmed and shipped 2026-07-13.** The rulings below were founder-confirmed and the
+> arc was built to them — PR1–PR3 all SHIPPED (see the phasing table: "P3 arc COMPLETE").
+> The "no code until confirmed" gate below describes a gate that was then passed, not an
+> open state.
+
 **Design-first choices doc for the Journals discussion arc, phase 3.** Mirrors the P2
 ADR-first precedent: **write + confirm the choices, THEN build.** No code until the founder
 confirms the rulings below.
