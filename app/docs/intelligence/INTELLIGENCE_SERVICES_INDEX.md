@@ -20,13 +20,15 @@ review_frequency: annual
 >   January-2026 KU-based MOC refactoring (see [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md)); no
 >   `MocIntelligenceService`/`MOCService`/`MocNavigationService` class exists. MOC is emergent
 >   identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `CURRICULUM_GROUPING_PATTERNS.md`).
-> - **Counts reconciled.** The inventory now lists **15** services (was internally "14" and "11" in
+> - **Counts reconciled.** The inventory now lists **16** analytics/core-side services (was internally "14" and "11" in
 >   different sections). **11** extend `BaseAnalyticsService`; **9** domain services implement the
 >   `IntelligenceRouteFactory` 3-method protocol (was stated as "10"), of which **8** actually have
 >   routes generated — KU conforms to the protocol but `KU_CONFIG` doesn't wire the factory.
-> - **Added two services the index omitted:** `KnowledgeHealthService` (corpus-level
->   `BaseAnalyticsService`, ADR-080 H1) and `LifePathIntelligenceService` (lightweight
->   recommendation logic, not a `BaseAnalyticsService`).
+> - **Added three services the index omitted:** `KnowledgeHealthService` (corpus-level
+>   `BaseAnalyticsService`, ADR-080 H1), `LifePathIntelligenceService` (lightweight
+>   recommendation logic, not a `BaseAnalyticsService`), and `CrossDomainAnalyticsService`
+>   (event-driven cross-domain analytics, wired every tier). Added a scope-boundary note so the
+>   count excludes infrastructure/query/facade services rather than silently omitting them.
 > - **`DomainIntelligenceOperations`/`IntelligenceOperations` are largely aspirational.** Of the
 >   7 domain-protocol methods only `get_performance_analytics` is universal; 3 have no
 >   implementation at all and a 4th (`get_learning_velocity`) only a non-conforming one outside the
@@ -34,7 +36,7 @@ review_frequency: annual
 >   route-factory surface. The "all services implement protocol methods" claims were qualified.
 > - **AI tier is wired, not "future."** The `BaseAIService` layer is constructed in FULL tier
 >   (`services_bootstrap/_ai_wiring.py`, 10 subclasses) — the "for future use" language was stale.
->   The **15** total is the analytics/core-side inventory; the wired AI tier is documented and
+>   The **16** total is the analytics/core-side inventory; the wired AI tier is documented and
 >   counted separately.
 > - Protocol method counts (Knowledge=4, Domain=7, composed=11) verified accurate.
 
@@ -47,19 +49,22 @@ SKUEL's intelligence layer provides graph-based analytics and insights across al
 
 The app functions fully without any LLM dependencies - AI services enhance but are not required.
 
-**Total Intelligence Services:** 15 — *analytics/core-side inventory* (the `BaseAnalyticsService`, specialized-graph, and lightweight-recommendation services below). The parallel **wired AI tier** (`BaseAIService` subclasses, FULL tier) is counted separately — see below.
+**Total Intelligence Services:** 16 — *analytics/core-side inventory* (the `BaseAnalyticsService`, specialized-graph, cross-domain, and lightweight-recommendation services below). The parallel **wired AI tier** (`BaseAIService` subclasses, FULL tier) is counted separately — see below.
 - **Activity Domains:** 6 (Tasks, Goals, Habits, Events, Choices, Principles)
 - **Shared Knowledge:** 1 (ActivityKnowledgeIntelligenceService — serves all 6 activity domains)
 - **Curriculum Domains:** 3 (KU, PS, LP)
 - **Corpus Analytics:** 1 (KnowledgeHealthService — whole-subgraph structural gauge, ADR-080 Horizon 1)
+- **Cross-Domain Analytics:** 1 (CrossDomainAnalyticsService — event-driven, wired every tier; `analytics_api.py` endpoints for learning-velocity / productivity / habit-consistency / dashboard)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
 - **Specialized Graph:** 1 (ZPDService - curriculum ZPD graph analytics — FULL tier only)
 - **LifePath:** 1 (LifePathIntelligenceService — lightweight recommendation logic, **not** a `BaseAnalyticsService`)
 
-Of these, **11 extend `BaseAnalyticsService`** (6 Activity + 3 Curriculum + shared ActivityKnowledge + corpus KnowledgeHealth). UserContext uses a modular package, Askesis a custom facade, ZPDService a specialized graph service, and LifePath plain recommendation logic.
+Of these, **11 extend `BaseAnalyticsService`** (6 Activity + 3 Curriculum + shared ActivityKnowledge + corpus KnowledgeHealth). UserContext uses a modular package, Askesis a custom facade, ZPDService a specialized graph service, and CrossDomainAnalyticsService and LifePath are plain classes.
 
-**Wired AI tier (FULL tier only, ADR-043).** A parallel layer of **10 `BaseAIService` subclasses** is constructed in `services_bootstrap/_ai_wiring.py` when `INTELLIGENCE_TIER=full` — 6 Activity (`TasksAIService` … `PrinciplesAIService`), 2 Curriculum (`PsAIService`, `LpAIService`), and 2 cross-cutting (`AskesisAIService`, `ContextAwareAIService`). These enhance the analytics services with LLM/embedding features and are `None` in CORE tier. They are **not** counted in the 15 above (which is the analytics/core-side inventory); see [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) for the AI-tier reference.
+**Scope of this count (to keep it stable):** it lists the services that *produce* domain / cross-domain / corpus analytics, intelligence, or recommendations. It deliberately **excludes** (a) pure infrastructure — `GraphIntelligenceService` (graph queries, in the Dependencies table below); (b) query plumbing — `CrossDomainQueryService`; and (c) the `AnalyticsService` **facade** (`core/services/analytics_service.py`), which aggregates/exposes the services above (e.g. `analyze_knowledge_subgraph_health()`) rather than being a distinct producer.
+
+**Wired AI tier (FULL tier only, ADR-043).** A parallel layer of **10 `BaseAIService` subclasses** is constructed in `services_bootstrap/_ai_wiring.py` when `INTELLIGENCE_TIER=full` — 6 Activity (`TasksAIService` … `PrinciplesAIService`), 2 Curriculum (`PsAIService`, `LpAIService`), and 2 cross-cutting (`AskesisAIService`, `ContextAwareAIService`). These enhance the analytics services with LLM/embedding features and are `None` in CORE tier. They are **not** counted in the 16 above (which is the analytics/core-side inventory); see [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) for the AI-tier reference.
 
 **MOC has no intelligence service.** MOC is emergent identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`). The old `MocIntelligenceService` was deleted in the January-2026 KU-based refactoring; a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
@@ -816,10 +821,10 @@ else:
 
 ## Architecture Summary
 
-**Total Intelligence Services (analytics/core-side):** 15 (see Overview for the full breakdown)
+**Total Intelligence Services (analytics/core-side):** 16 (see Overview for the full breakdown + scope boundary)
 - 11 extend `BaseAnalyticsService` (unified pattern, NO AI deps): 6 Activity + 3 Curriculum (KU/PS/LP) + shared ActivityKnowledge + corpus KnowledgeHealth
 - 1 uses modular package architecture (UserContext)
-- 1 custom facade (Askesis) · 1 specialized graph service (ZPDService, FULL tier) · 1 lightweight recommendation service (LifePath)
+- 1 custom facade (Askesis) · 1 specialized graph service (ZPDService, FULL tier) · 1 cross-domain analytics service (CrossDomainAnalyticsService) · 1 lightweight recommendation service (LifePath)
 
 **Plus a parallel wired AI tier** of 10 `BaseAIService` subclasses (FULL tier only, ADR-043; `services_bootstrap/_ai_wiring.py`), counted separately — see Overview.
 
