@@ -81,8 +81,16 @@ RENAMED: dict[str, str] = {
     "active_principles_rich": 'entities_rich["principles"]',
     "activity_rich": "entities_rich",
     "populate_rich_fields": "populate_entities_rich",
-    # build_rich() parameter rename (Mar 2026)
-    "time_period=": "window=",
+    # build_rich() parameter rename (Mar 2026). Deliberately NOT a bare "time_period="
+    # key: only UserContextBuilder.build_rich() renamed the parameter — time_period is
+    # still live elsewhere (the {time_period} placeholder in
+    # core/prompts/templates/activity_feedback.md and its render examples, and
+    # ProgressReportGenerator.generate(time_period=...)).
+    # LIMITATION (Codex, PR #986): this is a best-effort single-line literal — the
+    # per-line substring matcher cannot relate `build_rich(` and `time_period` across
+    # keyword spellings (`user_uid=...`) or multiline calls, so those slip through.
+    # Context-aware matching needs the scanner redesign tracked on #983.
+    "build_rich(user_uid, time_period": "build_rich(user_uid, window",
     # Method renames (Submissions rename, Feb 2026)
     "list_reports": "list_submissions",
     "get_recent_reports": "get_recent_submissions",
@@ -90,7 +98,7 @@ RENAMED: dict[str, str] = {
     "class Feedback(": "class EntryReport(",
     # Old import paths (post ku/ monolith dissolution, Feb 2026)
     "from core.models.ku.ku_enums import": "from core.models.enums.entity_enums import (or domain-specific enums file)",
-    "from core.models.ku import": "from core.models.<domain> import  (ku/ monolith deleted)",
+    "from core.models.ku import": "from core.models.ku.ku import Ku / from core.models.ku.ku_dto import KuDTO (package __init__ does not re-export)",
     # Old report domain imports (Reports→Submissions, Feb 2026)
     "from core.services.reports": "from core.services.report or core.services.user_entry",
     "from core.models.reports": "from core.models.report or core.models.user_entry",
@@ -153,7 +161,8 @@ DELETED: dict[str, str] = {
     "DrawerLayout": "deleted — use SidebarPage from ui.patterns.sidebar",
     "create_drawer_layout": "deleted — use SidebarPage from ui.patterns.sidebar",
     # Deleted directories referenced as import paths
-    "core.models.ku.": "core/models/ku/ monolith deleted — use domain-specific paths",
+    # (core/models/ku/ is a LIVE package — ku.py, ku_dto.py. Only the old ku_enums
+    #  module is gone; the RENAMED "from core.models.ku.ku_enums import" rule covers it.)
     "components.tasks": "components/ deleted — use ui.tasks.views",
     "components.goals": "components/ deleted — use ui.goals.views",
     "components.habits": "components/ deleted — use ui.habits.views",
@@ -183,7 +192,9 @@ _DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
 # The scanner's own documentation necessarily names tracked identifiers as
 # examples (sample output, the "What's tracked" table) — skip it to avoid
 # permanent self-flagging noise.
-SKIP_FILES = {ROOT / "docs" / "tools" / "HEALTH_CHECKS.md"}
+SKIP_FILES = {
+    ROOT / "docs" / "tools" / "HEALTH_CHECKS.md",
+}
 
 
 def get_scan_targets() -> list[Path]:

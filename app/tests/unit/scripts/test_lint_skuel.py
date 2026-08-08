@@ -3108,9 +3108,10 @@ class TestSKUEL021LeadingClauseAnchor:
     def test_detects_clause_whose_operand_wraps_to_the_next_line(self) -> None:
         """Drift 1: the old matcher required the operand on the clause's OWN line.
 
-        Cypher wraps freely and this tree writes it wrapped — both live sites the
-        consolidation newly admits (`hybrid_query_builder`, `vector_search_backend`,
-        below the boundary so SKUEL021 never saw them) are exactly this shape.
+        Cypher wraps freely and this tree writes it wrapped — both sites live at
+        consolidation time (`hybrid_query_builder` — since deleted as a dead module,
+        `vector_search_backend`, below the boundary so SKUEL021 never saw them)
+        were exactly this shape.
         """
         linter = make_linter(["SKUEL021"])
         content = 'q = """RETURN\n    1 AS ping"""\nrun(q)'

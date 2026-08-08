@@ -52,7 +52,7 @@ Patterns  → PageHeader, CardGenerator, StatsGrid, EmptyState, FormGenerator
 Components → Button, Card, Badge, Input, Select, Alert, Modal, Row, Stack
 ```
 
-**Components** (`ui/components/` — `button.py`, `card.py`, `form.py`, etc.) are Python FT functions that encode Tailwind class strings with typed parameters. They handle styling. (`ui.feedback`, `ui.layout`, `ui.navigation`, `ui.data` are sibling pure-Tailwind wrapper modules.)
+**Components** (`ui/components/` — `button.py`, `card.py`, `form.py`, etc.) are Python FT functions that encode Tailwind class strings with typed parameters. They handle styling. (`ui.feedback`, `ui.layout`, `ui.data` are sibling pure-Tailwind wrapper modules.)
 
 **Patterns** (`ui/patterns/`) compose multiple components into domain-agnostic building blocks. They handle structure.
 
@@ -349,34 +349,6 @@ Div(
     x_cloak=True,
 )
 ```
-
-### Navigation (`ui/navigation.py`)
-
-```python
-from ui.navigation import Menu, MenuItem, Dropdown, DropdownTrigger, DropdownContent, Tabs
-
-# Dropdown menu
-Dropdown(
-    DropdownTrigger(Button("Options", cls=ButtonT.ghost)),
-    DropdownContent(
-        Menu(
-            MenuItem(A("Edit", href="/edit")),
-            MenuItem(A("Delete", href="/delete"), cls="text-error"),
-        ),
-    ),
-    end=True,   # align right
-)
-
-# Tabs — each argument is a (label, content) tuple (Alpine.js-driven)
-Tabs(
-    ("List", list_panel),
-    ("Calendar", calendar_panel),
-    ("Analytics", analytics_panel),
-    active_tab=0,
-)
-```
-
-> **Note:** Navbar primitives (`Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`) are internal to `BasePage` — don't compose them directly in route code.
 
 ### Data Display (`ui/data.py`)
 
@@ -1071,7 +1043,7 @@ When building new components:
 | Layout (flex, grid) | `ui/layout.py` |
 | Typography | `PageHeader`/`SectionHeader` patterns + raw FastHTML `H4`/`P`/`Span` (`ui/text.py` deleted) |
 | Modals | `AlpineModal` (`ui/patterns/modal.py`) or inline Alpine `x-show` + Tailwind |
-| Nav components | `ui/navigation.py` |
+| Navbar | `ui/layouts/navbar.py` (internal to `BasePage`) |
 | Tables, dividers | `ui/data.py` |
 | Design tokens | `ui/tokens.py` |
 | Theme + headers | `ui/theme.py` |

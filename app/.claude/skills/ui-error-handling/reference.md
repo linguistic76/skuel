@@ -32,14 +32,13 @@ class Filters:
     sort_by: str
 ```
 
-**Calendar params** use `parse_calendar_params()` from `ui_helpers` (unchanged).
+**Calendar params** parse via `parse_date_query_param()` from `route_factories`.
 
 **Usage in route:**
 ```python
 @rt("/tasks")
 async def tasks_dashboard(request):
     filters = parse_filters(request)  # Type-safe access
-    calendar_params = parse_calendar_params(request)
 
     # Use filters.status, filters.project, filters.sort_by
 ```
@@ -50,26 +49,7 @@ async def tasks_dashboard(request):
 
 **Use when:** Fetching data from services (all data access)
 
-**Shared helper** (`adapters/inbound/ui_helpers.py`):
-```python
-from adapters.inbound.ui_helpers import fetch_user_entities
-
-# Simple — service always available:
-async def get_all_goals(user_uid: UserUID) -> Result[list[Goal]]:
-    return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
-
-# Optional service — pass None when unavailable:
-async def get_all_events(user_uid: UserUID) -> Result[list[Event]]:
-    service_method = events_service.get_user_events if events_service else None
-    return await fetch_user_entities(service_method, "events", user_uid, logger)
-```
-
-`fetch_user_entities(service_method, domain_name, user_uid, logger)` handles:
-- Returns `Result[T]` (not exceptions)
-- Logs errors with context (user_uid, error type, message)
-- Propagates service errors (`.is_error` check)
-- Catches unexpected exceptions (fallback to `Errors.system`)
-- Returns `Result.ok([])` when service_method is None
+**Factory-centralized** (`adapters/inbound/activity_ui_factory.py`): `create_activity_ui_routes()` owns the fetch path for all 6 Activity domains — Result propagation, `or []` defaulting, structured logging, and the error branch live in the factory's `_fetch_filtered()`, so routes carry no fetch boilerplate. (The former `ui_helpers.fetch_user_entities()` helper was deleted 2026-08 with zero consumers.)
 
 ---
 
@@ -245,7 +225,6 @@ async def tasks_dashboard(request) -> Any:
     # Parse query parameters (typed)
     view = request.query_params.get("view", "list")
     filters = parse_task_filters(request)
-    calendar_params = parse_calendar_params(request)
 
     # Fetch filtered data
     filtered_result = await get_filtered_tasks(
@@ -275,15 +254,7 @@ async def tasks_dashboard(request) -> Any:
     tasks, stats = filtered_result.value
 
     # Render appropriate view
-    if view == "list":
-        content = TasksViewComponents.render_list_view(ctx=page_ctx)
-    elif view == "calendar":
-        content = TasksViewComponents.render_calendar_view(
-            tasks,
-            calendar_params.calendar_view,
-            calendar_params.current_date,
-        )
-    elif view == "analytics":
+    if view == "analytics":
         content = TasksViewComponents.render_analytics_view(tasks, stats)
     else:
         content = TasksViewComponents.render_list_view(ctx=page_ctx)
@@ -297,10 +268,10 @@ async def tasks_dashboard(request) -> Any:
 ```
 
 **Key Features:**
-- Typed parameters (parse_task_filters, parse_calendar_params)
+- Typed parameters (parse_task_filters)
 - Error check BEFORE .value access
 - Error banner with navigation (tabs still visible)
-- Multi-view support (list/calendar/analytics)
+- Multi-view support (list/analytics)
 - BasePage for consistency
 
 ---
@@ -596,49 +567,7 @@ async def tasks_dashboard(request):
 
 ---
 
-### Example 2: Goals Calendar View (Calendar-Specific)
-**File:** `/adapters/inbound/goals_ui.py:180-250`
-
-```python
-# Calendar-specific typed params
-@dataclass
-class CalendarParams:
-    calendar_view: str  # "day", "week", "month"
-    current_date: date
-
-def parse_calendar_params(request) -> CalendarParams:
-    calendar_view = request.query_params.get("calendar_view", "month")
-    date_str = request.query_params.get("date", "")
-
-    try:
-        current_date = date.fromisoformat(date_str) if date_str else date.today()
-    except ValueError:
-        current_date = date.today()
-
-    return CalendarParams(calendar_view, current_date)
-
-# Calendar view route
-@rt("/goals/view/calendar")
-async def goals_view_calendar(request):
-    calendar_params = parse_calendar_params(request)
-
-    goals_result = await get_all_goals(user_uid)
-    if goals_result.is_error:
-        return render_error_banner(f"Failed: {goals_result.error}")
-
-    # Render calendar with current_date and calendar_view
-    return render_calendar_view(
-        goals_result.value,
-        calendar_params.calendar_view,
-        calendar_params.current_date,
-    )
-```
-
-**Pattern:** Calendar-specific typed params with date parsing
-
----
-
-### Example 3: Form Validation (Choices)
+### Example 2: Form Validation (Choices)
 **File:** `/adapters/inbound/choices_ui.py` (create handler)
 
 Bespoke `validate_*_form_data()` functions are gone. Form validation is

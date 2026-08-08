@@ -53,7 +53,6 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | `ui.patterns.modal` | `AlpineModal` — standardized Alpine.js modal wrapper (backdrop, transitions, close-on-backdrop) |
 | `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
 | `ui.enum_helpers` | `get_submission_status_badge_class`, `get_status_badge_class`, `get_priority_badge_class`, ... |
-| `ui.navigation` | `Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`, `Menu`, `MenuItem`, `Dropdown`, `DropdownTrigger`, `DropdownContent`, `Tabs`, `Tab` |
 | `ui.data` | `Table`, `TableFromDicts`, `TableFromLists`, `TableT`, `Divider`, `DividerSplit`, `DividerT` |
 
 **Import pattern:**
@@ -65,7 +64,6 @@ from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
 from ui.layout import Container, DivHStacked, DivVStacked, Size
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
-from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar
 from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 # Standard FastHTML elements (Div, Span, Option, Thead, Tbody, etc.)
 from fasthtml.common import Div, Option, Span
@@ -1465,16 +1463,13 @@ Quick alphabetical index:
 - **Checkbox / Radio / Toggle / Range** - `ui.forms`
 - **Container / Grid / DivHStacked / DivVStacked** - `ui.layout`
 - **Divider / DividerSplit / DividerT** - `ui.data`
-- **Dropdown / DropdownTrigger / DropdownContent** - `ui.navigation`
 - **Input / Select / Textarea** - `ui.forms`
 - **LabelInput / LabelTextArea / LabelSelect / LabelCheckbox** - `ui.forms`
 - **Loading** - `ui.feedback` (CSS-only spinner — no variant param; use `size=Size.sm/md/lg`)
-- **Menu / MenuItem / Navbar** - `ui.navigation`
 - **AlpineModal** - `/ui/patterns/modal.py` — standardized Alpine.js modal wrapper (backdrop, transitions, accessibility)
 - **Progress / ProgressT / RadialProgress** - `ui.feedback`
 - **Size** - `ui.layout`
 - **Table / TableFromDicts / TableFromLists / TableT** - `ui.data`
-- **Tabs / Tab** - `ui.navigation`
 
 **Patterns & Layouts:**
 - **BasePage** - `/ui/layouts/base_page.py`
@@ -1482,7 +1477,6 @@ Quick alphabetical index:
 - **CardGenerator** - `/ui/patterns/card_generator.py`
 - **EmptyState** - `/ui/patterns/empty_state.py`
 - **ErrorBanner** - `/ui/patterns/error_banner.py`
-- **MetadataBadge** - `/ui/patterns/metadata_badge.py`
 - **Navbar (layout)** - `/ui/layouts/navbar.py`
 - **PageHeader** - `/ui/patterns/page_header.py`
 - **Relationships** - `/ui/patterns/relationships/*.py`

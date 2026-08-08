@@ -46,7 +46,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
 - `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers; `ButtonLink` in `ui/primitives.py` (also pure Tailwind)
 - `/ui/forms/` — pure Tailwind wrappers; `ui/buttons.py` + `ui/cards.py` deleted PR E — `Button`/`ButtonT`/`Card*` now in `ui.components`
-- `/ui/navigation.py`, `/ui/data.py` — pure Tailwind wrappers
+- `/ui/data.py` — pure Tailwind wrappers
 - `/ui/components/` - **SKUEL-owned Tailwind component layer (ADR-071, complete).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI/DaisyUI. `ui/theme.py` is also pure Tailwind (loads compiled `output.css`).
 
 ---
@@ -380,7 +380,6 @@ from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, Progress, Progres
 from ui.forms import Checkbox, Input, LabelCheckbox, LabelInput, LabelSelect, LabelTextArea, Radio, Range, Select, Textarea, Toggle
 from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
-from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar, NavbarCenter, NavbarEnd, NavbarStart, Tabs
 from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 # Standard FastHTML elements — always from fasthtml.common
 from fasthtml.common import Div, Option, Span, Tbody, Td, Th, Thead, Tr
@@ -745,58 +744,6 @@ Button("Delete",
 - `id` — Optional DOM id
 
 **Adopted in:** calendar components, sharing modal, insight card modal.
-
----
-
-## Navigation Components
-
-### Navbar
-
-```python
-Navbar(
-    NavbarStart(
-        A("SKUEL", href="/", cls="text-xl font-bold")
-    ),
-    NavbarCenter(
-        Menu(
-            MenuItem(A("Dashboard", href="/", cls="active")),
-            MenuItem(A("Tasks", href="/tasks")),
-            MenuItem(A("Goals", href="/goals")),
-            horizontal=True
-        )
-    ),
-    NavbarEnd(
-        Button("Logout", cls=ButtonT.ghost, size="sm")
-    )
-)
-```
-
-### Tabs
-
-`Tabs()` delegates to `ui.components.nav.TabContainer` — each argument is a `(label, content)` tuple:
-
-```python
-Tabs(
-    ("All", task_list_panel),
-    ("Active", active_panel),
-    ("Completed", completed_panel),
-    active_tab=0,
-)
-```
-
-### Dropdown
-
-```python
-Dropdown(
-    DropdownTrigger(Button("Options", cls=ButtonT.ghost)),
-    DropdownContent(
-        MenuItem(A("Edit", href="#")),
-        MenuItem(A("Duplicate", href="#")),
-        MenuItem(A("Delete", href="#", cls="text-error")),
-    ),
-    end=True  # Align to right
-)
-```
 
 ---
 
@@ -1169,12 +1116,6 @@ class Filters:
     """Typed filters for list queries."""
     status: str
     sort_by: str
-
-@dataclass
-class CalendarParams:
-    """Typed params for calendar view."""
-    calendar_view: str
-    current_date: date
 ```
 
 #### 2. Parsing Helpers
@@ -1186,18 +1127,6 @@ def parse_filters(request) -> Filters:
         status=request.query_params.get("filter_status", "active"),
         sort_by=request.query_params.get("sort_by", "default"),
     )
-
-def parse_calendar_params(request) -> CalendarParams:
-    """Extract calendar view parameters."""
-    calendar_view = request.query_params.get("calendar_view", "month")
-    date_str = request.query_params.get("date", "")
-
-    try:
-        current_date = date.fromisoformat(date_str) if date_str else date.today()
-    except ValueError:
-        current_date = date.today()
-
-    return CalendarParams(calendar_view=calendar_view, current_date=current_date)
 ```
 
 #### 3. Error Banner Component
@@ -1217,21 +1146,7 @@ def render_error_banner(message: str) -> Div:
 
 #### 4. Data Helpers Return Result[T]
 
-**Shared helper** (`adapters/inbound/ui_helpers.py`):
-```python
-from adapters.inbound.ui_helpers import fetch_user_entities
-
-async def get_all_goals(user_uid: UserUID) -> Result[list[Any]]:
-    """Get all goals for user."""
-    return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
-
-# For optional services, pass None when service is unavailable:
-async def get_all_events(user_uid: UserUID) -> Result[list[Any]]:
-    service_method = events_service.get_user_events if events_service else None
-    return await fetch_user_entities(service_method, "events", user_uid, logger)
-```
-
-`fetch_user_entities()` handles Result propagation, `or []` defaulting, structured logging, and safety-net exception catching — eliminating ~18 lines of boilerplate per domain.
+**Factory-centralized** (`adapters/inbound/activity_ui_factory.py`): `create_activity_ui_routes()` owns the fetch path — Result propagation, `or []` defaulting, structured logging, and the error branch all live in the factory's `_fetch_filtered()`, so per-domain routes carry no fetch boilerplate. (The former `ui_helpers.fetch_user_entities()` shared helper was deleted 2026-08 with zero consumers.)
 
 **Filtering** uses the service facade directly:
 ```python
@@ -1251,7 +1166,6 @@ async def tasks_dashboard(request) -> Any:
 
     # Parse using helpers
     filters = parse_filters(request)
-    calendar_params = parse_calendar_params(request)
 
     # Get data with Result[T]
     filtered_result = await get_filtered_tasks(user_uid, filters.status, filters.sort_by)
@@ -1324,11 +1238,7 @@ async def tasks_view_list(request) -> Any:
 | Calendar | ✅ Complete | Custom `Html(Head, Body)` wrapper → `BasePage`, PageHeader adopted |
 | GraphQL | ✅ Complete | `text-red-600` → `text-error`, `bg-red-50` → `bg-error/10` |
 
-**Shared Helpers** (`/adapters/inbound/ui_helpers.py`):
-- `render_dashboard_error_page(title, subtitle, error_message, view, render_view_tabs, page_creator, request)` — Standard error page for dashboard routes with tabs/nav preserved (all 6 Activity domains). Domains with multiple calls (e.g., Principles) wrap this in a local `_dashboard_error()` helper to DRY the static args.
-- `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Not Found" full page for detail views (all 6 Activity domains)
-- `fetch_user_entities(service_method, domain_name, user_uid, logger)` — Fetch all entities with consistent error handling/logging (4 domains)
-- `parse_calendar_params(request)` — Calendar view parameters (4 calendar-enabled domains)
+**Shared error/fetch handling lives in the factory** (`/adapters/inbound/activity_ui_factory.py`): not-found and fetch-error states render `render_error_banner()` inside the generated fragments; calendar query params parse via `parse_date_query_param()` (`route_factories`). The former `/adapters/inbound/ui_helpers.py` module was deleted 2026-08 (zero consumers).
 
 **Reference Files:**
 - `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
@@ -1376,16 +1286,16 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **System UI:** `ui/system/` — `landing.py` (login landing page with hero + form), `admin_hub.py` (admin home hub cards), `error_pages.py` (404 page). `system_ui.py` is ~73 lines — pure auth checks + delegation.
 
-**Reference pattern (from Tasks):**
+**Reference pattern (illustrative — live Activity detail routes are generated by `activity_ui_factory.py`):**
 ```python
-from adapters.inbound.ui_helpers import render_entity_not_found_page
+from ui.patterns.error_banner import render_error_banner
 
 @rt("/tasks/{uid}")
 async def task_detail_view(request, uid: str) -> Any:
     user_uid = require_authenticated_user(request)
     result = await tasks_service.get_for_user(uid, user_uid)
     if result.is_error or result.value is None:
-        return render_entity_not_found_page("Task", uid, "tasks", request)
+        return render_error_banner("Task not found")
     task = result.value
     content = Div(
         # Domain-specific content cards...

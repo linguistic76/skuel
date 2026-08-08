@@ -458,7 +458,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
 | `/ui/primitives.py` | Shared design primitives: `icon_tile()`, `section_label()`, `primary_btn()`, `card_row()`, `ButtonLink`, `SelectableOptionRow()`, `dropdown_menu()`, `dropdown_separator()`, `UploadDropzone()`, `SelectedFileCard()`. Source of truth for the unified design language tokens (container, selection, typography). `SelectableOptionRow` is the canonical option-row with icon+title+subtitle+checkmark — active/hover state strings live here only. `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states. |
-| `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E). `ButtonLink` from `ui/primitives.py`. |
+| `ui/feedback.py`, `ui/layout.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E); `ui/navigation.py` deleted 2026-08 (zero consumers — navbar lives in `ui/layouts/navbar.py`). `ButtonLink` from `ui/primitives.py`. |
 | `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071 complete).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Switch`, `Radio`, `Range` — bare `Checkbox` is exported from `ui.forms` only), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `TabContainer`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
 | `/static/js/skuel.js` | The 22 **shared** Alpine.data() components — not all of them; 4 more live in page-local bundles (`today.js`, `explore-reading.js`, `ku-reading.js`, `ps-detail.js`), 26 total. Inventory: `docs/architecture/ALPINE_JS_ARCHITECTURE.md` |
 | `/ui/profile/hub.py` | `ProfileHubView` — 4-tab hub (Activities / Curriculum / Submissions / Reports, default Activities); Activities/Curriculum/Reports render `HubAccordionBlockList` (native `<details>` accordions, lazy `intersect once` previews) |
@@ -481,7 +481,7 @@ When building a new SKUEL page or feature, verify:
 | `/core/utils/connection_configs.py` | Pure-data `ConnectionConfig` + 6 per-domain constants. The batch connection Cypher lives below the boundary in `ConnectionFetchBackend` (behind `ConnectionFetchOperations`, ADR-044); UI factories receive the port as `ActivityUIConfig.backend` |
 | `/core/utils/entity_filters.py` | `filter_tasks/goals/habits/events/choices/principles()` — business filtering/sorting logic extracted from UI views |
 | `/adapters/inbound/activity_ui_factory.py` | `ActivityUIConfig` dataclass + `create_activity_ui_routes()` — shared factory generating 5 routes per Activity Domain (page shell, content fragment, list-fragment, detail shell, detail content). Each `{domain}_ui.py` is ~50 lines creating an `ActivityUIConfig` and delegating here |
-| `/ui/journals/` | Journal UI rendering: `cards.py`, `components.py`, `forms.py` — used by `user_entry_ui.py` |
+| `/ui/journals/` | Journal UI rendering: `chat_page.py`, `components.py`, `forms.py`, `week_panel.py` — used by `user_entry_ui.py` and `journals_routes.py` |
 | `/ui/insights/` | Insight UI rendering: `components.py`, `filters.py`, `insight_card.py` — extracted from `insights_ui.py` |
 | `/ui/pathways/` | Pathways UI rendering: `components.py` — extracted from `pathways_ui.py` |
 | `/ui/notifications/` | Notification UI rendering: `cards.py` — extracted from `notifications_routes.py` |
@@ -490,7 +490,6 @@ When building a new SKUEL page or feature, verify:
 | `/ui/explore/ku_detail.py` | Ku detail page rendering — extracted from `explore_ui.py` |
 | `/ui/explore/ps_detail.py` | PathStep detail page rendering — extracted from `explore_ui.py` |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
-| `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
 | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | Complete patterns documentation |
 | `/tests/unit/ui/test_cross_domain_consistency.py` | Cross-domain consistency tests — verifies PageHeader, EmptyState, StatsGrid, EntityRelationshipsSection used across all 6 activity domains + 4 hub pages |
 

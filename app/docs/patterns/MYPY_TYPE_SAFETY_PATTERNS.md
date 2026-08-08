@@ -76,25 +76,21 @@ def create_reports_api_routes(
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.reports.reports_core_service import SubmissionsCoreService
-    from core.services.reports.reports_processing_service import SubmissionsProcessingService
-    from core.services.reports.reports_search_service import SubmissionsSearchService
-    from core.services.reports.reports_submission_service import ReportSubmissionService
+    from core.models.user_entry.user_entry import UserEntry
+    from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
 
-def create_reports_api_routes(
-    _app: Any,
-    rt: Any,
-    report_service: "ReportSubmissionService",              # Type-safe
-    processing_service: "SubmissionsProcessingService",         # Type-safe
-    reports_query_service: "SubmissionsSearchService | None" = None,
-    reports_core_service: "SubmissionsCoreService | None" = None,
+def create_user_entry_api_routes(
+    _app: Any,                                              # FastHTML boundary
+    rt: Any,                                                # FastHTML boundary
+    processing_service: "UserEntryProcessingService",       # Type-safe
 ) -> list[Any]:
-    """Create report API routes."""
+    """Create UserEntry API routes."""
 
-    @rt("/api/submissions/categorize")
-    async def categorize_route(request, uid: str) -> Result[Any]:
-        # ✅ No error - mypy knows the return type
-        return await reports_core_service.categorize_report(uid, category)
+    @rt("/api/submissions/reprocess")
+    async def reprocess_route(request, entry: "UserEntry") -> "Result[UserEntry]":
+        # ✅ No error — process() is typed Result[UserEntry] via the
+        # string-annotated service, so mypy validates the return concretely
+        return await processing_service.process(entry, force=True)
 ```
 
 **Benefits:**

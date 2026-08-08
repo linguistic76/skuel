@@ -13,7 +13,6 @@ Extracted modules tested:
 - core.utils.decorators (with_error_handling, requires_graph_intelligence)
 - core.utils.validation_helpers (4 validators)
 - core.utils.dto_converters (3 converters)
-- core.models.graph (Relationship, GraphPath)
 """
 
 from __future__ import annotations
@@ -23,10 +22,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
-import pytest
-
 # Test extracted utilities
-from core.models.graph_models import GraphPath, Relationship
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.dto_converters import to_domain_model, to_domain_models
 from core.utils.result_simplified import Result
@@ -418,82 +414,6 @@ class TestDTOConverters:
 
 
 # ============================================================================
-# TESTS: core.models.graph
-# ============================================================================
-
-
-class TestGraphModels:
-    """Test graph model dataclasses extracted from base_service.py."""
-
-    def test_relationship_creation(self):
-        """Relationship dataclass can be created."""
-        rel = Relationship(
-            from_uid="node_1",
-            rel_type="REQUIRES",
-            to_uid="node_2",
-            properties={"confidence": 0.9},
-        )
-
-        assert rel.from_uid == "node_1"
-        assert rel.rel_type == "REQUIRES"
-        assert rel.to_uid == "node_2"
-        assert rel.properties["confidence"] == 0.9
-
-    def test_relationship_without_properties(self):
-        """Relationship can be created without properties."""
-        rel = Relationship(from_uid="a", rel_type="CONNECTS", to_uid="b")
-
-        assert rel.from_uid == "a"
-        assert rel.rel_type == "CONNECTS"
-        assert rel.to_uid == "b"
-        assert rel.properties is None
-
-    def test_relationship_is_frozen(self):
-        """Relationship is immutable (frozen=True)."""
-        rel = Relationship(from_uid="a", rel_type="TEST", to_uid="b")
-
-        with pytest.raises((AttributeError, TypeError)):  # Frozen dataclass error
-            rel.from_uid = "changed"  # type: ignore[misc]
-
-    def test_graph_path_creation(self):
-        """GraphPath dataclass can be created."""
-        path = GraphPath(
-            nodes=["node_1", "node_2", "node_3"],
-            relationships=[
-                Relationship("node_1", "NEXT", "node_2"),
-                Relationship("node_2", "NEXT", "node_3"),
-            ],
-            total_cost=10.5,
-        )
-
-        assert len(path.nodes) == 3
-        assert len(path.relationships) == 2
-        assert path.total_cost == 10.5
-
-    def test_graph_path_default_cost(self):
-        """GraphPath has default total_cost of 0.0."""
-        path = GraphPath(nodes=["a", "b"], relationships=[Relationship("a", "TO", "b")])
-
-        assert path.total_cost == 0.0
-
-    def test_graph_path_empty(self):
-        """GraphPath can represent empty path."""
-        path = GraphPath(nodes=[], relationships=[])
-
-        assert len(path.nodes) == 0
-        assert len(path.relationships) == 0
-        assert path.total_cost == 0.0
-
-    def test_graph_path_is_frozen(self):
-        """GraphPath is immutable (frozen=True)."""
-        path = GraphPath(nodes=["a"], relationships=[])
-
-        # Frozen prevents attribute reassignment, not list mutation
-        with pytest.raises((AttributeError, TypeError)):  # Frozen dataclass error
-            path.total_cost = 999.0  # type: ignore[misc]  # Can't reassign attributes
-
-
-# ============================================================================
 # TESTS: Backward Compatibility (BaseService integration)
 # ============================================================================
 
@@ -512,8 +432,6 @@ class TestBackwardCompatibility:
         assert validate_date_range is not None
         assert to_domain_model is not None
         assert to_domain_models is not None
-        assert Relationship is not None
-        assert GraphPath is not None
 
     def test_base_service_imports_do_not_fail(self):
         """BaseService can import all extracted utilities."""
@@ -594,23 +512,3 @@ class TestIntegration:
         dto = model.to_dto()
 
         assert dto.count == 42
-
-    def test_graph_models_with_converters(self):
-        """Graph models can be used with converter utilities."""
-        # Create relationship
-        rel = Relationship(from_uid="a", rel_type="TEST", to_uid="b")
-
-        # Convert to dict (for storage/transport)
-        rel_dict = {
-            "from_uid": rel.from_uid,
-            "rel_type": rel.rel_type,
-            "to_uid": rel.to_uid,
-            "properties": rel.properties,
-        }
-
-        # Recreate from dict
-        new_rel = Relationship(**rel_dict)
-
-        assert new_rel.from_uid == rel.from_uid
-        assert new_rel.rel_type == rel.rel_type
-        assert new_rel.to_uid == rel.to_uid

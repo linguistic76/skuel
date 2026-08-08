@@ -26,6 +26,7 @@ from core.models.auth.password_reset_token import create_password_reset_token
 from core.models.auth.session import create_session
 from core.models.type_hints import UserUID
 from core.models.user import User, create_user
+from core.ports.email_protocols import EmailOperations
 from core.ports.query_types import SignInResult, SignUpResult
 from core.utils.exception_types import AUTH_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -45,7 +46,7 @@ class GraphAuthService:
         self,
         user_backend: Any,  # UserOperations protocol
         session_backend: Any,  # SessionBackend
-        email_service: Any | None = None,  # EmailOperations protocol (optional)
+        email_service: EmailOperations | None = None,  # EMAIL_ENABLED-gated (None when off)
         app_url: str = "http://localhost:8000",
     ) -> None:
         """

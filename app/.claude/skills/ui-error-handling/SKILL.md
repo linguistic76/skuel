@@ -83,12 +83,6 @@ class Filters:
     """Typed filters for list queries."""
     status: str
     sort_by: str
-
-@dataclass
-class CalendarParams:
-    """Typed params for calendar view."""
-    calendar_view: str
-    current_date: date
 ```
 
 **Benefits:**
@@ -339,12 +333,10 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/form_submissions_ui.py` - `render_error_banner()` for full-page, `EmptyState` for empty data
 - `/ui/lifepath/vision.py` - `EmptyState` with CTA for no matching Learning Paths (delegated from `lifepath_ui.py`)
 
-### Shared Helpers (`/adapters/inbound/ui_helpers.py`)
-- `render_dashboard_error_page(title, subtitle, error_message, view, render_view_tabs, page_creator, request)` — Standard error page for dashboard routes with tabs/nav preserved (all 6 Activity domains). Domains with multiple calls (e.g., Principles) wrap this in a local `_dashboard_error()` helper to DRY the static args.
-- `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Entity Not Found" full page for detail views (all 6 Activity domains)
-- `fetch_user_entities(service_method, domain_name, user_uid, logger)` — Fetch all entities with consistent Result[T] error handling/logging (4 domains)
-- `parse_calendar_params(request)` — Calendar view parameters (4 calendar-enabled domains)
-- `render_safe_error_response(user_message, error_context, logger, log_extra)` — Sanitized error Response for API routes
+### Factory-Centralized Activity Error Handling (`/adapters/inbound/activity_ui_factory.py`)
+- `create_activity_ui_routes()` owns fetch + Result propagation + the not-found path for all 6 Activity domains — generated fragments render `render_error_banner()`; routes never hand-roll these states.
+- Calendar query params parse via `parse_date_query_param()` from `route_factories`.
+- (The former `/adapters/inbound/ui_helpers.py` shared-helper module was deleted 2026-08 with zero consumers.)
 
 ### Error Banner Component
 - `/ui/patterns/error_banner.py` - `render_error_banner()`, `render_inline_error()`, `render_empty_state_with_error()`

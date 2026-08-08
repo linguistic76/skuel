@@ -253,10 +253,7 @@ async def tasks_dashboard(request) -> Any:
 
 **Pattern:** Full-page errors use `render_error_banner()`. HTMX fragment errors use `render_inline_error()` (compact, with `role="alert"` + `aria-live="polite"` for WCAG). Empty data states use `EmptyState()`.
 
-**Shared Helpers** (`adapters/inbound/ui_helpers.py`):
-- `render_dashboard_error_page(title, subtitle, error_message, view, render_view_tabs, page_creator, request)` — Standard error page for dashboard routes with tabs/nav preserved (all 6 Activity domains). Domains with multiple calls (e.g., Principles) wrap this in a local `_dashboard_error()` helper to DRY the static args.
-- `render_entity_not_found_page(entity_label, uid, domain_slug, request)` — Standard "Not Found" full page for detail views
-- `fetch_user_entities(service_method, domain_name, user_uid, logger)` — Fetch all entities with consistent Result[T] error handling
+**Activity dashboards and detail pages are factory-generated** (`adapters/inbound/activity_ui_factory.py`): fetch + Result propagation and the not-found path (`render_error_banner()` inside the generated fragment) are centralized in `create_activity_ui_routes()` — routes never hand-roll them. (The former `adapters/inbound/ui_helpers.py` shared-helper module was deleted 2026-08 once the factory left it with zero consumers.)
 
 **Reference:** See `/docs/patterns/UI_COMPONENT_PATTERNS.md` for full implementation details.
 
