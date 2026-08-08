@@ -8,8 +8,8 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | Participant | What it is | Where configured | Posts | Trigger |
 |---|---|---|---|---|
 | **CI Gate** | Aggregator job in `ci.yml` | This repo | ✅ status check (**required**) | Every PR/push to `main` |
-| **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
-| **Lint** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — Ruff format + check, SKUEL architecture linter (strict), Cypher linter (errors), route-security audit |
+| **Type Check (MyPy + Pyright)** | Job in `ci.yml` | This repo | ✅ status check + PR comment on MyPy failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — both zero-error baselines |
+| **Lint** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — Ruff format + check, SKUEL architecture linter (strict), Cypher linter (errors), route-security audit, raw-headers audit, dead-code gate (`detect_bloat.py --check`), ShellCheck |
 | **Dependency CVE Audit** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, either lockfile, or the audit tooling itself (`audit_dependencies.sh`, `osv-scanner.toml`) change — osv-scanner over BOTH locked ecosystems (`uv.lock` + `package-lock.json`, all severities; `scripts/audit_dependencies.sh`, same as `./dev audit-deps`); accepted findings documented in `app/osv-scanner.toml` with `ignoreUntil` expiries |
 | **Integration Tests** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — `tests/integration/` against a Neo4j testcontainer (the runner's Docker daemon); the only tier that executes real Cypher |
 | **Render Smoke Test** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/**`, `app/ui/**`, `app/**/*.py`, or deps change — renders unauthenticated pages in headless Chrome and fails if any never reaches idle (infinite JS loop / render hang) |
@@ -62,10 +62,14 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
   `validate_documentation` / `js_tests`** run only
   when their paths changed, so they're skipped (not failed) on unrelated PRs.
 - **`lint`** runs the mechanical rule set `./dev quality` runs locally, minus
-  MyPy (its own job): `ruff format --check`, `ruff check`,
-  `lint_skuel.py --strict`, `cypher_linter.py --errors-only --strict`, and
-  `audit_route_security.py`. Steps keep running after one fails so a single CI
+  the type checkers (their own job) and checks owned by other jobs:
+  `ruff format --check`, `ruff check`, `lint_skuel.py --strict`,
+  `cypher_linter.py --errors-only --strict`, `audit_route_security.py`,
+  `audit_raw_headers.py`, `detect_bloat.py --check`, and
+  `shellcheck_tracked.py`. Steps keep running after one fails so a single CI
   run surfaces every violation category.
+  `app/tests/unit/scripts/test_quality_ci_parity.py` fails when a
+  `./dev quality` check has no CI home — extend both sides together.
 - **`dep_audit`** audits BOTH locked ecosystems (`uv.lock` all groups +
   `package-lock.json`, all severities) against the OSV database via
   `scripts/audit_dependencies.sh` (osv-scanner; binary pin + checksum in
@@ -101,7 +105,7 @@ uv run mypy .                                  # MyPy check
 ./dev audit-deps                               # Dependency CVE audit (the CI dep_audit job)
 uv run python scripts/docs_freshness.py --critical-only
 uv run python scripts/skills_validator.py
-./dev quality                                  # full suite (ruff + SKUEL linter + cypher + route audit + mypy)
+./dev quality                                  # full suite — every check here also has a CI home (parity-tested)
 ```
 
 ## Scheduled workflows (no PR trigger, not status checks)

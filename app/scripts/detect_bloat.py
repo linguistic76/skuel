@@ -36,8 +36,8 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   audited, and there is no field scanner to audit with.
 
 Advisory by default (exit 0). ``--check`` exits 1 on surviving WARNING
-findings — not wired into quality gates until the manual false-positive audit
-passes (see the rewrite plan).
+findings — wired as ./dev quality check 7 and the CI lint job's dead-code
+gate. PLANNED registration is the escape hatch for deliberately staged work.
 
 Usage:
     uv run python scripts/detect_bloat.py

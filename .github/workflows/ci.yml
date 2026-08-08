@@ -142,7 +142,10 @@ jobs:
               - '.github/workflows/ci.yml'
 
   mypy:
-    name: MyPy Type Check
+    # Job id stays `mypy` (the gate's needs list keys on it); the display name
+    # reflects that both type checkers run here since the CI↔quality parity
+    # work — pyright's 0-error baseline (2026-05-18) was previously unguarded.
+    name: Type Check (MyPy + Pyright)
     needs: changes
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
@@ -214,8 +217,18 @@ jobs:
           set -o pipefail
           uv run mypy . | tee mypy_output.txt
 
+      # Runs even when MyPy failed (mirrors the lint job: one CI run surfaces
+      # every violation category), but not when setup itself failed.
+      - name: Run Pyright
+        if: ${{ !cancelled() && steps.mypy.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run pyright
+
+      # Attribution guard: keyed on the MyPy step's own outcome, not job-level
+      # failure() — a Pyright-only failure must not post a "MyPy failed"
+      # comment over a passing mypy_output.txt.
       - name: Upload MyPy output on failure
-        if: failure()
+        if: ${{ !cancelled() && steps.mypy.outcome == 'failure' }}
         uses: actions/upload-artifact@v7
         with:
           name: mypy-output
@@ -223,7 +236,7 @@ jobs:
           retention-days: 14
 
       - name: Comment on PR if MyPy failed
-        if: failure() && github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.mypy.outcome == 'failure' && github.event_name == 'pull_request' }}
         uses: actions/github-script@v9
         with:
           script: |
@@ -269,11 +282,15 @@ jobs:
               body: body,
             });
 
-  # Lint — the mechanical rule set ./dev quality runs locally, minus MyPy
-  # (its own job above): Ruff format + check, the SKUEL architecture linter,
-  # the Cypher linter, and the route-security audit. Before this job existed
-  # none of these ran in CI, so a PR authored without a local ./dev lint
-  # merged with zero lint coverage.
+  # Lint — the mechanical rule set ./dev quality runs locally, minus the type
+  # checkers (their own job above) and the checks other jobs own (dep_audit,
+  # content_boundary, validate_documentation): Ruff format + check, the SKUEL
+  # architecture linter, the Cypher linter, the route-security audit, the
+  # raw-headers audit, the dead-code gate, and ShellCheck. Before this job
+  # existed none of these ran in CI, so a PR authored without a local
+  # ./dev lint merged with zero lint coverage.
+  # tests/unit/scripts/test_quality_ci_parity.py asserts this job (plus the
+  # others named above) covers every ./dev quality check — extend BOTH sides.
   lint:
     name: Lint
     needs: changes
@@ -338,6 +355,20 @@ jobs:
         if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
         working-directory: app
         run: uv run python scripts/audit_route_security.py
+
+      # Raw headers audit — H1/H2 findings are advisory; only Html(Head())
+      # violations (hand-assembled documents bypassing BasePage/AuthPage) fail.
+      - name: Raw headers audit
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/audit_raw_headers.py
+
+      # Dead-code gate — fails only on WARNING-tier findings; staged work
+      # registered in the PLANNED tiers never fails (see BLOAT_DETECTION.md).
+      - name: Dead-code gate
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/detect_bloat.py --check
 
       # Same discovery + severity as ./dev quality check 9 — shellcheck-py (dev
       # group) vendors the binary, so no apt install step is needed here.
