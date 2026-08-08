@@ -30,11 +30,21 @@ KU analytics are handled by `KuIntelligenceService`. There is **no MOC service o
 |---------|---------------------------|
 | MOC identity | Emergent — any `Entity` with outgoing `ORGANIZES` edges (no flag, no service). See `CLAUDE.md` and [`CURRICULUM_GROUPING_PATTERNS.md`](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md). |
 | Authoring MOC edges | Ingestion — `moc: true` frontmatter → `ORGANIZES {order}` edges (`core/services/ingestion/moc_links.py`). |
-| ORGANIZES relationships on PathSteps | `PsOrganizationService` (`core/services/ps/ps_organization_service.py`) — hierarchical previous/next-sibling navigation over the ORGANIZES order. |
+| ORGANIZES operations (create/read/reorder, navigation) | `PsOrganizationService` (`core/services/ps/ps_organization_service.py`) + the `PsService` facade, registered by `adapters/inbound/path_steps_api.py`: `organize` / `unorganize` / `reorder` / `get_organized_children` / `is_organizer` / `get_organization_view` / `find_organizers` / `list_root_organizers` / `get_navigation`. PathStep-scoped. |
 | MOC navigation surface | UserContext (`active_moc_uids`, `recently_viewed_moc_uids`), consumed by Askesis (`core/services/askesis/context_retriever.py`). |
 | KU/MOC analytics | `KuIntelligenceService` — a Ku that organizes others is analyzed as a Ku. |
 
-> **Prior fiction (removed 2026-08-08 audit):** earlier revisions of this doc described a `MOCService` → `MocNavigationService` → `KuService` stack with methods `is_moc` / `get_moc_view` / `organize` / `list_root_mocs` / etc. **None of those classes, files, or methods exist** — they were never built. The table above reflects the actual code.
+> **Prior fiction (corrected 2026-08-08 audit).** Earlier revisions described a `MOCService` →
+> `MocNavigationService` → `KuService` **class stack** (files `core/services/moc_service.py`,
+> `core/services/moc/moc_navigation_service.py`) with **KU-scoped** methods `is_moc(ku_uid)` /
+> `get_moc_view(ku_uid)` / `find_mocs_containing(ku_uid)` / `list_root_mocs()`. **That class
+> architecture and those KU-scoped names never existed.**
+>
+> The ORGANIZES **operations themselves do exist** — but on **PathSteps**, via `PsOrganizationService`
+> and the `PsService` facade (backed by `adapters/persistence/neo4j/_organizes_mixin.py`, registered by
+> `adapters/inbound/path_steps_api.py`): `organize` / `unorganize` / `reorder` / `get_organized_children`
+> verbatim, plus `is_organizer` / `get_organization_view` / `find_organizers` / `list_root_organizers`
+> (the real, PathStep-scoped equivalents of the fictional KU-scoped names above).
 
 ## Two Paths to Knowledge
 
