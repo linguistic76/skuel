@@ -99,6 +99,9 @@ from cypher_vocabulary import (  # type: ignore[import-not-found]
     unregistered_names,
 )
 
+# Shared with audit_raw_headers.py — one exclusion vocabulary, one walk helper.
+from quality_discovery import is_excluded  # type: ignore[import-not-found]
+
 
 class Severity(Enum):
     """Violation severity levels."""
@@ -1167,28 +1170,9 @@ class SkuelLinter:
     - Minimal false positives
     """
 
-    # Directory names excluded wherever they appear in the path. Matched as whole
-    # path SEGMENTS — the old substring match swallowed real modules ("build" in
-    # "query_builder.py" silently unlinted every *builder* file, 19 files total).
-    EXCLUDED_DIR_NAMES: ClassVar[frozenset[str]] = frozenset(
-        {
-            ".venv",
-            "venv",
-            "__pycache__",
-            ".git",
-            "node_modules",
-            "dist",
-            "build",
-            ".pytest_cache",
-            ".mypy_cache",
-            ".ruff_cache",
-            "htmlcov",
-            "backup_archive",
-            "z_archives",
-            "zarchives",
-            ".claude",  # Claude Code config/skills (documentation only)
-        }
-    )
+    # Excluded directory names live in quality_discovery.EXCLUDED_DIR_NAMES —
+    # the shared vocabulary (segment-matched; see that module for the
+    # substring-bug history). Only the lint-specific scope stays here:
 
     # Root-relative path prefixes excluded as a unit.
     EXCLUDED_PATH_PREFIXES: ClassVar[tuple[str, ...]] = (
@@ -1199,9 +1183,7 @@ class SkuelLinter:
     def _is_excluded(self, py_file: Path) -> bool:
         """True if the file lives under an excluded directory / path prefix."""
         rel = py_file.relative_to(self.root_dir)
-        if any(part in self.EXCLUDED_DIR_NAMES for part in rel.parts):
-            return True
-        return rel.as_posix().startswith(self.EXCLUDED_PATH_PREFIXES)
+        return is_excluded(rel, path_prefixes=self.EXCLUDED_PATH_PREFIXES)
 
     # Rules that honor `# skuel-lint: disable[-file]=SKUELXXX` — exactly the set
     # whose checkers call _is_line_suppressed/_is_file_suppressed. A suppression

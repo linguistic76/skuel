@@ -32,6 +32,14 @@ import ast
 import sys
 from pathlib import Path
 
+# Shared with lint_skuel.py — one exclusion vocabulary, one walk helper.
+sys.path.insert(0, str(Path(__file__).parent))
+from quality_discovery import iter_python_files  # type: ignore[import-not-found]
+
+# Deliberately narrower scope than the shared vocabulary: this audit covers
+# production UI code only — tests/ and scripts/ construct headings freely.
+EXTRA_EXCLUDED_DIR_NAMES: frozenset[str] = frozenset({"scripts", "tests"})
+
 # ---------------------------------------------------------------------------
 # Approved files — H1/H2 allowed (intentional styling, branding, or layout)
 # ---------------------------------------------------------------------------
@@ -152,13 +160,8 @@ def audit(root: Path, strict: bool) -> int:
     h2_findings: list[tuple[str, list[int]]] = []
     html_findings: list[tuple[str, list[int]]] = []
 
-    for path in sorted(root.rglob("*.py")):
+    for path in iter_python_files(root, extra_dir_names=EXTRA_EXCLUDED_DIR_NAMES):
         rel = _relative(path, root)
-        if any(
-            seg in rel for seg in ("__pycache__", ".venv", "scripts/", "tests/", "node_modules")
-        ):
-            continue
-
         source = path.read_text(encoding="utf-8", errors="replace")
 
         # Only scan files that import H1/H2/Html to keep it fast

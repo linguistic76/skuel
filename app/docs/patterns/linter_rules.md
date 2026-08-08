@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-07-17
+updated: 2026-08-07
 category: patterns
 related_skills:
 - python
@@ -28,8 +28,8 @@ For implementation guidance, see:
 5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP012), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations — semicolon-split statements, comment-masked; since PR #710)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
-- `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
-- `tests/unit/scripts/test_cypher_linter.py` — 136 tests covering CYP001–CYP006, CYP009, CYP011, CYP012, Python query extraction (admission, docstring exemption, Python + Cypher comment masking), `.cypher` statement extraction, file discovery, helpers
+- `tests/unit/scripts/test_lint_skuel.py` — covers all active SKUEL rules (SKUEL001–033; SKUEL004 deleted, IDs not renumbered), LintResult, suppression + the SKUEL026 audit
+- `tests/unit/scripts/test_cypher_linter.py` — covers CYP001–CYP006, CYP009, CYP011, CYP012, Python query extraction (admission, docstring exemption, Python + Cypher comment masking), `.cypher` statement extraction, file discovery, helpers
 
 ## SKUEL-Specific Rules
 
@@ -1244,5 +1244,5 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 
 ---
 
-**Last Updated:** 2026-07-19
-**Status:** Active - 31 rules (SKUEL001–SKUEL032; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.
+**Last Updated:** 2026-08-07
+**Status:** Active - 32 rules (SKUEL001–SKUEL033; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.

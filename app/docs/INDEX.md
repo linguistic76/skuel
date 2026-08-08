@@ -300,6 +300,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Codebase Health Checks](tools/HEALTH_CHECKS.md)** | **2026-03-04** | Dead modules, broken doc links, stale names, cross-refs (`./dev health`) |
 | **[Bloat Detection](tools/BLOAT_DETECTION.md)** | **2026-06-10** | AST-sound dead-event + dead-method detection, Vulture-backed (`./dev bloat`) |
 | [Automatic Documentation Check](tools/AUTOMATIC_DOCS_CHECK.md) | 2026-01-30 | Post-commit hook that suggests doc updates after code changes |
+| [Knowledge-Health Gauge](tools/KNOWLEDGE_HEALTH.md) | 2026-08-07 | Corpus-level knowledge-subgraph structural health, ADR-080 H1 (`./dev knowledge-health`) |
 
 ---
 

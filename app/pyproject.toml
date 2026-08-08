@@ -621,7 +621,8 @@ exclude = [
     # a commit while passing CI. Latent today: all 12 tracked .py under these trees lint
     # clean either way. Set `force-exclude = true` if that ever bites.
     ".venv",
-    "backup_archive",  # Local backup dir; mirrored in scripts/lint_skuel.py EXCLUDED_DIR_NAMES
+    "backup_archive",  # Local backup dir; shared vocabulary in scripts/quality_discovery.py —
+                       # overlap + divergences pinned by tests/unit/scripts/test_quality_discovery.py
     "neo4j-import",  # Neo4j Docker container data directory (permission denied)
     "docs/archive",  # Archived/deprecated code - not actively maintained (.gitignore: **/archive/)
     "zarchives",     # Archived code - not actively maintained (.gitignore: zarchives/)

@@ -1,6 +1,6 @@
 ---
 title: Linter Guide
-updated: 2026-03-29
+updated: 2026-08-07
 category: guides
 related_skills:
 - python
@@ -30,8 +30,8 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 | Layer | Tool | Scope | Config |
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
-| **SKUEL Patterns** | `scripts/lint_skuel.py` | 31 architectural rules (SKUEL001-SKUEL032; SKUEL004 deleted, IDs not renumbered) | Inline in script |
-| **Cypher Queries** | `scripts/cypher_linter.py` | 12 Neo4j query rules (CYP001-CYP012) | Inline in script |
+| **SKUEL Patterns** | `scripts/lint_skuel.py` | 32 architectural rules (SKUEL001–SKUEL033; SKUEL004 deleted, IDs not renumbered) | Inline in script |
+| **Cypher Queries** | `scripts/cypher_linter.py` | Neo4j query rules CYP001–CYP012 (CYP007/CYP008/CYP010 disabled — see the script docstring) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
 - **MyPy** — static type checking (0 errors enforced)
@@ -39,7 +39,7 @@ Additional type checkers run during `./dev quality`:
 
 ## How `./dev quality` Works
 
-`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates eleven checks in order:
+`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates the following checks in order (the script is the source of truth for the exact set — `tests/unit/scripts/test_quality_ci_parity.py` pins it against CI):
 
 1. **Ruff format check** — `uv run ruff format --check`
 2. **Ruff lint** — `uv run ruff check`
@@ -51,7 +51,8 @@ Additional type checkers run during `./dev quality`:
 8. **Content-boundary guard** — `uv run python scripts/audit_content_boundary.py` (no proprietary vault content tracked in this PUBLIC repo; also enforced by `tests/unit/test_content_boundary.py` on the CI gate)
 9. **Dead-code gate** — `uv run python scripts/detect_bloat.py --check` (PLANNED tier is the escape hatch)
 10. **Dependency CVE audit** — `bash scripts/audit_dependencies.sh` (osv-scanner over `uv.lock` + `package-lock.json`, all severities; accepted findings in `osv-scanner.toml` — ADR-067 § 6e)
-11. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
+11. **ShellCheck** — `uv run python scripts/shellcheck_tracked.py` (tracked `*.sh` + shebang-detected scripts; discovery shared with the CI lint job)
+12. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
 
 `./dev quality-fix` passes `--fix` to auto-fixable steps.
 
@@ -59,12 +60,12 @@ Additional type checkers run during `./dev quality`:
 
 Configured in `pyproject.toml` under `[tool.ruff]`:
 
-- **Target:** Python 3.12
+- **Target:** latest stable CPython (`target-version` in `pyproject.toml`, currently `py314` — tracks `.python-version` per ADR-067)
 - **Line length:** 100
 - **All rules auto-fixable:** `fixable = ["ALL"]`
 - **Per-file ignores:** Extensive config for tests, UI, routes, scripts (see `[tool.ruff.lint.per-file-ignores]`)
 
-## SKUEL Pattern Rules (SKUEL001-SKUEL029)
+## SKUEL Pattern Rules (SKUEL001–SKUEL033)
 
 These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 
@@ -114,6 +115,9 @@ them without failing.
 | **SKUEL017** | Bare `except Exception` | Use specific types from `exception_types.py` (AST — catches wrapped clauses) |
 | **SKUEL018** | Direct read of `RichUserContext` rich-only fields | Use `get_X()` / `X_or_empty()` accessors |
 | **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment (per-run audit; see linter_rules.md) |
+| **SKUEL030** | Unregistered label / edge name in `adapters/persistence/` Cypher | Must be a `NeoLabel` / `RelationshipName` member — Neo4j matches zero rows silently on an unknown name (`.cypher` half is CYP011) |
+| **SKUEL031** | Stale pip references | uv is the one path (`uv add` / `uv sync`) — SKUEL016's pip sibling |
+| **SKUEL033** | Cypher-shaped docstrings in `core/services`, `core/orchestrator`, `core/ports`, `core/models` | State intent + the guarantee; the query belongs in the backend docstring (see SERVICE_DOCSTRING_STYLE.md) |
 
 ### INFO
 
@@ -266,6 +270,14 @@ comments are kept, and the natural placement works —
 `DELETE n; // noqa: CYP002 - reason` suppresses the statement its semicolon
 closes. Block comments are always masked, so noqa must be `//`-style.
 
+**Scanner diagnostics:** `scripts/cypher_scan_diagnostics.py` replays SKUEL030's
+and CYP011's real scan paths with recording switched on and reports every span
+the shared vocabulary scanner admitted but could not read (dropped items,
+unreadable pattern bodies, truncated mutation regions). A diagnostic, not a rule
+— not wired into `./dev quality`, and most drops are correct; it exists so a
+reviewer measures the scanner's blind spots instead of imagining them (#831's
+19-round tail). See its module docstring for usage.
+
 ## Inline Suppression
 
 When a rule needs to be suppressed for a legitimate reason:
@@ -312,7 +324,7 @@ uv run python scripts/lint_skuel.py --strict    # Treat warnings as errors
 
 ## Adding a New SKUEL Rule
 
-1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: **SKUEL032**; SKUEL004 was deleted 2026-07 and must NOT be reused)
+1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: **SKUEL033**; SKUEL004 was deleted 2026-07 and must NOT be reused)
 2. **Add a check method** in `scripts/lint_skuel.py` — follow the pattern of existing `_check_skuelXXX()` methods
 3. **Register the rule** in the `RULE_DOCS` dict with severity, description, and good/bad examples (used by `--explain`)
 4. **Wire it into `_lint_file`** with the correct context gate (e.g. `not is_test`, `is_service`), AND add the id to `AST_RULE_IDS` if the rule reads the shared tree — omitting it leaves `tree` as `None`, so `--rule SKUELXXX` silently reports zero while a full sweep works
@@ -325,8 +337,8 @@ uv run python scripts/lint_skuel.py --strict    # Treat warnings as errors
 
 Both custom linters have comprehensive test coverage:
 
-- `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all active SKUEL rules
-- `tests/unit/scripts/test_cypher_linter.py` — 76 tests covering Cypher rules, Python query extraction, and `.cypher` statement extraction
+- `tests/unit/scripts/test_lint_skuel.py` — covers all active SKUEL rules, LintResult, suppression + the SKUEL026 audit
+- `tests/unit/scripts/test_cypher_linter.py` — covers the active Cypher rules, Python query extraction, and `.cypher` statement extraction
 
 ## Key Files
 
@@ -334,8 +346,11 @@ Both custom linters have comprehensive test coverage:
 |------|---------|
 | `dev` | CLI wrapper — `./dev lint`, `./dev quality`, etc. |
 | `pyproject.toml` | Ruff, MyPy, Pyright configuration |
-| `scripts/lint_skuel.py` | SKUEL pattern linter (31 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
-| `scripts/cypher_linter.py` | Cypher query linter (10 rules) |
+| `scripts/lint_skuel.py` | SKUEL pattern linter (32 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
+| `scripts/cypher_linter.py` | Cypher query linter (CYP001–CYP012; CYP007/CYP008/CYP010 disabled) |
+| `scripts/cypher_vocabulary.py` | Shared registry reader + name scanner for SKUEL030/CYP011 and the `looks_like_cypher` admission gate — one anchor, both linters |
+| `scripts/cypher_scan_diagnostics.py` | Diagnostic (not a rule): replays both rules' real scan paths and reports every span the scanner admitted but could not read |
+| `scripts/quality_discovery.py` | Shared file-discovery exclusion vocabulary (lint_skuel + audit_raw_headers); ruff-exclude overlap pinned by `tests/unit/scripts/test_quality_discovery.py` |
 | `scripts/run_quality_checks.py` | Quality check orchestrator |
 | `docs/patterns/linter_rules.md` | Detailed rule documentation |
 
