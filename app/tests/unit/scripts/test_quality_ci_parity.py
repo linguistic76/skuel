@@ -40,48 +40,85 @@ DELIBERATELY_LOCAL_ONLY: dict[str, str] = {}
 MIN_QUALITY_CHECKS = 10
 MIN_CI_CHECKS = 10
 
-# Flags that change what a script ENFORCES, not how it prints. These are part
+# Flags that change what a check ENFORCES, not how it prints. These are part
 # of the check's identity: CI dropping --check from detect_bloat.py (advisory,
-# exit 0 on WARNINGs) or --strict from a linter is enforcement drift even
-# though the script path still matches (Codex, PR #981). Presentation flags
-# (--quiet, --json) and fix-mode variants stay out — they don't move the gate.
+# exit 0 on WARNINGs) or ruff format (rewrites files, always exits 0), or
+# --strict from a linter, is enforcement drift even though the command still
+# matches (Codex, PR #981). Presentation flags (--quiet, --json) stay out;
+# quality's --fix branches are pruned at extraction instead (see
+# quality_check_set), so the auto-repair variants never reach comparison.
 GATE_AFFECTING_FLAGS = frozenset({"--check", "--strict", "--errors-only"})
 
 
 def canonical_check(tokens: list[str]) -> str | None:
     """Map a command's tokens to a stable check identifier, or None.
 
-    Identifier is the scripts/ path plus its gate-affecting flags (sorted)
-    when a script is present — the script AND its enforcement mode are the
-    check. Bare tools (ruff/mypy/pyright) keep flag-free identifiers: ruff's
-    --check/--fix split is quality's fix-mode branch, not enforcement drift,
-    and including it would false-fail on the auto-fix variant.
+    Identifier is the scripts/ path — or the bare tool invocation (ruff keeps
+    its subcommand) — plus any gate-affecting flags present, sorted. The
+    command AND its enforcement mode are the check.
     """
+    base: str | None = None
     for token in tokens:
         if token.startswith("scripts/") and token.endswith((".py", ".sh")):
-            gate_flags = sorted(GATE_AFFECTING_FLAGS.intersection(tokens))
-            return " ".join([token, *gate_flags])
-    if "ruff" in tokens:
+            base = token
+            break
+    if base is None and "ruff" in tokens:
         index = tokens.index("ruff")
         subcommand = tokens[index + 1] if index + 1 < len(tokens) else ""
-        return f"ruff {subcommand}"
-    if "mypy" in tokens:
-        return "mypy"
-    if "pyright" in tokens:
-        return "pyright"
-    return None
+        base = f"ruff {subcommand}"
+    if base is None and "mypy" in tokens:
+        base = "mypy"
+    if base is None and "pyright" in tokens:
+        base = "pyright"
+    if base is None:
+        return None
+    gate_flags = sorted(GATE_AFFECTING_FLAGS.intersection(tokens))
+    return " ".join([base, *gate_flags])
+
+
+def is_fix_mode_test(test: ast.expr) -> bool:
+    """True for the literal `args.fix` condition in run_quality_checks.py."""
+    return (
+        isinstance(test, ast.Attribute)
+        and test.attr == "fix"
+        and isinstance(test.value, ast.Name)
+        and test.value.id == "args"
+    )
+
+
+class EnforcementCallCollector(ast.NodeVisitor):
+    """Collects run_command calls, skipping `if args.fix:` bodies.
+
+    The fix branches (`ruff format`, `ruff check --fix`) are auto-repair
+    conveniences, not the enforcement contract — comparing them against CI
+    would false-fail on the flagless variants. Only the else-side (check
+    mode) is what CI must mirror.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[ast.Call] = []
+
+    def visit_If(self, node: ast.If) -> None:
+        if is_fix_mode_test(node.test):
+            for statement in node.orelse:
+                self.visit(statement)
+            return
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "run_command":
+            self.calls.append(node)
+        self.generic_visit(node)
 
 
 def quality_check_set() -> set[str]:
-    """Every check run_quality_checks.py can run, across all flag branches."""
+    """Every enforcement check run_quality_checks.py runs (fix mode pruned)."""
     tree = ast.parse(QUALITY_RUNNER.read_text(encoding="utf-8"))
+    collector = EnforcementCallCollector()
+    collector.visit(tree)
     checks: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        if not (isinstance(func, ast.Name) and func.id == "run_command"):
-            continue
+    for node in collector.calls:
         if not (node.args and isinstance(node.args[0], ast.List)):
             continue
         tokens = [
