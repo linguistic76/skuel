@@ -114,19 +114,32 @@ class EnforcementCallCollector(ast.NodeVisitor):
 
 
 def quality_check_set() -> set[str]:
-    """Every enforcement check run_quality_checks.py runs (fix mode pruned)."""
+    """Every enforcement check run_quality_checks.py runs (fix mode pruned).
+
+    Fails loudly on any run_command call whose first argument is not a
+    literal list of strings — silently skipping an unparseable call would
+    let a refactor (`cmd = [...]; run_command(cmd, ...)`) drop a check from
+    parity coverage while the floor still passes (Codex, PR #981 round 7).
+    """
     tree = ast.parse(QUALITY_RUNNER.read_text(encoding="utf-8"))
     collector = EnforcementCallCollector()
     collector.visit(tree)
     checks: set[str] = set()
     for node in collector.calls:
-        if not (node.args and isinstance(node.args[0], ast.List)):
-            continue
-        tokens = [
-            element.value
-            for element in node.args[0].elts
-            if isinstance(element, ast.Constant) and isinstance(element.value, str)
-        ]
+        first = node.args[0] if node.args else None
+        is_literal = isinstance(first, ast.List) and all(
+            isinstance(element, ast.Constant) and isinstance(element.value, str)
+            for element in first.elts
+        )
+        if not is_literal:
+            raise AssertionError(
+                f"run_command call at {QUALITY_RUNNER.name}:{node.lineno} does not "
+                "pass a literal list of strings — the parity extractor cannot see "
+                "this check. Keep quality commands literal, or teach the extractor "
+                "the new shape."
+            )
+        assert isinstance(first, ast.List)
+        tokens = [element.value for element in first.elts if isinstance(element, ast.Constant)]
         identifier = canonical_check(tokens)
         if identifier is not None:
             checks.add(identifier)
@@ -330,6 +343,52 @@ def test_local_only_exemptions_are_not_stale() -> None:
         f"DELIBERATELY_LOCAL_ONLY entries that DO run in CI: {sorted(stale)}. "
         "Delete the exemption — an exemption that exempts nothing rots."
     )
+
+
+# Drift-pins on the changes-filter DEFINITIONS (Codex, PR #981 round 7):
+# REQUIRED_FILTERS trusts filter NAMES, so losing/mistyping a load-bearing
+# glob (e.g. 'app/**/*.py' under py) would keep every mapping satisfied while
+# Python PRs skip the very jobs this test credits. Sentinels pin the globs
+# each name's credit rests on — a pin, not a glob-coverage engine: novel
+# additions stay free, removing a sentinel is loud.
+SENTINEL_FILTER_GLOBS: dict[str, frozenset[str]] = {
+    "py": frozenset({"app/**/*.py", "app/pyproject.toml", "app/uv.lock"}),
+    "cypher": frozenset({"app/**/*.cypher"}),
+    "docs": frozenset({"app/docs/**", "app/.claude/skills/**"}),
+    "audit": frozenset(
+        {
+            "app/scripts/audit_dependencies.sh",
+            "app/osv-scanner.toml",
+            "app/package-lock.json",
+        }
+    ),
+}
+
+
+def changes_filter_definitions() -> dict[str, list[str]]:
+    """The dorny/paths-filter name -> glob-list map from the changes job."""
+    workflow = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
+    for step in workflow["jobs"]["changes"]["steps"]:
+        if step.get("id") == "filter":
+            definitions = yaml.safe_load(step["with"]["filters"])
+            assert isinstance(definitions, dict)
+            return definitions
+    raise AssertionError("changes job has no step with id 'filter'")
+
+
+def test_path_filters_keep_their_sentinel_globs() -> None:
+    definitions = changes_filter_definitions()
+    for name, sentinels in SENTINEL_FILTER_GLOBS.items():
+        assert name in definitions, (
+            f"changes filter '{name}' vanished from ci.yml but REQUIRED_FILTERS "
+            "still credits checks through it."
+        )
+        missing = sentinels - set(definitions[name])
+        assert not missing, (
+            f"changes filter '{name}' lost sentinel glob(s) {sorted(missing)} — "
+            "parity credit through this filter assumes those inputs trigger it; "
+            "without them the credited jobs skip on exactly the PRs that matter."
+        )
 
 
 def test_gate_needs_every_defined_job_or_documents_why() -> None:
