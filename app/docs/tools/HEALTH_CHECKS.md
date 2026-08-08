@@ -330,6 +330,26 @@ This script is only as useful as its RENAMED/DELETED tables. **Update it wheneve
 
 **Matching semantics:** keys refuse alphanumeric neighbors — `PageHead` does NOT fire on `PageHeader` — but underscore adjacency still matches, so deleted snake_case names are caught inside derived symbols (`sel_routes` fires on `create_sel_routes`). Keys ending in a non-word character (e.g. the trailing dot in `core.models.ku.`) prefix-match, so deleted-package paths work as before.
 
+### When an old identifier is intentional
+
+Some docs must name a retired identifier — an ADR's before/after table, an import-error string users search for verbatim, a doc that demonstrates this scanner, a frozen before/after snippet inside a still-maintained migration guide. Two exemption tiers exist; **each is audited so an exemption that hides nothing is a finding** (`test_stale_names_allowed_occurrences.py`, the SKUEL026 discipline). Reach for the narrowest that fits — never widen a whole file to force the count down (reverted in PR #986).
+
+- **`ALLOWED_OCCURRENCES`** — a **counted** set of hits for one identifier at one **line**, one otherwise-scanned doc. Every other line, every other identifier, and any hit *beyond the count* on the same line is still scanned — anchoring on `(line, hits)`, not a coarse `(file, identifier)` key, is what closes the blind spot where a second stale mention would ride along silently (Codex, PR #988). Each entry needs a rationale and its `hits` must equal the real number of matches at that line (`hits` defaults to 1; read the line off `--verbose`):
+
+  ```python
+  ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
+      "docs/decisions/ADR-0XX-example.md": {
+          (42, "LegacyType"): Allow("before/after table — the ADR's subject IS this rename"),
+          # hits > 1 when one line names it twice (e.g. two inline-code spans):
+          (57, "LegacyType"): Allow("verbatim import-error string users search", hits=2),
+      },
+  }
+  ```
+
+- **`SKIP_FILES`** — one whole file, kept to exactly the scanner's own documentation (this file), audited section-by-section by `test_stale_names_suppression.py`.
+
+There is deliberately **no directory-scope exclusion**. An earlier cut excluded `docs/migrations/` wholesale as a "frozen archive", but the premise is false: several migration guides are maintained and current-facing (they get updated to current names and swept by rename campaigns), so blinding the subtree would hide a genuine rename in them. Frozen snippets inside those guides get occurrence-level allowances instead — each individually audited.
+
 ### When to add a RENAMED entry
 
 ```python

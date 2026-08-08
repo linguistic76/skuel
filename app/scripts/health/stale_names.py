@@ -13,6 +13,20 @@ Fence boundaries come from ``scripts/health/markdown_fences``, the CommonMark-ba
 walker shared with ``dead_doc_links.py``. See ``extract_code_segments`` for the two
 coordinate rules it fixed.
 
+Two exemption tiers — each audited so an exemption that hides nothing is itself a
+finding (SKUEL026 discipline):
+
+  * ``ALLOWED_OCCURRENCES`` — a counted set of hits for one identifier at one line in
+    one otherwise-scanned doc. The surgical tier: an ADR before/after table, a
+    searchable import string, a frozen snippet inside a maintained migration guide.
+    Anchored on line AND count, so a new stale mention (new line, or extra hit on the
+    same line) is still reported.
+  * ``SKIP_FILES`` — one whole file, the scanner's own documentation. Stays narrow.
+
+There is deliberately no directory-scope exclusion: no subtree here is uniformly frozen
+(migration guides get maintained and rename-swept), so blinding one wholesale would hide
+real drift. Frozen snippets get occurrence-level allowances instead (Codex, PR #988).
+
 Usage:
     uv run python scripts/health/stale_names.py
     uv run python scripts/health/stale_names.py --verbose
@@ -21,7 +35,9 @@ Usage:
 
 import re
 import sys
+from collections import Counter
 from pathlib import Path
+from typing import NamedTuple
 
 # scripts/health/ is not a package — these modules are run as scripts, so the sibling
 # import resolves at runtime via sys.path[0] but not for MyPy (matches the same ignore
@@ -192,9 +208,77 @@ _DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
 # The scanner's own documentation necessarily names tracked identifiers as
 # examples (sample output, the "What's tracked" table) — skip it to avoid
 # permanent self-flagging noise.
+#
+# SKIP_FILES is a WHOLE-FILE blind spot and must stay narrow: exactly the one
+# doc whose subject is the scanner itself. Its blast radius is audited by
+# tests/unit/scripts/test_stale_names_suppression.py — every hidden hit must sit
+# under a heading that documents the scanner. Do NOT add maintained docs here to
+# force the count down; that is the "no suppressions to hit a number" anti-pattern
+# (reverted in PR #986). Use ALLOWED_OCCURRENCES (below) for an intentional
+# identifier in an otherwise-scanned doc.
+#
+# No directory-scope exclusion. An earlier cut excluded docs/migrations/ wholesale
+# as a "frozen archive", but that premise is false: several migration guides are
+# maintained and current-facing (NEO4J_GENAI_MIGRATION.md updates its class names to
+# current; DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md was refreshed by an Aug-2026
+# census, and rename campaigns like #867 sweep the subtree). A whole-subtree exclusion
+# would blind a genuine rename in those, and its audit — "some hit somewhere in the
+# tree" — could not tell (Codex, PR #988). Frozen before/after snippets inside those
+# guides get occurrence-level allowances instead, each individually audited.
 SKIP_FILES = {
     ROOT / "docs" / "tools" / "HEALTH_CHECKS.md",
 }
+
+
+class Allow(NamedTuple):
+    """One audited intentional-mention grant: a rationale and how many hits it covers.
+
+    ``hits`` is how many raw hits the anchored (line, identifier) legitimately has —
+    almost always 1, but >1 when a single physical line names the identifier more than
+    once (e.g. two inline-code spans). The scanner suppresses only ``hits`` of them at the
+    anchor and reports any surplus, and the audit pins ``hits`` to the real number — so a
+    newly-added same-line occurrence is both reported by the scanner AND fails the audit,
+    instead of riding along under the grant (Codex, PR #988). Not named ``count``: that
+    field would shadow the inherited ``tuple.count`` method.
+    """
+
+    why: str
+    hits: int = 1
+
+
+# ── Occurrence-level allowlist (audited, line-anchored, count-pinned) ─────────
+# {relative_path: {(line_number, old_identifier): Allow(why, hits=1)}} — exempts a
+# fixed number of hits at ONE line in one maintained doc. Every other line, every other
+# identifier, and any hit beyond ``hits`` on the same line stays scanned. This is the
+# surgical alternative to SKIP_FILES: it does not blind the whole file, and — because it
+# anchors on the LINE and pins the COUNT — a genuinely-stale mention of an already-allowed
+# identifier is still reported whether it lands on a different line or as an extra hit on
+# the same line (Codex, PR #988: a bare (file, identifier) key would suppress both
+# silently and the audit would stay green). ``line_number`` is the 1-based file line as
+# this scanner reports it (run with --verbose to read it off).
+#
+# Use it for a doc that is otherwise current but MUST name a retired identifier at a
+# specific place — an ADR's before/after table, TROUBLESHOOTING's verbatim
+# import-error strings users search for, a doc that demonstrates this scanner, or a
+# frozen before/after snippet inside a still-maintained migration guide.
+#
+# Every entry is audited (tests/unit/scripts/test_stale_names_allowed_occurrences.py):
+# the file must be a live scan target, each (line, identifier) must raw-match at that
+# exact line EXACTLY ``hits`` times (a moved line, wrong count, or dead entry is a
+# finding, SKUEL026-style — and forces the anchor to be re-verified), and each must
+# carry a rationale.
+ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {}
+
+
+def _allowed_count(rel_path: str, lineno: int, identifier: str) -> int:
+    """How many hits at (``lineno``, ``identifier``) in ``rel_path`` are audited-intentional.
+
+    0 when the occurrence is not allowlisted. The scanner suppresses only this many hits
+    at the anchor and reports the rest. ``rel_path`` is the forward-slash path relative to
+    ROOT (matches the ALLOWED_OCCURRENCES keys and the display path used elsewhere).
+    """
+    entry = ALLOWED_OCCURRENCES.get(rel_path, {}).get((lineno, identifier))
+    return entry.hits if entry else 0
 
 
 def get_scan_targets() -> list[Path]:
@@ -263,7 +347,11 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
     Scan one .md file for stale names inside code blocks.
 
     Returns list of (line_no, old_identifier, replacement, kind)
-    where kind is "renamed" or "deleted".
+    where kind is "renamed" or "deleted". One tuple is emitted per MATCH, not per line:
+    a line naming an identifier twice (``KuType = KuType`` in a fenced block, or two inline
+    ```KuType``` spans) yields two tuples. Counting every match — via ``finditer``,
+    not ``search`` — is what lets ALLOWED_OCCURRENCES pin a truthful per-line hit count, so a
+    newly-added repeat on an already-allowed line is not silently absorbed (Codex, PR #988).
     """
     try:
         content = md_file.read_text(encoding="utf-8", errors="ignore")
@@ -283,12 +371,16 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
             lineno = first_line + j
 
             for old, new in RENAMED.items():
-                if _RENAMED_PATTERNS[old].search(seg_line):
-                    issues.append((lineno, old, new, "renamed"))
+                issues.extend(
+                    (lineno, old, new, "renamed")
+                    for _match in _RENAMED_PATTERNS[old].finditer(seg_line)
+                )
 
             for deleted, reason in DELETED.items():
-                if _DELETED_PATTERNS[deleted].search(seg_line):
-                    issues.append((lineno, deleted, reason, "deleted"))
+                issues.extend(
+                    (lineno, deleted, reason, "deleted")
+                    for _match in _DELETED_PATTERNS[deleted].finditer(seg_line)
+                )
 
     return issues
 
@@ -335,11 +427,18 @@ def main() -> int:
     print(f"Scanning {len(md_files)} Markdown files (code blocks only)...\n")
 
     all_issues: list[tuple[Path, int, str, str, str]] = []
+    # Per-anchor suppression tally: an allowlisted (file, line, identifier) absorbs only
+    # its audited COUNT of hits; a surplus hit on the same line is still reported.
+    suppressed: Counter[tuple[str, int, str]] = Counter()
 
     for md_file in md_files:
         issues = scan_file(md_file)
+        rel = md_file.relative_to(ROOT)
         for lineno, old, new, kind in issues:
-            rel = md_file.relative_to(ROOT)
+            anchor = (str(rel), lineno, old)
+            if suppressed[anchor] < _allowed_count(*anchor):
+                suppressed[anchor] += 1  # audited intentional mention — see ALLOWED_OCCURRENCES
+                continue
             all_issues.append((rel, lineno, old, new, kind))
             if args.verbose:
                 print(f"  [{kind}] {rel}:{lineno}  {old}")
