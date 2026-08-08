@@ -351,8 +351,23 @@ def test_local_only_exemptions_are_not_stale() -> None:
 # Python PRs skip the very jobs this test credits. Sentinels pin the globs
 # each name's credit rests on — a pin, not a glob-coverage engine: novel
 # additions stay free, removing a sentinel is loud.
+# py pins '.github/workflows/**' for this test's OWN trigger (Codex round 8):
+# the PR that drops it skips unit_tests and the gate accepts the skip, so
+# detection is delayed to the NEXT py-touching PR — which then stays red until
+# the glob returns. Delayed-but-certain is this filter block's documented
+# contract (see the shellcheck note in ci.yml's py filter: unconditional
+# runs were considered and rejected); an always-on job for this guard would
+# re-litigate that decision for less than one PR of latency.
 SENTINEL_FILTER_GLOBS: dict[str, frozenset[str]] = {
-    "py": frozenset({"app/**/*.py", "app/pyproject.toml", "app/uv.lock"}),
+    "py": frozenset(
+        {
+            "app/**/*.py",
+            "app/pyproject.toml",
+            "app/uv.lock",
+            ".github/workflows/**",
+            ".github/actions/**",
+        }
+    ),
     "cypher": frozenset({"app/**/*.cypher"}),
     "docs": frozenset({"app/docs/**", "app/.claude/skills/**"}),
     "audit": frozenset(
