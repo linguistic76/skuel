@@ -174,9 +174,7 @@ def preserves_pr_enforcement(condition: object, patterns: tuple[re.Pattern[str],
     text = str(condition).strip()
     text = text.removeprefix("${{").removesuffix("}}").strip()
     clauses = [clause.strip() for clause in re.split(r"&&|\|\|", text)]
-    return all(
-        any(pattern.match(clause) for pattern in patterns) for clause in clauses
-    )
+    return all(any(pattern.match(clause) for pattern in patterns) for clause in clauses)
 
 
 # Job level: path filters are the gate's deliberate skipped-when-unrelated
