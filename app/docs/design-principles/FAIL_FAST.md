@@ -4,7 +4,7 @@ updated: 2026-05-16
 status: current
 category: design-principles
 tags: [design, principles, error-handling, dependencies]
-related: [docs/patterns/ERROR_HANDLING.md, docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md, docs/roadmap/secrets-out-of-worktree.md]
+related: [docs/patterns/ERROR_HANDLING.md, docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md, docs/roadmap/done/secrets-out-of-worktree.md]
 ---
 
 # Fail Fast

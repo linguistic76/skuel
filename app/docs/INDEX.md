@@ -427,12 +427,10 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Feedback-Loop UX — Design & Choices (Arc 1)](roadmap/feedback-loop-ux-arc.md) | 2026-08-01 | The teacher↔student exchange made correct, legible, and threaded: C1 report-visibility convergence on student `OWNS` (`ASSESSMENT_OF` deleted), C2 needs-review single source, C3 human report titles, C4 Shared-With-Me context join, C5 `/exchange` thread view |
 | [Feedback-Loop UX — Design & Choices (Arc 2)](roadmap/feedback-loop-ux-arc2.md) | 2026-08-01 | "Where do I stand?" in both directions: C1 GradeBook 3→1 per-exercise lines, C2 student waiting/source chips, C3 teacher Waiting-for-resubmit queue view, C4 Shared-With-Me filters + inbox identity |
 | [BGE Embeddings Migration (ADR-083 Arc 3)](roadmap/bge-embeddings-migration.md) | 2026-07-24 | Cutover from OpenAI to BGE-M3 embeddings: factory swap + `EMBEDDINGS_PROVIDER` env var, `EMBEDDING_VERSION` v3→v4, `HF_API_TOKEN`, batch re-embed; no index rebuild (both 1024-dim); independent of Arc 2 |
-| [Journals Discussion-First — Design & Choices](roadmap/journals-discussion-first.md) | 2026-07-12 | Discussion as a fundamental Journals mode: two doors (chat/files) converging into one grounded conversation; sources live from message one; canon shelf checkboxes; real storage reconciled with ADR-073 |
 | [Deferred Work](roadmap/deferred-work.md) | 2026-03-04 | Intelligence features and decision points deferred until data/business prerequisites exist |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | 2026-07-27 | The security hardening backlog — see its Priority Order table for current status (most items now shipped or closed) |
 | [Conversation Neo4j Persistence — Deferred](roadmap/conversation-neo4j-persistence-deferred.md) | 2026-03-05 | Neo4j schema for persisted conversation sessions and turns; cross-session continuity design |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | 2026-03-05 | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
-| [Learning Loop Cross-Domain Search](roadmap/learning-loop-cross-domain-search.md) | 2026-03-07 | Level 3 roadmap: cross-loop graph traversal search, EntryReport/ActivityReport search |
 | [Askesis Semantic Intelligence](roadmap/askesis-semantic-intelligence.md) | 2026-03-12 | Deferred enhancements: learning-aware search, PS bundle semantic enrichment, conversation persistence, gap analysis fallback |
 | **[Askesis Tool-Selection Queries — why not text2cypher](roadmap/askesis-tool-selection-queries.md)** | **2026-05-26** | **Why SKUEL does not adopt `langchain-neo4j`'s `text2cypher` (`GraphCypherQAChain`) — multi-tenancy, SKUEL001/021, determinism — plus the design sketch for the safe alternative (LLM picks a vetted tool + typed args; `user_uid` injected server-side). Status: not scheduled. Read before proposing LLM-generated Cypher.** |
 | [Tables — Custom Design](roadmap/tables-custom-design.md) | 2026-03-14 | 3 tables deferred from TableFromDicts migration: hardcoded rows, headerless layout, dynamic columns |
@@ -450,6 +448,14 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Habit-Rhythm Arc](roadmap/done/habit-rhythm-arc.md) | 2026-08-04 | M1–M7 shipped (#927/#933/#934); open follow-ups extracted to [Deferred Work](roadmap/deferred-work.md) |
 | [One Dependency Scanner (osv-scanner)](roadmap/done/dependency-scanner-consolidation.md) | 2026-08-07 | pip-audit + npm audit retired for one measured scanner over both lockfiles (#978) |
 | [JS/Node Dependency Surface](roadmap/done/js-dependency-surface.md) | 2026-08-07 | The undici-incident review: all six decisions resolved (Renovate live, Node 24, accept mechanism via #978) |
+| [Goal Event-Handler Extraction](roadmap/done/event-handler-extraction-goals.md) | 2026-03-20 | GoalEventHandlerService with 3 handlers; GoalsRecommendationService deleted |
+| [Activity Views Consolidation](roadmap/done/activity-views-consolidation.md) | 2026-04-10 | Patterns A and C complete; Pattern B (StatsBar) closed — not viable |
+| [Cypher Seam Hard-Gate Options](roadmap/done/cypher-seam-hard-gate-options.md) | 2026-05-31 | Question superseded: the `arg-type` sweep made the NeoLabel/RelationshipName seam a hard CI gate; blast-radius analysis retained as history |
+| [Learning Loop Cross-Domain Search](roadmap/done/learning-loop-cross-domain-search.md) | 2026-03 | Levels 1–3b all complete: graph-aware search for the loop entities + chain traversal |
+| [Secrets Out of the Worktree](roadmap/done/secrets-out-of-worktree.md) | 2026-07 | Stages 1–3 shipped; OS keychain is the canonical store |
+| [Journals Discussion-First — Design & Choices](roadmap/done/journals-discussion-first.md) | 2026-07-13 | The arc SoT: two doors converging into one grounded conversation; P1→P3 shipped (#627–#640); post-arc items live in [journals-discussion-deferred](roadmap/journals-discussion-deferred.md) |
+| [Journals Discussion Storage P2](roadmap/done/journals-discussion-storage-p2.md) | 2026-07-13 | The stored substrate: ConversationSession/Turn + understanding wall; in-arc refinements all shipped (source-selection restore, deterministic titles, export) |
+| [Journals Discussion Storage P3](roadmap/done/journals-discussion-storage-p3.md) | 2026-07-13 | Opt-in persistence reconciliation: ephemeral default + Save on both doors; PR1–PR3 shipped, arc complete |
 
 ## Examples
 

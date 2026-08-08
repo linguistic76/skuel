@@ -10,10 +10,10 @@ drifted default. The founder re-established the blunt Journals privacy rule: **a
 saved by default; there is an explicit choice to save it.** ADR-078 is amended to match (§1/§5/§7,
 2026-07-13). This doc is rewritten around that rule.
 
-- **Arc SoT:** `docs/roadmap/journals-discussion-first.md` (§C6 convergence, §Phasing P3)
+- **Arc SoT:** `docs/roadmap/done/journals-discussion-first.md` (§C6 convergence, §Phasing P3)
 - **Governing ADR:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md` — the
   binding shape (now amended to opt-in persistence). If this doc and ADR-078 disagree, ADR-078 wins.
-- **Predecessor:** `docs/roadmap/journals-discussion-storage-p2.md` (the store this reuses)
+- **Predecessor:** `docs/roadmap/done/journals-discussion-storage-p2.md` (the store this reuses)
 - **Privacy commitment:** [[project_journal_privacy_commitment]] (ADR-073)
 - **Memory:** [[project_journals_discussion_arc]]
 

@@ -60,7 +60,7 @@ Both scripts are idempotent. The Stage 3 path is what you want unless you're on 
 
 **Missing-credential behavior:** every credential the active intelligence tier needs is required at boot, not request time. Anything missing fails the bootstrap with a clear error (commit `fed4287f`). If the app starts, the credentials it needs are present.
 
-See `docs/roadmap/secrets-out-of-worktree.md` for the full design — three stages, what each shipped, and the table of where each key actually lives today.
+See `docs/roadmap/done/secrets-out-of-worktree.md` for the full design — three stages, what each shipped, and the table of where each key actually lives today.
 
 ### 3. Start Neo4j Infrastructure
 

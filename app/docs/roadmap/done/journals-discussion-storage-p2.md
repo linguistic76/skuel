@@ -12,7 +12,7 @@
 **Contract for the storage-implementation arc.** Founder-confirmed ADR-078 (2026-07-13) is the
 gate — now cleared (PR #631). This plan translates ADR-078 into a concrete, PR-sequenced build.
 
-- **SoT:** `docs/roadmap/journals-discussion-first.md` (choices C1/C2/C6)
+- **SoT:** `docs/roadmap/done/journals-discussion-first.md` (choices C1/C2/C6)
 - **Governing ADR:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md` — **the
   binding shape.** If this plan and ADR-078 ever disagree, ADR-078 wins.
 - **Amends:** ADR-073 §1/§3 (already noted in-repo)

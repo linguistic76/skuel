@@ -35,7 +35,7 @@ It reads `SKUEL_CREDENTIAL_BACKEND` to decide where to write:
 
 Either way, services read credentials via `get_credential(KEY, fallback_to_env=True)` — never raw `os.getenv()`. Required credentials for the active intelligence tier are validated at boot (commit `fed4287f`); the app refuses to start when one is missing rather than degrading silently.
 
-For the full landscape (the three storage shapes, the migration scripts, the docker-compose carve-out for `NEO4J_AUTH` / `NEO4J_PASSWORD`), see `docs/roadmap/secrets-out-of-worktree.md`.
+For the full landscape (the three storage shapes, the migration scripts, the docker-compose carve-out for `NEO4J_AUTH` / `NEO4J_PASSWORD`), see `docs/roadmap/done/secrets-out-of-worktree.md`.
 
 ## Architecture
 

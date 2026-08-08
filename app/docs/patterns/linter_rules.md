@@ -539,7 +539,7 @@ if not api_key:
 - `# skuel-lint: disable=SKUEL019 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL019 -- <reason>` (file)
 
-**See:** `docs/roadmap/secrets-out-of-worktree.md` — full credential storage architecture and the `fed4287f` fail-fast wiring that makes this rule load-bearing.
+**See:** `docs/roadmap/done/secrets-out-of-worktree.md` — full credential storage architecture and the `fed4287f` fail-fast wiring that makes this rule load-bearing.
 
 ## Rule: SKUEL021 - No Raw Cypher Above the Boundary
 
