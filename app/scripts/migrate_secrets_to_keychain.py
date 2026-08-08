@@ -277,7 +277,9 @@ def main() -> int:
     print("Caveats:")
     print("  • Docker Compose reads .env directly. Anything referencing")
     print("    ${NEO4J_PASSWORD} etc. in Compose will need an explicit")
-    print("    pre-export from the keychain — see app/docs/roadmap/done/secrets-out-of-worktree.md.")
+    print(
+        "    pre-export from the keychain — see app/docs/roadmap/done/secrets-out-of-worktree.md."
+    )
     print("  • The keychain is unlocked when your desktop session is unlocked.")
     print("    Headless / CI / cron environments do not get keychain access.")
     return 0
