@@ -113,7 +113,6 @@ dev = [
     # 2026-07-27 when that tree was removed. Dropping it fails the CI MyPy job.
     "types-pyyaml>=6.0.12.20260518",
     "vulture>=2.16",
-    "pip-audit>=2.10.1",
     "tree-sitter>=0.26.0",
     "tree-sitter-bash>=0.25.1",
     # Vendors the official ShellCheck binary as a wheel — `uv run shellcheck` works

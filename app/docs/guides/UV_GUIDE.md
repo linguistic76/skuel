@@ -124,11 +124,15 @@ step.
 error: the argument `--locked` cannot be used with `UV_FROZEN` (environment variable)
 ```
 
-uv exits 2 — it is a hard conflict, not a precedence rule. So the `pip_audit`
-job deliberately does *not* set `UV_FROZEN`: `scripts/audit_dependencies.sh`
-runs `uv export --locked` and `uv run --locked`, and that `--locked` is the
-single staleness detector guarding the CVE gate. That job pins its sync with an
-explicit `--frozen` flag instead.
+uv exits 2 — it is a hard conflict, not a precedence rule.
+
+**And the quieter trap: `UV_FROZEN` silently downgrades `uv lock --check`.** No
+conflict, no error — uv reports the lockfile was "only checked for validity,
+not whether it is up-to-date" and exits 0 (measured, uv 0.10.9). A freshness
+gate under that env var passes vacuously. This is why the `dep_audit` CI job
+deliberately does *not* set `UV_FROZEN`: `scripts/audit_dependencies.sh` uses
+`uv lock --check` as the single staleness detector guarding the CVE gate, and
+the script itself refuses to run if `UV_FROZEN`/`UV_LOCKED` is set.
 
 Rule of thumb: **`--frozen` installs the committed lock as-is; `--locked`
 asserts the lock is already current and *fails* if it isn't.** Reach for

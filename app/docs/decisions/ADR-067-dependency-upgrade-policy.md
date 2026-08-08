@@ -155,14 +155,16 @@ a **vulnerability** layer, which reports *published CVEs* rather than staleness:
 |---|---|---|---|
 | Renovate PRs | **both** ecosystems — **freshness** | ✅ yes | Mend App schedule; PR-only, no auto-merge — **live 2026-08-05** |
 | `dependency-audit.yml` | **both** ecosystems — CVEs | ✅ yes | **daily cron**, independent of any diff — added 2026-08-03 |
-| `pip_audit` CI job | Python CVEs | ✅ yes | **diff-triggered** — only when the `py`/`audit` path filters match |
-| `npm audit` (`./dev quality` check 8) | JS CVEs | ❌ **no** | **only a manual local run** |
+| `dep_audit` CI job (required) | **both** ecosystems — CVEs | ✅ yes | **diff-triggered** — the `py`/`audit` path filters (the `audit` filter carries the JS lockfile) |
+| `./dev quality` check 8 / `./dev audit-deps` | **both** ecosystems — CVEs | local | the same script as both jobs above — one path |
 
-The scheduled audit still earns its place: it catches what Renovate does not — a CVE published against
-a lockfile nobody touched. The `pip_audit` job is diff-gated, so no diff means it never fires; the local
-`npm audit` fires only if someone runs the gate by hand. That is exactly how `undici` 7.28.0 sat
-vulnerable until a manual `./dev quality` caught it (PR #929). The scheduled job is **advisory** —
-deliberately not a required check, see § 6e.
+All three CVE rows run **one script** — `scripts/audit_dependencies.sh`, osv-scanner over `uv.lock`
+and `package-lock.json` (consolidated 2026-08-07; pip-audit and the direct `npm audit` call retired —
+see § 6e and `/docs/roadmap/dependency-scanner-consolidation.md` for the measured migration). The
+scheduled audit still earns its place: it catches what Renovate does not — a CVE published against a
+lockfile nobody touched. The `dep_audit` job is diff-gated, so no diff means it never fires. That is
+exactly how `undici` 7.28.0 sat vulnerable until a manual `./dev quality` caught it (PR #929). The
+scheduled job is **advisory** — a cron run has no PR to gate; the PR-side gate is `dep_audit`.
 
 `npm` is in `enabledManagers` as of **2026-08-05** (#941), so `package.json` / `package-lock.json` are
 now extracted; without it the Renovate docs' allowlist semantics (only the listed managers run) would
@@ -175,14 +177,16 @@ Everything above §5 was written for the Python surface. `app/package.json`, `ap
 and the Node toolchain are governed by the same **latest-stable-by-default** principle, with the
 rules below. Added 2026-08-03 (PR #929 exposed the omission).
 
-**6a. Triage order for a transitive `npm audit` failure.** Most of the time you stop at step 2.
+**6a. Triage order for a transitive JS advisory** (reported by the audit script). Most of the time
+you stop at step 2.
 
 1. `npm ls <pkg>` — find the parent. A transitive dep is a symptom; the parent is what you control.
 2. **Check for a patched release inside the range already declared.** Compare the parent's declared
    range (`npm view <parent>@<ver> dependencies.<pkg>`) against what the registry has
    (`npm view <pkg> versions --json`, `npm view <pkg> dist-tags`). A major line upstream has moved
    off is often still receiving backports — the fix may already be inside the range you accept.
-3. Read npm's own hint: *"fix available via `npm audit fix`"* means a semver-compatible fix exists.
+3. Read npm's own hint (run `npm audit` by hand — it remains useful interactively even though no
+   gate invokes it): *"fix available via `npm audit fix`"* means a semver-compatible fix exists.
    *"requires --force"* or *breaking change* means the in-range option is gone.
 4. Only then consider a parent major bump or an `overrides` entry — and check § 6c first.
 
@@ -201,13 +205,14 @@ Node 24  →  jsdom 30   →  undici 8.x   (jsdom 30 engines: ^22.22.2 || ^24.15
 ```
 
 **The repo runs Node 24 (LTS Krypton) as of 2026-08-05**, having migrated off end-of-life Node 20.
-The version is now pinned in **four places that must move together**: the two `setup-node` steps —
-`../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml`
-(`js_audit`), both `node-version: '^24.15.0'` — plus `app/package.json` `engines.node` (the same
-`^24.15.0` — the Node 24 LTS line at jsdom-30's floor; the caret excludes non-LTS 25.x, which jsdom
-30 does not support) and `app/.nvmrc` (`24`) for local dev. The `setup-node` steps use the range
-rather than a bare `'24'` on purpose: with the default `check-latest: false`, `'24'` can select an
-older cached `24.0–24.14` below jsdom's floor, so the CI pins mirror `engines.node` exactly.
+The version is pinned in **three places that must move together**: the `setup-node` step in
+`../.github/workflows/ci.yml` (`js_tests`, `node-version: '^24.15.0'`), plus `app/package.json`
+`engines.node` (the same `^24.15.0` — the Node 24 LTS line at jsdom-30's floor; the caret excludes
+non-LTS 25.x, which jsdom 30 does not support) and `app/.nvmrc` (`24`) for local dev. (A fourth pin,
+`dependency-audit.yml`'s `js_audit` setup-node step, left with the osv-scanner consolidation — the
+scheduled audit no longer runs Node at all.) The `setup-node` step uses the range rather than a bare
+`'24'` on purpose: with the default `check-latest: false`, `'24'` can select an older cached
+`24.0–24.14` below jsdom's floor, so the CI pin mirrors `engines.node` exactly.
 
 `.nvmrc` names the line, not a floor — nvm has no caret syntax, and `nvm use` can resolve a bare `24`
 to an already-installed `24.0–24.14`. So `app/.npmrc` sets **`engine-strict=true`**, which hard-fails
@@ -227,21 +232,33 @@ the `js_tests` CI job runs.
 
 ```
 npm ci                             # install the REVIEWED resolution — never skip on a lockfile diff
-npm audit --audit-level=moderate   # what ./dev quality check 8 runs (reads the lockfile)
+./dev audit-deps                   # osv-scanner over both lockfiles (same script as CI + check 8)
 npm run test:js                    # vitest's jsdom environment now exercises the installed tree
 ./dev quality                      # full gate
 ```
 
-**6e. Known gap: there is no accept mechanism, which is why the audit is advisory.** Python can
-record an accepted finding in `.pip-audit-ignore` with a documented reason. `npm audit` has no
-per-advisory equivalent, so an advisory with **no upstream fix** hard-blocks `./dev quality` check 8
-with no documented way to proceed deliberately.
+**6e. The accept mechanism, and the all-severities policy (closed 2026-08-07).** Historically this
+section recorded a gap: `npm audit` had no per-advisory accept mechanism, so an advisory with no
+upstream fix would have hard-blocked `./dev quality` with no documented way to proceed — the reason
+the scheduled audit stayed advisory and no dependency audit could be a required check.
 
-That is the reason `dependency-audit.yml` (§ 5) is a scheduled, issue-filing job rather than a
-required status check: a reporting job going red is a prompt, but a *gating* job going red on an
-unfixable advisory would wedge every merge in the repo. **Promoting either audit to a required check
-means building the accept mechanism first.** Tracked in
-[`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md).
+The osv-scanner consolidation closed it. **`app/osv-scanner.toml` is the ONE dispositions file for
+both ecosystems**: each accepted advisory carries an `id`, a `reason` naming why it is unfixable
+today and what unblocks it, and an **`ignoreUntil` expiry** — the scanner re-raises the finding the
+day it lapses, so acceptance is a dated decision the tooling re-examines, not a permanent exemption.
+Delete the entry the moment an upgrade path exists (One Path Forward). With the escape hatch in
+place, the PR-side audit (`dep_audit`) is a **required** check.
+
+**Severity policy — ruled 2026-08-07: ALL severities, both ecosystems, everything dispositioned.**
+The former JS `--audit-level=moderate` floor was a *workaround* for the missing accept mechanism —
+the only available valve against unfixable low-severity noise — and was deleted together with that
+gap. A severity floor is a structured silent drop: nobody ever sees what falls below it, and a
+finding with no severity metadata has no honest place under one. Now every advisory in either
+lockfile is reported and either fixed or accepted with a reason. If low-severity churn ever becomes
+a real cost, the JSON output carries per-finding severity + CVSS, so a post-filter is a small,
+*informed* change — the reverse order (filter first, learn never) was rejected deliberately.
+Measured at the ruling: the JS surface had zero findings at any severity, so the unification cost
+nothing on day one.
 
 ---
 

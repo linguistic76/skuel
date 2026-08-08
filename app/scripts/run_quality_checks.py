@@ -11,7 +11,7 @@ Runs all code quality checks in sequence:
 5. Route security audit (5b: raw headers audit)
 6. Skills validation (6b: content-boundary guard)
 7. Dead-code gate
-8. npm audit (JS dependency vulnerabilities)
+8. Dependency CVE audit (osv-scanner: uv.lock + package-lock.json, all severities)
 9. ShellCheck on tracked shell scripts (--severity=warning)
 10. MyPy + Pyright type checking (optional)
 
@@ -169,10 +169,13 @@ def main():
     ):
         all_passed = False
 
-    # 8. npm Audit (security vulnerabilities in JS dependencies)
+    # 8. Dependency CVE audit — osv-scanner over BOTH lockfiles (uv.lock +
+    # package-lock.json), all severities, accepted findings dispositioned in
+    # osv-scanner.toml (ADR-067 § 6e). The same script CI's dep_audit job and
+    # the scheduled dependency-audit.yml run — one path, findings agree everywhere.
     if not run_command(
-        ["npm", "audit", "--audit-level=moderate"],
-        "npm Audit (JS dependency vulnerabilities)",
+        ["bash", "scripts/audit_dependencies.sh"],
+        "Dependency CVE Audit (osv-scanner, both ecosystems)",
         check=False,
     ):
         all_passed = False

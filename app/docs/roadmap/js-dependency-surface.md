@@ -214,17 +214,12 @@ These need a founder ruling; none is urgent, all are cheap.
    `CLAUDE.md`, and `tests/integration/test_apoc_canary.py` cite its sections by number) and the
    title dropped "& Python". A sibling ADR was rejected: § 5's false claim had to be corrected
    where it lived, and a second doc cannot do that.
-6. **What is our npm equivalent of `.pip-audit-ignore`?** *(New, split out of decision 3.)*
-   Unresolved, and it is the blocker on ever making a dependency audit a **required** check.
-   `npm audit` has no per-advisory accept mechanism, so an advisory with no upstream fix would
-   wedge every merge. Until this exists, `dependency-audit.yml` stays advisory — it files an
-   issue and goes red on its own schedule, and the cost is that a red scheduled run is easier
-   to ignore than a red PR check. Plausible shapes: an allowlist file consumed by a wrapper
-   around `npm audit --json`, or `npm audit --audit-level=high` plus a documented review of
-   what that silently drops.
-
-   **A third shape would close this for free:** `osv-scanner.toml` supports
-   `[[IgnoredVulns]]` with `id`, `reason` and `ignoreUntil`, for *both* ecosystems — so
-   consolidating on one scanner would supply the missing mechanism rather than build it.
-   See [`/docs/roadmap/dependency-scanner-consolidation.md`](dependency-scanner-consolidation.md),
-   which treats this decision as its headline motivation.
+6. ~~**What is our npm equivalent of `.pip-audit-ignore`?**~~ **RESOLVED 2026-08-07 — the third
+   shape shipped.** The osv-scanner consolidation
+   ([`/docs/roadmap/dependency-scanner-consolidation.md`](dependency-scanner-consolidation.md),
+   which treated this decision as its headline motivation) replaced both scanners with one:
+   `app/osv-scanner.toml` accepts findings per-advisory for *both* ecosystems, each entry with a
+   `reason` and an `ignoreUntil` expiry. With the escape hatch built, the PR-side audit
+   (`dep_audit` in ci.yml, same script) is a **required** check covering both lockfiles, and the
+   severity policy was unified to **all severities, everything dispositioned** (ADR-067 § 6e —
+   the moderate+ floor was a workaround for this very gap, deleted with it).
