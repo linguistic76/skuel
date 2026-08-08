@@ -28,8 +28,9 @@ review_frequency: annual
 >   `BaseAnalyticsService`, ADR-080 H1) and `LifePathIntelligenceService` (lightweight
 >   recommendation logic, not a `BaseAnalyticsService`).
 > - **`DomainIntelligenceOperations`/`IntelligenceOperations` are largely aspirational.** Of the
->   7 domain-protocol methods only `get_performance_analytics` is universal; 4 have no
->   implementation at all. What the domain services uniformly satisfy is the separate 3-method
+>   7 domain-protocol methods only `get_performance_analytics` is universal; 3 have no
+>   implementation at all and a 4th (`get_learning_velocity`) only a non-conforming one outside the
+>   per-domain classes. What the domain services uniformly satisfy is the separate 3-method
 >   route-factory surface. The "all services implement protocol methods" claims were qualified.
 > - **AI tier is wired, not "future."** The `BaseAIService` layer is constructed in FULL tier
 >   (`services_bootstrap/_ai_wiring.py`, 10 subclasses) — the "for future use" language was stale.
@@ -170,7 +171,7 @@ Split into focused ISP protocols (March 2026):
 | `DomainIntelligenceOperations` | 7 — `find_similar_content`, `search_by_features`, `get_learning_velocity`, `get_behavioral_insights`, `get_performance_analytics`, `get_cross_domain_opportunities`, `get_ai_insights` | Per-domain intelligence services (**largely aspirational — see note**) |
 | `IntelligenceOperations` | 11 (composed) | Backward-compatible union of both (**not fully implemented by any service**) |
 
-> **⚠️ `DomainIntelligenceOperations` (and therefore the composed `IntelligenceOperations`) is largely aspirational.** Of its 7 methods only `get_performance_analytics` is implemented across all domains. `find_similar_content` exists on LP only and `get_behavioral_insights` on Tasks only; `search_by_features`, `get_learning_velocity`, `get_cross_domain_opportunities`, and `get_ai_insights` have **no implementation anywhere** in `core/services/`. The protocol is exported from `core/ports/` but never used as a runtime type. The contract the domain services *actually* satisfy is the 3-method route-factory surface below — which the code deliberately keeps as its **own separate** protocol (see the `IntelligenceOperations` docstring in `core/ports/intelligence_protocols.py`).
+> **⚠️ `DomainIntelligenceOperations` (and therefore the composed `IntelligenceOperations`) is largely aspirational.** Of its 7 methods only `get_performance_analytics` is implemented across all domains. `find_similar_content` exists on LP only and `get_behavioral_insights` on Tasks only. Three — `search_by_features`, `get_cross_domain_opportunities`, and `get_ai_insights` — have **no implementation anywhere**. `get_learning_velocity` has no *conforming per-domain* implementation, but a live variant exists on `CrossDomainAnalyticsService` (`core/services/cross_domain_analytics_service.py`, signature `days_back=30` — not a per-domain intelligence class). The protocol is exported from `core/ports/` but never used as a runtime type. The contract the domain services *actually* satisfy is the 3-method route-factory surface below — which the code deliberately keeps as its **own separate** protocol (see the `IntelligenceOperations` docstring in `core/ports/intelligence_protocols.py`).
 
 ### Route Factory Protocol (`adapters/inbound/route_factories/intelligence_route_factory.py`)
 
