@@ -179,6 +179,10 @@ No accumulator-deletion PR — the accumulator is retained by design. PR1 carrie
 
 ## Residuals carried forward (known — not regressions)
 
+> The encryption residual is tracked live in `../journals-discussion-deferred.md` § 3
+> (at-rest encryption, ADR-042 — discussions prioritized); "unsaved = lost" is the intended
+> contract, not open work.
+
 - **Plaintext at rest:** *saved* turn content (including stored source text) is plaintext in
   Neo4j until ADR-042 field-level encryption — same residual class as typed-door turns and
   `je_out/` artifacts. Opt-in save means *less* is stored, which only helps.

@@ -382,6 +382,24 @@ need, not a data threshold.
 
 ---
 
+## Secrets Follow-ups — Shred the `secrets.env` Residue; KeyringBackend Tests
+
+Extracted 2026-08-07 from [`done/secrets-out-of-worktree.md`](done/secrets-out-of-worktree.md)
+("What's left" — stages 1–3 shipped; both items small and optional, previously tracked
+nowhere live):
+
+1. **Move docker-compose's `NEO4J_AUTH`/`NEO4J_PASSWORD` interpolation onto the
+   `with-secrets` wrapper** so the two-line `secrets.env` residue can be shredded entirely —
+   today `${VAR}` substitution in `app/docker-compose.yml` + `infrastructure/docker-compose.yml`
+   still reads it.
+2. **Dedicated `KeyringBackend` round-trip unit test** — currently covered by integration
+   tests + the Stage-3a inline smoke test; cheap insurance, not strictly needed.
+
+**Enable when**: next touch of the compose/secrets surface (item 1 rides along); item 2 any
+time a test-writing pass visits `core/config/credential_store.py`.
+
+---
+
 ## Principles `_validate_update` Reform (or Deletion)
 
 Extracted 2026-08-07 from [`done/update-intents.md`](done/update-intents.md) Phase-7 notes

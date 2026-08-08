@@ -253,6 +253,9 @@ Export can split to a PR4 fast-follow if PR3 grows; keep each PR one coherent su
 
 ## Residuals carried forward (known, documented — not regressions)
 
+> Tracked live in `../journals-discussion-deferred.md` § 3 (at-rest encryption of discussion
+> turns, ADR-042 — discussions prioritized).
+
 - **Plaintext at rest:** `ConversationTurn.content` is plaintext in Neo4j until ADR-042 field-level
   encryption. Same *mechanism* as doorway/periodic notes, but freeform discussion is more
   sensitive → ADR-078 §6 flags it as a **candidate to prioritize first** in that work. Track, don't
