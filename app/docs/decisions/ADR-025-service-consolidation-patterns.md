@@ -256,7 +256,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
         model_class=Task,
         domain_name="tasks",
         date_field="due_date",
-        completed_statuses=(KuStatus.COMPLETED.value,),
+        completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 ```
 

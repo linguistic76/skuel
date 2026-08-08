@@ -491,7 +491,7 @@ from core.orchestrator.search_router import SearchRouter
 router = services.search_router
 result = await router.faceted_search(SearchRequest(
     query="",
-    domains=[EntityType.TASK, EntityType.GOAL, EntityType.CURRICULUM],
+    domains=[EntityType.TASK, EntityType.GOAL, EntityType.PATH_STEP],
     user_uid="user.123",
     limit=10
 ))
