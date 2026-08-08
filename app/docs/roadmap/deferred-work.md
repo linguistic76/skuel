@@ -341,6 +341,21 @@ repo; the item lives here so the arc's archive can stay closed.
 
 ---
 
+## Tasks/Events Edge-Clear on Edit (`""` → None)
+
+Extracted 2026-08-07 from [`done/update-intents.md`](done/update-intents.md) Phase 7 notes,
+where it was scoped out as "a deferred UX bug, not One-Path teardown; track separately" —
+this register is that separate tracking (it previously existed nowhere live).
+
+Clearing an edge picker in the Tasks/Events edit forms submits `""`, which does not map to
+`None`, so a linked edge cannot be cleared from the edit UI. Recorded 2026-06-05 during the
+ADR-066 migration; **re-verify against the current edit routes on pickup** — two months of
+form work have landed since.
+
+**Enable when**: next touch of the Tasks/Events edit forms — a bug this small rides along.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:

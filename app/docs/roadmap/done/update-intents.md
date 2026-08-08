@@ -236,7 +236,8 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
   use the typed-intent status route and Goals uses `set_status`.
 - **Phase 7 — Teardown + One-Path cleanup + base parameterization.** Split into two PRs (see memory
   `project_update_intents_phase7_plan` for the full traced plan). The edge-clear UX gap (Tasks/Events
-  picker `""`→None) is **out of Phase 7** — a deferred UX bug, not One-Path teardown; track separately.
+  picker `""`→None) is **out of Phase 7** — a deferred UX bug, not One-Path teardown; track separately
+  (now tracked live in `../deferred-work.md` § Tasks/Events Edge-Clear on Edit).
 
   **Phase 7a — base parameterization (atomic code, one PR). ✅ DONE (2026-06-05).** *Forced-atomic*:
   parameterizing the base over the update type mechanically forced the funnel/factory/hook changes
