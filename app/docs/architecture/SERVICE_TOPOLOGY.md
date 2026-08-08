@@ -651,7 +651,7 @@ Routes / Application Code
 │
 ├─ user_entry/                            (ADR-054 — replaces submissions/ + journal/)
 │   ├─ user_entry_service.py              (entry point — UserEntryService facade over UserEntryBackend)
-│   ├─ assessment_service.py             (AssessmentService — teacher assessments → EntryReport)
+│   ├─ assessment_service.py             (AssessmentService — reads a student's received teacher assessments)
 │   ├─ user_entry_processing_service.py  (UserEntryProcessingService — transcription/LLM → UserEntry)
 │   ├─ exercise_linker.py                (UserEntryExerciseLinker — links UserEntry to Exercise)
 │   ├─ audience_resolver.py              (AudienceResolver — shared sharing/audience helper)

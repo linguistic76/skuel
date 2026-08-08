@@ -439,7 +439,7 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 
 Map to the **Report** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
 
-ENTRY_REPORT entities are produced two ways, behind **separate route-facing protocols** (split 2026-05-30, PR #128): AI reports + typed reads via `EntryReportOperations` (`EntryReportService`); teacher-authored assessments via `AssessmentOperations` (`AssessmentService`). `EntryReportService` additionally uses the **backend-level** `EntryReportBackendOperations` to type its `self.backend`. Typed reads return `list[EntryReport]` end-to-end (no TypedDict projection); persisted nodes carry `:Entity:EntryReport` dual labels.
+ENTRY_REPORT entities are produced two ways, behind **separate route-facing protocols** (split 2026-05-30, PR #128): AI reports + typed reads via `EntryReportOperations` (`EntryReportService`); teacher-authored HUMAN feedback via `TeacherReviewOperations` (`TeacherReviewService.submit_report`, submission-anchored). `AssessmentOperations` (`AssessmentService`) is the paired *read* of a student's received assessments (not a producer). `EntryReportService` additionally uses the **backend-level** `EntryReportBackendOperations` to type its `self.backend`. Typed reads return `list[EntryReport]` end-to-end (no TypedDict projection); persisted nodes carry `:Entity:EntryReport` dual labels.
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|

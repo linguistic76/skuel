@@ -399,7 +399,7 @@ class Services:
 |------|-----------|---------|
 | `submission_protocols.py` | 3 | SubmissionOperations, SubmissionProcessingOperations, SubmissionSearchOperations |
 | `sharing_protocols.py` | 1 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
-| `report_protocols.py` | 7 | EntryReportOperations (AI report + typed reads), AssessmentOperations (teacher HUMAN assessments — split from EntryReportOperations in PR #128), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
+| `report_protocols.py` | 7 | EntryReportOperations (AI report + typed reads), AssessmentOperations (a student's received-assessment read — split from EntryReportOperations in PR #128; HUMAN feedback is written by TeacherReviewOperations), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
 | `form_protocols.py` | 4 | FormTemplateBackendOperations, FormSubmissionBackendOperations (backend-level, import directly from `form_protocols`); FormTemplateOperations, FormSubmissionOperations (route-level, re-exported from `__init__`) |
 | `group_protocols.py` | 1 | GroupOperations (9 methods) |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
