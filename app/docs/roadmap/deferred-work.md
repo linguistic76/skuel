@@ -341,47 +341,6 @@ repo; the item lives here so the arc's archive can stay closed.
 
 ---
 
-## EntryReport / ActivityReport Search
-
-Extracted 2026-08-07 from
-[`done/learning-loop-cross-domain-search.md`](done/learning-loop-cross-domain-search.md)
-(levels 1–3b complete) — its "Future" section, previously tracked nowhere live. Both report
-entities lack BaseService-based search: `EntryReportService` is an LLM generator, not a
-BaseService (would need an `EntryReportSearchService`); `ActivityReportService` is standalone
-(would need search methods or a BaseService wrapper). Lower priority by design: teachers
-search by Exercise or Submission and navigate to feedback via relationships.
-
-**Enable when**: a teacher workflow wants to search report *content* directly rather than
-navigate to it — product need, not a data threshold.
-
----
-
-## ZPD Snapshot History & Trend Analysis
-
-Extracted 2026-08-07 from [`done/zpd-service-architecture.md`](done/zpd-service-architecture.md)
-(implemented) — the deliberately-MVP corner: a single `:ZPDHistory` node per user stores only
-the LATEST snapshot (`adapters/persistence/neo4j/zpd_snapshot_backend.py` — "full snapshot
-history (timeline arrays, trend analysis) is deferred post-MVP"). Snapshots are written on
-pedagogically significant events, so the trigger stream already exists; what is deferred is
-keeping the timeline and reading trends from it.
-
-**Enable when**: a consumer wants ZPD-over-time (student progress trends, teacher dashboards) —
-and enough snapshot-writing events have accrued for a timeline to say anything.
-
----
-
-## Calendar Periodic-Notes Arc Follow-up — Monthly-Note Panel Parity
-
-Extracted 2026-08-07 from [`done/calendar-periodic-notes-arc.md`](done/calendar-periodic-notes-arc.md)
-(all four PRs shipped 2026-08-03): the weekly note got its read-only planning panel; the
-monthly note deliberately did not — "monthly-note panel parity is a follow-up, not in-scope,"
-gated on lived use. This register is that tracking; it previously existed only in the archive.
-
-**Enable when**: lived monthly-note use wants the same panel the weekly note has — product
-need, not a data threshold.
-
----
-
 ## Secrets Follow-ups — Shred the `secrets.env` Residue; KeyringBackend Tests
 
 Extracted 2026-08-07 from [`done/secrets-out-of-worktree.md`](done/secrets-out-of-worktree.md)
