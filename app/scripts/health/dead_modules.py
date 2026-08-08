@@ -353,6 +353,13 @@ def main() -> int:
             hint = get_hint(path)
             dead.append((path, module, lines, hint))
 
+    # Registry rot the subjects loop cannot see: an entry whose file was DELETED
+    # or renamed is never visited above (its path is gone), so it would linger
+    # silently — the exact file-removal scenario the registry exists to track.
+    # Audit the keys against disk so a vanished staged module fails the check
+    # (the deletion twin of the now-imported rot guard). Codex, PR #986.
+    vanished_staged = sorted(key for key in STAGED_MODULES if not (ROOT / key).is_file())
+
     if args.verbose:
         print(f"{Colors.CYAN}Entry points (excluded from analysis):{Colors.RESET}")
         for p in entry_points_found:
@@ -376,6 +383,15 @@ def main() -> int:
             print(f"  {p.relative_to(ROOT)}")
         print()
 
+    if vanished_staged:
+        print(
+            f"{Colors.YELLOW}STAGED_MODULES entries whose file is GONE (deleted/renamed) — "
+            f"remove the stale registry entry:{Colors.RESET}"
+        )
+        for key in vanished_staged:
+            print(f"  {key}")
+        print()
+
     if dead:
         print(
             f"{Colors.RED}{Colors.BOLD}Dead Modules — {len(dead)} files with zero importers:{Colors.RESET}"
@@ -397,7 +413,7 @@ def main() -> int:
         print(f"\n{Colors.YELLOW}Total: {len(dead)} files{Colors.RESET}")
         return 1
 
-    if stale_staged:
+    if stale_staged or vanished_staged:
         return 1
     print(f"{Colors.GREEN}✓ No dead modules found{Colors.RESET}")
     return 0

@@ -77,20 +77,19 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
-    from core.services.user_entry.user_entry_service import UserEntryService
 
 def create_user_entry_api_routes(
     _app: Any,
     rt: Any,
-    entry_service: "UserEntryService",                      # Type-safe
     processing_service: "UserEntryProcessingService",       # Type-safe
 ) -> list[Any]:
     """Create UserEntry API routes."""
 
-    @rt("/api/submissions/categorize")
-    async def categorize_route(request, uid: str) -> Result[Any]:
-        # ✅ No error - mypy knows the return type
-        return await processing_service.reprocess_submission(uid)
+    @rt("/api/submissions/reprocess")
+    async def reprocess_route(request, entry: Any) -> Result[Any]:
+        # ✅ No error — mypy checks .process() against the string-annotated
+        # service even though its import is TYPE_CHECKING-only
+        return await processing_service.process(entry, force=True)
 ```
 
 **Benefits:**

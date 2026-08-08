@@ -190,34 +190,6 @@ _DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
 # permanent self-flagging noise.
 SKIP_FILES = {
     ROOT / "docs" / "tools" / "HEALTH_CHECKS.md",
-    # docs/migrations/ — wholly-historical migration records: their code blocks
-    # document the OLD state being migrated away from, which is the point of the
-    # document. Rewriting them would falsify history.
-    ROOT / "docs" / "migrations" / "ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md",
-    ROOT / "docs" / "migrations" / "DOMAINCONFIG_MIGRATION_COMPLETE.md",
-    ROOT / "docs" / "migrations" / "DOMAIN_BACKENDS_POSITION_2_COMPLETE_2026-03-01.md",
-    ROOT / "docs" / "migrations" / "DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md",
-    ROOT / "docs" / "migrations" / "LIFEPATH_DOCUMENTATION_UPDATES_2026-02-03.md",
-    ROOT / "docs" / "migrations" / "PROFILE_HUB_MODERNIZATION_2026-02-01.md",
-    ROOT / "docs" / "migrations" / "SEL_ROUTES_MIGRATION_2026-02-03.md",
-    ROOT / "docs" / "migrations" / "SEL_UX_MODERNIZATION_2026-02-03.md",
-    ROOT / "docs" / "migrations" / "assignments-refactoring-2026-01-25.md",
-    ROOT / "docs" / "migrations" / "health-score-enum-improvement-2026-01-25.md",
-    # ADRs whose subject IS the old identifiers: ADR-041 records the KuType/KuStatus
-    # unification decision itself; ADR-054 records the ProcessorType/EXERCISE_SUBMISSION
-    # collapse into UserEntry. Their before/after tables must keep the old names.
-    ROOT / "docs" / "decisions" / "ADR-041-unified-ku-model.md",
-    ROOT / "docs" / "decisions" / "ADR-054-user-entry-unified-submissions.md",
-    # User guide that demonstrates this scanner's output with real tracked names.
-    ROOT / "docs" / "user-guides" / "documentation-freshness.md",
-    # Troubleshooting guide keyed on the VERBATIM old import errors users search
-    # for (`ImportError ... 'ui.daisy_components'`) — the old name is the lookup
-    # key, and the ❌ WRONG code blocks intentionally show the dead imports.
-    ROOT / "docs" / "TROUBLESHOOTING.md",
-    # Skill whose flagged lines are a "Historical references to X now point to Y"
-    # index — naming the retired identifiers (ProcessorType, ...) is the section's
-    # whole purpose, same rationale as the ADR before/after tables above.
-    ROOT / ".claude" / "skills" / "learning-loop" / "SKILL.md",
 }
 
 
