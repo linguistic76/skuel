@@ -236,7 +236,9 @@ ZPDService generates three types of recommended actions:
 ## ZPD Snapshot Persistence
 
 ZPD snapshots are persisted via `ZPDSnapshotBackend` on pedagogically significant events.
-A single `:ZPDHistory` node per user stores the latest snapshot state (MVP — no history array yet).
+A single `:ZPDHistory` node per user stores the latest snapshot state (MVP — no history array
+yet; the deferred history/trend capability is tracked live in `../deferred-work.md`
+§ ZPD Snapshot History & Trend Analysis).
 
 **Triggers** (wired via `ZPDSnapshotHandler` in `services_bootstrap/_event_wiring.py`):
 - `SubmissionApproved` — student work validated

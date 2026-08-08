@@ -63,6 +63,10 @@ Returns: `{submission, exercise, feedback, revised_exercises}`
 
 ## Future: EntryReport and ActivityReport Search
 
+> Tracked live in `../deferred-work.md` § EntryReport / ActivityReport Search (extracted
+> when this doc moved to `done/` — the section below is the record; the register is the
+> tracker).
+
 These entities currently lack BaseService-based search:
 - **EntryReport**: `EntryReportService` is an LLM generator, not a BaseService. Would need a `EntryReportSearchService` extending BaseService.
 - **ActivityReport**: `ActivityReportService` is standalone. Would need search methods or a BaseService wrapper.
