@@ -35,11 +35,13 @@ Intelligence without data is fantasy. Intelligence without users is premature op
 | `search.executed` → `:SearchEvent` | SearchEventRecorder | Search behavioral log (Discovery Analytics Phase 1) |
 
 **Foundation:** the wired search path — `SearchRouter` orchestrates `SearchQueryParser`
-(typed-filter extraction), ownership-scoped faceted retrieval in Cypher, and the unified
-`score_*` result ranking; facet counts derive from the returned results via `build_facet_counts`.
-The former heuristic intent-scoring / facet-detection / result-ranking / search-insights service
-was deleted (#990) as never-adopted — those capabilities were never wired. (`BaseAnalyticsService`
-is the graph-analytics base for domain intelligence, not query understanding.)
+(typed-filter extraction) and ownership-scoped faceted retrieval in Cypher; facet counts derive
+from the returned results via `build_facet_counts`. Unified `score_*` ranking is applied by
+`SearchRouter._score_results` only when a caller supplies `user_context` (internal fan-out) — the
+`POST /api/search/intelligent` route passes only `user_uid`, so it returns default
+relevance-ordered results. The former heuristic intent-scoring / facet-detection / result-ranking /
+search-insights service was deleted (#990) as never-adopted — those capabilities were never wired.
+(`BaseAnalyticsService` is the graph-analytics base for domain intelligence, not query understanding.)
 
 **Status:** ✅ Working, tested, integrated with search UI
 
