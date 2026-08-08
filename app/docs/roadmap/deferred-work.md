@@ -450,6 +450,18 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `filter_property` extension | A consumer wants non-GOALS edge tier buckets | Product need (not a data threshold) |
 | Knowledge Ku↔Ku prerequisites (Option B) | A consumer reads prereq/dependent Ku buckets | Product need (not a data threshold) |
 | Task `dependent_task_uids` | A consumer reads a task's dependents | Product need (not a data threshold) |
+| Secrets follow-ups (shred `secrets.env` residue; KeyringBackend test) | Next touch of the compose/secrets surface | Ride-along, not standalone |
+| Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
+| EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
+| ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
+| Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
+| Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
+| Monthly-template vault cleanup | Founder vault pass | Founder-owned, non-repo |
+| Monthly-note panel parity | Lived monthly-note use wants the weekly panel | Product need (not a data threshold) |
+| Tasks/Events edge-clear on edit (`""` → None) | Next touch of the Tasks/Events edit forms | Ride-along; re-verify the bug still reproduces first |
+
+**The document is the checklist, the table is a convenience:** a section added to this file
+without a matching row here is still in review scope — walk every `##` section, then the table.
 
 Items that hit their trigger condition before the next review should be unblocked immediately —
 don't wait for the review.
