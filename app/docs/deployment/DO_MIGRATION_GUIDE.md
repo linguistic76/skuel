@@ -242,7 +242,7 @@ The expel step matters: `:rollback` means gate-passed, not good. Without it the 
 | Password reset email | Resend; boot fails fast when enabled without the key | `EMAIL_ENABLED`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_URL` |
 | Node cap | weekly retention cron + in-app 80%/95%-of-cap poller logging (`AuraDBCaps`; the Prometheus cap alerts are dev-only) | see above |
 
-Deferred (tracked in [security-hardening-deferred.md](../roadmap/security-hardening-deferred.md) and ADR-080): per-user daily LLM quotas, session invalidation on role change, CSP enforcement, email verification/CAPTCHA, `pip-audit` in CI, mid-request Aura-pause resilience.
+Deferred (tracked in [security-hardening-deferred.md](../roadmap/security-hardening-deferred.md) and ADR-080): per-user daily LLM quotas, session invalidation on role change, CSP enforcement, email verification/CAPTCHA, mid-request Aura-pause resilience. (The CVE audit is no longer deferred — it is the required `dep_audit` CI job plus a daily scheduled run, osv-scanner over both lockfiles.)
 
 ---
 

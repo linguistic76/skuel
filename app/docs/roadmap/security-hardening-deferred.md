@@ -15,7 +15,8 @@ just not urgent before public deployment.
 status note below. Item 1 was closed on 2026-07-27 (see § 1 — closed by deleting the
 dependencies, not by pinning); CAPTCHA (row 6 of the priority table) is the still-open
 remainder of item 2. Later the same day, PR #797 shipped item 5's
-dependency CVE audit (the `pip_audit` CI job) — its parts B/C remain open — and item 4
+dependency CVE audit (now the `dep_audit` CI job — osv-scanner over both lockfiles since
+2026-08-07) — its parts B/C remain open — and item 4
 (session rotation) shipped as session revocation on privilege change plus per-request
 graph-session enforcement.
 
@@ -193,6 +194,14 @@ vulnerabilities in transitive dependencies go undetected until a developer happe
 
 ### A. Dependency CVE scan — ✅ DONE (PR #797)
 
+> **Update 2026-08-07 — consolidated onto osv-scanner.** The job below is now `dep_audit`
+> and scans BOTH lockfiles (`uv.lock` + `package-lock.json`, all severities) with osv-scanner;
+> pip-audit and `.pip-audit-ignore` are retired. Accepted findings live in
+> `app/osv-scanner.toml`, each with a reason **and an `ignoreUntil` expiry** — the re-check
+> convention this section could only state is now enforced by the tooling. Design record:
+> `/docs/roadmap/dependency-scanner-consolidation.md`; policy: ADR-067 § 6e. The paragraphs
+> below describe the original pip-audit shape and stand as history.
+
 Shipped as the `pip_audit` job in `.github/workflows/ci.yml`, required (via the CI Gate) on
 every Python-file PR — `pyproject.toml` / `uv.lock` changes are what move the resolution, and
 running on ordinary Python PRs also catches CVEs published since the last dependency change.
@@ -279,7 +288,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
 | # | Item | Status / trigger |
 |---|------|------------------|
 | 1 | **Dependency pinning** | ✅ Closed (2026-07-27) — the `langchain-*` packages it targeted were never imported and have been removed; nothing left to pin |
-| 2 | **CI CVE scanning** | ✅ Done (PR #797) — `pip_audit` CI job + `./dev audit-deps`; history scan (B) + SBOM (C) remain on their own triggers |
+| 2 | **CI CVE scanning** | ✅ Done (PR #797; consolidated onto osv-scanner 2026-08-07) — `dep_audit` CI job + `./dev audit-deps`, both lockfiles; history scan (B) + SBOM (C) remain on their own triggers |
 | 3 | **Rate limiting** | ✅ Done — `/adapters/inbound/rate_limit.py` + invite gate |
 | 4 | **Pre-commit secret scanning** | ✅ Done — `scripts/git-hooks/pre-commit` |
 | 5 | **Session rotation** | ✅ Done (2026-07-24) — revocation on role change/deactivation + per-request graph-session enforcement |

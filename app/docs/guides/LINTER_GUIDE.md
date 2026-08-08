@@ -50,7 +50,7 @@ Additional type checkers run during `./dev quality`:
 7. **Skills validation** — `uv run python scripts/skills_validator.py`
 8. **Content-boundary guard** — `uv run python scripts/audit_content_boundary.py` (no proprietary vault content tracked in this PUBLIC repo; also enforced by `tests/unit/test_content_boundary.py` on the CI gate)
 9. **Dead-code gate** — `uv run python scripts/detect_bloat.py --check` (PLANNED tier is the escape hatch)
-10. **npm audit** — `npm audit --audit-level=moderate` (JS dependency vulnerabilities)
+10. **Dependency CVE audit** — `bash scripts/audit_dependencies.sh` (osv-scanner over `uv.lock` + `package-lock.json`, all severities; accepted findings in `osv-scanner.toml` — ADR-067 § 6e)
 11. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
 
 `./dev quality-fix` passes `--fix` to auto-fixable steps.

@@ -79,7 +79,7 @@ case "$1" in
     ;;
 
   audit-deps)
-    echo -e "${YELLOW}Auditing locked dependencies for known CVEs (pip-audit)...${NC}"
+    echo -e "${YELLOW}Auditing locked dependencies for known CVEs (osv-scanner, both ecosystems)...${NC}"
     bash scripts/audit_dependencies.sh
     ;;
 
@@ -278,7 +278,7 @@ case "$1" in
     echo "  ./dev quality-fix    - Run quality checks with auto-fix"
     echo "  ./dev pre-merge <PR#> - Verify PR is ready to merge (CI Gate + Codex + Kody)"
     echo "  ./dev audit-routes   - Audit @rt handlers for CSRF + auth gaps (--form-only, --verbose)"
-    echo "  ./dev audit-deps     - Audit locked deps for known CVEs (pip-audit; same as CI)"
+    echo "  ./dev audit-deps     - Audit locked deps for known CVEs (osv-scanner, py+js; same as CI)"
     echo ""
     echo "Bloat Detection:"
     echo "  ./dev bloat          - Detect all unused code (events + methods)"

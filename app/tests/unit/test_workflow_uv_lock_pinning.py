@@ -14,23 +14,28 @@ own fresh output and the gate went green over a stale lock.
 
 THE INVARIANT
 
-  1. A job that invokes uv and does NOT pass an explicit ``--locked`` must
-     declare ``UV_FROZEN`` at JOB (or workflow) level.
+  1. A job that invokes uv and does NOT pass an explicit freshness assert
+     (``--locked``, or ``uv lock --check``) must declare ``UV_FROZEN`` at JOB
+     (or workflow) level.
 
      Job level, not step level: the CI jobs run up to ~20 ``uv run`` commands
      each. PR #931 pinned only the ``uv sync`` install step, and the ``uv run``
      steps kept re-locking — per-step coverage is precisely the thing that was
      already got wrong once.
 
-  2. A job that DOES pass ``--locked`` must NOT declare ``UV_FROZEN`` at all.
-     uv treats the two as a hard conflict::
+  2. A job that DOES pass a freshness assert must NOT declare ``UV_FROZEN`` at
+     all. With ``--locked`` uv treats the two as a hard conflict::
 
          error: the argument `--locked` cannot be used with `UV_FROZEN`
                 (environment variable)
 
-     (exit 2, verified on uv 0.10.9). Those jobs pin their sync with an
-     explicit ``--frozen`` FLAG instead, and the script's own ``--locked`` stays
-     the staleness detector.
+     (exit 2, verified on uv 0.10.9). With ``uv lock --check`` the failure is
+     quieter and worse: ``UV_FROZEN`` silently downgrades the check to
+     validity-only ("only checked for validity, not whether it is up-to-date",
+     exit 0, measured on uv 0.10.9) — the staleness gate passes vacuously
+     instead of failing loudly. Those jobs pin any sync with an explicit
+     ``--frozen`` FLAG instead, and the script's own assert stays the
+     staleness detector.
 
   3. …and because rule 2 leaves them with no env-level protection, EVERY
      lock-touching uv command in such a job must carry its own ``--frozen`` or
@@ -45,13 +50,17 @@ THE INVARIANT
 
 KEYED ON BEHAVIOUR, NOT ON JOB NAMES
 
-Rule 2 currently applies to ``ci.yml::pip_audit`` and
-``dependency-audit.yml::python_audit``, but neither is named here. Both reach
-their ``--locked`` through ``bash scripts/audit_dependencies.sh`` — so this
-guard follows shell scripts a job invokes and reads the uv commands inside
-them. When PR #932's osv-scanner migration replaces that script, the guard
-follows whatever replaces it; if the replacement drops ``--locked``, rule 1
-takes over and demands ``UV_FROZEN``. No name to update either way.
+Rule 2 currently applies to ``ci.yml::dep_audit`` and
+``dependency-audit.yml::audit``, but neither is named here. Both reach their
+freshness assert — ``uv lock --check`` since the osv-scanner consolidation
+(2026-08-07); ``uv export --locked`` before it — through
+``bash scripts/audit_dependencies.sh``, so this guard follows shell scripts a
+job invokes and reads the uv commands inside them. The migration this
+paragraph once predicted happened, and the guard followed it exactly as
+promised — except that rule 1's fallback (demand ``UV_FROZEN``) would have
+silently DESTROYED the new assert (see rule 2), which is why ``--check``
+was added to the pin vocabulary rather than left to rule 1. No job name to
+update either way.
 
 DIRECTION OF ERROR
 
@@ -146,7 +155,19 @@ _ENABLED_VALUES = frozenset({"1", "true"})
 _INTERPRETERS = frozenset({"bash", "sh", "zsh", "dash", "ksh", "source", "."})
 
 # Per-command ways to say "do not touch uv.lock".
-_PIN_FLAGS = frozenset({"--frozen", "--locked"})
+# `--check` is `uv lock`'s read-only freshness assert (exit 2 on a stale lock,
+# writes nothing) — pin evidence of the same kind as `--locked`. On any other
+# subcommand the flag does not exist and uv exits with a loud usage error, so
+# counting it here cannot excuse a command that would have re-locked.
+_PIN_FLAGS = frozenset({"--frozen", "--locked", "--check"})
+
+# The two flags that ASSERT lock freshness (vs `--frozen`, which merely leaves
+# the lock alone). A job relying on either must not declare UV_FROZEN: with
+# `--locked` uv rejects the combination loudly (exit 2); with `uv lock --check`
+# it is quieter and worse — UV_FROZEN silently downgrades the check to
+# validity-only ("only checked for validity, not whether it is up-to-date",
+# exit 0, measured on uv 0.10.9), so the staleness gate passes vacuously.
+_ASSERT_FLAGS = frozenset({"--locked", "--check"})
 
 # BOTH env vars uv binds to those flags — `uv sync --help` reports
 # `env: UV_FROZEN` and `env: UV_LOCKED`. Guarding only UV_FROZEN narrowed a
@@ -297,6 +318,10 @@ _STATE_NEUTRAL_VERBS = frozenset(
         "unzip",
         "google-chrome-stable",
         "sudo",
+        # The dependency scanner (audit_dependencies.sh): an external Go binary
+        # that reads lockfiles and queries osv.dev — it cannot mutate the
+        # calling shell's environment or working directory.
+        "osv-scanner",
     }
 )
 
@@ -652,7 +677,8 @@ class UvInvocation:
 
     @property
     def locked(self) -> bool:
-        return "--locked" in self._flags
+        """Carries a freshness ASSERT — `--locked`, or `uv lock --check`."""
+        return bool(_ASSERT_FLAGS & self._flags)
 
     @property
     def touches_lock(self) -> bool:
@@ -868,7 +894,13 @@ def _collect_from_shell(
         # `read`, or anything invented later. Enumerating the mechanisms is
         # what put this dimension in three separate review rounds; the NAME is
         # the thing worth guarding, and it occurs zero times in this repo's
-        # shell today, so the rule costs nothing.
+        # shell today, so the rule costs nothing. (audit_dependencies.sh READS
+        # both vars to refuse running under them — through `[[ -n … ]]`, which
+        # is a conditional node, not a command, so it never reaches this rule —
+        # and its stderr diagnostics deliberately avoid the literal names: an
+        # `echo` exemption here was tried and rejected, because the name rule
+        # is also the backstop for writes through a COMPUTED redirect target
+        # that the $GITHUB_ENV literal check above cannot see.)
         #
         # It genuinely overrides the job: the job's env is exported, so
         # reassignment re-exports the new value, and uv reads the VALUE —
@@ -929,6 +961,14 @@ def _collect_from_shell(
                         refused=refused,
                     )
                 )
+            continue
+
+        # `command -v NAME` (and -V) is a pure QUERY: it prints how NAME would
+        # resolve and executes nothing, so it can neither invoke uv nor change
+        # what a later command sees. The judgement is deliberately this narrow —
+        # any other `command …` form still RUNS its argument and stays refused
+        # below, so a hidden `command uv sync` cannot pass as a query.
+        if name == "command" and args and args[0] in ("-v", "-V"):
             continue
 
         # A bare `uv` token sitting in some other command's arguments means a
@@ -1243,12 +1283,17 @@ def violations(usage: JobUvUsage) -> list[str]:
 
     if usage.passes_locked and usage.frozen_enabled:
         problems.append(
-            f"{usage.label}: passes an explicit --locked AND declares UV_FROZEN "
-            f"(at {usage.frozen_scope} level, {usage.frozen_value!r}). uv rejects that:\n"
+            f"{usage.label}: passes an explicit --locked/--check AND declares UV_FROZEN "
+            f"(at {usage.frozen_scope} level, {usage.frozen_value!r}).\n"
+            "    With --locked, uv rejects the combination loudly:\n"
             "        error: the argument `--locked` cannot be used with `UV_FROZEN`\n"
-            "    (exit 2) — so this job would go red on every run.\n"
-            "    Fix: drop UV_FROZEN here and pin the sync with an explicit --frozen\n"
-            "    flag instead; the --locked below stays the staleness detector.\n"
+            "    (exit 2) — the job goes red on every run. With `uv lock --check` it is\n"
+            "    quieter and WORSE: UV_FROZEN silently downgrades the check to\n"
+            '    validity-only ("only checked for validity, not whether it is\n'
+            '    up-to-date", exit 0, measured on uv 0.10.9), so the staleness gate\n'
+            "    passes vacuously — the PR #935 defect with a green face.\n"
+            "    Fix: drop UV_FROZEN here and pin any sync with an explicit --frozen\n"
+            "    flag instead; the --locked/--check below stays the staleness detector.\n"
             f"{_render(usage.locked_invocations)}"
         )
 
@@ -1368,8 +1413,9 @@ def test_every_file_this_guard_reads_triggers_the_job_that_runs_it() -> None:
     that filter, or a PR touching only that file sails past in silence. This
     already happened twice: the filter listed `.github/workflows/ci.yml` alone
     (so dependency-audit.yml was unguarded), and then still omitted
-    `app/scripts/audit_dependencies.sh`, whose --locked is the ONLY thing
-    keeping the CVE-audit jobs out of rule 1 (Codex P1, PR #959).
+    `app/scripts/audit_dependencies.sh`, whose freshness assert (--locked
+    then; `uv lock --check` now) is the ONLY thing keeping the CVE-audit jobs
+    out of rule 1 (Codex P1, PR #959).
 
     Asserting coverage rather than listing it is the point: the guard follows
     whatever the workflows invoke, so the filter is derived from what was
@@ -1841,6 +1887,80 @@ jobs:
     )
     assert len(problems) == 1
     assert "lock env var is written inside a shell command" in problems[0]
+
+
+def test_control_uv_lock_check_is_pin_evidence(tmp_path: Path) -> None:
+    """`uv lock --check` alone satisfies the invariant — rule 1 must not
+    demand the UV_FROZEN that would silently downgrade it (the dep_audit
+    shape after the osv-scanner consolidation)."""
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: uv lock --check
+""",
+        )
+        == []
+    )
+
+
+def test_control_uv_lock_check_plus_frozen_is_rejected(tmp_path: Path) -> None:
+    """UV_FROZEN downgrades `uv lock --check` to validity-only (exit 0,
+    measured on uv 0.10.9) — a vacuous staleness gate, not a loud conflict,
+    so the guard must reject the combination."""
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: uv lock --check
+""",
+    )
+    assert len(problems) == 1
+    assert "silently downgrades" in problems[0]
+
+
+def test_control_command_dash_v_query_is_not_an_invocation(tmp_path: Path) -> None:
+    """`command -v uv` prints a path and executes nothing — not uv usage.
+
+    The non-query form (`command uv sync`) must still be refused as a wrapper
+    whose options the guard cannot skip.
+    """
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          command -v uv
+          command -v osv-scanner
+""",
+        )
+        == []
+    )
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: command uv sync
+""",
+    )
+    assert len(problems) == 1
+    assert "invoked through" in problems[0]
 
 
 def test_control_unrelated_env_prefixes_are_still_ignored(tmp_path: Path) -> None:

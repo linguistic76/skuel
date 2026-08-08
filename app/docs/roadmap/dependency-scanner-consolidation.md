@@ -1,13 +1,19 @@
 ---
 title: One Dependency Scanner — Retire pip-audit for osv-scanner
-updated: 2026-08-03
+updated: 2026-08-07
 category: roadmap
 tags: [roadmap, dependencies, security, tooling, uv, npm, maintenance]
 ---
 # One Dependency Scanner — Retire pip-audit for osv-scanner
 
 **Created:** 2026-08-03
-**Status:** Proposed, not scheduled. Cheap to do, safe to defer — nothing is broken today.
+**Status:** ✅ **EXECUTED 2026-08-07** — steps 1–2 measured (see the § 4 update block), steps 3–8
+shipped in one change: `osv-scanner.toml` (9 ported entries, each with `ignoreUntil`), the rewritten
+`audit_dependencies.sh` (both lockfiles, count assertion, three-state exit contract), the renamed
+required `dep_audit` job, the collapsed single-job `dependency-audit.yml`, pip-audit dropped from
+the lock (273 → 259 packages), and the severity policy unified to **all severities, everything
+dispositioned** (ruled by Mike; recorded in ADR-067 § 6e). This doc stays as the migration's design
+record.
 **Authority:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md` (§ 5 signals, § 6e the JS gap)
 **Related:** `/docs/roadmap/js-dependency-surface.md` (the open decision this would close),
 `/docs/roadmap/security-hardening-deferred.md` item 5 (where `.pip-audit-ignore` was agreed),
@@ -111,6 +117,7 @@ genuinely clean tree. Swapping tools on the assumption of parity could quietly r
 coverage while every dashboard stays green.
 
 **So the migration is gated on a differential measurement, not on reading documentation.**
+(That measurement ran 2026-08-07 and cleared the gate — see the update block below.)
 
 ### The second unknown: severity thresholds, and an asymmetry nobody wrote down
 
@@ -124,6 +131,37 @@ The two ecosystems do **not** apply the same severity policy today (verified 202
 That asymmetry is undocumented and consolidation forces a decision about it. Whether
 `osv-scanner` can express a minimum severity at all is **not established** — its usage docs
 describe `--config` and `PackageOverrides`, neither of which is a severity threshold.
+
+> **Update 2026-08-07 — steps 1 and 2 were MEASURED (osv-scanner v2.5.0, local binary,
+> live OSV queries). Both unknowns are resolved; the measurement gate is cleared.**
+>
+> **Coverage parity: exact, both ecosystems.** Alias-folded, osv-scanner over `uv.lock`
+> reports the identical 9 advisories on the identical 3 packages that pip-audit reports
+> with ignores disabled (osv-scanner lists each advisory under both its GHSA and PYSEC
+> IDs — same set after folding). All 273 `uv.lock` packages were scanned, dev groups
+> included — the 9 findings all live in the dev-only mcp cluster, which proves it. On the
+> pre-#929 positive control (`git show 4041a0025:app/package-lock.json`), both scanners
+> report the same 5 undici GHSAs; all 196 unique (name, version) pairs scanned, none
+> skipped. Current JS lock: clean on both. **No coverage regression exists.**
+>
+> **Severity: `scan` has no threshold** — confirmed in v2.5.0's own `--help`, and
+> `--min-severity` belongs to the `fix` command only; the config-file `minCVSS` request
+> ([google/osv-scanner#1400](https://github.com/google/osv-scanner/issues/1400)) was
+> closed as not planned. But the JSON output carries `database_specific.severity` and
+> per-group `max_severity` (CVSS), so holding the JS moderate+ policy is a small
+> post-filter in the wrapper script, not a blocker. The § 4 policy decision (unify vs.
+> keep the asymmetry) still needs a ruling before migrating.
+>
+> **Unauditable packages: osv-scanner reports a nonexistent package as clean** ("No
+> issues found", exit 0, no warning) — measured with a fabricated lockfile entry. **But
+> the incumbent does the same thing**: `pip-audit --strict` fails on a not-on-PyPI
+> package only under `--vulnerability-service pypi`; under the `osv` service this repo
+> deliberately selects, the same fabricated package audits clean, exit 0 (measured). The
+> contract table's "unauditable deps fail" row was **vacuous the day it was written** —
+> #797's switch to the OSV service silently traded that guard away. So osv-scanner is
+> parity here, not a regression. A *stronger* replacement is available cheaply: with
+> `--all-packages` the JSON names every scanned package, so the wrapper can assert
+> scanned-count == lockfile-count (both matched exactly when measured).
 
 Two consequences to design for rather than discover:
 
@@ -150,12 +188,12 @@ against the file.
 | Guarantee | How it is provided today | On osv-scanner |
 |---|---|---|
 | **The lock matches the manifest** | `uv export --locked` refuses a `uv.lock` behind `pyproject.toml` | **Lost** — scanning `uv.lock` directly happily audits a stale resolution and reports clean for dependencies that are not the ones that would be installed. Re-add with `uv lock --check` before scanning (verified present in uv 0.10.9) |
-| **Dev groups are audited** | `--all-groups`; dev deps run on developer machines and CI, so they count | Confirm osv-scanner reads all groups from `uv.lock`, not just the default group |
+| **Dev groups are audited** | `--all-groups`; dev deps run on developer machines and CI, so they count | ✅ Confirmed (measured 2026-08-07) — all 273 `uv.lock` packages scanned; the 9 known findings are all in the dev-only mcp cluster and all reported |
 | **The LOCK is audited, not the live venv** | exports from `uv.lock`, never from the installed environment | Native — it reads the lockfile |
-| **Unauditable deps fail, not warn** | `--strict` | Unknown (§ 4) |
+| **Unauditable deps fail, not warn** | ~~`--strict`~~ **vacuous today** — `--strict`'s not-found failure exists only on the PyPI feed; under `--vulnerability-service osv` an unknown package audits clean, exit 0 (measured 2026-08-07) | Same silent-clean (measured) — parity, not regression; a *stronger* guard is available: assert scanned-count == lock-count via `--all-packages` JSON |
 | **OSV, not the PyPI feed** | `--vulnerability-service osv`, chosen deliberately | Native |
 | **Accepted findings, with reasons** | `.pip-audit-ignore` | `[[IgnoredVulns]]`, and better — it has `ignoreUntil` |
-| **Severity threshold** | none for Python; moderate+ for JS elsewhere | Unknown (above) |
+| **Severity threshold** | none for Python; moderate+ for JS elsewhere | None on `scan` (measured, v2.5.0) — post-filter the JSON; severity + CVSS per finding are in the output |
 
 The first row is the one with teeth, and it is the same defect class as the `uv sync`
 finding in #931: an audit that measures a resolution which is not the real one produces a
@@ -180,10 +218,18 @@ Do these in order. Step 1 is the decision point — if it does not come out clea
    **Diff at matching severity thresholds** (§ 4), or the JS comparison is meaningless:
    `npm audit` is filtered to moderate-or-higher and osv-scanner may not be, so every
    low-severity finding would show up as a spurious "new" result and drown the real signal.
+
+   > **Done 2026-08-07 — clean.** Exact parity in both ecosystems, positive control
+   > included (see the § 4 update block for the numbers). The decision point passed.
 2. **Establish the unauditable-package behaviour AND whether a minimum severity can be
    expressed** (§ 4), each with a deliberately constructed case. If there is no `--strict`
    equivalent, or no way to hold the JS threshold at moderate, those are findings worth
    recording here — either may be a reason not to migrate.
+
+   > **Done 2026-08-07.** No severity threshold on `scan`, and an unknown package scans
+   > clean — but the incumbent is equally blind under the OSV service, so neither is a
+   > reason not to migrate. Both become wrapper obligations instead: post-filter JS to
+   > moderate+, and assert scanned-count == lock-count. Details in the § 4 update block.
 3. Port `.pip-audit-ignore` → `osv-scanner.toml`, giving every entry a `reason` and an
    `ignoreUntil`.
 4. Rewrite `scripts/audit_dependencies.sh` to invoke osv-scanner over both lockfiles; keep

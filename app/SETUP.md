@@ -28,6 +28,15 @@ SKUEL uses a **separated infrastructure pattern** where infrastructure services 
 1. **Python 3.11+** with uv installed
 2. **Docker** and Docker Compose
 3. **Git** (for cloning/version control)
+4. **osv-scanner** on PATH — the dependency CVE scanner run by `./dev quality`
+   check 8 / `./dev audit-deps` (the exact version + checksum CI pins live in
+   `../.github/actions/install-osv-scanner/action.yml`):
+
+   ```bash
+   curl -sSfL -o ~/.local/bin/osv-scanner \
+     https://github.com/google/osv-scanner/releases/download/v2.5.0/osv-scanner_linux_amd64
+   chmod +x ~/.local/bin/osv-scanner
+   ```
 
 ---
 

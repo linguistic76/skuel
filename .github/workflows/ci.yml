@@ -123,12 +123,22 @@ jobs:
               - 'app/vitest.config.js'
               - '.github/workflows/ci.yml'
             audit:
-              # pip_audit's own tooling (Codex, PR #797): a PR that changes
+              # dep_audit's own tooling (Codex, PR #797): a PR that changes
               # only the audit script or the accepted-findings list must still
               # run the job it modifies — the gate accepts skips, so without
               # this filter the security check could be edited unexercised.
+              # The JS surface rides this filter too (PR #932 step 5): one
+              # script now scans both lockfiles, and the py filter knows
+              # nothing about package-lock.json, so without these a JS-only
+              # lock change would skip the consolidated audit — the same
+              # diff-gating blind spot that produced dependency-audit.yml.
+              # All app/-prefixed: dorny/paths-filter evaluates from the
+              # repository root, so bare filenames would silently match nothing.
               - 'app/scripts/audit_dependencies.sh'
-              - 'app/.pip-audit-ignore'
+              - 'app/osv-scanner.toml'
+              - 'app/package.json'
+              - 'app/package-lock.json'
+              - '.github/actions/install-osv-scanner/action.yml'
               - '.github/workflows/ci.yml'
 
   mypy:
@@ -145,7 +155,7 @@ jobs:
     # calls across the file and enumerating them is the kind of hand-maintained
     # list that goes stale the first time someone adds a step.
     #
-    # NOT set on pip_audit — see that job for why it would break the CVE gate.
+    # NOT set on dep_audit — see that job for why it would break the CVE gate.
     env:
       UV_FROZEN: "1"
     steps:
@@ -182,7 +192,7 @@ jobs:
       # cache warmed by an earlier PR, skipping the step entirely. --locked here
       # would therefore be a staleness detector that fires or not depending on
       # cache state; a gate that goes green on a re-run is worse than no gate.
-      # Staleness is detected once, deterministically, by the pip_audit job.
+      # Staleness is detected once, deterministically, by the dep_audit job.
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
@@ -274,7 +284,7 @@ jobs:
     runs-on: ubuntu-latest
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
-    # the install step alone would not hold. Not set on pip_audit.
+    # the install step alone would not hold. Not set on dep_audit.
     env:
       UV_FROZEN: "1"
     steps:
@@ -336,63 +346,43 @@ jobs:
         working-directory: app
         run: uv run python scripts/shellcheck_tracked.py
 
-  # Dependency CVE audit (security-hardening-deferred.md item 5A): pip-audit
-  # over the full locked resolution (uv export with hashes, all groups) via
-  # the same script as ./dev audit-deps. Gated on the py filter — pyproject /
-  # uv.lock changes are what move the resolution, and a REQUIRED-on-py-changes
-  # job also catches newly published CVEs on every ordinary Python PR — plus
-  # the audit filter, so editing the audit tooling itself always exercises it.
-  # Accepted findings live in app/.pip-audit-ignore, each with a documented
-  # reason (currently the dev-only mcp-neo4j-cypher cluster).
-  pip_audit:
+  # Dependency CVE audit: osv-scanner over BOTH locked ecosystems (uv.lock +
+  # package-lock.json, all severities, accepted findings in app/osv-scanner.toml
+  # with reasons + ignoreUntil expiries — ADR-067 § 6e) via the same script as
+  # ./dev audit-deps and ./dev quality check 8. Gated on the py filter —
+  # pyproject / uv.lock changes are what move the Python resolution, and a
+  # REQUIRED-on-py-changes job also catches newly published CVEs on every
+  # ordinary Python PR — plus the audit filter, which carries the JS lockfile
+  # and the dispositions file, so a JS-only lock change or an audit-tooling
+  # edit always exercises this job too.
+  dep_audit:
     name: Dependency CVE Audit
     needs: changes
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.audit == 'true'
     runs-on: ubuntu-latest
     # NO `env: UV_FROZEN` here, unlike every other uv job above — and this is
-    # load-bearing, not an oversight. `audit_dependencies.sh` runs
-    # `uv export --locked` and `uv run --locked`, and uv treats UV_FROZEN as a
-    # hard CONFLICT with an explicit --locked:
-    #   error: the argument `--locked` cannot be used with `UV_FROZEN`
-    # (exit 2, verified on uv 0.10.9). Setting it here would take the required
-    # CVE gate red on every run. This job pins its one sync with an explicit
-    # --frozen flag instead, and the script's own --locked stays the detector.
+    # load-bearing, not an oversight. The audit script's staleness gate is
+    # `uv lock --check`, and UV_FROZEN does not conflict with it loudly — it
+    # silently DOWNGRADES it to a validity-only check ("only checked for
+    # validity, not whether it is up-to-date", exit 0 — measured on uv 0.10.9).
+    # Declared here, the required CVE gate would pass vacuously over a stale
+    # lock: the PR #935 defect class with a green face. The script refuses to
+    # run if either lock env var is set, and the uv-lock pinning guard
+    # (tests/unit/test_workflow_uv_lock_pinning.py) enforces the absence.
+    #
+    # No venv, no cache, no sync: pip-audit left with the osv-scanner
+    # consolidation, so the script's only uv command is that `uv lock --check`.
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.14'
-
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
 
-      - name: Load cached venv
-        id: cached-uv-dependencies
-        uses: actions/cache@v6
-        with:
-          path: app/.venv
-          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+      - name: Install osv-scanner
+        uses: ./.github/actions/install-osv-scanner
 
-      # --frozen is load-bearing here, not just consistent with the mypy job
-      # above. `audit_dependencies.sh` runs `uv export --locked` precisely so a
-      # stale lock cannot slip past this security gate — but a bare `uv sync`
-      # would already have rewritten the lock, so that check would pass
-      # VACUOUSLY against the lock uv had just written, and the job would audit
-      # a freshly generated resolution while reporting on the committed one.
-      #
-      # With --frozen the lock is left alone, the script's own check stays the
-      # single staleness detector, and it runs in a step with no cache guard —
-      # so a stale-lock PR fails here every time, inside the audit, rather than
-      # as an opaque setup error or not at all.
-      - name: Install dependencies
-        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
-        working-directory: app
-        run: uv sync --frozen --no-install-project
-
-      - name: Audit locked dependencies
+      - name: Audit locked dependencies (both ecosystems)
         working-directory: app
         run: bash scripts/audit_dependencies.sh
 
@@ -407,7 +397,7 @@ jobs:
 
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
-    # the install step alone would not hold. Not set on pip_audit.
+    # the install step alone would not hold. Not set on dep_audit.
     env:
       UV_FROZEN: "1"
     steps:
@@ -552,7 +542,7 @@ jobs:
 
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
-    # the install step alone would not hold. Not set on pip_audit.
+    # the install step alone would not hold. Not set on dep_audit.
     env:
       UV_FROZEN: "1"
     steps:
@@ -638,7 +628,7 @@ jobs:
     runs-on: ubuntu-latest
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
-    # the install step alone would not hold. Not set on pip_audit.
+    # the install step alone would not hold. Not set on dep_audit.
     env:
       UV_FROZEN: "1"
     steps:
@@ -682,7 +672,7 @@ jobs:
     timeout-minutes: 25  # testcontainer startup can hang on daemon issues; suite itself is ~2-4 min
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
-    # the install step alone would not hold. Not set on pip_audit.
+    # the install step alone would not hold. Not set on dep_audit.
     env:
       UV_FROZEN: "1"
     steps:
@@ -720,7 +710,7 @@ jobs:
     runs-on: ubuntu-latest
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
-    # the install step alone would not hold. Not set on pip_audit.
+    # the install step alone would not hold. Not set on dep_audit.
     env:
       UV_FROZEN: "1"
     steps:
@@ -814,7 +804,7 @@ jobs:
   # skipped (path not touched); fails on ANY other result value.
   gate:
     name: CI Gate
-    needs: [changes, mypy, lint, pip_audit, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests]
+    needs: [changes, mypy, lint, dep_audit, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -824,7 +814,7 @@ jobs:
             "changes=${{ needs.changes.result }}"
             "mypy=${{ needs.mypy.result }}"
             "lint=${{ needs.lint.result }}"
-            "pip_audit=${{ needs.pip_audit.result }}"
+            "dep_audit=${{ needs.dep_audit.result }}"
             "validate_documentation=${{ needs.validate_documentation.result }}"
             "unit_tests=${{ needs.unit_tests.result }}"
             "integration_tests=${{ needs.integration_tests.result }}"

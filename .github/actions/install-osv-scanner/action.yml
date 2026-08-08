@@ -1,0 +1,29 @@
+name: Install osv-scanner
+description: >
+  Install the pinned osv-scanner release binary — the ONE dependency scanner for
+  both ecosystems (app/scripts/audit_dependencies.sh reads app/uv.lock and
+  app/package-lock.json through it). The version and its SHA256 are pinned HERE
+  and only here; bump them together, against the published osv-scanner_SHA256SUMS
+  asset of the release. Local installs follow the same pin (the audit script's
+  not-found message points back to this file).
+
+runs:
+  using: composite
+  steps:
+    - name: Install osv-scanner
+      shell: bash
+      # $RUNNER_TEMP + $GITHUB_PATH rather than /usr/local/bin: no sudo, no
+      # dependence on runner-image write policy, and the PATH edit applies to
+      # every following step of the calling job (documented Actions behavior).
+      run: |
+        set -euo pipefail
+        VERSION="v2.5.0"
+        SHA256="edcfc41d257db36148f065055655fe3fcfc434b0b423ea67468a84c207524e0c"
+        DEST="$RUNNER_TEMP/osv-scanner-bin"
+        mkdir -p "$DEST"
+        curl -sSfL --retry 3 -o "$DEST/osv-scanner" \
+          "https://github.com/google/osv-scanner/releases/download/${VERSION}/osv-scanner_linux_amd64"
+        echo "${SHA256}  $DEST/osv-scanner" | sha256sum --check --quiet
+        chmod +x "$DEST/osv-scanner"
+        echo "$DEST" >> "$GITHUB_PATH"
+        "$DEST/osv-scanner" --version

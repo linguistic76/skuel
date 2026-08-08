@@ -10,7 +10,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **CI Gate** | Aggregator job in `ci.yml` | This repo | ✅ status check (**required**) | Every PR/push to `main` |
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
 | **Lint** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — Ruff format + check, SKUEL architecture linter (strict), Cypher linter (errors), route-security audit |
-| **Dependency CVE Audit** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, `uv.lock`, or the audit tooling itself (`audit_dependencies.sh`, `.pip-audit-ignore`) change — `pip-audit` over the full locked resolution (`scripts/audit_dependencies.sh`, same as `./dev audit-deps`); accepted findings documented in `app/.pip-audit-ignore` |
+| **Dependency CVE Audit** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, either lockfile, or the audit tooling itself (`audit_dependencies.sh`, `osv-scanner.toml`) change — osv-scanner over BOTH locked ecosystems (`uv.lock` + `package-lock.json`, all severities; `scripts/audit_dependencies.sh`, same as `./dev audit-deps`); accepted findings documented in `app/osv-scanner.toml` with `ignoreUntil` expiries |
 | **Integration Tests** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — `tests/integration/` against a Neo4j testcontainer (the runner's Docker daemon); the only tier that executes real Cypher |
 | **Render Smoke Test** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/**`, `app/ui/**`, `app/**/*.py`, or deps change — renders unauthenticated pages in headless Chrome and fails if any never reaches idle (infinite JS loop / render hang) |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
@@ -48,7 +48,7 @@ One workflow, path-guarded jobs, one always-on gate.
 ```
 changes ──┬─▶ mypy (if app py changed) ─────────────┐
           ├─▶ lint (if app py changed) ──────────────┤
-          ├─▶ pip_audit (if app py changed) ─────────┤
+          ├─▶ dep_audit (if py or audit changed) ────┤
           ├─▶ unit_tests (if app py changed) ────────┤
           ├─▶ integration_tests (if app py changed) ─┤
           ├─▶ smoke (if py OR ui/static changed) ────┤
@@ -58,7 +58,7 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 ```
 
 - **`changes`** uses `dorny/paths-filter` to decide what ran.
-- **`mypy` / `lint` / `pip_audit` / `unit_tests` / `integration_tests` / `smoke` /
+- **`mypy` / `lint` / `dep_audit` / `unit_tests` / `integration_tests` / `smoke` /
   `validate_documentation` / `js_tests`** run only
   when their paths changed, so they're skipped (not failed) on unrelated PRs.
 - **`lint`** runs the mechanical rule set `./dev quality` runs locally, minus
@@ -66,11 +66,12 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
   `lint_skuel.py --strict`, `cypher_linter.py --errors-only --strict`, and
   `audit_route_security.py`. Steps keep running after one fails so a single CI
   run surfaces every violation category.
-- **`pip_audit`** audits the full locked resolution (all groups) against the OSV
-  database via `scripts/audit_dependencies.sh` — the same path as
-  `./dev audit-deps`. Accepted findings live in `app/.pip-audit-ignore`, one ID
-  per line, each with a documented reason (see
-  `app/docs/roadmap/security-hardening-deferred.md` item 5).
+- **`dep_audit`** audits BOTH locked ecosystems (`uv.lock` all groups +
+  `package-lock.json`, all severities) against the OSV database via
+  `scripts/audit_dependencies.sh` (osv-scanner; binary pin + checksum in
+  `.github/actions/install-osv-scanner`) — the same path as `./dev audit-deps`
+  and `./dev quality` check 8. Accepted findings live in `app/osv-scanner.toml`,
+  each with a documented reason and an `ignoreUntil` expiry (ADR-067 § 6e).
 - **`integration_tests`** runs `tests/integration/` — testcontainers boots the
   pinned Neo4j image on the runner's Docker daemon, same as `./dev test-integration`
   locally. This is the only tier that executes real Cypher (unit tests mock the
@@ -97,7 +98,7 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 cd app
 uv run mypy .                                  # MyPy check
 ./dev lint                                     # Ruff + SKUEL linter (the CI Lint job's core)
-./dev audit-deps                               # Dependency CVE audit (the CI pip_audit job)
+./dev audit-deps                               # Dependency CVE audit (the CI dep_audit job)
 uv run python scripts/docs_freshness.py --critical-only
 uv run python scripts/skills_validator.py
 ./dev quality                                  # full suite (ruff + SKUEL linter + cypher + route audit + mypy)
@@ -112,7 +113,7 @@ run that lands nowhere is indistinguishable from no check at all.
 | Workflow | Cadence | What it does | On failure |
 |---|---|---|---|
 | `mypy-suppressions.yml` | Mondays 06:00 UTC | Finds mypy suppressions that suppress nothing (`scripts/health/mypy_suppressions.py`, `./dev health-mypy`) | Opens/comments on a marker-keyed issue; fails the run |
-| `dependency-audit.yml` | Daily 07:00 UTC | Runs **both** CVE audits — `pip-audit` via `scripts/audit_dependencies.sh` and `npm audit` over `app/package-lock.json` | Fails the job, and maintains **one always-open status issue per ecosystem** whose body is the current state (clean, findings, or could-not-measure). Comments only when the reported content **changes**, so an unchanged result is silent. Issues are written only on default-branch runs |
+| `dependency-audit.yml` | Daily 07:00 UTC | Runs the consolidated CVE audit — osv-scanner over `app/uv.lock` + `app/package-lock.json` via `scripts/audit_dependencies.sh` (same script as the required `dep_audit` job) | Fails the job, and maintains **one always-open status issue** whose body is the current state (clean, findings, or could-not-measure — the script's three-state exit contract). Comments only when the reported content **changes**, so an unchanged result is silent. Issues are written only on default-branch runs |
 
 **Why a schedule rather than a PR check.** Both watch for things that change without a diff. An
 advisory is published against a lockfile nobody touched; a suppression goes dead when *source* is
@@ -120,12 +121,14 @@ fixed, with the config untouched. Path-filtered PR jobs cannot see either. `undi
 `app/package-lock.json` accruing five high advisories with zero file changes and surfaced only
 because a developer ran `./dev quality` by hand (PR #929).
 
-**Why `dependency-audit.yml` is not a required check.** `npm audit` has no per-advisory accept
-mechanism (no `.pip-audit-ignore` equivalent), so a gating job would wedge every merge in the repo
-on an advisory with no upstream fix. Promoting it means building that escape hatch first —
-ADR-067 § 6e.
+**Why `dependency-audit.yml` is not a required check.** A cron run has no PR to gate — this
+workflow is the diff-independent backstop for advisories published against untouched lockfiles.
+The PR-side gate is `dep_audit` in `ci.yml` (required, same script). The historical blocker —
+`npm audit` having no per-advisory accept mechanism — was retired with npm audit itself:
+`app/osv-scanner.toml` accepts findings for both ecosystems with reasons + `ignoreUntil` expiries
+(ADR-067 § 6e).
 
-Run either locally: `./dev health-mypy`, and `./dev audit-deps` + `npm audit --audit-level=moderate`.
+Run either locally: `./dev health-mypy`, and `./dev audit-deps`.
 
 ## `codex-review.yml`
 

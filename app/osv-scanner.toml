@@ -1,0 +1,65 @@
+# Accepted CVE findings — the ONE dispositions file for BOTH ecosystems
+# (Python uv.lock + JS package-lock.json), consumed by
+# scripts/audit_dependencies.sh via `osv-scanner --config`.
+#
+# Policy (ADR-067 § 6e, ruled 2026-08-07): ALL severities are reported in both
+# ecosystems. Every finding is either fixed or accepted here with a reason and
+# an ignoreUntil expiry — the scanner re-raises the finding the day it lapses,
+# so acceptance is a dated decision, not a permanent exemption.
+#
+#   - Every entry documents WHY it is unfixable today and what unblocks it.
+#   - Delete the entry the moment an upgrade path exists (One Path Forward).
+#   - One entry per advisory: osv-scanner suppresses alias IDs (the GHSA/PYSEC
+#     twins) automatically (measured 2026-08-07, v2.5.0).
+#
+# ── mcp-neo4j-cypher cluster (dev group only — never in the production image,
+#    Dockerfile.production syncs --no-dev). mcp-neo4j-cypher 0.6.0 is the
+#    LATEST release and pins fastmcp 2.13.x, which pins mcp 1.22.0 and pulls
+#    diskcache via py-key-value-aio[disk]. Nothing to upgrade until upstream
+#    (github.com/neo4j-contrib/mcp-neo4j) cuts a release on fastmcp >= 3.2.
+#    Re-check: `uv lock --upgrade-package mcp-neo4j-cypher` then ./dev audit-deps.
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2447"
+ignoreUntil = 2026-11-07
+reason = "diskcache 5.6.3 — no fixed release published at all (checked 2026-07-24); dev-only mcp-neo4j-cypher cluster"
+
+[[IgnoredVulns]]
+id = "GHSA-rcfx-77hg-w2wv"
+ignoreUntil = 2026-11-07
+reason = "fastmcp 2.13.3 — fix lands in 3.2.0; blocked on mcp-neo4j-cypher releasing against fastmcp >= 3.2"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2474"
+ignoreUntil = 2026-11-07
+reason = "fastmcp 2.13.3 — fix lands in 2.14.0; blocked on mcp-neo4j-cypher releasing against fastmcp >= 3.2"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2475"
+ignoreUntil = 2026-11-07
+reason = "fastmcp 2.13.3 — fix lands in 2.14.2; blocked on mcp-neo4j-cypher releasing against fastmcp >= 3.2"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2476"
+ignoreUntil = 2026-11-07
+reason = "fastmcp 2.13.3 — fix lands in 3.2.0; blocked on mcp-neo4j-cypher releasing against fastmcp >= 3.2"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-338"
+ignoreUntil = 2026-11-07
+reason = "fastmcp 2.13.3 — OSV-only advisory (invisible to the PyPI feed); fix lands in 2.14.x; same upstream block"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-1617"
+ignoreUntil = 2026-11-07
+reason = "mcp 1.22.0 — fix lands in 1.23.0; pinned by fastmcp 2.13.x; same upstream block"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-3482"
+ignoreUntil = 2026-11-07
+reason = "mcp 1.22.0 — fix lands in 1.27.2; pinned by fastmcp 2.13.x; same upstream block"
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-3483"
+ignoreUntil = 2026-11-07
+reason = "mcp 1.22.0 — fix lands in 1.28.1; pinned by fastmcp 2.13.x; same upstream block"
