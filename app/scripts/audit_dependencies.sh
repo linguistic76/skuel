@@ -67,7 +67,8 @@ if ! uv lock --check --quiet; then
 fi
 
 RESULT="$(mktemp)"
-trap 'rm -f "$RESULT"' EXIT
+STATE="$(mktemp)"
+trap 'rm -f "$RESULT" "$STATE"' EXIT
 
 # --all-packages is load-bearing, not verbosity: osv-scanner exits 0 on a
 # lockfile it can only partially read, so the verifier below asserts that the
@@ -98,13 +99,44 @@ if [[ "$rc" -ne 0 && "$rc" -ne 1 ]]; then
   exit 3
 fi
 
-python3 - "$RESULT" <<'PY'
+# Second scan WITHOUT the ignores: the accepted advisories' current upstream
+# state — above all, whether a FIXED release now exists — must be part of the
+# deterministic report, or a fix shipping while an acceptance stands would
+# leave the scheduled digest unchanged until ignoreUntil lapses (Codex, #978;
+# the retired js_audit hashed npm's fixAvailable for exactly this transition).
+# The config scan above stays the ONE verdict source; this one only feeds the
+# report, so its failure is a failure to produce the promised report → exit 3.
+#
+# --config /dev/null is load-bearing, not decoration: osv-scanner AUTO-reads
+# an osv-scanner.toml sitting next to the scanned lockfiles, so omitting the
+# flag silently re-applies the very ignores this scan exists to see past
+# (measured — every accepted advisory vanished from the "config-less" output).
+src=0
+osv-scanner scan source \
+  --config /dev/null \
+  --lockfile uv.lock \
+  --lockfile package-lock.json \
+  --format json --all-packages \
+  --verbosity error \
+  --output-file "$STATE" || src=$?
+if [[ "$src" -ne 0 && "$src" -ne 1 ]]; then
+  echo "audit: osv-scanner state scan failed (exit $src) — dependencies were NOT measured." >&2
+  exit 3
+fi
+
+# The verifier's own failure (a JSON parse error, an unexpected schema) must
+# surface as exit 3, never as the scanner's exit 1 — dependency-audit.yml
+# reads exit 1 as "measured, unaccepted findings", which a crashed verifier
+# cannot claim (Codex, #978). Its deliberate count-mismatch exit is already 3.
+vrc=0
+python3 - "$RESULT" "$STATE" <<'PY' || vrc=$?
 import json
 import sys
 import tomllib
 
-result_path = sys.argv[1]
+result_path, state_path = sys.argv[1], sys.argv[2]
 scan = json.load(open(result_path))
+state = json.load(open(state_path))
 results = scan.get("results") or []
 
 # Expected package counts, derived from the lockfiles themselves so the
@@ -159,6 +191,39 @@ with open("osv-scanner.toml", "rb") as f:
     accepted = tomllib.load(f).get("IgnoredVulns") or []
 soonest = min((entry["ignoreUntil"] for entry in accepted), default=None)
 
+# Each accepted advisory's upstream fix state, from the config-less scan.
+# Rendered into the report so the digest CHANGES when a fixed release ships
+# (or the advisory stops matching the lock) — the transitions a maintainer
+# wants to hear about while an acceptance stands. Versions come from the OSV
+# records' affected-range "fixed" events: stable strings, no timestamps, so
+# the line moves only when the fix state does.
+state_vulns = [
+    (package["package"], vuln)
+    for result in state.get("results") or []
+    for package in result.get("packages") or []
+    for vuln in package.get("vulnerabilities") or []
+]
+
+def fix_state(advisory_id: str) -> str:
+    fixes: set[str] = set()
+    matched = False
+    for pkg, vuln in state_vulns:
+        if vuln.get("id") != advisory_id and advisory_id not in (vuln.get("aliases") or []):
+            continue
+        matched = True
+        for affected in vuln.get("affected") or []:
+            if (affected.get("package") or {}).get("name") != pkg["name"]:
+                continue
+            for rng in affected.get("ranges") or []:
+                for event in rng.get("events") or []:
+                    if "fixed" in event:
+                        fixes.add(str(event["fixed"]))
+    if not matched:
+        return "no longer reported by OSV for the locked resolution — entry deletable?"
+    if fixes:
+        return "fixed in " + ", ".join(sorted(fixes))
+    return "no fixed release published"
+
 for lockfile, want in expected.items():
     print(f"audit: {lockfile}: {want} packages scanned, count verified")
 print(
@@ -166,7 +231,7 @@ print(
     + (f" (earliest ignoreUntil: {soonest})" if soonest else "")
 )
 for entry in sorted(accepted, key=lambda e: str(e["id"])):
-    print(f"  accepted: {entry['id']} (until {entry['ignoreUntil']})")
+    print(f"  accepted: {entry['id']} (until {entry['ignoreUntil']}) — {fix_state(str(entry['id']))}")
 if findings:
     print(f"audit: {len(findings)} UNACCEPTED finding(s):")
     for source, name, version, ids, severity in findings:
@@ -174,5 +239,12 @@ if findings:
 else:
     print("audit: no unaccepted findings")
 PY
+
+if [[ "$vrc" -ne 0 ]]; then
+  if [[ "$vrc" -ne 3 ]]; then
+    echo "audit: report verifier failed (exit $vrc) — dependencies were NOT measured." >&2
+  fi
+  exit 3
+fi
 
 exit "$rc"
