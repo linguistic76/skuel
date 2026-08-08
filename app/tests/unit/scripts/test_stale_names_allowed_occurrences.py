@@ -5,17 +5,22 @@ The whole-file suppressor (``SKIP_FILES``) has its own audit in
 PR #986 called for after the earlier "bulk-add files to SKIP_FILES to force the count
 to 0" pass was reverted:
 
-  * ``ALLOWED_OCCURRENCES`` — one identifier, in one otherwise-scanned doc. The earlier
-    draft of exactly this shipped without an audit and was reverted with the bulk-add;
-    the mechanism is sound, the missing audit was the defect. This file is that audit.
+  * ``ALLOWED_OCCURRENCES`` — one identifier at one LINE, in one otherwise-scanned doc.
+    The earlier draft of exactly this shipped without an audit and was reverted with the
+    bulk-add; the mechanism is sound, the missing audit was the defect. This file is that
+    audit. It is line-anchored, not merely (file, identifier)-keyed: Codex (PR #988)
+    showed the coarser key would silently suppress a *second*, genuinely-stale mention of
+    an already-allowed identifier while the audit stayed green — the identity-scoping trap
+    the suppression audit was built to catch. Anchoring on the line closes it: any hit not
+    at an allowed line is reported.
   * ``SCAN_EXCLUDE_DIRS`` — a whole frozen-archive subtree (``docs/migrations/``), out
     of remit like ``docs/roadmap/done/``.
 
 The discipline is the same one the suppression audit encodes and SKUEL026 encodes for
 lint suppressions: **an exemption that suppresses nothing is a finding**. A dead allow
 entry is not harmless — it is a rubber stamp that will silently swallow the first real
-stale name that lands on the same (file, identifier), so the audit fails on it and forces
-a human to re-justify or delete it.
+stale name that lands on the same (file, line), so the audit fails on it and forces a
+human to re-justify or delete it.
 """
 
 from __future__ import annotations
@@ -35,9 +40,9 @@ def _scan_target_strs() -> set[str]:
     return {str(p.relative_to(sn.ROOT)) for p in sn.get_scan_targets()}
 
 
-def _raw_identifiers(path: Path) -> set[str]:
-    """Every tracked identifier the scanner raw-matches in ``path`` (pre-allowlist)."""
-    return {old for _lineno, old, _replacement, _kind in sn.scan_file(path)}
+def _raw_occurrences(path: Path) -> set[tuple[int, str]]:
+    """Every (line, identifier) the scanner raw-matches in ``path`` (pre-allowlist)."""
+    return {(lineno, old) for lineno, old, _replacement, _kind in sn.scan_file(path)}
 
 
 def _dead_allow_entries() -> list[str]:
@@ -46,20 +51,20 @@ def _dead_allow_entries() -> list[str]:
     Two ways an entry can be dead, both the same rubber-stamp defect:
       * the file is not a live scan target (moved, or itself excluded/skipped), so the
         allow can never fire; or
-      * the identifier does not raw-match anywhere in that file, so removing the entry
-        would surface no hit.
+      * that identifier does not raw-match at that exact line — the line moved (a doc
+        edit shifted it) or the entry was mis-typed, so removing it would surface no hit.
     """
     targets = _scan_target_strs()
     dead: list[str] = []
-    for rel_path, identifiers in sn.ALLOWED_OCCURRENCES.items():
+    for rel_path, entries in sn.ALLOWED_OCCURRENCES.items():
         if rel_path not in targets:
             dead.append(f"{rel_path}: not a live scan target — allow can never fire")
             continue
-        raw = _raw_identifiers(sn.ROOT / rel_path)
+        raw = _raw_occurrences(sn.ROOT / rel_path)
         dead.extend(
-            f"{rel_path}: {identifier!r} raw-matches nothing — dead allow"
-            for identifier in identifiers
-            if identifier not in raw
+            f"{rel_path}:{lineno} {identifier!r} raw-matches nothing at that line — dead anchor"
+            for (lineno, identifier) in entries
+            if (lineno, identifier) not in raw
         )
     return dead
 
@@ -83,22 +88,22 @@ def test_allowed_files_are_live_scan_targets() -> None:
     )
 
 
-def test_every_allowed_identifier_suppresses_a_real_hit() -> None:
-    """Positive control, per (file, identifier) — no dead allows (SKUEL026 discipline)."""
+def test_every_allowed_entry_anchors_a_real_hit() -> None:
+    """Positive control, per (file, line, identifier) — no dead anchors (SKUEL026)."""
     dead = _dead_allow_entries()
     assert dead == [], (
         "ALLOWED_OCCURRENCES has entries that hide nothing — a rubber stamp that will "
-        f"swallow the first real stale name on the same (file, identifier): {dead}. "
-        "Fix the identifier/path or delete the entry."
+        f"swallow the first real stale name on the same (file, line): {dead}. The line "
+        "likely moved (re-anchor it) or the entry is mistyped; fix or delete it."
     )
 
 
 def test_every_allowed_entry_carries_a_rationale() -> None:
     """Each exemption sits under a stated justification — no blank grants."""
     blank = [
-        f"{rel_path}:{identifier}"
-        for rel_path, identifiers in sn.ALLOWED_OCCURRENCES.items()
-        for identifier, rationale in identifiers.items()
+        f"{rel_path}:{lineno} {identifier}"
+        for rel_path, entries in sn.ALLOWED_OCCURRENCES.items()
+        for (lineno, identifier), rationale in entries.items()
         if not rationale.strip()
     ]
     assert blank == [], f"ALLOWED_OCCURRENCES entries with an empty rationale: {blank}"
@@ -139,26 +144,31 @@ def test_no_scan_target_lives_under_an_excluded_dir() -> None:
 # ── Mechanism logic: synthetic, proves the guards bite even with empty real data ──
 
 
-def test_is_allowed_occurrence_is_scoped_to_one_file_and_one_identifier(monkeypatch) -> None:
-    """The allow exempts ONLY the named (file, identifier) — never a whole file."""
-    monkeypatch.setitem(sn.ALLOWED_OCCURRENCES, "docs/example.md", {"KuType": "why"})
-    assert sn._is_allowed_occurrence("docs/example.md", "KuType") is True
-    # A different identifier in the SAME file is still scanned — the surgical property
-    # that distinguishes this from SKIP_FILES.
-    assert sn._is_allowed_occurrence("docs/example.md", "KuStatus") is False
-    # The same identifier in a DIFFERENT file is still scanned.
-    assert sn._is_allowed_occurrence("docs/other.md", "KuType") is False
+def test_is_allowed_occurrence_is_scoped_to_one_line_and_one_identifier(monkeypatch) -> None:
+    """The allow exempts ONLY the named (line, identifier) — never a whole file."""
+    monkeypatch.setitem(sn.ALLOWED_OCCURRENCES, "docs/example.md", {(18, "KuType"): "why"})
+    assert sn._is_allowed_occurrence("docs/example.md", 18, "KuType") is True
+    # The SAME identifier on a DIFFERENT line is still reported — the line-anchoring that
+    # closes the (file, identifier) blind spot Codex flagged (PR #988).
+    assert sn._is_allowed_occurrence("docs/example.md", 19, "KuType") is False
+    # A different identifier at the SAME line is still scanned.
+    assert sn._is_allowed_occurrence("docs/example.md", 18, "KuStatus") is False
+    # The same occurrence in a DIFFERENT file is still scanned.
+    assert sn._is_allowed_occurrence("docs/other.md", 18, "KuType") is False
 
 
 def test_dead_allow_audit_bites(monkeypatch) -> None:
     """Prove the positive-control audit fails on a dead entry — otherwise it is theatre."""
     # Branch A: file is not a scan target at all.
-    monkeypatch.setitem(sn.ALLOWED_OCCURRENCES, "docs/does-not-exist.md", {"KuType": "x"})
+    monkeypatch.setitem(sn.ALLOWED_OCCURRENCES, "docs/does-not-exist.md", {(1, "KuType"): "x"})
     assert any("does-not-exist" in problem for problem in _dead_allow_entries())
 
-    # Branch B: a real scan target, but an identifier that raw-matches nothing there.
+    # Branch B: a real scan target, but a (line, identifier) that raw-matches nothing
+    # there — covers both a moved line and a never-tracked identifier.
     a_real_target = str(next(iter(sn.get_scan_targets())).relative_to(sn.ROOT))
-    monkeypatch.setitem(sn.ALLOWED_OCCURRENCES, a_real_target, {"ThisIdentifierIsNotTracked": "x"})
+    monkeypatch.setitem(
+        sn.ALLOWED_OCCURRENCES, a_real_target, {(999_999, "ThisIdentifierIsNotTracked"): "x"}
+    )
     assert any("ThisIdentifierIsNotTracked" in problem for problem in _dead_allow_entries())
 
 

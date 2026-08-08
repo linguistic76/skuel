@@ -334,12 +334,12 @@ This script is only as useful as its RENAMED/DELETED tables. **Update it wheneve
 
 Some docs must name a retired identifier — an ADR's before/after table, an import-error string users search for verbatim, a doc that demonstrates this scanner. Three exemption tiers exist, narrowest first; **every tier is audited so an exemption that hides nothing is a finding** (`test_stale_names_allowed_occurrences.py`, the SKUEL026 discipline). Reach for the narrowest that fits — never widen a whole file to force the count down (reverted in PR #986).
 
-- **`ALLOWED_OCCURRENCES`** — one identifier, one otherwise-scanned doc. Every OTHER identifier in that file is still scanned, so a genuinely-stale name elsewhere in the same doc is still caught. Each entry needs a rationale and must match ≥1 real hit:
+- **`ALLOWED_OCCURRENCES`** — one identifier at one **line**, one otherwise-scanned doc. Every other line (and every other identifier) in that file is still scanned, so a genuinely-stale mention of the *same* name on a *different* line is still reported — line-anchoring, not a coarse `(file, identifier)` key, is what closes that blind spot (Codex, PR #988). Each entry needs a rationale and must raw-match at its anchored line (read the line off `--verbose`):
 
   ```python
-  ALLOWED_OCCURRENCES: dict[str, dict[str, str]] = {
+  ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], str]] = {
       "docs/decisions/ADR-0XX-example.md": {
-          "LegacyType": "before/after table — the ADR's subject IS this rename",
+          (42, "LegacyType"): "before/after table — the ADR's subject IS this rename",
       },
   }
   ```

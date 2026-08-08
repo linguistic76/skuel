@@ -16,8 +16,8 @@ coordinate rules it fixed.
 Three exemption tiers, narrowest first — each audited so an exemption that hides
 nothing is itself a finding (SKUEL026 discipline):
 
-  * ``ALLOWED_OCCURRENCES`` — one identifier, in one otherwise-scanned doc. The
-    surgical tier: an ADR before/after table, a searchable import-error string.
+  * ``ALLOWED_OCCURRENCES`` — one identifier at one line in one otherwise-scanned
+    doc. The surgical tier: an ADR before/after table, a searchable import string.
   * ``SCAN_EXCLUDE_DIRS`` — a whole frozen-archive subtree (``docs/migrations/``),
     out of remit like ``docs/roadmap/done/``. A scope decision, not a suppression.
   * ``SKIP_FILES`` — one whole file, the scanner's own documentation. Stays narrow.
@@ -226,20 +226,25 @@ SCAN_EXCLUDE_DIRS = {
     ROOT / "docs" / "migrations",  # ## Migrations archive (docs/INDEX.md) — dated, COMPLETE records
 }
 
-# ── Occurrence-level allowlist (audited) ─────────────────────────────────────
-# {relative_path: {old_identifier: rationale}} — exempts ONLY the named identifiers
-# in that one maintained doc, leaving every OTHER identifier in the file still
-# scanned. This is the surgical alternative to SKIP_FILES: it does not blind the
-# whole file, so a genuinely-stale name elsewhere in the same doc is still caught.
+# ── Occurrence-level allowlist (audited, line-anchored) ──────────────────────
+# {relative_path: {(line_number, old_identifier): rationale}} — exempts ONE hit at
+# ONE line in one maintained doc. Every other line, and every other identifier, in
+# the same file stays scanned. This is the surgical alternative to SKIP_FILES: it
+# does not blind the whole file, and — because it anchors on the LINE, not just the
+# identifier — a genuinely-stale mention of an already-allowed identifier appearing
+# on a DIFFERENT line is still reported (Codex, PR #988: a (file, identifier) key
+# would suppress it silently and the audit would stay green). ``line_number`` is the
+# 1-based file line as this scanner reports it (run with --verbose to read it off).
 #
-# Use it for a doc that is otherwise current but MUST name a retired identifier in
-# a specific place — an ADR's before/after table, TROUBLESHOOTING's verbatim
+# Use it for a doc that is otherwise current but MUST name a retired identifier at a
+# specific place — an ADR's before/after table, TROUBLESHOOTING's verbatim
 # import-error strings users search for, a doc that demonstrates this scanner.
 #
 # Every entry is audited (tests/unit/scripts/test_stale_names_allowed_occurrences.py):
-# the file must be a live scan target, each identifier must match ≥1 real hit
-# (a dead allow is a finding, SKUEL026-style), and each must carry a rationale.
-ALLOWED_OCCURRENCES: dict[str, dict[str, str]] = {}
+# the file must be a live scan target, each (line, identifier) must raw-match at that
+# exact line (a moved line or dead entry is a finding, SKUEL026-style — and forces
+# the anchor to be re-verified), and each must carry a rationale.
+ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], str]] = {}
 
 
 def _under_excluded_dir(path: Path) -> bool:
@@ -247,13 +252,15 @@ def _under_excluded_dir(path: Path) -> bool:
     return any(excluded in path.parents for excluded in SCAN_EXCLUDE_DIRS)
 
 
-def _is_allowed_occurrence(rel_path: str, identifier: str) -> bool:
-    """True if ``identifier`` is an audited intentional mention in ``rel_path``.
+def _is_allowed_occurrence(rel_path: str, lineno: int, identifier: str) -> bool:
+    """True if ``identifier`` at ``lineno`` is an audited intentional mention in ``rel_path``.
 
-    ``rel_path`` is the forward-slash path relative to ROOT (matches the keys in
-    ALLOWED_OCCURRENCES and the display path used throughout the scanner).
+    Anchored on the exact line, so it exempts only the one justified occurrence — the
+    same identifier on any other line of the same file is still reported. ``rel_path``
+    is the forward-slash path relative to ROOT (matches the ALLOWED_OCCURRENCES keys
+    and the display path used throughout the scanner).
     """
-    return identifier in ALLOWED_OCCURRENCES.get(rel_path, {})
+    return (lineno, identifier) in ALLOWED_OCCURRENCES.get(rel_path, {})
 
 
 def get_scan_targets() -> list[Path]:
@@ -399,7 +406,7 @@ def main() -> int:
         issues = scan_file(md_file)
         rel = md_file.relative_to(ROOT)
         for lineno, old, new, kind in issues:
-            if _is_allowed_occurrence(str(rel), old):
+            if _is_allowed_occurrence(str(rel), lineno, old):
                 continue  # audited intentional mention — see ALLOWED_OCCURRENCES
             all_issues.append((rel, lineno, old, new, kind))
             if args.verbose:
