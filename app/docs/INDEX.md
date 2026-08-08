@@ -448,6 +448,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Habit-Rhythm Arc](roadmap/done/habit-rhythm-arc.md) | 2026-08-04 | M1–M7 shipped (#927/#933/#934); open follow-ups extracted to [Deferred Work](roadmap/deferred-work.md) |
 | [One Dependency Scanner (osv-scanner)](roadmap/done/dependency-scanner-consolidation.md) | 2026-08-07 | pip-audit + npm audit retired for one measured scanner over both lockfiles (#978) |
 | [JS/Node Dependency Surface](roadmap/done/js-dependency-surface.md) | 2026-08-07 | The undici-incident review: all six decisions resolved (Renovate live, Node 24, accept mechanism via #978) |
+| [Edge Ingestion Support](roadmap/done/edge-ingestion-support.md) | 2026-03-08 | Edge YAML files ingested as typed, evidence-bearing relationships; the three design questions ruled closed 2026-08-08 (shipped behavior is the decision) |
 | [Goal Event-Handler Extraction](roadmap/done/event-handler-extraction-goals.md) | 2026-03-20 | GoalEventHandlerService with 3 handlers; GoalsRecommendationService deleted |
 | [Activity Views Consolidation](roadmap/done/activity-views-consolidation.md) | 2026-04-10 | Patterns A and C complete; Pattern B (StatsBar) closed — not viable |
 | [Cypher Seam Hard-Gate Options](roadmap/done/cypher-seam-hard-gate-options.md) | 2026-05-31 | Question superseded: the `arg-type` sweep made the NeoLabel/RelationshipName seam a hard CI gate; blast-radius analysis retained as history |

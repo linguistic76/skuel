@@ -87,6 +87,15 @@ See: `docs/patterns/UNIFIED_INGESTION_GUIDE.md` § Deletion propagation.
 
 ## Open Questions
 
+> **Ruled closed 2026-08-08 (founder):** the shipped behavior is the decision — MERGE
+> semantics stand (same from/to/type updates rather than duplicates), no confidence decay,
+> and edge definitions are **frontmatter-only**: both YAML files and markdown files whose
+> frontmatter carries `type: Edge` are accepted (verified: `unified_ingestion_service.py`
+> parses either format before the `is_edge_type` check, and `batch.py` mirrors it), but a
+> markdown BODY is silently ignored — the evidence-body half of question 3 was never
+> built. Each is revisitable only if a lived need arises; nothing below is tracked as
+> open work.
+
 1. Should evidence relationships be additive (multiple edges between same nodes) or merged? Currently uses MERGE — same from/to/type updates rather than duplicates.
 2. Should confidence decay over time without re-observation?
 3. Should edge ingestion support markdown files (frontmatter + evidence body)?
