@@ -74,15 +74,28 @@ jobs:
         id: rev
         run: echo "ts=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
 
+      # continue-on-error on ALL setup steps, because a failure there must
+      # still be REPORTED. Subsequent steps carry an implicit success() check,
+      # so an unguarded transient failure (package service, runner) would
+      # abort the job before the janitor ran and skip the Report step
+      # entirely — leaving the status issue stale, with the failure visible
+      # only in the Actions log, which is the exact failure mode this
+      # workflow exists to prevent (Codex, PR #982; same reasoning as the
+      # tool installs in dependency-audit.yml). The janitor step probes the
+      # toolchain itself and routes a could-not-measure report through the
+      # marker issue.
       - name: Set up Python
+        continue-on-error: true
         uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
       - name: Install uv
+        continue-on-error: true
         uses: astral-sh/setup-uv@v9.0.0
 
       - name: Load cached venv
+        continue-on-error: true
         id: cached-uv-dependencies
         uses: actions/cache@v6
         with:
@@ -90,6 +103,7 @@ jobs:
           key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
 
       - name: Install dependencies
+        continue-on-error: true
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
         working-directory: app
         run: uv sync --frozen --no-install-project
@@ -103,6 +117,35 @@ jobs:
         id: janitor
         working-directory: app
         run: |
+          # Probe the instrument before trusting it: if the toolchain never
+          # came up (uv missing after a failed install, venv broken after a
+          # failed sync), every check below would "fail" for reasons that are
+          # not findings. Report could-not-measure through the marker issue
+          # instead — no claim about the codebase is implied.
+          if ! uv run python -c "import core.utils.terminal_colors, vulture" > setup_probe.txt 2>&1; then
+            cat setup_probe.txt
+            {
+              echo "**The janitor could not measure** — the toolchain never came up"
+              echo "(a failed setup step or \`uv sync\`, most likely a transient"
+              echo "package-service or runner problem). **No claim is made about the"
+              echo "health checks or the bloat report.** A re-run usually clears this."
+              echo ""
+              echo '```'
+              tail -c 4000 setup_probe.txt
+              echo '```'
+            } > janitor-body.md
+            digest=$(sha256sum janitor-body.md | cut -c1-16)
+            {
+              echo "digest=$digest"
+              echo "failed=setup_aborted"
+              echo "report<<__JANITOR_REPORT_EOF__"
+              cat janitor-body.md
+              echo "__JANITOR_REPORT_EOF__"
+            } >> "$GITHUB_OUTPUT"
+            echo "Janitor sections failed: 'setup_aborted'"
+            exit 0
+          fi
+
           failed=""
 
           for check in dead_modules:scripts/health/dead_modules.py \
@@ -244,6 +287,7 @@ jobs:
             app/bloat.json
             app/bloat_progress.txt
             app/janitor-body.md
+            app/setup_probe.txt
           retention-days: 30
 
       # Fail for BOTH health-check findings and an aborted bloat instrument —
