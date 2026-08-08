@@ -71,7 +71,7 @@ This is a direct, mechanical extension of ADR-065. The pattern is specified; the
 ### 2. Typed update intents — replace `dict[str, Any]` update payloads with frozen `*UpdateIntent` dataclasses — *✅ done (2026-06-05)*
 
 > **Owned and completed by [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)**; the phased
-> migration is recorded in [docs/roadmap/update-intents.md](update-intents.md). The text below is now a record of what shipped.
+> migration is recorded in [docs/roadmap/done/update-intents.md](done/update-intents.md). The text below is now a record of what shipped.
 
 **Shipped shape:** every `*CoreService` exposes `update_X(uid: str, intent: {Domain}UpdateIntent) -> Result[X]`, where `{Domain}UpdateIntent` is a frozen dataclass with one `UNSET`-defaulted field per updatable column and a `to_changes()` that emits only the set fields. The shared `CrudOperationsMixin[B, T, U]` is parameterized over the update type `U` (bound `SupportsToChanges`, default `RawChanges`), so the base's `update` / `update_for_user` / `_validate_update` / `_post_update` are all typed on the intent and materialize the patch once at `backend.update(uid, updates.to_changes())`. The Pydantic `*UpdateRequest` models build the intent via `to_intent()`; the generic `CRUDRouteFactory` calls it for any `SupportsToIntent` schema.
 

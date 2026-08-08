@@ -17,7 +17,7 @@ allowed to change*:
   the six Activity Domains override ``U`` with their intent; the ~53 non-activity
   ``BaseService[Op, T]`` instantiations inherit ``U = RawChanges`` untouched.
 
-See: ADR-066 (Typed Update Intents); ``docs/roadmap/update-intents.md`` (Phase 7a).
+See: ADR-066 (Typed Update Intents); ``docs/roadmap/done/update-intents.md`` (Phase 7a).
 """
 
 from __future__ import annotations

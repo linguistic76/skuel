@@ -104,7 +104,7 @@ journal privacy norm does not extend to it (Ruling 2 scope).
    entries (`UserEntry.is_periodic_note()`) bypass the pre-pass entirely** —
    entities in daily/weekly/monthly notes come only from checkbox lines +
    explicit `@context()` markers, never inferred from prose, so both tiers
-   behave identically there. See `docs/roadmap/calendar-periodic-notes-arc.md`
+   behave identically there. See `docs/roadmap/done/calendar-periodic-notes-arc.md`
    and `docs/dsl/DSL_USAGE_GUIDE.md` § Periodic Notes — The Parse Contract.
 3. **Deterministic extraction (Analog layer):**
    `ActivityExtractorService.extract_and_create()` over the working text. The

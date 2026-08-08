@@ -1,5 +1,10 @@
 # P3 — Ephemeral by Default, *Save this Chat* to Persist (both doors)
 
+> **✅ Confirmed and shipped 2026-07-13.** The rulings below were founder-confirmed and the
+> arc was built to them — PR1–PR3 all SHIPPED (see the phasing table: "P3 arc COMPLETE").
+> The "no code until confirmed" gate below describes a gate that was then passed, not an
+> open state.
+
 **Design-first choices doc for the Journals discussion arc, phase 3.** Mirrors the P2
 ADR-first precedent: **write + confirm the choices, THEN build.** No code until the founder
 confirms the rulings below.
@@ -10,10 +15,10 @@ drifted default. The founder re-established the blunt Journals privacy rule: **a
 saved by default; there is an explicit choice to save it.** ADR-078 is amended to match (§1/§5/§7,
 2026-07-13). This doc is rewritten around that rule.
 
-- **Arc SoT:** `docs/roadmap/journals-discussion-first.md` (§C6 convergence, §Phasing P3)
+- **Arc SoT:** `docs/roadmap/done/journals-discussion-first.md` (§C6 convergence, §Phasing P3)
 - **Governing ADR:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md` — the
   binding shape (now amended to opt-in persistence). If this doc and ADR-078 disagree, ADR-078 wins.
-- **Predecessor:** `docs/roadmap/journals-discussion-storage-p2.md` (the store this reuses)
+- **Predecessor:** `docs/roadmap/done/journals-discussion-storage-p2.md` (the store this reuses)
 - **Privacy commitment:** [[project_journal_privacy_commitment]] (ADR-073)
 - **Memory:** [[project_journals_discussion_arc]]
 
@@ -178,6 +183,10 @@ No accumulator-deletion PR — the accumulator is retained by design. PR1 carrie
 ---
 
 ## Residuals carried forward (known — not regressions)
+
+> The encryption residual is tracked live in `../journals-discussion-deferred.md` § 3
+> (at-rest encryption, ADR-042 — discussions prioritized); "unsaved = lost" is the intended
+> contract, not open work.
 
 - **Plaintext at rest:** *saved* turn content (including stored source text) is plaintext in
   Neo4j until ADR-042 field-level encryption — same residual class as typed-door turns and

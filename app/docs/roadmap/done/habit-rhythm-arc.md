@@ -4,7 +4,7 @@
 (PR 2, S2) and **#934** (PR 3, S3). Contract settled in the S5 Markwhen
 exploration (the door `calendar-periodic-notes-arc.md` E4 deliberately left
 open). Rulings M1–M7 below are founder-settled — do not re-litigate.
-**Related:** `docs/roadmap/calendar-periodic-notes-arc.md` (E4, R5),
+**Related:** `docs/roadmap/done/calendar-periodic-notes-arc.md` (E4, R5),
 `docs/roadmap/calendar-act-from-arc.md` (C3 per-day habit completion;
 hourly-grid non-goal), `core/models/habit/habit.py` (scheduling fields),
 `core/models/enums/scheduling_enums.py` (`TimeOfDay`),
@@ -410,7 +410,9 @@ as an ordered sequence rather than an hour axis (M5), planned and completed are
 one picture via the act-from C3 tick (M6), Markwhen is retired on the app side
 (M2), and `/timelines` is gone (M7).
 
-Left open by design, each gated on lived use rather than on work:
+Left open by design, each gated on lived use rather than on work. **Tracked live in
+`docs/roadmap/deferred-work.md` § Habit-Rhythm Arc Follow-ups** (extracted when this arc
+moved to `done/` — the list below is the record; the register is the tracker):
 
 - **Vault-side cleanup** is the founder's — the monthly template still carries
   the retired markwhen block and lacks `type: user_entry`/`pipeline`

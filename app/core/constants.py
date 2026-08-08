@@ -586,7 +586,7 @@ class ZPDWeights:
     as SKUEL accumulates real learning-outcome data.
 
     See: core/services/zpd/zpd_service.py
-    See: docs/roadmap/zpd-service-architecture.md
+    See: docs/roadmap/done/zpd-service-architecture.md
     """
 
     # Minimum KUs in the curriculum graph before ZPD runs. Below this the

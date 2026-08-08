@@ -5,9 +5,9 @@
 scoped **out** of that arc and deferred with rulings. They are **not regressions
 and not bugs** — each is a follow-on refinement waiting on its own trigger.
 
-- **Arc SoT:** `docs/roadmap/journals-discussion-first.md`
+- **Arc SoT:** `docs/roadmap/done/journals-discussion-first.md`
 - **Governing ADR:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md`
-- **P3 choices doc:** `docs/roadmap/journals-discussion-storage-p3.md` (decisions 4 & 5)
+- **P3 choices doc:** `docs/roadmap/done/journals-discussion-storage-p3.md` (decisions 4 & 5)
 - **Privacy commitment:** `docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md`; `docs/decisions/ADR-042-privacy-as-first-class-citizen.md` (encryption)
 
 ---

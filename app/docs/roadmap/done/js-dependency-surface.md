@@ -216,7 +216,7 @@ These need a founder ruling; none is urgent, all are cheap.
    where it lived, and a second doc cannot do that.
 6. ~~**What is our npm equivalent of `.pip-audit-ignore`?**~~ **RESOLVED 2026-08-07 — the third
    shape shipped.** The osv-scanner consolidation
-   ([`/docs/roadmap/dependency-scanner-consolidation.md`](dependency-scanner-consolidation.md),
+   ([`/docs/roadmap/done/dependency-scanner-consolidation.md`](dependency-scanner-consolidation.md),
    which treated this decision as its headline motivation) replaced both scanners with one:
    `app/osv-scanner.toml` accepts findings per-advisory for *both* ecosystems, each entry with a
    `reason` and an `ignoreUntil` expiry. With the escape hatch built, the PR-side audit

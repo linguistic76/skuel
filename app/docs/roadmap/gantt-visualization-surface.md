@@ -12,8 +12,8 @@ power for visuals."*
 `core/services/visualization_service.py` (format),
 `core/ports/query_types.py` (`GanttConfig` wire type),
 `scripts/copy-vendor-libs.js` (vendor pipeline),
-`docs/roadmap/habit-rhythm-arc.md` (M7 / #934 — the sibling surface that WAS deleted),
-`docs/roadmap/js-dependency-surface.md` (the JS dependency record ADR-067 defers to).
+`docs/roadmap/done/habit-rhythm-arc.md` (M7 / #934 — the sibling surface that WAS deleted),
+`docs/roadmap/done/js-dependency-surface.md` (the JS dependency record ADR-067 defers to).
 
 ---
 

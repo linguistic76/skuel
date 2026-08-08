@@ -12,7 +12,7 @@
 **Contract for the storage-implementation arc.** Founder-confirmed ADR-078 (2026-07-13) is the
 gate — now cleared (PR #631). This plan translates ADR-078 into a concrete, PR-sequenced build.
 
-- **SoT:** `docs/roadmap/journals-discussion-first.md` (choices C1/C2/C6)
+- **SoT:** `docs/roadmap/done/journals-discussion-first.md` (choices C1/C2/C6)
 - **Governing ADR:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md` — **the
   binding shape.** If this plan and ADR-078 ever disagree, ADR-078 wins.
 - **Amends:** ADR-073 §1/§3 (already noted in-repo)
@@ -252,6 +252,9 @@ Export can split to a PR4 fast-follow if PR3 grows; keep each PR one coherent su
 ---
 
 ## Residuals carried forward (known, documented — not regressions)
+
+> Tracked live in `../journals-discussion-deferred.md` § 3 (at-rest encryption of discussion
+> turns, ADR-042 — discussions prioritized).
 
 - **Plaintext at rest:** `ConversationTurn.content` is plaintext in Neo4j until ADR-042 field-level
   encryption. Same *mechanism* as doorway/periodic notes, but freeform discussion is more

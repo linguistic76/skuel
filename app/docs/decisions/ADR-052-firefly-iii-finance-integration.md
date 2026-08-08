@@ -19,7 +19,7 @@ related:
 
 ## Status
 
-Accepted — implementation in progress. **Phases 1 + 2** (Docker stack + `firefly_client` REST adapter) landed in commit `c3258630`. **Phase 4 (custom finance UI) is CANCELLED** and **Phase 5 (demolition) is expanded to the whole native finance surface** — see "Amendments" below. The billing side (originally Stripe-direct, now ChargeKeep) is owned by [ADR-062](ADR-062-chargekeep-billing-layer.md); the phased sequence + spike gate live in [`roadmap/finance-billing-migration.md`](../../roadmap/finance-billing-migration.md).
+Accepted — implementation in progress. **Phases 1 + 2** (Docker stack + `firefly_client` REST adapter) landed in commit `c3258630`. **Phase 4 (custom finance UI) is CANCELLED** and **Phase 5 (demolition) is expanded to the whole native finance surface** — see "Amendments" below. The billing side (originally Stripe-direct, now ChargeKeep) is owned by [ADR-062](ADR-062-chargekeep-billing-layer.md); the phased sequence + spike gate live in [`roadmap/finance-billing-migration.md`](../roadmap/finance-billing-migration.md).
 
 > **Amendments (2026-05-24).** This ADR's body has been revised so it no longer contradicts the resolution captured in ADR-062 + the roadmap. Three reversals of the original 2026-04-12 text:
 > 1. **Billing is ChargeKeep, not Stripe-direct.** The `POST /webhooks/stripe` consumer and `stripe_firefly_sync_service` are replaced by a ChargeKeep webhook consumer (ADR-062). Firefly-as-ledger is unchanged.

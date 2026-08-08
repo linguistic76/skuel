@@ -15,7 +15,7 @@ Produced by ZPDService.assess_zone() and consumed by:
 - DailyPlanningMixin.get_ready_to_work_on_today() — P5 learning priority
 
 See: core/services/zpd/zpd_service.py
-See: docs/roadmap/zpd-service-architecture.md
+See: docs/roadmap/done/zpd-service-architecture.md
 """
 
 from __future__ import annotations

@@ -361,7 +361,7 @@ ever — and the FULL-tier LLM pre-pass is **bypassed for periodic entries**
 (`UserEntry.is_periodic_note()` gate), so both intelligence tiers behave
 identically. The authoritative statement lives in the DSL usage guide:
 [Periodic Notes — The Parse Contract](../dsl/DSL_USAGE_GUIDE.md#periodic-notes--the-parse-contract)
-(ruling E3, `docs/roadmap/calendar-periodic-notes-arc.md`).
+(ruling E3, `docs/roadmap/done/calendar-periodic-notes-arc.md`).
 
 ### Example
 

@@ -74,7 +74,7 @@ for the weekly/monthly notes. That is this arc.
   the act-from arc's hourly-time-grid non-goal anticipated it).
   *(Resolved 2026-08-03: the S5 exploration ran and ruled RETIREMENT — no markwhen
   parsing/rendering ever; habitual time becomes Habit entity data instead. See
-  `docs/roadmap/habit-rhythm-arc.md`, rulings M1–M7.)*
+  `docs/roadmap/done/habit-rhythm-arc.md`, rulings M1–M7.)*
 
 ## Verified ground truth (2026-08-02 code read + live graph + vault specimens)
 
@@ -175,7 +175,7 @@ for the weekly/monthly notes. That is this arc.
   the recognized-shape contract where the docs architecture homes it (DSL usage guide
   or ingestion guide § periodic notes — cross-linked both ways).
 - **S5 — Markwhen: DEFERRED** (E4). Recorded; out of arc. *(Since resolved —
-  see `docs/roadmap/habit-rhythm-arc.md`.)*
+  see `docs/roadmap/done/habit-rhythm-arc.md`.)*
 
 ## Non-goals
 
@@ -190,7 +190,8 @@ for the weekly/monthly notes. That is this arc.
 - App-side quick-add on the weekly note (E2 — the vault plans; the day lens already
   owns task quick-add per act-from C6).
 - Habits in the weekly panel v1; monthly-note panel parity (follow-ups gated on
-  lived use).
+  lived use — both tracked live in `../deferred-work.md`: § Habit-Rhythm Arc
+  Follow-ups and § Calendar Periodic-Notes Arc Follow-up respectively).
 - Re-litigating Monday-start / ISO-week rail (PERMANENT) or any act-from arc choice.
 - Background/watcher-based ingestion (ADR-070 Decision 9 stands — sync is
   human-initiated).

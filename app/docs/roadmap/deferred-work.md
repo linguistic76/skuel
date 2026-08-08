@@ -309,6 +309,133 @@ the lateral-relationships system, not here), so the inverse dependency direction
 
 ---
 
+## Habit-Rhythm Arc Follow-ups
+
+Extracted 2026-08-07 from the completed arc when it moved to
+[`done/habit-rhythm-arc.md`](done/habit-rhythm-arc.md) (M1–M7 all shipped, #927/#933/#934):
+the arc is finished, these follow-ups are not. Each was left open by design, gated on lived
+use rather than on work — the archive is the record, this register is the tracker.
+
+### Habit rows in the weekly-note panel
+
+A5's backward-review half: the weekly-note panel does not yet show habit rows, per the arc's
+Non-goals.
+
+**Enable when**: lived weekly-review use wants the backward look — product need, not a data
+threshold.
+
+### Non-positive-duration follow-ups (arc PR 2)
+
+The same habit renders `0m` on `/today` while `habits_scheduling_service` proposes `15` —
+two surfaces disagreeing about a non-positive `duration_minutes`.
+
+**Enable when**: next touch of either surface; small enough to ride along.
+
+### Monthly-template vault cleanup (founder's, non-repo)
+
+The monthly template in the personal vault still carries the retired markwhen block and lacks
+`type: user_entry`/`pipeline` frontmatter. No repo PR — no personal vault content enters this
+repo; the item lives here so the arc's archive can stay closed.
+
+**Owner**: founder, on a vault pass.
+
+---
+
+## EntryReport / ActivityReport Search
+
+Extracted 2026-08-07 from
+[`done/learning-loop-cross-domain-search.md`](done/learning-loop-cross-domain-search.md)
+(levels 1–3b complete) — its "Future" section, previously tracked nowhere live. Both report
+entities lack BaseService-based search: `EntryReportService` is an LLM generator, not a
+BaseService (would need an `EntryReportSearchService`); `ActivityReportService` is standalone
+(would need search methods or a BaseService wrapper). Lower priority by design: teachers
+search by Exercise or Submission and navigate to feedback via relationships.
+
+**Enable when**: a teacher workflow wants to search report *content* directly rather than
+navigate to it — product need, not a data threshold.
+
+---
+
+## ZPD Snapshot History & Trend Analysis
+
+Extracted 2026-08-07 from [`done/zpd-service-architecture.md`](done/zpd-service-architecture.md)
+(implemented) — the deliberately-MVP corner: a single `:ZPDHistory` node per user stores only
+the LATEST snapshot (`adapters/persistence/neo4j/zpd_snapshot_backend.py` — "full snapshot
+history (timeline arrays, trend analysis) is deferred post-MVP"). Snapshots are written on
+pedagogically significant events, so the trigger stream already exists; what is deferred is
+keeping the timeline and reading trends from it.
+
+**Enable when**: a consumer wants ZPD-over-time (student progress trends, teacher dashboards) —
+and enough snapshot-writing events have accrued for a timeline to say anything.
+
+---
+
+## Calendar Periodic-Notes Arc Follow-up — Monthly-Note Panel Parity
+
+Extracted 2026-08-07 from [`done/calendar-periodic-notes-arc.md`](done/calendar-periodic-notes-arc.md)
+(all four PRs shipped 2026-08-03): the weekly note got its read-only planning panel; the
+monthly note deliberately did not — "monthly-note panel parity is a follow-up, not in-scope,"
+gated on lived use. This register is that tracking; it previously existed only in the archive.
+
+**Enable when**: lived monthly-note use wants the same panel the weekly note has — product
+need, not a data threshold.
+
+---
+
+## Secrets Follow-ups — Shred the `secrets.env` Residue; KeyringBackend Tests
+
+Extracted 2026-08-07 from [`done/secrets-out-of-worktree.md`](done/secrets-out-of-worktree.md)
+("What's left" — stages 1–3 shipped; both items small and optional, previously tracked
+nowhere live):
+
+1. **Move docker-compose's `NEO4J_AUTH`/`NEO4J_PASSWORD` interpolation onto the
+   `with-secrets` wrapper** so the two-line `secrets.env` residue can be shredded entirely —
+   today `${VAR}` substitution in `app/docker-compose.yml` + `infrastructure/docker-compose.yml`
+   still reads it.
+2. **Dedicated `KeyringBackend` round-trip unit test** — currently covered by integration
+   tests + the Stage-3a inline smoke test; cheap insurance, not strictly needed.
+
+**Enable when**: next touch of the compose/secrets surface (item 1 rides along); item 2 any
+time a test-writing pass visits `core/config/credential_store.py`.
+
+---
+
+## Principles `_validate_update` Reform (or Deletion)
+
+Extracted 2026-08-07 from [`done/update-intents.md`](done/update-intents.md) Phase-7 notes
+("Reforming these rules onto the intent is tracked separately") — this register is that
+tracking; it previously existed only in code docstrings and the archive.
+
+`PrinciplesCoreService._validate_update` is stale in three of its four rules (keys on
+`label` not `title`; the strength rule's casing never matches; the well-established rule
+demands a `modification_reason` field that exists nowhere — **unsatisfiable**), yet it is
+still live on the base `update` contract. `update_principle` deliberately bypasses it
+backend-direct, because routing through `super().update` would activate the unsatisfiable
+gate and block CORE/STRONG description edits. Resolution is a ruling, not just work: reform
+the rules onto the intent (making both paths validate identically), or delete the hook per
+the create-rules precedent in the same file (#963 — length bounds belong to the request
+model). Either way the two-path behavioral split ends.
+
+**Enable when**: next substantive touch of the Principles update path — do not let a new
+caller reach the base `update` contract before this is resolved.
+
+---
+
+## Tasks/Events Edge-Clear on Edit (`""` → None)
+
+Extracted 2026-08-07 from [`done/update-intents.md`](done/update-intents.md) Phase 7 notes,
+where it was scoped out as "a deferred UX bug, not One-Path teardown; track separately" —
+this register is that separate tracking (it previously existed nowhere live).
+
+Clearing an edge picker in the Tasks/Events edit forms submits `""`, which does not map to
+`None`, so a linked edge cannot be cleared from the edit UI. Recorded 2026-06-05 during the
+ADR-066 migration; **re-verify against the current edit routes on pickup** — two months of
+form work have landed since.
+
+**Enable when**: next touch of the Tasks/Events edit forms — a bug this small rides along.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -323,6 +450,18 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `filter_property` extension | A consumer wants non-GOALS edge tier buckets | Product need (not a data threshold) |
 | Knowledge Ku↔Ku prerequisites (Option B) | A consumer reads prereq/dependent Ku buckets | Product need (not a data threshold) |
 | Task `dependent_task_uids` | A consumer reads a task's dependents | Product need (not a data threshold) |
+| Secrets follow-ups (shred `secrets.env` residue; KeyringBackend test) | Next touch of the compose/secrets surface | Ride-along, not standalone |
+| Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
+| EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
+| ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
+| Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
+| Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
+| Monthly-template vault cleanup | Founder vault pass | Founder-owned, non-repo |
+| Monthly-note panel parity | Lived monthly-note use wants the weekly panel | Product need (not a data threshold) |
+| Tasks/Events edge-clear on edit (`""` → None) | Next touch of the Tasks/Events edit forms | Ride-along; re-verify the bug still reproduces first |
+
+**The document is the checklist, the table is a convenience:** a section added to this file
+without a matching row here is still in review scope — walk every `##` section, then the table.
 
 Items that hit their trigger condition before the next review should be unblocked immediately —
 don't wait for the review.

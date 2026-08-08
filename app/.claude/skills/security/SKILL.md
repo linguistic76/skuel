@@ -114,7 +114,7 @@ if not api_key:
 
 **Exempt files** (raw env reads ARE the implementation): `credential_store.py`, `credential_setup.py`, `migrate_secrets_to_homedir.py`, `migrate_secrets_to_keychain.py`, test files.
 
-**See:** `docs/roadmap/secrets-out-of-worktree.md` — full storage architecture; `docs/patterns/linter_rules.md` § SKUEL019.
+**See:** `docs/roadmap/done/secrets-out-of-worktree.md` — full storage architecture; `docs/patterns/linter_rules.md` § SKUEL019.
 
 ### Session Configuration
 

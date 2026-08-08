@@ -73,7 +73,7 @@ scoring and blocking-gap detection stay strictly PREREQUISITE_FOR — an enabler
 is an invitation, never a gate.
 
 This is the computation `ZPDService.assess_zone()` performs (see
-`docs/roadmap/zpd-service-architecture.md`).
+`docs/roadmap/done/zpd-service-architecture.md`).
 
 ### ZPD and Askesis take UserContext
 
@@ -369,7 +369,7 @@ assistant cannot do this. Askesis can.
 
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Askesis scaffolds the 4-phase learning loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via HAS_EXERCISE)
 - `docs/architecture/ASKESIS_ARCHITECTURE.md` — service structure (pre-refactor, 2025-11-27)
-- `docs/roadmap/zpd-service-architecture.md` — ZPDService design
+- `docs/roadmap/done/zpd-service-architecture.md` — ZPDService design
 - `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema
 - `docs/roadmap/teacher-askesis-interface-deferred.md` — teacher interface design
 - `core/models/submissions/journal_insight.py` — JournalInsight dataclass stub

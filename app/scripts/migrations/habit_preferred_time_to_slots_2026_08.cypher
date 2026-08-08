@@ -1,6 +1,6 @@
 // Migration: preferred_time becomes the TimeOfDay vocabulary
 // Date: 2026-08-03
-// Context: habit-rhythm arc S1 (docs/roadmap/habit-rhythm-arc.md). `preferred_time`
+// Context: habit-rhythm arc S1 (docs/roadmap/done/habit-rhythm-arc.md). `preferred_time`
 //          was an untyped string read three incompatible ways — as "HH:MM" clock
 //          time, as slot words, and as a day-spine gate that silently dropped
 //          anything not matching "HH:MM". It is now `TimeOfDay | None`

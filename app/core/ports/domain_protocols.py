@@ -737,10 +737,6 @@ class ChoicesOperations(
         """Create a new choice and return its ID. Returns Result[str]."""
         ...
 
-    async def update_choice(self, choice_id: str, data: Metadata) -> Result[bool]:
-        """Update an existing choice. Returns Result[bool]."""
-        ...
-
     async def delete_choice(self, choice_id: str) -> Result[bool]:
         """Delete a choice. Returns Result[bool]."""
         ...
@@ -823,9 +819,10 @@ class PrinciplesOperations(
 
     Adds principle-specific operations below.
 
-    Deactivation note: Use update_principle(uid, {"is_active": False}) to deactivate
-    a principle without removing it from the graph. delete_principle() performs a hard
-    delete — only use for test cleanup or permanent removal.
+    Deactivation note: deactivate via the facade's typed-intent update path
+    (PrincipleUpdateIntent(is_active=False), ADR-066) rather than removing the
+    principle from the graph. delete_principle() performs a hard delete — only
+    use for test cleanup or permanent removal.
 
     Returns Result[T] for all operations to match UniversalNeo4jBackend implementation.
     """
@@ -838,13 +835,9 @@ class PrinciplesOperations(
         """Create a new principle and return its ID."""
         ...
 
-    async def update_principle(self, principle_uid: EntityUID, data: Metadata) -> Result[bool]:
-        """Update an existing principle."""
-        ...
-
     async def delete_principle(self, principle_uid: EntityUID) -> Result[bool]:
-        """Delete a principle. Principles have no soft-delete; use update_principle
-        to set is_active=False for deactivation without graph removal."""
+        """Delete a principle. Principles have no soft-delete; deactivate via the
+        typed-intent update path (is_active=False) for removal-free deactivation."""
         ...
 
     async def get_principle(self, principle_uid: str) -> Result[Principle]:

@@ -1,5 +1,12 @@
 # Journals Discussion-First — Design & Choices
 
+> **✅ Arc closed 2026-07-13 — P1 → P2 → P3 all shipped** (#627, #633–#636, #638–#640).
+> The statuses below ("P2 UNBLOCKED (to build)", the phasing table) are frozen mid-arc
+> language kept as the design record: the storage PRs were built to ADR-078's shape
+> (`journals-discussion-storage-p2.md`), the opt-in realignment shipped
+> (`journals-discussion-storage-p3.md` — "P3 arc COMPLETE"), and post-arc items live in
+> `../journals-discussion-deferred.md`. Nothing in this document remains actionable.
+
 **Status:** Confirmed — fundamental workflow rulings settled with the founder 2026-07-12;
 choices C1–C6 and the P1 → P2 → P3 phasing confirmed by the founder the same day
 (C1 = Option A, Neo4j sessions/turns). **P1 shipped 2026-07-12** — with a founder
@@ -115,6 +122,8 @@ whole-shelf (today's dial-on).
 **Open sub-choice:** initial checkbox state. Proposed: all unchecked (deliberate grounding,
 matches the founder's most-explicit ruling); once storage (C1) exists, a continued session
 restores its own last selection. Per-user sticky defaults are a later refinement.
+*(Resolved as proposed: new sessions start all-unchecked; continued sessions restore their
+stored `source_selection` — shipped in the storage arc, `journals_routes.py`.)*
 
 The vault dial stays a single toggle (it is one corpus), placed in the same source panel.
 

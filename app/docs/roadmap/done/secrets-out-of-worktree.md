@@ -105,6 +105,9 @@ Combined effect: if a credential the active tier needs is missing from both the 
 
 ## What's left
 
+> Tracked live in `../deferred-work.md` § Secrets Follow-ups (extracted when this doc moved
+> to `done/` — the list below is the record; the register is the tracker).
+
 Nothing structurally — Stages 1–3 cover the full "no plaintext secrets on disk" goal for a single-developer machine. Open follow-ups, all small and optional:
 
 - Move docker-compose's `NEO4J_AUTH` / `NEO4J_PASSWORD` interpolation onto the `with-secrets` wrapper so `secrets.env` can be shredded entirely. Today the file is kept as the two-line residue that `${VAR}` substitution in `app/docker-compose.yml` + `infrastructure/docker-compose.yml` still needs.

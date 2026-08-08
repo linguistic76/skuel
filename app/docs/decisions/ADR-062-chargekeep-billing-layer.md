@@ -20,7 +20,7 @@ once the spike checklist passes/fails.
 [ADR-052 Firefly III Finance Integration](ADR-052-firefly-iii-finance-integration.md)
 
 > Working plan + phased sequence + spike checklist:
-> [`roadmap/finance-billing-migration.md`](../../roadmap/finance-billing-migration.md).
+> [`roadmap/finance-billing-migration.md`](../roadmap/finance-billing-migration.md).
 
 ---
 

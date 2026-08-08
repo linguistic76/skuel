@@ -34,7 +34,7 @@ Integration
 See: core/models/zpd/zpd_assessment.py — ZPDAssessment, ZoneEvidence, ZPDAction
 See: core/ports/zpd_protocols.py — ZPDOperations + ZPDBackendOperations protocols
 See: adapters/persistence/neo4j/zpd_backend.py — persistence layer
-See: docs/roadmap/zpd-service-architecture.md — full design rationale
+See: docs/roadmap/done/zpd-service-architecture.md — full design rationale
 """
 
 from __future__ import annotations

@@ -199,7 +199,7 @@ vulnerabilities in transitive dependencies go undetected until a developer happe
 > pip-audit and `.pip-audit-ignore` are retired. Accepted findings live in
 > `app/osv-scanner.toml`, each with a reason **and an `ignoreUntil` expiry** — the re-check
 > convention this section could only state is now enforced by the tooling. Design record:
-> `/docs/roadmap/dependency-scanner-consolidation.md`; policy: ADR-067 § 6e. The paragraphs
+> `/docs/roadmap/done/dependency-scanner-consolidation.md`; policy: ADR-067 § 6e. The paragraphs
 > below describe the original pip-audit shape and stand as history.
 
 Shipped as the `pip_audit` job in `.github/workflows/ci.yml`, required (via the CI Gate) on

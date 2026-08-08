@@ -30,7 +30,7 @@ user chose to save**.
 **Related:** ADR-073 (journals zero-persistence + vault-as-only-memory-channel), ADR-042
 (privacy as a first-class citizen / field-level encryption), ADR-054 (UserEntry collapse),
 ADR-069 (EXTRACT_ACTIVITIES pipeline), ADR-077 (canon scoped retrieval),
-`docs/roadmap/journals-discussion-first.md` (arc source of truth, choices C1/C2/C6),
+`docs/roadmap/done/journals-discussion-first.md` (arc source of truth, choices C1/C2/C6),
 `docs/roadmap/conversation-neo4j-persistence-deferred.md` (the deferred Askesis schema this
 adapts).
 
