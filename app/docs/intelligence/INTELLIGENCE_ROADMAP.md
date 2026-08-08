@@ -34,11 +34,12 @@ Intelligence without data is fantasy. Intelligence without users is premature op
 | `/search` body-chunk layer (#538) | Neo4jVectorSearchService | Lesson-body semantic hits fold into faceted results |
 | `search.executed` → `:SearchEvent` | SearchEventRecorder | Search behavioral log (Discovery Analytics Phase 1) |
 
-**Foundation Service:** `BaseAnalyticsService` (578 lines)
-- Intent scoring with confidence
-- Facet detection from query patterns
-- Result ranking by relevance
-- Search insights generation
+**Foundation:** the wired search path — `SearchRouter` orchestrates `SearchQueryParser`
+(typed-filter extraction), ownership-scoped faceted retrieval in Cypher, and the unified
+`score_*` result ranking; facet counts derive from the returned results via `build_facet_counts`.
+The former heuristic intent-scoring / facet-detection / result-ranking / search-insights service
+was deleted (#990) as never-adopted — those capabilities were never wired. (`BaseAnalyticsService`
+is the graph-analytics base for domain intelligence, not query understanding.)
 
 **Status:** ✅ Working, tested, integrated with search UI
 
@@ -146,8 +147,8 @@ BEFORE implementing intelligence features, ensure:
 
 ### Production Intelligence
 ```
-/core/orchestrator/search_router.py     # THE search orchestrator (intent parse, faceting, ranking)
-/core/models/search/query_parser.py     # SearchQueryParser — Analog intent/token parsing
+/core/orchestrator/search_router.py     # THE search orchestrator (routing, faceting, ranking)
+/core/models/search/query_parser.py     # SearchQueryParser — typed-filter (priority/status/domain) parsing
 /core/models/search/scoring.py          # unified score_* result ranking
 ```
 
@@ -171,7 +172,7 @@ All mock responses now include:
 ## Key Lessons Learned
 
 ### What Worked
-✅ `BaseAnalyticsService` - Generic, reusable query understanding
+✅ `BaseAnalyticsService` - Generic, reusable graph-analytics base for domain intelligence
 ✅ Clear separation - Real vs Future clearly marked
 
 ### What Didn't Work

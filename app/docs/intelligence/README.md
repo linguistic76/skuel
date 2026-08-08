@@ -21,10 +21,11 @@ This directory contains roadmaps for search intelligence features - both impleme
 
 ### ✅ Production Features (Implemented)
 - Query parsing + semantic-filter extraction — `SearchQueryParser`
-  (`core/models/search/query_parser.py`) extracts typed filters (priority/status/domain)
-  and routes each domain through ownership-scoped faceted search; consumed by
-  SearchRouter's intelligent search (`POST /api/search/intelligent`). No facet
-  *suggestions* are returned — that was the deleted heuristic service's claim.
+  (`core/models/search/query_parser.py`) extracts typed filters (priority/status/domain);
+  `SearchRouter.intelligent_search` (`POST /api/search/intelligent`) then routes user-owned
+  activity domains through ownership-scoped faceted search and shared curriculum domains
+  (Ku/PS/LP) through bare text search. No facet *suggestions* are returned — that was the
+  deleted heuristic service's claim.
 - Search-event logging (Discovery Analytics Phase 1, 2026-07-10) — every
   external search → `search.executed` → `:SearchEvent` node
 
@@ -196,7 +197,7 @@ If you're adding a NEW intelligence feature:
 ## Success Stories
 
 ### ✅ BaseAnalyticsService Pattern
-- Generic, reusable query understanding
+- Generic, reusable graph-analytics base for the 9 domain intelligence services
 - Composition over duplication
 - **Lesson:** Build reusable foundations
 
