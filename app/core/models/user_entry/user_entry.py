@@ -168,7 +168,7 @@ class UserEntry(UserOwnedEntity):
         keep the periodic-note page/save surface off every other entry kind, and
         the EXTRACT_ACTIVITIES bridge gate uses it to keep LLM inference away
         from periodic-note prose — the periodic-note parse contract (E3,
-        docs/roadmap/calendar-periodic-notes-arc.md): entities come only from
+        docs/roadmap/done/calendar-periodic-notes-arc.md): entities come only from
         checkbox lines + explicit ``@context()`` markers, never inferred.
         """
         return self.metadata.get("entry_kind") in PERIODIC_NOTE_KINDS

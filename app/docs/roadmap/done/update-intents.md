@@ -14,8 +14,8 @@ Domains on frozen `*UpdateIntent`), Phase 7a (base parameterized over the update
 `Mapping` overrides, and six activity `*UpdatePayload` TypedDicts deleted), and Phase 7b
 (docs/skills One-Path cleanup — every doc/skill now describes the single typed-intent path).
 ADR-066 is fully implemented.
-**Pattern owner:** [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md)
-**Doctrine:** [functional-direction.md](functional-direction.md), [three_tier_type_system.md](../patterns/three_tier_type_system.md)
+**Pattern owner:** [ADR-066 — Typed Update Intents](../../decisions/ADR-066-typed-update-intents.md)
+**Doctrine:** [functional-direction.md](../functional-direction.md), [three_tier_type_system.md](../../patterns/three_tier_type_system.md)
 
 ## Context
 
@@ -322,10 +322,10 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
   Protocol-ization of the activity mixins is its own change.
 
 ## References
-- [ADR-066 — Typed Update Intents](../decisions/ADR-066-typed-update-intents.md) (pattern owner)
-- [ADR-065 — Functional Inference Contract](../decisions/ADR-065-functional-inference-contract.md)
-- [functional-direction.md](functional-direction.md) — doctrine + extension tracker
-- [activity-domain-inference-migration.md](activity-domain-inference-migration.md) — sibling Tasks-first
+- [ADR-066 — Typed Update Intents](../../decisions/ADR-066-typed-update-intents.md) (pattern owner)
+- [ADR-065 — Functional Inference Contract](../../decisions/ADR-065-functional-inference-contract.md)
+- [functional-direction.md](../functional-direction.md) — doctrine + extension tracker
+- [activity-domain-inference-migration.md](../activity-domain-inference-migration.md) — sibling Tasks-first
   propagation roadmap (same structure)
 - Reference implementation (after Phase 1): `core/models/task/task_update_intent.py`,
   `core/services/tasks/tasks_core_service.py`, `core/models/task/task_request.py::TaskUpdateRequest.to_intent`

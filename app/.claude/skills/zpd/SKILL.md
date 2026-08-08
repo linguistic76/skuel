@@ -388,7 +388,7 @@ actions = assessment.top_recommended_actions()
 | `adapters/persistence/neo4j/zpd_backend.py` | Cypher zone traversal query |
 | `adapters/persistence/neo4j/zpd_snapshot_backend.py` | ZPDHistory node persistence |
 | `docs/user-guides/zpd.md` | User-facing ZPD guide |
-| `docs/roadmap/zpd-service-architecture.md` | Design rationale |
+| `docs/roadmap/done/zpd-service-architecture.md` | Design rationale |
 | `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` | Pedagogical vision |
 
 ---

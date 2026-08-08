@@ -241,7 +241,7 @@ def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[N
 
 > The live reference for this shape is `EventsCoreService._validate_update(current, updates: EventUpdateIntent)`.
 > Tasks itself routes updates through `update_task` (backend-direct), so its `_validate_update`
-> is illustrative — see `docs/roadmap/update-intents.md` for which domains run the hook live.
+> is illustrative — see `docs/roadmap/done/update-intents.md` for which domains run the hook live.
 
 ### 4. **Clean Separation of Concerns**
 

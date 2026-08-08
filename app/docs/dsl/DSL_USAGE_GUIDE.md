@@ -61,7 +61,7 @@ periodic note** (a Daily/Weekly/Monthly vault note with `entry_kind:` +
 [UserEntry section](../patterns/UNIFIED_INGESTION_GUIDE.md#userentry-yamls-type-user_entry--adr-054)
 for the frontmatter and the derived `ue:{kind}:{user}:{period}` UIDs).
 Settled by ruling E3 of the calendar × periodic-notes arc
-(`docs/roadmap/calendar-periodic-notes-arc.md`) — do not re-litigate.
+(`docs/roadmap/done/calendar-periodic-notes-arc.md`) — do not re-litigate.
 
 **Exactly two line shapes create entities. Nothing else, ever:**
 

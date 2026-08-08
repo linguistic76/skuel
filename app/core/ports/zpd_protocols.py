@@ -9,7 +9,7 @@ Protocol interfaces for the Zone of Proximal Development subsystem.
 
 See: core/services/zpd/zpd_service.py — service implementation
 See: adapters/persistence/neo4j/zpd_backend.py — backend implementation
-See: docs/roadmap/zpd-service-architecture.md — design rationale
+See: docs/roadmap/done/zpd-service-architecture.md — design rationale
 """
 
 from __future__ import annotations

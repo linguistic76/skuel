@@ -29,7 +29,7 @@ status=...))``), mirroring ``tasks_api`` / ``events_api`` / ``choices_api``.
 never carry it (no junk write).
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
-``*InferenceResult``; ``docs/roadmap/update-intents.md`` for the phased migration.
+``*InferenceResult``; ``docs/roadmap/done/update-intents.md`` for the phased migration.
 """
 
 from __future__ import annotations

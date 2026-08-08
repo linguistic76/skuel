@@ -223,6 +223,6 @@ And later: "I notice you've only engaged with Data Types through tasks. Writing 
 | Event handler (snapshot triggers) | `core/services/zpd/zpd_event_handler.py` |
 | Protocols | `core/ports/zpd_protocols.py` |
 | Assessment model | `core/models/zpd/zpd_assessment.py` |
-| Design rationale | `docs/roadmap/zpd-service-architecture.md` |
+| Design rationale | `docs/roadmap/done/zpd-service-architecture.md` |
 | Askesis architecture | `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` |
 | Learning loop | `docs/user-guides/learning-loop.md` |

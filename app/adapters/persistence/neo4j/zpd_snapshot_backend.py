@@ -8,7 +8,7 @@ Updated on significant events (submission approved, report submitted, etc.).
 Full snapshot history (timeline arrays, trend analysis) is deferred post-MVP.
 
 Consumed by: core/services/zpd/zpd_event_handler.py
-See: docs/roadmap/zpd-service-architecture.md
+See: docs/roadmap/done/zpd-service-architecture.md
 """
 
 from __future__ import annotations

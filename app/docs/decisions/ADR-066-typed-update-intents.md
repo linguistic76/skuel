@@ -112,7 +112,7 @@ purge/rewrite all documentation and skills that teach the old `update(uid, dict)
 so the One Path is the only path a reader (human or agent) can find.
 
 This propagates Tasks-first (the ADR-065 lead domain) to all six Activity Domains. See
-`docs/roadmap/update-intents.md` for the phased, context-reset-friendly migration.
+`docs/roadmap/done/update-intents.md` for the phased, context-reset-friendly migration.
 
 ## Consequences
 
@@ -152,7 +152,7 @@ This propagates Tasks-first (the ADR-065 lead domain) to all six Activity Domain
 ## References
 - ADR-065 — Functional Inference Contract (`*InferenceResult` + `dataclasses.replace`)
 - `docs/roadmap/functional-direction.md` — doctrine owner; "update intents" extension
-- `docs/roadmap/update-intents.md` — phased migration
+- `docs/roadmap/done/update-intents.md` — phased migration
 - `docs/patterns/three_tier_type_system.md` — Pydantic-edge / frozen-core boundary
 - Reference implementation (after Phase 1): `core/models/task/task_update_intent.py`,
   `core/services/tasks/tasks_core_service.py`

@@ -671,7 +671,7 @@ Each domain's `BaseService` instantiation pins `U` to its intent, e.g.
 `BaseService[TasksOperations, Task, TaskUpdateIntent]`. The matching `*UpdateRequest`
 (Pydantic edge model) carries a `to_intent()` that builds the intent from
 `model_fields_set` — see [ADR-066](../decisions/ADR-066-typed-update-intents.md) and
-`docs/roadmap/update-intents.md`.
+`docs/roadmap/done/update-intents.md`.
 
 ### Non-activity domains → update-payload TypedDicts
 

@@ -13,7 +13,7 @@ with persistent conversation histories
 ## Prerequisites
 
 This interface cannot be built until:
-1. `ZPDService` exists and computes ZPD assessments (`docs/roadmap/zpd-service-architecture.md`)
+1. `ZPDService` exists and computes ZPD assessments (`docs/roadmap/done/zpd-service-architecture.md`)
 2. Conversation sessions are persisted in Neo4j (`docs/roadmap/conversation-neo4j-persistence-deferred.md`)
 3. The Groups domain is actively used (teachers with students in groups)
 

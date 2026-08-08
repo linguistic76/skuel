@@ -160,7 +160,7 @@ a **vulnerability** layer, which reports *published CVEs* rather than staleness:
 
 All three CVE rows run **one script** — `scripts/audit_dependencies.sh`, osv-scanner over `uv.lock`
 and `package-lock.json` (consolidated 2026-08-07; pip-audit and the direct `npm audit` call retired —
-see § 6e and `/docs/roadmap/dependency-scanner-consolidation.md` for the measured migration). The
+see § 6e and `/docs/roadmap/done/dependency-scanner-consolidation.md` for the measured migration). The
 scheduled audit still earns its place: it catches what Renovate does not — a CVE published against a
 lockfile nobody touched. The `dep_audit` job is diff-gated, so no diff means it never fires. That is
 exactly how `undici` 7.28.0 sat vulnerable until a manual `./dev quality` caught it (PR #929). The
@@ -169,7 +169,7 @@ scheduled job is **advisory** — a cron run has no PR to gate; the PR-side gate
 `npm` is in `enabledManagers` as of **2026-08-05** (#941), so `package.json` / `package-lock.json` are
 now extracted; without it the Renovate docs' allowlist semantics (only the listed managers run) would
 have left the JS tree unmanaged. (Was open decision 2 in
-[`/docs/roadmap/js-dependency-surface.md`](../roadmap/js-dependency-surface.md); now resolved.)
+[`/docs/roadmap/done/js-dependency-surface.md`](../roadmap/done/js-dependency-surface.md); now resolved.)
 
 ### 6. JavaScript / Node dependencies
 

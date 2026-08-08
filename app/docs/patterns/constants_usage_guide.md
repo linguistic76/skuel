@@ -389,7 +389,7 @@ priority = (
 )
 ```
 
-**See:** `core/services/zpd/zpd_service.py`, `docs/roadmap/zpd-service-architecture.md`
+**See:** `core/services/zpd/zpd_service.py`, `docs/roadmap/done/zpd-service-architecture.md`
 
 ### 11. Relationship Strength — REMOVED (2026-06, #259)
 

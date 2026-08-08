@@ -104,7 +104,7 @@ How it flows:
 Per-domain deviations: **Habits** keeps `update_habit(uid, intent, *, force_archive=False)`
 (the transient `force_archive` directive can't ride the intent — it would persist as a junk
 column); **Tasks/Events** split edge-typed fields off the intent before the property write.
-See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) and `docs/roadmap/update-intents.md`.
+See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) and `docs/roadmap/done/update-intents.md`.
 
 ## UI Pattern
 

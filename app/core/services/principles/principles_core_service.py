@@ -339,7 +339,7 @@ class PrinciplesCoreService(
         no rule. Routing through ``super().update`` would activate the unsatisfiable
         modification-reason gate and block CORE/STRONG description edits — a regression.
         Reforming ``_validate_update`` onto the intent is Phase-7 work (see
-        ``docs/roadmap/update-intents.md``); until then this path preserves exact behavior.
+        ``docs/roadmap/done/update-intents.md``); until then this path preserves exact behavior.
 
         Args:
             principle_uid: UID of the principle
