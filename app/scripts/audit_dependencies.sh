@@ -50,10 +50,17 @@ fi
 
 # The lock must match the manifest BEFORE scanning: osv-scanner happily audits
 # a stale uv.lock and reports clean for a resolution that is not the one that
-# would be installed. `uv lock --check` asserts freshness without writing
-# (exit 2 on a stale lock). This replaces the old `uv export --locked` guard —
-# same property, no derived requirements.txt (Codex, PR #797).
-if ! uv lock --check; then
+# would be installed. `uv lock --check` asserts freshness without writing.
+# This replaces the old `uv export --locked` guard — same property, no derived
+# requirements.txt (Codex, PR #797).
+#
+# --quiet is load-bearing, not cosmetic (same reason as #939): the bare form
+# prints "Resolved N packages in Xms", and dependency-audit.yml hashes this
+# script's output to decide whether the result CHANGED — nondeterministic
+# timings would raise "result changed" comments about results that did not.
+# --quiet also suppresses uv's own stale-lock error (measured, uv 0.10.9);
+# the message below narrates the failure deterministically instead.
+if ! uv lock --check --quiet; then
   echo "audit: uv.lock is stale against pyproject.toml — run 'uv lock', review, commit." >&2
   echo "audit: refusing to audit a resolution nobody reviewed." >&2
   exit 3
@@ -66,12 +73,21 @@ trap 'rm -f "$RESULT"' EXIT
 # lockfile it can only partially read, so the verifier below asserts that the
 # number of packages scanned equals the number the lockfiles declare. A clean
 # verdict over fewer packages than the lock holds is NOT a measurement.
+#
+# --verbosity error, for the same digest-determinism reason as the --quiet
+# above: info-level stderr carries elapsed-time lines ("… 18.39ms elapsed"),
+# absolute runner paths, and the per-finding "filtered out" notes. All of the
+# deterministic content (package counts, accepted findings, unaccepted
+# findings) is re-rendered by the verifier below from the JSON and the toml;
+# real errors still print (measured: error verbosity is byte-silent on a
+# clean run, and exit codes are unaffected).
 rc=0
 osv-scanner scan source \
   --config osv-scanner.toml \
   --lockfile uv.lock \
   --lockfile package-lock.json \
   --format json --all-packages \
+  --verbosity error \
   --output-file "$RESULT" || rc=$?
 
 # 0 = clean, 1 = findings — anything else is a scanner/API failure, and the
@@ -149,6 +165,8 @@ print(
     f"audit: {len(accepted)} accepted findings in osv-scanner.toml"
     + (f" (earliest ignoreUntil: {soonest})" if soonest else "")
 )
+for entry in sorted(accepted, key=lambda e: str(e["id"])):
+    print(f"  accepted: {entry['id']} (until {entry['ignoreUntil']})")
 if findings:
     print(f"audit: {len(findings)} UNACCEPTED finding(s):")
     for source, name, version, ids, severity in findings:
