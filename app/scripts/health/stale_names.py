@@ -13,16 +13,19 @@ Fence boundaries come from ``scripts/health/markdown_fences``, the CommonMark-ba
 walker shared with ``dead_doc_links.py``. See ``extract_code_segments`` for the two
 coordinate rules it fixed.
 
-Three exemption tiers, narrowest first — each audited so an exemption that hides
-nothing is itself a finding (SKUEL026 discipline):
+Two exemption tiers — each audited so an exemption that hides nothing is itself a
+finding (SKUEL026 discipline):
 
   * ``ALLOWED_OCCURRENCES`` — a counted set of hits for one identifier at one line in
     one otherwise-scanned doc. The surgical tier: an ADR before/after table, a
-    searchable import string. Anchored on line AND count, so a new stale mention (new
-    line, or extra hit on the same line) is still reported.
-  * ``SCAN_EXCLUDE_DIRS`` — a whole frozen-archive subtree (``docs/migrations/``),
-    out of remit like ``docs/roadmap/done/``. A scope decision, not a suppression.
+    searchable import string, a frozen snippet inside a maintained migration guide.
+    Anchored on line AND count, so a new stale mention (new line, or extra hit on the
+    same line) is still reported.
   * ``SKIP_FILES`` — one whole file, the scanner's own documentation. Stays narrow.
+
+There is deliberately no directory-scope exclusion: no subtree here is uniformly frozen
+(migration guides get maintained and rename-swept), so blinding one wholesale would hide
+real drift. Frozen snippets get occurrence-level allowances instead (Codex, PR #988).
 
 Usage:
     uv run python scripts/health/stale_names.py
@@ -212,22 +215,18 @@ _DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
 # under a heading that documents the scanner. Do NOT add maintained docs here to
 # force the count down; that is the "no suppressions to hit a number" anti-pattern
 # (reverted in PR #986). Use ALLOWED_OCCURRENCES (below) for an intentional
-# identifier in an otherwise-scanned doc, or SCAN_EXCLUDE_DIRS for a frozen archive.
+# identifier in an otherwise-scanned doc.
+#
+# No directory-scope exclusion. An earlier cut excluded docs/migrations/ wholesale
+# as a "frozen archive", but that premise is false: several migration guides are
+# maintained and current-facing (NEO4J_GENAI_MIGRATION.md updates its class names to
+# current; DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md was refreshed by an Aug-2026
+# census, and rename campaigns like #867 sweep the subtree). A whole-subtree exclusion
+# would blind a genuine rename in those, and its audit — "some hit somewhere in the
+# tree" — could not tell (Codex, PR #988). Frozen before/after snippets inside those
+# guides get occurrence-level allowances instead, each individually audited.
 SKIP_FILES = {
     ROOT / "docs" / "tools" / "HEALTH_CHECKS.md",
-}
-
-# ── Excluded directories (frozen archives) ───────────────────────────────────
-# Whole subtrees that are point-in-time records, never maintained docs. Their code
-# blocks legitimately name the OLD state being migrated away from — that IS the
-# document. Scanning them is category error, exactly as with docs/roadmap/done/
-# (finished plans that left the live folder). This is a SCOPE decision, not a
-# suppression: an archive is out of the scanner's remit, not a live doc we chose
-# to hide. Audited by tests/unit/scripts/test_stale_names_allowed_occurrences.py
-# (the dir must exist AND actually contain tracked identifiers — a dead exclusion
-# is a finding).
-SCAN_EXCLUDE_DIRS = {
-    ROOT / "docs" / "migrations",  # ## Migrations archive (docs/INDEX.md) — dated, COMPLETE records
 }
 
 
@@ -260,7 +259,8 @@ class Allow(NamedTuple):
 #
 # Use it for a doc that is otherwise current but MUST name a retired identifier at a
 # specific place — an ADR's before/after table, TROUBLESHOOTING's verbatim
-# import-error strings users search for, a doc that demonstrates this scanner.
+# import-error strings users search for, a doc that demonstrates this scanner, or a
+# frozen before/after snippet inside a still-maintained migration guide.
 #
 # Every entry is audited (tests/unit/scripts/test_stale_names_allowed_occurrences.py):
 # the file must be a live scan target, each (line, identifier) must raw-match at that
@@ -268,11 +268,6 @@ class Allow(NamedTuple):
 # finding, SKUEL026-style — and forces the anchor to be re-verified), and each must
 # carry a rationale.
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {}
-
-
-def _under_excluded_dir(path: Path) -> bool:
-    """True if ``path`` lives inside any SCAN_EXCLUDE_DIRS subtree."""
-    return any(excluded in path.parents for excluded in SCAN_EXCLUDE_DIRS)
 
 
 def _allowed_count(rel_path: str, lineno: int, identifier: str) -> int:
@@ -287,14 +282,14 @@ def _allowed_count(rel_path: str, lineno: int, identifier: str) -> int:
 
 
 def get_scan_targets() -> list[Path]:
-    """Collect all .md files from SCAN_DIRS, minus SKIP_FILES and frozen archives."""
+    """Collect all .md files from SCAN_DIRS, minus SKIP_FILES."""
     result: list[Path] = []
     for target in SCAN_DIRS:
         if target.is_file() and target.suffix == ".md":
             result.append(target)
         elif target.is_dir():
             result.extend(sorted(target.rglob("*.md")))
-    return [p for p in result if p not in SKIP_FILES and not _under_excluded_dir(p)]
+    return [p for p in result if p not in SKIP_FILES]
 
 
 def extract_code_segments(content: str) -> list[tuple[int, str]]:

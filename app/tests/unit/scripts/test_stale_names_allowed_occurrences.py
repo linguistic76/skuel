@@ -1,22 +1,22 @@
-"""Audit ``stale_names.py``'s two fine-grained exemptions: what do they keep invisible?
+"""Audit ``stale_names.py``'s occurrence-level exemption: what does it keep invisible?
 
 The whole-file suppressor (``SKIP_FILES``) has its own audit in
-``test_stale_names_suppression.py``. This file audits the two NARROWER escapes that
-PR #986 called for after the earlier "bulk-add files to SKIP_FILES to force the count
-to 0" pass was reverted:
+``test_stale_names_suppression.py``. This file audits ``ALLOWED_OCCURRENCES``, the
+narrower escape PR #986 called for after the earlier "bulk-add files to SKIP_FILES to
+force the count to 0" pass was reverted.
 
-  * ``ALLOWED_OCCURRENCES`` — a COUNTED set of hits for one identifier at one LINE, in one
-    otherwise-scanned doc. The earlier draft of exactly this shipped without an audit and
-    was reverted with the bulk-add; the mechanism is sound, the missing audit was the
-    defect. This file is that audit. It is line-anchored AND count-pinned, not merely
-    (file, identifier)-keyed: Codex (PR #988) showed the coarser key would silently
-    suppress a *second*, genuinely-stale mention of an already-allowed identifier — whether
-    it lands on a different line, or as an extra hit on the *same* line (two inline spans) —
-    while the audit stayed green. That is the identity-scoping trap the suppression audit
-    was built to catch. Anchoring on (line, count) closes both: any hit not at an allowed
-    line, and any hit beyond the allowed count on an allowed line, is reported.
-  * ``SCAN_EXCLUDE_DIRS`` — a whole frozen-archive subtree (``docs/migrations/``), out
-    of remit like ``docs/roadmap/done/``.
+``ALLOWED_OCCURRENCES`` exempts a COUNTED set of hits for one identifier at one LINE, in
+one otherwise-scanned doc. The earlier draft of exactly this shipped without an audit and
+was reverted with the bulk-add; the mechanism is sound, the missing audit was the defect.
+This file is that audit. It is line-anchored AND count-pinned, not merely
+(file, identifier)-keyed: Codex (PR #988) showed the coarser key would silently suppress a
+*second*, genuinely-stale mention of an already-allowed identifier — whether it lands on a
+different line, or as an extra hit on the *same* line (two inline spans) — while the audit
+stayed green. That is the identity-scoping trap the suppression audit was built to catch.
+Anchoring on (line, count) closes both: any hit not at an allowed line, and any hit beyond
+the allowed count on an allowed line, is reported. (There is deliberately no directory-scope
+exclusion to audit — no subtree here is uniformly frozen, so frozen snippets inside
+maintained guides get occurrence-level allowances too; Codex, PR #988.)
 
 The discipline is the same one the suppression audit encodes and SKUEL026 encodes for
 lint suppressions: **an exemption that suppresses nothing is a finding**. A dead allow
@@ -87,15 +87,14 @@ def test_allowed_files_are_live_scan_targets() -> None:
     """An allow keyed on a file the scanner never reads suppresses nothing.
 
     Covers the moved-file case (the file was renamed) and the double-exempt case (the
-    file is already inside SCAN_EXCLUDE_DIRS or SKIP_FILES, so the per-occurrence entry
-    is redundant and should be dropped).
+    file is already in SKIP_FILES, so the per-occurrence entry is redundant).
     """
     targets = _scan_target_strs()
     stray = [rel for rel in sn.ALLOWED_OCCURRENCES if rel not in targets]
     assert stray == [], (
         f"ALLOWED_OCCURRENCES keys are not live scan targets: {stray}. Either the file "
-        "moved (fix the key) or it is already covered by SCAN_EXCLUDE_DIRS/SKIP_FILES "
-        "(drop the redundant per-occurrence entry)."
+        "moved (fix the key) or it is already covered by SKIP_FILES (drop the redundant "
+        "per-occurrence entry)."
     )
 
 
@@ -129,38 +128,6 @@ def test_every_allowed_count_is_at_least_one() -> None:
         if allow.hits < 1
     ]
     assert bad == [], f"ALLOWED_OCCURRENCES entries with a non-positive count: {bad}"
-
-
-# ── SCAN_EXCLUDE_DIRS: real-data audit ───────────────────────────────────────
-
-
-def test_excluded_dirs_all_exist() -> None:
-    """An exclusion pointing at a moved/renamed subtree excludes nothing."""
-    missing = [str(d) for d in sn.SCAN_EXCLUDE_DIRS if not d.is_dir()]
-    assert missing == [], f"SCAN_EXCLUDE_DIRS entries are not directories on disk: {missing}"
-
-
-def test_every_excluded_dir_earns_its_exclusion() -> None:
-    """Positive control, per dir — a subtree with no tracked identifiers needs no exclusion.
-
-    If the archive contains nothing this scanner would ever flag, the exclusion is dead
-    weight that will silently hide the first tracked name written into it later.
-    """
-    for excluded in sn.SCAN_EXCLUDE_DIRS:
-        hits = sum(len(sn.scan_file(md)) for md in excluded.rglob("*.md"))
-        assert hits > 0, (
-            f"{excluded} is excluded but contains no tracked identifier — the exclusion "
-            "suppresses nothing today and will hide its first real hit; remove it until "
-            "the subtree actually needs it."
-        )
-
-
-def test_no_scan_target_lives_under_an_excluded_dir() -> None:
-    """The exclusion must actually remove the archive from the scanned set."""
-    leaked = [
-        str(p.relative_to(sn.ROOT)) for p in sn.get_scan_targets() if sn._under_excluded_dir(p)
-    ]
-    assert leaked == [], f"excluded-dir files leaked into scan targets: {leaked}"
 
 
 # ── Mechanism logic: synthetic, proves the guards bite even with empty real data ──
@@ -240,13 +207,3 @@ def test_count_mismatch_audit_bites(monkeypatch) -> None:
         sn.ALLOWED_OCCURRENCES, "docs/example.md", {(42, "KuType"): sn.Allow("why", hits=3)}
     )
     assert any("42" in problem and "KuType" in problem for problem in _dead_allow_entries())
-
-
-def test_under_excluded_dir_matches_subtree_not_siblings() -> None:
-    """The directory-scope predicate matches inside the subtree and nowhere else."""
-    migrations = sn.ROOT / "docs" / "migrations"
-    assert sn._under_excluded_dir(migrations / "SOME_MIGRATION.md") is True
-    assert sn._under_excluded_dir(migrations / "sub" / "deeper.md") is True
-    # A sibling under docs/ that merely shares a prefix is NOT excluded.
-    assert sn._under_excluded_dir(sn.ROOT / "docs" / "patterns" / "x.md") is False
-    assert sn._under_excluded_dir(sn.ROOT / "docs" / "migrations-notes.md") is False

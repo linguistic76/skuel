@@ -332,7 +332,7 @@ This script is only as useful as its RENAMED/DELETED tables. **Update it wheneve
 
 ### When an old identifier is intentional
 
-Some docs must name a retired identifier — an ADR's before/after table, an import-error string users search for verbatim, a doc that demonstrates this scanner. Three exemption tiers exist, narrowest first; **every tier is audited so an exemption that hides nothing is a finding** (`test_stale_names_allowed_occurrences.py`, the SKUEL026 discipline). Reach for the narrowest that fits — never widen a whole file to force the count down (reverted in PR #986).
+Some docs must name a retired identifier — an ADR's before/after table, an import-error string users search for verbatim, a doc that demonstrates this scanner, a frozen before/after snippet inside a still-maintained migration guide. Two exemption tiers exist; **each is audited so an exemption that hides nothing is a finding** (`test_stale_names_allowed_occurrences.py`, the SKUEL026 discipline). Reach for the narrowest that fits — never widen a whole file to force the count down (reverted in PR #986).
 
 - **`ALLOWED_OCCURRENCES`** — a **counted** set of hits for one identifier at one **line**, one otherwise-scanned doc. Every other line, every other identifier, and any hit *beyond the count* on the same line is still scanned — anchoring on `(line, hits)`, not a coarse `(file, identifier)` key, is what closes the blind spot where a second stale mention would ride along silently (Codex, PR #988). Each entry needs a rationale and its `hits` must equal the real number of matches at that line (`hits` defaults to 1; read the line off `--verbose`):
 
@@ -346,9 +346,9 @@ Some docs must name a retired identifier — an ADR's before/after table, an imp
   }
   ```
 
-- **`SCAN_EXCLUDE_DIRS`** — a whole frozen-archive subtree whose code blocks document the OLD state by design. `docs/migrations/` (the dated, `COMPLETE` migration records) is excluded here, a scope decision on par with `docs/roadmap/done/` — an archive is out of remit, not a live doc we chose to hide.
-
 - **`SKIP_FILES`** — one whole file, kept to exactly the scanner's own documentation (this file), audited section-by-section by `test_stale_names_suppression.py`.
+
+There is deliberately **no directory-scope exclusion**. An earlier cut excluded `docs/migrations/` wholesale as a "frozen archive", but the premise is false: several migration guides are maintained and current-facing (they get updated to current names and swept by rename campaigns), so blinding the subtree would hide a genuine rename in them. Frozen snippets inside those guides get occurrence-level allowances instead — each individually audited.
 
 ### When to add a RENAMED entry
 
