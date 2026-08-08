@@ -30,15 +30,18 @@ Intelligence without data is fantasy. Intelligence without users is premature op
 
 | Surface | Service | Capability |
 |---------|---------|------------|
-| `POST /api/search/intelligent` | SearchIntelligenceService (via SearchRouter) | Query intent analysis (learn/practice/discover) + semantic filter extraction |
+| `POST /api/search/intelligent` | `SearchRouter.intelligent_search` (`SearchQueryParser`) | Query intent parsing (priority/status/domain) + semantic filter extraction |
 | `/search` body-chunk layer (#538) | Neo4jVectorSearchService | Lesson-body semantic hits fold into faceted results |
 | `search.executed` → `:SearchEvent` | SearchEventRecorder | Search behavioral log (Discovery Analytics Phase 1) |
 
-**Foundation Service:** `BaseAnalyticsService` (578 lines)
-- Intent scoring with confidence
-- Facet detection from query patterns
-- Result ranking by relevance
-- Search insights generation
+**Foundation:** the wired search path — `SearchRouter` orchestrates `SearchQueryParser`
+(typed-filter extraction) and ownership-scoped faceted retrieval in Cypher; facet counts derive
+from the returned results via `build_facet_counts`. Unified `score_*` ranking is applied by
+`SearchRouter._score_results` only when a caller supplies `user_context` (internal fan-out) — the
+`POST /api/search/intelligent` route passes only `user_uid`, so it returns default
+relevance-ordered results. The former heuristic intent-scoring / facet-detection / result-ranking /
+search-insights service was deleted (#990) as never-adopted — those capabilities were never wired.
+(`BaseAnalyticsService` is the graph-analytics base for domain intelligence, not query understanding.)
 
 **Status:** ✅ Working, tested, integrated with search UI
 
@@ -146,9 +149,9 @@ BEFORE implementing intelligence features, ensure:
 
 ### Production Intelligence
 ```
-/core/services/search/search_intelligence_service.py
-/core/services/intelligence/base_intelligence_service.py
-/adapters/inbound/search_intelligence_api.py (2 real, 4 future)
+/core/orchestrator/search_router.py     # THE search orchestrator (routing, faceting, ranking)
+/core/models/search/query_parser.py     # SearchQueryParser — typed-filter (priority/status/domain) parsing
+/core/models/search/scoring.py          # unified score_* result ranking
 ```
 
 ### Future Vision Documentation
@@ -171,8 +174,7 @@ All mock responses now include:
 ## Key Lessons Learned
 
 ### What Worked
-✅ `BaseAnalyticsService` - Generic, reusable query understanding
-✅ Composition pattern - SearchIntelligenceService composes Base, saves 264 lines
+✅ `BaseAnalyticsService` - Generic, reusable graph-analytics base for domain intelligence
 ✅ Clear separation - Real vs Future clearly marked
 
 ### What Didn't Work

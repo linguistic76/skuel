@@ -150,11 +150,17 @@ async def predict_next_queries(
     # Analyze query progression in session
     previous_queries = [q["query"] for q in session["queries"]]
 
-    # Use SearchIntelligenceService to understand intent
-    current_intent = self.search_intelligence.analyze_query_intent(current_query)
+    # ⚠️ MISSING DEPENDENCY: intent classification. The heuristic
+    # analyze_query_intent() was deleted in #990 (never-adopted), and CORE tier
+    # deliberately has no embedding-free intent (2026-08). SearchQueryParser.parse()
+    # yields filters (priority/status/domain), NOT a "primary_intent". This
+    # predictor needs a new intent source — the FULL-tier embedding IntentClassifier
+    # (core/services/askesis/) or a purpose-built classifier — before it can key off
+    # a learn/practice progression.
+    current_intent = await self._classify_intent(current_query)  # dependency not yet built
 
     # Predict natural progression
-    if current_intent["primary_intent"] == "learn":
+    if current_intent.get("primary_intent") == "learn":
         # Suggest practice or discovery queries
         return self._generate_practice_queries(current_query)
 
@@ -178,7 +184,8 @@ async def predict_next_queries(
 |---------|--------|---------|
 | SessionTrackingService | ❌ Doesn't exist | Yes |
 | AdaptiveRankingService | ❌ Doesn't exist | Yes |
-| SearchIntelligenceService | ✅ Exists | No |
+| Intent classification (for progression) | ❌ Removed #990; FULL-tier `IntentClassifier` only | Yes / reuse Digital |
+| SearchRouter / SearchQueryParser (filters) | ✅ Exists | No |
 | UnifiedUserContext | ✅ Exists | No |
 
 ---

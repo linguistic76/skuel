@@ -5,7 +5,6 @@ Intelligence Services Module
 Shared intelligence patterns for all domains.
 
 Provides:
-- QueryIntelligenceService: Query intelligence (intent detection, facet suggestion, ranking)
 - Metrics Calculators: Domain-specific path-aware metrics calculation functions
   (over the canonical typed cross-domain reader; path-aware context types live in
   ``core/models/graph/path_aware_types.py``)
@@ -32,12 +31,6 @@ from core.services.intelligence.metrics_calculators import (
     task_recommendations,
 )
 from core.services.intelligence.pattern_analyzer import PatternAnalyzer
-from core.services.intelligence.query_intelligence_service import (
-    FacetDetector,
-    IntentScorer,
-    QueryIntelligenceService,
-    ResultRanker,
-)
 
 # consolidation: Shared helper utilities (January 2026)
 from core.services.intelligence.recommendation_engine import RecommendationEngine
@@ -53,11 +46,6 @@ from core.services.intelligence.trend_analyzer import (
 __all__ = [
     # Shared core intelligence mixin
     "_CoreIntelligenceMixin",
-    # Query intelligence (renamed from BaseIntelligenceService January 2026)
-    "QueryIntelligenceService",
-    "FacetDetector",
-    "IntentScorer",
-    "ResultRanker",
     # Path-aware metrics calculators (over the canonical typed reader)
     "calculate_event_performance_metrics",
     "calculate_goal_progress_metrics",

@@ -20,9 +20,12 @@ This directory contains roadmaps for search intelligence features - both impleme
 - **[INTELLIGENCE_ROADMAP.md](./INTELLIGENCE_ROADMAP.md)** - Master roadmap and philosophy
 
 ### ✅ Production Features (Implemented)
-- Query intent analysis + facet suggestions — `SearchIntelligenceService`
-  (`core/services/search/search_intelligence_service.py`), consumed by
-  SearchRouter's intelligent search (`POST /api/search/intelligent`)
+- Query parsing + semantic-filter extraction — `SearchQueryParser`
+  (`core/models/search/query_parser.py`) extracts typed filters (priority/status/domain);
+  `SearchRouter.intelligent_search` (`POST /api/search/intelligent`) then routes user-owned
+  activity domains through ownership-scoped faceted search and shared curriculum domains
+  (Ku/PS/LP) through bare text search. No facet *suggestions* are returned — that was the
+  deleted heuristic service's claim.
 - Search-event logging (Discovery Analytics Phase 1, 2026-07-10) — every
   external search → `search.executed` → `:SearchEvent` node
 
@@ -88,7 +91,7 @@ Don't implement intelligence "because it's cool." Implement it because:
 Do you want to implement an intelligence feature?
 │
 ├─ Is it PRODUCTION (✅)?
-│  └─ It's already done! See search_intelligence_api.py
+│  └─ It's already done! See search_routes.py + SearchRouter
 │
 ├─ Is it FUTURE_VISION (🔮)?
 │  │
@@ -194,9 +197,8 @@ If you're adding a NEW intelligence feature:
 ## Success Stories
 
 ### ✅ BaseAnalyticsService Pattern
-- Generic, reusable query understanding
+- Generic, reusable graph-analytics base for the 9 domain intelligence services
 - Composition over duplication
-- Saved 264 lines in SearchIntelligenceService
 - **Lesson:** Build reusable foundations
 
 ### ✅ Production vs Future Separation
