@@ -1,6 +1,6 @@
 """Shared primitive components for profile domain views.
 
-Reusable building blocks consumed by curriculum_views.py.
+Reusable building blocks for the profile package (hub, shared_view, badges).
 """
 
 from typing import Any

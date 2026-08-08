@@ -78,7 +78,7 @@ APP_PORT=8000
 LOG_LEVEL=INFO
 ```
 
-Credentials (`NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, …) are read via `get_credential()` from the backend selected above — do **not** `export` them as shell env or paste them into `.env`. Load them once with `uv run python -m core.config` (interactive) or `uv run python scripts/migrate_secrets_to_keychain.py`. The full inventory of credential keys lives in `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
+Credentials (`NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, …) are read via `get_credential()` from the backend selected above — do **not** `export` them as shell env or paste them into `.env`. Load them once with `uv run python core/config/credential_setup.py` (interactive) or `uv run python scripts/migrate_secrets_to_keychain.py`. The full inventory of credential keys lives in `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
 
 ## Running the Application
 

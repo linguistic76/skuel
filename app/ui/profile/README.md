@@ -26,7 +26,6 @@ Uses `BasePage(STANDARD)` — no sidebar.
 | `hub.py` | `ProfileHubView(active_tab)` — tab bar + tab panels |
 | `domain_stats_config.py` | Configuration-driven stats extraction (for badge endpoints) |
 | `badges.py` | Status & count badge components |
-| `curriculum_views.py` | KU, LS, LP profile views |
 | `shared_view.py` | `/profile/shared` — Shared With Me inbox |
 | `preferences.py` | User preferences editor |
 | `_shared.py` | Shared profile primitives |

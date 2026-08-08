@@ -32,14 +32,13 @@ class Filters:
     sort_by: str
 ```
 
-**Calendar params** use `parse_calendar_params()` from `ui_helpers` (unchanged).
+**Calendar params** parse via `parse_date_query_param()` from `route_factories`.
 
 **Usage in route:**
 ```python
 @rt("/tasks")
 async def tasks_dashboard(request):
     filters = parse_filters(request)  # Type-safe access
-    calendar_params = parse_calendar_params(request)
 
     # Use filters.status, filters.project, filters.sort_by
 ```
@@ -50,26 +49,7 @@ async def tasks_dashboard(request):
 
 **Use when:** Fetching data from services (all data access)
 
-**Shared helper** (`adapters/inbound/ui_helpers.py`):
-```python
-from adapters.inbound.ui_helpers import fetch_user_entities
-
-# Simple — service always available:
-async def get_all_goals(user_uid: UserUID) -> Result[list[Goal]]:
-    return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
-
-# Optional service — pass None when unavailable:
-async def get_all_events(user_uid: UserUID) -> Result[list[Event]]:
-    service_method = events_service.get_user_events if events_service else None
-    return await fetch_user_entities(service_method, "events", user_uid, logger)
-```
-
-`fetch_user_entities(service_method, domain_name, user_uid, logger)` handles:
-- Returns `Result[T]` (not exceptions)
-- Logs errors with context (user_uid, error type, message)
-- Propagates service errors (`.is_error` check)
-- Catches unexpected exceptions (fallback to `Errors.system`)
-- Returns `Result.ok([])` when service_method is None
+**Factory-centralized** (`adapters/inbound/activity_ui_factory.py`): `create_activity_ui_routes()` owns the fetch path for all 6 Activity domains — Result propagation, `or []` defaulting, structured logging, and the error branch live in the factory's `_fetch_filtered()`, so routes carry no fetch boilerplate. (The former `ui_helpers.fetch_user_entities()` helper was deleted 2026-08 with zero consumers.)
 
 ---
 

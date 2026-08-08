@@ -53,12 +53,36 @@ ENTRY_POINTS = {
     "main.py",
     "services_bootstrap.py",
     "codegen.py",
+    # ADR-075 user-side vault agent (agent/skuel_vault_agent.py) — PEP 723
+    # uv-runnable on the user's machine; see docs/guides/VAULT_AGENT_GUIDE.md.
+    "skuel_vault_agent.py",
+    # Interactive credential-store CLI (core/config/credential_setup.py); its
+    # CREDENTIALS catalog is mirrored by lint_skuel.py with a drift test.
+    "credential_setup.py",
 }
 
 # These modules are intentionally standalone (convention-discovered, not imported)
 CONVENTION_LOADED = {
     # conftest.py files are discovered by pytest, not imported
     "conftest.py",
+    # Passed to vulture as a PATH argument by scripts/detect_bloat.py — data
+    # for a tool, never imported (see docs/tools/BLOAT_DETECTION.md).
+    "vulture_whitelist.py",
+}
+
+# Staged-but-unwired modules — the module-level twin of detect_bloat.py's
+# PLANNED tiers ("abandoned ≠ staged"). Every entry names its wiring trigger;
+# when the trigger closes, either the module gains an importer (drop the entry)
+# or the plan died (delete the module). Root-relative path → reason.
+STAGED_MODULES: dict[str, str] = {
+    "adapters/outbound/firefly_client.py": (
+        "Firefly III client — built + tested, wired in Phase 2 of "
+        "docs/roadmap/finance-billing-migration.md (ADR-052 sidecar)"
+    ),
+    "core/events/exercise_events.py": (
+        "ExerciseCreated is registered in detect_bloat.py PLANNED_EVENTS "
+        "(campaign 17) — the event module rides that staging"
+    ),
 }
 
 
@@ -307,10 +331,20 @@ def main() -> int:
 
     dead: list[tuple[Path, str, int, str]] = []
     entry_points_found: list[Path] = []
+    staged_found: list[tuple[Path, str]] = []
+    stale_staged: list[Path] = []
 
     for path in subjects:
         if path.name in ENTRY_POINTS or path.name in CONVENTION_LOADED:
             entry_points_found.append(path)
+            continue
+
+        rel_posix = path.relative_to(ROOT).as_posix()
+        if rel_posix in STAGED_MODULES:
+            if module_is_imported(path_to_module(path), direct_imports, from_imports):
+                stale_staged.append(path)  # suppresses nothing — registry rot
+            else:
+                staged_found.append((path, STAGED_MODULES[rel_posix]))
             continue
 
         module = path_to_module(path)
@@ -322,6 +356,21 @@ def main() -> int:
     if args.verbose:
         print(f"{Colors.CYAN}Entry points (excluded from analysis):{Colors.RESET}")
         for p in entry_points_found:
+            print(f"  {p.relative_to(ROOT)}")
+        print()
+
+    if staged_found:
+        print(f"{Colors.CYAN}Staged modules (registered in STAGED_MODULES, not dead):{Colors.RESET}")
+        for p, reason in staged_found:
+            print(f"  {p.relative_to(ROOT)} — {reason}")
+        print()
+
+    if stale_staged:
+        print(
+            f"{Colors.YELLOW}STAGED_MODULES entries that now HAVE importers — "
+            f"the module went live; remove the registry entry:{Colors.RESET}"
+        )
+        for p in stale_staged:
             print(f"  {p.relative_to(ROOT)}")
         print()
 
@@ -345,9 +394,11 @@ def main() -> int:
 
         print(f"\n{Colors.YELLOW}Total: {len(dead)} files{Colors.RESET}")
         return 1
-    else:
-        print(f"{Colors.GREEN}✓ No dead modules found{Colors.RESET}")
-        return 0
+
+    if stale_staged:
+        return 1
+    print(f"{Colors.GREEN}✓ No dead modules found{Colors.RESET}")
+    return 0
 
 
 if __name__ == "__main__":

@@ -143,7 +143,6 @@ from ui.feedback import Progress, ProgressT
 from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, Select, Textarea
 from ui.layout import Container, DivHStacked, Size
 # Modals: use plain Alpine.js x-show + Div with Tailwind (no ui.modals)
-from ui.navigation import Dropdown, Menu, Navbar, Tabs
 from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 
 # Standard HTML/FastHTML elements always come from fasthtml.common
