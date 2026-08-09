@@ -338,7 +338,6 @@ a {
     /* Hide navigation and interactive elements */
     .drawer-side,
     .navbar,
-    .breadcrumbs,
     .btn,
     .modal {
         display: none !important;

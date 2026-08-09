@@ -446,16 +446,15 @@ Composed components built from primitives for common UI patterns.
 
 Consistent header for all pages with title and optional actions. Adopted across all 6 Activity Domain dashboards (Tasks, Goals, Habits, Events, Choices, Principles), Study hub, Curriculum hub, Admin dashboard (7 pages), Analytics, Calendar (3 views), LifePath (5 pages), and Timeline.
 
-### PageHeader(title, subtitle, actions, breadcrumbs, **kwargs)
+### PageHeader(title, subtitle, actions, cls)
 
 Page header component.
 
 **Parameters:**
 - `title: str` - Page title
 - `subtitle: str | None` - Optional subtitle
-- `actions: Any` - Optional action buttons
-- `breadcrumbs: list[tuple[str, str]]` - Optional breadcrumb links [(label, href), ...]
-- `**kwargs` - Additional attributes
+- `actions: Any` - Optional action buttons (right-aligned)
+- `cls: str` - Additional CSS classes
 
 **Examples:**
 ```python
@@ -471,16 +470,6 @@ PageHeader(
     title="Tasks",
     subtitle="Manage your tasks and projects",
     actions=ButtonLink("New Task", href="/tasks/new", cls=ButtonT.primary),
-)
-
-# With breadcrumbs
-PageHeader(
-    title="Task Details",
-    breadcrumbs=[
-        ("Home", "/"),
-        ("Tasks", "/tasks"),
-        ("Details", None),  # Current page
-    ],
 )
 ```
 
@@ -1010,12 +999,6 @@ ExploreGraphView(mode="entity", entity_uid="ps:step_1", entity_type="ps")
 
 Hierarchical tree visualization with expand/collapse.
 
-### Breadcrumbs
-
-**Location:** `/ui/patterns/breadcrumbs.py`
-
-Navigation breadcrumbs trail.
-
 ### Skeleton
 
 **Location:** `/ui/patterns/skeleton.py`
@@ -1473,7 +1456,6 @@ Quick alphabetical index:
 
 **Patterns & Layouts:**
 - **BasePage** - `/ui/layouts/base_page.py`
-- **Breadcrumbs** - `/ui/patterns/breadcrumbs.py`
 - **CardGenerator** - `/ui/patterns/card_generator.py`
 - **EmptyState** - `/ui/patterns/empty_state.py`
 - **ErrorBanner** - `/ui/patterns/error_banner.py`

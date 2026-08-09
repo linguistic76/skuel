@@ -18,7 +18,6 @@ from collections.abc import Callable
 import pytest
 
 from ui.feedback import StatusBadge
-from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.tree_view import TreeView
 
@@ -28,7 +27,6 @@ SENTINEL = "zzcls-sentinel"
 CASES: list[tuple[str, Callable[[str], object], str]] = [
     # Pattern / layout helpers
     ("StatusBadge", lambda c: StatusBadge("active", cls=c), "bg-"),
-    ("Breadcrumbs", lambda c: Breadcrumbs([{"title": "Home", "url": "/"}], cls=c), "breadcrumbs"),
     ("TreeView", lambda c: TreeView("root", "goal", "/api/{uid}", cls=c), "tree-container"),
     ("EmptyState", lambda c: EmptyState("Nothing here", cls=c), "text-center"),
 ]

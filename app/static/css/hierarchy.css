@@ -2,7 +2,7 @@
  * Hierarchy Components - Custom Styles
  * =====================================
  *
- * Styles for TreeView, AccordionHierarchy, Breadcrumbs, IndentedList
+ * Styles for TreeView, AccordionHierarchy, IndentedList
  */
 
 /* Tree View Container */
@@ -62,20 +62,6 @@
 
 .accordion-hierarchy .collapse-title {
     @apply cursor-pointer;
-}
-
-/* Breadcrumbs */
-.breadcrumbs {
-    @apply flex flex-wrap items-center gap-2;
-}
-
-.breadcrumbs li:not(:last-child)::after {
-    content: "›";
-    @apply ml-2 text-muted-foreground;
-}
-
-.breadcrumbs li:last-child {
-    @apply text-muted-foreground font-medium;
 }
 
 /* Indented List */
