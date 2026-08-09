@@ -381,8 +381,8 @@ async def cleanup():
 
 **For Specific Features:**
 ```bash
-uv run pytest tests/unit/test_<feature>*.py -v
-uv run pytest tests/integration/test_<feature>*.py -v
+uv run pytest tests/unit/ -k "<feature>" -v
+uv run pytest tests/integration/ -k "<feature>" -v
 ```
 
 **Priority:** Integration tests are the primary verification tier; unit tests give
