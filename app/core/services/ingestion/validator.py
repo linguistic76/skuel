@@ -189,7 +189,11 @@ def validate_entity_data(
     classifies it as a content fault (reported ignored-with-reason by the
     vault-sync doors, never a sync error). The READ side stays tolerant by
     design — DTOs keep ``str`` so already-persisted strays load — making this
-    door the one place the vocabulary is enforced.
+    door the one place the vocabulary is enforced. USER_ENTRY files are
+    exempt from the gate: their ADR-054 door owns their frontmatter with
+    alias-aware parsers ("in process" → active) and fails loudly on genuine
+    garbage — a literal gate here would reject on the batch path what
+    single-file UserEntry ingestion accepts.
 
     Args:
         entity_type: EntityType | NonKuDomain enum value
@@ -201,33 +205,40 @@ def validate_entity_data(
     """
     # Vocabulary gate — generic over the registry, so every field the casing
     # pass canonicalizes is also membership-checked (None = absent, skipped;
-    # a present non-string is a non-member by definition).
-    violations: list[str] = []
-    violating_fields: list[str] = []
-    for field_name, enum_cls in ENUM_FIELD_TYPES.items():
-        value = entity_data.get(field_name)
-        if value is None:
-            continue
-        member_values = {member.value for member in enum_cls}
-        if isinstance(value, str) and value in member_values:
-            continue
-        violations.append(
-            f"'{field_name}' must be one of: {', '.join(sorted(member_values))}; got {value!r}"
-        )
-        violating_fields.append(field_name)
-    if violations:
-        details = "; ".join(violations)
-        return Result.fail(
-            Errors.validation(
-                f"Non-member enum value(s): {details}",
-                field=violating_fields[0],
-                user_message=(
-                    f"File {file_path.name} ({entity_type.value}): {details}. "
-                    "Casing is normalized automatically — these values are outside the "
-                    "field's vocabulary. Edit the file to use a listed value."
-                ),
+    # a present non-string is a non-member by definition). USER_ENTRY is
+    # exempt, mirroring the batch door's UID-format carve-out: its ADR-054
+    # branch validates its own frontmatter with ALIAS-AWARE parsers
+    # (``_parse_status`` maps "in process" → active and fails loudly on
+    # garbage), so a literal gate here would reject documented spellings on
+    # the batch path that single-file UserEntry ingestion accepts —
+    # splitting the doors (Codex #1003).
+    if entity_type is not EntityType.USER_ENTRY:
+        violations: list[str] = []
+        violating_fields: list[str] = []
+        for field_name, enum_cls in ENUM_FIELD_TYPES.items():
+            value = entity_data.get(field_name)
+            if value is None:
+                continue
+            member_values = {member.value for member in enum_cls}
+            if isinstance(value, str) and value in member_values:
+                continue
+            violations.append(
+                f"'{field_name}' must be one of: {', '.join(sorted(member_values))}; got {value!r}"
             )
-        )
+            violating_fields.append(field_name)
+        if violations:
+            details = "; ".join(violations)
+            return Result.fail(
+                Errors.validation(
+                    f"Non-member enum value(s): {details}",
+                    field=violating_fields[0],
+                    user_message=(
+                        f"File {file_path.name} ({entity_type.value}): {details}. "
+                        "Casing is normalized automatically — these values are outside the "
+                        "field's vocabulary. Edit the file to use a listed value."
+                    ),
+                )
+            )
 
     # File-ingested exercises carry no user OWNS edge, so every non-curriculum
     # scope describes an owner or group the ingestion path cannot provide —

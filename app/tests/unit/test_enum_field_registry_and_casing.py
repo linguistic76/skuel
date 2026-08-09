@@ -164,6 +164,18 @@ class TestEnumMembershipGateAtTheDoor:
         assert "must be one of" in message
         assert "'banana'" in message
 
+    def test_user_entry_exempt_alias_statuses_reach_their_own_door(self) -> None:
+        # Codex #1003: the batch door runs this validator on user_entry files
+        # BEFORE routing them to the ADR-054 branch, whose _parse_status is
+        # alias-aware ("in process" → active). The gate must not reject on
+        # the batch path what single-file UserEntry ingestion accepts.
+        file_path = Path("note.md")
+        ue_data = {"title": "Living note", "status": "in process"}
+        assert validate_entity_data(EntityType.USER_ENTRY, ue_data, file_path).is_ok
+        # Control: the same spelling on a gated type is still a violation.
+        prepared = self._prepared_event(status="in process")
+        assert validate_entity_data(EntityType.EVENT, prepared, self._FILE).is_error
+
     def test_config_default_values_are_members(self) -> None:
         # A non-member config default would reject EVERY file of its type —
         # a code bug this suite must catch, not the sync report.
