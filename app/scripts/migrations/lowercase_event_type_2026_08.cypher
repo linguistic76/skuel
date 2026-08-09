@@ -13,10 +13,14 @@
 //   lowercase members. This migration converges the already-persisted rows.
 //
 // Idempotent: toLower() on an already-lowercase value is a no-op.
-// Scope: :Event nodes only. AuthEvent.event_type (a different, already-
-//   lowercase vocabulary) and the event-bus BaseEvent.event_type discriminator
-//   ("task.completed") are NOT persisted node properties of :Event and are
-//   untouched.
+// Scope: :Event and :EventTemplate nodes. Templates carry the same field and
+//   PS engagement's _SpawnOrchestrator copies it verbatim into every spawned
+//   Event — an unmigrated legacy template would keep minting uppercase rows
+//   (Codex finding on this PR). Label anchoring is load-bearing: :AuthEvent
+//   rows (692 in the 2026-08-09 audit) carry an UPPERCASE event_type of a
+//   different vocabulary (LOGIN_SUCCESS, ...) that is correct as-is, and the
+//   event-bus BaseEvent.event_type discriminator ("task.completed") is not a
+//   persisted node property at all. Neither is touched.
 //
 // Verify (before/after):
 //   MATCH (e:Event) WHERE e.event_type IS NOT NULL
@@ -38,3 +42,13 @@ SET e.event_type = 'personal';
 MATCH (e:Event)
 WHERE e.event_type IS NOT NULL AND e.event_type <> toLower(e.event_type)
 SET e.event_type = toLower(e.event_type);
+
+// Statements 3 + 4: the same two passes for :EventTemplate, so no legacy
+// template can respawn the values statements 1-2 removed.
+MATCH (t:EventTemplate)
+WHERE t.event_type = 'RECURRING'
+SET t.event_type = 'personal';
+
+MATCH (t:EventTemplate)
+WHERE t.event_type IS NOT NULL AND t.event_type <> toLower(t.event_type)
+SET t.event_type = toLower(t.event_type);
