@@ -79,8 +79,9 @@ def normalize_enum_casing(entity_data: dict[str, Any]) -> None:
     graph — the ``parse_enum_field`` read tolerance (#513) covers conversion,
     not filtering. For every registered enum-valued field: a valid value is
     left untouched; a value whose ONLY problem is casing is rewritten to the
-    canonical member value; anything else is left for the validator/DTO
-    boundary to reject with a proper error.
+    canonical member value; anything else falls through to
+    ``validate_entity_data``'s vocabulary gate (same registry), which rejects
+    the file — a non-member value never reaches the graph.
     """
     for field_name, enum_cls in ENUM_FIELD_TYPES.items():
         value = entity_data.get(field_name)

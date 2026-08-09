@@ -88,7 +88,7 @@ def _admin_request(json_body: dict | None = None):
 _FIXTURE_BODY = """---
 type: Lesson
 title: Route Regeneration Test
-domain: technology
+domain: tech
 ---
 
 # Heading One

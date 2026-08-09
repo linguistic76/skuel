@@ -36,7 +36,7 @@ _PS_FIXTURE = """---
 type: path_step
 uid: ps:test:force-reingest
 title: Force Reingest Fixture
-domain: testing
+domain: knowledge
 ---
 
 # Heading One

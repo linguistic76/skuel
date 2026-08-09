@@ -24,6 +24,8 @@ The vault is a mixed authoring space — a file **opts in** to ingestion; anythi
 2. **The type's required fields** — see § Entity Configuration for the full table. Most types need only `title`, which auto-falls back to the filename (`name:` is accepted as an alias). Notable extras: `exercise` → `instructions`, `principle` → `statement`, `lifepath` → `user_uid`, `group` → `name`, `interaction` → `interaction_type` + `target_uid`; `user_entry` files additionally need an explicit `pipeline:` (door-level rule, § UserEntry YAMLs).
 3. **`uid:` is optional.** Omit it to auto-generate `{prefix}.{filename}`. If declared, it must be non-empty and start with the type's prefix (`ku:`/`ku.` for a Ku, etc. — § UID Format Validation). An empty `uid:` line is never silently replaced with a generated one — the file is ignored with that reason. **`user_entry` differs on both halves** (its branch bypasses the preparer): a declared uid is an opaque join key with no prefix check (ADR-013 never-sniff), and an omitted `uid:` resolves to a derived periodic uid (`ue:daily:{user}:{date}`), the tracker's prior path-keyed uid, or a service-minted random `ue_` uid — never `{prefix}.{filename}` (§ Optional field: `uid`, § Path-keyed identity). A vault sync still ignores a `user_entry` file whose `uid:` line is present but empty (the batch parse stage runs the preparer's guard).
 
+4. **Registered enum fields must use the field's vocabulary.** Every field in `ENUM_FIELD_TYPES` (`core/models/enum_field_registry.py`, ~30 fields: `status`, `event_type`, `learning_level`, `sel_category`, ...) is membership-checked by `validate_entity_data` after preparation. Casing is never the problem — the preparer canonicalizes `BEGINNER` → `beginner` first — but a value outside the vocabulary (`event_type: practice`, `learning_level: grandmaster`) rejects the file with the full member list in the reason. **Vault-independent** (unlike dangling MOC links, whose posture varies by vault): a non-member value is a content fault in the file itself and never becomes valid later — persisted, it would hide from every exact-match filter until a data migration (the 2026-08 `event_type` cleanup). The read side deliberately stays `str`-tolerant so pre-existing strays still load; this door is where the vocabulary is enforced.
+
 Standalone edge files use `type: edge` + `from`/`to`/`relationship` instead (§ Edge Ingestion).
 
 Files that fall short are **ignored and reported with a per-file reason** on every sync — never treated as sync errors. See § Ignored files vs sync errors.
@@ -745,9 +747,11 @@ save-template flow.
 (the enum sibling of `normalize_uid`'s colon→dot rewrite) rewrites values whose only
 problem is casing — `learning_level: BEGINNER` is stored as `beginner` — against
 `core/models/enum_field_registry.py`, THE field→Enum association registry the DTOs
-also slice. Values that are wrong even lowercased fall through untouched for the
-validator/DTO boundary to reject. Exact-match property filters (the faceted
-`sel_category` facet) therefore never meet non-canonical casing in the graph.
+also slice. Values that are wrong even lowercased fall through untouched to
+`validate_entity_data`'s vocabulary gate, which rejects the file (§ Minimum
+frontmatter, criterion 4) — so the graph never meets non-canonical casing OR a
+non-member value in a registered field, and exact-match property filters (the
+faceted `sel_category` facet) stay sound.
 
 A directory scan attributes one owner + one wall to the whole batch, so it must belong
 to a single vault: a scan of an ancestor directory that **nests** another vault's root is
