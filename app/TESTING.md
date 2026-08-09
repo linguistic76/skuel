@@ -63,8 +63,8 @@ uv run pytest tests/integration/test_habits*.py -v
 uv run pytest tests/unit/test_goals*.py -v
 uv run pytest tests/integration/test_goals*.py -v
 
-# All service unit tests
-uv run pytest tests/unit/test_*_service.py -v
+# All unit tests (pytest recurses into tests/unit/ subdirectories)
+uv run pytest tests/unit/ -v
 ```
 
 ## Understanding Test Failures
@@ -321,17 +321,20 @@ e2e, benchmarks, and infrastructure tiers remain local-only (`./dev test` /
 
 ### Tests Hang or Timeout
 
-**Cause:** Neo4j connection issues
+**Cause:** Docker isn't ready. Integration tests boot an **ephemeral Neo4j
+testcontainer** (`tests/integration/conftest.py`) on the Docker daemon — not the
+Compose `skuel-neo4j` container — so the daemon must be running and able to start
+the pinned Neo4j image.
 **Fix:**
 ```bash
-# Start the local Docker Neo4j stack (container: skuel-neo4j)
-./dev up
+# Ensure the Docker daemon is running (testcontainers manages Neo4j itself)
+docker info >/dev/null && echo "Docker OK"
 
-# Confirm the container is running
-docker ps --filter name=skuel-neo4j
+# While the suite runs, watch the ephemeral Neo4j testcontainer start
+docker ps
 
-# Verify connection
-uv run python -c "from neo4j import GraphDatabase; driver = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'password')); driver.verify_connectivity(); print('Connected!')"
+# If startup is the problem, inspect the most recent container's logs
+docker logs "$(docker ps -lq)"
 ```
 
 ### Import Errors
