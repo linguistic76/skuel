@@ -34,6 +34,7 @@ from core.models.enums.activity_enums import Confidence, EngagementState
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.curriculum_enums import LpType, StepDifficulty
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.event_enums import EventType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.interaction_enums import InteractionResult, InteractionType
@@ -84,6 +85,8 @@ ENUM_FIELD_TYPES: dict[str, type[Enum]] = {
     "polarity": HabitPolarity,
     "habit_category": HabitCategory,
     "habit_difficulty": HabitDifficulty,
+    # Event fields
+    "event_type": EventType,
     # Choice fields
     "choice_type": ChoiceType,
     # Principle fields

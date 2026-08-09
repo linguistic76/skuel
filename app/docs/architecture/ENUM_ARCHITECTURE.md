@@ -19,6 +19,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
 | `askesis_enums.py` | Askesis query complexity and integration | QueryComplexity, IntegrationSuccess |
 | `choice_enums.py` | Decision types | ChoiceType |
+| `event_enums.py` | Event domain classification | EventType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
 | `pipeline.py` | User entry processing dispatch + report provenance (ADR-054, supersede ProcessorType) | Pipeline, ReportSource |
 | `user_entry_enums.py` | User entry (submissions/journal) processing and scheduling | SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth |

@@ -73,7 +73,7 @@ class TestEventsCoreOperations:
             event_date=today + timedelta(days=1),
             start_time=time(14, 0),  # 2 PM
             end_time=time(15, 0),  # 3 PM
-            event_type="WORK",
+            event_type="work",
             status=EntityStatus.SCHEDULED,
             priority=Priority.HIGH,
             location="Conference Room A",
@@ -87,7 +87,7 @@ class TestEventsCoreOperations:
         created = result.value
         assert created.uid == "event.team_meeting"
         assert created.title == "Weekly Team Meeting"
-        assert created.event_type == "WORK"
+        assert created.event_type == "work"
         assert created.status == EntityStatus.SCHEDULED
         assert created.priority == Priority.HIGH
 
@@ -227,7 +227,7 @@ class TestEventsCoreOperations:
             title="Work Event",
             description="Work-related meeting",
             event_date=today,
-            event_type="WORK",
+            event_type="work",
             status=EntityStatus.SCHEDULED,
         )
         personal_event = Event(
@@ -236,7 +236,7 @@ class TestEventsCoreOperations:
             title="Personal Event",
             description="Personal appointment",
             event_date=today,
-            event_type="PERSONAL",
+            event_type="personal",
             status=EntityStatus.SCHEDULED,
         )
 
@@ -245,20 +245,20 @@ class TestEventsCoreOperations:
 
         # Act - Filter by type
         work_result = await events_service.backend.find_by(
-            user_uid=test_user_uid, event_type="WORK"
+            user_uid=test_user_uid, event_type="work"
         )
         personal_result = await events_service.backend.find_by(
-            user_uid=test_user_uid, event_type="PERSONAL"
+            user_uid=test_user_uid, event_type="personal"
         )
 
         # Assert
         assert work_result.is_ok
         assert len(work_result.value) >= 1
-        assert all(e.event_type == "WORK" for e in work_result.value)
+        assert all(e.event_type == "work" for e in work_result.value)
 
         assert personal_result.is_ok
         assert len(personal_result.value) >= 1
-        assert all(e.event_type == "PERSONAL" for e in personal_result.value)
+        assert all(e.event_type == "personal" for e in personal_result.value)
 
     async def test_filter_by_date_range(self, events_service, test_user_uid):
         """Test filtering events by date range."""
@@ -414,7 +414,7 @@ class TestEventsCoreOperations:
             event_date=today + timedelta(days=3),
             start_time=time(10, 0),
             end_time=time(11, 30),
-            event_type="LEARNING",
+            event_type="learning",
             status=EntityStatus.SCHEDULED,
             priority=Priority.HIGH,
             location="Main Conference Room",
@@ -480,7 +480,7 @@ class TestEventsCoreOperations:
             end_time=time(16, 30),
             is_online=True,
             meeting_url="https://zoom.us/j/123456789",
-            event_type="LEARNING",
+            event_type="learning",
             status=EntityStatus.SCHEDULED,
         )
 

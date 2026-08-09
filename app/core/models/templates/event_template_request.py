@@ -16,7 +16,7 @@ from datetime import (
 
 from pydantic import Field
 
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, EventType
 from core.models.request_base import UpdateRequestBase
 from core.models.templates._template_request_base import TemplateCreateRequest
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
@@ -33,7 +33,7 @@ class EventTemplateCreateRequest(TemplateCreateRequest):
     end_time: time | None = None
     duration_minutes: int | None = Field(default=None, ge=1)
 
-    event_type: str | None = None
+    event_type: EventType | None = None
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None
@@ -69,7 +69,7 @@ class EventTemplateUpdateRequest(UpdateRequestBase):
     end_time: time | None = None
     duration_minutes: int | None = Field(default=None, ge=1)
 
-    event_type: str | None = None
+    event_type: EventType | None = None
     location: str | None = None
     is_online: bool | None = None
     meeting_url: str | None = None

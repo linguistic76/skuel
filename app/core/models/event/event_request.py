@@ -11,7 +11,7 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.enums import EntityStatus, Priority, RecurrencePattern, Visibility
+from core.models.enums import EntityStatus, EventType, Priority, RecurrencePattern, Visibility
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import UserUID
@@ -20,21 +20,6 @@ from core.models.validation_rules import (
     validate_time_after,
     validate_url_when_online,
 )
-
-
-class EventType(str):
-    """Event types as string literals for API."""
-
-    MEETING = "MEETING"
-    CONFERENCE = "CONFERENCE"
-    WORKSHOP = "WORKSHOP"
-    DEADLINE = "DEADLINE"
-    REMINDER = "REMINDER"
-    PERSONAL = "PERSONAL"
-    WORK = "WORK"
-    SOCIAL = "SOCIAL"
-    LEARNING = "LEARNING"
-    HEALTH = "HEALTH"
 
 
 class EventCreateRequest(BaseModel):
@@ -49,7 +34,7 @@ class EventCreateRequest(BaseModel):
     end_time: time = Field(description="End time")
 
     # Type and visibility
-    event_type: str = Field(default=EventType.PERSONAL, description="Type of event")
+    event_type: EventType = Field(default=EventType.PERSONAL, description="Type of event")
     visibility: Visibility = Field(default=Visibility.PRIVATE, description="Event visibility")
 
     # Location
@@ -116,7 +101,7 @@ class EventUpdateRequest(BaseModel):
     event_date: date | None = None
     start_time: time | None = None
     end_time: time | None = None
-    event_type: str | None = None
+    event_type: EventType | None = None
     visibility: Visibility | None = None
     location: str | None = None
     is_online: bool | None = None
@@ -169,7 +154,9 @@ class EventUpdateRequest(BaseModel):
         return EventUpdateIntent(
             title=when_set("title", self.title),
             description=when_set("description", self.description),
-            event_type=when_set("event_type", self.event_type),
+            event_type=when_set(
+                "event_type", self.event_type.value if self.event_type is not None else None
+            ),
             event_date=when_set("event_date", self.event_date),
             start_time=when_set("start_time", self.start_time),
             end_time=when_set("end_time", self.end_time),
@@ -276,7 +263,7 @@ class EventFilterRequest(BaseModel):
     """Request model for filtering events."""
 
     status: EntityStatus | None = None
-    event_type: str | None = None
+    event_type: EventType | None = None
     date_from: date | None = None
     date_to: date | None = None
     tags: list[str] | None = None

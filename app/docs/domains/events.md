@@ -110,7 +110,7 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 | `end_time` | `time?` | End time |
 | `duration_minutes` | `int` | Duration in minutes |
 | `location` | `str?` | Event location |
-| `event_type` | `EventType` | Meeting, Practice, Learning, etc. |
+| `event_type` | `EventType` | Lowercase StrEnum (`core/models/enums/event_enums.py`): meeting, workshop, deadline, learning, etc. |
 | `status` | `EntityStatus` | Scheduled, Completed, Cancelled |
 | `priority` | `Priority` | Low, Medium, High, Urgent |
 | `recurrence_pattern` | `RecurrencePattern?` | Daily, Weekly, etc. |
@@ -279,8 +279,8 @@ Read-focused UI at `/events` is planned. API routes remain active.
 ### Create an Event
 
 ```python
+from core.models.enums import EventType
 from core.models.event.event_request import EventCreateRequest
-from core.models.event.event import EventType
 from datetime import date, time
 
 result = await events_service.create_event(

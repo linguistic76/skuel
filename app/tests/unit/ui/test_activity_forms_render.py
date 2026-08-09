@@ -123,7 +123,7 @@ def event() -> Event:
         user_uid="u",
         title="Team standup",
         description="Daily sync",
-        event_type="MEETING",
+        event_type="meeting",
         event_date=date(2026, 5, 15),
         priority=Priority.MEDIUM,
         status=EntityStatus.ACTIVE,

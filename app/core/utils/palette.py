@@ -58,32 +58,6 @@ class RelationshipColor:
         return cls._MAP.get(rel_type, cls.DEFAULT)
 
 
-class EventTypeColor:
-    """Calendar item colors by event type."""
-
-    MEETING = "#3b82f6"  # Blue
-    DEADLINE = "#ef4444"  # Red
-    PERSONAL = "#22c55e"  # Green
-    WORK = "#f97316"  # Orange
-    SOCIAL = "#8b5cf6"  # Purple
-    LEARNING = "#06b6d4"  # Cyan
-    DEFAULT = "#3b82f6"  # Blue fallback
-
-    _MAP: ClassVar[dict[str, str]] = {
-        "meeting": MEETING,
-        "deadline": DEADLINE,
-        "personal": PERSONAL,
-        "work": WORK,
-        "social": SOCIAL,
-        "learning": LEARNING,
-    }
-
-    @classmethod
-    def for_type(cls, event_type: str) -> str:
-        """Get color for an event type string (e.g., 'meeting')."""
-        return cls._MAP.get(event_type, cls.DEFAULT)
-
-
 class FrequencyColor:
     """Calendar habit colors by recurrence frequency."""
 
@@ -140,7 +114,6 @@ class CalendarFallback:
 
 __all__ = [
     "CalendarFallback",
-    "EventTypeColor",
     "FrequencyColor",
     "RelationshipColor",
     "SemanticColor",

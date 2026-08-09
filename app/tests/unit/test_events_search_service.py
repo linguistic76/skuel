@@ -98,7 +98,7 @@ def sample_events() -> list[Event]:
                 event_date=today + timedelta(days=3),
                 start_time=time(14, 0),
                 end_time=time(15, 0),
-                event_type="appointment",
+                event_type="health",
                 created_at=datetime.now(),
             )
         ),

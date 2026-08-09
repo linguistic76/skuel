@@ -286,7 +286,7 @@ class TestRelationshipLinkRoundTrip:
             title="Event",
             description="attendee round-trip fixture",
             event_date=date.today(),
-            event_type="WORK",
+            event_type="work",
             status=EntityStatus.SCHEDULED,
             priority=Priority.MEDIUM,
         )

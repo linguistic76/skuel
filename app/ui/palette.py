@@ -8,7 +8,6 @@ without creating a core-imports-ui layering violation.
 
 from core.utils.palette import (
     CalendarFallback,
-    EventTypeColor,
     FrequencyColor,
     RelationshipColor,
     SemanticColor,
@@ -17,7 +16,6 @@ from core.utils.palette import (
 
 __all__ = [
     "CalendarFallback",
-    "EventTypeColor",
     "FrequencyColor",
     "RelationshipColor",
     "SemanticColor",
