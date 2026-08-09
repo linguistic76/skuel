@@ -62,7 +62,7 @@ revisit semantic pool expansion (see [`SEMANTIC_ANALYSIS_ROADMAP.md`](SEMANTIC_A
 
 **Logging portion — ✅ SHIPPED 2026-07-10 (Phase 1).** Every external search now
 lands a `:SearchEvent` node: `SearchRouter` publishes `search.executed` from all
-three entry points (faceted/intelligent/advanced, incl. the GraphQL caller) →
+three entry points (faceted/intelligent/advanced) →
 `SearchEventRecorder` → `SearchEventBackend`. Tier-independent (a plain graph
 write, active on CORE and FULL — the prior claim here that publishing was
 "wired but disabled behind a feature flag" was never true; nothing existed

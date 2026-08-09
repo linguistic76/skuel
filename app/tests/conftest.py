@@ -1,8 +1,8 @@
 """
-Test Fixtures for SKUEL GraphQL Tests
-======================================
+Shared Test Fixtures for SKUEL
+==============================
 
-Provides authenticated test client for GraphQL API tests.
+Provides the authenticated test client used across the API test suites.
 
 Setup:
 - Loads .env for credentials (OpenAI, Deepgram, Neo4j)
@@ -247,7 +247,7 @@ def authenticated_client_simple(skuel_app) -> "Generator[TestClient]":
 @pytest.fixture
 def test_user_uid() -> str:
     """
-    Test user UID for use in GraphQL queries.
+    Test user UID for use in API queries.
 
     This matches the user created by authenticated_client fixture.
     """
