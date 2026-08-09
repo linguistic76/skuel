@@ -367,7 +367,9 @@ follow_imports = "skip"
 #                    which mypy correctly flags but the pattern is unavoidable.
 #   type-var       — tests parameterize generics with DTOs (EntityDTO et al.)
 #                    that don't satisfy the production bound; fine for fixtures.
-#   misc           — Strawberry/Pydantic dynamic __init__ on test-only stubs.
+#   misc           — test doubles that monkey-patch read-only model properties,
+#                    call unbound methods on stub harnesses, and untyped
+#                    generator fixtures (measured 2026-08-08: 26 sites).
 #   arg-type       — tests/scripts construct wrong-typed DTOs/mocks freely (~1628
 #                    sites); never in the sweep's scope. The four first-party trees
 #                    (core, services_bootstrap, adapters, ui) enforce arg-type.

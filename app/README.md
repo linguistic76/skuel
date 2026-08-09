@@ -183,7 +183,7 @@ skuel/app/
 │   ├── architecture/          # System architecture
 │   └── reference/             # Templates & references
 ├── tests/                     # Test suite
-│   ├── integration/           # Integration tests (100% passing)
+│   ├── integration/           # Integration tests
 │   └── unit/                  # Unit tests
 ├── main.py                    # Application entry point
 ├── pyproject.toml             # uv dependencies
@@ -361,8 +361,7 @@ uv run ruff format .
 ### Current State
 
 - **Architecture**: Stable - entity type + 5-system architecture complete
-- **Integration Tests**: 808 passing (3 skipped: GraphQL tests require `OPENAI_API_KEY`)
-- **Unit Tests**: 1082 passing (100%)
+- **Tests**: Unit + integration suites green in CI (see [TESTING.md](TESTING.md))
 - **Documentation**: 20+ ADRs, comprehensive `/docs/`
 - **Version Control**: Git integration developed but **not currently deployed**
 

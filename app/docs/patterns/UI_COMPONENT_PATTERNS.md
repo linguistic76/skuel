@@ -1236,7 +1236,6 @@ async def tasks_view_list(request) -> Any:
 | Analytics | ✅ Complete | 8 error sites → `render_inline_error()`, PageHeader adopted |
 | LifePath | ✅ Complete | `_error_page`/`_service_unavailable_page` → `render_error_banner`, PageHeader adopted |
 | Calendar | ✅ Complete | Custom `Html(Head, Body)` wrapper → `BasePage`, PageHeader adopted |
-| GraphQL | ✅ Complete | `text-red-600` → `text-error`, `bg-red-50` → `bg-error/10` |
 
 **Shared error/fetch handling lives in the factory** (`/adapters/inbound/activity_ui_factory.py`): not-found and fetch-error states render `render_error_banner()` inside the generated fragments; calendar query params parse via `parse_date_query_param()` (`route_factories`). The former `/adapters/inbound/ui_helpers.py` module was deleted 2026-08 (zero consumers).
 
