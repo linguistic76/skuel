@@ -270,7 +270,7 @@ class PsSearchService(BaseService[PsOperations, PathStep]):
         dto_class=PathStepDTO,
         model_class=PathStep,
         domain_name="path_step",
-        search_fields=("title", "summary", "tags"),
+        search_fields=("title", "intent", "description"),
         search_order_by="updated_at",
     )
     # user_ownership_relationship=None (DomainConfig) → SearchVisibility.PUBLIC, no OWNS filter
