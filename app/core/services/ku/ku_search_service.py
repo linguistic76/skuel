@@ -35,7 +35,10 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         dto_class=KuDTO,
         model_class=Ku,
         domain_name="ku",
-        search_fields=("title", "description", "summary"),
+        # Keyword search covers title/description only — matches ku_fulltext_idx
+        # (neo4j_schema_manager) and the SEARCH_FIELD_CONFIG fallback. `summary`
+        # stays content-bearing for embeddings, not keyword search — don't re-add.
+        search_fields=("title", "description"),
         category_field="nous",  # NOUS topic membership (array — `has` semantics)
         supports_user_progress=False,
         entity_label="Ku",

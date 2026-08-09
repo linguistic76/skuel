@@ -387,7 +387,7 @@ _graph_enrichment_patterns = [
 
 **Configuration (from runtime `create_curriculum_domain_config`):**
 ```python
-search_fields = ("title", "description", "summary")
+search_fields = ("title", "description")  # summary is embedding-only, not keyword-searchable
 category_field = "nous"  # NOUS topic membership (array — `has` semantics)
 # user_ownership_relationship = None (shared content)
 # graph_enrichment_patterns come from the relationship registry (KU_CONFIG)
