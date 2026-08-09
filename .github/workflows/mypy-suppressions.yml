@@ -6,7 +6,8 @@ name: MyPy Suppression Audit
 #
 # WHY THIS IS SCHEDULED AND NOT A PR CHECK
 #
-# The audit needs one mypy run per (block, code) pair plus a baseline — ~80s —
+# The audit needs one mypy run per (scope, code) pair, one per module pattern
+# of each multi-pattern block, and a baseline — ~80s on today's config —
 # which is affordable but not free, and none of its findings are urgent: a
 # vacuous suppression is inert until someone writes the first violation it would
 # eat. So there is nothing for it to block.

@@ -286,16 +286,23 @@ The mypy counterpart to SKUEL026. SKUEL026 flags any `# skuel-lint: disable=...`
 ```
 MyPy Suppression Auditor
 ============================================================
-13 override blocks, 5 (block, code) pairs to verify.
+14 suppression scopes, 8 (scope, code) pairs to verify.
 
 Load-bearing disable_error_code entries:
-  ● arg-type suppresses 2260 errors
-      pyproject.toml:347  module = [tests.*, examples.*, scripts.*]
+  ● arg-type suppresses 2449 errors
+      pyproject.toml:355  module = [tests.*]
+      in: tests/unit/services/test_user_entry_service.py (80), and 287 more files
+      msg (95x): "Argument "uid" to "Curriculum" has incompatible type "str"; expected "EntityUID""
   ● misc suppresses 8 errors
-      pyproject.toml:309  module = [adapters.persistence.neo4j.backends...]
+      pyproject.toml:313  module = [adapters.persistence.neo4j.backends...]
+      in: adapters/persistence/neo4j/backends/activity_backends.py (6), adapters/persistence/neo4j/backends/curriculum_backends.py (2)
+      patterns: ...activity_backends (6), ...curriculum_backends (2)
+      msg (8x): "Definition of "get_related_entities" in base class "_RelationshipQueryMixin" is incompatible with definitio..."
 
-✓ No dead mypy suppressions (5 entries verified load-bearing)
+✓ No dead mypy suppressions (8 entries verified load-bearing, 2 pattern memberships probed)
 ```
+
+The `in:` line is mypy's own file attribution; the `patterns:` line is each pattern's probe-measured share; the `msg` lines are mypy's messages verbatim — put there so the human-written rationale comment above the entry can be checked against what the code actually suppresses (that comment drifted twice, #883 and #1000, while the entry itself stayed load-bearing).
 
 **What it reports:**
 
@@ -306,7 +313,7 @@ Load-bearing disable_error_code entries:
 
 **What counts as a scope.** Both the global `[tool.mypy]` table and each `[[tool.mypy.overrides]]` block. The global table is the widest suppression there is — it silences a code across every checked file — so auditing only the overrides would leave it invisible behind a clean report. This repo has carried a global entry before; the note atop its `[tool.mypy]` table records the deletion.
 
-**How it measures.** For each (scope, error code) pair it writes a copy of `pyproject.toml` with that one code removed from that one scope, runs `uv run mypy .` against it, and attributes errors by the trailing `[code-name]`. The generated config is re-parsed with `tomllib` and checked against the intended edit before it is trusted.
+**How it measures.** For each (scope, error code) pair it writes a copy of `pyproject.toml` with that one code removed from that one scope, runs `uv run mypy .` against it, and attributes errors by the trailing `[code-name]`. The generated config is re-parsed with `tomllib` and checked against the intended edit before it is trusted. Multi-pattern blocks then get one further run per module pattern: an appended override carrying only `module = [<pattern>]` and `enable_error_code = [<code>]` — a *later config-level* enable lifts an earlier block's per-module disable (measured on mypy 2.3.0). A pattern earning 0 is a finding: its membership suppresses nothing and only stands to eat that pattern's first violation. Note the CLI spelling cannot do this — `mypy --enable-error-code X` sits below per-module config sections in mypy's precedence, so a hand-probe with the flag reads as a clean pass over a scope that disables the code. Probe by editing config (best: by running this script); see `docs/patterns/mypy_pragmatic_strategy.md § Probing Whether a Suppression Is Still Needed`.
 
 **Why the unit is the pair, not the code.** PR #876 measured by stripping every code at once and attributing by code, then confirming each zero individually. That is necessary but not sufficient: what you delete is a (scope, code) pair, and `misc` is currently disabled in two different scopes. An aggregate reading of `misc 32` cannot tell you whether both earn it or whether all 32 sit in one — in fact they split 24/8. The aggregate survives as `--census`, which refreshes the backlog figures quoted in `pyproject.toml` and is explicitly not evidence for a deletion.
 
@@ -411,7 +418,7 @@ The first four scripts are fast enough to run on every commit if desired (a few 
 - Prose mentions inside code blocks (docstring examples, prose in fenced blocks) are also checked, which may trigger false positives if a doc legitimately shows before/after migration history
 
 **`mypy_suppressions.py`:**
-- **The verdict is per (scope, code), not per module pattern.** An override listing several module patterns is earned as a whole, so a pattern producing none of the code is still marked load-bearing. The live case: the domain-backends override lists seven modules, but all 8 `misc` errors come from `activity_backends` (6) and `curriculum_backends` (2) — a first `misc` violation in the other five would be suppressed with this audit green. The report prints the files behind each verdict so the gap is visible rather than silent; closing it properly is tracked separately, because a pattern cannot be isolated by deleting it from the list (for a block that sets other options too, that changes all of them for the module and measures the wrong thing).
+- **A pattern probe measures the probe's view, not the block entry's exact share.** (The per-scope-only verdict was the former limitation here; per-pattern probes closed it 2026-08-09 — the five backend modules and the `examples.*`/`scripts.*` memberships they flagged were narrowed out the same day.) A probe's *explicit* enable can surface slightly more than the block entry suppresses: sub-code inheritance means a file-level `# mypy: disable-error-code` comment naming a parent code (e.g. `assignment`, whose sub-code is `method-assign`) still eats the error under the block-strip, while the probe pierces it. The overcount direction is safe — a pattern's zero stays conclusive, and the audit aborts outright if pattern counts sum *below* the pair's — but per-pattern counts can read a little higher than the pair total, with a printed note.
 - It measures what mypy reports **today**. A code that is load-bearing now can become vacuous later when the last violation is fixed, which is why the weekly schedule is not gated on `pyproject.toml` changing.
 
 ---

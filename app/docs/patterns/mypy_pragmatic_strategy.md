@@ -124,9 +124,16 @@ Structural MRO conflicts and mixin patterns produce errors that are correct from
 
 ```toml
 [[tool.mypy.overrides]]
-module = ["adapters.persistence.neo4j.backends.activity_backends", ...]  # the 8 cluster files
+module = [
+    "adapters.persistence.neo4j.backends.activity_backends",
+    "adapters.persistence.neo4j.backends.curriculum_backends",
+]
 disable_error_code = ["misc"]
 ```
+
+The module list holds exactly the patterns that measurably produce the code — the
+suppression audit (below) verifies every pattern's membership and flags any that earns
+nothing, so the list stays narrow instead of covering a whole directory "for symmetry".
 
 **No error codes are globally disabled** (the global `disable_error_code` was deleted when the `arg-type` sweep completed, 2026-05-31). The `assignment` error code was re-enabled in March 2026 after fixing all 277 assignment errors (138 trailing-comma tuple bugs + 139 real type mismatches). `tests`/`examples`/`scripts` scope-disable `[method-assign, type-var, misc, arg-type]` (framework-mock noise — fixtures parameterize generics with DTOs, monkey-patch service methods, etc.).
 
@@ -296,6 +303,37 @@ module = ["core.utils.*"]
 disallow_untyped_defs = false
 warn_return_any = false
 ```
+
+---
+
+## Probing Whether a Suppression Is Still Needed
+
+`./dev health-mypy` is the instrument: it verifies every `disable_error_code`
+`(scope, code)` pair — and every module pattern of a multi-pattern scope — by editing a
+copy of the config and re-running mypy. Run it before touching any suppression entry.
+
+If you must probe by hand, **edit the config; never use the CLI flag**.
+`mypy --enable-error-code X` sits *below* per-module config sections in mypy's option
+precedence, so it cannot lift a per-module `disable_error_code` — the probe returns a
+confident, blind result. Measured 2026-08-08 on this repo: the flag over the
+tests/scripts/examples scope printed `Success: no issues found in 758 source files`,
+while deleting `"misc"` from that block's `disable_error_code` surfaced 26 errors.
+
+The config-level spelling is what the audit's per-pattern probes are built on: an
+appended `[[tool.mypy.overrides]]` block carrying only `module = [<pattern>]` and
+`enable_error_code = [<code>]` **does** lift an earlier block's disable (measured on
+mypy 2.3.0 for concrete-over-wildcard, identical-pattern, and concrete-over-concrete
+shapes; the block must stay enable-only, because a scalar option repeated for an
+identical pattern draws mypy's "conflicting values" warning and the earlier value wins).
+
+Never accept a probe's zero without a positive control. Constructs that reliably emit
+`[misc]` under this config: an inconsistent MRO (`class C(A, B)` where `B(A)`) and a
+duplicate base class (`class C(A, A)`). Two plausible generators emit nothing —
+overloads that overlap with *compatible* return types, and subclassing an `Any`-typed
+variable (needs `disallow_subclassing_any`, off here) — and the classic
+overlapping-overload construct emits `[overload-cannot-match]`, a `misc` *subcode*,
+rather than `[misc]` itself. A hand-built probe that emits nothing reads as "suppresses
+nothing → safe to delete", which is exactly the wrong conclusion.
 
 ---
 

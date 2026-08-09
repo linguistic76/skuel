@@ -32,6 +32,13 @@ removed from that ONE scope, everything else intact, and run
 `[code-name]` and diffed against a baseline run of the unmodified config. Zero
 new errors of that code ⇒ the entry suppresses nothing.
 
+For each multi-pattern pair that measures load-bearing, one further run per
+module pattern: append an enable-only override for that single pattern to the
+otherwise-unmodified config (see PER-PATTERN VERDICTS below) and diff the same
+way. Zero new errors of the code ⇒ that pattern's membership suppresses nothing.
+Single-pattern scopes need no extra run — the pair run already isolates them —
+and a vacuous pair is already the stronger finding.
+
 The text surgery is verified by re-parsing the generated config with `tomllib`
 and asserting the scope list matches the intended edit exactly. The edit is
 never trusted on its own — the parser is the authority on what the config says.
@@ -67,10 +74,14 @@ to find (Codex #883). An aborted audit reports nothing; it never reports zero.
 
 WHERE THIS RUNS AND WHY
 -----------------------
-The audit needs one baseline run plus one run per (scope, code) pair. A cold mypy
-run over this tree is ~30s, but the runs share a dedicated cache, so the rest cost
-~8s each: measured end to end at 65-81s for today's five pairs plus `--census`
-(seven runs). That cost decides the wiring three ways:
+The audit needs one baseline run, one run per (scope, code) pair, and one run per
+module pattern of each multi-pattern load-bearing pair. A cold mypy run over this
+tree is ~30s, but the runs share a dedicated cache, so the rest cost ~7s each:
+measured end to end at 79s for today's eight pairs plus two pattern probes
+(eleven runs; `--census` adds one more). Probe cost scales with multi-pattern
+blocks — the pre-narrowing config (five pairs, nineteen probed memberships)
+measured 189s, and resolving its findings brought the steady state back down.
+That cost decides the wiring three ways:
 
   * NOT in `./dev health`. That target is pure file-scanning and finishes in
     seconds; an ~80s tail is how a health target stops being run at all. A
@@ -90,25 +101,55 @@ run over this tree is ~30s, but the runs share a dedicated cache, so the rest co
     were long dead), so a weekly scheduled run catches it with zero added latency
     on every PR.
 
-KNOWN LIMIT: THE VERDICT IS PER SCOPE, NOT PER MODULE PATTERN
--------------------------------------------------------------
+PER-PATTERN VERDICTS (the former known limit, closed 2026-08-09)
+----------------------------------------------------------------
 A scope may list several module patterns while only some of them actually produce
-the code, and this audit marks the pair load-bearing for the block as a whole. The
-backends override is the live example: seven patterns, but all 8 `misc` errors come
-from two of them, so a first `misc` violation in the other five would be suppressed
-with this audit still green (Codex #883 r5).
+the code. Through #1000 the verdict stopped at the block, so the backends override
+— then seven patterns, with all 8 `misc` errors coming from two — stayed green
+while a first violation in the other five would have been eaten (Codex #883 r5).
 
-It is NOT fixed by dropping a pattern from the list and re-measuring. For a block
-that also sets other options — `tests.*` sets five besides `disable_error_code` —
-removing a pattern changes all of them for that module and floods the run with
-unrelated errors, so the isolation would be measuring the wrong thing. A sound
-per-pattern measurement (most likely a narrower appended override using
-`enable_error_code`) needs its own verification and positive control.
+Each pattern of a multi-pattern, load-bearing pair is now measured on its own:
+append an override containing ONLY `module = [<pattern>]` and
+`enable_error_code = [<code>]` to an otherwise-unmodified config, and diff
+against the same baseline. mypy itself resolves what the pattern matches, so
+there is no hand-rolled path-to-pattern mapping to get wrong. A pattern earning
+0 is a FINDING: its membership suppresses nothing today, which means it only
+stands to eat that pattern's first real violation. Split it out or delete it.
 
-Until then the report prints the FILES behind each load-bearing verdict, taken
-verbatim from mypy, so the gap is visible rather than silent. For a script whose
-whole subject is suppressors failing silently, a known blind spot that the tool
-does not mention would be the same defect one level up.
+Why the appended override works — measured on this repo's mypy (2.3.0) with a
+[misc]-emitting probe file and option-flip match-controls, not read off the
+docs: a LATER config-level `enable_error_code` lifts an EARLIER block's
+per-module disable in every shape this config uses (concrete pattern over
+wildcard, identical wildcard over itself, concrete over concrete). The probe
+block must stay enable-only: repeating a SCALAR option for an identical pattern
+draws mypy's "conflicting values" warning and the earlier value wins.
+
+Dropping the pattern from the module list and re-measuring would NOT have
+worked: for a block that also sets other options — `tests.*` sets five besides
+`disable_error_code` — removing a pattern changes all of them for that module
+and floods the run with unrelated errors. The appended enable touches nothing
+but the one code. The CLI spelling (`mypy --enable-error-code X`) does not work
+and never can: command-line enables sit BELOW per-module config sections in
+mypy's precedence, so they cannot lift a per-module disable. Measured
+2026-08-08: the flag over the tests scope printed `Success: no issues found in
+758 source files` while editing the config surfaced 26 errors. Probe by editing
+config — by preference, by running this script — never with the flag.
+
+Attribution is reconciled per pair: if the per-pattern counts sum BELOW the
+block-level count, some suppressed error belongs to no probe and a pattern zero
+cannot be trusted, so the audit aborts. Summing ABOVE it only warns, because
+both known causes leave zeros conclusive. Overlapping patterns double-attribute
+an error. And a probe's EXPLICIT enable can surface errors the block entry
+never suppressed: sub-code inheritance means a file-level comment disabling a
+PARENT code (e.g. `assignment`, whose sub-code is `method-assign`) eats an
+error under the plain strip, while an explicit enable of the sub-code pierces
+it. Measured live: two facade-test files inline-disable `assignment` and their
+18 method-assign errors appear only under the probe. Either way, a pattern
+reading zero surfaced nothing even under maximal enabling.
+
+The report still prints the FILES behind each load-bearing verdict, verbatim
+from mypy — they remain the fastest way to eyeball a verdict against the
+rationale comment sitting above the entry in pyproject.toml.
 
 
 EXIT CODES
@@ -203,6 +244,20 @@ class PairVerdict:
 
     @property
     def is_vacuous(self) -> bool:
+        return not self.new_errors
+
+
+@dataclass
+class PatternVerdict:
+    """One module pattern's own share of a multi-pattern (scope, code) pair."""
+
+    override: Override
+    code: str
+    pattern: str
+    new_errors: list[MypyError] = field(default_factory=list)
+
+    @property
+    def is_unearned(self) -> bool:
         return not self.new_errors
 
 
@@ -380,6 +435,97 @@ def write_stripped_config(text: str, removals: dict[int, set[str]], path: Path) 
             )
 
 
+def render_probe(text: str, pattern: str, code: str) -> str:
+    """Return `text` with an appended enable-only override probing one pattern.
+
+    Appending at end-of-file places the block after every existing override —
+    TOML array-of-tables order is file order — which is what makes its
+    `enable_error_code` win over an earlier block's disable for the same
+    module (see PER-PATTERN VERDICTS in the module docstring). The block stays
+    enable-only on purpose: repeating a scalar option for an identical pattern
+    draws mypy's "conflicting values" warning, and the earlier value wins.
+    """
+    block = (
+        "\n[[tool.mypy.overrides]]\n"
+        "# Per-pattern probe appended by mypy_suppressions.py; never committed.\n"
+        f"module = [{json.dumps(pattern)}]\n"
+        f"enable_error_code = [{json.dumps(code)}]\n"
+    )
+    return text + ("" if text.endswith("\n") else "\n") + block
+
+
+def write_probe_config(text: str, pattern: str, code: str, path: Path) -> None:
+    """Write the probe config, then VERIFY it by re-parsing.
+
+    Same discipline as write_stripped_config: the append is a means, `tomllib`
+    is the authority on what the written file says. Every pre-existing scope
+    must be untouched, and the last override must contain EXACTLY the probed
+    module and the enable — a stray key or a mangled pattern would measure the
+    wrong thing and read as a pattern earning nothing, which points at deleting
+    a live pattern.
+    """
+    original = parse_scopes(text)
+    path.write_text(render_probe(text, pattern, code), encoding="utf-8")
+    written_text = path.read_text(encoding="utf-8")
+    written = parse_scopes(written_text)
+
+    if len(written) != len(original) + 1:
+        raise AuditError(
+            f"Probe config has {len(written)} suppression scopes, expected "
+            f"{len(original) + 1} (the originals plus the probe)."
+        )
+    for before, after in zip(original, written[:-1], strict=True):
+        if before.modules != after.modules or before.codes != after.codes:
+            raise AuditError(
+                f"Probe config changed pre-existing scope {_scope_name(before)}: "
+                f"modules {before.modules} -> {after.modules}, "
+                f"codes {before.codes} -> {after.codes}"
+            )
+    probe_block = tomllib.loads(written_text)["tool"]["mypy"]["overrides"][-1]
+    if set(probe_block) != {"module", "enable_error_code"} or (
+        _as_list(probe_block.get("module")) != [pattern]
+        or _as_list(probe_block.get("enable_error_code")) != [code]
+    ):
+        raise AuditError(
+            f"Probe block reads {probe_block!r}, expected exactly "
+            f"module = [{pattern!r}] with enable_error_code = [{code!r}]."
+        )
+
+
+def reconcile_pattern_counts(pair: PairVerdict, patterns: list[PatternVerdict]) -> str | None:
+    """Check the per-pattern counts account for every block-suppressed error.
+
+    Summing BELOW the pair count means some suppressed error surfaced in no
+    probe — the per-pattern instrument is blind somewhere, and a pattern zero
+    can no longer be trusted, so the audit ABORTS (the zero is the direction
+    that licenses a deletion).
+
+    Summing ABOVE it warns and keeps going, because both known causes leave
+    zeros conclusive. Overlapping patterns double-attribute an error. And the
+    probe's EXPLICIT enable is stronger than the strip's mere not-disabling:
+    sub-code inheritance means a file-level `# mypy: disable-error-code`
+    comment naming a PARENT code (e.g. `assignment` over `method-assign`)
+    still eats the error under the strip, while the probe's explicit enable of
+    the sub-code pierces it and surfaces errors the block entry never
+    suppressed. Either way a zero still means the probe surfaced nothing even
+    under maximal enabling.
+    """
+    total = sum(len(p.new_errors) for p in patterns)
+    if total < len(pair.new_errors):
+        raise AuditError(
+            f"Per-pattern probes for [{pair.code}] in {_scope_name(pair.override)} "
+            f"account for {total} of {len(pair.new_errors)} suppressed errors. "
+            f"An unattributed error means a pattern zero cannot be trusted."
+        )
+    if total > len(pair.new_errors):
+        return (
+            f"per-pattern counts sum to {total} against {len(pair.new_errors)} for "
+            f"the pair — probes also pierce file-level parent-code suppression, and "
+            f"overlapping patterns double-attribute; zeros remain valid"
+        )
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Running mypy
 # ---------------------------------------------------------------------------
@@ -496,14 +642,10 @@ def _print_error_files(verdict: PairVerdict, limit: int = 3) -> None:
     """
     Show WHICH files earned the verdict, straight from mypy's own attribution.
 
-    A scope can list several module patterns while only some of them produce the
-    code, and a block-level verdict marks all of them load-bearing (Codex #883
-    r5). Measuring each pattern in isolation is not as simple as dropping it from
-    the list: for a block that also sets other options, removing a pattern
-    changes ALL of them for that module and surfaces unrelated errors, so a sound
-    per-pattern measurement needs its own design. Until then this refuses to keep
-    the gap SILENT — which, for a script about suppressors failing silently, is
-    the part that actually matters.
+    Multi-pattern scopes now get true per-pattern verdicts (see PER-PATTERN
+    VERDICTS in the module docstring); the file list stays because it is the
+    fastest way to eyeball a verdict against the rationale comment sitting
+    above the entry in pyproject.toml.
 
     The file list is mypy's, verbatim: no path-to-module-pattern inference, since
     a wrong mapping here would point at deleting a live pattern.
@@ -516,6 +658,37 @@ def _print_error_files(verdict: PairVerdict, limit: int = 3) -> None:
     if len(ranked) > limit:
         shown += f", and {len(ranked) - limit} more files"
     print(f"      {Colors.DIM}in: {shown}{Colors.RESET}")
+
+
+def _print_pattern_counts(patterns: list[PatternVerdict]) -> None:
+    """Show each pattern's own share of a multi-pattern verdict, probe-measured."""
+    shown = ", ".join(f"{p.pattern} ({len(p.new_errors)})" for p in patterns)
+    print(f"      {Colors.DIM}patterns: {shown}{Colors.RESET}")
+
+
+def _print_error_samples(verdict: PairVerdict, limit: int = 3) -> None:
+    """
+    Show a few of mypy's own messages behind the verdict, verbatim.
+
+    The audit proves an entry is EARNED, never that its stated REASON is true —
+    and the rationale comment above an entry drifts: the backends block cited a
+    mixin set that no longer conflicts (#883), the tests block cited a
+    dependency that had left the tree (#1000). Printing the messages puts the
+    evidence next to the comment so a reader can compare the two without
+    re-running anything. Verbatim and deduplicated, nothing summarized: an
+    inferred paraphrase here would be the kind of confident wrong signal this
+    script exists to kill.
+    """
+    counts: dict[str, int] = {}
+    for error in verdict.new_errors:
+        counts[error.msg] = counts.get(error.msg, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    for msg, n in ranked[:limit]:
+        shown = msg if len(msg) <= 110 else msg[:107] + "..."
+        print(f'      {Colors.DIM}msg ({n}x): "{shown}"{Colors.RESET}')
+    if len(ranked) > limit:
+        remainder = len(ranked) - limit
+        print(f"      {Colors.DIM}... and {remainder} more distinct messages{Colors.RESET}")
 
 
 def _print_census(census: dict[str, int]) -> None:
@@ -560,7 +733,8 @@ def main() -> int:
         scope_summary += f" (incl. the global {GLOBAL_TABLE_HEADER} table)"
     print(
         f"{scope_summary}, {len(pairs)} (scope, code) pairs to verify.\n"
-        f"{Colors.DIM}One mypy run each plus a baseline — this takes a few minutes.{Colors.RESET}\n"
+        f"{Colors.DIM}One mypy run per pair, per-pattern probes for multi-pattern "
+        f"scopes, plus a baseline — this takes a few minutes.{Colors.RESET}\n"
     )
 
     try:
@@ -587,6 +761,38 @@ def main() -> int:
             )
             verdicts.append(PairVerdict(override=scope, code=code, new_errors=new))
 
+        # Per-pattern pass: only load-bearing multi-pattern pairs need it — a
+        # vacuous pair is already the stronger finding, and a single pattern is
+        # fully isolated by its pair run.
+        pattern_verdicts: dict[tuple[int, str], list[PatternVerdict]] = {}
+        overlap_notes: list[str] = []
+        for verdict in verdicts:
+            scope = verdict.override
+            if verdict.is_vacuous or len(scope.modules) < 2:
+                continue
+            probed: list[PatternVerdict] = []
+            for pattern in scope.modules:
+                if args.verbose:
+                    print(
+                        f"{Colors.DIM}  probing [{verdict.code}] for {pattern} "
+                        f"({_scope_name(scope)}){Colors.RESET}"
+                    )
+                write_probe_config(text, pattern, verdict.code, TEMP_CONFIG)
+                errors = parse_errors(run_mypy(TEMP_CONFIG))
+                new = sorted(
+                    (e for e in errors - baseline_errors if e.code == verdict.code),
+                    key=lambda e: (e.path, int(e.line)),
+                )
+                probed.append(
+                    PatternVerdict(
+                        override=scope, code=verdict.code, pattern=pattern, new_errors=new
+                    )
+                )
+            note = reconcile_pattern_counts(verdict, probed)
+            if note:
+                overlap_notes.append(f"[{verdict.code}] {_scope_name(scope)}: {note}")
+            pattern_verdicts[(scope.index, verdict.code)] = probed
+
         census: dict[str, int] = {}
         if args.census:
             if args.verbose:
@@ -612,14 +818,14 @@ def main() -> int:
             )
             print(f"      {Colors.DIM}{_describe(verdict.override)}{Colors.RESET}")
             _print_error_files(verdict)
+            probed = pattern_verdicts.get((verdict.override.index, verdict.code), [])
+            if probed:
+                _print_pattern_counts(probed)
+            _print_error_samples(verdict)
         print(
-            f"{Colors.YELLOW}Each verdict above is per (scope, code): a scope listing "
-            f"several module patterns is earned as a WHOLE.{Colors.RESET}"
-        )
-        print(
-            f"{Colors.YELLOW}Compare the files against the patterns — a pattern absent "
-            f"from them is not verified by this run, and would eat its own first "
-            f"violation (Codex #883 r5).{Colors.RESET}\n"
+            f"{Colors.YELLOW}Multi-pattern scopes are verified per pattern "
+            f"(probe-measured, Codex #883 r5 closed); a pattern earning 0 for its "
+            f"scope's code is reported below as a finding.{Colors.RESET}\n"
         )
 
     if vacuous:
@@ -634,6 +840,25 @@ def main() -> int:
         for verdict in vacuous:
             print(f"  {Colors.RED}●{Colors.RESET} {Colors.BOLD}{verdict.code}{Colors.RESET}")
             print(f"      {_describe(verdict.override)}")
+        print()
+
+    unearned = [p for probed in pattern_verdicts.values() for p in probed if p.is_unearned]
+    if unearned:
+        print(
+            f"{Colors.RED}{Colors.BOLD}Vacuous pattern membership — "
+            f"{len(unearned)} pattern(s) earning 0 for their scope's code:{Colors.RESET}"
+        )
+        print(
+            f"{Colors.YELLOW}The scope earns its code through OTHER patterns; this "
+            f"membership only stands to eat the pattern's first violation. Split the "
+            f"pattern out of the block or delete it.{Colors.RESET}\n"
+        )
+        for p in unearned:
+            print(
+                f"  {Colors.RED}●{Colors.RESET} {Colors.BOLD}{p.code}{Colors.RESET} "
+                f"earns 0 for {Colors.BOLD}{p.pattern}{Colors.RESET}"
+            )
+            print(f"      {_describe(p.override)}")
         print()
 
     if unused_sections:
@@ -656,17 +881,23 @@ def main() -> int:
         _print_census(census)
         print()
 
-    findings = len(vacuous) + len(unused_sections)
+    for note in overlap_notes:
+        print(f"{Colors.YELLOW}note: {note}{Colors.RESET}")
+
+    findings = len(vacuous) + len(unearned) + len(unused_sections)
     if findings:
         print(
             f"{Colors.RED}Total: {len(vacuous)} vacuous entries, "
+            f"{len(unearned)} vacuous pattern memberships, "
             f"{len(unused_sections)} unused sections{Colors.RESET}"
         )
         return 1
 
+    probed_count = sum(len(v) for v in pattern_verdicts.values())
     print(
         f"{Colors.GREEN}✓ No dead mypy suppressions "
-        f"({len(load_bearing)} entries verified load-bearing){Colors.RESET}"
+        f"({len(load_bearing)} entries verified load-bearing, "
+        f"{probed_count} pattern memberships probed){Colors.RESET}"
     )
     return 0
 

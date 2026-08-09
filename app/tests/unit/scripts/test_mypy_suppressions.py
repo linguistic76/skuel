@@ -248,15 +248,14 @@ def test_a_malformed_note_yields_no_findings_rather_than_raising() -> None:
 
 
 # ============================================================================
-# A KNOWN BLIND SPOT MUST BE PRINTED, NOT LEFT SILENT
+# FILES BEHIND A VERDICT ARE REPORTED
 # ============================================================================
 #
-# The verdict is per (scope, code); a scope listing several module patterns is
-# earned as a whole, so a pattern that produces none of the code is still marked
-# load-bearing (Codex #883 r5). That gap is not closed here — but for a script
-# about suppressors failing silently, leaving it unmentioned would be the same
-# defect one level up. The report therefore names the files behind each verdict,
-# verbatim from mypy, so a reader can see which patterns are unrepresented.
+# Multi-pattern scopes get true per-pattern verdicts now (probe-measured — see
+# the script's PER-PATTERN VERDICTS section; Codex #883 r5 closed). The file
+# list stays alongside them: it is mypy's own attribution, verbatim, and the
+# fastest way to eyeball a verdict against the rationale comment above the
+# entry in pyproject.toml.
 
 
 def _verdict(paths: list[str]) -> ms.PairVerdict:
@@ -506,3 +505,190 @@ def test_the_abort_message_carries_the_output_for_diagnosis(
     _patch_run(monkeypatch, 2, stderr="mypy: error: unrecognized arguments: --nope")
     with pytest.raises(ms.AuditError, match="unrecognized arguments"):
         ms.run_mypy(Path("cfg.toml"))
+
+
+# ============================================================================
+# PER-PATTERN PROBES: append one enable-only override, verified by re-parse
+# ============================================================================
+#
+# The probe's verdict rests on the appended block saying exactly
+# `module = [<pattern>]` + `enable_error_code = [<code>]` and nothing else — a
+# stray key or a mangled pattern measures the wrong thing, and the failure
+# direction (a pattern reading as earning 0) points at deleting a LIVE pattern.
+
+
+def test_probe_appends_exactly_one_enable_only_block() -> None:
+    import tomllib
+
+    out = ms.render_probe(SAMPLE, "adapters.backends.activity", "misc")
+    assert out.startswith(SAMPLE), "the original config must survive untouched"
+    overrides = ms.parse_overrides(out)
+    assert len(overrides) == 4
+    assert overrides[-1].modules == ["adapters.backends.activity"]
+    assert overrides[-1].codes == [], "the probe must not carry a disable list"
+    last = tomllib.loads(out)["tool"]["mypy"]["overrides"][-1]
+    assert set(last) == {"module", "enable_error_code"}
+    assert last["enable_error_code"] == ["misc"]
+
+
+def test_probe_lands_after_a_trailing_non_override_table() -> None:
+    """SAMPLE ends with a [tool.pyright] table — the appended block must still be
+    the LAST entry of the overrides array, because array-of-tables order is file
+    order even across interleaved tables. Being last is what makes the enable
+    win over an earlier block's disable."""
+    out = ms.render_probe(SAMPLE, "core.events.*", "call-arg")
+    assert ms.parse_overrides(out)[-1].modules == ["core.events.*"]
+    assert "[tool.pyright]" in out
+
+
+def test_probe_survives_text_without_a_trailing_newline() -> None:
+    out = ms.render_probe(SAMPLE.rstrip("\n"), "ui.*", "misc")
+    assert ms.parse_overrides(out)[-1].modules == ["ui.*"]
+
+
+def test_write_probe_config_verifies_against_the_reparsed_file(tmp_path: Path) -> None:
+    target = tmp_path / "cfg.toml"
+    ms.write_probe_config(SAMPLE, "adapters.backends.curriculum", "misc", target)
+    written = ms.parse_overrides(target.read_text())
+    assert len(written) == 4
+    assert written[-1].modules == ["adapters.backends.curriculum"]
+
+
+def test_the_probe_verification_guard_is_not_vacuous(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Positive control: a probe that appends the WRONG pattern must be caught."""
+    real_render = ms.render_probe
+
+    def wrong_probe(text: str, pattern: str, code: str) -> str:
+        return real_render(text, "some.other.module", code)
+
+    monkeypatch.setattr(ms, "render_probe", wrong_probe)
+    with pytest.raises(ms.AuditError, match="Probe block"):
+        ms.write_probe_config(SAMPLE, "adapters.backends.activity", "misc", tmp_path / "c.toml")
+
+
+def test_a_probe_smuggling_an_extra_option_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Enable-only is load-bearing: a scalar option repeated for an identical
+    pattern draws mypy's conflicting-values warning and the EARLIER value wins,
+    so a smuggled option would silently change what the probe measures."""
+
+    def fat_probe(text: str, pattern: str, code: str) -> str:
+        return (
+            f'{text}\n[[tool.mypy.overrides]]\nmodule = ["{pattern}"]\n'
+            f'enable_error_code = ["{code}"]\nwarn_unused_ignores = true\n'
+        )
+
+    monkeypatch.setattr(ms, "render_probe", fat_probe)
+    with pytest.raises(ms.AuditError, match="Probe block"):
+        ms.write_probe_config(SAMPLE, "ui.*", "misc", tmp_path / "c.toml")
+
+
+# ============================================================================
+# ATTRIBUTION RECONCILIATION: an unattributed error voids every pattern zero
+# ============================================================================
+
+
+def _pair_with(n: int) -> ms.PairVerdict:
+    scope = ms.Override(index=0, header_line=1, modules=["a.*", "b.*"], codes=["misc"])
+    errors = [
+        ms.MypyError(path=f"a/f{i}.py", line=str(i), col="1", code="misc", msg="boom")
+        for i in range(n)
+    ]
+    return ms.PairVerdict(override=scope, code="misc", new_errors=errors)
+
+
+def _pattern_with(pattern: str, n: int) -> ms.PatternVerdict:
+    scope = ms.Override(index=0, header_line=1, modules=["a.*", "b.*"], codes=["misc"])
+    errors = [
+        ms.MypyError(path=f"x/g{i}.py", line=str(i), col="1", code="misc", msg="boom")
+        for i in range(n)
+    ]
+    return ms.PatternVerdict(override=scope, code="misc", pattern=pattern, new_errors=errors)
+
+
+def test_exact_per_pattern_attribution_passes_silently() -> None:
+    note = ms.reconcile_pattern_counts(
+        _pair_with(3), [_pattern_with("a.*", 3), _pattern_with("b.*", 0)]
+    )
+    assert note is None
+
+
+def test_undercounted_patterns_abort_because_zeros_lose_their_meaning() -> None:
+    """The dangerous direction: a suppressed error no probe accounts for means a
+    pattern zero could be instrument blindness, and a zero licenses a deletion."""
+    with pytest.raises(ms.AuditError, match="account for 1 of 3"):
+        ms.reconcile_pattern_counts(
+            _pair_with(3), [_pattern_with("a.*", 1), _pattern_with("b.*", 0)]
+        )
+
+
+def test_overcounted_patterns_warn_but_do_not_abort() -> None:
+    """Overcounting has two benign causes — overlapping patterns, and probes
+    piercing a file-level parent-code disable (sub-code inheritance, e.g.
+    `assignment` over `method-assign`) that the plain strip leaves intact.
+    Both leave a pattern's zero conclusive, so this must not abort."""
+    note = ms.reconcile_pattern_counts(
+        _pair_with(3), [_pattern_with("a.*", 3), _pattern_with("b.*", 1)]
+    )
+    assert note is not None
+    assert "zeros remain valid" in note
+
+
+def test_a_pattern_with_no_errors_is_unearned() -> None:
+    assert _pattern_with("b.*", 0).is_unearned
+    assert not _pattern_with("a.*", 2).is_unearned
+
+
+# ============================================================================
+# REPORTING: pattern shares and verbatim message samples
+# ============================================================================
+
+
+def test_each_patterns_share_is_reported(capsys: pytest.CaptureFixture[str]) -> None:
+    ms._print_pattern_counts([_pattern_with("a.*", 2), _pattern_with("b.*", 0)])
+    out = capsys.readouterr().out
+    assert "a.* (2)" in out
+    assert "b.* (0)" in out, "a zero share must be visible, not omitted"
+
+
+def _verdict_with_msgs(msgs: list[str]) -> ms.PairVerdict:
+    scope = ms.Override(index=0, header_line=1, modules=["a.*"], codes=["misc"])
+    errors = [
+        ms.MypyError(path=f"a/f{i}.py", line=str(i), col="1", code="misc", msg=m)
+        for i, m in enumerate(msgs)
+    ]
+    return ms.PairVerdict(override=scope, code="misc", new_errors=errors)
+
+
+def test_messages_are_shown_verbatim_and_deduplicated(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#883/#1000 shape: the rationale comment described a cause mypy's own
+    messages plainly contradicted — showing the messages is what makes that
+    drift visible without re-running anything."""
+    ms._print_error_samples(
+        _verdict_with_msgs(['Property "x" is read-only', 'Property "x" is read-only', "boom"])
+    )
+    out = capsys.readouterr().out
+    assert '(2x): "Property "x" is read-only"' in out
+    assert '(1x): "boom"' in out
+
+
+def test_many_distinct_messages_announce_their_remainder(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Truncation must announce itself — a silent cap reads as the full set."""
+    ms._print_error_samples(_verdict_with_msgs([f"msg-{i}" for i in range(5)]))
+    assert "and 2 more distinct messages" in capsys.readouterr().out
+
+
+def test_an_overlong_message_is_truncated_visibly(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ms._print_error_samples(_verdict_with_msgs(["x" * 200]))
+    out = capsys.readouterr().out
+    assert "..." in out
+    assert "x" * 200 not in out

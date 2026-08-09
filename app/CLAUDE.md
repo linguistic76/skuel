@@ -598,9 +598,9 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 - `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt
 - `assignment` enabled — catches trailing-comma tuple bugs and real type mismatches
 - `disallow_untyped_defs` on `core.services.*`, `core.ports.*`
-- Domain backends suppress `misc` (an MRO conflict on `get_related_entities`; measured backlog 8)
+- Two backend cluster modules (`activity_backends`, `curriculum_backends`) suppress `misc` (an MRO conflict on `get_related_entities`; measured backlog 8)
 - Every new `Any` needs `# boundary:` comment; narrow Neo4j property types with `int()`/`float()`/`str()` casts before arithmetic
-- **Suppressions are audited** — `./dev health-mypy` (SKUEL026's mypy analogue) flags any `disable_error_code` entry measuring 0 errors and any override block mypy reports as `unused section(s)`. Verified per (block, code) pair, since the same code can sit in two blocks. Weekly CI; deliberately NOT in `./dev health` (~80s). **See:** `/docs/tools/HEALTH_CHECKS.md § 5`
+- **Suppressions are audited** — `./dev health-mypy` (SKUEL026's mypy analogue) flags any `disable_error_code` entry measuring 0 errors, any module pattern earning 0 inside a multi-pattern block, and any override block mypy reports as `unused section(s)`. Verified per (block, code) pair and per pattern. ⚠ Probe a suppression by editing the config, never with `mypy --enable-error-code` — the CLI flag sits below per-module config sections in mypy's precedence and reads as a clean pass over a scope that disables the code. Weekly CI; deliberately NOT in `./dev health` (~80s). **See:** `/docs/tools/HEALTH_CHECKS.md § 5`, `docs/patterns/mypy_pragmatic_strategy.md § Probing Whether a Suppression Is Still Needed`
 
 **See:** `/docs/patterns/linter_rules.md`, `docs/patterns/mypy_pragmatic_strategy.md`
 
