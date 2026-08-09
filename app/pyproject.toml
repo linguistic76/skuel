@@ -185,7 +185,7 @@ warn_return_any = false  # Only enforce in critical modules
 warn_unreachable = false  # Conflicts with the __post_init__ sentinel-default pattern and Neo4j JSON-string boundary in core/models/*. See: core/models/entity.py:82, core/models/exercises/exercise.py:89.
 
 # No error codes are globally disabled. arg-type is enforced on all first-party
-# trees (see the per-module note below); tests/examples/scripts scope-disable it.
+# trees (see the per-module note below); tests/scripts scope-disable it.
 
 # Allow Any for flexibility
 disallow_any_unimported = false
@@ -225,8 +225,9 @@ exclude = [
 # per-module `enable_error_code = ["arg-type"]` overrides are gone (redundant once
 # global). arg-type is the mechanical enforcement layer of SKUEL's functional
 # direction (frozen models, Result[T], typed payloads — ADR-035/ADR-065); see
-# docs/roadmap/functional-direction.md. The only scoped EXCEPTION is the
-# tests/examples/scripts block below (framework-mock noise, ~1628 sites, never swept).
+# docs/roadmap/functional-direction.md. The only scoped EXCEPTIONS are the
+# tests.*/scripts.* blocks below (framework-mock noise, never swept; the
+# suppression audit re-measures the counts weekly).
 
 [[tool.mypy.overrides]]
 # Core ports — strict typing enforced (0 untyped defs as of 2026-03-27).
@@ -313,21 +314,20 @@ warn_return_any = false
 [[tool.mypy.overrides]]
 # Domain backends — an MRO conflict from composing the relationship mixins via
 # UniversalNeo4jBackend. The overlapping signatures work correctly at runtime.
-# Measured backlog (`./dev health-mypy`, 2026-07-30): misc 8 — every one of them
+# Measured backlog (`./dev health-mypy`, 2026-08-09): misc 8 — every one of them
 # `get_related_entities` declared incompatibly across _RelationshipQueryMixin and
 # _RelationshipOrderedMixin, in activity_backends (6) and curriculum_backends (2).
+# Five more cluster modules (exercise/sharing/forms/collab/misc_backends) were
+# listed here until 2026-08-09; each measured 0 [misc] and left the list — the
+# audit now verifies every pattern's membership, and a member earning nothing
+# only stands to eat that module's first real violation.
 # The former figure here was "~42 false positives" across a different mixin set
 # (_CrudMixin/_UserEntityMixin/_SearchMixin/_TraversalMixin/_RelationshipCrudMixin,
 # on create/get/update/delete/list/create_relationship); that conflict no longer
-# occurs. The other five modules listed below currently contribute no [misc] errors.
+# occurs.
 module = [
     "adapters.persistence.neo4j.backends.activity_backends",
     "adapters.persistence.neo4j.backends.curriculum_backends",
-    "adapters.persistence.neo4j.backends.exercise_backends",
-    "adapters.persistence.neo4j.backends.sharing_backend",
-    "adapters.persistence.neo4j.backends.forms_backends",
-    "adapters.persistence.neo4j.backends.collab_backends",
-    "adapters.persistence.neo4j.backends.misc_backends",
 ]
 disable_error_code = ["misc"]
 
@@ -354,34 +354,48 @@ ignore_missing_imports = true
 follow_imports = "skip"
 
 [[tool.mypy.overrides]]
-# Tests and scripts — check_untyped_defs enforced (2026-05-17).
+# Tests — check_untyped_defs enforced (2026-05-17).
 # Rationale: pytest verifies runtime behavior, but a test that constructs a
 # wrong-typed DTO (e.g. stale kwargs after a model refactor) passes locally
 # only because the test never exercised that path — MyPy catches the
-# construction site itself. Same logic for one-shot scripts that wire up
-# domain objects. We keep disallow_untyped_defs=false (tests don't need
-# return annotations on every fixture) but turn on body-level checking.
+# construction site itself. We keep disallow_untyped_defs=false (tests don't
+# need return annotations on every fixture) but turn on body-level checking.
 #
-# Disabled error codes (all inherent to the test/script context):
+# Disabled error codes (all inherent to the test context):
 #   method-assign  — tests monkey-patch service methods with Mock/AsyncMock,
 #                    which mypy correctly flags but the pattern is unavoidable.
 #   type-var       — tests parameterize generics with DTOs (EntityDTO et al.)
 #                    that don't satisfy the production bound; fine for fixtures.
 #   misc           — test doubles that monkey-patch read-only model properties,
 #                    call unbound methods on stub harnesses, and untyped
-#                    generator fixtures (measured 2026-08-08: 26 sites).
-#   arg-type       — tests/scripts construct wrong-typed DTOs/mocks freely (~1628
-#                    sites); never in the sweep's scope. The four first-party trees
-#                    (core, services_bootstrap, adapters, ui) enforce arg-type.
-module = ["tests.*", "examples.*", "scripts.*"]
+#                    generator fixtures (measured 2026-08-09: 24 sites).
+#   arg-type       — tests construct wrong-typed DTOs/mocks freely; never in the
+#                    sweep's scope. The four first-party trees (core,
+#                    services_bootstrap, adapters, ui) enforce arg-type.
+# Measured (`./dev health-mypy`, 2026-08-09): arg-type 2449,
+# method-assign 123, type-var 33, misc 24. Until 2026-08-09 this block also
+# covered examples.* (every code measured 0 — the pattern left the block, so
+# examples/ now carries full global enforcement) and scripts.* (split into its
+# own block below with the narrower list it actually earns).
+module = ["tests.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = true
 warn_return_any = false  # too noisy for fixture helpers
 warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
-# Measured backlog, PR #876: arg-type 2260, method-assign 96, type-var 33, misc 32.
-# `import-untyped` was here too and measured 0 — dropped.
 disable_error_code = ["method-assign", "type-var", "misc", "arg-type"]
+
+[[tool.mypy.overrides]]
+# Scripts — same body-level-checking rationale as tests.*, split out 2026-08-09
+# because scripts earn a NARROWER disable list: type-var measured 0 here, so it
+# is enforced (a code a pattern doesn't earn only stands to eat its first real
+# violation). The other leniencies inherit the global table; only the ignore
+# leniency is carried over.
+# Measured (`./dev health-mypy`, 2026-08-09): arg-type 154, misc 2,
+# method-assign 1.
+module = ["scripts.*"]
+warn_unused_ignores = false  # one-shot scripts mock and ignore liberally
+disable_error_code = ["method-assign", "misc", "arg-type"]
 
 # ============================================================================
 # PYDANTIC-MYPY PLUGIN CONFIGURATION
