@@ -634,22 +634,24 @@ def test_matching_totals_do_not_excuse_an_unattributed_error() -> None:
         )
 
 
-def test_pierced_extras_do_not_mask_a_missing_error() -> None:
-    """A probe's explicit enable can surface errors the pair never had (sub-code
-    piercing); those extras must not count toward attribution of the pair's own."""
-    a, b = _err("a/one.py", 1), _err("a/two.py", 2)
-    pierced = _err("a/three.py", 3)
-    with pytest.raises(ms.AuditError, match="unattributed"):
-        ms.reconcile_pattern_attribution(
-            _pair_of([a, b]), [_probe_of("a.*", [a, pierced]), _probe_of("b.*", [])]
-        )
+def test_a_probe_of_only_pierced_extras_earns_nothing() -> None:
+    """Codex #1001 r2: a probe's explicit enable can pierce a file-level
+    parent-code disable (sub-code inheritance, e.g. `assignment` over
+    `method-assign`) and surface errors the block entry never suppressed.
+    A pattern whose probe surfaces ONLY such extras earns nothing at the
+    block level — counting them would keep a vacuous membership green, so
+    the verdict is the probe's share of the PAIR's errors."""
+    a = _err("a/one.py", 1)
+    pierced = _err("a/inline_suppressed.py", 9)
+    pair = _pair_of([a])
+    assert ms.pair_share(pair, [pierced]) == []
+    assert ms.pair_share(pair, [a, pierced]) == [a]
 
 
 def test_overcounted_patterns_warn_but_do_not_abort() -> None:
-    """Overcounting has two benign causes — overlapping patterns, and probes
-    piercing a file-level parent-code disable (sub-code inheritance, e.g.
-    `assignment` over `method-assign`) that the plain strip leaves intact.
-    Both leave a pattern's zero conclusive, so this must not abort."""
+    """After pair-restriction the one remaining overcount cause is overlapping
+    patterns double-attributing an error — every error still appears in a
+    probe, a pattern's zero stays conclusive, so this must not abort."""
     a, b = _err("a/one.py", 1), _err("b/one.py", 2)
     note = ms.reconcile_pattern_attribution(
         _pair_of([a, b]), [_probe_of("a.*", [a, b]), _probe_of("b.*", [b])]

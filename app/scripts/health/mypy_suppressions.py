@@ -135,19 +135,22 @@ mypy's precedence, so they cannot lift a per-module disable. Measured
 758 source files` while editing the config surfaced 26 errors. Probe by editing
 config — by preference, by running this script — never with the flag.
 
-Attribution is reconciled per pair, by error IDENTITY rather than arithmetic
-(Codex #1001 — overlaps and pierced extras can balance the counts while an
-error goes missing): every pair error must appear in at least one probe, or a
-pattern zero cannot be trusted and the audit aborts. Probes surfacing MORE
-than the pair only warns, because both known causes leave zeros conclusive.
-Overlapping patterns double-attribute an error. And a probe's EXPLICIT enable
-can surface errors the block entry never suppressed: sub-code inheritance
-means a file-level comment disabling a PARENT code (e.g. `assignment`, whose
-sub-code is `method-assign`) eats an error under the plain strip, while an
-explicit enable of the sub-code pierces it. Measured live: two facade-test
-files inline-disable `assignment` and their 18 method-assign errors appear
-only under the probe. Either way, a pattern reading zero surfaced nothing
-even under maximal enabling.
+A probe's EXPLICIT enable can also surface errors the block entry never
+suppressed: sub-code inheritance means a file-level comment disabling a PARENT
+code (e.g. `assignment`, whose sub-code is `method-assign`) eats an error
+under the plain strip, while an explicit enable of the sub-code pierces it.
+Measured live: two facade-test files inline-disable `assignment` and their 18
+method-assign errors appear only under the probe. Such extras are EXCLUDED
+from every pattern's verdict (`pair_share` — counting them would mark a
+membership earned while it suppresses nothing at the block level, Codex #1001
+r2) and reported in a note instead.
+
+Attribution is then reconciled per pair, by error IDENTITY rather than
+arithmetic (Codex #1001 — overlaps can balance the counts while an error goes
+missing): every pair error must appear in at least one probe, or a pattern
+zero cannot be trusted and the audit aborts. Counts summing above the pair
+after pair-restriction can only be overlapping patterns double-attributing an
+error; zeros stay conclusive, so it warns.
 
 The report still prints the FILES behind each load-bearing verdict, verbatim
 from mypy — they remain the fastest way to eyeball a verdict against the
@@ -494,26 +497,38 @@ def write_probe_config(text: str, pattern: str, code: str, path: Path) -> None:
         )
 
 
+def pair_share(pair: PairVerdict, probe_errors: list[MypyError]) -> list[MypyError]:
+    """Restrict a probe's surfaced errors to the PAIR's own (Codex #1001 r2).
+
+    A probe's explicit enable can surface errors the block entry never
+    suppressed: sub-code inheritance means a file-level
+    `# mypy: disable-error-code` comment naming a PARENT code (e.g.
+    `assignment` over `method-assign`) eats the error under the pair strip,
+    while the probe's explicit enable of the sub-code pierces it. Counting
+    such extras toward a pattern's verdict would mark a membership EARNED
+    while it suppresses nothing at the block level — a green audit over a
+    vacuous membership, the exact class this tool hunts. So a pattern's
+    verdict is its share of the pair's errors; extras are reported in a note,
+    never counted.
+    """
+    pair_errors = set(pair.new_errors)
+    return [e for e in probe_errors if e in pair_errors]
+
+
 def reconcile_pattern_attribution(pair: PairVerdict, patterns: list[PatternVerdict]) -> str | None:
     """Check that every block-suppressed error appears in at least one probe.
 
     The check is by error IDENTITY, not arithmetic (Codex #1001): overlapping
-    patterns can double-attribute one error while another goes missing, and a
-    probe's pierced extras (below) inflate the total — either way the counts
-    can balance exactly while a pair error belongs to no probe. Any
+    patterns can double-attribute one error while another goes missing — the
+    counts then balance exactly while a pair error belongs to no probe. Any
     unattributed pair error means the per-pattern instrument is blind
     somewhere, so a pattern zero can no longer be trusted and the audit ABORTS
     (the zero is the direction that licenses a deletion).
 
-    Probes surfacing MORE than the pair only warns, because both known causes
-    leave zeros conclusive. Overlapping patterns double-attribute an error.
-    And the probe's EXPLICIT enable is stronger than the strip's mere
-    not-disabling: sub-code inheritance means a file-level
-    `# mypy: disable-error-code` comment naming a PARENT code (e.g.
-    `assignment` over `method-assign`) still eats the error under the strip,
-    while the probe's explicit enable of the sub-code pierces it and surfaces
-    errors the block entry never suppressed. Either way a zero still means
-    the probe surfaced nothing even under maximal enabling.
+    Verdicts arriving here are already pair-restricted (`pair_share`), so the
+    only way totals exceed the pair is overlapping patterns double-attributing
+    an error — every error still appears in at least one probe, zeros stay
+    conclusive, and a warning suffices.
     """
     probed: set[MypyError] = set()
     for pattern_verdict in patterns:
@@ -531,8 +546,7 @@ def reconcile_pattern_attribution(pair: PairVerdict, patterns: list[PatternVerdi
     if total > len(pair.new_errors):
         return (
             f"per-pattern counts sum to {total} against {len(pair.new_errors)} for "
-            f"the pair — probes also pierce file-level parent-code suppression, and "
-            f"overlapping patterns double-attribute; zeros remain valid"
+            f"the pair — overlapping patterns double-attribute; zeros remain valid"
         )
     return None
 
@@ -790,13 +804,21 @@ def main() -> int:
                     )
                 write_probe_config(text, pattern, verdict.code, TEMP_CONFIG)
                 errors = parse_errors(run_mypy(TEMP_CONFIG))
-                new = sorted(
+                surfaced = sorted(
                     (e for e in errors - baseline_errors if e.code == verdict.code),
                     key=lambda e: (e.path, int(e.line)),
                 )
+                share = pair_share(verdict, surfaced)
+                extras = len(surfaced) - len(share)
+                if extras:
+                    overlap_notes.append(
+                        f"[{verdict.code}] {_scope_name(scope)}: probe for {pattern} "
+                        f"surfaced {extras} error(s) beyond the pair (file-level "
+                        f"parent-code suppression pierced) — excluded from its verdict"
+                    )
                 probed.append(
                     PatternVerdict(
-                        override=scope, code=verdict.code, pattern=pattern, new_errors=new
+                        override=scope, code=verdict.code, pattern=pattern, new_errors=share
                     )
                 )
             note = reconcile_pattern_attribution(verdict, probed)
