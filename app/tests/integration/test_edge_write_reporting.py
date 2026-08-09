@@ -72,7 +72,7 @@ type: ku
 title: {uid}
 description: Endpoint for the edge-write reporting test
 uid: {uid}
-domain: testing
+domain: knowledge
 ---
 
 Body for {uid}.

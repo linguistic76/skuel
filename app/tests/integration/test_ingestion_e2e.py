@@ -83,7 +83,7 @@ type: ku
 title: Knowledge Unit {i}
 description: Test KU number {i}
 uid: ku.e2e-test-{i:02d}
-domain: testing
+domain: knowledge
 ---
 
 # Knowledge Unit {i}
@@ -108,7 +108,7 @@ type: ku
 title: Valid Knowledge Unit
 description: This file is fine
 uid: ku.e2e-valid
-domain: testing
+domain: knowledge
 ---
 
 # Valid KU

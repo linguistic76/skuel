@@ -67,7 +67,7 @@ async def test_chunk_embedding_pipeline_end_to_end(neo4j_driver):
     ku_content = """---
 type: Lesson
 title: Stage 2 Pipeline
-domain: technology
+domain: tech
 ---
 
 # Embedding Pipeline

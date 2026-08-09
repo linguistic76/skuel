@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from core.ports.ingestion_protocols import IngestionWriteOperations
 
 from core.constants import SYSTEM_USER_UID
+from core.models.enum_field_registry import ENUM_FIELD_TYPES
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_entry_enums import ExerciseScope
@@ -174,9 +175,27 @@ def validate_entity_data(
     file_path: Path,
 ) -> Result[None]:
     """
-    Validate prepared entity data has all required fields populated.
+    Validate prepared entity data: enum vocabulary, door policy, required fields.
 
-    Called AFTER prepare_entity_data to ensure auto-generated fields are present.
+    Called AFTER prepare_entity_data — defaults are applied, auto-generated
+    fields are present, and ``canonicalize_enum_values`` has already resolved
+    everything the read boundary sanctions: casing, each enum's own
+    ``from_string`` aliases (``status: pending`` → ``draft``), and the
+    authored ``none`` absence marker (→ ``None``, skipped here as absent).
+
+    The vocabulary gate rejects in EVERY vault, unlike the per-vault posture
+    for dangling MOC links: a dangling link is a plan that resolves when its
+    target is authored, while a non-member enum value never becomes valid —
+    persisted, it hides from every exact-match filter until a data migration
+    (the 2026-08 event_type cleanup). The 2026-07-23 severity ruling already
+    classifies it as a content fault (reported ignored-with-reason by the
+    vault-sync doors, never a sync error). The READ side stays tolerant by
+    design — DTOs keep ``str`` so already-persisted strays load — making this
+    door the one place the vocabulary is enforced. USER_ENTRY files are
+    exempt from the gate: their ADR-054 door owns their frontmatter with
+    alias-aware parsers ("in process" → active) and fails loudly on genuine
+    garbage — a literal gate here would reject on the batch path what
+    single-file UserEntry ingestion accepts.
 
     Args:
         entity_type: EntityType | NonKuDomain enum value
@@ -186,6 +205,43 @@ def validate_entity_data(
     Returns:
         Result[None] - Ok if valid, Fail with validation error if missing
     """
+    # Vocabulary gate — generic over the registry, so every field the casing
+    # pass canonicalizes is also membership-checked (None = absent, skipped;
+    # a present non-string is a non-member by definition). USER_ENTRY is
+    # exempt, mirroring the batch door's UID-format carve-out: its ADR-054
+    # branch validates its own frontmatter with ALIAS-AWARE parsers
+    # (``_parse_status`` maps "in process" → active and fails loudly on
+    # garbage), so a literal gate here would reject documented spellings on
+    # the batch path that single-file UserEntry ingestion accepts —
+    # splitting the doors (Codex #1003).
+    if entity_type is not EntityType.USER_ENTRY:
+        violations: list[str] = []
+        violating_fields: list[str] = []
+        for field_name, enum_cls in ENUM_FIELD_TYPES.items():
+            value = entity_data.get(field_name)
+            if value is None:
+                continue
+            member_values = {member.value for member in enum_cls}
+            if isinstance(value, str) and value in member_values:
+                continue
+            violations.append(
+                f"'{field_name}' must be one of: {', '.join(sorted(member_values))}; got {value!r}"
+            )
+            violating_fields.append(field_name)
+        if violations:
+            details = "; ".join(violations)
+            return Result.fail(
+                Errors.validation(
+                    f"Non-member enum value(s): {details}",
+                    field=violating_fields[0],
+                    user_message=(
+                        f"File {file_path.name} ({entity_type.value}): {details}. "
+                        "Casing is normalized automatically — these values are outside the "
+                        "field's vocabulary. Edit the file to use a listed value."
+                    ),
+                )
+            )
+
     # File-ingested exercises carry no user OWNS edge, so every non-curriculum
     # scope describes an owner or group the ingestion path cannot provide —
     # the node would be invisible to all discovery surfaces (2026-07-03 audit:

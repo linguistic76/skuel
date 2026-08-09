@@ -69,18 +69,30 @@ def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     return f"{prefix}.{file_path.stem}"
 
 
-def normalize_enum_casing(entity_data: dict[str, Any]) -> None:
+def canonicalize_enum_values(entity_data: dict[str, Any]) -> None:
     """
-    Canonicalize authored enum-value casing in place — casing only, no aliases.
+    Canonicalize authored enum values in place — the write-door mirror of the
+    ``parse_enum_field`` read tolerances (#513, #536).
 
-    Vault authors type ``learning_level: BEGINNER``; canonical member values
-    are lowercase. Exact-match property filters (the faceted ``sel_category``
-    facet) compare raw strings, so non-canonical casing must never reach the
-    graph — the ``parse_enum_field`` read tolerance (#513) covers conversion,
-    not filtering. For every registered enum-valued field: a valid value is
-    left untouched; a value whose ONLY problem is casing is rewritten to the
-    canonical member value; anything else is left for the validator/DTO
-    boundary to reject with a proper error.
+    Exact-match property filters (the faceted ``sel_category`` facet) compare
+    raw strings, so only canonical member values may reach the graph. For
+    every registered enum-valued field, in order:
+
+    - a canonical member value is left untouched;
+    - a value whose only problem is casing is lowercased (also how an enum
+      WITH a "NONE" member accepts that spelling);
+    - a value the enum's own alias-aware boundary parser (``from_string``)
+      resolves is rewritten to the parsed member's value — e.g.
+      ``status: pending`` → ``draft``; aliases are input-only, the graph
+      always stores canonical (ENUM_ARCHITECTURE emission rule);
+    - the authored absence marker ``none`` (any casing, on an enum with no
+      such member) becomes ``None`` — deliberately-unassigned is VALID (the
+      rawness principle, PR #536), and a null map value removes the property
+      at the bulk upsert, so a re-sync also cleans a previously-persisted
+      ``"none"`` string;
+    - anything else falls through to ``validate_entity_data``'s vocabulary
+      gate (same registry), which rejects the file — an unsanctioned value
+      never reaches the graph.
     """
     for field_name, enum_cls in ENUM_FIELD_TYPES.items():
         value = entity_data.get(field_name)
@@ -92,6 +104,17 @@ def normalize_enum_casing(entity_data: dict[str, Any]) -> None:
         lowered = value.lower()
         if lowered in member_values:
             entity_data[field_name] = lowered
+            continue
+        # SKUEL011: getattr, not hasattr — only some registered enums define
+        # the alias-aware boundary parser (EntityStatus, EntityType, Domain).
+        parser = getattr(enum_cls, "from_string", None)
+        if callable(parser):
+            parsed = parser(value)
+            if isinstance(parsed, enum_cls):
+                entity_data[field_name] = parsed.value
+                continue
+        if lowered == "none":
+            entity_data[field_name] = None
 
 
 def prepare_entity_data(
@@ -209,9 +232,9 @@ def prepare_entity_data(
             if key not in entity_data:
                 entity_data[key] = value
 
-    # Canonicalize authored enum casing (the enum sibling of normalize_uid's
+    # Canonicalize authored enum values (the enum sibling of normalize_uid's
     # colon→dot rewrite — "plain English in, working code out")
-    normalize_enum_casing(entity_data)
+    canonicalize_enum_values(entity_data)
 
     # Stamp the owner for multi-tenant entity types. When ``owner_is_authoritative``
     # (descriptor-governed ingestion), the vault-resolved owner WINS over any
@@ -324,8 +347,8 @@ def prepare_edge_data(
 
 
 __all__ = [
+    "canonicalize_enum_values",
     "generate_uid",
-    "normalize_enum_casing",
     "normalize_uid",
     "prepare_edge_data",
     "prepare_entity_data",

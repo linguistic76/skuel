@@ -40,7 +40,7 @@ class _DriverConnection:
 _FIXTURE_BODY = """---
 type: Lesson
 title: Regeneration Test
-domain: technology
+domain: tech
 ---
 
 # Heading One

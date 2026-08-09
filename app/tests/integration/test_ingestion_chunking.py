@@ -41,7 +41,7 @@ async def test_ingest_file_creates_chunks(neo4j_driver):
     ku_content = """---
 type: Lesson
 title: Python Basics
-domain: technology
+domain: tech
 ---
 
 # Introduction to Python
@@ -277,7 +277,7 @@ async def test_chunking_failure_does_not_fail_ingestion(neo4j_driver):
     ku_content = """---
 type: Lesson
 title: Short KU
-domain: technology
+domain: tech
 ---
 
 Just a short piece of content.
@@ -358,7 +358,7 @@ async def test_ku_with_minimal_content_generates_chunks(neo4j_driver):
     ku_content = """---
 type: Lesson
 title: Minimal KU
-domain: technology
+domain: tech
 ---
 
 Python is a programming language.

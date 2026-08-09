@@ -375,7 +375,7 @@ def parse_file_sync(
                 error_type="validation",
                 entity_type=entity_type_str,
                 field=getattr(err, "field", None),
-                suggestion="Ensure content body is not empty for content-based entities.",
+                suggestion="Fix the reported field values in the file (see error).",
             )
             return (None, None, error.to_dict())
 

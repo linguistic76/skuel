@@ -44,7 +44,7 @@ type: ku
 title: Test Knowledge Unit
 description: A test KU for dry-run integration testing
 uid: ku.test-knowledge-dry-run
-domain: testing
+domain: knowledge
 ---
 
 # Test Knowledge Unit
@@ -70,7 +70,7 @@ type: ku
 title: Brand New Topic
 description: This KU does not exist in Neo4j
 uid: ku.brand-new-topic
-domain: testing
+domain: knowledge
 ---
 
 # Brand New Topic
@@ -87,7 +87,7 @@ type: ku
 title: Existing Topic Updated
 description: This KU already exists in Neo4j
 uid: ku.existing-topic-dry-run
-domain: testing
+domain: knowledge
 ---
 
 # Existing Topic
@@ -113,7 +113,7 @@ type: ku
 title: Valid KU
 description: Has all required fields
 uid: ku.valid-ku
-domain: testing
+domain: knowledge
 ---
 
 # Valid KU
@@ -147,7 +147,7 @@ type: ku
 title: Topic {i}
 description: Test topic number {i}
 uid: ku.batch-test-{i:02d}
-domain: testing
+domain: knowledge
 ---
 
 # Topic {i}
