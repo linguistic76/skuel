@@ -12,10 +12,12 @@ consumer:
   ``enum_fields_for(...)`` instead of each repeating the field→enum
   association inline (``sel_category → SELCategory`` used to be spelled out
   in five separate DTO modules).
-- Ingestion canonicalizes authored enum casing against the full registry
-  (``core/services/ingestion/preparer.py``) so vault authors can type
-  ``learning_level: BEGINNER`` and the graph still stores the canonical
-  lowercase member value.
+- Ingestion canonicalizes authored enum values against the full registry
+  (``canonicalize_enum_values`` in ``core/services/ingestion/preparer.py``)
+  so vault authors can type ``learning_level: BEGINNER``, a documented alias
+  (``status: pending``), or the ``none`` absence marker and the graph still
+  stores the canonical member value (or drops the property); what remains
+  non-member is rejected by the ingestion validator's vocabulary gate.
 
 Adding a NEW enum-valued field: register it here, then slice it into the
 owning DTO's ``enum_fields_for(...)`` call. A field name may appear only once

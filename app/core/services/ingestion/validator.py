@@ -178,8 +178,10 @@ def validate_entity_data(
     Validate prepared entity data: enum vocabulary, door policy, required fields.
 
     Called AFTER prepare_entity_data — defaults are applied, auto-generated
-    fields are present, and the casing pass has already rewritten every value
-    whose ONLY problem was casing.
+    fields are present, and ``canonicalize_enum_values`` has already resolved
+    everything the read boundary sanctions: casing, each enum's own
+    ``from_string`` aliases (``status: pending`` → ``draft``), and the
+    authored ``none`` absence marker (→ ``None``, skipped here as absent).
 
     The vocabulary gate rejects in EVERY vault, unlike the per-vault posture
     for dangling MOC links: a dangling link is a plan that resolves when its

@@ -3,7 +3,10 @@ Enum field registry + ingestion casing normalization (PR #513 residue).
 
 The registry (core/models/enum_field_registry.py) is THE single source of
 truth for field→Enum associations; DTOs slice it via ``enum_fields_for`` and
-the ingestion preparer normalizes authored casing against the full map.
+the ingestion preparer canonicalizes authored values against the full map
+(casing, each enum's ``from_string`` aliases, the ``none`` absence marker —
+mirroring the ``parse_enum_field`` read tolerances); the ingestion
+validator's vocabulary gate rejects what remains non-member.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ from core.models.enum_field_registry import ENUM_FIELD_TYPES, enum_fields_for
 from core.models.enums import LearningLevel, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.services.ingestion.config import ENTITY_CONFIGS
-from core.services.ingestion.preparer import normalize_enum_casing, prepare_entity_data
+from core.services.ingestion.preparer import canonicalize_enum_values, prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data
 
 
@@ -37,16 +40,16 @@ class TestEnumFieldsFor:
             )
 
 
-class TestNormalizeEnumCasing:
+class TestCanonicalizeEnumValues:
     def test_uppercase_rewritten_to_canonical(self) -> None:
         data = {"learning_level": "BEGINNER", "sel_category": "RESPONSIBLE_DECISION_MAKING"}
-        normalize_enum_casing(data)
+        canonicalize_enum_values(data)
         assert data["learning_level"] == LearningLevel.BEGINNER.value
         assert data["sel_category"] == "responsible_decision_making"
 
     def test_valid_values_untouched(self) -> None:
         data = {"status": "active", "sel_category": "self_awareness"}
-        normalize_enum_casing(data)
+        canonicalize_enum_values(data)
         assert data == {"status": "active", "sel_category": "self_awareness"}
 
     def test_event_type_is_registered_and_canonicalized(self) -> None:
@@ -54,13 +57,13 @@ class TestNormalizeEnumCasing:
         # StrEnum (2026-08): authored/legacy UPPERCASE casing is rewritten to
         # the canonical member value at ingestion.
         data = {"event_type": "PERSONAL"}
-        normalize_enum_casing(data)
+        canonicalize_enum_values(data)
         assert data["event_type"] == "personal"
 
     def test_unregistered_field_untouched(self) -> None:
         # A field with no registry entry is never rewritten, whatever its case.
         data = {"location": "Conference Room A", "meeting_url": "HTTPS://X.example"}
-        normalize_enum_casing(data)
+        canonicalize_enum_values(data)
         assert data == {"location": "Conference Room A", "meeting_url": "HTTPS://X.example"}
 
     def test_invalid_value_left_for_validator(self) -> None:
@@ -68,13 +71,42 @@ class TestNormalizeEnumCasing:
         # problem — validate_entity_data's vocabulary gate rejects it at the
         # door (TestEnumMembershipGateAtTheDoor).
         data = {"learning_level": "GRANDMASTER"}
-        normalize_enum_casing(data)
+        canonicalize_enum_values(data)
         assert data["learning_level"] == "GRANDMASTER"
 
     def test_non_string_values_untouched(self) -> None:
         data = {"status": None, "learning_level": 3}
-        normalize_enum_casing(data)
+        canonicalize_enum_values(data)
         assert data == {"status": None, "learning_level": 3}
+
+    def test_from_string_alias_stores_canonical(self) -> None:
+        # The guide's Task example authors ``status: pending`` — resolved by
+        # EntityStatus.from_string (Codex #1003 round 2). The GRAPH stores
+        # the canonical member, never the alias (emission rule).
+        data = {"status": "pending"}
+        canonicalize_enum_values(data)
+        assert data["status"] == EntityStatus.DRAFT.value
+        data = {"status": "In Process"}
+        canonicalize_enum_values(data)
+        assert data["status"] == EntityStatus.ACTIVE.value
+
+    def test_none_marker_becomes_absent(self) -> None:
+        # ``sel_category: none`` is the authored absence marker the READ
+        # boundary sanctions (rawness principle, PR #536) — the write door
+        # mirrors it: value None, so the bulk upsert drops the property.
+        data = {"sel_category": "none"}
+        canonicalize_enum_values(data)
+        assert data["sel_category"] is None
+        data = {"sel_category": "NONE"}
+        canonicalize_enum_values(data)
+        assert data["sel_category"] is None
+
+    def test_none_spelling_on_enum_with_none_member_stays_member(self) -> None:
+        # Pipeline HAS a NONE member — there "none" is vocabulary, not the
+        # absence marker; the casing tier resolves it first.
+        data = {"pipeline": "NONE"}
+        canonicalize_enum_values(data)
+        assert data["pipeline"] == "none"
 
 
 class TestEnumMembershipGateAtTheDoor:
@@ -164,6 +196,26 @@ class TestEnumMembershipGateAtTheDoor:
         assert "must be one of" in message
         assert "'banana'" in message
 
+    def test_sanctioned_alias_admitted_through_the_full_path(self) -> None:
+        # prepare canonicalizes ``pending`` → ``draft`` (Codex #1003 round
+        # 2), so the gate never sees the alias — and the graph never stores
+        # it.
+        prepared = self._prepared_event(status="pending")
+        assert prepared["status"] == "draft"
+        assert validate_entity_data(EntityType.EVENT, prepared, self._FILE).is_ok
+
+    def test_none_absence_marker_admitted_through_the_full_path(self) -> None:
+        prepared = self._prepared_event(sel_category="none")
+        assert prepared["sel_category"] is None
+        assert validate_entity_data(EntityType.EVENT, prepared, self._FILE).is_ok
+
+    def test_unsanctioned_status_still_rejected(self) -> None:
+        # from_string returns None for a non-alias — the gate still fires.
+        prepared = self._prepared_event(status="banana")
+        result = validate_entity_data(EntityType.EVENT, prepared, self._FILE)
+        assert result.is_error
+        assert "'banana'" in str(result.expect_error().message)
+
     def test_user_entry_exempt_alias_statuses_reach_their_own_door(self) -> None:
         # Codex #1003: the batch door runs this validator on user_entry files
         # BEFORE routing them to the ADR-054 branch, whose _parse_status is
@@ -172,9 +224,11 @@ class TestEnumMembershipGateAtTheDoor:
         file_path = Path("note.md")
         ue_data = {"title": "Living note", "status": "in process"}
         assert validate_entity_data(EntityType.USER_ENTRY, ue_data, file_path).is_ok
-        # Control: the same spelling on a gated type is still a violation.
-        prepared = self._prepared_event(status="in process")
-        assert validate_entity_data(EntityType.EVENT, prepared, self._FILE).is_error
+        # Control: on a gated type the same UNPREPARED spelling is a
+        # violation — a gated door admits it only via prepare's
+        # canonicalization, while USER_ENTRY is exempt outright.
+        event_data = {"title": "E", "status": "in process"}
+        assert validate_entity_data(EntityType.EVENT, event_data, file_path).is_error
 
     def test_config_default_values_are_members(self) -> None:
         # A non-member config default would reject EVERY file of its type —
