@@ -51,17 +51,17 @@ with `./dev test-quick`.
 ### By Domain
 
 ```bash
-# Tasks domain
-uv run pytest tests/unit/test_tasks*.py -v
-uv run pytest tests/integration/test_tasks*.py -v
+# Tasks domain (recurse, then filter by keyword — catches nested suites)
+uv run pytest tests/unit/ -k "task" -v
+uv run pytest tests/integration/ -k "task" -v
 
 # Habits domain
-uv run pytest tests/unit/test_habits*.py -v
-uv run pytest tests/integration/test_habits*.py -v
+uv run pytest tests/unit/ -k "habit" -v
+uv run pytest tests/integration/ -k "habit" -v
 
 # Goals domain
-uv run pytest tests/unit/test_goals*.py -v
-uv run pytest tests/integration/test_goals*.py -v
+uv run pytest tests/unit/ -k "goal" -v
+uv run pytest tests/integration/ -k "goal" -v
 
 # All unit tests (pytest recurses into tests/unit/ subdirectories)
 uv run pytest tests/unit/ -v
@@ -198,7 +198,7 @@ uv run pytest tests/unit/test_tasks_service.py -v -s
 uv run pytest tests/integration/ --cov=core/services --cov-report=term-missing
 
 # Specific service coverage
-uv run pytest tests/integration/test_tasks*.py --cov=core/services/tasks --cov-report=html
+uv run pytest tests/integration/ -k "task" --cov=core/services/tasks --cov-report=html
 
 # Open HTML coverage report
 xdg-open htmlcov/index.html
@@ -213,8 +213,8 @@ uv run pytest tests/ -k "task" -v
 # Run only integration tests for tasks
 uv run pytest tests/integration/ -k "task" -v
 
-# Exclude specific tests
-uv run pytest tests/unit/ --ignore=tests/unit/test_slow_module.py
+# Exclude a path from collection (e.g. the nested service suites)
+uv run pytest tests/unit/ --ignore=tests/unit/services
 ```
 
 ### Parallel Execution
