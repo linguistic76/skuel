@@ -25,7 +25,7 @@ The HUMAN and AI halves are SEPARATE protocols implemented by separate services
 (they are not a single-class union — that was split 2026-05-30, PR #128):
 
     AI report (LLM) + typed reads → EntryReportOperations  (EntryReportService)
-    Human assessment (teacher)    → AssessmentOperations       (AssessmentService)
+    Received teacher assessments (read) → AssessmentOperations (AssessmentService)
 
 ``list_for_submission`` (on EntryReportOperations) is the authoritative typed
 read for BOTH HUMAN and LLM reports — processor_type discriminates.
@@ -33,7 +33,7 @@ read for BOTH HUMAN and LLM reports — processor_type discriminates.
 Protocol Responsibilities
 --------------------------
     EntryReportOperations     — AI report + typed reads (generate_report, list_for_submission)
-    AssessmentOperations         — Teacher-authored assessments (create_assessment, get_assessments_*)
+    AssessmentOperations         — A student's received teacher assessments (get_assessments_for_student)
     ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
     ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
@@ -70,7 +70,6 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.entity_types import SubmissionEntity
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
@@ -156,35 +155,17 @@ class EntryReportOperations(Protocol):
 
 @runtime_checkable
 class AssessmentOperations(Protocol):
-    """Teacher-authored assessments — HUMAN feedback on student work.
+    """A student's received teacher assessments — the read side of HUMAN feedback.
 
-    The human half of the report surface (the AI half is
-    :class:`EntryReportOperations`). Assessments are ENTRY_REPORT entities
-    (ReportSource.HUMAN) created by a teacher, owned by the student (``OWNS``,
-    written atomically with the node — the visibility anchor for
-    received-feedback reads) and auto-shared via SHARES_WITH.
+    Teacher-authored HUMAN feedback is *written* by
+    :class:`TeacherReviewOperations` (submission-anchored review). This protocol
+    is the read that surfaces a student's received feedback: ENTRY_REPORT
+    entities the student owns (``OWNS`` is the visibility anchor).
 
-    Route consumers: entry_report_api.py (assessment CRUD),
-    entry_reports_ui.py via UserEntryOrchestrator (a student's received
-    feedback). Implementation: ``AssessmentService`` (core/services/user_entry/).
+    Route consumer: entry_reports_ui.py via UserEntryOrchestrator (a student's
+    received feedback). Implementation: ``AssessmentService``
+    (core/services/user_entry/).
     """
-
-    async def create_assessment(
-        self,
-        teacher_uid: str,
-        subject_uid: str,
-        title: str,
-        content: str,
-        metadata: dict[str, Any] | None = None,
-    ) -> "Result[EntryReport]":
-        """Create a teacher assessment (EntityType.ENTRY_REPORT, ReportSource.HUMAN).
-
-        Verifies teacher-student group membership before creating.
-        Auto-shares with student via SHARES_WITH {role: 'student'}.
-
-        Returns Result[EntryReport].
-        """
-        ...
 
     async def get_assessments_for_student(
         self,
@@ -192,14 +173,6 @@ class AssessmentOperations(Protocol):
         limit: int = 50,
     ) -> "Result[list[EntryReport]]":
         """Get feedback reports received by a student. Returns Result[list[EntryReport]]."""
-        ...
-
-    async def get_assessments_by_teacher(
-        self,
-        teacher_uid: str,
-        limit: int = 50,
-    ) -> "Result[list[SubmissionEntity]]":
-        """Get feedback reports authored by a teacher. Returns Result[list[SubmissionEntity]]."""
         ...
 
 
@@ -215,17 +188,6 @@ class EntryReportBackendOperations(Protocol):
     Implemented structurally by
     ``EntryReportBackend(UniversalNeo4jBackend[EntryReport])``.
     """
-
-    async def create_assessment_node(
-        self, entity: "EntryReport", now: str
-    ) -> "Result[list[Neo4jProperties]]":
-        """Create a teacher-assessment ENTRY_REPORT node atomically with its
-        student ``OWNS`` and ``SHARES_WITH`` edges — all-or-nothing, because
-        ownership is the received-feedback visibility anchor and a report
-        must never exist without it. Stamps ``:Entity:EntryReport``
-        multi-labels. Empty result when the student does not exist.
-        """
-        ...
 
     async def get(self, uid: str) -> "Result[EntryReport | None]":
         """Typed single-fetch for EntryReport by UID.

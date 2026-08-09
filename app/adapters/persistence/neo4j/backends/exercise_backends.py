@@ -946,42 +946,6 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         """
         return await self.execute_query(query, params)
 
-    async def create_assessment_node(
-        self, entity: EntryReport, now: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create a teacher-assessment report atomically owned by and shared with the student.
-
-        One Cypher transaction: report node + ``(student)-[:OWNS]->(report)``
-        + ``(student)-[:SHARES_WITH]->(report)`` succeed or fail together.
-        Ownership is the received-feedback visibility anchor (C1,
-        feedback-loop UX arc), so a report node must never outlive a failed
-        ownership write — the generic ``create()`` treats the OWNS edge as
-        warning-only, which is why assessments do not use it.
-
-        Timestamps are stamped server-side (``datetime($now)``), overriding
-        the mapper's ISO strings, so assessment nodes carry the same temporal
-        type as ``create_report_node`` reports and the student's
-        newest-first report listing interleaves both correctly.
-
-        Empty result when the student (``entity.user_uid``) does not exist;
-        nothing is created.
-        """
-        props = to_neo4j_node(entity)
-        query = f"""
-        MATCH (student:User {{uid: $student_uid}})
-        CREATE (fb:Entity:EntryReport)
-        SET fb = $props,
-            fb.created_at = datetime($now),
-            fb.updated_at = datetime($now)
-        CREATE (student)-[:{RelationshipName.OWNS.value}]->(fb)
-        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
-        RETURN fb.uid AS report_uid
-        """
-        return await self.execute_query(
-            query,
-            {"student_uid": entity.user_uid, "props": props, "now": now},
-        )
-
     async def create_report_and_revised_exercise(
         self, params: dict[str, Any], re_entity: RevisedExercise
     ) -> Result[list[Neo4jProperties]]:

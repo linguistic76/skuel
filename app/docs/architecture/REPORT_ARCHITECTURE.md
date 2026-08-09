@@ -196,7 +196,7 @@ Curriculum Work                 Activity Domains
 
 | Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
-| Teacher writes feedback | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
+| Teacher writes feedback | `TeacherReviewService.submit_report()` | `HUMAN` | Teacher reviews submission in queue |
 | AI evaluates via Exercise | `EntryReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
 
 Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the submission owner) in one transaction. The typed read path (`EntryReportService.list_for_submission`) is the authoritative source for report content — there is no submission-side denormalization.
@@ -310,7 +310,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `AssessmentService` | `AssessmentOperations` (service) | `EntryReport` (HUMAN) | Teacher assessment; verifies group membership. Own protocol since PR #128 (no longer bundled into `EntryReportOperations`) |
+| `TeacherReviewService` | `TeacherReviewOperations` | `EntryReport` (HUMAN) | Teacher feedback on a submission (`submit_report`, `request_revision_with_exercise`); `REPORT_FOR`-anchored; verifies group membership. `AssessmentService`/`AssessmentOperations` is the paired *read* of a student's received assessments (not a producer) |
 | `EntryReportService` | `EntryReportOperations` (service) + `EntryReportBackendOperations` (backend) | `EntryReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `list_for_submission` → `list[EntryReport]` (delegates to `EntryReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:EntryReport` dual-labeled nodes; reads discriminate AI vs teacher via `EntryReport.processor_type` on the typed model |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
@@ -352,7 +352,7 @@ Reports split into two structurally different positions:
 `ENTRY_REPORT` fits the leaf domain model. One submission goes in, one EntryReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
 
 ```
-UserEntry  →  EntryReportService / AssessmentService  →  ENTRY_REPORT node
+UserEntry  →  EntryReportService / TeacherReviewService  →  ENTRY_REPORT node
               (one artifact in, one report node out)
 ```
 
@@ -492,9 +492,6 @@ When `openai_service` is available, the generator:
 | `/api/activity-review/queue` | GET | Admin | Pending review queue |
 | `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |
 | `/api/exercises/report` | POST | Owner or Teacher (per-user FULL tier, ADR-043) | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
-| `/api/reports/assessments` | POST | Teacher | Create teacher assessment (`ENTRY_REPORT`) |
-| `/api/reports/assessments/for-student` | GET | Teacher | Student's received assessments |
-| `/api/reports/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |
@@ -598,7 +595,7 @@ User annotates report (additive or revision mode)
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% |
 | `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% |
-| `AssessmentService` | `tests/unit/test_assessment_service.py` | 8 | 88% |
+| `AssessmentService` | `tests/unit/test_assessment_service.py` | 2 | 100% |
 
 ---
 
