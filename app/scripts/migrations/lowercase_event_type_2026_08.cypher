@@ -22,12 +22,24 @@
 //   event-bus BaseEvent.event_type discriminator ("task.completed") is not a
 //   persisted node property at all. Neither is touched.
 //
+// Convergence contract (Codex round 2): the casing pass below rewrites a
+//   value ONLY when its lowercase form IS an EventType member — the exact
+//   rule normalize_enum_casing applies at ingestion. A legacy non-member
+//   (the old field was an unrestricted str; the old facet even advertised
+//   "practice"/"review"/"milestone") is deliberately left UNTOUCHED in its
+//   original casing: blanket toLower would launder e.g. PRACTICE into a
+//   plausible-looking "practice" that is still outside the vocabulary and
+//   now invisible to the audit. "RECURRING" is the one non-member rewritten,
+//   because its correct translation is known (see statement 1).
+//
 // Verify (before/after):
 //   MATCH (e:Event) WHERE e.event_type IS NOT NULL
 //   RETURN e.event_type AS value, count(*) AS n ORDER BY value
-//   -- After: every `value` must be a lowercase EventType member; decide
-//   -- explicitly on any non-member survivor (do not silently rewrite).
-//   -- Audit of 2026-08-09 (local dev graph): PERSONAL x5, RECURRING x1.
+//   -- After: every `value` is either a lowercase EventType member or an
+//   -- untouched legacy non-member awaiting an explicit decision (map it,
+//   -- promote it to a member in code first, or clear it) — never a silent
+//   -- rewrite. Audit of 2026-08-09 (local dev graph): PERSONAL x5,
+//   -- RECURRING x1 → personal x6, zero non-member survivors.
 
 // Statement 1: the known category-error rows. "RECURRING" was stamped by
 // EventsSchedulingService.create_recurring_events (fixed in this PR to write
@@ -38,17 +50,27 @@ MATCH (e:Event)
 WHERE e.event_type = 'RECURRING'
 SET e.event_type = 'personal';
 
-// Statement 2: pure casing convergence for every remaining row.
+// Statement 2: casing-only convergence — rewrite only when the lowered value
+// is a member (EventType at migration time), mirroring normalize_enum_casing.
 MATCH (e:Event)
-WHERE e.event_type IS NOT NULL AND e.event_type <> toLower(e.event_type)
+WHERE e.event_type IS NOT NULL
+  AND e.event_type <> toLower(e.event_type)
+  AND toLower(e.event_type) IN ['meeting', 'conference', 'workshop', 'deadline',
+                                'reminder', 'personal', 'work', 'social',
+                                'learning', 'health']
 SET e.event_type = toLower(e.event_type);
 
 // Statements 3 + 4: the same two passes for :EventTemplate, so no legacy
-// template can respawn the values statements 1-2 removed.
+// template can respawn the values statements 1-2 removed (PS engagement's
+// _SpawnOrchestrator copies event_type verbatim into spawned Events).
 MATCH (t:EventTemplate)
 WHERE t.event_type = 'RECURRING'
 SET t.event_type = 'personal';
 
 MATCH (t:EventTemplate)
-WHERE t.event_type IS NOT NULL AND t.event_type <> toLower(t.event_type)
+WHERE t.event_type IS NOT NULL
+  AND t.event_type <> toLower(t.event_type)
+  AND toLower(t.event_type) IN ['meeting', 'conference', 'workshop', 'deadline',
+                                'reminder', 'personal', 'work', 'social',
+                                'learning', 'health']
 SET t.event_type = toLower(t.event_type);
