@@ -44,7 +44,7 @@ with `./dev test-quick`.
 
 | Category | Command | Notes |
 |----------|---------|-------|
-| **Integration** | `./dev test-integration` | Real Neo4j (Docker), ~60-90s |
+| **Integration** | `./dev test-integration` | Real Neo4j (Docker), slower than unit |
 | **Unit** | `./dev test-unit` | Mock-based, no Docker, fastest |
 | **All** | `./dev test-all` | Full suite, needs Docker |
 
@@ -65,112 +65,6 @@ uv run pytest tests/integration/ -k "goal" -v
 
 # All unit tests (pytest recurses into tests/unit/ subdirectories)
 uv run pytest tests/unit/ -v
-```
-
-## Understanding Test Failures
-
-### Phase 2 Migration Issues
-
-**Root Cause:** Phase 2 moved relationship fields from models to graph edges
-
-**Before Phase 2:**
-```python
-# Relationships stored as UID lists in model
-task.prerequisite_knowledge_uids  # ['ku.python.basics']
-task.applies_knowledge_uids       # ['ku.python.async']
-```
-
-**After Phase 2:**
-```python
-# Relationships stored as Neo4j graph edges
-# Query via RelationshipService
-relationship_service.get_task_prerequisite_knowledge(task_uid)
-relationship_service.get_task_knowledge(task_uid)
-```
-
-**Impact on Tests:**
-- Unit tests with old mock data fail
-- Tests trying to access removed fields fail
-- Integration tests pass (use real graph queries)
-
-### Event-Driven Architecture Changes
-
-**Old Pattern (Direct Dependencies):**
-```python
-class TasksService:
-    def __init__(self, backend, context_service):
-        self.context_service = context_service
-
-    async def create_task(self, ...):
-        # Direct invalidation
-        await self.context_service.invalidate_context(user_uid)
-```
-
-**New Pattern (Events):**
-```python
-class TasksService:
-    def __init__(self, backend, event_bus):
-        self.event_bus = event_bus
-
-    async def create_task(self, ...):
-        # Publish event
-        await self.event_bus.publish_async(TaskCreated(...))
-        # Context invalidation handled by event subscriber
-```
-
-**Impact on Tests:**
-- Tests expecting direct `context_service` calls fail
-- Remove assertions for `mock_context_service.invalidate_context()`
-- Document event-driven behavior in test comments
-
-## Fixing Unit Tests
-
-### Step-by-Step Process
-
-**1. Identify Deprecated Field References**
-```bash
-# Search for specific deprecated fields
-grep -r "prerequisite_knowledge_uids" tests/unit/
-grep -r "applies_knowledge_uids" tests/unit/
-grep -r "subtask_uids" tests/unit/
-```
-
-**2. Update Mock Data**
-```python
-# ❌ WRONG - Includes deprecated fields
-task_dict = {
-    "uid": "task-123",
-    "title": "Test Task",
-    "prerequisite_knowledge_uids": [],  # DEPRECATED!
-    "applies_knowledge_uids": [],       # DEPRECATED!
-}
-
-# ✅ CORRECT - Only core fields
-task_dict = {
-    "uid": "task-123",
-    "title": "Test Task",
-    # Phase 2: Relationship fields removed
-}
-```
-
-**3. Remove Field Access Assertions**
-```python
-# ❌ WRONG - Accessing removed field
-assert task.prerequisite_knowledge_uids == expected_uids
-
-# ✅ CORRECT - Document migration
-# Phase 2: Relationship fields removed from Task model
-# Query via TasksRelationshipService.get_task_prerequisite_knowledge()
-```
-
-**4. Remove Obsolete Service Calls**
-```python
-# ❌ WRONG - Expecting direct context invalidation
-mock_context_service.invalidate_context.assert_called_once_with(user_uid)
-
-# ✅ CORRECT - Document event-driven architecture
-# Note: Context invalidation now happens via event-driven architecture
-# TaskCreated events trigger user_service.invalidate_context() in bootstrap
 ```
 
 ## Common Test Commands
@@ -364,8 +258,11 @@ async def cleanup():
 
 ### Mock Issues
 
-**Cause:** Using deprecated field patterns
-**Fix:** Follow "Fixing Unit Tests" section above
+**Cause:** An `AsyncMock` backend resolves *any* attribute, so a call to a method
+that doesn't exist silently "passes" — only integration tests catch that bug class.
+**Fix:** Mock the backend, construct real frozen-dataclass domain models, and use
+`AsyncMock(return_value=Result.ok(...))`. See the
+[@pytest](.claude/skills/pytest/SKILL.md) skill for the full mocking patterns.
 
 ## Summary
 
