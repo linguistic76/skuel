@@ -268,9 +268,9 @@ A minimal PathStep YAML:
 type: PathStep
 uid: ps:your-topic:001
 title: "Your PathStep Title"
-domain: personal          # or: professional, academic, creative
-learning_level: beginner  # beginner | intermediate | advanced
-complexity: basic         # basic | moderate | complex
+domain: personal          # any Domain member — e.g. tech, business, education, creative
+learning_level: beginner  # beginner | intermediate | advanced | expert
+complexity: basic         # basic | medium | advanced
 estimated_time_minutes: 10
 
 learning_objectives:
