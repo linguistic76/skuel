@@ -591,37 +591,57 @@ def test_a_probe_smuggling_an_extra_option_is_rejected(
 # ============================================================================
 
 
-def _pair_with(n: int) -> ms.PairVerdict:
+def _err(path: str, line: int) -> ms.MypyError:
+    return ms.MypyError(path=path, line=str(line), col="1", code="misc", msg="boom")
+
+
+def _pair_of(errors: list[ms.MypyError]) -> ms.PairVerdict:
     scope = ms.Override(index=0, header_line=1, modules=["a.*", "b.*"], codes=["misc"])
-    errors = [
-        ms.MypyError(path=f"a/f{i}.py", line=str(i), col="1", code="misc", msg="boom")
-        for i in range(n)
-    ]
     return ms.PairVerdict(override=scope, code="misc", new_errors=errors)
 
 
-def _pattern_with(pattern: str, n: int) -> ms.PatternVerdict:
+def _probe_of(pattern: str, errors: list[ms.MypyError]) -> ms.PatternVerdict:
     scope = ms.Override(index=0, header_line=1, modules=["a.*", "b.*"], codes=["misc"])
-    errors = [
-        ms.MypyError(path=f"x/g{i}.py", line=str(i), col="1", code="misc", msg="boom")
-        for i in range(n)
-    ]
     return ms.PatternVerdict(override=scope, code="misc", pattern=pattern, new_errors=errors)
 
 
 def test_exact_per_pattern_attribution_passes_silently() -> None:
-    note = ms.reconcile_pattern_counts(
-        _pair_with(3), [_pattern_with("a.*", 3), _pattern_with("b.*", 0)]
+    a, b, c = _err("a/one.py", 1), _err("a/two.py", 2), _err("b/one.py", 3)
+    note = ms.reconcile_pattern_attribution(
+        _pair_of([a, b, c]), [_probe_of("a.*", [a, b]), _probe_of("b.*", [c])]
     )
     assert note is None
 
 
-def test_undercounted_patterns_abort_because_zeros_lose_their_meaning() -> None:
+def test_an_unattributed_error_aborts_because_zeros_lose_their_meaning() -> None:
     """The dangerous direction: a suppressed error no probe accounts for means a
     pattern zero could be instrument blindness, and a zero licenses a deletion."""
-    with pytest.raises(ms.AuditError, match="account for 1 of 3"):
-        ms.reconcile_pattern_counts(
-            _pair_with(3), [_pattern_with("a.*", 1), _pattern_with("b.*", 0)]
+    a, b = _err("a/one.py", 1), _err("b/one.py", 2)
+    with pytest.raises(ms.AuditError, match="unattributed"):
+        ms.reconcile_pattern_attribution(
+            _pair_of([a, b]), [_probe_of("a.*", [a]), _probe_of("b.*", [])]
+        )
+
+
+def test_matching_totals_do_not_excuse_an_unattributed_error() -> None:
+    """Codex #1001: overlapping probes can double-attribute one error while
+    another goes missing — the totals then balance exactly, so the abort must
+    key on error identity, not arithmetic."""
+    a, b = _err("a/one.py", 1), _err("a/two.py", 2)
+    with pytest.raises(ms.AuditError, match="unattributed"):
+        ms.reconcile_pattern_attribution(
+            _pair_of([a, b]), [_probe_of("a.*", [a]), _probe_of("a.b.*", [a])]
+        )
+
+
+def test_pierced_extras_do_not_mask_a_missing_error() -> None:
+    """A probe's explicit enable can surface errors the pair never had (sub-code
+    piercing); those extras must not count toward attribution of the pair's own."""
+    a, b = _err("a/one.py", 1), _err("a/two.py", 2)
+    pierced = _err("a/three.py", 3)
+    with pytest.raises(ms.AuditError, match="unattributed"):
+        ms.reconcile_pattern_attribution(
+            _pair_of([a, b]), [_probe_of("a.*", [a, pierced]), _probe_of("b.*", [])]
         )
 
 
@@ -630,16 +650,17 @@ def test_overcounted_patterns_warn_but_do_not_abort() -> None:
     piercing a file-level parent-code disable (sub-code inheritance, e.g.
     `assignment` over `method-assign`) that the plain strip leaves intact.
     Both leave a pattern's zero conclusive, so this must not abort."""
-    note = ms.reconcile_pattern_counts(
-        _pair_with(3), [_pattern_with("a.*", 3), _pattern_with("b.*", 1)]
+    a, b = _err("a/one.py", 1), _err("b/one.py", 2)
+    note = ms.reconcile_pattern_attribution(
+        _pair_of([a, b]), [_probe_of("a.*", [a, b]), _probe_of("b.*", [b])]
     )
     assert note is not None
     assert "zeros remain valid" in note
 
 
 def test_a_pattern_with_no_errors_is_unearned() -> None:
-    assert _pattern_with("b.*", 0).is_unearned
-    assert not _pattern_with("a.*", 2).is_unearned
+    assert _probe_of("b.*", []).is_unearned
+    assert not _probe_of("a.*", [_err("a/one.py", 1), _err("a/two.py", 2)]).is_unearned
 
 
 # ============================================================================
@@ -648,7 +669,9 @@ def test_a_pattern_with_no_errors_is_unearned() -> None:
 
 
 def test_each_patterns_share_is_reported(capsys: pytest.CaptureFixture[str]) -> None:
-    ms._print_pattern_counts([_pattern_with("a.*", 2), _pattern_with("b.*", 0)])
+    ms._print_pattern_counts(
+        [_probe_of("a.*", [_err("a/one.py", 1), _err("a/two.py", 2)]), _probe_of("b.*", [])]
+    )
     out = capsys.readouterr().out
     assert "a.* (2)" in out
     assert "b.* (0)" in out, "a zero share must be visible, not omitted"

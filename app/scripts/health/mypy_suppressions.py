@@ -135,17 +135,19 @@ mypy's precedence, so they cannot lift a per-module disable. Measured
 758 source files` while editing the config surfaced 26 errors. Probe by editing
 config — by preference, by running this script — never with the flag.
 
-Attribution is reconciled per pair: if the per-pattern counts sum BELOW the
-block-level count, some suppressed error belongs to no probe and a pattern zero
-cannot be trusted, so the audit aborts. Summing ABOVE it only warns, because
-both known causes leave zeros conclusive. Overlapping patterns double-attribute
-an error. And a probe's EXPLICIT enable can surface errors the block entry
-never suppressed: sub-code inheritance means a file-level comment disabling a
-PARENT code (e.g. `assignment`, whose sub-code is `method-assign`) eats an
-error under the plain strip, while an explicit enable of the sub-code pierces
-it. Measured live: two facade-test files inline-disable `assignment` and their
-18 method-assign errors appear only under the probe. Either way, a pattern
-reading zero surfaced nothing even under maximal enabling.
+Attribution is reconciled per pair, by error IDENTITY rather than arithmetic
+(Codex #1001 — overlaps and pierced extras can balance the counts while an
+error goes missing): every pair error must appear in at least one probe, or a
+pattern zero cannot be trusted and the audit aborts. Probes surfacing MORE
+than the pair only warns, because both known causes leave zeros conclusive.
+Overlapping patterns double-attribute an error. And a probe's EXPLICIT enable
+can surface errors the block entry never suppressed: sub-code inheritance
+means a file-level comment disabling a PARENT code (e.g. `assignment`, whose
+sub-code is `method-assign`) eats an error under the plain strip, while an
+explicit enable of the sub-code pierces it. Measured live: two facade-test
+files inline-disable `assignment` and their 18 method-assign errors appear
+only under the probe. Either way, a pattern reading zero surfaced nothing
+even under maximal enabling.
 
 The report still prints the FILES behind each load-bearing verdict, verbatim
 from mypy — they remain the fastest way to eyeball a verdict against the
@@ -492,31 +494,40 @@ def write_probe_config(text: str, pattern: str, code: str, path: Path) -> None:
         )
 
 
-def reconcile_pattern_counts(pair: PairVerdict, patterns: list[PatternVerdict]) -> str | None:
-    """Check the per-pattern counts account for every block-suppressed error.
+def reconcile_pattern_attribution(pair: PairVerdict, patterns: list[PatternVerdict]) -> str | None:
+    """Check that every block-suppressed error appears in at least one probe.
 
-    Summing BELOW the pair count means some suppressed error surfaced in no
-    probe — the per-pattern instrument is blind somewhere, and a pattern zero
-    can no longer be trusted, so the audit ABORTS (the zero is the direction
-    that licenses a deletion).
+    The check is by error IDENTITY, not arithmetic (Codex #1001): overlapping
+    patterns can double-attribute one error while another goes missing, and a
+    probe's pierced extras (below) inflate the total — either way the counts
+    can balance exactly while a pair error belongs to no probe. Any
+    unattributed pair error means the per-pattern instrument is blind
+    somewhere, so a pattern zero can no longer be trusted and the audit ABORTS
+    (the zero is the direction that licenses a deletion).
 
-    Summing ABOVE it warns and keeps going, because both known causes leave
-    zeros conclusive. Overlapping patterns double-attribute an error. And the
-    probe's EXPLICIT enable is stronger than the strip's mere not-disabling:
-    sub-code inheritance means a file-level `# mypy: disable-error-code`
-    comment naming a PARENT code (e.g. `assignment` over `method-assign`)
-    still eats the error under the strip, while the probe's explicit enable of
-    the sub-code pierces it and surfaces errors the block entry never
-    suppressed. Either way a zero still means the probe surfaced nothing even
-    under maximal enabling.
+    Probes surfacing MORE than the pair only warns, because both known causes
+    leave zeros conclusive. Overlapping patterns double-attribute an error.
+    And the probe's EXPLICIT enable is stronger than the strip's mere
+    not-disabling: sub-code inheritance means a file-level
+    `# mypy: disable-error-code` comment naming a PARENT code (e.g.
+    `assignment` over `method-assign`) still eats the error under the strip,
+    while the probe's explicit enable of the sub-code pierces it and surfaces
+    errors the block entry never suppressed. Either way a zero still means
+    the probe surfaced nothing even under maximal enabling.
     """
-    total = sum(len(p.new_errors) for p in patterns)
-    if total < len(pair.new_errors):
+    probed: set[MypyError] = set()
+    for pattern_verdict in patterns:
+        probed.update(pattern_verdict.new_errors)
+    unattributed = [e for e in pair.new_errors if e not in probed]
+    if unattributed:
+        first = unattributed[0]
         raise AuditError(
             f"Per-pattern probes for [{pair.code}] in {_scope_name(pair.override)} "
-            f"account for {total} of {len(pair.new_errors)} suppressed errors. "
-            f"An unattributed error means a pattern zero cannot be trusted."
+            f"left {len(unattributed)} of {len(pair.new_errors)} suppressed errors "
+            f"unattributed (first: {first.path}:{first.line}). A pattern zero "
+            f"cannot be trusted while any pair error belongs to no probe."
         )
+    total = sum(len(p.new_errors) for p in patterns)
     if total > len(pair.new_errors):
         return (
             f"per-pattern counts sum to {total} against {len(pair.new_errors)} for "
@@ -788,7 +799,7 @@ def main() -> int:
                         override=scope, code=verdict.code, pattern=pattern, new_errors=new
                     )
                 )
-            note = reconcile_pattern_counts(verdict, probed)
+            note = reconcile_pattern_attribution(verdict, probed)
             if note:
                 overlap_notes.append(f"[{verdict.code}] {_scope_name(scope)}: {note}")
             pattern_verdicts[(scope.index, verdict.code)] = probed
