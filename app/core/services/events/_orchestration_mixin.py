@@ -15,10 +15,9 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
-from core.models.enums import RecurrencePattern
+from core.models.enums import EventType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.event.event_request import EventType
 from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 

@@ -22,10 +22,9 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
-from core.models.enums import RecurrencePattern
+from core.models.enums import EventType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.event.event_request import EventType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties
 from core.services.events._habit_links import enrich_events_with_habit_links

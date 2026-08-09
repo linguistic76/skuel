@@ -11,6 +11,7 @@ Module Organization:
 - goal_enums: GoalType, GoalTimeframe, MeasurementType, HabitEssentiality
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
+- event_enums: EventType
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
 - user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth
 - pipeline: Pipeline, JeUse, ProcessingMode, ReportSource, ExchangeStatus
@@ -64,6 +65,9 @@ from .entity_enums import (
     EntityType,
     NonKuDomain,
 )
+
+# Event enums - event domain classification
+from .event_enums import EventType
 
 # Goal enums
 from .goal_enums import GoalTimeframe, GoalType, HabitEssentiality, MeasurementType
@@ -189,6 +193,7 @@ __all__ = [
     "ExchangeStatus",
     "EntityType",
     "ErrorSeverity",
+    "EventType",
     "GoalTimeframe",
     "GoalType",
     "GuidanceMode",

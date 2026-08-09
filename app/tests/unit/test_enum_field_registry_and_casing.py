@@ -47,12 +47,19 @@ class TestNormalizeEnumCasing:
         normalize_enum_casing(data)
         assert data == {"status": "active", "sel_category": "self_awareness"}
 
-    def test_unregistered_field_untouched(self) -> None:
-        # event_type is a raw str field (core/models/event/event.py), NOT an
-        # enum — its casing must never be rewritten.
+    def test_event_type_is_registered_and_canonicalized(self) -> None:
+        # event_type joined the registry when EventType became a lowercase
+        # StrEnum (2026-08): authored/legacy UPPERCASE casing is rewritten to
+        # the canonical member value at ingestion.
         data = {"event_type": "PERSONAL"}
         normalize_enum_casing(data)
-        assert data["event_type"] == "PERSONAL"
+        assert data["event_type"] == "personal"
+
+    def test_unregistered_field_untouched(self) -> None:
+        # A field with no registry entry is never rewritten, whatever its case.
+        data = {"location": "Conference Room A", "meeting_url": "HTTPS://X.example"}
+        normalize_enum_casing(data)
+        assert data == {"location": "Conference Room A", "meeting_url": "HTTPS://X.example"}
 
     def test_invalid_value_left_for_validator(self) -> None:
         # Casing-only fix: a value that is wrong even lowercased is not our

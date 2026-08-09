@@ -73,7 +73,7 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # EVENT LOGISTICS
     # =========================================================================
-    event_type: str | None = None  # e.g., "PERSONAL", "MEETING"
+    event_type: str | None = None  # canonical EventType value, e.g. "personal", "meeting"
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None

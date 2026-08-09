@@ -25,14 +25,14 @@ class TestCalendarEventCreated:
             user_uid="user_alice",
             title="Sprint planning",
             event_date=date(2026, 5, 15),
-            calendar_event_type="MEETING",
+            calendar_event_type="meeting",
         )
         assert evt.event_type == "calendar_event.created"
         assert evt.event_uid == "event_test_1"
         assert evt.user_uid == "user_alice"
         assert evt.title == "Sprint planning"
         assert evt.event_date == date(2026, 5, 15)
-        assert evt.calendar_event_type == "MEETING"
+        assert evt.calendar_event_type == "meeting"
         assert evt.metadata is None
         # BaseEvent auto-stamps occurred_at
         assert evt.occurred_at is not None
@@ -43,7 +43,7 @@ class TestCalendarEventCreated:
             user_uid="user_x",
             title="x",
             event_date=date(2026, 1, 1),
-            calendar_event_type="DEADLINE",
+            calendar_event_type="deadline",
             metadata={"source": "manual"},
         )
         assert evt.metadata == {"source": "manual"}
@@ -140,7 +140,7 @@ class TestEventTypeStringsAreUnique:
                 user_uid="u",
                 title="t",
                 event_date=date(2026, 1, 1),
-                calendar_event_type="MEETING",
+                calendar_event_type="meeting",
             ).event_type,
             CalendarEventUpdated(event_uid="x", user_uid="u", updated_fields={}).event_type,
             CalendarEventCompleted(

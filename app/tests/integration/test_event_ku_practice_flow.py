@@ -119,7 +119,7 @@ class TestEventKuPracticeFlow:
             uid="event.morning_meditation",
             user_uid=test_user_uid,
             title="Morning Meditation Session",
-            event_type="LEARNING",
+            event_type="learning",
             event_date=date.today(),
             status=EntityStatus.COMPLETED,
         )
@@ -293,7 +293,7 @@ class TestEventKuPracticeFlow:
             uid="event.no_kus",
             user_uid=test_user_uid,
             title="Event Without KUs",
-            event_type="WORK",
+            event_type="work",
             event_date=date.today(),
             status=EntityStatus.COMPLETED,
         )

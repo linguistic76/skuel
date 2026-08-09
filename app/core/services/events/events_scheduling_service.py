@@ -13,7 +13,7 @@ has access to both Tasks and Events data.
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
-from core.models.enums import EntityStatus, EntityType, RecurrencePattern
+from core.models.enums import EntityStatus, EntityType, EventType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
@@ -195,7 +195,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
                 event_date=event_date,
                 start_time=start_time,
                 end_time=end_time,
-                event_type="RECURRING",
+                event_type=EventType.PERSONAL,
                 recurrence_pattern=pattern,
                 status=EntityStatus.DRAFT,
             )

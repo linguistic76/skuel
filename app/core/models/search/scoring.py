@@ -44,6 +44,7 @@ from datetime import date
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
+from core.models.enums import EventType
 from core.models.type_hints import EntityUID
 
 if TYPE_CHECKING:
@@ -935,7 +936,7 @@ def score_event(event: "Event", context: "UserContext") -> PriorityScore:
 
     event_type = get_enum_value(event.event_type) if event.event_type else None
 
-    learning_types = {"study", "learning", "practice"}
+    learning_types = {EventType.LEARNING}
     if event_type in learning_types:
         type_normalized = 1.0
         type_reason = f"Learning event ({event_type})"

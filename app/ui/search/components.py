@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 from core.models.enums import (
     ContentType,
     EducationalLevel,
+    EventType,
     LearningLevel,
     SELCategory,
 )
@@ -585,13 +586,11 @@ _FREQUENCY_OPTIONS = [
     ("monthly", "Monthly"),
 ]
 
+# Derived from the enum so the facet can never drift from the canonical
+# vocabulary again (it used to offer ActivityType names no Event ever carried).
 _EVENT_TYPE_OPTIONS = [
     ("", "All"),
-    ("meeting", "Meeting"),
-    ("deadline", "Deadline"),
-    ("milestone", "Milestone"),
-    ("practice", "Practice"),
-    ("review", "Review"),
+    *((t.value, t.value.title()) for t in EventType),
 ]
 
 _URGENCY_OPTIONS = [

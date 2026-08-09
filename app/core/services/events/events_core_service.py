@@ -29,12 +29,12 @@ from core.events.calendar_event_events import (
     CalendarEventUpdated,
 )
 from core.events.embedding_publisher import publish_embedding_requested
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, EventType
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.event.event_request import EventCreateRequest, EventType
+from core.models.event.event_request import EventCreateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
