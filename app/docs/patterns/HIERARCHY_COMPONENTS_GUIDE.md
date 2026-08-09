@@ -20,8 +20,7 @@ SKUEL provides a comprehensive set of hierarchy visualization components for dis
 
 1. **TreeView** - Custom expandable tree with full features
 2. **AccordionHierarchy** - MonsterUI collapse-based for content-heavy nodes
-3. **Breadcrumbs** - Ancestor navigation trail
-4. **IndentedList** - Simple static indented display
+3. **IndentedList** - Simple static indented display
 
 All components support HTMX lazy loading, Alpine.js state management, and work across Goals, Habits, Events, Choices, Principles, and LP domains.
 
@@ -73,37 +72,6 @@ async def goal_hierarchy(request: Request, uid: str):
         page_type=PageType.STANDARD,
         request=request,
     )
-```
-
-### Breadcrumbs - Navigation Trail
-
-```python
-from ui.patterns.breadcrumbs import Breadcrumbs
-
-# Build ancestor path (walk up the tree)
-ancestors = []
-current_result = await goals_service.get(uid)
-current = current_result.value if not current_result.is_error else None
-
-while current:
-    ancestors.insert(0, {
-        "uid": current.uid,
-        "title": current.title,
-        "url": f"/goals/{current.uid}",
-    })
-    parent_result = await goals_service.get_parent_goal(current.uid)
-    current = parent_result.value if not parent_result.is_error else None
-
-# Mark last item as current (no link)
-if ancestors:
-    ancestors[-1]["url"] = None
-
-# Render above main content
-Breadcrumbs(
-    path=ancestors,
-    show_home=True,
-    home_url="/goals",
-)
 ```
 
 ---
@@ -434,18 +402,18 @@ async def bulk_delete(request: Request):
 
 ---
 
-## Component Comparison
+## TreeView Capabilities
 
-| Feature | TreeView | Breadcrumbs |
-|---------|----------|-------------|
-| **Expand/Collapse** | ✅ | ❌ |
-| **Lazy Loading** | ✅ | ❌ |
-| **Drag-Drop** | ✅ | ❌ |
-| **Keyboard Nav** | ✅ | ❌ |
-| **Multi-Select** | ✅ | ❌ |
-| **Inline Edit** | ✅ | ❌ |
-| **Deep Trees (10+ levels)** | ✅ Excellent | ❌ |
-| **Performance (1000+ nodes)** | ✅ (with lazy load) | N/A |
+| Feature | TreeView |
+|---------|----------|
+| **Expand/Collapse** | ✅ |
+| **Lazy Loading** | ✅ |
+| **Drag-Drop** | ✅ |
+| **Keyboard Nav** | ✅ |
+| **Multi-Select** | ✅ |
+| **Inline Edit** | ✅ |
+| **Deep Trees (10+ levels)** | ✅ Excellent |
+| **Performance (1000+ nodes)** | ✅ (with lazy load) |
 
 ---
 
@@ -459,12 +427,6 @@ async def bulk_delete(request: Request):
 - Event schedules with sub-events
 - File/folder-like navigation
 - **Use when:** Interactive features needed (drag-drop, keyboard, multi-select)
-
-**Breadcrumbs:**
-- Every detail page with hierarchy
-- Above TreeView/Accordion for context
-- Navigation aid in deeply nested structures
-- **Use when:** User needs context of current location
 
 ### Performance Optimization
 
@@ -514,7 +476,6 @@ Components are mobile-friendly:
 
 - **TreeView:** Smaller indent on mobile (12px vs 24px on desktop)
 - **AccordionHierarchy:** Stacks naturally on mobile
-- **Breadcrumbs:** Wraps to multiple lines
 - **IndentedList:** Smaller indent on mobile
 
 **Mobile CSS:**
@@ -700,7 +661,6 @@ def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
 | File | Purpose | Lines |
 |------|---------|-------|
 | `/ui/patterns/tree_view.py` | TreeView, TreeNodeList | ~250 |
-| `/ui/patterns/breadcrumbs.py` | Breadcrumbs | ~80 |
 | `/static/js/skuel.js` | hierarchyTree() Alpine component | +300 |
 | `/static/css/hierarchy.css` | Hierarchy styles | ~120 |
 

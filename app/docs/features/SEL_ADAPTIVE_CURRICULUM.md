@@ -123,14 +123,7 @@ async def sel_category(request: Request) -> Any:
     # Track page view (non-blocking)
     await services.adaptive_sel.track_page_view(user_uid, SELCategory.{CATEGORY})
 
-    # Breadcrumbs
-    breadcrumbs = Breadcrumbs(path=[
-        {"uid": "sel", "title": "SEL", "url": "/sel"},
-        {"uid": "category", "title": "Category Name", "url": None},
-    ])
-
     content = Div(
-        breadcrumbs,
         PageHeader("Category Name", subtitle="Description"),
         SectionHeader("About This Competency"),
         P("Description text...", cls="text-muted-foreground mb-6"),
@@ -169,7 +162,6 @@ async def sel_category(request: Request) -> Any:
 - `ButtonLink` - "Start Learning" actions
 - `PageHeader` - Page titles with subtitles
 - `SectionHeader` - Section dividers
-- `Breadcrumbs` - Navigation trail
 - `EmptyState` - No curriculum available
 
 **Legacy Components (Replaced):**
@@ -362,7 +354,6 @@ LIMIT 30
 ### Keyboard Navigation
 
 - **Drawer menu:** Tab/Arrow keys navigate categories
-- **Breadcrumbs:** Tab to breadcrumb links, Enter to activate
 - **KU cards:** Tab through "Start Learning" buttons
 - **Skip links:** BasePage provides skip-to-content
 
@@ -396,7 +387,6 @@ uv run pytest tests/unit/test_ku_search_service.py -v
 - [ ] Navigate to `/sel` - journey loads via HTMX
 - [ ] Click category - curriculum loads dynamically
 - [ ] Drawer navigation works (all 5 categories)
-- [ ] Breadcrumbs show correct path
 - [ ] Loading states display
 - [ ] Error states display (simulate API failure)
 - [ ] Empty state when no curriculum
@@ -422,7 +412,7 @@ uv run pytest tests/unit/test_ku_search_service.py -v
 
 **2026-02-03: UX Modernization Complete**
 - ✅ Component migration to CardGenerator pattern
-- ✅ BasePage integration with breadcrumbs
+- ✅ BasePage integration
 - ✅ HTMX dynamic loading
 - ✅ Interaction tracking in Neo4j
 - ✅ Accessibility improvements (ARIA, keyboard nav)
