@@ -378,8 +378,9 @@ create_sel_sidebar_layout(
 ### Unit Tests
 
 ```bash
-# SEL adaptive logic now tested via ku_adaptive_service tests
-uv run pytest tests/unit/test_ku_search_service.py -v
+# SEL adaptive curriculum logic lives in core/services/ps/ps_adaptive_service.py.
+# There is no dedicated unit suite for it yet; run the PS service tests:
+uv run pytest tests/unit/test_ps_search_service.py tests/unit/services/ps/ -v
 ```
 
 ### Manual Testing Checklist

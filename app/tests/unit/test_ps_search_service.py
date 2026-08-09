@@ -1,7 +1,7 @@
 # mypy: disable-error-code="attr-defined"
 """
-Test KU Search Service
-======================
+Test PS (PathStep) Search Service
+=================================
 
 Tests for the PsSearchService - BaseService pattern (January 2026 harmonization).
 """
@@ -16,7 +16,7 @@ from core.services.ps.ps_search_service import PsSearchService
 from core.utils.result_simplified import Result
 
 
-class TestKuSearchServiceInitialization:
+class TestPsSearchServiceInitialization:
     """Test PsSearchService initialization - BaseService pattern."""
 
     def test_initialization_with_all_dependencies(self):
@@ -41,15 +41,15 @@ class TestKuSearchServiceInitialization:
 
         assert service.backend == backend
 
-    def test_entity_label_is_ku(self):
-        """Test that entity_label returns 'Ku'."""
+    def test_entity_label_is_entity(self):
+        """Test that entity_label returns 'Entity' (multi-label base)."""
         backend = MagicMock()
         service = PsSearchService(backend=backend)
 
         assert service.entity_label == "Entity"
 
     def test_class_attributes_configured_correctly(self):
-        """Test that class attributes are configured for KU domain via DomainConfig."""
+        """Test that class attributes are configured for PS (PathStep) via DomainConfig."""
         backend = MagicMock()
         service = PsSearchService(backend=backend)
 
@@ -91,7 +91,7 @@ class TestTextSearch:
                 [
                     {
                         "entity": {
-                            "uid": "ku.test.1",
+                            "uid": "ps.test.1",
                             "title": "Match",
                             "domain": "tech",
                             "quality_score": 0.0,
