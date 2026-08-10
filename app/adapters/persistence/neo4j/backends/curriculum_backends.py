@@ -290,17 +290,33 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         # the caller never referenced. Gated by construction even though this
         # method currently has no caller: an ungated discovery query is a trap
         # for whoever wires it up. NULL-tolerant (#1006).
-        published, published_params = build_publication_clause("lp")
+        # Discovery: a KU in hand surfaces the PATHS that reach it — curriculum
+        # the caller never referenced. Gated by construction even though this
+        # method currently has no caller: an ungated discovery query is a trap
+        # for whoever wires it up. NULL-tolerant (#1006).
+        #
+        # The two arms are gated DIFFERENTLY, and deliberately (Codex P2, #1008).
+        # The HAS_STEP arm's claim is carried by the bridging step, so that step
+        # must be published too — the third of three KU→path surfaces, and the
+        # one that hid the pattern because its step was an anonymous `(:Entity)`.
+        # The REQUIRES_KNOWLEDGE arm has no bridge: the path states the
+        # prerequisite itself, so only `lp` gates there.
+        published_lp, lp_params = build_publication_clause("lp")
+        published_step, step_params = build_publication_clause("step")
         query = f"""
         MATCH (ku:Entity {{uid: $ku_uid}})
         MATCH (lp:LearningPath)
         WHERE ((lp)-[:REQUIRES_KNOWLEDGE]->(ku)
-           OR (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku))
-          AND {published}
+           OR EXISTS {{
+                 MATCH (lp)-[:HAS_STEP]->(step:Entity)
+                       -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+                 WHERE {published_step}
+               }})
+          AND {published_lp}
         RETURN lp.uid as uid
         LIMIT 50
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid, **published_params})
+        return await self.execute_query(query, {"ku_uid": ku_uid, **lp_params, **step_params})
 
     async def get_applying_task_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get tasks applying this knowledge."""

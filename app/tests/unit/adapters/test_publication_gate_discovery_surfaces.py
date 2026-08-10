@@ -170,6 +170,19 @@ async def test_ku_to_path_surfaces_gate_the_bridging_step_too() -> None:
     for alias in ("ps", "lp"):
         _assert_gated(query, params, alias)
 
+    # The third sibling hid the pattern behind an anonymous `(:Entity)` bridge
+    # (Codex round 2, #1008). Its HAS_STEP arm is gated; its direct
+    # REQUIRES_KNOWLEDGE arm has no bridge and must stay ungated on the step.
+    from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
+
+    query, params = await _capture(KuBackend, "get_learning_path_uids", "ku.x")
+    for alias in ("step", "lp"):
+        _assert_gated(query, params, alias)
+    assert "HAS_STEP]->(:" not in query, (
+        "the bridging step must be NAMED so it can be gated — an anonymous "
+        "`(:Entity)` bridge is how this arm escaped the first fix"
+    )
+
 
 @pytest.mark.asyncio
 async def test_ku_lateral_edges_gates_the_far_end_only() -> None:

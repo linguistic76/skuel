@@ -306,6 +306,15 @@ class _LpIntelligenceMixin:
         # every path the user has not completed and ranks them. Draft paths
         # withheld; NULL-tolerant so the pre-publication_state corpus still
         # recommends (#1006).
+        #
+        # `step` below is deliberately NOT gated, unlike the bridging step in the
+        # KU→path surfaces (Codex #1008). The distinction is what reaches the
+        # caller: there, the bridge carries the CLAIM "this path teaches that KU"
+        # and a draft step makes the claim false. Here the steps are internal to
+        # a readiness score — only `path` is returned, and a path's own steps
+        # ride along with it (the containment carve-out that lets
+        # list_all_paths_with_steps gate `p` but not the steps it collects).
+        # A draft step can skew the score; it cannot disclose unfinished content.
         published, published_params = build_publication_clause("path")
 
         query = f"""
