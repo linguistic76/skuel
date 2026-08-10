@@ -28,6 +28,16 @@ CREATE INDEX learning_path_uid_idx IF NOT EXISTS FOR (n:LearningPath) ON (n.uid)
 // matches by NAME, and that name belonged to the stale :LearningStep index
 // retired below — so it never created anything (#1011). Renamed rather than
 // deleted: this file provisions a database by hand, where bootstrap has not run.
+//
+// The DROP must come FIRST, and the ordering is load-bearing (#1011). The old
+// name has TWO historical meanings: the stale :LearningStep index, and — on a
+// database provisioned by an older copy of THIS script — a valid index on
+// :PathStep(uid). In that second case `CREATE ... IF NOT EXISTS` no-ops against
+// the EQUIVALENT SCHEMA (verified: same label+property under a different name
+// is treated as already-existing), and the stale-section drop further down
+// would then delete the only PathStep uid index. Dropping first makes both
+// histories converge on `path_step_uid_idx`.
+DROP INDEX learning_step_uid_idx IF EXISTS;
 CREATE INDEX path_step_uid_idx IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
 CREATE INDEX life_path_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.uid);
 CREATE INDEX resource_uid_idx IF NOT EXISTS FOR (n:Resource) ON (n.uid);
