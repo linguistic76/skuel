@@ -95,6 +95,31 @@ class TestVisibilityClause:
         with pytest.raises(ValueError):
             build_publication_clause("n) MATCH (m")
 
+    def test_publication_gate_can_be_opted_out_for_by_uid_reads(self) -> None:
+        """The gate is DISCOVERY-only — a by-UID read opts out (unlisted, not forbidden).
+
+        PUBLIC falls back to "no predicate at all", restoring the documented
+        ``as open as get()`` contract that ``get_visible_by_uid`` relies on;
+        SCOPE_AWARE keeps its ownership scoping with no publication term.
+        """
+        assert (
+            build_search_visibility_clause(
+                SearchVisibility.PUBLIC, has_user=True, apply_publication_gate=False
+            )
+            is None
+        )
+        clause, params = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE, has_user=False, apply_publication_gate=False
+        )
+        assert clause == "((n.scope = $visibility_curriculum_scope))"
+        assert "publication_state" not in clause
+        assert "publication_draft" not in params
+
+    def test_publication_gate_defaults_on(self) -> None:
+        """Default ON: a new discovery surface is gated by construction."""
+        scoped = build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=False)
+        assert scoped is not None and "publication_state" in scoped[0]
+
     def test_owner_only_domains_get_no_publication_gate(self) -> None:
         """Activities/UserEntry are not curriculum — their owner sees their own work."""
         clause, _params = build_search_visibility_clause(
@@ -204,6 +229,26 @@ class TestQueryBuilderComposition:
         # ...but drafts are still withheld, and the predicate is NULL-tolerant.
         assert "publication_state IS NULL" in cypher
         assert params["publication_draft"] == "draft"
+
+    def test_public_gate_binds_before_the_or_chain(self) -> None:
+        """The #512 OR-precedence lesson, applied to the publication gate.
+
+        A multi-field text search is an OR-chain. If the gate were ANDed
+        without parenthesizing that chain, any non-first field match would
+        bypass it and a draft would surface in search.
+        """
+        cypher, _params = build_text_search_query(
+            Task,
+            "alpha",
+            search_fields=("title", "description"),
+            label="Task",
+            visibility=SearchVisibility.PUBLIC,
+            user_uid=None,
+        )
+        gate = (
+            "(n.publication_state IS NULL OR n.publication_state <> $publication_draft) AND ("
+        )
+        assert gate in cypher
 
     def test_graph_aware_search_scopes_target_alias(self) -> None:
         cypher, params = build_graph_aware_search_query(

@@ -203,9 +203,18 @@ def build_search_visibility_clause(
     *,
     entity_alias: str = "n",
     has_user: bool,
+    apply_publication_gate: bool = True,
 ) -> tuple[str, dict[str, str]] | None:
     """
     Build the WHERE fragment that scopes search results to their audience.
+
+    ``apply_publication_gate`` (default True) additionally withholds
+    draft-marked curriculum. It defaults ON so a NEW discovery surface is
+    gated by construction — the dangerous direction is a listing that leaks
+    unfinished content, not a fetch that is over-strict. The one sanctioned
+    opt-out is a direct by-UID read (see ``_crud_mixin.get_visible_by_uid``):
+    the gate belongs to DISCOVERY, so a draft stays unlisted rather than
+    forbidden and its author can still open it.
 
     THE single ownership/visibility mechanism for every search strategy
     (text, tags, graph traversal, faceted) — one composition point so no
@@ -251,12 +260,17 @@ def build_search_visibility_clause(
     # domains (Activities, UserEntry) are excluded deliberately: they are not
     # curriculum, carry no publication_state, and their owner sees their own
     # work regardless of how finished it is.
-    if visibility in (SearchVisibility.PUBLIC, SearchVisibility.SCOPE_AWARE):
-        published, published_params = build_publication_clause(entity_alias)
-        if visibility is SearchVisibility.PUBLIC:
-            return published, published_params
+    gated = apply_publication_gate and visibility in (
+        SearchVisibility.PUBLIC,
+        SearchVisibility.SCOPE_AWARE,
+    )
+    published, published_params = (
+        build_publication_clause(entity_alias) if gated else ("", {})
+    )
+    if gated and visibility is SearchVisibility.PUBLIC:
+        return published, published_params
 
-    if visibility is None:
+    if visibility is None or visibility is SearchVisibility.PUBLIC:
         return None
 
     _validate_identifier(entity_alias, context="entity alias")
@@ -279,7 +293,11 @@ def build_search_visibility_clause(
         "visibility_curriculum_scope": ExerciseScope.CURRICULUM.value,
         **published_params,
     }
-    curriculum = f"({alias}.scope = $visibility_curriculum_scope AND {published})"
+    curriculum = (
+        f"({alias}.scope = $visibility_curriculum_scope AND {published})"
+        if gated
+        else f"({alias}.scope = $visibility_curriculum_scope)"
+    )
     if not has_user:
         return f"({curriculum})", scope_params
     owns = RelationshipName.OWNS.value
