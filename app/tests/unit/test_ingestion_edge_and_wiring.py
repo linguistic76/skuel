@@ -344,7 +344,6 @@ class TestPathStepUsesKuWiring:
         result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("test.md"))
         assert result["created_at"] == "2026-03-29T00:00:00Z"
 
-
     def test_preparer_canonicalizes_publication_state(self):
         """``publication_state`` is enum-gated at the write door (#1003).
 
