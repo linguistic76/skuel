@@ -367,7 +367,6 @@ class TestPathStepUsesKuWiring:
         assert "publication_state" not in result
 
 
-
 # ============================================================================
 # PS RELATIONSHIP FIELD WIRING
 # ============================================================================

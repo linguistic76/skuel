@@ -264,9 +264,7 @@ def build_search_visibility_clause(
         SearchVisibility.PUBLIC,
         SearchVisibility.SCOPE_AWARE,
     )
-    published, published_params = (
-        build_publication_clause(entity_alias) if gated else ("", {})
-    )
+    published, published_params = build_publication_clause(entity_alias) if gated else ("", {})
     if gated and visibility is SearchVisibility.PUBLIC:
         return published, published_params
 

@@ -63,8 +63,7 @@ class TestVisibilityClause:
             assert scoped is not None
             clause, params = scoped
             assert clause == (
-                "(n.publication_state IS NULL"
-                " OR n.publication_state <> $publication_draft)"
+                "(n.publication_state IS NULL OR n.publication_state <> $publication_draft)"
             )
             assert params == {"publication_draft": "draft"}
             # No ownership predicate leaked into PUBLIC.
@@ -122,9 +121,7 @@ class TestVisibilityClause:
 
     def test_owner_only_domains_get_no_publication_gate(self) -> None:
         """Activities/UserEntry are not curriculum — their owner sees their own work."""
-        clause, _params = build_search_visibility_clause(
-            SearchVisibility.OWNER_ONLY, has_user=True
-        )
+        clause, _params = build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=True)
         assert "publication_state" not in clause
 
     def test_owner_only_property_scope(self) -> None:
@@ -245,9 +242,7 @@ class TestQueryBuilderComposition:
             visibility=SearchVisibility.PUBLIC,
             user_uid=None,
         )
-        gate = (
-            "(n.publication_state IS NULL OR n.publication_state <> $publication_draft) AND ("
-        )
+        gate = "(n.publication_state IS NULL OR n.publication_state <> $publication_draft) AND ("
         assert gate in cypher
 
     def test_graph_aware_search_scopes_target_alias(self) -> None:
