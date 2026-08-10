@@ -15,7 +15,7 @@ asynchronously.
 Extracted from unified_ingestion_service.py for separation of concerns.
 """
 
-from datetime import datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -117,6 +117,43 @@ def canonicalize_enum_values(entity_data: dict[str, Any]) -> None:
             entity_data[field_name] = None
 
 
+def _canonical_created_at(value: object) -> str | None:
+    """Normalize an authored ``created_at`` to one UTC ISO-8601 string.
+
+    Returns ``None`` when the value cannot be canonicalized, leaving the caller
+    to keep the authored value verbatim for ``validate_entity_data`` to reject.
+    Typed ``object`` rather than ``Any``: the input is genuinely heterogeneous
+    (whatever YAML produced) but every branch narrows it with ``isinstance``,
+    so nothing here needs to opt out of type checking.
+
+    ``created_at`` persists as a STRING, so ``ORDER BY created_at`` compares
+    lexicographically — an offset-bearing value would otherwise sort by its
+    written digits rather than its instant. Emits the ``Z`` suffix that the
+    ON CREATE stamp (``toString(datetime())``, itself UTC) uses, so authored
+    and stamped values collate against each other.
+
+    Accepts what the read boundary accepts (``Neo4jGenericMapper._convert_value``
+    → ``datetime.fromisoformat``): a YAML-parsed ``datetime``/``date``, or a
+    string ``fromisoformat`` parses. A naive value is read as UTC rather than
+    guessed at. Anything else yields ``None`` so ``validate_entity_data`` owns
+    the one actionable rejection message.
+    """
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime(value.year, value.month, value.day)
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
 def prepare_entity_data(
     entity_type: EntityType | NonKuDomain,
     data: dict[str, Any],
@@ -158,8 +195,11 @@ def prepare_entity_data(
     # Start with data copy
     entity_data = dict(data)
 
-    # Remove YAML-only metadata fields
-    for field in ("version", "type", "created_at", "updated_at"):
+    # Remove YAML-only metadata fields. ``created_at`` is deliberately NOT here:
+    # an authored creation date is content, not sync bookkeeping, and stripping it
+    # made it unauthorable. ``updated_at`` IS stripped — it always means "when this
+    # sync ran", which the write layer stamps.
+    for field in ("version", "type", "updated_at"):
         entity_data.pop(field, None)
 
     # Inject entity_type property for Entity-labeled nodes.
@@ -284,10 +324,36 @@ def prepare_entity_data(
             if value:
                 entity_data[f"recommends.{key}"] = value
 
-    # Add timestamps
-    now = datetime.now().isoformat()
-    entity_data.setdefault("created_at", now)
-    entity_data["updated_at"] = now
+    # Add timestamps. ``created_at`` is stamped ONLY by the write layer's
+    # ``ON CREATE`` branch — stamping "now" here put it inside ``props``, so the
+    # upsert's ``ON MATCH SET n += props`` overwrote the real creation date on
+    # every re-sync (one ``--force`` run reset the whole corpus). An AUTHORED
+    # created_at survives from frontmatter and deliberately wins.
+    #
+    # Two authored shapes must never reach ``props`` as-is (Codex #1005):
+    #
+    # 1. A BLANK ``created_at:`` — PyYAML yields None, and Neo4j deletes a
+    #    property assigned null, so ``ON MATCH SET n += props`` would REMOVE the
+    #    stored creation date. That is the very loss this change exists to stop,
+    #    so a blank key means "omitted", not "write null".
+    # 2. An OFFSET-BEARING value — these persist as strings, and ``ORDER BY
+    #    created_at`` (5+ live queries) then sorts lexicographically, ranking
+    #    ``2026-03-29T01:00:00+02:00`` after ``2026-03-29T00:30:00Z`` though it
+    #    is the earlier instant. Canonicalize to one UTC representation, using
+    #    the ``Z`` suffix that the ON CREATE stamp (``toString(datetime())``,
+    #    UTC) also emits, so authored and stamped values order together.
+    #
+    # An unparseable value is left verbatim on purpose — ``validate_entity_data``
+    # owns the rejection so the author gets one actionable per-file message.
+    if "created_at" in entity_data:
+        if entity_data["created_at"] is None:
+            del entity_data["created_at"]
+        else:
+            canonical = _canonical_created_at(entity_data["created_at"])
+            if canonical is not None:
+                entity_data["created_at"] = canonical
+
+    entity_data["updated_at"] = datetime.now().isoformat()
 
     return entity_data
 

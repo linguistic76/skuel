@@ -243,6 +243,107 @@ class TestPathStepUsesKuWiring:
         # Non-list value left unchanged
         assert result["uses_kus"] == "not-a-list"
 
+    def test_preparer_never_stamps_created_at(self):
+        """``created_at`` must NOT ride in the props dict.
+
+        The bulk upsert stamps it in ``ON CREATE`` and merges props in
+        ``ON MATCH`` — a "now" stamp here lands inside props and so overwrote
+        the real creation date on every re-sync (one ``--force`` run reset the
+        whole content corpus). ``updated_at`` IS stamped: it means "this sync".
+        """
+        data = {"type": "lesson", "title": "Test Lesson"}
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("test.md"))
+        assert "created_at" not in result
+        assert "updated_at" in result
+
+    def test_blank_created_at_key_is_omitted_not_written_as_null(self):
+        """Codex #1005: a blank ``created_at:`` must not reach props as None.
+
+        PyYAML yields None for a bare key, and Neo4j DELETES a property assigned
+        null — so ``ON MATCH SET n += props`` would remove the stored creation
+        date, which is exactly the loss this change exists to prevent.
+        """
+        data = {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": None}
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("t.md"))
+        assert "created_at" not in result
+
+    def test_authored_created_at_is_canonicalized_to_utc(self):
+        """Codex #1005: offset-bearing values must not sort by their digits.
+
+        ``created_at`` persists as a string, so ``ORDER BY created_at`` is
+        lexicographic — ``+02:00`` would otherwise outrank an earlier ``Z``.
+        """
+        cases = {
+            "2026-03-29T01:00:00+02:00": "2026-03-28T23:00:00Z",  # earlier instant
+            "2026-03-29T00:30:00Z": "2026-03-29T00:30:00Z",
+            "2026-03-29T00:00:00": "2026-03-29T00:00:00Z",  # naive read as UTC
+            "2026-03-29": "2026-03-29T00:00:00Z",
+        }
+        for authored, expected in cases.items():
+            out = prepare_entity_data(
+                EntityType.PATH_STEP,
+                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": authored},
+                "body",
+                Path("t.md"),
+            )
+            assert out["created_at"] == expected, f"{authored!r} → {out['created_at']!r}"
+
+        # ...and the canonical forms now collate by instant, which was the defect.
+        assert "2026-03-28T23:00:00Z" < "2026-03-29T00:30:00Z"
+
+    def test_validator_rejects_unparseable_created_at(self):
+        """Codex #1005: un-stripping ``created_at`` opened a path for garbage.
+
+        The read boundary parses it with ``datetime.fromisoformat`` and RAISES,
+        so an unparseable value makes the ENTITY unloadable — not merely
+        `datetime(n.created_at)` in analytics. Reject at the write door.
+        """
+        from core.services.ingestion.validator import validate_entity_data
+
+        for bad in ("unknown", "2026-13-45", ["a", "b"], 12345):
+            data = prepare_entity_data(
+                EntityType.PATH_STEP,
+                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": bad},
+                "body",
+                Path("t.md"),
+            )
+            result = validate_entity_data(EntityType.PATH_STEP, data, Path("t.md"))
+            assert result.is_error, f"{bad!r} should be rejected"
+            assert "created_at" in str(result.expect_error().display_message).lower()
+
+    def test_validator_accepts_the_shapes_the_reader_accepts(self):
+        """Mirror the read boundary's tolerance exactly — no wider, no narrower."""
+        from datetime import date as _date
+        from datetime import datetime as _datetime
+
+        from core.services.ingestion.validator import validate_entity_data
+
+        for good in (
+            "2026-03-29T00:00:00Z",  # quoted ISO string
+            "2026-03-29T00:00:00+00:00",
+            "2026-03-29",
+            _datetime(2026, 3, 29),  # PyYAML parses bare ISO into these
+            _date(2026, 3, 29),
+        ):
+            data = prepare_entity_data(
+                EntityType.PATH_STEP,
+                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": good},
+                "body",
+                Path("t.md"),
+            )
+            result = validate_entity_data(EntityType.PATH_STEP, data, Path("t.md"))
+            assert not result.is_error, f"{good!r} should be accepted"
+
+    def test_preparer_preserves_authored_created_at(self):
+        """An authored creation date is content — it survives into props and wins."""
+        data = {
+            "type": "lesson",
+            "title": "Test Lesson",
+            "created_at": "2026-03-29T00:00:00Z",
+        }
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("test.md"))
+        assert result["created_at"] == "2026-03-29T00:00:00Z"
+
 
 # ============================================================================
 # PS RELATIONSHIP FIELD WIRING
