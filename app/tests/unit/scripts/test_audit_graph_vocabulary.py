@@ -23,6 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from audit_graph_vocabulary import (  # type: ignore[import-not-found]
     Stray,
     classify_strays,
+    escape_identifier,
+    normalize_entity_type,
 )
 
 from core.models.enums import EntityType
@@ -125,6 +127,48 @@ def test_stray_ordering_is_stable() -> None:
     labels.update({"Zeta": 0, "Alpha": 0})
 
     assert [s.value for s in classify_strays(labels, rels, ets)] == ["Alpha", "Zeta"]
+
+
+def test_non_string_entity_type_is_reported_not_crashed() -> None:
+    """A corrupt value is what this audit exists to catch — it must not kill it.
+
+    ``entity_type`` is a free-form property, so a bad write can leave a list, a
+    number or a boolean. A raw dict key would be unhashable for a list and would
+    break ``sorted()`` on mixed types, so the audit would crash on precisely the
+    input it was built to surface (Codex P2, #1010).
+    """
+    assert normalize_entity_type("ku") == "ku"
+
+    for corrupt in ([1, 2], 42, True, 3.5):
+        rendered = normalize_entity_type(corrupt)
+        assert isinstance(rendered, str)
+        assert rendered.startswith("<non-string ")
+        # It must be unable to collide with a real member, so it lands in strays.
+        assert rendered not in {t.value for t in EntityType}
+
+    labels, rels, ets = _canonical()
+    ets[normalize_entity_type([1, 2])] = 1
+    ets[normalize_entity_type(42)] = 1
+
+    strays = classify_strays(labels, rels, ets)
+    assert len(strays) == 2
+    assert all(s.kind == "entity_type" and s.holds_data for s in strays)
+
+
+def test_identifier_escaping_survives_an_embedded_backtick() -> None:
+    """Live names are arbitrary text; Neo4j allows a backtick via doubling.
+
+    Interpolating the raw name would close the quoted identifier early and break
+    the audit on exactly the odd name it was asked to inspect.
+    """
+    assert escape_identifier("PathStep") == "`PathStep`"
+    assert escape_identifier("We`ird") == "`We``ird`"
+    assert escape_identifier("a`b`c") == "`a``b``c`"
+    # The result is always a single balanced quoted identifier.
+    for name in ("PathStep", "We`ird", "a`b`c", "with space"):
+        escaped = escape_identifier(name)
+        assert escaped.startswith("`") and escaped.endswith("`")
+        assert escaped[1:-1].count("`") % 2 == 0
 
 
 def test_stray_is_frozen() -> None:

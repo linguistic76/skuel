@@ -91,6 +91,30 @@ class Stray:
         return self.count > 0
 
 
+def escape_identifier(name: str) -> str:
+    """Backtick-quote a live label/relationship name for safe interpolation.
+
+    These names come from the database, not from source, so they are arbitrary
+    text — and Neo4j permits an embedded backtick via doubling. Interpolating a
+    raw name would close the quoted identifier early and break the very audit
+    that exists to inspect stray names (Codex P2, #1010).
+    """
+    return "`" + name.replace("`", "``") + "`"
+
+
+def normalize_entity_type(raw: object) -> str:
+    """Render a persisted ``entity_type`` to a comparable string key.
+
+    A string passes through unchanged. Anything else — a number, a boolean, a
+    list left by a bad write — is rendered with a marker that cannot collide
+    with any enum value, so it is classified as drift rather than crashing the
+    scan on an unhashable key.
+    """
+    if isinstance(raw, str):
+        return raw
+    return f"<non-string {type(raw).__name__}: {raw!r}>"
+
+
 def classify_strays(
     live_labels: dict[str, int],
     live_relationships: dict[str, int],
@@ -145,38 +169,53 @@ async def fetch_live_vocabulary(
 
         labels: dict[str, int] = {}
         for name in label_names:
-            # Backticked: a stray name is arbitrary text and must not break the query.
-            rows = await (await session.run(f"MATCH (n:`{name}`) RETURN count(n) AS c")).data()
+            rows = await (
+                await session.run(f"MATCH (n:{escape_identifier(name)}) RETURN count(n) AS c")
+            ).data()
             labels[name] = rows[0]["c"] if rows else 0
 
         relationships: dict[str, int] = {}
         for name in relationship_names:
             rows = await (
-                await session.run(f"MATCH ()-[r:`{name}`]->() RETURN count(r) AS c")
+                await session.run(
+                    f"MATCH ()-[r:{escape_identifier(name)}]->() RETURN count(r) AS c"
+                )
             ).data()
             relationships[name] = rows[0]["c"] if rows else 0
 
-        entity_types: dict[str, int] = {
-            record["entity_type"]: record["c"]
-            for record in await (
-                await session.run(
-                    "MATCH (n:Entity) WHERE n.entity_type IS NOT NULL "
-                    "RETURN n.entity_type AS entity_type, count(n) AS c"
-                )
-            ).data()
-        }
+        # entity_type is a free-form property, so a corrupt node can hold a
+        # number, a boolean or a list. Those are exactly what this audit exists
+        # to surface, so they must be REPORTED — not crash the run on an
+        # unhashable dict key or a mixed-type sorted(). normalize_entity_type
+        # renders any non-string to a form that can never match an enum value,
+        # so it lands in the stray list by construction (Codex P2, #1010).
+        entity_types: dict[str, int] = {}
+        for record in await (
+            await session.run(
+                "MATCH (n:Entity) WHERE n.entity_type IS NOT NULL "
+                "RETURN n.entity_type AS entity_type, count(n) AS c"
+            )
+        ).data():
+            key = normalize_entity_type(record["entity_type"])
+            entity_types[key] = entity_types.get(key, 0) + record["c"]
 
     return labels, relationships, entity_types
 
 
-def report(strays: list[Stray], *, verbose: bool, totals: tuple[int, int, int]) -> int:
+def report(
+    strays: list[Stray],
+    *,
+    verbose: bool,
+    live_labels: dict[str, int],
+    live_relationships: dict[str, int],
+    live_entity_types: dict[str, int],
+) -> int:
     """Print findings; return the process exit code."""
-    label_total, rel_total, et_total = totals
     print("Graph Vocabulary Audit — live graph vs NeoLabel / RelationshipName / EntityType")
     print("=" * 78)
     print(
-        f"scanned: {label_total} labels, {rel_total} relationship types, "
-        f"{et_total} entity_type values"
+        f"scanned: {len(live_labels)} labels, {len(live_relationships)} relationship types, "
+        f"{len(live_entity_types)} entity_type values"
     )
 
     drift = [s for s in strays if s.holds_data]
@@ -199,7 +238,16 @@ def report(strays: list[Stray], *, verbose: bool, totals: tuple[int, int, int]) 
         print("  Neo4j lists a name until the store is compacted. Nothing to do.")
 
     if verbose:
-        print("\n(verbose) every live value is enum-backed unless listed above.")
+        stray_values = {(s.kind, s.value) for s in strays}
+        for kind, live in (
+            ("label", live_labels),
+            ("relationship", live_relationships),
+            ("entity_type", live_entity_types),
+        ):
+            print(f"\n{kind}s ({len(live)}):")
+            for value, count in sorted(live.items()):
+                mark = "stray" if (kind, value) in stray_values else "ok"
+                print(f"    {mark:<6} {value:<34} {count} row(s)")
 
     if not drift:
         print("\n✓ No stray vocabulary holding data.")
@@ -225,7 +273,9 @@ async def main() -> int:
     return report(
         strays,
         verbose=args.verbose,
-        totals=(len(labels), len(relationships), len(entity_types)),
+        live_labels=labels,
+        live_relationships=relationships,
+        live_entity_types=entity_types,
     )
 
 
