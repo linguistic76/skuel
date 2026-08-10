@@ -24,6 +24,27 @@ Neither is visible to a label-keyed scan. Keying instead on "does this function
 call a gate helper" is immune to both, because it reads the Python, not the
 Cypher.
 
+**THE LIMITATION, STATED PLAINLY.** This audit is keyed on the gate CALL, so it
+catches a gate that is removed, renamed or left unclassified — but a brand-new
+query that never calls a helper at all produces no entry, is absent from both
+sides of the comparison, and passes. **Adding an ungated discovery surface is
+therefore still silent here** (Codex P2, #1012). It is a real hole, not an
+oversight, and it is left open deliberately rather than closed badly: the
+obvious independent enumerator is a scan for curriculum vocabulary, and that is
+exactly what fails. ``discover_semantic_bridges`` — one of #1008's two
+omissions — contains no curriculum vocabulary whatsoever; it reads
+``(source:Entity)-[r1]->(shared)`` and ``(target:Entity)``. Because ``:Entity``
+is SKUEL's universal base label, ANY generic query can return curriculum
+without naming it, so a vocabulary-keyed candidate list is blind in precisely
+the case that matters, and the only sound alternative — every read method in
+the persistence layer — is a population of several hundred, most of which
+cannot be classified by inspection.
+
+Closing this needs its own design pass with its own measurement of false
+positives AND false negatives before it gates anything (#831 is what happens
+otherwise). Until then the honest claim is the narrow one: this file keeps the
+CLASSIFIED set honest; it does not discover new surfaces.
+
 Usage:
     uv run python scripts/audit_publication_gate.py           # CI gate
     uv run python scripts/audit_publication_gate.py --verbose # list every surface

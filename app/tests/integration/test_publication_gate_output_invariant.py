@@ -270,7 +270,7 @@ Payload = Any
 ClauseBuilder = Callable[..., tuple[str, dict[str, str]]]
 """The shape of ``build_publication_clause`` — what the control swaps out."""
 
-SurfaceCall = Callable[[], Awaitable[Result[Any]]]
+SurfaceCall = Callable[[], Awaitable[Result[Payload]]]
 """A gated surface bound to its arguments: zero-arg, returns a ``Result``."""
 
 GATE_ATTR = "build_publication_clause"
@@ -405,7 +405,7 @@ def fixture_identities(payload: Payload) -> frozenset[str]:
     return frozenset(found)
 
 
-def _payload(result: Result[Any], label: str) -> Payload:
+def _payload(result: Result[Payload], label: str) -> Payload:
     """Unwrap a ``Result``, refusing to silently walk the wrapper.
 
     Guarded because the wrapper is exactly what makes this harness vacuous: a
@@ -420,8 +420,14 @@ def _payload(result: Result[Any], label: str) -> Payload:
     return payload
 
 
-def build_surfaces(driver: AsyncDriver) -> dict[str, SurfaceCall]:
-    """Every covered surface as a zero-arg callable, keyed by registry qualname."""
+def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
+    """Every covered surface as a zero-arg callable, keyed by its registry key.
+
+    Keyed by the full ``(module, qualname)`` tuple, not the bare method name:
+    two modules can expose the same method name, and a name-keyed map would run
+    one surface twice while leaving the other untested — with the coverage audit
+    still green, because that compares tuples (Codex P2, #1012).
+    """
     ku = KuBackend(driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
     ps = PsBackend(driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
     lp = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
@@ -429,53 +435,84 @@ def build_surfaces(driver: AsyncDriver) -> dict[str, SurfaceCall]:
     hub_params = {"min_confidence": 0.0, "min_connections": 0, "limit": LIMIT}
 
     return {
-        "KuBackend.search_by_alias": partial(ku.search_by_alias, "gate"),
-        "KuBackend.get_learning_path_uids": partial(ku.get_learning_path_uids, KU_VIA_DRAFT_ONLY),
-        "PsBackend.get_standalone_steps": partial(ps.get_standalone_steps, LIMIT),
-        "PsBackend.get_prioritized_steps": partial(ps.get_prioritized_steps, USER, LIMIT),
+        (
+            "adapters.persistence.neo4j.backends.curriculum_backends",
+            "KuBackend.search_by_alias",
+        ): partial(ku.search_by_alias, "gate"),
+        (
+            "adapters.persistence.neo4j.backends.curriculum_backends",
+            "KuBackend.get_learning_path_uids",
+        ): partial(ku.get_learning_path_uids, KU_VIA_DRAFT_ONLY),
+        (
+            "adapters.persistence.neo4j.backends.curriculum_backends",
+            "PsBackend.get_standalone_steps",
+        ): partial(ps.get_standalone_steps, LIMIT),
+        (
+            "adapters.persistence.neo4j.backends.curriculum_backends",
+            "PsBackend.get_prioritized_steps",
+        ): partial(ps.get_prioritized_steps, USER, LIMIT),
         # order_field is caller-prefixed (`s.{order_by}` in PsCoreService.list_steps);
         # a bare name is out of scope after the query's `WITH s, knowledge_uids`.
-        "PsBackend.list_steps_raw": partial(
-            ps.list_steps_raw, None, LIMIT, 0, "s.created_at", "ASC"
-        ),
-        "_KnowledgeContextMixin.find_learning_paths_teaching_ku": partial(
-            ps.find_learning_paths_teaching_ku, KU_VIA_DRAFT_ONLY, LIMIT
-        ),
-        "_KnowledgeContextMixin.find_ready_to_learn": partial(
-            ps.find_ready_to_learn, [], None, LIMIT
-        ),
-        "_KnowledgeContextMixin.find_learning_gaps": partial(
-            ps.find_learning_gaps, [GOAL], [], LIMIT
-        ),
-        "_KnowledgeContextMixin.get_ku_lateral_edges": partial(
-            ps.get_ku_lateral_edges, [KU_SHARED], LIMIT
-        ),
-        "_KnowledgeContextMixin.find_learning_recommendations": partial(
-            ps.find_learning_recommendations, USER, None, LIMIT
-        ),
-        "_SemanticMixin.discover_semantic_bridges": partial(
-            ps.discover_semantic_bridges, KU_SHARED, None, LIMIT
-        ),
-        "_LpProgressMixin.get_paths_aligned_with_goal": partial(
-            lp.get_paths_aligned_with_goal, GOAL, LIMIT
-        ),
-        "_LpProgressMixin.get_paths_by_knowledge": partial(
-            lp.get_paths_by_knowledge, KU_SHARED, LIMIT
-        ),
-        "_LpProgressMixin.get_user_paths_prioritized": partial(
-            lp.get_user_paths_prioritized, USER, LIMIT
-        ),
-        "_LpStepMixin.list_all_paths_with_steps": partial(lp.list_all_paths_with_steps, LIMIT, 0),
-        "_LpIntelligenceMixin.get_optimal_path_recommendations": partial(
-            lp.get_optimal_path_recommendations, USER, None
-        ),
-        "CrossDomainBackend.find_knowledge_hubs": partial(xd.find_knowledge_hubs, "", hub_params),
-        "CrossDomainBackend.find_learning_clusters": partial(
-            xd.find_learning_clusters, "", {"min_density": 0.0, "limit": LIMIT}
-        ),
-        "CrossDomainBackend.find_similar_knowledge": partial(
-            xd.find_similar_knowledge, KU_SHARED, 0.0, LIMIT
-        ),
+        (
+            "adapters.persistence.neo4j.backends.curriculum_backends",
+            "PsBackend.list_steps_raw",
+        ): partial(ps.list_steps_raw, None, LIMIT, 0, "s.created_at", "ASC"),
+        (
+            "adapters.persistence.neo4j._knowledge_context_mixin",
+            "_KnowledgeContextMixin.find_learning_paths_teaching_ku",
+        ): partial(ps.find_learning_paths_teaching_ku, KU_VIA_DRAFT_ONLY, LIMIT),
+        (
+            "adapters.persistence.neo4j._knowledge_context_mixin",
+            "_KnowledgeContextMixin.find_ready_to_learn",
+        ): partial(ps.find_ready_to_learn, [], None, LIMIT),
+        (
+            "adapters.persistence.neo4j._knowledge_context_mixin",
+            "_KnowledgeContextMixin.find_learning_gaps",
+        ): partial(ps.find_learning_gaps, [GOAL], [], LIMIT),
+        (
+            "adapters.persistence.neo4j._knowledge_context_mixin",
+            "_KnowledgeContextMixin.get_ku_lateral_edges",
+        ): partial(ps.get_ku_lateral_edges, [KU_SHARED], LIMIT),
+        (
+            "adapters.persistence.neo4j._knowledge_context_mixin",
+            "_KnowledgeContextMixin.find_learning_recommendations",
+        ): partial(ps.find_learning_recommendations, USER, None, LIMIT),
+        (
+            "adapters.persistence.neo4j._semantic_mixin",
+            "_SemanticMixin.discover_semantic_bridges",
+        ): partial(ps.discover_semantic_bridges, KU_SHARED, None, LIMIT),
+        (
+            "adapters.persistence.neo4j._lp_progress_mixin",
+            "_LpProgressMixin.get_paths_aligned_with_goal",
+        ): partial(lp.get_paths_aligned_with_goal, GOAL, LIMIT),
+        (
+            "adapters.persistence.neo4j._lp_progress_mixin",
+            "_LpProgressMixin.get_paths_by_knowledge",
+        ): partial(lp.get_paths_by_knowledge, KU_SHARED, LIMIT),
+        (
+            "adapters.persistence.neo4j._lp_progress_mixin",
+            "_LpProgressMixin.get_user_paths_prioritized",
+        ): partial(lp.get_user_paths_prioritized, USER, LIMIT),
+        (
+            "adapters.persistence.neo4j._lp_step_mixin",
+            "_LpStepMixin.list_all_paths_with_steps",
+        ): partial(lp.list_all_paths_with_steps, LIMIT, 0),
+        (
+            "adapters.persistence.neo4j._lp_intelligence_mixin",
+            "_LpIntelligenceMixin.get_optimal_path_recommendations",
+        ): partial(lp.get_optimal_path_recommendations, USER, None),
+        (
+            "adapters.persistence.neo4j.cross_domain_backend",
+            "CrossDomainBackend.find_knowledge_hubs",
+        ): partial(xd.find_knowledge_hubs, "", hub_params),
+        (
+            "adapters.persistence.neo4j.cross_domain_backend",
+            "CrossDomainBackend.find_learning_clusters",
+        ): partial(xd.find_learning_clusters, "", {"min_density": 0.0, "limit": LIMIT}),
+        (
+            "adapters.persistence.neo4j.cross_domain_backend",
+            "CrossDomainBackend.find_similar_knowledge",
+        ): partial(xd.find_similar_knowledge, KU_SHARED, 0.0, LIMIT),
     }
 
 
@@ -636,7 +673,7 @@ async def test_no_draft_identity_reaches_the_caller(
 ) -> None:
     """The invariant: a gated surface returns no draft uid, at any depth."""
     qualname = key[1]
-    surface = build_surfaces(gate_graph)[qualname]
+    surface = build_surfaces(gate_graph)[key]
     payload = _payload(await surface(), qualname)
     leaks = find_draft_identities(payload, allowed=USER_STATE_EXEMPT.get(key, frozenset()))
     assert not leaks, (
@@ -667,7 +704,7 @@ async def test_gate_is_measured_not_merely_present(
     and quietly dropped exactly the case Codex raised as P1 on #1008.
     """
     qualname = key[1]
-    surface = build_surfaces(gate_graph)[qualname]
+    surface = build_surfaces(gate_graph)[key]
     gated = fixture_identities(_payload(await surface(), qualname))
     with neutralised_gates():
         ungated = fixture_identities(_payload(await surface(), f"{qualname} (neutralised)"))
