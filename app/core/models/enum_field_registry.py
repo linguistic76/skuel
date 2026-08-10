@@ -34,7 +34,7 @@ from enum import Enum
 from core.models.enums import Domain, KuComplexity, LearningLevel, MasteryImpact, SELCategory
 from core.models.enums.activity_enums import Confidence, EngagementState
 from core.models.enums.choice_enums import ChoiceType
-from core.models.enums.curriculum_enums import LpType, StepDifficulty
+from core.models.enums.curriculum_enums import LpType, PublicationState, StepDifficulty
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.event_enums import EventType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
@@ -65,6 +65,7 @@ ENUM_FIELD_TYPES: dict[str, type[Enum]] = {
     "sel_category": SELCategory,
     "step_difficulty": StepDifficulty,
     "path_type": LpType,
+    "publication_state": PublicationState,
     # Exercise fields
     "scope": ExerciseScope,
     "expected_modality": SubmissionModality,

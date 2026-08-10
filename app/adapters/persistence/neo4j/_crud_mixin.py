@@ -319,6 +319,15 @@ class _CrudMixin[T: DomainModelProtocol]:
         as ``get()``. Pass the domain's own ``search_visibility``, never a
         literal chosen at the call site.
 
+        The publication gate is deliberately NOT applied here
+        (``apply_publication_gate=False``): it belongs to DISCOVERY — search
+        and listings — so draft curriculum is *unlisted*, not forbidden. A
+        by-UID read is how an author opens their own draft to check it, and
+        curriculum is ownerless (SHARED), so this read cannot tell an author
+        from a learner to gate one and not the other. Gating here would also
+        split the two by-UID paths: plain ``get()`` returns a draft, and this
+        would not.
+
         Args:
             uid: Entity UID to read.
             user_uid: The requesting user, referenced by the predicate.
@@ -331,7 +340,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
 
         visibility_scope = build_search_visibility_clause(
-            visibility, entity_alias="n", has_user=True
+            visibility, entity_alias="n", has_user=True, apply_publication_gate=False
         )
         extra_where, scope_params = visibility_scope or ("", {})
         params: Neo4jProperties = {"user_uid": user_uid, **scope_params}

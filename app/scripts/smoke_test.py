@@ -378,6 +378,9 @@ def _render_knowledge_health_fixture() -> "FT":
         "exercise_count": 15,
         "path_steps_with_exercise": 10,
         "practice_coverage": 0.7143,
+        # Required by KnowledgeHealthReport — the admin gauge renders it, so a
+        # fixture missing it is a KeyError at render, not a silent zero.
+        "draft_curriculum_count": 3,
         "gds_readiness_score": 0.3278,
         "gds_ready": False,
         "flags": [

@@ -380,8 +380,15 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             cypher_parts.append(f"MATCH (entity:{self.label})")
 
         # 2. WHERE clause for property filters
+        #
+        # SCOPE_AWARE scopes via WHERE (see the MATCH note above). PUBLIC needs
+        # this branch too: it has no ownership predicate — hence the plain MATCH
+        # — but it still carries the publication gate, and this is the FACETED
+        # path behind /api/explore/search for Ku/PathStep/LearningPath. Skipping
+        # it here listed draft curriculum in the primary catalogue while search
+        # and the listing withheld it (Codex #1006).
         where_clauses = ["1=1"]
-        if scope_aware:
+        if scope_aware or visibility is SearchVisibility.PUBLIC:
             visibility_scope = build_search_visibility_clause(
                 visibility, entity_alias="entity", has_user=True
             )

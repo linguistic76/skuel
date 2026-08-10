@@ -50,9 +50,148 @@ from core.utils.result_simplified import Result
 
 
 class TestVisibilityClause:
-    def test_public_has_no_clause(self) -> None:
-        assert build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=True) is None
-        assert build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=False) is None
+    def test_public_applies_only_the_publication_gate(self) -> None:
+        """PUBLIC carries no OWNERSHIP clause, but drafts still do not face an audience.
+
+        Was ``is None`` before ``publication_state`` existed. The ownership
+        semantics are unchanged — what is asserted here is that the ONLY
+        predicate PUBLIC contributes is the publication gate, and that it stays
+        NULL-tolerant so the pre-``publication_state`` corpus keeps reading.
+        """
+        for has_user in (True, False):
+            scoped = build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=has_user)
+            assert scoped is not None
+            clause, params = scoped
+            assert clause == (
+                "(n.publication_state IS NULL OR n.publication_state <> $publication_draft)"
+            )
+            assert params == {"publication_draft": "draft"}
+            # No ownership predicate leaked into PUBLIC.
+            assert "user_uid" not in clause
+            assert "OWNS" not in clause
+
+    def test_publication_clause_is_null_tolerant(self) -> None:
+        """The gate withholds ONLY what is explicitly marked draft.
+
+        Load-bearing: ingestion never writes absent frontmatter keys, so every
+        node authored before ``publication_state`` existed has no such property.
+        A bare ``= 'published'`` test would hide the entire existing corpus.
+        """
+        from adapters.persistence.neo4j.query.cypher import build_publication_clause
+
+        clause, params = build_publication_clause()
+        assert "IS NULL" in clause, "must not hide the pre-publication_state corpus"
+        assert "<> $publication_draft" in clause
+        assert params == {"publication_draft": "draft"}
+        # Never a string literal in the Cypher (SKUEL021 / CYP003).
+        assert "'draft'" not in clause
+
+    def test_publication_clause_validates_alias(self) -> None:
+        from adapters.persistence.neo4j.query.cypher import build_publication_clause
+
+        clause, _ = build_publication_clause("target")
+        assert clause.startswith("(target.publication_state")
+        with pytest.raises(ValueError):
+            build_publication_clause("n) MATCH (m")
+
+    def test_publication_gate_can_be_opted_out_for_by_uid_reads(self) -> None:
+        """The gate is DISCOVERY-only — a by-UID read opts out (unlisted, not forbidden).
+
+        PUBLIC falls back to "no predicate at all", restoring the documented
+        ``as open as get()`` contract that ``get_visible_by_uid`` relies on;
+        SCOPE_AWARE keeps its ownership scoping with no publication term.
+        """
+        assert (
+            build_search_visibility_clause(
+                SearchVisibility.PUBLIC, has_user=True, apply_publication_gate=False
+            )
+            is None
+        )
+        clause, params = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE, has_user=False, apply_publication_gate=False
+        )
+        assert clause == "((n.scope = $visibility_curriculum_scope))"
+        assert "publication_state" not in clause
+        assert "publication_draft" not in params
+
+    def test_faceted_search_composes_the_gate_for_public(self) -> None:
+        """Codex #1006 P1: the FACETED path must gate PUBLIC too.
+
+        ``faceted_search_raw`` composed the visibility clause only when
+        ``scope_aware`` — true for Exercise, false for Ku/PathStep/LearningPath.
+        PUBLIC domains therefore got a plain MATCH and no WHERE, so the primary
+        /api/explore/search catalogue listed draft curriculum while search and
+        the listing withheld it. Reproduced before the fix: 25 rows including
+        the draft; after: 15, draft withheld.
+
+        Asserted on the source because the composition point is a private mixin
+        branch — the guard must name PUBLIC, not just SCOPE_AWARE.
+        """
+        import inspect
+
+        from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
+
+        src = inspect.getsource(_SearchRawMixin.faceted_search_raw)
+        assert "scope_aware or visibility is SearchVisibility.PUBLIC" in src, (
+            "faceted_search_raw must compose the visibility clause for PUBLIC, "
+            "not only SCOPE_AWARE — else draft curriculum leaks into the catalogue"
+        )
+
+    def test_publication_state_survives_the_dto_round_trip(self) -> None:
+        """Codex #1006 P2: listing a name in ``enum_fields`` does not declare a field.
+
+        ``dto_from_dict`` filters input against ``dataclasses.fields(cls)``, so an
+        undeclared name is parsed and then DISCARDED — the DTO read path would
+        lose an entity's draft state while the model path preserved it.
+        """
+        import dataclasses
+
+        from core.models.enums import PublicationState
+        from core.models.exercises.exercise_dto import ExerciseDTO
+        from core.models.ku.ku_dto import KuDTO
+        from core.models.pathways.learning_path_dto import LearningPathDTO
+        from core.models.pathways.path_step_dto import PathStepDTO
+
+        # Declaration is necessary but NOT the contract — each leaf overrides
+        # from_dict with its OWN enum_fields slice, so a base-class field can be
+        # declared while the leaf still drops it. Exercise the real round trip
+        # per class: a missing slice entry leaves a plain ``str`` in an
+        # enum-typed field, and enum behaviour like ``.is_public()`` then raises
+        # AttributeError (Codex #1006 round 2 — the earlier version of this test
+        # checked only ``dataclasses.fields()`` and passed while both leaves
+        # were broken).
+        # Ku is NOT a Curriculum subclass, but it IS publication-controlled: the
+        # PUBLIC gate applies to it and the health gauge counts it in
+        # draft_curriculum_count. It therefore belongs in this round trip —
+        # omitting it is how the field stayed undeclared on Ku while every
+        # Cypher surface already filtered on it (Codex #1006 round 3).
+        cases: list[tuple[Any, str]] = [
+            (PathStepDTO, "path_step"),
+            (LearningPathDTO, "learning_path"),
+            (ExerciseDTO, "exercise"),
+            (KuDTO, "ku"),
+        ]
+        for dto_cls, entity_type in cases:
+            assert "publication_state" in {f.name for f in dataclasses.fields(dto_cls)}, (
+                f"{dto_cls.__name__} must DECLARE publication_state, not just list it"
+            )
+            base = {"uid": f"x.{entity_type}", "title": "T", "entity_type": entity_type}
+            drafted = dto_cls.from_dict({**base, "publication_state": "draft"}).publication_state
+            assert drafted is PublicationState.DRAFT, f"{dto_cls.__name__}: got {drafted!r}"
+            # Real enum behaviour, not just equality — a str would raise here.
+            assert drafted.is_public() is False
+            # Unauthored stays published — the NULL-tolerant default.
+            assert dto_cls.from_dict(base).publication_state is PublicationState.PUBLISHED
+
+    def test_publication_gate_defaults_on(self) -> None:
+        """Default ON: a new discovery surface is gated by construction."""
+        scoped = build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=False)
+        assert scoped is not None and "publication_state" in scoped[0]
+
+    def test_owner_only_domains_get_no_publication_gate(self) -> None:
+        """Activities/UserEntry are not curriculum — their owner sees their own work."""
+        clause, _params = build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=True)
+        assert "publication_state" not in clause
 
     def test_owner_only_property_scope(self) -> None:
         clause, params = build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=True)
@@ -71,7 +210,16 @@ class TestVisibilityClause:
         assert clause.startswith("(") and clause.endswith(")")
         # Scope value rides as a parameter, never a string literal (SKUEL021).
         assert "n.scope = $visibility_curriculum_scope" in clause
-        assert params == {"visibility_curriculum_scope": "curriculum"}
+        assert params == {
+            "visibility_curriculum_scope": "curriculum",
+            "publication_draft": "draft",
+        }
+        # The publication gate binds to the CURRICULUM half only — an owner must
+        # still see their own unfinished work.
+        assert (
+            "(n.scope = $visibility_curriculum_scope AND (n.publication_state IS NULL"
+            " OR n.publication_state <> $publication_draft))" in clause
+        )
         assert "-[:OWNS]->" in clause
         assert "-[:SHARES_WITH]->" in clause
         assert "-[:MEMBER_OF]->" in clause
@@ -82,12 +230,19 @@ class TestVisibilityClause:
         # hide that entity from its own owner.
         assert "n.owner_uid = $user_uid" in clause
 
-    def test_scope_aware_without_user_is_curriculum_only(self) -> None:
+    def test_scope_aware_without_user_is_published_curriculum_only(self) -> None:
         clause, params = build_search_visibility_clause(
             SearchVisibility.SCOPE_AWARE, has_user=False
         )
-        assert clause == "(n.scope = $visibility_curriculum_scope)"
-        assert params == {"visibility_curriculum_scope": "curriculum"}
+        assert clause == (
+            "((n.scope = $visibility_curriculum_scope"
+            " AND (n.publication_state IS NULL"
+            " OR n.publication_state <> $publication_draft)))"
+        )
+        assert params == {
+            "visibility_curriculum_scope": "curriculum",
+            "publication_draft": "draft",
+        }
 
     def test_none_with_user_defaults_to_owner_only(self) -> None:
         # Scoping-by-default: a caller passing a user gets a scoped query
@@ -125,7 +280,8 @@ class TestQueryBuilderComposition:
         assert "(n.user_uid = $user_uid) AND (" in cypher
         assert params["user_uid"] == "user_a"
 
-    def test_text_search_public_is_unscoped(self) -> None:
+    def test_text_search_public_is_unscoped_by_owner(self) -> None:
+        """PUBLIC composes no OWNERSHIP scope — the publication gate is separate."""
         cypher, params = build_text_search_query(
             Task,
             "alpha",
@@ -136,6 +292,27 @@ class TestQueryBuilderComposition:
         )
         assert "user_uid" not in cypher
         assert "user_uid" not in params
+        # ...but drafts are still withheld, and the predicate is NULL-tolerant.
+        assert "publication_state IS NULL" in cypher
+        assert params["publication_draft"] == "draft"
+
+    def test_public_gate_binds_before_the_or_chain(self) -> None:
+        """The #512 OR-precedence lesson, applied to the publication gate.
+
+        A multi-field text search is an OR-chain. If the gate were ANDed
+        without parenthesizing that chain, any non-first field match would
+        bypass it and a draft would surface in search.
+        """
+        cypher, _params = build_text_search_query(
+            Task,
+            "alpha",
+            search_fields=("title", "description"),
+            label="Task",
+            visibility=SearchVisibility.PUBLIC,
+            user_uid=None,
+        )
+        gate = "(n.publication_state IS NULL OR n.publication_state <> $publication_draft) AND ("
+        assert gate in cypher
 
     def test_graph_aware_search_scopes_target_alias(self) -> None:
         cypher, params = build_graph_aware_search_query(
@@ -172,9 +349,12 @@ class TestQueryBuilderComposition:
             visibility=SearchVisibility.SCOPE_AWARE,
             user_uid=None,
         )
-        assert "(n.scope = $visibility_curriculum_scope) AND (" in cypher
+        assert "n.scope = $visibility_curriculum_scope" in cypher
         assert params["visibility_curriculum_scope"] == "curriculum"
         assert "user_uid" not in params
+        # Anonymous callers see published curriculum only.
+        assert "publication_state" in cypher
+        assert params["publication_draft"] == "draft"
 
 
 # ============================================================================

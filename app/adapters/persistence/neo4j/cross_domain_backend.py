@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query import build_domain_context_with_paths
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
@@ -563,9 +564,15 @@ class CrossDomainBackend:
     async def find_similar_knowledge(
         self, uid: str, min_similarity: float, limit: int
     ) -> Result[list[dict[str, Any]]]:
-        """Find similar knowledge units via Jaccard similarity on shared neighbors."""
+        """Find similar knowledge units via Jaccard similarity on shared neighbors.
+
+        A DISCOVERY surface — it surfaces knowledge the caller never referenced —
+        so draft curriculum is withheld here as it is in search, the catalogues
+        and vector similarity. Composes the shared predicate (NULL-tolerant).
+        """
+        published, published_params = build_publication_clause("ku2")
         return await self.executor.execute_query(
-            """
+            f"""
             // Find shared neighbors (any relationship direction)
             MATCH (ku1:Entity {uid: $uid})-[]-(shared)-[]-(ku2:Entity)
             WHERE ku1 <> ku2
@@ -584,7 +591,9 @@ class CrossDomainBackend:
             WITH ku2, shared_count, ku1_degree, ku2_degree,
                  toFloat(shared_count) / (ku1_degree + ku2_degree - shared_count) as similarity
 
-            WHERE similarity >= $min_similarity
+            // Discovery surface — surfaces knowledge the caller never referenced,
+            // so draft curriculum must not appear. NULL-tolerant (Codex #1006).
+            WHERE similarity >= $min_similarity AND {published}
 
             RETURN ku2.uid as uid,
                    ku2.title as title,
@@ -595,7 +604,12 @@ class CrossDomainBackend:
             ORDER BY similarity DESC
             LIMIT $limit
             """,
-            {"uid": uid, "min_similarity": min_similarity, "limit": limit},
+            {
+                "uid": uid,
+                "min_similarity": min_similarity,
+                "limit": limit,
+                **published_params,
+            },
         )
 
     async def analyze_prerequisite_depth(self, uid: str) -> Result[list[dict[str, Any]]]:
