@@ -183,16 +183,26 @@ async def fetch_live_vocabulary(
             ).data()
             relationships[name] = rows[0]["c"] if rows else 0
 
-        # entity_type is a free-form property, so a corrupt node can hold a
-        # number, a boolean or a list. Those are exactly what this audit exists
-        # to surface, so they must be REPORTED — not crash the run on an
-        # unhashable dict key or a mixed-type sorted(). normalize_entity_type
-        # renders any non-string to a form that can never match an enum value,
-        # so it lands in the stray list by construction (Codex P2, #1010).
+        # Scanned by PROPERTY, not by the :Entity label (Codex P2, #1010).
+        # `MATCH (n:Entity)` would miss a node that carries entity_type without
+        # the shared base label — and that is the realistic corruption here,
+        # because the backfill migrations key on DOMAIN labels
+        # (`MATCH (n:Task) ... SET n.entity_type`), never on :Entity. A node the
+        # label audit happily accepts as :Task could hold a discriminator
+        # outside EntityType and the run would still exit clean. Property-first
+        # is strictly more complete and costs one full scan, which an audit can
+        # afford.
+        #
+        # entity_type is free-form, so a corrupt node can hold a number, a
+        # boolean or a list. Those are exactly what this audit exists to
+        # surface, so they must be REPORTED — not crash the run on an unhashable
+        # dict key or a mixed-type sorted(). normalize_entity_type renders any
+        # non-string to a form that can never match an enum value, so it lands
+        # in the stray list by construction.
         entity_types: dict[str, int] = {}
         for record in await (
             await session.run(
-                "MATCH (n:Entity) WHERE n.entity_type IS NOT NULL "
+                "MATCH (n) WHERE n.entity_type IS NOT NULL "
                 "RETURN n.entity_type AS entity_type, count(n) AS c"
             )
         ).data():

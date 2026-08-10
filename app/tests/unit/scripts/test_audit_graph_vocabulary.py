@@ -155,6 +155,28 @@ def test_non_string_entity_type_is_reported_not_crashed() -> None:
     assert all(s.kind == "entity_type" and s.holds_data for s in strays)
 
 
+def test_entity_type_scan_is_property_first_not_entity_label_first() -> None:
+    """The discriminator must be scanned by PROPERTY, not via the :Entity label.
+
+    The backfill migrations key on DOMAIN labels (``MATCH (n:Task) ... SET
+    n.entity_type``), never on :Entity — so the realistic corruption is a node
+    the label audit accepts as :Task while carrying a discriminator outside
+    EntityType and no base label. Scoping the scan to ``(n:Entity)`` would let
+    that exit clean (Codex P2, #1010).
+
+    Pinned on the query text because the blind spot IS the pattern.
+    """
+    import inspect
+
+    import audit_graph_vocabulary  # type: ignore[import-not-found]
+
+    source = inspect.getsource(audit_graph_vocabulary.fetch_live_vocabulary)
+    assert "MATCH (n) WHERE n.entity_type IS NOT NULL" in source
+    assert "MATCH (n:Entity) WHERE n.entity_type" not in source, (
+        "scoping the entity_type scan to :Entity reintroduces the blind spot"
+    )
+
+
 def test_identifier_escaping_survives_an_embedded_backtick() -> None:
     """Live names are arbitrary text; Neo4j allows a backtick via doubling.
 
