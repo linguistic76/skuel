@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
-from core.models.enums import KuComplexity, LearningLevel, SELCategory
+from core.models.enums import KuComplexity, LearningLevel, PublicationState, SELCategory
 from core.models.enums.activity_enums import Confidence
 
 
@@ -38,9 +38,10 @@ class CurriculumDTO(EntityDTO):
 
     Extends EntityDTO (NOT UserOwnedDTO) with ~22 curriculum-specific fields:
     - Confidence (1): admin-assessed content certainty
-    - Learning metadata (10): complexity, learning_level, sel_category, quality_score,
-      estimated_time_minutes, difficulty_rating, semantic_links, target_age_range,
-      learning_objectives, structured_learning_objectives
+    - Learning metadata (11): complexity, learning_level, sel_category,
+      publication_state, quality_score, estimated_time_minutes, difficulty_rating,
+      semantic_links, target_age_range, learning_objectives,
+      structured_learning_objectives
     - Substance tracking (10): 5 counters + 5 last-dates
     """
 
@@ -55,6 +56,11 @@ class CurriculumDTO(EntityDTO):
     complexity: KuComplexity = KuComplexity.MEDIUM
     learning_level: LearningLevel = LearningLevel.BEGINNER
     sel_category: SELCategory | None = None
+    # Declared, not merely listed in enum_fields: dto_from_dict filters input
+    # against dataclasses.fields(cls), so an undeclared name is parsed and then
+    # DISCARDED — the DTO read path would silently lose an entity's draft state
+    # while the model path preserved it (Codex #1006).
+    publication_state: PublicationState = PublicationState.PUBLISHED
     quality_score: float = 0.0
     estimated_time_minutes: int = 15
     difficulty_rating: float = 0.5

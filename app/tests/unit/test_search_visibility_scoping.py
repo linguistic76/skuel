@@ -114,6 +114,56 @@ class TestVisibilityClause:
         assert "publication_state" not in clause
         assert "publication_draft" not in params
 
+    def test_faceted_search_composes_the_gate_for_public(self) -> None:
+        """Codex #1006 P1: the FACETED path must gate PUBLIC too.
+
+        ``faceted_search_raw`` composed the visibility clause only when
+        ``scope_aware`` — true for Exercise, false for Ku/PathStep/LearningPath.
+        PUBLIC domains therefore got a plain MATCH and no WHERE, so the primary
+        /api/explore/search catalogue listed draft curriculum while search and
+        the listing withheld it. Reproduced before the fix: 25 rows including
+        the draft; after: 15, draft withheld.
+
+        Asserted on the source because the composition point is a private mixin
+        branch — the guard must name PUBLIC, not just SCOPE_AWARE.
+        """
+        import inspect
+
+        from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
+
+        src = inspect.getsource(_SearchRawMixin.faceted_search_raw)
+        assert "scope_aware or visibility is SearchVisibility.PUBLIC" in src, (
+            "faceted_search_raw must compose the visibility clause for PUBLIC, "
+            "not only SCOPE_AWARE — else draft curriculum leaks into the catalogue"
+        )
+
+    def test_publication_state_survives_the_dto_round_trip(self) -> None:
+        """Codex #1006 P2: listing a name in ``enum_fields`` does not declare a field.
+
+        ``dto_from_dict`` filters input against ``dataclasses.fields(cls)``, so an
+        undeclared name is parsed and then DISCARDED — the DTO read path would
+        lose an entity's draft state while the model path preserved it.
+        """
+        import dataclasses
+
+        from core.models.enums import PublicationState
+        from core.models.exercises.exercise_dto import ExerciseDTO
+        from core.models.pathways.learning_path_dto import LearningPathDTO
+        from core.models.pathways.path_step_dto import PathStepDTO
+
+        for cls in (PathStepDTO, LearningPathDTO, ExerciseDTO):
+            assert "publication_state" in {f.name for f in dataclasses.fields(cls)}, (
+                f"{cls.__name__} must DECLARE publication_state, not just list it"
+            )
+
+        base = {"uid": "ps.x.y", "title": "T", "entity_type": "path_step"}
+        assert (
+            PathStepDTO.from_dict({**base, "publication_state": "draft"}).publication_state
+            is PublicationState.DRAFT
+        )
+        # Unauthored stays published — the NULL-tolerant default.
+        assert PathStepDTO.from_dict(base).publication_state is PublicationState.PUBLISHED
+
     def test_publication_gate_defaults_on(self) -> None:
         """Default ON: a new discovery surface is gated by construction."""
         scoped = build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=False)
