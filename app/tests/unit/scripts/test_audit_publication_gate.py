@@ -49,10 +49,26 @@ def test_finds_a_method_level_composition(tmp_path: Path) -> None:
 def test_finds_a_module_level_composition(tmp_path: Path) -> None:
     """The zpd_backend shape — the blind spot that motivated this test."""
     found = _scan(tmp_path, "_CLAUSE, _PARAMS = build_publication_clause('cand')\n")
-    assert MODULE_SCOPE in found, (
+    assert f"{MODULE_SCOPE}:_CLAUSE" in found, (
         "a gate composed outside any function must still be attributed — this "
         "is how the ZPD zone query is built"
     )
+
+
+def test_two_module_level_compositions_get_distinct_keys(tmp_path: Path) -> None:
+    """Collapsing them would let a NEW one ride in on an existing registration.
+
+    curriculum_backends already holds one module-level composition, so a second
+    added there would merge into the same key and pass the completeness audit
+    without its own disposition or output coverage (Codex P2, #1012).
+    """
+    found = _scan(
+        tmp_path,
+        "FIRST = build_publication_clause('a')[0]\nSECOND = build_publication_clause('b')[0]\n",
+    )
+    assert f"{MODULE_SCOPE}:FIRST" in found
+    assert f"{MODULE_SCOPE}:SECOND" in found
+    assert MODULE_SCOPE not in found, "the bare prefix must never be used as a key"
 
 
 def test_finds_a_class_body_composition(tmp_path: Path) -> None:
@@ -61,7 +77,7 @@ def test_finds_a_class_body_composition(tmp_path: Path) -> None:
         tmp_path,
         "class Backend:\n    CLAUSE = build_publication_clause('n')[0]\n",
     )
-    assert MODULE_SCOPE in found
+    assert f"{MODULE_SCOPE}:Backend.CLAUSE" in found
 
 
 def test_attributes_a_nested_def_to_itself(tmp_path: Path) -> None:

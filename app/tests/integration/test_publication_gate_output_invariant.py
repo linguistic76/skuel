@@ -531,7 +531,7 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
         "returns facet vocabulary (nous/subtopic strings), not entity "
         "identities — there is no uid for an identity-based invariant to detect"
     ),
-    ("adapters.persistence.neo4j.zpd_backend", "<module>"): (
+    ("adapters.persistence.neo4j.zpd_backend", "<module>:_ZONE_PUBLICATION_CLAUSE"): (
         "the ZPD zone query is built at import time and issued through "
         "ZPDBackend's own driver path; covered structurally by "
         "tests/unit/adapters/test_publication_gate_discovery_surfaces.py"

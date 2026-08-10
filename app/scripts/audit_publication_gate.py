@@ -135,7 +135,14 @@ def _called_helper(node: ast.Call) -> str | None:
 
 
 MODULE_SCOPE = "<module>"
-"""Qualname for a gate composed outside any function.
+"""Qualname PREFIX for a gate composed outside any function.
+
+Always suffixed with the assignment it binds (``<module>:_ZONE_QUERY_PARAMS``),
+never used bare. A file can hold more than one module-level composition —
+``curriculum_backends`` already has one — and collapsing them under a single
+``<module>`` key would merge a NEW ungated-then-gated surface into an
+already-registered entry, so it would pass the completeness audit without ever
+receiving its own disposition or output coverage (Codex P2, #1012).
 
 Not a curiosity: ``zpd_backend`` builds ``_ZONE_QUERY`` at import time by
 substituting a sentinel, so its gate is composed by a module-level assignment.
@@ -144,6 +151,25 @@ that file as having no surfaces at all — the instrument was blind to the pures
 discovery surface in the tree, which is the exact failure mode #1008's census
 had twice over.
 """
+
+
+def _assignment_name(node: ast.AST) -> str | None:
+    """The name an assignment binds, for identifying a module-level composition."""
+    targets: list[ast.expr] = []
+    if isinstance(node, ast.Assign):
+        targets = list(node.targets)
+    elif isinstance(node, ast.AnnAssign):
+        targets = [node.target]
+    else:
+        return None
+    for target in targets:
+        if isinstance(target, ast.Name):
+            return target.id
+        if isinstance(target, ast.Tuple):
+            names = [e.id for e in target.elts if isinstance(e, ast.Name)]
+            if names:
+                return names[0]
+    return None
 
 
 def scan_file(path: Path) -> list[Found]:
@@ -178,9 +204,13 @@ def scan_file(path: Path) -> list[Found]:
                 inner = (*stack, child.name)
                 visit(child, inner, ".".join(inner))
             else:
+                scope = owner
+                if owner.startswith(MODULE_SCOPE) and (name := _assignment_name(child)):
+                    # Outside any function, the assignment IS the surface's identity.
+                    scope = f"{MODULE_SCOPE}:{'.'.join((*stack, name))}"
                 if isinstance(child, ast.Call) and (helper := _called_helper(child)):
-                    record(owner, child.lineno, helper)
-                visit(child, stack, owner)
+                    record(scope, child.lineno, helper)
+                visit(child, stack, scope)
 
     visit(tree, (), MODULE_SCOPE)
     return [

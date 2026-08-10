@@ -225,7 +225,7 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
-        "<module>",
+        "<module>:_KNOWLEDGE_HEALTH_PARAMS",
         Disposition.REPORTS_DRAFTS,
         "The knowledge-health gauge takes build_publication_clause's PARAMS "
         "only (_KNOWLEDGE_HEALTH_PARAMS), so the draft vocabulary keeps one "
@@ -296,7 +296,7 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.zpd_backend",
-        "<module>",
+        "<module>:_ZONE_PUBLICATION_CLAUSE",
         Disposition.GATED,
         "The ZPD proximal zone — a recommendation, and the purest discovery "
         "surface there is. Composed at MODULE level (_ZONE_QUERY substitutes a "
