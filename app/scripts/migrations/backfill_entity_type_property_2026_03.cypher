@@ -8,6 +8,22 @@
 //
 // Safe to run multiple times (idempotent — only sets WHERE n.entity_type IS NULL).
 // Run after deploying the preparer.py fix that injects entity_type during ingestion.
+//
+// ⚠ 2026-08-10 (#1009): the :PathStep line wrote `learning_step`, which is NOT
+// an EntityType member. Because this file is idempotent and still in the tree it
+// was a latent RESPAWNER — a future run would stamp a discriminator that every
+// entity_type-scoped query silently misses (Neo4j matches zero rows on an
+// unknown value rather than erroring). Corrected to `path_step`. This fixes the
+// WRITER, not the data: no live node carries it (all 25 :PathStep nodes already
+// read `path_step`).
+//
+// STILL STALE, deliberately left for a separate change — this is pre-ADR-054
+// residue and does not belong in a security PR. FIVE more values here are not
+// EntityType members (`lesson`, `exercise_submission`, `exercise_report`,
+// `je_input`, `je_output`) and five labels are not NeoLabel members (:Lesson,
+// :ExerciseSubmission, :ExerciseReport, :JeInput, :JeOutput — ADR-054 replaced
+// submissions/ and journal/ with UserEntry/EntryReport). All have zero live
+// nodes. Retiring this file wholesale is the likely right answer.
 
 // Activity domains (6)
 MATCH (n:Task) WHERE n.entity_type IS NULL SET n.entity_type = "task";
@@ -20,7 +36,7 @@ MATCH (n:Principle) WHERE n.entity_type IS NULL SET n.entity_type = "principle";
 // Curriculum domains (5)
 MATCH (n:Lesson) WHERE n.entity_type IS NULL SET n.entity_type = "lesson";
 MATCH (n:Ku) WHERE n.entity_type IS NULL SET n.entity_type = "ku";
-MATCH (n:PathStep) WHERE n.entity_type IS NULL SET n.entity_type = "learning_step";
+MATCH (n:PathStep) WHERE n.entity_type IS NULL SET n.entity_type = "path_step";
 MATCH (n:LearningPath) WHERE n.entity_type IS NULL SET n.entity_type = "learning_path";
 MATCH (n:Exercise) WHERE n.entity_type IS NULL SET n.entity_type = "exercise";
 

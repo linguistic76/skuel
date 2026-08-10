@@ -220,8 +220,17 @@ class _SemanticMixin:
         ``query_foundational_knowledge`` — filtering only the read would leave
         a "foundational knowledge" score stamped on Tasks and UserEntries, so
         the pair has to move together.
+
+        Draft knowledge IS scored (``apply_publication_gate=False``). Publication
+        governs what a reader may SEE, which is not a question a cached degree
+        count should ask — and nothing recomputes scores on publish, so skipping
+        drafts here would leave freshly-published content with a missing or
+        stale score until someone recomputed by hand (Codex P2, #1009). The
+        reader stays gated; withholding happens there.
         """
-        knowledge, knowledge_params = build_knowledge_read_clause("ku")
+        knowledge, knowledge_params = build_knowledge_read_clause(
+            "ku", apply_publication_gate=False
+        )
         query = f"""
         MATCH (ku:Entity)-[r]-(neighbor)
         WHERE {knowledge}

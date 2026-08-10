@@ -110,7 +110,8 @@ KNOWLEDGE_READS: list[tuple[str, Any, str, tuple[Any, ...], str]] = [
         (None, 3, 5),
         "ku",
     ),
-    ("compute_hub_scores", _semantic, "compute_hub_scores", (), "ku"),
+    # compute_hub_scores is deliberately absent: it is a WRITER and composes the
+    # ungated variant. Covered by the two dedicated tests below.
     (
         "find_knowledge_hubs",
         _cross_domain,
@@ -161,6 +162,37 @@ async def test_ready_to_learn_scopes_prerequisites_too() -> None:
     )
 
 
+def test_hub_score_writer_scores_drafts_but_the_reader_hides_them() -> None:
+    """The writer must NOT inherit the reader's publication gate.
+
+    Nothing recomputes hub scores on publish, so a writer that skipped drafts
+    would leave freshly-published knowledge with a missing or stale score.
+    Publication answers "may this be shown" — a cached degree count is not a
+    showing (Codex P2, #1009). Withholding belongs to the reader.
+    """
+    gated, gated_params = build_knowledge_read_clause("ku")
+    ungated, ungated_params = build_knowledge_read_clause("ku", apply_publication_gate=False)
+
+    assert "publication_state" in gated
+    assert "publication_state" not in ungated, "a maintenance writer must score draft knowledge too"
+    # The type scope is identical either way — only the gate differs.
+    assert "ku.entity_type IN $knowledge_entity_types" in ungated
+    assert gated_params["knowledge_entity_types"] == ungated_params["knowledge_entity_types"]
+    assert "publication_draft" not in ungated_params, (
+        "an unused param must not be threaded — Neo4j rejects nothing, but the "
+        "clause and its params have to stay in step"
+    )
+
+    import inspect
+
+    from adapters.persistence.neo4j import _semantic_mixin
+
+    writer = inspect.getsource(_semantic_mixin._SemanticMixin.compute_hub_scores)
+    assert "apply_publication_gate=False" in writer, (
+        "compute_hub_scores is a writer — it must opt out of the publication gate"
+    )
+
+
 def test_hub_score_writer_and_reader_share_the_scope() -> None:
     """Filtering the read alone would leave the score stamped on Tasks.
 
@@ -182,14 +214,15 @@ def test_hub_score_writer_and_reader_share_the_scope() -> None:
 def test_knowledge_scope_is_sourced_from_the_enum() -> None:
     """One definition of "knowledge" — EntityType.is_knowledge(), not a literal list."""
     _, params = build_knowledge_read_clause("n")
-    assert params["knowledge_entity_types"] == sorted(
-        t.value for t in EntityType if t.is_knowledge()
-    )
+    # Neo4jValue is a union; narrow before membership tests.
+    scoped_types = params["knowledge_entity_types"]
+    assert isinstance(scoped_types, list)
+    assert scoped_types == sorted(t.value for t in EntityType if t.is_knowledge())
     # PathStep belongs here alongside Ku (ADR-046); Task plainly does not.
-    assert EntityType.KU.value in params["knowledge_entity_types"]
-    assert EntityType.PATH_STEP.value in params["knowledge_entity_types"]
-    assert EntityType.TASK.value not in params["knowledge_entity_types"]
-    assert EntityType.USER_ENTRY.value not in params["knowledge_entity_types"]
+    assert EntityType.KU.value in scoped_types
+    assert EntityType.PATH_STEP.value in scoped_types
+    assert EntityType.TASK.value not in scoped_types
+    assert EntityType.USER_ENTRY.value not in scoped_types
 
 
 def test_knowledge_scope_carries_the_publication_gate() -> None:

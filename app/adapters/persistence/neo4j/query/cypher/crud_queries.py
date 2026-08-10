@@ -198,7 +198,9 @@ def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, st
     )
 
 
-def build_knowledge_read_clause(entity_alias: str = "n") -> tuple[str, Neo4jProperties]:
+def build_knowledge_read_clause(
+    entity_alias: str = "n", *, apply_publication_gate: bool = True
+) -> tuple[str, Neo4jProperties]:
     """Build the WHERE fragment that scopes a read to visible curriculum knowledge.
 
     THE single composition point for "this query is about knowledge" — every
@@ -224,6 +226,16 @@ def build_knowledge_read_clause(entity_alias: str = "n") -> tuple[str, Neo4jProp
     Excluding non-knowledge types is what actually closes the disclosure; the
     audience clause is the guard that keeps the next query honest.
 
+    ``apply_publication_gate`` defaults True so a READ is gated by construction.
+    Set it False for a WRITER that maintains a cached structural property
+    (``compute_hub_scores``): the publication gate answers "should this be
+    SHOWN", which is not a question a degree count should be asking. A writer
+    that skipped drafts would leave them with no cached score, and nothing
+    recomputes on publish — the value would still be missing or stale the moment
+    the content became visible (Codex P2, #1009). Same spelling as
+    ``build_search_visibility_clause``'s flag, and the same rule: the dangerous
+    direction is a listing that leaks, not a maintenance pass that is thorough.
+
     Returns:
         ``(fragment, params)`` — a parenthesized WHERE fragment plus the
         parameters it introduces. Merge the params in verbatim.
@@ -234,8 +246,12 @@ def build_knowledge_read_clause(entity_alias: str = "n") -> tuple[str, Neo4jProp
     }
     predicates = [f"{entity_alias}.entity_type IN $knowledge_entity_types"]
 
-    visibility = build_search_visibility_clause(
-        SearchVisibility.PUBLIC, entity_alias=entity_alias, has_user=False
+    visibility = (
+        build_search_visibility_clause(
+            SearchVisibility.PUBLIC, entity_alias=entity_alias, has_user=False
+        )
+        if apply_publication_gate
+        else None
     )
     if visibility is not None:
         fragment, visibility_params = visibility
