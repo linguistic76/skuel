@@ -117,8 +117,14 @@ def canonicalize_enum_values(entity_data: dict[str, Any]) -> None:
             entity_data[field_name] = None
 
 
-def _canonical_created_at(value: Any) -> Any:
+def _canonical_created_at(value: object) -> str | None:
     """Normalize an authored ``created_at`` to one UTC ISO-8601 string.
+
+    Returns ``None`` when the value cannot be canonicalized, leaving the caller
+    to keep the authored value verbatim for ``validate_entity_data`` to reject.
+    Typed ``object`` rather than ``Any``: the input is genuinely heterogeneous
+    (whatever YAML produced) but every branch narrows it with ``isinstance``,
+    so nothing here needs to opt out of type checking.
 
     ``created_at`` persists as a STRING, so ``ORDER BY created_at`` compares
     lexicographically — an offset-bearing value would otherwise sort by its
@@ -129,8 +135,8 @@ def _canonical_created_at(value: Any) -> Any:
     Accepts what the read boundary accepts (``Neo4jGenericMapper._convert_value``
     → ``datetime.fromisoformat``): a YAML-parsed ``datetime``/``date``, or a
     string ``fromisoformat`` parses. A naive value is read as UTC rather than
-    guessed at. Anything unparseable is returned VERBATIM so
-    ``validate_entity_data`` owns the one actionable rejection message.
+    guessed at. Anything else yields ``None`` so ``validate_entity_data`` owns
+    the one actionable rejection message.
     """
     if isinstance(value, datetime):
         parsed = value
@@ -140,9 +146,9 @@ def _canonical_created_at(value: Any) -> Any:
         try:
             parsed = datetime.fromisoformat(value)
         except ValueError:
-            return value
+            return None
     else:
-        return value
+        return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
@@ -343,7 +349,9 @@ def prepare_entity_data(
         if entity_data["created_at"] is None:
             del entity_data["created_at"]
         else:
-            entity_data["created_at"] = _canonical_created_at(entity_data["created_at"])
+            canonical = _canonical_created_at(entity_data["created_at"])
+            if canonical is not None:
+                entity_data["created_at"] = canonical
 
     entity_data["updated_at"] = datetime.now().isoformat()
 
