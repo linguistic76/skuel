@@ -236,7 +236,7 @@ def test_stray_is_frozen() -> None:
         stray.count = 0  # type: ignore[misc]
 
 
-def test_zero_row_stray_held_by_an_index_is_actionable() -> None:
+def test_zero_row_stray_held_by_an_index_is_actionable(capsys: pytest.CaptureFixture[str]) -> None:
     """A zero-row stray is usually CLEANABLE, not inert — #1010 said otherwise.
 
     #1010 shipped "Neo4j lists a name until the store is compacted. Nothing to
@@ -249,17 +249,24 @@ def test_zero_row_stray_held_by_an_index_is_actionable() -> None:
     """
     from audit_graph_vocabulary import report  # type: ignore[import-not-found]
 
-    strays = [Stray("label", "Lesson", 0)]
     code = report(
-        strays,
+        [Stray("label", "Lesson", 0)],
         verbose=False,
         live_labels={"Lesson": 0},
         live_relationships={},
         live_entity_types={},
-        schema_holders={"Lesson": ["lesson_uid_idx"]},
+        schema_holders={
+            ("label", "Lesson"): [SchemaHolder("lesson_uid_idx", "INDEX", ("Lesson",))]
+        },
     )
     # Schema hygiene, not data corruption: nothing is unreachable, so exit stays 0.
     assert code == 0
+    # ...which is exactly why the exit code CANNOT be the assertion: both the
+    # held and unheld paths return 0, so only the OUTPUT distinguishes them
+    # (Codex P2, #1011 — the original version of this test was vacuous).
+    out = capsys.readouterr().out
+    assert "held alive by a stale INDEX/CONSTRAINT" in out
+    assert "DROP INDEX `lesson_uid_idx` IF EXISTS;" in out
 
 
 def test_report_accepts_absent_schema_holders() -> None:
@@ -286,7 +293,11 @@ def test_a_stray_holding_data_still_fails_regardless_of_holders() -> None:
         live_labels={},
         live_relationships={"SUPPORTS_HABIT": 1},
         live_entity_types={},
-        schema_holders={"SUPPORTS_HABIT": ["some_idx"]},
+        schema_holders={
+            ("relationship", "SUPPORTS_HABIT"): [
+                SchemaHolder("some_idx", "INDEX", ("SUPPORTS_HABIT",))
+            ]
+        },
     )
     assert code == 1
 
@@ -310,7 +321,9 @@ def test_holder_reports_the_correct_drop_command_per_kind() -> None:
     )
 
 
-def test_holders_are_keyed_by_token_namespace_not_name_alone() -> None:
+def test_holders_are_keyed_by_token_namespace_not_name_alone(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """A label and a relationship type may share a spelling.
 
     A RELATIONSHIP index on `Legacy` does not hold a `:Legacy` LABEL alive, so
@@ -320,11 +333,11 @@ def test_holders_are_keyed_by_token_namespace_not_name_alone() -> None:
     """
     from audit_graph_vocabulary import report  # type: ignore[import-not-found]
 
-    holders = {("relationship", "Legacy"): [SchemaHolder("legacy_rel_idx", "INDEX")]}
+    holders = {("relationship", "Legacy"): [SchemaHolder("legacy_rel_idx", "INDEX", ("Legacy",))]}
 
     # The stray is a LABEL of the same name — it must NOT be attributed to the
     # relationship index, so it falls into the unheld (true residue) bucket.
-    code = report(
+    report(
         [Stray("label", "Legacy", 0)],
         verbose=False,
         live_labels={"Legacy": 0},
@@ -332,9 +345,14 @@ def test_holders_are_keyed_by_token_namespace_not_name_alone() -> None:
         live_entity_types={},
         schema_holders=holders,
     )
-    assert code == 0
+    label_out = capsys.readouterr().out
+    assert "legacy_rel_idx" not in label_out, (
+        "a RELATIONSHIP index must never be offered as the fix for a LABEL"
+    )
+    assert "no schema object" in label_out
+
     # ...and the matching relationship stray IS attributed to it.
-    code = report(
+    report(
         [Stray("relationship", "Legacy", 0)],
         verbose=False,
         live_labels={},
@@ -342,7 +360,7 @@ def test_holders_are_keyed_by_token_namespace_not_name_alone() -> None:
         live_entity_types={},
         schema_holders=holders,
     )
-    assert code == 0
+    assert "DROP INDEX `legacy_rel_idx` IF EXISTS;" in capsys.readouterr().out
 
 
 def test_constraint_backed_index_is_not_reported_separately() -> None:
