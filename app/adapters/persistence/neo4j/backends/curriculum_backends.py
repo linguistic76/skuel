@@ -157,13 +157,18 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
 
     async def search_by_alias(self, alias: str) -> Result[list[Neo4jProperties]]:
         """Search Kus by alias (case-insensitive substring)."""
-        query = """
+        # Discovery: a SEARCH over the whole Ku corpus — the same class as the
+        # five text/graph/array strategies #1006 gated via
+        # build_search_visibility_clause. NULL-tolerant.
+        published, published_params = build_publication_clause("ku")
+        query = f"""
         MATCH (ku:Entity:Ku)
         WHERE any(a IN ku.aliases WHERE toLower(a) CONTAINS toLower($alias))
+          AND {published}
         RETURN ku
         ORDER BY ku.title ASC
         """
-        return await self.execute_query(query, {"alias": alias})
+        return await self.execute_query(query, {"alias": alias, **published_params})
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
         """Distinct co-occurring (nous, nous_subtopic) pairs on this Ku's own label.
@@ -281,15 +286,21 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         through its PathSteps, or directly via its ``required_knowledge``
         prerequisites.
         """
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
+        # Discovery: a KU in hand surfaces the PATHS that reach it — curriculum
+        # the caller never referenced. Gated by construction even though this
+        # method currently has no caller: an ungated discovery query is a trap
+        # for whoever wires it up. NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("lp")
+        query = f"""
+        MATCH (ku:Entity {{uid: $ku_uid}})
         MATCH (lp:LearningPath)
-        WHERE (lp)-[:REQUIRES_KNOWLEDGE]->(ku)
-           OR (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+        WHERE ((lp)-[:REQUIRES_KNOWLEDGE]->(ku)
+           OR (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku))
+          AND {published}
         RETURN lp.uid as uid
         LIMIT 50
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid})
+        return await self.execute_query(query, {"ku_uid": ku_uid, **published_params})
 
     async def get_applying_task_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get tasks applying this knowledge."""
@@ -787,14 +798,20 @@ class PsBackend(
         Returns:
             Result containing PathStep models
         """
-        query = """
-        MATCH (ps:Entity {entity_type: 'path_step'})
-        WHERE NOT (ps)<-[:HAS_STEP]-(:Entity {entity_type: 'learning_path'})
+        published, published_params = build_publication_clause("ps")
+        # Discovery: an unanchored enumeration of every orphan step — a browse
+        # surface, so draft-marked steps are withheld. NULL-tolerant (#1006).
+        query = f"""
+        MATCH (ps:Entity {{entity_type: 'path_step'}})
+        WHERE NOT (ps)<-[:HAS_STEP]-(:Entity {{entity_type: 'learning_path'}})
+          AND {published}
         RETURN ps
         ORDER BY ps.updated_at DESC
         LIMIT $limit
         """
-        return self._records_to_steps(await self.execute_query(query, {"limit": limit}))
+        return self._records_to_steps(
+            await self.execute_query(query, {"limit": limit, **published_params})
+        )
 
     async def get_prioritized_steps(
         self, user_uid: UserUID, limit: int = 20
@@ -811,9 +828,14 @@ class PsBackend(
         Returns:
             Result containing PathStep models
         """
-        query = """
-        MATCH (ps:Entity {entity_type: 'path_step'})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[progress:IN_PROGRESS]->(ps)
+        # Discovery: an unanchored enumeration of every step, merely *ordered*
+        # by the user's progress — IN_PROGRESS is a sort key, not a filter, so
+        # this browses the whole catalogue. Draft steps withheld (#1006).
+        published, published_params = build_publication_clause("ps")
+        query = f"""
+        MATCH (ps:Entity {{entity_type: 'path_step'}})
+        WHERE {published}
+        OPTIONAL MATCH (u:User {{uid: $user_uid}})-[progress:IN_PROGRESS]->(ps)
         RETURN ps, progress
         ORDER BY
             CASE
@@ -836,7 +858,9 @@ class PsBackend(
         LIMIT $limit
         """
         return self._records_to_steps(
-            await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+            await self.execute_query(
+                query, {"user_uid": user_uid, "limit": limit, **published_params}
+            )
         )
 
 

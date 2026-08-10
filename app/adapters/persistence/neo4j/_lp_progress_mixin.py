@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -153,14 +154,21 @@ class _LpProgressMixin:
         Returns:
             Result containing LearningPath models
         """
-        query = """
-        MATCH (lp:Entity {entity_type: 'learning_path'})-[:ALIGNED_WITH_GOAL]->(g:Goal {uid: $goal_uid})
+        # Discovery: the caller holds a GOAL, not these paths — this surfaces
+        # curriculum it never referenced, so draft-marked paths are withheld
+        # (same line as find_similar_knowledge). NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("lp")
+        query = f"""
+        MATCH (lp:Entity {{entity_type: 'learning_path'}})-[:ALIGNED_WITH_GOAL]->(g:Goal {{uid: $goal_uid}})
+        WHERE {published}
         RETURN lp
         ORDER BY lp.updated_at DESC
         LIMIT $limit
         """
         return self._records_to_paths(
-            await self.execute_query(query, {"goal_uid": goal_uid, "limit": limit})
+            await self.execute_query(
+                query, {"goal_uid": goal_uid, "limit": limit, **published_params}
+            )
         )
 
     async def get_paths_by_knowledge(
@@ -180,14 +188,19 @@ class _LpProgressMixin:
         Returns:
             Result containing LearningPath models
         """
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-(ps:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
+        # Discovery: anchored on a KU, this returns PATHS the caller never
+        # referenced (the docstring calls it search) — draft paths withheld.
+        # NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("lp")
+        query = f"""
+        MATCH (ku:Entity {{uid: $ku_uid}})<-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-(ps:Entity {{entity_type: 'path_step'}})<-[:HAS_STEP]-(lp:Entity {{entity_type: 'learning_path'}})
+        WHERE {published}
         RETURN DISTINCT lp
         ORDER BY lp.created_at DESC
         LIMIT $limit
         """
         return self._records_to_paths(
-            await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
+            await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit, **published_params})
         )
 
     async def get_user_paths_prioritized(
@@ -202,10 +215,15 @@ class _LpProgressMixin:
         Returns:
             Result containing LearningPath models
         """
-        query = """
-        MATCH (lp:Entity {entity_type: 'learning_path'})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[enrolled:ENROLLED_IN]->(lp)
-        OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(g:Goal)<-[:OWNS]-(u2:User {uid: $user_uid})
+        # Discovery: an UNANCHORED enumeration of every path, merely *ordered*
+        # by the user's enrolment — enrolment is a sort key here, not a filter,
+        # so this browses the whole catalogue. Draft paths withheld (#1006).
+        published, published_params = build_publication_clause("lp")
+        query = f"""
+        MATCH (lp:Entity {{entity_type: 'learning_path'}})
+        WHERE {published}
+        OPTIONAL MATCH (u:User {{uid: $user_uid}})-[enrolled:ENROLLED_IN]->(lp)
+        OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(g:Goal)<-[:OWNS]-(u2:User {{uid: $user_uid}})
         WITH lp, enrolled, count(g) as goal_alignment
         RETURN lp
         ORDER BY
@@ -225,7 +243,9 @@ class _LpProgressMixin:
         LIMIT $limit
         """
         return self._records_to_paths(
-            await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+            await self.execute_query(
+                query, {"user_uid": user_uid, "limit": limit, **published_params}
+            )
         )
 
     async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.type_hints import EntityUID
 from core.ports.base_protocols import HierarchyContextRaw
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
@@ -174,16 +175,21 @@ class _OrganizesMixin:
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
         """List entities that organize others but are not themselves organized (root organizers)."""
-        query = """
+        # Discovery: the MOC browse entry point — an unanchored listing of every
+        # root organizer, which on this graph is largely Kus and PathSteps.
+        # Draft curriculum withheld; NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("root")
+        query = f"""
         MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
         WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))
+          AND {published}
         WITH DISTINCT root
         OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Entity)
         RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
         ORDER BY root.title
         LIMIT $limit
         """
-        result = await self.execute_query(query, {"limit": limit})
+        result = await self.execute_query(query, {"limit": limit, **published_params})
         if result.is_error:
             return Result.fail(result)
         roots: list[RootOrganizerResult] = [

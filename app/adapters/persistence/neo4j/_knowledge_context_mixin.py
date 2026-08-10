@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY, _validate_rel_name
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
@@ -213,25 +214,40 @@ class _KnowledgeContextMixin:
         self, ku_uid: str, limit: int = 10
     ) -> Result[list[Neo4jProperties]]:
         """Find path steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)
+        # Discovery (PsApplicationDiscoveryService): the caller holds a KU and
+        # gets back STEPS it never referenced — draft steps withheld, NULL-tolerant.
+        published, published_params = build_publication_clause("ps")
+        query = f"""
+        MATCH (ku:Entity {{uid: $ku_uid}})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)
+        WHERE {published}
         RETURN ps.uid as step_uid
         ORDER BY ps.sequence_number ASC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
+        return await self.execute_query(
+            query, {"ku_uid": ku_uid, "limit": limit, **published_params}
+        )
 
     async def find_learning_paths_teaching_ku(
         self, ku_uid: str, limit: int = 10
     ) -> Result[list[Neo4jProperties]]:
         """Find learning paths that teach a KU via PathStep chain."""
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)<-[:HAS_STEP]-(lp:LearningPath)
-        RETURN DISTINCT lp.uid as path_uid
+        # Discovery: a KU in hand surfaces PATHS (and the STEPS bridging to
+        # them) the caller never referenced. Both hops are gated — a published
+        # path reached only through a draft step is still an unfinished route.
+        published_ps, ps_params = build_publication_clause("ps")
+        published_lp, lp_params = build_publication_clause("lp")
+        query = f"""
+        MATCH (ku:Entity {{uid: $ku_uid}})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)<-[:HAS_STEP]-(lp:LearningPath)
+        WHERE {published_ps} AND {published_lp}
+        WITH DISTINCT lp
+        RETURN lp.uid as path_uid
         ORDER BY lp.created_at DESC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
+        return await self.execute_query(
+            query, {"ku_uid": ku_uid, "limit": limit, **ps_params, **lp_params}
+        )
 
     # ========================================================================
     # LEARNING READINESS
@@ -241,10 +257,16 @@ class _KnowledgeContextMixin:
         self, mastered_uids: list[str], domain: str | None, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Find KUs the user is ready to learn (prerequisites >= 70% met)."""
-        query = """
+        # Discovery — THE "what can I learn next" surface: an unanchored
+        # enumeration of everything NOT yet mastered. Draft curriculum withheld.
+        # The predicate is NULL-tolerant, so the non-curriculum entities this
+        # MATCH also sweeps up (it is unfiltered by entity_type) are unaffected.
+        published, published_params = build_publication_clause("ku")
+        query = f"""
         MATCH (ku:Entity)
         WHERE NOT ku.uid IN $mastered_uids
           AND ($domain IS NULL OR ku.domain = $domain)
+          AND {published}
 
         // Count prerequisites and how many user has mastered
         OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
@@ -281,17 +303,28 @@ class _KnowledgeContextMixin:
         LIMIT $limit
         """
         return await self.execute_query(
-            query, {"mastered_uids": mastered_uids, "domain": domain, "limit": limit}
+            query,
+            {
+                "mastered_uids": mastered_uids,
+                "domain": domain,
+                "limit": limit,
+                **published_params,
+            },
         )
 
     async def find_learning_gaps(
         self, goal_uids: list[str], mastered_uids: list[str], limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Find KUs required by goals but not mastered."""
-        query = """
+        # Discovery: the caller holds GOALS, and gets back the knowledge those
+        # goals require — curriculum it never referenced. Same line as
+        # get_paths_aligned_with_goal. NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("ku")
+        query = f"""
         MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
         WHERE goal.uid IN $goal_uids
           AND NOT ku.uid IN $mastered_uids
+          AND {published}
 
         // Count how many goals need this knowledge
         WITH ku, count(DISTINCT goal) as goals_blocked,
@@ -322,7 +355,13 @@ class _KnowledgeContextMixin:
         LIMIT $limit
         """
         return await self.execute_query(
-            query, {"goal_uids": goal_uids, "mastered_uids": mastered_uids, "limit": limit}
+            query,
+            {
+                "goal_uids": goal_uids,
+                "mastered_uids": mastered_uids,
+                "limit": limit,
+                **published_params,
+            },
         )
 
     async def find_reinforcement_candidates(
@@ -406,15 +445,20 @@ class _KnowledgeContextMixin:
         self, user_uid: UserUID, domain: str | None, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Find KUs user is ready to learn based on mastery and prerequisites."""
-        query = """
+        # Discovery — the KU recommendation surface (sibling of
+        # find_ready_to_learn, user-scoped mastery instead of a passed list).
+        # Draft curriculum withheld; NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("candidate")
+        query = f"""
         // Get user's mastered knowledge
-        MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
+        MATCH (u:User {{uid: $user_uid}})-[:MASTERED]->(mastered:Entity)
         WITH u, collect(mastered.uid) as mastered_uids
 
         // Find knowledge units not yet mastered
         MATCH (candidate:Entity)
         WHERE NOT candidate.uid IN mastered_uids
           AND ($domain IS NULL OR candidate.domain = $domain)
+          AND {published}
 
         // Count prerequisites and how many are satisfied
         OPTIONAL MATCH (candidate)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
@@ -451,7 +495,8 @@ class _KnowledgeContextMixin:
         LIMIT $limit
         """
         return await self.execute_query(
-            query, {"user_uid": user_uid, "domain": domain, "limit": limit}
+            query,
+            {"user_uid": user_uid, "domain": domain, "limit": limit, **published_params},
         )
 
     # ========================================================================
@@ -536,15 +581,25 @@ class _KnowledgeContextMixin:
             Records with source_uid, source_title, target_uid, target_title,
             relationship_type, evidence.
         """
+        # Either endpoint may be the anchor, so the gate applies to the FAR end
+        # only: "held by the caller, or published". Gating both ends would hide
+        # a draft KU's own edges from the author who asked for them — the same
+        # by-UID carve-out get_visible_by_uid makes. NULL-tolerant (#1006).
+        published_a, a_params = build_publication_clause("a")
+        published_b, b_params = build_publication_clause("b")
         query = f"""
         MATCH (a:Entity {{entity_type: 'ku'}})
               -[r:{_KU_LATERAL_REL_TYPES}]->
               (b:Entity {{entity_type: 'ku'}})
-        WHERE a.uid IN $ku_uids OR b.uid IN $ku_uids
+        WHERE (a.uid IN $ku_uids OR b.uid IN $ku_uids)
+          AND (a.uid IN $ku_uids OR {published_a})
+          AND (b.uid IN $ku_uids OR {published_b})
         RETURN a.uid AS source_uid, a.title AS source_title,
                b.uid AS target_uid, b.title AS target_title,
                type(r) AS relationship_type, r.evidence AS evidence
         ORDER BY relationship_type, source_uid, target_uid
         LIMIT $limit
         """
-        return await self.execute_query(query, {"ku_uids": ku_uids, "limit": limit})
+        return await self.execute_query(
+            query, {"ku_uids": ku_uids, "limit": limit, **a_params, **b_params}
+        )

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.type_hints import UserUID
 from core.ports.query_types import LpKnowledgeScopeSummary
@@ -301,6 +302,11 @@ class _LpIntelligenceMixin:
     ) -> Result[list[dict[str, Any]]]:
         """Find optimal learning path recommendations for a user."""
         domain_filter = "AND path.domain = $domain" if goal_domain else ""
+        # Discovery — a RECOMMENDATION is the purest form of it: this enumerates
+        # every path the user has not completed and ranks them. Draft paths
+        # withheld; NULL-tolerant so the pre-publication_state corpus still
+        # recommends (#1006).
+        published, published_params = build_publication_clause("path")
 
         query = f"""
         MATCH (u:User {{uid: $user_uid}})
@@ -314,6 +320,7 @@ class _LpIntelligenceMixin:
         // never had a writer.
         MATCH (path:Entity {{entity_type: 'learning_path'}})
         WHERE NOT (u)-[:ENROLLED_IN {{status: 'completed'}}]->(path) {domain_filter}
+          AND {published}
 
         // Calculate path readiness over the path's knowledge units
         // (graph edges from each step, not a node property)
@@ -356,7 +363,7 @@ class _LpIntelligenceMixin:
             }})
         }} as recommendations
         """
-        params: dict[str, Any] = {"user_uid": user_uid}
+        params: dict[str, Any] = {"user_uid": user_uid, **published_params}
         if goal_domain:
             params["domain"] = goal_domain
         return await self.execute_query(query, params)
@@ -437,9 +444,13 @@ class _LpIntelligenceMixin:
         self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
     ) -> Result[list[dict[str, Any]]]:
         """Get recommended path steps for a user based on their progress."""
-        query = """
+        # Discovery: forward enablement from mastered knowledge to steps the
+        # user has NOT started — a recommendation, so draft steps are withheld.
+        # Same ruling as the ZPD proximal zone. NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("next")
+        query = f"""
         // Find knowledge units user has mastered
-        MATCH (:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
+        MATCH (:User {{uid: $user_uid}})-[:MASTERED]->(mastered:Entity)
 
         // Find next steps enabled by mastered knowledge
         MATCH (mastered)-[r:ENABLES_KNOWLEDGE]->(next:Entity)
@@ -448,11 +459,12 @@ class _LpIntelligenceMixin:
         // states: MASTERED is the terminal state of VIEWED → IN_PROGRESS →
         // MASTERED and its writers DELETE the IN_PROGRESS edge, so the two are
         // mutually exclusive — neither arm alone covers "already engaged".
-        WHERE NOT exists((:User {uid: $user_uid})-[:IN_PROGRESS|MASTERED]->(next))
+        WHERE NOT exists((:User {{uid: $user_uid}})-[:IN_PROGRESS|MASTERED]->(next))
+          AND {published}
 
         // Check prerequisite readiness
         OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
-        OPTIONAL MATCH (:User {uid: $user_uid})-[prereq_mastery:MASTERED]->(prereq)
+        OPTIONAL MATCH (:User {{uid: $user_uid}})-[prereq_mastery:MASTERED]->(prereq)
 
         WITH next, r,
              count(prereq) as total_prereqs,
@@ -486,5 +498,10 @@ class _LpIntelligenceMixin:
         """
         return await self.execute_query(
             query,
-            {"user_uid": user_uid, "max_difficulty": max_difficulty, "limit": limit},
+            {
+                "user_uid": user_uid,
+                "max_difficulty": max_difficulty,
+                "limit": limit,
+                **published_params,
+            },
         )
