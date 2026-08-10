@@ -233,3 +233,58 @@ def test_stray_is_frozen() -> None:
     stray = Stray("relationship", "SUPPORTS_HABIT", 1)
     with pytest.raises(FrozenInstanceError):
         stray.count = 0  # type: ignore[misc]
+
+
+def test_zero_row_stray_held_by_an_index_is_actionable() -> None:
+    """A zero-row stray is usually CLEANABLE, not inert — #1010 said otherwise.
+
+    #1010 shipped "Neo4j lists a name until the store is compacted. Nothing to
+    do." Both halves were false: an index or constraint keeps a label in
+    db.labels() at ZERO rows, and dropping it removes the label immediately
+    (measured: dropping exercise_report_uid_idx erased :ExerciseReport, and
+    retiring five such indexes took the graph from 41 labels to 37).
+
+    There is no DROP LABEL, so naming the holding index IS the fix instruction.
+    """
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    strays = [Stray("label", "Lesson", 0)]
+    code = report(
+        strays,
+        verbose=False,
+        live_labels={"Lesson": 0},
+        live_relationships={},
+        live_entity_types={},
+        schema_holders={"Lesson": ["lesson_uid_idx"]},
+    )
+    # Schema hygiene, not data corruption: nothing is unreachable, so exit stays 0.
+    assert code == 0
+
+
+def test_report_accepts_absent_schema_holders() -> None:
+    """The holder map is optional — a stray with no schema object is true residue."""
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    code = report(
+        [Stray("label", "Ghost", 0)],
+        verbose=False,
+        live_labels={"Ghost": 0},
+        live_relationships={},
+        live_entity_types={},
+    )
+    assert code == 0
+
+
+def test_a_stray_holding_data_still_fails_regardless_of_holders() -> None:
+    """The exit code means "is the data reachable" — holders must not soften it."""
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    code = report(
+        [Stray("relationship", "SUPPORTS_HABIT", 1)],
+        verbose=False,
+        live_labels={},
+        live_relationships={"SUPPORTS_HABIT": 1},
+        live_entity_types={},
+        schema_holders={"SUPPORTS_HABIT": ["some_idx"]},
+    )
+    assert code == 1

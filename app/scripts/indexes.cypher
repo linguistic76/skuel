@@ -23,7 +23,10 @@ CREATE INDEX principle_uid_idx IF NOT EXISTS FOR (n:Principle) ON (n.uid);
 CREATE INDEX ku_uid_idx IF NOT EXISTS FOR (n:Ku) ON (n.uid);
 CREATE INDEX exercise_uid_idx IF NOT EXISTS FOR (n:Exercise) ON (n.uid);
 CREATE INDEX learning_path_uid_idx IF NOT EXISTS FOR (n:LearningPath) ON (n.uid);
-CREATE INDEX learning_step_uid_idx IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
+// PathStep.uid is indexed as `path_step_uid_idx` by Neo4jSchemaManager at startup.
+// A `learning_step_uid_idx ... FOR (n:PathStep)` line used to sit here and was a
+// silent NO-OP: `IF NOT EXISTS` matches by NAME, and that name belonged to the
+// stale :LearningStep index below — so it never created anything (#1011).
 CREATE INDEX life_path_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.uid);
 CREATE INDEX resource_uid_idx IF NOT EXISTS FOR (n:Resource) ON (n.uid);
 CREATE INDEX user_entry_uid_idx IF NOT EXISTS FOR (n:UserEntry) ON (n.uid);
@@ -72,6 +75,14 @@ CREATE INDEX entity_user_type_idx IF NOT EXISTS FOR (n:Entity) ON (n.user_uid, n
 DROP INDEX ai_report_uid_idx IF EXISTS;
 DROP INDEX lpstep_embedding_idx IF EXISTS;
 DROP INDEX lesson_uid_idx IF EXISTS;
+// Held dead labels alive in db.labels() at ZERO nodes — an index keeps a label in
+// the registry, and there is no DROP LABEL. Dropping these erased :Lesson,
+// :LearningStep, :Expense and :ExerciseReport (41 labels -> 37). Found by
+// scripts/audit_graph_vocabulary.py (#1011).
+DROP INDEX learning_step_uid_idx IF EXISTS;
+DROP INDEX expense_expense_date_idx IF EXISTS;
+DROP INDEX exercise_report_uid_idx IF EXISTS;
+DROP INDEX exercise_report_user_uid_idx IF EXISTS;
 DROP INDEX journal_submission_uid_idx IF EXISTS;
 DROP INDEX journal_report_uid_idx IF EXISTS;
 DROP INDEX journal_submission_user_uid_idx IF EXISTS;

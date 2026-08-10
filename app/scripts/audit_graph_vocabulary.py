@@ -19,15 +19,28 @@ bypass that door entirely.
 Found on its first run: a live ``SUPPORTS_HABIT`` edge, which two code comments
 asserted "was never written" (#1010).
 
-**Registry residue is not drift.** ``db.labels()`` and ``db.relationshipTypes()``
-keep returning a name after the last node/edge carrying it is deleted, until the
-store is compacted. A stray holding ZERO rows is therefore reported as INFO and
-does not fail the run — failing on it would make this audit permanently red for
-a condition that is both harmless and outside the app's control. A stray holding
-data is a real finding and exits non-zero.
+**A zero-row stray is usually held by a stale INDEX, and is cleanable.** #1010
+shipped the claim that ``db.labels()`` keeps returning a name "until the store is
+compacted, nothing to do". Both halves were wrong, and measuring beat reasoning:
+dropping ``exercise_report_uid_idx`` removed ``ExerciseReport`` from
+``db.labels()`` immediately. An index (or constraint) on a label or relationship
+type keeps that name in the registry even at ZERO rows — so the four labels
+#1010 reported as inert residue were really five stale indexes, and dropping
+them erased all four (41 labels → 37). The same mechanism applies to
+``db.relationshipTypes()``.
 
-Read-only: this script never writes. Fixes belong in
-``scripts/migrations/`` (data) or in the enums (vocabulary).
+There is no ``DROP LABEL`` in Cypher; dropping the schema object that references
+it is the mechanism. This audit therefore NAMES the holding index so the fix is
+obvious rather than declaring the condition untouchable.
+
+**Exit code still means "is the data reachable".** A zero-row stray does not fail
+the run even though it is actionable: nothing is unreachable, so this is schema
+hygiene rather than data corruption, and a red exit should mean the graph is
+lying to its readers. Strays holding DATA exit non-zero.
+
+Read-only: this script never writes. Fixes belong in ``scripts/migrations/``
+(data), ``scripts/indexes.cypher`` (stale schema objects), or the enums
+(vocabulary).
 
 Usage:
     uv run python scripts/audit_graph_vocabulary.py            # exit 1 if any stray holds data
@@ -89,6 +102,25 @@ class Stray:
     @property
     def holds_data(self) -> bool:
         return self.count > 0
+
+
+async def fetch_schema_holders(driver: AsyncDriver) -> dict[str, list[str]]:
+    """Map each label / relationship type to the schema objects referencing it.
+
+    This is what turns "inert residue, nothing to do" into an actionable line:
+    an index or constraint keeps a name alive in ``db.labels()`` /
+    ``db.relationshipTypes()`` at zero rows, so naming it tells the reader
+    exactly what to DROP.
+    """
+    holders: dict[str, list[str]] = {}
+    async with driver.session() as session:
+        for command in ("SHOW INDEXES", "SHOW CONSTRAINTS"):
+            for record in await (
+                await session.run(f"{command} YIELD name, labelsOrTypes RETURN name, labelsOrTypes")
+            ).data():
+                for token in record["labelsOrTypes"] or []:
+                    holders.setdefault(token, []).append(record["name"])
+    return {token: sorted(set(names)) for token, names in holders.items()}
 
 
 def domain_label_values() -> list[str]:
@@ -237,8 +269,10 @@ def report(
     live_labels: dict[str, int],
     live_relationships: dict[str, int],
     live_entity_types: dict[str, int],
+    schema_holders: dict[str, list[str]] | None = None,
 ) -> int:
     """Print findings; return the process exit code."""
+    holders = schema_holders or {}
     print("Graph Vocabulary Audit — live graph vs NeoLabel / RelationshipName / EntityType")
     print("=" * 78)
     print(
@@ -260,10 +294,25 @@ def report(
         )
 
     if residue:
-        print(f"\nℹ {len(residue)} stray name(s) with NO rows — registry residue, not drift:")
-        for s in residue:
-            print(f"    {s.kind:<13} {s.value}")
-        print("  Neo4j lists a name until the store is compacted. Nothing to do.")
+        held = [s for s in residue if holders.get(s.value)]
+        unheld = [s for s in residue if not holders.get(s.value)]
+
+        if held:
+            print(f"\n⚠ {len(held)} stray name(s) with NO rows, held alive by a STALE INDEX:")
+            for s in held:
+                print(f"    {s.kind:<13} {s.value:<28} held by: {', '.join(holders[s.value])}")
+            print(
+                "\n  An index or constraint keeps a name in db.labels() / "
+                "db.relationshipTypes()\n"
+                "  even at zero rows. There is no DROP LABEL — dropping the schema object IS\n"
+                "  the mechanism. Retire them in scripts/indexes.cypher (Stale indexes section)."
+            )
+
+        if unheld:
+            print(f"\nℹ {len(unheld)} stray name(s) with NO rows and no schema object:")
+            for s in unheld:
+                print(f"    {s.kind:<13} {s.value}")
+            print("  Genuine token residue — clears when the store is next compacted.")
 
     if verbose:
         stray_values = {(s.kind, s.value) for s in strays}
@@ -294,6 +343,7 @@ async def main() -> int:
     driver = conn.connect()
     try:
         labels, relationships, entity_types = await fetch_live_vocabulary(driver)
+        schema_holders = await fetch_schema_holders(driver)
     finally:
         await conn.close()
 
@@ -304,6 +354,7 @@ async def main() -> int:
         live_labels=labels,
         live_relationships=relationships,
         live_entity_types=entity_types,
+        schema_holders=schema_holders,
     )
 
 
