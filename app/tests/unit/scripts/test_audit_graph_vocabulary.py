@@ -14,7 +14,10 @@ ZERO rows is registry residue, not drift.
 from __future__ import annotations
 
 import sys
+from dataclasses import FrozenInstanceError
 from pathlib import Path
+
+import pytest
 
 # scripts/ has no __init__.py — add it to sys.path for import (same as the
 # sibling audit_graph_hygiene suite).
@@ -194,10 +197,12 @@ def test_identifier_escaping_survives_an_embedded_backtick() -> None:
 
 
 def test_stray_is_frozen() -> None:
-    """A finding is a record of what was observed; nothing should edit it in place."""
+    """A finding is a record of what was observed; nothing should edit it in place.
+
+    Asserts the SPECIFIC FrozenInstanceError: a broad ``except Exception`` would
+    let an unrelated error masquerade as immutability and pass the test
+    (SKUEL017's rule applies to tests too).
+    """
     stray = Stray("relationship", "SUPPORTS_HABIT", 1)
-    try:
+    with pytest.raises(FrozenInstanceError):
         stray.count = 0  # type: ignore[misc]
-    except Exception:
-        return
-    raise AssertionError("Stray must be immutable")
