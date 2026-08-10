@@ -157,13 +157,18 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
 
     async def search_by_alias(self, alias: str) -> Result[list[Neo4jProperties]]:
         """Search Kus by alias (case-insensitive substring)."""
-        query = """
+        # Discovery: a SEARCH over the whole Ku corpus — the same class as the
+        # five text/graph/array strategies #1006 gated via
+        # build_search_visibility_clause. NULL-tolerant.
+        published, published_params = build_publication_clause("ku")
+        query = f"""
         MATCH (ku:Entity:Ku)
         WHERE any(a IN ku.aliases WHERE toLower(a) CONTAINS toLower($alias))
+          AND {published}
         RETURN ku
         ORDER BY ku.title ASC
         """
-        return await self.execute_query(query, {"alias": alias})
+        return await self.execute_query(query, {"alias": alias, **published_params})
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
         """Distinct co-occurring (nous, nous_subtopic) pairs on this Ku's own label.
@@ -281,15 +286,37 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         through its PathSteps, or directly via its ``required_knowledge``
         prerequisites.
         """
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
+        # Discovery: a KU in hand surfaces the PATHS that reach it — curriculum
+        # the caller never referenced. Gated by construction even though this
+        # method currently has no caller: an ungated discovery query is a trap
+        # for whoever wires it up. NULL-tolerant (#1006).
+        # Discovery: a KU in hand surfaces the PATHS that reach it — curriculum
+        # the caller never referenced. Gated by construction even though this
+        # method currently has no caller: an ungated discovery query is a trap
+        # for whoever wires it up. NULL-tolerant (#1006).
+        #
+        # The two arms are gated DIFFERENTLY, and deliberately (Codex P2, #1008).
+        # The HAS_STEP arm's claim is carried by the bridging step, so that step
+        # must be published too — the third of three KU→path surfaces, and the
+        # one that hid the pattern because its step was an anonymous `(:Entity)`.
+        # The REQUIRES_KNOWLEDGE arm has no bridge: the path states the
+        # prerequisite itself, so only `lp` gates there.
+        published_lp, lp_params = build_publication_clause("lp")
+        published_step, step_params = build_publication_clause("step")
+        query = f"""
+        MATCH (ku:Entity {{uid: $ku_uid}})
         MATCH (lp:LearningPath)
-        WHERE (lp)-[:REQUIRES_KNOWLEDGE]->(ku)
-           OR (lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+        WHERE ((lp)-[:REQUIRES_KNOWLEDGE]->(ku)
+           OR EXISTS {{
+                 MATCH (lp)-[:HAS_STEP]->(step:Entity)
+                       -[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+                 WHERE {published_step}
+               }})
+          AND {published_lp}
         RETURN lp.uid as uid
         LIMIT 50
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid})
+        return await self.execute_query(query, {"ku_uid": ku_uid, **lp_params, **step_params})
 
     async def get_applying_task_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get tasks applying this knowledge."""
@@ -787,14 +814,20 @@ class PsBackend(
         Returns:
             Result containing PathStep models
         """
-        query = """
-        MATCH (ps:Entity {entity_type: 'path_step'})
-        WHERE NOT (ps)<-[:HAS_STEP]-(:Entity {entity_type: 'learning_path'})
+        published, published_params = build_publication_clause("ps")
+        # Discovery: an unanchored enumeration of every orphan step — a browse
+        # surface, so draft-marked steps are withheld. NULL-tolerant (#1006).
+        query = f"""
+        MATCH (ps:Entity {{entity_type: 'path_step'}})
+        WHERE NOT (ps)<-[:HAS_STEP]-(:Entity {{entity_type: 'learning_path'}})
+          AND {published}
         RETURN ps
         ORDER BY ps.updated_at DESC
         LIMIT $limit
         """
-        return self._records_to_steps(await self.execute_query(query, {"limit": limit}))
+        return self._records_to_steps(
+            await self.execute_query(query, {"limit": limit, **published_params})
+        )
 
     async def get_prioritized_steps(
         self, user_uid: UserUID, limit: int = 20
@@ -811,9 +844,20 @@ class PsBackend(
         Returns:
             Result containing PathStep models
         """
-        query = """
-        MATCH (ps:Entity {entity_type: 'path_step'})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[progress:IN_PROGRESS]->(ps)
+        # A MIXED surface (Codex P2, #1008): an unanchored enumeration of every
+        # step (catalogue -> gated) that is also ordered by the user's own
+        # progress (user-state -> NOT gated). The gate therefore lands AFTER the
+        # progress match and yields to it: a step the learner already started is
+        # one they reference, so withholding it would delete their own history
+        # from the list that exists to prioritise it — and drafts are UNLISTED,
+        # not forbidden (the get_visible_by_uid carve-out). A step marked draft
+        # after they began it stays visible to them and to no one else.
+        published, published_params = build_publication_clause("ps")
+        query = f"""
+        MATCH (ps:Entity {{entity_type: 'path_step'}})
+        OPTIONAL MATCH (u:User {{uid: $user_uid}})-[progress:IN_PROGRESS]->(ps)
+        WITH ps, progress
+        WHERE progress IS NOT NULL OR {published}
         RETURN ps, progress
         ORDER BY
             CASE
@@ -836,7 +880,9 @@ class PsBackend(
         LIMIT $limit
         """
         return self._records_to_steps(
-            await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+            await self.execute_query(
+                query, {"user_uid": user_uid, "limit": limit, **published_params}
+            )
         )
 
 

@@ -97,11 +97,21 @@ def test_ku_mastery_progress_survives_a_user_with_no_masteries() -> None:
 
 
 def test_curriculum_lp_lookup_uses_live_endpoints() -> None:
-    """get_learning_path_uids never names a LearningPath→Ku edge."""
+    """get_learning_path_uids never names a LearningPath→Ku edge.
+
+    Asserted on the SHAPE rather than one literal pattern string: the bridging
+    step was anonymous (``->(:Entity)-``) until #1008 had to NAME it so the
+    publication gate could apply to it, and a string-equality fixture would
+    read that correct change as a regression. What must hold is that the path
+    reaches the Ku only THROUGH a step, never by a direct LP→Ku edge.
+    """
     source = _cypher_only(_source(curriculum_backends.KuBackend.get_learning_path_uids))
 
     assert "INCLUDES_KNOWLEDGE" not in source
-    assert "(lp)-[:HAS_STEP]->(:Entity)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)" in source
+    # The LP→step hop, then the step→Ku composition union — via a step of any
+    # name, anonymous or bound.
+    assert re.search(r"\(lp\)-\[:HAS_STEP\]->\(\w*:Entity\)", source)
+    assert "-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)" in source
     # CONTAINS_KNOWLEDGE is legitimate — but only at the PathStep endpoint.
     assert "(lp:LearningPath)-[:CONTAINS_KNOWLEDGE" not in source
 

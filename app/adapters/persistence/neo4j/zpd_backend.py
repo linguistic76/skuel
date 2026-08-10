@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.zpd_protocols import PrereqCount, SubmissionScore
@@ -174,10 +175,21 @@ WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
 // Proximal = adjacent candidates NOT already in current zone, non-null,
 // deduplicated (the Ku-grain expansion and the PS-enabler bridge can both
 // surface the same Ku)
+// The publication gate lands HERE, at the one point every candidate source
+// converges (enabler expansion, COMPLEMENTARY_TO, the LP path_next branch and
+// the PS-enabler bridge). Gating the four source MATCHes instead would be four
+// predicates to keep in step; gating the definition of "proximal" is one.
+// The proximal zone IS a recommendation — "what should I learn next" — so it is
+// DISCOVERY under the #1006 criterion and must not name unfinished curriculum.
+// OPTIONAL MATCH keeps this NULL-tolerant twice over: a uid that resolves to no
+// node still passes (cand IS NULL), and a node with no publication_state passes
+// on the clause's own NULL arm.
 CALL (candidate_uids_raw, engaged_uids) {
     UNWIND CASE WHEN size(candidate_uids_raw) = 0 THEN [null]
            ELSE candidate_uids_raw END AS cuid
     WITH DISTINCT cuid WHERE cuid IS NOT NULL AND NOT cuid IN engaged_uids
+    OPTIONAL MATCH (cand:Entity {uid: cuid})
+    WITH cuid, cand WHERE cand IS NULL OR zpd_publication_gate
     RETURN collect(cuid) AS proximal_uids
 }
 WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
@@ -247,9 +259,14 @@ LIMIT 1
 
 # Substitute the edge-set sentinels from the constants above — single source of
 # truth, byte-identical to the historical literals (pinned by the shape test).
-_ZONE_QUERY = _ZONE_QUERY_TEMPLATE.replace(
-    "zpd_proximal_edges", _PROXIMAL_EXPANSION_PATTERN
-).replace("zpd_prereq_gate", _PREREQUISITE_GATE_EDGE.value)
+# ``zpd_publication_gate`` is the third sentinel: the shared draft predicate,
+# composed (never hand-spelled) so the draft vocabulary keeps ONE definition.
+_ZONE_PUBLICATION_CLAUSE, _ZONE_QUERY_PARAMS = build_publication_clause("cand")
+_ZONE_QUERY = (
+    _ZONE_QUERY_TEMPLATE.replace("zpd_proximal_edges", _PROXIMAL_EXPANSION_PATTERN)
+    .replace("zpd_prereq_gate", _PREREQUISITE_GATE_EDGE.value)
+    .replace("zpd_publication_gate", _ZONE_PUBLICATION_CLAUSE)
+)
 
 
 # Targeted KU engagement query — fetch evidence for specific KU UIDs only
@@ -412,7 +429,9 @@ class ZPDBackend:
                 - submission_data: Submission scores per KU
         """
         try:
-            records, _, _ = await self._driver.execute_query(_ZONE_QUERY, {"user_uid": user_uid})
+            records, _, _ = await self._driver.execute_query(
+                _ZONE_QUERY, {"user_uid": user_uid, **_ZONE_QUERY_PARAMS}
+            )
         except NEO4J_EXCEPTIONS as exc:
             self._logger.error("ZPD zone query failed for %s: %s", user_uid, exc)
             return Result.fail(

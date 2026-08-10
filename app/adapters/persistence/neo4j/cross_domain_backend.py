@@ -536,9 +536,16 @@ class CrossDomainBackend:
         params: dict[str, Any],
     ) -> Result[list[dict[str, Any]]]:
         """Find highly connected knowledge units using degree centrality."""
+        # Discovery: an unanchored centrality ranking — a browse surface, so
+        # draft curriculum is withheld (as in find_similar_knowledge below).
+        # Carried on its own WITH rather than folded into ``domain_filter``:
+        # that fragment is caller-supplied and may be empty, and a MATCH takes
+        # only one WHERE. NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("ku")
         query = f"""
         MATCH (ku:Entity)
         {domain_filter}
+        WITH ku WHERE {published}
         OPTIONAL MATCH (ku)-[r WHERE coalesce(r.confidence, 1.0) >= $min_confidence]-()
         WITH ku, count(r) as total_connections
         WHERE total_connections >= $min_connections
@@ -559,7 +566,7 @@ class CrossDomainBackend:
         ORDER BY total_connections DESC
         LIMIT $limit
         """
-        return await self.executor.execute_query(query, params)
+        return await self.executor.execute_query(query, {**params, **published_params})
 
     async def find_similar_knowledge(
         self, uid: str, min_similarity: float, limit: int
@@ -574,7 +581,7 @@ class CrossDomainBackend:
         return await self.executor.execute_query(
             f"""
             // Find shared neighbors (any relationship direction)
-            MATCH (ku1:Entity {uid: $uid})-[]-(shared)-[]-(ku2:Entity)
+            MATCH (ku1:Entity {{uid: $uid}})-[]-(shared)-[]-(ku2:Entity)
             WHERE ku1 <> ku2
             WITH ku1, ku2, count(DISTINCT shared) as shared_count
 
@@ -645,10 +652,14 @@ class CrossDomainBackend:
         params: dict[str, Any],
     ) -> Result[list[dict[str, Any]]]:
         """Find tightly connected knowledge clusters via triangle density."""
+        # Discovery: an unanchored cluster listing — same ruling as
+        # find_knowledge_hubs. NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("ku")
         query = f"""
         // Find knowledge units with neighbors
         MATCH (ku:Entity)
         {domain_filter}
+        WITH ku WHERE {published}
         MATCH (ku)-[r]-(neighbor:Entity)
         WITH ku, count(DISTINCT neighbor) as neighbor_count
         WHERE neighbor_count >= 2
@@ -673,7 +684,7 @@ class CrossDomainBackend:
         ORDER BY density DESC, neighbor_count DESC
         LIMIT $limit
         """
-        return await self.executor.execute_query(query, params)
+        return await self.executor.execute_query(query, {**params, **published_params})
 
     async def calculate_knowledge_importance(self, uid: str) -> Result[list[dict[str, Any]]]:
         """Calculate composite importance score for a knowledge unit."""

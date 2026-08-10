@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 from adapters.persistence.neo4j._backend_helpers import _validate_rel_name, direction_clause
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Result
 
@@ -149,13 +150,26 @@ class _SemanticMixin:
         self, uid: str, target_domain: str | None, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Discover cross-domain semantic bridges via shared concepts."""
-        query = """
-        MATCH (source:Entity {uid: $uid})
+        # Discovery: the whole point is to surface entities in OTHER domains
+        # that the caller never referenced — draft curriculum must not be one
+        # of them. NULL-tolerant (#1006).
+        #
+        # `shared` is gated too (Codex P2, #1008): its UID is RETURNED as
+        # ``shared_concept``, so the bridge node is disclosed just as much as
+        # the target. It carries no label in the pattern, which is how it
+        # escaped the first pass — the rule is "unanchored AND projected", and
+        # being unlabelled does not exempt it.
+        published_target, target_params = build_publication_clause("target")
+        published_shared, shared_params = build_publication_clause("shared")
+        query = f"""
+        MATCH (source:Entity {{uid: $uid}})
         MATCH (source)-[r1]->(shared)
         MATCH (target:Entity)-[r2]->(shared)
         WHERE source.domain <> target.domain
         AND ($target_domain IS NULL OR target.domain = $target_domain)
         AND type(r1) = type(r2)
+        AND {published_target}
+        AND {published_shared}
         RETURN DISTINCT target,
                type(r1) as bridge_type,
                shared.uid as shared_concept,
@@ -164,7 +178,14 @@ class _SemanticMixin:
         LIMIT $limit
         """
         return await self.execute_query(
-            query, {"uid": uid, "target_domain": target_domain, "limit": limit}
+            query,
+            {
+                "uid": uid,
+                "target_domain": target_domain,
+                "limit": limit,
+                **target_params,
+                **shared_params,
+            },
         )
 
     async def infer_transitive_relationships(
@@ -203,7 +224,10 @@ class _SemanticMixin:
         self, domain: str | None, min_hub_score: int, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Query high-hub-score KUs (foundational concepts)."""
-        where_clauses = ["ku.hub_score >= $min_hub_score"]
+        # Discovery: an unanchored ranking of "foundational concepts" — a browse
+        # surface, so draft curriculum is withheld. NULL-tolerant (#1006).
+        published, published_params = build_publication_clause("ku")
+        where_clauses = ["ku.hub_score >= $min_hub_score", published]
         if domain:
             where_clauses.append("ku.domain = $domain")
         where_clause = " AND ".join(where_clauses)
@@ -215,7 +239,11 @@ class _SemanticMixin:
         ORDER BY ku.hub_score DESC
         LIMIT $limit
         """
-        params: dict[str, Any] = {"limit": limit, "min_hub_score": min_hub_score}
+        params: dict[str, Any] = {
+            "limit": limit,
+            "min_hub_score": min_hub_score,
+            **published_params,
+        }
         if domain:
             params["domain"] = domain
         return await self.execute_query(query, params)
