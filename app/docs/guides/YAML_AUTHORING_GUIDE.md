@@ -332,7 +332,7 @@ Activities also connect to other activities:
 connections:
   applies_knowledge: [ps:namespace:path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
   fulfills_goal: [goal:goal-name]                    # FULFILLS_GOAL → Goal (single)
-  reinforces_habit: [habit:habit-name]               # SUPPORTS_HABIT → Habit (single)
+  reinforces_habit: [habit:habit-name]               # REINFORCES_HABIT → Habit (single)
   depends_on: [task:other-task]                      # DEPENDS_ON → Task
 ```
 

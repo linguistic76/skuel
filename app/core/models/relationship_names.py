@@ -70,7 +70,11 @@ class RelationshipName(StrEnum):
     ENABLES_TASK = "ENABLES_TASK"
     INFORMS_CHOICE = "INFORMS_CHOICE"
     # NOTE: Task→Habit is REINFORCES_HABIT (matching Event + the field name). The
-    # former SUPPORTS_HABIT was never-written drift, removed when consolidating.
+    # former SUPPORTS_HABIT was removed when consolidating. It was described here
+    # as "never written" — that was FALSE: one live edge existed, found by
+    # scripts/audit_graph_vocabulary.py and migrated in #1010. A removed member
+    # leaves data no reader can reach, because Neo4j answers an unknown
+    # relationship type with zero rows instead of erroring.
     COMPLETES_KNOWLEDGE = "COMPLETES_KNOWLEDGE"
     INFERRED_KNOWLEDGE = "INFERRED_KNOWLEDGE"
     GUIDED_BY_KNOWLEDGE = "GUIDED_BY_KNOWLEDGE"  # Goals guided by knowledge
