@@ -24,6 +24,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from audit_graph_vocabulary import (  # type: ignore[import-not-found]
+    SchemaHolder,
     Stray,
     classify_strays,
     normalize_entity_type,
@@ -288,3 +289,75 @@ def test_a_stray_holding_data_still_fails_regardless_of_holders() -> None:
         schema_holders={"SUPPORTS_HABIT": ["some_idx"]},
     )
     assert code == 1
+
+
+def test_holder_reports_the_correct_drop_command_per_kind() -> None:
+    """A constraint needs DROP CONSTRAINT — DROP INDEX would just fail.
+
+    Collapsing the two kinds hands the reader an instruction that does not work
+    (Codex P2, #1011). The repo already has the constraint case on record:
+    scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher.
+    """
+    assert (
+        SchemaHolder("lesson_uid_idx", "INDEX").drop_statement
+        == "DROP INDEX lesson_uid_idx IF EXISTS;"
+    )
+    assert (
+        SchemaHolder("document_uid_unique", "CONSTRAINT").drop_statement
+        == "DROP CONSTRAINT document_uid_unique IF EXISTS;"
+    )
+
+
+def test_holders_are_keyed_by_token_namespace_not_name_alone() -> None:
+    """A label and a relationship type may share a spelling.
+
+    A RELATIONSHIP index on `Legacy` does not hold a `:Legacy` LABEL alive, so
+    blaming it would send the reader to drop something that cannot fix their
+    problem (Codex P2, #1011). The live graph does carry a relationship index,
+    so the namespaces genuinely coexist.
+    """
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    holders = {("relationship", "Legacy"): [SchemaHolder("legacy_rel_idx", "INDEX")]}
+
+    # The stray is a LABEL of the same name — it must NOT be attributed to the
+    # relationship index, so it falls into the unheld (true residue) bucket.
+    code = report(
+        [Stray("label", "Legacy", 0)],
+        verbose=False,
+        live_labels={"Legacy": 0},
+        live_relationships={},
+        live_entity_types={},
+        schema_holders=holders,
+    )
+    assert code == 0
+    # ...and the matching relationship stray IS attributed to it.
+    code = report(
+        [Stray("relationship", "Legacy", 0)],
+        verbose=False,
+        live_labels={},
+        live_relationships={"Legacy": 0},
+        live_entity_types={},
+        schema_holders=holders,
+    )
+    assert code == 0
+
+
+def test_constraint_backed_index_is_not_reported_separately() -> None:
+    """A uniqueness CONSTRAINT owns a backing INDEX of the same name.
+
+    Reporting both advises `DROP INDEX` on it, which Neo4j REFUSES ("index
+    belongs to constraint") — an instruction that errors is worse than none.
+    `owningConstraint` is the discriminator, and the query filters on it, so the
+    constraint row speaks for the pair. Found by this PR's own positive control,
+    not by review.
+    """
+    import inspect
+
+    import audit_graph_vocabulary  # type: ignore[import-not-found]
+
+    source = inspect.getsource(audit_graph_vocabulary.fetch_schema_holders)
+    assert "WHERE owningConstraint IS NULL" in source, (
+        "constraint-backed indexes must be excluded, or the audit prints a DROP "
+        "INDEX that Neo4j rejects"
+    )

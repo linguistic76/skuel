@@ -104,23 +104,74 @@ class Stray:
         return self.count > 0
 
 
-async def fetch_schema_holders(driver: AsyncDriver) -> dict[str, list[str]]:
-    """Map each label / relationship type to the schema objects referencing it.
+@dataclass(frozen=True)
+class SchemaHolder:
+    """A schema object keeping a token alive in the registry.
+
+    ``kind`` is retained because the cleanup COMMAND differs — a constraint needs
+    ``DROP CONSTRAINT``, not ``DROP INDEX`` (see
+    ``scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher``).
+    Collapsing the two would hand the reader an instruction that fails.
+    """
+
+    name: str
+    kind: str  # "INDEX" | "CONSTRAINT"
+
+    @property
+    def drop_statement(self) -> str:
+        return f"DROP {self.kind} {self.name} IF EXISTS;"
+
+
+# Neo4j's entityType → the Stray.kind it can hold.
+_ENTITY_TYPE_TO_STRAY_KIND: dict[str, str] = {"NODE": "label", "RELATIONSHIP": "relationship"}
+
+
+async def fetch_schema_holders(driver: AsyncDriver) -> dict[tuple[str, str], list[SchemaHolder]]:
+    """Map each ``(stray_kind, token)`` to the schema objects referencing it.
 
     This is what turns "inert residue, nothing to do" into an actionable line:
     an index or constraint keeps a name alive in ``db.labels()`` /
     ``db.relationshipTypes()`` at zero rows, so naming it tells the reader
     exactly what to DROP.
+
+    Keyed by ``(kind, token)`` rather than token alone: a label and a
+    relationship type may share a spelling, and a RELATIONSHIP index on
+    ``Legacy`` does not hold a ``:Legacy`` LABEL alive — pointing at it would
+    send the reader to drop something that cannot fix their problem. The graph
+    already carries a relationship index, so the two namespaces genuinely
+    coexist here.
     """
-    holders: dict[str, list[str]] = {}
+    holders: dict[tuple[str, str], list[SchemaHolder]] = {}
     async with driver.session() as session:
-        for command in ("SHOW INDEXES", "SHOW CONSTRAINTS"):
-            for record in await (
-                await session.run(f"{command} YIELD name, labelsOrTypes RETURN name, labelsOrTypes")
-            ).data():
+        # A uniqueness CONSTRAINT owns a backing INDEX of the SAME NAME, so a
+        # naive union reports the object twice and advises `DROP INDEX` on it —
+        # which Neo4j refuses ("index belongs to constraint"). `owningConstraint`
+        # is the discriminator; skip owned indexes and let the constraint row
+        # speak for the pair.
+        index_rows = await (
+            await session.run(
+                "SHOW INDEXES YIELD name, entityType, labelsOrTypes, owningConstraint "
+                "WHERE owningConstraint IS NULL "
+                "RETURN name, entityType, labelsOrTypes"
+            )
+        ).data()
+        constraint_rows = await (
+            await session.run(
+                "SHOW CONSTRAINTS YIELD name, entityType, labelsOrTypes "
+                "RETURN name, entityType, labelsOrTypes"
+            )
+        ).data()
+
+        for rows, holder_kind in ((index_rows, "INDEX"), (constraint_rows, "CONSTRAINT")):
+            for record in rows:
+                stray_kind = _ENTITY_TYPE_TO_STRAY_KIND.get(record["entityType"])
+                if stray_kind is None:
+                    continue
                 for token in record["labelsOrTypes"] or []:
-                    holders.setdefault(token, []).append(record["name"])
-    return {token: sorted(set(names)) for token, names in holders.items()}
+                    holders.setdefault((stray_kind, token), []).append(
+                        SchemaHolder(name=record["name"], kind=holder_kind)
+                    )
+    return {key: sorted(set(found), key=lambda h: h.name) for key, found in holders.items()}
 
 
 def domain_label_values() -> list[str]:
@@ -269,7 +320,7 @@ def report(
     live_labels: dict[str, int],
     live_relationships: dict[str, int],
     live_entity_types: dict[str, int],
-    schema_holders: dict[str, list[str]] | None = None,
+    schema_holders: dict[tuple[str, str], list[SchemaHolder]] | None = None,
 ) -> int:
     """Print findings; return the process exit code."""
     holders = schema_holders or {}
@@ -294,18 +345,24 @@ def report(
         )
 
     if residue:
-        held = [s for s in residue if holders.get(s.value)]
-        unheld = [s for s in residue if not holders.get(s.value)]
+        held = [s for s in residue if holders.get((s.kind, s.value))]
+        unheld = [s for s in residue if not holders.get((s.kind, s.value))]
 
         if held:
-            print(f"\n⚠ {len(held)} stray name(s) with NO rows, held alive by a STALE INDEX:")
+            print(
+                f"\n⚠ {len(held)} stray name(s) with NO rows, held alive by a stale "
+                f"INDEX/CONSTRAINT:"
+            )
             for s in held:
-                print(f"    {s.kind:<13} {s.value:<28} held by: {', '.join(holders[s.value])}")
+                for holder in holders[(s.kind, s.value)]:
+                    print(f"    {s.kind:<13} {s.value:<28} {holder.drop_statement}")
             print(
                 "\n  An index or constraint keeps a name in db.labels() / "
                 "db.relationshipTypes()\n"
                 "  even at zero rows. There is no DROP LABEL — dropping the schema object IS\n"
-                "  the mechanism. Retire them in scripts/indexes.cypher (Stale indexes section)."
+                "  the mechanism. Retire indexes in scripts/indexes.cypher (Stale indexes\n"
+                "  section); constraints need DROP CONSTRAINT, as in\n"
+                "  scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher."
             )
 
         if unheld:
