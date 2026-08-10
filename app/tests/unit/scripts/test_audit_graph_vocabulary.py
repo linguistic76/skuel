@@ -397,3 +397,26 @@ def test_schema_names_are_quoted_in_the_generated_command() -> None:
         SchemaHolder("we`ird", "CONSTRAINT", tokens=("X",)).remediation("X")
         == "DROP CONSTRAINT `we``ird` IF EXISTS;"
     )
+
+
+def test_escape_bearing_name_yields_manual_guidance_not_a_command() -> None:
+    """Quoting cannot express a name Cypher will re-decode — so do not pretend.
+
+    Cypher decodes escape sequences INSIDE a quoted identifier (#1010), so
+    backtick-quoting `Esc\\u0060Probe` prints a command that targets a DIFFERENT
+    object. `DROP INDEX` has no parameterized form to fall back on. #1011
+    documented that caveat and still emitted the command; Codex was right that
+    documenting a hazard is not removing it.
+
+    Verified reachable: an index named `back\\slash` creates without complaint.
+    """
+    holder = SchemaHolder("back\\slash", "INDEX", tokens=("BsProbe",))
+    advice = holder.remediation("BsProbe")
+
+    assert advice.startswith("MANUAL:"), "must not read as a runnable command"
+    assert "DROP INDEX `" not in advice, (
+        "a name Cypher re-decodes must never be rendered as a pasteable DROP"
+    )
+
+    # A normal name still gets a real command.
+    assert SchemaHolder("plain_idx", "INDEX", tokens=("X",)).remediation("X").startswith("DROP ")

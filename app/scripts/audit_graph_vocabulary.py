@@ -137,6 +137,20 @@ class SchemaHolder:
         (#1010), so a name containing that literal text still needs a human —
         there is no parameterized form of DROP INDEX to fall back on.
         """
+        if "\\" in self.name:
+            # Cypher re-decodes escape sequences INSIDE a quoted identifier
+            # (#1010), so `Esc\u0060Probe` would be read back as a DIFFERENT
+            # name — quoting cannot express it and DROP INDEX has no
+            # parameterized form. Verified reachable: an index named
+            # `back\slash` creates fine. Emit guidance that CANNOT be pasted as
+            # a command rather than a command that silently targets the wrong
+            # object (Codex P2, #1011).
+            return (
+                f"MANUAL: {self.kind} named {self.name!r} contains a backslash escape that "
+                f"Cypher re-decodes inside a quoted identifier — there is no safe literal "
+                f"form; drop it by hand"
+            )
+
         quoted = "`" + self.name.replace("`", "``") + "`"
         if self.covers_only(token):
             return f"DROP {self.kind} {quoted} IF EXISTS;"
