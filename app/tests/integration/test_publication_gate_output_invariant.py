@@ -800,13 +800,43 @@ async def test_null_publication_state_is_never_withheld(gate_graph: AsyncDriver)
     assert STEP_DRAFT not in uids
 
 
-async def test_writer_does_not_inherit_the_readers_gate() -> None:
-    """``compute_hub_scores`` is registered WRITER, and must stay one.
+@pytest.mark.asyncio
+async def test_writer_does_not_inherit_the_readers_gate(gate_graph: AsyncDriver) -> None:
+    """``compute_hub_scores`` must SCORE drafts, not skip them.
 
     A writer that skipped drafts would leave freshly-published content with no
     cached score, because nothing recomputes on publish — the value would still
     be missing the moment the content became visible.
+
+    Asserted against the graph rather than against the registry label. An
+    earlier revision only checked that the WRITER disposition was unchanged,
+    which is a tautology: if ``compute_hub_scores`` started composing
+    ``build_knowledge_read_clause`` WITHOUT ``apply_publication_gate=False``,
+    drafts would silently stop being scored and the test would still pass
+    (Codex P2, #1012). Checking the registry is checking that we did not change
+    our minds; this checks what the code does.
     """
+    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    result = await ps.compute_hub_scores()
+    assert not result.is_error, f"compute_hub_scores failed: {result.expect_error()}"
+
+    async with gate_graph.session() as session:
+        rows = await session.run(
+            "MATCH (n:Entity) WHERE n.uid IN $uids RETURN n.uid AS uid, n.hub_score AS score",
+            {"uids": [KU_DRAFT, KU_SHARED]},
+        )
+        scored = {r["uid"]: r["score"] async for r in rows}
+
+    assert scored.get(KU_DRAFT) is not None, (
+        "the draft KU received no hub_score — the writer inherited a reader's "
+        "publication gate. Nothing recomputes on publish, so this content would "
+        "still have no score the moment it became visible."
+    )
+    assert scored.get(KU_SHARED) is not None, (
+        "the published KU received no hub_score either, so the assertion above "
+        "proves nothing about drafts — the writer is not scoring at all"
+    )
+
     writers = [s for s in SURFACES if s.disposition is Disposition.WRITER]
     assert [s.qualname for s in writers] == ["_SemanticMixin.compute_hub_scores"], (
         "the WRITER set changed — adding a reader's gate to a maintenance pass "
