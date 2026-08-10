@@ -527,9 +527,11 @@ TASKS_CONFIG = DomainRelationshipConfig(
             yaml_field_path="connections.fulfills_goal",
         ),
         # Task → Habit: (Task)-[:REINFORCES_HABIT]->(Habit), single result for context.
-        # Consolidated from the former SUPPORTS_HABIT (which was never written and
-        # disagreed with the field name, connection config, and context query — all
-        # of which use REINFORCES_HABIT, matching Event's identical concept).
+        # Consolidated from the former SUPPORTS_HABIT, which disagreed with the
+        # field name, connection config, and context query — all of which use
+        # REINFORCES_HABIT, matching Event's identical concept. This comment used
+        # to add "which was never written"; that was FALSE (one live edge, found
+        # by scripts/audit_graph_vocabulary.py and migrated in #1010).
         UnifiedRelationshipDefinition(
             RelationshipName.REINFORCES_HABIT,
             "Entity",

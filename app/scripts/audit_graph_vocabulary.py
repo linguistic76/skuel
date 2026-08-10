@@ -1,0 +1,233 @@
+#!/usr/bin/env python3
+"""
+Graph Vocabulary Audit — the DATA-side twin of SKUEL030
+=======================================================
+
+Asserts that every node label, relationship type and ``entity_type`` value
+present in the **live graph** is a member of its enum (``NeoLabel`` /
+``RelationshipName`` / ``EntityType``).
+
+**Why this exists.** SKUEL030 and CYP011 check the vocabulary that appears in
+*source* Cypher. Nothing checked the vocabulary that actually exists in the
+*database*, and the two drift apart in one direction that is completely silent:
+**Neo4j answers an unknown label or relationship type with zero rows, never an
+error.** So a value the enums no longer contain is not a crash — it is data that
+every reader steps over. #1003 gated the ingestion write door; a hand-run
+migration, a stray ``SET``, or a rename that landed in code but not in data all
+bypass that door entirely.
+
+Found on its first run: a live ``SUPPORTS_HABIT`` edge, which two code comments
+asserted "was never written" (#1010).
+
+**Registry residue is not drift.** ``db.labels()`` and ``db.relationshipTypes()``
+keep returning a name after the last node/edge carrying it is deleted, until the
+store is compacted. A stray holding ZERO rows is therefore reported as INFO and
+does not fail the run — failing on it would make this audit permanently red for
+a condition that is both harmless and outside the app's control. A stray holding
+data is a real finding and exits non-zero.
+
+Read-only: this script never writes. Fixes belong in
+``scripts/migrations/`` (data) or in the enums (vocabulary).
+
+Usage:
+    uv run python scripts/audit_graph_vocabulary.py            # exit 1 if any stray holds data
+    uv run python scripts/audit_graph_vocabulary.py --verbose  # list every live value
+    ./dev audit-graph-vocabulary
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from core.models.enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
+from core.models.relationship_names import RelationshipName
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+
+# Labels Neo4j or the app creates that are deliberately not domain identities.
+# :Content is the chunk shadow (G13); the rest are infrastructure nodes that
+# predate NeoLabel and are not entity vocabulary.
+NON_ENTITY_LABELS: frozenset[str] = frozenset(
+    {
+        "Content",
+        "Chunk",
+        "ReferenceChunk",
+        "ContentChunk",
+        "User",
+        "Group",
+        "Session",
+        "AuthEvent",
+        "SearchEvent",
+        "IngestionMetadata",
+        "ConversationSession",
+        "Resource",
+    }
+)
+
+
+@dataclass(frozen=True)
+class Stray:
+    """A live vocabulary value with no enum member.
+
+    ``count`` is what separates a real finding from registry residue: zero means
+    Neo4j is still listing a name whose last row is gone.
+    """
+
+    kind: str  # "label" | "relationship" | "entity_type"
+    value: str
+    count: int
+
+    @property
+    def holds_data(self) -> bool:
+        return self.count > 0
+
+
+def classify_strays(
+    live_labels: dict[str, int],
+    live_relationships: dict[str, int],
+    live_entity_types: dict[str, int],
+) -> list[Stray]:
+    """Pure categorizer: live {value: row_count} maps → strays, enum-sourced.
+
+    Kept pure so it is unit-testable without a database — the same split the
+    other audit scripts use.
+    """
+    known_labels = {label.value for label in NeoLabel} | NON_ENTITY_LABELS
+    known_relationships = {rel.value for rel in RelationshipName}
+    known_entity_types = {et.value for et in EntityType}
+
+    strays: list[Stray] = []
+    for value, count in sorted(live_labels.items()):
+        if value not in known_labels:
+            strays.append(Stray("label", value, count))
+    for value, count in sorted(live_relationships.items()):
+        if value not in known_relationships:
+            strays.append(Stray("relationship", value, count))
+    for value, count in sorted(live_entity_types.items()):
+        if value not in known_entity_types:
+            strays.append(Stray("entity_type", value, count))
+    return strays
+
+
+async def fetch_live_vocabulary(
+    driver: AsyncDriver,
+) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+    """Read every label, relationship type and entity_type value, with row counts.
+
+    Counts are fetched per name rather than via a single aggregate because a
+    ``count()`` over a MATCH that finds nothing returns NO ROW AT ALL, not zero —
+    reading an empty result as "clean" is how registry residue would go unseen.
+    """
+    async with driver.session() as session:
+        label_names = [
+            record["label"]
+            for record in await (
+                await session.run("CALL db.labels() YIELD label RETURN label")
+            ).data()
+        ]
+        relationship_names = [
+            record["relationshipType"]
+            for record in await (
+                await session.run(
+                    "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
+                )
+            ).data()
+        ]
+
+        labels: dict[str, int] = {}
+        for name in label_names:
+            # Backticked: a stray name is arbitrary text and must not break the query.
+            rows = await (await session.run(f"MATCH (n:`{name}`) RETURN count(n) AS c")).data()
+            labels[name] = rows[0]["c"] if rows else 0
+
+        relationships: dict[str, int] = {}
+        for name in relationship_names:
+            rows = await (
+                await session.run(f"MATCH ()-[r:`{name}`]->() RETURN count(r) AS c")
+            ).data()
+            relationships[name] = rows[0]["c"] if rows else 0
+
+        entity_types: dict[str, int] = {
+            record["entity_type"]: record["c"]
+            for record in await (
+                await session.run(
+                    "MATCH (n:Entity) WHERE n.entity_type IS NOT NULL "
+                    "RETURN n.entity_type AS entity_type, count(n) AS c"
+                )
+            ).data()
+        }
+
+    return labels, relationships, entity_types
+
+
+def report(strays: list[Stray], *, verbose: bool, totals: tuple[int, int, int]) -> int:
+    """Print findings; return the process exit code."""
+    label_total, rel_total, et_total = totals
+    print("Graph Vocabulary Audit — live graph vs NeoLabel / RelationshipName / EntityType")
+    print("=" * 78)
+    print(
+        f"scanned: {label_total} labels, {rel_total} relationship types, "
+        f"{et_total} entity_type values"
+    )
+
+    drift = [s for s in strays if s.holds_data]
+    residue = [s for s in strays if not s.holds_data]
+
+    if drift:
+        print(f"\n✗ {len(drift)} stray value(s) HOLDING DATA — invisible to every reader:")
+        for s in drift:
+            print(f"    {s.kind:<13} {s.value:<28} {s.count} row(s)")
+        print(
+            "\n  Neo4j returns zero rows for an unknown label/type rather than erroring,\n"
+            "  so this data is silently unreachable. Fix by migrating the data to the\n"
+            "  canonical value, or by restoring the member if its removal was wrong."
+        )
+
+    if residue:
+        print(f"\nℹ {len(residue)} stray name(s) with NO rows — registry residue, not drift:")
+        for s in residue:
+            print(f"    {s.kind:<13} {s.value}")
+        print("  Neo4j lists a name until the store is compacted. Nothing to do.")
+
+    if verbose:
+        print("\n(verbose) every live value is enum-backed unless listed above.")
+
+    if not drift:
+        print("\n✓ No stray vocabulary holding data.")
+        return 0
+    return 1
+
+
+async def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    parser.add_argument("--verbose", action="store_true", help="List every live value.")
+    args = parser.parse_args()
+
+    from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
+
+    conn = Neo4jConnection()
+    driver = conn.connect()
+    try:
+        labels, relationships, entity_types = await fetch_live_vocabulary(driver)
+    finally:
+        await conn.close()
+
+    strays = classify_strays(labels, relationships, entity_types)
+    return report(
+        strays,
+        verbose=args.verbose,
+        totals=(len(labels), len(relationships), len(entity_types)),
+    )
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(main()))

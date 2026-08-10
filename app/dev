@@ -83,6 +83,11 @@ case "$1" in
     bash scripts/audit_dependencies.sh
     ;;
 
+  audit-graph-vocabulary)
+    echo -e "${YELLOW}Auditing LIVE graph vocabulary against NeoLabel / RelationshipName / EntityType...${NC}"
+    uv run python scripts/audit_graph_vocabulary.py "${@:2}"
+    ;;
+
   bloat)
     echo -e "${YELLOW}Detecting bloat (unused code)...${NC}"
     uv run python scripts/detect_bloat.py
@@ -279,6 +284,7 @@ case "$1" in
     echo "  ./dev pre-merge <PR#> - Verify PR is ready to merge (CI Gate + Codex + Kody)"
     echo "  ./dev audit-routes   - Audit @rt handlers for CSRF + auth gaps (--form-only, --verbose)"
     echo "  ./dev audit-deps     - Audit locked deps for known CVEs (osv-scanner, py+js; same as CI)"
+    echo "  ./dev audit-graph-vocabulary - Audit LIVE graph labels/edges/entity_types vs the enums"
     echo ""
     echo "Bloat Detection:"
     echo "  ./dev bloat          - Detect all unused code (events + methods)"

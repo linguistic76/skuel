@@ -1023,7 +1023,7 @@ connections:
 | `requires_knowledge` | REQUIRES_KNOWLEDGE | Entity | Goal |
 | `reinforces_knowledge` | REINFORCES_KNOWLEDGE | Entity | Habit |
 | `fulfills_goal` | FULFILLS_GOAL | Goal | Task |
-| `reinforces_habit` | SUPPORTS_HABIT | Entity | Task |
+| `reinforces_habit` | REINFORCES_HABIT | Entity | Task |
 | `supports_goal` | SUPPORTS_GOAL | Goal | Habit |
 | `embodies_principle` | EMBODIES_PRINCIPLE | Principle | Habit |
 | `prerequisite_habits` | REQUIRES_PREREQUISITE_HABIT | Entity | Habit |

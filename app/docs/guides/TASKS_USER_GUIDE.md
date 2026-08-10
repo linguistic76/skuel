@@ -88,7 +88,7 @@ Drop this file in your vault directory (`INGESTION_PATH`) and run the sync. SKUE
 |--------------------|----------------|--------|
 | `applies_knowledge` | `APPLIES_KNOWLEDGE → PathStep/Ku` | 0.05 substance per completion |
 | `fulfills_goal` | `FULFILLS_GOAL → Goal` | Contributes to goal progress |
-| `reinforces_habit` | `SUPPORTS_HABIT → Habit` | Links to an existing habit |
+| `reinforces_habit` | `REINFORCES_HABIT → Habit` | Links to an existing habit |
 | `depends_on` | `DEPENDS_ON → Task` | Blocks this task until the other is done |
 
 ### 3. Obsidian Daily Note
