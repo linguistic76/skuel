@@ -91,17 +91,6 @@ class Stray:
         return self.count > 0
 
 
-def escape_identifier(name: str) -> str:
-    """Backtick-quote a live label/relationship name for safe interpolation.
-
-    These names come from the database, not from source, so they are arbitrary
-    text — and Neo4j permits an embedded backtick via doubling. Interpolating a
-    raw name would close the quoted identifier early and break the very audit
-    that exists to inspect stray names (Codex P2, #1010).
-    """
-    return "`" + name.replace("`", "``") + "`"
-
-
 def domain_label_values() -> list[str]:
     """Every label that identifies a domain entity, sourced from EntityType.
 
@@ -160,6 +149,17 @@ async def fetch_live_vocabulary(
     Counts are fetched per name rather than via a single aggregate because a
     ``count()`` over a MATCH that finds nothing returns NO ROW AT ALL, not zero —
     reading an empty result as "clean" is how registry residue would go unseen.
+
+    Names are bound as PARAMETERS via Neo4j's dynamic label/type syntax
+    (``:$($label)``), never interpolated into the query text. A live name is
+    arbitrary text, and backtick-quoting it is not sufficient: Cypher decodes
+    ``\\uXXXX`` escapes INSIDE a quoted identifier, so a label whose literal
+    characters are ``Esc\\u0060Probe`` is re-read as a backtick and closes the
+    identifier early — the audit crashed on exactly the pathological name it
+    exists to inspect (Codex P2, #1010; reproduced with a dynamic-label CREATE).
+    Doubling backticks cannot fix that, and a decode-then-double scheme would
+    resolve to a DIFFERENT label than the one on disk. Parameters sidestep
+    quoting altogether, which is also what CYP003 asks of every other query here.
     """
     async with driver.session() as session:
         label_names = [
@@ -180,7 +180,7 @@ async def fetch_live_vocabulary(
         labels: dict[str, int] = {}
         for name in label_names:
             rows = await (
-                await session.run(f"MATCH (n:{escape_identifier(name)}) RETURN count(n) AS c")
+                await session.run("MATCH (n:$($label)) RETURN count(n) AS c", {"label": name})
             ).data()
             labels[name] = rows[0]["c"] if rows else 0
 
@@ -188,7 +188,7 @@ async def fetch_live_vocabulary(
         for name in relationship_names:
             rows = await (
                 await session.run(
-                    f"MATCH ()-[r:{escape_identifier(name)}]->() RETURN count(r) AS c"
+                    "MATCH ()-[r:$($rel_type)]->() RETURN count(r) AS c", {"rel_type": name}
                 )
             ).data()
             relationships[name] = rows[0]["c"] if rows else 0

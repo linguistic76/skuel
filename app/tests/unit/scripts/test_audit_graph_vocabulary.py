@@ -26,7 +26,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from audit_graph_vocabulary import (  # type: ignore[import-not-found]
     Stray,
     classify_strays,
-    escape_identifier,
     normalize_entity_type,
 )
 
@@ -193,20 +192,35 @@ def test_entity_type_scan_is_scoped_to_domain_nodes_exactly() -> None:
     assert domain_labels == sorted(set(domain_labels)), "deduped and ordered"
 
 
-def test_identifier_escaping_survives_an_embedded_backtick() -> None:
-    """Live names are arbitrary text; Neo4j allows a backtick via doubling.
+def test_live_names_are_parameterized_never_interpolated() -> None:
+    """Identifiers must be bound as parameters, not quoted into the query text.
 
-    Interpolating the raw name would close the quoted identifier early and break
-    the audit on exactly the odd name it was asked to inspect.
+    Backtick-quoting is NOT sufficient: Cypher decodes ``\\uXXXX`` escapes inside
+    a quoted identifier, so a label whose literal characters are
+    ``Esc\\u0060Probe`` is re-read as a backtick and closes the identifier early.
+    The audit crashed with CypherSyntaxError on exactly that name — reproduced by
+    creating it with a dynamic-label CREATE (Codex P2, #1010).
+
+    Doubling backticks cannot fix it, and decode-then-double would resolve to a
+    DIFFERENT label than the one on disk. Parameters remove the question, which
+    is also what CYP003 asks of every other query in this repo.
     """
-    assert escape_identifier("PathStep") == "`PathStep`"
-    assert escape_identifier("We`ird") == "`We``ird`"
-    assert escape_identifier("a`b`c") == "`a``b``c`"
-    # The result is always a single balanced quoted identifier.
-    for name in ("PathStep", "We`ird", "a`b`c", "with space"):
-        escaped = escape_identifier(name)
-        assert escaped.startswith("`") and escaped.endswith("`")
-        assert escaped[1:-1].count("`") % 2 == 0
+    import inspect
+
+    import audit_graph_vocabulary  # type: ignore[import-not-found]
+
+    source = inspect.getsource(audit_graph_vocabulary.fetch_live_vocabulary)
+    assert "MATCH (n:$($label)) RETURN count(n) AS c" in source
+    assert "MATCH ()-[r:$($rel_type)]->() RETURN count(r) AS c" in source
+    # No f-string may build a MATCH here: that is the only way a live name can
+    # reach the query text instead of the parameter map.
+    assert 'f"MATCH' not in source and "f'MATCH" not in source, (
+        "a live name must never be interpolated into a MATCH — bind it instead"
+    )
+    assert not hasattr(audit_graph_vocabulary, "escape_identifier"), (
+        "the escaping helper is gone — parameters replace it, and leaving a "
+        "second path invites someone to reach for the broken one"
+    )
 
 
 def test_stray_is_frozen() -> None:
