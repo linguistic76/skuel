@@ -24,6 +24,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from audit_graph_vocabulary import (  # type: ignore[import-not-found]
+    SchemaHolder,
     Stray,
     classify_strays,
     normalize_entity_type,
@@ -233,3 +234,207 @@ def test_stray_is_frozen() -> None:
     stray = Stray("relationship", "SUPPORTS_HABIT", 1)
     with pytest.raises(FrozenInstanceError):
         stray.count = 0  # type: ignore[misc]
+
+
+def test_zero_row_stray_held_by_an_index_is_actionable(capsys: pytest.CaptureFixture[str]) -> None:
+    """A zero-row stray is usually CLEANABLE, not inert — #1010 said otherwise.
+
+    #1010 shipped "Neo4j lists a name until the store is compacted. Nothing to
+    do." Both halves were false: an index or constraint keeps a label in
+    db.labels() at ZERO rows, and dropping it removes the label immediately
+    (measured: dropping exercise_report_uid_idx erased :ExerciseReport, and
+    retiring five such indexes took the graph from 41 labels to 37).
+
+    There is no DROP LABEL, so naming the holding index IS the fix instruction.
+    """
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    code = report(
+        [Stray("label", "Lesson", 0)],
+        verbose=False,
+        live_labels={"Lesson": 0},
+        live_relationships={},
+        live_entity_types={},
+        schema_holders={
+            ("label", "Lesson"): [SchemaHolder("lesson_uid_idx", "INDEX", ("Lesson",))]
+        },
+    )
+    # Schema hygiene, not data corruption: nothing is unreachable, so exit stays 0.
+    assert code == 0
+    # ...which is exactly why the exit code CANNOT be the assertion: both the
+    # held and unheld paths return 0, so only the OUTPUT distinguishes them
+    # (Codex P2, #1011 — the original version of this test was vacuous).
+    out = capsys.readouterr().out
+    assert "held alive by a stale INDEX/CONSTRAINT" in out
+    assert "DROP INDEX `lesson_uid_idx` IF EXISTS;" in out
+
+
+def test_report_accepts_absent_schema_holders() -> None:
+    """The holder map is optional — a stray with no schema object is true residue."""
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    code = report(
+        [Stray("label", "Ghost", 0)],
+        verbose=False,
+        live_labels={"Ghost": 0},
+        live_relationships={},
+        live_entity_types={},
+    )
+    assert code == 0
+
+
+def test_a_stray_holding_data_still_fails_regardless_of_holders() -> None:
+    """The exit code means "is the data reachable" — holders must not soften it."""
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    code = report(
+        [Stray("relationship", "SUPPORTS_HABIT", 1)],
+        verbose=False,
+        live_labels={},
+        live_relationships={"SUPPORTS_HABIT": 1},
+        live_entity_types={},
+        schema_holders={
+            ("relationship", "SUPPORTS_HABIT"): [
+                SchemaHolder("some_idx", "INDEX", ("SUPPORTS_HABIT",))
+            ]
+        },
+    )
+    assert code == 1
+
+
+def test_holder_reports_the_correct_drop_command_per_kind() -> None:
+    """A constraint needs DROP CONSTRAINT — DROP INDEX would just fail.
+
+    Collapsing the two kinds hands the reader an instruction that does not work
+    (Codex P2, #1011). The repo already has the constraint case on record:
+    scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher.
+    """
+    assert (
+        SchemaHolder("lesson_uid_idx", "INDEX", tokens=("Lesson",)).remediation("Lesson")
+        == "DROP INDEX `lesson_uid_idx` IF EXISTS;"
+    )
+    assert (
+        SchemaHolder("document_uid_unique", "CONSTRAINT", tokens=("Document",)).remediation(
+            "Document"
+        )
+        == "DROP CONSTRAINT `document_uid_unique` IF EXISTS;"
+    )
+
+
+def test_holders_are_keyed_by_token_namespace_not_name_alone(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A label and a relationship type may share a spelling.
+
+    A RELATIONSHIP index on `Legacy` does not hold a `:Legacy` LABEL alive, so
+    blaming it would send the reader to drop something that cannot fix their
+    problem (Codex P2, #1011). The live graph does carry a relationship index,
+    so the namespaces genuinely coexist.
+    """
+    from audit_graph_vocabulary import report  # type: ignore[import-not-found]
+
+    holders = {("relationship", "Legacy"): [SchemaHolder("legacy_rel_idx", "INDEX", ("Legacy",))]}
+
+    # The stray is a LABEL of the same name — it must NOT be attributed to the
+    # relationship index, so it falls into the unheld (true residue) bucket.
+    report(
+        [Stray("label", "Legacy", 0)],
+        verbose=False,
+        live_labels={"Legacy": 0},
+        live_relationships={},
+        live_entity_types={},
+        schema_holders=holders,
+    )
+    label_out = capsys.readouterr().out
+    assert "legacy_rel_idx" not in label_out, (
+        "a RELATIONSHIP index must never be offered as the fix for a LABEL"
+    )
+    assert "no schema object" in label_out
+
+    # ...and the matching relationship stray IS attributed to it.
+    report(
+        [Stray("relationship", "Legacy", 0)],
+        verbose=False,
+        live_labels={},
+        live_relationships={"Legacy": 0},
+        live_entity_types={},
+        schema_holders=holders,
+    )
+    assert "DROP INDEX `legacy_rel_idx` IF EXISTS;" in capsys.readouterr().out
+
+
+def test_constraint_backed_index_is_not_reported_separately() -> None:
+    """A uniqueness CONSTRAINT owns a backing INDEX of the same name.
+
+    Reporting both advises `DROP INDEX` on it, which Neo4j REFUSES ("index
+    belongs to constraint") — an instruction that errors is worse than none.
+    `owningConstraint` is the discriminator, and the query filters on it, so the
+    constraint row speaks for the pair. Found by this PR's own positive control,
+    not by review.
+    """
+    import inspect
+
+    import audit_graph_vocabulary  # type: ignore[import-not-found]
+
+    source = inspect.getsource(audit_graph_vocabulary.fetch_schema_holders)
+    assert "WHERE owningConstraint IS NULL" in source, (
+        "constraint-backed indexes must be excluded, or the audit prints a DROP "
+        "INDEX that Neo4j rejects"
+    )
+
+
+def test_mixed_index_is_never_recommended_for_dropping() -> None:
+    """A fulltext index may span several labels — DROP would kill live search.
+
+    If the object also covers a valid label, the remediation must be
+    "recreate without", not "drop" (Codex P2, #1011). Advice that destroys
+    working coverage is worse than the stray it removes.
+    """
+    stray_only = SchemaHolder("ghost_idx", "INDEX", tokens=("GhostProbe",))
+    assert stray_only.covers_only("GhostProbe")
+    assert stray_only.remediation("GhostProbe") == "DROP INDEX `ghost_idx` IF EXISTS;"
+
+    mixed = SchemaHolder("mixed_ft", "INDEX", tokens=("GhostProbe", "PathStep"))
+    assert not mixed.covers_only("GhostProbe")
+    advice = mixed.remediation("GhostProbe")
+    assert "do NOT drop" in advice and "PathStep" in advice
+    assert not advice.startswith("DROP"), "a mixed index must never read as a DROP command"
+
+
+def test_schema_names_are_quoted_in_the_generated_command() -> None:
+    """Schema names may legally contain spaces or backticks (verified live).
+
+    An unquoted name yields an invalid statement someone will paste and puzzle
+    over; a name bearing a semicolon could change what the paste means.
+    """
+    assert (
+        SchemaHolder("weird name idx", "INDEX", tokens=("X",)).remediation("X")
+        == "DROP INDEX `weird name idx` IF EXISTS;"
+    )
+    assert (
+        SchemaHolder("we`ird", "CONSTRAINT", tokens=("X",)).remediation("X")
+        == "DROP CONSTRAINT `we``ird` IF EXISTS;"
+    )
+
+
+def test_escape_bearing_name_yields_manual_guidance_not_a_command() -> None:
+    """Quoting cannot express a name Cypher will re-decode — so do not pretend.
+
+    Cypher decodes escape sequences INSIDE a quoted identifier (#1010), so
+    backtick-quoting `Esc\\u0060Probe` prints a command that targets a DIFFERENT
+    object. `DROP INDEX` has no parameterized form to fall back on. #1011
+    documented that caveat and still emitted the command; Codex was right that
+    documenting a hazard is not removing it.
+
+    Verified reachable: an index named `back\\slash` creates without complaint.
+    """
+    holder = SchemaHolder("back\\slash", "INDEX", tokens=("BsProbe",))
+    advice = holder.remediation("BsProbe")
+
+    assert advice.startswith("MANUAL:"), "must not read as a runnable command"
+    assert "DROP INDEX `" not in advice, (
+        "a name Cypher re-decodes must never be rendered as a pasteable DROP"
+    )
+
+    # A normal name still gets a real command.
+    assert SchemaHolder("plain_idx", "INDEX", tokens=("X",)).remediation("X").startswith("DROP ")

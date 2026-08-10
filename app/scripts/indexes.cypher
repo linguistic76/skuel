@@ -23,7 +23,22 @@ CREATE INDEX principle_uid_idx IF NOT EXISTS FOR (n:Principle) ON (n.uid);
 CREATE INDEX ku_uid_idx IF NOT EXISTS FOR (n:Ku) ON (n.uid);
 CREATE INDEX exercise_uid_idx IF NOT EXISTS FOR (n:Exercise) ON (n.uid);
 CREATE INDEX learning_path_uid_idx IF NOT EXISTS FOR (n:LearningPath) ON (n.uid);
-CREATE INDEX learning_step_uid_idx IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
+// Named `path_step_uid_idx` to match Neo4jSchemaManager. It was
+// `learning_step_uid_idx ... FOR (n:PathStep)`, a silent NO-OP: `IF NOT EXISTS`
+// matches by NAME, and that name belonged to the stale :LearningStep index
+// retired below — so it never created anything (#1011). Renamed rather than
+// deleted: this file provisions a database by hand, where bootstrap has not run.
+//
+// The DROP must come FIRST, and the ordering is load-bearing (#1011). The old
+// name has TWO historical meanings: the stale :LearningStep index, and — on a
+// database provisioned by an older copy of THIS script — a valid index on
+// :PathStep(uid). In that second case `CREATE ... IF NOT EXISTS` no-ops against
+// the EQUIVALENT SCHEMA (verified: same label+property under a different name
+// is treated as already-existing), and the stale-section drop further down
+// would then delete the only PathStep uid index. Dropping first makes both
+// histories converge on `path_step_uid_idx`.
+DROP INDEX learning_step_uid_idx IF EXISTS;
+CREATE INDEX path_step_uid_idx IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
 CREATE INDEX life_path_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.uid);
 CREATE INDEX resource_uid_idx IF NOT EXISTS FOR (n:Resource) ON (n.uid);
 CREATE INDEX user_entry_uid_idx IF NOT EXISTS FOR (n:UserEntry) ON (n.uid);
@@ -72,6 +87,14 @@ CREATE INDEX entity_user_type_idx IF NOT EXISTS FOR (n:Entity) ON (n.user_uid, n
 DROP INDEX ai_report_uid_idx IF EXISTS;
 DROP INDEX lpstep_embedding_idx IF EXISTS;
 DROP INDEX lesson_uid_idx IF EXISTS;
+// Held dead labels alive in db.labels() at ZERO nodes — an index keeps a label in
+// the registry, and there is no DROP LABEL. Dropping these erased :Lesson,
+// :LearningStep, :Expense and :ExerciseReport (41 labels -> 37). Found by
+// scripts/audit_graph_vocabulary.py (#1011).
+DROP INDEX learning_step_uid_idx IF EXISTS;
+DROP INDEX expense_expense_date_idx IF EXISTS;
+DROP INDEX exercise_report_uid_idx IF EXISTS;
+DROP INDEX exercise_report_user_uid_idx IF EXISTS;
 DROP INDEX journal_submission_uid_idx IF EXISTS;
 DROP INDEX journal_report_uid_idx IF EXISTS;
 DROP INDEX journal_submission_user_uid_idx IF EXISTS;

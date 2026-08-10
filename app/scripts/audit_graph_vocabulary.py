@@ -19,15 +19,28 @@ bypass that door entirely.
 Found on its first run: a live ``SUPPORTS_HABIT`` edge, which two code comments
 asserted "was never written" (#1010).
 
-**Registry residue is not drift.** ``db.labels()`` and ``db.relationshipTypes()``
-keep returning a name after the last node/edge carrying it is deleted, until the
-store is compacted. A stray holding ZERO rows is therefore reported as INFO and
-does not fail the run — failing on it would make this audit permanently red for
-a condition that is both harmless and outside the app's control. A stray holding
-data is a real finding and exits non-zero.
+**A zero-row stray is usually held by a stale INDEX, and is cleanable.** #1010
+shipped the claim that ``db.labels()`` keeps returning a name "until the store is
+compacted, nothing to do". Both halves were wrong, and measuring beat reasoning:
+dropping ``exercise_report_uid_idx`` removed ``ExerciseReport`` from
+``db.labels()`` immediately. An index (or constraint) on a label or relationship
+type keeps that name in the registry even at ZERO rows — so the four labels
+#1010 reported as inert residue were really five stale indexes, and dropping
+them erased all four (41 labels → 37). The same mechanism applies to
+``db.relationshipTypes()``.
 
-Read-only: this script never writes. Fixes belong in
-``scripts/migrations/`` (data) or in the enums (vocabulary).
+There is no ``DROP LABEL`` in Cypher; dropping the schema object that references
+it is the mechanism. This audit therefore NAMES the holding index so the fix is
+obvious rather than declaring the condition untouchable.
+
+**Exit code still means "is the data reachable".** A zero-row stray does not fail
+the run even though it is actionable: nothing is unreachable, so this is schema
+hygiene rather than data corruption, and a red exit should mean the graph is
+lying to its readers. Strays holding DATA exit non-zero.
+
+Read-only: this script never writes. Fixes belong in ``scripts/migrations/``
+(data), ``scripts/indexes.cypher`` (stale schema objects), or the enums
+(vocabulary).
 
 Usage:
     uv run python scripts/audit_graph_vocabulary.py            # exit 1 if any stray holds data
@@ -89,6 +102,116 @@ class Stray:
     @property
     def holds_data(self) -> bool:
         return self.count > 0
+
+
+@dataclass(frozen=True)
+class SchemaHolder:
+    """A schema object keeping a token alive in the registry.
+
+    ``kind`` is retained because the cleanup COMMAND differs — a constraint needs
+    ``DROP CONSTRAINT``, not ``DROP INDEX`` (see
+    ``scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher``).
+    Collapsing the two would hand the reader an instruction that fails.
+
+    ``tokens`` is the FULL set the object covers, because a fulltext index may
+    span several labels. If it covers a live label as well as the stray one,
+    dropping it destroys working search coverage — so the remediation is a
+    recreate-without, not a DROP (Codex P2, #1011).
+    """
+
+    name: str
+    kind: str  # "INDEX" | "CONSTRAINT"
+    tokens: tuple[str, ...] = ()
+
+    def covers_only(self, token: str) -> bool:
+        """True when this object exists solely for ``token``, so DROP is safe."""
+        return set(self.tokens) <= {token}
+
+    def remediation(self, token: str) -> str:
+        r"""The cleanup instruction for freeing ``token`` from this object.
+
+        Names are backtick-quoted with doubling: a schema name may legally
+        contain spaces (verified) or a backtick, and an unquoted name yields an
+        invalid statement that someone will paste and puzzle over. Caveat kept
+        honest: Cypher also decodes ``\uXXXX`` INSIDE a quoted identifier
+        (#1010), so a name containing that literal text still needs a human —
+        there is no parameterized form of DROP INDEX to fall back on.
+        """
+        if "\\" in self.name:
+            # Cypher re-decodes escape sequences INSIDE a quoted identifier
+            # (#1010), so `Esc\u0060Probe` would be read back as a DIFFERENT
+            # name — quoting cannot express it and DROP INDEX has no
+            # parameterized form. Verified reachable: an index named
+            # `back\slash` creates fine. Emit guidance that CANNOT be pasted as
+            # a command rather than a command that silently targets the wrong
+            # object (Codex P2, #1011).
+            return (
+                f"MANUAL: {self.kind} named {self.name!r} contains a backslash escape that "
+                f"Cypher re-decodes inside a quoted identifier — there is no safe literal "
+                f"form; drop it by hand"
+            )
+
+        quoted = "`" + self.name.replace("`", "``") + "`"
+        if self.covers_only(token):
+            return f"DROP {self.kind} {quoted} IF EXISTS;"
+        others = ", ".join(sorted(t for t in self.tokens if t != token))
+        return (
+            f"{self.kind} {quoted} also covers {others} — do NOT drop it; "
+            f"recreate it without {token}"
+        )
+
+
+# Neo4j's entityType → the Stray.kind it can hold.
+_ENTITY_TYPE_TO_STRAY_KIND: dict[str, str] = {"NODE": "label", "RELATIONSHIP": "relationship"}
+
+
+async def fetch_schema_holders(driver: AsyncDriver) -> dict[tuple[str, str], list[SchemaHolder]]:
+    """Map each ``(stray_kind, token)`` to the schema objects referencing it.
+
+    This is what turns "inert residue, nothing to do" into an actionable line:
+    an index or constraint keeps a name alive in ``db.labels()`` /
+    ``db.relationshipTypes()`` at zero rows, so naming it tells the reader
+    exactly what to DROP.
+
+    Keyed by ``(kind, token)`` rather than token alone: a label and a
+    relationship type may share a spelling, and a RELATIONSHIP index on
+    ``Legacy`` does not hold a ``:Legacy`` LABEL alive — pointing at it would
+    send the reader to drop something that cannot fix their problem. The graph
+    already carries a relationship index, so the two namespaces genuinely
+    coexist here.
+    """
+    holders: dict[tuple[str, str], list[SchemaHolder]] = {}
+    async with driver.session() as session:
+        # A uniqueness CONSTRAINT owns a backing INDEX of the SAME NAME, so a
+        # naive union reports the object twice and advises `DROP INDEX` on it —
+        # which Neo4j refuses ("index belongs to constraint"). `owningConstraint`
+        # is the discriminator; skip owned indexes and let the constraint row
+        # speak for the pair.
+        index_rows = await (
+            await session.run(
+                "SHOW INDEXES YIELD name, entityType, labelsOrTypes, owningConstraint "
+                "WHERE owningConstraint IS NULL "
+                "RETURN name, entityType, labelsOrTypes"
+            )
+        ).data()
+        constraint_rows = await (
+            await session.run(
+                "SHOW CONSTRAINTS YIELD name, entityType, labelsOrTypes "
+                "RETURN name, entityType, labelsOrTypes"
+            )
+        ).data()
+
+        for rows, holder_kind in ((index_rows, "INDEX"), (constraint_rows, "CONSTRAINT")):
+            for record in rows:
+                stray_kind = _ENTITY_TYPE_TO_STRAY_KIND.get(record["entityType"])
+                if stray_kind is None:
+                    continue
+                covered = tuple(record["labelsOrTypes"] or [])
+                for token in covered:
+                    holders.setdefault((stray_kind, token), []).append(
+                        SchemaHolder(name=record["name"], kind=holder_kind, tokens=covered)
+                    )
+    return {key: sorted(set(found), key=lambda h: h.name) for key, found in holders.items()}
 
 
 def domain_label_values() -> list[str]:
@@ -237,8 +360,10 @@ def report(
     live_labels: dict[str, int],
     live_relationships: dict[str, int],
     live_entity_types: dict[str, int],
+    schema_holders: dict[tuple[str, str], list[SchemaHolder]] | None = None,
 ) -> int:
     """Print findings; return the process exit code."""
+    holders = schema_holders or {}
     print("Graph Vocabulary Audit — live graph vs NeoLabel / RelationshipName / EntityType")
     print("=" * 78)
     print(
@@ -260,10 +385,31 @@ def report(
         )
 
     if residue:
-        print(f"\nℹ {len(residue)} stray name(s) with NO rows — registry residue, not drift:")
-        for s in residue:
-            print(f"    {s.kind:<13} {s.value}")
-        print("  Neo4j lists a name until the store is compacted. Nothing to do.")
+        held = [s for s in residue if holders.get((s.kind, s.value))]
+        unheld = [s for s in residue if not holders.get((s.kind, s.value))]
+
+        if held:
+            print(
+                f"\n⚠ {len(held)} stray name(s) with NO rows, held alive by a stale "
+                f"INDEX/CONSTRAINT:"
+            )
+            for s in held:
+                for holder in holders[(s.kind, s.value)]:
+                    print(f"    {s.kind:<13} {s.value:<28} {holder.remediation(s.value)}")
+            print(
+                "\n  An index or constraint keeps a name in db.labels() / "
+                "db.relationshipTypes()\n"
+                "  even at zero rows. There is no DROP LABEL — dropping the schema object IS\n"
+                "  the mechanism. Retire indexes in scripts/indexes.cypher (Stale indexes\n"
+                "  section); constraints need DROP CONSTRAINT, as in\n"
+                "  scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher."
+            )
+
+        if unheld:
+            print(f"\nℹ {len(unheld)} stray name(s) with NO rows and no schema object:")
+            for s in unheld:
+                print(f"    {s.kind:<13} {s.value}")
+            print("  Genuine token residue — clears when the store is next compacted.")
 
     if verbose:
         stray_values = {(s.kind, s.value) for s in strays}
@@ -294,6 +440,7 @@ async def main() -> int:
     driver = conn.connect()
     try:
         labels, relationships, entity_types = await fetch_live_vocabulary(driver)
+        schema_holders = await fetch_schema_holders(driver)
     finally:
         await conn.close()
 
@@ -304,6 +451,7 @@ async def main() -> int:
         live_labels=labels,
         live_relationships=relationships,
         live_entity_types=entity_types,
+        schema_holders=schema_holders,
     )
 
 

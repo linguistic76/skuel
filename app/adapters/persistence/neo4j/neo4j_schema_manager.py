@@ -790,6 +790,10 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         - exercise_submission_* (label ExerciseSubmission — collapsed into UserEntry, ADR-054)
         - je_input_* (label JeInput — collapsed into UserEntry, ADR-054)
         - je_output_* (label JeOutput — collapsed into UserEntry, ADR-054)
+        - lesson_uid_idx / learning_step_uid_idx / expense_expense_date_idx /
+          exercise_report_* (labels dropped long ago; the INDEX was what kept
+          :Lesson, :LearningStep, :Expense and :ExerciseReport in db.labels()
+          at zero nodes — #1011)
         - knowledge_fulltext (legacy — label Entity with old field set)
         - tasks_fulltext (legacy — replaced by task_fulltext_idx)
         - journals_fulltext (legacy — label Document no longer exists)
@@ -816,6 +820,16 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             "je_output_uid_idx",
             "je_output_user_uid_idx",
             "je_output_fulltext_idx",
+            # Held DEAD LABELS alive in db.labels() at zero nodes (#1011). An index
+            # keeps a label in the registry and there is no DROP LABEL, so these
+            # are how :Lesson / :LearningStep / :Expense / :ExerciseReport
+            # survived long after their last node. Dropping them took the dev
+            # graph from 41 labels to 37. Found by scripts/audit_graph_vocabulary.py.
+            "lesson_uid_idx",
+            "learning_step_uid_idx",
+            "expense_expense_date_idx",
+            "exercise_report_uid_idx",
+            "exercise_report_user_uid_idx",
             # Legacy fulltext indexes (replaced by sync_fulltext_indexes)
             "knowledge_fulltext",
             "tasks_fulltext",
