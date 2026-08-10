@@ -53,6 +53,7 @@ from .crud_queries import (
     build_list_query,
     build_prerequisite_chain_query,
     build_prerequisite_traversal_query,
+    build_publication_clause,
     build_relationship_traversal_query,
     build_search_query,
     build_search_visibility_clause,
@@ -192,6 +193,7 @@ __all__ = [
     # Semantic queries
     "build_semantic_context",
     "build_semantic_filter_query",
+    "build_publication_clause",
     "build_search_visibility_clause",
     "build_semantic_merge",
     "build_semantic_traversal",

@@ -15,7 +15,7 @@ Module Organization:
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
 - user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth
 - pipeline: Pipeline, JeUse, ProcessingMode, ReportSource, ExchangeStatus
-- curriculum_enums: LpType, StepDifficulty
+- curriculum_enums: LpType, PublicationState, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
@@ -51,7 +51,7 @@ from .askesis_enums import IntegrationSuccess, QueryComplexity
 from .choice_enums import ChoiceType
 
 # Curriculum enums - learning path and step classification
-from .curriculum_enums import LpType, StepDifficulty
+from .curriculum_enums import LpType, PublicationState, StepDifficulty
 
 # Entity enums - core identity, lifecycle, and domain classification
 from .entity_enums import (
@@ -244,6 +244,7 @@ __all__ = [
     "SearchVisibility",
     "SubmissionModality",
     "SeverityLevel",
+    "PublicationState",
     "StepDifficulty",
     "SystemConstants",
     "ThemeCategory",

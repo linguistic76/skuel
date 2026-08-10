@@ -226,6 +226,11 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
             "exercise_count": raw["total_exercises"],
             "path_steps_with_exercise": raw["path_steps_with_exercise"],
             "practice_coverage": round(practice_coverage, 4),
+            # Curriculum marked ``publication_state: draft`` — INCLUDED in the
+            # totals above, reported separately. This gauge is authoring
+            # guidance, so unfinished work is exactly what its author needs to
+            # see; learner-facing surfaces withhold it instead.
+            "draft_curriculum_count": raw["draft_curriculum_count"],
             "gds_readiness_score": score,
             "gds_ready": gds_ready,
             "flags": flags,

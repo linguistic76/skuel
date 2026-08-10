@@ -96,6 +96,7 @@ class CurriculumDTO(EntityDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
             ],
             datetime_fields=[
                 "created_at",
@@ -124,6 +125,7 @@ class CurriculumDTO(EntityDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
             ),
             datetime_fields=[
                 "created_at",
@@ -170,6 +172,7 @@ class CurriculumDTO(EntityDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "quality_score",
                 "estimated_time_minutes",
                 "difficulty_rating",
@@ -196,6 +199,7 @@ class CurriculumDTO(EntityDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
             ),
         )
 

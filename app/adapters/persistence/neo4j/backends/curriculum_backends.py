@@ -15,6 +15,7 @@ from adapters.persistence.neo4j._lp_progress_mixin import _LpProgressMixin
 from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
 from adapters.persistence.neo4j._organizes_mixin import _OrganizesMixin
 from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import KnowledgeHealth
 from core.models.enums.entity_enums import EntityType
@@ -707,8 +708,18 @@ class PsBackend(
         order_direction: str,
         user_uid: UserUID | None = None,
     ) -> Result[list[PathStep]]:
-        """List steps (with knowledge UIDs) as typed models, with pagination and filters."""
-        where_clause = "WHERE s.user_uid = $user_uid " if user_uid else ""
+        """List steps (with knowledge UIDs) as typed models, with pagination and filters.
+
+        Withholds draft-marked steps: this is the PathStep CATALOGUE, an
+        audience surface. Composes ``build_publication_clause`` rather than
+        spelling the predicate out — one definition, NULL-tolerant so the
+        pre-``publication_state`` corpus keeps listing.
+        """
+        published, published_params = build_publication_clause("s")
+        predicates = [published]
+        if user_uid:
+            predicates.append("s.user_uid = $user_uid")
+        where_clause = f"WHERE {' AND '.join(predicates)} "
 
         if path_uid:
             query = f"""
@@ -733,7 +744,7 @@ class PsBackend(
             LIMIT $limit
             """
 
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset, **published_params}
         if path_uid:
             params["path_uid"] = path_uid
         if user_uid:
@@ -1023,6 +1034,18 @@ CALL () {
     WHERE exists{ (ps)-[:__HAS_EXERCISE__]->(ex:Entity {entity_type: __ET_EX__}) WHERE ex.scope = __CURRICULUM_SCOPE__ }
     RETURN count(ps) AS path_steps_with_exercise
 }
+CALL () {
+    // Draft-marked curriculum (publication_state: draft) — COUNTED, not excluded.
+    // This gauge is authoring guidance, so a draft's orphans and coverage gaps are
+    // exactly what the author needs to see; silently dropping drafts would also
+    // move the ADR-080 baseline. Learner-facing surfaces withhold drafts instead
+    // (build_publication_clause). Reporting the count keeps the other totals
+    // interpretable: "N of these are not published yet".
+    MATCH (d:Entity)
+    WHERE d.entity_type IN [__ET_KU__, __ET_PS__, __ET_LP__, __ET_EX__]
+      AND d.publication_state = $publication_draft
+    RETURN count(d) AS draft_curriculum_count
+}
 RETURN total_kus, total_path_steps, total_learning_paths, total_exercises,
        avg_ku_degree, max_ku_degree, orphan_ku_count, orphan_kus,
        composition_edge_count, composed_ku_count,
@@ -1030,7 +1053,8 @@ RETURN total_kus, total_path_steps, total_learning_paths, total_exercises,
        reduce(m = 0, x IN [fwd_depth, inv_depth, step_depth] | CASE WHEN x > m THEN x ELSE m END)
            AS dag_max_depth,
        organizes_edge_count, organized_ku_count,
-       lateral_edge_count, enablement_edge_count, path_steps_with_exercise
+       lateral_edge_count, enablement_edge_count, path_steps_with_exercise,
+       draft_curriculum_count
 """
 
 
@@ -1066,6 +1090,8 @@ def _build_knowledge_health_query() -> str:
 
 
 _KNOWLEDGE_HEALTH_QUERY = _build_knowledge_health_query()
+# Sourced from build_publication_clause so the draft vocabulary has ONE definition.
+_KNOWLEDGE_HEALTH_PARAMS: dict[str, str] = build_publication_clause("d")[1]
 
 _EMPTY_KNOWLEDGE_HEALTH_RAW: KnowledgeHealthRaw = {
     "total_kus": 0,
@@ -1086,6 +1112,7 @@ _EMPTY_KNOWLEDGE_HEALTH_RAW: KnowledgeHealthRaw = {
     "lateral_edge_count": 0,
     "enablement_edge_count": 0,
     "path_steps_with_exercise": 0,
+    "draft_curriculum_count": 0,
 }
 
 
@@ -1114,7 +1141,9 @@ class KnowledgeHealthBackend:
         nodes; degree/orphans count incident edges minus learner-state telemetry.
         An empty graph yields the all-zeros shape, not an error.
         """
-        result = await self.executor.execute_query(_KNOWLEDGE_HEALTH_QUERY)
+        result = await self.executor.execute_query(
+            _KNOWLEDGE_HEALTH_QUERY, _KNOWLEDGE_HEALTH_PARAMS
+        )
         if result.is_error:
             return Result.fail(result)
         rows = result.value or []
@@ -1147,5 +1176,6 @@ class KnowledgeHealthBackend:
                 lateral_edge_count=int(row["lateral_edge_count"]),
                 enablement_edge_count=int(row["enablement_edge_count"]),
                 path_steps_with_exercise=int(row["path_steps_with_exercise"]),
+                draft_curriculum_count=int(row["draft_curriculum_count"]),
             )
         )

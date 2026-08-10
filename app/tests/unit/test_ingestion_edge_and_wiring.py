@@ -345,6 +345,29 @@ class TestPathStepUsesKuWiring:
         assert result["created_at"] == "2026-03-29T00:00:00Z"
 
 
+    def test_preparer_canonicalizes_publication_state(self):
+        """``publication_state`` is enum-gated at the write door (#1003).
+
+        Registered in ENUM_FIELD_TYPES, so authored casing canonicalizes and a
+        non-member value is rejected rather than stored raw.
+        """
+        from core.models.enum_field_registry import ENUM_FIELD_TYPES
+        from core.models.enums import PublicationState
+
+        assert ENUM_FIELD_TYPES["publication_state"] is PublicationState
+
+        data = {"type": "lesson", "title": "T", "publication_state": "DRAFT"}
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("t.md"))
+        assert result["publication_state"] == "draft"
+
+    def test_preparer_omits_publication_state_when_unauthored(self):
+        """No key authored → no property written; readers must treat that as published."""
+        data = {"type": "lesson", "title": "T"}
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("t.md"))
+        assert "publication_state" not in result
+
+
+
 # ============================================================================
 # PS RELATIONSHIP FIELD WIRING
 # ============================================================================

@@ -50,9 +50,57 @@ from core.utils.result_simplified import Result
 
 
 class TestVisibilityClause:
-    def test_public_has_no_clause(self) -> None:
-        assert build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=True) is None
-        assert build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=False) is None
+    def test_public_applies_only_the_publication_gate(self) -> None:
+        """PUBLIC carries no OWNERSHIP clause, but drafts still do not face an audience.
+
+        Was ``is None`` before ``publication_state`` existed. The ownership
+        semantics are unchanged — what is asserted here is that the ONLY
+        predicate PUBLIC contributes is the publication gate, and that it stays
+        NULL-tolerant so the pre-``publication_state`` corpus keeps reading.
+        """
+        for has_user in (True, False):
+            scoped = build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=has_user)
+            assert scoped is not None
+            clause, params = scoped
+            assert clause == (
+                "(n.publication_state IS NULL"
+                " OR n.publication_state <> $publication_draft)"
+            )
+            assert params == {"publication_draft": "draft"}
+            # No ownership predicate leaked into PUBLIC.
+            assert "user_uid" not in clause
+            assert "OWNS" not in clause
+
+    def test_publication_clause_is_null_tolerant(self) -> None:
+        """The gate withholds ONLY what is explicitly marked draft.
+
+        Load-bearing: ingestion never writes absent frontmatter keys, so every
+        node authored before ``publication_state`` existed has no such property.
+        A bare ``= 'published'`` test would hide the entire existing corpus.
+        """
+        from adapters.persistence.neo4j.query.cypher import build_publication_clause
+
+        clause, params = build_publication_clause()
+        assert "IS NULL" in clause, "must not hide the pre-publication_state corpus"
+        assert "<> $publication_draft" in clause
+        assert params == {"publication_draft": "draft"}
+        # Never a string literal in the Cypher (SKUEL021 / CYP003).
+        assert "'draft'" not in clause
+
+    def test_publication_clause_validates_alias(self) -> None:
+        from adapters.persistence.neo4j.query.cypher import build_publication_clause
+
+        clause, _ = build_publication_clause("target")
+        assert clause.startswith("(target.publication_state")
+        with pytest.raises(ValueError):
+            build_publication_clause("n) MATCH (m")
+
+    def test_owner_only_domains_get_no_publication_gate(self) -> None:
+        """Activities/UserEntry are not curriculum — their owner sees their own work."""
+        clause, _params = build_search_visibility_clause(
+            SearchVisibility.OWNER_ONLY, has_user=True
+        )
+        assert "publication_state" not in clause
 
     def test_owner_only_property_scope(self) -> None:
         clause, params = build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=True)
@@ -71,7 +119,16 @@ class TestVisibilityClause:
         assert clause.startswith("(") and clause.endswith(")")
         # Scope value rides as a parameter, never a string literal (SKUEL021).
         assert "n.scope = $visibility_curriculum_scope" in clause
-        assert params == {"visibility_curriculum_scope": "curriculum"}
+        assert params == {
+            "visibility_curriculum_scope": "curriculum",
+            "publication_draft": "draft",
+        }
+        # The publication gate binds to the CURRICULUM half only — an owner must
+        # still see their own unfinished work.
+        assert (
+            "(n.scope = $visibility_curriculum_scope AND (n.publication_state IS NULL"
+            " OR n.publication_state <> $publication_draft))" in clause
+        )
         assert "-[:OWNS]->" in clause
         assert "-[:SHARES_WITH]->" in clause
         assert "-[:MEMBER_OF]->" in clause
@@ -82,12 +139,19 @@ class TestVisibilityClause:
         # hide that entity from its own owner.
         assert "n.owner_uid = $user_uid" in clause
 
-    def test_scope_aware_without_user_is_curriculum_only(self) -> None:
+    def test_scope_aware_without_user_is_published_curriculum_only(self) -> None:
         clause, params = build_search_visibility_clause(
             SearchVisibility.SCOPE_AWARE, has_user=False
         )
-        assert clause == "(n.scope = $visibility_curriculum_scope)"
-        assert params == {"visibility_curriculum_scope": "curriculum"}
+        assert clause == (
+            "((n.scope = $visibility_curriculum_scope"
+            " AND (n.publication_state IS NULL"
+            " OR n.publication_state <> $publication_draft)))"
+        )
+        assert params == {
+            "visibility_curriculum_scope": "curriculum",
+            "publication_draft": "draft",
+        }
 
     def test_none_with_user_defaults_to_owner_only(self) -> None:
         # Scoping-by-default: a caller passing a user gets a scoped query
@@ -125,7 +189,8 @@ class TestQueryBuilderComposition:
         assert "(n.user_uid = $user_uid) AND (" in cypher
         assert params["user_uid"] == "user_a"
 
-    def test_text_search_public_is_unscoped(self) -> None:
+    def test_text_search_public_is_unscoped_by_owner(self) -> None:
+        """PUBLIC composes no OWNERSHIP scope — the publication gate is separate."""
         cypher, params = build_text_search_query(
             Task,
             "alpha",
@@ -136,6 +201,9 @@ class TestQueryBuilderComposition:
         )
         assert "user_uid" not in cypher
         assert "user_uid" not in params
+        # ...but drafts are still withheld, and the predicate is NULL-tolerant.
+        assert "publication_state IS NULL" in cypher
+        assert params["publication_draft"] == "draft"
 
     def test_graph_aware_search_scopes_target_alias(self) -> None:
         cypher, params = build_graph_aware_search_query(
@@ -172,9 +240,12 @@ class TestQueryBuilderComposition:
             visibility=SearchVisibility.SCOPE_AWARE,
             user_uid=None,
         )
-        assert "(n.scope = $visibility_curriculum_scope) AND (" in cypher
+        assert "n.scope = $visibility_curriculum_scope" in cypher
         assert params["visibility_curriculum_scope"] == "curriculum"
         assert "user_uid" not in params
+        # Anonymous callers see published curriculum only.
+        assert "publication_state" in cypher
+        assert params["publication_draft"] == "draft"
 
 
 # ============================================================================

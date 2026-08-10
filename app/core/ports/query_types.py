@@ -3582,6 +3582,10 @@ class KnowledgeHealthReport(TypedDict):
     exercise_count: int
     path_steps_with_exercise: int
     practice_coverage: float
+    # Curriculum explicitly marked ``publication_state: draft``. Included in
+    # the totals above, reported separately — the gauge guides the AUTHOR, so
+    # it shows unfinished work rather than hiding it.
+    draft_curriculum_count: int
     # Composite readiness + authoring guidance
     gds_readiness_score: float
     gds_ready: bool
@@ -3613,6 +3617,11 @@ class KnowledgeHealthRaw(TypedDict):
     lateral_edge_count: int
     enablement_edge_count: int
     path_steps_with_exercise: int
+    # Curriculum nodes explicitly marked ``publication_state: draft``. Included
+    # in the totals above, not subtracted from them — the gauge is authoring
+    # guidance, so this reports "N of the measured corpus is not published yet"
+    # rather than hiding unfinished work from its own author.
+    draft_curriculum_count: int
 
 
 # ============================================================================

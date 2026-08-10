@@ -17,11 +17,12 @@ Goal.fulfills_goal_uid (sub-goal under parent goal). All three inherit from Curr
 because they share substance tracking, learning metadata, and confidence fields —
 not because they are structurally equivalent.
 
-Adds ~23 fields to Entity:
+Adds ~24 fields to Entity:
 - Confidence (1): admin-assessed certainty about content quality/accuracy
-- Learning metadata (10): complexity, learning_level, sel_category, quality_score,
-  estimated_time_minutes, difficulty_rating, semantic_links, target_age_range,
-  learning_objectives, structured_learning_objectives
+- Learning metadata (11): complexity, learning_level, sel_category,
+  publication_state, quality_score, estimated_time_minutes, difficulty_rating,
+  semantic_links, target_age_range, learning_objectives,
+  structured_learning_objectives
 - Substance tracking (10): 5 counters + 5 last-dates — tracks how knowledge is
   LIVED (applied in tasks, practiced in events, built into habits, reflected in
   entries, informed choices). Data flows from Neo4j via event-driven fan-out:
@@ -54,7 +55,14 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
 
 from core.models.entity import Entity
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, SystemConstants
+from core.models.enums import (
+    Domain,
+    KuComplexity,
+    LearningLevel,
+    PublicationState,
+    SELCategory,
+    SystemConstants,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -104,6 +112,10 @@ class Curriculum(Entity):
     complexity: KuComplexity = KuComplexity.MEDIUM
     learning_level: LearningLevel = LearningLevel.BEGINNER
     sel_category: SELCategory | None = None
+    # Authoring gate, NOT lifecycle — see PublicationState. Defaults to
+    # PUBLISHED so unmarked content (the whole existing corpus) stays visible;
+    # only an explicit ``publication_state: draft`` withholds a file.
+    publication_state: PublicationState = PublicationState.PUBLISHED
     quality_score: float = 0.0
     estimated_time_minutes: int = 15
     difficulty_rating: float = 0.5  # 0.0-1.0

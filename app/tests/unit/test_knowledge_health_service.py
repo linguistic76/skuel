@@ -37,6 +37,7 @@ LIVE_RAW: KnowledgeHealthRaw = {
     "lateral_edge_count": 33,
     "enablement_edge_count": 32,
     "path_steps_with_exercise": 10,
+    "draft_curriculum_count": 0,
 }
 
 
@@ -60,6 +61,7 @@ def _empty_raw() -> KnowledgeHealthRaw:
         "lateral_edge_count": 0,
         "enablement_edge_count": 0,
         "path_steps_with_exercise": 0,
+        "draft_curriculum_count": 0,
     }
 
 
@@ -84,6 +86,7 @@ def _healthy_raw() -> KnowledgeHealthRaw:
         "lateral_edge_count": 150,  # > 1/Ku density
         "enablement_edge_count": 40,
         "path_steps_with_exercise": 19,
+        "draft_curriculum_count": 0,
     }
 
 

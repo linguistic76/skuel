@@ -24,6 +24,33 @@ class LpType(StrEnum):
     ACCELERATED = "accelerated"
 
 
+class PublicationState(StrEnum):
+    """Whether authored curriculum content is finished enough to face an audience.
+
+    Orthogonal to ``EntityStatus`` — which in this codebase means *lifecycle*
+    (``DRAFT`` there is counted as OPEN by the MEGA-QUERY's
+    ``open_ps_statuses``, i.e. "in progress", not "unpublished"). Reusing
+    ``status`` for a publication gate would collide with that meaning, so the
+    line gets its own field.
+
+    Authored per-file in vault frontmatter (``publication_state: draft``), so a
+    draft stays a draft when the file moves between folders — a directory name
+    is not a status.
+
+    ``PUBLISHED`` is the default and the tolerant reading: ingestion never
+    writes absent frontmatter keys, so the entire pre-existing corpus carries
+    no ``publication_state`` property at all and MUST keep reading as
+    published. Every reader predicate is NULL-tolerant for that reason.
+    """
+
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+    def is_public(self) -> bool:
+        """Whether content in this state may face a learner audience."""
+        return self is PublicationState.PUBLISHED
+
+
 class StepDifficulty(StrEnum):
     """Difficulty level of a path step."""
 

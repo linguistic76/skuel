@@ -90,6 +90,7 @@ class PathStepDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "step_difficulty",
             ],
             datetime_fields=[
@@ -118,6 +119,7 @@ class PathStepDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "step_difficulty",
             ),
             datetime_fields=[
@@ -166,6 +168,7 @@ class PathStepDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "quality_score",
                 "estimated_time_minutes",
                 "difficulty_rating",
@@ -191,6 +194,7 @@ class PathStepDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "step_difficulty",
             ),
         )

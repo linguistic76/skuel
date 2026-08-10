@@ -18,7 +18,7 @@ from dataclasses import fields, is_dataclass
 from typing import Any, get_origin, get_type_hints
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
-from core.models.enums import ExerciseScope, SearchVisibility
+from core.models.enums import ExerciseScope, PublicationState, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jValue, UserUID
@@ -171,6 +171,33 @@ def build_search_query(
     return query, params
 
 
+def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, str]]:
+    """Build the WHERE fragment that withholds unpublished curriculum content.
+
+    THE single publication predicate — every reader that shows curriculum to a
+    learner audience composes THIS, never a hand-written equivalent.
+
+    **NULL-tolerant on purpose, and load-bearing.** Ingestion does not write
+    absent frontmatter keys, so every node authored before ``publication_state``
+    existed carries no such property. A bare ``= 'published'`` test would
+    silently hide the entire existing corpus; the predicate therefore withholds
+    only what is EXPLICITLY marked draft.
+
+    Orthogonal to ``build_search_visibility_clause`` (audience/ownership) — this
+    one asks "is it finished?", not "whose is it?".
+
+    Returns:
+        ``(fragment, params)`` — a parenthesized WHERE fragment plus the
+        parameters it introduces.
+    """
+    _validate_identifier(entity_alias, context="entity alias")
+    return (
+        f"({entity_alias}.publication_state IS NULL"
+        f" OR {entity_alias}.publication_state <> $publication_draft)",
+        {"publication_draft": PublicationState.DRAFT.value},
+    )
+
+
 def build_search_visibility_clause(
     visibility: SearchVisibility | None,
     *,
@@ -192,7 +219,8 @@ def build_search_visibility_clause(
         None: no declaration — falls back to OWNER_ONLY when a user is
             present (scoping-by-default: a caller passing a user gets a
             scoped query unless the domain explicitly declares PUBLIC).
-        PUBLIC: no clause — shared content.
+        PUBLIC: shared content — no ownership clause, but the publication
+            predicate still applies (a draft PathStep has no audience yet).
         OWNER_ONLY: property scope on ``user_uid``. Without a user this
             applies NO clause — external surfaces (SearchRouter) are
             responsible for not exposing unscoped user-owned searches
@@ -218,7 +246,17 @@ def build_search_visibility_clause(
     """
     if visibility is None:
         visibility = SearchVisibility.OWNER_ONLY if has_user else None
-    if visibility is None or visibility is SearchVisibility.PUBLIC:
+
+    # Curriculum-facing visibilities also carry the publication gate. OWNER_ONLY
+    # domains (Activities, UserEntry) are excluded deliberately: they are not
+    # curriculum, carry no publication_state, and their owner sees their own
+    # work regardless of how finished it is.
+    if visibility in (SearchVisibility.PUBLIC, SearchVisibility.SCOPE_AWARE):
+        published, published_params = build_publication_clause(entity_alias)
+        if visibility is SearchVisibility.PUBLIC:
+            return published, published_params
+
+    if visibility is None:
         return None
 
     _validate_identifier(entity_alias, context="entity alias")
@@ -232,8 +270,16 @@ def build_search_visibility_clause(
     # SCOPE_AWARE — the scope value rides as a parameter (SKUEL021: only
     # identifiers that Cypher cannot parameterize, like relationship types
     # and labels, are interpolated — property VALUES never are).
-    scope_params = {"visibility_curriculum_scope": ExerciseScope.CURRICULUM.value}
-    curriculum = f"{alias}.scope = $visibility_curriculum_scope"
+    #
+    # The publication gate binds to the CURRICULUM half only: shared curriculum
+    # must be finished to face an audience, but an owner always sees their own
+    # unfinished work (gating the owned half would hide a user's draft from
+    # the user who is drafting it).
+    scope_params = {
+        "visibility_curriculum_scope": ExerciseScope.CURRICULUM.value,
+        **published_params,
+    }
+    curriculum = f"({alias}.scope = $visibility_curriculum_scope AND {published})"
     if not has_user:
         return f"({curriculum})", scope_params
     owns = RelationshipName.OWNS.value
@@ -333,7 +379,11 @@ def build_text_search_query(
         visibility_clause, visibility_params = visibility_scope
         where_clause = f"{visibility_clause} AND {where_clause}"
         params.update(visibility_params)
-        if user_uid is not None:
+        # Only bind $user_uid when the clause actually references it: a PUBLIC
+        # domain now returns the publication gate (which does not), and passing
+        # the caller's identity into a query that never uses it is a needless
+        # leak of who is asking.
+        if user_uid is not None and "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     # Build ORDER BY clause
@@ -513,7 +563,11 @@ def build_graph_aware_search_query(
         visibility_clause, visibility_params = visibility_scope
         text_where = f"{visibility_clause} AND {text_where}"
         params.update(visibility_params)
-        if user_uid is not None:
+        # Only bind $user_uid when the clause actually references it: a PUBLIC
+        # domain now returns the publication gate (which does not), and passing
+        # the caller's identity into a query that never uses it is a needless
+        # leak of who is asking.
+        if user_uid is not None and "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     # Build ORDER BY clause
@@ -669,7 +723,11 @@ def build_array_any_match_query(
         visibility_clause, visibility_params = visibility_scope
         match_where = f"{visibility_clause} AND {match_where}"
         params.update(visibility_params)
-        if user_uid is not None:
+        # Only bind $user_uid when the clause actually references it: a PUBLIC
+        # domain now returns the publication gate (which does not), and passing
+        # the caller's identity into a query that never uses it is a needless
+        # leak of who is asking.
+        if user_uid is not None and "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     cypher = f"""
