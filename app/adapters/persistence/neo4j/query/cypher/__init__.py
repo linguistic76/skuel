@@ -50,6 +50,7 @@ from .crud_queries import (
     build_get_by_field_query,
     build_graph_aware_search_query,
     build_hierarchy_query,
+    build_knowledge_read_clause,
     build_list_query,
     build_prerequisite_chain_query,
     build_prerequisite_traversal_query,
@@ -193,6 +194,7 @@ __all__ = [
     # Semantic queries
     "build_semantic_context",
     "build_semantic_filter_query",
+    "build_knowledge_read_clause",
     "build_publication_clause",
     "build_search_visibility_clause",
     "build_semantic_merge",

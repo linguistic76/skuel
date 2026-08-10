@@ -20,7 +20,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY, _validate_rel_name
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    build_knowledge_read_clause,
+    build_publication_clause,
+)
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
@@ -258,29 +261,37 @@ class _KnowledgeContextMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Find KUs the user is ready to learn (prerequisites >= 70% met)."""
         # Discovery — THE "what can I learn next" surface: an unanchored
-        # enumeration of everything NOT yet mastered. Draft curriculum withheld.
-        # The predicate is NULL-tolerant, so the non-curriculum entities this
-        # MATCH also sweeps up (it is unfiltered by entity_type) are unaffected.
-        published, published_params = build_publication_clause("ku")
-        published_prereq, prereq_params = build_publication_clause("prereq")
+        # enumeration of everything NOT yet mastered.
+        #
+        # `MATCH (ku:Entity)` matched EVERY entity type, and `NOT ... IN
+        # $mastered_uids` is an exclusion, not an anchor — so this enumerated the
+        # whole graph. On the live corpus it returned 370 rows of which only 123
+        # were Kus: 91 tasks, 71 user_entries, plus exercises, resources and
+        # choices. With no ownership predicate anywhere and title/summary in the
+        # projection, that disclosed OTHER USERS' journal entries — the privacy
+        # line UserEntry search is explicitly refused unscoped for.
+        # build_knowledge_read_clause carries type + audience + publication.
+        knowledge, knowledge_params = build_knowledge_read_clause("ku")
+        prereq_scope, prereq_params = build_knowledge_read_clause("prereq")
         query = f"""
         MATCH (ku:Entity)
         WHERE NOT ku.uid IN $mastered_uids
           AND ($domain IS NULL OR ku.domain = $domain)
-          AND {published}
+          AND {knowledge}
 
         // Count prerequisites and how many user has mastered.
-        // A DRAFT prerequisite still COUNTS but is not NAMED (Codex P2, #1008):
-        // its uid rides out in prereq_uids and PsContextService copies those
-        // into blocking_reasons, which would disclose unfinished curriculum.
-        // Dropping it from the counts instead would be worse than the leak —
-        // total_prereqs would fall, readiness would RISE, and a KU blocked by
-        // unfinished work would be recommended as MORE ready. So the maths sees
-        // every prerequisite; only the returned list is filtered.
+        // A prerequisite the caller may not see still COUNTS but is not NAMED
+        // (#1008 Codex P2, extended here from draft-only to the full knowledge
+        // scope): its uid rides out in prereq_uids and PsContextService copies
+        // those into blocking_reasons. Dropping it from the counts instead
+        // would be worse than the leak — total_prereqs would fall, readiness
+        // would RISE, and a KU blocked by unfinished or foreign work would be
+        // recommended as MORE ready. The maths sees every prerequisite; only
+        // the returned list is filtered.
         OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WITH ku,
              collect(prereq.uid) as all_prereq_uids,
-             collect(CASE WHEN {published_prereq} THEN prereq.uid END) as visible_prereq_uids,
+             collect(CASE WHEN {prereq_scope} THEN prereq.uid END) as visible_prereq_uids,
              count(prereq) as total_prereqs
         WITH ku, all_prereq_uids, total_prereqs,
              [p IN visible_prereq_uids WHERE p IS NOT NULL] as prereq_uids
@@ -319,7 +330,7 @@ class _KnowledgeContextMixin:
                 "mastered_uids": mastered_uids,
                 "domain": domain,
                 "limit": limit,
-                **published_params,
+                **knowledge_params,
                 **prereq_params,
             },
         )
@@ -459,8 +470,12 @@ class _KnowledgeContextMixin:
         """Find KUs user is ready to learn based on mastery and prerequisites."""
         # Discovery — the KU recommendation surface (sibling of
         # find_ready_to_learn, user-scoped mastery instead of a passed list).
-        # Draft curriculum withheld; NULL-tolerant (#1006).
-        published, published_params = build_publication_clause("candidate")
+        #
+        # The `$user_uid` anchor scopes the MASTERED set only; `candidate` was a
+        # bare `(candidate:Entity)` enumeration of the whole graph, so the same
+        # cross-user disclosure applied here. Type + audience + publication now
+        # come from the one knowledge-read composition point.
+        knowledge, knowledge_params = build_knowledge_read_clause("candidate")
         query = f"""
         // Get user's mastered knowledge
         MATCH (u:User {{uid: $user_uid}})-[:MASTERED]->(mastered:Entity)
@@ -470,7 +485,7 @@ class _KnowledgeContextMixin:
         MATCH (candidate:Entity)
         WHERE NOT candidate.uid IN mastered_uids
           AND ($domain IS NULL OR candidate.domain = $domain)
-          AND {published}
+          AND {knowledge}
 
         // Count prerequisites and how many are satisfied
         OPTIONAL MATCH (candidate)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
@@ -508,7 +523,7 @@ class _KnowledgeContextMixin:
         """
         return await self.execute_query(
             query,
-            {"user_uid": user_uid, "domain": domain, "limit": limit, **published_params},
+            {"user_uid": user_uid, "domain": domain, "limit": limit, **knowledge_params},
         )
 
     # ========================================================================
