@@ -23,10 +23,12 @@ CREATE INDEX principle_uid_idx IF NOT EXISTS FOR (n:Principle) ON (n.uid);
 CREATE INDEX ku_uid_idx IF NOT EXISTS FOR (n:Ku) ON (n.uid);
 CREATE INDEX exercise_uid_idx IF NOT EXISTS FOR (n:Exercise) ON (n.uid);
 CREATE INDEX learning_path_uid_idx IF NOT EXISTS FOR (n:LearningPath) ON (n.uid);
-// PathStep.uid is indexed as `path_step_uid_idx` by Neo4jSchemaManager at startup.
-// A `learning_step_uid_idx ... FOR (n:PathStep)` line used to sit here and was a
-// silent NO-OP: `IF NOT EXISTS` matches by NAME, and that name belonged to the
-// stale :LearningStep index below — so it never created anything (#1011).
+// Named `path_step_uid_idx` to match Neo4jSchemaManager. It was
+// `learning_step_uid_idx ... FOR (n:PathStep)`, a silent NO-OP: `IF NOT EXISTS`
+// matches by NAME, and that name belonged to the stale :LearningStep index
+// retired below — so it never created anything (#1011). Renamed rather than
+// deleted: this file provisions a database by hand, where bootstrap has not run.
+CREATE INDEX path_step_uid_idx IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
 CREATE INDEX life_path_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.uid);
 CREATE INDEX resource_uid_idx IF NOT EXISTS FOR (n:Resource) ON (n.uid);
 CREATE INDEX user_entry_uid_idx IF NOT EXISTS FOR (n:UserEntry) ON (n.uid);
