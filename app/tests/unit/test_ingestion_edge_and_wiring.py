@@ -256,6 +256,49 @@ class TestPathStepUsesKuWiring:
         assert "created_at" not in result
         assert "updated_at" in result
 
+    def test_validator_rejects_unparseable_created_at(self):
+        """Codex #1005: un-stripping ``created_at`` opened a path for garbage.
+
+        The read boundary parses it with ``datetime.fromisoformat`` and RAISES,
+        so an unparseable value makes the ENTITY unloadable — not merely
+        `datetime(n.created_at)` in analytics. Reject at the write door.
+        """
+        from core.services.ingestion.validator import validate_entity_data
+
+        for bad in ("unknown", "2026-13-45", ["a", "b"], 12345):
+            data = prepare_entity_data(
+                EntityType.PATH_STEP,
+                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": bad},
+                "body",
+                Path("t.md"),
+            )
+            result = validate_entity_data(EntityType.PATH_STEP, data, Path("t.md"))
+            assert result.is_error, f"{bad!r} should be rejected"
+            assert "created_at" in str(result.expect_error().display_message).lower()
+
+    def test_validator_accepts_the_shapes_the_reader_accepts(self):
+        """Mirror the read boundary's tolerance exactly — no wider, no narrower."""
+        from datetime import date as _date
+        from datetime import datetime as _datetime
+
+        from core.services.ingestion.validator import validate_entity_data
+
+        for good in (
+            "2026-03-29T00:00:00Z",  # quoted ISO string
+            "2026-03-29T00:00:00+00:00",
+            "2026-03-29",
+            _datetime(2026, 3, 29),  # PyYAML parses bare ISO into these
+            _date(2026, 3, 29),
+        ):
+            data = prepare_entity_data(
+                EntityType.PATH_STEP,
+                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": good},
+                "body",
+                Path("t.md"),
+            )
+            result = validate_entity_data(EntityType.PATH_STEP, data, Path("t.md"))
+            assert not result.is_error, f"{good!r} should be accepted"
+
     def test_preparer_preserves_authored_created_at(self):
         """An authored creation date is content — it survives into props and wins."""
         data = {
