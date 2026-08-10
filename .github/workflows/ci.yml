@@ -356,6 +356,14 @@ jobs:
         working-directory: app
         run: uv run python scripts/audit_route_security.py
 
+      # Publication-gate registry completeness. Asserts every surface composing a
+      # gate helper is CLASSIFIED — not that it is correctly gated, which is
+      # measured by tests/integration/test_publication_gate_output_invariant.py.
+      - name: Publication gate registry audit
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/audit_publication_gate.py
+
       # Raw headers audit — H1/H2 findings are advisory; only Html(Head())
       # violations (hand-assembled documents bypassing BasePage/AuthPage) fail.
       - name: Raw headers audit
