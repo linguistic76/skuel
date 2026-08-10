@@ -50,9 +50,12 @@ def create_learning_paths_ui_routes(
         lp_service = services.lp
         items: list[Any] = []
         if lp_service:
-            result = await lp_service.core.list(limit=50)
+            # The LP catalogue method, not generic CRUD ``list()``: this is a
+            # public listing, and only the domain method composes the publication
+            # gate — generic list() showed draft-marked paths (Codex #1006).
+            result = await lp_service.core.list_all_paths(limit=50)
             if not result.is_error:
-                items, _total = result.value
+                items = result.value
         return Div(_entity_list(items), id="learning-paths-content")
 
 

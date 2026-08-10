@@ -61,6 +61,7 @@ class LearningPathDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "path_type",
             ],
             datetime_fields=[
@@ -89,6 +90,7 @@ class LearningPathDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "path_type",
             ),
             datetime_fields=[
@@ -136,6 +138,7 @@ class LearningPathDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "quality_score",
                 "estimated_time_minutes",
                 "difficulty_rating",
@@ -155,6 +158,7 @@ class LearningPathDTO(CurriculumDTO):
                 "complexity",
                 "learning_level",
                 "sel_category",
+                "publication_state",
                 "path_type",
             ),
         )

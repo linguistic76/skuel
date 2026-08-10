@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     import logging
 
 from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 
 
 def _step_row_sequence(row: dict[str, Any]) -> int:
@@ -286,8 +287,13 @@ class _LpStepMixin:
 
         order_direction = "DESC" if order_desc else "ASC"
 
+        # Catalogue surface (/pathways/browse) — withholds draft-marked paths.
+        # Composes the shared predicate rather than spelling it out; NULL-tolerant,
+        # so the pre-``publication_state`` corpus keeps listing (Codex #1006).
+        published, published_params = build_publication_clause("p")
         query = f"""
         MATCH (p:Entity {{entity_type: 'learning_path'}})
+        WHERE {published}
         OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
         WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
         ORDER BY p.{validated_field} {order_direction}
@@ -298,7 +304,7 @@ class _LpStepMixin:
             query += " LIMIT $limit"
         query += " RETURN p, steps_data"
 
-        params: dict[str, Any] = {"offset": offset}
+        params: dict[str, Any] = {"offset": offset, **published_params}
         if limit:
             params["limit"] = limit
         result = await self.execute_query(query, params)

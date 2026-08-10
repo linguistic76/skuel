@@ -146,23 +146,36 @@ class TestVisibilityClause:
         """
         import dataclasses
 
+        from core.models.curriculum_dto import CurriculumDTO
         from core.models.enums import PublicationState
         from core.models.exercises.exercise_dto import ExerciseDTO
         from core.models.pathways.learning_path_dto import LearningPathDTO
         from core.models.pathways.path_step_dto import PathStepDTO
 
-        for cls in (PathStepDTO, LearningPathDTO, ExerciseDTO):
-            assert "publication_state" in {f.name for f in dataclasses.fields(cls)}, (
-                f"{cls.__name__} must DECLARE publication_state, not just list it"
+        # Declaration is necessary but NOT the contract — each leaf overrides
+        # from_dict with its OWN enum_fields slice, so a base-class field can be
+        # declared while the leaf still drops it. Exercise the real round trip
+        # per class: a missing slice entry leaves a plain ``str`` in an
+        # enum-typed field, and enum behaviour like ``.is_public()`` then raises
+        # AttributeError (Codex #1006 round 2 — the earlier version of this test
+        # checked only ``dataclasses.fields()`` and passed while both leaves
+        # were broken).
+        cases: list[tuple[type[CurriculumDTO], str]] = [
+            (PathStepDTO, "path_step"),
+            (LearningPathDTO, "learning_path"),
+            (ExerciseDTO, "exercise"),
+        ]
+        for dto_cls, entity_type in cases:
+            assert "publication_state" in {f.name for f in dataclasses.fields(dto_cls)}, (
+                f"{dto_cls.__name__} must DECLARE publication_state, not just list it"
             )
-
-        base = {"uid": "ps.x.y", "title": "T", "entity_type": "path_step"}
-        assert (
-            PathStepDTO.from_dict({**base, "publication_state": "draft"}).publication_state
-            is PublicationState.DRAFT
-        )
-        # Unauthored stays published — the NULL-tolerant default.
-        assert PathStepDTO.from_dict(base).publication_state is PublicationState.PUBLISHED
+            base = {"uid": f"x.{entity_type}", "title": "T", "entity_type": entity_type}
+            drafted = dto_cls.from_dict({**base, "publication_state": "draft"}).publication_state
+            assert drafted is PublicationState.DRAFT, f"{dto_cls.__name__}: got {drafted!r}"
+            # Real enum behaviour, not just equality — a str would raise here.
+            assert drafted.is_public() is False
+            # Unauthored stays published — the NULL-tolerant default.
+            assert dto_cls.from_dict(base).publication_state is PublicationState.PUBLISHED
 
     def test_publication_gate_defaults_on(self) -> None:
         """Default ON: a new discovery surface is gated by construction."""

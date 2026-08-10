@@ -40,6 +40,9 @@ def _print_human(report: dict[str, Any]) -> None:
     print(f"  Path Steps:     {report['total_path_steps']}")
     print(f"  Learning Paths: {report['total_learning_paths']}")
     print(f"  Exercises:      {report['total_exercises']}")
+    # Drafts are INCLUDED in the totals above — print the count so those
+    # totals stay interpretable ("N of this is not published yet").
+    print(f"  ...of which draft: {report['draft_curriculum_count']}")
 
     print("\nDegree distribution (all incident edges per Ku):")
     print(f"  avg degree:   {report['avg_ku_degree']:.4f}")

@@ -389,6 +389,13 @@ def knowledge_health_page(report: "KnowledgeHealthReport") -> Any:
         StatItem(label="Path Steps", value=report["total_path_steps"], color="info"),
         StatItem(label="Learning Paths", value=report["total_learning_paths"], color="info"),
         StatItem(label="Exercises", value=report["total_exercises"], color="info"),
+        # Drafts are counted INSIDE the four totals above, not subtracted from
+        # them — surfaced so the author can read those totals correctly.
+        StatItem(
+            label="Draft (unpublished)",
+            value=report["draft_curriculum_count"],
+            color="warning" if report["draft_curriculum_count"] else "info",
+        ),
     ]
 
     structural_stats = [
