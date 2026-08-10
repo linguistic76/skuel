@@ -100,6 +100,14 @@ STEP_STANDALONE_DRAFT = "ps.gate-standalone-draft"
 KU_VIA_DRAFT_ONLY = "ku.gate-only-via-draft"  # reachable only through STEP_DRAFT
 KU_SHARED = "ku.gate-shared"  # reachable through both steps
 KU_DRAFT = "ku.gate-draft"
+# Drafts the learner has ALREADY engaged. The mixed catalogue/user-state
+# surfaces must keep showing these — the gate yields to progress, so a draft is
+# UNLISTED, not forbidden. Without them both mixed surfaces exercise only their
+# catalogue branch, and a gate made unconditional (erasing a learner's own
+# progress) would still pass every other assertion here (Codex P2, #1012).
+STEP_DRAFT_IN_PROGRESS = "ps.gate-draft-in-progress"
+LP_DRAFT_ENROLLED = "lp.gate-draft-enrolled"
+
 # A published bridge concept plus a DRAFT neighbour in a different domain:
 # discover_semantic_bridges requires source.domain <> target.domain and the
 # same relationship type on both hops, so a single-domain corpus measures it
@@ -107,7 +115,33 @@ KU_DRAFT = "ku.gate-draft"
 KU_BRIDGE = "ku.gate-bridge"
 KU_FAR_DRAFT = "ku.gate-far-draft"
 
-DRAFT_UIDS = frozenset({LP_DRAFT, STEP_DRAFT, STEP_STANDALONE_DRAFT, KU_DRAFT, KU_FAR_DRAFT})
+DRAFT_UIDS = frozenset(
+    {
+        LP_DRAFT,
+        STEP_DRAFT,
+        STEP_STANDALONE_DRAFT,
+        KU_DRAFT,
+        KU_FAR_DRAFT,
+        STEP_DRAFT_IN_PROGRESS,
+        LP_DRAFT_ENROLLED,
+    }
+)
+
+USER_STATE_EXEMPT: dict[tuple[str, str], frozenset[str]] = {
+    (
+        "adapters.persistence.neo4j.backends.curriculum_backends",
+        "PsBackend.get_prioritized_steps",
+    ): frozenset({STEP_DRAFT_IN_PROGRESS}),
+    (
+        "adapters.persistence.neo4j._lp_progress_mixin",
+        "_LpProgressMixin.get_user_paths_prioritized",
+    ): frozenset({LP_DRAFT_ENROLLED}),
+}
+"""Drafts a given surface may legitimately return, because the learner holds them.
+
+Kept as a per-surface allowance rather than by dropping these uids from
+DRAFT_UIDS: every OTHER surface must still withhold them, and a blanket
+exclusion would silently stop checking that."""
 
 SEED = """
 CREATE (u:User {uid: $user, username: 'gate-probe'})
@@ -167,6 +201,18 @@ CREATE (ku_far)-[:RELATED_TO {confidence: 0.9}]->(ku_bridge)
 // such edge the first MATCH yields nothing and the whole query is empty.
 CREATE (u)-[:MASTERED]->(ku_shared)
 
+// Engaged drafts: the gate must yield to the learner's own progress/enrolment.
+CREATE (s_prog:Entity:PathStep {uid: $step_draft_in_progress, entity_type: 'path_step',
+                                title: 'Draft step already started', sequence: 3,
+                                created_at: '2026-01-04', publication_state: 'draft'})
+CREATE (lp_enrolled:Entity:LearningPath {uid: $lp_draft_enrolled,
+                                         entity_type: 'learning_path',
+                                         title: 'Draft path already joined',
+                                         created_at: '2026-01-04',
+                                         publication_state: 'draft'})
+CREATE (u)-[:IN_PROGRESS]->(s_prog)
+CREATE (u)-[:ENROLLED_IN]->(lp_enrolled)
+
 CREATE (ku_shared)-[:RELATED_TO {confidence: 0.9}]->(ku_d)
 CREATE (ku_shared)-[:RELATED_TO {confidence: 0.9}]->(ku_draft_only)
 CREATE (ku_d)-[:PREREQUISITE_FOR]->(ku_shared)
@@ -189,6 +235,8 @@ SEED_PARAMS = {
     "ku_shared": KU_SHARED,
     "ku_draft": KU_DRAFT,
     "ku_bridge": KU_BRIDGE,
+    "step_draft_in_progress": STEP_DRAFT_IN_PROGRESS,
+    "lp_draft_enrolled": LP_DRAFT_ENROLLED,
     "ku_far_draft": KU_FAR_DRAFT,
 }
 
@@ -303,7 +351,9 @@ async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
         )
 
 
-def find_draft_identities(payload: Payload, path: str = "") -> list[str]:
+def find_draft_identities(
+    payload: Payload, path: str = "", allowed: frozenset[str] = frozenset()
+) -> list[str]:
     """Every draft uid reachable in ``payload``, at any depth, with its route.
 
     Depth-unlimited and container-agnostic on purpose: the leak that shipped in
@@ -314,16 +364,16 @@ def find_draft_identities(payload: Payload, path: str = "") -> list[str]:
     """
     hits: list[str] = []
     if isinstance(payload, str):
-        if payload in DRAFT_UIDS:
+        if payload in DRAFT_UIDS and payload not in allowed:
             hits.append(f"{path or '<root>'} = {payload}")
     elif isinstance(payload, dict):
         for key, value in payload.items():
-            hits.extend(find_draft_identities(value, f"{path}.{key}"))
+            hits.extend(find_draft_identities(value, f"{path}.{key}", allowed))
     elif isinstance(payload, (list, tuple, set)):
         for index, value in enumerate(payload):
-            hits.extend(find_draft_identities(value, f"{path}[{index}]"))
+            hits.extend(find_draft_identities(value, f"{path}[{index}]", allowed))
     elif isinstance(payload, _HasUid):  # a domain model (PathStep, LearningPath, Ku)
-        hits.extend(find_draft_identities(payload.uid, f"{path}.uid"))
+        hits.extend(find_draft_identities(payload.uid, f"{path}.uid", allowed))
     return hits
 
 
@@ -588,7 +638,7 @@ async def test_no_draft_identity_reaches_the_caller(
     qualname = key[1]
     surface = build_surfaces(gate_graph)[qualname]
     payload = _payload(await surface(), qualname)
-    leaks = find_draft_identities(payload)
+    leaks = find_draft_identities(payload, allowed=USER_STATE_EXEMPT.get(key, frozenset()))
     assert not leaks, (
         f"{qualname} returned draft identities to the caller:\n  "
         + "\n  ".join(leaks)
@@ -634,6 +684,45 @@ async def test_gate_is_measured_not_merely_present(
         f"one. A gate that ADDS rows is not withholding, it is changing the "
         f"query's meaning. gated={sorted(gated)} ungated={sorted(ungated)}"
     )
+
+
+@pytest.mark.asyncio
+async def test_mixed_surfaces_keep_a_draft_the_learner_already_engaged(
+    gate_graph: AsyncDriver,
+) -> None:
+    """Drafts are UNLISTED, not forbidden — the gate yields to the learner's state.
+
+    ``get_prioritized_steps`` and ``get_user_paths_prioritized`` enumerate the
+    whole catalogue AND order by the learner's own progress/enrolment. The
+    predicate lands after the progress match (``WHERE progress IS NOT NULL OR
+    <published>``), so a step marked draft AFTER someone started it must not
+    vanish from the very list that exists to prioritise it.
+
+    Asserted because the no-leak direction cannot see it: a gate made
+    unconditional here would erase a learner's own progress and every other
+    test in this module would still pass (Codex P2, #1012).
+    """
+    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    lp = LpBackend(gate_graph, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
+
+    steps = _payload(await ps.get_prioritized_steps(USER, LIMIT), "get_prioritized_steps")
+    step_uids = fixture_identities(steps)
+    assert STEP_DRAFT_IN_PROGRESS in step_uids, (
+        "a draft step the learner has IN_PROGRESS was withheld — the gate must "
+        "yield to progress, or starting a step then having it marked draft "
+        "erases the learner's own work from their list"
+    )
+    assert STEP_DRAFT not in step_uids, (
+        "an UNENGAGED draft step must still be withheld — the user-state branch "
+        "is a carve-out, not an opt-out of the whole gate"
+    )
+
+    paths = _payload(await lp.get_user_paths_prioritized(USER, LIMIT), "get_user_paths_prioritized")
+    path_uids = fixture_identities(paths)
+    assert LP_DRAFT_ENROLLED in path_uids, (
+        "a draft path the learner is ENROLLED_IN was withheld — same carve-out"
+    )
+    assert LP_DRAFT not in path_uids, "an unenrolled draft path must still be withheld"
 
 
 @pytest.mark.asyncio
