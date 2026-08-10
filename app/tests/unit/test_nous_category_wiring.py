@@ -63,7 +63,13 @@ class TestDistinctValuesArrayAware:
         assert "UNWIND" in cypher
         assert "IS :: LIST<ANY>" in cypher
         assert "RETURN value, count(*) AS count" in cypher
-        assert params == {}
+        # This is a PUBLIC facet vocabulary, so it now also carries the
+        # publication gate — a draft's unique tag must not appear as a
+        # selectable filter that returns nothing (Codex #1006). The parameter
+        # is the gate's, and no user identity leaks into an unscoped call.
+        assert params == {"publication_draft": "draft"}
+        assert "publication_state" in cypher
+        assert "user_uid" not in cypher
 
     def test_user_scope_preserved(self):
         cypher, params = build_distinct_values_query(

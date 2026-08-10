@@ -100,7 +100,9 @@ class KuDTO(EntityDTO):
                 "nous",
                 "nous_subtopic",
             },
-            enum_mappings=enum_fields_for("entity_type", "status", "domain", "sel_category"),
+            enum_mappings=enum_fields_for(
+                "entity_type", "status", "domain", "sel_category", "publication_state"
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

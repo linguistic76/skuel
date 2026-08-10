@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from core.models.resource.resource import Resource  # noqa: F401
 
 
-def _nous_subtopic_pairs_query(label: NeoLabel) -> str:
+def _nous_subtopic_pairs_query(label: NeoLabel) -> tuple[str, dict[str, str]]:
     """Distinct co-occurring (nous, nous_subtopic) pairs on a single node label.
 
     Pairing is CO-OCCURRENCE: a (topic, sub-topic) pair exists once ≥1 entity
@@ -65,14 +65,18 @@ def _nous_subtopic_pairs_query(label: NeoLabel) -> str:
             what keeps an unknown label (which Neo4j answers with zero rows
             instead of an error) from reaching the graph.
     """
-    return f"""
+    published, published_params = build_publication_clause("n")
+    return (
+        f"""
         MATCH (n:{label.value})
-        WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
+        WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL AND {published}
         UNWIND n.nous AS nous
         UNWIND n.nous_subtopic AS subtopic
         RETURN DISTINCT nous, subtopic
         ORDER BY nous, subtopic
-        """
+        """,
+        published_params,
+    )
 
 
 class KuBackend(UniversalNeo4jBackend[Ku]):
@@ -174,7 +178,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         See ``_nous_subtopic_pairs_query`` for the co-occurrence semantics.
         Returns rows with ``nous`` + ``subtopic`` keys.
         """
-        return await self.execute_query(_nous_subtopic_pairs_query(NeoLabel.KU), {})
+        return await self.execute_query(*_nous_subtopic_pairs_query(NeoLabel.KU))
 
     # ========================================================================
     # SUBSTANCE METRICS
@@ -483,7 +487,7 @@ class PsBackend(
         cross-domain merge lives in `SearchRouter.nous_subtopic_map`, not here.
         Graph-derived (content boundary).
         """
-        return await self.execute_query(_nous_subtopic_pairs_query(NeoLabel.PATH_STEP), {})
+        return await self.execute_query(*_nous_subtopic_pairs_query(NeoLabel.PATH_STEP))
 
     # ========================================================================
     # STEP SEQUENCE (for attach_step_to_path)

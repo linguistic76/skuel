@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -44,13 +45,26 @@ class VectorSearchBackend:
     async def query_vector_index(
         self, index_name: str, limit: int, embedding: list[float], min_score: float
     ) -> Result[list[dict[str, Any]]]:
-        """Query a Neo4j vector index for similar nodes."""
+        """Query a Neo4j vector index for similar nodes, excluding draft curriculum.
+
+        THE vector-discovery chokepoint — gating here covers every similarity
+        surface at once rather than per-caller. The related-concepts chips on
+        /explore/{ku,ps}/{uid} filtered on score alone, so a draft-marked Ku or
+        PathStep surfaced with its title, UID and a direct link — discoverable
+        despite the contract that drafts stay unlisted (Codex #1006).
+
+        The predicate is NULL-tolerant, so it is inert for every non-curriculum
+        vector (Goal/Task/UserEntry nodes carry no ``publication_state``) and for
+        the pre-``publication_state`` corpus. It withholds only what an author
+        explicitly marked draft.
+        """
+        published, published_params = build_publication_clause("node")
         return await self._executor.execute_query(
-            """
+            f"""
             // Vector similarity search using native index
             CALL db.index.vector.queryNodes($index_name, $limit, $embedding)
             YIELD node, score
-            WHERE score >= $min_score
+            WHERE score >= $min_score AND {published}
             RETURN node, score
             ORDER BY score DESC
             """,
@@ -59,6 +73,7 @@ class VectorSearchBackend:
                 "limit": limit,
                 "embedding": embedding,
                 "min_score": min_score,
+                **published_params,
             },
         )
 

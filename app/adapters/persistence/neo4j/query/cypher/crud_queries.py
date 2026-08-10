@@ -954,10 +954,17 @@ def build_distinct_values_query(
         f"UNWIND (CASE WHEN n.{field} IS :: LIST<ANY> THEN n.{field} ELSE [n.{field}] END) AS value"
     )
 
+    # This builds a public FACET VOCABULARY (the library tag/nous chips), so a
+    # draft's unique tag would otherwise appear as a selectable filter that
+    # returns nothing — unpublished taxonomy leaking through a gated catalogue
+    # (Codex #1006). NULL-tolerant, hence inert for non-curriculum labels.
+    published, published_params = build_publication_clause("n")
+    params.update(published_params)
+
     if user_uid:
         query = f"""
         MATCH (n:{label})
-        WHERE n.user_uid = $user_uid AND n.{field} IS NOT NULL
+        WHERE n.user_uid = $user_uid AND n.{field} IS NOT NULL AND {published}
         {unwind_clause}
         RETURN value, count(*) AS count
         ORDER BY value
@@ -966,7 +973,7 @@ def build_distinct_values_query(
     else:
         query = f"""
         MATCH (n:{label})
-        WHERE n.{field} IS NOT NULL
+        WHERE n.{field} IS NOT NULL AND {published}
         {unwind_clause}
         RETURN value, count(*) AS count
         ORDER BY value
