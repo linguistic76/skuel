@@ -306,6 +306,41 @@ SURFACES: tuple[Surface, ...] = (
         "CURRENT zone is user-state and gating it would erase the learner's "
         "own history.",
     ),
+    # The four search-strategy query builders. They live beside the helper
+    # definitions but are surfaces in their own right: each composes a gate and
+    # returns executable Cypher. Registered explicitly because an earlier
+    # revision of the audit skipped the whole module and hid them, which would
+    # have let a removed gate here pass both mechanisms green (Codex P2, #1012).
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_array_any_match_query",
+        Disposition.GATED,
+        "Tag/array search over the corpus. Publication rides on "
+        "build_search_visibility_clause. Not output-measured — a query builder "
+        "returns a string, not rows; covered by tests/unit/"
+        "test_search_visibility_scoping.py.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_distinct_values_query",
+        Disposition.GATED,
+        "Facet vocabulary for filter dropdowns — a draft's values must not "
+        "populate one. Same residual as _nous_subtopic_pairs_query: what it "
+        "yields is vocabulary, not identity.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_graph_aware_search_query",
+        Disposition.GATED,
+        "Graph-traversal search strategy; gates the TARGET of the traversal, "
+        "which is curriculum the caller never named.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_text_search_query",
+        Disposition.GATED,
+        "The text-search strategy — a search over the whole corpus.",
+    ),
     Surface(
         "adapters.persistence.neo4j.vector_search_backend",
         "VectorSearchBackend.query_vector_index",

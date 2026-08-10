@@ -168,21 +168,32 @@ def scan_file(path: Path) -> list[Found]:
     ]
 
 
-def scan_tree() -> list[Found]:
-    """Every gate-composing surface under ``adapters/persistence/``.
+HELPER_DEFINITIONS = frozenset(
+    {
+        ("adapters.persistence.neo4j.query.cypher.crud_queries", "build_knowledge_read_clause"),
+        ("adapters.persistence.neo4j.query.cypher.crud_queries", "build_search_visibility_clause"),
+    }
+)
+"""The helpers DELEGATING to each other, which is not a surface with an audience.
 
-    ``crud_queries`` itself is excluded: it DEFINES the helpers, and the
-    composition inside ``build_knowledge_read_clause`` /
-    ``build_search_visibility_clause`` is the helpers delegating to each other,
-    not a discovery surface with an audience.
-    """
+Excluded by qualname rather than by file. An earlier revision skipped
+``crud_queries.py`` wholesale, which also hid four real query builders that
+compose a gate and return executable Cypher — ``build_text_search_query``,
+``build_graph_aware_search_query``, ``build_array_any_match_query`` and
+``build_distinct_values_query``. Removing a gate from any of them would have
+left both this audit and the output-invariant coverage green (Codex P2, #1012).
+A file-level suppressor fails silent; a qualname-level one states exactly what
+it hides.
+"""
+
+
+def scan_tree() -> list[Found]:
+    """Every gate-composing surface under ``adapters/persistence/``."""
     surfaces: list[Found] = []
     for path in sorted(SCAN_DIR.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
-        if path.name == "crud_queries.py":
-            continue
-        surfaces.extend(scan_file(path))
+        surfaces.extend(f for f in scan_file(path) if f.key not in HELPER_DEFINITIONS)
     return surfaces
 
 

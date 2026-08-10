@@ -403,40 +403,59 @@ def build_surfaces(driver: Any) -> dict[str, Any]:
 
 # Gated surfaces this module does NOT measure, and why. Listed rather than
 # omitted: a coverage gap that is not written down reads as coverage.
-UNMEASURABLE: dict[str, str] = {
-    "_nous_subtopic_pairs_query": (
+CRUD_QUERIES = "adapters.persistence.neo4j.query.cypher.crud_queries"
+_BUILDER_RESIDUAL = (
+    "a query BUILDER returns a Cypher string, not rows, so there is no output "
+    "for an output invariant to inspect; its publication half rides on "
+    "build_search_visibility_clause and is covered by "
+    "tests/unit/test_search_visibility_scoping.py"
+)
+
+UNMEASURABLE: dict[tuple[str, str], str] = {
+    ("adapters.persistence.neo4j.backends.curriculum_backends", "_nous_subtopic_pairs_query"): (
         "returns facet vocabulary (nous/subtopic strings), not entity "
         "identities — there is no uid for an identity-based invariant to detect"
     ),
-    "<module>": (
+    ("adapters.persistence.neo4j.zpd_backend", "<module>"): (
         "the ZPD zone query is built at import time and issued through "
         "ZPDBackend's own driver path; covered structurally by "
         "tests/unit/adapters/test_publication_gate_discovery_surfaces.py"
     ),
-    "_CrudMixin.get_visible_to_user": (
+    ("adapters.persistence.neo4j._crud_mixin", "_CrudMixin.get_visible_to_user"): (
         "generic audience-scoped list, not curriculum-specific; its publication "
         "half is covered by tests/unit/test_search_visibility_scoping.py"
     ),
-    "_SearchRawMixin.faceted_search_raw": (
+    ("adapters.persistence.neo4j._search_raw_mixin", "_SearchRawMixin.faceted_search_raw"): (
         "faceted search requires a facet configuration this fixture corpus does "
         "not build; publication rides on build_search_visibility_clause"
     ),
-    "_OrganizesMixin.list_root_organizers": (
+    ("adapters.persistence.neo4j._organizes_mixin", "_OrganizesMixin.list_root_organizers"): (
         "requires an ORGANIZES/MOC root, which this fixture corpus does not build"
     ),
-    "_KnowledgeContextMixin.find_path_steps_containing_ku": (
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.find_path_steps_containing_ku",
+    ): (
         "matches (ku)<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep); no such edge shape "
         "exists on the live graph, so the surface returns zero rows on every "
         "call and its gate cannot be measured — tracked separately"
     ),
-    "_LpIntelligenceMixin.get_recommended_path_steps": (
-        "requires per-step user progress edges this fixture corpus does not build"
-    ),
-    "_SemanticMixin.query_foundational_knowledge": (
+    (
+        "adapters.persistence.neo4j._lp_intelligence_mixin",
+        "_LpIntelligenceMixin.get_recommended_path_steps",
+    ): ("requires per-step user progress edges this fixture corpus does not build"),
+    (CRUD_QUERIES, "build_text_search_query"): _BUILDER_RESIDUAL,
+    (CRUD_QUERIES, "build_graph_aware_search_query"): _BUILDER_RESIDUAL,
+    (CRUD_QUERIES, "build_array_any_match_query"): _BUILDER_RESIDUAL,
+    (CRUD_QUERIES, "build_distinct_values_query"): _BUILDER_RESIDUAL,
+    ("adapters.persistence.neo4j._semantic_mixin", "_SemanticMixin.query_foundational_knowledge"): (
         "ranks by a cached hub_score written by compute_hub_scores; the fixture "
         "corpus carries no cached scores"
     ),
-    "VectorSearchBackend.query_vector_index": (
+    (
+        "adapters.persistence.neo4j.vector_search_backend",
+        "VectorSearchBackend.query_vector_index",
+    ): (
         "requires a populated Neo4j vector index and an embedding, neither of "
         "which the CORE-tier test container provides"
     ),
@@ -451,7 +470,7 @@ def test_registry_and_coverage_agree() -> None:
     be absent from both the covered set and the stated residual.
     """
     covered = set(_COVERED_KEYS)
-    gated = {s.qualname for s in gated_surfaces()}
+    gated = {(s.module, s.qualname) for s in gated_surfaces()}
     unaccounted = gated - covered - set(UNMEASURABLE)
     assert not unaccounted, (
         f"gated surfaces neither measured nor declared unmeasurable: "
@@ -463,32 +482,63 @@ def test_registry_and_coverage_agree() -> None:
 
 
 _COVERED_KEYS = (
-    "KuBackend.search_by_alias",
-    "KuBackend.get_learning_path_uids",
-    "PsBackend.get_standalone_steps",
-    "PsBackend.get_prioritized_steps",
-    "PsBackend.list_steps_raw",
-    "_KnowledgeContextMixin.find_learning_paths_teaching_ku",
-    "_KnowledgeContextMixin.find_ready_to_learn",
-    "_KnowledgeContextMixin.find_learning_gaps",
-    "_KnowledgeContextMixin.get_ku_lateral_edges",
-    "_KnowledgeContextMixin.find_learning_recommendations",
-    "_SemanticMixin.discover_semantic_bridges",
-    "_LpProgressMixin.get_paths_aligned_with_goal",
-    "_LpProgressMixin.get_paths_by_knowledge",
-    "_LpProgressMixin.get_user_paths_prioritized",
-    "_LpStepMixin.list_all_paths_with_steps",
-    "_LpIntelligenceMixin.get_optimal_path_recommendations",
-    "CrossDomainBackend.find_knowledge_hubs",
-    "CrossDomainBackend.find_learning_clusters",
-    "CrossDomainBackend.find_similar_knowledge",
+    ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.search_by_alias"),
+    ("adapters.persistence.neo4j.backends.curriculum_backends", "KuBackend.get_learning_path_uids"),
+    ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.get_standalone_steps"),
+    ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.get_prioritized_steps"),
+    ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.list_steps_raw"),
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.find_learning_paths_teaching_ku",
+    ),
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.find_ready_to_learn",
+    ),
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.find_learning_gaps",
+    ),
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.get_ku_lateral_edges",
+    ),
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.find_learning_recommendations",
+    ),
+    ("adapters.persistence.neo4j._semantic_mixin", "_SemanticMixin.discover_semantic_bridges"),
+    (
+        "adapters.persistence.neo4j._lp_progress_mixin",
+        "_LpProgressMixin.get_paths_aligned_with_goal",
+    ),
+    ("adapters.persistence.neo4j._lp_progress_mixin", "_LpProgressMixin.get_paths_by_knowledge"),
+    (
+        "adapters.persistence.neo4j._lp_progress_mixin",
+        "_LpProgressMixin.get_user_paths_prioritized",
+    ),
+    ("adapters.persistence.neo4j._lp_step_mixin", "_LpStepMixin.list_all_paths_with_steps"),
+    (
+        "adapters.persistence.neo4j._lp_intelligence_mixin",
+        "_LpIntelligenceMixin.get_optimal_path_recommendations",
+    ),
+    ("adapters.persistence.neo4j.cross_domain_backend", "CrossDomainBackend.find_knowledge_hubs"),
+    (
+        "adapters.persistence.neo4j.cross_domain_backend",
+        "CrossDomainBackend.find_learning_clusters",
+    ),
+    (
+        "adapters.persistence.neo4j.cross_domain_backend",
+        "CrossDomainBackend.find_similar_knowledge",
+    ),
 )
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("qualname", _COVERED_KEYS)
-async def test_no_draft_identity_reaches_the_caller(gate_graph: Any, qualname: str) -> None:
+@pytest.mark.parametrize("key", _COVERED_KEYS, ids=[q for _, q in _COVERED_KEYS])
+async def test_no_draft_identity_reaches_the_caller(gate_graph: Any, key: tuple[str, str]) -> None:
     """The invariant: a gated surface returns no draft uid, at any depth."""
+    qualname = key[1]
     surface = build_surfaces(gate_graph)[qualname]
     payload = _payload(await surface(), qualname)
     leaks = find_draft_identities(payload)
@@ -501,8 +551,8 @@ async def test_no_draft_identity_reaches_the_caller(gate_graph: Any, qualname: s
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("qualname", _COVERED_KEYS)
-async def test_gate_is_measured_not_merely_present(gate_graph: Any, qualname: str) -> None:
+@pytest.mark.parametrize("key", _COVERED_KEYS, ids=[q for _, q in _COVERED_KEYS])
+async def test_gate_is_measured_not_merely_present(gate_graph: Any, key: tuple[str, str]) -> None:
     """Neutralising the predicate MUST change what the surface returns.
 
     This is the half that makes the invariant mean something. A fixture that
@@ -517,6 +567,7 @@ async def test_gate_is_measured_not_merely_present(gate_graph: Any, qualname: st
     identity-of-a-draft control would have called those surfaces unmeasurable
     and quietly dropped exactly the case Codex raised as P1 on #1008.
     """
+    qualname = key[1]
     surface = build_surfaces(gate_graph)[qualname]
     gated = fixture_identities(_payload(await surface(), qualname))
     with neutralised_gates():

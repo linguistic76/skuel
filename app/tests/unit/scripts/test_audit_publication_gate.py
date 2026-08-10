@@ -111,6 +111,34 @@ def test_unparseable_file_is_skipped_not_fatal(tmp_path: Path) -> None:
     assert _scan(tmp_path, "def broken(:\n") == {}
 
 
+def test_crud_queries_builders_are_scanned_but_helper_defs_are_not() -> None:
+    """The suppressor is qualname-scoped, not file-scoped (Codex P2, #1012).
+
+    Skipping ``crud_queries.py`` wholesale also hid four real query builders
+    that compose a gate and return executable Cypher. A removed gate in any of
+    them would have left both this audit and the output-invariant coverage
+    green — a suppressor that fails silent, which is the class #876 is about.
+    """
+    from audit_publication_gate import scan_tree  # type: ignore[import-not-found]
+
+    module = "adapters.persistence.neo4j.query.cypher.crud_queries"
+    scanned = {f.qualname for f in scan_tree() if f.module == module}
+
+    for builder in (
+        "build_text_search_query",
+        "build_graph_aware_search_query",
+        "build_array_any_match_query",
+        "build_distinct_values_query",
+    ):
+        assert builder in scanned, f"{builder} composes a gate and must be classified"
+
+    for helper in ("build_knowledge_read_clause", "build_search_visibility_clause"):
+        assert helper not in scanned, (
+            f"{helper} is a helper DEFINITION delegating to another helper, not "
+            f"a surface with an audience"
+        )
+
+
 def test_registry_audit_passes_against_the_tree() -> None:
     """The end-to-end claim: the shipped registry matches the shipped code.
 
