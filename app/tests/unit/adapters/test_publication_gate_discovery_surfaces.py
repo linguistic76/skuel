@@ -32,40 +32,54 @@ from adapters.persistence.neo4j.query.cypher import build_publication_clause
 from core.models.enums.curriculum_enums import PublicationState
 from core.utils.result_simplified import Result
 
+# boundary: Neo4j record rows are genuinely heterogeneous property maps; the
+# assertions here are on the QUERY TEXT and its params, never on row shape.
+QueryParams = dict[str, Any]
+
+
+def _identity(records: object) -> object:
+    """Stand-in for the backends' record→model converters (SKUEL012: no lambdas).
+
+    These tests assert on the query, so conversion is irrelevant — but the
+    methods call it, so the slot must be filled.
+    """
+    return records
+
 
 class _Capture:
     """Stands in for the backend's query executor, recording what it is handed."""
 
     def __init__(self) -> None:
-        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.calls: list[tuple[str, QueryParams]] = []
 
     async def execute_query(
-        self, query: str, params: dict[str, Any] | None = None
-    ) -> Result[list[dict[str, Any]]]:
+        self, query: str, params: QueryParams | None = None
+    ) -> Result[list[QueryParams]]:
         self.calls.append((query, params or {}))
         return Result.ok([])
 
 
-async def _capture(cls: Any, method: str, *args: Any, **kwargs: Any) -> tuple[str, dict[str, Any]]:
-    """Build (not run) one backend query; return its Cypher and parameters.
-
-    ``cls`` is deliberately ``Any``: these backends are mixins instantiated via
-    ``__new__`` to skip their real ``__init__`` (which wants a live driver), and
-    the executor slot is patched in. ``type`` does not describe that.
-    """
+async def _capture(
+    # boundary: a backend mixin CLASS, constructed via __new__ to skip an
+    # __init__ that demands a live driver. `type` does not describe that.
+    cls: Any,
+    method: str,
+    # boundary: per-surface query arguments — uids, limits, filter fragments.
+    *args: Any,
+) -> tuple[str, QueryParams]:
+    """Build (not run) one backend query; return its Cypher and parameters."""
     cap = _Capture()
-    obj = cls.__new__(cls)  # boundary: bypasses __init__ — no driver needed to BUILD a query
+    obj = cls.__new__(cls)  # bypasses __init__ — no driver needed to BUILD a query
     obj.execute_query = cap.execute_query  # type: ignore[attr-defined]
     obj.executor = cap  # type: ignore[attr-defined]
-    # Conversion helpers are irrelevant here — the assertions are on the query.
-    obj._records_to_paths = lambda r: r  # type: ignore[attr-defined]
-    obj._records_to_steps = lambda r: r  # type: ignore[attr-defined]
-    await getattr(obj, method)(*args, **kwargs)
+    obj._records_to_paths = _identity  # type: ignore[attr-defined]
+    obj._records_to_steps = _identity  # type: ignore[attr-defined]
+    await getattr(obj, method)(*args)
     assert cap.calls, f"{cls.__name__}.{method} issued no query"
     return cap.calls[0]
 
 
-def _assert_gated(query: str, params: dict[str, Any], alias: str) -> None:
+def _assert_gated(query: str, params: QueryParams, alias: str) -> None:
     """The composed predicate must be present verbatim, and its param threaded."""
     fragment, expected = build_publication_clause(alias)
     assert fragment in query, (
@@ -136,6 +150,25 @@ async def test_discovery_surface_is_publication_gated(
     """Each classified discovery surface composes the gate and threads its param."""
     query, params = await _capture(factory(), method, *args)
     _assert_gated(query, params, alias)
+
+
+@pytest.mark.asyncio
+async def test_ku_to_path_surfaces_gate_the_bridging_step_too() -> None:
+    """ "This path teaches that KU" is a claim carried by the bridging STEP.
+
+    Both KU→path surfaces walk `ku <- ps <- lp`. Gating only `lp` would still
+    advertise a published path whose ONLY route to the KU is a draft step —
+    true of lp.mindfulness-101 for six KUs on the live graph (Codex P1, #1008).
+    """
+    query, params = await _capture(_lp_progress(), "get_paths_by_knowledge", "ku.x", 5)
+    for alias in ("ps", "lp"):
+        _assert_gated(query, params, alias)
+
+    query, params = await _capture(
+        _knowledge_context(), "find_learning_paths_teaching_ku", "ku.x", 5
+    )
+    for alias in ("ps", "lp"):
+        _assert_gated(query, params, alias)
 
 
 @pytest.mark.asyncio

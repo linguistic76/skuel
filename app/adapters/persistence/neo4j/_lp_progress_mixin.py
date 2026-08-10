@@ -190,17 +190,25 @@ class _LpProgressMixin:
         """
         # Discovery: anchored on a KU, this returns PATHS the caller never
         # referenced (the docstring calls it search) — draft paths withheld.
-        # NULL-tolerant (#1006).
-        published, published_params = build_publication_clause("lp")
+        # BOTH hops are gated (Codex P1, #1008): the claim being made is "this
+        # path teaches that KU", and the bridging step is what carries it. A
+        # published path whose only route to the KU is a DRAFT step would
+        # otherwise be advertised as teaching it through unfinished content —
+        # true of lp.mindfulness-101 for six KUs on the live graph. Matches the
+        # sibling find_learning_paths_teaching_ku. NULL-tolerant (#1006).
+        published_ps, ps_params = build_publication_clause("ps")
+        published_lp, lp_params = build_publication_clause("lp")
         query = f"""
         MATCH (ku:Entity {{uid: $ku_uid}})<-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-(ps:Entity {{entity_type: 'path_step'}})<-[:HAS_STEP]-(lp:Entity {{entity_type: 'learning_path'}})
-        WHERE {published}
+        WHERE {published_ps} AND {published_lp}
         RETURN DISTINCT lp
         ORDER BY lp.created_at DESC
         LIMIT $limit
         """
         return self._records_to_paths(
-            await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit, **published_params})
+            await self.execute_query(
+                query, {"ku_uid": ku_uid, "limit": limit, **ps_params, **lp_params}
+            )
         )
 
     async def get_user_paths_prioritized(
