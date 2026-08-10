@@ -112,14 +112,39 @@ class SchemaHolder:
     ``DROP CONSTRAINT``, not ``DROP INDEX`` (see
     ``scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher``).
     Collapsing the two would hand the reader an instruction that fails.
+
+    ``tokens`` is the FULL set the object covers, because a fulltext index may
+    span several labels. If it covers a live label as well as the stray one,
+    dropping it destroys working search coverage — so the remediation is a
+    recreate-without, not a DROP (Codex P2, #1011).
     """
 
     name: str
     kind: str  # "INDEX" | "CONSTRAINT"
+    tokens: tuple[str, ...] = ()
 
-    @property
-    def drop_statement(self) -> str:
-        return f"DROP {self.kind} {self.name} IF EXISTS;"
+    def covers_only(self, token: str) -> bool:
+        """True when this object exists solely for ``token``, so DROP is safe."""
+        return set(self.tokens) <= {token}
+
+    def remediation(self, token: str) -> str:
+        r"""The cleanup instruction for freeing ``token`` from this object.
+
+        Names are backtick-quoted with doubling: a schema name may legally
+        contain spaces (verified) or a backtick, and an unquoted name yields an
+        invalid statement that someone will paste and puzzle over. Caveat kept
+        honest: Cypher also decodes ``\uXXXX`` INSIDE a quoted identifier
+        (#1010), so a name containing that literal text still needs a human —
+        there is no parameterized form of DROP INDEX to fall back on.
+        """
+        quoted = "`" + self.name.replace("`", "``") + "`"
+        if self.covers_only(token):
+            return f"DROP {self.kind} {quoted} IF EXISTS;"
+        others = ", ".join(sorted(t for t in self.tokens if t != token))
+        return (
+            f"{self.kind} {quoted} also covers {others} — do NOT drop it; "
+            f"recreate it without {token}"
+        )
 
 
 # Neo4j's entityType → the Stray.kind it can hold.
@@ -167,9 +192,10 @@ async def fetch_schema_holders(driver: AsyncDriver) -> dict[tuple[str, str], lis
                 stray_kind = _ENTITY_TYPE_TO_STRAY_KIND.get(record["entityType"])
                 if stray_kind is None:
                     continue
-                for token in record["labelsOrTypes"] or []:
+                covered = tuple(record["labelsOrTypes"] or [])
+                for token in covered:
                     holders.setdefault((stray_kind, token), []).append(
-                        SchemaHolder(name=record["name"], kind=holder_kind)
+                        SchemaHolder(name=record["name"], kind=holder_kind, tokens=covered)
                     )
     return {key: sorted(set(found), key=lambda h: h.name) for key, found in holders.items()}
 
@@ -355,7 +381,7 @@ def report(
             )
             for s in held:
                 for holder in holders[(s.kind, s.value)]:
-                    print(f"    {s.kind:<13} {s.value:<28} {holder.drop_statement}")
+                    print(f"    {s.kind:<13} {s.value:<28} {holder.remediation(s.value)}")
             print(
                 "\n  An index or constraint keeps a name in db.labels() / "
                 "db.relationshipTypes()\n"

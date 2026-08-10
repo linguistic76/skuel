@@ -299,12 +299,14 @@ def test_holder_reports_the_correct_drop_command_per_kind() -> None:
     scripts/migrations/drop_stale_bootstrap_constraints_2026_07.cypher.
     """
     assert (
-        SchemaHolder("lesson_uid_idx", "INDEX").drop_statement
-        == "DROP INDEX lesson_uid_idx IF EXISTS;"
+        SchemaHolder("lesson_uid_idx", "INDEX", tokens=("Lesson",)).remediation("Lesson")
+        == "DROP INDEX `lesson_uid_idx` IF EXISTS;"
     )
     assert (
-        SchemaHolder("document_uid_unique", "CONSTRAINT").drop_statement
-        == "DROP CONSTRAINT document_uid_unique IF EXISTS;"
+        SchemaHolder("document_uid_unique", "CONSTRAINT", tokens=("Document",)).remediation(
+            "Document"
+        )
+        == "DROP CONSTRAINT `document_uid_unique` IF EXISTS;"
     )
 
 
@@ -360,4 +362,38 @@ def test_constraint_backed_index_is_not_reported_separately() -> None:
     assert "WHERE owningConstraint IS NULL" in source, (
         "constraint-backed indexes must be excluded, or the audit prints a DROP "
         "INDEX that Neo4j rejects"
+    )
+
+
+def test_mixed_index_is_never_recommended_for_dropping() -> None:
+    """A fulltext index may span several labels — DROP would kill live search.
+
+    If the object also covers a valid label, the remediation must be
+    "recreate without", not "drop" (Codex P2, #1011). Advice that destroys
+    working coverage is worse than the stray it removes.
+    """
+    stray_only = SchemaHolder("ghost_idx", "INDEX", tokens=("GhostProbe",))
+    assert stray_only.covers_only("GhostProbe")
+    assert stray_only.remediation("GhostProbe") == "DROP INDEX `ghost_idx` IF EXISTS;"
+
+    mixed = SchemaHolder("mixed_ft", "INDEX", tokens=("GhostProbe", "PathStep"))
+    assert not mixed.covers_only("GhostProbe")
+    advice = mixed.remediation("GhostProbe")
+    assert "do NOT drop" in advice and "PathStep" in advice
+    assert not advice.startswith("DROP"), "a mixed index must never read as a DROP command"
+
+
+def test_schema_names_are_quoted_in_the_generated_command() -> None:
+    """Schema names may legally contain spaces or backticks (verified live).
+
+    An unquoted name yields an invalid statement someone will paste and puzzle
+    over; a name bearing a semicolon could change what the paste means.
+    """
+    assert (
+        SchemaHolder("weird name idx", "INDEX", tokens=("X",)).remediation("X")
+        == "DROP INDEX `weird name idx` IF EXISTS;"
+    )
+    assert (
+        SchemaHolder("we`ird", "CONSTRAINT", tokens=("X",)).remediation("X")
+        == "DROP CONSTRAINT `we``ird` IF EXISTS;"
     )
