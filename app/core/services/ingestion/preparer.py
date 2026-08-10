@@ -158,8 +158,11 @@ def prepare_entity_data(
     # Start with data copy
     entity_data = dict(data)
 
-    # Remove YAML-only metadata fields
-    for field in ("version", "type", "created_at", "updated_at"):
+    # Remove YAML-only metadata fields. ``created_at`` is deliberately NOT here:
+    # an authored creation date is content, not sync bookkeeping, and stripping it
+    # made it unauthorable. ``updated_at`` IS stripped — it always means "when this
+    # sync ran", which the write layer stamps.
+    for field in ("version", "type", "updated_at"):
         entity_data.pop(field, None)
 
     # Inject entity_type property for Entity-labeled nodes.
@@ -284,10 +287,12 @@ def prepare_entity_data(
             if value:
                 entity_data[f"recommends.{key}"] = value
 
-    # Add timestamps
-    now = datetime.now().isoformat()
-    entity_data.setdefault("created_at", now)
-    entity_data["updated_at"] = now
+    # Add timestamps. ``created_at`` is stamped ONLY by the write layer's
+    # ``ON CREATE`` branch — stamping "now" here put it inside ``props``, so the
+    # upsert's ``ON MATCH SET n += props`` overwrote the real creation date on
+    # every re-sync (one ``--force`` run reset the whole corpus). An AUTHORED
+    # created_at survives from frontmatter and deliberately wins.
+    entity_data["updated_at"] = datetime.now().isoformat()
 
     return entity_data
 

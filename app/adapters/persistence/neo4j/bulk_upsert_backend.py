@@ -119,7 +119,7 @@ WITH item, item._node_props AS props
 MERGE (n:{label_clause} {{uid: item.uid}})
   ON CREATE SET
     n = props,
-    n.created_at = datetime()
+    n.created_at = coalesce(props.created_at, toString(datetime()))
   ON MATCH SET
     n += props,
     n.updated_at = datetime()

@@ -243,6 +243,30 @@ class TestPathStepUsesKuWiring:
         # Non-list value left unchanged
         assert result["uses_kus"] == "not-a-list"
 
+    def test_preparer_never_stamps_created_at(self):
+        """``created_at`` must NOT ride in the props dict.
+
+        The bulk upsert stamps it in ``ON CREATE`` and merges props in
+        ``ON MATCH`` — a "now" stamp here lands inside props and so overwrote
+        the real creation date on every re-sync (one ``--force`` run reset the
+        whole content corpus). ``updated_at`` IS stamped: it means "this sync".
+        """
+        data = {"type": "lesson", "title": "Test Lesson"}
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("test.md"))
+        assert "created_at" not in result
+        assert "updated_at" in result
+
+
+    def test_preparer_preserves_authored_created_at(self):
+        """An authored creation date is content — it survives into props and wins."""
+        data = {
+            "type": "lesson",
+            "title": "Test Lesson",
+            "created_at": "2026-03-29T00:00:00Z",
+        }
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("test.md"))
+        assert result["created_at"] == "2026-03-29T00:00:00Z"
+
 
 # ============================================================================
 # PS RELATIONSHIP FIELD WIRING
