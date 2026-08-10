@@ -102,6 +102,16 @@ def escape_identifier(name: str) -> str:
     return "`" + name.replace("`", "``") + "`"
 
 
+def domain_label_values() -> list[str]:
+    """Every label that identifies a domain entity, sourced from EntityType.
+
+    Used to scope the ``entity_type`` scan: a node carrying that property is a
+    domain node only if it wears :Entity or one of these. Enum-sourced so a new
+    EntityType widens the scan automatically.
+    """
+    return sorted({NeoLabel.from_entity_type(et).value for et in EntityType})
+
+
 def normalize_entity_type(raw: object) -> str:
     """Render a persisted ``entity_type`` to a comparable string key.
 
@@ -183,15 +193,21 @@ async def fetch_live_vocabulary(
             ).data()
             relationships[name] = rows[0]["c"] if rows else 0
 
-        # Scanned by PROPERTY, not by the :Entity label (Codex P2, #1010).
-        # `MATCH (n:Entity)` would miss a node that carries entity_type without
-        # the shared base label — and that is the realistic corruption here,
-        # because the backfill migrations key on DOMAIN labels
-        # (`MATCH (n:Task) ... SET n.entity_type`), never on :Entity. A node the
-        # label audit happily accepts as :Task could hold a discriminator
-        # outside EntityType and the run would still exit clean. Property-first
-        # is strictly more complete and costs one full scan, which an audit can
-        # afford.
+        # Scope: :Entity OR any EntityType-backed DOMAIN label — deliberately
+        # neither narrower nor wider (Codex P2, twice, #1010).
+        #
+        # Narrower (`MATCH (n:Entity)`) misses the realistic corruption: the
+        # backfill migrations key on DOMAIN labels (`MATCH (n:Task) ... SET
+        # n.entity_type`), never on :Entity, so `(:Task {entity_type: 'x'})`
+        # with no base label would exit clean.
+        #
+        # Wider (every node with the property) is a FALSE POSITIVE, because
+        # `entity_type` is not exclusively a domain discriminator: an
+        # :IngestionError node records which entity type a failed FILE was
+        # about, and an edge-YAML validation failure stores the literal "edge"
+        # (`batch.py` → `IngestionBackend.create_error_nodes`). That is
+        # metadata, not vocabulary — reporting it would turn the audit red on a
+        # perfectly clean domain graph.
         #
         # entity_type is free-form, so a corrupt node can hold a number, a
         # boolean or a list. Those are exactly what this audit exists to
@@ -203,7 +219,9 @@ async def fetch_live_vocabulary(
         for record in await (
             await session.run(
                 "MATCH (n) WHERE n.entity_type IS NOT NULL "
-                "RETURN n.entity_type AS entity_type, count(n) AS c"
+                "  AND (n:Entity OR any(lbl IN labels(n) WHERE lbl IN $domain_labels)) "
+                "RETURN n.entity_type AS entity_type, count(n) AS c",
+                {"domain_labels": domain_label_values()},
             )
         ).data():
             key = normalize_entity_type(record["entity_type"])

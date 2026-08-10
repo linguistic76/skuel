@@ -158,26 +158,39 @@ def test_non_string_entity_type_is_reported_not_crashed() -> None:
     assert all(s.kind == "entity_type" and s.holds_data for s in strays)
 
 
-def test_entity_type_scan_is_property_first_not_entity_label_first() -> None:
-    """The discriminator must be scanned by PROPERTY, not via the :Entity label.
+def test_entity_type_scan_is_scoped_to_domain_nodes_exactly() -> None:
+    """The scan must be neither narrower nor wider than "domain nodes".
 
-    The backfill migrations key on DOMAIN labels (``MATCH (n:Task) ... SET
-    n.entity_type``), never on :Entity — so the realistic corruption is a node
-    the label audit accepts as :Task while carrying a discriminator outside
-    EntityType and no base label. Scoping the scan to ``(n:Entity)`` would let
-    that exit clean (Codex P2, #1010).
+    NARROWER (`MATCH (n:Entity)`) misses the realistic corruption: the backfill
+    migrations key on DOMAIN labels (``MATCH (n:Task) ... SET n.entity_type``),
+    so ``(:Task {entity_type: 'x'})`` with no base label would exit clean.
 
-    Pinned on the query text because the blind spot IS the pattern.
+    WIDER (every node with the property) is a false positive: an
+    :IngestionError records which entity type a failed FILE was about, and an
+    edge-YAML failure stores the literal "edge". That is metadata, not
+    vocabulary, and would turn the audit red on a clean domain graph.
+
+    Both directions were live findings on this PR (Codex P2, twice, #1010), which is
+    why the scope is pinned on the query text — a behavioural test on the
+    current corpus passes against every one of the three versions.
     """
     import inspect
 
     import audit_graph_vocabulary  # type: ignore[import-not-found]
 
     source = inspect.getsource(audit_graph_vocabulary.fetch_live_vocabulary)
-    assert "MATCH (n) WHERE n.entity_type IS NOT NULL" in source
-    assert "MATCH (n:Entity) WHERE n.entity_type" not in source, (
-        "scoping the entity_type scan to :Entity reintroduces the blind spot"
+    assert "n:Entity OR any(lbl IN labels(n) WHERE lbl IN $domain_labels)" in source, (
+        "the entity_type scan must cover :Entity plus EntityType-backed domain labels"
     )
+
+    # The label set is enum-sourced, so a new EntityType widens the scan for free.
+    domain_labels = audit_graph_vocabulary.domain_label_values()
+    assert NeoLabel.from_entity_type(EntityType.TASK).value in domain_labels
+    assert NeoLabel.from_entity_type(EntityType.PATH_STEP).value in domain_labels
+    assert "IngestionError" not in domain_labels, (
+        "an ingestion-metadata label must never be treated as domain vocabulary"
+    )
+    assert domain_labels == sorted(set(domain_labels)), "deduped and ordered"
 
 
 def test_identifier_escaping_survives_an_embedded_backtick() -> None:
