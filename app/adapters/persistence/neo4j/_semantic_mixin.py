@@ -19,7 +19,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 from adapters.persistence.neo4j._backend_helpers import _validate_rel_name, direction_clause
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    build_knowledge_read_clause,
+    build_publication_clause,
+)
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.result_simplified import Result
 
@@ -211,23 +214,34 @@ class _SemanticMixin:
     # ========================================================================
 
     async def compute_hub_scores(self) -> Result[list[Neo4jProperties]]:
-        """Compute and cache degree centrality hub scores on all Entity nodes."""
-        query = """
+        """Compute and cache degree centrality hub scores on knowledge nodes.
+
+        Scoped to knowledge (was: every :Entity). This is the WRITER that feeds
+        ``query_foundational_knowledge`` — filtering only the read would leave
+        a "foundational knowledge" score stamped on Tasks and UserEntries, so
+        the pair has to move together.
+        """
+        knowledge, knowledge_params = build_knowledge_read_clause("ku")
+        query = f"""
         MATCH (ku:Entity)-[r]-(neighbor)
+        WHERE {knowledge}
         WITH ku, count(r) as degree_centrality
         SET ku.hub_score = degree_centrality
         RETURN count(ku) as updated_count
         """
-        return await self.execute_query(query, {})
+        return await self.execute_query(query, knowledge_params)
 
     async def query_foundational_knowledge(
         self, domain: str | None, min_hub_score: int, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Query high-hub-score KUs (foundational concepts)."""
         # Discovery: an unanchored ranking of "foundational concepts" — a browse
-        # surface, so draft curriculum is withheld. NULL-tolerant (#1006).
-        published, published_params = build_publication_clause("ku")
-        where_clauses = ["ku.hub_score >= $min_hub_score", published]
+        # surface. `MATCH (ku:Entity)` ranked EVERY entity type by hub_score, so
+        # a busy Task outranked a real Ku and any node's title/domain was
+        # disclosed. Type + audience + publication now come from the one
+        # knowledge-read composition point.
+        knowledge, knowledge_params = build_knowledge_read_clause("ku")
+        where_clauses = ["ku.hub_score >= $min_hub_score", knowledge]
         if domain:
             where_clauses.append("ku.domain = $domain")
         where_clause = " AND ".join(where_clauses)
@@ -242,7 +256,7 @@ class _SemanticMixin:
         params: dict[str, Any] = {
             "limit": limit,
             "min_hub_score": min_hub_score,
-            **published_params,
+            **knowledge_params,
         }
         if domain:
             params["domain"] = domain

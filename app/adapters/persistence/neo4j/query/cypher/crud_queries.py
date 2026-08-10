@@ -18,7 +18,7 @@ from dataclasses import fields, is_dataclass
 from typing import Any, get_origin, get_type_hints
 
 from adapters.persistence.neo4j._backend_helpers import direction_clause
-from core.models.enums import ExerciseScope, PublicationState, SearchVisibility
+from core.models.enums import EntityType, ExerciseScope, PublicationState, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jValue, UserUID
@@ -196,6 +196,53 @@ def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, st
         f" OR {entity_alias}.publication_state <> $publication_draft)",
         {"publication_draft": PublicationState.DRAFT.value},
     )
+
+
+def build_knowledge_read_clause(entity_alias: str = "n") -> tuple[str, dict[str, Any]]:
+    """Build the WHERE fragment that scopes a read to visible curriculum knowledge.
+
+    THE single composition point for "this query is about knowledge" — every
+    reader that means *knowledge* rather than *any node* composes THIS.
+
+    Three predicates, one call, because they failed together:
+
+    1. **Type.** ``MATCH (ku:Entity)`` matches EVERY entity type, so a query
+       named ``find_ready_to_learn`` was returning Tasks, Choices, Resources and
+       — the reason this is a security fix, not a tidy-up — other users'
+       UserEntry titles and summaries. The membership test is sourced from
+       ``EntityType.is_knowledge()`` so the vocabulary keeps ONE definition
+       (PathStep + Ku; see ADR-046, which is why PathStep belongs here).
+    2. **Audience.** Delegated to ``build_search_visibility_clause`` rather than
+       hand-written. Knowledge is ``SearchVisibility.PUBLIC`` — shared content,
+       so the ownership half is deliberately EMPTY today. Composing it anyway is
+       the point: if curriculum ever becomes scope-aware, every caller of this
+       helper follows without being revisited.
+    3. **Publication.** Rides along inside the visibility clause (PUBLIC is a
+       gated visibility), so a knowledge read is NULL-tolerantly draft-gated by
+       construction — no separate ``build_publication_clause`` call to forget.
+
+    Excluding non-knowledge types is what actually closes the disclosure; the
+    audience clause is the guard that keeps the next query honest.
+
+    Returns:
+        ``(fragment, params)`` — a parenthesized WHERE fragment plus the
+        parameters it introduces. Merge the params in verbatim.
+    """
+    _validate_identifier(entity_alias, context="entity alias")
+    params: dict[str, Any] = {
+        "knowledge_entity_types": sorted(t.value for t in EntityType if t.is_knowledge())
+    }
+    predicates = [f"{entity_alias}.entity_type IN $knowledge_entity_types"]
+
+    visibility = build_search_visibility_clause(
+        SearchVisibility.PUBLIC, entity_alias=entity_alias, has_user=False
+    )
+    if visibility is not None:
+        fragment, visibility_params = visibility
+        predicates.append(fragment)
+        params.update(visibility_params)
+
+    return f"({' AND '.join(predicates)})", params
 
 
 def build_search_visibility_clause(

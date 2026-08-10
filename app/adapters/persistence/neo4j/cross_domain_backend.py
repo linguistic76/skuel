@@ -18,7 +18,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query import build_domain_context_with_paths
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    build_knowledge_read_clause,
+    build_publication_clause,
+)
 from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
@@ -536,12 +539,15 @@ class CrossDomainBackend:
         params: dict[str, Any],
     ) -> Result[list[dict[str, Any]]]:
         """Find highly connected knowledge units using degree centrality."""
-        # Discovery: an unanchored centrality ranking — a browse surface, so
-        # draft curriculum is withheld (as in find_similar_knowledge below).
+        # Discovery: an unanchored centrality ranking — a browse surface.
+        # `MATCH (ku:Entity)` ranked EVERY entity type as a "knowledge hub" and
+        # returned uid/title/domain for each, so a busy Task or another user's
+        # UserEntry surfaced as knowledge. Type + audience + publication now come
+        # from the one knowledge-read composition point.
         # Carried on its own WITH rather than folded into ``domain_filter``:
         # that fragment is caller-supplied and may be empty, and a MATCH takes
-        # only one WHERE. NULL-tolerant (#1006).
-        published, published_params = build_publication_clause("ku")
+        # only one WHERE.
+        published, published_params = build_knowledge_read_clause("ku")
         query = f"""
         MATCH (ku:Entity)
         {domain_filter}
@@ -653,8 +659,8 @@ class CrossDomainBackend:
     ) -> Result[list[dict[str, Any]]]:
         """Find tightly connected knowledge clusters via triangle density."""
         # Discovery: an unanchored cluster listing — same ruling as
-        # find_knowledge_hubs. NULL-tolerant (#1006).
-        published, published_params = build_publication_clause("ku")
+        # find_knowledge_hubs, including the entity_type scope.
+        published, published_params = build_knowledge_read_clause("ku")
         query = f"""
         // Find knowledge units with neighbors
         MATCH (ku:Entity)
