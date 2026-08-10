@@ -844,14 +844,20 @@ class PsBackend(
         Returns:
             Result containing PathStep models
         """
-        # Discovery: an unanchored enumeration of every step, merely *ordered*
-        # by the user's progress — IN_PROGRESS is a sort key, not a filter, so
-        # this browses the whole catalogue. Draft steps withheld (#1006).
+        # A MIXED surface (Codex P2, #1008): an unanchored enumeration of every
+        # step (catalogue -> gated) that is also ordered by the user's own
+        # progress (user-state -> NOT gated). The gate therefore lands AFTER the
+        # progress match and yields to it: a step the learner already started is
+        # one they reference, so withholding it would delete their own history
+        # from the list that exists to prioritise it — and drafts are UNLISTED,
+        # not forbidden (the get_visible_by_uid carve-out). A step marked draft
+        # after they began it stays visible to them and to no one else.
         published, published_params = build_publication_clause("ps")
         query = f"""
         MATCH (ps:Entity {{entity_type: 'path_step'}})
-        WHERE {published}
         OPTIONAL MATCH (u:User {{uid: $user_uid}})-[progress:IN_PROGRESS]->(ps)
+        WITH ps, progress
+        WHERE progress IS NOT NULL OR {published}
         RETURN ps, progress
         ORDER BY
             CASE

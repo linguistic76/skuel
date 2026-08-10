@@ -223,14 +223,18 @@ class _LpProgressMixin:
         Returns:
             Result containing LearningPath models
         """
-        # Discovery: an UNANCHORED enumeration of every path, merely *ordered*
-        # by the user's enrolment — enrolment is a sort key here, not a filter,
-        # so this browses the whole catalogue. Draft paths withheld (#1006).
+        # A MIXED surface (Codex P2, #1008), exactly like get_prioritized_steps:
+        # an unanchored enumeration of every path (catalogue -> gated) that is
+        # also ordered by the user's own enrolment (user-state -> NOT gated).
+        # The gate lands AFTER the enrolment match and yields to it — a path the
+        # learner is enrolled in is one they reference, and dropping it would
+        # remove their own enrolment from the list built to prioritise it.
         published, published_params = build_publication_clause("lp")
         query = f"""
         MATCH (lp:Entity {{entity_type: 'learning_path'}})
-        WHERE {published}
         OPTIONAL MATCH (u:User {{uid: $user_uid}})-[enrolled:ENROLLED_IN]->(lp)
+        WITH lp, enrolled
+        WHERE enrolled IS NOT NULL OR {published}
         OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(g:Goal)<-[:OWNS]-(u2:User {{uid: $user_uid}})
         WITH lp, enrolled, count(g) as goal_alignment
         RETURN lp

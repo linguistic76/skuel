@@ -262,21 +262,32 @@ class _KnowledgeContextMixin:
         # The predicate is NULL-tolerant, so the non-curriculum entities this
         # MATCH also sweeps up (it is unfiltered by entity_type) are unaffected.
         published, published_params = build_publication_clause("ku")
+        published_prereq, prereq_params = build_publication_clause("prereq")
         query = f"""
         MATCH (ku:Entity)
         WHERE NOT ku.uid IN $mastered_uids
           AND ($domain IS NULL OR ku.domain = $domain)
           AND {published}
 
-        // Count prerequisites and how many user has mastered
+        // Count prerequisites and how many user has mastered.
+        // A DRAFT prerequisite still COUNTS but is not NAMED (Codex P2, #1008):
+        // its uid rides out in prereq_uids and PsContextService copies those
+        // into blocking_reasons, which would disclose unfinished curriculum.
+        // Dropping it from the counts instead would be worse than the leak —
+        // total_prereqs would fall, readiness would RISE, and a KU blocked by
+        // unfinished work would be recommended as MORE ready. So the maths sees
+        // every prerequisite; only the returned list is filtered.
         OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
         WITH ku,
-             collect(prereq.uid) as prereq_uids,
+             collect(prereq.uid) as all_prereq_uids,
+             collect(CASE WHEN {published_prereq} THEN prereq.uid END) as visible_prereq_uids,
              count(prereq) as total_prereqs
+        WITH ku, all_prereq_uids, total_prereqs,
+             [p IN visible_prereq_uids WHERE p IS NOT NULL] as prereq_uids
 
         // Calculate readiness based on prerequisites
         WITH ku, prereq_uids, total_prereqs,
-             size([p IN prereq_uids WHERE p IN $mastered_uids]) as satisfied_prereqs
+             size([p IN all_prereq_uids WHERE p IN $mastered_uids]) as satisfied_prereqs
 
         WITH ku, prereq_uids, total_prereqs, satisfied_prereqs,
              CASE
@@ -309,6 +320,7 @@ class _KnowledgeContextMixin:
                 "domain": domain,
                 "limit": limit,
                 **published_params,
+                **prereq_params,
             },
         )
 
