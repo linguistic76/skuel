@@ -21,7 +21,7 @@ from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums import EntityType, ExerciseScope, PublicationState, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jValue, UserUID
+from core.models.type_hints import Neo4jProperties, Neo4jValue, UserUID
 from core.utils.logging import get_logger
 
 from ._helpers import convert_value_for_neo4j
@@ -198,7 +198,7 @@ def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, st
     )
 
 
-def build_knowledge_read_clause(entity_alias: str = "n") -> tuple[str, dict[str, Any]]:
+def build_knowledge_read_clause(entity_alias: str = "n") -> tuple[str, Neo4jProperties]:
     """Build the WHERE fragment that scopes a read to visible curriculum knowledge.
 
     THE single composition point for "this query is about knowledge" — every
@@ -229,7 +229,7 @@ def build_knowledge_read_clause(entity_alias: str = "n") -> tuple[str, dict[str,
         parameters it introduces. Merge the params in verbatim.
     """
     _validate_identifier(entity_alias, context="entity alias")
-    params: dict[str, Any] = {
+    params: Neo4jProperties = {
         "knowledge_entity_types": sorted(t.value for t in EntityType if t.is_knowledge())
     }
     predicates = [f"{entity_alias}.entity_type IN $knowledge_entity_types"]
