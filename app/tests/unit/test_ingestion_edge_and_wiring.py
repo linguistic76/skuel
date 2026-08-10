@@ -256,7 +256,6 @@ class TestPathStepUsesKuWiring:
         assert "created_at" not in result
         assert "updated_at" in result
 
-
     def test_preparer_preserves_authored_created_at(self):
         """An authored creation date is content — it survives into props and wins."""
         data = {
