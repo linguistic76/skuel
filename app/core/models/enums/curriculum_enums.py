@@ -41,6 +41,17 @@ class PublicationState(StrEnum):
     writes absent frontmatter keys, so the entire pre-existing corpus carries
     no ``publication_state`` property at all and MUST keep reading as
     published. Every reader predicate is NULL-tolerant for that reason.
+
+    **Un-drafting: DELETING the line does not publish the file.** That same
+    absent-keys rule means a removed key is never written, and nothing retracts
+    a stored property — the node keeps ``draft`` and stays withheld. To publish,
+    author the value explicitly::
+
+        publication_state: published  # or `none`, the sanctioned absence
+        # marker, to drop the property entirely
+
+    Measured: deleting the line left the graph at ``'draft'`` and the health
+    gauge at 12; ``none`` cleared it to ``null`` and the gauge to 11.
     """
 
     DRAFT = "draft"

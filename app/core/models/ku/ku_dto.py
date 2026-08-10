@@ -21,6 +21,7 @@ from typing import Any
 
 from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityType
 
 
@@ -40,6 +41,7 @@ class KuDTO(EntityDTO):
 
     aliases: list[str] | None = None
     sel_category: str | None = None
+    publication_state: PublicationState = PublicationState.PUBLISHED
     # NOUS topic membership (stories, body, self-awareness, ...) — multi-topic;
     # empty = deliberately unassigned (rawness principle)
     nous: list[str] | None = None
@@ -53,7 +55,7 @@ class KuDTO(EntityDTO):
 
         return dto_to_dict(
             self,
-            enum_fields=["entity_type", "status", "domain", "sel_category"],
+            enum_fields=["entity_type", "status", "domain", "sel_category", "publication_state"],
             datetime_fields=["created_at", "updated_at"],
         )
 
@@ -65,7 +67,9 @@ class KuDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields=enum_fields_for("entity_type", "status", "domain", "sel_category"),
+            enum_fields=enum_fields_for(
+                "entity_type", "status", "domain", "sel_category", "publication_state"
+            ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "aliases", "nous", "nous_subtopic"],
             dict_fields=["metadata"],
@@ -92,6 +96,7 @@ class KuDTO(EntityDTO):
                 # Ku-specific fields
                 "aliases",
                 "sel_category",
+                "publication_state",
                 "nous",
                 "nous_subtopic",
             },

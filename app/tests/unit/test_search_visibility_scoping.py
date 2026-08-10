@@ -146,9 +146,9 @@ class TestVisibilityClause:
         """
         import dataclasses
 
-        from core.models.curriculum_dto import CurriculumDTO
         from core.models.enums import PublicationState
         from core.models.exercises.exercise_dto import ExerciseDTO
+        from core.models.ku.ku_dto import KuDTO
         from core.models.pathways.learning_path_dto import LearningPathDTO
         from core.models.pathways.path_step_dto import PathStepDTO
 
@@ -160,10 +160,16 @@ class TestVisibilityClause:
         # AttributeError (Codex #1006 round 2 — the earlier version of this test
         # checked only ``dataclasses.fields()`` and passed while both leaves
         # were broken).
-        cases: list[tuple[type[CurriculumDTO], str]] = [
+        # Ku is NOT a Curriculum subclass, but it IS publication-controlled: the
+        # PUBLIC gate applies to it and the health gauge counts it in
+        # draft_curriculum_count. It therefore belongs in this round trip —
+        # omitting it is how the field stayed undeclared on Ku while every
+        # Cypher surface already filtered on it (Codex #1006 round 3).
+        cases: list[tuple[Any, str]] = [
             (PathStepDTO, "path_step"),
             (LearningPathDTO, "learning_path"),
             (ExerciseDTO, "exercise"),
+            (KuDTO, "ku"),
         ]
         for dto_cls, entity_type in cases:
             assert "publication_state" in {f.name for f in dataclasses.fields(dto_cls)}, (

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from core.models.ku.ku_dto import KuDTO
 
 from core.models.entity import Entity
+from core.models.enums.curriculum_enums import PublicationState
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import SELCategory
 
@@ -59,6 +60,13 @@ class Ku(Entity):
     # =========================================================================
     aliases: tuple[str, ...] = field(default_factory=tuple)  # alternative names
     sel_category: SELCategory | None = None  # SEL competency this Ku belongs to
+    # Ku is NOT a Curriculum subclass, so this is declared here rather than
+    # inherited — but Ku IS publication-controlled everywhere else: the PUBLIC
+    # search gate applies to it and the health gauge counts it in
+    # ``draft_curriculum_count``. Without the field the model silently dropped
+    # a value ingestion had accepted and Cypher was already filtering on
+    # (Codex #1006).
+    publication_state: PublicationState = PublicationState.PUBLISHED
     # NOUS topic membership — which of the 11 official topic sections this Ku
     # belongs to (stories, body, self-awareness, ...). Multi-topic allowed;
     # empty = deliberately unassigned (rawness principle — content may exist
