@@ -46,15 +46,16 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import AsyncGenerator, Iterator
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, LpBackend, PsBackend
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
@@ -63,6 +64,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
+from core.utils.result_simplified import Result
 
 # Sibling-module import: scripts/ has no __init__.py and tests/unit/scripts/
 # shadows the name under pytest, so a package-qualified import is not stable
@@ -194,9 +196,35 @@ SEED_PARAMS = {
 # the withheld rows fall off the end either way.
 LIMIT = 500
 
+
 # Modules that resolve `build_publication_clause` from their own globals at call
 # time. The neutralising control patches each one — patching only the defining
 # module would miss every `from ... import` binding, which is all of them.
+@runtime_checkable
+class _HasUid(Protocol):
+    """Anything carrying an entity identity.
+
+    A Protocol rather than ``hasattr`` (SKUEL011): the walkers below meet
+    PathStep, LearningPath and Ku as typed models, plus raw property maps, and
+    an attribute probe would narrow none of them for the type checker.
+    """
+
+    @property
+    def uid(self) -> str: ...
+
+
+# boundary: a Neo4j row is a genuinely heterogeneous property map, and these
+# surfaces return nodes, scalars, and nested lists of both. Naming a concrete
+# union here would be a fiction — the whole point of the walker is that it does
+# not know the shape in advance.
+Payload = Any
+
+ClauseBuilder = Callable[..., tuple[str, dict[str, str]]]
+"""The shape of ``build_publication_clause`` — what the control swaps out."""
+
+SurfaceCall = Callable[[], Awaitable[Result[Any]]]
+"""A gated surface bound to its arguments: zero-arg, returns a ``Result``."""
+
 GATE_ATTR = "build_publication_clause"
 
 GATE_CONSUMERS = (
@@ -235,7 +263,7 @@ def neutralised_gates() -> Iterator[None]:
 
     # getattr/setattr rather than attribute syntax: these are ModuleType handles
     # from importlib, so the binding is invisible to the type checker.
-    originals: list[tuple[ModuleType, Any]] = []
+    originals: list[tuple[ModuleType, ClauseBuilder]] = []
     for name in GATE_CONSUMERS:
         module = importlib.import_module(name)
         original = getattr(module, GATE_ATTR, None)
@@ -257,7 +285,7 @@ def neutralised_gates() -> Iterator[None]:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def gate_graph(neo4j_driver: Any) -> AsyncGenerator[Any]:
+async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
     """Seed the fixture corpus; tear it down whatever the test does."""
     async with neo4j_driver.session() as session:
         await session.run(
@@ -275,7 +303,7 @@ async def gate_graph(neo4j_driver: Any) -> AsyncGenerator[Any]:
         )
 
 
-def find_draft_identities(payload: Any, path: str = "") -> list[str]:
+def find_draft_identities(payload: Payload, path: str = "") -> list[str]:
     """Every draft uid reachable in ``payload``, at any depth, with its route.
 
     Depth-unlimited and container-agnostic on purpose: the leak that shipped in
@@ -294,7 +322,7 @@ def find_draft_identities(payload: Any, path: str = "") -> list[str]:
     elif isinstance(payload, (list, tuple, set)):
         for index, value in enumerate(payload):
             hits.extend(find_draft_identities(value, f"{path}[{index}]"))
-    elif hasattr(payload, "uid"):  # a domain model (PathStep, LearningPath, Ku)
+    elif isinstance(payload, _HasUid):  # a domain model (PathStep, LearningPath, Ku)
         hits.extend(find_draft_identities(payload.uid, f"{path}.uid"))
     return hits
 
@@ -302,7 +330,7 @@ def find_draft_identities(payload: Any, path: str = "") -> list[str]:
 FIXTURE_UIDS = frozenset(SEED_PARAMS[k] for k in SEED_PARAMS)
 
 
-def fixture_identities(payload: Any) -> frozenset[str]:
+def fixture_identities(payload: Payload) -> frozenset[str]:
     """Which seeded entities this payload names, at any depth.
 
     Scoped to the seeded corpus so the comparison is exact — a free-text scan
@@ -310,7 +338,7 @@ def fixture_identities(payload: Any) -> frozenset[str]:
     """
     found = set()
 
-    def walk(node: Any) -> None:
+    def walk(node: Payload) -> None:
         if isinstance(node, str):
             if node in FIXTURE_UIDS:
                 found.add(node)
@@ -320,14 +348,14 @@ def fixture_identities(payload: Any) -> frozenset[str]:
         elif isinstance(node, (list, tuple, set)):
             for value in node:
                 walk(value)
-        elif hasattr(node, "uid"):
+        elif isinstance(node, _HasUid):
             walk(node.uid)
 
     walk(payload)
     return frozenset(found)
 
 
-def _payload(result: Any, label: str) -> Any:
+def _payload(result: Result[Any], label: str) -> Payload:
     """Unwrap a ``Result``, refusing to silently walk the wrapper.
 
     Guarded because the wrapper is exactly what makes this harness vacuous: a
@@ -338,11 +366,11 @@ def _payload(result: Any, label: str) -> Any:
     """
     assert not result.is_error, f"{label} failed: {result.expect_error()}"
     payload = result.value
-    assert not hasattr(payload, "is_error"), f"{label}: still a Result — the harness is vacuous"
+    assert not isinstance(payload, Result), f"{label}: still a Result — the harness is vacuous"
     return payload
 
 
-def build_surfaces(driver: Any) -> dict[str, Any]:
+def build_surfaces(driver: AsyncDriver) -> dict[str, SurfaceCall]:
     """Every covered surface as a zero-arg callable, keyed by registry qualname."""
     ku = KuBackend(driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
     ps = PsBackend(driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
@@ -462,6 +490,23 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
 }
 
 
+def test_the_walker_can_see_a_typed_domain_model() -> None:
+    """``_HasUid`` must match the models these surfaces actually return.
+
+    The walker's model arm is the one that goes silently blind: if the Protocol
+    stopped matching, every surface returning typed models would read clean and
+    the invariant would be vacuous again — the same failure as the ``Result``
+    wrapper it already survived once. The delta control would catch it, but only
+    indirectly; this says it outright.
+    """
+    step = PathStep(uid=STEP_DRAFT, title="Draft step")
+    assert isinstance(step, _HasUid)
+    assert find_draft_identities([step]) == [f"[0].uid = {STEP_DRAFT}"]
+    assert find_draft_identities([{"rows": [{"nested": step}]}]) == [
+        f"[0].rows[0].nested.uid = {STEP_DRAFT}"
+    ]
+
+
 def test_registry_and_coverage_agree() -> None:
     """Every GATED surface is either measured here or listed as unmeasurable.
 
@@ -536,7 +581,9 @@ _COVERED_KEYS = (
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("key", _COVERED_KEYS, ids=[q for _, q in _COVERED_KEYS])
-async def test_no_draft_identity_reaches_the_caller(gate_graph: Any, key: tuple[str, str]) -> None:
+async def test_no_draft_identity_reaches_the_caller(
+    gate_graph: AsyncDriver, key: tuple[str, str]
+) -> None:
     """The invariant: a gated surface returns no draft uid, at any depth."""
     qualname = key[1]
     surface = build_surfaces(gate_graph)[qualname]
@@ -552,7 +599,9 @@ async def test_no_draft_identity_reaches_the_caller(gate_graph: Any, key: tuple[
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("key", _COVERED_KEYS, ids=[q for _, q in _COVERED_KEYS])
-async def test_gate_is_measured_not_merely_present(gate_graph: Any, key: tuple[str, str]) -> None:
+async def test_gate_is_measured_not_merely_present(
+    gate_graph: AsyncDriver, key: tuple[str, str]
+) -> None:
     """Neutralising the predicate MUST change what the surface returns.
 
     This is the half that makes the invariant mean something. A fixture that
@@ -588,7 +637,7 @@ async def test_gate_is_measured_not_merely_present(gate_graph: Any, key: tuple[s
 
 
 @pytest.mark.asyncio
-async def test_by_uid_read_still_returns_a_draft(gate_graph: Any) -> None:
+async def test_by_uid_read_still_returns_a_draft(gate_graph: AsyncDriver) -> None:
     """The carve-out, asserted in the opposite direction.
 
     Over- and under-withholding look identical from one side. The gate belongs
@@ -606,7 +655,7 @@ async def test_by_uid_read_still_returns_a_draft(gate_graph: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_null_publication_state_is_never_withheld(gate_graph: Any) -> None:
+async def test_null_publication_state_is_never_withheld(gate_graph: AsyncDriver) -> None:
     """NULL tolerance, load-bearing: the fixture's published nodes carry NO key.
 
     Ingestion does not write absent frontmatter keys, so the entire
