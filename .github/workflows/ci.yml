@@ -33,6 +33,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       ui: ${{ steps.filter.outputs.ui }}
       cypher: ${{ steps.filter.outputs.cypher }}
+      neo4j_config: ${{ steps.filter.outputs.neo4j_config }}
       js: ${{ steps.filter.outputs.js }}
       audit: ${{ steps.filter.outputs.audit }}
     steps:
@@ -108,6 +109,22 @@ jobs:
               # loaded and exercised by integration tests, so a Cypher-only PR
               # must still trigger the integration suite (Codex review, PR #701).
               - 'app/**/*.cypher'
+              - '.github/workflows/ci.yml'
+            neo4j_config:
+              # Neo4j server configuration, which is executable input to the
+              # integration suite even though it is neither .py nor .cypher.
+              # The APOC procedure allowlist is enforced by these files ALONE
+              # (there is no apoc.conf), and tests/integration/
+              # test_apoc_allowlist_lockdown.py builds its container FROM them —
+              # so a compose-only PR that widens or deletes the allowlist is
+              # exactly the regression that suite exists to catch. Scoped
+              # narrower, that PR would trigger no py/cypher change,
+              # integration_tests would skip, and the gate accepts skips: the
+              # lockdown test would go silently unrun on the one change that
+              # breaks it. Same reasoning as the cypher filter (PR #701) and
+              # the workflow paths in py above.
+              - 'infrastructure/docker-compose.yml'
+              - 'app/docker-compose.yml'
               - '.github/workflows/ci.yml'
             js:
               # Vitest surface (PR #717): the JS under test, the suite itself,
@@ -706,7 +723,9 @@ jobs:
   integration_tests:
     name: Integration Tests
     needs: changes
-    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
+    if: >-
+      needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
+      || needs.changes.outputs.neo4j_config == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25  # testcontainer startup can hang on daemon issues; suite itself is ~2-4 min
     # Pin every uv command in this job to the committed lock (see the mypy job

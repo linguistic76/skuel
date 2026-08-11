@@ -38,7 +38,11 @@ invariants — keep comments focused on real, high-priority risks.
   CRITICAL, unsuppressable). `apoc.meta.*` is NOT an exception to this rule: it
   is banned there too. The `apoc.meta.*` allowance is the Neo4j *server* plugin
   allowlist (`dbms_security_procedures_allowlist` in the compose file), exercised
-  only by `tests/integration/test_apoc_canary.py`. Domain Cypher is pure Cypher.
+  only by two integration modules: `tests/integration/test_apoc_canary.py`
+  (permissive fixture — "is the plugin alive?") and
+  `tests/integration/test_apoc_allowlist_lockdown.py` (compose-shaped container —
+  "is the lockdown on?"). They require opposite server configs, so neither can
+  absorb the other. Domain Cypher is pure Cypher.
 - Domain-specific Cypher belongs on the domain backend; services call
   `self.backend.method_name()` and never inline `execute_query()`.
 - Cross-domain aggregation stays in services, not backends.

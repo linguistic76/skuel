@@ -34,10 +34,12 @@ NON-CIRCULARITY
 ---------------
 Two properties keep these tests from grading their own homework:
 
-1. **The container is configured FROM the compose files**, not from a constant
-   hand-copied out of them. Widen ``docker-compose.yml`` to ``apoc.*`` and this
-   container starts permissive, so the refusal tests fail. A hard-coded
-   ``apoc.meta.*`` here would keep passing over a wide-open production config.
+1. **The container is configured FROM the compose files** — both the APOC knobs
+   and the server image — not from constants hand-copied out of them. Widen
+   ``docker-compose.yml`` to ``apoc.*`` and this container starts permissive, so
+   the refusal tests fail. A hard-coded ``apoc.meta.*`` here would keep passing
+   over a wide-open production config, and a hard-coded image pin would leave
+   this module validating a stale APOC after a version bump.
 2. **Every refusal is paired with a positive control** on the permissive
    canary container. An allowlist refusal and a *typo* in the probe query raise
    the identical ``Neo.ClientError.Procedure.ProcedureNotFound`` — so a bare
@@ -67,8 +69,8 @@ unaffected.
 See: /docs/patterns/CYPHER_VS_APOC_STRATEGY.md § Operational Hygiene
 """
 
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -90,9 +92,6 @@ UNRESTRICTED_KEY = "NEO4J_dbms_security_procedures_unrestricted"
 # compose actually says, which is what makes them non-circular.
 LOCKED_NAMESPACE = "apoc.meta.*"
 
-# Keep in step with conftest.py's pin (ADR-067 § 3a — bump both together).
-NEO4J_IMAGE = "neo4j:2026.06.0"
-
 _APP_DIR = Path(__file__).resolve().parents[2]
 _REPO_ROOT = _APP_DIR.parent
 
@@ -108,12 +107,23 @@ COMPOSE_FILES: dict[str, Path] = {
 BASE_COMPOSE = "infrastructure/docker-compose.yml"
 
 
-def _read_apoc_env(compose_path: Path) -> dict[str, str]:
-    """Extract the APOC security knobs declared on the compose file's neo4j service."""
+def _neo4j_service(compose_path: Path) -> dict[str, object]:
+    """
+    Parse the `neo4j` service block out of a compose file.
+
+    Typed `object` rather than `Any`: a compose service block is genuinely
+    heterogeneous (strings, dicts, lists), and callers narrow what they read.
+    """
     assert compose_path.is_file(), f"compose file not found: {compose_path}"
 
-    parsed: dict[str, Any] = yaml.safe_load(compose_path.read_text())
-    environment = parsed["services"]["neo4j"].get("environment", {})
+    service = yaml.safe_load(compose_path.read_text())["services"]["neo4j"]
+    assert isinstance(service, dict), f"{compose_path}: `services.neo4j` is not a mapping"
+    return service
+
+
+def _read_apoc_env(compose_path: Path) -> dict[str, str]:
+    """Extract the APOC security knobs declared on the compose file's neo4j service."""
+    environment = _neo4j_service(compose_path).get("environment", {})
     assert isinstance(environment, dict), (
         f"{compose_path} uses list-form `environment:`; this parser expects mapping form"
     )
@@ -123,6 +133,22 @@ def _read_apoc_env(compose_path: Path) -> dict[str, str]:
         for key in (ALLOWLIST_KEY, UNRESTRICTED_KEY)
         if key in environment
     }
+
+
+def resolve_locked_image() -> str:
+    """
+    Read the pinned server image FROM the base compose.
+
+    Deliberately NOT a third hard-coded pin. The documented bump procedure names
+    two locations (compose + conftest.py, ADR-067 § 3a); a third copy here would
+    sit on the old release after a bump with every check still green, and this
+    module would then be validating allowlist behaviour against a stale APOC.
+    """
+    image = _neo4j_service(COMPOSE_FILES[BASE_COMPOSE]).get("image")
+    assert isinstance(image, str) and image.startswith("neo4j:"), (
+        f"{BASE_COMPOSE} declares image={image!r}; expected a pinned neo4j: tag."
+    )
+    return image
 
 
 def resolve_locked_profile() -> dict[str, str]:
@@ -159,7 +185,7 @@ def locked_neo4j_container():
     is a registration-level filter and applies regardless of auth (a blocked
     procedure reports as *not found*, not as *not permitted*).
     """
-    container = Neo4jContainer(NEO4J_IMAGE)
+    container = Neo4jContainer(resolve_locked_image())
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
     container.with_env("NEO4J_PLUGINS", '["apoc"]')
 
@@ -172,7 +198,7 @@ def locked_neo4j_container():
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def locked_neo4j_driver(locked_neo4j_container) -> Any:
+async def locked_neo4j_driver(locked_neo4j_container) -> AsyncGenerator[AsyncDriver]:
     """Driver onto the production-shaped container."""
     driver = AsyncGraphDatabase.driver(
         locked_neo4j_container.get_connection_url(), auth=("neo4j", "testpassword")
