@@ -19,8 +19,8 @@ related: []
 > worth finding; `./dev health-links` flags any row pointing at a file that no longer exists.
 >
 > **Row format:** two cells — a markdown link to the doc, then a one-line description. There is
-> deliberately no line-count or last-updated column: both are derivable (`wc -l`,
-> `git log -1 --format=%ad`) and both had drifted badly once hand-transcribed (only 5 of the 150
+> deliberately no line-count or last-updated column: both are derivable (`wc -l <path>`,
+> `git log -1 --format=%ad -- <path>`) and both had drifted badly once hand-transcribed (only 5 of the 150
 > transcribed line-counts, 3%, still matched the file), so they were removed rather than re-synced.
 >
 > **The description cell is filled in progressively — 96 of 283 data rows have one today**
