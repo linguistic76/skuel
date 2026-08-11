@@ -118,10 +118,12 @@ APOC procedures bypass the planner, so even where they are available they forfei
 
 ### APOC — the product runtime calls none of it
 
-**No application code path invokes an APOC procedure.** Not in `core/`, not in
-`adapters/`, not at boot. `apoc.meta.*` is allowlisted at the server, but nothing in
-the product calls it — the only live `apoc.meta.*` callers are the integration canary
-and the hand-run migration archive.
+**No application code path invokes an APOC procedure or function.** Not in `core/`,
+not in `adapters/`, not in `ui/`, not at boot — measured 2026-08-11, zero `apoc.*`
+call sites in the product trees. `apoc.meta.*` is allowlisted at the server, but
+nothing in the product calls it; its only live callers are the two integration tests
+below. The hand-run migration archive does use APOC — but from other namespaces
+(`apoc.periodic.*`, `apoc.create.*`, `apoc.util.*`), never `apoc.meta.*`.
 
 | Use | Procedure | Where | Status |
 |-----|-----------|-------|--------|
@@ -133,22 +135,20 @@ and the hand-run migration archive.
 **Migrations are not a precedent for new code.** They are historical records of
 already-executed schema changes; both Cypher linters exclude that directory by design.
 
-> **There is no boot-time APOC probe**, despite appearances.
-> `Neo4jSchemaService._check_apoc_available()` (`schema_service.py:378`) contains the
-> only `apoc.version()` call in application code and is **unreachable twice over**: it
-> has no callers anywhere in the tree, and it early-returns on `if not self.use_apoc`
-> before reaching the query — while both instantiation sites
-> (`neo4j_adapter.py:128`, `services_bootstrap/_learning_services.py:95`) take the
-> `use_apoc: bool = False` default. Do not cite it as a version signal; the canary is
-> the only thing that actually probes the plugin.
+> **There is no boot-time APOC probe** — the integration canary is the only thing in
+> the tree that probes the plugin. A `Neo4jSchemaService._check_apoc_available()`
+> helper once suggested otherwise; unreachable *and* malformed, it was deleted in full
+> on 2026-08-11 rather than repaired — repairing the syntax of unreachable code is not
+> the One Path Forward fix.
 >
-> It is also **broken on its own terms**, independently of the allowlist: it issues
-> `CALL apoc.version() YIELD version`, but `apoc.version` is a *function*, not a
-> procedure. Measured against a fully permissive server (`apoc.*` unrestricted, no
-> allowlist), that query raises `Neo.ClientError.Procedure.ProcedureNotFound` — so
-> were the method ever reached with `use_apoc=True`, it would report APOC as
-> unavailable with APOC installed and wide open. Deleting the method is the One Path
-> Forward fix; repairing the syntax of unreachable code is not.
+> ⚠ **`apoc.version` is a *function*, not a procedure** — the trap that helper fell
+> into. `CALL apoc.version() YIELD version` raises
+> `Neo.ClientError.Procedure.ProcedureNotFound` *even against a fully permissive
+> server* (`apoc.*` unrestricted, no allowlist — measured 2026-08-11 against a real
+> neo4j:2026.06.0 testcontainer), so that form reports APOC as unavailable on a server
+> where APOC is installed and wide open. Probe it as the canary does:
+> `RETURN apoc.version()`. The allowlist is a separate gate on top of this — see
+> Operational Hygiene §2a.
 
 ### Never APOC
 
