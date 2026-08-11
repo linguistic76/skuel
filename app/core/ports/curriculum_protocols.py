@@ -882,20 +882,15 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # PathStep backend — see core/ports/vector_search_protocols.py
     # (semantic_search_chunks) and adapters/persistence/neo4j/vector_search_backend.py.
 
-    # =========================================================================
-    # SEARCH    # =========================================================================
-
-    async def find_similar_by_keywords(
-        self, uid: str, limit: int
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full entity node properties
-        """Find similar entities using keyword matching."""
-        ...
-
-    async def search_by_keywords(
-        self, query_text: str, limit: int
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full entity node properties
-        """Keyword-based search using CONTAINS on title/summary/tags."""
-        ...
+    # NOTE: find_similar_by_keywords and search_by_keywords removed 2026-08-10
+    # along with their _AdaptiveMixin implementations — see the NOTE there for
+    # why. Declaring them here was doubly wrong: this protocol is dual-layer, and
+    # the facade layer never had them. ``PsService`` carries no such delegation
+    # method, so a caller holding ``EntityExtractor.knowledge_service`` would have
+    # hit AttributeError, not a query — a hole mypy could not see because the
+    # facade reaches that seam through ``AskesisDeps.knowledge_service: Any``
+    # (askesis_factory.py passes ``learning_services["ps"]``). Keyword search
+    # for PathStep is SearchRouter → SearchOperationsMixin.faceted_search.
 
     # =========================================================================
     # APPLICATION DISCOVERY    # =========================================================================

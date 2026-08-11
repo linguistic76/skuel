@@ -2,13 +2,11 @@
 Adaptive Mixin
 ==============
 
-Practice, keyword search, and adaptive mastery tracking operations for domain
-backends.
+Practice and adaptive mastery tracking operations for domain backends.
 
-Provides practice tracking (event-based KU practice, practice count increment),
-keyword/vector search (similar by keywords, text search, semantic chunk search),
+Provides practice tracking (event-based KU practice, practice count increment)
 and adaptive mastery tracking (mastery completion, user masteries, learning
-paths, preferences).
+paths).
 
 Requires on concrete class:
     execute_query, logger  (provided by UniversalNeo4jBackend)
@@ -34,10 +32,10 @@ if TYPE_CHECKING:
 
 
 class _AdaptiveMixin:
-    """Practice, search, and adaptive mastery tracking operations.
+    """Practice and adaptive mastery tracking operations.
 
-    Domain backends that need practice tracking, keyword search, or adaptive
-    mastery queries should add ``_AdaptiveMixin`` to their class bases.
+    Domain backends that need practice tracking or adaptive mastery queries
+    should add ``_AdaptiveMixin`` to their class bases.
 
     Requires on concrete class:
         execute_query: async (query, params) -> Result[list[dict]]
@@ -82,60 +80,29 @@ class _AdaptiveMixin:
         """
         return await self.execute_query(query, {"ku_uid": ku_uid, "occurred_at": occurred_at})
 
-    # ========================================================================
-    # SEARCH OPERATIONS
-    # ========================================================================
-
+    # NOTE: find_similar_by_keywords and search_by_keywords removed 2026-08-10,
+    # with their PsOperations declarations. Both were LessonSearchService reads.
+    # The Lesson→PathStep merge carried the backend methods and the protocol
+    # across, but shelved their only caller to `_shelved/lesson_merge_2026_04/`
+    # (retired wholesale later) — PsSearchService never picked it up, so both
+    # sat callable and uncalled from March 2026 on. Because the move preserved
+    # the string, `git log -S ".search_by_keywords("` shows no commit between
+    # creation and the _shelved/ retirement; grep the call form, not the name.
+    # Each scanned the bare universal base label — `MATCH (ku:Entity)` /
+    # `MATCH (similar:Entity)` — so they matched all 25 entity types, including
+    # other users' UserEntry, and returned whole nodes with no owner scoping and
+    # no publication gate: the #1009 cross-user disclosure shape and the
+    # #1006/#1008/#1012 draft-leak shape in one query.
+    #
+    # Keyword search for PathStep is SearchRouter → SearchOperationsMixin
+    # .faceted_search, which is scoped to one domain label and resolves
+    # SearchVisibility from DomainConfig — fail-closed for anonymous callers on
+    # every non-PUBLIC domain. These were the superseded pattern, so One Path
+    # Forward removes them rather than gating a second way to do the same thing.
+    #
     # semantic_search_chunks lives on VectorSearchBackend (chunk retrieval is a
     # vector-index concern, not a domain backend concern). See
     # adapters/persistence/neo4j/vector_search_backend.py.
-
-    async def find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[Neo4jProperties]]:
-        """Find similar entities using keyword matching and structural similarity."""
-        query = """
-        MATCH (source:Entity {uid: $uid})
-        MATCH (similar:Entity)
-        WHERE similar.uid <> source.uid
-
-        // Calculate similarity based on:
-        // 1. Shared tags
-        WITH source, similar,
-             size([t IN source.tags WHERE t IN similar.tags]) as shared_tags
-
-        // 2. Same domain
-        WITH source, similar, shared_tags,
-             CASE WHEN source.domain = similar.domain THEN 2 ELSE 0 END as domain_match
-
-        // 3. Keyword overlap (simple text similarity)
-        WITH source, similar, shared_tags, domain_match,
-             size([word IN split(toLower(source.title), ' ')
-                   WHERE toLower(similar.title) CONTAINS word]) as title_overlap
-
-        // Combine scores
-        WITH similar,
-             (shared_tags * 3 + domain_match + title_overlap) as similarity_score
-        WHERE similarity_score > 0
-
-        RETURN similar
-        ORDER BY similarity_score DESC
-        LIMIT $limit
-        """
-        return await self.execute_query(query, {"uid": uid, "limit": limit})
-
-    async def search_by_keywords(
-        self, query_text: str, limit: int
-    ) -> Result[list[Neo4jProperties]]:
-        """Keyword-based search using CONTAINS on title/summary/tags."""
-        query = """
-        MATCH (ku:Entity)
-        WHERE toLower(ku.title) CONTAINS toLower($query_text)
-           OR toLower(ku.summary) CONTAINS toLower($query_text)
-           OR any(tag IN ku.tags WHERE toLower(tag) CONTAINS toLower($query_text))
-        RETURN ku
-        ORDER BY ku.updated_at DESC
-        LIMIT $limit
-        """
-        return await self.execute_query(query, {"query_text": query_text, "limit": limit})
 
     # ========================================================================
     # ADAPTIVE MASTERY TRACKING

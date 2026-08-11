@@ -457,12 +457,22 @@ The largest single migration — 35 inline Cypher queries from 8 PathStep servic
 | Category | Methods | Mixin (Phase 10) |
 |----------|---------|-------------------|
 | **Practice (2)** | `find_kus_practiced_by_event`, `increment_practice_count` | `_AdaptiveMixin` |
-| **Search (2)** | `find_similar_by_keywords`, `search_by_keywords` | `_AdaptiveMixin` |
+| **Search (2)** | ~~`find_similar_by_keywords`, `search_by_keywords`~~ — removed, see below | `_AdaptiveMixin` |
 
 > Chunk vector search (`semantic_search_chunks`) was lifted out of `_AdaptiveMixin`
 > into `VectorSearchBackend` so chunk retrieval lives next to the rest of the
 > vector-index operations. See `adapters/persistence/neo4j/vector_search_backend.py`
 > and `core/ports/vector_search_protocols.py`.
+>
+> The two keyword reads were **deleted 2026-08-10**, with their `PsOperations`
+> declarations. They came across in this migration but their caller
+> (`LessonSearchService`) did not, so both sat uncalled for five months — and
+> each scanned the bare universal base label (`MATCH (ku:Entity)`), matching all
+> 25 entity types and returning whole nodes with no owner scoping and no
+> publication gate. Keyword search for PathStep is SearchRouter →
+> `SearchOperationsMixin.faceted_search`, which scopes to one domain label and
+> resolves `SearchVisibility` from `DomainConfig`. `_AdaptiveMixin` is now
+> practice + adaptive mastery only (6 methods).
 | **Application Discovery (3)** | `find_connected_activities`, `find_path_steps_containing_ku`, `find_learning_paths_teaching_ku` | `_KnowledgeContextMixin` |
 | **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | `_KnowledgeContextMixin` |
 | **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |

@@ -502,7 +502,7 @@ class PsBackend(
       MASTERED, BOOKMARKED, MARKED_AS_READ (13 methods)
     - ``_SemanticMixin`` — semantic relationships + graph analysis (11 methods)
     - ``_KnowledgeContextMixin`` — context, discovery, readiness (17 methods)
-    - ``_AdaptiveMixin`` — practice, search, adaptive mastery tracking (10 methods)
+    - ``_AdaptiveMixin`` — practice + adaptive mastery tracking (6 methods)
     """
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
