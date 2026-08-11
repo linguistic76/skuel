@@ -194,7 +194,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Fail-fast validation: ensure search configuration exists.
 
         Checks that _dto_class and _model_class are configured, which are
-        required for all search operations using the cypher/ builders. Returns
+        required for all search operations the backend serves. Returns
         the narrowed (non-None) pair so call sites can pass them straight
         to ``_to_domain_models`` without re-checking.
 

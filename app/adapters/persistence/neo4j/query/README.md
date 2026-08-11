@@ -40,6 +40,7 @@ from adapters.persistence.neo4j.query.cypher import (
     build_text_search_query,
 )
 from core.models.ku.ku import Ku
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 
 # Text search, scoped to chosen fields
@@ -55,7 +56,7 @@ query, params = build_graph_aware_search_query(
     Task,
     query="python api testing",
     source_uid="goal.ship-v1",
-    relationship_type="FULFILLS_GOAL",
+    relationship_type=RelationshipName.FULFILLS_GOAL.value,
     search_fields=["title", "description"],
     direction="incoming",
 )

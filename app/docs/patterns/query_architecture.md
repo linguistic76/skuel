@@ -610,7 +610,7 @@ See [Three-Tier Type System](/docs/patterns/three_tier_type_system.md#the-typed-
 
 1. **Single Source of Truth** - One authoritative implementation per query type
 2. **Clear Responsibilities** - Each builder has distinct, non-overlapping purpose
-3. **Two-Layer Architecture** - Backend uses UnifiedQueryBuilder, services use the `query/cypher/` functions
+3. **Two-Layer Architecture** - Backends use `UnifiedQueryBuilder` and the `query/cypher/` functions; services call named backend methods. A service cannot use these builders — `core/` may not import `adapters/` (SKUEL022) and may not author Cypher (SKUEL021).
 4. **Type Safety** - Full type hints, static typing throughout
 5. **Performance** - Pure Cypher benefits from query planner caching
 6. **Maintainability** - 25% code reduction (2,427 → ~1,800 lines)

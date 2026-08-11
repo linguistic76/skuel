@@ -50,12 +50,12 @@ SKUEL uses a layered query architecture with clear separation of concerns:
 |-------|-----------|---------|---------|
 | Application | `UnifiedQueryBuilder` | Single entry point, fluent API | Routes, APIs |
 | Service | `QueryBuilder` | Templates, optimization | Services (advanced use) |
-| Infrastructure | `query/cypher/` `build_*` functions | Pure Cypher generation | Backends, low-level services |
+| Infrastructure | `query/cypher/` `build_*` functions | Pure Cypher generation | Backends only (below the persistence boundary) |
 
 ### When to Use Each Layer
 
 - **Routes/APIs**: Always use `UnifiedQueryBuilder`
-- **Domain Services**: Use the `query/cypher/` `build_*` functions for graph-native queries
+- **Domain Services**: call a named method on `self.backend` — a service authors neither Cypher (SKUEL021) nor `adapters/` imports (SKUEL022). The backend composes the query from the `query/cypher/` `build_*` functions.
 - **Complex Optimization**: Use `QueryBuilder` for template-based queries
 
 ## Confidence Filtering
