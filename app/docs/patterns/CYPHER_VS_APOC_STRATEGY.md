@@ -146,8 +146,9 @@ already-executed schema changes; both Cypher linters exclude that directory by d
 
 ## Semantic Types Compile to Pure Cypher
 
-`SemanticRelationshipType` members carry their own Neo4j spelling, so type-safe enums
-become relationship patterns with no string handling at the call site:
+`SemanticRelationshipType` members compile to edge types via `to_neo4j_name()` — but
+**that mapping is many-to-one, not an identity**. The precise namespaced predicate is
+*not* the edge type:
 
 ```python
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
@@ -159,8 +160,15 @@ rel_pattern = "|".join(
         SemanticRelationshipType.BUILDS_MENTAL_MODEL,
     ]
 )
-# → "REQUIRES_THEORETICAL_UNDERSTANDING|BUILDS_MENTAL_MODEL"
+# → "REQUIRES_KNOWLEDGE|RELATED_TO"      (executed — NOT the member names)
 ```
+
+`RelationshipName` owns the edge type — the coarse bucket — and
+`REQUIRES_THEORETICAL_UNDERSTANDING` is **not** a `RelationshipName` member, so writing
+it as an edge type produces a relationship outside the graph contract that ordinary
+semantic queries never traverse (and SKUEL030 flags it in persistence Cypher). The
+collapse is made non-lossy by the `semantic_type` **property**, which is part of the
+MERGE identity so two predicates sharing one bucket stay distinct.
 
 In practice you do not assemble the pattern yourself — the `build_*` functions take the
 enum members and emit both the query and its parameters. Each call below was executed
@@ -199,15 +207,40 @@ parameters, never an interpolated string. Relationship *types* are validated aga
 enum before they reach the pattern (SKUEL030), which is why they may be inlined while
 every value stays a `$parameter`.
 
-Relationship writes are `MERGE`, and therefore idempotent:
+**Do not hand-author the write.** Relationship writes go through `build_semantic_merge()`,
+which resolves the edge type, validates it as a safe identifier, and puts `semantic_type`
+in the MERGE pattern so the write is idempotent *per predicate*:
+
+```python
+from adapters.persistence.neo4j.query import build_semantic_merge
+from core.infrastructure.relationships.semantic_relationships import (
+    RelationshipMetadata, SemanticRelationshipType, SemanticTriple,
+)
+
+query, params = build_semantic_merge(
+    SemanticTriple(
+        subject="task.learn_async",
+        predicate=SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
+        object="ku.python_basics",
+        metadata=RelationshipMetadata(confidence=0.95, source="tasks_service_explicit"),
+    )
+)
+```
+
+which emits (executed, verbatim):
 
 ```cypher
-MATCH (a {uid: $from_uid})
-MATCH (b {uid: $to_uid})
-MERGE (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)
-SET r += $metadata
-RETURN r
+MERGE (s {uid: $subject})
+MERGE (o {uid: $object})
+MERGE (s)-[r:REQUIRES_KNOWLEDGE {semantic_type: $semantic_type}]->(o)
+ON CREATE SET r = {confidence: $confidence, strength: $strength, created_at: $created_at, source: $source, semantic_type: $semantic_type}
+ON MATCH SET r += {confidence: $confidence, strength: $strength, created_at: $created_at, source: $source, semantic_type: $semantic_type}
 ```
+
+Note the edge type is `REQUIRES_KNOWLEDGE`, not the predicate name, and that
+`semantic_type` appears **inside the MERGE pattern** — a hand-written
+`MERGE (a)-[r:...]->(b)` that omits it silently merges two distinct predicates onto one
+edge.
 
 ---
 

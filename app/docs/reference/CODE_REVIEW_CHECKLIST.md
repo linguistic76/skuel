@@ -83,10 +83,24 @@ grep -rn "^class \(SemanticCypherBuilder\|ApocQueryBuilder\|CypherGenerator\)" -
 ### ✅ Semantic Relationships (Type Safety)
 
 - [ ] **Semantic types used instead of magic strings**
-  - ✅ `SemanticRelationshipType.APPLIES_KNOWLEDGE`
+  - ✅ `SemanticRelationshipType.APPLIES_KNOWLEDGE_TO`
   - ✅ `SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING`
-  - ❌ `"APPLIES_KNOWLEDGE"` (magic string)
+  - ❌ `"APPLIES_KNOWLEDGE_TO"` (magic string)
   - ❌ `"requires_knowledge"` (wrong casing)
+  - ❌ `SemanticRelationshipType.APPLIES_KNOWLEDGE` / `.APPLIES` — **neither member
+    exists**; both were in this checklist until 2026-08-11 and raise `AttributeError`
+
+- [ ] **The predicate is not the edge type**
+  - `to_neo4j_name()` is a **many-to-one collapse** onto `RelationshipName`, and the
+    member name is often *not* the edge name:
+    `REQUIRES_THEORETICAL_UNDERSTANDING` → `REQUIRES_KNOWLEDGE`,
+    `BUILDS_MENTAL_MODEL` → `RELATED_TO`,
+    `APPLIES_KNOWLEDGE_TO` → `APPLIES_KNOWLEDGE`
+  - Writing the predicate name as an edge type creates a relationship outside the
+    graph contract that semantic queries never traverse (SKUEL030 flags it)
+  - The precise predicate is preserved in the `semantic_type` **property**, which is
+    part of the MERGE identity — use `build_semantic_merge()` rather than hand-writing
+    a `MERGE`
 
 - [ ] **Rich metadata included on relationships**
   - ✅ `confidence: float` (0.0-1.0)
@@ -111,7 +125,7 @@ metadata = RelationshipMetadata(
 )
 
 # Create with semantic type enum
-semantic_type = SemanticRelationshipType.APPLIES_KNOWLEDGE  # ✅ Type-safe
+semantic_type = SemanticRelationshipType.APPLIES_KNOWLEDGE_TO  # ✅ Type-safe
 ```
 
 **Example (WRONG):**
@@ -350,7 +364,7 @@ async def test_create_semantic_knowledge_relationship():
     result = await service.create_semantic_knowledge_relationship(
         task_uid="task.123",
         knowledge_uid="ku_python_abc",
-        semantic_type=SemanticRelationshipType.APPLIES,
+        semantic_type=SemanticRelationshipType.APPLIES_KNOWLEDGE_TO,
         confidence=0.9,
     )
 
@@ -445,7 +459,7 @@ async def get_project_with_semantic_context(
 feat(tasks): implement semantic task-knowledge relationships
 
 - Add create_semantic_relationship() method (Phase 7.1 Pattern 2)
-- Use SemanticRelationshipType.APPLIES_KNOWLEDGE enum
+- Use SemanticRelationshipType.APPLIES_KNOWLEDGE_TO enum
 - Include RelationshipMetadata with provenance tracking
 - Add canary tests for relationship creation
 
@@ -468,7 +482,9 @@ If ANY of these are found, **reject the PR immediately**:
    ```python
    # ❌ REJECT
    query = "CREATE (a)-[:APPLIES_KNOWLEDGE]->(b)"
-   # Should use: SemanticRelationshipType.APPLIES_KNOWLEDGE
+   # Should use: build_semantic_merge() with
+   # SemanticRelationshipType.APPLIES_KNOWLEDGE_TO — which emits edge type
+   # APPLIES_KNOWLEDGE plus semantic_type in the MERGE pattern
    ```
 
 3. **No relationship metadata**
