@@ -275,7 +275,7 @@ def build_search_visibility_clause(
     draft-marked curriculum. It defaults ON so a NEW discovery surface is
     gated by construction — the dangerous direction is a listing that leaks
     unfinished content, not a fetch that is over-strict. The one sanctioned
-    opt-out is a direct by-UID read (see ``_crud_mixin.get_visible_by_uid``):
+    opt-out is a direct by-UID read (see ``_crud_mixin.get_visible_to_user``):
     the gate belongs to DISCOVERY, so a draft stays unlisted rather than
     forbidden and its author can still open it.
 

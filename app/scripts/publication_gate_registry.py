@@ -99,9 +99,16 @@ SURFACES: tuple[Surface, ...] = (
     Surface(
         "adapters.persistence.neo4j._crud_mixin",
         "_CrudMixin.get_visible_to_user",
-        Disposition.GATED,
-        "The generic audience-scoped list. Carries publication via "
-        "build_search_visibility_clause for PUBLIC/SCOPE_AWARE.",
+        Disposition.ANCHORED,
+        "THE by-UID carve-out — and the referent of five comments that named it "
+        "`get_visible_by_uid`, a method which has never existed in this tree. "
+        "It composes build_search_visibility_clause with "
+        "apply_publication_gate=False, so it scopes the AUDIENCE and "
+        "deliberately does NOT withhold drafts: the caller named the entity, "
+        "and an author opens their own unfinished work. It was registered GATED "
+        "with a reason describing a LIST, which is why ANCHORED stood at zero "
+        "entries while its canonical member sat in the gated set — the "
+        "disposition and the reason were both wrong about the same surface.",
     ),
     Surface(
         "adapters.persistence.neo4j._knowledge_context_mixin",

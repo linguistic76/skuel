@@ -57,9 +57,15 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend, LpBackend, PsBackend
+from adapters.persistence.neo4j.backends.curriculum_backends import (
+    KnowledgeHealthBackend,
+    KuBackend,
+    LpBackend,
+    PsBackend,
+)
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
@@ -465,6 +471,18 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             "adapters.persistence.neo4j._knowledge_context_mixin",
             "_KnowledgeContextMixin.find_ready_to_learn",
         ): partial(ps.find_ready_to_learn, [], None, LIMIT),
+        # Converted from UNMEASURABLE, which claimed the CONTAINS_KNOWLEDGE shape
+        # exists nowhere so the surface returns zero rows and cannot be measured.
+        # The corpus seeds it (s_pub->ku_shared, s_draft->ku_draft_only), so the
+        # gate IS measurable here. The live-graph half of that claim is a real,
+        # separate defect — live CONTAINS_KNOWLEDGE runs path_step->path_step, so
+        # this surface returns nothing in production — but a dead surface's gate
+        # still has to be right for when the edge shape is fixed, and "cannot be
+        # measured" was not true of this fixture.
+        (
+            "adapters.persistence.neo4j._knowledge_context_mixin",
+            "_KnowledgeContextMixin.find_path_steps_containing_ku",
+        ): partial(ps.find_path_steps_containing_ku, KU_VIA_DRAFT_ONLY, LIMIT),
         (
             "adapters.persistence.neo4j._knowledge_context_mixin",
             "_KnowledgeContextMixin.find_learning_gaps",
@@ -532,33 +550,38 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
         "identities — there is no uid for an identity-based invariant to detect"
     ),
     ("adapters.persistence.neo4j.zpd_backend", "<module>:_ZONE_PUBLICATION_CLAUSE"): (
-        "the ZPD zone query is built at import time and issued through "
-        "ZPDBackend's own driver path; covered structurally by "
-        "tests/unit/adapters/test_publication_gate_discovery_surfaces.py"
-    ),
-    ("adapters.persistence.neo4j._crud_mixin", "_CrudMixin.get_visible_to_user"): (
-        "generic audience-scoped list, not curriculum-specific; its publication "
-        "half is covered by tests/unit/test_search_visibility_scoping.py"
+        "the zone query needs a learner with mastery/engagement evidence across a "
+        "prerequisite frontier, which this corpus does not build. NOTE the "
+        "previous reason here was misattributed: both facts it stated (built at "
+        "import time, issued through ZPDBackend's own driver) are TRUE but "
+        "neither makes the surface output-unmeasurable — the harness could hold a "
+        "ZPDBackend as easily as a PsBackend. It also cited "
+        "test_publication_gate_discovery_surfaces.py as coverage, which is the "
+        "substring proxy this module's own docstring rejects"
     ),
     ("adapters.persistence.neo4j._search_raw_mixin", "_SearchRawMixin.faceted_search_raw"): (
-        "faceted search requires a facet configuration this fixture corpus does "
-        "not build; publication rides on build_search_visibility_clause"
+        "every facet is a PARAMETER (search_fields, graph_enrichment_patterns, "
+        "property_filters), so the corpus needs nothing — what is missing is a "
+        "DomainConfig-shaped argument set, and hand-assembling one here would "
+        "measure a configuration no domain declares. Publication rides on "
+        "build_search_visibility_clause. The previous reason claimed the corpus "
+        "lacked a facet configuration, which was false"
     ),
     ("adapters.persistence.neo4j._organizes_mixin", "_OrganizesMixin.list_root_organizers"): (
-        "requires an ORGANIZES/MOC root, which this fixture corpus does not build"
-    ),
-    (
-        "adapters.persistence.neo4j._knowledge_context_mixin",
-        "_KnowledgeContextMixin.find_path_steps_containing_ku",
-    ): (
-        "matches (ku)<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep); no such edge shape "
-        "exists on the live graph, so the surface returns zero rows on every "
-        "call and its gate cannot be measured — tracked separately"
+        "requires an ORGANIZES/MOC root, which this fixture corpus does not "
+        "build. CONVERTIBLE: one ORGANIZES pair would cover it, deliberately not "
+        "added here because new edges change what the OTHER surfaces return — "
+        "discover_semantic_bridges walks an unconstrained [r1]"
     ),
     (
         "adapters.persistence.neo4j._lp_intelligence_mixin",
         "_LpIntelligenceMixin.get_recommended_path_steps",
-    ): ("requires per-step user progress edges this fixture corpus does not build"),
+    ): (
+        "needs an ENABLES_KNOWLEDGE edge onto a draft, which this corpus does not "
+        "build. The previous reason said 'per-step user progress edges', which was "
+        "false — the corpus DOES build one, (u)-[:IN_PROGRESS]->(s_prog). "
+        "CONVERTIBLE, on the same cascade caveat as list_root_organizers"
+    ),
     (CRUD_QUERIES, "build_text_search_query"): _BUILDER_RESIDUAL,
     (CRUD_QUERIES, "build_graph_aware_search_query"): _BUILDER_RESIDUAL,
     (CRUD_QUERIES, "build_array_any_match_query"): _BUILDER_RESIDUAL,
@@ -619,6 +642,10 @@ _COVERED_KEYS = (
     ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.get_standalone_steps"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.get_prioritized_steps"),
     ("adapters.persistence.neo4j.backends.curriculum_backends", "PsBackend.list_steps_raw"),
+    (
+        "adapters.persistence.neo4j._knowledge_context_mixin",
+        "_KnowledgeContextMixin.find_path_steps_containing_ku",
+    ),
     (
         "adapters.persistence.neo4j._knowledge_context_mixin",
         "_KnowledgeContextMixin.find_learning_paths_teaching_ku",
@@ -781,6 +808,52 @@ async def test_by_uid_read_still_returns_a_draft(gate_graph: AsyncDriver) -> Non
 
 
 @pytest.mark.asyncio
+async def test_audience_scoped_by_uid_read_still_returns_a_draft(
+    gate_graph: AsyncDriver,
+) -> None:
+    """The ANCHORED disposition, asserted against the graph rather than the label.
+
+    ``get_visible_to_user`` is THE by-UID carve-out — the method five comments
+    called ``get_visible_by_uid``, a name that has never existed here. It
+    composes ``build_search_visibility_clause`` with
+    ``apply_publication_gate=False``, so it scopes the AUDIENCE and deliberately
+    returns a draft: the caller named the entity, and an author opens their own
+    unfinished work.
+
+    It sat in the GATED set for two PRs with a reason describing a *list*, which
+    is why ANCHORED stood at zero entries. Nothing asserted its behaviour: the
+    sibling ``test_by_uid_read_still_returns_a_draft`` exercises plain ``get()``,
+    a different method that composes no helper at all.
+
+    VACUITY GUARD. "The draft came back" passes trivially for a method that
+    returns everything, so the same call is made twice, differing only in the
+    audience declaration. Under PUBLIC the draft must come back; under
+    OWNER_ONLY the very same uid must NOT, because a PathStep carries no
+    ``user_uid``. That is a DELTA on one surface (#1012's rule), and it proves
+    the method is capable of withholding — without which the first assertion
+    says nothing about the carve-out.
+    """
+    ps = PsBackend(gate_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+
+    visible = await ps.get_visible_to_user(STEP_DRAFT, USER, SearchVisibility.PUBLIC)
+    assert not visible.is_error, f"audience-scoped by-uid read failed: {visible.expect_error()}"
+    assert visible.value is not None, (
+        "the audience-scoped by-UID read withheld a draft. It is ANCHORED: the "
+        "caller named the entity, so withholding here is worse than the leak — "
+        "it hides an author's own unfinished work from them."
+    )
+    assert visible.value.uid == STEP_DRAFT
+
+    withheld = await ps.get_visible_to_user(STEP_DRAFT, USER, SearchVisibility.OWNER_ONLY)
+    assert not withheld.is_error, f"owner-scoped read failed: {withheld.expect_error()}"
+    assert withheld.value is None, (
+        "the audience predicate did not bite: a PathStep has no user_uid, so an "
+        "OWNER_ONLY declaration must withhold it. Without this the assertion "
+        "above is vacuous — a method that returns everything would pass it."
+    )
+
+
+@pytest.mark.asyncio
 async def test_null_publication_state_is_never_withheld(gate_graph: AsyncDriver) -> None:
     """NULL tolerance, load-bearing: the fixture's published nodes carry NO key.
 
@@ -798,6 +871,80 @@ async def test_null_publication_state_is_never_withheld(gate_graph: AsyncDriver)
         "NULL-tolerant, and it would hide the entire pre-existing corpus"
     )
     assert STEP_DRAFT not in uids
+
+
+@pytest.mark.asyncio
+async def test_authoring_gauge_reports_drafts_instead_of_subtracting_them(
+    gate_graph: AsyncDriver,
+) -> None:
+    """The REPORTS_DRAFTS disposition, asserted against the graph.
+
+    The knowledge-health gauge takes ``build_publication_clause``'s PARAMS only,
+    so the draft vocabulary keeps one definition while the gauge COUNTS drafts —
+    an authoring instrument should show its author unfinished work, and
+    subtracting them would silently move the ADR-080 baseline. Nothing asserted
+    that; the disposition was a label with no behaviour behind it.
+
+    Every number is compared against ground truth read from the same graph in
+    the same test, never against a literal: ``gate_graph`` deletes only its own
+    ``gate-`` nodes, so the gauge — which measures the whole corpus — has no
+    deterministic absolute counts in a shared container.
+
+    VACUITY GUARD, two parts. ``draft_curriculum_count`` must be non-zero, or
+    "drafts are reported" is a claim about an empty set. And the corpus must
+    hold at least one draft PathStep, or `total_path_steps` agreeing with the
+    all-inclusive count cannot distinguish COUNTING drafts from there being no
+    draft to subtract.
+    """
+    raw_result = await KnowledgeHealthBackend(
+        Neo4jQueryExecutor(gate_graph)
+    ).measure_knowledge_subgraph()
+    assert not raw_result.is_error, f"gauge failed: {raw_result.expect_error()}"
+    raw = raw_result.value
+    assert raw is not None
+
+    async with gate_graph.session() as session:
+        rows = await session.run(
+            """
+            CALL () {
+                MATCH (n:Entity) WHERE n.entity_type = 'path_step'
+                RETURN count(n) AS all_steps
+            }
+            CALL () {
+                MATCH (n:Entity) WHERE n.entity_type = 'path_step'
+                  AND n.publication_state = 'draft'
+                RETURN count(n) AS draft_steps
+            }
+            CALL () {
+                MATCH (n:Entity)
+                WHERE n.entity_type IN ['ku', 'path_step', 'learning_path', 'exercise']
+                  AND n.publication_state = 'draft'
+                RETURN count(n) AS draft_curriculum
+            }
+            RETURN all_steps, draft_steps, draft_curriculum
+            """
+        )
+        truth = await rows.single()
+    assert truth is not None
+
+    assert truth["draft_steps"] > 0, (
+        "the corpus holds no draft PathStep, so the totals assertion below "
+        "cannot tell 'drafts are counted' from 'there was nothing to subtract'"
+    )
+    assert raw["draft_curriculum_count"] == truth["draft_curriculum"], (
+        "the gauge under-reports drafts. It exists to REPORT them — "
+        f"graph says {truth['draft_curriculum']}, gauge says "
+        f"{raw['draft_curriculum_count']}."
+    )
+    assert raw["draft_curriculum_count"] > 0, (
+        "no drafts reported at all, so this test asserts nothing about the "
+        "REPORTS_DRAFTS disposition"
+    )
+    assert raw["total_path_steps"] == truth["all_steps"], (
+        "the gauge SUBTRACTED drafts from its totals. It must count them: an "
+        "authoring gauge that hides unfinished work reports a corpus its author "
+        f"does not have. graph={truth['all_steps']} gauge={raw['total_path_steps']}"
+    )
 
 
 @pytest.mark.asyncio
@@ -835,6 +982,28 @@ async def test_writer_does_not_inherit_the_readers_gate(gate_graph: AsyncDriver)
     assert scored.get(KU_SHARED) is not None, (
         "the published KU received no hub_score either, so the assertion above "
         "proves nothing about drafts — the writer is not scoring at all"
+    )
+
+    # The NEGATIVE half its reader siblings have. Scoring a draft only means
+    # "exempt from the gate" if the gate is live and BITING on that same node
+    # right now; otherwise this passes on a corpus where nothing is withheld
+    # from anyone. So pair it with a gated READER over the same KU: the writer
+    # must score what the reader refuses to name.
+    ku = KuBackend(gate_graph, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
+    reader = await ku.search_by_alias("gate")
+    # Walked with fixture_identities rather than by reading a "uid" key: this
+    # surface RETURNs whole nodes, so the row is {"ku": <Node>} and a hand-rolled
+    # row["uid"] finds nothing — which made the withheld-draft assertion below
+    # pass vacuously until the KU_SHARED guard caught it.
+    reader_uids = fixture_identities(_payload(reader, "search_by_alias"))
+    assert KU_SHARED in reader_uids, (
+        "the gated reader returned nothing at all, so the next assertion would "
+        "hold vacuously — an empty result withholds the draft for the wrong reason"
+    )
+    assert KU_DRAFT not in reader_uids, (
+        "a gated reader RETURNED the draft KU, so the publication gate is not "
+        "biting on this node and 'the writer scored it anyway' says nothing — "
+        "the writer's exemption is only observable against a live gate"
     )
 
     writers = [s for s in SURFACES if s.disposition is Disposition.WRITER]

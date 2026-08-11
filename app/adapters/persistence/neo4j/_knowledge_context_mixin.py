@@ -611,7 +611,7 @@ class _KnowledgeContextMixin:
         # Either endpoint may be the anchor, so the gate applies to the FAR end
         # only: "held by the caller, or published". Gating both ends would hide
         # a draft KU's own edges from the author who asked for them — the same
-        # by-UID carve-out get_visible_by_uid makes. NULL-tolerant (#1006).
+        # by-UID carve-out get_visible_to_user makes. NULL-tolerant (#1006).
         published_a, a_params = build_publication_clause("a")
         published_b, b_params = build_publication_clause("b")
         query = f"""

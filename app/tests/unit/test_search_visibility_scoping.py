@@ -98,7 +98,7 @@ class TestVisibilityClause:
         """The gate is DISCOVERY-only — a by-UID read opts out (unlisted, not forbidden).
 
         PUBLIC falls back to "no predicate at all", restoring the documented
-        ``as open as get()`` contract that ``get_visible_by_uid`` relies on;
+        ``as open as get()`` contract that ``get_visible_to_user`` relies on;
         SCOPE_AWARE keeps its ownership scoping with no publication term.
         """
         assert (

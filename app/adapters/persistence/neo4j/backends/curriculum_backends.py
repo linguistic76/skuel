@@ -850,7 +850,7 @@ class PsBackend(
         # progress match and yields to it: a step the learner already started is
         # one they reference, so withholding it would delete their own history
         # from the list that exists to prioritise it — and drafts are UNLISTED,
-        # not forbidden (the get_visible_by_uid carve-out). A step marked draft
+        # not forbidden (the get_visible_to_user carve-out). A step marked draft
         # after they began it stays visible to them and to no one else.
         published, published_params = build_publication_clause("ps")
         query = f"""
