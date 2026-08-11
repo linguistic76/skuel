@@ -16,6 +16,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 # scripts/ has no __init__.py, and this directory is itself named `scripts`,
 # so it shadows the real package under pytest's prepend import mode.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
@@ -122,9 +124,20 @@ def test_ignores_a_function_with_no_gate(tmp_path: Path) -> None:
     assert found == {}
 
 
-def test_unparseable_file_is_skipped_not_fatal(tmp_path: Path) -> None:
-    """A scanner that crashes on bad input fails the build for the wrong reason."""
-    assert _scan(tmp_path, "def broken(:\n") == {}
+def test_unparseable_file_is_fatal_not_skipped(tmp_path: Path) -> None:
+    """Reversed deliberately. An earlier revision returned ``{}`` here, reasoning
+    that a scanner crashing on bad input "fails the build for the wrong reason".
+
+    For a COMPLETENESS audit it is the right reason: the population this file
+    compares against the registry is only as complete as the set of files it
+    managed to read, so swallowing the error shrinks the denominator while the
+    audit still prints a confident total and exits 0 — an instrument whose
+    failure reads as a clean result, which is the whole of #883. Nor is the
+    build break spurious: an unparseable module under ``adapters/persistence/``
+    already fails ruff, mypy, and every test that imports it.
+    """
+    with pytest.raises(SyntaxError):
+        _scan(tmp_path, "def broken(:\n")
 
 
 def test_crud_queries_builders_are_scanned_but_helper_defs_are_not() -> None:
@@ -153,6 +166,221 @@ def test_crud_queries_builders_are_scanned_but_helper_defs_are_not() -> None:
             f"{helper} is a helper DEFINITION delegating to another helper, not "
             f"a surface with an audience"
         )
+
+
+def test_gate_state_reads_the_disabling_kwarg(tmp_path: Path) -> None:
+    """``apply_publication_gate=False`` composes the helper and withholds nothing.
+
+    Keying on the CALL cannot see this, and the two came apart in practice: the
+    by-UID read composed the helper with the gate off and sat in the GATED set
+    for two PRs. Absent kwarg means the default, which is ON — that is why it
+    defaults True.
+    """
+    off = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause('ku', apply_publication_gate=False)\n",
+    )
+    assert off["B.read"].gate_off is True
+    assert off["B.read"].gate_undecidable is False
+
+    on = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause('ku', apply_publication_gate=True)\n",
+    )
+    assert on["B.read"].gate_off is False
+
+    default = _scan(
+        tmp_path,
+        "class B:\n    def read(self):\n        return build_knowledge_read_clause('ku')\n",
+    )
+    assert default["B.read"].gate_off is False, "an absent kwarg is the default, which is ON"
+
+
+def test_a_non_literal_gate_kwarg_is_undecidable_not_assumed(tmp_path: Path) -> None:
+    """Guessing True here would fail OPEN on the hardest surface to read.
+
+    The audit's whole claim is that it asserts only what the AST decides
+    exactly, so a name, call or ternary in this position is reported rather
+    than resolved. Nothing in the tree does this today; the check exists so
+    that introducing it cannot pass silently.
+    """
+    found = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self, flag):\n"
+        "        return build_search_visibility_clause(v, apply_publication_gate=flag)\n",
+    )
+    assert found["B.read"].gate_undecidable is True
+    assert found["B.read"].gate_off is False
+
+
+def test_a_kwarg_expansion_cannot_smuggle_the_gate_off(tmp_path: Path) -> None:
+    """``**options`` has ``kw.arg is None``, so matching on the name alone skips it.
+
+    An earlier revision did exactly that, which meant a GATED surface could
+    disable publication filtering in valid Python with the audit still green — a
+    fail-OPEN in the check whose entire purpose is to refuse to fail open
+    (Codex P2, #1013).
+    """
+    opaque = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self, options):\n"
+        "        return build_knowledge_read_clause('ku', **options)\n",
+    )
+    assert opaque["B.read"].gate_undecidable is True, (
+        "an unreadable mapping could carry apply_publication_gate=False"
+    )
+
+    literal_off = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': False}\n"
+        "        )\n",
+    )
+    assert literal_off["B.read"].gate_off is True, "a dict display is readable, so read it"
+    assert literal_off["B.read"].gate_undecidable is False
+
+    # A literal mapping that provably does NOT mention the kwarg cannot affect
+    # the gate, so it must not be reported — a check that flags every ** call
+    # would be noise, and noise is what makes a gate get suppressed.
+    irrelevant = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause('ku', **{'entity_alias': 'x'})\n",
+    )
+    assert irrelevant["B.read"].gate_off is False
+    assert irrelevant["B.read"].gate_undecidable is False
+
+    # Non-constant keys are unreadable even inside a display.
+    computed_key = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self, k):\n"
+        "        return build_knowledge_read_clause('ku', **{k: False})\n",
+    )
+    assert computed_key["B.read"].gate_undecidable is True
+
+
+def test_a_later_mapping_entry_overrides_an_earlier_one(tmp_path: Path) -> None:
+    """A dict display is LAST-WRITE-WINS, so the whole display must be read.
+
+    An earlier revision returned on the first match, so
+    ``**{"apply_publication_gate": True, **options}`` read as gated-and-decidable
+    while ``options`` could override it to False — the same fail-open as the
+    ``kw.arg is None`` skip, one layer down (Codex P2, round 2).
+    """
+    overridden = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self, options):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': True, **options}\n"
+        "        )\n",
+    )
+    assert overridden["B.read"].gate_undecidable is True, (
+        "an opaque expansion AFTER a literal True can still override it to False"
+    )
+
+    # Duplicate literal keys: last wins, so this really is OFF.
+    duplicated = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': True, 'apply_publication_gate': False}\n"
+        "        )\n",
+    )
+    assert duplicated["B.read"].gate_off is True
+
+    # ...and in the other order the final value is True, so nothing is reported.
+    reordered = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': False, 'apply_publication_gate': True}\n"
+        "        )\n",
+    )
+    assert reordered["B.read"].gate_off is False
+    assert reordered["B.read"].gate_undecidable is False
+
+    # A nested expansion that provably sets it False is readable through a level.
+    nested = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{**{'apply_publication_gate': False}}\n"
+        "        )\n",
+    )
+    assert nested["B.read"].gate_off is True
+
+
+def test_one_disabled_call_marks_the_whole_scope(tmp_path: Path) -> None:
+    """A surface may compose more than one helper — the KU->path surfaces gate
+    two aliases. The flags OR across the scope, so a second, gated call cannot
+    mask a disabled first one."""
+    found = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        a = build_publication_clause('lp')\n"
+        "        b = build_knowledge_read_clause('ku', apply_publication_gate=False)\n"
+        "        return a, b\n",
+    )
+    assert found["B.read"].gate_off is True
+
+
+def test_scan_tree_names_the_unparseable_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``scan_tree`` turns the raw SyntaxError into a message naming the file.
+
+    Scanned against a redirected SCAN_DIR rather than by planting a broken
+    module in the real tree — a unit test that writes into
+    ``adapters/persistence/`` breaks every other test in the session if it dies
+    before its cleanup runs.
+    """
+    import audit_publication_gate as audit  # type: ignore[import-not-found]
+
+    (tmp_path / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+    monkeypatch.setattr(audit, "SCAN_DIR", tmp_path)
+
+    with pytest.raises(audit.UnparseableSourceError, match="not parseable"):
+        audit.scan_tree()
+
+
+def test_no_gated_surface_disables_its_own_gate() -> None:
+    """The end-to-end form of the check, against the shipped tree.
+
+    The two sanctioned opt-outs carry carve-out dispositions: the by-UID read is
+    ANCHORED, the hub-score writer is WRITER. A third would have to say which.
+    """
+    from audit_publication_gate import scan_tree  # type: ignore[import-not-found]
+    from publication_gate_registry import (  # type: ignore[import-not-found]
+        SURFACES,
+        Disposition,
+    )
+
+    dispositions = {(s.module, s.qualname): s.disposition for s in SURFACES}
+    offenders = [
+        f.key for f in scan_tree() if f.gate_off and dispositions.get(f.key) is Disposition.GATED
+    ]
+    assert offenders == [], (
+        f"GATED surfaces composing a helper with apply_publication_gate=False, "
+        f"so they withhold nothing: {sorted(offenders)}"
+    )
+
+    undecidable = [f.key for f in scan_tree() if f.gate_undecidable]
+    assert undecidable == [], f"gate state not decidable from the AST: {sorted(undecidable)}"
 
 
 def test_registry_audit_passes_against_the_tree() -> None:

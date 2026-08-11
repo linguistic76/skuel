@@ -24,33 +24,86 @@ Neither is visible to a label-keyed scan. Keying instead on "does this function
 call a gate helper" is immune to both, because it reads the Python, not the
 Cypher.
 
-**THE LIMITATION, STATED PLAINLY.** This audit is keyed on the gate CALL, so it
-catches a gate that is removed, renamed or left unclassified — but a brand-new
-query that never calls a helper at all produces no entry, is absent from both
-sides of the comparison, and passes. **Adding an ungated discovery surface is
-therefore still silent here** (Codex P2, #1012). It is a real hole, not an
-oversight, and it is left open deliberately rather than closed badly: the
-obvious independent enumerator is a scan for curriculum vocabulary, and that is
-exactly what fails. ``discover_semantic_bridges`` — one of #1008's two
-omissions — contains no curriculum vocabulary whatsoever; it reads
-``(source:Entity)-[r1]->(shared)`` and ``(target:Entity)``. Because ``:Entity``
-is SKUEL's universal base label, ANY generic query can return curriculum
-without naming it, so a vocabulary-keyed candidate list is blind in precisely
-the case that matters, and the only sound alternative — every read method in
-the persistence layer — is a population of several hundred, most of which
-cannot be classified by inspection.
+**It also asserts one thing about the gate's STATE, because that much is
+exactly decidable.** ``apply_publication_gate=False`` turns a composed gate off
+in one word, and keying on the call alone cannot see it: the by-UID read
+composes the helper and switches the predicate off, and it sat in the GATED set
+for two PRs because this audit counted the call and stopped there. So a GATED
+surface may not disable the gate — a carve-out must carry the disposition that
+says which kind it is. The output invariant catches this only for the surfaces
+it can measure; for the thirteen listed UNMEASURABLE it was caught by nothing.
+A non-literal kwarg is reported as UNDECIDABLE rather than assumed, because
+assuming True fails OPEN on exactly the surface whose gate is hardest to read.
 
-Closing this needs its own design pass with its own measurement of false
-positives AND false negatives before it gates anything (#831 is what happens
-otherwise). Until then the honest claim is the narrow one: this file keeps the
-CLASSIFIED set honest; it does not discover new surfaces.
+**THE LIMITATION, STATED PLAINLY.** This audit is keyed on the gate CALL, so it
+catches a gate that is removed, renamed, disabled or left unclassified — but a
+brand-new query that never calls a helper at all produces no entry, is absent
+from both sides of the comparison, and passes. **Adding an ungated discovery
+surface is therefore still silent here** (Codex P2, #1012).
+
+That hole was measured rather than argued about, and closing it was DECLINED on
+the numbers. Four candidate enumerators were built and scored BLIND to
+gate-composition — which is mandatory, because the 34 registered surfaces are
+gate-composing by definition and a new ungated one is not, so an enumerator
+allowed to key on the helper name scores 34/34 while proving nothing (#1003's
+circular census). Measured over ``adapters/persistence/``:
+
+* **execution-keyed** ("every read method"): 491 scopes, **25/34**. The misses
+  are structural — composition and execution are different units. Four
+  ``build_*_query`` functions RETURN Cypher for another method to execute; two
+  surfaces are module-level; two delegate execution onward.
+* **authoring-keyed** (a scope containing a Cypher-leading-clause literal):
+  720 scopes, **31/34**, residual 689. Hand-classified sample of 24: **3 could
+  project curriculum identity — 12.5% precision.** Forced classification would
+  grow the registry from 34 to ~723 to admit ~86 real candidates. Following the
+  three up individually found **zero live leaks**: one has no production caller
+  at all, one filters curriculum on ``user_uid`` — a property 0 of 123 live Kus
+  carry, so it returns nothing on every call — and the third was
+  could-in-principle. Both real defects were spawned separately; neither is a
+  publication leak. So the hole is LATENT rather than active, which is the
+  strongest argument against gating on it and the reason the residual is
+  recorded here instead.
+* **exclusion-narrowed** (exempt a scope that provably binds no
+  ``:Entity``-family label): 811 scopes, **31/34 before AND after** — the
+  narrowing removed under 10% of scopes and moved the false-negative score by
+  ZERO, so the control cannot price the second Cypher approximation it adds.
+* **layered union**: 857 scopes, 32/34, and not blind.
+
+**Three of the 34 turned out to be defects in the CONTROL, not in the
+candidates.** Two are keyed in coordinates that exist only because a gate is
+composed there — ``<module>:_ZONE_PUBLICATION_CLAUSE`` names the variable
+RECEIVING the clause, while the Cypher lives in ``_ZONE_QUERY_TEMPLATE``; same
+shape for ``<module>:_KNOWLEDGE_HEALTH_PARAMS``. No blind enumerator can name
+those, and both blind candidates DID find the authoring sibling in each file, so
+a future pass must match ``<module>:`` entries at MODULE granularity. The third
+was a misclassification, fixed here: the by-UID read is ANCHORED, not a
+discovery surface at all. Corrected, authoring-keyed enumeration passes the
+false-negative control outright — **it is the false-POSITIVE cost that
+disqualifies it**, and an advisory ratchet inherits that cost as a 7-in-8 noise
+rate, which turns the exemption into a reflex (a suppressor that fails silent is
+worse than a stated residual — #876, #868).
+
+The runtime alternatives were priced too: only **1 of 123** integration test
+files seeds ``publication_state`` at all, so a seam-wide output assertion is
+vacuous across the other 122 without a session-scoped draft corpus. And moving
+the chokepoint into a builder is **672 scopes / ~22,000 LOC / 73 files** to
+cover the 34 that need it, on a tree where 0 of 34 obtain their Cypher from a
+builder and 31 hand-author it in place — it would have caught NONE of the 21
+surfaces #1008 gated.
+
+So the honest claim stays the narrow one: this file keeps the CLASSIFIED set
+honest, and asserts that a classified gate is not silently switched off. It does
+not discover new surfaces, and the residual above is stated rather than papered
+over.
 
 Usage:
     uv run python scripts/audit_publication_gate.py           # CI gate
     uv run python scripts/audit_publication_gate.py --verbose # list every surface
     uv run python scripts/audit_publication_gate.py --json
 
-Exit codes: 0 = registry complete, 1 = unregistered surface or stale entry.
+Exit codes: 0 = registry complete, 1 = unregistered surface, stale entry, a GATED
+surface with the gate disabled, an undecidable gate kwarg, or a file under the
+scan directory that does not parse.
 """
 
 from __future__ import annotations
@@ -60,6 +113,7 @@ import ast
 import json
 import sys
 from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
 
 # Sibling-module import, mirroring cypher_linter/cypher_vocabulary: scripts/ has
@@ -69,6 +123,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from publication_gate_registry import (  # type: ignore[import-not-found]
     SURFACES,
+    Disposition,
     registry_keys,
 )
 
@@ -84,6 +139,16 @@ GATE_HELPERS = frozenset(
 )
 
 
+GATE_KWARG = "apply_publication_gate"
+"""The kwarg that turns a composed gate OFF.
+
+Present on ``build_knowledge_read_clause`` and
+``build_search_visibility_clause``, defaulting True so a new read is gated by
+construction. ``build_publication_clause`` has no such switch — it IS the
+predicate.
+"""
+
+
 @dataclass(frozen=True)
 class Found:
     """A surface discovered in the tree that composes a gate helper."""
@@ -92,6 +157,26 @@ class Found:
     qualname: str
     lineno: int
     helpers: tuple[str, ...]
+    gate_off: bool = False
+    """True when a call here passes ``apply_publication_gate=False``.
+
+    Keying on the CALL alone answers "is this surface classified?" but not "is
+    the gate it composes actually ON". Those came apart in practice: the by-UID
+    read composes the helper and switches the predicate off, and it sat in the
+    GATED set for two PRs because the audit could not tell the difference. A
+    one-word change from True to False on any GATED surface is a security
+    regression the output invariant catches only for the surfaces it can
+    measure — for the thirteen listed UNMEASURABLE it was caught by nothing.
+    """
+
+    gate_undecidable: bool = False
+    """True when the kwarg is passed a non-literal (a name, a call, a ternary).
+
+    Reported as a failure rather than assumed either way: guessing True here
+    fails OPEN on exactly the surface whose gate is hardest to read, and this
+    audit's whole claim is that it only asserts what is exactly decidable from
+    the AST. Nothing in the tree does this today.
+    """
 
     @property
     def key(self) -> tuple[str, str]:
@@ -117,6 +202,20 @@ def _module_name(path: Path) -> str:
     return ".".join(relative.with_suffix("").parts)
 
 
+def _display_path(path: Path) -> str:
+    """``path`` relative to the app root, or absolute when it lies outside it.
+
+    Same tolerance as ``_module_name``, for the same reason: the scanner is
+    exercised against temporary directories, and ``relative_to`` raises rather
+    than degrading. Reporting an unparseable file must not itself crash on the
+    path it is trying to name.
+    """
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def _called_helper(node: ast.Call) -> str | None:
     """The gate-helper name this call targets, if any.
 
@@ -132,6 +231,93 @@ def _called_helper(node: ast.Call) -> str | None:
     else:
         return None
     return name if name in GATE_HELPERS else None
+
+
+class _GateValue(Enum):
+    """What a ``**mapping`` ends up giving ``GATE_KWARG``.
+
+    Four outcomes, not two: "provably never sets it" and "sets it to True" have
+    to be distinguishable, or a later entry cannot be seen to OVERRIDE an
+    earlier one.
+    """
+
+    UNSET = auto()
+    """The mapping provably never binds the key, so it changes nothing."""
+
+    ON = auto()
+    OFF = auto()
+    UNREADABLE = auto()
+    """It might bind the key, to a value this scanner cannot resolve."""
+
+
+def _mapping_gate_value(value: ast.expr) -> _GateValue:
+    """The value a ``**mapping`` expansion gives ``GATE_KWARG``.
+
+    A dict DISPLAY with constant string keys is readable, so
+    ``**{"apply_publication_gate": False}`` is caught rather than waved through.
+    Any other mapping — a name, a call, a comprehension, or a non-literal key —
+    is UNREADABLE, because it could carry the kwarg and skipping it fails OPEN.
+    That is the one direction this audit must never fail (Codex P2, #1013): an
+    earlier revision matched on ``kw.arg`` alone, and ``kw.arg`` is ``None`` for
+    every ``**`` expansion, so a GATED surface could have disabled publication
+    filtering in valid Python with the audit green.
+
+    **Resolved across the whole display, IN ORDER**, because a dict display is
+    last-write-wins. An earlier revision returned on the first match, so
+    ``**{"apply_publication_gate": True, **options}`` read as ON while
+    ``options`` could override it to False — the same fail-open one layer down
+    (Codex P2, round 2). Duplicate literal keys behave the same way.
+    """
+    if not isinstance(value, ast.Dict):
+        return _GateValue.UNREADABLE
+    resolved = _GateValue.UNSET
+    for key, item in zip(value.keys, value.values, strict=True):
+        if key is None:  # a nested ** inside the display
+            nested = _mapping_gate_value(item)
+            if nested is not _GateValue.UNSET:
+                resolved = nested
+            continue
+        if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+            # A computed key may BE the kwarg, and it would come last.
+            resolved = _GateValue.UNREADABLE
+            continue
+        if key.value != GATE_KWARG:
+            continue
+        if isinstance(item, ast.Constant) and isinstance(item.value, bool):
+            resolved = _GateValue.OFF if item.value is False else _GateValue.ON
+        else:
+            resolved = _GateValue.UNREADABLE
+    return resolved
+
+
+def _gate_state(node: ast.Call) -> tuple[bool, bool]:
+    """``(gate_off, undecidable)`` for one gate-helper call.
+
+    Absent kwarg means the default, which is ON — that is the whole point of it
+    defaulting True. A literal ``False`` is off. Anything else is undecidable
+    and says so rather than guessing.
+
+    Deliberately CONSERVATIVE across a call's keywords rather than
+    last-write-wins: any source that could set the gate off makes it off, and any
+    unreadable source makes the whole call undecidable. Unlike a dict display, a
+    call cannot legally receive the key twice — CPython raises TypeError for a
+    duplicate keyword argument — so there is nothing to order, and OR-ing cannot
+    fail open.
+    """
+    off = False
+    unknown = False
+    for kw in node.keywords:
+        if kw.arg == GATE_KWARG:
+            value = kw.value
+            if isinstance(value, ast.Constant) and isinstance(value.value, bool):
+                off = off or value.value is False
+            else:
+                unknown = True
+        elif kw.arg is None:
+            mapping = _mapping_gate_value(kw.value)
+            off = off or mapping is _GateValue.OFF
+            unknown = unknown or mapping is _GateValue.UNREADABLE
+    return (off, unknown)
 
 
 MODULE_SCOPE = "<module>"
@@ -181,19 +367,24 @@ def scan_file(path: Path) -> list[Found]:
     def would otherwise be attributed to its enclosing class, and a module-level
     composition to nothing at all.
     """
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except SyntaxError:
-        return []
+    # Deliberately NOT guarded. An earlier revision returned [] on SyntaxError,
+    # which meant an unparseable file contributed zero surfaces while the audit
+    # still printed a confident total and exited 0 — an instrument whose failure
+    # reads as a clean result (the class #883 was entirely made of). Let it
+    # propagate; scan_tree names the file and main() fails the build.
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     module = _module_name(path)
-    # qualname -> (first line seen, helper names)
-    hits: dict[str, tuple[int, set[str]]] = {}
+    # qualname -> (first line seen, helper names, gate_off, gate_undecidable)
+    hits: dict[str, tuple[int, set[str], bool, bool]] = {}
 
-    def record(qualname: str, lineno: int, helper: str) -> None:
-        line, helpers = hits.get(qualname, (lineno, set()))
+    def record(qualname: str, lineno: int, helper: str, off: bool, unknown: bool) -> None:
+        line, helpers, was_off, was_unknown = hits.get(qualname, (lineno, set(), False, False))
         helpers.add(helper)
-        hits[qualname] = (min(line, lineno), helpers)
+        # OR across the scope's calls: one disabled composition is enough to
+        # make the surface's gate not-on, and a surface may compose more than
+        # one helper (the KU->path surfaces gate two aliases).
+        hits[qualname] = (min(line, lineno), helpers, was_off or off, was_unknown or unknown)
 
     def visit(node: ast.AST, stack: tuple[str, ...], owner: str) -> None:
         """``stack`` is the qualname path; ``owner`` is the enclosing function's."""
@@ -209,13 +400,14 @@ def scan_file(path: Path) -> list[Found]:
                     # Outside any function, the assignment IS the surface's identity.
                     scope = f"{MODULE_SCOPE}:{'.'.join((*stack, name))}"
                 if isinstance(child, ast.Call) and (helper := _called_helper(child)):
-                    record(scope, child.lineno, helper)
+                    off, unknown = _gate_state(child)
+                    record(scope, child.lineno, helper, off, unknown)
                 visit(child, stack, scope)
 
     visit(tree, (), MODULE_SCOPE)
     return [
-        Found(module, qualname, line, tuple(sorted(helpers)))
-        for qualname, (line, helpers) in sorted(hits.items())
+        Found(module, qualname, line, tuple(sorted(helpers)), off, unknown)
+        for qualname, (line, helpers, off, unknown) in sorted(hits.items())
     ]
 
 
@@ -238,13 +430,36 @@ it hides.
 """
 
 
+class UnparseableSourceError(Exception):
+    """A file under the scan directory could not be parsed.
+
+    Raised rather than skipped: the population this audit compares against the
+    registry is only as complete as the set of files it managed to read, so a
+    parse failure must fail the build instead of quietly shrinking the
+    denominator.
+    """
+
+
 def scan_tree() -> list[Found]:
-    """Every gate-composing surface under ``adapters/persistence/``."""
+    """Every gate-composing surface under ``adapters/persistence/``.
+
+    Raises:
+        UnparseableSourceError: a ``.py`` file under the scan directory is not valid
+            Python, so the surface population would be silently incomplete.
+    """
     surfaces: list[Found] = []
     for path in sorted(SCAN_DIR.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
-        surfaces.extend(f for f in scan_file(path) if f.key not in HELPER_DEFINITIONS)
+        try:
+            found = scan_file(path)
+        except SyntaxError as exc:
+            raise UnparseableSourceError(
+                f"{_display_path(path)} is not parseable ({exc}). The surface "
+                f"population would be incomplete, so this audit's completeness "
+                f"claim cannot be made."
+            ) from exc
+        surfaces.extend(f for f in found if f.key not in HELPER_DEFINITIONS)
     return surfaces
 
 
@@ -254,12 +469,30 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
 
-    found = scan_tree()
+    try:
+        found = scan_tree()
+    except UnparseableSourceError as exc:
+        print(f"UNPARSEABLE   {exc}", file=sys.stderr)
+        return 1
+
     registered = registry_keys()
     found_keys = {f.key for f in found}
+    dispositions = {(s.module, s.qualname): s.disposition for s in SURFACES}
 
     unregistered = sorted((f for f in found if f.key not in registered), key=Found.sort_key)
     stale = sorted(registered - found_keys)
+
+    # A GATED surface that switches the predicate off is a contradiction in one
+    # word, and it is exactly decidable — so this audit can assert it even
+    # though it refuses to judge whether a gate is placed CORRECTLY. The two
+    # sanctioned opt-outs in the tree carry carve-out dispositions (the by-UID
+    # read is ANCHORED, the hub-score writer is WRITER); a third would have to
+    # say which it is.
+    gate_off = sorted(
+        (f for f in found if f.gate_off and dispositions.get(f.key) is Disposition.GATED),
+        key=Found.sort_key,
+    )
+    undecidable = sorted((f for f in found if f.gate_undecidable), key=Found.sort_key)
 
     if args.as_json:
         print(
@@ -272,17 +505,31 @@ def main() -> int:
                         for f in unregistered
                     ],
                     "stale": [{"module": m, "qualname": q} for m, q in stale],
+                    "gate_off": [
+                        {"module": f.module, "qualname": f.qualname, "line": f.lineno}
+                        for f in gate_off
+                    ],
+                    "gate_undecidable": [
+                        {"module": f.module, "qualname": f.qualname, "line": f.lineno}
+                        for f in undecidable
+                    ],
                 },
                 indent=2,
             )
         )
-        return 1 if (unregistered or stale) else 0
+        return 1 if (unregistered or stale or gate_off or undecidable) else 0
 
     if args.verbose:
         print(f"Gate-composing surfaces in {SCAN_DIR.relative_to(ROOT)}: {len(found)}\n")
         for f in found:
             mark = " " if f.key in registered else "!"
-            print(f" {mark} {f.module}:{f.lineno}  {f.qualname}  [{', '.join(f.helpers)}]")
+            state = "  gate=OFF" if f.gate_off else ""
+            disposition = dispositions.get(f.key)
+            label = f"  <{disposition.value}>" if disposition else ""
+            print(
+                f" {mark} {f.module}:{f.lineno}  {f.qualname}  "
+                f"[{', '.join(f.helpers)}]{label}{state}"
+            )
         print()
 
     for f in unregistered:
@@ -304,9 +551,30 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    if unregistered or stale:
+    for f in gate_off:
         print(
-            f"\n{len(unregistered)} unregistered, {len(stale)} stale "
+            f"GATE OFF      {f.module}:{f.lineno}  {f.qualname}\n"
+            f"              classified GATED, but composes {', '.join(f.helpers)} with\n"
+            f"              {GATE_KWARG}=False — so it withholds nothing. Either the\n"
+            f"              gate was disabled (a security change — say so) or the surface is\n"
+            f"              a carve-out and needs the disposition that says which:\n"
+            f"              ANCHORED (by-UID), CONTAINMENT, USER_STATE or WRITER.",
+            file=sys.stderr,
+        )
+
+    for f in undecidable:
+        print(
+            f"UNDECIDABLE   {f.module}:{f.lineno}  {f.qualname}\n"
+            f"              passes {GATE_KWARG} a non-literal, so whether the gate is on\n"
+            f"              cannot be read from the AST. Pass a literal True/False, or split\n"
+            f"              the call, so this stays exactly decidable rather than assumed.",
+            file=sys.stderr,
+        )
+
+    if unregistered or stale or gate_off or undecidable:
+        print(
+            f"\n{len(unregistered)} unregistered, {len(stale)} stale, "
+            f"{len(gate_off)} gate-off, {len(undecidable)} undecidable "
             f"({len(found)} surfaces found, {len(registered)} registered)",
             file=sys.stderr,
         )

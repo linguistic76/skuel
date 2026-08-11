@@ -189,7 +189,7 @@ async def test_ku_lateral_edges_gates_the_far_end_only() -> None:
     """Either endpoint may be the anchor, so the gate is 'held OR published'.
 
     Gating both ends unconditionally would hide a draft KU's own edges from the
-    author who asked for them by UID — the carve-out get_visible_by_uid makes.
+    author who asked for them by UID — the carve-out get_visible_to_user makes.
     """
     query, params = await _capture(_knowledge_context(), "get_ku_lateral_edges", ["ku.x"], 5)
     for alias in ("a", "b"):
