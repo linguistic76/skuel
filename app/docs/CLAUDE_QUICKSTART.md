@@ -122,7 +122,7 @@ if result.is_error:
 ### Reference (Look Up As Needed)
 
 - `docs/architecture/ENUM_ARCHITECTURE.md` - Enum landscape (87 enums, 17 files)
-- `docs/INDEX.md` - Complete document listing
+- `docs/INDEX.md` - Curated document index (hand-maintained, not a full listing — an absent entry does NOT mean an absent doc)
 
 ---
 

@@ -1484,4 +1484,4 @@ Quick alphabetical index:
 
 **End of Component Catalog**
 
-For questions or suggestions, see `/docs/INDEX.md` for complete documentation index.
+For questions or suggestions, see `/docs/INDEX.md` — the curated documentation index (hand-maintained, not a full listing).

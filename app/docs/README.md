@@ -16,14 +16,14 @@ tags: [documentation, index, hub, architecture, patterns]
 > **Note:** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit (KU) **content** for the knowledge graph - learning materials about topics like investment, life, environment, etc. It is NOT technical documentation.
 
 **Last Updated:** 2026-03-03
-**Total Documents:** ~200 (see [INDEX.md](INDEX.md))
+**Document Index:** [INDEX.md](INDEX.md) — hand-maintained and curated, not a full listing
 
 ---
 
 ## Quick Navigation
 
 **Start here:**
-- **[INDEX.md](INDEX.md)** - Complete document index with tables by category
+- **[INDEX.md](INDEX.md)** - Curated document index with tables by category
 - **[CLAUDE.md](/CLAUDE.md)** - Main instructions for Claude/AI assistants
 
 **By role:**
@@ -88,7 +88,7 @@ tags: [documentation, index, hub, architecture, patterns]
 | [ADR-040](decisions/ADR-040-teacher-exercise-workflow.md) | Teacher Exercise Workflow | February 2026 |
 | [ADR-038](decisions/ADR-038-content-sharing-model.md) | Content Sharing Model | February 2026 |
 
-See [decisions/](decisions/) for all 50 ADRs.
+See [decisions/](decisions/) for all ADRs.
 
 ---
 
@@ -180,4 +180,4 @@ related: [other_doc.md]
 
 ---
 
-**See [INDEX.md](INDEX.md) for the complete document listing.**
+**See [INDEX.md](INDEX.md) for the curated document listing.**
