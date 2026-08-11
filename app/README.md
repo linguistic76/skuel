@@ -105,9 +105,9 @@ Open your browser to: `http://localhost:8000`
 
 ## Architecture Overview
 
-### 20 Entity Types, 7 Subsystems, 3 Layers
+### Entity Types, 7 Subsystems, 3 Layers
 
-SKUEL organizes human experience into **20 entity types**, grouped into **7 subsystems** (Model A — Ku, Curriculum Domains, Activity Domains, Learning Loop, User, Groups, Askesis) and traced through **3 layers** (Model B — Curriculum → Action → Feedback). Five cross-cutting infrastructure systems (UserContext, Search, Calendar, Askesis, Messaging) span them. See [ADR-055](docs/decisions/ADR-055-architectural-lenses.md), [`SEVEN_SUBSYSTEMS.md`](docs/architecture/SEVEN_SUBSYSTEMS.md), and [`THREE_LAYER_LENS.md`](docs/architecture/THREE_LAYER_LENS.md).
+SKUEL organizes human experience into **entity types**, grouped into **7 subsystems** (Model A — Ku, Curriculum Domains, Activity Domains, Learning Loop, User, Groups, Askesis) and traced through **3 layers** (Model B — Curriculum → Action → Feedback). Five cross-cutting infrastructure systems (UserContext, Search, Calendar, Askesis, Messaging) span them. See [ADR-055](docs/decisions/ADR-055-architectural-lenses.md), [`SEVEN_SUBSYSTEMS.md`](docs/architecture/SEVEN_SUBSYSTEMS.md), and [`THREE_LAYER_LENS.md`](docs/architecture/THREE_LAYER_LENS.md).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

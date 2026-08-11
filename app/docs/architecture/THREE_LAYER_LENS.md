@@ -25,7 +25,7 @@ SKUEL has two useful ways to classify an entity, and they answer different quest
 
 | Model | Question it answers | Shape |
 |-------|--------------------|------|
-| **Model A — 20 Entity Types** | *Where does this belong in the system?* | Ontological / organizational |
+| **Model A — Entity Types** | *Where does this belong in the system?* | Ontological / organizational |
 | **Model B — 3 Layers** | *What role is this playing in the cycle?* | Operational / flow-of-information |
 
 Model A is the domain model (see `ENTITY_TYPE_ARCHITECTURE.md`). Model B is this document.
@@ -147,7 +147,7 @@ The two models do not compete. They answer different questions.
 
 - `ADR-055-architectural-lenses.md` — the decision that formalizes Model A + Model B
 - `SEVEN_SUBSYSTEMS.md` — Model A at the coarse (7-subsystem) level, with MVP matrix
-- `ENTITY_TYPE_ARCHITECTURE.md` — Model A at the fine (20-EntityType) level
+- `ENTITY_TYPE_ARCHITECTURE.md` — Model A at the fine (EntityType) level
 - `LEARNING_LOOP_ARCHITECTURE.md` — the canonical Exercise → UserEntry → EntryReport → RevisedExercise flow
 - `ADR-054-user-entry-unified-submissions.md` — why `UserEntry` + `Pipeline` replaces the old per-type split
 - `ADR-047-entity-types-replace-domain-categories.md` — why we talk about entity types and behavioral traits, not category membership

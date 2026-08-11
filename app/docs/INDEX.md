@@ -37,7 +37,7 @@ related: []
 > add or edit a row — do not bulk-generate them, since a derived one-liner is exactly the kind of
 > approximate prose this index was rewritten to stop carrying.
 
-> **New here? Read [START_HERE.md](START_HERE.md) first.** It covers what SKUEL is, the 20 entity types, how a request flows, and the key patterns — in 5 minutes.
+> **New here? Read [START_HERE.md](START_HERE.md) first.** It covers what SKUEL is, the entity types, how a request flows, and the key patterns — in 5 minutes.
 
 > **📝 Documentation Standards:**
 > - **File Naming:** UPPERCASE for major reference docs/guides, lowercase for specific patterns
@@ -85,7 +85,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ## Domains
 
-*20 Entity Types with behavioral traits — see [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)*
+*Entity Types with behavioral traits — see [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)*
 
 | Document | Description |
 |----------|-------------|
@@ -286,7 +286,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-052: Firefly III Replaces SKUEL Expense/Budget/Reporting](decisions/ADR-052-firefly-iii-finance-integration.md)** | |
 | **[ADR-053: Groups First-Class + Unified Sharing](decisions/ADR-053-groups-first-class-and-unified-sharing.md)** | |
 | **[ADR-054: UserEntry — Unified User-Authored Content](decisions/ADR-054-user-entry-unified-submissions.md)** | |
-| **[ADR-055: Architectural Lenses — Subsystems + 3-Layer Lens](decisions/ADR-055-architectural-lenses.md)** | **Model A (7 Subsystems / 20 EntityTypes) + Model B (3-Layer Lens); adopts "Subsystems" vocabulary** |
+| **[ADR-055: Architectural Lenses — Subsystems + 3-Layer Lens](decisions/ADR-055-architectural-lenses.md)** | **Model A (7 Subsystems / EntityTypes) + Model B (3-Layer Lens); adopts "Subsystems" vocabulary** |
 | **[ADR-056: Service-Layer Label Split — entity_label + config_lookup_label](decisions/ADR-056-service-layer-label-split.md)** | **DomainConfig.entity_label split into Neo4j base-label + LABEL_CONFIGS registry key; LABEL_CONFIGS["Entity"] → PS_CONFIG alias deleted; factories fail-fast on missing keys** |
 | **[ADR-057: Activity-Domain Sibling Signals](decisions/ADR-057-activity-domain-sibling-signals.md)** | **Design-only (Proposed): narrow ISP protocols in core/ports/ for cross-domain intelligence consultation at judgment time; 6 ways-of-acting, 3 mutual axes + 7 diagonals; companion Shared Signal pattern for cross-cutting infrastructure → peer consultation** |
 | **[ADR-060: UserContext as Single Source of Truth — Awareness Slice Protocols Retired](decisions/ADR-060-userctx-single-source-of-truth.md)** | **11 ISP "awareness slice" protocols (`TaskAwareness`, `KnowledgeAwareness`, `FullAwareness`, etc.) deleted; UserContext is the contract; 751 lines removed; type-level minimum-context guarantee was theoretical and outweighed by drift cost** |

@@ -14,7 +14,7 @@
 
 ## What Askesis Is
 
-Askesis is SKUEL's **pedagogical companion** — the Meta-layer subsystem (ADR-055, `SEVEN_SUBSYSTEMS.md` § Sections) that sits on top of the Object and Context subsystems and interprets them. It sits across all 20 entity types and answers two fundamental questions:
+Askesis is SKUEL's **pedagogical companion** — the Meta-layer subsystem (ADR-055, `SEVEN_SUBSYSTEMS.md` § Sections) that sits on top of the Object and Context subsystems and interprets them. It sits across all entity types and answers two fundamental questions:
 
 1. **"What should I work on next?"** — by synthesizing tasks, goals, habits, events, choices, principles, learning paths, and life path alignment into a single recommendation.
 2. **"Help me understand this concept"** — by having a Socratic conversation grounded in the user's curriculum and Zone of Proximal Development.
@@ -343,7 +343,7 @@ Three things distinguish Askesis from a generic AI assistant:
 
 2. **ZPD-driven pedagogy.** The mode of response is determined by measured engagement evidence, not heuristics or LLM judgment. A deterministic decision tree ensures consistent pedagogical behavior.
 
-3. **Cross-domain synthesis.** The daily work plan, learning recommendations, and life path alignment score all draw from the complete UserContext — all 20 entity types, not just one domain.
+3. **Cross-domain synthesis.** The daily work plan, learning recommendations, and life path alignment score all draw from the complete UserContext — all entity types, not just one domain.
 
 ---
 

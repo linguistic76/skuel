@@ -101,7 +101,7 @@ BackendOperations[T]          # UniversalNeo4jBackend[T] implements this
     └── LowLevelOperations
 ```
 `UniversalNeo4jBackend[Task]`, `UniversalNeo4jBackend[Goal]`, etc. — the same generic
-backend serves all 20 entity types, constrained by `DomainModelProtocol`.
+backend serves all entity types, constrained by `DomainModelProtocol`.
 
 **See:** `docs/patterns/protocol_architecture.md`, `docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
@@ -220,7 +220,7 @@ Per-module strictness overrides:
 
 ## Generic Types
 
-The generic backbone that makes one backend serve 20 entity types:
+The generic backbone that makes one backend serve every entity type:
 
 ```python
 # DomainModelProtocol — the constraint on T
@@ -233,7 +233,7 @@ class DomainModelProtocol(Protocol):
     @classmethod
     def from_dto(cls, dto: Any) -> "DomainModelProtocol": ...
 
-# UniversalNeo4jBackend[T] — one backend, all 20 entity types
+# UniversalNeo4jBackend[T] — one backend, all entity types
 backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
 
 # BaseService[B, T] — all 6 activity domains use this

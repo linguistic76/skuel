@@ -777,7 +777,7 @@ YAML Author writes type + connections.*
 - [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) — scoring model, decay, life path alignment
 - [Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) — full ingestion API
 - [Relationship Registry](/core/models/relationship_registry.py) — source of truth for `yaml_field_path` mappings
-- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all 20 entity types
+- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all entity types
 - [YAML Templates README](/yaml_templates/README.md) — directory structure and UID formats
 - [Schema Templates](/yaml_templates/_schemas/) — complete field reference per entity type
 
