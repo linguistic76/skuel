@@ -8,7 +8,21 @@ related_docs: []
 
 # Constants Usage Guide
 
-**Core Principle:** "Constants define behavior, services consume them"
+**Core Principle:** "Constants define behavior; every layer consumes the same values"
+
+> **Layer note — read before copying a query snippet.** The constants themselves are
+> layer-agnostic (`core/constants.py`, imported freely by services *and* backends). But the
+> `build_*` query examples below are **backend-layer code**: every real caller of
+> `build_semantic_context` / `build_prerequisite_chain` lives under
+> `adapters/persistence/neo4j/`. A **service** must not copy them — `core/` may not import
+> `adapters/` (SKUEL022) or author Cypher (SKUEL021). From a service, pass the constant to a
+> named backend method instead:
+>
+> ```python
+> from core.constants import GraphDepth
+>
+> prereqs = await self.backend.get_prerequisites(uid, depth=GraphDepth.PREREQUISITE_CHAIN)
+> ```
 
 **Last Updated:** 2025-11-16
 
