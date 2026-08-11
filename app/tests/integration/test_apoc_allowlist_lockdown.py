@@ -91,15 +91,13 @@ ALLOWLIST_KEY = "NEO4J_dbms_security_procedures_allowlist"
 UNRESTRICTED_KEY = "NEO4J_dbms_security_procedures_unrestricted"
 PLUGINS_KEY = "NEO4J_PLUGINS"
 
-# The two knobs that carry an APOC *namespace*. Kept distinct from PLUGINS_KEY
-# because they are asserted against LOCKED_NAMESPACE; the plugin list is not.
-NAMESPACE_KEYS = (ALLOWLIST_KEY, UNRESTRICTED_KEY)
-
-# Everything the container needs to reproduce the deployed APOC profile. The
-# plugin list belongs here too: without it the fixture would install APOC by
-# fiat, and the meta tests would keep asserting `apoc.meta.*` works after a
-# compose change removed the plugin from the real dev stack entirely.
-PROFILE_KEYS = (*NAMESPACE_KEYS, PLUGINS_KEY)
+# Everything the container needs to reproduce the deployed APOC profile. Every
+# value the fixture would otherwise supply by fiat belongs here — each one is a
+# way for this suite to stay green over a broken dev stack. The plugin list is
+# the least obvious member: without it the fixture installs APOC itself, and the
+# meta tests keep asserting `apoc.meta.*` works after compose stopped installing
+# the plugin at all. Adding a key here extends the drift check automatically.
+PROFILE_KEYS = (ALLOWLIST_KEY, UNRESTRICTED_KEY, PLUGINS_KEY)
 
 # The intended lockdown. Hard-coded ON PURPOSE and used ONLY by the config-drift
 # test — that test's whole job is to pin the value compose is allowed to declare.
@@ -336,22 +334,29 @@ class TestApocAllowlistConfiguration:
             "the product's schema tooling relies on would be unavailable."
         )
 
-    def test_compose_files_do_not_disagree(self):
+    def test_no_compose_file_overrides_the_base_profile(self):
         """
-        No compose file overrides the lockdown to a different value.
+        Every profile key declared in any compose file agrees with the base.
 
-        app/docker-compose.yml `extends` the base file. It may re-declare these
-        knobs (it currently does) or inherit them — but it must not widen them.
+        Deliberately general over every PROFILE_KEYS/COMPOSE_FILES pair, not a
+        list of specific assertions. The container is built from the BASE
+        compose alone, so any file that overrides a profile key to a different
+        value runs a stack this suite is not testing — and `app/` is the primary
+        dev workflow, not a secondary. Enumerating the pairs by hand is how the
+        plugin override got missed once already; adding a key to PROFILE_KEYS or
+        a file to COMPOSE_FILES now extends this check automatically.
         """
+        base = resolve_locked_profile()
+
         for label, path in COMPOSE_FILES.items():
-            declared = _read_apoc_env(path)
-            for key in NAMESPACE_KEYS:
-                if key not in declared:
-                    continue
-                assert declared[key] == LOCKED_NAMESPACE, (
-                    f"{label} overrides {key} to {declared[key]!r}, disagreeing with "
-                    f"{BASE_COMPOSE}'s {LOCKED_NAMESPACE!r}. The dev stack would run "
-                    "a different APOC profile than the one under test."
+            if label == BASE_COMPOSE:
+                continue  # the reference itself; pinned by the two tests above
+
+            for key, value in _read_apoc_env(path).items():
+                assert value == base[key], (
+                    f"{label} overrides {key} to {value!r}, disagreeing with "
+                    f"{BASE_COMPOSE}'s {base[key]!r}. That stack would run a different "
+                    "APOC profile than the one this suite builds and tests."
                 )
 
 
