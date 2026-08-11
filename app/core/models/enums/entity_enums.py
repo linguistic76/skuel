@@ -59,11 +59,14 @@ class EntityType(StrEnum):
     identity — no separate MOC type needed).
 
     Content origin tiers (A-D): `content_origin()`, backed by
-    `_CONTENT_ORIGIN_BY_TYPE` in this file. That dict is the only membership list —
-    it is tier-commented and read directly by `content_origin()`, so it cannot drift
-    from what the method returns. `ContentOrigin` documents what the four tiers mean.
-    The list that used to sit here was a hand-transcription of that dict and had
-    drifted on two members; call the method instead of trusting prose.
+    `_CONTENT_ORIGIN_BY_TYPE` in this file — the authority, since the method reads it
+    directly. `ContentOrigin` documents what the four tiers mean. The list that used
+    to sit here was a hand-transcription of that dict and had drifted on two members.
+    Two prose enumerations are kept on purpose (`CLAUDE.md` and
+    `docs/architecture/ENUM_ARCHITECTURE.md`); both are pinned to this dict by
+    `tests/unit/docs/test_content_origin_docs.py`, which discovers any such table
+    rather than knowing those two by name. Add a tier table and it is checked;
+    otherwise point at `content_origin()` rather than restating membership.
 
     Ownership rules:
         Curriculum (KU, PS, LP, Exercise) + Activity Templates (6) + Resource +
