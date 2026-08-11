@@ -218,6 +218,57 @@ def test_a_non_literal_gate_kwarg_is_undecidable_not_assumed(tmp_path: Path) -> 
     assert found["B.read"].gate_off is False
 
 
+def test_a_kwarg_expansion_cannot_smuggle_the_gate_off(tmp_path: Path) -> None:
+    """``**options`` has ``kw.arg is None``, so matching on the name alone skips it.
+
+    An earlier revision did exactly that, which meant a GATED surface could
+    disable publication filtering in valid Python with the audit still green — a
+    fail-OPEN in the check whose entire purpose is to refuse to fail open
+    (Codex P2, #1013).
+    """
+    opaque = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self, options):\n"
+        "        return build_knowledge_read_clause('ku', **options)\n",
+    )
+    assert opaque["B.read"].gate_undecidable is True, (
+        "an unreadable mapping could carry apply_publication_gate=False"
+    )
+
+    literal_off = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': False}\n"
+        "        )\n",
+    )
+    assert literal_off["B.read"].gate_off is True, "a dict display is readable, so read it"
+    assert literal_off["B.read"].gate_undecidable is False
+
+    # A literal mapping that provably does NOT mention the kwarg cannot affect
+    # the gate, so it must not be reported — a check that flags every ** call
+    # would be noise, and noise is what makes a gate get suppressed.
+    irrelevant = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause('ku', **{'entity_alias': 'x'})\n",
+    )
+    assert irrelevant["B.read"].gate_off is False
+    assert irrelevant["B.read"].gate_undecidable is False
+
+    # Non-constant keys are unreadable even inside a display.
+    computed_key = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self, k):\n"
+        "        return build_knowledge_read_clause('ku', **{k: False})\n",
+    )
+    assert computed_key["B.read"].gate_undecidable is True
+
+
 def test_one_disabled_call_marks_the_whole_scope(tmp_path: Path) -> None:
     """A surface may compose more than one helper — the KU->path surfaces gate
     two aliases. The flags OR across the scope, so a second, gated call cannot

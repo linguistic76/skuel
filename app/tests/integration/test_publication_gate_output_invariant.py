@@ -65,6 +65,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import (
 )
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.models.enums import EntityType, PublicationState
 from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
@@ -903,26 +904,41 @@ async def test_authoring_gauge_reports_drafts_instead_of_subtracting_them(
     raw = raw_result.value
     assert raw is not None
 
+    # Every discriminator is a PARAMETER sourced from the enum, never a literal.
+    # A ground-truth query that hard-codes vocabulary drifts silently: production
+    # follows the enum, this query keeps asking about the old spelling, and the
+    # comparison still "passes" while counting the wrong nodes. `lint_skuel.py`
+    # does not scan tests/, so SKUEL014 cannot catch it here (Codex P1) — the
+    # same blind spot that let a lambda through on #1008.
     async with gate_graph.session() as session:
         rows = await session.run(
             """
             CALL () {
-                MATCH (n:Entity) WHERE n.entity_type = 'path_step'
+                MATCH (n:Entity) WHERE n.entity_type = $ps
                 RETURN count(n) AS all_steps
             }
             CALL () {
-                MATCH (n:Entity) WHERE n.entity_type = 'path_step'
-                  AND n.publication_state = 'draft'
+                MATCH (n:Entity) WHERE n.entity_type = $ps
+                  AND n.publication_state = $draft
                 RETURN count(n) AS draft_steps
             }
             CALL () {
-                MATCH (n:Entity)
-                WHERE n.entity_type IN ['ku', 'path_step', 'learning_path', 'exercise']
-                  AND n.publication_state = 'draft'
+                MATCH (n:Entity) WHERE n.entity_type IN $curriculum_types
+                  AND n.publication_state = $draft
                 RETURN count(n) AS draft_curriculum
             }
             RETURN all_steps, draft_steps, draft_curriculum
-            """
+            """,
+            {
+                "ps": EntityType.PATH_STEP.value,
+                "draft": PublicationState.DRAFT.value,
+                "curriculum_types": [
+                    EntityType.KU.value,
+                    EntityType.PATH_STEP.value,
+                    EntityType.LEARNING_PATH.value,
+                    EntityType.EXERCISE.value,
+                ],
+            },
         )
         truth = await rows.single()
     assert truth is not None

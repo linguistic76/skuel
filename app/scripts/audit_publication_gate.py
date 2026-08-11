@@ -232,21 +232,59 @@ def _called_helper(node: ast.Call) -> str | None:
     return name if name in GATE_HELPERS else None
 
 
+def _mapping_gate_state(value: ast.expr) -> tuple[bool, bool]:
+    """``(gate_off, undecidable)`` carried by a ``**mapping`` expansion.
+
+    A dict DISPLAY with constant string keys is still readable, so
+    ``**{"apply_publication_gate": False}`` is caught rather than waved through.
+    Any other mapping — a name, a call, a comprehension, or a key that is not a
+    string literal — is UNDECIDABLE, because it could carry the kwarg and
+    skipping it fails OPEN. That is the one direction this audit must never fail
+    (Codex P2, #1013): an earlier revision matched on ``kw.arg`` alone, and
+    ``kw.arg`` is ``None`` for every ``**`` expansion, so a GATED surface could
+    have disabled publication filtering in valid Python with the audit green.
+    """
+    if not isinstance(value, ast.Dict):
+        return (False, True)
+    for key, item in zip(value.keys, value.values, strict=True):
+        if key is None:  # a nested ** inside the display
+            nested_off, nested_unknown = _mapping_gate_state(item)
+            if nested_off or nested_unknown:
+                return (nested_off, nested_unknown)
+            continue
+        if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+            return (False, True)
+        if key.value != GATE_KWARG:
+            continue
+        if isinstance(item, ast.Constant) and isinstance(item.value, bool):
+            return (item.value is False, False)
+        return (False, True)
+    return (False, False)
+
+
 def _gate_state(node: ast.Call) -> tuple[bool, bool]:
     """``(gate_off, undecidable)`` for one gate-helper call.
 
     Absent kwarg means the default, which is ON — that is the whole point of it
     defaulting True. A literal ``False`` is off. Anything else is undecidable
-    and says so rather than guessing.
+    and says so rather than guessing. Both flags OR across the call's keywords,
+    so a readable ``**{}`` beside an unreadable ``**options`` still reports
+    undecidable.
     """
+    off = False
+    unknown = False
     for kw in node.keywords:
-        if kw.arg != GATE_KWARG:
-            continue
-        value = kw.value
-        if isinstance(value, ast.Constant) and isinstance(value.value, bool):
-            return (value.value is False, False)
-        return (False, True)
-    return (False, False)
+        if kw.arg == GATE_KWARG:
+            value = kw.value
+            if isinstance(value, ast.Constant) and isinstance(value.value, bool):
+                off = off or value.value is False
+            else:
+                unknown = True
+        elif kw.arg is None:
+            mapping_off, mapping_unknown = _mapping_gate_state(kw.value)
+            off = off or mapping_off
+            unknown = unknown or mapping_unknown
+    return (off, unknown)
 
 
 MODULE_SCOPE = "<module>"
