@@ -119,8 +119,10 @@ RULE_DOCS: dict[str, dict[str, str]] = {
         "severity": "CRITICAL",
         "description": """APOC is banned everywhere above the ADR-044 boundary:
 core/, any /services/ path, and the inbound/presentation layers (adapters/inbound/, ui/).
-Use pure Cypher instead — the build_* functions in
-adapters/persistence/neo4j/query/cypher/.
+The fix is not "swap APOC for hand-written Cypher" — code above the boundary may not
+author Cypher at all (SKUEL021), nor import adapters (SKUEL022). Move the query onto the
+domain backend and call a named backend method from the service. The backend composes its
+Cypher from the pure-Cypher build_* functions in adapters/persistence/neo4j/query/cypher/.
 
 APOC is only allowed in adapter layer (adapters/persistence/*) for complex traversals.
 Shares SKUEL021's gate — a CALL apoc... is Cypher, so the layers that may not author
@@ -131,11 +133,11 @@ apoc.coll.*, apoc.text.*, apoc.periodic.* and every future APOC addition are cov
 without maintenance. apoc.meta.* is NOT an exception — that allowance is the Neo4j
 server plugin allowlist (dbms_security_procedures_allowlist), exercised only by
 tests/integration/test_apoc_canary.py, which this rule skips as a test file.""",
-        "good": """# Use a pure-Cypher build_* function
-from adapters.persistence.neo4j.query import build_prerequisite_chain
-
-query, params = build_prerequisite_chain(uid, semantic_types)
-result = await backend.execute_query(query, params)""",
+        "good": """# In a service: call a named backend method — no Cypher, no APOC, no
+# execute_query(). Domain-specific Cypher belongs on the domain backend, which
+# composes it from the pure-Cypher build_* functions in
+# adapters/persistence/neo4j/query/cypher/.
+prereqs = await self.backend.get_prerequisites(uid, depth=3)""",
         "bad": """# Don't use APOC above the boundary
 query = "CALL apoc.path.subgraphAll(n, {...})"
 result = await backend.execute_query(query)""",
@@ -1982,8 +1984,9 @@ class SkuelLinter:
                     rule_id="SKUEL001",
                     message=f"APOC procedure '{apoc_proc}' authored above the boundary",
                     suggestion=(
-                        "Use pure Cypher instead — the build_* functions in "
-                        "adapters/persistence/neo4j/query/cypher/"
+                        "Move this query onto the domain backend and call a named "
+                        "backend method — code above the boundary may not author "
+                        "Cypher or APOC"
                     ),
                     line_content=line.strip(),
                 )
