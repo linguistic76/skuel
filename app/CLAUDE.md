@@ -104,12 +104,15 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 | Tier | ContentOrigin | EntityTypes | Description |
 |------|--------------|---------|-------------|
-| A | `CURATED` | Resource | Admin-curated content |
-| B | `CURRICULUM` | Curriculum, PS, LP | Curriculum structure |
-| C | `USER_CREATED` | Activities, UserEntry, LifePath | User-generated |
-| D | `REPORT` | ActivityReport, EntryReport | Analysis/reports |
+| A | `CURATED` | Resource, FormTemplate (2) | Admin-curated content |
+| B | `CURRICULUM` | Ku, PathStep, LearningPath, Exercise + the 6 Activity Templates (10) | Curriculum structure |
+| C | `USER_CREATED` | the 6 Activities, UserEntry, LifePath, FormSubmission, Interaction, RevisedExercise (11) | User-generated |
+| D | `REPORT` | ActivityReport, EntryReport (2) | Analysis/reports |
 
 `ContentScope` controls access, `ContentOrigin` classifies purpose. Derived from `EntityType`.
+**`RevisedExercise` is tier C, not B** — it is teacher-authored and `user_uid`-bearing, so its
+origin is user-created even though its function is curricular. The rows above enumerate all 25
+types (2+10+11+2) so they check themselves; `EntityType.<T>.content_origin()` is the authority.
 
 ### Content Sharing
 
