@@ -24,7 +24,7 @@ SKUEL is built on a developing ontology — entity types, behavioral traits, rel
 
 | Ontological Concept | Type Expression |
 |---------------------|-----------------|
-| "There are 20 kinds of things" | `EntityType` enum with 20 values |
+| "Things come in distinct kinds" | `EntityType` enum |
 | "Some things are owned by users" | `UserOwnedEntity(Entity)` base class |
 | "Entities have behavioral traits" | `is_activity()`, `is_processable()`, `requires_user_uid()` methods |
 | "Services have defined contracts" | 65+ protocols in `core/ports/` |

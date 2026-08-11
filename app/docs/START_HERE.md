@@ -45,9 +45,9 @@ Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a N
 
 **Forms**: FormTemplate, FormSubmission
 
-**Submissions & Reports** (the learning loop): UserEntry, EntryReport, ActivityReport, RevisedExercise, Interaction
+**Submissions & Reports** (the learning loop): UserEntry, EntryReport, ActivityReport, Interaction
 
-**Other**: Resource, LifePath
+**Other**: RevisedExercise, LifePath, Resource
 
 Groups is *not* an EntityType — it lives in `NonKuDomain` (ADR-053), alongside Finance, Calendar, and Learning.
 

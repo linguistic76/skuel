@@ -153,7 +153,7 @@ async def ku_detail(request: Request, uid: str):
 ┌───────────────────┴─────────────────────────────────────────┐
 │ Layer 2: Knowledge Graph (Machine-Readable)                  │
 │   - Neo4j database (nodes + edges)                           │
-│   - 14 entity types, 20+ relationship types                  │
+│   - typed entities and relationships                         │
 └───────────────────┬─────────────────────────────────────────┘
                     │
                     ↓ UniversalNeo4jBackend[T] (Generic Access)

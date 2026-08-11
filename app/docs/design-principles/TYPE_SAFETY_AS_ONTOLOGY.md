@@ -28,7 +28,7 @@ For a system targeting 10,000 users, enum-driven pipelines enable:
 
 | Enum | Purpose | Count |
 |------|---------|-------|
-| `EntityType` | What kind of entity | 20 values |
+| `EntityType` | What kind of entity | 25 values |
 | `EntityStatus` | What state it's in | 14 values |
 | `UserRole` | Who can do what | 4 levels |
 | `ContentOrigin` | Where content comes from | 4 tiers |
