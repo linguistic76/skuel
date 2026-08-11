@@ -34,12 +34,15 @@ NON-CIRCULARITY
 ---------------
 Two properties keep these tests from grading their own homework:
 
-1. **The container is configured FROM the compose files** — both the APOC knobs
-   and the server image — not from constants hand-copied out of them. Widen
-   ``docker-compose.yml`` to ``apoc.*`` and this container starts permissive, so
-   the refusal tests fail. A hard-coded ``apoc.meta.*`` here would keep passing
-   over a wide-open production config, and a hard-coded image pin would leave
-   this module validating a stale APOC after a version bump.
+1. **The container is configured FROM the compose files** — the APOC knobs, the
+   plugin list, and the server image — not from constants hand-copied out of
+   them. Widen ``docker-compose.yml`` to ``apoc.*`` and this container starts
+   permissive, so the refusal tests fail. Every value this fixture supplies by
+   fiat instead is a way for the suite to stay green over a broken dev stack:
+   a hard-coded ``apoc.meta.*`` would pass over a wide-open config, a hard-coded
+   image would validate a stale APOC after a version bump, and a hard-coded
+   ``NEO4J_PLUGINS`` would keep asserting ``apoc.meta.*`` works after compose
+   stopped installing the plugin at all.
 2. **Every refusal is paired with a positive control** on the permissive
    canary container. An allowlist refusal and a *typo* in the probe query raise
    the identical ``Neo.ClientError.Procedure.ProcedureNotFound`` — so a bare
@@ -69,6 +72,7 @@ unaffected.
 See: /docs/patterns/CYPHER_VS_APOC_STRATEGY.md § Operational Hygiene
 """
 
+import json
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
@@ -85,6 +89,17 @@ from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 ALLOWLIST_KEY = "NEO4J_dbms_security_procedures_allowlist"
 UNRESTRICTED_KEY = "NEO4J_dbms_security_procedures_unrestricted"
+PLUGINS_KEY = "NEO4J_PLUGINS"
+
+# The two knobs that carry an APOC *namespace*. Kept distinct from PLUGINS_KEY
+# because they are asserted against LOCKED_NAMESPACE; the plugin list is not.
+NAMESPACE_KEYS = (ALLOWLIST_KEY, UNRESTRICTED_KEY)
+
+# Everything the container needs to reproduce the deployed APOC profile. The
+# plugin list belongs here too: without it the fixture would install APOC by
+# fiat, and the meta tests would keep asserting `apoc.meta.*` works after a
+# compose change removed the plugin from the real dev stack entirely.
+PROFILE_KEYS = (*NAMESPACE_KEYS, PLUGINS_KEY)
 
 # The intended lockdown. Hard-coded ON PURPOSE and used ONLY by the config-drift
 # test — that test's whole job is to pin the value compose is allowed to declare.
@@ -122,17 +137,13 @@ def _neo4j_service(compose_path: Path) -> dict[str, object]:
 
 
 def _read_apoc_env(compose_path: Path) -> dict[str, str]:
-    """Extract the APOC security knobs declared on the compose file's neo4j service."""
+    """Extract the APOC profile keys declared on the compose file's neo4j service."""
     environment = _neo4j_service(compose_path).get("environment", {})
     assert isinstance(environment, dict), (
         f"{compose_path} uses list-form `environment:`; this parser expects mapping form"
     )
 
-    return {
-        key: str(environment[key])
-        for key in (ALLOWLIST_KEY, UNRESTRICTED_KEY)
-        if key in environment
-    }
+    return {key: str(environment[key]) for key in PROFILE_KEYS if key in environment}
 
 
 def resolve_locked_image() -> str:
@@ -160,10 +171,11 @@ def resolve_locked_profile() -> dict[str, str]:
     """
     base = _read_apoc_env(COMPOSE_FILES[BASE_COMPOSE])
 
-    missing = {ALLOWLIST_KEY, UNRESTRICTED_KEY} - base.keys()
+    missing = set(PROFILE_KEYS) - base.keys()
     assert not missing, (
         f"{BASE_COMPOSE} no longer declares {sorted(missing)}. The APOC lockdown is "
-        "config-only — if these knobs are gone, nothing constrains APOC at the server."
+        "config-only — if these knobs are gone, nothing constrains APOC at the server, "
+        "and this fixture must not supply them by fiat."
     )
     return base
 
@@ -187,7 +199,6 @@ def locked_neo4j_container():
     """
     container = Neo4jContainer(resolve_locked_image())
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
-    container.with_env("NEO4J_PLUGINS", '["apoc"]')
 
     for key, value in resolve_locked_profile().items():
         container.with_env(key, value)
@@ -306,6 +317,25 @@ class TestApocAllowlistConfiguration:
             f"expected {LOCKED_NAMESPACE!r}."
         )
 
+    def test_compose_declares_the_apoc_plugin(self):
+        """
+        The base compose still installs APOC.
+
+        Without this the allowlist tests could be read as proving `apoc.meta.*`
+        works in the deployed profile, when a compose change had removed the
+        plugin outright — the fixture takes the plugin list from compose, so
+        this names the regression instead of leaving it to a confusing refusal.
+        """
+        declared = _read_apoc_env(COMPOSE_FILES[BASE_COMPOSE]).get(PLUGINS_KEY)
+        assert declared is not None, f"{BASE_COMPOSE} no longer declares {PLUGINS_KEY}."
+
+        plugins = json.loads(declared)
+        assert "apoc" in plugins, (
+            f"{BASE_COMPOSE} declares {PLUGINS_KEY}={declared!r}, which does not install "
+            "APOC. The allowlist is moot without the plugin, and every apoc.meta.* call "
+            "the product's schema tooling relies on would be unavailable."
+        )
+
     def test_compose_files_do_not_disagree(self):
         """
         No compose file overrides the lockdown to a different value.
@@ -314,9 +344,12 @@ class TestApocAllowlistConfiguration:
         knobs (it currently does) or inherit them — but it must not widen them.
         """
         for label, path in COMPOSE_FILES.items():
-            for key, value in _read_apoc_env(path).items():
-                assert value == LOCKED_NAMESPACE, (
-                    f"{label} overrides {key} to {value!r}, disagreeing with "
+            declared = _read_apoc_env(path)
+            for key in NAMESPACE_KEYS:
+                if key not in declared:
+                    continue
+                assert declared[key] == LOCKED_NAMESPACE, (
+                    f"{label} overrides {key} to {declared[key]!r}, disagreeing with "
                     f"{BASE_COMPOSE}'s {LOCKED_NAMESPACE!r}. The dev stack would run "
                     "a different APOC profile than the one under test."
                 )
