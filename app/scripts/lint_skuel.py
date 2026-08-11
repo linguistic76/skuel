@@ -133,11 +133,15 @@ apoc.coll.*, apoc.text.*, apoc.periodic.* and every future APOC addition are cov
 without maintenance. apoc.meta.* is NOT an exception — that allowance is the Neo4j
 server plugin allowlist (dbms_security_procedures_allowlist), exercised only by
 tests/integration/test_apoc_canary.py, which this rule skips as a test file.""",
-        "good": """# In a service: call a named backend method — no Cypher, no APOC, no
-# execute_query(). Domain-specific Cypher belongs on the domain backend, which
-# composes it from the pure-Cypher build_* functions in
-# adapters/persistence/neo4j/query/cypher/.
-prereqs = await self.backend.get_prerequisites(uid, depth=3)""",
+        "good": """# In a service: call the named method — no Cypher, no APOC, no execute_query().
+# RelationshipOperationsMixin.get_prerequisites delegates to
+# self.backend.prerequisite_traversal(), which composes pure Cypher below the
+# boundary from the build_* functions in adapters/persistence/neo4j/query/cypher/.
+prereqs = await self.get_prerequisites(uid, depth=3)
+
+# No mixin method for your query yet? Add one to the DOMAIN BACKEND and call that —
+# never inline Cypher in the service:
+#     rows = await self.backend.prerequisite_traversal(uid, rel_types, depth=3)""",
         "bad": """# Don't use APOC above the boundary
 query = "CALL apoc.path.subgraphAll(n, {...})"
 result = await backend.execute_query(query)""",

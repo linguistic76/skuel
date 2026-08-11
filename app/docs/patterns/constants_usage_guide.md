@@ -16,12 +16,13 @@ related_docs: []
 > `build_semantic_context` / `build_prerequisite_chain` lives under
 > `adapters/persistence/neo4j/`. A **service** must not copy them — `core/` may not import
 > `adapters/` (SKUEL022) or author Cypher (SKUEL021). From a service, pass the constant to a
-> named backend method instead:
+> named method instead — `RelationshipOperationsMixin.get_prerequisites` delegates to
+> `self.backend.prerequisite_traversal()`:
 >
 > ```python
 > from core.constants import GraphDepth
 >
-> prereqs = await self.backend.get_prerequisites(uid, depth=GraphDepth.PREREQUISITE_CHAIN)
+> prereqs = await self.get_prerequisites(uid, depth=GraphDepth.PREREQUISITE_CHAIN)
 > ```
 
 **Last Updated:** 2025-11-16
