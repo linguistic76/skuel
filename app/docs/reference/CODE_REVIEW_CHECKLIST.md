@@ -29,10 +29,15 @@ These checks are **non-negotiable**. Failure means immediate rejection.
 
 ### ✅ Phase 5 Compliance (Pure Cypher Architecture)
 
-- [ ] **No APOC anywhere above the persistence boundary**
+- [ ] **No APOC in product code — anywhere**
   - ❌ any `apoc.*` call in `core/`, `adapters/inbound/`, or `ui/` — SKUEL001 is
     whole-namespace and **unsuppressable**; `apoc.meta.*` is not an exception there
-  - ✅ `apoc.meta.*` inside `adapters/persistence/neo4j/` — the one allowlisted namespace
+  - ⚠️ **`adapters/persistence/` is NOT pre-approved.** SKUEL001 does not scan it, so a
+    new `apoc.*` call there passes every automated gate — this checklist is the only
+    control. **No product code path calls APOC today**, so any new call is a reversal of
+    the architecture and needs explicit justification in review, not a ✅
+  - ✅ `tests/integration/test_apoc_canary.py` — the only sanctioned live `apoc.meta.*`
+    caller, and the reason the server allowlist exists at all
   - ✅ `scripts/migrations/*.cypher` — a deliberate archive of already-run migrations,
     excluded from both Cypher linters; **not a precedent for new code**
 
@@ -49,8 +54,12 @@ These checks are **non-negotiable**. Failure means immediate rejection.
     `SemanticCypherBuilder`, `ApocQueryBuilder`, or `CypherGenerator` type to construct.
     Reusable examples: `build_prerequisite_chain()`, `build_semantic_context()`,
     `build_cross_domain_bridges()`, `build_hierarchical_context()`,
-    `build_semantic_filter_query()` — each returns
-    `tuple[str, dict[str, Neo4jValue]]`, the query **and** its parameters
+    `build_semantic_filter_query()` — query producers return
+    `tuple[str, dict[str, ...]]`, the query **and** its parameters
+  - ⚠ **Not all 54 return that shape.** `build_relationship_filter_fragments()` returns
+    `list[str]`, and `build_search_visibility_clause()` can return **`None`** — unpacking
+    either as `query, params` raises. Clause/fragment builders compose *into* a query;
+    read the signature before calling one as though it produced a whole query
 
 - [ ] **Pure Cypher benefits from query planner**
   - Query uses parameterized syntax (`$parameter`)

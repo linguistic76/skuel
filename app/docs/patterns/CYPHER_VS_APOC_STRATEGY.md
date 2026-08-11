@@ -75,8 +75,17 @@ NEO4J_dbms_security_procedures_unrestricted: "apoc.meta.*"
 NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
 ```
 
-An `apoc.periodic.iterate` call from application code therefore fails twice: the linter
-rejects it before commit, and Neo4j refuses the procedure at runtime.
+An `apoc.periodic.iterate` call from `core/`, `adapters/inbound/`, or `ui/` therefore
+fails twice: the linter rejects it before commit, and Neo4j refuses the procedure at
+runtime.
+
+> **⚠ The persistence layer itself is not linted for APOC.** SKUEL001's scope stops at
+> the boundary, so a new `apoc.meta.*` call inside `adapters/persistence/` passes every
+> automated gate — only the server allowlist would still permit it, and only for that one
+> namespace. Nothing in the product calls APOC today, so treat any such call as a
+> deliberate architectural reversal requiring review, not as a permitted default.
+> This is the one APOC gap with no automated control; `CODE_REVIEW_CHECKLIST.md` carries
+> it as a manual check.
 
 ---
 
@@ -202,10 +211,25 @@ query, params = build_prerequisite_chain(
 # params → {"uid", "semantic_type_values", "min_confidence", "min_strength"}
 ```
 
-Every function returns `tuple[str, dict[str, Neo4jValue]]` — the query and its
-parameters, never an interpolated string. Relationship *types* are validated against the
-enum before they reach the pattern (SKUEL030), which is why they may be inlined while
-every value stays a `$parameter`.
+Query producers return `tuple[str, dict[str, ...]]` — the query and its parameters,
+never an interpolated string. Relationship *types* are validated against the enum before
+they reach the pattern (SKUEL030), which is why they may be inlined while every value
+stays a `$parameter`.
+
+**The 54 are not uniform — 8 do not fit that shape.** Check the signature before
+unpacking:
+
+| Function | Returns | Why it differs |
+|----------|---------|----------------|
+| `build_relationship_filter_fragments` | `list[str]` | Emits WHERE fragments the caller AND-joins — not a query |
+| `build_search_visibility_clause` | `tuple[str, dict[str, str]] \| None` | **Returns `None`** when no scoping applies; `query, params = ...` raises `TypeError` |
+| `build_publication_clause` | `tuple[str, dict[str, str]]` | Clause builder — composes *into* a query |
+| `build_knowledge_read_clause` | `tuple[str, Neo4jProperties]` | Clause builder |
+| the 4 `build_batch_*` in `relationship_queries.py` | `tuple[str, dict[str, Any]]` | Heterogeneous batch payloads |
+
+The remaining 46 return `tuple[str, dict[str, Neo4jValue]]`. The clause and fragment
+builders are *composition helpers*: they produce a piece of a query, and calling one
+where a full query is expected yields Cypher that does not parse.
 
 **Do not hand-author the write.** Relationship writes go through `build_semantic_merge()`,
 which resolves the edge type, validates it as a safe identifier, and puts `semantic_type`
