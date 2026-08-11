@@ -16,7 +16,7 @@ related_docs: []
 
 For implementation guidance, see:
 - [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
-- [@html-htmx](../../.claude/skills/html-htmx/SKILL.md)
+- [@ui-browser](../../.claude/skills/ui-browser/SKILL.md)
 
 
 ## Overview
