@@ -179,21 +179,28 @@ grep -A 5 "find_.*_by_semantic_knowledge" core/services/your_new_service.py
   - Configurable via parameter
 
 - [ ] **Uses established patterns when available**
-  - Check the existing `build_*` functions in `query/cypher/` first
-  - Only add a new `build_*` function if no existing one fits
+  - A query serving **one domain** belongs on that domain's backend — check whether the
+    backend already has a method before adding anything
+  - A **reusable / cross-domain** builder belongs in `query/cypher/` — check its existing
+    `build_*` functions first, and add a new one only if none fits
 
 **Verification:**
 ```bash
 # Consult the decision matrix
 cat docs/patterns/query_architecture.md
 cat docs/patterns/CYPHER_VS_APOC_STRATEGY.md
-
-# List the existing builders before writing a new one
-grep -rn "^def build_" adapters/persistence/neo4j/query/cypher/
-
-# Any Cypher in core/ is a SKUEL021 violation regardless of how it's built
-grep -rn "MATCH (" core/ --include="*.py"
 ```
+```bash
+# List the existing reusable builders before writing a new one
+grep -rn "^def build_" adapters/persistence/neo4j/query/cypher/
+```
+```bash
+# Cypher above the persistence boundary — must exit 0 with no violations
+uv run python scripts/lint_skuel.py --rule SKUEL021
+```
+
+> Again: use the rule, not `grep -rn "MATCH (" core/`. That grep returns prose and
+> comment hits in `core/` today and none of them are violations.
 
 ---
 
@@ -523,7 +530,7 @@ Copy this template into PR review comments:
 
 ### Critical Checks
 - [ ] No APOC above the persistence boundary (SKUEL001)
-- [ ] Graph queries use `query/cypher/` build_* functions
+- [ ] Cypher at the right layer: domain-specific on the domain backend, reusable in `query/cypher/`
 - [ ] Semantic types (enum) instead of magic strings
 - [ ] Rich metadata (confidence, source, notes)
 - [ ] Provenance tracking via source field
@@ -610,7 +617,7 @@ uv run ruff check core/services/your_service.py
 **Before merging ANY code, verify:**
 
 1. **No APOC in domain services** (Phase 5 compliance)
-2. **`query/cypher/` build_* functions used** (Query decision matrix)
+2. **Cypher at the right layer** — domain-specific on the domain backend, reusable in `query/cypher/` (Query decision matrix)
 3. **Semantic type enums** (Type safety)
 4. **Rich metadata** (Provenance tracking)
 5. **Result[T] pattern** (Error handling)

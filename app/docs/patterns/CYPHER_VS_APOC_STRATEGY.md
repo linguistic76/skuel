@@ -107,16 +107,30 @@ APOC procedures bypass the planner, so even where they are available they forfei
 | CRUD / search / count | model introspection | `query/cypher/crud_queries.py` |
 | Fluent composition | method chaining | `UnifiedQueryBuilder` |
 
-### APOC — two carve-outs, neither in the request path
+### APOC — the product runtime calls none of it
 
-| Use | Procedure | Where | Why it's allowed |
-|-----|-----------|-------|------------------|
-| Schema introspection | `apoc.meta.*` | `adapters/persistence/neo4j/` | The one allowlisted namespace |
-| Version probe | `apoc.version()` | `schema_service.py` | Reports plugin version at boot |
-| One-shot data migrations | `apoc.periodic.iterate`, `apoc.create.*`, `apoc.util.sha256` | `scripts/migrations/*.cypher` | A deliberate archive — run once by hand, excluded from the linters |
+**No application code path invokes an APOC procedure.** Not in `core/`, not in
+`adapters/`, not at boot. `apoc.meta.*` is allowlisted at the server, but nothing in
+the product calls it — the only live `apoc.meta.*` callers are the integration canary
+and the hand-run migration archive.
+
+| Use | Procedure | Where | Status |
+|-----|-----------|-------|--------|
+| One-shot data migrations | `apoc.periodic.iterate`, `apoc.create.*`, `apoc.util.sha256` | `scripts/migrations/*.cypher` (3 files) | **The only live use.** A deliberate archive — run once by hand, excluded from both Cypher linters |
+| Plugin canary | `apoc.meta.*`, `apoc.periodic.iterate`, `apoc.convert.fromJsonMap`, `apoc.version()` | `tests/integration/test_apoc_canary.py` | Test-only, under a permissive fixture — see Operational Hygiene §2 |
+| Schema introspection | `apoc.meta.*` | — | Allowlisted at the server, **not called by any product code** |
 
 **Migrations are not a precedent for new code.** They are historical records of
 already-executed schema changes; both Cypher linters exclude that directory by design.
+
+> **There is no boot-time APOC probe**, despite appearances.
+> `Neo4jSchemaService._check_apoc_available()` (`schema_service.py:378`) contains the
+> only `apoc.version()` call in application code and is **unreachable twice over**: it
+> has no callers anywhere in the tree, and it early-returns on `if not self.use_apoc`
+> before reaching the query — while both instantiation sites
+> (`neo4j_adapter.py:128`, `services_bootstrap/_learning_services.py:95`) take the
+> `use_apoc: bool = False` default. Do not cite it as a version signal; the canary is
+> the only thing that actually probes the plugin.
 
 ### Never APOC
 
