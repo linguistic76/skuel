@@ -1,8 +1,8 @@
 """
-Tests for CypherGenerator - Consolidation
-==================================================
+Tests for the query/cypher/ build_* functions - Consolidation
+=============================================================
 
-Validates that CypherGenerator correctly consolidates functionality from:
+Validates that the cypher/ builders correctly consolidate functionality from:
 - DynamicQueryBuilder (model introspection)
 - SemanticCypherBuilder (semantic relationship queries)
 """
@@ -51,7 +51,7 @@ class SampleKnowledge:
     level: int
 
 
-class TestCypherGeneratorDynamic:
+class TestCypherBuildersDynamic:
     """Test dynamic query generation from model introspection."""
 
     def test_build_search_query_simple_equality(self):
@@ -161,7 +161,7 @@ class TestCypherGeneratorDynamic:
         assert "in" in operators
 
 
-class TestCypherGeneratorSemantic:
+class TestCypherBuildersSemantic:
     """Test semantic relationship query generation."""
 
     def test_build_semantic_context(self):

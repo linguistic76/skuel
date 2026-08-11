@@ -22,7 +22,7 @@ Application Layer: UnifiedQueryBuilder  ← USE THIS
     ↓
 Orchestration Layer: QueryBuilder  ← This file (optimization, templates)
     ↓
-Infrastructure Layer: CypherGenerator  ← Utilities
+Infrastructure Layer: query/cypher/ build_* functions  ← Utilities
 ```
 
 **Sub-Services (Post-Decomposition):**
@@ -106,7 +106,7 @@ class QueryBuilder:
         ↓
     Orchestration Layer: QueryBuilder  ← YOU ARE HERE (optimization, templates)
         ↓
-    Infrastructure Layer: CypherGenerator  ← Utilities
+    Infrastructure Layer: query/cypher/ build_* functions  ← Utilities
     ```
 
     **Sub-Services:**

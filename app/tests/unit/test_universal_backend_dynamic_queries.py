@@ -14,7 +14,7 @@ Coverage areas:
 6. Edge cases and error handling
 7. Count with dynamic filters
 8. Date range queries
-9. Integration with CypherGenerator
+9. Integration with the query/cypher/ build_* functions
 """
 
 from dataclasses import dataclass
@@ -384,7 +384,7 @@ async def test_find_by_invalid_field_skipped():
 
     await setup_mock_query_response(mock_session, [])
 
-    # CypherGenerator should skip invalid fields
+    # the cypher/ builders should skip invalid fields
     result = await backend.find_by(priority="high", nonexistent_field="value")
 
     assert result.is_ok
@@ -471,7 +471,7 @@ async def test_list_with_pagination():
     cypher = call_args[0][0]
     params = call_args[0][1]
 
-    assert "SKIP $skip" in cypher  # CypherGenerator uses 'skip' not 'offset'
+    assert "SKIP $skip" in cypher  # the cypher/ builders use 'skip' not 'offset'
     assert "LIMIT $limit" in cypher
     assert params["skip"] == 25  # Backend maps offset -> skip
     assert params["limit"] == 25
@@ -680,7 +680,7 @@ async def test_count_zero_results():
 
 
 # ============================================================================
-# TEST: Integration with CypherGenerator
+# TEST: Integration with the query/cypher/ build_* functions
 # ============================================================================
 
 
@@ -691,7 +691,7 @@ async def test_find_by_uses_cypher_generator():
 
     await setup_mock_query_response(mock_session, [])
 
-    # UniversalBackend now uses UnifiedQueryBuilder instead of CypherGenerator directly
+    # UniversalBackend now uses UnifiedQueryBuilder instead of the cypher/ builders directly
     # The test verifies that find_by() still generates correct queries
     result = await backend.find_by(priority="high")
 
@@ -700,7 +700,7 @@ async def test_find_by_uses_cypher_generator():
     cypher = call_args[0][0]
     params = call_args[0][1]
 
-    # Verify correct Cypher was generated (via UnifiedQueryBuilder → CypherGenerator)
+    # Verify correct Cypher was generated (via UnifiedQueryBuilder → cypher/ builders)
     assert "MATCH (n:SampleTask)" in cypher
     assert "n.priority = $priority" in cypher
     assert params["priority"] == "high"

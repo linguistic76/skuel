@@ -119,7 +119,8 @@ RULE_DOCS: dict[str, dict[str, str]] = {
         "severity": "CRITICAL",
         "description": """APOC is banned everywhere above the ADR-044 boundary:
 core/, any /services/ path, and the inbound/presentation layers (adapters/inbound/, ui/).
-Use CypherGenerator or pure Cypher instead.
+Use pure Cypher instead — the build_* functions in
+adapters/persistence/neo4j/query/cypher/.
 
 APOC is only allowed in adapter layer (adapters/persistence/*) for complex traversals.
 Shares SKUEL021's gate — a CALL apoc... is Cypher, so the layers that may not author
@@ -130,9 +131,11 @@ apoc.coll.*, apoc.text.*, apoc.periodic.* and every future APOC addition are cov
 without maintenance. apoc.meta.* is NOT an exception — that allowance is the Neo4j
 server plugin allowlist (dbms_security_procedures_allowlist), exercised only by
 tests/integration/test_apoc_canary.py, which this rule skips as a test file.""",
-        "good": """# Use CypherGenerator
-query = CypherGenerator.build_prerequisite_chain(uid)
-result = await backend.execute_query(query)""",
+        "good": """# Use a pure-Cypher build_* function
+from adapters.persistence.neo4j.query import build_prerequisite_chain
+
+query, params = build_prerequisite_chain(uid, semantic_types)
+result = await backend.execute_query(query, params)""",
         "bad": """# Don't use APOC above the boundary
 query = "CALL apoc.path.subgraphAll(n, {...})"
 result = await backend.execute_query(query)""",
@@ -1880,7 +1883,8 @@ class SkuelLinter:
 
         APOC is a Neo4j server-side procedure namespace invoked via ``CALL apoc...``
         inside Cypher — it belongs to the adapter, not to anything above the boundary
-        (ADR-044); domain code uses pure Cypher / CypherGenerator. Shares SKUEL021's
+        (ADR-044); domain code uses pure Cypher (the ``query/cypher/`` ``build_*``
+        functions). Shares SKUEL021's
         gate: core/, any /services/ path, and the inbound/presentation layers
         (``adapters/inbound/``, ``ui/``). Like SKUEL021, this is AST-based: APOC only
         matters when it appears in a *used* string literal (the Cypher a service would
@@ -1977,7 +1981,10 @@ class SkuelLinter:
                     severity=Severity.CRITICAL,
                     rule_id="SKUEL001",
                     message=f"APOC procedure '{apoc_proc}' authored above the boundary",
-                    suggestion="Use CypherGenerator or pure Cypher instead",
+                    suggestion=(
+                        "Use pure Cypher instead — the build_* functions in "
+                        "adapters/persistence/neo4j/query/cypher/"
+                    ),
                     line_content=line.strip(),
                 )
             )

@@ -274,7 +274,7 @@ class _SemanticMixin:
     async def find_prerequisite_chain(
         self, uid: str, depth: int, min_confidence: float
     ) -> Result[list[Neo4jProperties]]:
-        """Find prerequisite chain using CypherGenerator helper."""
+        """Find prerequisite chain using a query/cypher/ build_* helper."""
         from adapters.persistence.neo4j.query import build_simple_prerequisite_chain
         from core.models.relationship_names import RelationshipName
 

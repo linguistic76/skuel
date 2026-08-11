@@ -137,7 +137,7 @@ class PsGraphService:
         # Convert to DTOs
         next_steps = []
         for record in results.value:
-            next_data = record.get("target")  # CypherGenerator returns "target"
+            next_data = record.get("target")  # the cypher/ builder returns "target"
             if next_data:
                 dto_result = await self.repo.get(next_data.get("uid"))
                 if dto_result.is_ok and dto_result.value:

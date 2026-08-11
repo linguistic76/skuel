@@ -1053,7 +1053,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
 
     async def find_next_steps(
         self, uid: str, limit: int
-    ) -> Result[list[dict[str, Any]]]:  # boundary: traversal via CypherGenerator
+    ) -> Result[list[dict[str, Any]]]:  # boundary: traversal via query/cypher/ builders
         """Find entities that have this one as a prerequisite."""
         ...
 

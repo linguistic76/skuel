@@ -6,7 +6,7 @@ Fix 34 test files with import errors caused by SKUEL's migration to:
 - 100% Dynamic Backend architecture (`UniversalNeo4jBackend`)
 - Protocol-based dependencies
 - Three-tier type system (Pydantic → DTO → Domain Models)
-- Consolidated query building (`CypherGenerator`)
+- Consolidated query building (the `query/cypher/` `build_*` functions)
 
 ---
 
@@ -32,7 +32,7 @@ Fix 34 test files with import errors caused by SKUEL's migration to:
 5. **test_askesis_enhanced_backend.py** - Tested domain-specific enhanced backend (replaced by universal backend)
 6. **test_knowledge_intelligence.py** - Tested KnowledgeEnhancedBackend (replaced by universal backend)
 7. **test_knowledge_intelligence_simple.py** - Simplified version of above
-8. **test_performance_benchmark.py** - Benchmarked old query patterns (replaced by CypherGenerator)
+8. **test_performance_benchmark.py** - Benchmarked old query patterns (replaced by the `cypher/` builders)
 9. **test_phase2_integration.py** - Integration test for deprecated Phase 2 architecture
 10. **test_enhanced_search.py** - Tested enhanced search backend (consolidated into universal backend)
 11. **test_enhanced_templates.py** - Tested template enhancements for deprecated backends
@@ -122,8 +122,8 @@ from core.utils.dynamic_query_builder import DynamicQueryBuilder
 from core.services.semantic_cypher_builder import SemanticCypherBuilder
 
 # ✅ NEW - Single source of truth
-from core.models.query import CypherGenerator
-query, params = CypherGenerator.build_search_query(Task, filters)
+from adapters.persistence.neo4j.query import build_search_query
+query, params = build_search_query(Task, filters)
 ```
 
 ### 3. Protocol-Based Dependencies
@@ -173,7 +173,7 @@ services = await compose_services(neo4j_adapter, event_bus)
 ### Working Test Examples
 
 Good test patterns that survived cleanup:
-- `test_cypher_generator.py` - Tests query building infrastructure
+- `test_cypher_builders.py` - Tests query building infrastructure
 - `test_bidirectional_relationships.py` - Tests relationship patterns
 - `test_choices_intelligence.py` - Tests domain intelligence
 - `test_askesis_phase2_intelligence.py` - Tests service intelligence layer

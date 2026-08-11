@@ -62,23 +62,33 @@ Controls how deep Neo4j graph queries traverse:
 
 **Usage:**
 ```python
+from adapters.persistence.neo4j.query import (
+    build_prerequisite_chain,
+    build_semantic_context,
+)
 from core.constants import GraphDepth
+from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+
+REQUIRES = SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING
 
 # Default semantic queries
-query, params = CypherGenerator.build_semantic_context(
+query, params = build_semantic_context(
     node_uid="ku.python_basics",
+    semantic_types=[REQUIRES],
     depth=GraphDepth.DEFAULT  # ✅ Self-documenting
 )
 
 # Prerequisite chains
-query, params = CypherGenerator.build_prerequisite_chain(
+query, params = build_prerequisite_chain(
     node_uid="ku.advanced_python",
+    semantic_types=[REQUIRES],
     depth=GraphDepth.PREREQUISITE_CHAIN  # ✅ Clear intent
 )
 
 # Direct relationships only (performance optimization)
-query, params = build_context(
-    uid=task_uid,
+query, params = build_semantic_context(
+    node_uid=task_uid,
+    semantic_types=[REQUIRES],
     depth=GraphDepth.DIRECT  # ✅ Explicit shallow query
 )
 ```
@@ -110,14 +120,16 @@ Semantic relationship confidence filtering (0.0 - 1.0):
 from core.constants import ConfidenceLevel
 
 # Filter semantic relationships by confidence
-query, params = CypherGenerator.build_semantic_context(
+query, params = build_semantic_context(
     node_uid="ku.python",
+    semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     min_confidence=ConfidenceLevel.STANDARD  # ✅ Standard filtering
 )
 
 # High-confidence prerequisites only
-query, params = CypherGenerator.build_prerequisite_chain(
+query, params = build_prerequisite_chain(
     node_uid="ku.advanced_ml",
+    semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     min_confidence=ConfidenceLevel.MIN_RELIABLE  # ✅ Only reliable
 )
 
@@ -425,8 +437,9 @@ uv run python scripts/migrate_to_constants.py --apply
 **Before:**
 ```python
 # Hardcoded magic numbers
-query, params = CypherGenerator.build_semantic_context(
+query, params = build_semantic_context(
     node_uid="ku.python",
+    semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     depth=3,  # What does 3 mean?
     min_confidence=0.8  # Why 0.8?
 )
@@ -442,8 +455,9 @@ results = await backend.find_by(
 from core.constants import GraphDepth, ConfidenceLevel, QueryLimit
 
 # Named constants with clear intent
-query, params = CypherGenerator.build_semantic_context(
+query, params = build_semantic_context(
     node_uid="ku.python",
+    semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     depth=GraphDepth.DEFAULT,  # Rich bi-directional context
     min_confidence=ConfidenceLevel.STANDARD  # Standard filtering
 )
@@ -522,9 +536,9 @@ def my_function():
 from core.constants import GraphDepth, ConfidenceLevel, QueryLimit
 
 # Build semantic context with standard values
-query, params = CypherGenerator.build_semantic_context(
+query, params = build_semantic_context(
     node_uid="ku.python_basics",
-    semantic_types=[SemanticRelationshipType.REQUIRES],
+    semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     depth=GraphDepth.DEFAULT,  # Rich context
     min_confidence=ConfidenceLevel.STANDARD  # Standard filtering
 )
@@ -540,8 +554,9 @@ top_results = results[:QueryLimit.MEDIUM]  # 20 results
 from core.constants import GraphDepth, ConfidenceLevel, MasteryLevel
 
 # Find prerequisite chains for learning path
-query, params = CypherGenerator.build_prerequisite_chain(
+query, params = build_prerequisite_chain(
     node_uid="ku.advanced_ml",
+    semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     depth=GraphDepth.PREREQUISITE_CHAIN,  # Deep traversal
     min_confidence=ConfidenceLevel.MIN_RELIABLE  # Only reliable prerequisites
 )

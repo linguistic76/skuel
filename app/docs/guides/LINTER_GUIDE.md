@@ -73,7 +73,7 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 
 | Rule | Pattern | Description |
 |------|---------|-------------|
-| **SKUEL001** | APOC in services | Use CypherGenerator, not APOC in domain services |
+| **SKUEL001** | APOC in services | Use pure Cypher (the `query/cypher/` `build_*` functions), not APOC in domain services |
 
 ### ERROR (blocks CI)
 

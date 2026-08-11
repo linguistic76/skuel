@@ -245,7 +245,7 @@ class TestApiClarity:
 
     def test_no_decision_matrix_needed(self):
         """Test that API is self-documenting."""
-        # Before: Need to decide between CypherGenerator, ApocQueryBuilder, QueryBuilder
+        # Before: Need to decide between the cypher/ builders, ApocQueryBuilder, QueryBuilder
         # After: API tells you what to do
 
         builder = UnifiedQueryBuilder()

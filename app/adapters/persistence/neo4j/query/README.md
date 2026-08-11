@@ -27,22 +27,37 @@ intent = QueryIntent.HIERARCHICAL  # or PREREQUISITE, PRACTICE, etc.
 strategy = IndexStrategy.UNIQUE_LOOKUP  # or FULLTEXT_SEARCH, VECTOR_SEARCH
 ```
 
-### CypherGenerator (Pure Cypher)
-```python
-from adapters.persistence.neo4j.query.cypher import CypherGenerator
+### `cypher/` build_* functions (Pure Cypher)
 
-# Build graph-aware search queries
-query, params = CypherGenerator.build_graph_aware_search_query(
-    label="Task",
+Module-level functions, not a class — there is no `CypherGenerator` type to import.
+
+Both take the domain model class first — the Cypher label is derived from it (pass
+`label=` only to override).
+
+```python
+from adapters.persistence.neo4j.query.cypher import (
+    build_graph_aware_search_query,
+    build_text_search_query,
+)
+from core.models.ku.ku import Ku
+from core.models.task.task import Task
+
+# Text search, scoped to chosen fields
+query, params = build_text_search_query(
+    Ku,
+    query="algebra",
     search_fields=["title", "description"],
-    search_text="python api testing"
+    limit=25,
 )
 
-# Build text search queries
-query, params = CypherGenerator.build_text_search_query(
-    label="Ku",
-    search_fields=["title", "content"],
-    query="algebra"
+# Graph-aware search: text search anchored to a related node
+query, params = build_graph_aware_search_query(
+    Task,
+    query="python api testing",
+    source_uid="goal.ship-v1",
+    relationship_type="FULFILLS_GOAL",
+    search_fields=["title", "description"],
+    direction="incoming",
 )
 ```
 
@@ -104,7 +119,7 @@ if not validation_result.is_valid:
 ## Files
 
 - `_query_models.py` - Query building models (imports enums from `core.models.query_types`)
-- `cypher/` - CypherGenerator and pure Cypher query builders
+- `cypher/` - pure Cypher query builder functions (`build_*`, module-level)
 - `cypher_template.py` - Query optimization strategies
 
 ## Query Architecture Layers
@@ -113,6 +128,6 @@ if not validation_result.is_valid:
 |-------|-----------|---------|
 | Application | UnifiedQueryBuilder | Fluent API, default for new code |
 | Service | QueryBuilder | Optimization, templates |
-| Infrastructure | CypherGenerator | Pure Cypher generation |
+| Infrastructure | `cypher/` build_* functions | Pure Cypher generation |
 
 See `/docs/patterns/query_architecture.md` for full documentation.

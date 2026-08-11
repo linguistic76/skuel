@@ -380,7 +380,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         See Also:
             - GraphContextNode for field type documentation
             - UnifiedRelationshipService for cross-domain context usage
-            - CypherGenerator.build_domain_context_with_paths()
+            - build_domain_context_with_paths() (query/cypher/)
         """
         from adapters.persistence.neo4j.query import build_domain_context_with_paths
 
@@ -417,7 +417,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         Execute a low-level Cypher query and return raw results.
 
         This method is used by batch query methods in relationship services
-        to execute CypherGenerator queries efficiently.
+        to execute query/cypher/ build_* queries efficiently.
 
         Args:
             query: Cypher query string

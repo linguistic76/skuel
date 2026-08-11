@@ -112,7 +112,7 @@ class NodePropertySpec(TypedDict, total=False):
     """
     Specification for node properties in CREATE/MERGE operations.
 
-    Used by CypherGenerator for type-safe property setting.
+    Used by the cypher/ build_* functions for type-safe property setting.
 
     Identity:
         uid: Entity UID (required for most operations)
