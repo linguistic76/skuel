@@ -127,6 +127,7 @@ and the hand-run migration archive.
 |-----|-----------|-------|--------|
 | One-shot data migrations | `apoc.periodic.iterate`, `apoc.create.*`, `apoc.util.sha256` | `scripts/migrations/*.cypher` (3 files) | **The only live use.** A deliberate archive — run once by hand, excluded from both Cypher linters |
 | Plugin canary | `apoc.meta.*`, `apoc.periodic.iterate`, `apoc.convert.fromJsonMap`, `apoc.version()` | `tests/integration/test_apoc_canary.py` | Test-only, under a permissive fixture — see Operational Hygiene §2 |
+| Allowlist lockdown | `apoc.meta.*` (allowed) vs 4 out-of-namespace calls (refused) | `tests/integration/test_apoc_allowlist_lockdown.py` | Test-only, under a compose-shaped fixture — see Operational Hygiene §2a |
 | Schema introspection | `apoc.meta.*` | — | Allowlisted at the server, **not called by any product code** |
 
 **Migrations are not a precedent for new code.** They are historical records of
@@ -140,6 +141,14 @@ already-executed schema changes; both Cypher linters exclude that directory by d
 > (`neo4j_adapter.py:128`, `services_bootstrap/_learning_services.py:95`) take the
 > `use_apoc: bool = False` default. Do not cite it as a version signal; the canary is
 > the only thing that actually probes the plugin.
+>
+> It is also **broken on its own terms**, independently of the allowlist: it issues
+> `CALL apoc.version() YIELD version`, but `apoc.version` is a *function*, not a
+> procedure. Measured against a fully permissive server (`apoc.*` unrestricted, no
+> allowlist), that query raises `Neo.ClientError.Procedure.ProcedureNotFound` — so
+> were the method ever reached with `use_apoc=True`, it would report APOC as
+> unavailable with APOC installed and wide open. Deleting the method is the One Path
+> Forward fix; repairing the syntax of unreachable code is not.
 
 ### Never APOC
 
@@ -295,15 +304,60 @@ uv run pytest tests/integration/test_apoc_canary.py -v
 
 Run it before and after any Neo4j image bump.
 
-> **⚠ It does not exercise the production security profile.**
+> **⚠ It does not exercise the production security profile — by design.**
 > `tests/integration/conftest.py` sets `NEO4J_dbms_security_procedures_unrestricted`
-> to `apoc.*` and **never sets the allowlist at all** — so the fixture is strictly more
-> permissive than compose, and two of the canaries (`apoc.periodic.iterate`,
-> `apoc.convert.fromJsonMap`) deliberately probe procedures production blocks. Two
-> consequences: a green suite is **not** evidence that the compose allowlist is intact,
-> and the suite would keep passing if that allowlist were misconfigured or dropped.
-> Treat it as "is the plugin alive?", never as "is the lockdown on?" — the allowlist is
-> enforced by configuration only, and nothing currently tests it.
+> to `apoc.*` and **never sets the allowlist at all**, so the fixture is strictly more
+> permissive than compose. **Three** of its calls sit outside `apoc.meta.*` and are
+> refused under the compose profile: `apoc.periodic.iterate`,
+> `apoc.convert.fromJsonMap`, and — easy to miss — `apoc.version()` itself, which is a
+> *function* and gated by the same allowlist. That last one is why the permissive
+> fixture must stay permissive: the version canary, the whole point of a plugin canary,
+> cannot run under the production profile at all.
+>
+> So a green canary run is **not** evidence that the compose allowlist is intact, and
+> it would keep passing if that allowlist were widened or dropped. Treat this module as
+> "is the plugin alive?", never as "is the lockdown on?"
+
+### 2a. Lockdown suite — the production profile, on its own container
+
+`tests/integration/test_apoc_allowlist_lockdown.py` answers the question the canary
+cannot. It starts a **second** testcontainer configured from the compose files and
+asserts both failure directions:
+
+* **too wide** — `apoc.periodic.iterate`, `apoc.convert.fromJsonMap`, `apoc.version()`
+  and `apoc.util.sha256` are each **refused**. A success-only test can never catch an
+  allowlist that stopped applying; this is the valuable half.
+* **too narrow** — `apoc.meta.graph/nodeTypeProperties/stats` still work.
+
+```bash
+uv run pytest tests/integration/test_apoc_allowlist_lockdown.py -v
+```
+
+Two properties keep it honest, and both were verified by mutating compose and
+re-running:
+
+1. **The container is configured *from* `infrastructure/docker-compose.yml`**, not from
+   a constant copied out of it. Widening the file to `apoc.*` fails the refusal tests;
+   deleting the knob fails fixture setup with a named message. A hard-coded
+   `apoc.meta.*` in the test would have kept passing over a wide-open config.
+2. **Every refusal is paired with a positive control** on the permissive container. An
+   allowlist refusal and a *typo* raise the identical
+   `Neo.ClientError.Procedure.ProcedureNotFound`, so a bare "it raised" assertion passes
+   vacuously against a misspelled probe — confirmed by injecting one.
+
+Measured on `neo4j:2026.06.0`: the allowlist gates user-defined **functions** as well as
+procedures, but they fail differently — blocked procedure →
+`Neo.ClientError.Procedure.ProcedureNotFound`; blocked function →
+`Neo.ClientError.Statement.SyntaxError` ("Unknown function"). Both are `ClientError`
+subclasses.
+
+> **⚠ The migration archive cannot run against this profile.**
+> `scripts/migrations/*.cypher` use `apoc.periodic.iterate`, `apoc.create.*` and
+> `apoc.util.sha256` — all outside `apoc.meta.*`, all measured as refused. The header of
+> `hash_session_tokens_2026_03.cypher` lists "APOC plugin installed" as its
+> prerequisite, which is necessary but **not sufficient**: these are hand-run against a
+> session configured more permissively than compose. Widen the allowlist deliberately
+> for the run, then put it back.
 
 ### 3. Procedure lockdown lives in compose, not `apoc.conf`
 
@@ -335,9 +389,10 @@ allowlisted namespace anyway.
 | CRUD / search | Pure Cypher | `query/cypher/crud_queries.py` | ✅ Shipped |
 | Writes / MERGE | Pure Cypher | `UniversalNeo4jBackend` | ✅ Shipped |
 | APOC in product runtime | Removed | — | ✅ None remaining |
-| Procedure allowlist | `apoc.meta.*` | `infrastructure/docker-compose.yml` | ⚠️ Config-only — **untested** |
+| Procedure allowlist | `apoc.meta.*` | `infrastructure/docker-compose.yml` | ✅ Enforced + tested (`test_apoc_allowlist_lockdown.py`) |
 | Boundary enforcement | SKUEL001 / SKUEL021 | `scripts/lint_skuel.py` | ✅ Enforced + tested |
-| Canary tests | Plugin liveness only | `tests/integration/test_apoc_canary.py` | ✅ Shipped (permissive fixture) |
+| Canary tests | Plugin liveness only | `tests/integration/test_apoc_canary.py` | ✅ Shipped (permissive fixture — deliberately) |
+| Lockdown tests | Production profile, both directions | `tests/integration/test_apoc_allowlist_lockdown.py` | ✅ Shipped (own container, built from compose) |
 | Batch writes via APOC | Rejected | — | ❌ Not adopted |
 
 **See also:** [query_architecture.md](./query_architecture.md) for the three query

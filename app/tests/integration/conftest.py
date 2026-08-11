@@ -36,7 +36,19 @@ def neo4j_container():
     Start Neo4j container for integration tests.
 
     Note: Requires Docker to be running.
-    Uses Neo4j 5.26 to match production environment.
+    Image pinned to the calendar release in infrastructure/docker-compose.yml
+    (ADR-067 § 3a — bump both together).
+
+    ⚠ The APOC profile here is DELIBERATELY more permissive than compose, which
+    sets both `..._unrestricted` and `..._allowlist` to `apoc.meta.*`. Do not
+    "fix" it to match production: this fixture's job is plugin liveness ("did
+    the image bump break APOC?"), which needs `apoc.version()` — itself outside
+    `apoc.meta.*` — plus the wider namespaces the canary probes.
+
+    The production profile is exercised separately, against its own container,
+    by tests/integration/test_apoc_allowlist_lockdown.py, which also uses THIS
+    fixture as the positive control for its refusal assertions. Both profiles
+    are load-bearing; neither replaces the other.
     """
     container = Neo4jContainer("neo4j:2026.06.0")
     # Disable auth completely for testing
