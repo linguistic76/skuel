@@ -23,7 +23,8 @@ related: []
 > `git log -1 --format=%ad`) and both had drifted badly once hand-transcribed (only 5 of the 150
 > transcribed line-counts, 3%, still matched the file), so they were removed rather than re-synced.
 >
-> **The description cell is filled in progressively — 116 of 303 rows have one today.** An empty
+> **The description cell is filled in progressively — 96 of 283 data rows have one today**
+> (283 excludes the 20 table-header rows; 187 cells are still empty). An empty
 > cell means *not yet written*, never "nothing worth saying"; the row still earns its place by
 > being listed. Descriptions carried over from the old table, which shoehorned them into its
 > `Lines` column; the rest are being written as docs get touched. Write the description when you
