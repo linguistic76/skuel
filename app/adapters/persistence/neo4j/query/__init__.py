@@ -172,7 +172,8 @@ from .cypher import (
     search,
 )
 
-# ApocQueryBuilder REMOVED - Pure Cypher migration (October 20, 2025)
+# No APOC in the query layer. There was never an ApocQueryBuilder class to remove —
+# it was a 2025 design-notes proposal that shipped as pure Cypher instead.
 # Use Pure Cypher UNWIND patterns for batch operations
 # Use build_graph_context_query() for graph traversal
 from .cypher_template import (
