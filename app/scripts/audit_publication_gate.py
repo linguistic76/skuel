@@ -113,6 +113,7 @@ import ast
 import json
 import sys
 from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
 
 # Sibling-module import, mirroring cypher_linter/cypher_vocabulary: scripts/ has
@@ -232,34 +233,61 @@ def _called_helper(node: ast.Call) -> str | None:
     return name if name in GATE_HELPERS else None
 
 
-def _mapping_gate_state(value: ast.expr) -> tuple[bool, bool]:
-    """``(gate_off, undecidable)`` carried by a ``**mapping`` expansion.
+class _GateValue(Enum):
+    """What a ``**mapping`` ends up giving ``GATE_KWARG``.
 
-    A dict DISPLAY with constant string keys is still readable, so
+    Four outcomes, not two: "provably never sets it" and "sets it to True" have
+    to be distinguishable, or a later entry cannot be seen to OVERRIDE an
+    earlier one.
+    """
+
+    UNSET = auto()
+    """The mapping provably never binds the key, so it changes nothing."""
+
+    ON = auto()
+    OFF = auto()
+    UNREADABLE = auto()
+    """It might bind the key, to a value this scanner cannot resolve."""
+
+
+def _mapping_gate_value(value: ast.expr) -> _GateValue:
+    """The value a ``**mapping`` expansion gives ``GATE_KWARG``.
+
+    A dict DISPLAY with constant string keys is readable, so
     ``**{"apply_publication_gate": False}`` is caught rather than waved through.
-    Any other mapping — a name, a call, a comprehension, or a key that is not a
-    string literal — is UNDECIDABLE, because it could carry the kwarg and
-    skipping it fails OPEN. That is the one direction this audit must never fail
-    (Codex P2, #1013): an earlier revision matched on ``kw.arg`` alone, and
-    ``kw.arg`` is ``None`` for every ``**`` expansion, so a GATED surface could
-    have disabled publication filtering in valid Python with the audit green.
+    Any other mapping — a name, a call, a comprehension, or a non-literal key —
+    is UNREADABLE, because it could carry the kwarg and skipping it fails OPEN.
+    That is the one direction this audit must never fail (Codex P2, #1013): an
+    earlier revision matched on ``kw.arg`` alone, and ``kw.arg`` is ``None`` for
+    every ``**`` expansion, so a GATED surface could have disabled publication
+    filtering in valid Python with the audit green.
+
+    **Resolved across the whole display, IN ORDER**, because a dict display is
+    last-write-wins. An earlier revision returned on the first match, so
+    ``**{"apply_publication_gate": True, **options}`` read as ON while
+    ``options`` could override it to False — the same fail-open one layer down
+    (Codex P2, round 2). Duplicate literal keys behave the same way.
     """
     if not isinstance(value, ast.Dict):
-        return (False, True)
+        return _GateValue.UNREADABLE
+    resolved = _GateValue.UNSET
     for key, item in zip(value.keys, value.values, strict=True):
         if key is None:  # a nested ** inside the display
-            nested_off, nested_unknown = _mapping_gate_state(item)
-            if nested_off or nested_unknown:
-                return (nested_off, nested_unknown)
+            nested = _mapping_gate_value(item)
+            if nested is not _GateValue.UNSET:
+                resolved = nested
             continue
         if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
-            return (False, True)
+            # A computed key may BE the kwarg, and it would come last.
+            resolved = _GateValue.UNREADABLE
+            continue
         if key.value != GATE_KWARG:
             continue
         if isinstance(item, ast.Constant) and isinstance(item.value, bool):
-            return (item.value is False, False)
-        return (False, True)
-    return (False, False)
+            resolved = _GateValue.OFF if item.value is False else _GateValue.ON
+        else:
+            resolved = _GateValue.UNREADABLE
+    return resolved
 
 
 def _gate_state(node: ast.Call) -> tuple[bool, bool]:
@@ -267,9 +295,14 @@ def _gate_state(node: ast.Call) -> tuple[bool, bool]:
 
     Absent kwarg means the default, which is ON — that is the whole point of it
     defaulting True. A literal ``False`` is off. Anything else is undecidable
-    and says so rather than guessing. Both flags OR across the call's keywords,
-    so a readable ``**{}`` beside an unreadable ``**options`` still reports
-    undecidable.
+    and says so rather than guessing.
+
+    Deliberately CONSERVATIVE across a call's keywords rather than
+    last-write-wins: any source that could set the gate off makes it off, and any
+    unreadable source makes the whole call undecidable. Unlike a dict display, a
+    call cannot legally receive the key twice — CPython raises TypeError for a
+    duplicate keyword argument — so there is nothing to order, and OR-ing cannot
+    fail open.
     """
     off = False
     unknown = False
@@ -281,9 +314,9 @@ def _gate_state(node: ast.Call) -> tuple[bool, bool]:
             else:
                 unknown = True
         elif kw.arg is None:
-            mapping_off, mapping_unknown = _mapping_gate_state(kw.value)
-            off = off or mapping_off
-            unknown = unknown or mapping_unknown
+            mapping = _mapping_gate_value(kw.value)
+            off = off or mapping is _GateValue.OFF
+            unknown = unknown or mapping is _GateValue.UNREADABLE
     return (off, unknown)
 
 

@@ -269,6 +269,61 @@ def test_a_kwarg_expansion_cannot_smuggle_the_gate_off(tmp_path: Path) -> None:
     assert computed_key["B.read"].gate_undecidable is True
 
 
+def test_a_later_mapping_entry_overrides_an_earlier_one(tmp_path: Path) -> None:
+    """A dict display is LAST-WRITE-WINS, so the whole display must be read.
+
+    An earlier revision returned on the first match, so
+    ``**{"apply_publication_gate": True, **options}`` read as gated-and-decidable
+    while ``options`` could override it to False — the same fail-open as the
+    ``kw.arg is None`` skip, one layer down (Codex P2, round 2).
+    """
+    overridden = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self, options):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': True, **options}\n"
+        "        )\n",
+    )
+    assert overridden["B.read"].gate_undecidable is True, (
+        "an opaque expansion AFTER a literal True can still override it to False"
+    )
+
+    # Duplicate literal keys: last wins, so this really is OFF.
+    duplicated = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': True, 'apply_publication_gate': False}\n"
+        "        )\n",
+    )
+    assert duplicated["B.read"].gate_off is True
+
+    # ...and in the other order the final value is True, so nothing is reported.
+    reordered = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{'apply_publication_gate': False, 'apply_publication_gate': True}\n"
+        "        )\n",
+    )
+    assert reordered["B.read"].gate_off is False
+    assert reordered["B.read"].gate_undecidable is False
+
+    # A nested expansion that provably sets it False is readable through a level.
+    nested = _scan(
+        tmp_path,
+        "class B:\n"
+        "    def read(self):\n"
+        "        return build_knowledge_read_clause(\n"
+        "            'ku', **{**{'apply_publication_gate': False}}\n"
+        "        )\n",
+    )
+    assert nested["B.read"].gate_off is True
+
+
 def test_one_disabled_call_marks_the_whole_scope(tmp_path: Path) -> None:
     """A surface may compose more than one helper — the KU->path surfaces gate
     two aliases. The flags OR across the scope, so a second, gated call cannot
