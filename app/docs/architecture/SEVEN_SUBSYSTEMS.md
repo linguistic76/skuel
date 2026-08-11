@@ -21,13 +21,13 @@ related:
 
 ## Purpose
 
-SKUEL's 20 EntityTypes roll up into **7 subsystems** — coarse functional groupings that answer *where does this belong in the system?* The subsystems further split into three sections (**Object**, **Context**, **Meta**) that answer *what role does this group play?*
+SKUEL's EntityTypes roll up into **7 subsystems** — coarse functional groupings that answer *where does this belong in the system?* The subsystems further split into three sections (**Object**, **Context**, **Meta**) that answer *what role does this group play?*
 
 This doc is Model A at the rollup level. It has two companions:
 
 | Doc | Level | Question it answers |
 |-----|-------|---------------------|
-| [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md) | Model A — 20 EntityTypes (fine) | *What is this thing?* |
+| [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md) | Model A — EntityTypes (fine) | *What is this thing?* |
 | **This doc** | **Model A — 7 Subsystems (coarse)** | ***Where does this belong?*** |
 | [THREE_LAYER_LENS.md](THREE_LAYER_LENS.md) | Model B — 3 Layers (cross-cutting) | *What role is this playing in the cycle?* |
 
@@ -117,7 +117,7 @@ Neither question is answered here. The matrix above assumes **teacher-led + both
 ## See Also
 
 - [ADR-055](../decisions/ADR-055-architectural-lenses.md) — the decision that formalizes Model A + Model B and adopts the "Subsystems" vocabulary
-- [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md) — the 20 EntityTypes behind these 7 subsystems
+- [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md) — the EntityTypes behind these 7 subsystems
 - [THREE_LAYER_LENS.md](THREE_LAYER_LENS.md) — Model B, the cross-cutting view
 - [LEARNING_LOOP_ARCHITECTURE.md](LEARNING_LOOP_ARCHITECTURE.md) — subsystem 4 in depth
 - [ADR-047](../decisions/ADR-047-entity-types-replace-domain-categories.md) — why behavioral traits, not category membership

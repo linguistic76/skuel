@@ -20,7 +20,7 @@ This document explains *why* SKUEL values type safety and *when* to apply it. Fo
 
 ## Types as Ontology
 
-SKUEL is built on a developing ontology — 20 entity types, behavioral traits, relationship patterns, and cross-cutting systems that together describe a learner's world. The type system is how that ontology becomes executable:
+SKUEL is built on a developing ontology — entity types, behavioral traits, relationship patterns, and cross-cutting systems that together describe a learner's world. The type system is how that ontology becomes executable:
 
 | Ontological Concept | Type Expression |
 |---------------------|-----------------|
@@ -137,7 +137,7 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | Milestone | Status |
 |-----------|--------|
 | 0 MyPy errors baseline | Achieved March 2026 (down from 2,247) |
-| Three-tier type system | Enforced across all 20 entity types |
+| Three-tier type system | Enforced across all entity types |
 | Protocol-based DI | 65+ protocols, 100% protocol-mixin alignment |
 | Typed protocol returns | ~170 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed to concrete types |
 | Query type coverage | 159 TypedDicts (21 input, 138 output) |
@@ -163,4 +163,4 @@ This foundation is valued and allowed to evolve. As the ontology grows — new e
 ### Related Philosophy (the *why*)
 - [Knowledge Substance Philosophy](knowledge_substance_philosophy.md) — ontological hierarchy and applied knowledge
 - [Activity DSL Specification](../dsl/DSL_SPECIFICATION.md) — the raw-to-typed lifecycle in action
-- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md) — the 20 entity types and behavioral traits
+- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md) — the entity types and behavioral traits

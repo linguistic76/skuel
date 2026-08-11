@@ -23,7 +23,7 @@ The [Sibling Signal pattern](SIBLING_SIGNAL_PATTERN.md) is this pattern's peer-t
 
 ## The Cross-Cutting Systems
 
-SKUEL's CLAUDE.md names **5 cross-cutting systems** — infrastructure orthogonal to the 7 subsystems and the 20 Entity Types:
+SKUEL's CLAUDE.md names **5 cross-cutting systems** — infrastructure orthogonal to the 7 subsystems and the Entity Types:
 
 | System | Purpose |
 |--------|---------|
