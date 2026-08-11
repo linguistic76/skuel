@@ -34,24 +34,33 @@ Module-level functions, not a class — there is no `CypherGenerator` type to im
 Both take the domain model class first — the Cypher label is derived from it (pass
 `label=` only to override).
 
+> ⚠ **`visibility` and `user_uid` are the ownership gate, and they default to `None`.**
+> Omit them and the builder emits **no** `target.user_uid` predicate — for an `OWNER_ONLY`
+> domain that is an IDOR. Pass the domain's `SearchVisibility` (from its `DomainConfig`)
+> and the requesting user's UID on every user-facing search. `OWNER_ONLY` = Activities +
+> UserEntry; `PUBLIC` = Ku/PS/LP; `SCOPE_AWARE` = Exercise.
+
 ```python
 from adapters.persistence.neo4j.query.cypher import (
     build_graph_aware_search_query,
     build_text_search_query,
 )
+from core.models.enums.metadata_enums import SearchVisibility
 from core.models.ku.ku import Ku
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 
-# Text search, scoped to chosen fields
+# Text search over a PUBLIC domain — no owner predicate by design
 query, params = build_text_search_query(
     Ku,
     query="algebra",
     search_fields=["title", "description"],
+    visibility=SearchVisibility.PUBLIC,
     limit=25,
 )
 
-# Graph-aware search: text search anchored to a related node
+# Graph-aware search: text search anchored to a related node.
+# Task is an Activity domain → OWNER_ONLY, so scope it or it leaks.
 query, params = build_graph_aware_search_query(
     Task,
     query="python api testing",
@@ -59,7 +68,10 @@ query, params = build_graph_aware_search_query(
     relationship_type=RelationshipName.FULFILLS_GOAL.value,
     search_fields=["title", "description"],
     direction="incoming",
+    visibility=SearchVisibility.OWNER_ONLY,
+    user_uid=requesting_user_uid,
 )
+# → WHERE (target.user_uid = $user_uid) AND (toLower(target.title) CONTAINS ...)
 ```
 
 ### UnifiedQueryBuilder (Application Layer)
