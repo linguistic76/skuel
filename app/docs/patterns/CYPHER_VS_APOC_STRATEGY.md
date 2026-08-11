@@ -210,18 +210,29 @@ RETURN r
 The driver pin is **intentional and decoupled** from the server version (Bolt is
 forward-compatible). Neither is a routine Renovate bump. See ADR-067 §3/§3a.
 
-### 2. Canary suite — already in place
+### 2. Canary suite — a plugin canary, **not** a lockdown test
 
 `tests/integration/test_apoc_canary.py` runs against a Neo4j testcontainer and asserts
-the plugin still answers: `apoc.version()` agreeing with the server line,
-`apoc.meta.graph()`, `apoc.meta.nodeTypeProperties()`, plus companion classes covering
-semantic relationship types and variable-length patterns.
+the plugin still answers after an image bump: `apoc.version()` agreeing with the server
+line, `apoc.meta.graph()`, `apoc.meta.nodeTypeProperties()`, `apoc.periodic.iterate()`,
+and `apoc.convert.fromJsonMap()`, plus companion classes covering semantic relationship
+types and variable-length patterns.
 
 ```bash
 uv run pytest tests/integration/test_apoc_canary.py -v
 ```
 
 Run it before and after any Neo4j image bump.
+
+> **⚠ It does not exercise the production security profile.**
+> `tests/integration/conftest.py` sets `NEO4J_dbms_security_procedures_unrestricted`
+> to `apoc.*` and **never sets the allowlist at all** — so the fixture is strictly more
+> permissive than compose, and two of the canaries (`apoc.periodic.iterate`,
+> `apoc.convert.fromJsonMap`) deliberately probe procedures production blocks. Two
+> consequences: a green suite is **not** evidence that the compose allowlist is intact,
+> and the suite would keep passing if that allowlist were misconfigured or dropped.
+> Treat it as "is the plugin alive?", never as "is the lockdown on?" — the allowlist is
+> enforced by configuration only, and nothing currently tests it.
 
 ### 3. Procedure lockdown lives in compose, not `apoc.conf`
 
@@ -253,9 +264,9 @@ allowlisted namespace anyway.
 | CRUD / search | Pure Cypher | `query/cypher/crud_queries.py` | ✅ Shipped |
 | Writes / MERGE | Pure Cypher | `UniversalNeo4jBackend` | ✅ Shipped |
 | APOC in product runtime | Removed | — | ✅ None remaining |
-| Procedure allowlist | `apoc.meta.*` | `infrastructure/docker-compose.yml` | ✅ Enforced |
-| Boundary enforcement | SKUEL001 / SKUEL021 | `scripts/lint_skuel.py` | ✅ Enforced |
-| Canary tests | Testcontainer suite | `tests/integration/test_apoc_canary.py` | ✅ Shipped |
+| Procedure allowlist | `apoc.meta.*` | `infrastructure/docker-compose.yml` | ⚠️ Config-only — **untested** |
+| Boundary enforcement | SKUEL001 / SKUEL021 | `scripts/lint_skuel.py` | ✅ Enforced + tested |
+| Canary tests | Plugin liveness only | `tests/integration/test_apoc_canary.py` | ✅ Shipped (permissive fixture) |
 | Batch writes via APOC | Rejected | — | ❌ Not adopted |
 
 **See also:** [query_architecture.md](./query_architecture.md) for the three query

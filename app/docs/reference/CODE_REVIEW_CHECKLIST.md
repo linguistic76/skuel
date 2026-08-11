@@ -36,15 +36,21 @@ These checks are **non-negotiable**. Failure means immediate rejection.
   - ✅ `scripts/migrations/*.cypher` — a deliberate archive of already-run migrations,
     excluded from both Cypher linters; **not a precedent for new code**
 
-- [ ] **Graph queries come from the `query/cypher/` package**
-  - The package is **54 module-level `build_*` functions, not a class** — there is no
-    `SemanticCypherBuilder`, `ApocQueryBuilder`, or `CypherGenerator` type to construct
-  - ✅ `build_prerequisite_chain()` — transitive prerequisites (`semantic_queries.py`)
-  - ✅ `build_cross_domain_bridges()` — concepts bridging two domains
-  - ✅ `build_hierarchical_context()` — parents + children in one query
-  - ✅ `build_semantic_filter_query()` — nodes by semantic type + confidence
-  - ✅ `build_semantic_context()` — neighbourhood context around a node
-  - Each returns `tuple[str, dict[str, Neo4jValue]]` — query **and** parameters
+- [ ] **Cypher sits at the right layer** (SKUEL021 gates *where*, this check gates *which*)
+  - **Domain-specific Cypher belongs on the domain backend** — the eight modules under
+    `adapters/persistence/neo4j/backends/` author Cypher directly, and that is correct.
+    Do not push a one-domain query into the shared package to satisfy a checklist.
+  - **Reusable / cross-domain query building belongs in `query/cypher/`** — check its
+    54 `build_*` functions before writing a new one, and extend that package rather
+    than duplicating a builder in a backend
+  - Cross-domain *aggregation* stays in services; services call
+    `self.backend.method_name()` and never inline `execute_query()`
+  - The package is **module-level functions, not a class** — there is no
+    `SemanticCypherBuilder`, `ApocQueryBuilder`, or `CypherGenerator` type to construct.
+    Reusable examples: `build_prerequisite_chain()`, `build_semantic_context()`,
+    `build_cross_domain_bridges()`, `build_hierarchical_context()`,
+    `build_semantic_filter_query()` — each returns
+    `tuple[str, dict[str, Neo4jValue]]`, the query **and** its parameters
 
 - [ ] **Pure Cypher benefits from query planner**
   - Query uses parameterized syntax (`$parameter`)
