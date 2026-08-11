@@ -35,17 +35,19 @@ Run the app: `./dev up-neo4j` (Terminal 1), then `./dev serve` (Terminal 2). See
 
 ## 2. The 25 Entity Types
 
-Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a Neo4j node. The `entity_type` field says which kind it is. There are 25 types in five groups:
+Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a Neo4j node. The `entity_type` field says which kind it is. There are 25 types in six groups:
 
 **Activities** (user-owned, daily life): Task, Goal, Habit, Event, Choice, Principle
 
 **Activity Templates** (PS-owned, spawn Activity instances on engagement): TaskTemplate, GoalTemplate, HabitTemplate, EventTemplate, ChoiceTemplate, PrincipleTemplate
 
-**Curriculum** (admin-created, shared): Ku, PathStep, LearningPath, Exercise, Resource
+**Curriculum** (admin-created, shared): Ku, PathStep, LearningPath, Exercise
+
+**Forms**: FormTemplate, FormSubmission
 
 **Submissions & Reports** (the learning loop): UserEntry, EntryReport, ActivityReport, RevisedExercise, Interaction
 
-**Other**: FormTemplate, FormSubmission, LifePath
+**Other**: Resource, LifePath
 
 Groups is *not* an EntityType — it lives in `NonKuDomain` (ADR-053), alongside Finance, Calendar, and Learning.
 
