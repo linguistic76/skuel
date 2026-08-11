@@ -1,10 +1,15 @@
 """
-Tests for the query/cypher/ build_* functions - Consolidation
-=============================================================
+Tests for the query/cypher/ build_* functions
+=============================================
 
-Validates that the cypher/ builders correctly consolidate functionality from:
-- DynamicQueryBuilder (model introspection)
-- SemanticCypherBuilder (semantic relationship queries)
+Covers both halves of the package's surface:
+- model introspection (CRUD, search, count, list)
+- semantic relationship queries (context, prerequisites, traversal)
+
+These are module-level functions, not methods on a class. `DynamicQueryBuilder` and
+`SemanticCypherBuilder` — named here as the prior art until 2026-08-11 — were never
+built; they were design-notes proposals that shipped as plain functions instead.
+See docs/patterns/query_architecture.md § Naming.
 """
 
 from dataclasses import dataclass

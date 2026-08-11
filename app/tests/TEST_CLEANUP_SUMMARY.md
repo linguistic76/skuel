@@ -115,13 +115,13 @@ from core.models.ku.ku import Ku
 backend = UniversalNeo4jBackend[Ku](driver, "Ku", Ku)
 ```
 
-### 2. Query Builder Consolidation
+### 2. Query Builders Are Functions, Not Classes
 ```python
-# ❌ OLD - Multiple builders
-from core.utils.dynamic_query_builder import DynamicQueryBuilder
-from core.services.semantic_cypher_builder import SemanticCypherBuilder
+# ❌ NEVER EXISTED - proposed in design notes, never built
+# from core.utils.dynamic_query_builder import DynamicQueryBuilder
+# from core.services.semantic_cypher_builder import SemanticCypherBuilder
 
-# ✅ NEW - Single source of truth
+# ✅ WHAT SHIPPED - module-level functions, no object to construct
 from adapters.persistence.neo4j.query import build_search_query
 query, params = build_search_query(Task, filters)
 ```

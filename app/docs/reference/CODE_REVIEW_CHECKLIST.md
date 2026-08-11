@@ -1,6 +1,6 @@
 ---
 title: Code Review Checklist - Phase 7.3
-updated: 2025-11-27
+updated: 2026-08-11
 status: current
 category: reference
 tags: [checklist, code, reference, review]
@@ -29,19 +29,22 @@ These checks are **non-negotiable**. Failure means immediate rejection.
 
 ### ✅ Phase 5 Compliance (Pure Cypher Architecture)
 
-- [ ] **No APOC path procedures in domain services**
-  - ❌ `apoc.path.subgraphNodes()`
-  - ❌ `apoc.path.subgraphAll()`
-  - ❌ `apoc.path.expandConfig()`
-  - ❌ `apoc.path.spanningTree()`
-  - ✅ OK in adapters via `ApocQueryBuilder` (infrastructure only)
+- [ ] **No APOC anywhere above the persistence boundary**
+  - ❌ any `apoc.*` call in `core/`, `adapters/inbound/`, or `ui/` — SKUEL001 is
+    whole-namespace and **unsuppressable**; `apoc.meta.*` is not an exception there
+  - ✅ `apoc.meta.*` inside `adapters/persistence/neo4j/` — the one allowlisted namespace
+  - ✅ `scripts/migrations/*.cypher` — a deliberate archive of already-run migrations,
+    excluded from both Cypher linters; **not a precedent for new code**
 
-- [ ] **Uses `SemanticCypherBuilder` for all graph queries**
-  - ✅ `build_prerequisite_chain()`
-  - ✅ `build_cross_domain_bridges()`
-  - ✅ `build_hierarchical_context()`
-  - ✅ `build_semantic_filter_query()`
-  - ✅ `build_related_concepts_query()`
+- [ ] **Graph queries come from the `query/cypher/` package**
+  - The package is **54 module-level `build_*` functions, not a class** — there is no
+    `SemanticCypherBuilder`, `ApocQueryBuilder`, or `CypherGenerator` type to construct
+  - ✅ `build_prerequisite_chain()` — transitive prerequisites (`semantic_queries.py`)
+  - ✅ `build_cross_domain_bridges()` — concepts bridging two domains
+  - ✅ `build_hierarchical_context()` — parents + children in one query
+  - ✅ `build_semantic_filter_query()` — nodes by semantic type + confidence
+  - ✅ `build_semantic_context()` — neighbourhood context around a node
+  - Each returns `tuple[str, dict[str, Neo4jValue]]` — query **and** parameters
 
 - [ ] **Pure Cypher benefits from query planner**
   - Query uses parameterized syntax (`$parameter`)
@@ -51,14 +54,23 @@ These checks are **non-negotiable**. Failure means immediate rejection.
 
 **Verification:**
 ```bash
-# Search for APOC path violations
-grep -r "apoc.path" core/services/ --include="*.py"
-# Should return ZERO results
-
-# Verify SemanticCypherBuilder usage
-grep -r "SemanticCypherBuilder" core/services/ --include="*.py"
-# Should show usage in new code
+# APOC above the boundary — must exit 0 with no violations
+uv run python scripts/lint_skuel.py --rule SKUEL001
 ```
+```bash
+# Raw Cypher above the boundary — must exit 0 with no violations
+uv run python scripts/lint_skuel.py --rule SKUEL021
+```
+```bash
+# The builder classes are fiction — must return ZERO results
+grep -rn "^class \(SemanticCypherBuilder\|ApocQueryBuilder\|CypherGenerator\)" --include="*.py" .
+```
+
+> **Use the linter, not a bare grep.** SKUEL001/SKUEL021 are *docstring-aware*: a plain
+> `grep -r "MATCH (" core/` returns ~18 hits that are all prose, comments, and example
+> strings — none of them violations. A reviewer who treats that grep as the gate will
+> chase eighteen non-defects and learn to ignore the check. The rule engine is the only
+> control that distinguishes authored Cypher from Cypher *described* in a docstring.
 
 ---
 
@@ -111,7 +123,7 @@ grep -r '":' core/services/ --include="*.py" | grep -E "(APPLIES|REQUIRES|HAS_)"
 # Review each match - should be in Cypher strings with metadata, not bare
 
 # Verify SemanticRelationshipType imports
-grep -r "from core.models.semantic_relationships import" core/services/
+grep -r "from core.infrastructure.relationships.semantic_relationships import" core/services/
 ```
 
 ---
@@ -147,10 +159,13 @@ grep -A 5 "find_.*_by_semantic_knowledge" core/services/your_new_service.py
 ### ✅ Phase 7.2 Compliance (Query Decision Matrix)
 
 - [ ] **Query method matches decision matrix**
-  - Semantic traversal → `SemanticCypherBuilder`
+  - Semantic traversal → `build_semantic_context()` / `build_semantic_traversal()`
   - Prerequisites → `build_prerequisite_chain()`
   - Simple CRUD → `UniversalNeo4jBackend[T]`
-  - Batch ops (1000+) → `ApocQueryBuilder` (adapter only)
+  - Fluent composition → `UnifiedQueryBuilder`
+  - Batch writes → `UNWIND $rows AS row` in a persistence-layer query.
+    **Not APOC** — `apoc.periodic.iterate` is blocked by SKUEL001 and by the server
+    allowlist alike
 
 - [ ] **Includes confidence thresholds for semantic queries**
   - Default `min_confidence=0.8` for discovery
@@ -158,18 +173,20 @@ grep -A 5 "find_.*_by_semantic_knowledge" core/services/your_new_service.py
   - Configurable via parameter
 
 - [ ] **Uses established patterns when available**
-  - Check `composable_patterns.py` first
-  - Check `SemanticCypherBuilder` methods
-  - Only create custom query if no pattern exists
+  - Check the existing `build_*` functions in `query/cypher/` first
+  - Only add a new `build_*` function if no existing one fits
 
 **Verification:**
 ```bash
-# Consult decision matrix
-cat docs/QUERY_DECISION_MATRIX.md
+# Consult the decision matrix
+cat docs/patterns/query_architecture.md
+cat docs/patterns/CYPHER_VS_APOC_STRATEGY.md
 
-# Check for custom queries that should use patterns
-grep -r "MATCH.*KnowledgeUnit" core/services/ --include="*.py"
-# Review each - should be using SemanticCypherBuilder
+# List the existing builders before writing a new one
+grep -rn "^def build_" adapters/persistence/neo4j/query/cypher/
+
+# Any Cypher in core/ is a SKUEL021 violation regardless of how it's built
+grep -rn "MATCH (" core/ --include="*.py"
 ```
 
 ---
@@ -376,7 +393,8 @@ async def get_project_with_semantic_context(
     """
     Get project with full semantic knowledge context.
 
-    PHASE 7 PATTERN 1: Uses SemanticCypherBuilder for pure Cypher.
+    PHASE 7 PATTERN 1: Delegates to the backend's pure-Cypher builders.
+    Backend: _SemanticMixin.query_semantic_neighborhood (build_semantic_context)
 
     Args:
         project_uid: Project UID
@@ -498,8 +516,8 @@ Copy this template into PR review comments:
 ## Phase 7.3 Code Review Checklist
 
 ### Critical Checks
-- [ ] No APOC path procedures in domain services
-- [ ] Uses SemanticCypherBuilder for graph queries
+- [ ] No APOC above the persistence boundary (SKUEL001)
+- [ ] Graph queries use `query/cypher/` build_* functions
 - [ ] Semantic types (enum) instead of magic strings
 - [ ] Rich metadata (confidence, source, notes)
 - [ ] Provenance tracking via source field
@@ -569,11 +587,15 @@ uv run ruff check core/services/your_service.py
 
 ## 📚 References
 
-- **Phase 5**: `/docs/PHASE_5_COMPOSABLE_MIGRATION.md` - Pure Cypher migration
-- **Phase 7.1**: `/docs/PHASE_7_SEMANTIC_DEVELOPMENT_PATTERNS.md` - Service template
-- **Phase 7.2**: `/docs/QUERY_DECISION_MATRIX.md` - Query guidance
-- **Semantic Types**: `/core/models/semantic_relationships.py`
-- **Quick Reference**: `/docs/QUERY_QUICK_REFERENCE.md`
+- **Query layers + `build_*` inventory**: `/docs/patterns/query_architecture.md`
+- **Pure Cypher vs APOC**: `/docs/patterns/CYPHER_VS_APOC_STRATEGY.md`
+- **Linter rules (SKUEL001 / SKUEL021 / SKUEL030)**: `/docs/patterns/linter_rules.md`
+- **Semantic Types**: `/core/infrastructure/relationships/semantic_relationships.py`
+- **Registered graph vocabulary**: `/docs/reference/GRAPH_CONTRACT.yaml`
+
+> The five `PHASE_*` / `QUERY_DECISION_MATRIX` / `QUERY_QUICK_REFERENCE` documents this
+> section used to list were all dead paths — none exists in the tree. The links above
+> were each verified against the working tree on 2026-08-11.
 
 ---
 
@@ -582,7 +604,7 @@ uv run ruff check core/services/your_service.py
 **Before merging ANY code, verify:**
 
 1. **No APOC in domain services** (Phase 5 compliance)
-2. **SemanticCypherBuilder used** (Query decision matrix)
+2. **`query/cypher/` build_* functions used** (Query decision matrix)
 3. **Semantic type enums** (Type safety)
 4. **Rich metadata** (Provenance tracking)
 5. **Result[T] pattern** (Error handling)

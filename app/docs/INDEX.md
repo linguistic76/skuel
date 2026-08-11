@@ -166,7 +166,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Performance Monitoring System](patterns/PERFORMANCE_MONITORING.md) | 2025-11-27 | 1033 |
 | [Protocol Architecture](patterns/protocol_architecture.md) | 2026-01-29 | 234 |
 | [Protocol LSP Compliance Pattern](patterns/PROTOCOL_LSP_COMPLIANCE.md) | 2025-11-08 | 246 |
-| [Pure Cypher vs APOC: Strategic Decision Guide](patterns/CYPHER_VS_APOC_STRATEGY.md) | 2025-11-27 | 631 |
+| [Pure Cypher vs APOC: Strategic Decision Guide](patterns/CYPHER_VS_APOC_STRATEGY.md) | 2026-08-11 | 263 |
 | [Intent-Based Graph Traversal](patterns/INTENT_BASED_TRAVERSAL.md) | 2025-12-03 | 350 |
 | [Query Architecture](patterns/query_architecture.md) | 2025-12-07 | 520 |
 | [Curriculum Query Patterns](patterns/curriculum/curriculum_query_patterns.md) | 2025-11-27 | 707 |
@@ -324,7 +324,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Lines |
 |----------|---------|-------|
-| [Askesis Search Architecture - Clean & Independent](guides/ASKESIS_SEARCH_ARCHITECTURE.md) | 2025-11-27 | 243 |
+| [Askesis Search Architecture - Clean & Independent](guides/ASKESIS_SEARCH_ARCHITECTURE.md) | 2026-01-12 | 319 |
 | **[GitHub Fundamentals - Local to Remote Workflow](guides/GITHUB_FUNDAMENTALS.md)** | **2026-01-29** | **980** |
 | **[PR-Based Development Workflow](development/PR_WORKFLOW.md)** | **2026-05-22** | **102** |
 | [Intelligence Route Factory - Usage Guide](guides/INTELLIGENCE_ROUTE_FACTORY_USAGE.md) | 2025-11-27 | 555 |
@@ -357,7 +357,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Lines |
 |----------|---------|-------|
-| [Code Review Checklist - Phase 7.3](reference/CODE_REVIEW_CHECKLIST.md) | 2025-11-27 | 602 |
+| [Code Review Checklist - Phase 7.3](reference/CODE_REVIEW_CHECKLIST.md) | 2026-08-11 | 626 |
 | [Placeholder Parameter Index](reference/PLACEHOLDER_INDEX.md) | 2026-07-28 | — |
 | [Protocol Definition Template](reference/templates/protocol_definition.md) | 2025-11-27 | 229 |
 | [Protocol Reference Guide](reference/PROTOCOL_REFERENCE.md) | 2026-01-29 | 617 |

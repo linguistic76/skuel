@@ -150,7 +150,9 @@ detected_intent: Intent | None = None  # LEARN, PRACTICE, etc.
 
 3. **Query Infrastructure** (/adapters/persistence/neo4j/query/, /core/models/query_types.py)
    - QueryIntent
-   - ApocQueryBuilder
+   - `UnifiedQueryBuilder` (fluent facade)
+   - the `query/cypher/` `build_*` functions (there is no `ApocQueryBuilder` class —
+     it was never built; see /docs/patterns/CYPHER_VS_APOC_STRATEGY.md § Naming)
 
 4. **Knowledge Models** (/core/models/ku/)
    - Per-domain DTOs (CurriculumDTO, TaskDTO, etc.)
