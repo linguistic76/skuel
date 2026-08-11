@@ -36,7 +36,6 @@ from core.infrastructure.database.schema import (
 # Import protocol interface
 from core.ports.infrastructure_protocols import SchemaQueryExecutor
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -53,7 +52,6 @@ class Neo4jSchemaService:
         self,
         neo4j_adapter: SchemaQueryExecutor,
         cache_ttl_minutes: int = 30,
-        use_apoc: bool = False,
     ) -> None:
         """
         Initialize schema service with Neo4j adapter.
@@ -61,19 +59,16 @@ class Neo4jSchemaService:
         Args:
             neo4j_adapter: Raw query executor (SchemaQueryExecutor protocol)
             cache_ttl_minutes: How long to cache schema before refresh
-            use_apoc: Whether to use APOC for optimized schema introspection (default: False for portability)
         """
         if not neo4j_adapter:
             raise ValueError("Schema operations adapter is required")
         self.neo4j_adapter = neo4j_adapter
         self.cache_ttl = timedelta(minutes=cache_ttl_minutes)
-        self.use_apoc = use_apoc
         self.logger = get_logger("skuel.schema.service")
 
         # Cache management
         self._cached_schema: SchemaContext | None = None
         self._last_introspection: datetime | None = None
-        self._apoc_available: bool | None = None  # Cache APOC availability check
 
     @with_error_handling("get_schema_context", error_type="database")
     async def get_schema_context(self, force_refresh: bool = False) -> Result[SchemaContext]:
@@ -375,37 +370,6 @@ class Neo4jSchemaService:
 
         return Result.ok(info)
 
-    async def _check_apoc_available(self) -> bool:
-        """
-        Check if APOC procedures are available in the database.
-
-        Returns:
-            bool - True if APOC is available, False otherwise
-        """
-        if self._apoc_available is not None:
-            return self._apoc_available
-
-        if not self.use_apoc:
-            self._apoc_available = False
-            return False
-
-        try:
-            # Check if APOC is installed by calling a simple APOC function
-            query = "CALL apoc.version() YIELD version RETURN version"
-            result = await self.neo4j_adapter.execute_query(query)
-            self._apoc_available = bool(result)
-            if self._apoc_available:
-                self.logger.info(
-                    f"APOC available: {result[0]['version'] if result else 'unknown version'}"
-                )
-            return self._apoc_available
-        except NEO4J_EXCEPTIONS as e:
-            self._apoc_available = False
-            self.logger.debug(
-                f"APOC not available ({e.__class__.__name__}), using standard queries"
-            )
-            return False
-
     @with_error_handling("get_schema_stats", error_type="database")
     async def get_schema_stats(self) -> Result[dict[str, Any]]:
         """
@@ -508,7 +472,6 @@ class Neo4jSchemaService:
         """Force cache invalidation on next schema access"""
         self._cached_schema = None
         self._last_introspection = None
-        self._apoc_available = None  # Reset APOC availability check
         self.logger.info("Schema cache invalidated")
         return Result.ok(None)
 
