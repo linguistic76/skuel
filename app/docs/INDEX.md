@@ -20,8 +20,14 @@ related: []
 >
 > **Row format:** two cells — a markdown link to the doc, then a one-line description. There is
 > deliberately no line-count or last-updated column: both are derivable (`wc -l <path>`,
-> `git log -1 --format=%ad -- <path>`) and both had drifted badly once hand-transcribed (only 5 of the 150
-> transcribed line-counts, 3%, still matched the file), so they were removed rather than re-synced.
+> `git log -1 --format=%ad -- <path>`) and both had drifted badly once hand-transcribed (only 5
+> of the 150 transcribed line-counts, 3%, still matched the file), so they were removed rather
+> than re-synced.
+>
+> **One table is deliberately three cells:** the Roadmap section's **Completed
+> (`docs/roadmap/done/`)** table keeps a `Completed` date between the link and the description.
+> That date is the point of that table rather than derivable metadata, so it stays; all 16 of its
+> rows carry a description as well.
 >
 > **The description cell is filled in progressively — 96 of 283 data rows have one today**
 > (283 excludes the 20 table-header rows; 187 cells are still empty). An empty
