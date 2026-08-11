@@ -689,7 +689,7 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 - `docs/patterns/` — Implementation patterns
 - `docs/architecture/` — System architecture
 - `docs/roadmap/` — **live plans only** (open, deferred, staged — anything still waiting on a trigger); `docs/roadmap/done/` — completed/executed roadmap docs. Move a doc to `done/` when nothing in it remains open, updating every inbound reference (several live in code comments, which the cross-reference validator does not check — `git grep` the basename). The live folder answers "what might still happen."
-- `docs/INDEX.md` — Complete documentation index
+- `docs/INDEX.md` — Curated documentation index (hand-maintained, not a full listing — an absent entry does NOT mean an absent doc)
 
 **CLAUDE.md Purpose:** Quick-reference with pointers to detailed docs. Sections should be 10-20 lines max with `**See:**` pointers. Prose and examples belong in the linked docs, not here.
 

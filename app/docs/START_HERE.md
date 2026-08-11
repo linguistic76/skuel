@@ -108,4 +108,4 @@ Once you've read the links above, explore based on what you're working on:
 - **Adding a service?** → [BaseService Quick Start](guides/BASESERVICE_QUICK_START.md)
 - **Working with Neo4j?** → [Query Architecture](patterns/query_architecture.md)
 - **Understanding a design decision?** → [ADR index](decisions/) (52 Architecture Decision Records)
-- **Full documentation index** → [INDEX.md](INDEX.md)
+- **Curated documentation index** → [INDEX.md](INDEX.md) (hand-maintained, not a full listing)

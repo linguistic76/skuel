@@ -20,8 +20,15 @@ related: []
 >
 > **Row format:** two cells — a markdown link to the doc, then a one-line description. There is
 > deliberately no line-count or last-updated column: both are derivable (`wc -l`,
-> `git log -1 --format=%ad`) and both had drifted to ~3% accuracy once hand-transcribed, so
-> they were removed rather than re-synced.
+> `git log -1 --format=%ad`) and both had drifted badly once hand-transcribed (only 5 of the 150
+> transcribed line-counts, 3%, still matched the file), so they were removed rather than re-synced.
+>
+> **The description cell is filled in progressively — 116 of 303 rows have one today.** An empty
+> cell means *not yet written*, never "nothing worth saying"; the row still earns its place by
+> being listed. Descriptions carried over from the old table, which shoehorned them into its
+> `Lines` column; the rest are being written as docs get touched. Write the description when you
+> add or edit a row — do not bulk-generate them, since a derived one-liner is exactly the kind of
+> approximate prose this index was rewritten to stop carrying.
 
 > **New here? Read [START_HERE.md](START_HERE.md) first.** It covers what SKUEL is, the 20 entity types, how a request flows, and the key patterns — in 5 minutes.
 
