@@ -9,6 +9,12 @@ related: [ADR-023, ADR-024]
 
 # ADR-025: Service Consolidation Patterns
 
+> **Naming correction (August 2026):** this ADR originally called the shared Cypher
+> builders "CypherGenerator". No such class was ever built — the builders shipped as
+> module-level `build_*` functions in `adapters/persistence/neo4j/query/cypher/`. The
+> decision is unchanged; only the label was wrong. See
+> `/docs/patterns/query_architecture.md` § Naming.
+
 > **Partial Supersede (February 2026):** The `FacadeDelegationMixin` pattern described in this ADR (Pattern 3) has been replaced by explicit `async def` delegation methods on the facade service class. `facade_delegation_mixin.py` and `facade_protocols.py` are deleted. The remaining patterns (DomainConfig, BaseService Mixins, Relationship Registry, Post-Query Processors, Domain-Specific Factories) remain in effect. See `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md` for the current Pattern 3.
 
 **Status:** Accepted (All Phases Complete — Pattern 3 superseded February 2026)
@@ -56,7 +62,7 @@ Implement consolidation in three phases:
    - File: `/core/models/relationship_registry.py`
    - Contains: `GRAPH_ENRICHMENT_REGISTRY`, `PREREQUISITE_REGISTRY`, `ENABLES_REGISTRY`
 
-3. **CypherGenerator adoption** - Replace raw Cypher in KuGraphService with `build_relationship_traversal_query()`
+3. **Shared Cypher-builder adoption** - Replace raw Cypher in KuGraphService with `build_relationship_traversal_query()`
 
 ### Phase 2: Configuration Consolidation (COMPLETED)
 
@@ -191,7 +197,7 @@ Implement consolidation in three phases:
 **Phase 1 Files:**
 - `/core/services/base_service.py` - entity_label auto-inference
 - `/core/models/relationship_registry.py` - NEW - centralized registry
-- `/core/services/ku/ku_graph_service.py` - CypherGenerator adoption
+- `/core/services/ku/ku_graph_service.py` - shared Cypher-builder adoption
 - `/core/services/tasks/tasks_search_service.py` - registry usage
 - `/core/services/goals/goals_search_service.py` - registry usage
 
@@ -203,7 +209,7 @@ Implement consolidation in three phases:
 
 **Tests:**
 - All 1163 unit tests pass
-- `/tests/unit/test_ku_graph_service.py` - updated for CypherGenerator change
+- `/tests/unit/test_ku_graph_service.py` - updated for the Cypher-builder change
 
 ### Testing Strategy
 - [x] Unit tests: All existing tests pass (1163)

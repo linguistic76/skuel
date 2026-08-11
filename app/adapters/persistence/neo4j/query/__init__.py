@@ -14,7 +14,7 @@ Architecture — Intentional Layering, Not Fragmentation
 The query system is a **single facade with specialized backends**, not competing approaches::
 
     UnifiedQueryBuilder  ← THE single entry point (fluent API)
-    ├── ModelQueryBuilder      → CypherGenerator functions (CRUD/search)
+    ├── ModelQueryBuilder      → cypher/ build_* functions (CRUD/search)
     ├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
     └── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
 

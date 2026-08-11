@@ -367,7 +367,7 @@ class TestSKUEL001:
 
     def test_clean_code_no_violation(self) -> None:
         linter = make_linter(["SKUEL001"])
-        violations = lint_content(linter, "query = CypherGenerator.build_chain(uid)")
+        violations = lint_content(linter, "query, params = build_prerequisite_chain(uid, types)")
         assert len(violations) == 0
 
     def test_detects_apoc_meta(self) -> None:
@@ -495,7 +495,8 @@ class TestSKUEL001:
         must not trip the rule (scanning string literals, not physical lines)."""
         linter = make_linter(["SKUEL001"])
         violations = lint_content(
-            linter, "query = CypherGenerator.build_chain(uid)  # never apoc.meta.data() here"
+            linter,
+            "query, params = build_prerequisite_chain(uid)  # never apoc.meta.data() here",
         )
         assert len(violations) == 0
 

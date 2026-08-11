@@ -30,7 +30,7 @@ SKUEL's query infrastructure is a **single facade with specialized backends**, n
 
 ```
 UnifiedQueryBuilder  ← THE single entry point (fluent API)
-├── ModelQueryBuilder      → CypherGenerator functions (CRUD/search)
+├── ModelQueryBuilder      → cypher/ build_* functions (CRUD/search)
 ├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
 └── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
 ```
@@ -148,7 +148,7 @@ UnifiedQueryBuilder is THE single entry point. It routes internally to three spe
 
 | Backend | Accessed Via | Purpose | When to Use |
 |---------|-------------|---------|-------------|
-| **ModelQueryBuilder** | `.for_model()` | CypherGenerator functions (CRUD/search) | Dynamic queries from dataclass introspection |
+| **ModelQueryBuilder** | `.for_model()` | `query/cypher/` build_* functions (CRUD/search) | Dynamic queries from dataclass introspection |
 | **SemanticQueryBuilder** | `.semantic()` | semantic_queries.py (graph traversal) | Prerequisite chains, semantic context |
 | **TemplateQueryBuilder** | `.template()` | QueryBuilder service (optimization) | Registered templates, performance-critical queries |
 
@@ -158,18 +158,28 @@ UnifiedQueryBuilder is THE single entry point. It routes internally to three spe
 
 **Use for:** Model introspection queries, semantic relationship traversal, pure Cypher generation.
 
+These are **module-level functions**, not methods on a class — import and call them
+directly. (There is no `CypherGenerator` class; see [Naming](#no-cyphergenerator-class) below.)
+
 ```python
-from adapters.persistence.neo4j.query import CypherGenerator
+from adapters.persistence.neo4j.query import (
+    build_count_query,
+    build_list_query,
+    build_prerequisite_chain,
+    build_search_query,
+    build_semantic_context,
+    build_semantic_traversal,
+)
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 
 # Dynamic query generation (auto-introspects model fields)
-query, params = CypherGenerator.build_search_query(
+query, params = build_search_query(
     Task,
     {'priority': 'high', 'status': 'in_progress'}
 )
 
 # List with pagination
-query, params = CypherGenerator.build_list_query(
+query, params = build_list_query(
     Task,
     limit=50,
     order_by='due_date',
@@ -177,13 +187,13 @@ query, params = CypherGenerator.build_list_query(
 )
 
 # Count with filters
-query, params = CypherGenerator.build_count_query(
+query, params = build_count_query(
     Task,
     filters={'priority__in': ['high', 'urgent']}
 )
 
 # Semantic context traversal
-query, params = CypherGenerator.build_semantic_context(
+query, params = build_semantic_context(
     node_uid="task.123",
     semantic_types=[
         SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
@@ -194,14 +204,14 @@ query, params = CypherGenerator.build_semantic_context(
 )
 
 # Prerequisite chain discovery
-query, params = CypherGenerator.build_prerequisite_chain(
+query, params = build_prerequisite_chain(
     node_uid="ku.advanced_python",
     semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     depth=5
 )
 
 # Shortest path with semantic types
-query, params = CypherGenerator.build_semantic_traversal(
+query, params = build_semantic_traversal(
     start_uid="ku.python_basics",
     end_uid="ku.async_programming",
     semantic_types=[SemanticRelationshipType.PROVIDES_FOUNDATION_FOR],
@@ -224,7 +234,7 @@ query, params = count(Task, priority='high')
 
 **Location:** `/adapters/persistence/neo4j/query/cypher/crud_queries.py`
 
-Five new infrastructure functions were added to support BaseService operations:
+Three infrastructure functions were added to support BaseService operations:
 
 | Function | Purpose | Used By |
 |----------|---------|---------|
@@ -244,12 +254,12 @@ from adapters.persistence.neo4j.query.cypher import (
 # Get distinct categories for a user
 query, params = build_distinct_values_query("Task", "category", user_uid="user:123")
 
-# Get parent/child hierarchy
-query, params = build_hierarchy_query("Lp", "lp:python-basics")
+# Get parent/child hierarchy — the label must be a NeoLabel value ("Lp" is not one)
+query, params = build_hierarchy_query("LearningPath", "lp.python-basics")
 
 # Get prerequisites (outgoing) or enables (incoming)
 query, params = build_prerequisite_traversal_query(
-    "Ku", "ku:advanced-python", ["REQUIRES_KNOWLEDGE"],
+    "Ku", "ku.advanced-python", ["REQUIRES_KNOWLEDGE"],
     depth=3, direction="outgoing"  # or "incoming" for enables
 )
 ```
@@ -279,13 +289,13 @@ QueryBuilder was decomposed from a 1,614-line monolith (November 10, 2025) into 
 
 | Sub-Service | Lines | Purpose |
 |-------------|-------|---------|
-| **QueryOptimizer** | 689 | Index-aware optimization using Neo4j index stats |
-| **QueryTemplateRegistry** | 335 | Template registration and retrieval |
-| **QueryValidator** | 275 | Query validation, NL-to-Cypher conversion |
-| **FacetedQueryBuilder** | 315 | Faceted search query construction |
-| **GraphContextBuilder** | 68 | Graph traversal query generation |
+| **QueryOptimizer** | 748 | Index-aware optimization using Neo4j index stats |
+| **QueryTemplateRegistry** | 433 | Template registration and retrieval |
+| **QueryValidator** | 346 | Query validation, NL-to-Cypher conversion |
+| **FacetedQueryBuilder** | 380 | Faceted search query construction |
+| **GraphContextBuilder** | 55 | Graph traversal query generation |
 
-**Location:** `/core/services/query/` (sub-services)
+**Location:** `/adapters/persistence/neo4j/query_builders/` (sub-services, alongside the facade)
 
 **When to Use QueryBuilder Directly:**
 
@@ -332,12 +342,20 @@ SKUEL uses a three-layer query architecture with distinct responsibilities:
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ INFRASTRUCTURE LAYER: CypherGenerator                       │
-│ - Pure Cypher query utilities                               │
+│ INFRASTRUCTURE LAYER: query/cypher/ build_* functions       │
+│ - Pure Cypher query utilities (module-level functions)      │
 │ - Model introspection, semantic traversal                   │
 │ - Shared by all layers                                      │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+<a id="no-cyphergenerator-class"></a>
+> **Naming — there is no `CypherGenerator` class.** The infrastructure layer is a
+> *package of module-level functions* (`query/cypher/`, 54 `build_*` functions), not a
+> type. `CypherGenerator` was a proposed class in a 2025 design note that was never
+> built; the functions it proposed shipped as plain functions instead. The name is not
+> importable — `from ...query.cypher import CypherGenerator` raises `ImportError`.
+> Older docs and comments used it as an informal collective label for these functions.
 
 ### Layer 1: Application Layer → UnifiedQueryBuilder
 
@@ -406,28 +424,30 @@ validation = await qb.validate_query(query_string)
 
 **The 5 Sub-Services:**
 
-1. **QueryOptimizer** (`/core/services/query/query_optimizer.py`, 689 lines)
+All five live in `/adapters/persistence/neo4j/query_builders/`, alongside the facade.
+
+1. **QueryOptimizer** (`query_optimizer.py`, 748 lines)
    - Index-aware query optimization using Neo4j index statistics
    - Automatic index selection for performance
    - Query plan analysis and explanation
 
-2. **QueryTemplateRegistry** (`/core/services/query/query_template_registry.py`, 335 lines)
+2. **QueryTemplateRegistry** (`query_template_registry.py`, 433 lines)
    - Template registration and retrieval
    - Template library management
    - Parameterized query templates
 
-3. **QueryValidator** (`/core/services/query/query_validator.py`, 275 lines)
+3. **QueryValidator** (`query_validator.py`, 346 lines)
    - Query validation against schema
    - Natural language to Cypher conversion
    - Constraint checking
 
-4. **FacetedQueryBuilder** (`/core/services/query/faceted_query_builder.py`, 315 lines)
+4. **FacetedQueryBuilder** (`faceted_query_builder.py`, 380 lines)
    - Faceted search query construction
    - Filter aggregation and counting
    - Multi-facet combination logic
    - Generic facet field names validated via `validate_field_name()` (March 2026)
 
-5. **GraphContextBuilder** (`/core/services/query/graph_context_builder.py`, 68 lines)
+5. **GraphContextBuilder** (`graph_context_builder.py`, 55 lines)
    - Graph traversal query generation
    - Relationship-aware context queries
    - Depth-limited graph exploration
@@ -436,28 +456,32 @@ validation = await qb.validate_query(query_string)
 
 **Location:** `/adapters/persistence/neo4j/query/cypher/`
 
-**Purpose:** Pure Cypher query utilities (no orchestration, no state)
+**Purpose:** Pure Cypher query utilities — module-level functions, no orchestration, no state
 
 **Used by:** All layers (Application, Service, and direct usage)
 
 ```python
-from adapters.persistence.neo4j.query import CypherGenerator
+from adapters.persistence.neo4j.query import (
+    build_prerequisite_chain,
+    build_search_query,
+    build_semantic_context,
+)
 
 # Model introspection queries
-query, params = CypherGenerator.build_search_query(
+query, params = build_search_query(
     Task,
     {'priority': 'high', 'status': 'in_progress'}
 )
 
 # Semantic graph traversal
-query, params = CypherGenerator.build_semantic_context(
+query, params = build_semantic_context(
     node_uid="ku.python_basics",
-    semantic_types=[SemanticRelationshipType.REQUIRES_FOUNDATION],
+    semantic_types=[SemanticRelationshipType.PROVIDES_FOUNDATION_FOR],
     depth=3
 )
 
 # Prerequisite chains
-query, params = CypherGenerator.build_prerequisite_chain(
+query, params = build_prerequisite_chain(
     node_uid="ku.advanced_python",
     semantic_types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING],
     depth=5
@@ -498,8 +522,8 @@ result = await UnifiedQueryBuilder(driver).template("search").params(
 | List tasks by priority | Application | UnifiedQueryBuilder | `builder.for_model(Task).filter(priority='high')` |
 | Count completed tasks | Application | UnifiedQueryBuilder | `builder.for_model(Task).count(status='completed')` |
 | Template-based search | Application | UnifiedQueryBuilder | `builder.template("search").params(...)` |
-| Get semantic prerequisites | Infrastructure | CypherGenerator | `CypherGenerator.build_prerequisite_chain(uid, types)` |
-| Cross-domain bridges | Infrastructure | CypherGenerator | `CypherGenerator.build_cross_domain_bridges()` |
+| Get semantic prerequisites | Infrastructure | `query/cypher/` function | `build_prerequisite_chain(uid, types)` |
+| Cross-domain bridges | Infrastructure | `query/cypher/` function | `build_cross_domain_bridges(domain_a, domain_b, types)` |
 | Template internals | Service | QueryBuilder | `qb.get_template_library()` (legacy) |
 | Index optimization | Service | QueryBuilder | `qb.build_optimized_query()` (legacy) |
 
@@ -582,39 +606,11 @@ await lp_service.update(uid, RawChanges(updates))
 
 See [Three-Tier Type System](/docs/patterns/three_tier_type_system.md#the-typed-write-boundary--update-intents--payloads-adr-066) and [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) for complete documentation.
 
-## Migration from Deprecated Builders
-
-**DynamicQueryBuilder (DEPRECATED):**
-```python
-# ❌ OLD - DynamicQueryBuilder (deprecated)
-from core.utils.dynamic_query_builder import DynamicQueryBuilder
-query, params = DynamicQueryBuilder.build_search_query(Task, filters)
-
-# ✅ NEW - CypherGenerator
-from adapters.persistence.neo4j.query import CypherGenerator
-query, params = CypherGenerator.build_search_query(Task, filters)
-```
-
-**SemanticCypherBuilder (DEPRECATED):**
-```python
-# ❌ OLD - SemanticCypherBuilder (deprecated)
-from core.services.semantic_cypher_builder import SemanticCypherBuilder
-query, params = SemanticCypherBuilder.build_knowledge_context(uid, types)
-
-# ✅ NEW - CypherGenerator (note method name change)
-from adapters.persistence.neo4j.query import CypherGenerator
-query, params = CypherGenerator.build_semantic_context(uid, types)
-```
-
-**Method Name Changes:**
-- `build_knowledge_context` → `build_semantic_context` (more generic, clearer intent)
-- All other methods remain unchanged
-
 ## Benefits of Consolidation
 
 1. **Single Source of Truth** - One authoritative implementation per query type
 2. **Clear Responsibilities** - Each builder has distinct, non-overlapping purpose
-3. **Two-Layer Architecture** - Backend uses UnifiedQueryBuilder, services use CypherGenerator
+3. **Two-Layer Architecture** - Backends use `UnifiedQueryBuilder` and the `query/cypher/` functions; services call named backend methods. A service cannot use these builders — `core/` may not import `adapters/` (SKUEL022) and may not author Cypher (SKUEL021).
 4. **Type Safety** - Full type hints, static typing throughout
 5. **Performance** - Pure Cypher benefits from query planner caching
 6. **Maintainability** - 25% code reduction (2,427 → ~1,800 lines)

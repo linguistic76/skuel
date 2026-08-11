@@ -502,7 +502,7 @@ class WhereClauseSpec(TypedDict, total=False):
     """
     Specification for building WHERE clause conditions.
 
-    Used by CypherGenerator and query builders to construct type-safe
+    Used by the cypher/ build_* functions and query builders to construct type-safe
     WHERE clauses.
 
     Fields:

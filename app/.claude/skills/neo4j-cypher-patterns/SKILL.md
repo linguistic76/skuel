@@ -148,9 +148,9 @@ SKUEL has two query builders for domain services (SKUEL001: no APOC in domain se
 | Builder | Location | Use Case |
 |---------|----------|----------|
 | **UnifiedQueryBuilder** | `adapters/persistence/neo4j/query/` | Generic CRUD (used by backends) |
-| **CypherGenerator** | `adapters/persistence/neo4j/query/cypher/` | Pure Cypher, semantic traversal |
+| **`build_*` functions** (module-level, no class) | `adapters/persistence/neo4j/query/cypher/` | Pure Cypher, semantic traversal |
 
-**SKUEL001 linter rule:** APOC is scoped to `apoc.meta.*` (schema introspection only). Domain services use pure Cypher — never APOC in `core/services/`.
+**SKUEL001 linter rule:** APOC is scoped to `apoc.meta.*` (schema introspection only). Domain services author neither APOC nor Cypher — they call a named backend method, and the backend composes pure Cypher from the `build_*` functions above.
 
 ### Three-Layer Architecture
 

@@ -119,7 +119,10 @@ RULE_DOCS: dict[str, dict[str, str]] = {
         "severity": "CRITICAL",
         "description": """APOC is banned everywhere above the ADR-044 boundary:
 core/, any /services/ path, and the inbound/presentation layers (adapters/inbound/, ui/).
-Use CypherGenerator or pure Cypher instead.
+The fix is not "swap APOC for hand-written Cypher" — code above the boundary may not
+author Cypher at all (SKUEL021), nor import adapters (SKUEL022). Move the query onto the
+domain backend and call a named backend method from the service. The backend composes its
+Cypher from the pure-Cypher build_* functions in adapters/persistence/neo4j/query/cypher/.
 
 APOC is only allowed in adapter layer (adapters/persistence/*) for complex traversals.
 Shares SKUEL021's gate — a CALL apoc... is Cypher, so the layers that may not author
@@ -130,9 +133,15 @@ apoc.coll.*, apoc.text.*, apoc.periodic.* and every future APOC addition are cov
 without maintenance. apoc.meta.* is NOT an exception — that allowance is the Neo4j
 server plugin allowlist (dbms_security_procedures_allowlist), exercised only by
 tests/integration/test_apoc_canary.py, which this rule skips as a test file.""",
-        "good": """# Use CypherGenerator
-query = CypherGenerator.build_prerequisite_chain(uid)
-result = await backend.execute_query(query)""",
+        "good": """# In a service: call the named method — no Cypher, no APOC, no execute_query().
+# RelationshipOperationsMixin.get_prerequisites delegates to
+# self.backend.prerequisite_traversal(), which composes pure Cypher below the
+# boundary from the build_* functions in adapters/persistence/neo4j/query/cypher/.
+prereqs = await self.get_prerequisites(uid, depth=3)
+
+# No mixin method for your query yet? Add one to the DOMAIN BACKEND and call that —
+# never inline Cypher in the service:
+#     rows = await self.backend.prerequisite_traversal(uid, rel_types, depth=3)""",
         "bad": """# Don't use APOC above the boundary
 query = "CALL apoc.path.subgraphAll(n, {...})"
 result = await backend.execute_query(query)""",
@@ -1880,7 +1889,8 @@ class SkuelLinter:
 
         APOC is a Neo4j server-side procedure namespace invoked via ``CALL apoc...``
         inside Cypher — it belongs to the adapter, not to anything above the boundary
-        (ADR-044); domain code uses pure Cypher / CypherGenerator. Shares SKUEL021's
+        (ADR-044); domain code uses pure Cypher (the ``query/cypher/`` ``build_*``
+        functions). Shares SKUEL021's
         gate: core/, any /services/ path, and the inbound/presentation layers
         (``adapters/inbound/``, ``ui/``). Like SKUEL021, this is AST-based: APOC only
         matters when it appears in a *used* string literal (the Cypher a service would
@@ -1977,7 +1987,11 @@ class SkuelLinter:
                     severity=Severity.CRITICAL,
                     rule_id="SKUEL001",
                     message=f"APOC procedure '{apoc_proc}' authored above the boundary",
-                    suggestion="Use CypherGenerator or pure Cypher instead",
+                    suggestion=(
+                        "Move this query onto the domain backend and call a named "
+                        "backend method — code above the boundary may not author "
+                        "Cypher or APOC"
+                    ),
                     line_content=line.strip(),
                 )
             )

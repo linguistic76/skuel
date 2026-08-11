@@ -27,23 +27,51 @@ intent = QueryIntent.HIERARCHICAL  # or PREREQUISITE, PRACTICE, etc.
 strategy = IndexStrategy.UNIQUE_LOOKUP  # or FULLTEXT_SEARCH, VECTOR_SEARCH
 ```
 
-### CypherGenerator (Pure Cypher)
+### `cypher/` build_* functions (Pure Cypher)
+
+Module-level functions, not a class — there is no `CypherGenerator` type to import.
+
+Both take the domain model class first — the Cypher label is derived from it (pass
+`label=` only to override).
+
+> ⚠ **`visibility` and `user_uid` are the ownership gate, and they default to `None`.**
+> Omit them and the builder emits **no** `target.user_uid` predicate — for an `OWNER_ONLY`
+> domain that is an IDOR. Pass the domain's `SearchVisibility` (from its `DomainConfig`)
+> and the requesting user's UID on every user-facing search. `OWNER_ONLY` = Activities +
+> UserEntry; `PUBLIC` = Ku/PS/LP; `SCOPE_AWARE` = Exercise.
+
 ```python
-from adapters.persistence.neo4j.query.cypher import CypherGenerator
+from adapters.persistence.neo4j.query.cypher import (
+    build_graph_aware_search_query,
+    build_text_search_query,
+)
+from core.models.enums.metadata_enums import SearchVisibility
+from core.models.ku.ku import Ku
+from core.models.relationship_names import RelationshipName
+from core.models.task.task import Task
 
-# Build graph-aware search queries
-query, params = CypherGenerator.build_graph_aware_search_query(
-    label="Task",
+# Text search over a PUBLIC domain — no owner predicate by design
+query, params = build_text_search_query(
+    Ku,
+    query="algebra",
     search_fields=["title", "description"],
-    search_text="python api testing"
+    visibility=SearchVisibility.PUBLIC,
+    limit=25,
 )
 
-# Build text search queries
-query, params = CypherGenerator.build_text_search_query(
-    label="Ku",
-    search_fields=["title", "content"],
-    query="algebra"
+# Graph-aware search: text search anchored to a related node.
+# Task is an Activity domain → OWNER_ONLY, so scope it or it leaks.
+query, params = build_graph_aware_search_query(
+    Task,
+    query="python api testing",
+    source_uid="goal.ship-v1",
+    relationship_type=RelationshipName.FULFILLS_GOAL.value,
+    search_fields=["title", "description"],
+    direction="incoming",
+    visibility=SearchVisibility.OWNER_ONLY,
+    user_uid=requesting_user_uid,
 )
+# → WHERE (target.user_uid = $user_uid) AND (toLower(target.title) CONTAINS ...)
 ```
 
 ### UnifiedQueryBuilder (Application Layer)
@@ -104,7 +132,7 @@ if not validation_result.is_valid:
 ## Files
 
 - `_query_models.py` - Query building models (imports enums from `core.models.query_types`)
-- `cypher/` - CypherGenerator and pure Cypher query builders
+- `cypher/` - pure Cypher query builder functions (`build_*`, module-level)
 - `cypher_template.py` - Query optimization strategies
 
 ## Query Architecture Layers
@@ -113,6 +141,6 @@ if not validation_result.is_valid:
 |-------|-----------|---------|
 | Application | UnifiedQueryBuilder | Fluent API, default for new code |
 | Service | QueryBuilder | Optimization, templates |
-| Infrastructure | CypherGenerator | Pure Cypher generation |
+| Infrastructure | `cypher/` build_* functions | Pure Cypher generation |
 
 See `/docs/patterns/query_architecture.md` for full documentation.

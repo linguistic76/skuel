@@ -297,7 +297,7 @@ HTTP → FastHTML Route → Pydantic → Service → Domain → Repository → N
 
 **Core Principle:** "SearchRouter is THE single path for all external search access"
 
-**Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
+**Two query builders + a Cypher function package:** `UnifiedQueryBuilder` (default, fluent facade — `query/unified_query_builder.py`), `QueryBuilder` (legacy templates/optimization — `query_builders/query_builder.py`), and the `query/cypher/` package — **module-level `build_*` functions, not a class**. There is no `CypherGenerator` type: it was a design-notes proposal that was never built, and the name is not importable. Call the functions directly (`build_search_query(...)`, `build_semantic_context(...)`).
 
 **Searchable Domains (SearchRouter):** 12 — Task, Goal, Habit, Event, Choice, Principle, Ku, PS, LP, Exercise, RevisedExercise, UserEntry. UserEntry search REQUIRES `user_uid` (privacy line — refused unscoped; excluded from cross-domain sweeps). Forms search via their own services (see SEARCH_ARCHITECTURE § Searchable Entity Types).
 

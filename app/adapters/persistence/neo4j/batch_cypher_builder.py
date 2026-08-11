@@ -4,7 +4,7 @@ BatchCypherBuilder - DRY Batch Operations for Neo4j
 
 Consolidates UNWIND-based batch patterns used across:
 - UniversalNeo4jBackend (4 patterns)
-- CypherGenerator (2 patterns)
+- query/cypher/ build_* functions (2 patterns)
 - 12 relationship services (batch creation)
 
 Core Principle: "One query builder, many consumers"

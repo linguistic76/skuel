@@ -38,7 +38,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 ### CRITICAL (blocks CI)
 | Rule | Pattern | Enforcement |
 |------|---------|-------------|
-| **SKUEL001** | Any `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/` | Use CypherGenerator / pure Cypher below the boundary (ADR-044); namespace-matched, docstring-aware, unsuppressable |
+| **SKUEL001** | Any `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/` | Use pure Cypher below the boundary — the `query/cypher/` `build_*` functions (ADR-044); namespace-matched, docstring-aware, unsuppressable |
 
 ### ERROR (blocks CI)
 | Rule | Pattern | Enforcement |

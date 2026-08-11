@@ -11,7 +11,7 @@ entry point that routes to the right backend internally.
 ::
 
     UnifiedQueryBuilder  ← YOU ARE HERE (single entry point)
-    ├── ModelQueryBuilder      → CypherGenerator functions (CRUD/search)
+    ├── ModelQueryBuilder      → cypher/ build_* functions (CRUD/search)
     ├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
     └── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
 
@@ -27,7 +27,7 @@ Each backend handles a different *category* of query:
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 from core.constants import GraphDepth, QueryLimit
 
-# Simple model queries (routes to CypherGenerator)
+# Simple model queries (routes to the cypher/ build_* functions)
 tasks = await (
     UnifiedQueryBuilder()
     .for_model(Task)
@@ -106,7 +106,7 @@ class ModelQueryBuilder[T]:
     """
     Fluent builder for model-based queries.
 
-    Routes to CypherGenerator internally.
+    Routes to the cypher/ build_* functions internally.
     """
 
     def __init__(self, model: type[T], executor: Any = None, label: str | None = None) -> None:
@@ -525,7 +525,7 @@ class UnifiedQueryBuilder:
         """
         Start building query for specific model.
 
-        Routes to CypherGenerator internally.
+        Routes to the cypher/ build_* functions internally.
 
         Args:
             model: Domain model class
