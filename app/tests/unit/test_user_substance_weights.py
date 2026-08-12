@@ -24,9 +24,12 @@ so each channel is exercised at one below its cap and at three above it.
 """
 
 import dataclasses
+from typing import cast
 
 import pytest
 
+from core.models.enums import EntityType
+from core.ports.query_types import UserKnowledgeChannelRow
 from core.services.knowledge.user_substance import (
     MAX_SUBSTANCE,
     SUBSTANCE_ACTIVITY_TYPES,
@@ -82,6 +85,20 @@ class TestChannelTableIntegrity:
             assert (channel.weight, channel.cap) == PHILOSOPHY_WEIGHTS[channel.name], (
                 f"{channel.name}: table says {(channel.weight, channel.cap)}, "
                 f"philosophy says {PHILOSOPHY_WEIGHTS[channel.name]}"
+            )
+
+    def test_every_channel_discriminator_is_an_entity_type_value(self):
+        """No parallel vocabulary of raw discriminator strings.
+
+        The backend groups its rows by ``entity_type`` and the table looks them
+        up by the same key. A literal here that drifted from ``EntityType``
+        would not raise — the lookup would simply miss, every channel would come
+        back empty, and the learner would score a flat zero.
+        """
+        valid = {member.value for member in EntityType}
+        for channel in USER_SUBSTANCE_CHANNELS:
+            assert channel.entity_type in valid, (
+                f"{channel.name}: {channel.entity_type!r} is not an EntityType value"
             )
 
     def test_every_channel_carries_a_prompt(self):
@@ -189,6 +206,27 @@ class TestScoring:
             ]
         )
         assert user_substance_score("ku_a", build_substance_index(channels)) == pytest.approx(0.10)
+
+    def test_a_malformed_row_raises_rather_than_reading_as_no_activity(self):
+        """A contract break must not be absorbed as "this learner applied nothing".
+
+        The backend's processor indexes each RETURN alias, so drift raises
+        there. This pins the consumer side of the same rule: a row missing a key
+        raises here instead of being skipped, because a skipped row is
+        indistinguishable from a learner with no activity — a confident zero,
+        which is the failure this whole area keeps producing.
+
+        The ``cast`` is the subject, not a workaround: mypy rejects this literal,
+        which is exactly right and is why the typed row is worth having. It
+        cannot police the runtime boundary the rows actually cross — the driver
+        hands back raw dicts — so the cast reproduces a violated contract that
+        static typing has already done all it can about.
+        """
+        malformed = cast(
+            "UserKnowledgeChannelRow", {"entity_type": "habit", "ku_uids": ["ku_a"]}
+        )  # no activity_uid
+        with pytest.raises(KeyError):
+            channel_maps_from_rows([malformed])
 
     def test_activity_types_cover_every_channel(self):
         """The query's filter is derived from the table, so it cannot under-select."""

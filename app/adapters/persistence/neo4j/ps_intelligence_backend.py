@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import EntityType
 from core.ports.query_types import (
     PsGuidanceCountsRow,
     PsPracticeCountsRow,
@@ -222,10 +223,10 @@ class PsIntelligenceBackend:
         """
         return await self._executor.execute(
             query="""
-                MATCH (:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
+                MATCH (:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: $ku_entity_type})
                 RETURN DISTINCT ku.uid AS ku_uid
             """,
-            params={"ps_uid": ps_uid},
+            params={"ps_uid": ps_uid, "ku_entity_type": EntityType.KU.value},
             processor=_to_taught_ku_uid_rows,
             operation="calculate_user_substance",
         )
@@ -255,10 +256,10 @@ class PsIntelligenceBackend:
         return await self._executor.execute(
             query="""
                 UNWIND $ps_uids AS ps_uid
-                OPTIONAL MATCH (:Entity {uid: ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
+                OPTIONAL MATCH (:Entity {uid: ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: $ku_entity_type})
                 RETURN ps_uid AS ps_uid, collect(DISTINCT ku.uid) AS ku_uids
             """,
-            params={"ps_uids": ps_uids},
+            params={"ps_uids": ps_uids, "ku_entity_type": EntityType.KU.value},
             processor=_to_step_taught_ku_rows,
             operation="calculate_user_substance_for_steps",
         )

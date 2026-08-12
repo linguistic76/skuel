@@ -22,9 +22,10 @@ from adapters.persistence.neo4j.query.cypher import (
     build_knowledge_read_clause,
     build_publication_clause,
 )
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
+from core.ports.query_types import UserKnowledgeChannelRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -178,6 +179,10 @@ RETURN h.uid AS habit_uid,
 # PsIntelligenceBackend.fetch_taught_ku_uids* reads back. Matching a narrower set
 # here would credit the learner for fewer Kus than the step's own composition
 # claims, which reads as "you never applied this" on knowledge they did apply.
+# ``$ku_entity_type`` is a parameter, not an interpolated literal: the edge types
+# above sit in IDENTIFIER position and must be interpolated, but this one is a
+# VALUE compared against a property (CYP003). It is EntityType.KU.value rather
+# than 'ku' so a re-normalised discriminator moves both halves at once.
 _USER_KNOWLEDGE_CHANNELS_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(a:Entity)
 WHERE a.entity_type IN $activity_types
@@ -188,14 +193,36 @@ MATCH (a)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}
 WITH a, collect(DISTINCT target) AS targets
 RETURN a.entity_type AS entity_type,
        a.uid AS activity_uid,
-       [n IN targets WHERE n.entity_type = 'ku' | n.uid] +
+       [n IN targets WHERE n.entity_type = $ku_entity_type | n.uid] +
        reduce(acc = [], p IN targets |
               acc + [(p)-[:{RelationshipName.USES_KU.value}
                           |{RelationshipName.CONTAINS_KNOWLEDGE.value}
                           |{RelationshipName.TRAINS_KU.value}]->(k:Entity)
-                     WHERE k.entity_type = 'ku' | k.uid])
+                     WHERE k.entity_type = $ku_entity_type | k.uid])
        AS ku_uids
 """
+
+
+def _to_user_knowledge_channel_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[UserKnowledgeChannelRow]:
+    """Project raw rows onto UserKnowledgeChannelRow (KeyError on alias drift).
+
+    The annotation alone would be an unchecked claim — nothing statically links a
+    Cypher alias to a TypedDict key, so a renamed RETURN would type-check while
+    the consumer read the missing key as "this learner applied nothing". Indexing
+    each alias here turns that into a failed ``Result`` at the boundary.
+    """
+    return [
+        {
+            "entity_type": str(row["entity_type"]),
+            "activity_uid": str(row["activity_uid"]),
+            "ku_uids": [str(uid) for uid in (row["ku_uids"] or []) if uid],
+        }
+        for row in records
+        if row["activity_uid"]
+    ]
+
 
 _CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
@@ -538,22 +565,28 @@ class CrossDomainBackend:
 
     async def get_user_knowledge_channels(
         self, user_uid: str, activity_types: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[UserKnowledgeChannelRow]]:
         """One row per activity of the learner's that names knowledge.
 
-        Rows are ``{entity_type, activity_uid, ku_uids}``, PathStep targets
-        already bridged to the Kus they compose. The cumulative, unwindowed
-        source for per-user substance — see ``_USER_KNOWLEDGE_CHANNELS_QUERY``
-        for why the MEGA-QUERY's rollup cannot serve that purpose.
+        PathStep targets are already bridged to the Kus they compose. The
+        cumulative, unwindowed source for per-user substance — see
+        ``_USER_KNOWLEDGE_CHANNELS_QUERY`` for why the MEGA-QUERY's rollup cannot
+        serve that purpose.
 
         ``activity_types`` comes from the caller rather than being hardcoded
         here: the set of channels is a Knowledge Substance Philosophy decision
         that lives in ``core.services.knowledge.user_substance``, and a second
         copy in the persistence layer is how the two drift.
         """
-        return await self.executor.execute_query(
-            _USER_KNOWLEDGE_CHANNELS_QUERY,
-            {"user_uid": user_uid, "activity_types": activity_types},
+        return await self.executor.execute(
+            query=_USER_KNOWLEDGE_CHANNELS_QUERY,
+            params={
+                "user_uid": user_uid,
+                "activity_types": activity_types,
+                "ku_entity_type": EntityType.KU.value,
+            },
+            processor=_to_user_knowledge_channel_rows,
+            operation="get_user_knowledge_channels",
         )
 
     async def get_choice_principle_adherence(

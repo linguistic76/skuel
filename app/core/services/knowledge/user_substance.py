@@ -47,9 +47,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, cast
 
+from core.models.enums import EntityType
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
+    from core.ports.query_types import UserKnowledgeChannelRow
     from core.services.user import UserContext
 
 
@@ -67,9 +70,14 @@ class SubstanceChannel:
     name: str
     context_field: str
     entity_type: str
-    """The ``entity_type`` of the activity that feeds this channel — the key the
-    unwindowed backend read groups by, since two channels (tasks, events) travel
-    over the SAME edge and are told apart only by what sits at the tail."""
+    """The ``EntityType`` value of the activity that feeds this channel — the key
+    the unwindowed backend read groups by, since three channels (tasks, events,
+    entries) travel over the SAME edge and are told apart only by what sits at
+    the tail.
+
+    An ``EntityType`` member value, never a literal: a renamed or re-normalised
+    discriminator would otherwise stop matching the rows the backend returns, and
+    the failure mode is empty channels and a flat-zero score, not an error."""
     weight: float
     cap: float
     recommendation: str
@@ -83,7 +91,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="tasks",
         context_field="task_knowledge_applied",
-        entity_type="task",
+        entity_type=EntityType.TASK.value,
         weight=0.05,
         cap=0.25,
         recommendation="Create a task that applies '{title}' in your work",
@@ -91,7 +99,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="habits",
         context_field="habit_knowledge_applied",
-        entity_type="habit",
+        entity_type=EntityType.HABIT.value,
         weight=0.10,
         cap=0.30,
         recommendation="Build a habit that reinforces '{title}' daily",
@@ -99,7 +107,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="events",
         context_field="event_knowledge_applied",
-        entity_type="event",
+        entity_type=EntityType.EVENT.value,
         weight=0.05,
         cap=0.25,
         recommendation="Schedule a practice session to deepen '{title}'",
@@ -107,7 +115,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="entries",
         context_field="entry_knowledge_applied",
-        entity_type="user_entry",
+        entity_type=EntityType.USER_ENTRY.value,
         weight=0.07,
         cap=0.20,
         recommendation="Write an entry reflecting on '{title}'",
@@ -115,7 +123,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="choices",
         context_field="choice_knowledge_informed",
-        entity_type="choice",
+        entity_type=EntityType.CHOICE.value,
         weight=0.07,
         cap=0.15,
         recommendation="Record a choice informed by '{title}'",
@@ -123,7 +131,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="principles",
         context_field="principle_knowledge_grounded",
-        entity_type="principle",
+        entity_type=EntityType.PRINCIPLE.value,
         weight=0.07,
         cap=0.15,
         recommendation="Write a principle grounded in '{title}'",
@@ -203,27 +211,35 @@ _CHANNEL_BY_ENTITY_TYPE: Final[dict[str, str]] = {
 
 
 def channel_maps_from_rows(
-    rows: Iterable[Mapping[str, object]],
+    rows: Iterable[UserKnowledgeChannelRow],
 ) -> dict[str, dict[str, list[str]]]:
-    """Fold ``{entity_type, activity_uid, ku_uids}`` rows into the channel maps.
+    """Fold ``UserKnowledgeChannelRow``s into the channel maps.
 
     The unwindowed counterpart of :func:`channel_maps_from_context`, over
-    ``CrossDomainBackendOperations.get_user_knowledge_channels``. A row whose
-    ``entity_type`` is not a substance channel is dropped rather than guessed at
-    — the query filters on ``SUBSTANCE_ACTIVITY_TYPES``, so one arriving here
-    means the two have diverged, and silently bucketing it would hide that.
+    ``CrossDomainBackendOperations.get_user_knowledge_channels``.
+
+    Keys are INDEXED, not ``.get``-ed with a fallback: the backend's processor
+    already raises on alias drift, so a missing key here would be a genuine
+    contract break and must not be absorbed as "this learner has no activity" —
+    that reads as a confident zero, which is the failure this area keeps
+    producing.
+
+    A row whose ``entity_type`` is not a substance channel IS dropped, and that
+    one is deliberate rather than defensive: the query filters on
+    ``SUBSTANCE_ACTIVITY_TYPES``, so a stray type means query and table have
+    diverged, and bucketing it into some channel would score the learner for a
+    channel the philosophy does not weight.
     """
     channels: dict[str, dict[str, list[str]]] = {
         channel.name: {} for channel in USER_SUBSTANCE_CHANNELS
     }
     for row in rows:
-        channel_name = _CHANNEL_BY_ENTITY_TYPE.get(str(row.get("entity_type") or ""))
-        activity_uid = row.get("activity_uid")
-        if channel_name is None or not activity_uid:
+        channel_name = _CHANNEL_BY_ENTITY_TYPE.get(row["entity_type"])
+        if channel_name is None:
             continue
-        ku_uids = [str(uid) for uid in cast("Sequence[object]", row.get("ku_uids") or []) if uid]
+        ku_uids = list(dict.fromkeys(row["ku_uids"]))
         if ku_uids:
-            channels[channel_name][str(activity_uid)] = list(dict.fromkeys(ku_uids))
+            channels[channel_name][row["activity_uid"]] = ku_uids
     return channels
 
 

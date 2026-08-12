@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from core.models.query_types import QueryIntent
+    from core.ports.query_types import UserKnowledgeChannelRow
 
 
 @runtime_checkable
@@ -89,7 +90,7 @@ class CrossDomainBackendOperations(Protocol):
 
     async def get_user_knowledge_channels(
         self, user_uid: str, activity_types: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[UserKnowledgeChannelRow]]:
         """``{entity_type, activity_uid, ku_uids}`` per knowledge-naming activity.
 
         Unwindowed and status-blind — the cumulative source for per-user
