@@ -372,7 +372,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (508, "ProcessorType"): Allow(_adr054),
     },
     "docs/intelligence/ASKESIS_INTELLIGENCE.md": {
-        (355, "ActivityReviewService"): Allow(_askesis_intel),
+        (357, "ActivityReviewService"): Allow(_askesis_intel),
     },
     "docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md": {
         (503, "AnalyticsEngine"): Allow(_intel_index),
