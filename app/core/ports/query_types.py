@@ -1987,6 +1987,19 @@ class PsGuidanceCountsRow(TypedDict):
     choice_count: int
 
 
+class PsEngagementCountsRow(TypedDict):
+    """Row shape for count_engaged_path_steps() — one row, two counts.
+
+    ``RETURN count(ps) AS total, sum(...) AS mastered`` over the learner's
+    engagement edges (IN_PROGRESS / MASTERED / MARKED_AS_READ). Both counts are
+    keyed on the STEP after the edges are collapsed, so a step the learner holds
+    by more than one edge counts once. ``mastered`` is a subset of ``total``.
+    """
+
+    total: int
+    mastered: int
+
+
 class PsTaughtKuUidRow(TypedDict):
     """Row shape for fetch_taught_ku_uids() — one row per taught KU.
 

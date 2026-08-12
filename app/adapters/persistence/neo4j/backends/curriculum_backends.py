@@ -15,7 +15,10 @@ from adapters.persistence.neo4j._lp_progress_mixin import _LpProgressMixin
 from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
 from adapters.persistence.neo4j._organizes_mixin import _OrganizesMixin
 from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    build_knowledge_read_clause,
+    build_publication_clause,
+)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import KnowledgeHealth
 from core.models.enums.entity_enums import EntityType
@@ -30,12 +33,15 @@ from core.ports.query_types import (
     KnowledgeHealthRaw,
     KnowledgeOrphanKu,
     PsDeleteStepRow,
+    PsEngagementCountsRow,
     PsKnowledgeSummaryResult,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
@@ -484,6 +490,36 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"user_uid": user_uid})
 
 
+_ENGAGEMENT_EDGES = "|".join(
+    (
+        RelationshipName.IN_PROGRESS,
+        RelationshipName.MASTERED,
+        RelationshipName.MARKED_AS_READ,
+    )
+)
+"""THE definition of "curriculum this learner has taken up".
+
+Curriculum is OWNERLESS — KU/PS/LP are SHARED, so no curriculum node carries a
+``user_uid`` and no property predicate can express "this learner's knowledge".
+The learner's set is the one they wrote themselves, as EDGES.
+
+Same three edges ``KuBackend.get_user_learning_states`` already calls a learning
+state, so the vocabulary keeps one definition. VIEWED and BOOKMARKED are
+deliberately OUT: a glance and a save-for-later are not uptake, and counting
+them would inflate the denominator of every substance average with material the
+learner never worked.
+"""
+
+_ENGAGED_AT = "coalesce(r.last_activity_at, r.mastered_at, r.marked_at, r.started_at)"
+"""When the learner last touched the step, across the three engagement edges.
+
+Each edge type stamps its own field (``mark_in_progress`` writes
+``last_activity_at``, ``mark_mastered`` writes ``mastered_at``, ``mark_as_read``
+writes ``marked_at``), so a single field name would silently window out two
+thirds of the engagement set.
+"""
+
+
 class PsBackend(
     _OrganizesMixin,
     _LearningStateMixin,
@@ -504,6 +540,91 @@ class PsBackend(
     - ``_KnowledgeContextMixin`` — context, discovery, readiness (17 methods)
     - ``_AdaptiveMixin`` — practice + adaptive mastery tracking (6 methods)
     """
+
+    # ========================================================================
+    # LEARNER ENGAGEMENT (analytics reads — see _ENGAGEMENT_EDGES)
+    # ========================================================================
+
+    async def find_engaged_path_steps_by_date_range(
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+        limit: int = 100,
+    ) -> Result[list[PathStep]]:
+        """PathSteps this learner engaged with inside a date window.
+
+        The window is keyed on the LEARNER's engagement timestamp, not the
+        node's ``updated_at``: an author editing shared curriculum is not
+        something the learner did, and this feeds a personal weekly summary
+        alongside six per-user activity metrics.
+
+        Collapsing the edges with ``max()`` is load-bearing — a step held by
+        both IN_PROGRESS and MASTERED is ONE step, and without the aggregation
+        it would be counted twice, inflating every total and skewing the
+        substance average toward whatever the learner engaged with hardest.
+
+        Publication gate: composed with the gate OFF, deliberately. Registered
+        USER_STATE in ``scripts/publication_gate_registry.py`` — withholding a
+        step the learner has already worked would rewrite their history rather
+        than hide unfinished curriculum.
+
+        Returns:
+            Result[list[PathStep]]: newest engagement first (may be empty).
+        """
+        knowledge_clause, params = build_knowledge_read_clause("ps", apply_publication_gate=False)
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[r:{_ENGAGEMENT_EDGES}]->(ps:Entity:{NeoLabel.PATH_STEP})
+        WHERE {knowledge_clause}
+        WITH ps, max({_ENGAGED_AT}) AS engaged_at
+        WHERE engaged_at IS NOT NULL
+          AND date(left(toString(engaged_at), 10)) >= date($start_date)
+          AND date(left(toString(engaged_at), 10)) <= date($end_date)
+        RETURN ps
+        ORDER BY engaged_at DESC
+        LIMIT $limit
+        """
+        params.update(
+            {
+                "user_uid": user_uid,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "limit": limit,
+            }
+        )
+        return self._records_to_steps(await self.execute_query(query, params))
+
+    async def count_engaged_path_steps(self, user_uid: UserUID) -> Result[PsEngagementCountsRow]:
+        """How much curriculum this learner has taken up, and how much mastered.
+
+        All-time — the curriculum-progress counterpart to
+        ``find_engaged_path_steps_by_date_range``, which windows the same set.
+        ``collect(type(r))`` groups per step first, so ``total`` counts steps
+        rather than edges and ``mastered`` is a strict subset of it.
+
+        Publication gate: OFF for the same USER_STATE reason as its sibling.
+        """
+        knowledge_clause, params = build_knowledge_read_clause("ps", apply_publication_gate=False)
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[r:{_ENGAGEMENT_EDGES}]->(ps:Entity:{NeoLabel.PATH_STEP})
+        WHERE {knowledge_clause}
+        WITH ps, collect(type(r)) AS rels
+        RETURN count(ps) AS total,
+               sum(CASE WHEN '{RelationshipName.MASTERED}' IN rels THEN 1 ELSE 0 END) AS mastered
+        """
+        params["user_uid"] = user_uid
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(PsEngagementCountsRow(total=0, mastered=0))
+        row = records[0]
+        return Result.ok(
+            PsEngagementCountsRow(
+                total=int(row.get("total") or 0), mastered=int(row.get("mastered") or 0)
+            )
+        )
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
         """Distinct co-occurring (nous, nous_subtopic) pairs on this PathStep label.

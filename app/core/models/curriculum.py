@@ -65,6 +65,22 @@ from core.models.enums import (
 )
 
 
+def _naive_local(value: datetime) -> datetime:
+    """Drop an aware datetime to naive local time so it can be compared to ``datetime.now()``.
+
+    Every substance timestamp round-trips through Neo4j as a ZONED datetime —
+    ``increment_substance`` writes ``SET ps.{field} = datetime($timestamp)``, and
+    the driver hands it back tz-aware. The decay maths compares those against
+    ``datetime.now()``, which is naive, and Python refuses to subtract the two.
+
+    So the arithmetic raised ``TypeError`` on any entity whose substance had ever
+    been incremented — the paying case, not an edge case. It surfaced as the
+    Layer-0 knowledge metric failing outright rather than reporting a wrong
+    number, which is why no value ever looked suspicious.
+    """
+    return value.astimezone().replace(tzinfo=None) if value.tzinfo is not None else value
+
+
 @dataclass(frozen=True, kw_only=True)
 class Curriculum(Entity):
     """
@@ -294,7 +310,7 @@ class Curriculum(Entity):
             and self._cached_substance_score is not None
             and self._substance_cache_timestamp
         ):
-            cache_age = datetime.now() - self._substance_cache_timestamp
+            cache_age = datetime.now() - _naive_local(self._substance_cache_timestamp)
             if cache_age.total_seconds() < 3600:
                 return self._cached_substance_score
 
@@ -337,7 +353,7 @@ class Curriculum(Entity):
         """Exponential decay: e^(-days / half_life), floor at 0.2."""
         if not last_use_date:
             return 0.2
-        days_since_use = (now - last_use_date).days
+        days_since_use = (now - _naive_local(last_use_date)).days
         return max(0.2, exp(-days_since_use / half_life_days))
 
     def is_theoretical_only(self) -> bool:
@@ -390,8 +406,10 @@ class Curriculum(Entity):
         if current_score < 0.5:
             return 0
 
+        # Normalised before max(), not just before the subtraction: a mix of
+        # zoned and naive timestamps makes the comparison itself raise.
         activity_dates = [
-            d
+            _naive_local(d)
             for d in [
                 self.last_applied_date,
                 self.last_practiced_date,

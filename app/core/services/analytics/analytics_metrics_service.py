@@ -32,10 +32,9 @@ Part of the 4-service Analytics architecture:
 import contextlib
 from collections import Counter
 from datetime import date
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
 from core.constants import QueryLimit
-from core.models.entity import Entity
 from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -44,22 +43,6 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_days_until_review, get_theme_count
 
 logger = get_logger(__name__)
-
-
-@runtime_checkable
-class HasDateRangeBackend(Protocol):
-    """Protocol for services with backend that supports date range queries."""
-
-    async def find_by_date_range(
-        self,
-        start_date: date,
-        end_date: date,
-        date_field: str,
-        additional_filters: dict[str, Any] | None = None,
-        limit: int | None = None,
-    ) -> Any:
-        """Find entities within a date range."""
-        ...
 
 
 class AnalyticsMetricsService:
@@ -592,6 +575,16 @@ class AnalyticsMetricsService:
         This provides insights into how well knowledge is being APPLIED
         in real life, not just learned theoretically.
 
+        Scoped to the path steps the LEARNER engaged with in the window, which
+        has to travel over an edge: curriculum is SHARED and ownerless, so no
+        ``user_uid`` property exists on it to filter by. The corpus-wide view of
+        the same subgraph is a different question, already answered by
+        ``KnowledgeHealthService`` (ADR-080 H1).
+
+        Substance lives on ``Curriculum``, so the subject is PathStep — ``Ku``
+        extends ``Entity`` and inherits ``substance_score() -> 0.0``, which is
+        why this reads steps and not atomic KUs despite the output vocabulary.
+
         Args:
             user_uid: User identifier
             start_date: Start of reporting period
@@ -611,9 +604,15 @@ class AnalyticsMetricsService:
                     "BUSINESS": {"count": 15, "avg_substance": 0.52}
                 },
                 "decay_warnings": [
-                    {"ku_uid": "ku:python", "title": "...", "days_until_review": 5}
+                    {"ku_uid": "ps.python.decorators", "title": "...",
+                     "days_until_review": 5}
                 ]
             }
+
+            The ``ku_uid`` / ``total_knowledge_units`` keys are historical
+            spelling: the values are PathStep uids and counts, per the subject
+            note above. Renaming them is an API change for the report
+            templates, so the names stay and this says what they carry.
         """
         if not self.ku_service:
             return Result.fail(
@@ -623,40 +622,9 @@ class AnalyticsMetricsService:
             )
 
         try:
-            # Get knowledge units for user filtered by date range
-            # Use backend's find_by_date_range for efficient date filtering
-            backend = getattr(self.ku_service, "backend", None)
-            if backend is not None and isinstance(backend, HasDateRangeBackend):
-                kus_result = await backend.find_by_date_range(
-                    start_date=start_date,
-                    end_date=end_date,
-                    date_field="updated_at",  # Filter by last update date
-                    additional_filters={"user_uid": user_uid},
-                    limit=QueryLimit.COMPREHENSIVE,
-                )
-            else:
-                # Fallback: get all and filter in memory (less efficient)
-                all_kus_result = await self.ku_service.list_by_user(
-                    user_uid, QueryLimit.COMPREHENSIVE
-                )
-                if all_kus_result.is_error:
-                    return Result.fail(
-                        Errors.system(
-                            message="Could not retrieve knowledge units",
-                            operation="calculate_knowledge_metrics",
-                        )
-                    )
-
-                # Filter by date range in memory
-                all_kus = all_kus_result.value
-                knowledge_units = [
-                    ku
-                    for ku in all_kus
-                    if isinstance(ku, Entity)
-                    and ku.updated_at
-                    and start_date <= ku.updated_at.date() <= end_date
-                ]
-                kus_result = Result.ok(knowledge_units)
+            kus_result = await self.ku_service.find_engaged_steps_in_window(
+                user_uid, start_date, end_date, QueryLimit.COMPREHENSIVE
+            )
 
             if kus_result.is_error or not kus_result.value:
                 return Result.ok(
@@ -685,9 +653,8 @@ class AnalyticsMetricsService:
             by_domain: dict[str, dict[str, Any]] = {}
             decay_warnings = []
 
-            for ku_dto in knowledge_units:
-                # Backend returns Entity instances (entity_class=Ku), not DTOs
-                ku = ku_dto
+            for ku in knowledge_units:
+                # Backend returns PathStep instances, not DTOs.
                 substance = ku.substance_score()
 
                 total_substance += substance
@@ -703,25 +670,27 @@ class AnalyticsMetricsService:
                     theoretical += 1
 
                 # Group by domain
-                domain = str(getattr(ku, "domain", "UNKNOWN"))
+                domain = str(ku.domain or "UNKNOWN")
                 if domain not in by_domain:
                     by_domain[domain] = {"count": 0, "total_substance": 0.0}
                 by_domain[domain]["count"] += 1
                 by_domain[domain]["total_substance"] += substance
 
-                # Check for decay warnings (substance review needed)
-                days_until_review = getattr(ku, "days_until_review", None)
-                if callable(days_until_review):
-                    days_left = days_until_review()
-                    if isinstance(days_left, int) and days_left <= 7:
-                        decay_warnings.append(
-                            {
-                                "ku_uid": ku.uid,
-                                "title": ku.title,
-                                "days_until_review": days_left,
-                                "current_substance": round(substance, 2),
-                            }
-                        )
+                # Decay warnings. The method is days_until_review_needed — this
+                # read `getattr(ku, "days_until_review", None)`, a name no model
+                # has ever carried, so `callable(None)` was False on every pass
+                # and the documented decay_warnings list was permanently empty.
+                # None means never substantiated, which is not a decay warning.
+                days_left = ku.days_until_review_needed()
+                if days_left is not None and days_left <= 7:
+                    decay_warnings.append(
+                        {
+                            "ku_uid": ku.uid,
+                            "title": ku.title,
+                            "days_until_review": days_left,
+                            "current_substance": round(substance, 2),
+                        }
+                    )
 
             count = len(knowledge_units)
             avg_substance = total_substance / count if count > 0 else 0.0
@@ -851,15 +820,14 @@ class AnalyticsMetricsService:
                         "progress": round(progress, 2),
                     }
 
-            # Get knowledge unit metrics
+            # Knowledge counts come from the learner's engagement edges, not from
+            # an ownership property — curriculum is SHARED and has no owner, and
+            # mastery is carried by the MASTERED edge rather than a node field.
             ku_metrics = {"total": 0, "mastered": 0}
             if self.ku_service:
-                kus_result = await self.ku_service.list_by_user(user_uid, QueryLimit.COMPREHENSIVE)
-                if kus_result.is_ok and kus_result.value:
-                    ku_metrics["total"] = len(kus_result.value)
-                    ku_metrics["mastered"] = sum(
-                        1 for ku in kus_result.value if getattr(ku, "is_mastered", False)
-                    )
+                counts_result = await self.ku_service.count_engaged_steps(user_uid)
+                if counts_result.is_ok and counts_result.value:
+                    ku_metrics = dict(counts_result.value)
 
             return Result.ok(
                 {

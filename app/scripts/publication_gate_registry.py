@@ -265,6 +265,24 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
+        "PsBackend.count_engaged_path_steps",
+        Disposition.USER_STATE,
+        "Counts the steps the learner themselves marked in progress, mastered "
+        "or read. Composes the helper for its TYPE predicate and switches the "
+        "publication half off: the learner's own totals must not shrink because "
+        "an author later reopened a step for editing.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
+        "PsBackend.find_engaged_path_steps_by_date_range",
+        Disposition.USER_STATE,
+        "The windowed form of the same engagement set, feeding the weekly "
+        "knowledge-substance metric. Reachable only from edges the learner "
+        "wrote, so it discovers no curriculum they have not already opened — "
+        "gating it would silently rewrite a past week's numbers.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
         "PsBackend.get_prioritized_steps",
         Disposition.GATED,
         "MIXED surface, same shape as get_user_paths_prioritized: the gate "
