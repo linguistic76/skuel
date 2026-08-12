@@ -255,9 +255,16 @@ def channel_counts(ku_uid: str, index: SubstanceIndex) -> dict[str, int]:
 
 
 def substance_breakdown(counts: Mapping[str, int]) -> dict[str, float]:
-    """Apply each channel's per-instance weight and per-channel cap."""
+    """Apply each channel's per-instance weight and per-channel cap.
+
+    UNROUNDED. Rounding belongs at the presentation edge, not here: a step's
+    score is the mean over the Kus it composes, and a mean of pre-rounded parts
+    can cross one of the analytics bands (0.3 / 0.5 / 0.6 / 0.8) that the raw
+    value sits the other side of. Callers rendering the breakdown round it
+    themselves.
+    """
     return {
-        channel.name: round(min(channel.cap, counts[channel.name] * channel.weight), 3)
+        channel.name: min(channel.cap, counts[channel.name] * channel.weight)
         for channel in USER_SUBSTANCE_CHANNELS
     }
 

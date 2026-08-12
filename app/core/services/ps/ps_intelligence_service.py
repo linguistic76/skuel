@@ -653,9 +653,11 @@ class PsIntelligenceService(
 
         taught: dict[str, list[str]] = {row["ps_uid"]: row["ku_uids"] for row in rows_result.value}
         index = build_substance_index(channels)
+        # UNROUNDED. The caller bands these against 0.3 / 0.5 / 0.6 / 0.8 before
+        # rendering anything, and a step composing enough Kus can have a mean
+        # that rounds across a band it does not actually sit in — 20 Kus at 0.30
+        # and one at 0.29 average 0.2995, which is theoretical, but rounds to
+        # the 0.30 that reads as applied. Presentation rounds; scoring does not.
         return Result.ok(
-            {
-                ps_uid: round(self._mean_ku_substance(taught.get(ps_uid, []), index), 3)
-                for ps_uid in ps_uids
-            }
+            {ps_uid: self._mean_ku_substance(taught.get(ps_uid, []), index) for ps_uid in ps_uids}
         )

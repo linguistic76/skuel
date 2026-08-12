@@ -262,7 +262,9 @@ class KuIntelligenceService(
                 if global_substance_score is not None
                 else None
             ),
-            "breakdown": breakdown,
+            # Rounded HERE, at the presentation edge — the scorer keeps full
+            # precision so band classification is not decided by a display choice.
+            "breakdown": {channel: round(value, 3) for channel, value in breakdown.items()},
             "mastery_level": mastery_level,
             "is_ready_to_learn": is_ready_to_learn,
             "recommendations": recommendations[:3],
