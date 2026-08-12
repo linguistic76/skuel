@@ -23,7 +23,7 @@ Delegates to specialized sub-services:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, QueryLimit
@@ -38,6 +38,7 @@ from core.ports.query_types import (
     NousSubtopicPair,
     OrganizerResult,
     PrerequisiteChainRow,
+    PsEngagementCountsRow,
     RootOrganizerResult,
     StepApplicationsResult,
     StepLearningSequenceResult,
@@ -768,6 +769,37 @@ class PsService:
             from_uid=step_uid,
             to_uid=path_uid,
         )
+
+    # ============================================================================
+    # LEARNER ENGAGEMENT (per-user reads over ownerless curriculum)
+    # ============================================================================
+
+    async def find_engaged_steps_in_window(
+        self, user_uid: UserUID, start_date: date, end_date: date, limit: int | None = None
+    ) -> Result[list[PathStep]]:
+        """The path steps this learner took up during a date window.
+
+        Curriculum is SHARED and carries no owner, so "this learner's knowledge"
+        is the set they marked in progress, mastered or read — never a property
+        filter. Newest engagement first.
+
+        ``limit`` defaults to unbounded: callers aggregate the whole window, and
+        a cap there produces a wrong total rather than a shorter list.
+
+        Backend: PsBackend.find_engaged_path_steps_by_date_range
+        """
+        return await self.core.backend.find_engaged_path_steps_by_date_range(  # type: ignore[attr-defined]
+            user_uid, start_date, end_date, limit
+        )
+
+    async def count_engaged_knowledge(self, user_uid: UserUID) -> Result[PsEngagementCountsRow]:
+        """How many path steps this learner has taken up, and how many mastered.
+
+        All-time counterpart to :meth:`find_engaged_steps_in_window`.
+
+        Backend: PsBackend.count_engaged_knowledge
+        """
+        return await self.core.backend.count_engaged_knowledge(user_uid)  # type: ignore[attr-defined]
 
     # ============================================================================
     # KU COMPOSITION (PathStep → atomic Ku via USES_KU)

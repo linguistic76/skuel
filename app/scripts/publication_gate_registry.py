@@ -265,6 +265,26 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
+        "PsBackend.count_engaged_knowledge",
+        Disposition.USER_STATE,
+        "Counts the knowledge the learner themselves marked in progress, "
+        "mastered or read — Ku AND PathStep, since report-driven mastery lands "
+        "on :Ku. The helper is doing real work here rather than riding along: "
+        "its entity_type predicate IS the scope, there being no label pin. The "
+        "publication half is off because the learner's own totals must not "
+        "shrink when an author reopens an item for editing.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
+        "PsBackend.find_engaged_path_steps_by_date_range",
+        Disposition.USER_STATE,
+        "The windowed form of the same engagement set, feeding the weekly "
+        "knowledge-substance metric. Reachable only from edges the learner "
+        "wrote, so it discovers no curriculum they have not already opened — "
+        "gating it would silently rewrite a past week's numbers.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.backends.curriculum_backends",
         "PsBackend.get_prioritized_steps",
         Disposition.GATED,
         "MIXED surface, same shape as get_user_paths_prioritized: the gate "
