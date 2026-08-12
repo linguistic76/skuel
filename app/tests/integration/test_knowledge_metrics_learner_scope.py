@@ -446,7 +446,9 @@ class TestKnowledgeMetricsLearnerScope:
         result = await _metrics_service(backend).calculate_knowledge_metrics(USER, start, end)
         assert result.is_ok
 
-        by_uid = {w["ku_uid"]: w["current_substance"] for w in result.value["decay_warnings"]}
+        by_uid = {
+            w["ku_uid"]: w["current_substance"] for w in result.value["review_recommendations"]
+        }
         assert by_uid[ENGAGED_BOTH] == 0.0, (
             "0.1 = the OWNS anchor is missing and another learner's habit was counted"
         )
@@ -548,21 +550,22 @@ class TestKnowledgeMetricsLearnerScope:
         assert result.value["avg_substance_score"] == 0.0, "0.3 = the node's own counters"
         assert result.value["theoretical_knowledge"] == 1
 
-    async def test_review_warnings_carry_the_personal_score(self, backend):
-        """Warnings list the learner's under-substantiated steps, least first.
+    async def test_review_recommendations_carry_the_personal_score(self, backend):
+        """The learner's under-substantiated steps, least-substantiated first.
 
-        Historically this was a decay PREDICTION off the node's ``last_*_date``
-        fields. There is no personal decay clock — the UserContext channel maps
-        carry uids and no timestamps — so ``days_until_review`` is 0 ("review
-        now") on every row and the ranking moved to substance. Sorting by the
-        old key would order a column that is constant, truncating the top-10 to
-        an arbitrary ten rather than the ten that most need work.
+        This REPLACES the old ``decay_warnings`` key rather than reusing it.
+        That one promised a decay PREDICTION off the node's ``last_*_date``
+        fields and carried a ``days_until_review``; per-user substance has no
+        clock to predict from, so the field is gone rather than pinned at 0 —
+        keeping the old name over incompatible semantics would have been a
+        legacy path preserved. Ranking moved to substance, so the top-10 cap
+        keeps the ten that most need work rather than an arbitrary ten.
         """
         start, end = self._window()
         result = await _metrics_service(backend).calculate_knowledge_metrics(USER, start, end)
         assert result.is_ok
 
-        warnings = result.value["decay_warnings"]
+        warnings = result.value["review_recommendations"]
         assert {w["ku_uid"] for w in warnings} == EXPECTED_IN_WINDOW, (
             "all three sit under the 0.5 review threshold for THIS learner; "
             f"a missing {ENGAGED_BOTH} means the 0.80 of other learners' "
@@ -573,7 +576,9 @@ class TestKnowledgeMetricsLearnerScope:
             ENGAGED_MASTERED,
             ENGAGED_IN_PROGRESS,
         ], "least-substantiated first"
-        assert all(w["days_until_review"] == 0 for w in warnings)
+        assert not any("days_until_review" in w for w in warnings), (
+            "an uncomputable field must be absent, not pinned at a constant"
+        )
         assert {w["ku_uid"]: w["current_substance"] for w in warnings} == pytest.approx(
             EXPECTED_PERSONAL
         )

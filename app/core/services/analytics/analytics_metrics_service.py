@@ -640,7 +640,7 @@ class AnalyticsMetricsService:
         * **No time decay.** The node carries a ``last_*_date`` per channel; the
           UserContext channel maps carry uids only. A personal decay curve is
           not computable from this input, so the score is cumulative. See
-          ``decay_warnings`` below for what that does to the warnings list.
+          ``review_recommendations`` below for what that does to the list.
         * **Six channels, not five.** Principles (``GROUNDED_IN_KNOWLEDGE``,
           0.07 each, capped 0.15) contribute to the personal score; there is no
           node counter for them, so the global figure never saw them.
@@ -671,22 +671,28 @@ class AnalyticsMetricsService:
                     "TECH": {"count": 20, "avg_substance": 0.75},
                     "BUSINESS": {"count": 15, "avg_substance": 0.52}
                 },
-                "decay_warnings": [
+                "review_recommendations": [
                     {"ku_uid": "ps.python.decorators", "title": "...",
-                     "days_until_review": 0, "current_substance": 0.1}
+                     "current_substance": 0.1}
                 ]
             }
 
-            ``decay_warnings`` lists the engaged steps whose PERSONAL substance
-            sits under the 0.5 review threshold — the threshold
+            ``review_recommendations`` lists the engaged steps whose PERSONAL
+            substance sits under the 0.5 review threshold — the threshold
             ``Curriculum.needs_review()`` uses — least-substantiated first,
-            capped at 10. ``days_until_review`` is always 0, meaning "review
-            now": a forward-looking personal date would need per-channel
-            timestamps, and UserContext has none. Predicting from the node's
-            dates instead would put another learner's practice on this
-            learner's calendar, which is the contamination this metric exists to
-            avoid; deriving one from the engagement edge would time a different
-            event (opening a step is not applying it).
+            capped at 10.
+
+            It REPLACES the old ``decay_warnings`` key rather than reusing it.
+            That key promised a decay prediction and carried a
+            ``days_until_review``; per-user substance has no clock to predict
+            from, because the channel maps carry uids and no timestamps.
+            Predicting from the node's dates would put another learner's
+            practice on this learner's calendar — the contamination this metric
+            exists to remove — and timing it off the engagement edge would
+            measure a different event (opening a step is not applying it).
+            Keeping the name over incompatible semantics would have been a
+            legacy path preserved, which One Path Forward does not allow, so
+            the field that cannot be computed is gone rather than pinned at 0.
 
             The ``ku_uid`` / ``total_knowledge_units`` keys are historical
             spelling: the values are PathStep uids and counts, per the subject
@@ -733,7 +739,7 @@ class AnalyticsMetricsService:
                         "practiced_knowledge": 0,
                         "embodied_knowledge": 0,
                         "knowledge_by_domain": {},
-                        "decay_warnings": [],
+                        "review_recommendations": [],
                         "date_range": f"{start_date} to {end_date}",
                     }
                 )
@@ -775,7 +781,7 @@ class AnalyticsMetricsService:
             embodied = 0  # 0.8+
 
             by_domain: dict[str, dict[str, Any]] = {}
-            review_warnings = []
+            review_recommendations = []
 
             for ku in knowledge_units:
                 # Backend returns PathStep instances, not DTOs. The score is the
@@ -802,17 +808,15 @@ class AnalyticsMetricsService:
                 by_domain[domain]["count"] += 1
                 by_domain[domain]["total_substance"] += substance
 
-                # Review warnings: this learner's substance is under the 0.5
-                # threshold Curriculum.needs_review() uses. Kept under the
-                # historical `decay_warnings` key (report-template contract) but
-                # no longer a decay prediction — there is no personal clock to
-                # predict from, so 0 means "review now". See the docstring.
+                # This learner's substance is under the 0.5 threshold
+                # Curriculum.needs_review() uses. Not a decay prediction — there
+                # is no personal clock to predict from — so this carries no
+                # days-until field at all rather than one pinned at 0.
                 if substance < 0.5:
-                    review_warnings.append(
+                    review_recommendations.append(
                         {
                             "ku_uid": ku.uid,
                             "title": ku.title,
-                            "days_until_review": 0,
                             "current_substance": round(substance, 2),
                         }
                     )
@@ -837,11 +841,11 @@ class AnalyticsMetricsService:
                     "practiced_knowledge": practiced,
                     "embodied_knowledge": embodied,
                     "knowledge_by_domain": knowledge_by_domain,
-                    # Least-substantiated first. Sorting by days_until_review
-                    # would be sorting a column that is 0 on every row, which
-                    # truncates the list to an arbitrary 10 rather than the 10
-                    # that most need work.
-                    "decay_warnings": sorted(review_warnings, key=get_current_substance)[:10],
+                    # Least-substantiated first, so the cap keeps the ten that
+                    # most need work rather than an arbitrary ten.
+                    "review_recommendations": sorted(
+                        review_recommendations, key=get_current_substance
+                    )[:10],
                     "date_range": f"{start_date} to {end_date}",  # Show filtered date range
                     "user_uid": user_uid,
                 }

@@ -221,12 +221,12 @@ def get_current_substance(item: dict[str, Any]) -> float:
     """
     Get current_substance from dictionary.
 
-    Used for sorting knowledge review warnings least-substantiated first.
-    Example: sorted(review_warnings, key=get_current_substance)
+    Used for sorting knowledge review recommendations least-substantiated first.
+    Example: sorted(review_recommendations, key=get_current_substance)
 
     Replaced ``get_days_until_review`` when the Layer-0 knowledge metric moved
-    to per-learner magnitudes: its ``days_until_review`` is now 0 on every row
-    (no personal decay clock exists), so sorting by it ranked nothing.
+    to per-learner magnitudes: per-user substance has no decay clock, so the
+    ``days_until_review`` it sorted by no longer exists to sort by.
 
     Args:
         item: Dictionary with 'current_substance' key
