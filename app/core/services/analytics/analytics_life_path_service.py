@@ -26,7 +26,7 @@ Implementation Date: October 24, 2025
 """
 
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.type_hints import UserUID
 from core.ports.query_types import LifePathStepRow, StepSubstance
@@ -38,6 +38,9 @@ from core.services.knowledge.user_substance import (
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
 
 _LIFE_PATH_EXCEPTIONS = (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS)
 
@@ -92,9 +95,15 @@ class AnalyticsLifePathService:
 
     def __init__(
         self,
+        # boundary: facade-duck-typed — PsService, needed for exactly one method
+        # (get_user_substance_breakdowns). No core/ports protocol declares it, and
+        # inventing one for a single call site is a wider change than this metric
+        # warrants; the composition root is the only wiring point.
         ku_service: Any,
+        # boundary: facade-duck-typed — LifePathService, for exactly two methods
+        # (get_designated_life_path_uid, get_life_path_composition).
         lifepath_service: Any = None,
-        cross_domain_backend: Any = None,
+        cross_domain_backend: CrossDomainBackendOperations | None = None,
     ) -> None:
         """
         Initialize Life Path analytics service.
@@ -103,9 +112,12 @@ class AnalyticsLifePathService:
             ku_service: PsService — batched per-learner substance scoring
             lifepath_service: LifePathService — the designation and the path's
                 composition
-            cross_domain_backend: CrossDomainBackend — the learner's activity
-                channels, which substance is scored against per-user rather
-                than against the shared curriculum node's counters
+            cross_domain_backend: the learner's activity channels, which
+                substance is scored against per-user rather than against the
+                shared curriculum node's counters. Typed against the protocol,
+                not ``Any``: this is the read whose absence silently produces a
+                flat-zero alignment, so a wiring or alias drift must fail at
+                type-check rather than at runtime.
 
         There is deliberately no ``user_service`` and no ``lp_service``:
 
