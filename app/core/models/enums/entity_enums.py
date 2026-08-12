@@ -6,8 +6,8 @@ Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
 Organized in 4 sections:
-1. Core Identity: EntityType (19 values), ContentOrigin (4 tiers)
-2. Processing Lifecycle: EntityStatus (14 values)
+1. Core Identity: EntityType, ContentOrigin (4 tiers)
+2. Processing Lifecycle: EntityStatus
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
 4. Analytics: AnalyticsDomain
 5. Access Control: ContentScope, Context
@@ -32,10 +32,10 @@ class EntityType(StrEnum):
         ACTIVITY_REPORT      → AI/human feedback about activity patterns
         CHOICE               → Knowledge about decisions you make
         CHOICE_TEMPLATE      → PS-owned template that spawns Choice instances on engagement
+        ENTRY_REPORT         → Teacher or AI report on an exercise submission
         EVENT                → Knowledge about what you attend
         EVENT_TEMPLATE       → PS-owned template that spawns Event instances on engagement
         EXERCISE             → Instruction template for practicing curriculum
-        ENTRY_REPORT      → Teacher or AI report on an exercise submission
         FORM_SUBMISSION      → User response to a FormTemplate
         FORM_TEMPLATE        → General-purpose form definition (admin-created)
         GOAL                 → Knowledge about where you're heading
@@ -45,8 +45,8 @@ class EntityType(StrEnum):
         INTERACTION          → Situated learning-loop event (User Interaction Contract)
         KU                   → Atomic knowledge unit (concept, state, principle)
         LEARNING_PATH        → Ordered sequence of path steps
-        PATH_STEP            → THE curriculum content entity (composes Kus, sits in learning paths)
         LIFE_PATH            → Knowledge about your life direction
+        PATH_STEP            → THE curriculum content entity (composes Kus, sits in learning paths)
         PRINCIPLE            → Knowledge about what you believe
         PRINCIPLE_TEMPLATE   → PS-owned template that spawns Principle instances on engagement
         RESOURCE             → Books, talks, films, music (admin-only)
@@ -58,15 +58,15 @@ class EntityType(StrEnum):
     Any PathStep can organize other PathSteps via ORGANIZES relationships (emergent
     identity — no separate MOC type needed).
 
-    Content origin tiers (see ContentOrigin):
-        A  CURATED      → RESOURCE
-        B  CURRICULUM   → KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE,
-                          Activity Templates (6: TASK_TEMPLATE, GOAL_TEMPLATE,
-                          HABIT_TEMPLATE, EVENT_TEMPLATE, CHOICE_TEMPLATE,
-                          PRINCIPLE_TEMPLATE)
-        C  USER_CREATED → Activities (6), USER_ENTRY, LIFE_PATH,
-                          FORM_SUBMISSION, INTERACTION
-        D  REPORT       → ACTIVITY_REPORT, ENTRY_REPORT
+    Content origin tiers (A-D): `content_origin()`, backed by
+    `_CONTENT_ORIGIN_BY_TYPE` in this file — the authority, since the method reads it
+    directly. `ContentOrigin` documents what the four tiers mean. The list that used
+    to sit here was a hand-transcription of that dict and had drifted on two members.
+    Two prose enumerations are kept on purpose (`CLAUDE.md` and
+    `docs/architecture/ENUM_ARCHITECTURE.md`); both are pinned to this dict by
+    `tests/unit/docs/test_content_origin_docs.py`, which discovers any such table
+    rather than knowing those two by name. Add a tier table and it is checked;
+    otherwise point at `content_origin()` rather than restating membership.
 
     Ownership rules:
         Curriculum (KU, PS, LP, Exercise) + Activity Templates (6) + Resource +

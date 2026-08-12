@@ -81,11 +81,11 @@ The 3 layers are a coarsening of the 4-valued `ContentOrigin` enum (`core/models
 | Action | `USER_CREATED` | User-authored |
 | Feedback | `REPORT` | Interpretive |
 
-`ContentOrigin` keeps the 4-way split because `CURATED` (Resource) and `CURRICULUM` (Ku / PathStep / LearningPath / Exercise) have different ownership and access patterns at the code level. The 3-layer lens collapses them because their **role in the flow** is the same: authored, upstream of action.
+`ContentOrigin` keeps the 4-way split because `CURATED` and `CURRICULUM` have different ownership and access patterns at the code level. The 3-layer lens collapses them because their **role in the flow** is the same: authored, upstream of action. For which types sit in which tier, call `EntityType.<T>.content_origin()` — the layer lists above are a role-based reading, not a restatement of the tier mapping, and this doc deliberately does not transcribe that mapping.
 
 ### The one hybrid
 
-`RevisedExercise` has `ContentOrigin.CURRICULUM` but sits in the Feedback layer by role. The hybrid is the structural signature of *adapted curriculum*: teacher-authored (user_uid required) but curricular in function. It is the loop closing — feedback returning to curriculum informed by what happened.
+`RevisedExercise` has `ContentOrigin.USER_CREATED` but sits in the Feedback layer by role. The hybrid is the structural signature of *adapted curriculum*: teacher-authored (`user_uid` required, hence the user-created origin) but curricular in function. It is the loop closing — feedback returning to curriculum informed by what happened.
 
 ## The Seven Subsystems × Three Layers
 
