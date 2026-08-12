@@ -488,6 +488,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Description |
 |----------|-------------|
+| [Analytics Untyped-Seam Defects](technical_debt/ANALYTICS_UNTYPED_SEAM_DEFECTS.md) | |
 | [MyPy Limitations in Universal Backend](technical_debt/MYPY_BACKEND_LIMITATIONS.md) | |
 | [Return Value Type Errors Analysis](technical_debt/RETURN_VALUE_ERRORS_ANALYSIS.md) | |
 

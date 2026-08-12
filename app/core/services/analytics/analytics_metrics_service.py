@@ -35,7 +35,7 @@ from datetime import date
 from typing import Any
 
 from core.constants import QueryLimit
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, PrincipleStrength
 from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -159,11 +159,14 @@ class AnalyticsMetricsService:
         # Priority distribution
         priority_dist: dict[str, int] = dict(Counter(task.priority or "medium" for task in tasks))
 
-        # Average completion time (for completed tasks with dates)
+        # Average completion time (for completed tasks with dates). The field is
+        # ``completion_date`` — ``task.completed_at`` is a name no model has ever
+        # carried, so this raised AttributeError for every user holding a completed
+        # task. It is a ``date`` against a ``datetime`` ``created_at``, hence .date().
         completion_times = []
         for task in tasks:
-            if task.status == EntityStatus.COMPLETED and task.created_at and task.completed_at:
-                delta = (task.completed_at - task.created_at).days
+            if task.status == EntityStatus.COMPLETED and task.created_at and task.completion_date:
+                delta = (task.completion_date - task.created_at.date()).days
                 completion_times.append(delta)
 
         avg_completion_time = (
@@ -386,14 +389,22 @@ class AnalyticsMetricsService:
         from datetime import datetime
 
         total = len(events)
-        upcoming = sum(1 for e in events if e.start_time > datetime.now())
         completed = sum(1 for e in events if e.status == EntityStatus.COMPLETED)
         cancelled = sum(1 for e in events if e.status == EntityStatus.CANCELLED)
 
-        # Total scheduled hours
+        # ``start_time`` is a ``time``, so the ``e.start_time > datetime.now()`` this
+        # replaces raised TypeError for every user holding at least one event.
+        # ``start_datetime()`` is the model's own combiner and returns None when the
+        # event carries no date/time; ``duration_minutes`` is likewise optional, and
+        # dividing None raised in the same loop.
+        now = datetime.now()
+        upcoming = 0
         total_hours = 0.0
         for event in events:
-            total_hours += event.duration_minutes / 60.0
+            start = event.start_datetime()
+            if start is not None and start > now:
+                upcoming += 1
+            total_hours += (event.duration_minutes or 0) / 60.0
 
         # Events by type
         events_by_type: dict[str, int] = dict(
@@ -539,8 +550,18 @@ class AnalyticsMetricsService:
         total = len(principles)
         active = sum(1 for p in principles if getattr(p, "is_active", True))
 
-        # Strength analysis
-        strengths = [getattr(p, "strength", 0.5) for p in principles]
+        # Strength analysis. ``strength`` is a PrincipleStrength (or None), never a
+        # number — the ``getattr(p, "strength", 0.5)`` this replaces returned the enum
+        # itself, so ``sum()`` raised TypeError for every user holding at least one
+        # principle. ``rank()`` is the enum's own aggregate-stats accessor (CORE=5 …
+        # EXPLORING=1); dividing by CORE's rank puts avg_strength on the 0-1 scale that
+        # alignment_score's ``* 100`` and its ``< 70`` readers already assume.
+        # ``from_value`` maps a missing/unknown strength to MODERATE.
+        strongest_rank = PrincipleStrength.CORE.rank()
+        strengths = [
+            PrincipleStrength.from_value(getattr(p, "strength", None)).rank() / strongest_rank
+            for p in principles
+        ]
         avg_strength = sum(strengths) / len(strengths) if strengths else 0.0
 
         # Category distribution

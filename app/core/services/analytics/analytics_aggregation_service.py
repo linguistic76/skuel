@@ -34,15 +34,34 @@ Part of the 4-service Analytics architecture:
 Philosophy: "Everything flows toward the life path"
 """
 
-import operator
 from datetime import date
 from typing import Any
 
 from core.models.enums import Domain
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 
 logger = get_logger(__name__)
+
+
+def _layer_metrics(layer_name: str, result: Result[dict[str, Any]]) -> dict[str, Any]:
+    """
+    Unwrap one layer's metrics into the plain dict every analysis helper expects.
+
+    Every ``AnalyticsMetricsService.calculate_*_metrics`` method returns
+    ``Result[dict]``, while the ``_analyze_*`` / ``_synthesize_*`` helpers below
+    index and ``.get()`` their arguments directly — ``Result`` supports neither,
+    so a ``Result`` reaching them raises rather than degrading.
+
+    A failed layer becomes ``{}``, which the helpers' ``.get(key, default)``
+    calls turn into the zero-valued view this file's fail-soft contract
+    promises. It is logged on the way through, because an empty layer and a
+    genuinely quiet week are indistinguishable in the rendered output.
+    """
+    return result.log_if_error(f"{layer_name} metrics unavailable, rendering empty layer").or_else(
+        {}
+    )
 
 
 class AnalyticsAggregationService:
@@ -89,30 +108,39 @@ class AnalyticsAggregationService:
         """
         logger.info(f"Generating weekly life summary (ALL layers) for user {user_uid}")
 
-        # Layer 1: Collect metrics from all 7 activity domains
-        tasks_metrics = await self.metrics.calculate_task_metrics(user_uid, start_date, end_date)
-        habits_metrics = await self.metrics.calculate_habit_metrics(user_uid, start_date, end_date)
-        goals_metrics = await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
-        events_metrics = await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
-        choices_metrics = await self.metrics.calculate_choice_metrics(
-            user_uid, start_date, end_date
+        # Layer 1: Collect metrics from all 6 activity domains
+        tasks_metrics = _layer_metrics(
+            "tasks", await self.metrics.calculate_task_metrics(user_uid, start_date, end_date)
         )
-        principles_metrics = await self.metrics.calculate_principle_metrics(
-            user_uid, start_date, end_date
+        habits_metrics = _layer_metrics(
+            "habits", await self.metrics.calculate_habit_metrics(user_uid, start_date, end_date)
+        )
+        goals_metrics = _layer_metrics(
+            "goals", await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
+        )
+        events_metrics = _layer_metrics(
+            "events", await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
+        )
+        choices_metrics = _layer_metrics(
+            "choices", await self.metrics.calculate_choice_metrics(user_uid, start_date, end_date)
+        )
+        principles_metrics = _layer_metrics(
+            "principles",
+            await self.metrics.calculate_principle_metrics(user_uid, start_date, end_date),
         )
 
         # Layer 0: Knowledge and curriculum metrics (NEW - )
-        knowledge_metrics = await self.metrics.calculate_knowledge_metrics(
-            user_uid, start_date, end_date
+        knowledge_metrics = _layer_metrics(
+            "knowledge",
+            await self.metrics.calculate_knowledge_metrics(user_uid, start_date, end_date),
         )
-        curriculum_metrics_result = await self.metrics.calculate_curriculum_metrics(user_uid)
-        curriculum_metrics = (
-            curriculum_metrics_result.value if curriculum_metrics_result.is_ok else {}
+        curriculum_metrics = _layer_metrics(
+            "curriculum", await self.metrics.calculate_curriculum_metrics(user_uid)
         )
 
         # Layer 2: Journal reflection metrics (NEW - )
-        journal_metrics = await self.metrics.calculate_journal_metrics(
-            user_uid, start_date, end_date
+        journal_metrics = _layer_metrics(
+            "journal", await self.metrics.calculate_journal_metrics(user_uid, start_date, end_date)
         )
 
         # Layer 1: Aggregate activity statistics
@@ -172,8 +200,8 @@ class AnalyticsAggregationService:
         weekly_data = await self.aggregate_weekly_life_summary(user_uid, start_date, end_date)
 
         # Add monthly-specific analysis
-        monthly_trends = self._analyze_monthly_trends(weekly_data["domains"])
-        goal_progress = self._analyze_goal_progress(weekly_data["domains"]["goals"])
+        monthly_trends = self._analyze_monthly_trends(weekly_data["layer_1_activities"])
+        goal_progress = self._analyze_goal_progress(weekly_data["layer_1_activities"]["goals"])
 
         return {
             **weekly_data,
@@ -198,7 +226,7 @@ class AnalyticsAggregationService:
         monthly_data = await self.aggregate_monthly_life_review(user_uid, start_date, end_date)
 
         # Add quarterly analysis
-        strategic_insights = self._analyze_strategic_progress(monthly_data["domains"])
+        strategic_insights = self._analyze_strategic_progress(monthly_data["layer_1_activities"])
 
         return {
             **monthly_data,
@@ -222,8 +250,8 @@ class AnalyticsAggregationService:
         quarterly_data = await self.aggregate_quarterly_progress(user_uid, start_date, end_date)
 
         # Add yearly analysis
-        year_achievements = self._analyze_year_achievements(quarterly_data["domains"])
-        growth_areas = self._identify_growth_opportunities(quarterly_data["domains"])
+        year_achievements = self._analyze_year_achievements(quarterly_data["layer_1_activities"])
+        growth_areas = self._identify_growth_opportunities(quarterly_data["layer_1_activities"])
 
         return {
             **quarterly_data,
@@ -251,15 +279,24 @@ class AnalyticsAggregationService:
         logger.info(f"Detecting cross-domain patterns for user {user_uid}")
 
         # Collect all domain metrics
-        tasks_metrics = await self.metrics.calculate_task_metrics(user_uid, start_date, end_date)
-        habits_metrics = await self.metrics.calculate_habit_metrics(user_uid, start_date, end_date)
-        goals_metrics = await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
-        events_metrics = await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
-        choices_metrics = await self.metrics.calculate_choice_metrics(
-            user_uid, start_date, end_date
+        tasks_metrics = _layer_metrics(
+            "tasks", await self.metrics.calculate_task_metrics(user_uid, start_date, end_date)
         )
-        principles_metrics = await self.metrics.calculate_principle_metrics(
-            user_uid, start_date, end_date
+        habits_metrics = _layer_metrics(
+            "habits", await self.metrics.calculate_habit_metrics(user_uid, start_date, end_date)
+        )
+        goals_metrics = _layer_metrics(
+            "goals", await self.metrics.calculate_goal_metrics(user_uid, start_date, end_date)
+        )
+        events_metrics = _layer_metrics(
+            "events", await self.metrics.calculate_event_metrics(user_uid, start_date, end_date)
+        )
+        choices_metrics = _layer_metrics(
+            "choices", await self.metrics.calculate_choice_metrics(user_uid, start_date, end_date)
+        )
+        principles_metrics = _layer_metrics(
+            "principles",
+            await self.metrics.calculate_principle_metrics(user_uid, start_date, end_date),
         )
 
         # Detect patterns
@@ -706,24 +743,40 @@ class AnalyticsAggregationService:
     # Helper methods for generating cross-layer insights
 
     def _generate_knowledge_activity_insight(
-        self, avg_substance: float, substance_drivers: dict, top_driver: str | None
+        self,
+        avg_substance: float,
+        substance_drivers: dict[str, dict[str, Any]],
+        top_driver: str | None,
     ) -> str:
         """
         Generate insight about knowledge-activity correlation.
 
         Uses substance_drivers dict to show detailed breakdown of how different
         activity types contribute to knowledge embodiment.
+
+        Each driver's figure is its SHARE of the total estimated contribution, so
+        the parts read as percentages and sum to 100%. The raw
+        ``contribution_estimate`` is ``activity_count * weight`` — an unbounded
+        magnitude (20 active habits gives 2.0), which as a bare "%" would render
+        "Habits: 200%".
         """
+        from core.utils.sort_functions import get_contribution_estimate
+
         if not top_driver:
             return "No significant activity detected for knowledge embodiment"
 
         # Build detailed breakdown from substance_drivers
+        total_contribution = sum(
+            driver["contribution_estimate"] for driver in substance_drivers.values()
+        )
+
         breakdown_parts = []
-        for driver_type, contribution in sorted(
-            substance_drivers.items(), key=operator.itemgetter(1), reverse=True
+        for driver_type, driver in sorted(
+            substance_drivers.items(), key=get_contribution_estimate, reverse=True
         ):
+            contribution = driver["contribution_estimate"]
             if contribution > 0:
-                percentage = contribution * 100
+                percentage = contribution / total_contribution * 100
                 breakdown_parts.append(f"{driver_type.title()}: {percentage:.0f}%")
 
         breakdown_text = ", ".join(breakdown_parts) if breakdown_parts else "no breakdown available"
