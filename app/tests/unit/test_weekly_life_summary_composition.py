@@ -31,6 +31,11 @@ end to end, both unconditional for any user holding the entity in question:
 ``calculate_principle_metrics`` summed ``PrincipleStrength`` enum members, and
 ``calculate_event_metrics`` compared ``Event.start_time`` (a ``time``) against
 ``datetime.now()``. Both are pinned below so they cannot come back.
+
+The last three classes here came from the Codex review on #1032: the seam is now
+typed against ``AnalyticsMetricsOperations`` (P1), a week with no activity must
+not name a top substance driver (P2), and ``upcoming`` must not count an event
+already marked completed (P2).
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -47,6 +52,7 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.task.task import Task
+from core.ports.analytics_protocols import AnalyticsMetricsOperations
 from core.services.analytics.analytics_aggregation_service import AnalyticsAggregationService
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
 from core.utils.result_simplified import Result
@@ -476,3 +482,161 @@ class TestWeeklyLifeSummaryComposition:
         # The surviving layers are untouched.
         assert summary["total_activity_score"] == 23.8
         assert summary["layer_1_activities"]["tasks"]["total_count"] == 2
+
+
+@pytest.mark.asyncio
+class TestNoActivityClaimsNoDriver:
+    """A week with nothing in it must not name a top substance driver.
+
+    ``substance_drivers`` always carries all three keys, so ``max()`` never falls
+    through to its ``default=(None, {})`` and always returned a domain — at a
+    contribution of 0.0. The rendered advice was "Prioritize habits activities to
+    make knowledge real" to a learner who logged nothing, and
+    ``top_substance_driver`` said "habits", which the weekly summary text repeats.
+    The "No significant activity detected" branch existed for exactly this state
+    and was unreachable.
+
+    Raised by Codex on #1032 (P2). It is a defect of this PR, not before it: until
+    the Result fix the method raised and rendered nothing at all.
+    """
+
+    @staticmethod
+    def _empty_layer1() -> dict[str, dict[str, Any]]:
+        """The shape a zero-activity week produces — also the fail-soft shape."""
+        return {
+            domain: {} for domain in ("tasks", "habits", "goals", "events", "choices", "principles")
+        }
+
+    async def test_zero_activity_names_no_driver(self) -> None:
+        service = AnalyticsAggregationService(metrics_service=AnalyticsMetricsService())
+
+        correlation = service._correlate_knowledge_activities({}, self._empty_layer1())
+
+        assert correlation["top_substance_driver"] == "none"
+        assert correlation["insight"] == (
+            "No significant activity detected for knowledge embodiment"
+        )
+        # No domain is named anywhere in the rendered line.
+        for domain in ("habits", "tasks", "events"):
+            assert domain not in correlation["insight"].lower()
+
+    async def test_a_single_active_domain_still_names_it(self) -> None:
+        """The guard keys on the total, not on "all three present" — one is enough."""
+        layer1 = self._empty_layer1()
+        layer1["events"] = {"total_count": 4}
+
+        correlation = AnalyticsAggregationService(
+            metrics_service=AnalyticsMetricsService()
+        )._correlate_knowledge_activities({}, layer1)
+
+        assert correlation["top_substance_driver"] == "events"
+        assert "Events: 100%" in correlation["insight"]
+
+    async def test_the_summary_text_does_not_repeat_a_phantom_driver(self) -> None:
+        """``_generate_cross_layer_summary_text`` reads the same key straight through."""
+        service = AnalyticsAggregationService(metrics_service=AnalyticsMetricsService())
+        insights = service._synthesize_cross_layer_insights(
+            layer1_domains=self._empty_layer1(),
+            knowledge_metrics={},
+            journal_metrics={},
+            curriculum_metrics={},
+        )
+
+        text = service._generate_cross_layer_summary_text(
+            [{"domain": "tasks", "activity_score": 0}], {}, {}, insights
+        )
+
+        assert "Top substance driver: none." in text
+
+
+@pytest.mark.asyncio
+class TestUpcomingEventsAgreeWithTheModel:
+    """``upcoming`` must not double-count an event that is already completed.
+
+    ``Event.is_upcoming()`` is "in the future and not completed", so without the
+    status guard a future-dated COMPLETED event lands in both ``upcoming_count``
+    and ``completed_count`` and analytics disagrees with the event views.
+
+    Only the status half of ``is_upcoming()`` is borrowed: it delegates to
+    ``is_past()``, which compares whole dates and calls an undated event not-past.
+    These tests pin that divergence deliberately — the comparison here stays
+    time-precise.
+
+    Raised by Codex on #1032 (P2).
+    """
+
+    @staticmethod
+    async def _event_metrics(events: list[Event]) -> dict[str, Any]:
+        service = AnalyticsMetricsService(events_service=_StubDomainService(events))
+        result = await service.calculate_event_metrics(USER, START_DATE, END_DATE)
+        assert result.is_ok
+        return result.value
+
+    async def test_a_completed_future_event_is_not_upcoming(self) -> None:
+        future = datetime.now() + timedelta(days=3)
+        metrics = await self._event_metrics(
+            [
+                Event(
+                    uid="e_done",
+                    title="Ran early",
+                    user_uid=USER,
+                    event_date=future.date(),
+                    start_time=future.time(),
+                    duration_minutes=60,
+                    status=EntityStatus.COMPLETED,
+                )
+            ]
+        )
+
+        assert metrics["completed_count"] == 1
+        assert metrics["upcoming_count"] == 0
+
+    async def test_an_open_future_event_still_counts(self) -> None:
+        future = datetime.now() + timedelta(days=3)
+        metrics = await self._event_metrics(
+            [
+                Event(
+                    uid="e_open",
+                    title="Study block",
+                    user_uid=USER,
+                    event_date=future.date(),
+                    start_time=future.time(),
+                    duration_minutes=60,
+                )
+            ]
+        )
+
+        assert metrics["upcoming_count"] == 1
+        assert metrics["completed_count"] == 0
+
+    async def test_earlier_today_is_not_upcoming(self) -> None:
+        """The precision ``is_upcoming()`` would have cost: it compares whole dates."""
+        earlier = datetime.now() - timedelta(hours=3)
+        metrics = await self._event_metrics(
+            [
+                Event(
+                    uid="e_past_today",
+                    title="Morning standup",
+                    user_uid=USER,
+                    event_date=earlier.date(),
+                    start_time=earlier.time(),
+                    duration_minutes=15,
+                )
+            ]
+        )
+
+        assert metrics["upcoming_count"] == 0
+
+
+def test_the_real_metrics_service_satisfies_the_protocol() -> None:
+    """The seam is now typed, so the runtime and the annotation must agree.
+
+    ``AnalyticsAggregationService.__init__`` typed its collaborator ``Any``, which
+    erased the ``Result`` return of all fifteen ``calculate_*_metrics`` calls and
+    is why the defect this file guards was invisible to mypy at every site. The
+    protocol is ``runtime_checkable``, so this also catches a method being renamed
+    out from under the annotation.
+
+    Raised by Codex on #1032 (P1).
+    """
+    assert isinstance(AnalyticsMetricsService(), AnalyticsMetricsOperations)

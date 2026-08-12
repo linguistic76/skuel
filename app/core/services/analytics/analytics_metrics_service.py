@@ -397,12 +397,21 @@ class AnalyticsMetricsService:
         # ``start_datetime()`` is the model's own combiner and returns None when the
         # event carries no date/time; ``duration_minutes`` is likewise optional, and
         # dividing None raised in the same loop.
+        #
+        # The COMPLETED guard mirrors ``Event.is_upcoming()`` ("in the future and not
+        # completed") — without it a future-dated completed event counts in BOTH
+        # `upcoming` and `completed`, and analytics disagrees with the event views.
+        # Only the status half is borrowed: ``is_upcoming()`` delegates to
+        # ``is_past()``, which compares whole dates and treats an undated event as
+        # not-past, so calling it here would count this morning's event and every
+        # unscheduled one as upcoming. CANCELLED is deliberately not excluded — the
+        # model doesn't, and inventing a second rule here is how the two drift apart.
         now = datetime.now()
         upcoming = 0
         total_hours = 0.0
         for event in events:
             start = event.start_datetime()
-            if start is not None and start > now:
+            if start is not None and start > now and event.status != EntityStatus.COMPLETED:
                 upcoming += 1
             total_hours += (event.duration_minutes or 0) / 60.0
 

@@ -10,7 +10,7 @@ related: [RETURN_VALUE_ERRORS_ANALYSIS.md, ERROR_HANDLING.md]
 # Analytics Untyped-Seam Defects
 
 **Status**: ✅ RESOLVED (2026-08-12)
-**Defect count**: 6 (1 reported, 5 found by fixing it)
+**Defect count**: 8 (1 reported, 5 found by fixing it, 2 more by Codex on #1032)
 **Surfaces affected**: every cross-layer analytics report; three single-domain reports
 **Guard**: `tests/unit/test_weekly_life_summary_composition.py`
 
@@ -79,6 +79,11 @@ service and the aggregator.
 | 4 | `calculate_principle_metrics` | `TypeError: unsupported operand type(s) for +: 'int' and 'PrincipleStrength'` | user holds ≥1 principle |
 | 5 | `calculate_event_metrics` | `TypeError: '>' not supported between instances of 'datetime.time' and 'datetime.datetime'` | user holds ≥1 event |
 | 6 | `calculate_task_metrics` | `AttributeError: 'Task' object has no attribute 'completed_at'` | user holds ≥1 completed task |
+| 7 | `_correlate_knowledge_activities` | names a `top_substance_driver` on a week with no activity | zero activity |
+| 8 | `calculate_event_metrics` | a completed future event counts in both `upcoming` and `completed` | future-dated COMPLETED event |
+
+Defects 7–8 were found by Codex on #1032 **after** the first six were fixed — see
+[Two the fix itself introduced](#two-the-fix-itself-introduced).
 
 Defects 1–3 are in `AnalyticsAggregationService` and were reachable only through the
 cross-layer reports. Defects 4–6 are in `AnalyticsMetricsService` and have a second,
@@ -148,6 +153,38 @@ same shape as the `days_until_review` defect fixed in `calculate_knowledge_metri
 earlier on this branch (`244ea55a3`): **a plausible field name, never spelled by any
 model, reached only on a branch nothing exercised.**
 
+## Two the fix itself introduced
+
+Both were raised by Codex on #1032, after the six above were fixed. Neither existed
+as observable behaviour before — the reports raised and rendered nothing — so both
+are defects *of the repair*, and they are the clearest evidence for amplifier 2:
+making a dead path live exposes whatever that path was going to do wrong.
+
+### 7. A week with no activity named a top driver
+
+`substance_drivers` always carries all three keys, so `max(..., default=(None, {}))`
+never fell through to its default and always returned a domain — at a contribution
+of `0.0`. `top_substance_driver` said `"habits"`, the weekly summary text repeated
+it, and the insight line read "Prioritize habits activities to make knowledge real"
+to a learner who had logged nothing. The `"No significant activity detected"` branch
+existed for exactly this state and was unreachable.
+
+This is the same rule as the truthful-chip work: deriving a value is not a licence to
+*name* it. A zero total now means no driver.
+
+### 8. Completed future events counted as upcoming
+
+`Event.is_upcoming()` is "in the future and not completed"; the metric compared only
+the start time, so a future-dated COMPLETED event incremented `upcoming_count` while
+also appearing in `completed_count` — analytics disagreeing with the event views.
+
+Only the *status* half of `is_upcoming()` was adopted. It delegates to `is_past()`,
+which compares whole dates and treats an undated event as not-past, so calling it
+outright would have counted this morning's event and every unscheduled one as
+upcoming. The divergence (time-precise here, date-granular there) is deliberate and
+pinned by a test. CANCELLED is not excluded, because the model does not exclude it —
+inventing a second rule here is how the two drift apart in the first place.
+
 ## The guard
 
 `tests/unit/test_weekly_life_summary_composition.py` — 10 tests.
@@ -177,10 +214,13 @@ and the per-domain analytics pipelines.
   claim seven Layer-1 domains; the code collects six (Finance is an admin-only
   Firefly sidecar, ADR-052, and is not gathered here). Only the one inline comment
   on an edited line was corrected.
-- **`AnalyticsAggregationService.__init__` types `metrics_service: Any`.** This is
-  what let defect 1 past mypy at fifteen call sites. Typing it against a
-  `core/ports` protocol would make the seam checkable. Not done here — it is a
-  protocol-extraction change, not a fix.
+- ~~**`AnalyticsAggregationService.__init__` types `metrics_service: Any`.**~~
+  **CLOSED on #1032** — typed against `AnalyticsMetricsOperations`
+  (`core/ports/analytics_protocols.py`). Verified by re-injecting the original
+  defect at one call site: mypy now reports three `arg-type` errors where it
+  previously reported none. The metric *payload* stays `dict[str, Any]` (Any policy
+  Category C — see the protocol module docstring for why a TypedDict per domain
+  would have to be `total=False` throughout and would buy no checking).
 - **Per-learner substance magnitudes.** Already recorded as a KNOWN LIMITATION in
   `calculate_knowledge_metrics`' own docstring; unrelated to this class but on the
   same path.

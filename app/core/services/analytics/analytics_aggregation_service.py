@@ -39,6 +39,7 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.type_hints import UserUID
+from core.ports.analytics_protocols import AnalyticsMetricsOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -78,9 +79,14 @@ class AnalyticsAggregationService:
     - Layer 3: Life Path alignment synthesis (via AnalyticsLifePathService)
     """
 
-    def __init__(self, metrics_service: Any) -> None:
+    def __init__(self, metrics_service: AnalyticsMetricsOperations) -> None:
         """
         Initialize with metrics service.
+
+        Typed against the protocol rather than ``Any``: the untyped collaborator
+        erased the ``Result`` return of all fifteen ``calculate_*_metrics`` calls
+        below, which is why storing them into ``dict``-annotated parameters was
+        invisible to mypy.
 
         Args:
             metrics_service: AnalyticsMetricsService for domain statistics
@@ -576,20 +582,25 @@ class AnalyticsAggregationService:
             },
         }
 
-        # Identify highest-contributing domain
+        # Identify highest-contributing domain. The `default=` never fires — the
+        # mapping above always has all three keys — so on a week with no activity
+        # `max` still returns a domain, at a contribution of 0.0. Naming that
+        # domain would assert a driver the data does not support ("Prioritize
+        # habits" to a learner who logged nothing), so a zero total means no
+        # driver, which is the state the "No significant activity" path exists for.
         from core.utils.sort_functions import get_contribution_estimate
 
-        top_driver: tuple[str | None, dict[str, Any]] = max(
-            substance_drivers.items(), key=get_contribution_estimate, default=(None, {})
-        )
+        top_name: str | None = None
+        if any(driver["contribution_estimate"] > 0 for driver in substance_drivers.values()):
+            top_name = max(substance_drivers.items(), key=get_contribution_estimate)[0]
 
         return {
             "avg_substance_score": round(avg_substance, 2),
             "embodiment_rate": round(embodied_count / max(total_knowledge, 1), 2),
             "substance_drivers": substance_drivers,
-            "top_substance_driver": top_driver[0] if top_driver[0] else "none",
+            "top_substance_driver": top_name if top_name else "none",
             "insight": self._generate_knowledge_activity_insight(
-                avg_substance, substance_drivers, top_driver[0]
+                avg_substance, substance_drivers, top_name
             ),
         }
 
@@ -759,6 +770,9 @@ class AnalyticsAggregationService:
         ``contribution_estimate`` is ``activity_count * weight`` — an unbounded
         magnitude (20 active habits gives 2.0), which as a bare "%" would render
         "Habits: 200%".
+
+        ``top_driver`` is None exactly when no driver contributed, so the share
+        denominator below is non-zero on every path that reaches it.
         """
         from core.utils.sort_functions import get_contribution_estimate
 
