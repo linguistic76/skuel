@@ -2,21 +2,12 @@
 Askesis Domain Models Package
 =============================
 
-Complete three-tier architecture for Askesis - the AI assistant and domain integration orchestrator.
+Three-tier models for Askesis - the AI assistant and domain integration orchestrator.
 
 Tier 1 (External): Pydantic models for API validation
 Tier 2 (Transfer): Mutable DTOs for data movement
 Tier 3 (Core): Immutable domain models with business logic
 """
-
-# Askesis enums (canonical location: core.models.enums.askesis_enums)
-from core.models.enums.askesis_enums import (
-    IntegrationSuccess,
-    QueryComplexity,
-)
-
-# Import domain models that exist in other modules
-from core.models.user.conversation import ConversationSession
 
 from .askesis import (
     Askesis,
@@ -24,50 +15,17 @@ from .askesis import (
 from .askesis_converters import (
     apply_askesis_update_to_dto,
     askesis_create_request_to_dto,
-    askesis_dto_to_response,
     askesis_update_request_to_dto,
-    conversation_session_create_request_to_dto,
-    conversation_session_domain_to_dto,
-    conversation_session_dto_to_domain,
-    conversation_session_dto_to_response,
     create_askesis_dto_from_create_dto,
-    domain_interaction_dto_to_domain,
-    domain_interaction_request_to_dto,
-    guidance_recommendation_create_request_to_dto,
-    guidance_recommendation_domain_to_dto,
-    guidance_recommendation_dto_to_domain,
-    guidance_recommendation_dto_to_response,
 )
 from .askesis_dto import (
-    AskesisConfigurationDTO,
     AskesisCreateDTO,
     AskesisDTO,
     AskesisUpdateDTO,
-    ConversationAnalyticsDTO,
-    ConversationSessionDTO,
-    CrossDomainInsightDTO,
-    DomainInteractionDTO,
-    DomainSuggestionDTO,
-    DomainSynergiesAnalyticsDTO,
-    GuidanceRecommendationDTO,
-    IntelligenceInsightsDTO,
 )
 from .askesis_request import (
-    AskesisAnalyticsRequest,
     AskesisCreateRequest,
-    AskesisResponse,
     AskesisUpdateRequest,
-    ConversationSessionCreateRequest,
-    ConversationSessionResponse,
-    ConversationSessionUpdateRequest,
-    DomainInteractionRequest,
-    DomainSuggestionRequest,
-    DomainSuggestionResponse,
-    GuidanceRecommendationCreateRequest,
-    GuidanceRecommendationResponse,
-    GuidanceRecommendationResponseRequest,
-    IntelligenceInsightsResponse,
-    IntelligenceUpdateRequest,
 )
 
 # Socratic tutoring models (Askesis RAG pipeline refactor)
@@ -81,52 +39,16 @@ __all__ = [
     "PsBundle",
     "PedagogicalIntent",
     "StructuredLearningObjective",
-    "AskesisAnalyticsRequest",
-    "AskesisConfigurationDTO",
     "AskesisCreateDTO",
-    # Request/Response models
+    # Request models
     "AskesisCreateRequest",
     # DTOs
     "AskesisDTO",
-    "AskesisResponse",
     "AskesisUpdateDTO",
     "AskesisUpdateRequest",
-    "ConversationAnalyticsDTO",
-    "ConversationSession",
-    "ConversationSessionCreateRequest",
-    "ConversationSessionDTO",
-    "ConversationSessionResponse",
-    "ConversationSessionUpdateRequest",
-    "CrossDomainInsightDTO",
-    "DomainInteractionDTO",
-    "DomainInteractionRequest",
-    "DomainSuggestionDTO",
-    "DomainSuggestionRequest",
-    "DomainSuggestionResponse",
-    "DomainSynergiesAnalyticsDTO",
-    "GuidanceRecommendationCreateRequest",
-    "GuidanceRecommendationDTO",
-    "GuidanceRecommendationResponse",
-    "GuidanceRecommendationResponseRequest",
-    "IntegrationSuccess",
-    "IntelligenceInsightsDTO",
-    "IntelligenceInsightsResponse",
-    "IntelligenceUpdateRequest",
-    "QueryComplexity",
     "apply_askesis_update_to_dto",
     # Converters
     "askesis_create_request_to_dto",
-    "askesis_dto_to_response",
     "askesis_update_request_to_dto",
-    "conversation_session_create_request_to_dto",
-    "conversation_session_domain_to_dto",
-    "conversation_session_dto_to_domain",
-    "conversation_session_dto_to_response",
     "create_askesis_dto_from_create_dto",
-    "domain_interaction_dto_to_domain",
-    "domain_interaction_request_to_dto",
-    "guidance_recommendation_create_request_to_dto",
-    "guidance_recommendation_domain_to_dto",
-    "guidance_recommendation_dto_to_domain",
-    "guidance_recommendation_dto_to_response",
 ]
