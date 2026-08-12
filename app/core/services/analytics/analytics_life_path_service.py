@@ -68,9 +68,13 @@ class KnowledgeSubstanceInfo(TypedDict):
     substance: float  # THIS learner's substance score (0.0-1.0)
 
 
-def _substance_of(gap: KnowledgeSubstanceInfo) -> float:
-    """Sort key for gap ranking (named, not a lambda — SKUEL012)."""
-    return gap["substance"]
+def _raw_substance_of(scored: tuple[float, KnowledgeSubstanceInfo]) -> float:
+    """Sort key for gap ranking — the RAW score (named, not a lambda — SKUEL012).
+
+    Ranks on the unrounded value carried alongside the emitted row, so two steps
+    that round to the same two decimals still order by what they actually are.
+    """
+    return scored[0]
 
 
 class AnalyticsLifePathService:
@@ -286,11 +290,13 @@ class AnalyticsLifePathService:
 
             knowledge_analysis = self._analyze_knowledge_substance(steps, substance)
             alignment_score = knowledge_analysis["avg_substance"]
-            domain_contributions = self._analyze_domain_contributions(steps, substance)
+            # Raw totals drive the decisions; the proportions are for display.
+            channel_totals = self._sum_channel_substance(steps, substance)
+            domain_contributions = self._analyze_domain_contributions(channel_totals)
             gaps = knowledge_analysis["gaps"]
             trends = await self._calculate_alignment_trends(user_uid, life_path_uid)
             recommendations = self._generate_recommendations(
-                knowledge_analysis, domain_contributions, gaps
+                knowledge_analysis, channel_totals, gaps
             )
 
             return Result.ok(
@@ -393,6 +399,12 @@ class AnalyticsLifePathService:
         applied: list[KnowledgeSubstanceInfo] = []  # 0.3-0.6
         theoretical: list[KnowledgeSubstanceInfo] = []  # < 0.3
 
+        # (raw score, emitted row). The rounding on the row is PRESENTATION; every
+        # threshold below is tested against the raw score. A step at 0.4967 rounds
+        # to 0.50 and would otherwise fail a `< 0.5` gap test while the bands —
+        # which use the raw value — still call it under-substantiated.
+        gap_candidates: list[tuple[float, KnowledgeSubstanceInfo]] = []
+
         for step in steps:
             # Indexed, not .get()-ed: the batched scorer returns a row for every
             # requested uid, so a missing key is a contract break and must not be
@@ -415,19 +427,17 @@ class AnalyticsLifePathService:
             else:
                 theoretical.append(info)
 
+            if score < GAP_THRESHOLD:
+                gap_candidates.append((score, info))
+
         count = len(steps)
         avg_substance = total_substance / count if count > 0 else 0.0
 
         # Under the review threshold, least-substantiated first, so the cap keeps
         # the ten that most need work rather than the first ten in path order.
-        gaps = sorted(
-            (
-                info
-                for info in (*theoretical, *applied, *practiced, *embodied)
-                if info["substance"] < GAP_THRESHOLD
-            ),
-            key=_substance_of,
-        )[:MAX_GAPS_REPORTED]
+        gaps = [
+            info for _, info in sorted(gap_candidates, key=_raw_substance_of)[:MAX_GAPS_REPORTED]
+        ]
 
         return {
             "total_count": count,
@@ -444,9 +454,31 @@ class AnalyticsLifePathService:
         }
 
     @staticmethod
-    def _analyze_domain_contributions(
+    def _sum_channel_substance(
         steps: list[LifePathStepRow], substance: dict[str, StepSubstance]
     ) -> dict[str, float]:
+        """This learner's RAW substance per channel, summed across the path.
+
+        The unrounded basis for both the emitted proportions and the "has this
+        learner used this channel at all" decision. Kept separate from
+        :meth:`_analyze_domain_contributions` because that method rounds for
+        display, and a channel contributing under 0.5% of the total rounds to
+        0.0 — indistinguishable, at that point, from a channel never used.
+
+        Both sides are keyed off USER_SUBSTANCE_CHANNELS, so an unknown name
+        here means the table and the scorer have diverged. Indexed rather than
+        membership-guarded so that raises (KeyError → a failed Result) instead
+        of silently dropping a channel's substance, which would under-report
+        every other channel's proportion without any sign that it had.
+        """
+        totals = {channel.name: 0.0 for channel in USER_SUBSTANCE_CHANNELS}
+        for step in steps:
+            for name, value in substance[step["ps_uid"]]["breakdown"].items():
+                totals[name] += value
+        return totals
+
+    @staticmethod
+    def _analyze_domain_contributions(channel_totals: dict[str, float]) -> dict[str, float]:
         """
         Which of the six substance channels this learner's alignment comes from.
 
@@ -468,21 +500,16 @@ class AnalyticsLifePathService:
         Returns all six keys even when the learner has no activity at all, zeroed
         — an absent channel and an empty one are the same fact to every consumer,
         and the dashboard renders a bar per key.
-        """
-        # Both sides are keyed off USER_SUBSTANCE_CHANNELS, so an unknown name
-        # here means the table and the scorer have diverged. Indexed rather than
-        # membership-guarded so that raises (KeyError → a failed Result) instead
-        # of silently dropping a channel's substance, which would under-report
-        # every other channel's proportion without any sign that it had.
-        totals = {channel.name: 0.0 for channel in USER_SUBSTANCE_CHANNELS}
-        for step in steps:
-            for name, value in substance[step["ps_uid"]]["breakdown"].items():
-                totals[name] += value
 
-        grand_total = sum(totals.values())
+        ROUNDED, and therefore for DISPLAY ONLY. A channel contributing under
+        0.5% of the total lands on 0.0 here, which no longer means "never used".
+        Decisions about whether a channel has been used at all read the raw
+        totals from :meth:`_sum_channel_substance`.
+        """
+        grand_total = sum(channel_totals.values())
         if grand_total <= 0:
-            return totals
-        return {name: round(value / grand_total, 2) for name, value in totals.items()}
+            return dict(channel_totals)
+        return {name: round(value / grand_total, 2) for name, value in channel_totals.items()}
 
     async def _calculate_alignment_trends(
         self, user_uid: UserUID, life_path_uid: str
@@ -555,7 +582,7 @@ class AnalyticsLifePathService:
     @staticmethod
     def _generate_recommendations(
         knowledge_analysis: dict[str, Any],
-        domain_contributions: dict[str, float],
+        channel_totals: dict[str, float],
         gaps: list[KnowledgeSubstanceInfo],
     ) -> list[str]:
         """
@@ -569,7 +596,7 @@ class AnalyticsLifePathService:
 
         Args:
             knowledge_analysis: Substance analysis from _analyze_knowledge_substance
-            domain_contributions: Per-channel proportions of this learner's substance
+            channel_totals: RAW per-channel substance from _sum_channel_substance
             gaps: Path steps whose personal substance is under the review threshold
 
         Returns:
@@ -585,14 +612,16 @@ class AnalyticsLifePathService:
                 ]
             )
 
-        # A channel the learner has not used AT ALL on this path. Contributions
-        # are proportions, so 0.0 here means no activity of that kind touches any
-        # of the path's knowledge — the concrete thing to change.
+        # A channel the learner has not used AT ALL on this path — 0.0 in the RAW
+        # totals, so no activity of that kind touches any of the path's knowledge.
+        # Deliberately not the rounded proportions: a channel worth under 0.5% of
+        # the total displays as 0.0 while having been used, and this would then
+        # tell the learner to do something they have already done.
         recommendations.extend(
             [
                 channel.recommendation.format(title="your Life Path")
                 for channel in USER_SUBSTANCE_CHANNELS
-                if domain_contributions.get(channel.name, 0.0) <= 0.0
+                if channel_totals.get(channel.name, 0.0) <= 0.0
             ]
         )
 
