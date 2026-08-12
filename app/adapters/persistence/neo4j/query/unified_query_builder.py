@@ -98,7 +98,7 @@ class QueryResult[T]:
     data: list[T]
     cypher: str
     parameters: dict[str, Any]
-    strategy: str  # "cypher", "apoc", "template"
+    strategy: str  # "cypher", "cypher_semantic", "template"
     estimated_cost: int | None = None
 
 
@@ -777,9 +777,10 @@ class UnifiedQueryBuilder:
 
     def graph_context(self, uid: str, intent: QueryIntent, depth: int = 2) -> str:
         """
-        Build APOC graph context query (convenience method).
+        Build pure Cypher graph context query (convenience method).
 
-        Routes to build_graph_context_query().
+        Routes to build_graph_context_query(), which uses variable-length
+        patterns rather than APOC path procedures.
 
         Example:
             query = builder.graph_context(

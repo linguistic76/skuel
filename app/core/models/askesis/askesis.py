@@ -455,7 +455,6 @@ class AskesisConfig:
     use_graph_knowledge: bool = True
     max_related_units: int = 5
     include_prerequisites: bool = True
-    use_apoc_batch: bool = True  # Use APOC for 10x performance
 
     # Safety configuration
     filter_inappropriate: bool = True
