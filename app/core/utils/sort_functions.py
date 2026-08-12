@@ -217,20 +217,24 @@ def get_activity_score(item: dict[str, Any]) -> float:
     return item["activity_score"]
 
 
-def get_days_until_review(item: dict[str, Any]) -> int:
+def get_current_substance(item: dict[str, Any]) -> float:
     """
-    Get days_until_review from dictionary.
+    Get current_substance from dictionary.
 
-    Used for sorting decay warnings by review urgency.
-    Example: sorted(decay_warnings, key=get_days_until_review)
+    Used for sorting knowledge review warnings least-substantiated first.
+    Example: sorted(review_warnings, key=get_current_substance)
+
+    Replaced ``get_days_until_review`` when the Layer-0 knowledge metric moved
+    to per-learner magnitudes: its ``days_until_review`` is now 0 on every row
+    (no personal decay clock exists), so sorting by it ranked nothing.
 
     Args:
-        item: Dictionary with 'days_until_review' key
+        item: Dictionary with 'current_substance' key
 
     Returns:
-        Number of days until review needed
+        The learner's substance score for that entity
     """
-    return item["days_until_review"]
+    return item["current_substance"]
 
 
 def get_contribution_estimate(item: tuple[str, dict[str, Any]]) -> float:

@@ -31,6 +31,7 @@ from core.ports.query_types import (
     PsGuidanceCountsRow,
     PsPracticeCountsRow,
     PsPrerequisiteStepUidsRow,
+    PsStepTaughtKuUidsRow,
     PsTaughtKuUidRow,
 )
 from core.utils.result_simplified import Result
@@ -93,6 +94,20 @@ def _to_taught_ku_uid_rows(
     rather than a stringified ``None``.
     """
     return [{"ku_uid": str(row["ku_uid"])} for row in records if row["ku_uid"]]
+
+
+def _to_step_taught_ku_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[PsStepTaughtKuUidsRow]:
+    """Project raw rows onto PsStepTaughtKuUidsRow (KeyError on alias drift)."""
+    return [
+        {
+            "ps_uid": str(row["ps_uid"]),
+            "ku_uids": [str(uid) for uid in (row["ku_uids"] or []) if uid],
+        }
+        for row in records
+        if row["ps_uid"]
+    ]
 
 
 class PsIntelligenceBackend:
@@ -213,4 +228,37 @@ class PsIntelligenceBackend:
             params={"ps_uid": ps_uid},
             processor=_to_taught_ku_uid_rows,
             operation="calculate_user_substance",
+        )
+
+    async def fetch_taught_ku_uids_for_steps(
+        self, ps_uids: list[str]
+    ) -> Result[list[PsStepTaughtKuUidsRow]]:
+        """Return one ``(ps_uid, ku_uids)`` row per requested PathStep.
+
+        The batched form of :meth:`fetch_taught_ku_uids`, for callers scoring a
+        whole set of steps at once — the Layer-0 analytics metric holds a
+        learner's entire engagement window, and one round trip per step there is
+        an N+1 over a set with no upper bound.
+
+        ``UNWIND`` over the input list rather than a single ``IN`` match so a
+        step that teaches nothing still comes back, with an empty ``ku_uids``.
+        A caller must be able to tell "this step has no Kus" from "this step was
+        not in the result", because the first scores 0.0 and belongs in the
+        report while the second is a step silently dropped from the denominator.
+
+        Traverses the same composition triple as the single-step form and the
+        substance write fan-out. The publication gate stays off for the same
+        reason it is off on the engagement reads that feed this: the caller
+        already holds steps the learner worked, and withholding their
+        composition would rewrite past numbers rather than hide new curriculum.
+        """
+        return await self._executor.execute(
+            query="""
+                UNWIND $ps_uids AS ps_uid
+                OPTIONAL MATCH (:Entity {uid: ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
+                RETURN ps_uid AS ps_uid, collect(DISTINCT ku.uid) AS ku_uids
+            """,
+            params={"ps_uids": ps_uids},
+            processor=_to_step_taught_ku_rows,
+            operation="calculate_user_substance_for_steps",
         )

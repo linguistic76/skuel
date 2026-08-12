@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-03-31
+updated: 2026-08-12
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -376,10 +376,31 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 
 **Global vs. Personal:** While global substance tracks how knowledge is applied across all users, **per-user substance** answers "How am I personally using this knowledge?"
 
-### API Endpoint
+### The weight table lives in exactly one place
+
+`core/services/knowledge/user_substance.py` — `USER_SUBSTANCE_CHANNELS`. It was written out by hand in `KuIntelligenceService` and `PsIntelligenceService` until August 2026, and the Layer-0 analytics metric was about to become a third copy. Callers own their presentation (bands, prompts, status lines); they do not own the arithmetic. `tests/unit/test_user_substance_weights.py` pins the table against the numbers published above and against the `UserContext` field names it reads.
+
+### Personal is not "global, filtered"
+
+Three differences are deliberate and must not be reconciled by making the two agree:
+
+| | Global (`Curriculum.substance_score()`) | Personal (`user_substance.py`) |
+|---|---|---|
+| **Source** | counters on the shared node, written by `KuBackend.increment_substance` with **no `user_uid`** | the six `UserContext` activity→knowledge maps, which are by construction one learner's |
+| **Channels** | 5 — there is no principles counter | 6 — principles (`GROUNDED_IN_KNOWLEDGE`) counts |
+| **Time decay** | exponential, 30-day half-life, per-channel `last_*_date` | **none** — the channel maps carry uids and no timestamps, so a personal decay curve is not computable from this input. The score is cumulative. |
+
+Deriving a personal decay clock from engagement-edge timestamps would time a *different event*: opening a step is not applying it.
+
+### Requires a RICH context
+
+The six maps are populated **only** by `UserContextBuilder.build_rich` (`populate_graph_sourced_fields` + `populate_entry_knowledge_applied`). The standard `build` / `get_user_context` leaves them empty — and an empty map does not raise, it scores every entity a confident **0.0**. Any caller of `calculate_user_substance` must therefore use `get_rich_unified_context`.
+
+### API Endpoints
 
 ```
-GET /api/ku/{uid}/my-context
+GET /api/ku/{uid}/my-context          → KuIntelligenceService.calculate_user_substance
+GET /api/path-steps/my-context        → PsIntelligenceService.calculate_user_substance
 ```
 
 Requires authentication. Returns personalized substance data for the current user.
@@ -389,19 +410,18 @@ Requires authentication. Returns personalized substance data for the current use
 Uses the same weighted scoring, but only counts THIS user's applications:
 
 ```python
-# Extract from UserContext (activity_uid -> ku_uids mapping, reversed lookup)
-task_uids = [uid for uid, ku_list in user_context.task_knowledge_applied.items()
-             if ku_uid in ku_list]
-habit_uids = [uid for uid, ku_list in user_context.habit_knowledge_applied.items()
-              if ku_uid in ku_list]
-# ... same for events, choices, principles, entries
+from core.services.knowledge.user_substance import build_substance_index, user_substance_score
 
-# Calculate user's substance score (6 channels, capped at 1.0)
-task_score = min(0.25, len(task_uids) * 0.05)
-habit_score = min(0.30, len(habit_uids) * 0.10)
-# ... etc.
-user_substance_score = min(1.0, sum_of_scores)
+# One inversion of the six channel maps: ku_uid -> {channel: activity count}
+index = build_substance_index(rich_user_context)
+score = user_substance_score(ku_uid, index)   # weights + per-channel caps, total capped at 1.0
 ```
+
+Weights per instance and per-channel caps are the table at the top of this document. Counting is **per activity**: an activity that names the same Ku twice is one application of it.
+
+### A PathStep's personal substance
+
+A PathStep has no channels of its own — activities link to Kus. Its personal substance is the **mean** of the per-Ku scores over the Kus it teaches (`USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU` — the same triple the global write fan-out traverses). A step teaching no Ku scores **0.0**, not undefined.
 
 ### Status Messages
 
@@ -413,6 +433,21 @@ user_substance_score = min(1.0, sum_of_scores)
 | 0.3-0.49 | "Applied but not yet integrated. Build habits." |
 | 0.01-0.29 | "Theoretical knowledge. Apply in projects." |
 | 0.0 | "Pure theory. Create tasks and practice." |
+
+### Ruling: what the weekly summary reports for an engaged-but-unapplied step (2026-08-12)
+
+`AnalyticsMetricsService.calculate_knowledge_metrics` selects the path steps a learner engaged with in the window, then scores each one **per-learner**. A learner routinely marks a step in progress and never carries it into a task, habit, event, entry, choice or principle. The ruling for that step:
+
+**It scores 0.0, it lands in `theoretical_knowledge`, and it stays in the denominator.**
+
+Why, positively — 0.0 is not a missing value here. `theoretical_knowledge` is defined as *read about it, no application*, which is precisely and completely what has happened. The alternatives were considered and rejected:
+
+- **Excluding unapplied steps from the average** would make `avg_substance_score` *rise* as a learner takes up more material without applying it. The metric exists to say "applied knowledge, not pure theory"; an average that rewards unapplied uptake inverts it.
+- **Falling back to the node's global counters** for steps with no personal activity is the contamination itself, reintroduced as a special case — and it would be worst exactly where it is most misleading, on the material the learner has done least with.
+
+**Consequence, stated up front:** the band distribution shifts hard toward `theoretical_knowledge` and `avg_substance_score` drops, on every instance with more than one learner and on single-learner instances too (global counters pool activity across *all* Kus of a step's composition, personal scoring averages over them). This is a corrected reading, not a regression — but a stored historical report generated before 2026-08-12 is on the old basis and is not comparable to one generated after.
+
+**`decay_warnings` under this ruling.** The key keeps its name (report-template contract) but no longer carries a decay prediction: with no personal clock there is nothing to predict from. It now lists the engaged steps whose *personal* substance is under the 0.5 review threshold — the threshold `Curriculum.needs_review()` uses — sorted least-substantiated first, capped at 10. `days_until_review` is `0` on every row, meaning "review now".
 
 ### UserContext Knowledge Fields
 
@@ -441,8 +476,9 @@ All 6 channels tracked:
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| **Substance Fields** | `/core/models/curriculum.py` | Substance fields + methods on `Curriculum` base class |
-| **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition |
+| **Substance Fields** | `/core/models/curriculum.py` | Substance fields + methods on `Curriculum` base class (the GLOBAL figure) |
+| **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition (global only — see Per-User Substance) |
+| **Per-User Weight Table** | `/core/services/knowledge/user_substance.py` | THE six-channel table + pure scoring; read by both intelligence services and the Layer-0 metric |
 | **Domain Events** | `/core/events/knowledge_substance_events.py` | 9 substance events (5 channels; task/habit/choice also have bulk forms) |
 | **Event Handlers** | `/core/services/ps_service.py` | `PsService.increment_substance_metric()` |
 | **Backend Write** | `/adapters/persistence/neo4j/backends/curriculum_backends.py` | `KuBackend.increment_substance()` + PathStep fan-out |
@@ -489,5 +525,5 @@ All 6 channels tracked:
 
 ---
 
-**Last Updated:** March 31, 2026
-**Status:** Active — substance writes now propagate from Ku to connected PathStep nodes
+**Last Updated:** August 12, 2026
+**Status:** Active — the Layer-0 knowledge metric reports PER-LEARNER magnitudes; the per-user weight table is consolidated in `core/services/knowledge/user_substance.py`

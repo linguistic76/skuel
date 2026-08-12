@@ -55,6 +55,7 @@ from core.models.task.task import Task
 from core.ports.analytics_protocols import AnalyticsMetricsOperations
 from core.services.analytics.analytics_aggregation_service import AnalyticsAggregationService
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
+from core.services.user import UserContext
 from core.utils.result_simplified import Result
 
 USER = "user_weekly_summary"
@@ -96,15 +97,20 @@ class _StubDomainService:
 
 
 class _StubPsService:
-    """``PsService``'s two knowledge delegations, as ``AnalyticsMetricsService`` calls them.
+    """``PsService``'s three knowledge delegations, as ``AnalyticsMetricsService`` calls them.
 
     The real Cypher behind these is guarded over a live graph in
-    ``tests/integration/test_knowledge_metrics_learner_scope.py``.
+    ``tests/integration/test_knowledge_metrics_learner_scope.py`` — including the
+    step→Ku resolution that turns a learner's activity channels into the
+    per-step scores this hands back ready-made.
     """
 
-    def __init__(self, steps: list[PathStep], counts: dict[str, int]) -> None:
+    def __init__(
+        self, steps: list[PathStep], counts: dict[str, int], substance: dict[str, float]
+    ) -> None:
         self._steps = steps
         self._counts = counts
+        self._substance = substance
 
     async def find_engaged_steps_in_window(
         self, user_uid: str, start_date: date, end_date: date, limit: int | None = None
@@ -113,6 +119,26 @@ class _StubPsService:
 
     async def count_engaged_knowledge(self, user_uid: str) -> Result[dict[str, int]]:
         return Result.ok(dict(self._counts))
+
+    async def get_user_substance_scores(
+        self, ps_uids: Any, user_context: Any
+    ) -> Result[dict[str, float]]:
+        return Result.ok({uid: self._substance[uid] for uid in ps_uids})
+
+
+class _StubUserService:
+    """``get_rich_unified_context`` — the one call the knowledge metric makes.
+
+    Only the rich depth is served. The standard build leaves the six activity→
+    knowledge maps empty, and the metric that reached for it would score every
+    step 0.0 without erroring; the depth choice is pinned over a real graph in
+    ``tests/integration/test_knowledge_metrics_learner_scope.py``.
+    """
+
+    async def get_rich_unified_context(
+        self, user_uid: str, min_confidence: float = 0.7
+    ) -> Result[Any]:
+        return Result.ok(UserContext(user_uid=user_uid))
 
 
 class _StubLpService:
@@ -142,31 +168,33 @@ class _StubCrossDomainBackend:
 # ============================================================================
 
 
+# What the LEARNER's own activity channels score each step at. Two exact values
+# landing in different bands: 0.30 in the 0.3-0.6 "applied" band, 0.90 in the
+# 0.8+ "embodied" band, averaging 0.60 — so a metric that collapsed the bands,
+# or averaged the wrong field, cannot produce those three numbers together.
+PERSONAL_SUBSTANCE = {"ps.applied": 0.30, "ps.embodied": 0.90}
+
+
 def _seed_path_steps() -> list[PathStep]:
-    """Two steps whose substance scores are exact and land in different bands.
+    """Two steps whose NODE counters deliberately disagree with the learner.
 
-    ``_decay_weight`` is ``e^(-days/30)``, so a same-day timestamp weighs
-    exactly 1.0 and the per-channel caps do the rest:
+    Both carry the full set — habits 0.30 (at cap) + entries 0.20 (capped from
+    0.21) + events 0.25 (at cap) + tasks 0.15, and ``_decay_weight`` is
+    ``e^(-days/30)`` so a same-day timestamp weighs exactly 1.0 — which is
+    ``Curriculum.substance_score() == 0.90`` for BOTH.
 
-    * applied step  — habits 3 x 0.10 = 0.30 (at the 0.30 cap)      -> 0.30
-    * embodied step — 0.30 habits + 0.20 entries (0.21, capped)
-                      + 0.25 events (5 x 0.05, at cap) + 0.15 tasks -> 0.90
-
-    Average 0.60, one step in the 0.3-0.6 "applied" band and one in the 0.8+
-    "embodied" band — so a metric that collapsed the bands, or averaged the
-    wrong field, cannot produce these three numbers together.
+    That is the corpus-global figure: `increment_substance` writes those counters
+    with no ``user_uid``, so they pool every learner's activity. Since 2026-08-12
+    the metric does not read them, and seeding both steps identically high is
+    what makes the assertions below discriminate — a global reading yields
+    avg 0.90 with embodied=2/applied=0, a personal one avg 0.60 with
+    embodied=1/applied=1.
     """
     now = datetime.now(UTC)
     return [
         PathStep(
-            uid="ps.applied",
-            title="Applied step",
-            times_built_into_habits=3,
-            last_built_into_habit_date=now,
-        ),
-        PathStep(
-            uid="ps.embodied",
-            title="Embodied step",
+            uid=uid,
+            title=title,
             times_built_into_habits=3,
             last_built_into_habit_date=now,
             times_reflected_in_entries=3,
@@ -175,7 +203,8 @@ def _seed_path_steps() -> list[PathStep]:
             last_practiced_date=now,
             times_applied_in_tasks=3,
             last_applied_date=now,
-        ),
+        )
+        for uid, title in (("ps.applied", "Applied step"), ("ps.embodied", "Embodied step"))
     ]
 
 
@@ -243,7 +272,10 @@ def metrics() -> AnalyticsMetricsService:
         # reaching for the cross-domain backend.
         content_enrichment=object(),
         # Layer 0
-        ku_service=_StubPsService(_seed_path_steps(), {"total": 4, "mastered": 1}),
+        ku_service=_StubPsService(
+            _seed_path_steps(), {"total": 4, "mastered": 1}, PERSONAL_SUBSTANCE
+        ),
+        user_service=_StubUserService(),
         lp_service=_StubLpService([LearningPath(uid="lp.python", title="Python Mastery")]),
         cross_domain_backend=_StubCrossDomainBackend(
             [
@@ -322,7 +354,10 @@ class TestWeeklyLifeSummaryComposition:
         """Layer 0's ``substance_metrics`` was handed through unwrapped.
 
         The bands and the average are computed by the real metrics service from
-        the two seeded path steps (0.30 applied, 0.90 embodied).
+        the LEARNER's scores for the two seeded path steps (0.30 applied, 0.90
+        embodied). Both steps' node counters read 0.90 — the corpus-global
+        figure — so avg 0.90 with embodied=2 here means the metric went back to
+        ``Curriculum.substance_score()``.
         """
         summary = await aggregation.aggregate_weekly_life_summary(USER, START_DATE, END_DATE)
 

@@ -59,6 +59,8 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_second_item, get_title_lower
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from core.infrastructure.relationships.semantic_relationships import SemanticTriple
     from core.models.context_types import ContextualKnowledge
     from core.models.enums.learning_enums import SELCategory
@@ -1101,6 +1103,28 @@ class PsService:
                 )
             )
         return await self.intelligence.calculate_user_substance(ps_uid, user_context)
+
+    async def get_user_substance_scores(
+        self, ps_uids: Sequence[str], user_context: UserContext
+    ) -> Result[dict[str, float]]:
+        """Personal substance score for a set of path steps, keyed by uid.
+
+        The aggregate counterpart of :meth:`get_user_step_context` — one read for
+        the whole set instead of one per step. Every requested uid is present in
+        the mapping; 0.0 means the learner has applied none of the step's Kus
+        through any of the six channels, which is a reading, not a gap.
+
+        The context must be RICH: the six activity→knowledge maps this scores
+        against are populated only by ``UserContextBuilder.build_rich``.
+        """
+        if getattr(self, "intelligence", None) is None:
+            return Result.fail(
+                Errors.system(
+                    message="PsIntelligenceService not available to score user substance",
+                    operation="get_user_substance_scores",
+                )
+            )
+        return await self.intelligence.calculate_user_substance_for_steps(ps_uids, user_context)
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

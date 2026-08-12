@@ -18,12 +18,32 @@ from core.services.knowledge.knowledge_pattern_analyzer import (
     LearningPatternType,
     MasteryProgression,
 )
+from core.services.knowledge.user_substance import (
+    USER_SUBSTANCE_CHANNELS,
+    SubstanceChannel,
+    SubstanceIndex,
+    build_substance_index,
+    channel_counts,
+    empty_channel_prompts,
+    substance_breakdown,
+    substance_score,
+    user_substance_score,
+)
 
 __all__ = [
+    "USER_SUBSTANCE_CHANNELS",
     "ActivityKnowledgeIntelligenceService",
     "ActivityInsight",
     "KnowledgePatternAnalyzer",
     "LearningPattern",
     "LearningPatternType",
     "MasteryProgression",
+    "SubstanceChannel",
+    "SubstanceIndex",
+    "build_substance_index",
+    "channel_counts",
+    "empty_channel_prompts",
+    "substance_breakdown",
+    "substance_score",
+    "user_substance_score",
 ]

@@ -356,7 +356,11 @@ def create_path_steps_api_routes(
         # Fail-fast: PsService is always composed with user_service
         # (services_bootstrap/_learning_services.py) — no per-request guard.
         assert ps_service.user_service is not None, "PsService.user_service must be wired"
-        context_result = await ps_service.user_service.get_user_context(user_uid)
+        # RICH, not standard. The six activity→knowledge maps the substance
+        # score reads are populated only by build_rich; the standard build
+        # leaves them empty, so this endpoint answered a confident all-zero
+        # breakdown for every step and every learner.
+        context_result = await ps_service.user_service.get_rich_unified_context(user_uid)
         if context_result.is_error:
             return Result.fail(context_result)
 

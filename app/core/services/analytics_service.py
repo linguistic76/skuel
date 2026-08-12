@@ -131,6 +131,10 @@ class AnalyticsService:
             lp_service=lp_service,
             # Cross-domain backend
             cross_domain_backend=cross_domain_backend,
+            # Layer 3: the learner — knowledge substance is scored per-user
+            # against their own activity channels, never against the shared
+            # curriculum node's counters.
+            user_service=user_service,
         )
 
         self.aggregation = AnalyticsAggregationService(metrics_service=self.metrics)

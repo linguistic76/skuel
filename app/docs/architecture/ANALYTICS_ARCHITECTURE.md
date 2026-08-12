@@ -101,7 +101,7 @@ def __init__(
 - **Finance:** total_expenses, category_breakdown, budget_variance, avg_daily_expense
 - **Choices:** total_count, domain_distribution, decision_quality_avg
 - **Principles:** total_principles, active_principles, avg_strength, alignment_score
-- **Knowledge:** substance_scores, mastery_levels, decay_warnings
+- **Knowledge:** substance_scores, mastery_levels, decay_warnings — **all per-learner.** Selection travels over the learner's engagement edges (curriculum is ownerless), and magnitudes come from their own six activity channels via `core/services/knowledge/user_substance.py`, never from `Curriculum.substance_score()`, which is corpus-global. `decay_warnings` is a personal review list, not a decay prediction — see `knowledge_substance_philosophy.md` § Ruling.
 - **Submissions:** reflection_frequency, theme_analysis, metacognition_score
 
 ### AnalyticsAggregationService

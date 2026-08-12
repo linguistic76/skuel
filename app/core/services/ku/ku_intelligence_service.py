@@ -25,6 +25,13 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import _CoreIntelligenceMixin
+from core.services.knowledge.user_substance import (
+    build_substance_index,
+    channel_counts,
+    empty_channel_prompts,
+    substance_breakdown,
+    substance_score,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -188,16 +195,16 @@ class KuIntelligenceService(
     ) -> Result[KuUserSubstanceResult]:
         """Calculate how much a user has applied a Ku's knowledge in their life.
 
-        Reads activity channel data from UserContext and applies Knowledge Substance
-        Philosophy weights to produce a per-user substance score for this Ku.
+        Reads the six activity channels out of UserContext and scores them with
+        the shared per-user weight table. The weights and caps live in
+        ``core.services.knowledge.user_substance`` and nowhere else — this
+        service owns the presentation (mastery band, prompts, status line), not
+        the arithmetic.
 
-        Weights (from CLAUDE.md Knowledge Substance Philosophy):
-        - Habits: 0.10 per habit, max 0.30 (lifestyle integration)
-        - Entries: 0.07 per reflective entry, max 0.20 (metacognition — ADR-069)
-        - Choices: 0.07 per choice, max 0.15 (decision-making)
-        - Principles: 0.07 per principle, max 0.15 (value embodiment)
-        - Events: 0.05 per event, max 0.25 (dedicated practice)
-        - Tasks: 0.05 per task, max 0.25 (practical application)
+        Requires a RICH context. The channel maps this reads are populated by
+        ``UserContextBuilder.build_rich``; the standard build leaves all six
+        empty, and an empty map is indistinguishable from a learner who has
+        applied nothing — the score comes back a confident 0.0 either way.
 
         See: /docs/architecture/knowledge_substance_philosophy.md
         """
@@ -210,57 +217,9 @@ class KuIntelligenceService(
         if not ku:
             return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
 
-        # Count activity associations per channel from UserContext
-        task_uids = [
-            uid for uid, ku_list in user_context.task_knowledge_applied.items() if ku_uid in ku_list
-        ]
-        habit_uids = [
-            uid
-            for uid, ku_list in user_context.habit_knowledge_applied.items()
-            if ku_uid in ku_list
-        ]
-        event_uids = [
-            uid
-            for uid, ku_list in user_context.event_knowledge_applied.items()
-            if ku_uid in ku_list
-        ]
-        choice_uids = [
-            uid
-            for uid, ku_list in user_context.choice_knowledge_informed.items()
-            if ku_uid in ku_list
-        ]
-        principle_uids = [
-            uid
-            for uid, ku_list in user_context.principle_knowledge_grounded.items()
-            if ku_uid in ku_list
-        ]
-        entry_uids = [
-            uid
-            for uid, ku_list in user_context.entry_knowledge_applied.items()
-            if ku_uid in ku_list
-        ]
-
-        # Apply Knowledge Substance Philosophy weights with per-channel caps
-        task_score = min(0.25, len(task_uids) * 0.05)
-        habit_score = min(0.30, len(habit_uids) * 0.10)
-        event_score = min(0.25, len(event_uids) * 0.05)
-        entry_score = min(0.20, len(entry_uids) * 0.07)
-        choice_score = min(0.15, len(choice_uids) * 0.07)
-        principle_score = min(0.15, len(principle_uids) * 0.07)
-
-        user_substance_score = min(
-            1.0,
-            task_score + habit_score + event_score + entry_score + choice_score + principle_score,
-        )
-
-        breakdown = {
-            "tasks": round(task_score, 3),
-            "habits": round(habit_score, 3),
-            "events": round(event_score, 3),
-            "entries": round(entry_score, 3),
-            "choices": round(choice_score, 3),
-            "principles": round(principle_score, 3),
-        }
+        counts = channel_counts(ku_uid, build_substance_index(user_context))
+        breakdown = substance_breakdown(counts)
+        user_substance_score = substance_score(breakdown)
 
         # Global substance score from the Ku node itself
         global_substance_score: float | None = getattr(ku, "substance_score", None)
@@ -281,20 +240,10 @@ class KuIntelligenceService(
         # Readiness: meaningful engagement in at least one channel
         is_ready_to_learn = user_substance_score >= 0.05
 
-        # Per-channel recommendations for empty channels
-        recommendations: list[str] = []
-        if not task_uids:
-            recommendations.append(f"Create a task that applies '{ku.title}' in your work")
-        if not habit_uids:
-            recommendations.append(f"Build a habit that reinforces '{ku.title}' daily")
-        if not event_uids:
-            recommendations.append(f"Schedule a practice session to deepen '{ku.title}'")
-        if not choice_uids:
-            recommendations.append(f"Record a choice informed by '{ku.title}'")
-        if not principle_uids:
-            recommendations.append(f"Write a principle grounded in '{ku.title}'")
-        if not entry_uids:
-            recommendations.append(f"Write an entry reflecting on '{ku.title}'")
+        # Per-channel recommendations for empty channels. Driven off the same
+        # table as the weights: a seventh channel would otherwise be scored and
+        # silently never suggested.
+        recommendations = empty_channel_prompts(counts, ku.title)
 
         # Status message based on score range
         if user_substance_score >= 0.7:

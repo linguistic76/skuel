@@ -24,7 +24,7 @@ Architecture:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, cast
 
 from core.models.pathways.path_step import PathStep
@@ -38,6 +38,11 @@ from core.ports.query_types import (
 )
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import _CoreIntelligenceMixin
+from core.services.knowledge.user_substance import (
+    SubstanceIndex,
+    build_substance_index,
+    user_substance_score,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -522,6 +527,19 @@ class PsIntelligenceService(
     # USER SUBSTANCE & CONTEXTUAL EVALUATION (Migrated Jan 2026)
     # ========================================================================
 
+    @staticmethod
+    def _mean_ku_substance(ku_uids: Sequence[str], index: SubstanceIndex) -> float:
+        """A step's personal substance: the mean over the Kus it teaches.
+
+        A step teaching no Ku scores 0.0 rather than being undefined — it is a
+        step the learner cannot have substantiated through any channel, which is
+        the same statement the score already makes for a step whose Kus the
+        learner has never applied.
+        """
+        if not ku_uids:
+            return 0.0
+        return sum(user_substance_score(ku_uid, index) for ku_uid in ku_uids) / len(ku_uids)
+
     async def calculate_user_substance(
         self, ps_uid: str, user_context: UserContext
     ) -> Result[dict[str, Any]]:
@@ -530,6 +548,10 @@ class PsIntelligenceService(
 
         PathSteps are curriculum entities; their "substance" is derived by analyzing
         the user's application of the underlying atomic Knowledge Units (via USES_KU).
+
+        Requires a RICH context — see the note on
+        ``KuIntelligenceService.calculate_user_substance``: the standard build
+        leaves the six channel maps empty, which scores every step a flat 0.0.
         """
         backend_result = self._require_backend()
         if backend_result.is_error:
@@ -542,56 +564,25 @@ class PsIntelligenceService(
 
         ku_uids = [r["ku_uid"] for r in ku_rows_result.value if r.get("ku_uid")]
 
-        # 2. Evaluate UserContext across all found KUs
+        # 2. Score each taught KU against the learner's own activity channels.
+        #    The weights come from core.services.knowledge.user_substance — the
+        #    single table this, KuIntelligenceService and the Layer-0 analytics
+        #    metric all read, so they cannot drift apart.
+        index = build_substance_index(user_context)
         total_substance = 0.0
         total_mastery = 0.0
         ku_details = []
 
         for ku_uid in ku_uids:
-            # Replicate Knowledge Substance Philosophy weighting for each underlying KU
-            task_uid_count = sum(
-                1 for kus in user_context.task_knowledge_applied.values() if ku_uid in kus
-            )
-            habit_uid_count = sum(
-                1 for kus in user_context.habit_knowledge_applied.values() if ku_uid in kus
-            )
-            event_uid_count = sum(
-                1 for kus in user_context.event_knowledge_applied.values() if ku_uid in kus
-            )
-            choice_uid_count = sum(
-                1 for kus in user_context.choice_knowledge_informed.values() if ku_uid in kus
-            )
-            principle_uid_count = sum(
-                1 for kus in user_context.principle_knowledge_grounded.values() if ku_uid in kus
-            )
-            entry_uid_count = sum(
-                1 for kus in user_context.entry_knowledge_applied.values() if ku_uid in kus
-            )
-
-            task_score = min(0.25, task_uid_count * 0.05)
-            habit_score = min(0.30, habit_uid_count * 0.10)
-            event_score = min(0.25, event_uid_count * 0.05)
-            choice_score = min(0.15, choice_uid_count * 0.07)
-            principle_score = min(0.15, principle_uid_count * 0.07)
-            entry_score = min(0.20, entry_uid_count * 0.07)
-
-            substance_score = min(
-                1.0,
-                task_score
-                + habit_score
-                + event_score
-                + choice_score
-                + principle_score
-                + entry_score,
-            )
+            substance = user_substance_score(ku_uid, index)
             mastery_score = user_context.knowledge_mastery.get(ku_uid, 0.0)
 
-            total_substance += substance_score
+            total_substance += substance
             total_mastery += mastery_score
             ku_details.append(
                 {
                     "ku_uid": ku_uid,
-                    "substance_score": round(substance_score, 3),
+                    "substance_score": round(substance, 3),
                     "mastery_score": round(mastery_score, 3),
                     "is_ready_to_learn": ku_uid
                     in getattr(user_context, "ready_to_learn_uids", set()),
@@ -622,5 +613,44 @@ class PsIntelligenceService(
                 "taught_kus_count": len(ku_uids),
                 "underlying_kus": ku_details,
                 "status_message": status,
+            }
+        )
+
+    async def calculate_user_substance_for_steps(
+        self, ps_uids: Sequence[str], user_context: UserContext
+    ) -> Result[dict[str, float]]:
+        """Personal substance score for many PathSteps — one round trip.
+
+        The aggregate form of :meth:`calculate_user_substance`, returning score
+        only. An aggregate over a learner's engagement window can hold hundreds
+        of steps, and the per-step method issues a query each; this resolves the
+        whole step→Ku composition in one read and does the rest in Python.
+
+        Every requested uid appears in the result. A step that teaches no Ku,
+        or whose Kus the learner has never applied, maps to 0.0 — a real reading
+        ("theoretical for me"), not a gap for the caller to guess at, so callers
+        can index the result directly rather than defaulting a miss.
+
+        Requires a RICH context, for the same reason the per-step form does.
+
+        Backend: PsIntelligenceBackend.fetch_taught_ku_uids_for_steps
+        """
+        if not ps_uids:
+            return Result.ok({})
+
+        backend_result = self._require_backend()
+        if backend_result.is_error:
+            return Result.fail(backend_result)
+
+        rows_result = await backend_result.value.fetch_taught_ku_uids_for_steps(list(ps_uids))
+        if rows_result.is_error:
+            return Result.fail(rows_result)
+
+        taught: dict[str, list[str]] = {row["ps_uid"]: row["ku_uids"] for row in rows_result.value}
+        index = build_substance_index(user_context)
+        return Result.ok(
+            {
+                ps_uid: round(self._mean_ku_substance(taught.get(ps_uid, []), index), 3)
+                for ps_uid in ps_uids
             }
         )
