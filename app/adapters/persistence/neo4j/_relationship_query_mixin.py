@@ -186,7 +186,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         - Multi-hop traversal (can be extended with depth parameter)
         - Relationship metadata access (if edges have properties)
         - Bidirectional queries (direction="both")
-        - True graph analytics (compatible with APOC algorithms)
+        - True graph analytics over real edges
 
         Faster than get_related_entities() when you only need UIDs (no node property loading).
 
@@ -251,7 +251,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             - Uses index on uid for O(1) node lookup
             - Returns UIDs only (no property loading) - fast for large graphs
             - For full entities with properties, use get_related_entities()
-            - Compatible with APOC path expansion for multi-hop queries
+            - Multi-hop extends via variable-length patterns (pure Cypher)
 
         See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
         """

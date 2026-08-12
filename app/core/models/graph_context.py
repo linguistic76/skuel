@@ -47,7 +47,7 @@ class GraphNode:
     Simplified graph node that can represent any domain entity
     with its core properties and relationships.
 
-    Enhanced with APOC query support for batch operations.
+    Carries optimization metadata for pure Cypher batch operations.
     """
 
     uid: str
@@ -60,7 +60,7 @@ class GraphNode:
     relevance: ContextRelevance
     relationship_to_origin: str | None = None  # Type of relationship
 
-    # Query optimization metadata (optional, for APOC batch operations)
+    # Query optimization metadata (optional, for batch operations)
     optimization_strategy: "QueryOptimizationStrategy | None" = None
 
     def to_cypher_params(self) -> dict[str, Any]:

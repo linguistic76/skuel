@@ -14,7 +14,7 @@ Handles:
 
 Following SKUEL principles:
 - No backwards compatibility - graph-first approach
-- Fail-fast - requires Neo4j with APOC
+- Fail-fast - requires Neo4j
 - Result[T] error handling
 - Protocol-based dependencies
 """
