@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query import build_domain_context_with_paths
 from adapters.persistence.neo4j.query.cypher import (
+    CURRICULUM_COMPOSITION_EDGES,
     build_knowledge_read_clause,
     build_publication_clause,
 )
@@ -195,9 +196,7 @@ RETURN a.entity_type AS entity_type,
        a.uid AS activity_uid,
        [n IN targets WHERE n.entity_type = $ku_entity_type | n.uid] +
        reduce(acc = [], p IN targets |
-              acc + [(p)-[:{RelationshipName.USES_KU.value}
-                          |{RelationshipName.CONTAINS_KNOWLEDGE.value}
-                          |{RelationshipName.TRAINS_KU.value}]->(k:Entity)
+              acc + [(p)-[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Entity)
                      WHERE k.entity_type = $ku_entity_type | k.uid])
        AS ku_uids
 """

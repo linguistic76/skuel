@@ -32,6 +32,7 @@ Usage:
 """
 
 # Shared types
+from ._helpers import CURRICULUM_COMPOSITION_EDGES
 from ._types import RelationshipSpec, T
 
 # Context query generator - registry-driven context queries (January 2026)
@@ -194,6 +195,7 @@ __all__ = [
     # Semantic queries
     "build_semantic_context",
     "build_semantic_filter_query",
+    "CURRICULUM_COMPOSITION_EDGES",
     "build_knowledge_read_clause",
     "build_publication_clause",
     "build_search_visibility_clause",

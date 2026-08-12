@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
 from core.models.enums import EntityType
 from core.ports.query_types import (
     PsGuidanceCountsRow,
@@ -214,16 +215,16 @@ class PsIntelligenceBackend:
     async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[PsTaughtKuUidRow]]:
         """Return ``ku_uid`` rows for the KUs taught by a PathStep.
 
-        Matches the canonical curriculum-composition triple
-        ``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` — the same set the substance
+        Matches ``CURRICULUM_COMPOSITION_EDGES`` — the same set the substance
         write fan-out (``KuBackend.increment_substance``) and the UserContext
-        MEGA-QUERY Ku-grain rollup traverse. Matching only ``USES_KU`` here
-        would make per-user substance blind to TRAINS_KU/CONTAINS_KNOWLEDGE
-        links that the fan-out already credits — a read/write asymmetry.
+        MEGA-QUERY Ku-grain rollup traverse. Interpolated from that one constant
+        rather than spelled out: matching a narrower set here would make
+        per-user substance blind to links the fan-out already credits, and a
+        hand-copied literal per query is how that asymmetry keeps recurring.
         """
         return await self._executor.execute(
-            query="""
-                MATCH (:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: $ku_entity_type})
+            query=f"""
+                MATCH (:Entity {{uid: $ps_uid}})-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_entity_type}})
                 RETURN DISTINCT ku.uid AS ku_uid
             """,
             params={"ps_uid": ps_uid, "ku_entity_type": EntityType.KU.value},
@@ -247,16 +248,17 @@ class PsIntelligenceBackend:
         not in the result", because the first scores 0.0 and belongs in the
         report while the second is a step silently dropped from the denominator.
 
-        Traverses the same composition triple as the single-step form and the
-        substance write fan-out. The publication gate stays off for the same
+        Traverses ``CURRICULUM_COMPOSITION_EDGES``, the same constant the
+        single-step form and the substance write fan-out agree on. The
+        publication gate stays off for the same
         reason it is off on the engagement reads that feed this: the caller
         already holds steps the learner worked, and withholding their
         composition would rewrite past numbers rather than hide new curriculum.
         """
         return await self._executor.execute(
-            query="""
+            query=f"""
                 UNWIND $ps_uids AS ps_uid
-                OPTIONAL MATCH (:Entity {uid: ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: $ku_entity_type})
+                OPTIONAL MATCH (:Entity {{uid: ps_uid}})-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_entity_type}})
                 RETURN ps_uid AS ps_uid, collect(DISTINCT ku.uid) AS ku_uids
             """,
             params={"ps_uids": ps_uids, "ku_entity_type": EntityType.KU.value},
