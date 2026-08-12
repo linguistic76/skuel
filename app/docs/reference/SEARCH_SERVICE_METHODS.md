@@ -404,8 +404,9 @@ UNWINDs the `nous` arrays to per-topic values (the /search dropdown source via
 |--------|-----------|-------------|
 | `search_by_alias` | `(alias: str, limit: int = 25) -> Result[list[Ku]]` | Match against Ku aliases |
 
-> Chunk-level vector search lives on `Neo4jVectorSearchService.find_similar_chunks_by_text()`
-> — see `docs/guides/ASKESIS_SEARCH_ARCHITECTURE.md`.
+> Chunk-level vector search lives on `Neo4jVectorSearchService.find_similar_chunks_by_text()`,
+> reached through `SearchRouter.retrieve_scoped_chunks()` — see
+> `docs/architecture/SEARCH_ARCHITECTURE.md`.
 
 ---
 
