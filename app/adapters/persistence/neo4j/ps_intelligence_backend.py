@@ -27,10 +27,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
+from core.models.enums import EntityType
 from core.ports.query_types import (
     PsGuidanceCountsRow,
     PsPracticeCountsRow,
     PsPrerequisiteStepUidsRow,
+    PsStepTaughtKuUidsRow,
     PsTaughtKuUidRow,
 )
 from core.utils.result_simplified import Result
@@ -93,6 +96,20 @@ def _to_taught_ku_uid_rows(
     rather than a stringified ``None``.
     """
     return [{"ku_uid": str(row["ku_uid"])} for row in records if row["ku_uid"]]
+
+
+def _to_step_taught_ku_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[PsStepTaughtKuUidsRow]:
+    """Project raw rows onto PsStepTaughtKuUidsRow (KeyError on alias drift)."""
+    return [
+        {
+            "ps_uid": str(row["ps_uid"]),
+            "ku_uids": [str(uid) for uid in (row["ku_uids"] or []) if uid],
+        }
+        for row in records
+        if row["ps_uid"]
+    ]
 
 
 class PsIntelligenceBackend:
@@ -198,19 +215,53 @@ class PsIntelligenceBackend:
     async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[PsTaughtKuUidRow]]:
         """Return ``ku_uid`` rows for the KUs taught by a PathStep.
 
-        Matches the canonical curriculum-composition triple
-        ``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` — the same set the substance
+        Matches ``CURRICULUM_COMPOSITION_EDGES`` — the same set the substance
         write fan-out (``KuBackend.increment_substance``) and the UserContext
-        MEGA-QUERY Ku-grain rollup traverse. Matching only ``USES_KU`` here
-        would make per-user substance blind to TRAINS_KU/CONTAINS_KNOWLEDGE
-        links that the fan-out already credits — a read/write asymmetry.
+        MEGA-QUERY Ku-grain rollup traverse. Interpolated from that one constant
+        rather than spelled out: matching a narrower set here would make
+        per-user substance blind to links the fan-out already credits, and a
+        hand-copied literal per query is how that asymmetry keeps recurring.
         """
         return await self._executor.execute(
-            query="""
-                MATCH (:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
+            query=f"""
+                MATCH (:Entity {{uid: $ps_uid}})-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_entity_type}})
                 RETURN DISTINCT ku.uid AS ku_uid
             """,
-            params={"ps_uid": ps_uid},
+            params={"ps_uid": ps_uid, "ku_entity_type": EntityType.KU.value},
             processor=_to_taught_ku_uid_rows,
             operation="calculate_user_substance",
+        )
+
+    async def fetch_taught_ku_uids_for_steps(
+        self, ps_uids: list[str]
+    ) -> Result[list[PsStepTaughtKuUidsRow]]:
+        """Return one ``(ps_uid, ku_uids)`` row per requested PathStep.
+
+        The batched form of :meth:`fetch_taught_ku_uids`, for callers scoring a
+        whole set of steps at once — the Layer-0 analytics metric holds a
+        learner's entire engagement window, and one round trip per step there is
+        an N+1 over a set with no upper bound.
+
+        ``UNWIND`` over the input list rather than a single ``IN`` match so a
+        step that teaches nothing still comes back, with an empty ``ku_uids``.
+        A caller must be able to tell "this step has no Kus" from "this step was
+        not in the result", because the first scores 0.0 and belongs in the
+        report while the second is a step silently dropped from the denominator.
+
+        Traverses ``CURRICULUM_COMPOSITION_EDGES``, the same constant the
+        single-step form and the substance write fan-out agree on. The
+        publication gate stays off for the same
+        reason it is off on the engagement reads that feed this: the caller
+        already holds steps the learner worked, and withholding their
+        composition would rewrite past numbers rather than hide new curriculum.
+        """
+        return await self._executor.execute(
+            query=f"""
+                UNWIND $ps_uids AS ps_uid
+                OPTIONAL MATCH (:Entity {{uid: ps_uid}})-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_entity_type}})
+                RETURN ps_uid AS ps_uid, collect(DISTINCT ku.uid) AS ku_uids
+            """,
+            params={"ps_uids": ps_uids, "ku_entity_type": EntityType.KU.value},
+            processor=_to_step_taught_ku_rows,
+            operation="calculate_user_substance_for_steps",
         )

@@ -22,6 +22,7 @@ port, never against this class (SKUEL023 / ADR-044). The port is an ISP slice:
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
 from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.ports.query_types import CurrentPathStepItem, GroupSummary
@@ -77,6 +78,18 @@ STATUS_PARAMS: dict[str, Any] = {
 # QUERY CONSTANTS
 # =============================================================================
 
+# ``__COMPOSITION_EDGES__`` is substituted below with the ONE canonical
+# PathStep→Ku alternation. Substituted rather than interpolated because this
+# query is a plain string full of Cypher map literals, and an f-string would
+# mean doubling every brace in ~1300 lines to share one token.
+#
+# It must be shared: these rollups and the batched substance scorer
+# (PsIntelligenceBackend.fetch_taught_ku_uids_for_steps) score the SAME learner
+# against the SAME Kus for the detail pages and the weekly metric respectively.
+# A rename that moved one and not the other would put two different personal
+# scores on the same knowledge — the inconsistency this PR exists to remove.
+_COMPOSITION_EDGES_TOKEN = "__COMPOSITION_EDGES__"
+
 MEGA_QUERY: str = """
 MATCH (user:User {uid: $user_uid})
 
@@ -108,7 +121,15 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance):
 // keep direct :Ku targets (1-hop) and bridge :PathStep targets to the Kus they
-// compose via curriculum-internal TRAINS_KU|USES_KU (2-hop). DISTINCT per task.
+// compose via the canonical curriculum triple TRAINS_KU|USES_KU|CONTAINS_KNOWLEDGE
+// (2-hop). DISTINCT per task.
+//
+// All three edges, not the two this listed until 2026-08-12: the substance write
+// fan-out (KuBackend.increment_substance) and the step→Ku readers
+// (PsIntelligenceBackend.fetch_taught_ku_uids*) all traverse the triple, so a
+// narrower rollup here credited the learner for fewer Kus than the step's own
+// composition claims — knowledge reachable only over CONTAINS_KNOWLEDGE scored a
+// flat zero for them however much they had applied it.
 OPTIONAL MATCH (task)-[app_rel:APPLIES_KNOWLEDGE]->(applied:Entity)
 WHERE task IS NOT NULL AND coalesce(app_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
@@ -117,7 +138,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, task_subtasks, task_dependencies,
      [n IN applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-     reduce(acc = [], p IN applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+     reduce(acc = [], p IN applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
      as task_knowledge
 
 OPTIONAL MATCH (task)-[:FULFILLS_GOAL]->(goal:Goal)
@@ -298,7 +319,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata,
      habit, habit_linked_goals,
      [n IN habit_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
      as habit_applied_knowledge
 
 // Prerequisites arrive two ways. The incoming ENABLES_HABIT / PREREQUISITE_FOR pair is
@@ -378,7 +399,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids,
      event, (
        [n IN event_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-       reduce(acc = [], p IN event_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+       reduce(acc = [], p IN event_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
      )[0..10] as event_applied_knowledge
 
 OPTIONAL MATCH (event)-[:CONTRIBUTES_TO_GOAL]->(event_goal:Goal)
@@ -481,7 +502,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids,
      principle, (
        [n IN principle_grounded_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-       reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+       reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
      )[0..10] as principle_grounded_knowledge
 
 OPTIONAL MATCH (principle)-[:GUIDES_GOAL]->(principle_goal:Goal)
@@ -590,7 +611,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids,
      choice, (
        [n IN choice_informing_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
-       reduce(acc = [], p IN choice_informing_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | {uid: k.uid, title: k.title}])
+       reduce(acc = [], p IN choice_informing_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
      )[0..10] as choice_informing_knowledge
 
 OPTIONAL MATCH (choice)-[:INFORMED_BY_PRINCIPLE]->(choice_principle:Principle)
@@ -1185,7 +1206,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(CASE WHEN entry IS NOT NULL THEN {
          uid: entry.uid,
          ku_uids: [n IN entry_applied_nodes WHERE n:Ku | n.uid] +
-                  reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid])
+                  reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | k.uid])
      } END) AS entry_knowledge_raw
 
 // ====================================================================
@@ -1263,7 +1284,7 @@ RETURN {
         pending_revised_exercises: pending_revised_exercises
     }
 } as result
-"""
+""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
 
 
 CONSOLIDATED_QUERY: str = """

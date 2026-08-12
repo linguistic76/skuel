@@ -37,10 +37,14 @@ from typing import Any
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
 from core.models.type_hints import UserUID
+from core.services.knowledge.user_substance import (
+    SUBSTANCE_ACTIVITY_TYPES,
+    channel_maps_from_rows,
+)
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_days_until_review, get_theme_count
+from core.utils.sort_functions import get_current_substance, get_theme_count
 
 logger = get_logger(__name__)
 
@@ -84,7 +88,11 @@ class AnalyticsMetricsService:
             content_enrichment: ContentEnrichmentService (Layer 2)
             ku_service: PsService for knowledge metrics (Layer 0)
             lp_service: LpService for curriculum metrics (Layer 0)
-            cross_domain_backend: CrossDomainBackend for cross-domain queries
+            cross_domain_backend: CrossDomainBackend for cross-domain queries.
+                Also the source of the learner's own activity channels, which
+                calculate_knowledge_metrics REQUIRES: without it substance has no
+                per-learner denominator and the metric refuses rather than
+                falling back to the shared node's counters.
         """
         # Layer 1 domain services
         self.tasks = tasks_service
@@ -101,7 +109,9 @@ class AnalyticsMetricsService:
         self.ku_service = ku_service
         self.lp_service = lp_service
 
-        # Cross-domain backend for analytics queries
+        # Cross-domain backend for analytics queries — and for the learner's
+        # six activity→knowledge channels, which per-user substance is scored
+        # against instead of the shared curriculum node's counters.
         self.cross_domain_backend = cross_domain_backend
 
     # ========================================================================
@@ -611,22 +621,37 @@ class AnalyticsMetricsService:
         the same subgraph is a different question, already answered by
         ``KnowledgeHealthService`` (ADR-080 H1).
 
-        Substance lives on ``Curriculum``, so the subject is PathStep — ``Ku``
-        extends ``Entity`` and inherits ``substance_score() -> 0.0``, which is
-        why this reads steps and not atomic KUs despite the output vocabulary.
+        The subject is PathStep, not atomic Ku, despite the output vocabulary: a
+        step's personal substance is the mean over the Kus it teaches, so
+        counting its Kus alongside it would count the same applications twice.
+        (The reason used to be that ``Ku`` inherits ``substance_score() -> 0.0``
+        from ``Entity``. That held only while the score came off the node.)
 
-        KNOWN LIMITATION — the SELECTION is per-learner, the MAGNITUDES are not.
-        ``substance_score()`` reads counters that ``increment_substance`` writes
-        onto the SHARED node with no ``user_uid``, so on a multi-tenant instance
-        the bands, averages and decay warnings reflect every learner's activity
-        on the steps THIS learner engaged with. A genuinely personal figure
-        already exists — ``PsService.get_user_step_context`` /
-        ``calculate_user_substance``, which counts the six channels out of
-        ``UserContext`` — but it needs a UserContext this service is not wired
-        for and re-fetches per step. Switching to it is a deliberate change, not
-        a tweak, and is tracked separately. Until then, read these numbers as
-        "how substantiated is the material I worked on", not "how much of it is
-        mine".
+        MAGNITUDES ARE PER-LEARNER, like the selection. Every score here comes
+        from ``PsService.get_user_substance_scores``, which counts THIS learner's
+        six activity channels out of their own ``UserContext``. It deliberately
+        does NOT use ``Curriculum.substance_score()``: that reads counters
+        ``increment_substance`` writes onto the shared node with no ``user_uid``,
+        so on a multi-tenant instance it reports every learner's activity on the
+        material this learner happened to open.
+
+        Three consequences of the personal figure, all intended:
+
+        * **No time decay.** The node carries a ``last_*_date`` per channel; the
+          UserContext channel maps carry uids only. A personal decay curve is
+          not computable from this input, so the score is cumulative. See
+          ``review_recommendations`` below for what that does to the list.
+        * **Six channels, not five.** Principles (``GROUNDED_IN_KNOWLEDGE``,
+          0.07 each, capped 0.15) contribute to the personal score; there is no
+          node counter for them, so the global figure never saw them.
+        * **A step with no personal activity scores 0.0** and lands in
+          ``theoretical_knowledge``. That is the band's own definition — read
+          about, not applied — and it is the correct reading for a step the
+          learner opened and never carried into a task, habit, event, entry,
+          choice or principle. Excluding such steps instead would make the
+          average climb as the learner takes up more material without applying
+          it, which inverts what the metric is for. Expect the distribution to
+          sit much lower than the pre-2026-08 global one.
 
         Args:
             user_uid: User identifier
@@ -646,11 +671,28 @@ class AnalyticsMetricsService:
                     "TECH": {"count": 20, "avg_substance": 0.75},
                     "BUSINESS": {"count": 15, "avg_substance": 0.52}
                 },
-                "decay_warnings": [
+                "review_recommendations": [
                     {"ku_uid": "ps.python.decorators", "title": "...",
-                     "days_until_review": 5}
+                     "current_substance": 0.1}
                 ]
             }
+
+            ``review_recommendations`` lists the engaged steps whose PERSONAL
+            substance sits under the 0.5 review threshold — the threshold
+            ``Curriculum.needs_review()`` uses — least-substantiated first,
+            capped at 10.
+
+            It REPLACES the old ``decay_warnings`` key rather than reusing it.
+            That key promised a decay prediction and carried a
+            ``days_until_review``; per-user substance has no clock to predict
+            from, because the channel maps carry uids and no timestamps.
+            Predicting from the node's dates would put another learner's
+            practice on this learner's calendar — the contamination this metric
+            exists to remove — and timing it off the engagement edge would
+            measure a different event (opening a step is not applying it).
+            Keeping the name over incompatible semantics would have been a
+            legacy path preserved, which One Path Forward does not allow, so
+            the field that cannot be computed is gone rather than pinned at 0.
 
             The ``ku_uid`` / ``total_knowledge_units`` keys are historical
             spelling: the values are PathStep uids and counts, per the subject
@@ -661,6 +703,17 @@ class AnalyticsMetricsService:
             return Result.fail(
                 Errors.system(
                     message="PsService not available", operation="calculate_knowledge_metrics"
+                )
+            )
+
+        if not self.cross_domain_backend:
+            return Result.fail(
+                Errors.system(
+                    message=(
+                        "CrossDomainBackend not available — the learner's activity "
+                        "channels cannot be read, so substance has no per-learner source"
+                    ),
+                    operation="calculate_knowledge_metrics",
                 )
             )
 
@@ -686,12 +739,39 @@ class AnalyticsMetricsService:
                         "practiced_knowledge": 0,
                         "embodied_knowledge": 0,
                         "knowledge_by_domain": {},
-                        "decay_warnings": [],
+                        "review_recommendations": [],
                         "date_range": f"{start_date} to {end_date}",
                     }
                 )
 
             knowledge_units = kus_result.value
+
+            # The learner's own activity channels, read ONCE and UNWINDOWED.
+            #
+            # Deliberately not `UserService.get_rich_unified_context`. Those maps
+            # exist for planning, so the MEGA-QUERY admits a row only if it is
+            # currently open or was touched inside a 30-day window — and unevenly:
+            # an ACTIVE habit is admitted at any age while an event outside the
+            # window vanishes entirely. Substance is cumulative (a task completed
+            # last year still applied the knowledge), so a planning window would
+            # understate it, shift the bands, and raise review warnings on
+            # knowledge the learner did apply — purely because of its age.
+            channels_result = await self.cross_domain_backend.get_user_knowledge_channels(
+                user_uid, list(SUBSTANCE_ACTIVITY_TYPES)
+            )
+            if channels_result.is_error:
+                return Result.fail(channels_result)
+
+            # One read for the whole window's step→Ku composition. Same rule as
+            # the engagement read above: a failed scoring pass is not a learner
+            # who applied nothing.
+            scores_result = await self.ku_service.get_user_substance_scores(
+                [ku.uid for ku in knowledge_units],
+                channel_maps_from_rows(channels_result.value or []),
+            )
+            if scores_result.is_error:
+                return Result.fail(scores_result)
+            substance_by_uid = scores_result.value
 
             # Analyze substance scores
             total_substance = 0.0
@@ -701,11 +781,13 @@ class AnalyticsMetricsService:
             embodied = 0  # 0.8+
 
             by_domain: dict[str, dict[str, Any]] = {}
-            decay_warnings = []
+            review_recommendations = []
 
             for ku in knowledge_units:
-                # Backend returns PathStep instances, not DTOs.
-                substance = ku.substance_score()
+                # Backend returns PathStep instances, not DTOs. The score is the
+                # LEARNER's, not the node's — ku.substance_score() would be the
+                # corpus-global figure this metric deliberately no longer reads.
+                substance = substance_by_uid[ku.uid]
 
                 total_substance += substance
 
@@ -726,18 +808,15 @@ class AnalyticsMetricsService:
                 by_domain[domain]["count"] += 1
                 by_domain[domain]["total_substance"] += substance
 
-                # Decay warnings. The method is days_until_review_needed — this
-                # read `getattr(ku, "days_until_review", None)`, a name no model
-                # has ever carried, so `callable(None)` was False on every pass
-                # and the documented decay_warnings list was permanently empty.
-                # None means never substantiated, which is not a decay warning.
-                days_left = ku.days_until_review_needed()
-                if days_left is not None and days_left <= 7:
-                    decay_warnings.append(
+                # This learner's substance is under the 0.5 threshold
+                # Curriculum.needs_review() uses. Not a decay prediction — there
+                # is no personal clock to predict from — so this carries no
+                # days-until field at all rather than one pinned at 0.
+                if substance < 0.5:
+                    review_recommendations.append(
                         {
                             "ku_uid": ku.uid,
                             "title": ku.title,
-                            "days_until_review": days_left,
                             "current_substance": round(substance, 2),
                         }
                     )
@@ -762,7 +841,11 @@ class AnalyticsMetricsService:
                     "practiced_knowledge": practiced,
                     "embodied_knowledge": embodied,
                     "knowledge_by_domain": knowledge_by_domain,
-                    "decay_warnings": sorted(decay_warnings, key=get_days_until_review)[:10],
+                    # Least-substantiated first, so the cap keeps the ten that
+                    # most need work rather than an arbitrary ten.
+                    "review_recommendations": sorted(
+                        review_recommendations, key=get_current_substance
+                    )[:10],
                     "date_range": f"{start_date} to {end_date}",  # Show filtered date range
                     "user_uid": user_uid,
                 }

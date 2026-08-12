@@ -2015,6 +2015,40 @@ class PsTaughtKuUidRow(TypedDict):
     ku_uid: str
 
 
+class UserKnowledgeChannelRow(TypedDict):
+    """Row shape for get_user_knowledge_channels() — one row per activity.
+
+    The learner's own activity→knowledge channels, read unwindowed as the
+    cumulative source for per-user substance. ``entity_type`` is an
+    ``EntityType`` value and selects which of the six substance channels the row
+    belongs to — three of them (tasks, events, entries) share one edge and are
+    distinguishable only by this. ``ku_uids`` is already bridged: PathStep
+    targets are expanded to the Kus they compose.
+
+    Constructed by a processor that indexes each alias, so a renamed RETURN
+    alias raises at the boundary. The failure it prevents is the one this whole
+    area keeps producing: a consumer reading a missing key as "no activity" and
+    reporting a confident zero.
+    """
+
+    entity_type: str
+    activity_uid: str
+    ku_uids: list[str]
+
+
+class PsStepTaughtKuUidsRow(TypedDict):
+    """Row shape for fetch_taught_ku_uids_for_steps() — one row per PathStep.
+
+    The batched counterpart of PsTaughtKuUidRow: same composition triple, but
+    grouped per step so a caller scoring a whole engagement window makes one
+    round trip instead of one per step. ``ku_uids`` is empty for a step that
+    teaches no Ku — that step still has a row, and still scores 0.0.
+    """
+
+    ps_uid: str
+    ku_uids: list[str]
+
+
 # ============================================================================
 # LP INTELLIGENCE RESULT TYPES
 # ============================================================================

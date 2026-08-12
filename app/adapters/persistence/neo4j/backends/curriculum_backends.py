@@ -644,10 +644,14 @@ class PsBackend(
           no label — so AI-report and teacher-approval mastery lands on ``:Ku``
           nodes. Pinning ``:PathStep`` here counted exactly none of it and
           reported a confident zero.
-        * The sibling AVERAGES ``substance_score()``, and ``Ku`` extends
-          ``Entity`` rather than ``Curriculum`` — its score is a flat ``0.0``.
-          Admitting Kus there would drag every average toward zero, so it stays
-          PathStep-only.
+        * The sibling AVERAGES per-learner substance, and a PathStep's is the
+          mean over the Kus it teaches. Admitting Kus there would count the same
+          applications twice — once through the step, once through its own Ku —
+          so it stays PathStep-only. (Until 2026-08-12 the reason given here was
+          that ``Ku`` extends ``Entity`` and so scores a flat ``0.0``. That was
+          true of the GLOBAL figure only; the per-user score works on a Ku uid,
+          which is exactly what ``KuIntelligenceService`` does with it. The
+          decision is unchanged, the reason for it is not.)
 
         Scoping is therefore left entirely to the knowledge clause's
         ``entity_type`` predicate; there is no label pin to contradict it. The

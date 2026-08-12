@@ -129,7 +129,9 @@ class AnalyticsService:
             # Layer 0: Curriculum services
             ku_service=ku_service,
             lp_service=lp_service,
-            # Cross-domain backend
+            # Cross-domain backend — also carries the learner's activity
+            # channels, which knowledge substance is scored against per-user
+            # rather than against the shared curriculum node's counters.
             cross_domain_backend=cross_domain_backend,
         )
 

@@ -36,8 +36,14 @@ from __future__ import annotations
 import inspect
 import re
 
-from adapters.persistence.neo4j import _lp_progress_mixin, _traversal_mixin, lifepath_backend
+from adapters.persistence.neo4j import (
+    _lp_progress_mixin,
+    _traversal_mixin,
+    lifepath_backend,
+    user_context_queries,
+)
 from adapters.persistence.neo4j.backends import curriculum_backends
+from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
 from core.models.relationship_names import RelationshipName
 
 # Names these reads used to carry that no writer creates.
@@ -155,3 +161,45 @@ def test_batch_cross_domain_context_drops_the_dead_funds_arms() -> None:
     # not survive as a permanently empty list.
     assert "as habits" not in source
     assert "collect(DISTINCT habit)" not in source
+
+
+def test_the_mega_query_composition_token_is_actually_substituted() -> None:
+    """An unsubstituted placeholder is a silent zero, not a syntax error.
+
+    ``MEGA_QUERY`` is a plain string (Cypher map literals everywhere, so an
+    f-string would mean doubling ~1300 lines of braces), and shares the one
+    canonical composition alternation by ``.replace()`` of a token. That buys
+    the sharing at the cost of a new failure mode: a token that never gets
+    substituted — a typo, a rollup added to a different string constant, a
+    dropped ``.replace()`` — leaves ``[:__COMPOSITION_EDGES__]`` in the query.
+    Neo4j does not error on an unknown relationship type; it matches zero rows.
+    Every learner would then read as having applied nothing, which is precisely
+    the failure this whole area keeps producing.
+
+    So this asserts on the BUILT query, never the source text.
+    """
+    assert user_context_queries._COMPOSITION_EDGES_TOKEN not in user_context_queries.MEGA_QUERY, (
+        "a composition token survived into the built query — it will match zero rows"
+    )
+    assert (
+        user_context_queries.MEGA_QUERY.count(f"[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Ku)") == 6
+    ), "the six activity→Ku rollups must all traverse the shared composition triple"
+
+
+def test_the_shared_composition_alternation_is_built_from_registered_edges() -> None:
+    """Every arm is a RelationshipName member — structurally, not by lint.
+
+    SKUEL030 can no longer see these edge names in the query source now that
+    they arrive through a constant. That is not a loss of coverage: built from
+    the enum, the alternation *cannot* name a non-member, which is stronger than
+    checking the spelling. This pins that it stays built that way.
+    """
+    arms = CURRICULUM_COMPOSITION_EDGES.split("|")
+
+    assert arms == [
+        RelationshipName.USES_KU.value,
+        RelationshipName.CONTAINS_KNOWLEDGE.value,
+        RelationshipName.TRAINS_KU.value,
+    ]
+    assert len(arms) == len(set(arms)), "a duplicated arm means the triple was hand-edited"
+    assert all(RelationshipName.is_valid(arm) for arm in arms)

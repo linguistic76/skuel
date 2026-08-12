@@ -11,6 +11,32 @@ from enum import Enum
 from typing import Any
 
 from core.models.enums.neo_labels import NeoLabel
+from core.models.relationship_names import RelationshipName
+
+# =============================================================================
+# Shared Edge Alternations
+# =============================================================================
+
+CURRICULUM_COMPOSITION_EDGES: str = "|".join(
+    (
+        RelationshipName.USES_KU.value,
+        RelationshipName.CONTAINS_KNOWLEDGE.value,
+        RelationshipName.TRAINS_KU.value,
+    )
+)
+"""The canonical PathStep→Ku composition triple, as a Cypher type alternation.
+
+ONE definition, because every reader of it must agree with the substance write
+fan-out: a step's per-user substance is the mean over the Kus it composes, so a
+reader matching a narrower set credits the learner for fewer Kus than the step
+itself claims — which reads as "you never applied this" on knowledge they did
+apply. That asymmetry has already been shipped twice (the MEGA-QUERY rollups
+listed two of the three until 2026-08-12), and a hand-copied literal in each
+query is how it recurs.
+
+Built from ``RelationshipName`` rather than spelled out, so a renamed or
+normalised edge moves every site at once instead of silently matching nothing.
+"""
 
 # =============================================================================
 # Cypher Injection Guards
