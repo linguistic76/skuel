@@ -440,7 +440,7 @@ form work have landed since.
 
 `validate_cross_references.py` used to read prose `@skill` mentions out of doc bodies while
 the repo declared its doc→skill links in `related_skills:` frontmatter. Making the validator
-read the canonical field (2026-08-11) cleared 65 false warnings and **surfaced 28 real ones
+read the canonical field (#1023, 2026-08-11) cleared 65 false warnings and **surfaced 28 real ones
 that the prose reader had been hiding** — an ADR could satisfy the backlink contract merely by
 containing the string `@python` somewhere in its body while its frontmatter named no skill at
 all. The instrument is fixed; the data it now sees honestly is not.

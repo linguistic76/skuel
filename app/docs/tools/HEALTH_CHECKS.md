@@ -248,7 +248,7 @@ Run `./dev health-names --list` to print the complete RENAMED and DELETED tables
 
 Validates bidirectional consistency between skills and documentation, and detects stale skills whose primary docs have been updated since `last_reviewed`.
 
-**Doc→skill links live in `related_skills:` frontmatter.** That field is the canonical representation — the same one `skills_validator.py` validates, `sync_cross_references.py` projects into doc bodies, and `generate_cross_reference_index.py` indexes. Prose `@skill` mentions are *not* links: this script formerly read only prose, which made the two halves of the system invisible to each other (and counted `@pytest.fixture` in a code block as a link).
+**Doc→skill links live in `related_skills:` frontmatter.** That field is the canonical representation — the same one `skills_validator.py` validates, `sync_cross_references.py` projects into doc bodies, and `generate_cross_reference_index.py` indexes. Prose `@skill` mentions are *not* links: until PR #1023 this script read only prose, which made the two halves of the system invisible to each other (and counted `@pytest.fixture` in a code block as a link).
 
 ```
 Cross-Reference Validation Report
