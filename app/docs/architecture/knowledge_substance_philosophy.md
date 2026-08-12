@@ -486,8 +486,67 @@ All 6 channels tracked:
 
 - Your life path represents who you want to **BECOME**
 - Alignment measures how much you're **LIVING** that vision
-- High alignment (0.7+) = knowledge is embodied in daily life
-- Low alignment (<0.5) = knowledge is theoretical, not practiced
+- High alignment (0.8+) = knowledge is embodied in daily life
+- Low alignment (<0.3) = knowledge is theoretical, not practiced
+
+### Ruling: what alignment measures, and over what (2026-08-12)
+
+`AnalyticsLifePathService.calculate_life_path_alignment` had the same
+corpus-global contamination the Layer-0 metric did — `Curriculum.substance_score()`
+under a per-user heading — plus a selection with no learner scoping at all. Both
+halves were ruled on together.
+
+**Magnitudes: per-learner, from the unwindowed source.** Every score comes from
+`PsService.get_user_substance_breakdowns` over
+`CrossDomainBackendOperations.get_user_knowledge_channels`, exactly as the weekly
+metric does. Not from a `UserContext`: alignment is cumulative — a habit built
+eight months ago that reinforces life-path knowledge is still substantiating it —
+and the context's maps are bounded by the MEGA-QUERY's planning window, unevenly.
+
+**Selection: the WHOLE designated path, not the engaged part.** The path's
+composition (`HAS_STEP`) is the denominator. A step the learner has never opened
+scores 0.0, bands as `theoretical_knowledge`, and stays in it.
+
+Why, positively — alignment asks *"how much of who I want to become am I
+living?"*, and the answer has to be measured against the whole of who they said
+they wanted to become. Scoping to the engaged part would make alignment **rise**
+as a learner ignores most of their path, which is the same inversion this
+document rejects one level down for an engaged-but-unapplied step. One principle,
+stated once: **the denominator is what you committed to, not what you touched.**
+
+The weekly metric's selection is engagement-scoped because it asks a different
+question — how the learner did with what they took up *this week*. A life path
+has no window; it is a standing declaration.
+
+**`domain_contributions` is the six channels, per learner.** It used to read a
+`substance_by_type` attribute that exists nowhere in the codebase, so it emitted
+five zeros — and stuffed `user_uid` into the `dict[str, float]` it returned,
+which the recommender then compared `< 0.1`, raising `TypeError` on any
+non-empty selection. It now sums each step's per-channel substance across the
+path and normalises to proportions.
+
+Normalisation is against the **breakdown's own total**, never the summed step
+scores: the six channels contribute up to 1.30 raw per Ku while
+`user_substance_score` caps each at 1.0, so the parts legitimately total more
+than the whole. The cap belongs to the score; proportions describe the uncapped
+decomposition. `StepSubstance` carries both, computed in one pass, so they cannot
+come from separately-edited arithmetic.
+
+**Consequence, stated up front:** this metric previously returned a constant. The
+designation was read off a *standard* `UserContext`, whose `life_path_uid` is
+populated only by `build_rich`, so every user took the "No Life Path designated
+yet" branch — and behind that sat four more silent failures (a G6 raise on the
+designated node, a composition read against a node property carried by no node, a
+Ku uid fetched through a `:PathStep`-labelled backend, and the `TypeError`
+above). Any stored alignment score or `ALIGNMENT_SNAPSHOT` predating 2026-08-12
+is on that basis and is not comparable to one recorded after.
+
+**Reading a designated life path.** Designation flips an existing LearningPath
+node's `entity_type` to `'life_path'` **in place** and leaves its `:LearningPath`
+label untouched. So `LpService.get` builds a `LearningPath` from it and trips that
+model's honest-leaf-identity guard (G6) — a raise, for exactly the paths a caller
+means to read. Read a designated path through
+`LifePathService.get_life_path_composition`, which is keyed on the property.
 
 ---
 
@@ -497,7 +556,8 @@ All 6 channels tracked:
 |-----------|----------|---------|
 | **Substance Fields** | `/core/models/curriculum.py` | Substance fields + methods on `Curriculum` base class (the GLOBAL figure) |
 | **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition (global only — see Per-User Substance) |
-| **Per-User Weight Table** | `/core/services/knowledge/user_substance.py` | THE six-channel table + pure scoring; read by both intelligence services and the Layer-0 metric |
+| **Per-User Weight Table** | `/core/services/knowledge/user_substance.py` | THE six-channel table + pure scoring; read by both intelligence services, the Layer-0 metric, and life-path alignment |
+| **Life Path Composition** | `/adapters/persistence/neo4j/lifepath_backend.py` | `get_life_path_composition()` — HAS_STEP traversal, keyed on `entity_type` (a designated path keeps its `:LearningPath` label) |
 | **Domain Events** | `/core/events/knowledge_substance_events.py` | 9 substance events (5 channels; task/habit/choice also have bulk forms) |
 | **Event Handlers** | `/core/services/ps_service.py` | `PsService.increment_substance_metric()` |
 | **Backend Write** | `/adapters/persistence/neo4j/backends/curriculum_backends.py` | `KuBackend.increment_substance()` + PathStep fan-out |

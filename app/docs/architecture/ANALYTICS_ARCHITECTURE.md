@@ -125,16 +125,22 @@ def __init__(
 **Location:** `/core/services/analytics/analytics_life_path_service.py`
 
 **Responsibilities:**
-- Calculate life path alignment
+- Calculate life path alignment — over the WHOLE designated path (`HAS_STEP`),
+  scored from the learner's own six activity channels
 - Track alignment trends over time
-- Identify knowledge gaps
-- Analyze domain contributions
+- Identify knowledge gaps (steps under the 0.5 review threshold)
+- Decompose alignment by substance channel
 
-**Methods:**
-- `calculate_life_path_alignment()`
-- `track_alignment_trends()`
-- `identify_knowledge_gaps()`
-- `analyze_domain_contributions()`
+**Methods:** `calculate_life_path_alignment()` — the one public entry point. Gap
+identification, channel contributions and trends are steps within it, not
+separate calls. (This list named three public methods that have never existed.)
+
+**Collaborators:** `PsService` (batched per-learner scoring), `LifePathService`
+(designation + composition), `CrossDomainBackend` (the learner's activity
+channels). Deliberately NOT `UserService` — a standard `UserContext` leaves
+`life_path_uid` unset — and NOT `LpService`, whose model guard rejects a
+designated path. **See:** `knowledge_substance_philosophy.md` § Ruling: what
+alignment measures.
 
 ---
 

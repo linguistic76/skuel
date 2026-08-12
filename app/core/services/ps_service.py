@@ -42,6 +42,7 @@ from core.ports.query_types import (
     RootOrganizerResult,
     StepApplicationsResult,
     StepLearningSequenceResult,
+    StepSubstance,
 )
 from core.services.filtered_context import build_filtered_context
 from core.services.ps.ps_ai_service import PsAIService
@@ -1128,6 +1129,31 @@ class PsService:
                 )
             )
         return await self.intelligence.calculate_user_substance_for_steps(ps_uids, channels)
+
+    async def get_user_substance_breakdowns(
+        self, ps_uids: Sequence[str], channels: Mapping[str, Mapping[str, Sequence[str]]]
+    ) -> Result[dict[str, StepSubstance]]:
+        """Personal substance for a set of path steps, WITH the per-channel parts.
+
+        The full form of :meth:`get_user_substance_scores`, which projects the
+        score out of this same computation. For callers that also need to say
+        WHICH channels a learner's substance came from — the life-path alignment
+        breakdown — so the score and its decomposition cost one read, not two.
+
+        Same channel contract as the score-only form: for a cumulative figure the
+        maps must come from ``get_user_knowledge_channels`` (unwindowed), not
+        from a ``UserContext``.
+        """
+        if getattr(self, "intelligence", None) is None:
+            return Result.fail(
+                Errors.system(
+                    message="PsIntelligenceService not available to score user substance",
+                    operation="get_user_substance_breakdowns",
+                )
+            )
+        return await self.intelligence.calculate_user_substance_breakdown_for_steps(
+            ps_uids, channels
+        )
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

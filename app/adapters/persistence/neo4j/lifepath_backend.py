@@ -16,10 +16,63 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityType
+from core.ports.query_types import LifePathComposition, LifePathStepRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+
+
+# The designated path and the steps it composes, in one pass. OPTIONAL so a
+# designated path that composes nothing still returns its title — that is a real
+# state ("add steps to your Life Path"), and an inner MATCH would report it as
+# "no such path".
+#
+# The min() collapses to ONE row per step. HAS_STEP is not constrained unique,
+# and a step held by two edges would otherwise be counted twice in the alignment
+# denominator — an over-return, which reads as a longer path rather than as a
+# bug. Same rule the engaged-step read applies over its engagement edges.
+_LIFE_PATH_COMPOSITION_QUERY = """
+MATCH (lp:Entity {uid: $life_path_uid, entity_type: $life_path_type})
+OPTIONAL MATCH (lp)-[r:HAS_STEP]->(ps:Entity {entity_type: $path_step_type})
+WITH lp, ps, min(r.sequence) AS sequence
+ORDER BY sequence, ps.uid
+RETURN lp.uid AS life_path_uid, lp.title AS life_path_title,
+       ps.uid AS ps_uid, ps.title AS ps_title, sequence
+"""
+
+
+def _to_life_path_composition(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> LifePathComposition | None:
+    """Project raw rows onto LifePathComposition (KeyError on alias drift).
+
+    Indexes every alias rather than ``.get``-ing it: the annotation alone is an
+    unchecked claim, and a renamed RETURN would type-check while the caller read
+    the missing title as "Unknown" and the missing steps as "this path composes
+    nothing" — a confident zero rather than a failure.
+
+    No rows means no such life path. A single row whose ``ps_uid`` is NULL is the
+    OPTIONAL MATCH reporting a path with no steps, which is a composition with an
+    empty ``steps`` list, not a missing one.
+    """
+    if not records:
+        return None
+    steps: list[LifePathStepRow] = [
+        {
+            "ps_uid": str(row["ps_uid"]),
+            "title": str(row["ps_title"] or ""),
+            "sequence": None if row["sequence"] is None else int(row["sequence"]),
+        }
+        for row in records
+        if row["ps_uid"]
+    ]
+    return {
+        "life_path_uid": str(records[0]["life_path_uid"]),
+        "life_path_title": str(records[0]["life_path_title"] or ""),
+        "steps": steps,
+    }
 
 
 class LifePathBackend:
@@ -27,6 +80,33 @@ class LifePathBackend:
 
     def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self._executor = executor
+
+    async def get_life_path_composition(
+        self, life_path_uid: str
+    ) -> Result[LifePathComposition | None]:
+        """The designated path's title and the PathSteps it composes, in order.
+
+        Composition travels over ``HAS_STEP`` — the edge the designation writes
+        against — never over a node property. ``PathStep.knowledge_uids``, which
+        the alignment metric used to read, is populated on no node in the live
+        graph; the composition has always lived on edges.
+
+        Returns None when no such life path exists. Note the ``entity_type``
+        discriminators are parameters: a designated path is an ordinary
+        LearningPath node whose ``entity_type`` was flipped in place, so this
+        read is keyed on the property, and a re-normalised vocabulary must break
+        loudly here rather than match zero rows.
+        """
+        return await self._executor.execute(
+            query=_LIFE_PATH_COMPOSITION_QUERY,
+            params={
+                "life_path_uid": life_path_uid,
+                "life_path_type": EntityType.LIFE_PATH.value,
+                "path_step_type": EntityType.PATH_STEP.value,
+            },
+            processor=_to_life_path_composition,
+            operation="get_life_path_composition",
+        )
 
     # ========================================================================
     # Core Service — Designation CRUD
