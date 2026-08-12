@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-08-07
+updated: 2026-08-12
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -213,7 +213,7 @@ Scans **code blocks only** (fenced ` ``` ` blocks and inline backtick spans) in 
 ```
 Stale Name Scanner
 ============================================================
-Rules: 32 renamed identifiers, 14 deleted identifiers
+Rules: 67 renamed identifiers, 21 deleted identifiers
 
   docs/patterns/three_tier_type_system.md
     L 822  KuType → EntityType
@@ -227,20 +227,15 @@ Rules: 32 renamed identifiers, 14 deleted identifiers
 
 **Why code blocks only:** Prose mentions like "we renamed `AiFeedback` to `ActivityReport`" are legitimate historical context. Only code *examples* using the old name need updating.
 
-**What's tracked (as of 2026-03-03):**
+**What's tracked:** the `RENAMED` and `DELETED` dicts in the script, and nothing else. Print them:
 
-| Category | Examples |
-|----------|---------|
-| EntityType renames | `EntityType.CURRICULUM` → `EntityType.KU` |
-| Class renames | `AiFeedback` → `ActivityReport`, `ActivityReviewService` → `ActivityReportService` |
-| Enum type renames | `KuStatus` → `EntityStatus`, `KuType` → `EntityType` |
-| UserContext fields | `active_tasks_rich` → `entities_rich["tasks"]` |
-| Method renames | `list_reports` → `list_submissions` |
-| Old module paths | `from core.models.ku.ku_enums import` → `from core.models.enums.entity_enums import` |
-| Deleted modules | `daisy_components`, `htmx_a11y`, `sel_routes`, `ActivityDataReader` |
-| Deleted classes | `ProfileLayout`, `ActivityReviewService` |
+```bash
+./dev health-names --list
+```
 
-Run `./dev health-names --list` to print the complete RENAMED and DELETED tables.
+A key is whatever literal a doc would write — an enum member (`EntityType.OLD_VALUE`), a class (`OldClassName`), a method or field (`old_method_name`), a module or package (`old_module_name`), an attribute path (`OldService.old_attribute`), or an import prefix (`from old.module.path import`). Which dict a given retirement belongs in, and how matching treats neighbors and prefixes, is covered under **Maintaining `stale_names.py`** below.
+
+**This document deliberately does not mirror those dicts.** It is the sole `SKIP_FILES` entry, so a summary here is the one copy in the repo that no check can score. The "as of 2026-03-03" table that stood here until August 2026 had drifted into four wrong entries — a rename pointed at the wrong replacement, and three renames filed as deletions, one of which the same table also listed correctly as a rename six rows above.
 
 ---
 
