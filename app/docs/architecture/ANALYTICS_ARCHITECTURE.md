@@ -127,13 +127,19 @@ def __init__(
 **Responsibilities:**
 - Calculate life path alignment — over the WHOLE designated path (`HAS_STEP`),
   scored from the learner's own six activity channels
-- Track alignment trends over time
 - Identify knowledge gaps (steps under the 0.5 review threshold)
 - Decompose alignment by substance channel
 
+**Explicitly NOT trends.** The `ALIGNMENT_SNAPSHOT` history is written only by
+`LifePathCoreService.update_alignment_score`, which stores the *five-dimension*
+`LifePathAlignmentService.calculate_alignment` score — a different metric on a
+different scale. Reporting a direction from it beside this service's headline
+number compared two unrelated figures. A trend surface belongs to the LifePath
+domain, next to the metric that writes the history.
+
 **Methods:** `calculate_life_path_alignment()` — the one public entry point. Gap
-identification, channel contributions and trends are steps within it, not
-separate calls. (This list named three public methods that have never existed.)
+identification and channel contributions are steps within it, not separate calls.
+(This list named three public methods that have never existed.)
 
 **Collaborators:** `PsService` (batched per-learner scoring), `LifePathService`
 (designation + composition), `CrossDomainBackend` (the learner's activity

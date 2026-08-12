@@ -155,11 +155,17 @@ class _StubPsService:
 
 
 class _LifePathFacadeShim(LifePathCoreService):
-    """``LifePathCoreService`` exposes the two reads the facade delegates.
+    """``LifePathCoreService`` plus the one projection the facade adds.
 
     The alignment service calls the facade's names; the core service is what
     actually implements them, so this binds one to the other without composing
     the four-sub-service LifePathService for two delegations.
+
+    ``get_alignment_trend_data`` is deliberately absent — the alignment payload
+    carries no ``trends``, because the ``ALIGNMENT_SNAPSHOT`` history it would
+    read is written only by the five-dimension metric. If a trends read is ever
+    reintroduced here it will fail on this shim rather than quietly reporting
+    another metric's history.
     """
 
     async def get_designated_life_path_uid(self, user_uid):
@@ -168,9 +174,6 @@ class _LifePathFacadeShim(LifePathCoreService):
             return Result.fail(designation_result)
         designation = designation_result.value
         return Result.ok(designation.life_path_uid if designation else None)
-
-    async def get_alignment_trend_data(self, user_uid, days=31):
-        return await super().get_alignment_trend_data(user_uid=user_uid, days=days)
 
 
 @pytest.mark.asyncio
@@ -614,6 +617,43 @@ class TestLifePathAlignmentLearnerScope:
                 f"no prompt for the {fragment} channel — the recommender is "
                 "hand-enumerating channels again instead of reading the table"
             )
+
+    async def test_the_payload_carries_no_trends(self, backend, neo4j_driver):
+        """A trend over the OTHER metric's history must not be reported as this one's.
+
+        `ALIGNMENT_SNAPSHOT` has exactly one writer —
+        `LifePathCoreService.update_alignment_score`, reached from
+        `LifePathService.designate_and_calculate`, which stores
+        `LifePathAlignmentService.calculate_alignment`'s five-dimension score.
+        Those snapshots have never been a history of the per-learner substance
+        figure this service computes, so a `direction` derived from them compared
+        two different metrics on two different scales.
+
+        The seeded snapshot is the control: it is a *plausible* history (0.90,
+        recorded today), so any reader of it produces a confident, wrong trend
+        rather than an empty one.
+        """
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                MATCH (u:User {uid: $u}), (lp:Entity {uid: $lp})
+                MERGE (u)-[r:ALIGNMENT_SNAPSHOT {date: date()}]->(lp)
+                SET r.score = 0.90, r.recorded_at = datetime()
+                """,
+                u=USER,
+                lp=LIFE_PATH,
+            )
+
+        result = await self._service(backend).calculate_life_path_alignment(USER)
+        assert result.is_ok
+
+        assert "trends" not in result.value, (
+            "the payload reported a trend over five-dimension snapshots while its "
+            "headline score is per-learner substance — two metrics, two scales"
+        )
+        assert result.value["alignment_score"] == pytest.approx(EXPECTED_ALIGNMENT), (
+            "0.90 = the snapshot leaked into the headline score itself"
+        )
 
     async def test_a_user_without_a_designation_is_not_an_error(self, backend):
         """No life path is a real state, and it must not read as a failed metric."""

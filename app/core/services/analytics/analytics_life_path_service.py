@@ -25,7 +25,7 @@ Part of the 4-service Analytics architecture:
 Implementation Date: October 24, 2025
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from typing import Any, TypedDict
 
 from core.models.type_hints import UserUID
@@ -101,8 +101,8 @@ class AnalyticsLifePathService:
 
         Args:
             ku_service: PsService — batched per-learner substance scoring
-            lifepath_service: LifePathService — designation, path composition,
-                and alignment snapshot history
+            lifepath_service: LifePathService — the designation and the path's
+                composition
             cross_domain_backend: CrossDomainBackend — the learner's activity
                 channels, which substance is scored against per-user rather
                 than against the shared curriculum node's counters
@@ -178,13 +178,24 @@ class AnalyticsLifePathService:
                 "gaps": [
                     {"ku_uid": "ps.meditation", "title": "...", "substance": 0.3}
                 ],
-                "trends": {
-                    "7_days_ago": 0.68,
-                    "30_days_ago": 0.61,
-                    "direction": "improving"
-                },
                 "recommendations": [...]
             }
+
+            **There is no ``trends`` key, deliberately.** It used to read the
+            ``ALIGNMENT_SNAPSHOT`` history, whose only writer is
+            ``LifePathCoreService.update_alignment_score`` — reached from
+            ``LifePathService.designate_and_calculate``, which stores
+            ``LifePathAlignmentService.calculate_alignment``'s FIVE-DIMENSION
+            score. Those snapshots have never been a history of the figure this
+            method computes, so ``direction`` compared two different metrics on
+            two different scales (the five-dimension one defaults several
+            dimensions to 0.5 for an inactive learner, where personal substance
+            is near 0.0 — enough on its own to read "declining").
+
+            Recording snapshots here instead was rejected: analytics aggregate,
+            they do not create, and a second writer would put two incompatible
+            meanings on one edge. A trend surface belongs to the LifePath domain,
+            alongside the metric that already writes the history.
 
             ``gaps`` lists the path's steps whose PERSONAL substance sits under
             the 0.5 review threshold, least-substantiated first, capped at 10 —
@@ -294,7 +305,6 @@ class AnalyticsLifePathService:
             channel_totals = self._sum_channel_substance(steps, substance)
             domain_contributions = self._analyze_domain_contributions(channel_totals)
             gaps = knowledge_analysis["gaps"]
-            trends = await self._calculate_alignment_trends(user_uid, life_path_uid)
             recommendations = self._generate_recommendations(
                 knowledge_analysis, channel_totals, gaps
             )
@@ -311,7 +321,6 @@ class AnalyticsLifePathService:
                     "theoretical_knowledge": knowledge_analysis["theoretical_count"],
                     "domain_contributions": domain_contributions,
                     "gaps": gaps,
-                    "trends": trends,
                     "recommendations": recommendations,
                     "user_uid": user_uid,
                     "calculated_at": datetime.now().isoformat(),
@@ -363,7 +372,6 @@ class AnalyticsLifePathService:
             "theoretical_knowledge": 0,
             "domain_contributions": {},
             "gaps": [],
-            "trends": {},
             "recommendations": [recommendation],
             "message": message,
         }
@@ -510,74 +518,6 @@ class AnalyticsLifePathService:
         if grand_total <= 0:
             return dict(channel_totals)
         return {name: round(value / grand_total, 2) for name, value in channel_totals.items()}
-
-    async def _calculate_alignment_trends(
-        self, user_uid: UserUID, life_path_uid: str
-    ) -> dict[str, Any]:
-        """
-        Calculate alignment trends over time.
-
-        Shows whether alignment is improving, declining, or stable.
-
-        ⚠ Snapshots recorded before 2026-08-12 are on the old corpus-global
-        basis and are not comparable to ones recorded after — the direction they
-        imply across that boundary is an artefact of the fix, not of the
-        learner's behaviour.
-
-        Args:
-            user_uid: User identifier
-            life_path_uid: Life Path UID
-
-        Returns:
-            Dict with historical alignment scores and trend direction
-        """
-        snapshots_result = await self.lifepath_service.get_alignment_trend_data(user_uid=user_uid)
-        if snapshots_result.is_error or not snapshots_result.value:
-            return {
-                "user_uid": user_uid,
-                "life_path_uid": life_path_uid,
-                "7_days_ago": None,
-                "30_days_ago": None,
-                "direction": "unknown",
-                "snapshot_count": 0,
-            }
-
-        snapshots = snapshots_result.value  # newest first
-        today = date.today()
-        cutoff_7d = today - timedelta(days=7)
-        cutoff_30d = today - timedelta(days=30)
-
-        current_score: float | None = snapshots[0]["score"] if snapshots else None
-        score_7d: float | None = None
-        score_30d: float | None = None
-
-        for snap in snapshots:
-            snap_date = date.fromisoformat(snap["date_str"])
-            if score_7d is None and snap_date <= cutoff_7d:
-                score_7d = snap["score"]
-            if score_30d is None and snap_date <= cutoff_30d:
-                score_30d = snap["score"]
-            if score_7d is not None and score_30d is not None:
-                break
-
-        direction = "unknown"
-        if current_score is not None and score_7d is not None:
-            diff = current_score - score_7d
-            if diff > 0.05:
-                direction = "improving"
-            elif diff < -0.05:
-                direction = "declining"
-            else:
-                direction = "stable"
-
-        return {
-            "user_uid": user_uid,
-            "life_path_uid": life_path_uid,
-            "7_days_ago": round(score_7d, 3) if score_7d is not None else None,
-            "30_days_ago": round(score_30d, 3) if score_30d is not None else None,
-            "direction": direction,
-            "snapshot_count": len(snapshots),
-        }
 
     @staticmethod
     def _generate_recommendations(

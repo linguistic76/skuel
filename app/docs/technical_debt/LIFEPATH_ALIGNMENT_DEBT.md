@@ -35,6 +35,21 @@ Both items below are in the first one. That the *substance weights are hand-copi
 into Cypher* is the through-line: it is the third copy of the table that
 `user_substance.py` exists to prevent, and it has already drifted.
 
+**The shared name is itself a hazard.** The analytics metric carried a `trends`
+block reading `ALIGNMENT_SNAPSHOT` — a history written *only* by the
+five-dimension metric, on a different scale (its `CASE WHEN total = 0 THEN 0.5`
+defaults keep an inactive learner near 0.3–0.5, where personal substance is near
+0.0, so the metric switch alone reads as "declining"). That key was deleted rather
+than repointed: analytics aggregate, they do not create, so this service cannot
+write its own snapshots without putting two incompatible meanings on one edge.
+
+Consequence: **`LifePathService.get_alignment_trend_data` now has no non-test
+caller.** It is the read half of a write that still happens in this domain
+(`update_alignment_score` → `record_alignment_snapshot`) and is covered by
+`tests/integration/test_lifepath_designation_flow.py`, so it is kept as the
+natural anchor for a LifePath-domain trend surface — not deleted as abandoned. If
+that surface is never built, it should be revisited under One Path Forward.
+
 ---
 
 ## 1. Habits contribute nothing to any dimension
