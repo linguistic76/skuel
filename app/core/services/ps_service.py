@@ -775,13 +775,16 @@ class PsService:
     # ============================================================================
 
     async def find_engaged_steps_in_window(
-        self, user_uid: UserUID, start_date: date, end_date: date, limit: int = 100
+        self, user_uid: UserUID, start_date: date, end_date: date, limit: int | None = None
     ) -> Result[list[PathStep]]:
         """The path steps this learner took up during a date window.
 
         Curriculum is SHARED and carries no owner, so "this learner's knowledge"
         is the set they marked in progress, mastered or read — never a property
         filter. Newest engagement first.
+
+        ``limit`` defaults to unbounded: callers aggregate the whole window, and
+        a cap there produces a wrong total rather than a shorter list.
 
         Backend: PsBackend.find_engaged_path_steps_by_date_range
         """

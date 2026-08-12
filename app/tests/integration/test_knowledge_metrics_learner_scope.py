@@ -48,6 +48,7 @@ from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
+from core.utils.result_simplified import Errors, Result
 
 USER = "user_knowledge_scope"
 OTHER_USER = "user_knowledge_scope_other"
@@ -76,7 +77,7 @@ class _StubPsService:
     def __init__(self, backend: PsBackend) -> None:
         self._backend = backend
 
-    async def find_engaged_steps_in_window(self, user_uid, start_date, end_date, limit=100):
+    async def find_engaged_steps_in_window(self, user_uid, start_date, end_date, limit=None):
         return await self._backend.find_engaged_path_steps_by_date_range(
             user_uid, start_date, end_date, limit
         )
@@ -262,6 +263,61 @@ class TestKnowledgeMetricsLearnerScope:
         assert counts["total"] == 4, "expected the 3 in-window steps plus the stale-edge one"
         assert counts["mastered"] == 2, f"{ENGAGED_MASTERED} and {ENGAGED_BOTH}"
         assert counts["mastered"] <= counts["total"]
+
+    async def test_a_failed_read_is_not_reported_as_an_empty_week(self, backend):
+        """A DB failure must propagate, not become a successful all-zero report.
+
+        The guard used to be `if kus_result.is_error or not kus_result.value`,
+        which collapsed the two cases: an outage produced
+        ``Result.ok(total_knowledge_units=0)`` that downstream persisted as a
+        week in which the learner genuinely learned nothing.
+        """
+
+        class _FailingPsService:
+            async def find_engaged_steps_in_window(self, *_args, **_kwargs):
+                return Result.fail(
+                    Errors.database(message="simulated Neo4j outage", operation="test")
+                )
+
+        start, end = self._window()
+        service = AnalyticsMetricsService(ku_service=_FailingPsService())
+
+        result = await service.calculate_knowledge_metrics(USER, start, end)
+        assert result.is_error, "an infrastructure failure was reported as an empty week"
+
+    async def test_the_window_read_is_not_capped(self, backend):
+        """An aggregate must cover every engaged step, not the newest page of them.
+
+        The read defaulted to `limit=100` and the caller passed
+        `QueryLimit.COMPREHENSIVE`, which IS 100 — so a learner past that many
+        engaged steps in one window got a wrong `total_knowledge_units` rather
+        than a shorter list. 120 steps here is deliberately over that boundary.
+        """
+        now = datetime.now(UTC)
+        recent = (now - timedelta(days=3)).isoformat()
+        async with backend.driver.session() as session:
+            await session.run(
+                """
+                UNWIND range(1, 120) AS i
+                CREATE (n:Entity:PathStep {uid: 'ps_bulk_' + toString(i),
+                                           entity_type: 'path_step',
+                                           title: 'Bulk ' + toString(i), status: 'active'})
+                WITH n
+                MATCH (u:User {uid: $u})
+                MERGE (u)-[r:IN_PROGRESS]->(n) SET r.last_activity_at = datetime($t)
+                """,
+                u=USER,
+                t=recent,
+            )
+
+        start, end = self._window()
+        result = await backend.find_engaged_path_steps_by_date_range(USER, start, end)
+        assert result.is_ok
+
+        # 120 bulk + the 3 originally in-window steps.
+        assert len(result.value) == 123, (
+            f"got {len(result.value)} — 100 means the LIMIT is still capping the aggregate"
+        )
 
     async def test_a_learner_with_no_engagement_gets_zeroes_not_the_corpus(self, backend):
         """The empty case must be empty — 7 here would mean the scope was never applied."""

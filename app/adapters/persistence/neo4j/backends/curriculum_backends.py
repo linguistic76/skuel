@@ -550,7 +550,7 @@ class PsBackend(
         user_uid: UserUID,
         start_date: date,
         end_date: date,
-        limit: int = 100,
+        limit: int | None = None,
     ) -> Result[list[PathStep]]:
         """PathSteps this learner engaged with inside a date window.
 
@@ -569,10 +569,20 @@ class PsBackend(
         step the learner has already worked would rewrite their history rather
         than hide unfinished curriculum.
 
+        Args:
+            limit: Optional cap. Defaults to NONE — unbounded — because the sole
+                caller aggregates the whole result (counts, bands, averages,
+                domain split), and a truncated read there is not a shorter list
+                but a WRONG total. The set is already bounded by what one
+                learner engaged with in one window; a page size would have to be
+                a deliberate choice by a caller that paginates, not a default
+                that silently caps arithmetic.
+
         Returns:
             Result[list[PathStep]]: newest engagement first (may be empty).
         """
         knowledge_clause, params = build_knowledge_read_clause("ps", apply_publication_gate=False)
+        limit_clause = "LIMIT $limit" if limit is not None else ""
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[r:{_ENGAGEMENT_EDGES}]->(ps:Entity:{NeoLabel.PATH_STEP})
         WHERE {knowledge_clause}
@@ -582,16 +592,17 @@ class PsBackend(
           AND date(left(toString(engaged_at), 10)) <= date($end_date)
         RETURN ps
         ORDER BY engaged_at DESC
-        LIMIT $limit
+        {limit_clause}
         """
         params.update(
             {
                 "user_uid": user_uid,
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
-                "limit": limit,
             }
         )
+        if limit is not None:
+            params["limit"] = limit
         return self._records_to_steps(await self.execute_query(query, params))
 
     async def count_engaged_path_steps(self, user_uid: UserUID) -> Result[PsEngagementCountsRow]:

@@ -585,6 +585,19 @@ class AnalyticsMetricsService:
         extends ``Entity`` and inherits ``substance_score() -> 0.0``, which is
         why this reads steps and not atomic KUs despite the output vocabulary.
 
+        KNOWN LIMITATION — the SELECTION is per-learner, the MAGNITUDES are not.
+        ``substance_score()`` reads counters that ``increment_substance`` writes
+        onto the SHARED node with no ``user_uid``, so on a multi-tenant instance
+        the bands, averages and decay warnings reflect every learner's activity
+        on the steps THIS learner engaged with. A genuinely personal figure
+        already exists — ``PsService.get_user_step_context`` /
+        ``calculate_user_substance``, which counts the six channels out of
+        ``UserContext`` — but it needs a UserContext this service is not wired
+        for and re-fetches per step. Switching to it is a deliberate change, not
+        a tweak, and is tracked separately. Until then, read these numbers as
+        "how substantiated is the material I worked on", not "how much of it is
+        mine".
+
         Args:
             user_uid: User identifier
             start_date: Start of reporting period
@@ -623,10 +636,17 @@ class AnalyticsMetricsService:
 
         try:
             kus_result = await self.ku_service.find_engaged_steps_in_window(
-                user_uid, start_date, end_date, QueryLimit.COMPREHENSIVE
+                user_uid, start_date, end_date
             )
 
-            if kus_result.is_error or not kus_result.value:
+            # A failed read is NOT an empty learner. The combined
+            # `is_error or not value` check that used to stand here turned a
+            # Neo4j outage into a successful all-zero report, which then got
+            # persisted as though the week had genuinely contained no learning.
+            if kus_result.is_error:
+                return Result.fail(kus_result)
+
+            if not kus_result.value:
                 return Result.ok(
                     {
                         "total_knowledge_units": 0,
