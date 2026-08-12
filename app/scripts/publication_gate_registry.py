@@ -265,12 +265,14 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
-        "PsBackend.count_engaged_path_steps",
+        "PsBackend.count_engaged_knowledge",
         Disposition.USER_STATE,
-        "Counts the steps the learner themselves marked in progress, mastered "
-        "or read. Composes the helper for its TYPE predicate and switches the "
-        "publication half off: the learner's own totals must not shrink because "
-        "an author later reopened a step for editing.",
+        "Counts the knowledge the learner themselves marked in progress, "
+        "mastered or read — Ku AND PathStep, since report-driven mastery lands "
+        "on :Ku. The helper is doing real work here rather than riding along: "
+        "its entity_type predicate IS the scope, there being no label pin. The "
+        "publication half is off because the learner's own totals must not "
+        "shrink when an author reopens an item for editing.",
     ),
     Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",

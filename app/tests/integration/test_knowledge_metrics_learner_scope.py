@@ -82,8 +82,8 @@ class _StubPsService:
             user_uid, start_date, end_date, limit
         )
 
-    async def count_engaged_steps(self, user_uid):
-        return await self._backend.count_engaged_path_steps(user_uid)
+    async def count_engaged_knowledge(self, user_uid):
+        return await self._backend.count_engaged_knowledge(user_uid)
 
 
 @pytest.mark.asyncio
@@ -255,7 +255,7 @@ class TestKnowledgeMetricsLearnerScope:
 
     async def test_counts_match_the_windowed_read(self, backend):
         """The all-time counterpart agrees with the window, and MASTERED is a subset."""
-        counts_result = await backend.count_engaged_path_steps(USER)
+        counts_result = await backend.count_engaged_knowledge(USER)
         assert counts_result.is_ok, f"engagement counts failed: {counts_result}"
 
         counts = counts_result.value
@@ -363,6 +363,53 @@ class TestKnowledgeMetricsLearnerScope:
             "ps_w_read",
         }, "a writer path was dropped — its timestamp field is not being recognised"
 
+    async def test_counts_include_ku_mastery_from_the_report_pipeline(self, backend, neo4j_driver):
+        """Mastery earned through the learning loop attaches to :Ku, and must count.
+
+        ``ReportMasteryService.propagate_mastery`` feeds uids from
+        ``get_linked_ku_and_student`` — which filters ``{entity_type: 'ku'}`` —
+        into a ``mark_mastered`` whose MATCH carries no label. So the AI-report
+        and teacher-approval paths, i.e. the loop's MAIN route to mastery, write
+        MASTERED to :Ku nodes. A PathStep-pinned count saw none of it and
+        returned a confident zero.
+
+        The windowed sibling stays PathStep-only on purpose (Ku inherits
+        ``Entity.substance_score() -> 0.0``), so this asserts the two scopes
+        differ rather than assuming they agree.
+        """
+        ku_user = "user_ku_mastery"
+        async with neo4j_driver.session() as session:
+            await session.run("MERGE (u:User {uid: $u})", u=ku_user)
+            await session.run(
+                """
+                CREATE (k:Entity:Ku {uid: 'ku_mastered_via_report', entity_type: 'ku',
+                                     title: 'Mastered KU', status: 'active'})
+                CREATE (p:Entity:PathStep {uid: 'ps_engaged_alongside',
+                                           entity_type: 'path_step',
+                                           title: 'Engaged step', status: 'active'})
+                """
+            )
+
+        now_iso = datetime.now(UTC).isoformat()
+        # The report pipeline's own call path, verbatim: no label pin, Ku target.
+        assert (
+            await backend.mark_mastered(
+                ku_user, "ku_mastered_via_report", now_iso, 0.8, "activity_report"
+            )
+        ).is_ok
+        assert (await backend.mark_in_progress(ku_user, "ps_engaged_alongside", now_iso)).is_ok
+
+        counts = (await backend.count_engaged_knowledge(ku_user)).value
+        assert counts["total"] == 2, "the :Ku node was dropped by a label pin"
+        assert counts["mastered"] == 1, "report-driven Ku mastery was not counted"
+
+        # The substance window is deliberately narrower — steps only.
+        start, end = self._window()
+        windowed = (await backend.find_engaged_path_steps_by_date_range(ku_user, start, end)).value
+        assert {s.uid for s in windowed} == {"ps_engaged_alongside"}, (
+            "the substance window must stay PathStep-only — Ku scores a flat 0.0"
+        )
+
     async def test_a_learner_with_no_engagement_gets_zeroes_not_the_corpus(self, backend):
         """The empty case must be empty — 7 here would mean the scope was never applied."""
         start, end = self._window()
@@ -372,6 +419,6 @@ class TestKnowledgeMetricsLearnerScope:
         assert result.is_ok
         assert result.value["total_knowledge_units"] == 0
 
-        counts_result = await backend.count_engaged_path_steps("user_with_no_knowledge")
+        counts_result = await backend.count_engaged_knowledge("user_with_no_knowledge")
         assert counts_result.is_ok
         assert counts_result.value == {"total": 0, "mastered": 0}

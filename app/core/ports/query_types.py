@@ -1988,12 +1988,17 @@ class PsGuidanceCountsRow(TypedDict):
 
 
 class PsEngagementCountsRow(TypedDict):
-    """Row shape for count_engaged_path_steps() — one row, two counts.
+    """Row shape for count_engaged_knowledge() — one row, two counts.
 
-    ``RETURN count(ps) AS total, sum(...) AS mastered`` over the learner's
+    ``RETURN count(n) AS total, sum(...) AS mastered`` over the learner's
     engagement edges (IN_PROGRESS / MASTERED / MARKED_AS_READ). Both counts are
-    keyed on the STEP after the edges are collapsed, so a step the learner holds
-    by more than one edge counts once. ``mastered`` is a subset of ``total``.
+    keyed on the NODE after the edges are collapsed, so an entity the learner
+    holds by more than one edge counts once. ``mastered`` is a subset of
+    ``total``.
+
+    Covers both knowledge types (``EntityType.is_knowledge()`` — Ku and
+    PathStep). Ku is not optional here: report-driven mastery attaches to ``:Ku``
+    nodes, so a PathStep-only count reports zero for it.
     """
 
     total: int

@@ -792,14 +792,14 @@ class PsService:
             user_uid, start_date, end_date, limit
         )
 
-    async def count_engaged_steps(self, user_uid: UserUID) -> Result[PsEngagementCountsRow]:
+    async def count_engaged_knowledge(self, user_uid: UserUID) -> Result[PsEngagementCountsRow]:
         """How many path steps this learner has taken up, and how many mastered.
 
         All-time counterpart to :meth:`find_engaged_steps_in_window`.
 
-        Backend: PsBackend.count_engaged_path_steps
+        Backend: PsBackend.count_engaged_knowledge
         """
-        return await self.core.backend.count_engaged_path_steps(user_uid)  # type: ignore[attr-defined]
+        return await self.core.backend.count_engaged_knowledge(user_uid)  # type: ignore[attr-defined]
 
     # ============================================================================
     # KU COMPOSITION (PathStep → atomic Ku via USES_KU)

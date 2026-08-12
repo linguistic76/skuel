@@ -845,7 +845,7 @@ class AnalyticsMetricsService:
             # mastery is carried by the MASTERED edge rather than a node field.
             ku_metrics = {"total": 0, "mastered": 0}
             if self.ku_service:
-                counts_result = await self.ku_service.count_engaged_steps(user_uid)
+                counts_result = await self.ku_service.count_engaged_knowledge(user_uid)
                 # Same rule as the sibling metric: a failed count is not a count
                 # of zero. Leaving the zeros in place here would publish a
                 # curriculum report claiming no knowledge on a Neo4j outage.

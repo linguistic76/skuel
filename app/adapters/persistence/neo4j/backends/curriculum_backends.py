@@ -629,12 +629,32 @@ class PsBackend(
             params["limit"] = limit
         return self._records_to_steps(await self.execute_query(query, params))
 
-    async def count_engaged_path_steps(self, user_uid: UserUID) -> Result[PsEngagementCountsRow]:
-        """How much curriculum this learner has taken up, and how much mastered.
+    async def count_engaged_knowledge(self, user_uid: UserUID) -> Result[PsEngagementCountsRow]:
+        """How much knowledge this learner has taken up, and how much mastered.
 
-        All-time — the curriculum-progress counterpart to
-        ``find_engaged_path_steps_by_date_range``, which windows the same set.
-        ``collect(type(r))`` groups per step first, so ``total`` counts steps
+        Covers BOTH knowledge types — Ku and PathStep — where its windowed
+        sibling covers path steps only. The asymmetry is deliberate, and each
+        side is driven by what the caller does with the rows:
+
+        * This one COUNTS, so ``EntityType.is_knowledge()`` (Ku + PathStep) is
+          the right scope, and it is the only scope that sees the learning
+          loop's main mastery path. ``ReportMasteryService.propagate_mastery``
+          feeds uids from ``get_linked_ku_and_student``, which filters
+          ``{entity_type: 'ku'}``, into a ``mark_mastered`` whose MATCH carries
+          no label — so AI-report and teacher-approval mastery lands on ``:Ku``
+          nodes. Pinning ``:PathStep`` here counted exactly none of it and
+          reported a confident zero.
+        * The sibling AVERAGES ``substance_score()``, and ``Ku`` extends
+          ``Entity`` rather than ``Curriculum`` — its score is a flat ``0.0``.
+          Admitting Kus there would drag every average toward zero, so it stays
+          PathStep-only.
+
+        Scoping is therefore left entirely to the knowledge clause's
+        ``entity_type`` predicate; there is no label pin to contradict it. The
+        previous version composed that clause AND pinned the label, which was
+        the inconsistency the zero was hiding behind.
+
+        ``collect(type(r))`` groups per node first, so ``total`` counts entities
         rather than edges and ``mastered`` is a strict subset of it.
 
         Publication gate: OFF for the same USER_STATE reason as its sibling.
@@ -644,12 +664,12 @@ class PsBackend(
         be interpolated, but this one is a VALUE compared against ``type(r)``,
         and a value belongs in the parameter map (CYP003).
         """
-        knowledge_clause, params = build_knowledge_read_clause("ps", apply_publication_gate=False)
+        knowledge_clause, params = build_knowledge_read_clause("n", apply_publication_gate=False)
         query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[r:{_ENGAGEMENT_EDGES}]->(ps:Entity:{NeoLabel.PATH_STEP})
+        MATCH (u:User {{uid: $user_uid}})-[r:{_ENGAGEMENT_EDGES}]->(n:{NeoLabel.ENTITY})
         WHERE {knowledge_clause}
-        WITH ps, collect(type(r)) AS rels
-        RETURN count(ps) AS total,
+        WITH n, collect(type(r)) AS rels
+        RETURN count(n) AS total,
                sum(CASE WHEN $mastered_edge IN rels THEN 1 ELSE 0 END) AS mastered
         """
         params["user_uid"] = user_uid
